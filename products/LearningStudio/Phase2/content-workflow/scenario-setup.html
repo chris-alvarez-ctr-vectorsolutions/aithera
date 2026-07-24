@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Scenario Project — Learning Studio</title>
+
+  <!-- Vector Web Components -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; min-height: 100%;
+      font-family: 'Open Sans', system-ui, sans-serif;
+      color: var(--lumo-body-text-color, #1a1a1a);
+      background: #f4f5f7;
+    }
+
+    /* ---- App shell (same global header as builder.html) ---- */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    .topbar {
+      height: 56px; flex: 0 0 56px; display: flex; align-items: center; gap: 12px;
+      padding: 0 20px; background: #fff; border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar .back { color: #6b7280; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+    .topbar .back:hover { color: #1a1a1a; }
+    .topbar .divider { width: 1px; height: 22px; background: #e0e2e6; }
+    .topbar .ctx { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .topbar .ctx .pill {
+      font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 20px;
+      background: rgba(219,39,119,.1); color: #db2777; display: flex; align-items: center; gap: 6px;
+    }
+    .topbar .spacer { flex: 1; }
+
+    /* ---- Page ---- */
+    .wrap { max-width: 780px; margin: 0 auto; padding: 40px 24px 120px; }
+
+    .page-head { margin-bottom: 30px; }
+    .page-head .eyebrow {
+      font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #db2777;
+    }
+    .page-head h1 { font-size: 28px; font-weight: 700; letter-spacing: -.3px; margin: 8px 0 8px; }
+    .page-head p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--lumo-secondary-text-color, #55606f); max-width: 560px; }
+
+    /* ---- Form cards ---- */
+    .card {
+      background: #fff; border: 1px solid rgba(0,0,0,.05); border-radius: 16px; padding: 24px 26px;
+      box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(16,24,40,.05); margin-bottom: 20px;
+    }
+    .card > .sec-label {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;
+    }
+    .card .sec-label .num {
+      font-size: 12px; font-weight: 700; color: #db2777;
+    }
+    .card .sec-label h2 { font-size: 17px; font-weight: 700; margin: 0; }
+    .card .sec-label .opt { font-size: 12px; font-weight: 600; color: #9aa3af; margin-left: auto; }
+    .card .sec-sub { font-size: 13px; line-height: 1.5; color: #6b7280; margin: 0 0 18px; }
+
+    /* full-width Vaadin inputs */
+    vaadin-text-field, vaadin-text-area { width: 100%; }
+
+    /* target-time preset cards use the shared .tmpl-card / .tmpl-grid pattern,
+       laid out as three equal columns */
+    @media (min-width: 620px) { #timeGrid { grid-template-columns: repeat(3, 1fr); } }
+
+    /* ---- Interaction template grid (4 cards) ---- */
+    .tmpl-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 620px) { .tmpl-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .tmpl-card {
+      position: relative; display: flex; align-items: flex-start; gap: 14px;
+      background: #fbfcfd; border: 1.5px solid #e6e8ec; border-radius: 12px; padding: 16px 16px;
+      cursor: pointer; text-align: left; transition: border-color .18s, background .18s, box-shadow .18s, transform .12s;
+    }
+    .tmpl-card:hover { border-color: #db2777; background: #fdf2f8; transform: translateY(-1px); }
+    .tmpl-card.selected {
+      border-color: #db2777; background: #fdf2f8;
+      box-shadow: 0 0 0 1px #db2777, 0 8px 20px rgba(219,39,119,.14);
+    }
+    .tmpl-card .t-ico {
+      flex: 0 0 auto; width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+      font-size: 17px; color: #db2777; background: rgba(219,39,119,.1);
+    }
+    .tmpl-card.selected .t-ico { color: #fff; background: #db2777; }
+    .tmpl-card .t-body { flex: 1 1 auto; min-width: 0; }
+    .tmpl-card .t-title { font-size: 15px; font-weight: 700; color: #1f2937; margin: 1px 0 4px; }
+    .tmpl-card .t-desc { font-size: 12.5px; line-height: 1.45; color: #6b7280; margin: 0; }
+    .tmpl-card .t-check {
+      position: absolute; top: 12px; right: 12px; width: 20px; height: 20px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 11px; color: #fff; background: #db2777;
+      opacity: 0; transform: scale(.6); transition: opacity .18s, transform .18s;
+    }
+    .tmpl-card.selected .t-check { opacity: 1; transform: scale(1); }
+
+    /* upload alternative */
+    .tmpl-or { display: flex; align-items: center; gap: 14px; margin: 16px 0; color: #9aa3af; font-size: 12px; font-weight: 600; }
+    .tmpl-or::before, .tmpl-or::after { content: ''; flex: 1; height: 1px; background: #eceef1; }
+
+    .dropzone {
+      border: 2px dashed #d2d9e3; border-radius: 12px; padding: 18px; text-align: center;
+      cursor: pointer; background: #fbfcfe; transition: border-color .18s, background .18s;
+    }
+    .dropzone:hover { border-color: #db2777; background: #fdf2f8; }
+    .dropzone i.up { font-size: 20px; color: #db2777; display: block; margin-bottom: 6px; }
+    .dropzone .dz-big { font-size: 13px; font-weight: 600; color: #374151; }
+    .dropzone .dz-small { font-size: 12px; color: #9aa3af; margin-top: 2px; }
+    .dropzone.filled { border-style: solid; border-color: #158444; background: #f2faf3; }
+    .dropzone.filled i.up { color: #158444; }
+    .dz-clear { font-size: 12px; color: #9aa3af; margin-top: 8px; cursor: pointer; display: inline-block; }
+    .dz-clear:hover { color: #d83e38; }
+
+    /* ---- Reference materials (files + pasted text) ---- */
+    .ref-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .ref-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      border: 1px solid #e6e8ec; border-radius: 10px; background: #fbfcfd;
+    }
+    .ref-item .r-ico {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+      font-size: 14px; color: #6b7280; background: #eef0f3;
+    }
+    .ref-item .r-ico.doc  { color: #2563eb; background: #eff4ff; }
+    .ref-item .r-ico.ppt  { color: #c2410c; background: #fff2ea; }
+    .ref-item .r-ico.pdf  { color: #b91c1c; background: #fdeeee; }
+    .ref-item .r-ico.text { color: #7c3aed; background: #f5f0fd; }
+    .ref-item .r-body { flex: 1; min-width: 0; }
+    .ref-item .r-name { font-size: 13.5px; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ref-item .r-meta { font-size: 12px; color: #9aa3af; margin-top: 1px; }
+    .ref-item .r-remove { flex-shrink: 0; color: #9aa3af; cursor: pointer; font-size: 14px; padding: 4px; }
+    .ref-item .r-remove:hover { color: #d83e38; }
+
+    .ref-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .ref-btn {
+      display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; padding: 9px 14px; border-radius: 10px; border: 1.5px dashed #d2d9e3;
+      background: #fbfcfe; color: #374151; transition: all .15s;
+    }
+    .ref-btn:hover { border-color: #db2777; background: #fdf2f8; color: #db2777; }
+    .ref-btn i { font-size: 13px; }
+
+    /* pasted-text composer (revealed by "Paste text") */
+    .ref-paste { margin-top: 12px; display: none; }
+    .ref-paste.show { display: block; }
+    .ref-paste .rp-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .ref-paste .rp-cancel {
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 14px;
+      border-radius: 8px; border: none; background: none; color: #6b7280;
+    }
+    .ref-paste .rp-cancel:hover { color: #1f2937; }
+    .ref-paste .rp-add {
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px;
+      border-radius: 8px; border: none; background: #db2777; color: #fff;
+    }
+    .ref-paste .rp-add:hover { filter: brightness(1.05); }
+    .ref-paste .rp-add:disabled { background: #e6e8ec; color: #9aa3af; cursor: not-allowed; }
+
+    /* ---- Course-context searchable picker ---- */
+    .course-search { position: relative; }
+    .course-input {
+      display: flex; align-items: center; gap: 10px; border: 1px solid #d5d9e0; border-radius: 10px;
+      padding: 10px 14px; background: #fff; transition: border-color .18s;
+    }
+    .course-input:focus-within { border-color: #db2777; }
+    .course-input i { color: #9aa3af; font-size: 14px; }
+    .course-input input {
+      flex: 1; border: none; outline: none; font: inherit; font-size: 14px; background: transparent; color: #1f2937;
+    }
+    .course-menu {
+      position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
+      background: #fff; border: 1px solid #e6e8ec; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 12px 30px rgba(16,24,40,.14); max-height: 260px; overflow-y: auto; display: none;
+    }
+    .course-menu.show { display: block; }
+    .course-opt { display: flex; align-items: center; gap: 12px; padding: 11px 14px; cursor: pointer; transition: background .12s; }
+    .course-opt:hover, .course-opt.active { background: #fdf2f8; }
+    .course-opt .c-ico { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: #eef0f3; color: #6b7280; font-size: 14px; }
+    .course-opt .c-name { font-size: 13.5px; font-weight: 600; color: #1f2937; }
+    .course-opt .c-meta { font-size: 12px; color: #9aa3af; margin-top: 1px; }
+    .course-empty { padding: 14px; font-size: 13px; color: #9aa3af; text-align: center; }
+
+    /* selected course chip */
+    .course-selected {
+      display: none; align-items: center; gap: 12px; margin-top: 12px;
+      border: 1px solid #d7ecdd; background: #f2faf3; border-radius: 10px; padding: 11px 14px;
+    }
+    .course-selected.show { display: flex; }
+    .course-selected .c-ico { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: #158444; color: #fff; font-size: 14px; }
+    .course-selected .c-name { font-size: 13.5px; font-weight: 700; color: #1f2937; }
+    .course-selected .c-meta { font-size: 12px; color: #6b7280; margin-top: 1px; }
+    .course-selected .c-remove { margin-left: auto; color: #9aa3af; cursor: pointer; font-size: 14px; }
+    .course-selected .c-remove:hover { color: #d83e38; }
+
+    /* ---- Learner-context "external" reveal ---- */
+    .ctx-note {
+      display: none; align-items: flex-start; gap: 12px; margin-top: 14px;
+      border: 1px solid #dbe6f5; background: #f2f7fd; border-radius: 10px; padding: 12px 14px;
+    }
+    .ctx-note.show { display: flex; }
+    .ctx-note i { flex: 0 0 auto; color: #1676f3; font-size: 15px; margin-top: 1px; }
+    .ctx-note .txt { font-size: 12.5px; line-height: 1.5; color: #4b5563; }
+    .ctx-note .txt strong { color: #1f2937; }
+
+    /* dependent field disabled/dimmed when context is external */
+    .fade-when-external { transition: opacity .2s; }
+    .fade-when-external.dim { opacity: .45; pointer-events: none; }
+
+    /* ---- Sticky footer action bar ---- */
+    .footbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      background: rgba(255,255,255,.9); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+    }
+    .footbar-inner {
+      max-width: 780px; margin: 0 auto; padding: 12px 24px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .footbar .hint { font-size: 13px; color: #6b7280; }
+    .footbar .hint strong { color: #1f2937; }
+    .footbar .spacer { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Global header (matches builder.html) -->
+    <div class="topbar">
+      <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> Content type</a>
+      <span class="divider"></span>
+      <div class="ctx">
+        <span class="pill"><i class="fa-solid fa-comments"></i> Scenario</span>
+      </div>
+      <span class="spacer"></span>
+      <vaadin-button theme="tertiary" onclick="location.href='index.html'">
+        <i class="fa-solid fa-xmark" style="margin-right:6px"></i>Cancel
+      </vaadin-button>
+    </div>
+
+    <div class="wrap">
+      <div class="page-head">
+        <div class="eyebrow">New scenario project</div>
+        <h1>Let's set up your scenario.</h1>
+        <p>Give your project a name, pick how learners will interact, and hand the AI any context it should write from. You can change all of this later.</p>
+      </div>
+
+      <!-- 1 · Project name -->
+      <div class="card">
+        <div class="sec-label"><span class="num">1</span><h2>Project name</h2></div>
+        <p class="sec-sub">A working title for this scenario — just for you and your team.</p>
+        <vaadin-text-field
+          id="projectName"
+          theme="outlined"
+          value="Bystander to Harassment — The Marshall Situation"
+          placeholder="e.g. De-escalating an Upset Customer"
+          clear-button-visible>
+        </vaadin-text-field>
+      </div>
+
+      <!-- 2 · Interaction template -->
+      <div class="card">
+        <div class="sec-label"><span class="num">2</span><h2>Interaction template</h2></div>
+        <p class="sec-sub">Choose the core interaction learners will practice. This shapes the structure the AI builds.</p>
+
+        <div class="tmpl-grid" id="tmplGrid"></div>
+
+        <div class="tmpl-or">or start from your own</div>
+
+        <div class="dropzone" id="dropzone">
+          <i class="fa-solid fa-cloud-arrow-up up"></i>
+          <div class="dz-big">Upload a scenario template</div>
+          <div class="dz-small">PDF, DOCX, or PPTX</div>
+        </div>
+        <span class="dz-clear" id="dzClear" style="display:none"><i class="fa-solid fa-xmark"></i> Remove upload</span>
+      </div>
+
+      <!-- 3 · Target time on task -->
+      <div class="card">
+        <div class="sec-label"><span class="num">3</span><h2>Target time on task</h2></div>
+        <p class="sec-sub">About how long should the finished experience run? This sets the pacing — how many turns and how much live practice the AI builds in.</p>
+        <div class="tmpl-grid" id="timeGrid"></div>
+      </div>
+
+      <!-- 4 · Course context -->
+      <div class="card">
+        <div class="sec-label"><span class="num">4</span><h2>Course context</h2><span class="opt">Optional</span></div>
+        <p class="sec-sub">Tie this scenario to an existing course so the AI can draw on its objectives, terminology, and tone.</p>
+
+        <div class="course-search">
+          <div class="course-input">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="courseInput" type="text" placeholder="Search your courses…" autocomplete="off" />
+          </div>
+          <div class="course-menu" id="courseMenu"></div>
+        </div>
+
+        <div class="course-selected" id="courseSelected">
+          <span class="c-ico"><i class="fa-solid fa-graduation-cap"></i></span>
+          <div>
+            <div class="c-name" id="csName"></div>
+            <div class="c-meta" id="csMeta"></div>
+          </div>
+          <i class="fa-solid fa-xmark c-remove" id="csRemove" title="Remove"></i>
+        </div>
+      </div>
+
+      <!-- 5 · Reference materials -->
+      <div class="card">
+        <div class="sec-label"><span class="num">5</span><h2>Reference materials</h2><span class="opt">Optional</span></div>
+        <p class="sec-sub">Add source documents, slide decks, policies, or pasted text for the AI to draw on when writing the scenario. The more grounded context you give it, the more accurate and specific the scenario will be.</p>
+
+        <div class="ref-list" id="refList"></div>
+
+        <div class="ref-actions">
+          <button type="button" class="ref-btn" id="refUploadBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Upload files</button>
+          <button type="button" class="ref-btn" id="refPasteBtn"><i class="fa-solid fa-clipboard"></i> Paste text</button>
+        </div>
+
+        <div class="ref-paste" id="refPaste">
+          <vaadin-text-area
+            id="refPasteInput"
+            theme="outlined"
+            placeholder="Paste text here — policy language, a transcript, an email thread, background notes…"
+            helper-text="This text is fed to the AI as reference context.">
+          </vaadin-text-area>
+          <div class="rp-actions">
+            <button type="button" class="rp-cancel" id="refPasteCancel">Cancel</button>
+            <button type="button" class="rp-add" id="refPasteAdd" disabled>Add text</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 · Scenario premise -->
+      <div class="card">
+        <div class="sec-label"><span class="num">6</span><h2>Scenario premise</h2></div>
+        <p class="sec-sub">Set the scene in a few sentences. What's the situation the learner is dropped into?</p>
+        <vaadin-text-area
+          id="premise"
+          theme="outlined"
+          value="You've worked alongside Marshall, an administrative assistant, for about eight months. Lately he's not himself. It started with a project manager, Ethan, greeting him as &quot;Marsha&quot; and joking about a skirt &quot;under that desk.&quot; Then a junior engineer, Jake, began asking if the coffee was made and calling it a &quot;cozy lady job&quot; — almost daily. A group chat you weren't part of traded sexist memes and two altered images of Marshall, captioned &quot;Marsha's true calling&quot; — and those images just landed on public social media. Marshall has gone quiet. You've seen most of it, and you're not sure what to call it or what your role is."
+          placeholder="e.g. A long-time customer calls in, frustrated that a shipment arrived damaged for the second time. They're considering canceling their account…"
+          helper-text="A sentence or two is plenty — the AI will expand on it with you.">
+        </vaadin-text-area>
+      </div>
+
+      <!-- 7 · Learner context source -->
+      <div class="card">
+        <div class="sec-label"><span class="num">7</span><h2>Learner context</h2></div>
+        <p class="sec-sub">How should the learner's background — who they are and what they already know walking in — be established?</p>
+
+        <div class="tmpl-grid" id="ctxGrid"></div>
+
+        <div class="ctx-note" id="ctxNote">
+          <i class="fa-solid fa-circle-info"></i>
+          <div class="txt">
+            <strong>Using external context.</strong> The learner's background comes from the content delivered before this scenario in whatever parent package it's embedded in (e.g. earlier lessons in the course or curriculum). You won't define the learner's role here — the scenario picks up from what they've already been given.
+          </div>
+        </div>
+      </div>
+
+      <!-- 8 · Learner's role -->
+      <div class="card fade-when-external" id="roleCard">
+        <div class="sec-label"><span class="num">8</span><h2>The learner's role</h2></div>
+        <p class="sec-sub">Who is the learner in this scenario? This anchors the perspective the AI writes from.</p>
+        <vaadin-text-field
+          id="learnerRole"
+          theme="outlined"
+          value="A co-worker who has witnessed the incidents involving Marshall — a peer, not a manager or HR"
+          placeholder="e.g. A front-line Customer Support Specialist">
+        </vaadin-text-field>
+      </div>
+    </div>
+
+    <!-- Sticky action bar -->
+    <div class="footbar">
+      <div class="footbar-inner">
+        <span class="hint" id="footHint">Name your project and pick an interaction to continue.</span>
+        <span class="spacer"></span>
+        <vaadin-button theme="tertiary" onclick="location.href='index.html'">Back</vaadin-button>
+        <vaadin-button theme="secondary" id="scratchBtn" disabled onclick="createProject('scratch')">
+          <i class="fa-solid fa-pen-ruler" style="margin-right:8px"></i>
+          Start from scratch
+        </vaadin-button>
+        <vaadin-button theme="primary" id="createBtn" disabled onclick="createProject('ai')">
+          <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:8px"></i>
+          Build with AI
+        </vaadin-button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Interaction templates (from the four scenario types) ----
+    const TEMPLATES = [
+      { id: 'roleplay',   name: 'Roleplay',        icon: 'fa-comments',
+        desc: 'Rehearse a hard conversation with a simulated person.' },
+      { id: 'guided-arc', name: 'Guided Arc',      icon: 'fa-diagram-project',
+        desc: 'Walk a scripted arc, observe a moment, then reflect.' },
+      { id: 'observe',    name: 'Observe / React', icon: 'fa-clapperboard',
+        desc: 'Review footage one beat at a time with a coach.' },
+      { id: 'teach-back', name: 'Teach-Back',      icon: 'fa-chalkboard-user',
+        desc: 'Explain the required topics back from memory.' },
+    ];
+
+    // ---- Fake existing courses for the "course context" search ----
+    const COURSES = [
+      { id: 'c1', name: 'Customer Service Fundamentals',       meta: '12 lessons · Support' },
+      { id: 'c2', name: 'De-escalation & Conflict Resolution', meta: '8 lessons · Support' },
+      { id: 'c3', name: 'Workplace Safety Essentials',         meta: '15 lessons · Compliance' },
+      { id: 'c4', name: 'Harassment Prevention',               meta: '6 lessons · HR' },
+      { id: 'c5', name: 'Leadership for New Managers',         meta: '10 lessons · Leadership' },
+      { id: 'c6', name: 'Effective Feedback Conversations',    meta: '5 lessons · Leadership' },
+      { id: 'c7', name: 'HIPAA Privacy & Security',            meta: '9 lessons · Healthcare' },
+      { id: 'c8', name: 'Active Shooter Preparedness',         meta: '4 lessons · Safety' },
+    ];
+
+    // ---- Target time on task (pacing presets) ----
+    const TIMES = [
+      { min: 5,  name: '~5 minutes',  desc: 'Warm-up + 1 topic turn' },
+      { min: 10, name: '~10 minutes', desc: 'Warm-up + 2 turns + live practice' },
+      { min: 15, name: '~15 minutes', desc: 'Warm-up + 3 turns + live practice' },
+    ];
+
+    // ---- Learner context source (how the learner's background is set) ----
+    const CONTEXT_MODES = [
+      { id: 'builder',  name: 'Build it here', icon: 'fa-pen-ruler',
+        desc: "Define the learner's role and framing as part of this scenario." },
+      { id: 'external', name: 'Use external context', icon: 'fa-diagram-project',
+        desc: 'Inherit it from the content delivered before this scenario in its parent package.' },
+    ];
+
+    // ---- State ----
+    // Prefilled for the sample "Marshall Situation" scenario (see SCENARIO-CONTEXT.md):
+    // Guided Arc fits walking a scripted arc, observing a moment, then reflecting, and the
+    // scenario is tied to the Harassment Prevention course for AI context. Fully editable.
+    let selectedTemplate = 'guided-arc';
+    let uploadName = null;
+    let selectedCourse = null;
+    let contextMode = 'builder';      // 'builder' | 'external'
+    let targetMinutes = 10;           // selected target time on task
+    const PREFILL_COURSE_ID = 'c4';   // Harassment Prevention
+
+    // Reference materials fed to the AI as context (files + pasted text).
+    // Each: { id, kind:'file'|'text', name, meta, ext }
+    let references = [];
+    let refIdSeq = 1;
+
+    // ---- Render interaction template cards ----
+    const tmplGrid = document.getElementById('tmplGrid');
+    TEMPLATES.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'tmpl-card' + (t.id === selectedTemplate ? ' selected' : '');
+      card.dataset.id = t.id;
+      card.innerHTML = `
+        <div class="t-ico"><i class="fa-solid ${t.icon}"></i></div>
+        <div class="t-body">
+          <div class="t-title">${t.name}</div>
+          <p class="t-desc">${t.desc}</p>
+        </div>
+        <div class="t-check"><i class="fa-solid fa-check"></i></div>`;
+      card.addEventListener('click', () => {
+        selectedTemplate = t.id;
+        // Picking a built-in template clears any uploaded template.
+        clearUpload();
+        document.querySelectorAll('.tmpl-card').forEach(c =>
+          c.classList.toggle('selected', c.dataset.id === t.id));
+        refreshFooter();
+      });
+      tmplGrid.appendChild(card);
+    });
+
+    // ---- Render learner-context mode cards ----
+    const ctxGrid = document.getElementById('ctxGrid');
+    const ctxNote = document.getElementById('ctxNote');
+    const roleCard = document.getElementById('roleCard');
+    CONTEXT_MODES.forEach(m => {
+      const card = document.createElement('div');
+      card.className = 'tmpl-card' + (m.id === contextMode ? ' selected' : '');
+      card.dataset.id = m.id;
+      card.innerHTML = `
+        <div class="t-ico"><i class="fa-solid ${m.icon}"></i></div>
+        <div class="t-body">
+          <div class="t-title">${m.name}</div>
+          <p class="t-desc">${m.desc}</p>
+        </div>
+        <div class="t-check"><i class="fa-solid fa-check"></i></div>`;
+      card.addEventListener('click', () => setContextMode(m.id));
+      ctxGrid.appendChild(card);
+    });
+
+    function setContextMode(mode) {
+      contextMode = mode;
+      ctxGrid.querySelectorAll('.tmpl-card').forEach(c =>
+        c.classList.toggle('selected', c.dataset.id === mode));
+      const external = mode === 'external';
+      // External context is inherited from the parent package — the role isn't defined here.
+      ctxNote.classList.toggle('show', external);
+      roleCard.classList.toggle('dim', external);
+    }
+    setContextMode(contextMode);
+
+    // ---- Template upload (simulated) ----
+    const dropzone = document.getElementById('dropzone');
+    const dzClear  = document.getElementById('dzClear');
+
+    dropzone.addEventListener('click', () => {
+      if (uploadName) return;
+      uploadName = 'My-Scenario-Template.docx';
+      // An upload counts as the template choice — clear any card selection.
+      selectedTemplate = null;
+      document.querySelectorAll('.tmpl-card').forEach(c => c.classList.remove('selected'));
+      dropzone.classList.add('filled');
+      dropzone.innerHTML = `
+        <i class="fa-solid fa-circle-check up"></i>
+        <div class="dz-big">${uploadName}</div>
+        <div class="dz-small">Uploaded — we'll build on this</div>`;
+      dzClear.style.display = 'inline-block';
+      refreshFooter();
+    });
+
+    dzClear.addEventListener('click', (e) => { e.stopPropagation(); clearUpload(); refreshFooter(); });
+
+    function clearUpload() {
+      if (!uploadName) return;
+      uploadName = null;
+      dropzone.classList.remove('filled');
+      dropzone.innerHTML = `
+        <i class="fa-solid fa-cloud-arrow-up up"></i>
+        <div class="dz-big">Upload a scenario template</div>
+        <div class="dz-small">PDF, DOCX, or PPTX</div>`;
+      dzClear.style.display = 'none';
+    }
+
+    // ---- Target time on task (preset cards) ----
+    const timeGrid = document.getElementById('timeGrid');
+    TIMES.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'tmpl-card' + (t.min === targetMinutes ? ' selected' : '');
+      card.dataset.min = t.min;
+      card.innerHTML = `
+        <div class="t-body">
+          <div class="t-title">${t.name}</div>
+          <p class="t-desc">${t.desc}</p>
+        </div>
+        <div class="t-check"><i class="fa-solid fa-check"></i></div>`;
+      card.addEventListener('click', () => {
+        targetMinutes = t.min;
+        timeGrid.querySelectorAll('.tmpl-card').forEach(c =>
+          c.classList.toggle('selected', Number(c.dataset.min) === t.min));
+      });
+      timeGrid.appendChild(card);
+    });
+
+    // ---- Reference materials (files + pasted text) ----
+    const refList        = document.getElementById('refList');
+    const refUploadBtn   = document.getElementById('refUploadBtn');
+    const refPasteBtn    = document.getElementById('refPasteBtn');
+    const refPaste       = document.getElementById('refPaste');
+    const refPasteInput  = document.getElementById('refPasteInput');
+    const refPasteAdd    = document.getElementById('refPasteAdd');
+    const refPasteCancel = document.getElementById('refPasteCancel');
+
+    // Simulated file library — clicking "Upload files" cycles through these.
+    const SAMPLE_FILES = [
+      { name: 'Anti-Harassment-Policy-2026.pdf',   ext: 'pdf',  meta: 'PDF · 412 KB' },
+      { name: 'HR-Complaint-Procedure.docx',        ext: 'doc',  meta: 'DOCX · 88 KB' },
+      { name: 'Bystander-Intervention-Deck.pptx',   ext: 'ppt',  meta: 'PPTX · 2.1 MB' },
+      { name: 'Investigation-Notes-Redacted.pdf',   ext: 'pdf',  meta: 'PDF · 640 KB' },
+    ];
+    let sampleFileIdx = 0;
+
+    const REF_ICON = { doc: 'fa-file-word', ppt: 'fa-file-powerpoint', pdf: 'fa-file-pdf', text: 'fa-align-left' };
+
+    function iconClassFor(kind, ext) {
+      if (kind === 'text') return 'text';
+      return ext === 'ppt' ? 'ppt' : ext === 'pdf' ? 'pdf' : 'doc';
+    }
+
+    function renderReferences() {
+      refList.innerHTML = references.map(r => {
+        const cls = iconClassFor(r.kind, r.ext);
+        const glyph = r.kind === 'text' ? REF_ICON.text : (REF_ICON[cls] || 'fa-file');
+        return `
+          <div class="ref-item">
+            <span class="r-ico ${cls}"><i class="fa-solid ${glyph}"></i></span>
+            <div class="r-body">
+              <div class="r-name">${r.name}</div>
+              <div class="r-meta">${r.meta}</div>
+            </div>
+            <i class="fa-solid fa-xmark r-remove" data-id="${r.id}" title="Remove"></i>
+          </div>`;
+      }).join('');
+      refList.querySelectorAll('.r-remove').forEach(x =>
+        x.addEventListener('click', () => {
+          references = references.filter(r => String(r.id) !== x.dataset.id);
+          renderReferences();
+        }));
+    }
+
+    // Upload (simulated): add the next sample file.
+    refUploadBtn.addEventListener('click', () => {
+      const f = SAMPLE_FILES[sampleFileIdx % SAMPLE_FILES.length];
+      sampleFileIdx++;
+      references.push({ id: refIdSeq++, kind: 'file', name: f.name, meta: f.meta, ext: f.ext });
+      renderReferences();
+    });
+
+    // Paste text: reveal the composer.
+    refPasteBtn.addEventListener('click', () => {
+      refPaste.classList.add('show');
+      refPasteInput.focus();
+    });
+    refPasteInput.addEventListener('value-changed', () => {
+      refPasteAdd.disabled = !(refPasteInput.value || '').trim();
+    });
+    refPasteInput.addEventListener('input', () => {
+      refPasteAdd.disabled = !(refPasteInput.value || '').trim();
+    });
+    refPasteCancel.addEventListener('click', () => {
+      refPaste.classList.remove('show');
+      refPasteInput.value = '';
+      refPasteAdd.disabled = true;
+    });
+    refPasteAdd.addEventListener('click', () => {
+      const text = (refPasteInput.value || '').trim();
+      if (!text) return;
+      const words = text.split(/\s+/).length;
+      const preview = text.length > 42 ? text.slice(0, 42) + '…' : text;
+      references.push({ id: refIdSeq++, kind: 'text', name: `Pasted text — “${preview}”`, meta: `${words} words`, ext: 'text' });
+      renderReferences();
+      refPaste.classList.remove('show');
+      refPasteInput.value = '';
+      refPasteAdd.disabled = true;
+    });
+
+    // ---- Course context search ----
+    const courseInput    = document.getElementById('courseInput');
+    const courseMenu     = document.getElementById('courseMenu');
+    const courseSelected = document.getElementById('courseSelected');
+    const csName = document.getElementById('csName');
+    const csMeta = document.getElementById('csMeta');
+
+    function renderCourseMenu(query) {
+      const q = query.trim().toLowerCase();
+      const matches = COURSES.filter(c => c.name.toLowerCase().includes(q));
+      if (!matches.length) {
+        courseMenu.innerHTML = `<div class="course-empty">No courses match "${query}"</div>`;
+      } else {
+        courseMenu.innerHTML = matches.map(c => `
+          <div class="course-opt" data-id="${c.id}">
+            <span class="c-ico"><i class="fa-solid fa-graduation-cap"></i></span>
+            <div>
+              <div class="c-name">${c.name}</div>
+              <div class="c-meta">${c.meta}</div>
+            </div>
+          </div>`).join('');
+        courseMenu.querySelectorAll('.course-opt').forEach(opt => {
+          opt.addEventListener('mousedown', (e) => {   // mousedown beats input blur
+            e.preventDefault();
+            pickCourse(COURSES.find(c => c.id === opt.dataset.id));
+          });
+        });
+      }
+      courseMenu.classList.add('show');
+    }
+
+    function pickCourse(course) {
+      selectedCourse = course;
+      csName.textContent = course.name;
+      csMeta.textContent = course.meta;
+      courseSelected.classList.add('show');
+      courseInput.value = '';
+      courseMenu.classList.remove('show');
+    }
+
+    document.getElementById('csRemove').addEventListener('click', () => {
+      selectedCourse = null;
+      courseSelected.classList.remove('show');
+    });
+
+    courseInput.addEventListener('focus', () => renderCourseMenu(courseInput.value));
+    courseInput.addEventListener('input', () => renderCourseMenu(courseInput.value));
+    courseInput.addEventListener('blur',  () => setTimeout(() => courseMenu.classList.remove('show'), 120));
+
+    // ---- Footer / gating ----
+    const projectName = document.getElementById('projectName');
+    const createBtn   = document.getElementById('createBtn');
+    const scratchBtn  = document.getElementById('scratchBtn');
+    const footHint    = document.getElementById('footHint');
+
+    // vaadin-text-field fires a standard input event on the host
+    projectName.addEventListener('input', refreshFooter);
+    projectName.addEventListener('value-changed', refreshFooter);
+
+    function projectNameValue() {
+      // Vaadin upgrades async; before upgrade, read the value attribute as a fallback.
+      return (projectName.value || projectName.getAttribute('value') || '').trim();
+    }
+
+    function refreshFooter() {
+      const hasName = projectNameValue().length > 0;
+      const hasTemplate = !!selectedTemplate || !!uploadName;
+      const ready = hasName && hasTemplate;
+
+      createBtn.disabled = !ready;
+      scratchBtn.disabled = !ready;
+
+      if (ready) {
+        footHint.innerHTML = `Ready — <strong>Build with AI</strong> to draft it in conversation, or <strong>Start from scratch</strong> for a blank ${selectedTemplate ? '' : ''}scenario.`;
+      } else if (!hasName && !hasTemplate) {
+        footHint.textContent = 'Name your project and pick an interaction to continue.';
+      } else if (!hasName) {
+        footHint.textContent = 'Give your project a name to continue.';
+      } else {
+        footHint.textContent = 'Pick an interaction template to continue.';
+      }
+    }
+
+    // Build the shared setup params carried to whichever path is chosen.
+    function setupParams() {
+      const p = new URLSearchParams();
+      p.set('name', projectNameValue());
+      p.set('template', uploadName ? 'upload' : (selectedTemplate || ''));
+      if (selectedCourse) p.set('course', selectedCourse.id);
+      p.set('context', contextMode);
+      p.set('minutes', targetMinutes);
+      if (references.length) p.set('refs', references.length);
+      return p;
+    }
+
+    // Two paths off the setup:
+    //  • 'ai'      → the AI storyboarding/scripting interface (draft in conversation)
+    //  • 'scratch' → straight into the editor with a blank, template-driven scenario
+    function createProject(mode) {
+      if (createBtn.disabled) return;
+      const p = setupParams();
+      if (mode === 'scratch') {
+        p.set('section', 'scenes');
+        window.location.href = `scenario-introduction.html?${p.toString()}`;
+      } else {
+        window.location.href = `scenario-storyboard.html?${p.toString()}`;
+      }
+    }
+
+    // ---- Prefill the sample scenario ----
+    // Tie the scenario to the Harassment Prevention course for AI context.
+    const prefillCourse = COURSES.find(c => c.id === PREFILL_COURSE_ID);
+    if (prefillCourse) pickCourse(prefillCourse);
+
+    // Seed a couple of reference materials for the sample scenario.
+    references = [
+      { id: refIdSeq++, kind: 'file', name: 'Anti-Harassment-Policy-2026.pdf', meta: 'PDF · 412 KB', ext: 'pdf' },
+      { id: refIdSeq++, kind: 'file', name: 'Bystander-Intervention-Deck.pptx', meta: 'PPTX · 2.1 MB', ext: 'ppt' },
+    ];
+    sampleFileIdx = 2; // next upload continues past the two seeded files
+    renderReferences();
+
+    refreshFooter();
+  </script>
+</body>
+</html>

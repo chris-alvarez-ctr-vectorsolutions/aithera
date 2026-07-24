@@ -43,6 +43,11 @@
             color: var(--text-strong);
             margin: 0;
         }
+        /* Scroll-lock: while any modal/drawer is open, freeze the page and the
+           inner split-pane scroll contexts so nothing behind the overlay moves.
+           Toggled by the ModalScrollLock helper via a push/pop counter. */
+        body.modal-open { overflow: hidden; }
+        body.modal-open .split.compare-active .split-pane { overflow: hidden; }
 
         vwc-topnav {
             position: sticky;
@@ -93,6 +98,16 @@
         .split-pane-compare { display: none; }
         .split-divider { display: none; }
         .split.compare-active .split-pane-compare { display: block; }
+
+        /* Side control: by default the compare/preview pane sits on the RIGHT.
+           `.side-left` flips it to the LEFT of the original form by reversing the
+           three grid items' `order` (compare · divider · primary) — DOM order is
+           untouched. Column widths stay [--primary-pct, 8px, 1fr]: the resize
+           divider always sizes the LEFT column, so it keeps working either way
+           (in side-left the left column is now the compare pane). */
+        .split.compare-active.side-left .split-pane-compare { order: 1; }
+        .split.compare-active.side-left .split-divider      { order: 2; }
+        .split.compare-active.side-left .split-pane-primary  { order: 3; }
         .split.compare-active .split-divider {
             display: flex;
             align-items: center;
@@ -203,6 +218,25 @@
             color: #b91c1c;
             background: #fee2e2;
         }
+        /* Side-toggle: moves the pane to the other side of the original form. */
+        .pane-header-side {
+            background: transparent;
+            border: 1px solid var(--border-soft);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .pane-header-side:hover { border-color: var(--brand); color: var(--brand); }
+        .pane-header-side i { font-size: 11px; }
         /* Compress padding inside the apps when in compare mode so two side-by-side
            panes don't waste horizontal space */
         .split.compare-active .split-pane .app {
@@ -1496,34 +1530,34 @@
         }
 
         /* Global video review panel (page-level overlay drawer) */
-        .video-review-overlay {
-            position: fixed; inset: 0;
-            background: rgba(15, 23, 42, 0.4);
-            z-index: 270; opacity: 0; pointer-events: none;
-            transition: opacity 0.2s;
+        /* Fixed full-viewport host layer for the vwc-drawer.
+           DS GAP (documented for the DS team): vwc-drawer is built as a layout
+           WRAPPER around page content (its `content` slot). Used as a standalone
+           floating overlay (empty content slot) it (a) does NOT anchor the panel
+           to the viewport edge — drawer-container is position:static and flows in
+           normal layout, and (b) does NOT paint a backdrop/scrim even with
+           overlay=true. We compensate here: the host paints the scrim, and the
+           drawer-container is pinned to the right edge via ::part. */
+        .video-review-host {
+            position: fixed; inset: 0; z-index: 280;
+            background: rgba(15, 23, 42, 0.4);   /* scrim (DS drawer omits it here) */
         }
-        .video-review-overlay.open { opacity: 1; pointer-events: auto; }
-        .video-review-panel {
+        .video-review-host[hidden] { display: none; }
+        /* DS GAP: no width prop — set panel width on the drawer-container part.
+           Also pin it to the right edge since the DS drawer won't in overlay-only
+           use. min/max keep it sane; the native resize drag still overrides width. */
+        #videoReviewDrawer::part(drawer-container) {
             position: fixed; top: 0; right: 0; bottom: 0;
             width: 480px; min-width: 360px; max-width: 96vw;
-            background: #fff;
             box-shadow: -10px 0 40px rgba(0,0,0,0.2);
-            z-index: 280; transform: translateX(100%);
-            transition: transform 0.25s ease;
-            display: flex; flex-direction: column;
+            pointer-events: auto;
         }
-        .video-review-overlay.open .video-review-panel { transform: translateX(0); }
-        /* Left-edge drag handle to resize the panel */
-        .video-review-resizer {
-            position: absolute; top: 0; left: -3px; bottom: 0;
-            width: 10px; cursor: col-resize; z-index: 2;
-        }
-        .video-review-resizer::before {
-            content: ''; position: absolute; top: 0; bottom: 0; left: 3px;
-            width: 3px; background: transparent; transition: background 0.15s;
-        }
-        .video-review-resizer:hover::before,
-        .video-review-panel.resizing .video-review-resizer::before { background: var(--brand); }
+        /* Let scrim clicks pass through the full-width content-container to the
+           host (which closes on backdrop click); the panel re-enables events. */
+        #videoReviewDrawer, #videoReviewDrawer::part(content-container) { pointer-events: none; }
+        #videoReviewDrawer [slot="drawer-content"] { pointer-events: auto; }
+        /* The panel content (in the drawer-content slot) is a flex column. */
+        .video-review-panel { display: flex; flex-direction: column; height: 100%; background: #fff; }
         .video-review-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 14px 16px; border-bottom: 1px solid var(--border-soft);
@@ -1592,6 +1626,174 @@
         .q-video-upload-option-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-strong); }
         .q-video-upload-option-sub { display: block; font-size: 12px; color: var(--text-muted); }
         .q-video-upload-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+        /* ─── Attachment detail panel (right-side overlay drawer) ─── */
+        /* Attachment edit drawer host — fixed full-viewport layer + scrim (see
+           video-review-host for the vwc-drawer DS-gap rationale). */
+        .attach-host {
+            position: fixed; inset: 0; z-index: 300;
+            background: rgba(15, 23, 42, 0.4);
+        }
+        .attach-host[hidden] { display: none; }
+        #attachDrawer::part(drawer-container) {
+            position: fixed; top: 0; right: 0; bottom: 0;
+            width: 420px; max-width: 96vw;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.2);
+            pointer-events: auto;
+        }
+        /* Let scrim clicks pass through to the host; the panel re-enables events. */
+        #attachDrawer, #attachDrawer::part(content-container) { pointer-events: none; }
+        #attachDrawer [slot="drawer-content"] { pointer-events: auto; }
+        .attach-panel { display: flex; flex-direction: column; height: 100%; background: #fff; }
+        .attach-panel-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 18px; border-bottom: 1px solid var(--border-soft);
+            flex-shrink: 0;
+        }
+        .attach-panel-title {
+            display: inline-flex; align-items: center; gap: 9px;
+            font-size: 16px; font-weight: 700; color: var(--text-strong);
+        }
+        .attach-panel-title i { color: var(--brand); font-size: 14px; }
+        .attach-panel-close {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 16px; padding: 6px; border-radius: 6px;
+        }
+        .attach-panel-close:hover { background: var(--page-bg); color: var(--text-strong); }
+        .attach-panel-body {
+            flex: 1; min-height: 0; overflow-y: auto;
+            padding: 18px; display: flex; flex-direction: column; gap: 16px;
+        }
+        /* File identity strip */
+        .attach-file-row {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--page-bg); border: 1px solid var(--border-soft);
+            border-radius: 10px; padding: 12px;
+        }
+        .attach-file-thumb {
+            width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: #fff; color: var(--brand); font-size: 17px;
+        }
+        .attach-file-meta { min-width: 0; }
+        .attach-file-name {
+            font-size: 14px; font-weight: 700; color: var(--text-strong);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .attach-file-source { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        /* Fields */
+        .attach-field { display: flex; flex-direction: column; gap: 6px; }
+        .attach-field-label {
+            font-size: 12px; font-weight: 700; color: var(--text-strong);
+        }
+        .attach-field-hint { font-size: 11px; color: var(--text-muted); }
+        .attach-input {
+            border: 1px solid var(--border-soft); border-radius: 8px;
+            padding: 9px 11px; font-family: inherit; font-size: 13px;
+            color: var(--text-strong); outline: none; background: #fff;
+        }
+        .attach-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,102,204,0.12); }
+        .attach-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+        .attach-select { cursor: pointer; }
+        .attach-tags { display: flex; flex-direction: column; gap: 8px; }
+        /* The tag menu is position:fixed, so it escapes the panel's stacking
+           context. The attach overlay is z-index 300; the shared .q-tag-menu is
+           only 290, so inside the panel it would render BEHIND the backdrop.
+           Lift it above the overlay here. */
+        /* Inside the drawer panel, anchor the tag menu with normal absolute
+           positioning under the button (the shared .q-tag-menu is position:fixed,
+           which would escape the panel). */
+        .attach-host .attach-tag-menu {
+            position: absolute; top: calc(100% + 6px); left: 0;
+            width: 100%; z-index: 5;
+        }
+        /* Size the FA slot icons in the panel's Add Tags button to sit with the
+           label (matches the header's secondary buttons). */
+        .attach-add-tags-btn i[slot="prefix"] { font-size: 12px; }
+        .attach-add-tags-btn i[slot="suffix"] { font-size: 11px; }
+        .attach-panel-actions {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 18px; border-top: 1px solid var(--border-soft);
+            flex-shrink: 0;
+        }
+
+        /* Attachment card actions (edit / preview / remove) — shown inline in the
+           card; the whole card is no longer just name + remove. */
+        /* Card action group — larger targets, separated from the name by a
+           gutter + hairline so the three actions are easy to hit. */
+        .q-attachment-actions {
+            display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+            margin-left: 4px; padding-left: 6px;
+            border-left: 1px solid var(--border-soft);
+        }
+        .q-attachment-act {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 13px; border-radius: 6px;
+            width: 28px; height: 28px; line-height: 1;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background 0.12s, color 0.12s;
+        }
+        .q-attachment-act:hover { color: var(--brand); background: var(--page-bg); }
+        .q-attachment-act.remove:hover { color: #dc2626; }
+
+        /* Attachment preview (rendered into the shared split pane) */
+        .attach-preview { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+        /* Faux file "viewer" surface — a gray backdrop the page/image sits on,
+           like a real document viewer. */
+        .attach-preview-viewer {
+            background: #6b7280;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex; justify-content: center;
+            max-height: 60vh; overflow-y: auto;
+        }
+        .attach-doc { width: 100%; max-width: 460px; }
+        /* Image attachment — an actual sample photo on the viewer backdrop. */
+        .attach-doc-image img {
+            display: block; width: 100%; height: auto; border-radius: 4px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+        }
+        /* Document attachment — a simulated white page with header + text lines. */
+        .attach-doc-page {
+            background: #fff; border-radius: 4px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+            padding: 32px 34px; aspect-ratio: 8.5 / 11;
+        }
+        .attach-doc-header {
+            display: flex; align-items: center; gap: 12px;
+            padding-bottom: 16px; margin-bottom: 20px;
+            border-bottom: 2px solid var(--brand);
+        }
+        .attach-doc-crest {
+            width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--page-bg); color: var(--brand); font-size: 18px;
+        }
+        .attach-doc-headtext { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .attach-doc-h1 {
+            font-size: 14px; font-weight: 700; color: var(--text-strong);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .attach-doc-h2 { font-size: 11px; color: var(--text-muted); }
+        .attach-doc-body { display: flex; flex-direction: column; gap: 11px; }
+        .attach-doc-line {
+            display: block; height: 9px; border-radius: 3px;
+            background: #e2e4e8;
+        }
+        .attach-preview-open {
+            margin-top: 4px; align-self: flex-start;
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--brand); color: #fff; border: none; border-radius: 8px;
+            padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .attach-preview-open:hover { filter: brightness(1.08); }
+        .attach-preview-meta { display: flex; flex-direction: column; gap: 12px; }
+        .attach-preview-row { display: flex; gap: 10px; font-size: 13px; }
+        .attach-preview-k { font-weight: 700; color: var(--text-muted); min-width: 90px; }
+        .attach-preview-v { color: var(--text-strong); }
+        .attach-preview-desc { font-size: 13px; line-height: 1.5; color: var(--text-strong); margin: 0; }
+        .attach-preview-desc.muted { color: var(--text-muted); font-style: italic; }
+        .attach-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
         /* ─── Step action bar (Add Tags / Add attachment) ───
            A reusable action bar appended to certain question types (Rating, Text
@@ -1684,8 +1886,8 @@
         .q-attachment-card {
             display: inline-flex; align-items: center; gap: 8px;
             border: 1px solid var(--border-soft); border-radius: 8px;
-            background: #fff; padding: 5px 6px 5px 8px;
-            max-width: 220px;            /* keeps any single card from getting wide */
+            background: #fff; padding: 6px 8px;
+            max-width: 300px;            /* room for the name + 3 action targets */
         }
         .q-attachment-thumb {
             width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
@@ -2305,38 +2507,8 @@
         .timer-widget-btn.primary { background: var(--brand); color: #fff; }
         .timer-widget-btn.reset:disabled { opacity: 0.35; cursor: default; }
 
-        /* ─── Share dialog ─── */
-        .share-overlay {
-            position: fixed; inset: 0;
-            background: rgba(15, 23, 42, 0.5);
-            z-index: 330;
-            display: flex; align-items: center; justify-content: center;
-            padding: 24px;
-        }
-        .share-overlay[hidden] { display: none; }
-        .share-modal {
-            background: #fff; border-radius: 14px;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.25);
-            width: min(440px, 100%);
-            display: flex; flex-direction: column; overflow: hidden;
-        }
-        .share-modal-head {
-            display: flex; align-items: center; gap: 12px;
-            padding: 18px 20px 14px;
-            border-bottom: 1px solid var(--border-soft);
-        }
-        .share-modal-title {
-            flex: 1; margin: 0;
-            font-size: 17px; font-weight: 700; color: var(--text-strong);
-            display: inline-flex; align-items: center; gap: 9px;
-        }
-        .share-modal-title i { color: var(--brand); font-size: 15px; }
-        .share-modal-x {
-            background: none; border: none; cursor: pointer;
-            color: var(--text-muted); font-size: 16px; padding: 4px; border-radius: 6px;
-        }
-        .share-modal-x:hover { color: var(--text-strong); background: var(--page-bg); }
-        .share-modal-body { padding: 18px 20px; }
+        /* ─── Share dialog (content styles; shell is vaadin-dialog) ─── */
+        .share-modal-body { padding: 4px 4px 8px; }
         .share-modal-intro { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); }
         .share-party-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
         .share-party { display: flex; align-items: center; gap: 12px; }
@@ -2354,45 +2526,487 @@
             padding: 10px 12px; font-size: 13px; color: #92400e; line-height: 1.45;
         }
         .share-modal-warning i { color: #d97706; margin-top: 2px; }
-        .share-modal-actions {
+
+        /* ─── Copy Form + Share dialogs (content rendered inside vaadin-dialog) ───
+           The vaadin-dialog supplies the overlay/card chrome; these rules style
+           the cloned content + lay out the header (title row) and footer (right-
+           aligned actions) renderer roots. */
+        #copyDialog::part(overlay) { width: min(560px, 96vw); }
+        #shareDialog::part(overlay) { width: min(440px, 96vw); }
+        #copyDialog::part(header), #shareDialog::part(header) {
+            display: flex; align-items: center; gap: 12px;
+        }
+        #copyDialog::part(footer), #shareDialog::part(footer) {
             display: flex; justify-content: flex-end; gap: 8px;
-            padding: 14px 20px; border-top: 1px solid var(--border-soft);
+            border-top: 1px solid var(--border-soft);
+        }
+        /* Header (title + close), placed in the dialog's header slot. */
+        .copy-dialog-title {
+            display: inline-flex; align-items: center; gap: 9px;
+            font-size: 17px; font-weight: 700; color: var(--text-strong);
+        }
+        /* Header (title + close), placed in the dialog's header slot. */
+        .copy-dialog-title i { color: var(--brand); font-size: 15px; }
+        .copy-dialog-x {
+            margin-left: auto;
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 16px; padding: 4px; border-radius: 6px;
+        }
+        .copy-dialog-x:hover { color: var(--text-strong); background: var(--page-bg); }
+        .copy-modal-body {
+            padding: 4px 4px 8px;
+            max-height: min(66vh, 620px); overflow-y: auto;
+        }
+        .copy-section { padding: 18px 0; }
+        .copy-section + .copy-section { border-top: 1px solid var(--border-soft); }
+        .copy-section-title {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--text-muted);
+            margin: 0 0 14px;
+        }
+        /* Read-only summary as a label/value grid */
+        .copy-summary {
+            display: grid; grid-template-columns: max-content 1fr;
+            gap: 8px 16px; margin: 0;
+        }
+        .copy-summary dt { color: var(--text-muted); font-size: 13px; }
+        .copy-summary dd { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-strong); }
+        .copy-summary .copy-badge-off,
+        .copy-summary .copy-badge-on {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+        }
+        .copy-summary .copy-badge-off { background: var(--page-bg); color: var(--text-muted); }
+        .copy-summary .copy-badge-on { background: #dcfce7; color: #166534; }
+        /* Option rows — a label column + control column */
+        .copy-options { display: flex; flex-direction: column; gap: 16px; }
+        .copy-row {
+            display: grid; grid-template-columns: 150px 1fr;
+            align-items: center; gap: 12px;
+        }
+        .copy-row-label { font-size: 13px; color: var(--text-strong); font-weight: 600; }
+        .copy-row-control { min-width: 0; }
+        /* "-- none found --" style empty states */
+        .copy-empty { font-size: 13px; color: var(--text-muted); font-style: italic; }
+        /* Inline radio group laid out in a row */
+        .copy-radios { display: flex; align-items: center; gap: 20px; }
+        @media (max-width: 520px) {
+            .copy-row { grid-template-columns: 1fr; gap: 6px; }
+        }
+
+        /* ─── Quick Search report dialog ───
+           Launched from the ⋯ menu. A wide vaadin-dialog holding a two-phase
+           workflow: a persistent filter panel on top, then a 5-column results
+           table rendered below on "Generate Report", plus a copy-to-clipboard
+           export. Reskin of the legacy full-width modal onto Vector tokens —
+           same functionality, Open-Sans / outlined-input chrome. */
+        #quickSearchDialog::part(overlay) { width: min(1180px, 96vw); }
+        /* Standard Vaadin dialog chrome (matches Copy/Share dialogs) — white
+           header, blue-accented title icon, subtle close X. No grey bar. */
+        #quickSearchDialog::part(header) {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .qs-title {
+            display: inline-flex; align-items: center; gap: 9px;
+            font-size: 17px; font-weight: 700; color: var(--text-strong);
+        }
+        .qs-title i { color: var(--brand); font-size: 15px; }
+        .qs-x {
+            margin-left: auto; background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 16px; padding: 4px;
+            border-radius: 6px; line-height: 1;
+        }
+        .qs-x:hover { color: var(--text-strong); background: var(--page-bg); }
+
+        .qs-body {
+            padding: 4px 4px 8px;
+            max-height: min(78vh, 760px); overflow-y: auto;
+        }
+        #qsGenerateBtn::part(label) { font-weight: 700; }
+
+        /* Filter cluster — an elevated white card holding all 9 criteria plus
+           the Generate button, laid out on TWO tidy rows via a 5-column grid.
+           Row 1: Users · Author · Date Range · Forms · Tags
+           Row 2: Data Elements · Question Types · Exclude self · (spacer) · Generate
+           Every field is a grid row of [label / control / hint], so the label,
+           control, and hint bands line up across all columns regardless of which
+           fields actually have a label or hint. */
+        .qs-filters {
+            background: var(--card-bg);
+            border: 1px solid var(--border-soft); border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            padding: 18px 20px;
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 16px 18px;
+            /* Each field's internal 3 bands align across the whole grid. */
+            grid-auto-rows: auto;
+        }
+        .qs-field {
+            min-width: 0;
+            display: grid;
+            /* label row | control row | hint row — fixed band heights so every
+               field's control sits at the same vertical position. */
+            grid-template-rows: 18px auto 16px;
+            align-content: start;
+        }
+        .qs-field-label {
+            font-size: 12px; font-weight: 700; color: var(--text-strong);
+            line-height: 18px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        /* Vaadin selects add their own top margin; zero it so the control band
+           starts flush under the shared label band. */
+        .qs-field vaadin-select::part(label),
+        .qs-field vaadin-select { margin: 0; padding: 0; }
+        /* Computed date range hint sits in the reserved 3rd band. */
+        .qs-date-hint { font-size: 11px; color: var(--text-muted); line-height: 16px; }
+        /* Exclude self-authored — a checkbox; vertically center it in the
+           control band (no label band, no hint band). */
+        .qs-field-check {
+            grid-template-rows: 18px auto 16px;
+        }
+        .qs-field-check vaadin-checkbox {
+            grid-row: 2; align-self: center;
+        }
+        /* Generate button — occupies the control band so it lines up with the
+           inputs on its row, right-aligned in the last column. */
+        .qs-field-generate {
+            grid-template-rows: 18px auto 16px;
+            justify-items: end;
+        }
+        .qs-field-generate vaadin-button { grid-row: 2; align-self: center; }
+
+        /* Summary-labeled checklist dropdown (Forms / Tags / Data Elements /
+           Question Types). Trigger looks like an outlined field; the menu is a
+           checkable multi-select. Mirrors the Add-Tags dropdown pattern. */
+        .qs-select { position: relative; }
+        .qs-select-trigger {
+            display: flex; align-items: center; gap: 8px; width: 100%;
+            min-height: 38px; padding: 6px 10px;
+            background: #fff; border: 1px solid #c4ccd6; border-radius: 6px;
+            cursor: pointer; font-family: inherit; font-size: 13px;
+            color: var(--text-strong); text-align: left;
+        }
+        .qs-select-trigger:hover { border-color: #9aa4b2; }
+        .qs-select.open .qs-select-trigger { border-color: var(--brand); }
+        .qs-select-value {
+            flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px;
+            align-items: center; overflow: hidden;
+        }
+        .qs-select-placeholder { color: var(--text-muted); }
+        .qs-select-caret { color: var(--text-muted); font-size: 12px; flex-shrink: 0; }
+        /* Selection chips inside a chip-style trigger (Forms). */
+        .qs-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #d6e9fb; color: #0b5aa6; border: 1px solid #b9d9f5;
+            border-radius: 4px; padding: 2px 6px 2px 8px;
+            font-size: 12px; font-weight: 600; max-width: 100%;
+        }
+        .qs-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qs-chip-x {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 15px; height: 15px; border-radius: 3px; cursor: pointer;
+            color: #0b5aa6; font-size: 10px; flex-shrink: 0;
+        }
+        .qs-chip-x:hover { background: #b9d9f5; }
+
+        /* position:fixed so the menu escapes .qs-body's overflow clip and is
+           never cut off by the dialog edge. JS sets top/left/min-width from the
+           trigger's bounding rect (see positionQsMenu). */
+        .qs-menu {
+            position: fixed; top: 0; left: 0;
+            width: max-content; min-width: 180px; max-width: 340px;
+            background: #fff; border: 1px solid var(--border-soft);
+            border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+            padding: 6px; z-index: 400;
+        }
+        .qs-menu[hidden] { display: none; }
+        .qs-menu-list { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; }
+        .qs-option {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 7px 10px; background: transparent; border: none;
+            border-radius: 6px; cursor: pointer; text-align: left;
+            font-family: inherit; font-size: 13px; color: var(--text-strong);
+            white-space: nowrap;
+        }
+        .qs-option:hover { background: var(--page-bg); }
+        .qs-option-check {
+            width: 18px; height: 18px; flex-shrink: 0; border-radius: 4px;
+            border: 1px solid #c4ccd6;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #fff;
+        }
+        .qs-option.selected .qs-option-check {
+            background: var(--brand); border-color: var(--brand);
+        }
+        .qs-option:not(.selected) .qs-option-check i { display: none; }
+        .qs-menu-divider { height: 1px; background: var(--border-soft); margin: 5px 2px; }
+
+        /* ── Loading state (shown briefly after Generate, before the table) ── */
+        .qs-loading { margin-top: 22px; }
+        .qs-loading[hidden] { display: none; }
+        .qs-loading-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            padding: 48px 20px; color: var(--text-muted); font-size: 13px;
+        }
+        .qs-loading vaadin-progress-bar { width: min(360px, 70%); }
+
+        /* ── Results phase ── */
+        .qs-results { margin-top: 22px; }
+        .qs-results[hidden] { display: none; }
+        .qs-results-head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+        }
+        .qs-results-count { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+        .qs-results-count strong { color: var(--text-strong); }
+
+        /* Copy-to-clipboard control + its fields-to-copy popover. */
+        .qs-copy-wrap { position: relative; }
+        .qs-copy-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; width: 220px;
+            background: #fff; border: 1px solid var(--border-soft);
+            border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+            padding: 12px; z-index: 20;
+        }
+        .qs-copy-menu[hidden] { display: none; }
+        .qs-copy-menu-title {
+            font-size: 11px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--text-muted); margin: 0 0 10px;
+        }
+        .qs-copy-fields { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+
+        .qs-table-wrap { border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; }
+        table.qs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.qs-table thead th {
+            background: #f4f6f8; text-align: left; font-weight: 700;
+            color: var(--text-strong); padding: 10px 12px;
+            border-bottom: 1px solid var(--border-soft); white-space: nowrap;
+        }
+        table.qs-table thead th.qs-th-select { width: 40px; text-align: center; }
+        .qs-sort-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: none; border: none; cursor: pointer; padding: 0;
+            font: inherit; font-weight: 700; color: var(--text-strong);
+        }
+        .qs-sort-btn i { font-size: 11px; color: var(--text-muted); }
+        table.qs-table tbody td {
+            padding: 11px 12px; border-bottom: 1px solid #eef0f3;
+            vertical-align: top;
+        }
+        table.qs-table tbody tr:last-child td { border-bottom: none; }
+        table.qs-table tbody tr:hover { background: #fafbfc; }
+        td.qs-td-select { text-align: center; }
+        /* Column 2 — aggregate content/question/author/educator stack. */
+        .qs-agg-name { font-weight: 700; color: var(--text-strong); }
+        .qs-agg-name a { color: var(--brand); text-decoration: none; }
+        .qs-agg-name a:hover { text-decoration: underline; }
+        .qs-agg-q { color: var(--text-strong); margin-top: 2px; }
+        .qs-agg-meta { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+        /* Column 3 — content answer. */
+        .qs-content-more {
+            color: var(--brand); cursor: pointer; font-weight: 600; margin-left: 4px;
+        }
+        .qs-annotation-prefix { color: var(--rec-accent-strong); font-weight: 700; }
+        .qs-attach-inline { display: inline-flex; align-items: center; gap: 8px; }
+        .qs-attach-inline i { color: var(--text-muted); }
+        .qs-attach-desc { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+        /* Column 4 — tags. */
+        .qs-tag-list { display: flex; flex-wrap: wrap; gap: 5px; }
+        .qs-tag {
+            display: inline-flex; align-items: center;
+            background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
+            border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 600;
+        }
+        .qs-tag.qs-tag-optional { background: #f4f5f7; color: #4b5563; border-color: #e2e4e8; }
+        /* Empty state. */
+        .qs-empty {
+            padding: 40px 20px; text-align: center; color: var(--text-muted);
+        }
+        .qs-empty i { font-size: 26px; display: block; margin-bottom: 10px; color: #c4ccd6; }
+        .qs-results-footnote { font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 8px; }
+        /* Filter fields flex-wrap on their own; no width media query needed. */
+
+        /* ─── Form Change Log dialog ───
+           Launched from the ⋯ menu's Log item. Standard Vaadin dialog chrome
+           (matches Quick Search). A shared header (§3 of the value map) sits
+           above two tabs — Edits and Access (§4) — each an entry list. Reskin
+           of the legacy formlog dialog onto Vector tokens. */
+        /* Lock the dialog to a rigid, unchanging box for its entire life —
+           fixed width AND height on both the overlay and its content region so
+           no tab, content length, or scrollbar can resize or reflow it. All
+           variability is absorbed by the internal panel scroll (.cl-panel). */
+        #changeLogDialog::part(overlay) {
+            width: min(880px, 96vw); max-width: min(880px, 96vw);
+            height: min(680px, 92vh); max-height: min(680px, 92vh);
+        }
+        #changeLogDialog::part(content) {
+            width: 100%; height: 100%; box-sizing: border-box;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        #changeLogDialog::part(header) { display: flex; align-items: center; gap: 12px; }
+        .cl-title {
+            display: inline-flex; align-items: center; gap: 9px;
+            font-size: 17px; font-weight: 700; color: var(--text-strong);
+        }
+        .cl-title i { color: var(--brand); font-size: 15px; }
+        .cl-x {
+            margin-left: auto; background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 16px; padding: 4px;
+            border-radius: 6px; line-height: 1;
+        }
+        .cl-x:hover { color: var(--text-strong); background: var(--page-bg); }
+
+        /* Body fills the fixed content region; header card + tab strip are
+           static, and the panel flexes to fill the rest and scrolls internally
+           so the dialog itself never changes size. */
+        .cl-body {
+            padding: 4px 4px 8px; flex: 1 1 auto; min-height: 0;
+            display: flex; flex-direction: column;
+        }
+        /* Static top regions keep their natural height; only .cl-panel flexes. */
+        .cl-body > .cl-warning,
+        .cl-body > .cl-header-card,
+        .cl-body > .cl-tabs { flex: 0 0 auto; }
+
+        /* Shared header — the record's identity + dates (§3). */
+        .cl-header-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-soft); border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            padding: 16px 18px; margin-bottom: 16px;
+        }
+        /* Two-column header: identity fields left, dates right. Each field is a
+           label-beside-value pair with the label right-aligned (legacy look). */
+        .cl-header-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 4px 48px;
+        }
+        .cl-header-item {
+            min-width: 0; display: grid; grid-template-columns: max-content 1fr;
+            gap: 6px; align-items: baseline;
+        }
+        .cl-header-label {
+            font-size: 13px; color: var(--text-muted); text-align: right; white-space: nowrap;
+        }
+        .cl-header-value {
+            font-size: 13px; font-weight: 600; color: var(--text-strong);
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        /* Pre-2012 logging warning banner (§3). Hidden unless triggered. */
+        .cl-warning {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: #fef9c7; border: 1px solid #f2e08a; border-radius: 8px;
+            padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; color: #7a5b00;
+        }
+        .cl-warning i { margin-top: 2px; }
+
+        /* Tab strip — plain buttons (no vaadin-tabs) to avoid the reset/padding
+           quirk; matches the app's tab look with a blue active underline. */
+        .cl-tabs {
+            display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft);
+            margin-bottom: 14px;
+        }
+        .cl-tab {
+            background: none; border: none; cursor: pointer;
+            font-family: inherit; font-size: 14px; font-weight: 600;
+            color: var(--text-muted); padding: 10px 16px;
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .cl-tab:hover { color: var(--text-strong); }
+        .cl-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+        .cl-tab-count {
+            font-size: 11px; font-weight: 700; background: var(--page-bg);
+            color: var(--text-muted); border-radius: 999px; padding: 1px 8px;
+        }
+        .cl-tab.active .cl-tab-count { background: #e3f0fb; color: var(--brand); }
+
+        /* Panel flexes to fill the remaining fixed body height and scrolls
+           internally, so tab content — however tall or short — never changes the
+           dialog size. scrollbar-gutter reserves the scrollbar's space on BOTH
+           tabs so the width never shifts either. */
+        .cl-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+        .cl-panel[hidden] { display: none; }
+
+        /* Entry list — each entry is a flat bordered box with a single-line
+           legend header (Verb · Date · SOURCE · Editor) sitting in the top
+           border (legacy fieldset look), then Question / answer lines inside.
+           Legacy structure, Vector polish: rounded borders + token colors, no
+           icons / colored pills / right-side meta rail. */
+        .cl-entries { display: flex; flex-direction: column; gap: 12px; }
+        .cl-entry {
+            position: relative;
+            border: 1px solid var(--border-soft); border-radius: 8px;
+            padding: 16px 16px 12px; background: var(--card-bg);
+        }
+        /* Legend that overlaps the top border, like a fieldset legend. */
+        .cl-entry-legend {
+            position: absolute; top: 0; left: 14px; transform: translateY(-50%);
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--card-bg); padding: 0 8px;
+            font-size: 12px; color: var(--text-muted); white-space: nowrap;
+            max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis;
+        }
+        /* All verbs are blue except delete, which stays red. */
+        .cl-legend-verb { font-weight: 700; color: var(--brand); }
+        .cl-legend-verb.delete { color: #b91c1c; }
+        /* Access entries carry no body — give the box a little presence. */
+        .cl-entry-access { min-height: 30px; }
+        .cl-legend-sep { color: #c4ccd6; }
+        .cl-legend-source {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #4b5563;
+            background: var(--page-bg); border-radius: 4px; padding: 1px 6px;
+        }
+        .cl-legend-editor { font-weight: 600; color: var(--text-strong); }
+        .cl-legend-as { font-weight: 400; color: var(--text-muted); }
+        .cl-legend-reason {
+            font-size: 10px; font-weight: 700; background: #fef9c7; color: #7a5b00;
+            border-radius: 4px; padding: 1px 6px;
+        }
+        /* Body content lines — label: value pairs. */
+        .cl-line { font-size: 13px; color: var(--text-strong); margin-top: 3px; }
+        .cl-line:first-child { margin-top: 0; }
+        .cl-line-label { color: var(--text-muted); margin-right: 4px; }
+        .cl-line-value { font-weight: 600; }
+        .cl-line-qtype { color: var(--text-muted); font-weight: 400; }
+        /* Nested value box (e.g. Duration / long text answers), like the legacy
+           inner fieldset. */
+        .cl-value-box {
+            margin-top: 8px; padding: 8px 12px; border-radius: 6px;
+            background: var(--workspace-bg); border: 1px solid var(--border-soft);
+            font-size: 13px; color: var(--text-strong); white-space: pre-wrap;
+        }
+        .cl-value-box.annotation { border-left: 3px solid var(--rec-accent); }
+        .cl-clip { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+        .cl-detail-line { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
+        .cl-detail-line i { margin-right: 6px; }
+        /* Empty / warning states inside a tab. */
+        .cl-tab-warning {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: #fff4e5; border: 1px solid #ffd9a8; border-radius: 8px;
+            padding: 12px 14px; font-size: 12.5px; color: #8a4b00; margin-bottom: 12px;
+        }
+        .cl-tab-warning i { margin-top: 2px; }
+        .cl-empty { padding: 32px 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+        .cl-empty i { font-size: 24px; display: block; margin-bottom: 8px; color: #c4ccd6; }
+
+        @media (max-width: 640px) {
+            .cl-header-grid { grid-template-columns: 1fr; }
         }
 
         /* ─── Assign assignment modal ─── */
-        .assign-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.5);
-            z-index: 320;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
+        /* Assign modal is a vaadin-dialog (theme="assign-dialog"). Size the
+           overlay; the header/footer renderer roots become flex rows here. */
+        #assignDialog::part(overlay) { width: min(900px, 96vw); }
+        vaadin-dialog-overlay[theme~="assign-dialog"]::part(header) {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 18px 24px 14px; border-bottom: 1px solid var(--border-soft);
         }
-        .assign-overlay.open { opacity: 1; pointer-events: auto; }
-        .assign-modal {
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.25);
-            width: min(900px, 100%);
-            max-height: 100%;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transform: translateY(10px);
-            transition: transform 0.2s;
-        }
-        .assign-overlay.open .assign-modal { transform: translateY(0); }
-        .assign-modal-header {
-            padding: 18px 24px 14px;
-            border-bottom: 1px solid var(--border-soft);
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
+        vaadin-dialog-overlay[theme~="assign-dialog"]::part(footer) {
+            border-top: 1px solid var(--border-soft);
+            display: flex; justify-content: space-between; align-items: center; gap: 8px;
         }
         .assign-modal-header-body { flex: 1; min-width: 0; }
         .assign-modal-title {
@@ -2684,27 +3298,16 @@
         .rec-card-primary.assigned:hover { background: #0a7637; }
 
         /* Validation modal (reused) */
-        .v-modal-overlay {
-            position: fixed; inset: 0;
-            background: rgba(15, 23, 42, 0.45);
-            z-index: 300;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.2s;
-        }
-        .v-modal-overlay.open { opacity: 1; pointer-events: auto; }
-        .v-modal {
-            background: #fff; border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-            max-width: 520px; width: calc(100% - 32px);
-            overflow: hidden;
-            transform: translateY(8px);
-            transition: transform 0.2s;
-        }
-        .v-modal-overlay.open .v-modal { transform: translateY(0); }
-        .v-modal-header {
-            padding: 18px 22px 12px;
+        /* Validation modal is a vaadin-dialog (theme="v-dialog"). Size overlay +
+           lay out the header renderer root as an icon+title row. */
+        vaadin-dialog-overlay[theme~="v-dialog"]::part(overlay) { width: min(520px, 96vw); }
+        vaadin-dialog-overlay[theme~="sig-dialog"]::part(overlay) { width: min(560px, 96vw); }
+        vaadin-dialog-overlay[theme~="v-dialog"]::part(header) {
             display: flex; align-items: center; gap: 12px;
+        }
+        vaadin-dialog-overlay[theme~="v-dialog"]::part(footer) {
+            display: flex; justify-content: flex-end; gap: 8px;
+            border-top: 1px solid var(--border-soft);
         }
         .v-modal-icon {
             width: 36px; height: 36px; border-radius: 50%;
@@ -2723,13 +3326,6 @@
         .v-modal-issues.error { background: #fef2f2; border-color: #fecaca; }
         .v-modal-issues ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-strong); }
         .v-modal-issues li { margin-bottom: 4px; }
-        .v-modal-footer {
-            padding: 12px 22px 18px;
-            display: flex; justify-content: flex-end; gap: 8px;
-            border-top: 1px solid var(--border-soft);
-            background: #fafbfc;
-        }
-
         /* Prototype helper widget */
         .proto-widget {
             position: fixed;
@@ -2872,10 +3468,10 @@
                 <i class="fa-solid fa-ellipsis"></i>
             </vaadin-button>
             <div class="actions-menu" id="actionsMenu" role="menu" hidden>
-                <button class="actions-menu-item" type="button" role="menuitem">
+                <button class="actions-menu-item" type="button" role="menuitem" id="copyFormItem">
                     <i class="fa-solid fa-copy"></i> Copy
                 </button>
-                <button class="actions-menu-item" type="button" role="menuitem">
+                <button class="actions-menu-item" type="button" role="menuitem" id="quickSearchItem">
                     <i class="fa-solid fa-magnifying-glass"></i> Quick Search
                 </button>
                 <button class="actions-menu-item" type="button" role="menuitem">
@@ -2884,7 +3480,7 @@
                 <button class="actions-menu-item" type="button" role="menuitem">
                     <i class="fa-solid fa-file-pdf"></i> Export to PDF
                 </button>
-                <button class="actions-menu-item" type="button" role="menuitem">
+                <button class="actions-menu-item" type="button" role="menuitem" id="changeLogItem">
                     <i class="fa-solid fa-clock-rotate-left"></i> Log
                 </button>
                 <div class="actions-menu-divider"></div>
@@ -2930,56 +3526,322 @@
     </div>
 </div>
 
+<!-- Copy Form dialog — the Vector design-system dialog (vaadin-dialog). Its
+     header/body/footer are populated via renderer functions (it ignores slotted
+     children), so the content lives in <template>s cloned in JS. Two grouped
+     sections: a read-only source summary + the editable copy options. -->
+<vaadin-dialog id="copyDialog"></vaadin-dialog>
+
+<!-- Header content (title + close), cloned into the dialog's headerRenderer -->
+<template id="copyDialogHeader">
+    <span class="copy-dialog-title"><i class="fa-solid fa-copy"></i> Copy Form</span>
+    <button type="button" class="copy-dialog-x" data-copy-close aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+</template>
+
+<!-- Body content, cloned into the dialog's renderer -->
+<template id="copyDialogBody">
+    <div class="copy-modal-body">
+        <!-- Section 1: read-only source-form summary -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">Form details</h3>
+            <dl class="copy-summary">
+                <dt>Form</dt><dd>Question Types</dd>
+                <dt>Author</dt><dd>Austin Smith</dd>
+                <dt>Evaluee</dt><dd>Austin Smith</dd>
+                <dt>Date</dt><dd>Jul 10, 2026 9:00 AM CDT</dd>
+                <dt>Sharing</dt><dd><span class="copy-badge-off"><i class="fa-solid fa-lock"></i> Off</span></dd>
+            </dl>
+        </section>
+
+        <!-- Section 2: editable copy options -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">Copy options</h3>
+            <div class="copy-options">
+                <div class="copy-row">
+                    <label class="copy-row-label" for="copyEvaluee">Evaluee</label>
+                    <div class="copy-row-control">
+                        <vaadin-select theme="outlined" id="copyEvaluee"></vaadin-select>
+                    </div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Date</span>
+                    <div class="copy-row-control">
+                        <vaadin-radio-group theme="horizontal" value="keep" id="copyDate">
+                            <vaadin-radio-button value="keep" label="Keep original"></vaadin-radio-button>
+                            <vaadin-radio-button value="current" label="Use current date"></vaadin-radio-button>
+                        </vaadin-radio-group>
+                    </div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Data copied</span>
+                    <div class="copy-row-control">
+                        <vaadin-radio-group theme="horizontal" value="all" id="copyData">
+                            <vaadin-radio-button value="all" label="All"></vaadin-radio-button>
+                            <vaadin-radio-button value="author" label="Author responses only"></vaadin-radio-button>
+                        </vaadin-radio-group>
+                    </div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Signatures copied</span>
+                    <div class="copy-row-control"><span class="copy-empty">No signatures found</span></div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Set sharing</span>
+                    <div class="copy-row-control">
+                        <vaadin-radio-group theme="horizontal" value="off" id="copySharing">
+                            <vaadin-radio-button value="off" label="Off"></vaadin-radio-button>
+                            <vaadin-radio-button value="on" label="On"></vaadin-radio-button>
+                        </vaadin-radio-group>
+                    </div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Delete original form</span>
+                    <div class="copy-row-control">
+                        <vaadin-checkbox id="copyDeleteOriginal" label="Delete after copying"></vaadin-checkbox>
+                    </div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Move attachments</span>
+                    <div class="copy-row-control"><span class="copy-empty">No attachments found</span></div>
+                </div>
+
+                <div class="copy-row">
+                    <span class="copy-row-label">Copy selected signers</span>
+                    <div class="copy-row-control"><span class="copy-empty">No selected signers found</span></div>
+                </div>
+            </div>
+
+            <!-- Standard warning (replaces the old red note) -->
+            <div class="share-modal-warning" style="margin-top:18px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Users are not automatically notified of copied forms.</span>
+            </div>
+        </section>
+    </div>
+</template>
+
+<!-- Footer actions, cloned into the dialog's footerRenderer -->
+<template id="copyDialogFooter">
+    <vaadin-button theme="tertiary" data-copy-close>Cancel</vaadin-button>
+    <vaadin-button theme="primary" id="copyConfirmBtn">
+        <i class="fa-solid fa-copy" slot="prefix"></i> Copy
+    </vaadin-button>
+</template>
+
 <!-- Share dialog — sharing is a one-way action (access can't be revoked). Lists
      the pre-determined parties who will gain access to this form instance. -->
-<div class="share-overlay" id="shareOverlay" hidden>
-    <div class="share-modal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
-        <div class="share-modal-head">
-            <h2 class="share-modal-title" id="shareModalTitle">
-                <i class="fa-solid fa-share-nodes"></i> Share this evaluation
-            </h2>
-            <button type="button" class="share-modal-x" id="shareModalX" aria-label="Close">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="share-modal-body">
-            <p class="share-modal-intro">Sharing gives the following people access to this evaluation:</p>
-            <ul class="share-party-list">
-                <li class="share-party">
-                    <span class="share-party-avatar" style="--p-accent:#0066cc;"><i class="fa-solid fa-clipboard-user"></i></span>
-                    <span class="share-party-meta">
-                        <span class="share-party-name">Vincent Martinez</span>
-                        <span class="share-party-role">Evaluator</span>
-                    </span>
-                </li>
-                <li class="share-party">
-                    <span class="share-party-avatar" style="--p-accent:#b45309;"><i class="fa-solid fa-user"></i></span>
-                    <span class="share-party-meta">
-                        <span class="share-party-name">Austin Smith</span>
-                        <span class="share-party-role">Evaluee</span>
-                    </span>
-                </li>
-                <li class="share-party">
-                    <span class="share-party-avatar" style="--p-accent:#6d28d9;"><i class="fa-solid fa-user-tie"></i></span>
-                    <span class="share-party-meta">
-                        <span class="share-party-name">Dana Whitfield</span>
-                        <span class="share-party-role">Reviewer / Supervisor</span>
-                    </span>
-                </li>
-            </ul>
-            <div class="share-modal-warning">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span><strong>This can't be undone.</strong> Once shared, access is permanent — it cannot be revoked.</span>
-            </div>
-        </div>
-        <div class="share-modal-actions">
-            <vaadin-button theme="tertiary" id="shareCancelBtn">Cancel</vaadin-button>
-            <vaadin-button theme="primary" id="shareConfirmBtn">
-                <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share now
-            </vaadin-button>
+<vaadin-dialog id="shareDialog"></vaadin-dialog>
+<template id="shareDialogHeader">
+    <span class="copy-dialog-title"><i class="fa-solid fa-share-nodes"></i> Share this evaluation</span>
+    <button type="button" class="copy-dialog-x" data-share-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+</template>
+<template id="shareDialogBody">
+    <div class="share-modal-body">
+        <p class="share-modal-intro">Sharing gives the following people access to this evaluation:</p>
+        <ul class="share-party-list">
+            <li class="share-party">
+                <span class="share-party-avatar" style="--p-accent:#0066cc;"><i class="fa-solid fa-clipboard-user"></i></span>
+                <span class="share-party-meta">
+                    <span class="share-party-name">Vincent Martinez</span>
+                    <span class="share-party-role">Evaluator</span>
+                </span>
+            </li>
+            <li class="share-party">
+                <span class="share-party-avatar" style="--p-accent:#b45309;"><i class="fa-solid fa-user"></i></span>
+                <span class="share-party-meta">
+                    <span class="share-party-name">Austin Smith</span>
+                    <span class="share-party-role">Evaluee</span>
+                </span>
+            </li>
+            <li class="share-party">
+                <span class="share-party-avatar" style="--p-accent:#6d28d9;"><i class="fa-solid fa-user-tie"></i></span>
+                <span class="share-party-meta">
+                    <span class="share-party-name">Dana Whitfield</span>
+                    <span class="share-party-role">Reviewer / Supervisor</span>
+                </span>
+            </li>
+        </ul>
+        <div class="share-modal-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span><strong>This can't be undone.</strong> Once shared, access is permanent — it cannot be revoked.</span>
         </div>
     </div>
-</div>
+</template>
+<template id="shareDialogFooter">
+    <vaadin-button theme="tertiary" data-share-close>Cancel</vaadin-button>
+    <vaadin-button theme="primary" id="shareConfirmBtn">
+        <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share now
+    </vaadin-button>
+</template>
+
+<!-- Quick Search report dialog — launched from the ⋯ menu's Quick Search item.
+     Read-only live-query report: filter panel (9 criteria) → Generate Report →
+     5-column results table → copy-to-clipboard export. The dialog uses only a
+     header + body renderer (no footer); the body holds both the filters and the
+     results area, which the JS toggles between empty / table / no-data states. -->
+<vaadin-dialog id="quickSearchDialog"></vaadin-dialog>
+
+<!-- Header: standard Vaadin dialog chrome (matches Copy/Share dialogs). -->
+<template id="qsDialogHeader">
+    <span class="qs-title"><i class="fa-solid fa-magnifying-glass"></i> Quick Search</span>
+    <button type="button" class="qs-x" data-qs-close aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+</template>
+
+<!-- Body: Generate Report action + filter panel + (initially empty) results. -->
+<template id="qsDialogBody">
+    <div class="qs-body">
+        <!-- Filter cluster — elevated white card holding all 9 criteria (§2 of
+             the value map) plus the Generate button. Fields flow in one wrapping
+             row and reorganize by width. -->
+        <div class="qs-filters">
+            <!-- Users / educators (target users) — chip multi-select
+                 (selectedUserIds / viewableUserIDs, §2). -->
+            <div class="qs-field">
+                <span class="qs-field-label">Users</span>
+                <div class="qs-select" data-qs-select="users" data-qs-variant="chips">
+                    <button type="button" class="qs-select-trigger">
+                        <span class="qs-select-value"></span>
+                        <span class="qs-select-caret"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="qs-menu" hidden><div class="qs-menu-list"></div></div>
+                </div>
+            </div>
+            <!-- Author — chip multi-select (selectedAuthorIds, §2). -->
+            <div class="qs-field">
+                <span class="qs-field-label">Author</span>
+                <div class="qs-select" data-qs-select="authors" data-qs-variant="chips">
+                    <button type="button" class="qs-select-trigger">
+                        <span class="qs-select-value"></span>
+                        <span class="qs-select-caret"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="qs-menu" hidden><div class="qs-menu-list"></div></div>
+                </div>
+            </div>
+            <!-- Date range type + computed range hint. -->
+            <div class="qs-field">
+                <label class="qs-field-label" for="qsDateRange">Date Range</label>
+                <vaadin-select theme="outlined" id="qsDateRange"></vaadin-select>
+                <span class="qs-date-hint" id="qsDateHint">Aug 1, 2025 – Jul 31, 2026</span>
+            </div>
+            <!-- Forms / rubrics — chip multi-select. -->
+            <div class="qs-field">
+                <span class="qs-field-label">Forms</span>
+                <div class="qs-select" data-qs-select="forms" data-qs-variant="chips">
+                    <button type="button" class="qs-select-trigger">
+                        <span class="qs-select-value"></span>
+                        <span class="qs-select-caret"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="qs-menu" hidden><div class="qs-menu-list"></div></div>
+                </div>
+            </div>
+            <!-- Tags — multi-select with an "All Tagged and Untagged Data" default. -->
+            <div class="qs-field">
+                <span class="qs-field-label">Tags</span>
+                <div class="qs-select" data-qs-select="tags">
+                    <button type="button" class="qs-select-trigger">
+                        <span class="qs-select-value"></span>
+                        <span class="qs-select-caret"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="qs-menu" hidden><div class="qs-menu-list"></div></div>
+                </div>
+            </div>
+            <!-- Data Elements — the 5 content categories (§2 codes 1–5). -->
+            <div class="qs-field">
+                <span class="qs-field-label">Data Elements</span>
+                <div class="qs-select" data-qs-select="elements">
+                    <button type="button" class="qs-select-trigger">
+                        <span class="qs-select-value"></span>
+                        <span class="qs-select-caret"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="qs-menu" hidden><div class="qs-menu-list"></div></div>
+                </div>
+            </div>
+            <!-- Question Types. -->
+            <div class="qs-field">
+                <span class="qs-field-label">Question Types</span>
+                <div class="qs-select" data-qs-select="qtypes">
+                    <button type="button" class="qs-select-trigger">
+                        <span class="qs-select-value"></span>
+                        <span class="qs-select-caret"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="qs-menu" hidden><div class="qs-menu-list"></div></div>
+                </div>
+            </div>
+            <!-- Exclude self-authored (§2). -->
+            <div class="qs-field qs-field-check">
+                <vaadin-checkbox id="qsExcludeSelf" label="Exclude self-authored"></vaadin-checkbox>
+            </div>
+            <!-- Spacer — pushes Generate into the 5th (last) grid column. -->
+            <div class="qs-field qs-field-spacer" aria-hidden="true"></div>
+            <!-- Generate Report — inside the cluster, blue primary, last column. -->
+            <div class="qs-field qs-field-generate">
+                <vaadin-button theme="primary" id="qsGenerateBtn">Generate Report</vaadin-button>
+            </div>
+        </div>
+
+        <!-- Loading indicator — shown briefly after Generate, before the table. -->
+        <div class="qs-loading" id="qsLoading" hidden>
+            <div class="qs-loading-inner">
+                <vaadin-progress-bar indeterminate></vaadin-progress-bar>
+                <span>Generating report…</span>
+            </div>
+        </div>
+
+        <!-- Results — hidden until Generate Report runs; JS fills it. -->
+        <div class="qs-results" id="qsResults" hidden></div>
+    </div>
+</template>
+
+<!-- Form Change Log dialog — launched from the ⋯ menu's Log item. Shows the
+     record's shared header (§3) above two tabs: Edits and Access (§4). The JS
+     builds the header, tab counts, and entry lists from mock log data. -->
+<vaadin-dialog id="changeLogDialog"></vaadin-dialog>
+
+<template id="clDialogHeader">
+    <span class="cl-title"><i class="fa-solid fa-clock-rotate-left"></i> Form Change Log</span>
+    <button type="button" class="cl-x" data-cl-close aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+</template>
+
+<template id="clDialogBody">
+    <div class="cl-body">
+        <!-- Pre-2012 logging warning (§3) — hidden unless triggered. -->
+        <div class="cl-warning" id="clDateWarning" hidden>
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>This record predates the change-log feature (Nov 19, 2012); earlier history is not available.</span>
+        </div>
+
+        <!-- Shared header — record identity + dates (§3). Filled by JS. -->
+        <div class="cl-header-card">
+            <div class="cl-header-grid" id="clHeaderGrid"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="cl-tabs" role="tablist">
+            <button type="button" class="cl-tab active" data-cl-tab="edits" role="tab">
+                <i class="fa-solid fa-pen"></i> Edits <span class="cl-tab-count" id="clEditsCount">0</span>
+            </button>
+            <button type="button" class="cl-tab" data-cl-tab="access" role="tab">
+                <i class="fa-solid fa-eye"></i> Access <span class="cl-tab-count" id="clAccessCount">0</span>
+            </button>
+        </div>
+
+        <!-- Panels -->
+        <div class="cl-panel" id="clPanelEdits" role="tabpanel"></div>
+        <div class="cl-panel" id="clPanelAccess" role="tabpanel" hidden></div>
+    </div>
+</template>
 
 <!-- Split container — primary pane on the left, compare pane on the right (hidden by default).
      When .compare-active is set on the container, the right pane becomes visible and the
@@ -3065,6 +3927,10 @@
                 Comparing
             </span>
             <span class="pane-header-title" id="comparePaneTitle">—</span>
+            <button type="button" class="pane-header-side" id="paneSideToggle" aria-label="Move panel to the other side">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span class="pane-side-label">Move left</span>
+            </button>
             <button type="button" class="pane-header-close" id="exitCompareBtn" aria-label="Close comparison">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -3087,22 +3953,37 @@
      step's thumbnail. Player up top, annotation + notes below. Resizable by
      dragging its left edge (widening it grows the player). One shared instance;
      it's bound to whichever video step opened it. -->
-<div class="video-review-overlay" id="videoReviewOverlay">
-    <aside class="video-review-panel" id="videoReviewPanel" role="dialog" aria-modal="true" aria-label="Video review">
-        <!-- Drag handle on the left edge -->
-        <div class="video-review-resizer" id="videoReviewResizer" role="separator" aria-orientation="vertical" aria-label="Resize panel" tabindex="0"></div>
-
-        <div class="video-review-header">
-            <div class="video-review-title">
-                <i class="fa-solid fa-film"></i>
-                <span id="videoReviewTitle">Observation Video</span>
+<!-- Video review panel — right-edge overlay drawer opened from a video step's
+     thumbnail. Player + composer pinned; annotations scroll.
+     DS NOTE: This should use vwc-drawer, but that component is architected as a
+     CONTENT-WRAPPING layout drawer (content-container + drawer-column slots) and
+     its open state didn't drive reliably as a standalone modal overlay
+     (aria-expanded stayed false with open=true; panel rendered in normal flow).
+     Kept as a custom overlay for now; needs a DS "overlay/modal drawer" mode —
+     flagged for the design-system team. Background scroll IS locked via
+     ModalScrollLock while open. -->
+<!-- Video review panel — Vector design-system drawer (vwc-drawer), right-anchored
+     overlay with the DS backdrop + built-in resize. The existing player/composer/
+     annotation internals are hosted verbatim in the drawer-content slot. The host
+     is a fixed inset:0 layer so the drawer sizes against the viewport.
+     NOTE (DS gap): vwc-drawer has no width prop — panel width is set via CSS on
+     ::part(drawer-container). Its built-in close (collapse-button) is hidden via
+     closable="false" so we keep our exact title-row + close layout. -->
+<div class="video-review-host" id="videoReviewHost" hidden>
+    <vwc-drawer id="videoReviewDrawer" position="end" overlay resizable closable="false"
+                accessible-name="Video review">
+        <div slot="drawer-content" class="video-review-panel" id="videoReviewPanel">
+            <div class="video-review-header">
+                <div class="video-review-title">
+                    <i class="fa-solid fa-film"></i>
+                    <span id="videoReviewTitle">Observation Video</span>
+                </div>
+                <button type="button" class="video-review-close" id="videoReviewClose" aria-label="Close panel">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-            <button type="button" class="video-review-close" id="videoReviewClose" aria-label="Close panel">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
 
-        <div class="video-review-body">
+            <div class="video-review-body">
             <div class="q-video vr-video" id="vrVideo">
                 <!-- Pinned: player + composer stay put; only the notes below scroll -->
                 <div class="vr-pinned">
@@ -3154,8 +4035,85 @@
                 </div>
             </div>
         </div>
-    </aside>
-</div>
+        </div><!-- /drawer-content panel -->
+    </vwc-drawer>
+</div><!-- /video-review-host -->
+
+<!-- Attachment detail panel — right-side overlay drawer opened when adding a new
+     attachment or editing an existing one. Captures name/description/tags and the
+     question it's attached to (reassignable), completed by "Add to form". -->
+<!-- Attachment edit panel — Vector design-system drawer (vwc-drawer), right-
+     anchored overlay. Same DS gaps as the video drawer (no width prop, no self-
+     anchor/scrim in overlay-only use) are compensated with the host scrim + a
+     ::part width/anchor below; documented in DESIGN-SYSTEM-GAPS.md. -->
+<div class="attach-host" id="attachHost" hidden>
+    <vwc-drawer id="attachDrawer" position="end" overlay closable="false" accessible-name="Attachment details">
+        <div slot="drawer-content" class="attach-panel" role="dialog" aria-modal="true" aria-labelledby="attachPanelTitle">
+        <div class="attach-panel-head">
+            <span class="attach-panel-title" id="attachPanelTitle">
+                <i class="fa-solid fa-paperclip"></i> Add attachment
+            </span>
+            <button type="button" class="attach-panel-close" id="attachPanelClose" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="attach-panel-body">
+            <!-- File identity: source + icon + original filename -->
+            <div class="attach-file-row">
+                <span class="attach-file-thumb" id="attachFileThumb"><i class="fa-solid fa-file"></i></span>
+                <div class="attach-file-meta">
+                    <div class="attach-file-name" id="attachFileName">—</div>
+                    <div class="attach-file-source" id="attachFileSource">—</div>
+                </div>
+            </div>
+
+            <label class="attach-field">
+                <span class="attach-field-label">Name</span>
+                <input type="text" class="attach-input" id="attachName" placeholder="Give this attachment a name…" />
+            </label>
+
+            <label class="attach-field">
+                <span class="attach-field-label">Description</span>
+                <textarea class="attach-input attach-textarea" id="attachDescription" placeholder="What does this attachment show or support?"></textarea>
+            </label>
+
+            <div class="attach-field">
+                <span class="attach-field-label">Tags</span>
+                <!-- Reuses the question-level Add Tags search dropdown + chips -->
+                <div class="attach-tags" id="attachTags">
+                    <div class="q-actionbar-wrap">
+                        <vaadin-button theme="secondary" class="attach-add-tags-btn" aria-haspopup="true" aria-expanded="false">
+                            <i class="fa-solid fa-tag" slot="prefix"></i> Add Tags
+                            <i class="fa-solid fa-caret-down" slot="suffix"></i>
+                        </vaadin-button>
+                        <div class="q-tag-menu attach-tag-menu" role="menu" hidden>
+                            <div class="q-tag-menu-search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" class="q-tag-search-input attach-tag-search" placeholder="Search tags…" aria-label="Search tags" />
+                            </div>
+                            <div class="q-tag-menu-list attach-tag-list" role="listbox" aria-multiselectable="true"></div>
+                            <div class="q-tag-menu-empty attach-tag-empty" hidden>No matching tags</div>
+                        </div>
+                    </div>
+                    <div class="q-tag-custom-chips attach-tag-chips"></div>
+                </div>
+            </div>
+
+            <label class="attach-field">
+                <span class="attach-field-label">Attached to</span>
+                <select class="attach-input attach-select" id="attachQuestion"></select>
+                <span class="attach-field-hint">Change this if the attachment belongs to a different question.</span>
+            </label>
+        </div>
+        <div class="attach-panel-actions">
+            <vaadin-button theme="tertiary" id="attachCancelBtn">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="attachSubmitBtn">
+                <i class="fa-solid fa-check" slot="prefix"></i> Add to form
+            </vaadin-button>
+        </div>
+        </div><!-- /drawer-content panel -->
+    </vwc-drawer>
+</div><!-- /attach-host -->
 
 <!-- Prototype helper widget -->
 <div class="proto-widget" id="protoWidget">
@@ -3736,13 +4694,46 @@ const scriptLogs = {};
 // ── Step action-bar state (Add tags / Add attachment) ──
 // Keyed per question by a stable extrasId (assigned at build time, since rating
 // questions can share a componentId and text-entry has no id of its own).
-// Shape: { [extrasId]: { tags: string[], attachments: [{id,name,source}] } }
+// Shape: { [extrasId]: { tags: string[], attachments: [attId, ...] } }
+// Attachments themselves live in the flat `attachmentsById` registry below so
+// they can be reassigned between questions without moving objects around.
 const stepExtras = {};
 let extrasSeq = 0;
 function nextExtrasId() { return 'x' + (++extrasSeq); }
 function ensureExtras(id) {
     stepExtras[id] = stepExtras[id] || { tags: [], attachments: [] };
     return stepExtras[id];
+}
+
+// ── Attachment registry ──
+// Attachments are richer than the question they hang on: name, description,
+// tags, source, and the question they're attached to (reassignable via the
+// detail panel). Stored flat and referenced by id from each step's
+// stepExtras[extrasId].attachments array.
+// Shape: { [attId]: { id, name, description, tags:[], source, extrasId } }
+const attachmentsById = {};
+// Registry of questions that can hold attachments, in DOM order, for the
+// "attached to" reassignment dropdown. Populated as action bars wire up.
+// Shape: [{ extrasId, label }]
+const attachmentQuestions = [];
+function registerAttachmentQuestion(extrasId, label) {
+    if (!attachmentQuestions.some(q => q.extrasId === extrasId)) {
+        attachmentQuestions.push({ extrasId, label });
+    }
+}
+function attachmentQuestionLabel(extrasId) {
+    const q = attachmentQuestions.find(x => x.extrasId === extrasId);
+    return q ? q.label : 'this question';
+}
+// Move an attachment to a different question (updates both id-lists + the record).
+function reassignAttachment(attId, toExtrasId) {
+    const att = attachmentsById[attId];
+    if (!att || att.extrasId === toExtrasId) return;
+    const from = ensureExtras(att.extrasId);
+    from.attachments = from.attachments.filter(id => id !== attId);
+    att.extrasId = toExtrasId;
+    const to = ensureExtras(toExtrasId);
+    if (!to.attachments.includes(attId)) to.attachments.push(attId);
 }
 // Tag catalog — the searchable list shown in the Add Tags dropdown.
 const TAG_CATALOG = ['Evidence', 'Follow-up', 'Strength', 'Growth area', 'Coaching', 'PD needed', 'Exemplary', 'Revisit next cycle'];
@@ -3810,6 +4801,16 @@ const recommendationsSection = document.getElementById('recommendationsSection')
 function escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// Background scroll-lock for modals/drawers. Reference-counted so overlapping
+// surfaces (e.g. a validation modal opened from within another) don't unlock
+// early. push() on open, pop() on close.
+const ModalScrollLock = (() => {
+    let count = 0;
+    function push() { count++; document.body.classList.add('modal-open'); }
+    function pop() { count = Math.max(0, count - 1); if (count === 0) document.body.classList.remove('modal-open'); }
+    return { push, pop };
+})();
 function totalRated() {
     return Object.values(ratings).filter(r => typeof r.selected === 'number').length;
 }
@@ -4983,51 +5984,32 @@ function formatDisplayDate(iso) {
     return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function openAssignModal() {
-    // Initialize batch defaults and per-course settings on open
-    assignBatchDefaults = getDefaultAssignDates();
-    Array.from(cart).forEach(cid => {
-        // Seed every course with a copy of the current defaults
-        courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
-    });
-    renderAssignModal();
-}
+// The Assign modal is a vaadin-dialog whose header/body/footer come from
+// renderer functions (built from HTML strings, then re-wired each render). It
+// re-renders in place via dialog.requestContentUpdate() when settings change.
+let assignDialogEl = null;
+function ensureAssignDialog() {
+    if (assignDialogEl) return assignDialogEl;
+    const dialog = document.createElement('vaadin-dialog');
+    dialog.id = 'assignDialog';
+    dialog.setAttribute('theme', 'assign-dialog');
+    document.body.appendChild(dialog);
 
-function closeAssignModal() {
-    const overlay = document.getElementById('assignOverlay');
-    if (overlay) {
-        overlay.classList.remove('open');
-        setTimeout(() => overlay.remove(), 200);
-    }
-    document.body.style.overflow = '';
-}
-
-function renderAssignModal() {
-    let overlay = document.getElementById('assignOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'assignOverlay';
-        overlay.className = 'assign-overlay';
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeAssignModal();
-        });
-    }
-
-    const courseIds = Array.from(cart);
-    const courses = courseIds.map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
-
-    overlay.innerHTML = `
-        <div class="assign-modal" role="dialog" aria-modal="true" aria-labelledby="assignModalTitle">
-            <div class="assign-modal-header">
-                <div class="assign-modal-header-body">
-                    <h2 class="assign-modal-title" id="assignModalTitle">Configure assignment</h2>
-                    <p class="assign-modal-sub">Set training dates and type for ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
-                </div>
-                <button type="button" class="assign-modal-close" id="assignModalClose" aria-label="Close">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+    dialog.headerRenderer = (root) => {
+        const courses = Array.from(cart).map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
+        root.innerHTML = `
+            <div class="assign-modal-header-body">
+                <h2 class="assign-modal-title" id="assignModalTitle">Configure assignment</h2>
+                <p class="assign-modal-sub">Set training dates and type for ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
             </div>
+            <button type="button" class="assign-modal-close" id="assignModalClose" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>`;
+        root.querySelector('#assignModalClose').addEventListener('click', closeAssignModal);
+    };
+    dialog.renderer = (root) => {
+        const courses = Array.from(cart).map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
+        root.innerHTML = `
             <div class="assign-modal-body">
                 ${renderAssignDefaultsBlock()}
                 <div class="assign-courses-header">
@@ -5038,24 +6020,46 @@ function renderAssignModal() {
                     <span class="assign-courses-count">${courses.length} total</span>
                 </div>
                 ${courses.map(c => renderAssignCourseRow(c)).join('')}
+            </div>`;
+        wireAssignModal(root);
+    };
+    dialog.footerRenderer = (root) => {
+        const courses = Array.from(cart).map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
+        root.innerHTML = `
+            <div class="assign-modal-footer-left">
+                <span id="assignOverrideCount">${countOverriddenCourses()} customized</span>
             </div>
-            <div class="assign-modal-footer">
-                <div class="assign-modal-footer-left">
-                    <span id="assignOverrideCount">${countOverriddenCourses()} customized</span>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <vaadin-button theme="tertiary" id="assignCancelBtn">Cancel</vaadin-button>
-                    <vaadin-button theme="primary" id="assignConfirmBtn">
-                        Assign ${courses.length} course${courses.length === 1 ? '' : 's'}
-                    </vaadin-button>
-                </div>
-            </div>
-        </div>
-    `;
+            <div style="display:flex; gap:8px;">
+                <vaadin-button theme="tertiary" id="assignCancelBtn">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="assignConfirmBtn">
+                    Assign ${courses.length} course${courses.length === 1 ? '' : 's'}
+                </vaadin-button>
+            </div>`;
+        root.querySelector('#assignCancelBtn').addEventListener('click', closeAssignModal);
+        root.querySelector('#assignConfirmBtn').addEventListener('click', commitAssignment);
+    };
+    dialog.addEventListener('opened-changed', (e) => { e.detail.value ? ModalScrollLock.push() : ModalScrollLock.pop(); });
+    assignDialogEl = dialog;
+    return dialog;
+}
 
-    wireAssignModal();
-    document.body.style.overflow = 'hidden';
-    requestAnimationFrame(() => overlay.classList.add('open'));
+function openAssignModal() {
+    // Initialize batch defaults and per-course settings on open
+    assignBatchDefaults = getDefaultAssignDates();
+    Array.from(cart).forEach(cid => {
+        // Seed every course with a copy of the current defaults
+        courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
+    });
+    ensureAssignDialog().opened = true;
+}
+
+function closeAssignModal() {
+    if (assignDialogEl) assignDialogEl.opened = false;
+}
+
+// Re-render the assign dialog's content in place after a settings change.
+function renderAssignModal() {
+    if (assignDialogEl && assignDialogEl.opened) assignDialogEl.requestContentUpdate();
 }
 
 function renderAssignDefaultsBlock() {
@@ -5163,9 +6167,8 @@ function countOverriddenCourses() {
 }
 
 function wireAssignModal() {
-    document.getElementById('assignModalClose').addEventListener('click', closeAssignModal);
-    document.getElementById('assignCancelBtn').addEventListener('click', closeAssignModal);
-    document.getElementById('assignConfirmBtn').addEventListener('click', commitAssignment);
+    // Close/cancel/confirm live in the dialog's header/footer renderers and are
+    // wired there. This wires only the body controls (defaults + per-course rows).
 
     // Batch defaults — track changes but don't push to courses automatically.
     // The "Re-apply defaults to all courses" button explicitly broadcasts.
@@ -5444,42 +6447,40 @@ document.addEventListener('keydown', (e) => {
 
 // ─── Validation modal ───
 function showValidationModal({ tone = 'warn', title, bodyHtml, confirmLabel = 'Continue', cancelLabel = 'Cancel', onConfirm }) {
-    let overlay = document.getElementById('validationOverlay');
-    if (overlay) overlay.remove();
-    overlay = document.createElement('div');
-    overlay.className = 'v-modal-overlay';
-    overlay.id = 'validationOverlay';
-    overlay.innerHTML = `
-        <div class="v-modal" role="dialog" aria-modal="true" aria-labelledby="vModalTitle">
-            <div class="v-modal-header">
-                <span class="v-modal-icon ${tone}">
-                    <i class="fa-solid ${tone === 'error' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation'}"></i>
-                </span>
-                <h3 class="v-modal-title" id="vModalTitle">${title}</h3>
-            </div>
-            <div class="v-modal-body">${bodyHtml}</div>
-            <div class="v-modal-footer">
-                <vaadin-button theme="tertiary" id="vModalCancel">${cancelLabel}</vaadin-button>
-                ${onConfirm ? `<vaadin-button theme="primary" id="vModalConfirm">${confirmLabel}</vaadin-button>` : ''}
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('open'));
+    // A fresh vaadin-dialog per call (supports nesting, e.g. a confirm opened
+    // from another dialog). Removed from the DOM after it closes.
+    const dialog = document.createElement('vaadin-dialog');
+    dialog.setAttribute('theme', 'v-dialog');
+    document.body.appendChild(dialog);
 
-    function close() {
-        overlay.classList.remove('open');
-        setTimeout(() => overlay.remove(), 200);
-    }
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    document.getElementById('vModalCancel').addEventListener('click', close);
-    const confirmBtn = document.getElementById('vModalConfirm');
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', () => {
-            close();
-            onConfirm && onConfirm();
-        });
-    }
+    function close() { dialog.opened = false; }
+
+    dialog.headerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.innerHTML = `
+            <span class="v-modal-icon ${tone}">
+                <i class="fa-solid ${tone === 'error' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation'}"></i>
+            </span>
+            <h3 class="v-modal-title" id="vModalTitle">${title}</h3>`;
+    };
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;
+        root.innerHTML = `<div class="v-modal-body">${bodyHtml}</div>`;
+    };
+    dialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.innerHTML = `
+            <vaadin-button theme="tertiary" id="vModalCancel">${cancelLabel}</vaadin-button>
+            ${onConfirm ? `<vaadin-button theme="primary" id="vModalConfirm">${confirmLabel}</vaadin-button>` : ''}`;
+        root.querySelector('#vModalCancel').addEventListener('click', close);
+        const confirmBtn = root.querySelector('#vModalConfirm');
+        if (confirmBtn) confirmBtn.addEventListener('click', () => { close(); onConfirm && onConfirm(); });
+    };
+    dialog.addEventListener('opened-changed', (e) => {
+        if (e.detail.value) { ModalScrollLock.push(); }
+        else { ModalScrollLock.pop(); setTimeout(() => dialog.remove(), 0); }
+    });
+    dialog.opened = true;
     return close;
 }
 
@@ -5556,6 +6557,11 @@ function clearSignature(block) {
 function wireActionBar(bar) {
     const extrasId = bar.dataset.extrasId;
     ensureExtras(extrasId);
+
+    // Register this question for the attachment panel's "attached to" dropdown,
+    // labeled by its title (falls back to a generic label).
+    const qTitle = bar.closest('.q')?.querySelector('.q-title');
+    registerAttachmentQuestion(extrasId, (qTitle?.textContent || '').trim() || 'Untitled question');
 
     // ── Add Tags: button → search dropdown (multi-select, stays open) ──
     const tagsBtn = bar.querySelector('.q-add-tags-btn');
@@ -5659,37 +6665,41 @@ function wireActionBar(bar) {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !attachMenu.hidden) closeMenu(); });
     bar.querySelectorAll('.q-attach-option').forEach(opt => {
         opt.addEventListener('click', () => {
-            addSampleAttachment(extrasId, opt.dataset.source);
             closeMenu();
-            renderExtras(bar);
+            // Picking a source opens the detail panel on a NEW draft; the card is
+            // only created when the user submits "Add to form".
+            AttachPanel.openNew(extrasId, opt.dataset.source);
         });
     });
 
-    // ── Delegated removal for attachment cards ──
+    // ── Delegated card actions: edit (reopen panel), preview, remove ──
     bar.querySelector('.q-attachments').addEventListener('click', (e) => {
-        const rm = e.target.closest('.q-attachment-remove');
-        if (!rm) return;
-        stepExtras[extrasId].attachments = stepExtras[extrasId].attachments.filter(a => a.id !== rm.dataset.attId);
-        renderExtras(bar);
+        const actBtn = e.target.closest('.q-attachment-act');
+        if (!actBtn) return;
+        const attId = actBtn.dataset.attId;
+        const action = actBtn.dataset.action;
+        if (action === 'edit') AttachPanel.openEdit(attId);
+        else if (action === 'preview') AttachPreview.open(attId);
+        else if (action === 'remove') removeAttachment(attId);
     });
 
     renderExtras(bar);
 }
 
-// Add a sample attachment for the chosen source. No real file browser in the
-// prototype — both sources jump straight to a representative attachment.
-function addSampleAttachment(extrasId, source) {
-    const list = stepExtras[extrasId].attachments;
-    const isGoogle = source === 'google';
-    const n = list.length + 1;
-    list.push({
-        id: 'att-' + Math.random().toString(36).slice(2),
-        name: isGoogle ? `Shared document ${n}` : `evidence-${n}.pdf`,
-        source: isGoogle ? 'Google Drive' : 'Uploaded'
-    });
+// Remove an attachment everywhere (its record + the owning question's id list),
+// then re-render that question's cards.
+function removeAttachment(attId) {
+    const att = attachmentsById[attId];
+    if (!att) return;
+    const ex = ensureExtras(att.extrasId);
+    ex.attachments = ex.attachments.filter(id => id !== attId);
+    delete attachmentsById[attId];
+    const bar = document.querySelector(`.q-actionbar[data-extras-id="${att.extrasId}"]`);
+    if (bar) renderExtras(bar);
 }
 
-// File-type → icon for the attachment thumbnail tile.
+// File-type → icon for the attachment thumbnail tile. Accepts a record with
+// {name, source}.
 function attachmentIcon(a) {
     if (a.source === 'Google Drive') return 'fa-brands fa-google-drive';
     const ext = (a.name.split('.').pop() || '').toLowerCase();
@@ -5700,20 +6710,30 @@ function attachmentIcon(a) {
     return 'fa-solid fa-file';
 }
 
-// Render the attachment cards for one action bar from its state. Cards are
-// compact and lay out inline-and-wrapping; long names truncate with an ellipsis
-// (full name on hover). Also refreshes the tag chips below the button row.
+// Render the attachment cards for one action bar from its id-list → registry.
+// Each card carries edit (reopen panel), preview (split view), and remove
+// actions. Cards are compact and wrap; long names truncate (full name on hover).
 function renderExtras(bar) {
     const extrasId = bar.dataset.extrasId;
     const state = ensureExtras(extrasId);
 
-    bar.querySelector('.q-attachments').innerHTML = state.attachments.map(a => `
+    bar.querySelector('.q-attachments').innerHTML = state.attachments
+        .map(id => attachmentsById[id]).filter(Boolean)
+        .map(a => `
         <div class="q-attachment-card" title="${escapeHtml(a.name)} · ${escapeHtml(a.source)}">
             <span class="q-attachment-thumb"><i class="${attachmentIcon(a)}"></i></span>
             <span class="q-attachment-name">${escapeHtml(a.name)}</span>
-            <button type="button" class="q-attachment-remove" data-att-id="${a.id}" aria-label="Remove attachment ${escapeHtml(a.name)}" title="Remove">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <span class="q-attachment-actions">
+                <button type="button" class="q-attachment-act" data-action="preview" data-att-id="${a.id}" aria-label="Preview ${escapeHtml(a.name)}" title="Preview">
+                    <i class="fa-solid fa-eye"></i>
+                </button>
+                <button type="button" class="q-attachment-act" data-action="edit" data-att-id="${a.id}" aria-label="Edit ${escapeHtml(a.name)}" title="Edit details">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button type="button" class="q-attachment-act remove" data-action="remove" data-att-id="${a.id}" aria-label="Remove ${escapeHtml(a.name)}" title="Remove">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </span>
         </div>
     `).join('');
 
@@ -6130,7 +7150,7 @@ function renderVideoSummary(root, videoId) {
 // simulated playhead, the locked/unlocked annotation composer, drag-to-resize,
 // and the timestamped notes log.
 const VideoPanel = (() => {
-    let overlay, panel, resizer, closeBtn, titleEl;
+    let host, drawer, panel, closeBtn, titleEl;
     let stage, playpause, progress, track, durationTs, currentTsEls, composerTs;
     let composer, composerTsRow, noteInput, noteSave, noteClear;
 
@@ -6144,9 +7164,9 @@ const VideoPanel = (() => {
     let annotationT = 0;   // timestamp captured when the annotation was started
 
     function init() {
-        overlay = document.getElementById('videoReviewOverlay');
+        host = document.getElementById('videoReviewHost');
+        drawer = document.getElementById('videoReviewDrawer');
         panel = document.getElementById('videoReviewPanel');
-        resizer = document.getElementById('videoReviewResizer');
         closeBtn = document.getElementById('videoReviewClose');
         titleEl = document.getElementById('videoReviewTitle');
         const v = document.getElementById('vrVideo');
@@ -6188,14 +7208,21 @@ const VideoPanel = (() => {
         noteClear.addEventListener('click', endAnnotation);   // "Cancel"
         noteSave.addEventListener('click', saveNote);
 
-        // Close
+        // Close. Our header × closes; the drawer's own backdrop click + Esc are
+        // handled by vwc-drawer, and we mirror its open state via open-changed.
         closeBtn.addEventListener('click', close);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && overlay.classList.contains('open')) close();
+        // vwc-drawer emits `open-changed` with the boolean directly as e.detail
+        // (NOT {value}). Only run teardown when it reports closed.
+        drawer.addEventListener('open-changed', (e) => {
+            const isOpen = (typeof e.detail === 'boolean') ? e.detail : drawer.open;
+            if (!isOpen) onClosed();
         });
-
-        initResizer();
+        // Backdrop click: DS GAP — the drawer's own scrim/overlay-click-close
+        // isn't active in overlay-only use, so the host scrim handles it.
+        host.addEventListener('click', (e) => { if (e.target === host) close(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !host.hidden) close();
+        });
     }
 
     let vRoot = null;
@@ -6276,45 +7303,7 @@ const VideoPanel = (() => {
         });
     }
 
-    // ── Drag-to-resize from the left edge (wider panel → bigger player) ──
-    function initResizer() {
-        let dragging = false;
-        const MIN = 360;
-        const maxW = () => Math.round(window.innerWidth * 0.96);
-        function down(e) {
-            dragging = true;
-            panel.classList.add('resizing');
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-            resizer.setPointerCapture && resizer.setPointerCapture(e.pointerId);
-            e.preventDefault();
-        }
-        function move(e) {
-            if (!dragging) return;
-            // Panel is right-anchored: width = viewport right edge minus pointer X.
-            let w = window.innerWidth - e.clientX;
-            w = Math.max(MIN, Math.min(maxW(), w));
-            panel.style.width = w + 'px';
-        }
-        function up(e) {
-            if (!dragging) return;
-            dragging = false;
-            panel.classList.remove('resizing');
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            try { resizer.releasePointerCapture(e.pointerId); } catch (_) {}
-        }
-        resizer.addEventListener('pointerdown', down);
-        document.addEventListener('pointermove', move);
-        document.addEventListener('pointerup', up);
-        document.addEventListener('pointercancel', up);
-        // Keyboard: arrows nudge width by 40px
-        resizer.addEventListener('keydown', (e) => {
-            const cur = panel.getBoundingClientRect().width;
-            if (e.key === 'ArrowLeft') { panel.style.width = Math.min(maxW(), cur + 40) + 'px'; e.preventDefault(); }
-            if (e.key === 'ArrowRight') { panel.style.width = Math.max(MIN, cur - 40) + 'px'; e.preventDefault(); }
-        });
-    }
+    // Resize is provided natively by vwc-drawer (resizable) — no custom resizer.
 
     // startAt (optional): opening from a summary row seeks straight to that
     // annotation's timestamp (paused), so reviewers land on the moment.
@@ -6332,11 +7321,21 @@ const VideoPanel = (() => {
         endAnnotation(); // start collapsed
         paint();
         renderNotes();
-        overlay.classList.add('open');
+        if (!wasOpen) {
+            host.hidden = false;               // reveal the fixed host layer
+            drawer.open = true;                // vwc-drawer slides in + backdrop
+            ModalScrollLock.push();            // lock background scroll
+            wasOpen = true;
+        }
     }
-    function close() {
+    // Programmatic close: drive the drawer; onClosed() does the teardown once it
+    // reports closed (also covers the drawer's own backdrop/Esc close).
+    function close() { if (drawer.open) drawer.open = false; else onClosed(); }
+    let wasOpen = false;
+    function onClosed() {
         pause();
-        overlay.classList.remove('open');
+        if (wasOpen) { ModalScrollLock.pop(); wasOpen = false; }
+        host.hidden = true;
     }
 
     return { init, open, close };
@@ -6410,19 +7409,29 @@ function updateActiveVideoNote(root, current) {
 // Opens a canvas the user draws on with mouse/touch. Reuses the .v-modal
 // shell. Calls opts.onApply(dataUrl) with a trimmed PNG of the drawn ink.
 function showSignaturePad({ onApply }) {
-    let overlay = document.getElementById('sigPadOverlay');
-    if (overlay) overlay.remove();
-    overlay = document.createElement('div');
-    overlay.className = 'v-modal-overlay';
-    overlay.id = 'sigPadOverlay';
-    overlay.innerHTML = `
-        <div class="v-modal" role="dialog" aria-modal="true" aria-labelledby="sigPadTitle" style="max-width:560px;">
-            <div class="v-modal-header">
-                <span class="v-modal-icon warn" style="background:#e0edff; color:#0057b8;">
-                    <i class="fa-solid fa-signature"></i>
-                </span>
-                <h3 class="v-modal-title" id="sigPadTitle">Draw your signature</h3>
-            </div>
+    const dialog = document.createElement('vaadin-dialog');
+    dialog.setAttribute('theme', 'v-dialog sig-dialog');
+    document.body.appendChild(dialog);
+    function close() { dialog.opened = false; }
+
+    dialog.headerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.innerHTML = `
+            <span class="v-modal-icon warn" style="background:#e0edff; color:#0057b8;">
+                <i class="fa-solid fa-signature"></i>
+            </span>
+            <h3 class="v-modal-title" id="sigPadTitle">Draw your signature</h3>`;
+    };
+    dialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.innerHTML = `
+            <vaadin-button theme="tertiary" id="sigPadCancel">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="sigPadApply" disabled>Apply signature</vaadin-button>`;
+        root.querySelector('#sigPadCancel').addEventListener('click', close);
+    };
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;
+        root.innerHTML = `
             <div class="v-modal-body">
                 <p>Sign in the box below using your mouse, trackpad, or finger.</p>
                 <div class="sig-pad-canvas-wrap">
@@ -6433,18 +7442,26 @@ function showSignaturePad({ onApply }) {
                     <span>Your drawn signature is applied to this step only.</span>
                     <button type="button" class="sig-pad-clear" id="sigPadClear">Clear</button>
                 </div>
-            </div>
-            <div class="v-modal-footer">
-                <vaadin-button theme="tertiary" id="sigPadCancel">Cancel</vaadin-button>
-                <vaadin-button theme="primary" id="sigPadApply" disabled>Apply signature</vaadin-button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('open'));
+            </div>`;
+        // Canvas sizing needs the element laid out; run after the overlay paints.
+        requestAnimationFrame(setupPad);
+    };
+    dialog.addEventListener('opened-changed', (e) => {
+        if (e.detail.value) { ModalScrollLock.push(); }
+        else { ModalScrollLock.pop(); setTimeout(() => dialog.remove(), 0); }
+    });
+    dialog.opened = true;
 
-    const canvas = overlay.querySelector('#sigPadCanvas');
-    const applyBtn = overlay.querySelector('#sigPadApply');
+    // The canvas + controls live across the dialog's header/body/footer roots;
+    // the open overlay is their common ancestor.
+    function overlayScope() {
+        return document.querySelector('vaadin-dialog-overlay[theme~="sig-dialog"]');
+    }
+
+    function setupPad() {
+    const scope = overlayScope();
+    const canvas = scope.querySelector('#sigPadCanvas');
+    const applyBtn = scope.querySelector('#sigPadApply');
     const ctx = canvas.getContext('2d');
     let drawing = false, hasInk = false;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -6499,18 +7516,14 @@ function showSignaturePad({ onApply }) {
     canvas.addEventListener('touchmove', move, { passive: false });
     canvas.addEventListener('touchend', end);
 
-    overlay.querySelector('#sigPadClear').addEventListener('click', () => {
+    scope.querySelector('#sigPadClear').addEventListener('click', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         hasInk = false; applyBtn.disabled = true;
         minX = minY = Infinity; maxX = maxY = -Infinity;
     });
 
-    function close() {
-        overlay.classList.remove('open');
-        setTimeout(() => overlay.remove(), 200);
-    }
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector('#sigPadCancel').addEventListener('click', close);
+    // Cancel is wired in the footerRenderer; backdrop/Esc close is native to
+    // vaadin-dialog. Apply exports the trimmed ink and closes.
     applyBtn.addEventListener('click', () => {
         if (!hasInk) return;
         close();
@@ -6532,6 +7545,7 @@ function showSignaturePad({ onApply }) {
         out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
         return out.toDataURL('image/png');
     }
+    } // end setupPad
 }
 
 function handleSubmit() {
@@ -6712,30 +7726,906 @@ function markFormCreated() {
         list.addEventListener(evt, markFormCreated, { once: false }));
 })();
 
-// ─── Share dialog ───
+// ─── Share dialog (vaadin-dialog) ───
 // Sharing is irreversible (access can't be revoked). Opens from the header's
 // primary Share button; lists the pre-determined parties who gain access.
 (() => {
-    const overlay = document.getElementById('shareOverlay');
+    const dialog = document.getElementById('shareDialog');
     const openBtn = document.getElementById('shareFormBtn');
-    if (!overlay || !openBtn) return;
-    const close = () => { overlay.hidden = true; };
-    openBtn.addEventListener('click', () => { overlay.hidden = false; });
-    document.getElementById('shareModalX').addEventListener('click', close);
-    document.getElementById('shareCancelBtn').addEventListener('click', close);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) close(); });
-    document.getElementById('shareConfirmBtn').addEventListener('click', () => {
-        close();
-        showValidationModal({
-            tone: 'warn',
-            title: 'Evaluation shared',
-            bodyHtml: '<p style="margin-bottom:0;">[Prototype] Access has been granted to the evaluator, evaluee, and reviewer. This can no longer be revoked.</p>',
-            confirmLabel: 'OK',
-            cancelLabel: 'Close',
-            onConfirm: null
+    if (!dialog || !openBtn) return;
+    const close = () => { dialog.opened = false; };
+    dialog.headerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(document.getElementById('shareDialogHeader').content.cloneNode(true));
+        root.querySelector('[data-share-close]').addEventListener('click', close);
+    };
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(document.getElementById('shareDialogBody').content.cloneNode(true));
+    };
+    dialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(document.getElementById('shareDialogFooter').content.cloneNode(true));
+        root.querySelector('[data-share-close]').addEventListener('click', close);
+        root.querySelector('#shareConfirmBtn').addEventListener('click', () => {
+            close();
+            showValidationModal({
+                tone: 'warn',
+                title: 'Evaluation shared',
+                bodyHtml: '<p style="margin-bottom:0;">[Prototype] Access has been granted to the evaluator, evaluee, and reviewer. This can no longer be revoked.</p>',
+                confirmLabel: 'OK',
+                cancelLabel: 'Close',
+                onConfirm: null
+            });
         });
+    };
+    dialog.addEventListener('opened-changed', (e) => { e.detail.value ? ModalScrollLock.push() : ModalScrollLock.pop(); });
+    openBtn.addEventListener('click', () => { dialog.opened = true; });
+})();
+
+// ─── Copy Form dialog (Vector design-system vaadin-dialog) ───
+// vaadin-dialog ignores slotted children, so header/body/footer are built by
+// renderer functions that clone the page's <template>s into the dialog root.
+// Opens from the ⋯ menu's Copy item.
+(() => {
+    const dialog = document.getElementById('copyDialog');
+    const openItem = document.getElementById('copyFormItem');
+    if (!dialog || !openItem) return;
+
+    const headerTpl = document.getElementById('copyDialogHeader');
+    const bodyTpl = document.getElementById('copyDialogBody');
+    const footerTpl = document.getElementById('copyDialogFooter');
+
+    function close() { dialog.opened = false; }
+    // Reference to the rendered body root, so the footer can read its controls.
+    let bodyRoot = null;
+
+    dialog.headerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(headerTpl.content.cloneNode(true));
+        root.querySelector('[data-copy-close]').addEventListener('click', close);
+    };
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(bodyTpl.content.cloneNode(true));
+        bodyRoot = root;
+        // Populate the Evaluee select once its markup is in the dialog.
+        const sel = root.querySelector('#copyEvaluee');
+        if (sel) {
+            sel.items = [
+                { label: 'Austin Smith', value: 'austin' },
+                { label: 'Jordan Lee', value: 'jordan' },
+                { label: 'Priya Nair', value: 'priya' },
+                { label: 'Marcus Webb', value: 'marcus' }
+            ];
+            sel.value = 'austin';
+        }
+    };
+    dialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(footerTpl.content.cloneNode(true));
+        root.querySelector('[data-copy-close]').addEventListener('click', close);
+        root.querySelector('#copyConfirmBtn').addEventListener('click', () => {
+            const del = bodyRoot && bodyRoot.querySelector('#copyDeleteOriginal');
+            const deleteOriginal = !!(del && del.checked);
+            close();
+            showValidationModal({
+                tone: 'warn',
+                title: 'Form copied',
+                bodyHtml: `<p style="margin-bottom:0;">[Prototype] A copy of this evaluation was created${deleteOriginal ? ' and the original was deleted' : ''}. Users are not notified automatically.</p>`,
+                confirmLabel: 'OK',
+                cancelLabel: 'Close',
+                onConfirm: null
+            });
+        });
+    };
+
+    // Lock background scroll while open.
+    dialog.addEventListener('opened-changed', (e) => {
+        e.detail.value ? ModalScrollLock.push() : ModalScrollLock.pop();
     });
+
+    openItem.addEventListener('click', () => { dialog.opened = true; });
+})();
+
+// ─── Quick Search report dialog ───
+// Read-only live-query report launched from the ⋯ menu. Two phases in one
+// dialog: a persistent filter panel, then a 5-column results table built on
+// Generate Report, plus a copy-to-clipboard export. All data is mock; the point
+// is to preserve the real workflow (§2 inputs → §3 columns → §5 copy toggles).
+(() => {
+    const dialog = document.getElementById('quickSearchDialog');
+    const openItem = document.getElementById('quickSearchItem');
+    if (!dialog || !openItem) return;
+
+    const headerTpl = document.getElementById('qsDialogHeader');
+    const bodyTpl = document.getElementById('qsDialogBody');
+
+    function close() { dialog.opened = false; }
+
+    // ── Filter option data ──
+    // Users & Author are chip multi-selects (selectedUserIds / selectedAuthorIds
+    // in §2). "value" doubles as the id used to filter result rows.
+    const USERS = [
+        { label: 'Austin Smith', value: 'austin' },
+        { label: 'Jordan Lee', value: 'jordan' },
+        { label: 'Priya Nair', value: 'priya' },
+        { label: 'Marcus Webb', value: 'marcus' }
+    ];
+    const AUTHORS = [
+        { label: 'Vincent Martinez', value: 'vincent' },
+        { label: 'Dana Whitfield', value: 'dana' },
+        { label: 'Austin Smith', value: 'austin' }
+    ];
+    // Date range types map to a computed start/end hint (§2 dateType → dates).
+    const DATE_RANGES = [
+        { label: 'Current Year', value: 'currentYear', hint: 'Aug 1, 2025 – Jul 31, 2026' },
+        { label: 'Previous Year', value: 'prevYear', hint: 'Aug 1, 2024 – Jul 31, 2025' },
+        { label: 'Last 30 Days', value: 'last30', hint: 'Jun 24, 2026 – Jul 24, 2026' },
+        { label: 'Last 90 Days', value: 'last90', hint: 'Apr 25, 2026 – Jul 24, 2026' },
+        { label: 'All Time', value: 'allTime', hint: 'No date limit' }
+    ];
+    // Checklist-dropdown option sets. "value" doubles as the id for filtering.
+    const FORMS = [
+        { label: 'Performance Standards for Teacher Practice', value: 'perf-standards' },
+        { label: 'Mid-Year Review · 2025–26', value: 'mid-year' },
+        { label: 'End-of-Year Evaluation · 2024–25', value: 'eoy' },
+        { label: 'Walk-through Observation · Oct 2025', value: 'walkthrough' }
+    ];
+    const TAGS = [
+        { label: 'Domain 1: Planning', value: 'd1' },
+        { label: 'Domain 2: Environment', value: 'd2' },
+        { label: 'Domain 3: Instruction', value: 'd3' },
+        { label: 'Domain 4: Professionalism', value: 'd4' },
+        { label: 'Follow-up', value: 'followup' }
+    ];
+    const ELEMENTS = [
+        { label: 'Question Data', value: '1' },
+        { label: 'Question Attachments', value: '2' },
+        { label: 'Form Attachments', value: '3' },
+        { label: 'Annotations', value: '4' },
+        { label: 'Uploaded Files', value: '5' }
+    ];
+    const QTYPES = [
+        { label: 'Text Entry', value: 'text' },
+        { label: 'Single/Multiple Select', value: 'select' },
+        { label: 'Rating Scale', value: 'rating' },
+        { label: 'Pass/Fail', value: 'passfail' },
+        { label: 'Script', value: 'script' },
+        { label: 'Video Tag', value: 'video' },
+        { label: 'Date/Time', value: 'datetime' }
+    ];
+
+    // Filter state — all multi-selects default to "all selected".
+    const state = {
+        users: USERS.map(o => o.value),
+        authors: AUTHORS.map(o => o.value),
+        forms: FORMS.map(o => o.value),
+        tags: TAGS.map(o => o.value),
+        elements: ELEMENTS.map(o => o.value),
+        qtypes: QTYPES.map(o => o.value)
+    };
+
+    // Summary label shown in a dropdown trigger when NOT rendering chips.
+    function summaryLabel(kind, selected, options) {
+        const allDefaults = {
+            tags: 'All Tagged and Untagged Data',
+            elements: 'All Elements',
+            qtypes: 'All Types'
+        };
+        if (selected.length === options.length) return allDefaults[kind] || 'All';
+        if (selected.length === 0) return 'None selected';
+        if (selected.length === 1) {
+            const o = options.find(x => x.value === selected[0]);
+            return o ? o.label : '1 selected';
+        }
+        return `${selected.length} selected`;
+    }
+
+    // ── Mock result rows (§3/§4). Each has the fields the 5 columns read plus
+    //    metadata used for filtering by form/tag/element/question-type. ──
+    const ROWS = [
+        {
+            type: 'rubric', formId: 'perf-standards', qtype: 'text', elements: ['1'],
+            name: 'Performance Standards for Teacher Practice', link: true,
+            question: '1a. Demonstrating Knowledge of Content and Pedagogy',
+            author: 'Vincent Martinez', educator: 'Austin Smith',
+            content: 'The teacher displays extensive knowledge of the important concepts in the discipline and how these relate both to one another and to other disciplines. Planning documents show intentional sequencing that anticipates common student misconceptions and builds prerequisite skills before introducing new content, which was evident across all three observed lessons.',
+            tags: [{ label: 'Domain 1: Planning', req: true }, { label: 'Follow-up', req: false }],
+            tagIds: ['d1', 'followup'], date: 'Mar 12, 2026', sortDate: 20260312
+        },
+        {
+            type: 'rubric', formId: 'perf-standards', qtype: 'rating', elements: ['1'],
+            name: 'Performance Standards for Teacher Practice', link: true,
+            question: '2b. Establishing a Culture for Learning',
+            author: 'Vincent Martinez', educator: 'Austin Smith',
+            content: 'Proficient',
+            tags: [{ label: 'Domain 2: Environment', req: true }],
+            tagIds: ['d2'], date: 'Mar 12, 2026', sortDate: 20260312
+        },
+        {
+            type: 'rubric', formId: 'perf-standards', qtype: 'script', elements: ['1'],
+            name: 'Performance Standards for Teacher Practice', link: true,
+            question: '3c. Engaging Students in Learning',
+            author: 'Vincent Martinez', educator: 'Austin Smith',
+            content: 'Students worked in small groups to analyze primary-source documents; the teacher circulated and posed probing questions rather than supplying answers.',
+            scriptAuthor: 'Vincent Martinez', clip: '04:12 – 07:48',
+            tags: [{ label: 'Domain 3: Instruction', req: true }],
+            tagIds: ['d3'], date: 'Mar 12, 2026', sortDate: 20260312
+        },
+        {
+            type: 'rubric', formId: 'mid-year', qtype: 'text', elements: ['4'],
+            name: 'Mid-Year Review · 2025–26', link: true,
+            question: '4a. Reflecting on Teaching',
+            author: 'Dana Whitfield', educator: 'Austin Smith', annotation: true,
+            content: 'Reviewer note: evidence of consistent self-reflection in journal entries; recommend sharing reflection protocol with the department at the next PLC so other teachers can adopt the same cadence and format.',
+            tags: [{ label: 'Domain 4: Professionalism', req: true }],
+            tagIds: ['d4'], date: 'Jan 28, 2026', sortDate: 20260128
+        },
+        {
+            type: 'attachment', formId: 'perf-standards', qtype: null, elements: ['3', '5'],
+            name: 'lesson-plan-unit-3.pdf', link: true, attachIcon: 'fa-file-pdf',
+            author: 'Austin Smith', educator: 'Austin Smith',
+            content: '', attachDesc: 'Unit 3 lesson plan submitted as supporting evidence for Domain 1.',
+            tags: [{ label: 'Domain 1: Planning', req: false }],
+            tagIds: ['d1'], date: 'Feb 03, 2026', sortDate: 20260203
+        },
+        {
+            type: 'attachment', formId: 'walkthrough', qtype: 'video', elements: ['2', '5'],
+            name: 'classroom-walkthrough.mp4', link: false, attachIcon: 'fa-file-video',
+            author: 'Vincent Martinez', educator: 'Austin Smith',
+            content: '', attachDesc: 'Recorded walk-through segment used to tag engagement evidence.',
+            tags: [{ label: 'Domain 3: Instruction', req: false }, { label: 'Follow-up', req: false }],
+            tagIds: ['d3', 'followup'], date: 'Oct 15, 2025', sortDate: 20251015
+        }
+    ];
+
+    // Copy-to-clipboard field toggles (§5), all on by default.
+    const copyFields = { form: true, question: true, content: true, tags: true };
+    let sortKey = 'date', sortDir = 'desc'; // Tags/Date are the sortable columns.
+
+    let bodyRoot = null;
+
+    // ── Render a checklist dropdown into its .qs-select container ──
+    function renderSelect(container, kind, options, variant) {
+        const trigger = container.querySelector('.qs-select-trigger');
+        const valueEl = container.querySelector('.qs-select-value');
+        const menu = container.querySelector('.qs-menu');
+        const list = container.querySelector('.qs-menu-list');
+
+        // Chip-variant "all selected" / empty labels, per field.
+        const chipAllLabel = { forms: 'All Forms', users: 'All Users', authors: 'All Authors' };
+        const chipEmptyLabel = { forms: 'Select forms', users: 'Select users', authors: 'Select authors' };
+
+        function paintTrigger() {
+            const selected = state[kind];
+            if (variant === 'chips') {
+                // Render chips, collapsing to "All …" when everything is picked.
+                valueEl.innerHTML = '';
+                if (selected.length === options.length) {
+                    valueEl.appendChild(makeChip('all', chipAllLabel[kind] || 'All'));
+                } else if (selected.length === 0) {
+                    const ph = document.createElement('span');
+                    ph.className = 'qs-select-placeholder';
+                    ph.textContent = chipEmptyLabel[kind] || 'Select…';
+                    valueEl.appendChild(ph);
+                } else {
+                    selected.forEach(v => {
+                        const o = options.find(x => x.value === v);
+                        if (o) valueEl.appendChild(makeChip(v, o.label));
+                    });
+                }
+            } else {
+                valueEl.textContent = summaryLabel(kind, selected, options);
+            }
+        }
+
+        function makeChip(value, label) {
+            const chip = document.createElement('span');
+            chip.className = 'qs-chip';
+            chip.innerHTML = `<span class="qs-chip-label">${escapeHtml(label)}</span>` +
+                `<span class="qs-chip-x" title="Remove"><i class="fa-solid fa-xmark"></i></span>`;
+            chip.querySelector('.qs-chip-x').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (value === 'all') { state[kind] = []; }
+                else { state[kind] = state[kind].filter(v => v !== value); }
+                paintTrigger();
+                paintMenu();
+            });
+            return chip;
+        }
+
+        function paintMenu() {
+            list.innerHTML = '';
+            // "Select all" convenience row.
+            const allBtn = document.createElement('button');
+            allBtn.type = 'button';
+            allBtn.className = 'qs-option' + (state[kind].length === options.length ? ' selected' : '');
+            allBtn.innerHTML = `<span class="qs-option-check"><i class="fa-solid fa-check"></i></span><span>(Select all)</span>`;
+            allBtn.addEventListener('click', () => {
+                state[kind] = state[kind].length === options.length ? [] : options.map(o => o.value);
+                paintTrigger(); paintMenu();
+            });
+            list.appendChild(allBtn);
+            const div = document.createElement('div');
+            div.className = 'qs-menu-divider';
+            list.appendChild(div);
+
+            options.forEach(o => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const on = state[kind].includes(o.value);
+                btn.className = 'qs-option' + (on ? ' selected' : '');
+                btn.innerHTML = `<span class="qs-option-check"><i class="fa-solid fa-check"></i></span><span>${escapeHtml(o.label)}</span>`;
+                btn.addEventListener('click', () => {
+                    if (on) state[kind] = state[kind].filter(v => v !== o.value);
+                    else state[kind] = [...state[kind], o.value];
+                    paintTrigger(); paintMenu();
+                });
+                list.appendChild(btn);
+            });
+        }
+
+        // Position the fixed menu under (or above) its trigger, clamped to the
+        // viewport so it never gets clipped by the dialog edge.
+        function positionQsMenu() {
+            const b = trigger.getBoundingClientRect();
+            menu.style.minWidth = b.width + 'px';
+            // Measure after min-width is applied.
+            const m = menu.getBoundingClientRect();
+            const gap = 4;
+            const spaceBelow = window.innerHeight - b.bottom;
+            const top = (spaceBelow < m.height + gap && b.top > m.height + gap)
+                ? b.top - m.height - gap : b.bottom + gap;
+            const left = Math.max(8, Math.min(b.left, window.innerWidth - m.width - 8));
+            menu.style.top = top + 'px';
+            menu.style.left = left + 'px';
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = !menu.hidden;
+            // Close any other open dropdown first.
+            bodyRoot.querySelectorAll('.qs-select.open').forEach(s => {
+                if (s !== container) { s.classList.remove('open'); s.querySelector('.qs-menu').hidden = true; }
+            });
+            menu.hidden = isOpen;
+            container.classList.toggle('open', !isOpen);
+            if (!menu.hidden) positionQsMenu();
+        });
+        menu.addEventListener('click', (e) => e.stopPropagation());
+        // Reposition on scroll/resize while open (menu is viewport-fixed).
+        window.addEventListener('scroll', () => { if (!menu.hidden) positionQsMenu(); }, true);
+        window.addEventListener('resize', () => { if (!menu.hidden) positionQsMenu(); });
+
+        paintTrigger();
+        paintMenu();
+    }
+
+    // Name → id lookups so rows (which carry display names) can be filtered by
+    // the id-based Users / Author selections.
+    const AUTHOR_ID = Object.fromEntries(AUTHORS.map(o => [o.label, o.value]));
+    const USER_ID = Object.fromEntries(USERS.map(o => [o.label, o.value]));
+    const CURRENT_USER_ID = 'austin'; // login.getSubjectId() equivalent (§2).
+
+    // ── Build the results table for the current filter state ──
+    function matches(row) {
+        if (!state.forms.includes(row.formId)) return false;
+        // Author: keep rows whose author is in the selection (all selected → keep all).
+        const aId = AUTHOR_ID[row.author];
+        if (aId && !state.authors.includes(aId)) return false;
+        // Users (target/educator): keep rows whose educator is in the selection.
+        const uId = USER_ID[row.educator];
+        if (uId && !state.users.includes(uId)) return false;
+        // Tags: keep rows that share at least one selected tag (all selected → keep all).
+        if (state.tags.length && !row.tagIds.some(t => state.tags.includes(t))) return false;
+        // Data elements: row must contribute at least one selected element.
+        if (!row.elements.some(el => state.elements.includes(el))) return false;
+        // Question types: attachments with no question always pass (§6).
+        if (row.qtype && !state.qtypes.includes(row.qtype)) return false;
+        // Exclude self-authored: drop rows the current user authored.
+        const excludeSelf = bodyRoot.querySelector('#qsExcludeSelf');
+        if (excludeSelf && excludeSelf.checked && AUTHOR_ID[row.author] === CURRENT_USER_ID) return false;
+        return true;
+    }
+
+    function tagsHtml(row) {
+        return `<div class="qs-tag-list">` + row.tags.map(t =>
+            `<span class="qs-tag${t.req ? '' : ' qs-tag-optional'}">${escapeHtml(t.label)}</span>`
+        ).join('') + `</div>`;
+    }
+
+    function contentHtml(row) {
+        if (row.type === 'attachment') {
+            return `<div class="qs-attach-inline"><i class="fa-solid ${row.attachIcon}"></i>` +
+                `<span>${escapeHtml(row.name)}</span></div>` +
+                (row.attachDesc ? `<div class="qs-attach-desc">${escapeHtml(row.attachDesc)}</div>` : '');
+        }
+        const LIMIT = 500;
+        const long = row.content.length > LIMIT;
+        const shown = long ? row.content.slice(0, LIMIT) : row.content;
+        let html = '';
+        if (row.annotation) html += `<span class="qs-annotation-prefix">Annotation: </span>`;
+        html += escapeHtml(shown);
+        if (long) html += `… <span class="qs-content-more" data-full="1">(More)</span>`;
+        if (row.scriptAuthor) {
+            html += `<div class="qs-agg-meta">by ${escapeHtml(row.scriptAuthor)} · ${escapeHtml(row.clip)}</div>`;
+        }
+        return html;
+    }
+
+    function sortRows(rows) {
+        const dir = sortDir === 'asc' ? 1 : -1;
+        return rows.slice().sort((a, b) => {
+            if (sortKey === 'date') return (a.sortDate - b.sortDate) * dir;
+            // Tags: sort by first tag label.
+            const at = a.tags[0] ? a.tags[0].label : '';
+            const bt = b.tags[0] ? b.tags[0].label : '';
+            return at.localeCompare(bt) * dir;
+        });
+    }
+
+    // Generate click → show an indeterminate progress bar briefly, then render
+    // the table. Simulates the live-query round-trip. Sorting re-renders the
+    // table directly (no spinner) via renderResults().
+    let loadTimer = null;
+    function runReport() {
+        const loading = bodyRoot.querySelector('#qsLoading');
+        const host = bodyRoot.querySelector('#qsResults');
+        if (loadTimer) clearTimeout(loadTimer);
+        host.hidden = true;
+        loading.hidden = false;
+        loadTimer = setTimeout(() => {
+            loading.hidden = true;
+            renderResults();
+        }, 800);
+    }
+
+    function renderResults() {
+        const host = bodyRoot.querySelector('#qsResults');
+        host.hidden = false;
+        const rows = sortRows(ROWS.filter(matches));
+
+        if (!rows.length) {
+            host.innerHTML =
+                `<div class="qs-table-wrap"><div class="qs-empty">` +
+                `<i class="fa-solid fa-magnifying-glass"></i>` +
+                `No data found for report specification.</div></div>` +
+                `<div class="qs-results-footnote">*Results display only tags selected from filters.</div>`;
+            return;
+        }
+
+        const caret = (key) => sortKey === key
+            ? (sortDir === 'asc' ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short')
+            : 'fa-sort';
+
+        host.innerHTML = `
+            <div class="qs-results-head">
+                <span class="qs-results-count"><strong>${rows.length}</strong> result${rows.length === 1 ? '' : 's'}</span>
+                <div class="qs-copy-wrap">
+                    <vaadin-button theme="secondary" id="qsCopyBtn">
+                        <i class="fa-solid fa-clipboard" slot="prefix"></i> Copy to Clipboard
+                    </vaadin-button>
+                    <div class="qs-copy-menu" id="qsCopyMenu" hidden>
+                        <p class="qs-copy-menu-title">Fields to copy</p>
+                        <div class="qs-copy-fields">
+                            <vaadin-checkbox data-copy-field="form" ${copyFields.form ? 'checked' : ''} label="Form"></vaadin-checkbox>
+                            <vaadin-checkbox data-copy-field="question" ${copyFields.question ? 'checked' : ''} label="Question"></vaadin-checkbox>
+                            <vaadin-checkbox data-copy-field="content" ${copyFields.content ? 'checked' : ''} label="Content"></vaadin-checkbox>
+                            <vaadin-checkbox data-copy-field="tags" ${copyFields.tags ? 'checked' : ''} label="Tags"></vaadin-checkbox>
+                        </div>
+                        <vaadin-button theme="primary" id="qsCopyConfirm" style="width:100%;">
+                            <i class="fa-solid fa-copy" slot="prefix"></i> Copy selected
+                        </vaadin-button>
+                    </div>
+                </div>
+            </div>
+            <div class="qs-table-wrap">
+                <table class="qs-table">
+                    <thead>
+                        <tr>
+                            <th class="qs-th-select"><input type="checkbox" id="qsSelectAll" aria-label="Select all rows"></th>
+                            <th>Form / Question / Author / Educator</th>
+                            <th>Content</th>
+                            <th><button type="button" class="qs-sort-btn" data-sort="tags">Tags <i class="fa-solid ${caret('tags')}"></i></button></th>
+                            <th><button type="button" class="qs-sort-btn" data-sort="date">Date <i class="fa-solid ${caret('date')}"></i></button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map((r, i) => `
+                            <tr>
+                                <td class="qs-td-select">${r.type === 'attachment' ? '' : `<input type="checkbox" class="qs-row-check" data-row="${i}" aria-label="Select row">`}</td>
+                                <td>
+                                    <div class="qs-agg-name">${r.link ? `<a href="javascript:void(0)">${escapeHtml(r.name)}</a>` : escapeHtml(r.name)}</div>
+                                    ${r.question ? `<div class="qs-agg-q">${escapeHtml(r.question)}</div>` : ''}
+                                    <div class="qs-agg-meta">by ${escapeHtml(r.author)} · for ${escapeHtml(r.educator)}</div>
+                                </td>
+                                <td class="qs-content-cell">${contentHtml(r)}</td>
+                                <td>${tagsHtml(r)}</td>
+                                <td style="white-space:nowrap;">${escapeHtml(r.date)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="qs-results-footnote">*Results display only tags selected from filters.</div>
+        `;
+
+        // "(More)" expanders.
+        host.querySelectorAll('.qs-content-more').forEach(el => {
+            el.addEventListener('click', () => {
+                const idx = [...host.querySelectorAll('.qs-content-cell')].indexOf(el.closest('.qs-content-cell'));
+                const row = rows[idx];
+                el.closest('.qs-content-cell').innerHTML =
+                    (row.annotation ? `<span class="qs-annotation-prefix">Annotation: </span>` : '') + escapeHtml(row.content) +
+                    (row.scriptAuthor ? `<div class="qs-agg-meta">by ${escapeHtml(row.scriptAuthor)} · ${escapeHtml(row.clip)}</div>` : '');
+            });
+        });
+
+        // Sortable headers (Tags / Date).
+        host.querySelectorAll('.qs-sort-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.dataset.sort;
+                if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                else { sortKey = key; sortDir = 'asc'; }
+                renderResults();
+            });
+        });
+
+        // Select-all checkbox.
+        const selectAll = host.querySelector('#qsSelectAll');
+        selectAll.addEventListener('change', () => {
+            host.querySelectorAll('.qs-row-check').forEach(cb => { cb.checked = selectAll.checked; });
+        });
+
+        // Copy-to-clipboard menu.
+        const copyBtn = host.querySelector('#qsCopyBtn');
+        const copyMenu = host.querySelector('#qsCopyMenu');
+        copyBtn.addEventListener('click', (e) => { e.stopPropagation(); copyMenu.hidden = !copyMenu.hidden; });
+        copyMenu.addEventListener('click', (e) => e.stopPropagation());
+        copyMenu.querySelectorAll('[data-copy-field]').forEach(cb => {
+            cb.addEventListener('change', () => { copyFields[cb.dataset.copyField] = cb.checked; });
+        });
+        host.querySelector('#qsCopyConfirm').addEventListener('click', () => {
+            const selected = [...host.querySelectorAll('.qs-row-check')].filter(cb => cb.checked)
+                .map(cb => rows[+cb.dataset.row]);
+            const target = selected.length ? selected : rows.filter(r => r.type !== 'attachment');
+            const lines = target.map(r => {
+                const parts = [];
+                if (copyFields.form) parts.push(r.name);
+                if (copyFields.question && r.question) parts.push(r.question);
+                if (copyFields.content) parts.push(r.type === 'attachment' ? r.attachDesc : r.content);
+                if (copyFields.tags) parts.push(r.tags.map(t => t.label).join(', '));
+                return parts.join('\t');
+            });
+            const text = lines.join('\n');
+            if (navigator.clipboard && text) navigator.clipboard.writeText(text).catch(() => {});
+            copyMenu.hidden = true;
+            showValidationModal({
+                tone: 'warn',
+                title: 'Copied to clipboard',
+                bodyHtml: `<p style="margin-bottom:0;">[Prototype] Copied ${target.length} row${target.length === 1 ? '' : 's'} (${Object.keys(copyFields).filter(k => copyFields[k]).join(', ')}).</p>`,
+                confirmLabel: 'OK', cancelLabel: 'Close', onConfirm: null
+            });
+        });
+    }
+
+    // ── Dialog renderers ──
+    dialog.headerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(headerTpl.content.cloneNode(true));
+        root.querySelector('[data-qs-close]').addEventListener('click', close);
+    };
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(bodyTpl.content.cloneNode(true));
+        bodyRoot = root;
+
+        // Date Range (single-select) + computed range hint.
+        const dr = root.querySelector('#qsDateRange');
+        dr.items = DATE_RANGES.map(d => ({ label: d.label, value: d.value }));
+        dr.value = 'currentYear';
+        const hint = root.querySelector('#qsDateHint');
+        dr.addEventListener('value-changed', () => {
+            const found = DATE_RANGES.find(d => d.value === dr.value);
+            if (found) hint.textContent = found.hint;
+        });
+
+        // Chip multi-selects.
+        renderSelect(root.querySelector('[data-qs-select="users"]'), 'users', USERS, 'chips');
+        renderSelect(root.querySelector('[data-qs-select="authors"]'), 'authors', AUTHORS, 'chips');
+        renderSelect(root.querySelector('[data-qs-select="forms"]'), 'forms', FORMS, 'chips');
+        // Summary-label checklist dropdowns.
+        renderSelect(root.querySelector('[data-qs-select="tags"]'), 'tags', TAGS);
+        renderSelect(root.querySelector('[data-qs-select="elements"]'), 'elements', ELEMENTS);
+        renderSelect(root.querySelector('[data-qs-select="qtypes"]'), 'qtypes', QTYPES);
+
+        // Close any open dropdown / copy menu when clicking elsewhere in the body.
+        root.addEventListener('click', () => {
+            root.querySelectorAll('.qs-select.open').forEach(s => {
+                s.classList.remove('open'); s.querySelector('.qs-menu').hidden = true;
+            });
+            const cm = root.querySelector('#qsCopyMenu');
+            if (cm) cm.hidden = true;
+        });
+
+        root.querySelector('#qsGenerateBtn').addEventListener('click', runReport);
+    };
+
+    dialog.addEventListener('opened-changed', (e) => {
+        e.detail.value ? ModalScrollLock.push() : ModalScrollLock.pop();
+    });
+
+    openItem.addEventListener('click', () => { dialog.opened = true; });
+})();
+
+// ─── Form Change Log dialog ───
+// Launched from the ⋯ menu's Log item. Read-only history of the record: a
+// shared header (§3) above two tabs — Edits and Access (§4). All data is mock;
+// the goal is to represent the real entry shapes, coded values (act/type/
+// source/reason), the "X AS Y" editor resolution, and the access-tab
+// completeness warnings.
+(() => {
+    const dialog = document.getElementById('changeLogDialog');
+    const openItem = document.getElementById('changeLogItem');
+    if (!dialog || !openItem) return;
+
+    const headerTpl = document.getElementById('clDialogHeader');
+    const bodyTpl = document.getElementById('clDialogBody');
+    const close = () => { dialog.opened = false; };
+
+    // Shared-header values (§3) — sourced from the Userdata record, not the log.
+    const HEADER = [
+        { label: 'Name', value: 'Performance Standards for Teacher Practice' },
+        { label: 'Author', value: 'Vincent Martinez' },
+        { label: 'Evaluee', value: 'Austin Smith' },
+        { label: 'Date', value: 'Mar 12, 2026' },
+        { label: 'Created', value: 'Mar 1, 2026' },
+        { label: 'Last Modified', value: 'Jul 9, 2026 7:43 AM CDT' }
+    ];
+    // Form date used for the pre-2012 warning gate (§3).
+    const FORM_CREATED = new Date('2026-03-01');
+
+    // Source code → displayed label (§5 Source).
+    const SOURCE = { 0: 'WEB', 1: 'SYNC', 2: 'AUTO-GENERATED', 3: 'RESTORE', 4: 'RESTORE', 5: 'MOBILE API' };
+    // Reason code → label (§5 Reason); shown only when reason > 0.
+    const REASON = { 1: 'Already Signed', 2: 'Newer Edits Made' };
+    // Action verb (§5 Action) + the icon/tint bucket used by getTextStyleClass.
+    const ACT = {
+        0: { verb: 'Added', cls: 'add', icon: 'fa-plus' },
+        1: { verb: 'Updated', cls: 'update', icon: 'fa-pen' },
+        2: { verb: 'Deleted', cls: 'delete', icon: 'fa-trash' },
+        4: { verb: 'Opened', cls: 'access', icon: 'fa-eye' },
+        5: { verb: 'Rejected', cls: 'delete', icon: 'fa-ban' }
+    };
+
+    // Editor name resolution (§6): "X AS Y" when a different logged-in user
+    // acted on the target's behalf; root editors show as the support-agent name.
+    // Editor name resolution (§6): "X AS Y" when a different logged-in user
+    // acted for the target; root editors show as the support-agent name.
+    function editorHtml(e) {
+        const name = e.editorIsRoot ? 'Vector Solutions Support Agent' : e.editor;
+        if (e.actingAs && e.actingAs !== name) {
+            return `<span class="cl-legend-editor">${escapeHtml(name)}</span>` +
+                `<span class="cl-legend-as"> AS ${escapeHtml(e.actingAs)}</span>`;
+        }
+        return `<span class="cl-legend-editor">${escapeHtml(name)}</span>`;
+    }
+
+    // Single-line legend that sits in the entry's top border (legacy fieldset):
+    //   {Verb} · {Date} · {SOURCE} · {Editor}  (+ reason when present)
+    function legendHtml(e, act) {
+        const sep = `<span class="cl-legend-sep">·</span>`;
+        const reason = e.reason && REASON[e.reason]
+            ? sep + `<span class="cl-legend-reason">${escapeHtml(REASON[e.reason])}</span>` : '';
+        const verb = act ? `<span class="cl-legend-verb ${act.cls}">${act.verb}</span>` : '';
+        return `<span class="cl-entry-legend">` +
+            (verb ? verb + sep : '') +
+            `<span>${escapeHtml(e.created)}</span>${sep}` +
+            `<span class="cl-legend-source">${SOURCE[e.source] ?? 'WEB'}</span>${sep}` +
+            editorHtml(e) + reason +
+            `</span>`;
+    }
+
+    // ── Mock EDITS entries — one per display group (§4a) + per-type answers ──
+    const EDITS = [
+        // Question entry — rich-text answer.
+        {
+            group: 'question', act: 1, type: 'Question', qType: 'Text Entry',
+            question: '1a. Demonstrating Knowledge of Content and Pedagogy',
+            body: 'The teacher displays extensive knowledge of the important concepts in the discipline and how these relate to one another.',
+            editor: 'Vincent Martinez', source: 0, created: 'Jul 9, 2026 7:43 AM CDT'
+        },
+        // Question entry — rating (value → rating text).
+        {
+            group: 'question', act: 1, type: 'Question', qType: 'Rating Scale',
+            question: '2b. Establishing a Culture for Learning',
+            body: 'Proficient', editor: 'Vincent Martinez', source: 0, created: 'Jul 9, 2026 7:41 AM CDT'
+        },
+        // Question entry — annotation.
+        {
+            group: 'question', act: 0, type: 'Question', qType: 'Text Entry', annotation: true,
+            question: '4a. Reflecting on Teaching',
+            body: 'Evidence of consistent self-reflection in journal entries.',
+            editor: 'Dana Whitfield', source: 0, created: 'Jun 2, 2026 8:16 AM CDT'
+        },
+        // Question entry — note/comment with video clip range.
+        {
+            group: 'question', act: 0, type: 'Tags', qType: 'Video Tag',
+            question: '3c. Engaging Students in Learning',
+            body: 'Comment: strong student-to-student discourse here.', clip: '04:12 – 07:48',
+            editor: 'Vincent Martinez', source: 5, created: 'Jun 2, 2026 8:10 AM CDT'
+        },
+        // Question entry — Duration answer (renders in a nested value box).
+        {
+            group: 'question', act: 0, type: 'Question', qType: 'Duration', duration: true,
+            question: 'Duration Entry',
+            body: '45 minutes', editor: 'Austin Smith', source: 0, created: 'Jul 9, 2026 7:40 AM CDT'
+        },
+        // Short heading — Sharing On/Off (int_value).
+        {
+            group: 'short', act: 1, type: 'Sharing', value: 'On', valueOn: true,
+            editor: 'Vincent Martinez', source: 0, created: 'Jun 1, 2026 3:20 PM CDT'
+        },
+        // Short heading — Elapsed Time (timer format).
+        {
+            group: 'short', act: 1, type: 'Elapsed Time', value: '00:42:15',
+            editor: 'Vincent Martinez', source: 0, created: 'Jun 1, 2026 3:19 PM CDT'
+        },
+        // Short heading — State (archived → Delete/Un-Delete), with reason.
+        {
+            group: 'short', act: 2, type: 'State', value: 'Delete', reason: 2,
+            editor: 'Austin Smith', source: 0, created: 'May 28, 2026 11:06 AM CDT'
+        },
+        // Short heading + detail — Attach (int_value + detail line).
+        {
+            group: 'detail', act: 0, type: 'Attach', value: 'Attached',
+            detail: 'lesson-plan-unit-3.pdf · added Feb 3, 2026', detailIcon: 'fa-paperclip',
+            editor: 'Austin Smith', source: 0, created: 'Feb 3, 2026 9:02 AM CST'
+        },
+        // Short heading + detail — Copied (clone).
+        {
+            group: 'detail', act: 0, type: 'Copied', value: 'From “Mid-Year Review · 2025–26”',
+            detail: 'Cloned with all author responses', detailIcon: 'fa-copy',
+            editor: 'Vincent Martinez', source: 0, created: 'Mar 1, 2026 8:00 AM CST'
+        },
+        // Long heading — Name change (full text value).
+        {
+            group: 'long', act: 1, type: 'Name',
+            body: 'Performance Standards for Teacher Practice',
+            editor: 'Vincent Martinez', source: 0, created: 'Mar 1, 2026 7:59 AM CST'
+        },
+        // Attachment block — attached-record name/description.
+        {
+            group: 'attach', act: 1, type: 'Description', state: 'Updated',
+            attachName: 'classroom-walkthrough.mp4',
+            attachDesc: 'Recorded walk-through segment used to tag engagement evidence.',
+            editor: 'Vincent Martinez', source: 5, created: 'Oct 15, 2025 1:14 PM CDT'
+        }
+    ];
+
+    // ── Mock ACCESS entries (§4b) — OPEN_* types only ──
+    const ACCESS = [
+        { type: 'Created', icon: 'fa-file-circle-plus', editor: 'Vincent Martinez', source: 0, created: 'Mar 1, 2026 7:58 AM CST' },
+        { type: 'Opened', icon: 'fa-folder-open', editor: 'Vincent Martinez', source: 0, created: 'Mar 12, 2026 9:30 AM CDT' },
+        { type: 'Opened', icon: 'fa-folder-open', editor: 'Dana Whitfield', source: 0, created: 'Jun 2, 2026 8:05 AM CDT' },
+        { type: 'Viewed PDF', icon: 'fa-file-pdf', editor: 'Austin Smith', source: 0, created: 'Jun 5, 2026 4:12 PM CDT' },
+        { type: 'Viewed', icon: 'fa-print', editor: 'Dana Whitfield', editorIsRoot: false, actingAs: 'Austin Smith', source: 5, created: 'Jul 9, 2026 7:50 AM CDT' }
+    ];
+
+    // Helper: a "Label: value" body line.
+    function line(label, valueHtml, opts = {}) {
+        return `<div class="cl-line">` +
+            `<span class="cl-line-label">${escapeHtml(label)}:</span>` +
+            `<span class="cl-line-value">${valueHtml}</span>` +
+            (opts.qtype ? ` <span class="cl-line-qtype">(${escapeHtml(opts.qtype)})</span>` : '') +
+            `</div>`;
+    }
+
+    // ── Render one Edits entry per its display group (§4a) ──
+    // Structure matches the legacy fieldset: a legend line in the top border,
+    // then label:value body lines inside (no icons / pills / meta rail).
+    function renderEditEntry(e) {
+        const act = ACT[e.act] || ACT[1];
+        let body = '';
+
+        if (e.group === 'question') {
+            // Question: {title} ({type}) then {Type}: {answer} — or a nested box
+            // for annotations / duration / long answers.
+            body = line('Question', escapeHtml(e.question), { qtype: e.qType });
+            const boxed = e.annotation || e.duration || (e.body && e.body.length > 80);
+            if (boxed) {
+                body += `<div class="cl-value-box${e.annotation ? ' annotation' : ''}">` +
+                    `${e.annotation ? '<strong>Annotation — </strong>' : ''}${escapeHtml(e.body)}</div>`;
+            } else {
+                body += line(e.qType, escapeHtml(e.body));
+            }
+            if (e.clip) body += `<div class="cl-clip">⏱ Clip ${escapeHtml(e.clip)}</div>`;
+        } else if (e.group === 'short') {
+            body = line(e.type, escapeHtml(e.value || ''));
+        } else if (e.group === 'detail') {
+            body = line(e.type, escapeHtml(e.value || '')) +
+                `<div class="cl-detail-line"><i class="fa-solid ${e.detailIcon || 'fa-circle-info'}"></i>${escapeHtml(e.detail)}</div>`;
+        } else if (e.group === 'long') {
+            body = `<div class="cl-value-box">${escapeHtml(e.body)}</div>`;
+        } else if (e.group === 'attach') {
+            body = line(e.type, escapeHtml(e.state || 'Updated')) +
+                `<div class="cl-detail-line"><i class="fa-solid fa-paperclip"></i>${escapeHtml(e.attachName)}</div>` +
+                (e.attachDesc ? `<div class="cl-value-box">${escapeHtml(e.attachDesc)}</div>` : '');
+        }
+
+        return `<div class="cl-entry">${legendHtml(e, act)}${body}</div>`;
+    }
+
+    // Access entries use the short-heading shape: the access type leads the
+    // legend line (as the "verb"), tinted purple like an access event.
+    function renderAccessEntry(e) {
+        const act = { verb: e.type, cls: 'access' };
+        return `<div class="cl-entry cl-entry-access">${legendHtml(e, act)}</div>`;
+    }
+
+    function render(root) {
+        // Header (§3).
+        const grid = root.querySelector('#clHeaderGrid');
+        grid.innerHTML = HEADER.map(h =>
+            `<div class="cl-header-item"><div class="cl-header-label">${escapeHtml(h.label)}</div>` +
+            `<div class="cl-header-value">${escapeHtml(h.value)}</div></div>`
+        ).join('');
+
+        // Pre-2012 logging warning gate.
+        root.querySelector('#clDateWarning').hidden = FORM_CREATED >= new Date('2012-11-19');
+
+        // Tab counts.
+        root.querySelector('#clEditsCount').textContent = EDITS.length;
+        root.querySelector('#clAccessCount').textContent = ACCESS.length;
+
+        // Edits panel.
+        const editsPanel = root.querySelector('#clPanelEdits');
+        editsPanel.innerHTML = EDITS.length
+            ? `<div class="cl-entries">${EDITS.map(renderEditEntry).join('')}</div>`
+            : `<div class="cl-empty"><i class="fa-solid fa-pen-slash"></i>No edits recorded for this record.</div>`;
+
+        // Access panel — with completeness warnings (§4b).
+        const accessPanel = root.querySelector('#clPanelAccess');
+        let accessHtml = '';
+        if (!ACCESS.length) {
+            accessHtml = `<div class="cl-empty"><i class="fa-solid fa-eye-slash"></i>No access log available for this record.</div>`;
+        } else {
+            const hasCreate = ACCESS.some(a => a.type === 'Created');
+            if (!hasCreate) {
+                accessHtml += `<div class="cl-tab-warning"><i class="fa-solid fa-triangle-exclamation"></i>` +
+                    `<span>Incomplete access log — the record's creation event was not captured.</span></div>`;
+            }
+            accessHtml += `<div class="cl-entries">${ACCESS.map(renderAccessEntry).join('')}</div>`;
+        }
+        accessPanel.innerHTML = accessHtml;
+
+        // Tab switching.
+        const tabs = root.querySelectorAll('.cl-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.toggle('active', t === tab));
+                const which = tab.dataset.clTab;
+                editsPanel.hidden = which !== 'edits';
+                accessPanel.hidden = which !== 'access';
+            });
+        });
+    }
+
+    dialog.headerRenderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(headerTpl.content.cloneNode(true));
+        root.querySelector('[data-cl-close]').addEventListener('click', close);
+    };
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;
+        root.appendChild(bodyTpl.content.cloneNode(true));
+        render(root);
+    };
+    dialog.addEventListener('opened-changed', (e) => {
+        e.detail.value ? ModalScrollLock.push() : ModalScrollLock.pop();
+    });
+    openItem.addEventListener('click', () => { dialog.opened = true; });
 })();
 
 // ─── Draggable timer widget ───
@@ -6781,17 +8671,73 @@ function markFormCreated() {
     handle.addEventListener('pointercancel', end);
 })();
 
-// ─── Compare Forms dropdown + split view ───
+// ─── Shared split view ───
+// The right pane is shared by BOTH "Compare Forms" and attachment Preview — only
+// one may be active at a time (opening one closes the other). Compare renders a
+// cloned form list; preview renders custom content and relabels the pane badge.
+const SplitView = (() => {
+    const split = document.getElementById('splitContainer');
+    const pane = document.getElementById('comparePane');
+    const title = document.getElementById('comparePaneTitle');
+    const badge = pane && pane.querySelector('.pane-header-badge-compare');
+    const app = pane && pane.querySelector('.app');
+    const sideToggle = document.getElementById('paneSideToggle');
+    const badgeDefault = badge ? badge.innerHTML : '';
+    const appDefault = app ? app.innerHTML : '';   // the compare progress + list
+    let onClose = null;
+
+    // ── Side control (which side of the original form the pane sits on) ──
+    // Toggling adds/removes `.side-left`; the button label mirrors the action
+    // (it always offers to move to the OTHER side).
+    function paintSideToggle() {
+        if (!sideToggle) return;
+        const onLeft = split.classList.contains('side-left');
+        sideToggle.querySelector('.pane-side-label').textContent = onLeft ? 'Move right' : 'Move left';
+        sideToggle.querySelector('i').className = onLeft ? 'fa-solid fa-arrow-right' : 'fa-solid fa-arrow-left';
+    }
+    function toggleSide() { split.classList.toggle('side-left'); paintSideToggle(); }
+    if (sideToggle) sideToggle.addEventListener('click', toggleSide);
+
+    function activate(label, badgeHtml) {
+        split.classList.add('compare-active');
+        split.style.setProperty('--primary-pct', '50%');
+        if (title) title.textContent = label;
+        if (badge && badgeHtml != null) badge.innerHTML = badgeHtml;
+        paintSideToggle();
+    }
+    // Compare mode: restore the pane's original form-list markup, then let the
+    // caller populate #compareFormList.
+    function openForm(label, fill) {
+        onClose = null;
+        if (app) app.innerHTML = appDefault;
+        if (badge) badge.innerHTML = badgeDefault;
+        activate(label, null);
+        fill && fill();
+    }
+    // Preview mode: replace the pane body with custom content.
+    function openCustom(label, badgeHtml, contentHtml, closeCb) {
+        if (app) app.innerHTML = contentHtml;
+        activate(label, badgeHtml);
+        onClose = closeCb || null;
+    }
+    function close() {
+        split.classList.remove('compare-active');
+        split.classList.remove('side-left');   // reset side for next open
+        if (app) app.innerHTML = appDefault;   // reset to compare's form-list shell
+        if (badge) badge.innerHTML = badgeDefault;
+        const cb = onClose; onClose = null;
+        cb && cb();
+    }
+    function isActive() { return split.classList.contains('compare-active'); }
+    return { openForm, openCustom, close, isActive };
+})();
+
+// ─── Compare Forms dropdown ───
 (() => {
     const btn = document.getElementById('compareFormsBtn');
     const menu = document.getElementById('compareMenu');
     const split = document.getElementById('splitContainer');
     const divider = document.getElementById('splitDivider');
-    const compareTitle = document.getElementById('comparePaneTitle');
-    const compareFormList = document.getElementById('compareFormList');
-    const compareOverallCount = document.getElementById('compareOverallCount');
-    const compareOverallFill = document.getElementById('compareOverallFill');
-    const exitBtn = document.getElementById('exitCompareBtn');
     if (!btn || !menu || !split || !divider) return;
 
     function openMenu() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
@@ -6814,23 +8760,16 @@ function markFormCreated() {
         });
     });
 
-    exitBtn.addEventListener('click', exitCompareMode);
+    // The pane's close button (delegated — the header is re-rendered per mode).
+    split.addEventListener('click', (e) => {
+        if (e.target.closest('#exitCompareBtn')) SplitView.close();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SplitView.isActive()) SplitView.close(); });
 
     function enterCompareMode(formName) {
-        compareTitle.textContent = formName;
-        split.classList.add('compare-active');
-        // Default to 50/50
-        split.style.setProperty('--primary-pct', '50%');
-
-        // Render an independent clone of the form into the compare pane.
-        // We reuse renderQuestion with the same items array but write into a
-        // different host, so state is not shared with the primary form.
-        renderCompareList();
-    }
-
-    function exitCompareMode() {
-        split.classList.remove('compare-active');
-        compareFormList.innerHTML = '';
+        // Reuses renderQuestion with a cloned items array into #compareFormList;
+        // SplitView.openForm restores the pane's form-list shell first.
+        SplitView.openForm(formName, renderCompareList);
     }
 
     // Build the compare pane's items independently of the primary form's
@@ -6838,6 +8777,10 @@ function markFormCreated() {
     // pre-fill ratings to a plausible "previous evaluation" snapshot so
     // the comparison visibly differs from the primary pane.
     function renderCompareList() {
+        // These live inside the pane's restored .app markup — re-query by id.
+        const compareFormList = document.getElementById('compareFormList');
+        const compareOverallCount = document.getElementById('compareOverallCount');
+        const compareOverallFill = document.getElementById('compareOverallFill');
         const d1 = DOMAINS[0];
         const sampleComponent = d1.indicators[0].components[0];
         const items = [
@@ -6932,6 +8875,245 @@ function markFormCreated() {
     });
 })();
 
+// ─── Attachment detail panel ───
+// Right-side overlay drawer for creating/editing an attachment's metadata (name,
+// description, tags, and the question it's attached to). Completed by "Add to
+// form". Opens as a NEW draft (from a source pick) or to EDIT an existing record.
+const AttachPanel = (() => {
+    const host = document.getElementById('attachHost');
+    const drawer = document.getElementById('attachDrawer');
+    const nameEl = document.getElementById('attachName');
+    const descEl = document.getElementById('attachDescription');
+    const questionEl = document.getElementById('attachQuestion');
+    const thumbEl = document.getElementById('attachFileThumb');
+    const fileNameEl = document.getElementById('attachFileName');
+    const fileSourceEl = document.getElementById('attachFileSource');
+    const titleEl = document.getElementById('attachPanelTitle');
+    const submitBtn = document.getElementById('attachSubmitBtn');
+    // Editing/draft state for the currently-open attachment.
+    let draft = null;        // { id, name, description, tags, source, extrasId }
+    let isNew = false;
+    let selectedTags = [];   // working copy of tag selection
+
+    // ── Tag dropdown (same pattern as the question-level Add Tags) ──
+    const tagsBtn = host.querySelector('.attach-add-tags-btn');
+    const tagsMenu = host.querySelector('.attach-tag-menu');
+    const tagSearch = host.querySelector('.attach-tag-search');
+    const tagListEl = host.querySelector('.attach-tag-list');
+    const tagEmptyEl = host.querySelector('.attach-tag-empty');
+    const tagChipsEl = host.querySelector('.attach-tag-chips');
+
+    function renderTagOptions(filter = '') {
+        const q = filter.trim().toLowerCase();
+        const matches = TAG_CATALOG.filter(t => t.toLowerCase().includes(q));
+        tagEmptyEl.hidden = matches.length > 0;
+        tagListEl.innerHTML = matches.map(t => `
+            <button type="button" class="q-tag-option${selectedTags.includes(t) ? ' selected' : ''}"
+                    role="option" aria-selected="${selectedTags.includes(t)}" data-tag="${escapeHtml(t)}">
+                <span class="q-tag-option-check"><i class="fa-solid fa-check"></i></span>
+                <span class="q-tag-option-label">${escapeHtml(t)}</span>
+            </button>`).join('');
+    }
+    function renderTagChips() {
+        tagChipsEl.innerHTML = selectedTags.map(t => `
+            <span class="q-tag-custom-chip">${escapeHtml(t)}
+                <span class="q-tag-custom-chip-x" role="button" aria-label="Remove tag ${escapeHtml(t)}" title="Remove" data-tag="${escapeHtml(t)}"><i class="fa-solid fa-xmark"></i></span>
+            </span>`).join('');
+    }
+    // The panel menu is CSS-anchored (absolute, under the button) — no JS
+    // positioning needed. (It can't use the shared fixed positioning because the
+    // panel's transform re-bases position:fixed onto the panel.)
+    function openTagMenu() { tagsMenu.hidden = false; tagsBtn.setAttribute('aria-expanded', 'true'); renderTagOptions(tagSearch.value); tagSearch.focus(); }
+    function closeTagMenu() { tagsMenu.hidden = true; tagsBtn.setAttribute('aria-expanded', 'false'); }
+    tagsBtn.addEventListener('click', (e) => { e.stopPropagation(); tagsMenu.hidden ? openTagMenu() : closeTagMenu(); });
+    tagSearch.addEventListener('input', () => { renderTagOptions(tagSearch.value); });
+    tagListEl.addEventListener('click', (e) => {
+        const opt = e.target.closest('.q-tag-option'); if (!opt) return;
+        e.stopPropagation();
+        const t = opt.dataset.tag; const i = selectedTags.indexOf(t);
+        if (i >= 0) selectedTags.splice(i, 1); else selectedTags.push(t);
+        renderTagOptions(tagSearch.value); renderTagChips();
+    });
+    tagChipsEl.addEventListener('click', (e) => {
+        const x = e.target.closest('.q-tag-custom-chip-x'); if (!x) return;
+        selectedTags = selectedTags.filter(v => v !== x.dataset.tag);
+        renderTagChips(); if (!tagsMenu.hidden) renderTagOptions(tagSearch.value);
+    });
+    document.addEventListener('click', (e) => {
+        if (!tagsMenu.hidden && !tagsMenu.contains(e.target) && !tagsBtn.contains(e.target)) closeTagMenu();
+    });
+
+    // Build the "attached to" <select> from the question registry.
+    function fillQuestions(current) {
+        questionEl.innerHTML = attachmentQuestions.map(q =>
+            `<option value="${q.extrasId}"${q.extrasId === current ? ' selected' : ''}>${escapeHtml(q.label)}</option>`).join('');
+    }
+
+    function paintFile(source, name) {
+        thumbEl.innerHTML = `<i class="${attachmentIcon({ name, source })}"></i>`;
+        fileNameEl.textContent = name;
+        fileSourceEl.textContent = source;
+    }
+    // Now on the Vector DS drawer (vwc-drawer). Same overlay-mode gaps as the
+    // video panel (no width prop / no self-anchor+scrim), compensated via the
+    // host scrim + ::part CSS; documented in DESIGN-SYSTEM-GAPS.md.
+    let wasOpen = false;
+    function show() {
+        if (!wasOpen) {
+            host.hidden = false;
+            drawer.open = true;
+            ModalScrollLock.push();
+            wasOpen = true;
+        }
+        setTimeout(() => nameEl.focus(), 60);
+    }
+    function hide() {
+        closeTagMenu();
+        if (drawer.open) drawer.open = false; else onClosed();
+    }
+    function onClosed() {
+        if (wasOpen) { ModalScrollLock.pop(); wasOpen = false; }
+        host.hidden = true;
+    }
+    // vwc-drawer emits open-changed with the boolean directly as e.detail.
+    drawer.addEventListener('open-changed', (e) => {
+        const isOpen = (typeof e.detail === 'boolean') ? e.detail : drawer.open;
+        if (!isOpen) { onClosed(); draft = null; }
+    });
+
+    function openNew(extrasId, source) {
+        isNew = true;
+        const isGoogle = source === 'google';
+        const src = isGoogle ? 'Google Drive' : 'Uploaded';
+        const n = Object.keys(attachmentsById).length + 1;
+        const fileName = isGoogle ? `Shared document ${n}` : `evidence-${n}.pdf`;
+        draft = { id: 'att-' + Math.random().toString(36).slice(2), name: fileName, description: '', tags: [], source: src, extrasId };
+        titleEl.innerHTML = '<i class="fa-solid fa-paperclip"></i> Add attachment';
+        submitBtn.innerHTML = '<i class="fa-solid fa-check" slot="prefix"></i> Add to form';
+        nameEl.value = draft.name;
+        descEl.value = '';
+        selectedTags = [];
+        paintFile(src, fileName);
+        fillQuestions(extrasId);
+        renderTagChips();
+        show();
+    }
+    function openEdit(attId) {
+        const att = attachmentsById[attId];
+        if (!att) return;
+        isNew = false;
+        draft = att;
+        titleEl.innerHTML = '<i class="fa-solid fa-paperclip"></i> Edit attachment';
+        submitBtn.innerHTML = '<i class="fa-solid fa-check" slot="prefix"></i> Save changes';
+        nameEl.value = att.name;
+        descEl.value = att.description || '';
+        selectedTags = [...(att.tags || [])];
+        paintFile(att.source, att.name);
+        fillQuestions(att.extrasId);
+        renderTagChips();
+        show();
+    }
+    function submit() {
+        if (!draft) return;
+        const prevExtras = draft.extrasId;
+        const targetExtras = questionEl.value || draft.extrasId;
+        draft.name = (nameEl.value.trim() || draft.name);
+        draft.description = descEl.value.trim();
+        draft.tags = [...selectedTags];
+        draft.extrasId = targetExtras;
+
+        // Commit the record.
+        attachmentsById[draft.id] = draft;
+        if (isNew) {
+            const ex = ensureExtras(targetExtras);
+            if (!ex.attachments.includes(draft.id)) ex.attachments.push(draft.id);
+        } else if (prevExtras !== targetExtras) {
+            // Reassigned to a different question while editing.
+            reassignAttachment(draft.id, targetExtras);
+        }
+        // Re-render both possibly-affected questions.
+        [prevExtras, targetExtras].forEach(ex => {
+            const b = document.querySelector(`.q-actionbar[data-extras-id="${ex}"]`);
+            if (b) renderExtras(b);
+        });
+        hide();
+        draft = null;
+    }
+
+    document.getElementById('attachCancelBtn').addEventListener('click', () => { hide(); draft = null; });
+    document.getElementById('attachPanelClose').addEventListener('click', () => { hide(); draft = null; });
+    submitBtn.addEventListener('click', submit);
+    // Backdrop click on the host scrim closes (DS drawer omits scrim-close in
+    // overlay-only use); Esc too. onClosed()/draft reset run via open-changed.
+    host.addEventListener('click', (e) => { if (e.target === host) hide(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !host.hidden) hide(); });
+
+    return { openNew, openEdit };
+})();
+
+// ─── Attachment preview ───
+// Opens the attachment in the shared right pane (same split view as Compare
+// Forms) so it can be reviewed while filling out the form. Mutually exclusive
+// with compare — SplitView enforces one-at-a-time.
+const AttachPreview = (() => {
+    // Build a faux rendering of the file so preview simulates a real attachment
+    // opening. Images render an actual sample photo; documents render a
+    // simulated page (letterhead + ruled text lines). Seeded by the file id so a
+    // given attachment always previews the same way.
+    function fauxDoc(att) {
+        const ext = (att.name.split('.').pop() || '').toLowerCase();
+        const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) ||
+            (att.source === 'Google Drive' && !/\.\w+$/.test(att.name) && /photo|image|screenshot/i.test(att.name));
+        if (isImage) {
+            const seed = encodeURIComponent(att.id);
+            return `
+                <div class="attach-doc attach-doc-image">
+                    <img src="https://picsum.photos/seed/${seed}/900/1200" alt="${escapeHtml(att.name)}" />
+                </div>`;
+        }
+        // Document: a page with a header block and ruled body lines. Vary line
+        // widths a little so it reads like real text, not a skeleton loader.
+        const widths = [96, 88, 92, 70, 84, 100, 62, 90, 78, 94, 58, 86];
+        const lines = widths.map(w => `<span class="attach-doc-line" style="width:${w}%"></span>`).join('');
+        return `
+            <div class="attach-doc attach-doc-page">
+                <div class="attach-doc-header">
+                    <div class="attach-doc-crest"><i class="${attachmentIcon(att)}"></i></div>
+                    <div class="attach-doc-headtext">
+                        <span class="attach-doc-h1">${escapeHtml(att.name)}</span>
+                        <span class="attach-doc-h2">${escapeHtml(att.source)} · Page 1 of 1</span>
+                    </div>
+                </div>
+                <div class="attach-doc-body">${lines}</div>
+            </div>`;
+    }
+
+    function open(attId) {
+        const att = attachmentsById[attId];
+        if (!att) return;
+        const tagsHtml = (att.tags || []).length
+            ? `<div class="attach-preview-tags">${att.tags.map(t => `<span class="q-tag-custom-chip" style="cursor:default;">${escapeHtml(t)}</span>`).join('')}</div>`
+            : '';
+        const descHtml = att.description
+            ? `<p class="attach-preview-desc">${escapeHtml(att.description)}</p>`
+            : `<p class="attach-preview-desc muted">No description provided.</p>`;
+        const content = `
+            <div class="attach-preview">
+                <!-- Faux rendered file (image or document page) -->
+                <div class="attach-preview-viewer">${fauxDoc(att)}</div>
+                <div class="attach-preview-meta">
+                    <div class="attach-preview-row"><span class="attach-preview-k">File</span><span class="attach-preview-v">${escapeHtml(att.name)} · ${escapeHtml(att.source)}</span></div>
+                    <div class="attach-preview-row"><span class="attach-preview-k">Attached to</span><span class="attach-preview-v">${escapeHtml(attachmentQuestionLabel(att.extrasId))}</span></div>
+                    ${descHtml}
+                    ${tagsHtml}
+                    <button type="button" class="attach-preview-open"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open original</button>
+                </div>
+            </div>`;
+        SplitView.openCustom(att.name, '<i class="fa-solid fa-eye"></i> Preview', content, null);
+    }
+    return { open };
+})();
+
 // ─── Prototype helper widget ───
 const SAMPLE_NOTES = [
     'Observed during 2nd-period lesson; consistent with prior planning artifacts.',
@@ -6991,10 +9173,13 @@ function seedExtrasExamples() {
         const state = ensureExtras(id);
         if (!state.tags.length) state.tags = ['Evidence', 'Follow-up', 'Coaching'];
         if (!state.attachments.length) {
-            state.attachments = [
-                { id: id + '-a0', name: 'lesson-plan-and-reflection-notes.pdf', source: 'Uploaded' },
-                { id: id + '-a1', name: 'Observation notes', source: 'Google Drive' }
+            // Seed full attachment records into the registry, then reference by id.
+            const samples = [
+                { id: id + '-a0', name: 'lesson-plan-and-reflection-notes.pdf', description: 'Unit plan with the post-lesson reflection appended.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
+                { id: id + '-a1', name: 'Observation notes', description: '', tags: [], source: 'Google Drive', extrasId: id }
             ];
+            samples.forEach(a => { attachmentsById[a.id] = a; });
+            state.attachments = samples.map(a => a.id);
         }
         renderExtras(bar); // renders tag chips + attachment cards below the row
     });
@@ -7119,6 +9304,7 @@ function protoClearAll() {
     Object.keys(videoNotes).forEach(k => { videoNotes[k] = []; });
     Object.keys(scriptLogs).forEach(k => { scriptLogs[k] = []; });
     Object.keys(stepExtras).forEach(k => delete stepExtras[k]);
+    Object.keys(attachmentsById).forEach(k => delete attachmentsById[k]);
     recommendationsGenerated = false;
     cart.clear();
     discarded.clear();
