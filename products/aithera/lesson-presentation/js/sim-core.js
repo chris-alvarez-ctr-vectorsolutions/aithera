@@ -166,6 +166,8 @@
       action: false,         // accept "probe"|"teach" intent (guided arc phase engine)
       tier: null,            // (t) => t|null — accept a calibration-tier label on
                              // teach turns (branching arc records it as ladder state)
+      spotted: null,         // (id) => bool — predicate; when set, parse obj.spotted
+                             // as an array of rubric ids (scene sweep coverage rail)
       sceneHints: false,
       observeNext: null,
       fallbackText: FALLBACK_TEXT,
@@ -252,6 +254,19 @@
             : obj.turn.map((m) => m && m.tier).find((t) => typeof t === 'string');
           const t = o.tier(rawTier || '');
           if (t) out.tier = t;
+        }
+
+        if (o.spotted) {
+          // A cumulative set of rubric ids the learner has now clearly named
+          // (scene sweep's perception-grading). The page supplies the validator
+          // so a hallucinated id never lights a chip. Item-level arrays hoist too.
+          const rawSpot = Array.isArray(obj.spotted) ? obj.spotted
+            : obj.turn.map((m) => m && m.spotted).find(Array.isArray) || [];
+          const ids = rawSpot
+            .filter((x) => typeof x === 'string')
+            .map((x) => x.trim())
+            .filter((x) => o.spotted(x));
+          if (ids.length) out.spotted = Array.from(new Set(ids));
         }
 
         if (o.sceneHints) {
