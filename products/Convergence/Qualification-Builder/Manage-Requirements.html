@@ -134,9 +134,29 @@
     .confirm-overlay.hidden { display:none; }
     .confirm-dialog { background:#fff; border-radius:12px; width:460px; max-width:calc(100vw - 48px); padding:26px 28px 22px; box-shadow:0 25px 60px rgba(0,0,0,.2); }
     .confirm-dialog .cd-icon { font-size:30px; color:#f59e0b; margin-bottom:12px; }
+    .confirm-dialog .cd-icon.danger { color:#dc2626; }
     .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin-bottom:8px; }
     .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin-bottom:18px; }
+    .confirm-dialog p strong { color:#1a1a2e; }
     .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
+    .btn.btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .btn.btn-danger:hover { background:#b91c1c; border-color:#b91c1c; }
+    /* Delete-impact modal: wider dialog with tabs + a paginated table of affected items */
+    .delete-dialog { width:600px; }
+    .del-intro { font-size:13px; color:#6b7280; line-height:1.55; margin-bottom:14px; }
+    .del-intro strong { color:#1a1a2e; }
+    .del-tabs { display:flex; gap:2px; border-bottom:1px solid #e5e9ef; }
+    .del-tabs.hidden { display:none; }
+    .del-tab { border:none; background:none; font-family:inherit; font-size:12.5px; font-weight:600; color:#6b7280; padding:9px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; display:inline-flex; align-items:center; gap:7px; }
+    .del-tab:hover { color:#1a1a2e; }
+    .del-tab.active { color:var(--vblue); border-bottom-color:var(--vblue); }
+    .del-tab-count { font-size:11px; font-weight:700; color:#6b7280; background:#eef1f5; border-radius:10px; padding:1px 7px; }
+    .del-tab.active .del-tab-count { color:var(--vblue); background:var(--vblue-10); }
+    /* Affected-items table is a real AG Grid (matches the page grids' styling + pagination) */
+    .del-grid { height:352px; margin-top:12px; }
+    .del-tabs:not(.hidden) + .del-grid { margin-top:0; border-top-left-radius:0; border-top-right-radius:0; }
+    .del-grid .du-name { font-weight:600; color:#1a1a2e; }
+    .del-note { font-size:13px; color:#6b7280; line-height:1.6; margin:16px 0 18px; }
   </style>
 </head>
 <body>
@@ -220,6 +240,22 @@
   </div>
 </div>
 
+<!-- Delete confirmation (impact: tabs for Qualifications / Users + a paginated table) -->
+<div class="confirm-overlay hidden" id="delete-overlay">
+  <div class="confirm-dialog delete-dialog">
+    <div class="cd-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 id="delete-title">Delete this requirement?</h3>
+    <p class="del-intro" id="delete-intro"></p>
+    <div class="del-tabs" id="delete-tabs"></div>
+    <div id="delete-grid" class="ag-theme-quartz del-grid"></div>
+    <p class="del-note">Deleting is permanent and cannot be undone.</p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeDelete()">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteAction()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <!-- Convergence chrome -->
 <script>
   window.SHELL_CONFIG = { active: 'qual-requirements', parent: 'Qualifications', title: 'Requirements' };
@@ -237,6 +273,22 @@ const REQS = [
   { name:'Respirator Fit Test',                desc:'Qualitative and quantitative fit testing procedures',                 criteria:'All activities', order:'Sequential', activities:2, status:'Active', location:'Orlando Organization › Safety › Industrial Hygiene',      qualification:'Respirator Fit & Use' },
   { name:'Rigging & Load Charts',              desc:'Reading load charts and selecting rigging hardware',                  criteria:'2 of 3',         order:'Any order',  activities:3, status:'Active', location:'Orlando Organization › Maintenance',                      qualification:'Crane & Hoist Operation' },
 ];
+
+/* Which qualifications include each requirement (for the delete-impact "Qualifications" tab). */
+const REQ_QUALS = {
+  'Energy Isolation Fundamentals':      ['Lockout/Tagout Authorization', 'AC Motor Controller Operation'],
+  'Lockout Device Application':         ['Lockout/Tagout Authorization'],
+  'Confined Space Atmospheric Testing': ['Confined Space Entry'],
+  'PPE Selection & Inspection':         ['OSHA 30-Hour General Industry', 'Fall Protection Competency'],
+  'Forklift Pre-Operation Inspection':  ['Forklift Operator Certification'],
+  'Fire Watch Procedures':              ['Hot Work Permit Authorization'],
+  'Respirator Fit Test':                ['Respirator Fit & Use'],
+  'Rigging & Load Charts':              ['Crane & Hoist Operation'],
+};
+REQS.forEach((r, i) => {
+  r.quals = REQ_QUALS[r.name] || (r.qualification ? [r.qualification] : []);
+  r.learners = 40 + ((i * 5) % 9) * 60;   // affected learners if deleted (varies for pagination)
+});
 
 function editHref(r){ return 'Manual-Requirement-Builder.html?req=' + encodeURIComponent(r.name); }
 function activitiesHref(r){ return 'Manage-Activities.html?requirement=' + encodeURIComponent(r.name); }
@@ -315,11 +367,7 @@ function actionsRenderer(p){
           else apply();
         }},
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
-      { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => {
-        if (confirm('Delete "' + p.data.name + '"? This is a prototype and will only remove the row.')) {
-          gridApi.applyTransaction({ remove:[p.data] }); updateCount();
-        }
-      }},
+      { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => openDeleteConfirm([p.data]) },
     ]);
   });
   return e;
@@ -424,11 +472,63 @@ function bulkSetStatus(status){
 }
 function bulkActivate(){ bulkSetStatus('Active'); }
 function bulkDeactivate(){ openDeactivate('Deactivate the selected requirements?', () => bulkSetStatus('Inactive')); }
-function bulkDelete(){
-  const rows = bulkRows(); if(!rows.length) return;
-  if(confirm('Delete ' + rows.length + ' selected requirement' + (rows.length!==1?'s':'') + '? This is a prototype and only removes the rows.')){
-    gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+function bulkDelete(){ const rows = bulkRows(); if(rows.length) openDeleteConfirm(rows); }
+
+/* ─── Delete confirmation: tabs (Qualifications / Users) + a paginated table of affected items ─── */
+const DEL_FIRST = ['Misa','Brandon','Andy','Clare','Jordan','Priya','Marcus','Sofia','Liam','Hana','Diego','Amara','Noah','Yuki','Ellie','Omar','Grace','Tariq','Nina','Caleb','Ava','Mateo','Zara','Ruben','Freya','Kenji','Lucia','Sam','Ingrid','Devon'];
+const DEL_LAST = ['Escalera','Orlando','Xia','Epstein','Lee','Nair','Bell','Ramirez','Byrne','Kim','Torres','Okafor','Schmidt','Tanaka','Novak','Haddad','Lin','Aziz','Petrov','Wright','Fischer','Rossi','Malik','Diaz','Larsen','Watanabe','Moreno','Okoye','Holt','Clarke'];
+const DEL_SITES = ['Orlando › Line 3','Orlando › Warehouse','Orlando › Facilities','Orlando › Welding Shop','Orlando › Maintenance','Orlando › Safety','Orlando › Construction','Orlando › Hot Work'];
+function genUsers(n){ const out=[]; for(let i=0;i<n;i++){ out.push({ name: DEL_LAST[(i*7+3)%DEL_LAST.length]+', '+DEL_FIRST[i%DEL_FIRST.length], site: DEL_SITES[i%DEL_SITES.length] }); } return out; }
+const USER_COLS = [{ headerName:'Name', field:'name', flex:1.3, cellClass:'du-name' }, { headerName:'Location', field:'site', flex:1.7 }];
+const QUAL_COLS = [{ headerName:'Qualification', field:'name', flex:1, cellClass:'du-name' }];
+let _deleteRows = null, _delTabs = [], _delActive = 0, delGridApi = null;
+
+function openDeleteConfirm(rows){
+  rows = (rows||[]).filter(Boolean); if(!rows.length) return;
+  _deleteRows = rows;
+  const single = rows.length === 1;
+  document.getElementById('delete-title').textContent = single ? 'Delete "' + rows[0].name + '"?' : 'Delete ' + rows.length + ' requirements?';
+  const quals = [...new Set(rows.flatMap(r => r.quals || []))].map(n => ({ name:n }));
+  const users = genUsers(rows.reduce((s,r)=>s+(r.learners||0), 0));
+  _delTabs = [
+    { label:'Qualifications', columnDefs:QUAL_COLS, rowData:quals },
+    { label:'Users',          columnDefs:USER_COLS, rowData:users },
+  ];
+  document.getElementById('delete-intro').innerHTML = 'Deleting ' + (single?'this requirement':'these requirements') + ' affects <strong>' + quals.length + ' qualification' + (quals.length!==1?'s':'') + '</strong> and <strong>' + users.length.toLocaleString() + ' user' + (users.length!==1?'s':'') + '</strong>. Review what is affected before deleting.';
+  _delActive = 0; renderDelTabs();
+  document.getElementById('delete-overlay').classList.remove('hidden');
+  requestAnimationFrame(delShowGrid);
+}
+function renderDelTabs(){
+  const bar = document.getElementById('delete-tabs');
+  if (_delTabs.length <= 1){ bar.classList.add('hidden'); bar.innerHTML=''; return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = _delTabs.map((t,i)=>`<button class="del-tab ${i===_delActive?'active':''}" onclick="delSelectTab(${i})">${t.label} <span class="del-tab-count">${t.rowData.length}</span></button>`).join('');
+}
+function delSelectTab(i){ _delActive=i; renderDelTabs(); delShowGrid(); }
+/* Affected items render in a real AG Grid so styling + pagination match the page grids. */
+function delShowGrid(){
+  const tab=_delTabs[_delActive]; if(!tab) return;
+  const el=document.getElementById('delete-grid');
+  if(delGridApi){
+    delGridApi.setGridOption('columnDefs', tab.columnDefs);
+    delGridApi.setGridOption('rowData', tab.rowData);
+    delGridApi.paginationGoToFirstPage();
+  } else if(window.agGrid && el){
+    delGridApi = agGrid.createGrid(el, {
+      columnDefs: tab.columnDefs, rowData: tab.rowData,
+      defaultColDef: { sortable:true, resizable:true, flex:1 },
+      headerHeight:44, rowHeight:44, suppressCellFocus:true,
+      pagination:true, paginationAutoPageSize:true,
+    });
   }
+}
+function closeDelete(){ document.getElementById('delete-overlay').classList.add('hidden'); _deleteRows = null; if(delGridApi){ delGridApi.destroy(); delGridApi=null; } }
+function confirmDeleteAction(){
+  const rows = _deleteRows || []; closeDelete();
+  if(!rows.length) return;
+  gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+  showToast('Deleted ' + rows.length + ' requirement' + (rows.length!==1?'s':'') + ' (prototype).');
 }
 
 /* ─── Deactivate confirmation ─── */

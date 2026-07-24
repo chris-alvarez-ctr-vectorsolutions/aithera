@@ -196,13 +196,22 @@
     .confirm-dialog .cd-icon.danger { color:#dc2626; }
     .confirm-dialog p strong { color:#1a1a2e; }
     /* Impact callout inside a confirm dialog (delete impact) */
-    .cd-impact { display:flex; align-items:flex-start; gap:10px; background:#fef2f2; border:1px solid #f6cccc; border-radius:9px; padding:11px 13px; margin-bottom:18px; text-align:left; }
-    .cd-impact i { color:#dc2626; font-size:14px; margin-top:1px; flex-shrink:0; }
-    .cd-impact .cd-impact-txt { font-size:12.5px; color:#7f1d1d; line-height:1.5; }
-    .cd-impact .cd-impact-txt strong { color:#7f1d1d; }
-    .cd-impact .cd-impact-list { list-style:none; margin:9px 0 0; padding:0; max-height:172px; overflow-y:auto; border-top:1px solid #f6cccc; }
-    .cd-impact .cd-impact-list li { font-size:12.5px; color:#7f1d1d; padding:6px 2px; border-bottom:1px solid #fbdcdc; }
-    .cd-impact .cd-impact-list li:last-child { border-bottom:none; }
+    /* Delete-impact modal: wider dialog with tabs + a paginated table of affected items */
+    .delete-dialog { width:600px; }
+    .del-intro { font-size:13px; color:#6b7280; line-height:1.55; margin-bottom:14px; }
+    .del-intro strong { color:#1a1a2e; }
+    .del-tabs { display:flex; gap:2px; border-bottom:1px solid #e5e9ef; }
+    .del-tabs.hidden { display:none; }
+    .del-tab { border:none; background:none; font-family:inherit; font-size:12.5px; font-weight:600; color:#6b7280; padding:9px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; display:inline-flex; align-items:center; gap:7px; }
+    .del-tab:hover { color:#1a1a2e; }
+    .del-tab.active { color:var(--vblue); border-bottom-color:var(--vblue); }
+    .del-tab-count { font-size:11px; font-weight:700; color:#6b7280; background:#eef1f5; border-radius:10px; padding:1px 7px; }
+    .del-tab.active .del-tab-count { color:var(--vblue); background:var(--vblue-10); }
+    /* Affected-items table is a real AG Grid (matches the page grids' styling + pagination) */
+    .del-grid { height:352px; margin-top:12px; }
+    .del-tabs:not(.hidden) + .del-grid { margin-top:0; border-top-left-radius:0; border-top-right-radius:0; }
+    .del-grid .du-name { font-weight:600; color:#1a1a2e; }
+    .del-note { font-size:13px; color:#6b7280; line-height:1.6; margin:16px 0 18px; }
     /* Solid danger button (destructive confirm) */
     .btn.btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
     .btn.btn-danger:hover { background:#b91c1c; border-color:#b91c1c; }
@@ -329,17 +338,16 @@
 
 <!-- Delete confirmation (shows deletion impact: which qualifications include this activity) -->
 <div class="confirm-overlay hidden" id="delete-overlay">
-  <div class="confirm-dialog">
+  <div class="confirm-dialog delete-dialog">
     <div class="cd-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
     <h3 id="delete-title">Delete this activity?</h3>
-    <div class="cd-impact" id="delete-impact">
-      <i class="fa-solid fa-graduation-cap"></i>
-      <span class="cd-impact-txt" id="delete-impact-txt"></span>
-    </div>
-    <p id="delete-body">Deleting is permanent and cannot be undone.</p>
+    <p class="del-intro" id="delete-intro"></p>
+    <div class="del-tabs" id="delete-tabs"></div>
+    <div id="delete-grid" class="ag-theme-quartz del-grid"></div>
+    <p class="del-note">Deleting is permanent and cannot be undone.</p>
     <div class="cd-btns">
       <button class="btn btn-secondary btn-sm" onclick="closeDelete()">Cancel</button>
-      <button class="btn btn-danger btn-sm" onclick="confirmDeleteAction()"><i class="fa-regular fa-trash-can"></i> Delete</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteAction()">Delete</button>
     </div>
   </div>
 </div>
@@ -444,6 +452,7 @@ ACTS.forEach((a, i) => {
   a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
   a.size        = ACT_SIZES[i % ACT_SIZES.length];
   a.quals       = REQ_TO_QUALS[a.requirement] || [];    // qualifications this activity is part of (via its requirement); drives delete impact
+  a.learners    = a.quals.length ? (40 + ((i * 7) % 9) * 55) : 0;   // learners affected if deleted (varies for pagination)
 });
 
 /* Link to the Edit Activity page, passing enough identity for that page to populate + branch the LS dialog. */
@@ -888,26 +897,59 @@ function closeDeactivate(){ document.getElementById('deactivate-overlay').classL
 function confirmDeactivateAction(){ const cb = _deactivateCb; closeDeactivate(); if (cb) cb(); }
 
 /* ─── Delete confirmation (shows deletion impact: which qualifications include this activity) ─── */
-function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-let _deleteRows = null;
+/* ─── Delete confirmation: tabs (Qualifications / Requirements / Users) + a paginated table ─── */
+const DEL_FIRST = ['Misa','Brandon','Andy','Clare','Jordan','Priya','Marcus','Sofia','Liam','Hana','Diego','Amara','Noah','Yuki','Ellie','Omar','Grace','Tariq','Nina','Caleb','Ava','Mateo','Zara','Ruben','Freya','Kenji','Lucia','Sam','Ingrid','Devon'];
+const DEL_LAST = ['Escalera','Orlando','Xia','Epstein','Lee','Nair','Bell','Ramirez','Byrne','Kim','Torres','Okafor','Schmidt','Tanaka','Novak','Haddad','Lin','Aziz','Petrov','Wright','Fischer','Rossi','Malik','Diaz','Larsen','Watanabe','Moreno','Okoye','Holt','Clarke'];
+const DEL_SITES = ['Orlando › Line 3','Orlando › Warehouse','Orlando › Facilities','Orlando › Welding Shop','Orlando › Maintenance','Orlando › Safety','Orlando › Construction','Orlando › Hot Work'];
+function genUsers(n){ const out=[]; for(let i=0;i<n;i++){ out.push({ name: DEL_LAST[(i*7+3)%DEL_LAST.length]+', '+DEL_FIRST[i%DEL_FIRST.length], site: DEL_SITES[i%DEL_SITES.length] }); } return out; }
+const USER_COLS = [{ headerName:'Name', field:'name', flex:1.3, cellClass:'du-name' }, { headerName:'Location', field:'site', flex:1.7 }];
+const QUAL_COLS = [{ headerName:'Qualification', field:'name', flex:1, cellClass:'du-name' }];
+const REQ_COLS  = [{ headerName:'Requirement', field:'name', flex:1, cellClass:'du-name' }];
+let _deleteRows = null, _delTabs = [], _delActive = 0, delGridApi = null;
+
 function openDeleteConfirm(rows){
   rows = (rows||[]).filter(Boolean); if(!rows.length) return;
   _deleteRows = rows;
   const single = rows.length === 1;
   document.getElementById('delete-title').textContent = single ? 'Delete "' + rows[0].name + '"?' : 'Delete ' + rows.length + ' activities?';
-  const txt = document.getElementById('delete-impact-txt');
-  const quals = [...new Set(rows.flatMap(a => a.quals || []))];
-  if (quals.length){
-    const noun = quals.length === 1 ? 'qualification' : 'qualifications';
-    txt.innerHTML = (single ? 'This activity is' : 'These activities are') + ' used in <strong>' + quals.length + ' ' + noun + '</strong>. Deleting ' + (single?'it':'them') + ' removes ' + (single?'it':'them') + ' from:' +
-      '<ul class="cd-impact-list">' + quals.map(q => '<li>' + escHtml(q) + '</li>').join('') + '</ul>';
-  } else {
-    txt.innerHTML = (single ? 'This activity is' : 'These activities are') + ' not used in any qualifications.';
-  }
-  document.getElementById('delete-body').textContent = 'Deleting is permanent and cannot be undone.';
+  const quals = [...new Set(rows.flatMap(a => a.quals || []))].map(n => ({ name:n }));
+  const reqs  = [...new Set(rows.map(a => a.requirement).filter(Boolean))].map(n => ({ name:n }));
+  const users = genUsers(rows.reduce((s,a)=>s+(a.learners||0), 0));
+  _delTabs = [
+    { label:'Qualifications', columnDefs:QUAL_COLS, rowData:quals },
+    { label:'Requirements',   columnDefs:REQ_COLS,  rowData:reqs },
+    { label:'Users',          columnDefs:USER_COLS, rowData:users },
+  ];
+  document.getElementById('delete-intro').innerHTML = 'Deleting ' + (single?'this activity':'these activities') + ' affects <strong>' + quals.length + ' qualification' + (quals.length!==1?'s':'') + '</strong>, <strong>' + reqs.length + ' requirement' + (reqs.length!==1?'s':'') + '</strong>, and <strong>' + users.length.toLocaleString() + ' user' + (users.length!==1?'s':'') + '</strong>. Review what is affected before deleting.';
+  _delActive = 0; renderDelTabs();
   document.getElementById('delete-overlay').classList.remove('hidden');
+  requestAnimationFrame(delShowGrid);
 }
-function closeDelete(){ document.getElementById('delete-overlay').classList.add('hidden'); _deleteRows = null; }
+function renderDelTabs(){
+  const bar = document.getElementById('delete-tabs');
+  if (_delTabs.length <= 1){ bar.classList.add('hidden'); bar.innerHTML=''; return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = _delTabs.map((t,i)=>`<button class="del-tab ${i===_delActive?'active':''}" onclick="delSelectTab(${i})">${t.label} <span class="del-tab-count">${t.rowData.length}</span></button>`).join('');
+}
+function delSelectTab(i){ _delActive=i; renderDelTabs(); delShowGrid(); }
+/* Affected items render in a real AG Grid so styling + pagination match the page grids. */
+function delShowGrid(){
+  const tab=_delTabs[_delActive]; if(!tab) return;
+  const el=document.getElementById('delete-grid');
+  if(delGridApi){
+    delGridApi.setGridOption('columnDefs', tab.columnDefs);
+    delGridApi.setGridOption('rowData', tab.rowData);
+    delGridApi.paginationGoToFirstPage();
+  } else if(window.agGrid && el){
+    delGridApi = agGrid.createGrid(el, {
+      columnDefs: tab.columnDefs, rowData: tab.rowData,
+      defaultColDef: { sortable:true, resizable:true, flex:1 },
+      headerHeight:44, rowHeight:44, suppressCellFocus:true,
+      pagination:true, paginationAutoPageSize:true,
+    });
+  }
+}
+function closeDelete(){ document.getElementById('delete-overlay').classList.add('hidden'); _deleteRows = null; if(delGridApi){ delGridApi.destroy(); delGridApi=null; } }
 function confirmDeleteAction(){
   const rows = _deleteRows || []; closeDelete();
   if(!rows.length) return;
