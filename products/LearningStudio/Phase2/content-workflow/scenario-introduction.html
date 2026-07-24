@@ -581,29 +581,177 @@
     }
 
     /* --- main-area editor --- */
-    #interaction-editor { flex: 1; min-width: 0; display: none; overflow: hidden; }
-    #interaction-editor.visible { display: flex; }
-    .ie-scroll { flex: 1; overflow-y: auto; padding: 28px 24px 48px; }
-    .ie-card {
-      max-width: 760px; margin: 0 auto;
-      background: rgba(255,255,255,0.86); backdrop-filter: blur(12px);
-      border: 1px solid rgba(124,58,237,0.14); border-radius: 16px;
-      box-shadow: 0 12px 40px rgba(124,58,237,0.1), 0 2px 8px rgba(0,0,0,0.04);
-      padding: 26px 28px 30px;
+    /* ===== Interaction panel is wider now (inline detail editors) ===== */
+    .slide-panel.interaction-panel { width: min(560px, 42vw); }
+    #ip-editor-body { padding: 16px 16px 24px; }
+
+    /* --- Inline interaction-point editor block (in the left panel) ---
+       Active/inactive like the scenes cards: the active point drives the
+       preview and pops with the accent; inactive points dim + invite a click. */
+    .ip-edit {
+      position: relative; background: rgba(255,255,255,0.9); border: 1px solid rgba(124,58,237,0.16);
+      border-radius: 14px; margin-bottom: 14px; overflow: hidden;
+      box-shadow: 0 2px 10px rgba(124,58,237,0.05);
+      transition: opacity 0.16s, box-shadow 0.18s, border-color 0.18s;
     }
+    /* inactive = dimmed + clickable to activate (matches scenes .inactive) */
+    .ip-edit.inactive { opacity: 0.72; }
+    .ip-edit.inactive:hover { opacity: 0.92; box-shadow: 0 4px 16px rgba(124,58,237,0.1); }
+    .ip-edit.active {
+      border-color: var(--lumo-primary-color, #0271ce);
+      box-shadow: 0 10px 28px rgba(124,58,237,0.16), inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+    /* accent bar down the active point's left edge */
+    .ip-edit::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; transition: background 0.18s; }
+    .ip-edit.active::before { background: var(--lumo-primary-color, #0271ce); }
+    .ip-edit-head {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer;
+      background: rgba(124,58,237,0.04); border-bottom: 1px solid rgba(124,58,237,0.1);
+    }
+    .ip-edit.active .ip-edit-head { background: rgba(2,113,206,0.06); }
+    .ip-edit.active .ip-edit-num { background: var(--lumo-primary-color, #0271ce); color: #fff; }
+    .ip-edit.collapsed .ip-edit-head { border-bottom: none; }
+    .ip-edit-num {
+      flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+      font-size: 12px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,0.12);
+    }
+    .ip-edit-ico { flex-shrink: 0; color: #7c3aed; font-size: 13px; }
+    .ip-edit-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #0f2e3d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ip-edit-phase { flex-shrink: 0; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.12); border-radius: 3px; padding: 2px 6px; }
+    /* "Previewing" badge on the active point */
+    .ip-edit-live { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #fff; background: var(--lumo-primary-color, #0271ce); border-radius: 20px; padding: 3px 9px; }
+    .ip-edit-live i { font-size: 9px; }
+    .ip-edit-caret-btn {
+      flex-shrink: 0; width: 26px; height: 26px; border: none; background: none; border-radius: 6px;
+      color: var(--lumo-secondary-text-color); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.12s;
+    }
+    .ip-edit-caret-btn:hover { background: rgba(124,58,237,0.08); }
+    .ip-edit-caret { font-size: 11px; transition: transform 0.16s; }
+    .ip-edit.collapsed .ip-edit-caret { transform: rotate(-90deg); }
+    .ip-edit-del {
+      flex-shrink: 0; width: 26px; height: 26px; border: none; background: none; border-radius: 6px;
+      color: var(--lumo-disabled-text-color); cursor: pointer; font-size: 12px;
+      display: flex; align-items: center; justify-content: center; transition: all 0.12s;
+    }
+    .ip-edit-del:hover { background: #fef2f2; color: var(--lumo-error-color); }
+    .ip-edit-body { padding: 16px 16px 18px; }
+    .ip-edit.collapsed .ip-edit-body { display: none; }
+    .ip-edit-lede { font-size: 12px; line-height: 1.55; color: var(--lumo-secondary-text-color); margin: 0 0 16px; }
+
+    /* Inline add affordance under the last point */
+    .ip-add-footer {
+      width: 100%; padding: 12px; margin-top: 2px;
+      border: 1.5px dashed rgba(124,58,237,0.35); border-radius: 12px;
+      background: rgba(124,58,237,0.03); color: #7c3aed;
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 7px; transition: all 0.12s;
+    }
+    .ip-add-footer:hover { background: rgba(124,58,237,0.08); border-color: #7c3aed; }
+
+    /* legacy .ie-* field styles are reused inside .ip-edit-body */
     .ie-head { display: flex; align-items: center; gap: 12px; }
     .ie-head-icon {
       width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
       font-size: 16px; color: #7c3aed; background: rgba(124,58,237,0.12);
     }
-    .ie-title { font-size: 20px; font-weight: 700; color: #0f2e3d; margin: 0; letter-spacing: -0.2px; }
-    .ie-phase-tag {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-      color: #6d28d9; background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.2);
-      border-radius: 20px; padding: 4px 11px;
-    }
     .ie-lede { font-size: 13.5px; line-height: 1.6; color: var(--lumo-secondary-text-color); margin: 12px 0 0; }
     .ie-divider { height: 1px; background: rgba(124,58,237,0.12); margin: 20px 0; }
+
+    /* ============================================================
+       SCENARIO PLAYTHROUGH PREVIEWER (main content area)
+       A learner-facing render of the interaction (coach chat) that
+       the author renders + plays through to see edits in context.
+       ============================================================ */
+    #interaction-player { flex: 1; min-width: 0; display: none; flex-direction: column; overflow: hidden; }
+    #interaction-player.visible { display: flex; }
+
+    .pl-toolbar {
+      flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+      background: var(--lumo-base-color); border-bottom: 1px solid var(--lumo-contrast-10pct);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04); z-index: 2;
+    }
+    .pl-modes { display: flex; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18); border-radius: 999px; padding: 3px; gap: 2px; }
+    .pl-mode {
+      display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: none; background: none;
+      border-radius: 999px; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+    }
+    .pl-mode.active { background: #7c3aed; color: #fff; box-shadow: 0 2px 6px rgba(124,58,237,0.3); }
+    .pl-spacer { flex: 1; }
+    .pl-stale {
+      display: none; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+      color: var(--vwc-notification-text-color, #a66900); background: #fff9e6;
+      border: 1px solid var(--vwc-notification-color, #ffc700); border-radius: 20px; padding: 4px 11px;
+    }
+    .pl-stale.show { display: inline-flex; }
+    .pl-transport { display: flex; align-items: center; gap: 4px; }
+    .pl-tbtn {
+      width: 32px; height: 32px; border: 1px solid var(--lumo-contrast-10pct); background: #fff; border-radius: 8px;
+      cursor: pointer; color: var(--lumo-secondary-text-color); display: flex; align-items: center; justify-content: center;
+      font-size: 12px; transition: all 0.12s;
+    }
+    .pl-tbtn:hover { background: #f5f0fd; color: #7c3aed; border-color: rgba(124,58,237,0.4); }
+    .pl-tbtn.play { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .pl-tbtn.play:hover { filter: brightness(1.06); color: #fff; }
+    .pl-render {
+      display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px;
+      border: 1px solid var(--lumo-primary-color); background: var(--lumo-primary-color); color: #fff;
+      border-radius: 8px; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 700; transition: filter 0.12s;
+    }
+    .pl-render:hover { filter: brightness(0.94); }
+
+    /* Learner stage — dark, matching the published player */
+    .pl-stage {
+      flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative;
+      background: radial-gradient(120% 80% at 50% 0%, #1e2536 0%, #12151f 70%);
+    }
+    .pl-scroll { flex: 1; overflow-y: auto; padding: 28px 24px 20px; }
+    .pl-chat { max-width: 640px; margin: 0 auto; }
+
+    .pl-turn { display: flex; gap: 12px; margin-bottom: 18px; align-items: flex-start; opacity: 0; transform: translateY(8px); animation: plIn 0.35s ease forwards; }
+    @keyframes plIn { to { opacity: 1; transform: translateY(0); } }
+    .pl-avatar { flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #6366f1; }
+    .pl-turn.learner { flex-direction: row-reverse; }
+    .pl-turn.learner .pl-avatar { background: #3b465c; }
+    .pl-bubble-wrap { min-width: 0; max-width: 82%; }
+    .pl-who { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8b93a7; margin-bottom: 5px; }
+    .pl-turn.learner .pl-who { text-align: right; }
+    .pl-bubble { background: #232b3d; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; border-top-left-radius: 4px; padding: 13px 15px; font-size: 13.5px; line-height: 1.6; color: #e6e9f0; }
+    .pl-turn.learner .pl-bubble { background: #4f46e5; border-color: transparent; border-top-left-radius: 14px; border-top-right-radius: 4px; }
+    .pl-bubble.signpost { background: rgba(124,58,237,0.14); border-color: rgba(167,139,250,0.3); color: #d9d2fb; font-style: italic; }
+    .pl-bubble + .pl-bubble { margin-top: 7px; }
+    .pl-bubble { transition: box-shadow 0.16s, transform 0.16s, opacity 0.18s; }
+
+    /* Dev-tools-style link highlight: focused input → its preview bubble.
+       The target bubble gets a ring + lift; everything else dims. */
+    .pl-chat.linking .pl-turn { opacity: 0.32; transition: opacity 0.18s; }
+    .pl-chat.linking .pl-turn.link-turn { opacity: 1; }
+    .pl-bubble.link-target {
+      box-shadow: 0 0 0 2px #a78bfa, 0 0 0 6px rgba(167,139,250,0.25), 0 10px 26px rgba(124,58,237,0.3);
+      transform: translateY(-1px);
+    }
+    /* small "shows in preview" hint on linked field labels */
+    .link-hint { font-size: 10px; font-weight: 600; color: #7c3aed; letter-spacing: 0; text-transform: none; opacity: 0; transition: opacity 0.14s; }
+    .link-hint i { font-size: 9px; margin-right: 3px; }
+    .ie-field:focus-within .link-hint, .mp-field:focus-within .link-hint { opacity: 0.85; }
+    .pl-phase-divider { display: flex; align-items: center; gap: 10px; margin: 6px 0 18px; color: #6b7688; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .pl-phase-divider::before, .pl-phase-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+
+    .pl-empty { max-width: 360px; margin: 60px auto; text-align: center; color: #94a3b8; }
+    .pl-empty i { font-size: 30px; color: #6366f1; margin-bottom: 14px; display: block; }
+    .pl-empty h3 { font-size: 16px; color: #e6e9f0; margin: 0 0 8px; }
+    .pl-empty p { font-size: 13px; line-height: 1.6; margin: 0; }
+
+    /* Learner composer (visual) */
+    .pl-composer { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-top: 1px solid rgba(255,255,255,0.07); background: rgba(0,0,0,0.15); }
+    .pl-input { flex: 1; display: flex; align-items: center; gap: 9px; height: 42px; padding: 0 15px; border: 1.5px solid rgba(167,139,250,0.4); border-radius: 12px; background: rgba(255,255,255,0.04); color: #6b7688; font-size: 13.5px; }
+    .pl-input i { font-size: 13px; }
+    .pl-send { flex-shrink: 0; width: 42px; height: 42px; border: none; border-radius: 11px; background: #6366f1; color: #fff; cursor: pointer; font-size: 15px; }
+
+    /* Active-point spotlight: selecting a point dims the rest + lifts its turns. */
+    .pl-chat.spotlighting .pl-turn { opacity: 0.34; transition: opacity 0.2s; }
+    .pl-chat.spotlighting .pl-turn.spotlight { opacity: 1; }
+    .pl-turn.spotlight .pl-bubble { box-shadow: 0 0 0 1.5px rgba(2,113,206,0.6), 0 8px 22px rgba(2,113,206,0.22); }
 
     /* collapsible note */
     .ie-note { border: 1px solid rgba(124,58,237,0.16); border-radius: 12px; background: rgba(124,58,237,0.03); overflow: hidden; margin-bottom: 22px; }
@@ -720,6 +868,8 @@
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all 0.12s;
     }
     .mp-add-btn:hover { background: rgba(124,58,237,0.08); border-color: #7c3aed; }
+    .mp-note { font-size: 12px; line-height: 1.55; color: var(--lumo-secondary-text-color); background: rgba(124,58,237,0.04); border: 1px solid rgba(124,58,237,0.12); border-radius: 10px; padding: 11px 13px; margin-bottom: 16px; }
+    .mp-phases { display: block; }
 
     /* Drag handle on the right edge of each left panel */
     .panel-resize-handle {
@@ -4726,7 +4876,7 @@
     </div>
 
     <!-- ---- SCENARIO PANEL (Interaction Points) ---- -->
-    <div id="panel-interaction" class="slide-panel hidden">
+    <div id="panel-interaction" class="slide-panel interaction-panel hidden">
       <div class="panel-resize-handle" aria-hidden="true"></div>
       <div class="panel-header">
         <div class="ph-left">
@@ -4735,10 +4885,11 @@
           <span class="panel-badge" id="ip-badge"><i class="fa-solid fa-diagram-project"></i> <span id="ip-count">1</span></span>
         </div>
       </div>
-      <div class="panel-body">
+      <div class="panel-body" id="ip-editor-body">
+        <!-- Inline detail editors for each interaction point are rendered here. -->
         <div id="ip-list"></div>
-        <button class="add-scene-footer-btn" id="ip-add-trigger" onclick="toggleIpAddMenu(event)">
-          <i class="fa-solid fa-plus"></i> Add Interaction Point
+        <button class="ip-add-footer" id="ip-add-trigger" onclick="toggleIpAddMenu(event)">
+          <i class="fa-solid fa-plus"></i> Add interaction point
         </button>
       </div>
     </div>
@@ -4951,79 +5102,35 @@
     </div>
 
     <!-- ---- INTERACTION-POINT EDITOR (Scenario section) ---- -->
-    <div id="interaction-editor">
-      <div class="ie-scroll">
-        <div class="ie-card">
-          <!-- Header: type + phase tag -->
-          <div class="ie-head">
-            <span class="ie-head-icon" id="ie-type-icon"><i class="fa-solid fa-comments"></i></span>
-            <h2 class="ie-title" id="ie-type-title">Reflection</h2>
-            <span class="ie-phase-tag" id="ie-phase-tag">ENTER</span>
-          </div>
-          <p class="ie-lede" id="ie-lede">The non-evaluated warm-up that opens the arc. Its prompt is delivered VERBATIM; the coach calibrates the gut reaction — it never grades it.</p>
+    <!-- ---- SCENARIO PLAYTHROUGH PREVIEWER (Scenario section main area) ----
+         A live, learner-facing render of just the interaction playthrough
+         (coach chat). Author renders + plays through it to see their edits. -->
+    <div id="interaction-player">
+      <!-- Preview toolbar: Learn/Practice mode, play controls, re-render -->
+      <div class="pl-toolbar">
+        <div class="pl-modes">
+          <button class="pl-mode active" id="pl-mode-learn" onclick="setPlayMode('learn')"><i class="fa-solid fa-graduation-cap"></i> Learn</button>
+          <button class="pl-mode" id="pl-mode-practice" onclick="setPlayMode('practice')"><i class="fa-solid fa-dumbbell"></i> Practice</button>
+        </div>
+        <div class="pl-spacer"></div>
+        <span class="pl-stale" id="pl-stale"><i class="fa-solid fa-circle-exclamation"></i> Preview out of date</span>
+        <div class="pl-transport">
+          <button class="pl-tbtn" id="pl-prev" title="Previous beat" onclick="playerPrev()"><i class="fa-solid fa-backward-step"></i></button>
+          <button class="pl-tbtn play" id="pl-play" title="Play" onclick="playerTogglePlay()"><i class="fa-solid fa-play"></i></button>
+          <button class="pl-tbtn" id="pl-next" title="Next beat" onclick="playerNext()"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button class="pl-render" id="pl-render" onclick="renderPlaythrough()"><i class="fa-solid fa-arrows-rotate"></i> Re-render</button>
+      </div>
 
-          <div class="ie-divider"></div>
-
-          <!-- Collapsible "about this beat" note -->
-          <div class="ie-note" id="ie-note">
-            <button class="ie-note-head" onclick="toggleIeNote()">
-              <i class="fa-solid fa-comment ie-note-ico"></i>
-              <span class="ie-note-title" id="ie-note-title">Calibration, not evaluation</span>
-              <i class="fa-solid fa-chevron-up ie-note-caret"></i>
-            </button>
-            <div class="ie-note-body" id="ie-note-body">
-              <p id="ie-note-text">The opening gut-reaction beat. The prompt is delivered verbatim; the coach reflects it back and gently surfaces a misconception — it never grades this turn.</p>
-            </div>
-          </div>
-
-          <!-- Reflection-type fields -->
-          <div id="ie-reflection-fields">
-            <!-- Verbatim prompt -->
-            <div class="ie-field">
-              <label class="ie-label" for="ie-prompt">Reflection prompt (delivered verbatim)</label>
-              <textarea id="ie-prompt" class="ie-textarea" rows="3" oninput="onIeInput()"
-                placeholder="Write the exact opening line the coach will say…">Before we get into the specifics — take a moment. What's your gut reaction to this behavior? Is anything about this situation standing out to you, or feeling unclear?</textarea>
-              <div class="ie-help">The exact opening line, in the coach's voice.</div>
-            </div>
-
-            <!-- Coach response guidance -->
-            <div class="ie-field">
-              <label class="ie-label" for="ie-coach">How the coach responds</label>
-              <textarea id="ie-coach" class="ie-textarea" rows="4" oninput="onIeInput()"
-                placeholder="Describe how the coach should acknowledge and calibrate the learner's response…">CALIBRATION ONLY, do not evaluate. 2-3 short bubbles: acknowledge in their own words; gently note any misconception ("nothing sexual is happening", "just banter"). END on that calibration — do NOT add a bubble that hands off, transitions, or previews looking closer / slowing down / naming what's going on; the app delivers the next signpost, and anticipating it just repeats it.</textarea>
-              <div class="ie-help">Calibration guidance — what to acknowledge, what misconception to note. Ends without previewing the next phase.</div>
-            </div>
-          </div>
-
-          <!-- Multi-Phase fields -->
-          <div id="ie-multiphase-fields" style="display:none;">
-            <!-- Second note (multi-phase only) -->
-            <div class="ie-note" id="ie-note2">
-              <button class="ie-note-head" onclick="toggleIeNote2()">
-                <i class="fa-solid fa-layer-group ie-note-ico"></i>
-                <span class="ie-note-title" id="ie-note2-title">Each phase is Practice → Learn</span>
-                <i class="fa-solid fa-chevron-up ie-note-caret"></i>
-              </button>
-              <div class="ie-note-body">
-                <p id="ie-note2-text"></p>
-              </div>
-            </div>
-
-            <div id="mp-phases"></div>
-
-            <button class="mp-add-btn" onclick="addPhase()">
-              <i class="fa-solid fa-plus"></i> Add phase
-            </button>
-          </div>
-
-          <!-- Placeholder for types whose editors are designed next -->
-          <div id="ie-placeholder" style="display:none;">
-            <div class="ie-ph-box">
-              <i class="fa-solid fa-compass-drafting"></i>
-              <div class="ie-ph-title" id="ie-ph-title">Configuration coming next</div>
-              <p class="ie-ph-desc" id="ie-ph-desc">The editor for this interaction type is designed next.</p>
-            </div>
-          </div>
+      <!-- The learner-facing stage -->
+      <div class="pl-stage" id="pl-stage">
+        <div class="pl-scroll" id="pl-scroll">
+          <div class="pl-chat" id="pl-chat"></div>
+        </div>
+        <!-- Learner composer (visual only) -->
+        <div class="pl-composer">
+          <div class="pl-input"><i class="fa-solid fa-comment"></i><span class="pl-input-ph">Type your response…</span></div>
+          <button class="pl-send"><i class="fa-solid fa-arrow-up"></i></button>
         </div>
       </div>
     </div>
@@ -6377,6 +6484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderAll();
   renderInteractionPoints();
+  renderPlaythrough();
   buildVoiceGrid();
   buildWaveform();
   buildRuler();
@@ -6443,9 +6551,9 @@ function showCanvasForPanel(panelId) {
   const isStub = panelId === 'results';
   document.getElementById('canvas-area').style.display = (isInteraction || isStub) ? 'none' : '';
 
-  const ie = document.getElementById('interaction-editor');
-  if (ie) ie.classList.toggle('visible', isInteraction);
-  if (isInteraction) renderIeEditor();
+  const player = document.getElementById('interaction-player');
+  if (player) player.classList.toggle('visible', isInteraction);
+  if (isInteraction) { renderInteractionPoints(); renderPlaythrough(); }
 
   // Keep the header section label in sync with the active section.
   const sectionLabels = { scenes: 'Scenario · Introduction', interaction: 'Scenario · Interaction', results: 'Scenario · Results' };
@@ -6475,31 +6583,31 @@ function showCanvasForPanel(panelId) {
 ----------------------------------------------------------------------- */
 function getActiveIp() { return interactionPoints.find(p => p.id === activeIpId) || interactionPoints[0]; }
 
+// Which inline editors are collapsed (by point id). Default: all expanded.
+const ipCollapsed = {};
+
+// Render the LEFT panel: an inline detail editor per interaction point.
 function renderInteractionPoints() {
   const wrap = document.getElementById('ip-list');
   if (!wrap) return;
   wrap.innerHTML = interactionPoints.map((p, idx) => {
     const t = IP_TYPES[p.type] || IP_TYPES.reflection;
+    const collapsed = !!ipCollapsed[p.id];
     const isActive = p.id === activeIpId;
-    let preview;
-    if (p.type === 'multi-phase') {
-      const n = (p.phases || []).length;
-      const labels = (p.phases || []).map(ph => ph.label).filter(Boolean).join(' → ');
-      preview = labels || `${n} phase${n === 1 ? '' : 's'}`;
-    } else {
-      preview = (p.prompt || '').trim() || 'No prompt yet…';
-    }
     return `
-      <div class="ip-card ${isActive ? 'active' : ''}" onclick="selectInteractionPoint(${p.id})">
-        <div class="ip-accent"></div>
-        <div class="ip-inner">
-          <div class="ip-row">
-            <div class="ip-num">${idx + 1}</div>
-            <div class="ip-headings">
-              <div class="ip-type"><i class="fa-solid ${t.icon}" style="color:#7c3aed;font-size:13px;"></i> ${t.label} <span class="ip-phase">${t.phase}</span></div>
-              <div class="ip-sub">${escapeHTML(preview)}</div>
-            </div>
-          </div>
+      <div class="ip-edit ${collapsed ? 'collapsed' : ''} ${isActive ? 'active' : 'inactive'}" data-ipid="${p.id}">
+        <div class="ip-edit-head" onclick="selectInteractionPoint(${p.id})" title="${isActive ? 'Active — driving the preview' : 'Click to preview this interaction point'}">
+          <span class="ip-edit-num">${idx + 1}</span>
+          <i class="fa-solid ${t.icon} ip-edit-ico"></i>
+          <span class="ip-edit-title">${escapeHTML(t.label)}</span>
+          <span class="ip-edit-phase">${t.phase}</span>
+          ${isActive ? '<span class="ip-edit-live"><i class="fa-solid fa-circle-play"></i> Previewing</span>' : ''}
+          <button class="ip-edit-del" title="Remove interaction point" onclick="event.stopPropagation(); deleteInteractionPoint(${p.id})"><i class="fa-solid fa-trash-can"></i></button>
+          <button class="ip-edit-caret-btn" title="Collapse / expand" onclick="event.stopPropagation(); toggleIpEdit(${p.id})"><i class="fa-solid fa-chevron-down ip-edit-caret"></i></button>
+        </div>
+        <div class="ip-edit-body">
+          <p class="ip-edit-lede">${escapeHTML(t.lede)}</p>
+          ${ipFieldsHTML(p, t)}
         </div>
       </div>`;
   }).join('');
@@ -6507,144 +6615,181 @@ function renderInteractionPoints() {
   if (countEl) countEl.textContent = interactionPoints.length;
 }
 
+// The per-type field markup rendered inline in each point's editor body.
+function ipFieldsHTML(p, t) {
+  if (p.type === 'reflection') {
+    return `
+      <div class="ie-field">
+        <label class="ie-label">Reflection prompt (delivered verbatim) <span class="link-hint"><i class="fa-solid fa-arrow-right-long"></i> shows in preview</span></label>
+        <textarea class="ie-textarea" rows="3" placeholder="Write the exact opening line the coach will say…"
+          onfocus="linkFocus('${srcKey(p.id, null, 'prompt')}')" onblur="linkBlur()"
+          oninput="onReflInput(${p.id},'prompt',this.value)">${escapeHTML(p.prompt || '')}</textarea>
+        <div class="ie-help">The exact opening line, in the coach's voice.</div>
+      </div>
+      <div class="ie-field">
+        <label class="ie-label">How the coach responds</label>
+        <textarea class="ie-textarea" rows="4" placeholder="Describe how the coach should acknowledge and calibrate the learner's response…"
+          oninput="onReflInput(${p.id},'coach',this.value)">${escapeHTML(p.coach || '')}</textarea>
+        <div class="ie-help">Calibration guidance — what to acknowledge, what misconception to note.</div>
+      </div>`;
+  }
+  if (p.type === 'multi-phase') {
+    return `
+      <div class="mp-note">${escapeHTML(t.note2Text || '')}</div>
+      <div class="mp-phases" data-ipid="${p.id}">${(p.phases || []).map((ph, i) => phaseHTML(p.id, ph, i)).join('')}</div>
+      <button class="mp-add-btn" onclick="addPhase(${p.id})"><i class="fa-solid fa-plus"></i> Add phase</button>`;
+  }
+  // placeholder types
+  return `
+    <div class="ie-ph-box">
+      <i class="fa-solid fa-compass-drafting"></i>
+      <div class="ie-ph-title">${escapeHTML(t.label)} — coming next</div>
+      <p class="ie-ph-desc">The configuration editor for the ${escapeHTML(t.label)} interaction type is designed next.</p>
+    </div>`;
+}
+
+// One multi-phase phase block.
+function phaseHTML(ipid, ph, i) {
+  const label = (ph.label || '').trim();
+  const eyebrow = `Phase ${i + 1}${label ? ' · ' + escapeHTML(label.toUpperCase()) : ''}`;
+  return `
+    <div class="mp-phase" data-pid="${ph.id}">
+      <div class="mp-phase-head">
+        <span class="mp-phase-eyebrow">${eyebrow}</span>
+        <button class="mp-phase-del" title="Remove phase" onclick="deletePhase(${ipid},${ph.id})"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+      <div class="mp-field">
+        <label class="mp-label">Phase label</label>
+        <input class="mp-input" value="${escapeHTML(ph.label || '')}" placeholder="e.g. The Law" oninput="onPhaseInput(${ipid},${ph.id},'label',this.value)" />
+      </div>
+      <div class="mp-field">
+        <label class="mp-label">Signpost — the verbatim hand-off INTO this phase <span class="link-hint"><i class="fa-solid fa-arrow-right-long"></i> shows in preview</span></label>
+        <textarea class="mp-textarea" rows="2" placeholder="e.g. Now let's take a closer look at what's actually happening here."
+          onfocus="linkFocus('${srcKey(ipid, ph.id, 'signpost')}')" onblur="linkBlur()"
+          oninput="onPhaseInput(${ipid},${ph.id},'signpost',this.value)">${escapeHTML(ph.signpost || '')}</textarea>
+        <div class="mp-help">Shown word-for-word entering this phase.</div>
+      </div>
+      <div class="mp-field">
+        <label class="mp-label">Task prompt (delivered verbatim) <span class="link-hint"><i class="fa-solid fa-arrow-right-long"></i> shows in preview</span></label>
+        <textarea class="mp-textarea" rows="3" placeholder="What the learner reasons about…"
+          onfocus="linkFocus('${srcKey(ipid, ph.id, 'task')}')" onblur="linkBlur()"
+          oninput="onPhaseInput(${ipid},${ph.id},'task',this.value)">${escapeHTML(ph.task || '')}</textarea>
+        <div class="mp-help">What the learner reasons about.</div>
+      </div>
+      <label class="mp-answer-row ${ph.hasAnswer ? 'on' : ''}" onclick="togglePhaseAnswer(${ipid},${ph.id})">
+        <span class="mp-answer-box"><i class="fa-solid fa-check"></i></span>
+        <span class="mp-answer-label">This phase has a right answer (graded — the coach lands the conclusion, never hedges)</span>
+      </label>
+      <div class="mp-answer-fields ${ph.hasAnswer ? 'show' : ''}">
+        <div class="mp-field">
+          <label class="mp-label">"Talk it through" line (coach speaks this verbatim to open teaching) <span class="link-hint"><i class="fa-solid fa-arrow-right-long"></i> shows in Learn preview</span></label>
+          <textarea class="mp-textarea" rows="2" placeholder="e.g. This question does have a right and wrong answer, so let's step back and make the law on this clear."
+            onfocus="linkFocus('${srcKey(ipid, ph.id, 'talkLine')}')" onblur="linkBlur()"
+            oninput="onPhaseInput(${ipid},${ph.id},'talkLine',this.value)">${escapeHTML(ph.talkLine || '')}</textarea>
+        </div>
+        <div class="mp-field">
+          <label class="mp-label">Through-line (right-answer phases — what every learner must hear)</label>
+          <textarea class="mp-textarea" rows="2" placeholder="The conclusion the coach must land…"
+            oninput="onPhaseInput(${ipid},${ph.id},'throughLine',this.value)">${escapeHTML(ph.throughLine || '')}</textarea>
+        </div>
+      </div>
+      <div class="mp-field">
+        <label class="mp-label">Example Socratic probe (optional)</label>
+        <textarea class="mp-textarea" rows="2" placeholder="A model of the ONE probe the coach may use in Practice…"
+          oninput="onPhaseInput(${ipid},${ph.id},'probe',this.value)">${escapeHTML(ph.probe || '')}</textarea>
+        <div class="mp-help">A model of the ONE probe the coach may use in Practice.</div>
+      </div>
+      <div class="mp-field">
+        <label class="mp-label">Where the teaching lands (optional)</label>
+        <textarea class="mp-textarea" rows="2" placeholder='e.g. END on the bystander bridge.'
+          oninput="onPhaseInput(${ipid},${ph.id},'lands',this.value)">${escapeHTML(ph.lands || '')}</textarea>
+        <div class="mp-help">A closing instruction for this phase's teach turn. Steers where the coach leaves the learner before the next hand-off.</div>
+      </div>
+    </div>`;
+}
+
+function toggleIpEdit(id) {
+  ipCollapsed[id] = !ipCollapsed[id];
+  const el = document.querySelector(`.ip-edit[data-ipid="${id}"]`);
+  if (el) el.classList.toggle('collapsed', ipCollapsed[id]);
+}
+
+// Selecting = making a point active. The active point drives the preview:
+// the playthrough reveals through that point and spotlights its beats.
 function selectInteractionPoint(id) {
   activeIpId = id;
+  ipCollapsed[id] = false;
   renderInteractionPoints();
-  renderIeEditor();
+  focusPreviewOnActive();
 }
 
-// Paint the main-area editor from the active interaction point.
-function renderIeEditor() {
+function deleteInteractionPoint(id) {
+  if (interactionPoints.length <= 1) return; // keep at least one
+  interactionPoints = interactionPoints.filter(p => p.id !== id);
+  if (activeIpId === id) activeIpId = interactionPoints[0].id;
+  renderInteractionPoints();
+  markPreviewStale();
+  focusPreviewOnActive();
+}
+
+// The active point drives the preview: reveal the playthrough at least through
+// that point's last beat, then spotlight the point's turns.
+let spotlightTimer = null;
+function focusPreviewOnActive() {
   const p = getActiveIp();
+  if (!p || !playBeats.length) return;
+  // Index of this point's last beat in the compiled order.
+  let lastIdx = -1;
+  playBeats.forEach((b, i) => { if (b.pid === p.id) lastIdx = i; });
+  if (lastIdx === -1) return;
+  if (playIndex < lastIdx + 1) { stopPlay(); playIndex = lastIdx + 1; paintPlaythrough(false); }
+
+  const chat = document.getElementById('pl-chat');
+  if (!chat) return;
+  clearTimeout(spotlightTimer);
+  const turns = chat.querySelectorAll('.pl-turn');
+  turns.forEach(t => t.classList.remove('spotlight'));
+  chat.classList.add('spotlighting');
+  let first = null;
+  turns.forEach(t => {
+    if (String(t.dataset.pid) === String(p.id)) { t.classList.add('spotlight'); if (!first) first = t; }
+  });
+  if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Ease the dimming back out so the author can still read the whole flow.
+  spotlightTimer = setTimeout(() => {
+    chat.classList.remove('spotlighting');
+    turns.forEach(t => t.classList.remove('spotlight'));
+  }, 2400);
+}
+
+/* ---------------- Edit handlers (write to model + flag preview stale) ---------------- */
+function getIp(ipid) { return interactionPoints.find(p => p.id === ipid); }
+function getPhase(ipid, pid) { const p = getIp(ipid); return (p && p.phases) ? p.phases.find(ph => ph.id === pid) : null; }
+
+// Reflection field edit.
+function onReflInput(ipid, field, val) {
+  const p = getIp(ipid);
   if (!p) return;
-  const t = IP_TYPES[p.type] || IP_TYPES.reflection;
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  set('ie-type-title', t.label);
-  set('ie-phase-tag', t.phase);
-  set('ie-lede', t.lede);
-  set('ie-note-title', t.noteTitle);
-  set('ie-note-text', t.noteText);
-  const icon = document.getElementById('ie-type-icon');
-  if (icon) icon.innerHTML = `<i class="fa-solid ${t.icon}"></i>`;
-
-  // Toggle the field block that matches the type (reflection / multi-phase / placeholder).
-  const isReflection = p.type === 'reflection';
-  const isMultiPhase = p.type === 'multi-phase';
-  const isDefined = isReflection || isMultiPhase;
-  const refl = document.getElementById('ie-reflection-fields');
-  const mp   = document.getElementById('ie-multiphase-fields');
-  const ph   = document.getElementById('ie-placeholder');
-  if (refl) refl.style.display = isReflection ? '' : 'none';
-  if (mp)   mp.style.display   = isMultiPhase ? '' : 'none';
-  if (ph)   ph.style.display   = isDefined ? 'none' : '';
-
-  if (isReflection) {
-    const promptEl = document.getElementById('ie-prompt');
-    const coachEl  = document.getElementById('ie-coach');
-    if (promptEl) promptEl.value = p.prompt || '';
-    if (coachEl)  coachEl.value  = p.coach || '';
-  } else if (isMultiPhase) {
-    set('ie-note2-title', t.note2Title);
-    set('ie-note2-text', t.note2Text);
-    renderPhases();
-  } else {
-    set('ie-ph-title', `${t.label} — coming next`);
-    set('ie-ph-desc', `The configuration editor for the ${t.label} interaction type is designed next.`);
-  }
+  p[field] = val;
+  livePreviewEdit();
 }
 
-/* ---------------- Multi-Phase: phases ---------------- */
-// Render the phase blocks for the active multi-phase interaction point.
-function renderPhases() {
-  const p = getActiveIp();
-  const wrap = document.getElementById('mp-phases');
-  if (!p || !wrap) return;
-  const phases = p.phases || (p.phases = [newPhase()]);
-  wrap.innerHTML = phases.map((ph, i) => {
-    const label = (ph.label || '').trim();
-    const eyebrow = `Phase ${i + 1}${label ? ' · ' + escapeHTML(label.toUpperCase()) : ''}`;
-    return `
-      <div class="mp-phase" data-pid="${ph.id}">
-        <div class="mp-phase-head">
-          <span class="mp-phase-eyebrow">${eyebrow}</span>
-          <button class="mp-phase-del" title="Remove phase" onclick="deletePhase(${ph.id})"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-
-        <div class="mp-field">
-          <label class="mp-label">Phase label</label>
-          <input class="mp-input" value="${escapeHTML(ph.label || '')}" placeholder="e.g. The Law"
-            oninput="onPhaseInput(${ph.id},'label',this.value)" />
-        </div>
-
-        <div class="mp-field">
-          <label class="mp-label">Signpost — the verbatim hand-off INTO this phase</label>
-          <textarea class="mp-textarea" rows="2" placeholder="e.g. Now let's take a closer look at what's actually happening here."
-            oninput="onPhaseInput(${ph.id},'signpost',this.value)">${escapeHTML(ph.signpost || '')}</textarea>
-          <div class="mp-help">Shown word-for-word entering this phase.</div>
-        </div>
-
-        <div class="mp-field">
-          <label class="mp-label">Task prompt (delivered verbatim)</label>
-          <textarea class="mp-textarea" rows="3" placeholder="What the learner reasons about…"
-            oninput="onPhaseInput(${ph.id},'task',this.value)">${escapeHTML(ph.task || '')}</textarea>
-          <div class="mp-help">What the learner reasons about.</div>
-        </div>
-
-        <label class="mp-answer-row ${ph.hasAnswer ? 'on' : ''}" onclick="togglePhaseAnswer(${ph.id})">
-          <span class="mp-answer-box"><i class="fa-solid fa-check"></i></span>
-          <span class="mp-answer-label">This phase has a right answer (graded — the coach lands the conclusion, never hedges)</span>
-        </label>
-
-        <div class="mp-answer-fields ${ph.hasAnswer ? 'show' : ''}">
-          <div class="mp-field">
-            <label class="mp-label">"Talk it through" line (coach speaks this verbatim to open teaching)</label>
-            <textarea class="mp-textarea" rows="2" placeholder="e.g. This question does have a right and wrong answer, so let's step back and make the law on this clear."
-              oninput="onPhaseInput(${ph.id},'talkLine',this.value)">${escapeHTML(ph.talkLine || '')}</textarea>
-          </div>
-          <div class="mp-field">
-            <label class="mp-label">Through-line (right-answer phases — what every learner must hear)</label>
-            <textarea class="mp-textarea" rows="2" placeholder="The conclusion the coach must land…"
-              oninput="onPhaseInput(${ph.id},'throughLine',this.value)">${escapeHTML(ph.throughLine || '')}</textarea>
-          </div>
-        </div>
-
-        <div class="mp-field">
-          <label class="mp-label">Example Socratic probe (optional)</label>
-          <textarea class="mp-textarea" rows="2" placeholder="A model of the ONE probe the coach may use in Practice…"
-            oninput="onPhaseInput(${ph.id},'probe',this.value)">${escapeHTML(ph.probe || '')}</textarea>
-          <div class="mp-help">A model of the ONE probe the coach may use in Practice.</div>
-        </div>
-
-        <div class="mp-field">
-          <label class="mp-label">Where the teaching lands (optional)</label>
-          <textarea class="mp-textarea" rows="2" placeholder='e.g. END on the bystander bridge.'
-            oninput="onPhaseInput(${ph.id},'lands',this.value)">${escapeHTML(ph.lands || '')}</textarea>
-          <div class="mp-help">A closing instruction for this phase's teach turn — e.g. "END on the bystander bridge." Steers where the coach leaves the learner before the next hand-off.</div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function getPhase(pid) {
-  const p = getActiveIp();
-  return (p && p.phases) ? p.phases.find(ph => ph.id === pid) : null;
-}
-
-function onPhaseInput(pid, field, val) {
-  const ph = getPhase(pid);
+// Multi-phase field edit.
+function onPhaseInput(ipid, pid, field, val) {
+  const ph = getPhase(ipid, pid);
   if (!ph) return;
   ph[field] = val;
   if (field === 'label') {
-    // Update the eyebrow + the panel list preview without re-rendering inputs.
+    // Update the eyebrow live without re-rendering (which would blur the input).
     const block = document.querySelector(`.mp-phase[data-pid="${pid}"] .mp-phase-eyebrow`);
-    const idx = getActiveIp().phases.findIndex(x => x.id === pid);
+    const idx = getIp(ipid).phases.findIndex(x => x.id === pid);
     if (block) block.textContent = `Phase ${idx + 1}${val.trim() ? ' · ' + val.trim().toUpperCase() : ''}`;
-    renderInteractionPoints();
   }
+  livePreviewEdit();
 }
 
-function togglePhaseAnswer(pid) {
-  const ph = getPhase(pid);
+function togglePhaseAnswer(ipid, pid) {
+  const ph = getPhase(ipid, pid);
   if (!ph) return;
   ph.hasAnswer = !ph.hasAnswer;
   const block = document.querySelector(`.mp-phase[data-pid="${pid}"]`);
@@ -6652,45 +6797,180 @@ function togglePhaseAnswer(pid) {
     block.querySelector('.mp-answer-row').classList.toggle('on', ph.hasAnswer);
     block.querySelector('.mp-answer-fields').classList.toggle('show', ph.hasAnswer);
   }
+  markPreviewStale();
 }
 
-function addPhase() {
-  const p = getActiveIp();
+function addPhase(ipid) {
+  const p = getIp(ipid);
   if (!p) return;
   (p.phases || (p.phases = [])).push(newPhase());
-  renderPhases();
   renderInteractionPoints();
+  markPreviewStale();
 }
 
-function deletePhase(pid) {
-  const p = getActiveIp();
-  if (!p || !p.phases) return;
-  if (p.phases.length <= 1) return; // keep at least one phase
+function deletePhase(ipid, pid) {
+  const p = getIp(ipid);
+  if (!p || !p.phases || p.phases.length <= 1) return; // keep at least one phase
   p.phases = p.phases.filter(ph => ph.id !== pid);
-  renderPhases();
   renderInteractionPoints();
+  markPreviewStale();
 }
 
-let ieNote2Collapsed = false;
-function toggleIeNote2() {
-  ieNote2Collapsed = !ieNote2Collapsed;
-  document.getElementById('ie-note2').classList.toggle('collapsed', ieNote2Collapsed);
+/* =======================================================================
+   SCENARIO PLAYTHROUGH PREVIEWER
+   Compiles the interaction points into an ordered list of "beats" (coach
+   turns), rendered as the learner-facing coach chat. The author renders,
+   steps/plays through it, and sees edits reflected live.
+======================================================================= */
+let playBeats = [];        // compiled beats for the current render
+let playIndex = 0;         // how many beats are currently shown
+let playMode = 'learn';    // 'learn' | 'practice'
+let ipPlayTimer = null;
+let previewStale = false;
+
+// Build the beat list from the interaction points (a beat = one coach turn).
+function compileBeats() {
+  const beats = [];
+  interactionPoints.forEach(p => {
+    const t = IP_TYPES[p.type] || IP_TYPES.reflection;
+    if (p.type === 'reflection') {
+      // Each bubble carries a `src` key linking it back to the field that produced it.
+      beats.push({ kind: 'coach', pid: p.id, label: t.label, phase: t.phase, bubbles: [
+        { text: (p.prompt || '').trim() || '(no prompt yet)', src: srcKey(p.id, null, 'prompt') }
+      ] });
+    } else if (p.type === 'multi-phase') {
+      (p.phases || []).forEach((ph, i) => {
+        const bubbles = [];
+        if ((ph.signpost || '').trim()) bubbles.push({ text: ph.signpost.trim(), signpost: true, src: srcKey(p.id, ph.id, 'signpost') });
+        // In Learn mode the coach opens with the "talk it through" line (if graded);
+        // in Practice mode the task prompt drives the beat.
+        if (playMode === 'learn' && ph.hasAnswer && (ph.talkLine || '').trim()) bubbles.push({ text: ph.talkLine.trim(), src: srcKey(p.id, ph.id, 'talkLine') });
+        if ((ph.task || '').trim()) bubbles.push({ text: ph.task.trim(), src: srcKey(p.id, ph.id, 'task') });
+        if (!bubbles.length) bubbles.push({ text: '(phase not drafted yet)' });
+        beats.push({ kind: 'coach', pid: p.id, label: (ph.label || `Phase ${i + 1}`), phase: t.phase, bubbles });
+      });
+    } else {
+      beats.push({ kind: 'coach', pid: p.id, label: t.label, phase: t.phase, bubbles: [ { text: `(${t.label} — not configured yet)` } ] });
+    }
+  });
+  return beats;
 }
 
-// Persist edits back to the model (also refreshes the list preview).
-function onIeInput() {
-  const p = getActiveIp();
-  if (!p) return;
-  const promptEl = document.getElementById('ie-prompt');
-  const coachEl  = document.getElementById('ie-coach');
-  if (promptEl) p.prompt = promptEl.value;
-  if (coachEl)  p.coach  = coachEl.value;
-  renderInteractionPoints();
+// Stable key linking an input to the preview bubble it produces.
+function srcKey(ipid, phid, field) { return phid ? `p${ipid}:ph${phid}:${field}` : `p${ipid}:${field}`; }
+
+// Full render/replay: recompile beats and show all of them (fresh playthrough).
+function renderPlaythrough() {
+  playBeats = compileBeats();
+  playIndex = playBeats.length;   // show everything on an explicit render
+  stopPlay();
+  clearPreviewStale();
+  paintPlaythrough(true);
 }
 
-function toggleIeNote() {
-  ieNoteCollapsed = !ieNoteCollapsed;
-  document.getElementById('ie-note').classList.toggle('collapsed', ieNoteCollapsed);
+// Live edit: keep the same number of visible beats but repaint from current model.
+function livePreviewEdit() {
+  playBeats = compileBeats();
+  paintPlaythrough(false);
+  markPreviewStale();
+}
+
+function paintPlaythrough(animate) {
+  const chat = document.getElementById('pl-chat');
+  if (!chat) return;
+  const shown = Math.min(playIndex, playBeats.length);
+  if (!playBeats.length) {
+    chat.innerHTML = `<div class="pl-empty"><i class="fa-solid fa-comments"></i><h3>Nothing to play yet</h3><p>Add interaction points on the left, then Re-render to preview the learner's coach conversation.</p></div>`;
+    return;
+  }
+  let html = '';
+  let lastLabel = null;
+  playBeats.slice(0, shown).forEach((b, i) => {
+    if (b.label !== lastLabel) { html += `<div class="pl-phase-divider">${escapeHTML(b.label)}</div>`; lastLabel = b.label; }
+    const bubbles = b.bubbles.map(bl => {
+      const text = typeof bl === 'string' ? bl : bl.text;
+      const sign = (typeof bl === 'object' && bl.signpost) ? ' signpost' : '';
+      const srcAttr = (typeof bl === 'object' && bl.src) ? ` data-src="${bl.src}"` : '';
+      return `<div class="pl-bubble${sign}"${srcAttr}>${escapeHTML(text)}</div>`;
+    }).join('');
+    const noAnim = animate ? '' : 'style="animation:none;opacity:1;transform:none;"';
+    html += `<div class="pl-turn" data-pid="${b.pid != null ? b.pid : ''}" ${noAnim}>
+      <div class="pl-avatar"><i class="fa-solid fa-user-tie"></i></div>
+      <div class="pl-bubble-wrap"><div class="pl-who">AI Coach</div>${bubbles}</div>
+    </div>`;
+  });
+  chat.innerHTML = html;
+  const scroll = document.getElementById('pl-scroll');
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+}
+
+
+/* ---- Dev-tools-style link: focusing an input highlights its preview bubble ---- */
+function linkFocus(src) {
+  clearLinkHighlight();
+  // Find which beat owns this source so we can reveal it if it's not shown yet.
+  let owningBeat = -1;
+  playBeats.forEach((b, i) => { if (b.bubbles.some(bl => bl && bl.src === src)) owningBeat = i; });
+  if (owningBeat === -1) return;               // not currently in the compiled playthrough
+  if (playIndex < owningBeat + 1) {            // reveal up to the owning beat
+    stopPlay();
+    playIndex = owningBeat + 1;
+    paintPlaythrough(false);
+  }
+  const bubble = document.querySelector(`.pl-bubble[data-src="${src}"]`);
+  if (bubble) {
+    document.getElementById('pl-chat')?.classList.add('linking');
+    bubble.classList.add('link-target');
+    bubble.closest('.pl-turn')?.classList.add('link-turn');
+    bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+function linkBlur() { clearLinkHighlight(); }
+function clearLinkHighlight() {
+  document.getElementById('pl-chat')?.classList.remove('linking');
+  document.querySelectorAll('.pl-bubble.link-target').forEach(el => el.classList.remove('link-target'));
+  document.querySelectorAll('.pl-turn.link-turn').forEach(el => el.classList.remove('link-turn'));
+}
+
+// Transport controls
+function playerNext() { stopPlay(); if (playIndex < playBeats.length) { playIndex++; paintPlaythrough(true); } }
+function playerPrev() { stopPlay(); if (playIndex > 1) { playIndex--; paintPlaythrough(true); } }
+
+function playerTogglePlay() {
+  if (ipPlayTimer) { stopPlay(); return; }
+  if (!playBeats.length) return;
+  if (playIndex >= playBeats.length) playIndex = 0; // restart from top
+  setPlayIcon(true);
+  const tick = () => {
+    if (playIndex >= playBeats.length) { stopPlay(); return; }
+    playIndex++; paintPlaythrough(true);
+    ipPlayTimer = setTimeout(tick, 1400);
+  };
+  tick();
+}
+function stopPlay() { if (ipPlayTimer) { clearTimeout(ipPlayTimer); ipPlayTimer = null; } setPlayIcon(false); }
+function setPlayIcon(playing) {
+  const btn = document.getElementById('pl-play');
+  if (btn) btn.innerHTML = `<i class="fa-solid fa-${playing ? 'pause' : 'play'}"></i>`;
+}
+
+function setPlayMode(mode) {
+  playMode = mode;
+  document.getElementById('pl-mode-learn').classList.toggle('active', mode === 'learn');
+  document.getElementById('pl-mode-practice').classList.toggle('active', mode === 'practice');
+  renderPlaythrough();
+}
+
+// Stale flag — shown when edits diverge from the last full render.
+function markPreviewStale() {
+  previewStale = true;
+  const el = document.getElementById('pl-stale');
+  if (el) el.classList.add('show');
+}
+function clearPreviewStale() {
+  previewStale = false;
+  const el = document.getElementById('pl-stale');
+  if (el) el.classList.remove('show');
 }
 
 // Build + open the "Add Interaction Point" type-picker menu.
@@ -6750,6 +7030,7 @@ function addInteractionPoint(type = 'reflection') {
   if (t === 'multi-phase') point.phases = [newPhase()];
   interactionPoints.push(point);
   selectInteractionPoint(id);
+  markPreviewStale();
 }
 
 /* -----------------------------------------------------------------------
