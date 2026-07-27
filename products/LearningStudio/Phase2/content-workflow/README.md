@@ -5,17 +5,23 @@ A generalized, content-type-agnostic creation flow for Learning Studio Phase 2. 
 ## Flow
 
 ```
-index.html  ──►  builder.html?type=<t>&path=<p>
+index.html  ──►  builder.html?type=<t>&path=ai      (Course · Activity · Simulation)
 (select type)     (guided conversation + live prompt)
-(select path)
+       │
+       └────────►  scenario-setup.html               (Scenario)
+                    (project-creation page → detailed scene/step setup)
 ```
 
 ### 1. `index.html` — Entry point
-Two-step selection on one page:
+Single-step selection on one page:
 1. **Content type** — Course · Learning Activity · Simulation · Scenario
-2. **Creation path** — AI-guided · Start from template · Combined
 
-Selecting a path navigates to the builder with `?type=&path=` query params.
+Picking a type reveals a simple "Ready when you are" banner with one continue action:
+- **Course / Activity / Simulation** → `builder.html?type=<t>&path=ai`
+- **Scenario** → `scenario-setup.html` (has its own project-creation step first)
+
+### 1a. `scenario-setup.html` — Scenario project creation (Scenario only)
+A project-creation page (same global header as `builder.html`) that captures: **project name**, an **interaction template** (Roleplay · Guided Arc · Observe/React · Teach-Back, or upload your own), optional **course context** (tie to an existing course for AI context), a **scenario premise**, and the **learner's role**. This is the on-ramp to the detailed scene/step setup.
 
 ### 2. `builder.html` — The guided builder (core screen)
 Two panes:
@@ -26,6 +32,10 @@ Two panes:
 **Template-as-structure:** on the `template` / `combined` paths, the flow opens with an upload; the template's structure seeds the `Structure` field as the skeleton and the conversation fills the rest.
 
 The workflow ends at **Generate** — everything downstream (scene generation, media, review) is out of scope, matching the plan/execute split in `../chat-builder-setup-and-planning-spec.md`.
+
+## Sample scenario context
+
+`SCENARIO-CONTEXT.md` is the **foundational reference for the sample scenario** ("The Marshall Situation") the team is using to walk through the detailed scenario setup & configuration steps. It documents the canonical narrative, cast, escalation timeline, the learner's bystander POV, themes, a consistency checklist, and the open items still to be decided. **When mocking scenes/steps for this scenario, treat that file as the source of truth** — and record new decisions back into it as they're made.
 
 ## Notes for developers / next steps
 - The conversation is a **static script** (`SCRIPT` array in `builder.html`) standing in for a real LLM extraction loop. In production, each turn would be a model call that decides the next question and updates the structured state.

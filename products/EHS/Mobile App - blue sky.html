@@ -268,29 +268,23 @@
         .rec-swipe-download { background: #475569; }
         .rec-swipe-delete { background: #b23a26; }
 
-        /* ── Records title + "Last synced" subtitle (EHS-18527 follow-up, item 4) ── */
-        .records-title-bar { height: 58px; }
-        .records-title-wrap {
-            position: absolute; left: 50%; transform: translateX(-50%);
-            display: flex; flex-direction: column; align-items: center; gap: 1px;
-        }
-        .records-title-wrap .header-title { position: static; left: auto; transform: none; }
-        .records-sync-sub {
-            font-size: 11px; color: rgba(255,255,255,0.75);
-            cursor: pointer; white-space: nowrap;
+        /* ── "Last synced" — a subtitle under EACH card's title (EHS-18527
+           follow-up): per-record sync stamp, updated by auto-sync on open,
+           pull-to-refresh, reconnect, and the per-record Resync action. ── */
+        .card-sync-sub {
+            font-size: 11px; color: rgba(0,0,0,0.4);
+            margin: -1px 0 5px;
         }
         /* ── Offline indicator (cloud + slash) — replaces the offline banner
            (EHS-18527 follow-up, item 3). Only rendered while offline; tapping
            it opens a short helper popover. ── */
-        .offline-ind { display: none; }
-        #app.app-offline .offline-ind { display: flex; }
-        .offline-pop {
-            display: none; position: absolute; top: calc(100% + 6px); left: 10px; right: 56px;
-            background: #1c3a5c; color: white; border-radius: 10px; padding: 10px 12px;
-            font-size: 12px; line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            z-index: 90; text-align: left;
-        }
-        .offline-pop.show { display: block; }
+        /* Live offline banner: hidden unless the prototype's Offline toggle is
+           on. Replaces the old cloud-slash header indicator (removed).
+           (Doubled selector so it outranks the .offline-banner display:flex
+           base rule that appears later in the sheet.) */
+        .offline-banner.app-offline-banner { display: none; }
+        #app.app-offline .offline-banner.app-offline-banner,
+        #app.offline-editing .offline-banner.app-offline-banner { display: flex; }
         /* Pull-to-refresh indicator: height grows while the list is pulled down */
         .records-pull-indicator {
             height: 0; overflow: hidden; display: flex; align-items: center;
@@ -299,14 +293,13 @@
         }
         .records-pull-indicator i { font-size: 12px; }
 
-        /* ── Record view — EHS-18527 item 5 ──
-           Read-only is an OFFLINE state: while online, downloaded records stay
-           editable (Edit button below). The lock icons only render while the
-           prototype's Offline toggle is on; the offline explanation lives in the
-           header's cloud-slash indicator (the old banner was removed). Signatures
-           & attachments stay addable in BOTH states. */
+        /* ── Record details page (summary) + read-only record view — EHS-18527 ──
+           Downloaded/submitted JSAs are NOT editable in this initiative (item 1):
+           the record shows as clean labeled read-only values (no input chrome).
+           The details page lets the user manage signatures/attachments and submit
+           when applicable; the full read-only view renders every previously
+           editable field as a labeled value. */
         .rv-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-        #app.app-offline .rv-edit-btn { display: none; }
         .rv-card, .rv-section {
             background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px;
             margin: 12px 12px 0; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
@@ -318,17 +311,18 @@
             font-size: 11.5px; font-weight: 600; color: rgba(0,0,0,0.45);
             display: flex; align-items: center; gap: 6px; margin-bottom: 3px;
         }
-        .rv-field-label .rv-lock { font-size: 9.5px; color: rgba(0,0,0,0.3); display: none; }
-        #app.app-offline .rv-field-label .rv-lock { display: inline; }
         .rv-field-value { font-size: 13.5px; color: rgba(0,0,0,0.75); line-height: 1.45; }
+        .rv-field-value.empty { color: rgba(0,0,0,0.35); font-style: italic; }
         .rv-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
         .rv-section-title { font-size: 14px; font-weight: 700; color: rgba(0,0,0,0.87); }
-        .rv-add-btn {
-            background: none; border: 1.5px solid #0271ce; color: #0271ce;
-            border-radius: 6px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
-            cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+        /* Icon-only actions on the details page (Edit sections, Copy ID) */
+        .rv-icon-btn {
+            background: none; border: none; color: #0271ce;
+            width: 32px; height: 32px; border-radius: 8px; font-size: 15px;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin: -4px 0;
         }
-        .rv-add-btn:active { background: rgba(2,113,206,0.08); }
+        .rv-icon-btn:active { background: rgba(2,113,206,0.08); }
         .rv-item-row {
             display: flex; align-items: center; gap: 10px; padding: 9px 0;
             border-bottom: 1px solid #f3f4f6; font-size: 13px; color: rgba(0,0,0,0.78);
@@ -337,6 +331,60 @@
         .rv-item-row > i { color: rgba(0,0,0,0.4); font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
         .rv-item-main { flex: 1; min-width: 0; }
         .rv-item-sub { font-size: 11.5px; color: rgba(0,0,0,0.45); margin-top: 1px; }
+        .rv-empty { font-size: 12.5px; color: rgba(0,0,0,0.4); padding: 6px 0 2px; }
+        /* Record ID row: value + inline Copy ID CTA */
+        .rv-id-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        /* Sticky footer actions on the details page: Edit / View full record
+           (secondary) always available; Submit (primary) when applicable. */
+        .rv-footer {
+            position: absolute; left: 0; right: 0; bottom: 0;
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+            background: white; border-top: 1px solid #e5e7eb;
+        }
+        .rv-footer-row { display: flex; gap: 10px; }
+        .rv-footer-secondary {
+            flex: 1; background: white; border: 1.5px solid #0271ce; color: #0271ce;
+            border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .rv-footer-secondary:active { background: rgba(2,113,206,0.08); }
+        .rv-submit-btn {
+            flex: 1; background: #0271ce; border: none; color: white;
+            border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+        }
+        .rv-submit-btn:active { background: #0261b4; }
+
+        /* Read-only value grid used by the full read-only record view (item 3):
+           clean labeled values, no input chrome. */
+        .ro-group-title {
+            font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.5);
+            letter-spacing: 0.02em; margin: 4px 2px 0;
+        }
+        /* Read-only field list container: the .ro-field padding + dividers set the
+           rhythm, so (unlike .form-body) there is no extra flex gap stacking on top. */
+        .ro-body { padding: 4px 16px 20px; }
+        .ro-field { padding: 11px 0; border-bottom: 1px solid #f3f4f6; }
+        .ro-field:last-child { border-bottom: none; padding-bottom: 0; }
+        .ro-field-label { font-size: 11.5px; font-weight: 600; color: rgba(0,0,0,0.45); margin-bottom: 3px; }
+        .ro-field-value { font-size: 14px; color: rgba(0,0,0,0.82); line-height: 1.45; }
+        .ro-field-value.empty { color: rgba(0,0,0,0.32); font-style: italic; }
+        /* Fleshed-out attachment row on the details page + management screen
+           (matches edit-mode .attach-item style, EHS-18527 item 2) */
+        .rv-att-managed .attach-item:last-child { margin-bottom: 0; }
+        /* Read-only records keep fields read-only, but attachments and signatures
+           are ALWAYS editable (EHS-18527: downloaded records are read-only except
+           signatures & attachments) — the add/remove affordances always show. */
+
+        /* Read-only Steps: each step card opens a read-only detail view on tap. */
+        .ro-step-card { cursor: pointer; }
+        .ro-step-card:active { background: #f8fafc; }
+        .ro-step-card .record-card-header { position: relative; padding-right: 20px; }
+        .ro-step-card .record-card-header::after {
+            content: "\f054"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+            position: absolute; right: 0; top: 3px; color: rgba(0,0,0,0.28); font-size: 12px;
+        }
 
         /* Facility checkbox visual (used by the multi-select facility picker) */
         .rs-fac-check {
@@ -668,9 +716,12 @@
            downloaded badges drop theirs. ── */
         #app.badges-slim .record-badges .badge i,
         #app.badges-slim .record-foot-status .badge i { display: none; }
+        /* The downloaded circle is icon-only, so its arrow ALWAYS stays visible
+           in slim mode (selectors mirror the hide rule's specificity so they win). */
         #app.badges-slim .record-badges .badge-jsa i,
         #app.badges-slim .record-badges [class*="badge-rt-"] i,
-        #app.badges-slim .badge-downloaded i { display: inline-block; }   /* the downloaded circle is icon-only, always keeps its arrow */
+        #app.badges-slim .record-badges .badge-downloaded i,
+        #app.badges-slim .record-foot-status .badge-downloaded i { display: inline-block; }
 
         /* Edit-mode facilitator toggle (lives in the prototype nav bar, outside the phone) */
         .editmode-toggle {
@@ -913,9 +964,11 @@
         /* ── Submitting state ── */
         .badge-submitting { background: rgba(2,113,206,0.1); color: #0065ba; }
         @keyframes submit-progress { from { width: 0%; } to { width: 100%; } }
+        /* Sits inside .record-foot-status (which wraps), so it drops to its own
+           line directly under the Submitting badge and spans that status area. */
         .submit-progress-wrap {
-            height: 3px; background: rgba(2,113,206,0.15);
-            border-radius: 2px; margin-top: 8px; overflow: hidden;
+            flex: 0 0 100%; height: 3px; background: rgba(2,113,206,0.15);
+            border-radius: 2px; margin-top: 5px; overflow: hidden;
         }
         .submit-progress-bar {
             height: 100%; width: 0%; background: #0271ce; border-radius: 2px;
@@ -2314,19 +2367,6 @@
         .offline-banner.is-conflict { background:#fbe9e4; color:#9c3320; border-bottom:1px solid #f3cabe; }
         .offline-banner .banner-link { margin-left:auto; font-weight:700; text-decoration:underline; cursor:pointer; white-space:nowrap; }
 
-        /* Google-Docs-style autosave strip */
-        .save-strip { display:flex; align-items:center; gap:8px; padding:8px 16px; background:#f4f6f8; border-bottom:1px solid #e5e7eb; flex-shrink:0; font-size:12px; color:#50616f; font-weight:600; }
-        .save-strip i { font-size:13px; }
-        .save-strip .save-dot { width:7px; height:7px; border-radius:50%; background:#8a98a6; }
-        .save-strip .save-sub { margin-left:auto; font-weight:400; color:#8a98a6; }
-
-        /* "Edited offline" field tags (scoped to edited fields) */
-        .form-field.edited .form-label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-        .form-field.edited .form-input,
-        .form-field.edited .form-select-btn { border-color:#6fbf8e; background:#f6fcf8; }
-        .field-edit-tag { font-size:10.5px; font-weight:700; letter-spacing:0.2px; text-transform:none; padding:2px 7px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; }
-        .field-edit-tag.mine   { background:#dcf3e4; color:#0a7637; }
-        .field-edit-tag.synced { background:#eef1f4; color:#6b7785; }
 
         /* Sync queue */
         .queue-summary { margin:14px 12px 0; background:white; border-radius:12px; padding:16px; border:1px solid rgba(0,0,0,0.08); box-shadow:0 1px 4px rgba(0,0,0,0.05); display:flex; align-items:center; gap:14px; }
@@ -2614,6 +2654,13 @@
         <optgroup label="App">
             <option value="home">Home</option>
             <option value="records">Records</option>
+            <option value="record-view">Record: Details</option>
+            <option value="record-attachments">Record: Attachments</option>
+            <option value="ro-basic">Read-only: Basic Info</option>
+            <option value="ro-steps">Read-only: Steps</option>
+            <option value="ro-additional">Read-only: Additional</option>
+            <option value="ro-signature">Read-only: Signatures</option>
+            <option value="ro-step-detail">Read-only: Step detail</option>
             <option value="calendar">Calendar</option>
             <option value="create-incident">Create: Incident</option>
             <option value="create-observation">Create: Observation</option>
@@ -2633,7 +2680,6 @@
         </optgroup>
         <optgroup label="Offline &amp; conflict">
             <option value="offline-home">Offline: Home</option>
-            <option value="offline-editor">Offline: Editing JSA</option>
             <option value="offline-records">Offline: Records</option>
             <option value="offline-syncing">Offline: Reconnecting</option>
             <option value="offline-overview">Conflict: Resolve (all)</option>
@@ -2660,6 +2706,12 @@
                         <i class="fa-solid fa-battery-three-quarters"></i>
                     </div>
                 </div>
+            </div>
+
+            <!-- Live offline banner (only while the Offline toggle is on) -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
             </div>
 
             <div class="screen-body" style="background:#f5f9fd;">
@@ -2689,6 +2741,9 @@
 
                 <span class="section-label">Jump Back In</span>
                 <div class="jbi-card-container">
+                    <!-- Jump Back In cards mirror the records-card badge placement:
+                         type + form status on top, sync status + downloaded indicator
+                         bottom-left (these are downloaded, they're being worked on) -->
                     <div class="record-card-row" onclick="showScreen('records')">
                         <div class="record-title">Incident – Warehouse 12, Atlanta, Georgia, USA</div>
                         <div class="record-badges">
@@ -2698,7 +2753,12 @@
                         <div class="record-desc">Worker reported a slip and fall near the loading bay entrance. Initial assessment completed; follow-up steps pending supervisor review.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM</div>
+                        </div>
+                        <div class="record-foot">
+                            <div class="record-foot-status">
+                                <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                            </div>
                         </div>
                     </div>
                     <div class="record-card-row alt-bg" onclick="showScreen('records')">
@@ -2710,19 +2770,29 @@
                         <div class="record-desc">Daily inspection checklist for forklift unit #4 at Dock C. Hydraulic fluid level and brake function checks flagged for follow-up.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/14/26, 3:45:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26, 3:45:00 PM</div>
+                        </div>
+                        <div class="record-foot">
+                            <div class="record-foot-status">
+                                <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                            </div>
                         </div>
                     </div>
                     <div class="record-card-row" onclick="showScreen('records')">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
                         </div>
                         <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/13/26, 2:30:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/13/26, 2:30:00 PM</div>
+                        </div>
+                        <div class="record-foot">
+                            <div class="record-foot-status">
+                                <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2766,26 +2836,12 @@
                     </div>
                 </div>
                 <!-- Normal header -->
-                <div class="header-bar records-normal-bar records-title-bar">
-                    <!-- Offline indicator (EHS-18527 follow-up, item 3): replaces the
-                         offline banner. Only visible while offline; tapping shows a
-                         short helper popover. -->
-                    <button class="hdr-btn offline-ind" onclick="toggleOfflinePop(this)" aria-label="You're offline" style="margin-left:-6px;">
-                        <i class="fa-solid fa-cloud-slash" style="font-size:15px;"></i>
-                    </button>
-                    <div class="records-title-wrap">
-                        <span class="header-title">Records</span>
-                        <!-- "Last synced" is a subtitle under the title (EHS-18527
-                             follow-up, item 4). Tapping it is the desktop manual-sync
-                             fallback; pull-down on the list also syncs. -->
-                        <span class="records-sync-sub" id="records-sync-text" onclick="manualRecordsSync()" title="Tap to sync now">Last synced: just now</span>
-                    </div>
+                <div class="header-bar records-normal-bar">
+                    <span class="header-title">Records</span>
                     <div class="header-action-right">
                         <button class="hdr-btn-outline" id="records-select-btn" onclick="enterSelectMode()">Select</button>
                         <button class="hdr-btn" id="records-settings-btn" onclick="openRecordsSettings()" title="Records settings" aria-label="Records settings"><i class="fa-solid fa-gear"></i></button>
                     </div>
-                    <!-- Helper popover for the offline indicator -->
-                    <div class="offline-pop">You're offline. Downloaded records are read-only until you reconnect, but you can still add signatures and attachments. Changes sync automatically when you're back online.</div>
                 </div>
                 <!-- Contextual bulk-select header (shown while selecting) -->
                 <div class="records-sel-bar">
@@ -2810,6 +2866,13 @@
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Live offline banner (only while the Offline toggle is on) —
+                 replaces the old cloud-slash header indicator -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> Changes you make offline will sync automatically when you reconnect.</span>
             </div>
 
             <!-- Sticky overlay toolbar (appears when scrolling up, past flow toolbar) -->
@@ -2862,6 +2925,7 @@
                             <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
@@ -2869,7 +2933,7 @@
                         <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition. Two open findings require resolution before submission.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26 – 12:12:34 PM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -2891,6 +2955,7 @@
                             <div class="record-title">Slip and Fall – Loading Bay Entrance</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-rt-incident"><i class="fa-solid fa-circle-exclamation" style="font-size:11px;"></i> Incident</span>
                             <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
@@ -2898,7 +2963,7 @@
                         <div class="record-desc">Worker reported a slip near the loading bay entrance during the morning shift. Initial first-aid given; corrective actions being tracked.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 8:05:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26 – 8:05:00 AM</div>
                             <div class="record-meta-row record-id-row" data-id="20451188"><i class="fa-regular fa-copy"></i> ID: 20451188</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -2921,6 +2986,7 @@
                             <div class="record-title">Monthly Fire Extinguisher Inspection – Floor 2</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-rt-inspection"><i class="fa-solid fa-clipboard-list" style="font-size:11px;"></i> Inspection</span>
                             <span class="badge badge-fs-draft" data-form-status="draft"><i class="fa-solid fa-file" style="font-size:10px;"></i> Draft</span>
@@ -2928,7 +2994,7 @@
                         <div class="record-desc">Routine monthly check of all extinguishers on Floor 2 — gauge pressure, tamper seals, and inspection tags verified.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 9:20:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26 – 9:20:00 AM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -2950,6 +3016,7 @@
                             <div class="record-title">Blocked Emergency Exit – Stairwell B</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-rt-hazard"><i class="fa-solid fa-triangle-exclamation" style="font-size:11px;"></i> Hazard</span>
                             <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
@@ -2957,7 +3024,7 @@
                         <div class="record-desc">Pallets stacked in front of the Stairwell B emergency exit. Flagged for immediate removal and re-training of the receiving team.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/14/26 – 4:10:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26 – 4:10:00 PM</div>
                             <div class="record-meta-row record-id-row" data-id="20451090"><i class="fa-regular fa-copy"></i> ID: 20451090</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -2979,6 +3046,7 @@
                             <div class="record-title">Safe Lifting Technique Observed – Dock A</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-rt-observation"><i class="fa-solid fa-eye" style="font-size:11px;"></i> Observation</span>
                             <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
@@ -2986,7 +3054,7 @@
                         <div class="record-desc">Positive safety observation: dock crew used correct team-lift technique for an oversized crate. Recognized in the daily huddle.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/14/26 – 1:25:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26 – 1:25:00 PM</div>
                             <div class="record-meta-row record-id-row" data-id="20450777"><i class="fa-regular fa-copy"></i> ID: 20450777</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -3009,6 +3077,7 @@
                             <div class="record-title">Forklift Operation – Loading Dock B</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
@@ -3016,7 +3085,7 @@
                         <div class="record-desc">Pre-operation safety analysis for forklift units at Loading Dock B. Covers load limits, travel paths, and spotter requirements for the shift.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26 – 12:12:34 PM</div>
                             <div class="record-meta-row record-id-row" data-id="12345679"><i class="fa-regular fa-copy"></i> ID: 12345679</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -3039,6 +3108,7 @@
                             <div class="record-title">Electrical Panel Maintenance – Room 214</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
@@ -3046,7 +3116,7 @@
                         <div class="record-desc">Lockout/tagout and panel inspection for the main electrical room. All steps completed and verified by a licensed electrician before energization.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/14/26 – 9:45:12 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26 – 9:45:12 AM</div>
                             <div class="record-meta-row record-id-row" data-id="12345671"><i class="fa-regular fa-copy"></i> ID: 12345671</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -3068,6 +3138,7 @@
                             <div class="record-title">Roof Access – Maintenance Crew</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
@@ -3097,6 +3168,7 @@
                             <div class="record-title">Chemical Storage Audit – Bay 4</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-draft" data-form-status="draft"><i class="fa-solid fa-file" style="font-size:10px;"></i> Draft</span>
@@ -3104,7 +3176,7 @@
                         <div class="record-desc">Hazardous materials inventory check for Bay 4. SDS sheets verified, secondary containment inspected, and spill kit inventory confirmed in stock.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/13/26 – 10:00:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/13/26 – 10:00:00 AM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -3125,6 +3197,7 @@
                             <div class="record-title">Scaffold Erection – East Wing Exterior</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-overdue" data-form-status="overdue"><i class="fa-solid fa-clock" style="font-size:10px;"></i> Overdue</span>
@@ -3132,7 +3205,7 @@
                         <div class="record-desc">Multi-level scaffold setup for exterior facade repairs. All components inspected and tagged; base plates and guardrails confirmed installed per spec.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/12/26 – 8:15:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/12/26 – 8:15:00 AM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -3154,6 +3227,7 @@
                             <div class="record-title">Hot Work Permit – Welding Zone C</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
@@ -3161,7 +3235,7 @@
                         <div class="record-desc">Welding and cutting operations near flammable storage. Fire watch assigned, area cleared, and permit countersigned before ignition.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/11/26 – 7:30:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/11/26 – 7:30:00 AM</div>
                             <div class="record-meta-row record-id-row" data-id="99182743"><i class="fa-regular fa-copy"></i> ID: 99182743</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -3183,6 +3257,7 @@
                             <div class="record-title">Electrical Safety Audit – Panel Room B</div>
                             <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         </div>
+                        <div class="card-sync-sub">Last synced: just now</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-incomplete" data-form-status="incomplete"><i class="fa-solid fa-circle-exclamation" style="font-size:10px;"></i> Incomplete</span>
@@ -3190,7 +3265,7 @@
                         <div class="record-desc">Annual arc-flash hazard assessment for Panel Room B. PPE category and incident energy values still require sign-off from the electrical engineer on file.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/10/26 – 3:00:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/10/26 – 3:00:00 PM</div>
                         </div>
                         <div class="record-foot">
                             <div class="record-foot-status">
@@ -3454,63 +3529,445 @@
                 </div>
                 <div class="header-bar">
                     <button class="hdr-btn" onclick="showScreen('records')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <!-- Offline indicator (EHS-18527 follow-up, item 3): replaces the
-                         old read-only banner. Only visible while offline; tapping
-                         shows the helper popover below. -->
-                    <button class="hdr-btn offline-ind" onclick="toggleOfflinePop(this)" aria-label="You're offline">
-                        <i class="fa-solid fa-cloud-slash" style="font-size:15px;"></i>
-                    </button>
                     <span class="header-title">Record</span>
-                    <!-- Helper popover for the offline indicator -->
-                    <div class="offline-pop">You're offline. This record is read-only until you reconnect, but you can still add signatures and attachments.</div>
                 </div>
             </div>
 
-            <div class="screen-body" style="background:#f9fafb;padding-bottom:24px;">
+            <!-- Live offline banner (only while the Offline toggle is on) -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+
+            <!-- Details page = brief summary (item 2). Downloaded/submitted JSAs are
+                 NOT editable (item 1): fields render as clean read-only values, and
+                 the full field set is available via "View full record" below. -->
+            <div class="screen-body" id="rv-body" style="background:#f9fafb;padding-bottom:96px;">
                 <div class="rv-card">
-                    <div class="rv-card-head">
-                        <div class="rv-title" id="rv-title">Record</div>
-                        <!-- Online-only: downloaded records stay editable while connected -->
-                        <button class="rv-add-btn rv-edit-btn" onclick="rvEditRecord()"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
-                    </div>
+                    <div class="rv-title" id="rv-title">Record</div>
                     <div class="record-badges" id="rv-badges" style="margin-bottom:6px;"></div>
                     <div class="rv-field">
-                        <div class="rv-field-label">Description <i class="fa-solid fa-lock rv-lock"></i></div>
+                        <div class="rv-field-label">Description</div>
                         <div class="rv-field-value" id="rv-desc">–</div>
                     </div>
                     <div class="rv-field">
-                        <div class="rv-field-label">Location <i class="fa-solid fa-lock rv-lock"></i></div>
+                        <div class="rv-field-label">Location</div>
                         <div class="rv-field-value" id="rv-location">–</div>
                     </div>
                     <div class="rv-field">
-                        <div class="rv-field-label">Created <i class="fa-solid fa-lock rv-lock"></i></div>
+                        <div class="rv-field-label">Last updated</div>
                         <div class="rv-field-value" id="rv-created">–</div>
                     </div>
                     <div class="rv-field">
-                        <div class="rv-field-label">Record ID <i class="fa-solid fa-lock rv-lock"></i></div>
-                        <div class="rv-field-value" id="rv-id">–</div>
+                        <div class="rv-field-label">Record ID</div>
+                        <div class="rv-field-value rv-id-row">
+                            <span id="rv-id">–</span>
+                            <button class="rv-icon-btn" onclick="rvCopyId()" title="Copy ID" aria-label="Copy ID"><i class="fa-regular fa-copy"></i></button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Signature & attachment capture stay ACTIVE on read-only records -->
+                <!-- Signatures: managing them opens the full signature interface (item 2) -->
                 <div class="rv-section">
                     <div class="rv-section-head">
                         <span class="rv-section-title">Signatures</span>
-                        <button class="rv-add-btn" onclick="rvAddSignature()"><i class="fa-solid fa-plus"></i> Add signature</button>
+                        <button class="rv-icon-btn" onclick="rvEditSignatures()" title="Edit signatures" aria-label="Edit signatures"><i class="fa-regular fa-pen-to-square"></i></button>
                     </div>
                     <div id="rv-sig-list">
                         <div class="rv-item-row"><i class="fa-solid fa-signature"></i><div class="rv-item-main">Andy Xia<div class="rv-item-sub">Signed 1/15/26, 9:31 AM</div></div></div>
                     </div>
                 </div>
 
+                <!-- Attachments: fleshed-out edit-mode style (item 2); Edit opens the
+                     attachment management interface -->
                 <div class="rv-section">
                     <div class="rv-section-head">
                         <span class="rv-section-title">Attachments</span>
-                        <button class="rv-add-btn" onclick="rvAddAttachment()"><i class="fa-solid fa-plus"></i> Add attachment</button>
+                        <button class="rv-icon-btn" onclick="openRecordAttachments()" title="Edit attachments" aria-label="Edit attachments"><i class="fa-regular fa-pen-to-square"></i></button>
                     </div>
-                    <div id="rv-att-list">
-                        <div class="rv-item-row"><i class="fa-regular fa-image"></i><div class="rv-item-main">site_photo_01.jpg<div class="rv-item-sub">1.2 MB, added 1/15/26</div></div></div>
+                    <div id="rv-att-list" class="rv-att-managed">
+                        <div class="attach-item">
+                            <div class="attach-thumb"><i class="fa-regular fa-image"></i></div>
+                            <div class="attach-info">
+                                <div class="attach-name">site_photo_01.jpg</div>
+                                <div class="attach-meta">1.2 MB · added 1/15/26</div>
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+            </div>
+
+            <!-- Footer actions (always visible): the secondary button is Edit when
+                 the edit-mode preview is on (and online), otherwise "View full
+                 record" (read-only initiative). Submit appears only while the
+                 record hasn't been submitted yet (item 2). -->
+            <div class="rv-footer" id="rv-footer">
+                <div class="rv-footer-row">
+                    <button class="rv-footer-secondary" id="rv-secondary-btn" data-mode="view" onclick="rvSecondaryAction()">View full record</button>
+                    <button class="rv-submit-btn" id="rv-submit-btn" onclick="rvSubmitRecord()">Submit</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: RECORD ATTACHMENTS (manage)    -->
+        <!-- ══════════════════════════════════════ -->
+        <!-- Attachment management interface reached from the details page "Edit"
+             (EHS-18527 item 2). Uses the same fleshed-out .attach-item rows as edit
+             mode, with add (picker) + remove. Adding attachments stays available on
+             downloaded records even though the JSA itself is read-only (item 1). -->
+        <div class="screen" id="screen-record-attachments">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('record-view')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">Attachments</span>
+                    <button class="hdr-btn-text" onclick="showScreen('record-view')">Done</button>
+                </div>
+            </div>
+            <div class="screen-body" style="padding:16px 12px 32px;">
+                <div id="ra-list"></div>
+                <div class="attach-add-wrap">
+                    <button class="feat-add-btn" onclick="toggleRaPicker()">
+                        <i class="fa-solid fa-plus"></i> Add Attachment
+                    </button>
+                    <div class="attach-dropdown" id="raPickerDropdown">
+                        <button class="attach-option-item" onclick="raAddAttachment('camera')"><i class="fa-solid fa-camera"></i> Take Photo</button>
+                        <button class="attach-option-item" onclick="raAddAttachment('library')"><i class="fa-regular fa-images"></i> Photo Library</button>
+                        <button class="attach-option-item" onclick="raAddAttachment('files')"><i class="fa-regular fa-folder-open"></i> Files</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- READ-ONLY FLOW (mirrors the edit flow) -->
+        <!-- ══════════════════════════════════════ -->
+        <!-- Read-only view of a submitted/downloaded JSA (EHS-18527 follow-up):
+             NOT a single page. It mirrors the multi-step edit workflow, same
+             steps, same layout, same Back/Next navigation, but every editable
+             control (text field, dropdown, date, currency) renders as a clean
+             labeled VALUE with no input chrome.
+             AMBIGUITIES flagged rather than guessed:
+             - The stepper label is static here (no step-jump drawer); navigation
+               is linear via the footer, header back exits to the record details.
+             - Adding signatures/attachments stays available from the record
+               DETAILS page; this flow keeps step 3/4 content strictly read-only. -->
+
+        <!-- Read-only step 1 · Basic Information -->
+        <div class="screen" id="screen-ro-basic">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <!-- Live offline banner (only while the Offline toggle is on) -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('basic')">
+                        <span class="stepper-step-name">Basic Information</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:25%;"></div>
+                </div>
+            </div>
+            <div class="screen-body">
+                <div class="ro-body">
+                    <div class="ro-field"><div class="ro-field-label">Task Name</div><div class="ro-field-value" id="ro-task">Forklift Operation – Loading Dock B</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Division</div><div class="ro-field-value">Operations</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Facility</div><div class="ro-field-value">Warehouse 12, Atlanta, GA</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Status</div><div class="ro-field-value">Draft</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Start Date</div><div class="ro-field-value">May 13, 2026</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Analysis Done By</div><div class="ro-field-value">Xia, Andy</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Category</div><div class="ro-field-value empty">Not set</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Supervisor's Name</div><div class="ro-field-value">Dana Whitfield</div></div>
+                    <div class="ro-field"><div class="ro-field-label">New Currency Field 326</div><div class="ro-field-value empty">Not set</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Supervisor's ID</div><div class="ro-field-value">SV-4821</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Supervisor's Title</div><div class="ro-field-value">Shift Supervisor</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Review Cycle</div><div class="ro-field-value">Annual</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Last Review Date</div><div class="ro-field-value empty">Not set</div></div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="roLeaveFlow()">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('ro-steps')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only step 2 · Steps -->
+        <div class="screen" id="screen-ro-steps">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('steps')">
+                        <span class="stepper-step-name">Steps</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:50%;"></div>
+                </div>
+            </div>
+            <div class="screen-body">
+                <div class="steps-toolbar">
+                    <span class="steps-toolbar-count">3 Steps</span>
+                </div>
+                <!-- Step cards mirror the edit layout minus drag handles, menus and Edit actions -->
+                <div class="record-card-row step-card ro-step-card" onclick="openRoStep(this)">
+                    <div class="record-card-header">
+                        <div>
+                            <div class="step-number">Step 1</div>
+                            <div class="record-title">Don PPE &amp; Verify Tools</div>
+                        </div>
+                    </div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Physical</span>
+                        <span class="badge badge-risk-low">Risk: Low</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Confirm all required PPE is worn (Class 2 arc-rated FR clothing, dielectric gloves, face shield) and inspect insulated tools for wear before approaching the panel.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
+                    </div>
+                </div>
+                <div class="record-card-row step-card ro-step-card" onclick="openRoStep(this)">
+                    <div class="record-card-header">
+                        <div>
+                            <div class="step-number">Step 2</div>
+                            <div class="record-title">Lockout / Tagout Panel</div>
+                        </div>
+                    </div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Electrical</span>
+                        <span class="badge badge-risk-high">Risk: High</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Ensure all energy sources are isolated before performing maintenance. Use approved lockout devices on every breaker and verify zero energy state with a voltage meter before proceeding with any work on the panel.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
+                    </div>
+                </div>
+                <div class="record-card-row step-card ro-step-card" onclick="openRoStep(this)">
+                    <div class="record-card-header">
+                        <div>
+                            <div class="step-number">Step 3</div>
+                            <div class="record-title">Re-Energize &amp; Verify</div>
+                        </div>
+                    </div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Electrical</span>
+                        <span class="badge badge-risk-low">Risk: Low</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Remove lockout devices in reverse order, restore power, and confirm normal operation with a supervisor present before releasing the area.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
+                    </div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="showScreen('ro-basic')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('ro-additional')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only step 3 · Additional Features -->
+        <div class="screen" id="screen-ro-additional">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('additional')">
+                        <span class="stepper-step-name">Additional Features</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:75%;"></div>
+                </div>
+            </div>
+            <div class="screen-body">
+                <div class="feat-section">
+                    <div class="feat-section-header">
+                        <span class="feat-section-title">Attachments</span>
+                        <span class="feat-section-badge" id="ro-attach-count">1</span>
+                    </div>
+                    <!-- Fields stay read-only offline, but attachments can be added/removed -->
+                    <div id="ro-attach-list">
+                        <div class="attach-item">
+                            <div class="attach-thumb">
+                                <img src="https://picsum.photos/seed/jsaPanel1/88/88" alt="" />
+                            </div>
+                            <div class="attach-info">
+                                <div class="attach-name">IMG_2847.jpg</div>
+                                <div class="attach-meta">Photo &middot; 2.1 MB &middot; 1/15/26</div>
+                            </div>
+                            <button class="attach-remove" onclick="roRemoveAttachment(this)" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                    <div class="attach-add-wrap">
+                        <button class="feat-add-btn" onclick="toggleRoAttachPicker()"><i class="fa-solid fa-plus"></i> Add Attachment</button>
+                        <div class="attach-dropdown" id="roAttachDropdown">
+                            <button class="attach-option-item" onclick="roAddAttachment('camera')"><i class="fa-solid fa-camera"></i> Take Photo</button>
+                            <button class="attach-option-item" onclick="roAddAttachment('library')"><i class="fa-regular fa-images"></i> Photo Library</button>
+                            <button class="attach-option-item" onclick="roAddAttachment('files')"><i class="fa-regular fa-folder-open"></i> Files</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="feat-divider"></div>
+                <div class="feat-section">
+                    <div class="feat-section-header">
+                        <span class="feat-section-title">Corrective Actions</span>
+                        <span class="feat-section-badge">0</span>
+                    </div>
+                    <div class="rv-empty">No corrective actions on this record.</div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="showScreen('ro-steps')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('ro-signature')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only step 4 · Signature Collection -->
+        <div class="screen" id="screen-ro-signature">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('signature')">
+                        <span class="stepper-step-name">Signature Collection (1)</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:100%;"></div>
+                </div>
+            </div>
+            <div class="screen-body" style="padding-top:14px;">
+                <div class="rv-section-head ro-add-sig" style="margin:2px 12px 10px;">
+                    <span class="rv-section-title">Signatures</span>
+                    <button class="rv-icon-btn" onclick="roAddSignature()" title="Add signature" aria-label="Add signature"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="signature-card-v2 is-signed">
+                    <div class="sig-card-header">
+                        <div class="sig-avatar signed">AX</div>
+                        <div class="sig-card-info">
+                            <div class="sig-name">Andy Xia</div>
+                            <div class="sig-role-text">Team Lead</div>
+                        </div>
+                    </div>
+                    <div class="sig-preview-area">
+                        <div style="height:56px;display:flex;align-items:center;padding:0 8px;font-family:'Snell Roundhand','Brush Script MT',cursive;font-size:26px;color:#1a2940;">Andy Xia</div>
+                        <div class="sig-preview-timestamp">Signed 1/15/26, 9:31 AM · Andy Xia</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="showScreen('ro-additional')">Back</button>
+                    <button class="footer-btn-next" onclick="roLeaveFlow()">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: READ-ONLY STEP DETAIL          -->
+        <!-- ══════════════════════════════════════ -->
+        <!-- Tapping a step in the read-only Steps view opens this. Fields are
+             read-only (viewing a step without editing). -->
+        <div class="screen" id="screen-ro-step-detail">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('ro-steps')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title" id="ro-step-heading" style="font-size:17px;">Step</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="screen-body" style="background:#f9fafb;padding-bottom:32px;">
+                <div class="rv-card">
+                    <div class="rv-title" id="ro-step-title">Step</div>
+                    <div class="record-badges" id="ro-step-badges" style="margin-bottom:2px;"></div>
+                </div>
+                <div class="rv-section">
+                    <div class="ro-field"><div class="ro-field-label">Control Measures</div><div class="ro-field-value" id="ro-step-control">&ndash;</div></div>
                 </div>
             </div>
         </div>
@@ -4396,7 +4853,7 @@
                     </div>
                     <div class="step-desc">Control: Confirm all required PPE is worn (Class 2 arc-rated FR clothing, dielectric gloves, face shield) and inspect insulated tools for wear before approaching the panel.</div>
                     <div class="step-footer">
-                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
                     </div>
                     <div class="rec-action-row">
                         <button class="rec-btn-outline" onclick="showScreen('jsa-add-step')"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
@@ -4424,7 +4881,7 @@
                     </div>
                     <div class="step-desc">Control: Ensure all energy sources are isolated before performing maintenance. Use approved lockout devices on every breaker and verify zero energy state with a voltage meter before proceeding with any work on the panel.</div>
                     <div class="step-footer">
-                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
                     </div>
                     <div class="step-section-divider"></div>
                     <div class="step-section">
@@ -4461,7 +4918,7 @@
                     </div>
                     <div class="step-desc">Control: Visually inspect all wiring and connections for signs of wear, arcing, or damage. Do not touch exposed conductors. Use insulated inspection tools throughout and maintain a minimum 18-inch clearance from live components.</div>
                     <div class="step-footer">
-                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
                     </div>
                     <div class="step-section-divider"></div>
                     <div class="step-section">
@@ -5187,7 +5644,7 @@
             <!-- Persistent offline banner (Google Docs pattern) -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>You're offline. Keep working — changes save to this device and sync automatically when you reconnect.</span>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
             </div>
 
             <div class="screen-body">
@@ -5196,7 +5653,7 @@
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-circle-exclamation"></i></div><span class="qa-label">Incident</span></button>
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-clipboard-list"></i></div><span class="qa-label">Inspection</span></button>
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-triangle-exclamation"></i></div><span class="qa-label">Hazard</span></button>
-                    <button class="qa-btn" onclick="showScreen('offline-editor')"><div class="qa-circle"><i class="fa-solid fa-traffic-cone"></i></div><span class="qa-label">JSA</span></button>
+                    <button class="qa-btn" onclick="openOfflineJsa()"><div class="qa-circle"><i class="fa-solid fa-traffic-cone"></i></div><span class="qa-label">JSA</span></button>
                 </div>
 
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:16px;">
@@ -5205,7 +5662,7 @@
                 </div>
 
                 <div class="card-wrap" style="margin-top:8px;">
-                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -5242,94 +5699,6 @@
         </div>
 
         <!-- ══════════════════════════════════════════════════ -->
-        <!-- 2 · EDITING JSA OFFLINE                              -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-editor">
-            <div class="mobile-header offline">
-                <div class="status-bar-area">
-                    <span>9:30 PM</span>
-                    <div class="status-icons">
-                        <i class="fa-solid fa-signal" style="opacity:0.4;"></i>
-                        <i class="fa-solid fa-wifi-slash"></i>
-                        <i class="fa-solid fa-battery-three-quarters"></i>
-                    </div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-home')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title">JSA</span>
-                </div>
-            </div>
-
-            <div class="jsa-stepper">
-                <div class="stepper-row">
-                    <span class="stepper-step-name">Basic Information</span>
-                    <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
-                </div>
-                <div class="stepper-progress-track"><div class="stepper-progress-fill" style="width:25%;"></div></div>
-            </div>
-
-            <!-- Google-Docs-style autosave strip -->
-            <div class="save-strip">
-                <span class="save-dot"></span>
-                <i class="fa-solid fa-cloud-slash"></i>
-                <span>All changes saved to this device</span>
-                <span class="save-sub">2:14 PM · will sync when online</span>
-            </div>
-
-            <div class="screen-body">
-                <div class="form-body">
-                    <div class="form-field">
-                        <label class="form-label">Task Name <span class="req">*</span></label>
-                        <input class="form-input" type="text" value="Roof Access – Maintenance Crew" />
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Status <span class="req">*</span>
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <button class="form-select-btn"><span>In Review</span><i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i></button>
-                    </div>
-
-                    <div class="form-field">
-                        <label class="form-label">Facility <span class="req">*</span></label>
-                        <button class="form-select-btn"><span>Warehouse 12 — Atlanta, GA</span><i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i></button>
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Start Date
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <input class="form-input" type="date" value="2026-05-13" />
-                    </div>
-
-                    <div class="form-field">
-                        <label class="form-label">Analysis Done By <span class="req">*</span></label>
-                        <button class="form-select-btn"><span>Xia, Andy</span><i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i></button>
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Description
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <textarea class="form-input" rows="5">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins. Wind speed must be checked before access; halt work above 25 mph.</textarea>
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Detailed Location
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <textarea class="form-input" rows="2">Building C rooftop — northwest HVAC unit, access via stairwell C-3.</textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sticky-cta">
-                <button class="btn-primary" onclick="showScreen('offline-records')"><i class="fa-solid fa-cloud-slash"></i> Saved offline · Done</button>
-                <div class="cta-hint">Nothing is lost — this JSA uploads automatically once you're back online.</div>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
         <!-- 3 · RECORDS (offline)                                       -->
         <!-- ══════════════════════════════════════════════════ -->
         <div class="screen" id="screen-offline-records">
@@ -5350,8 +5719,7 @@
             <!-- Offline: only records saved to this device are available -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>You're offline. Showing the records saved to this device.</span>
-                <span class="banner-link" onclick="showScreen('offline-syncing')">Reconnect</span>
+                <span><b>No Connection:</b> Changes you make offline will sync automatically when you reconnect.</span>
             </div>
 
             <div class="screen-body">
@@ -5366,7 +5734,7 @@
                 <span class="section-label">On this device (5)</span>
                 <div class="card-wrap" style="margin-top:8px;">
                     <!-- Downloaded + local edits → waiting to sync (tap to keep editing) -->
-                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -5378,7 +5746,7 @@
                             <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 4 fields edited on this device · 2:14 PM</div>
                         </div>
                     </div>
-                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -7697,11 +8065,13 @@ function submitRecordCard(cardRow) {
     if (!pendingBadge) return;
     pendingBadge.className = 'badge badge-submitting';
     pendingBadge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size:10px;"></i> Submitting';
-    const badgesEl = cardRow.querySelector('.record-badges');
+    /* Tie the submitting bar to the submission status badge: render it directly
+       beneath that badge in the footer status area (not up by the type badges). */
+    const statusEl = cardRow.querySelector('.record-foot-status') || cardRow.querySelector('.record-badges');
     const progressWrap = document.createElement('div');
     progressWrap.className = 'submit-progress-wrap';
     progressWrap.innerHTML = '<div class="submit-progress-bar"></div>';
-    badgesEl.after(progressWrap);
+    statusEl.appendChild(progressWrap);
     /* While the submission is in flight the Submit button becomes a Cancel
        button, giving the user a window to stop it before it finalizes. */
     const actionRow = cardRow.querySelector('.rec-action-row');
@@ -8631,23 +9001,8 @@ function toggleOfflineMode() {
         const st = t.querySelector('.em-state');
         if (st) st.textContent = appOffline ? 'On' : 'Off';
     }
-    /* Close any open offline popovers on either transition */
-    document.querySelectorAll('.offline-pop.show').forEach(p => p.classList.remove('show'));
     if (!appOffline) runRecordsSync('auto');   /* reconnect → automatic resync */
 }
-
-/* Offline indicator popover (replaces the offline banner, EHS-18527 item 3) */
-function toggleOfflinePop(btn) {
-    const bar = btn.closest('.header-bar');
-    const pop = bar && bar.querySelector('.offline-pop');
-    if (pop) pop.classList.toggle('show');
-}
-/* Tap anywhere else to dismiss the offline popover */
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.offline-ind')) {
-        document.querySelectorAll('.offline-pop.show').forEach(p => p.classList.remove('show'));
-    }
-});
 
 /* ── Slim badge variant (prototype toggle): icons only on the record-type badge ── */
 let slimBadges = false;
@@ -8917,12 +9272,21 @@ function actionSheetShare() {
     if (navigator.clipboard) navigator.clipboard.writeText(SHARE_URL).catch(() => {});
     showToast('Link copied');
 }
-/* Per-record resync: all-or-nothing, the offline copy is replaced wholesale */
+/* Per-record resync: all-or-nothing, the offline copy is replaced wholesale.
+   Stamps only THIS card's "Last synced" subtitle. */
 function actionSheetResync() {
+    const w = actionSheetWrap;
     closeRecActionSheet();
     if (typeof appOffline !== 'undefined' && appOffline) {
         showToast("You're offline, resync will resume when reconnected");
         return;
+    }
+    if (w) {
+        const sub = w.querySelector('.card-sync-sub');
+        if (sub) {
+            const now = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            sub.textContent = 'Last synced: ' + now;
+        }
     }
     showToast('Record resynced, offline copy matches the server');
 }
@@ -8989,8 +9353,10 @@ let recordsSyncing = false;
 
 function stampLastSynced() {
     const now = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    const el = document.getElementById('records-sync-text');
-    if (el) el.textContent = 'Last synced: ' + now;
+    /* "Last synced" lives under EACH card's title (EHS-18527 follow-up) */
+    document.querySelectorAll('#screen-records .card-sync-sub').forEach(el => {
+        el.textContent = 'Last synced: ' + now;
+    });
 }
 
 function runRecordsSync(source) {
@@ -9000,8 +9366,9 @@ function runRecordsSync(source) {
     }
     if (recordsSyncing) return;
     recordsSyncing = true;
-    const txt = document.getElementById('records-sync-text');
-    if (txt) txt.textContent = 'Syncing…';
+    document.querySelectorAll('#screen-records .card-sync-sub').forEach(el => {
+        el.textContent = 'Syncing…';
+    });
     setTimeout(() => {
         recordsSyncing = false;
         stampLastSynced();
@@ -9039,11 +9406,12 @@ function initPullToSync() {
     body.addEventListener('touchcancel', end);
 }
 
-/* ══════════ Record view — EHS-18527 items 5-6 ══════════
-   Online: fields stay editable (Edit button enters the stepper). Offline
-   (prototype toggle): fields lock, signature & attachment capture stay active. */
+/* ══════════ Record details page + read-only views — EHS-18527 ══════════
+   Downloaded/submitted JSAs are NOT editable in this initiative (item 1). The
+   details page shows a brief read-only summary, lets the user manage signatures
+   and attachments (item 2), submit when applicable (item 2), and open the full
+   read-only record (item 3). */
 let rvSourceRow = null;
-function rvEditRecord() { if (rvSourceRow) openEditRecord(rvSourceRow); }
 
 function openRecordView(row) {
     rvSourceRow = row;
@@ -9054,7 +9422,7 @@ function openRecordView(row) {
     row.querySelectorAll('.record-meta-row').forEach(m => {
         const t = m.textContent.trim();
         if (m.querySelector('.fa-location-dot')) loc = t;
-        else if (t.startsWith('Created')) created = t.replace(/^Created:\s*/, '');
+        else if (t.startsWith('Last updated')) created = t.replace(/^Last updated:\s*/, '');
         else if (t.startsWith('ID:')) rid = t.replace(/^ID:\s*/, '');
     });
     document.getElementById('rv-location').textContent = loc;
@@ -9066,25 +9434,203 @@ function openRecordView(row) {
     const foot = row.querySelector('.record-foot-status');
     document.getElementById('rv-badges').innerHTML =
         (badges ? badges.innerHTML : '') + (foot ? foot.innerHTML : '');
+    /* Footer actions: Submit only while the record is not yet submitted
+       (item 2). The entry button routes by record status (EHS-18527 follow-up):
+       NOT completed -> "Edit Record" into the first step of the edit flow;
+       completed -> "View Record" into the read-only flow. Offline always forces
+       the read-only flow (downloads are read-only offline except signatures and
+       attachments). NOTE: status now decides this button; the edit-mode
+       facilitator toggle only governs card-tap routing on the records list. */
+    const canSubmit = !!row.querySelector('.badge-pending');
+    document.getElementById('rv-submit-btn').style.display = canSubmit ? '' : 'none';
+    const wrap = row.closest('.rec-card-wrap');
+    const completed = !!(wrap && wrap.dataset.formStatus === 'completed');
+    const offline = (typeof appOffline !== 'undefined' && appOffline);
+    const canEdit = !completed && !offline;
+    const sec = document.getElementById('rv-secondary-btn');
+    sec.dataset.mode = canEdit ? 'edit' : 'view';
+    sec.textContent = canEdit ? 'Edit Record' : 'View Record';
     showScreen('record-view');
 }
 
-function rvAddSignature() {
-    const now = new Date().toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit' });
+/* Inline Copy ID CTA on the details page */
+function rvCopyId() {
+    const id = document.getElementById('rv-id').textContent.trim();
+    if (navigator.clipboard && id && id !== '–') navigator.clipboard.writeText(id).catch(() => {});
+    showToast('ID copied');
+}
+
+/* Footer secondary action: Edit (edit-mode preview) or View full record */
+function rvSecondaryAction() {
+    const sec = document.getElementById('rv-secondary-btn');
+    if (sec.dataset.mode === 'edit' && rvSourceRow) openEditRecord(rvSourceRow);
+    else openRecordReadonly();
+}
+
+/* Signatures "Edit" → the existing full signature interface (item 2) */
+function rvEditSignatures() { showScreen('jsa-signature'); }
+
+/* Submit directly from the details page (item 2): reuse the card submit flow. */
+function rvSubmitRecord() {
+    if (rvSourceRow) submitRecordCard(rvSourceRow);
+    document.getElementById('rv-footer').classList.remove('show');
+    showScreen('records');
+}
+
+/* Read-only flow (EHS-18527 follow-up): mirrors the multi-step edit workflow
+   (Basic Info -> Steps -> Additional Features -> Signatures) with read-only
+   values instead of inputs. Entry lands on the first step. */
+function openRecordReadonly() {
+    if (rvSourceRow) {
+        const t = rvSourceRow.querySelector('.record-title');
+        const el = document.getElementById('ro-task');
+        if (t && el) el.textContent = t.textContent.trim();
+    }
+    showScreen('ro-basic');
+}
+
+/* ── Offline record flow (EHS-18527 follow-up) ──
+   Editing a downloaded record offline reuses the read-only ro-* flow: fields
+   stay read-only, but attachments and signatures can be added/removed, and the
+   Next/Back/breadcrumb navigation matches the online edit flow. `offline-editing`
+   drives the banner + editable affordances (see gating CSS). */
+function openOfflineJsa() {
+    document.getElementById('app').classList.add('offline-editing');
+    showScreen('ro-basic');
+}
+function roLeaveFlow() {
+    const app = document.getElementById('app');
+    const dest = app.classList.contains('offline-editing') ? 'offline-records' : 'record-view';
+    app.classList.remove('offline-editing');
+    showScreen(dest);
+}
+
+/* Breadcrumb: tap the stepper to jump between read-only steps (reuses the edit
+   flow's step-nav drawer DOM). */
+const roStepDefs = [
+    { key: 'basic',      label: 'Basic Information',    screen: 'ro-basic' },
+    { key: 'steps',      label: 'Steps',                screen: 'ro-steps' },
+    { key: 'additional', label: 'Additional Features',  screen: 'ro-additional' },
+    { key: 'signature',  label: 'Signature Collection', screen: 'ro-signature' },
+];
+function openRoStepNav(activeKey) {
+    const list = document.getElementById('stepNavList');
+    list.innerHTML = '';
+    const activeIdx = roStepDefs.findIndex(s => s.key === activeKey);
+    roStepDefs.forEach((step, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'step-nav-item' + (i === activeIdx ? ' active-step' : '') + (i < activeIdx ? ' done-step' : '');
+        btn.innerHTML = '<div class="step-nav-num">' + (i + 1) + '</div>' +
+            '<span class="step-nav-label">' + step.label + '</span>' +
+            '<i class="fa-solid fa-check step-nav-check"></i>' +
+            '<i class="fa-solid fa-chevron-right step-nav-arrow"></i>';
+        btn.addEventListener('click', () => { closeStepNavDrawer(); showScreen(step.screen); });
+        list.appendChild(btn);
+    });
+    document.getElementById('stepNavOverlay').classList.add('active');
+    document.getElementById('stepNavDrawer').classList.add('open');
+}
+
+/* Read-only step detail: tap a step in the read-only Steps view to open it.
+   Fields are read-only (view without editing). */
+function openRoStep(card) {
+    const g = (sel) => { const el = card.querySelector(sel); return el ? el.textContent.trim() : ''; };
+    document.getElementById('ro-step-title').textContent = g('.record-title') || 'Step';
+    document.getElementById('ro-step-heading').textContent = g('.step-number') || 'Step';
+    const hb = card.querySelector('.step-info-badges');
+    document.getElementById('ro-step-badges').innerHTML = hb ? hb.innerHTML : '';
+    document.getElementById('ro-step-control').textContent = g('.step-desc').replace(/^Control:\s*/, '') || '–';
+    showScreen('ro-step-detail');
+}
+
+/* Editable attachments + signatures in the offline flow (mock) */
+function toggleRoAttachPicker() { document.getElementById('roAttachDropdown').classList.toggle('open'); }
+function roAddAttachment(source) {
+    document.getElementById('roAttachDropdown').classList.remove('open');
+    const list = document.getElementById('ro-attach-list');
+    const n = list.querySelectorAll('.attach-item').length + 1;
     const el = document.createElement('div');
-    el.className = 'rv-item-row';
-    el.innerHTML = '<i class="fa-solid fa-signature"></i><div class="rv-item-main">New signature<div class="rv-item-sub">Signed ' + now + '</div></div>';
-    document.getElementById('rv-sig-list').appendChild(el);
+    el.className = 'attach-item';
+    el.innerHTML =
+        '<div class="attach-thumb"><i class="fa-regular fa-image"></i></div>' +
+        '<div class="attach-info"><div class="attach-name">photo_' + String(n).padStart(2, '0') + '.jpg</div>' +
+        '<div class="attach-meta">Photo &middot; 2.1 MB &middot; just now</div></div>' +
+        '<button class="attach-remove" onclick="roRemoveAttachment(this)" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>';
+    list.appendChild(el);
+    roUpdateAttachCount();
+    showToast('Attachment added, will sync when online');
+}
+function roRemoveAttachment(btn) { btn.closest('.attach-item').remove(); roUpdateAttachCount(); }
+function roUpdateAttachCount() {
+    const c = document.getElementById('ro-attach-count');
+    if (c) c.textContent = document.querySelectorAll('#ro-attach-list .attach-item').length;
+}
+function roAddSignature() {
+    const now = new Date().toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit' });
+    const cards = document.querySelectorAll('#screen-ro-signature .signature-card-v2');
+    const el = document.createElement('div');
+    el.className = 'signature-card-v2 is-signed';
+    el.innerHTML =
+        '<div class="sig-card-header"><div class="sig-avatar signed">NEW</div>' +
+        '<div class="sig-card-info"><div class="sig-name">New signature</div><div class="sig-role-text">Signed offline</div></div></div>' +
+        '<div class="sig-preview-area"><div style="height:56px;display:flex;align-items:center;padding:0 8px;font-family:\'Snell Roundhand\',cursive;font-size:24px;color:#1a2940;">Signature</div>' +
+        '<div class="sig-preview-timestamp">Signed ' + now + '</div></div>';
+    if (cards.length) cards[cards.length - 1].after(el);
+    else document.querySelector('#screen-ro-signature .screen-body').appendChild(el);
     showToast('Signature added, will sync when online');
 }
 
-function rvAddAttachment() {
-    const n = document.getElementById('rv-att-list').children.length + 1;
+/* ── Attachment management interface (item 2) ──
+   Mirrors the details-page list into an editable screen (fleshed .attach-item
+   rows + add picker + remove), then writes changes back to the details page. */
+function openRecordAttachments() {
+    const src = document.getElementById('rv-att-list');
+    const list = document.getElementById('ra-list');
+    list.innerHTML = '';
+    src.querySelectorAll('.attach-item').forEach(item => list.appendChild(raRow(
+        item.querySelector('.attach-name').textContent,
+        item.querySelector('.attach-meta').textContent
+    )));
+    showScreen('record-attachments');
+}
+function raRow(name, meta) {
     const el = document.createElement('div');
-    el.className = 'rv-item-row';
-    el.innerHTML = '<i class="fa-regular fa-image"></i><div class="rv-item-main">photo_' + String(n).padStart(2, '0') + '.jpg<div class="rv-item-sub">2.1 MB, just added</div></div>';
-    document.getElementById('rv-att-list').appendChild(el);
+    el.className = 'attach-item';
+    el.innerHTML =
+        '<div class="attach-thumb"><i class="fa-regular fa-image"></i></div>' +
+        '<div class="attach-info"><div class="attach-name">' + name + '</div>' +
+        '<div class="attach-meta">' + meta + '</div></div>' +
+        '<button class="attach-remove" onclick="raRemove(this)" aria-label="Remove attachment"><i class="fa-solid fa-xmark"></i></button>';
+    return el;
+}
+function toggleRaPicker() { document.getElementById('raPickerDropdown').classList.toggle('open'); }
+function raAddAttachment(source) {
+    document.getElementById('raPickerDropdown').classList.remove('open');
+    const n = document.querySelectorAll('#ra-list .attach-item').length + 1;
+    const label = source === 'camera' ? 'photo_' : source === 'files' ? 'document_' : 'image_';
+    document.getElementById('ra-list').appendChild(raRow(label + String(n).padStart(2, '0') + '.jpg', '2.1 MB · just added'));
+    syncRecordAttachments();
     showToast('Attachment added, will sync when online');
+}
+function raRemove(btn) {
+    btn.closest('.attach-item').remove();
+    syncRecordAttachments();
+}
+/* Reflect the managed list back onto the details page (no remove buttons there) */
+function syncRecordAttachments() {
+    const dest = document.getElementById('rv-att-list');
+    dest.innerHTML = '';
+    const rows = document.querySelectorAll('#ra-list .attach-item');
+    if (!rows.length) { dest.innerHTML = '<div class="rv-empty">No attachments yet.</div>'; return; }
+    rows.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'attach-item';
+        el.innerHTML =
+            '<div class="attach-thumb"><i class="fa-regular fa-image"></i></div>' +
+            '<div class="attach-info"><div class="attach-name">' + item.querySelector('.attach-name').textContent + '</div>' +
+            '<div class="attach-meta">' + item.querySelector('.attach-meta').textContent + '</div></div>';
+        dest.appendChild(el);
+    });
 }
 
 /* Facility scoping is part of Automatic Downloads: hide the Facilities row
