@@ -25,18 +25,30 @@
   const FAST_MODEL = 'claude-haiku-4-5';
 
   /* Restage a first-person action into the second-person cinematic voice
-     ("I step in beside Marshall" -> "You step in beside Marshall"). Pure
-     pronoun/verb transform — it never rewrites content, so there's no
-     distortion (and no LLM round-trip). Applied ONLY to the learner's action
+     ("I step in beside Marshall" -> "You step in beside Marshall"). A pronoun
+     transform that ALSO normalizes future/conditional intent to present tense
+     ("I'd punch Jake" -> "You punch Jake"), so the action reads as a stage
+     direction the learner does NOW. It never changes WHAT they do, only how the
+     move is staged (and no LLM round-trip). Applied ONLY to the learner's action
      narration; their spoken words are always kept verbatim. */
   function toSecondPerson(text) {
     let s = String(text || '').trim();
     const rules = [
+      // Future/conditional → present: drop the modal so "I'd/I'll/I would/I will
+      // punch" -> "You punch". would/will/'d/'ll are modal + bare verb, so always
+      // safe. "going to"/"gonna" is dropped ONLY before a verb — never before a
+      // determiner, so "I'm going to the door" stays a destination.
+      [/\bI\s+am\s+going\s+to\s+(?!(?:the|a|an|my|your|his|her|their|our|its|this|that|these|those|some|any)\b)/gi, 'you '],
+      [/\bI['’]m\s+going\s+to\s+(?!(?:the|a|an|my|your|his|her|their|our|its|this|that|these|those|some|any)\b)/gi, 'you '],
+      [/\bI\s+am\s+gonna\s+/gi, 'you '],
+      [/\bI['’]m\s+gonna\s+/gi, 'you '],
+      [/\bI\s+would\b/gi, 'you'],
+      [/\bI\s+will\b/gi, 'you'],
+      [/\bI['’]d\b/gi, 'you'],
+      [/\bI['’]ll\b/gi, 'you'],
       [/\bI['’]m\b/gi, "you're"],
       [/\bI am\b/g, 'you are'],
       [/\bI was\b/g, 'you were'],
-      [/\bI['’]d\b/gi, "you'd"],
-      [/\bI['’]ll\b/gi, "you'll"],
       [/\bI['’]ve\b/gi, "you've"],
       [/\bI\b/g, 'you'],
       [/\bmyself\b/gi, 'yourself'],
