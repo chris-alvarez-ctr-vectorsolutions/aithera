@@ -2,7 +2,7 @@
    Product Dashboard — shared, drop-in prototype index
    =========================================================================
 
-   ONE shared implementation of the per-product "Design Lab" dashboard. A
+   ONE shared implementation of the per-product "Design Dashboard". A
    product enrolls by dropping a tiny shell into `products/<Product>/dashboard/`:
 
        <!DOCTYPE html><html lang="en"><head>
@@ -81,32 +81,38 @@
   const MARKUP = `
     <header class="page-header">
       <div class="header-inner">
-        <div class="header-top">
-          <span class="product-tag">
-            <span class="emoji" id="productEmoji">🎨</span>
-            <span id="productName">Product</span>
-          </span>
-        </div>
-        <h1 class="page-title">Design <em>Lab</em></h1>
-        <div class="header-bottom">
-          <div class="meta-bar">
-            <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-            <span class="dot-sep">·</span>
-            <span id="lastUpdated"></span>
+        <!-- Compact banner: the PRODUCT is the headline (emoji + name), with a
+             small "Design Dashboard" eyebrow above it. Search + the freshness
+             meta stack on the right, both flush with the page's right gutter. -->
+        <div class="header-main">
+          <!-- Left = eyebrow pill → wordmark → subtitle; right = search.
+               The freshness status lives INSIDE the pill, so all system
+               telemetry reads as one chip. -->
+          <div class="header-id">
+            <span class="dash-eyebrow">Design <em>Dashboard</em><span class="dot-sep">·</span><span class="meta-bar"><span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span><span class="dot-sep">·</span><span id="lastUpdated"></span></span></span>
+            <h1 class="page-title">
+              <!-- Boots with the theme emoji; swaps to the landing page's
+                   icon tile (same FA icon + brand color) once meta.json loads. -->
+              <span class="title-icon" id="productIcon"><span id="productEmoji">🎨</span></span>
+              <span id="productName">Product</span>
+            </h1>
+            <p class="page-subtitle">Bookmark this page — it stays in sync as the design team ships new work.</p>
           </div>
-          <!-- Global search lives in the banner — it looks across ALL folders,
-               unlike the folder-scoped chips in the content column below. -->
-          <div class="header-search" id="headerSearch" hidden>
-            <div class="search-wrapper" id="searchWrapper">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
-              <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
+          <div class="header-side">
+            <!-- Global search lives in the banner — it looks across ALL folders,
+                 unlike the folder-scoped chips in the content column below. -->
+            <div class="header-search" id="headerSearch" hidden>
+              <div class="search-wrapper" id="searchWrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
+                <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
             </div>
           </div>
-          <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
         </div>
+        <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
       </div>
     </header>
 
@@ -426,6 +432,7 @@
         throw new Error('meta.json is missing a "mocks" object.');
       }
 
+      applyProductBranding(meta.product);
       state.allMocks = computeMocks(meta);
       attachChanges(state.allMocks, meta);
 
@@ -445,6 +452,26 @@
       updateLastFetched();
     } catch (err) {
       showError(err);
+    }
+  }
+
+  // Banner identity from meta.json's `product` block — the SAME Font Awesome
+  // icon + brand color the landing page card shows, so the dashboard header
+  // matches its card. Icon/color are validated before they touch class/style;
+  // anything unexpected keeps the theme-emoji fallback.
+  function applyProductBranding(product) {
+    if (!product) return;
+    if (product.label) {
+      byId('productName').textContent = product.label;
+      document.title = `${product.label} — Prototype Index`;
+    }
+    const icon = (typeof product.icon === 'string' && /^fa-[a-z0-9-]+$/.test(product.icon)) ? product.icon : null;
+    const color = (typeof product.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(product.color)) ? product.color : null;
+    if (icon && color) {
+      const tile = byId('productIcon');
+      tile.classList.add('title-icon--tile');
+      tile.style.background = color;
+      tile.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
     }
   }
 
@@ -484,6 +511,14 @@
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
 
+      // Curated folder path as an array of display names (["Phase 2",
+      // "Content Workflow"]) — meta.json sends an array because folder names
+      // may themselves contain " / ", which a joined string couldn't encode.
+      // A legacy string value is treated as one (unsplit) folder name.
+      const groupSegs = Array.isArray(m.folder) ? m.folder.map(String)
+        : (typeof m.folder === 'string' && m.folder) ? [m.folder]
+        : null;
+
       // Dev handoff only applies to folder/root mocks (a folder that can hold a
       // dev_handoff.html); file mocks never carry one.
       const devHandoff = !isFile && !!m.devHandoff;
@@ -499,9 +534,12 @@
         ticketUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
-        // Curated display folder ("Content Portal", "Phase 2", …) or null for a
-        // top-level mock. Foldered mocks render as one expandable folder unit.
-        group: m.folder || null,
+        // Curated folder, or null for a top-level mock. `group` is the
+        // human-readable path ("Phase 2 / Content Workflow") used for display
+        // and search; `groupKey` joins the same segments with an unambiguous
+        // separator and is what the folder tree/selection state keys on.
+        group: groupSegs ? groupSegs.join(' / ') : null,
+        groupKey: groupSegs ? groupSegs.join(FOLDER_SEP) : null,
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
@@ -648,26 +686,42 @@
     //    a query is active it looks across every folder (the rail dims to show
     //    the folder scope is bypassed). The status chips below stay scoped to
     //    whatever the results are.
+    const inFolder = !search && state.tab && state.tab !== MAIN_KEY && folderExists(folders, state.tab);
     const subset = search ? state.allMocks
-      : (state.tab && state.tab !== MAIN_KEY && folders.has(state.tab)) ? folders.get(state.tab)
+      : inFolder ? descendantMocks(folders, state.tab)
       : loose;
 
     // 3) Apply the toolbar filters to that subset. Search first, so the chip
     //    counts (rendered from the pre-status-filter set) match what's below.
+    const matchesSearch = m =>
+      m.title.toLowerCase().includes(search) ||
+      (m.description || '').toLowerCase().includes(search) ||
+      (m.ticket || '').toLowerCase().includes(search) ||
+      (m.group || '').toLowerCase().includes(search) ||
+      m.relKey.toLowerCase().includes(search);
+
     let filtered = subset;
-    if (search) {
-      filtered = filtered.filter(m =>
-        m.title.toLowerCase().includes(search) ||
-        (m.description || '').toLowerCase().includes(search) ||
-        (m.ticket || '').toLowerCase().includes(search) ||
-        (m.group || '').toLowerCase().includes(search) ||
-        m.relKey.toLowerCase().includes(search)
-      );
-    }
+    if (search) filtered = filtered.filter(matchesSearch);
     renderFilterChips(filtered);
     if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
 
-    if (filtered.length === 0) {
+    // Name the active scope in the content column: a breadcrumb of the folder
+    // path (each ancestor clickable) so nested selections are legible.
+    if (sidebar && inFolder) renderFolderBreadcrumb(root, state.tab, filtered.length);
+
+    // Favorites are CROSS-FOLDER: pinned mocks follow you into every scope —
+    // that's the point of pinning (instant access from anywhere, including
+    // the Main landing view). Search and status filters still apply; the
+    // folder scope does not. In-scope pins are HOISTED out of the sections
+    // below so nothing renders twice; each pinned card shows a folder chip
+    // naming where it lives.
+    const favSet = new Set(readFavMocks());
+    let favMocks = state.allMocks.filter(m => favSet.has(m.relKey));
+    if (search) favMocks = favMocks.filter(matchesSearch);
+    if (statusFilter.size > 0) favMocks = favMocks.filter(m => statusFilter.has(m.status));
+    const rest = filtered.filter(m => !favSet.has(m.relKey));
+
+    if (filtered.length === 0 && favMocks.length === 0) {
       // Full no-results state when everything was in scope (global search or
       // no folders); a lighter "check another folder" note when only the
       // selected folder came up empty.
@@ -677,9 +731,61 @@
       return;
     }
 
-    // Same filtered set, two layouts — the view switcher just picks the renderer.
-    if (state.view === 'list') renderListView(filtered, root);
-    else { renderCardView(filtered, root); scheduleAlign(); }
+    if (favMocks.length) renderFavoritesSection(favMocks, root);
+
+    // Same set, two layouts — the view switcher just picks the renderer.
+    if (rest.length) {
+      if (state.view === 'list') renderListView(rest, root);
+      else renderCardView(rest, root);
+    }
+    if (state.view === 'card') scheduleAlign();
+  }
+
+  // Collapsible Favorites section — pinned cards sorted by the active sort,
+  // not status-grouped (each card carries its own status badge). Open/closed
+  // state persists per browser.
+  function renderFavoritesSection(mocks, root) {
+    const wrap = document.createElement('section');
+    wrap.className = 'section fav-section';
+    const det = document.createElement('details');
+    det.className = 'fav-details';
+    det.open = readFavsOpen();
+
+    const sorted = mocks.slice().sort(mockComparator(state.sort));
+    const summary = document.createElement('summary');
+    summary.className = 'section-header fav-header';
+    summary.innerHTML = `
+      <i class="fa-solid fa-chevron-right fav-chevron"></i>
+      <h2 class="section-title"><i class="fa-solid fa-star fav-title-star"></i> Favorites</h2>
+      <span class="section-count">${sorted.length}</span>`;
+    det.appendChild(summary);
+
+    const body = document.createElement('div');
+    if (state.view === 'list') {
+      body.className = 'proto-table-wrap';
+      body.innerHTML = `
+        <table class="proto-table">
+          <thead>
+            <tr>
+              <th>Prototype</th>
+              <th class="col-status">Status</th>
+              <th class="col-jira">Jira</th>
+              <th class="col-date">Last updated</th>
+            </tr>
+          </thead>
+          <tbody>${sorted.map(m => listRow(m, true)).join('')}</tbody>
+        </table>`;
+    } else {
+      body.className = 'card-grid';
+      sorted.forEach((m, i) => body.appendChild(buildCard(m, i, true)));
+    }
+    det.appendChild(body);
+    det.addEventListener('toggle', () => {
+      try { localStorage.setItem(FAVS_OPEN_KEY, det.open ? 'true' : 'false'); } catch { /* private mode */ }
+      if (det.open && state.view === 'card') scheduleAlign();
+    });
+    wrap.appendChild(det);
+    root.appendChild(wrap);
   }
 
   // --------------------------------------------------------------------------
@@ -757,17 +863,74 @@
   // `folder` in products.json) and loose top-level mocks. Folders render as one
   // expandable unit; loose mocks keep the status-grouped layout.
   function partitionFolders(filtered) {
-    const folders = new Map(); // folder name -> mocks[]
+    const folders = new Map(); // folder key -> mocks[] (direct members only)
     const loose = [];
     filtered.forEach(m => {
-      if (m.group) {
-        if (!folders.has(m.group)) folders.set(m.group, []);
-        folders.get(m.group).push(m);
+      if (m.groupKey) {
+        if (!folders.has(m.groupKey)) folders.set(m.groupKey, []);
+        folders.get(m.groupKey).push(m);
       } else {
         loose.push(m);
       }
     });
     return { folders, loose };
+  }
+
+  // ── Nested folders ─────────────────────────────────────────────────────
+  // Curated `folder` groups in products.json can nest to any depth; each
+  // mock's `groupKey` joins its path segments with FOLDER_SEP (a control
+  // character no folder NAME can contain — names may legitimately include
+  // " / "). These helpers treat those keys as a tree so the sidebar can
+  // render n levels and selecting a folder scopes to its whole subtree.
+  const FOLDER_SEP = '\u001F'; // ASCII unit separator; never present in a folder name
+  // Human-readable form of a folder key, for labels and tooltips.
+  function folderDisplay(key) { return key.split(FOLDER_SEP).join(' / '); }
+
+  // A path is a valid selection if any mock lives at it OR below it (a parent
+  // folder may hold only subfolders, never a direct mock).
+  function folderExists(folders, path) {
+    const prefix = path + FOLDER_SEP;
+    for (const k of folders.keys()) if (k === path || k.startsWith(prefix)) return true;
+    return false;
+  }
+
+  // Every mock at this path and in every folder nested below it — selecting a
+  // parent shows its whole subtree, so nothing hides behind a collapsed child.
+  function descendantMocks(folders, path) {
+    const prefix = path + FOLDER_SEP;
+    const out = [];
+    folders.forEach((mocks, k) => { if (k === path || k.startsWith(prefix)) out.push(...mocks); });
+    return out;
+  }
+
+  // Display tree: one node per path segment, including intermediate folders
+  // with no direct mocks. Siblings come out A→Z because the paths are sorted
+  // before insertion.
+  function buildFolderTree(folders) {
+    const root = { name: '', path: '', children: new Map() };
+    [...folders.keys()].sort((a, b) => a.localeCompare(b)).forEach(path => {
+      const segs = path.split(FOLDER_SEP);
+      let node = root;
+      segs.forEach((seg, i) => {
+        if (!node.children.has(seg)) {
+          node.children.set(seg, { name: seg, path: segs.slice(0, i + 1).join(FOLDER_SEP), children: new Map() });
+        }
+        node = node.children.get(seg);
+      });
+    });
+    return root;
+  }
+
+  // Tabs mode can't nest, so nested paths aggregate up to their TOP-LEVEL
+  // folder: one tab per top folder, counting (and opening into) its subtree.
+  function topLevelFolders(folders) {
+    const tops = new Map();
+    folders.forEach((mocks, path) => {
+      const top = path.split(FOLDER_SEP)[0];
+      if (!tops.has(top)) tops.set(top, []);
+      tops.get(top).push(...mocks);
+    });
+    return tops;
   }
 
   // Row of mini status pills (icon + count) summarizing a folder's contents,
@@ -874,6 +1037,9 @@
 
   function renderTabBar(folders, loose, searching) {
     lastTabRender = { folders, loose, searching };
+    // A flat tab row can't nest — collapse nested folder paths into their
+    // top-level folder (tab counts and selection cover the whole subtree).
+    folders = topLevelFolders(folders);
     const bar = byId('folderTabs');
     closeTabMenu();
     if (!folders.size) { bar.hidden = true; bar.innerHTML = ''; return; }
@@ -987,11 +1153,73 @@
       return Array.isArray(a) ? a : [];
     } catch { return []; }
   }
-  function toggleFavFolder(name) {
+  function toggleFavFolder(path) {
     const favs = readFavFolders();
-    const i = favs.indexOf(name);
-    if (i === -1) favs.push(name); else favs.splice(i, 1);
+    const i = favs.indexOf(path);
+    if (i === -1) favs.push(path); else favs.splice(i, 1);
     try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+
+  // Favorited MOCKS (cards) — separate from folder favorites. The star on a
+  // card/row pins it into the collapsible "Favorites" section that renders
+  // above the status sections. Keyed by relKey, per browser per product.
+  const MOCK_FAV_KEY = 'designlab-fav-mocks:' + PRODUCT;
+  function readFavMocks() {
+    try {
+      const a = JSON.parse(localStorage.getItem(MOCK_FAV_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function toggleFavMock(relKey) {
+    const favs = readFavMocks();
+    const i = favs.indexOf(relKey);
+    if (i === -1) favs.push(relKey); else favs.splice(i, 1);
+    try { localStorage.setItem(MOCK_FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+  // Favorites section open/closed, persisted. Defaults to open.
+  const FAVS_OPEN_KEY = 'designlab-favs-open:' + PRODUCT;
+  function readFavsOpen() {
+    try { return localStorage.getItem(FAVS_OPEN_KEY) !== 'false'; } catch { return true; }
+  }
+  // One delegated handler covers stars in both views (cards are rebuilt on
+  // every render, so per-element listeners would need constant rebinding).
+  document.addEventListener('click', e => {
+    const star = e.target.closest('.mock-star');
+    if (!star) return;
+    e.preventDefault();
+    toggleFavMock(star.dataset.rel);
+    applyFiltersAndRender();
+  });
+
+  // Collapsed tree branches, persisted per browser. Stored as the CLOSED set
+  // (not the open set) so newly added folders default to expanded.
+  const CLOSED_KEY = 'designlab-closed-folders:' + PRODUCT;
+  function readClosedFolders() {
+    try {
+      const a = JSON.parse(localStorage.getItem(CLOSED_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function writeClosedFolders(closed) {
+    try { localStorage.setItem(CLOSED_KEY, JSON.stringify(closed)); } catch { /* private mode */ }
+  }
+  function toggleClosedFolder(path) {
+    const closed = readClosedFolders();
+    const i = closed.indexOf(path);
+    if (i === -1) closed.push(path); else closed.splice(i, 1);
+    writeClosedFolders(closed);
+  }
+  // Un-collapse every ancestor of a path so a selection made from a pinned
+  // favorite (or a deep link) is visible in the tree.
+  function openAncestors(path) {
+    const closed = readClosedFolders();
+    const segs = path.split(FOLDER_SEP);
+    let changed = false;
+    for (let i = 1; i < segs.length; i++) {
+      const idx = closed.indexOf(segs.slice(0, i).join(FOLDER_SEP));
+      if (idx !== -1) { closed.splice(idx, 1); changed = true; }
+    }
+    if (changed) writeClosedFolders(closed);
   }
 
   function renderFolderNav(folders, loose, searching) {
@@ -999,7 +1227,7 @@
     if (!folders.size) { nav.hidden = true; nav.innerHTML = ''; return; }
 
     // Reset a stale selection (e.g. the folder disappeared from products.json).
-    if (state.tab !== MAIN_KEY && !folders.has(state.tab)) {
+    if (state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
       state.tab = MAIN_KEY;
     }
 
@@ -1008,20 +1236,30 @@
     nav.dataset.searching = searching ? 'true' : 'false';
     nav.title = searching ? 'Search looks across all folders' : '';
 
-    const favs = readFavFolders().filter(n => folders.has(n));
-    const names = [...folders.keys()].sort((a, b) => a.localeCompare(b));
-    const favNames = names.filter(n => favs.includes(n));
-    const restNames = names.filter(n => !favs.includes(n));
+    const favs = readFavFolders().filter(p => folderExists(folders, p));
+    const closed = new Set(readClosedFolders());
+    const tree = buildFolderTree(folders);
+    // The chevron column only exists when something can actually expand —
+    // products with flat folders keep the original row layout.
+    const hasBranches = [...tree.children.values()].some(n => n.children.size);
 
-    const row = (label, mocks, key, iconClass, favoritable) => {
+    // One nav row. `depth` indents tree rows; `childCount` adds the
+    // expand/collapse chevron; `pathLabel` renders the full "A / B" path
+    // (pinned favorites, where tree position isn't visible).
+    const row = (label, mocks, key, iconClass, opts = {}) => {
+      const { favoritable = false, depth = 0, childCount = 0, isOpen = true } = opts;
       const active = !searching && state.tab === key;
-      const isFav = favoritable && favs.includes(label);
+      const isFav = favoritable && favs.includes(key);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'fnav-item';
       btn.dataset.active = active ? 'true' : 'false';
-      btn.title = label;
+      btn.style.setProperty('--fnav-depth', depth);
+      btn.title = key === MAIN_KEY ? label : folderDisplay(key);
       btn.innerHTML = `
+        ${childCount
+          ? `<span class="fnav-chevron" role="button" tabindex="0" data-open="${isOpen ? 'true' : 'false'}" title="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(label)}" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(label)}"><i class="fa-solid fa-chevron-right"></i></span>`
+          : hasBranches ? '<span class="fnav-chevron fnav-chevron--none" aria-hidden="true"></span>' : ''}
         <span class="fnav-name">
           <i class="fa-solid ${iconClass} fnav-icon"></i>
           <span class="fnav-text">${escapeHtml(label)}</span>
@@ -1029,12 +1267,19 @@
         ${favoritable ? `<span class="fnav-star" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unfavorite folder' : 'Favorite folder'}" aria-label="${isFav ? 'Unfavorite' : 'Favorite'} ${escapeHtml(label)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>` : ''}
         <span class="fnav-pills">${statusSummary(mocks)}</span>`;
       btn.addEventListener('click', e => {
+        const chev = e.target.closest('.fnav-chevron');
+        if (chev && childCount) {
+          toggleClosedFolder(key);
+          renderFolderNav(folders, loose, searching); // redraw the branch in place
+          return;
+        }
         const star = e.target.closest('.fnav-star');
         if (star) {
-          toggleFavFolder(label);
+          toggleFavFolder(key);
           renderFolderNav(folders, loose, searching); // reorder in place
           return;
         }
+        if (key !== MAIN_KEY) openAncestors(key); // keep the selection visible in the tree
         selectTab(key);
       });
       return btn;
@@ -1045,14 +1290,36 @@
     label.textContent = 'Folders';
     nav.appendChild(label);
 
-    nav.appendChild(row('Main', loose, MAIN_KEY, 'fa-house', false));
+    nav.appendChild(row('Main', loose, MAIN_KEY, 'fa-house'));
 
     const divider = document.createElement('div');
     divider.className = 'fnav-divider';
     nav.appendChild(divider);
 
-    favNames.forEach(n => nav.appendChild(row(n, folders.get(n), n, (!searching && state.tab === n) ? 'fa-folder-open' : 'fa-folder', true)));
-    restNames.forEach(n => nav.appendChild(row(n, folders.get(n), n, (!searching && state.tab === n) ? 'fa-folder-open' : 'fa-folder', true)));
+    // Pinned favorites: flat quick links above the tree (full path as the
+    // label so nested pins stay unambiguous). The folder also remains in the
+    // tree below, star filled.
+    if (favs.length) {
+      favs.slice().sort((a, b) => a.localeCompare(b)).forEach(p => {
+        nav.appendChild(row(folderDisplay(p), descendantMocks(folders, p), p,
+          (!searching && state.tab === p) ? 'fa-folder-open' : 'fa-folder', { favoritable: true }));
+      });
+      const d = document.createElement('div');
+      d.className = 'fnav-divider';
+      nav.appendChild(d);
+    }
+
+    // The folder tree — n levels deep, chevrons collapse a branch, counts and
+    // pills on a parent describe its whole subtree.
+    const renderNode = (node, depth) => {
+      const kids = [...node.children.values()];
+      const isOpen = !closed.has(node.path);
+      nav.appendChild(row(node.name, descendantMocks(folders, node.path), node.path,
+        (!searching && state.tab === node.path) ? 'fa-folder-open' : 'fa-folder',
+        { favoritable: true, depth, childCount: kids.length, isOpen }));
+      if (kids.length && isOpen) kids.forEach(k => renderNode(k, depth + 1));
+    };
+    [...tree.children.values()].forEach(n => renderNode(n, 0));
   }
 
   // Status-grouped sections of FULL cards — used for the main (loose) area and,
@@ -1110,6 +1377,26 @@
     root.appendChild(el);
   }
 
+  // Breadcrumb naming the active folder scope, shown above the sections in
+  // sidebar mode. Ancestor segments are buttons that jump up the tree.
+  function renderFolderBreadcrumb(root, path, count) {
+    const segs = path.split(FOLDER_SEP);
+    const el = document.createElement('div');
+    el.className = 'folder-breadcrumb';
+    const crumbs = segs.map((seg, i) => {
+      const last = i === segs.length - 1;
+      return last
+        ? `<span class="crumb crumb--current">${escapeHtml(seg)}</span>`
+        : `<button class="crumb crumb-link" type="button" data-path="${escapeHtml(segs.slice(0, i + 1).join(FOLDER_SEP))}">${escapeHtml(seg)}</button>`;
+    }).join('<i class="fa-solid fa-chevron-right crumb-sep"></i>');
+    el.innerHTML = `
+      <i class="fa-solid fa-folder-open crumb-icon"></i>${crumbs}
+      <span class="crumb-count">${count} design${count === 1 ? '' : 's'}</span>`;
+    el.querySelectorAll('.crumb-link').forEach(b =>
+      b.addEventListener('click', () => selectTab(b.dataset.path)));
+    root.appendChild(el);
+  }
+
   function renderCardView(filtered, root) {
     statusGroupedCards(filtered, root, false);
   }
@@ -1120,7 +1407,7 @@
     statusGroupedTables(filtered, root, false);
   }
 
-  function listRow(mock) {
+  function listRow(mock, showFolder) {
     const statusLabel = STATUS_LABELS[mock.status] || STATUS_LABELS[DEFAULT_STATUS];
     const href = mock.devHandoff ? mock.devPagesUrl : mock.pagesUrl;
 
@@ -1136,13 +1423,17 @@
     return `
           <tr class="proto-row">
             <td>
-              <a class="proto-name" href="${href}" target="_blank" rel="noopener">
-                <i class="fa-regular fa-file-lines file-icon"></i>
-                <span>${escapeHtml(mock.title)}</span>
-                ${recencyTag(mock)}
-                ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
-                <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
-              </a>
+              <div class="proto-cell">
+                <a class="proto-name" href="${href}" target="_blank" rel="noopener">
+                  <i class="fa-regular fa-file-lines file-icon"></i>
+                  <span>${escapeHtml(mock.title)}</span>
+                  ${recencyTag(mock)}
+                  ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
+                  <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
+                </a>
+                ${showFolder ? folderChipHtml(mock) : ''}
+                ${mockStar(mock)}
+              </div>
             </td>
             <td><span class="status-badge" data-status="${escapeHtml(mock.status)}"><i class="fa-solid ${statusIcon(mock.status)} status-icon"></i>${escapeHtml(statusLabel)}</span></td>
             <td>${jiraCell}</td>
@@ -1207,7 +1498,29 @@
         </div>`;
   }
 
-  function buildCard(mock, idx) {
+  // "Where it lives" chip shown on Favorites-section cards/rows — pins are
+  // cross-folder, so each names its home folder. Clicking jumps there (the
+  // delegated handler below; the key is URI-encoded because it contains the
+  // FOLDER_SEP control character).
+  function folderChipHtml(mock) {
+    const label = mock.groupKey ? folderDisplay(mock.groupKey) : 'Main';
+    return `<span class="card-folder-chip" role="button" tabindex="0" data-key="${encodeURIComponent(mock.groupKey || MAIN_KEY)}" title="Open ${escapeHtml(label)}"><i class="fa-solid ${mock.groupKey ? 'fa-folder' : 'fa-house'}"></i><span class="cfc-text">${escapeHtml(label)}</span></span>`;
+  }
+  document.addEventListener('click', e => {
+    const chip = e.target.closest('.card-folder-chip');
+    if (!chip) return;
+    e.preventDefault();
+    selectTab(decodeURIComponent(chip.dataset.key));
+  });
+
+  // Pin/unpin star for one mock — shared by the card header and list rows.
+  // Toggling is handled by the delegated .mock-star click listener.
+  function mockStar(mock) {
+    const isFav = readFavMocks().includes(mock.relKey);
+    return `<span class="mock-star" data-rel="${escapeHtml(mock.relKey)}" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unpin from Favorites' : 'Pin to Favorites'}" aria-label="${isFav ? 'Unpin' : 'Pin'} ${escapeHtml(mock.title)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>`;
+  }
+
+  function buildCard(mock, idx, showFolder) {
     const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, extraLinks } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
@@ -1316,6 +1629,8 @@
         <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
           ${ticketHtml}
+          ${showFolder ? folderChipHtml(mock) : ''}
+          ${mockStar(mock)}
         </div>
         <h2 class="card-title">${escapeHtml(title)}</h2>
       </div>
@@ -1671,8 +1986,11 @@
 
       /* Bottom padding is just 2px: the folder-tab baseline IS the header's
          bottom edge, so the active tab can drop over the line and visually
-         connect to the flat content zone below. */
-      .page-header { position: relative; padding: 56px 32px 2px; overflow: hidden; }
+         connect to the flat content zone below. The banner background bleeds
+         full-width, but the CONTENT box uses the exact same geometry as
+         .content and .page-footer (max-width 1400 with the 32px gutter
+         INSIDE it, border-box) so every block's left/right edges line up. */
+      .page-header { position: relative; padding: 26px 0 2px; overflow: hidden; }
       .page-header::before {
         content: ''; position: absolute; inset: 0;
         background:
@@ -1689,36 +2007,84 @@
       }
       @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30px, 20px) scale(1.1); } }
 
-      .header-inner { max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+      .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
-      /* Product pill + live/refreshed meta on one row: pill left, meta right. */
-      .header-top {
+      /* Two columns: identity stack left, search right (centered against
+         the stack). System telemetry all lives in the eyebrow pill. */
+      .header-main {
         display: flex; align-items: center; justify-content: space-between;
-        gap: 12px 24px; flex-wrap: wrap; margin-bottom: 18px;
+        gap: 16px 32px; flex-wrap: wrap; padding-bottom: 16px;
       }
-      .product-tag {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: rgba(255, 255, 255, 0.7);
+      .header-id { min-width: 0; }
+      .header-id .page-subtitle { margin-top: 8px; }
+      .dash-eyebrow {
+        /* gap, not a space: flex drops whitespace-only text nodes, so the
+           word gap between "Design" and the <em> is set here instead. */
+        display: inline-flex; align-items: center; gap: 5px;
+        font-family: var(--display); font-size: 12px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-deep);
+        background: rgba(255, 255, 255, 0.72);
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        color: var(--accent-deep); font-family: var(--display);
-        font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
-        padding: 6px 14px; border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
+        padding: 6px 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        margin-bottom: 10px; max-width: 100%;
       }
-      .product-tag .emoji { font-size: 14px; line-height: 1; }
-
+      .dash-eyebrow .dot-sep { opacity: 0.35; margin: 0 3px; }
+      /* The freshness status inside the pill sheds the label styling —
+         sentence case, no tracking, a step smaller. */
+      .dash-eyebrow .meta-bar {
+        font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none;
+        gap: 4px 8px;
+      }
+      /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
+         theme's accent-deep is dark enough — the banner stays colorful via
+         the glow gradients and the product icon tile instead. */
+      .dash-eyebrow em { font-style: normal; }
+      /* The PRODUCT is the headline — same face as the card titles:
+         Fraunces 700 upright, just larger. */
       .page-title {
-        font-family: var(--serif); font-size: clamp(40px, 6vw, 64px); font-weight: 900;
-        margin: 0 0 12px; line-height: 1.0; letter-spacing: -0.02em; font-variation-settings: "opsz" 96;
+        display: flex; align-items: center; gap: 13px;
+        font-family: var(--serif); font-size: clamp(27px, 3.6vw, 38px);
+        font-weight: 700;
+        margin: 0; line-height: 1.1; letter-spacing: -0.01em;
       }
-      .page-title em {
-        font-style: italic; font-weight: 700;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-        font-variation-settings: "opsz" 144;
+      /* Gradient product name, verified accessible: every stop measures
+         ≥ 4.5:1 against pure WHITE across all 14 themes (the header bg is
+         darker than white, so real contrast is higher) — the start/mid stops
+         pass on their own and the end stop is the theme's end hue darkened
+         toward accent-deep. @supports-guarded so a browser without color-mix
+         keeps solid dark text rather than transparent (invisible) text. */
+      @supports (color: color-mix(in srgb, red 50%, blue)) {
+        .page-title #productName {
+          background: linear-gradient(105deg,
+            var(--gradient-start),
+            var(--gradient-mid) 55%,
+            color-mix(in srgb, var(--gradient-end) 55%, var(--accent-deep)));
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+          /* Fraunces can overhang its box slightly — keep the background
+             clip from shaving the last glyph. */
+          padding-right: 0.06em;
+        }
       }
-      .page-subtitle { font-size: 14px; color: var(--text-soft); margin: 0; max-width: none; line-height: 1.5; }
+      /* Product icon beside the name. Boots as the theme emoji, then becomes
+         the landing page's tile — white FA icon on the product's brand color
+         (all brand colors are dark enough for white glyphs). */
+      .title-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto; font-size: 0.78em; line-height: 1;
+      }
+      .title-icon--tile {
+        width: 42px; height: 42px; border-radius: 11px;
+        color: #fff; font-size: 19px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      }
+
+      /* Right column: just the search, right-flush with the page gutter so
+         its edge aligns with the content below. */
+      .header-side { flex: 0 1 460px; min-width: 280px; }
+      .header-search { width: 100%; }
+      .header-search[hidden] { display: none; }
 
       .meta-bar {
         display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center;
@@ -1847,15 +2213,6 @@
          header's bottom edge. The active tab drops over the line (opaque bg +
          negative margin) so it reads as "open" — switching tabs visibly swaps
          what's connected to the flat content zone below. */
-      .header-bottom {
-        display: flex; align-items: flex-end; justify-content: space-between;
-        flex-wrap: wrap; gap: 12px 32px;
-      }
-      /* The meta line sits where the subtitle copy used to be. */
-      .header-bottom .meta-bar { padding-bottom: 22px; }
-      /* Banner search — global, right-aligned on the meta line. */
-      .header-search { flex: 0 1 460px; min-width: 280px; margin-bottom: 16px; }
-      .header-search[hidden] { display: none; }
       .folder-tabs {
         display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
         border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -1959,13 +2316,27 @@
       .fnav-item {
         display: flex; align-items: center; gap: 8px; width: 100%;
         background: none; border: none; cursor: pointer; text-align: left;
-        padding: 9px 12px; border-radius: 10px;
+        /* Nested folders indent by depth (see --fnav-depth set per row). */
+        padding: 9px 12px 9px calc(10px + var(--fnav-depth, 0) * 16px); border-radius: 10px;
         font-family: var(--display); font-size: 13.5px; font-weight: 600; color: var(--text-soft);
         transition: background 0.1s ease, color 0.1s ease;
       }
       .fnav-item:hover { background: var(--accent-soft); color: var(--text); }
       .fnav-item[data-active="true"] { background: var(--accent); color: #fff; }
       .fnav-item[data-active="true"] .fnav-icon { color: #fff; }
+      /* Expand/collapse chevron on folders that have subfolders; rows without
+         children keep an empty spacer so icons align down the column. */
+      .fnav-chevron {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 14px; width: 14px; height: 14px; border-radius: 4px;
+        color: var(--text-muted); font-size: 9px; cursor: pointer;
+        transition: transform 0.12s ease, background 0.1s ease, color 0.1s ease;
+      }
+      .fnav-chevron[data-open="true"] { transform: rotate(90deg); }
+      .fnav-chevron:not(.fnav-chevron--none):hover { background: rgba(0,0,0,0.1); color: var(--text); }
+      .fnav-chevron--none { cursor: inherit; }
+      .fnav-item[data-active="true"] .fnav-chevron { color: rgba(255,255,255,0.85); }
+      .fnav-item[data-active="true"] .fnav-chevron:not(.fnav-chevron--none):hover { background: rgba(255,255,255,0.2); color: #fff; }
       .fnav-name { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
       .fnav-icon { font-size: 12px; color: var(--text-muted); width: 14px; text-align: center; }
       .fnav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1984,18 +2355,90 @@
 
       /* Narrow screens: the sidebar becomes a wrapping row above the content. */
       @media (max-width: 980px) {
+        /* Banner stacks: identity block on top, search full-width under it.
+           The pill may wrap to two lines — soften the radius so it still
+           reads as one chip. */
+        .header-main { align-items: stretch; }
+        .header-side { flex: 1 1 100%; }
+        .dash-eyebrow { flex-wrap: wrap; row-gap: 3px; border-radius: 16px; }
         .content-columns { display: block; }
         .folder-nav {
           position: static; width: auto; flex-direction: row; flex-wrap: wrap;
           align-items: center; gap: 4px; margin-bottom: 20px; padding: 10px;
         }
         .fnav-label { width: 100%; padding-bottom: 6px; }
-        .fnav-item { width: auto; }
+        /* The row layout has no tree geometry — drop indent + chevrons and
+           show every folder as a flat chip (nested ones keep their tooltip). */
+        .fnav-item { width: auto; padding-left: 12px; }
         .fnav-item .fnav-pills { display: none; }
+        .fnav-chevron { display: none; }
         .fnav-divider { display: none; }
       }
 
       .tab-empty { color: var(--text-muted); font-size: 13.5px; padding: 18px 2px; }
+
+      /* ── Active-folder breadcrumb (sidebar mode) ─────────────────────────
+         Names the folder scope above the sections; ancestors are clickable. */
+      .folder-breadcrumb {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+        margin: 2px 0 18px; font-family: var(--display);
+        font-size: 13.5px; font-weight: 600; color: var(--text-soft);
+      }
+      .crumb-icon { color: var(--accent); font-size: 13px; margin-right: 2px; }
+      .crumb-link {
+        background: none; border: none; padding: 0; cursor: pointer;
+        font: inherit; font-family: inherit; color: var(--text-muted);
+      }
+      .crumb-link:hover { color: var(--accent); text-decoration: underline; }
+      .crumb--current { color: var(--text); }
+      .crumb-sep { font-size: 9px; color: var(--text-muted); }
+      .crumb-count {
+        margin-left: 4px; padding: 3px 9px; border-radius: 999px;
+        font-size: 11.5px; color: var(--text-muted); background: var(--accent-soft);
+      }
+
+      /* ── Card-level favorites ────────────────────────────────────────────
+         Star on each card/row pins the mock into the Favorites section.
+         Hidden until hover (like the folder stars), always visible when on. */
+      .mock-star {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto;
+        color: var(--text-muted); font-size: 13px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, transform 0.1s ease, background 0.1s ease;
+      }
+      .mock-card:hover .mock-star, .proto-row:hover .mock-star { opacity: 0.7; }
+      .mock-star:hover { opacity: 1 !important; transform: scale(1.12); background: rgba(0, 0, 0, 0.05); }
+      .mock-star[data-fav="true"] { opacity: 1; color: #f59e0b; }
+      /* Touch screens have no hover — keep unpinned stars faintly visible. */
+      @media (hover: none) { .mock-star, .fnav-star { opacity: 0.55; } }
+      .card-badge-row .mock-star { margin-left: auto; }
+      .proto-cell { display: flex; align-items: center; gap: 8px; }
+      .proto-cell .proto-name { flex: 1 1 auto; min-width: 0; }
+
+      /* Home-folder chip on Favorites cards/rows — pins are cross-folder, so
+         each names (and links to) the folder it lives in. */
+      .card-folder-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family: var(--display); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); border: 1px solid var(--border);
+        padding: 3px 10px; border-radius: 999px; cursor: pointer;
+        max-width: 240px; flex: 0 0 auto;
+        transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+      }
+      .card-folder-chip .cfc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .card-folder-chip:hover { color: var(--accent-deep); border-color: var(--accent); background: var(--accent-soft); }
+
+      /* Favorites section — a collapsible <details> styled like the status
+         sections, always rendered ABOVE them. */
+      .fav-details > summary { cursor: pointer; list-style: none; user-select: none; }
+      .fav-details > summary::-webkit-details-marker { display: none; }
+      .fav-header { align-items: center; }
+      .fav-chevron {
+        font-size: 12px; color: var(--text-muted);
+        transition: transform 0.15s ease;
+      }
+      .fav-details[open] .fav-chevron { transform: rotate(90deg); }
+      .fav-title-star { color: #f59e0b; font-size: 17px; margin-right: 4px; }
 
       /* kept for potential nested sections; unused by the tab layout */
       .section--sub .section-title { font-size: 18px; }

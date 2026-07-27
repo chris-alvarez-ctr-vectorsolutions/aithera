@@ -29,7 +29,7 @@
     title: 'Applying HazCom: The Teach Me Exercise',
 
     // Named in the calibration prompt: "The learner has just finished {subject}."
-    subject: 'a Hazard Communication (HazCom) course',
+    subject: 'a Hazard Communication (HazCom) training',
 
     // The required topics the learner must teach back. `short` labels the tile
     // and the closing list; `full` is what the grader matches on; `synonyms`
@@ -259,13 +259,13 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     // teaches each topic from memory (ENGAGE), and a live grader focuses tiles and
     // nudges toward gaps (REACT). The score IS the point here — no hidden rubric.
     { id: 'calibrate', group: 'interaction', stage: 'ENTER', icon: 'fa-comment-dots', title: 'Calibration chat',
-      lead: 'The no-scoring warm-up before the tiles appear — how the learner enters the loop.' },
+      lead: 'The no-scoring warm-up before the tiles appear.' },
     { id: 'topics', group: 'interaction', stage: 'ENGAGE', icon: 'fa-list-check', title: 'Required topics',
-      lead: 'What the learner teaches back — each a tile that resolves as they cover it, and the answer key the grader credits against.',
+      lead: 'What the learner teaches back. Each is a tile that resolves as they cover it.',
       bridgeTitle: 'From your old craft: the checklist a complete program must cover',
       bridge: '<b>short</b> labels the tile. <b>full</b> is what the AI grades against. <b>synonyms</b> are the phrasings you\'ll accept, so a learner who says it their own way still gets credit.' },
     { id: 'grade', group: 'interaction', stage: 'REACT', icon: 'fa-scale-balanced', title: 'Grading rules',
-      lead: 'How the grader decides a topic is covered and steers the nudge to the biggest gap. The topic list is added for you.' },
+      lead: 'How the grader decides a topic is covered. The topic list is added for you.' },
 
     // ③ Debrief & Close — the results message. Here the score is shown by design.
     { id: 'close', group: 'debrief', stage: 'RESULTS', icon: 'fa-medal', title: 'Closing feedback',

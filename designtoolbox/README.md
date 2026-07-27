@@ -302,10 +302,20 @@ code changes — the card rendering keys off `dashboardHref`.
 ## Product dashboard (shared + auto-updating)
 
 `dashboard.js` is the **single shared implementation** of the per-product
-"Design Lab" — the status board a product links its index card to (above). It
-renders cards for every prototype in a product, each with its **GitHub Pages
-URL, GitHub source link, dev-handoff build, status, and Jira ticket**, plus a
-recent-activity log. SafeLMS and Scheduling are the first two consumers.
+"Design Dashboard" — the status board a product links its index card to
+(above). The banner leads with the **product identity**: the SAME icon tile
+the landing page card shows (Font Awesome icon on the product's brand color,
+carried into meta.json as `product.icon`/`product.color` from products.json)
+plus the product's landing `label` as the headline in the section-title face
+(Fraunces italic) with a per-theme **gradient** whose stops are all verified
+≥ 4.5:1 on white, under a small solid-color "Design Dashboard" eyebrow. The
+freshness meta + "Bookmark this page…" note sit under the name; the global
+search is alone on the right. Header, content, and footer all share the same
+max-width + 32px gutter so every edge aligns.
+It renders cards for every prototype in a product, each with its **GitHub
+Pages URL, GitHub source link, dev-handoff build, status, and Jira ticket**,
+plus a recent-activity log. SafeLMS and Scheduling were the first two
+consumers.
 
 ### How a product enrolls (two files, no rebuild)
 
@@ -345,16 +355,38 @@ the **scope** — the status chips and their counts apply within it. The banner
 search is the opposite: it's **global**, looking across every folder (the rail
 dims while a query is active; picking a folder exits the search into it).
 
+- **Nesting (n levels)** — `folder` groups can contain further `folder`
+  groups; the rail renders them as a collapsible **tree** (chevron per branch,
+  collapsed branches saved per browser in
+  `localStorage["designlab-closed-folders:<Product>"]`). A parent folder's
+  pill counts cover its **whole subtree**, and selecting it scopes to every
+  mock beneath it; the content column shows a clickable **breadcrumb** of the
+  active path. The build script carries the path into `meta.json` as an
+  **array of names** (`"folder": ["Phase 2", "Content Workflow"]`) — never a
+  joined string, because a folder name may itself contain `" / "` (e.g.
+  "AI Chat Widget (Vectoria / Fin)").
 - **Favorites** — hovering a folder row reveals a star; starring pins the
-  folder above the others. Saved per browser per product in
+  folder above the tree (nested pins show their full "A / B" path; the folder
+  also stays in the tree, star filled). Saved per browser per product in
   `localStorage["designlab-fav-folders:<Product>"]` — personal, not shared.
-- **Narrow widths** — the rail becomes a wrapping row above the content, and
+- **Card favorites** — every card (and list row) has its own hover star;
+  pinning HOISTS the mock into a collapsible **Favorites** section that
+  renders above the status sections (no duplicate below — the card keeps its
+  status badge). Favorites are **cross-folder**: pins follow you into every
+  scope (including Main), each showing a clickable home-folder chip; search
+  and status filters still apply, the folder scope does not. Sorts by the
+  active sort; open/closed state persists. Stored in
+  `localStorage["designlab-fav-mocks:<Product>"]` (pins, keyed by `rel`) and
+  `"designlab-favs-open:<Product>"` (section state).
+- **Narrow widths** — the rail becomes a wrapping row above the content
+  (tree indent/chevrons drop; every folder shows as a flat chip), and
   the status chips collapse into one multi-select "Status: …" dropdown the
   moment they can't share a line with the sort/view controls (measured, not a
   fixed breakpoint).
 - **Tabs variant** — a complete alternative presentation (folder tabs on the
   header baseline with a "N more ⌄" overflow) is kept working behind the
   `FOLDER_NAV_STYLE` constant at the top of `dashboard.js` ('sidebar' | 'tabs').
+  Tabs can't nest, so nested paths aggregate into their top-level folder's tab.
   Don't delete it as dead code.
 
 So: to give a set of related mocks this experience, just group them under a

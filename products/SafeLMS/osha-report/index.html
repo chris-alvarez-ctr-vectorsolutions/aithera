@@ -908,7 +908,7 @@
             <div class="filter-checkboxes" id="actionChecks">
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>Failed — needs a retry</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures throughout the course — connect for remediation</span></label>
             </div>
           </div>
 
@@ -992,18 +992,16 @@
               <p class="ec-greeting">Hi Jordan,<span class="ec-sample" title="A sample first name — each learner sees their own">sample name</span></p>
             </div>
 
-            <!-- 3. Editable intro — the ONLY editable field (accent-outlined) -->
+            <!-- 3. Editable message — the greeting and sign-off are locked; everything between them is editable -->
             <div class="ec-block ec-editable">
-              <div class="ec-editable-tag"><i aria-hidden="true" class="fa-solid fa-pen"></i> Your intro — the only part you can edit</div>
-              <label class="sr-only" for="emailPreamble">Email intro</label>
-              <textarea id="emailPreamble" class="ec-intro" rows="3" placeholder="Add a short note to appear at the top of the email…"></textarea>
+              <div class="ec-editable-tag"><i aria-hidden="true" class="fa-solid fa-pen"></i> Your message — everything except the greeting and sign-off is yours to edit</div>
+              <label class="sr-only" for="emailPreamble">Email message</label>
+              <textarea id="emailPreamble" class="ec-intro" rows="6" placeholder="Write the message that appears between the greeting and sign-off…"></textarea>
             </div>
 
-            <!-- 4. Locked body + sign-off block — standard template -->
+            <!-- 4. Locked sign-off block — standard template -->
             <div class="ec-block ec-locked">
               <span class="ec-lock" title="Locked — set in your email template"><i aria-hidden="true" class="fa-solid fa-lock"></i></span>
-              <p id="emailTplBody"></p>
-              <p>If you have any questions, please contact your administrator.</p>
               <p class="ec-signoff">Thanks,<br>Ms. Rivera · Vector Solutions</p>
             </div>
           </div>
@@ -1502,7 +1500,7 @@
   const filtersClearBtn = document.getElementById('filtersClearBtn');
   const appliedFilters = document.getElementById('appliedFilters');
   const filterLead = document.getElementById('filterLead');
-  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'Failed — needs a retry' };
+  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'At least 2 failures throughout the course — connect for remediation' };
   // The search box is intentionally excluded — it is a temporary table-only filter and must
   // not flip the scope to "Filtered to" nor appear as an applied-filter chip.
   function extraFilterCount() {
@@ -1607,7 +1605,10 @@
   // `type` is carried through only to label the header context line, not to alter the template.
   const STANDARD_SUBJECT = 'A reminder about your required OSHA training';
   const STANDARD_BODY = 'This is a reminder about your required OSHA training. Please log in to SafeLMS to continue your required training.';
-  const STANDARD_INTRO = 'I wanted to personally reach out about your OSHA training. Please take a few minutes when you can, and let me know if you have any questions.';
+  // Default text pre-filled into the (fully editable) message box. It carries the standard
+  // reminder wording that used to be locked — the admin can now edit any of it. Only the
+  // greeting ("Hi …") and sign-off ("Thanks, …") stay locked.
+  const STANDARD_INTRO = 'This is a reminder about your required OSHA training. Please log in to SafeLMS to continue your required training.\n\nIf you have any questions, please contact your administrator.';
   function emailContent(type, courseLabel) {
     return { type: type || 'generic', subject: STANDARD_SUBJECT, body: STANDARD_BODY };
   }
@@ -1729,7 +1730,6 @@
   const emailContextEl = document.getElementById('emailContext');
   const emailPreamble = document.getElementById('emailPreamble');
   const emailTplSubject = document.getElementById('emailTplSubject');
-  const emailTplBody = document.getElementById('emailTplBody');
   let emailCtx = null;   // { recipients }
 
   // Header context line: "Not started · OSHA 10 – Construction". The status/action segment
@@ -1762,10 +1762,9 @@
     document.querySelector('#emailPage .ec-word').textContent = n === 1 ? 'recipient' : 'recipients';
     document.querySelector('#emailSend').lastChild.textContent = n === 1 ? ' learner' : ' learners';
     emailContextEl.textContent = emailContextLine(recipients, content, opts);
-    // Standard template (locked subject + body); only the intro is editable.
+    // Standard template subject; the message body is fully editable (greeting + sign-off stay locked).
     emailTplSubject.textContent = content.subject || '';
-    emailTplBody.textContent = content.body || '';
-    // Pre-fill the (only) editable field with the standard default the admin can tweak.
+    // Pre-fill the editable message with the standard reminder wording the admin can tweak.
     emailPreamble.value = STANDARD_INTRO;
     emailPage.hidden = false;
     emailPage.setAttribute('aria-hidden', 'false');
@@ -1834,7 +1833,7 @@
     const cards = [
       { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
       { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'Failed the assessment — needs a retry' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures throughout the course — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
     // Tiles are static, non-interactive display elements. The ONLY interactive control is the

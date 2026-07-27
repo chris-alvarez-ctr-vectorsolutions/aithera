@@ -295,6 +295,12 @@
     }
 
     function stopAll() {
+      // READING modality mounts return before the audio machinery below is
+      // initialized — its lets are still in their temporal dead zone, so
+      // touching them here threw and (because doContinue had already latched
+      // onContinueFired) permanently bricked the Continue button. Reading has
+      // nothing to stop; bail before touching audio state.
+      if (modality !== 'audio') return;
       stopped = true;
       if (waveRAF) cancelAnimationFrame(waveRAF);
       if (ttsOK) speechSynthesis.cancel();
