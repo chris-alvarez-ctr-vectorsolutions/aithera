@@ -1232,16 +1232,26 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
             p.innerHTML = `<div class="who">Learner</div><div class="bubble pt-splitting">splitting say/do<span></span><span></span><span></span></div>`;
             log.appendChild(p); return;
           }
-          m._display.filter((b) => b.kind === 'narration').forEach((b) => {
-            const n = document.createElement('div'); n.className = 'pt-you-narration';
-            n.textContent = b.text; log.appendChild(n);
+          // Render the split move IN ORDER: each action → its own centered
+          // narration line, each run of consecutive speech → one "Learner"
+          // bubble stack. Interleaving is preserved, so "punch / say / run"
+          // shows do → say → do, never all-actions-then-all-speech.
+          let bubbleStack = null;
+          m._display.forEach((b) => {
+            if (b.kind === 'narration') {
+              bubbleStack = null;
+              const n = document.createElement('div'); n.className = 'pt-you-narration';
+              n.textContent = b.text; log.appendChild(n);
+            } else {
+              if (!bubbleStack) {
+                bubbleStack = document.createElement('div'); bubbleStack.className = 'pt-msg you';
+                bubbleStack.innerHTML = `<div class="who">Learner</div>`;
+                log.appendChild(bubbleStack);
+              }
+              const bub = document.createElement('div'); bub.className = 'bubble';
+              bub.textContent = b.text; bubbleStack.appendChild(bub);
+            }
           });
-          const speech = m._display.filter((b) => b.kind === 'dialogue');
-          if (speech.length) {
-            const sp = document.createElement('div'); sp.className = 'pt-msg you';
-            sp.innerHTML = `<div class="who">Learner</div>` + speech.map((b) => `<div class="bubble">${esc(b.text)}</div>`).join('');
-            log.appendChild(sp);
-          }
           return;
         }
         const d = document.createElement('div');

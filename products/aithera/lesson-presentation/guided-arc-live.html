@@ -1734,27 +1734,47 @@
       return s.replace(/(^|[.!?]\s+)([a-z])/g, (m, p, c) => p + c.toUpperCase());
     }
 
-    /* Split a learner's scene input into ACTION (what they do → narration) and
-       SPEECH (what they say → a bubble). Rule the placeholder teaches: anything
-       in "quotes" is spoken aloud; a line starting with "I …" is an action;
-       otherwise a bare line is treated as speech. The raw text still goes to the
-       model verbatim (this only drives DISPLAY, via the message's _display). */
+    /* Split a learner's scene input into ORDERED beats — the things they do
+       (→ narration) and the things they say (→ bubbles) — IN THE ORDER they
+       appear, so a move like `do "say" do` renders do → say → do rather than
+       all-actions-then-all-speech. Anything in "quotes" is spoken aloud; the
+       words around it are actions; multiple quotes/actions each get their own
+       beat. Un-quoted free text falls back to the coarse "I …" = action rule.
+       The raw text still goes to the model verbatim (this only drives DISPLAY,
+       via the message's _display). This is the deterministic fallback; the AI
+       split below is the primary path for free-form, multi-part moves. */
     function splitSceneInput(raw) {
       const t = String(raw || '').trim();
+      if (!t) return [];
       const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g;
-      const found = t.match(quoteRe);
-      if (found && found.length) {
-        const speech = found.map((q) => q.replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim()).filter(Boolean);
-        let action = t.replace(quoteRe, ' ').replace(/\s{2,}/g, ' ').trim();
-        // drop a dangling speech connector ("… and say", "… tells him:", "…:")
-        action = action.replace(/[,:—-]*\s*(and|then|,)?\s*(says?|said|yells?|shouts?|adds?|tells?\s+\w+)\s*[:,]?\s*$/i, '').replace(/[\s,:—-]+$/, '').trim();
-        const beats = [];
-        if (action && /[a-z0-9]/i.test(action)) beats.push({ kind: 'narration', text: toSecondPerson(action) });
-        speech.forEach((s) => beats.push({ kind: 'dialogue', text: s }));
-        return beats.length ? beats : [{ kind: 'dialogue', text: t }];
+      const beats = [];
+      const pushAction = (chunk) => {
+        // strip the connective glue that introduced/followed a quote
+        let a = String(chunk || '')
+          .replace(/[,:;—-]*\s*(and|then|,|but|so)?\s*(says?|said|yells?|shouts?|adds?|snaps?|asks?|tells?\s+\w+)\s*[:,]?\s*$/i, '')
+          .replace(/^\s*(and|then|but|so)\b[\s,]*/i, '')
+          .replace(/\s{2,}/g, ' ')
+          .replace(/^[\s,:;—-]+|[\s,:;—-]+$/g, '')
+          .trim();
+        // Drop a chunk that stripped down to just a subject ("I", "I'd", "you") —
+        // a leftover speech introducer ("I say", "and I tell him"), not an action.
+        if (a && /[a-z0-9]/i.test(a) && !/^(i|he|she|they|we|it|you)(['’]?(d|ll|m|ve|re|s))?$/i.test(a)) {
+          beats.push({ kind: 'narration', text: toSecondPerson(a) });
+        }
+      };
+      let last = 0, m;
+      while ((m = quoteRe.exec(t)) !== null) {
+        pushAction(t.slice(last, m.index));                 // action before this quote
+        const spoken = m[0].replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim();
+        if (spoken) beats.push({ kind: 'dialogue', text: spoken });
+        last = quoteRe.lastIndex;
       }
-      if (/^(i |i'd |i would |i'll |i'm |i am |i just )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
-      return [{ kind: 'dialogue', text: t }];
+      if (last === 0) {   // no quotes — coarse single-beat fallback
+        if (/^(i |i'd |i would |i'll |i'm |i am |i just |you )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+        return [{ kind: 'dialogue', text: t }];
+      }
+      pushAction(t.slice(last));                             // action after the last quote
+      return beats.length ? beats : [{ kind: 'dialogue', text: t }];
     }
 
     /* AI split — the reliable path for free-form input (no quotes needed). A fast
@@ -1766,20 +1786,33 @@
        every Guided Arc scene (the author toggles it via scene.sayDoSplit, and names
        the people via scene.characters; the splitter itself needs no scenario detail).
        Kept static so the FAST-model call stays cache-friendly. */
-    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, move toward someone), rewritten in SECOND person ("You step in beside them"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"knock it off" -> {"action":"","speech":"Knock it off"}\n"I\'d tell him to shut up" -> {"action":"","speech":"Shut up"}\n"tell him to drop it and then check on her after" -> {"action":"You turn to check on her after","speech":"Drop it"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look over and say cut it out" -> {"action":"You look over","speech":"Cut it out"}';
+    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into an ORDERED list of beats — the things they DO and the things they SAY — for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"beats":[{"kind":"do"|"say","text":"..."}]}.\n- Walk the move from START to FINISH and emit ONE beat per distinct thing they do or say, IN THE ORDER THEY EXPRESSED IT. A move can be several beats and can alternate — do, say, do — keep that exact sequence. NEVER reorder. NEVER merge two separate actions into one beat, and NEVER merge two separate spoken lines into one beat.\n- "kind":"do" — one physical thing they do (step, look, turn, stand, move toward someone, punch, walk away), rewritten in SECOND person ("You step in beside them"). Never invent words for a physical action.\n- "kind":"say" — one thing they say out loud. If they quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never add content they did not express.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY. Only truly physical, non-verbal moves are DO. Return an empty beats array only if there is genuinely nothing to show.\nExamples:\n"step between them" -> {"beats":[{"kind":"do","text":"You step between them"}]}\n"knock it off" -> {"beats":[{"kind":"say","text":"Knock it off"}]}\n"I\'d tell him to shut up" -> {"beats":[{"kind":"say","text":"Shut up"}]}\n"I\'d punch Jake, tell him to shove off and then run away" -> {"beats":[{"kind":"do","text":"You punch Jake"},{"kind":"say","text":"Shove off"},{"kind":"do","text":"You run away"}]}\n"tell him to drop it and then check on her after" -> {"beats":[{"kind":"say","text":"Drop it"},{"kind":"do","text":"You check on her after"}]}\n"I look over and say cut it out" -> {"beats":[{"kind":"do","text":"You look over"},{"kind":"say","text":"Cut it out"}]}\n"I\'d calmly ask him to please stop" -> {"beats":[{"kind":"say","text":"Please stop"}]}';
     async function splitSceneInputAI(text) {
       const raw = await SimCore.callModel({
         model: SimCore.MODELS.FAST,
-        maxTokens: 200,
+        maxTokens: 400,
         system: SPLIT_SYSTEM,
         messages: [{ role: 'user', content: String(text || '') }],
       });
       const obj = SimCore.parseJson(raw) || {};
-      const action = String(obj.action || '').trim();
-      const speech = String(obj.speech || '').trim();
       const beats = [];
-      if (action) beats.push({ kind: 'narration', text: action });
-      if (speech) beats.push({ kind: 'dialogue', text: speech });
+      // Primary shape: an ORDERED beats[] list — keep it in order so an
+      // alternating move (do, say, do) shows in the sequence the learner meant.
+      if (Array.isArray(obj.beats)) {
+        obj.beats.forEach((b) => {
+          if (!b) return;
+          const bt = String(b.text || '').trim();
+          if (!bt) return;
+          const kind = /^(do|act|narr)/i.test(String(b.kind || '')) ? 'narration' : 'dialogue';
+          beats.push({ kind, text: bt });
+        });
+      }
+      if (!beats.length) {   // legacy {action, speech} fallback (stale cache / older reply)
+        const action = String(obj.action || '').trim();
+        const speech = String(obj.speech || '').trim();
+        if (action) beats.push({ kind: 'narration', text: action });
+        if (speech) beats.push({ kind: 'dialogue', text: speech });
+      }
       return beats.length ? beats : null;
     }
     /* Resolve the learner's scene move for display ONCE: try the fast AI split
@@ -1853,22 +1886,35 @@
         r.addEventListener('click', () => tryDifferentApproach(absIndex));
         return r;
       };
-      // ACTION lines first (centered), in order.
-      disp.filter((b) => b.kind === 'narration').forEach((b) => {
-        card.appendChild(el('div', 'you-narration' + ec(m), esc(b.text)));
+      // Render the move IN ORDER — each thing they DO as its own centered
+      // action line, each run of consecutive speech as one amber "You" bubble
+      // stack. Interleaving is preserved: "punch / say / run" shows do → say →
+      // do, never all-actions-then-all-speech. A narration beat closes the open
+      // speech stack so the next speech starts a fresh one.
+      let speechWrap = null;
+      disp.forEach((b) => {
+        if (b.kind === 'narration') {
+          speechWrap = null;
+          card.appendChild(el('div', 'you-narration' + ec(m), esc(b.text)));
+        } else {
+          if (!speechWrap) {
+            speechWrap = el('div', 'you-scene' + ec(m));
+            speechWrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
+            card.appendChild(speechWrap);
+          }
+          speechWrap.appendChild(el('div', 'bubble', esc(b.text)));
+        }
       });
-      // SPEECH lines grouped under one "You" bubble stack (retry lives here).
-      const speech = disp.filter((b) => b.kind === 'dialogue');
-      if (speech.length) {
-        const wrap = el('div', 'you-scene' + ec(m));
-        wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
-        speech.forEach((b) => wrap.appendChild(el('div', 'bubble', esc(b.text))));
-        if (showRetry) wrap.appendChild(retryNode());
-        card.appendChild(wrap);
-      } else if (showRetry) {
-        const holder = el('div', 'you-narration-actions');
-        holder.appendChild(retryNode());
-        card.appendChild(holder);
+      // Retry attaches to the final beat: inside the last speech stack if the
+      // move ended on speech, otherwise a trailing right-aligned holder.
+      if (showRetry) {
+        if (speechWrap) {
+          speechWrap.appendChild(retryNode());
+        } else {
+          const holder = el('div', 'you-narration-actions');
+          holder.appendChild(retryNode());
+          card.appendChild(holder);
+        }
       }
     }
     // narration that belongs to a character line WITH dialogue is rendered inside
