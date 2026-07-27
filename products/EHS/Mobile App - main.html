@@ -272,15 +272,13 @@
         /* ── Offline indicator (cloud + slash) — replaces the offline banner
            (EHS-18527 follow-up, item 3). Only rendered while offline; tapping
            it opens a short helper popover. ── */
-        .offline-ind { display: none; }
-        #app.app-offline .offline-ind { display: flex; }
-        .offline-pop {
-            display: none; position: absolute; top: calc(100% + 6px); left: 10px; right: 56px;
-            background: #1c3a5c; color: white; border-radius: 10px; padding: 10px 12px;
-            font-size: 12px; line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            z-index: 90; text-align: left;
-        }
-        .offline-pop.show { display: block; }
+        /* Live offline banner: hidden unless the prototype's Offline toggle is
+           on. Replaces the old cloud-slash header indicator (removed).
+           (Doubled selector so it outranks the .offline-banner display:flex
+           base rule that appears later in the sheet.) */
+        .offline-banner.app-offline-banner { display: none; }
+        #app.app-offline .offline-banner.app-offline-banner,
+        #app.offline-editing .offline-banner.app-offline-banner { display: flex; }
         /* Pull-to-refresh indicator: height grows while the list is pulled down */
         .records-pull-indicator {
             height: 0; overflow: hidden; display: flex; align-items: center;
@@ -311,12 +309,14 @@
         .rv-field-value.empty { color: rgba(0,0,0,0.35); font-style: italic; }
         .rv-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
         .rv-section-title { font-size: 14px; font-weight: 700; color: rgba(0,0,0,0.87); }
-        .rv-add-btn {
-            background: none; border: 1.5px solid #0271ce; color: #0271ce;
-            border-radius: 6px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
-            cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+        /* Icon-only actions on the details page (Edit sections, Copy ID) */
+        .rv-icon-btn {
+            background: none; border: none; color: #0271ce;
+            width: 32px; height: 32px; border-radius: 8px; font-size: 15px;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin: -4px 0;
         }
-        .rv-add-btn:active { background: rgba(2,113,206,0.08); }
+        .rv-icon-btn:active { background: rgba(2,113,206,0.08); }
         .rv-item-row {
             display: flex; align-items: center; gap: 10px; padding: 9px 0;
             border-bottom: 1px solid #f3f4f6; font-size: 13px; color: rgba(0,0,0,0.78);
@@ -326,31 +326,29 @@
         .rv-item-main { flex: 1; min-width: 0; }
         .rv-item-sub { font-size: 11.5px; color: rgba(0,0,0,0.45); margin-top: 1px; }
         .rv-empty { font-size: 12.5px; color: rgba(0,0,0,0.4); padding: 6px 0 2px; }
-        /* "View full record" link row on the details page */
-        .rv-viewfull {
-            display: flex; align-items: center; justify-content: space-between;
-            width: 100%; background: white; border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 12px; margin: 12px 12px 0; padding: 15px 16px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05); cursor: pointer;
-            font-family: inherit; font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.82);
-        }
-        .rv-viewfull:active { background: #f8fafc; }
-        .rv-viewfull i.rv-viewfull-chev { color: rgba(0,0,0,0.35); font-size: 14px; }
-        .rv-viewfull > span { display: flex; align-items: center; gap: 10px; }
-        .rv-viewfull > span > i { color: #0271ce; font-size: 15px; }
-        /* Sticky Submit footer (details page, shown when submission still applies) */
+        /* Record ID row: value + inline Copy ID CTA */
+        .rv-id-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        /* Sticky footer actions on the details page: Edit / View full record
+           (secondary) always available; Submit (primary) when applicable. */
         .rv-footer {
             position: absolute; left: 0; right: 0; bottom: 0;
             padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-            background: white; border-top: 1px solid #e5e7eb; display: none;
+            background: white; border-top: 1px solid #e5e7eb;
         }
-        .rv-footer.show { display: block; }
+        .rv-footer-row { display: flex; gap: 10px; }
+        .rv-footer-secondary {
+            flex: 1; background: white; border: 1.5px solid #0271ce; color: #0271ce;
+            border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .rv-footer-secondary:active { background: rgba(2,113,206,0.08); }
         .rv-submit-btn {
-            width: 100%; background: #168846; border: none; color: white;
-            border-radius: 8px; padding: 13px; font-size: 15px; font-weight: 700;
+            flex: 1; background: #0271ce; border: none; color: white;
+            border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700;
             cursor: pointer; font-family: inherit;
         }
-        .rv-submit-btn:active { background: #0f6f38; }
+        .rv-submit-btn:active { background: #0261b4; }
 
         /* Read-only value grid used by the full read-only record view (item 3):
            clean labeled values, no input chrome. */
@@ -358,6 +356,9 @@
             font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.5);
             letter-spacing: 0.02em; margin: 4px 2px 0;
         }
+        /* Read-only field list container: the .ro-field padding + dividers set the
+           rhythm, so (unlike .form-body) there is no extra flex gap stacking on top. */
+        .ro-body { padding: 4px 16px 20px; }
         .ro-field { padding: 11px 0; border-bottom: 1px solid #f3f4f6; }
         .ro-field:last-child { border-bottom: none; padding-bottom: 0; }
         .ro-field-label { font-size: 11.5px; font-weight: 600; color: rgba(0,0,0,0.45); margin-bottom: 3px; }
@@ -366,6 +367,18 @@
         /* Fleshed-out attachment row on the details page + management screen
            (matches edit-mode .attach-item style, EHS-18527 item 2) */
         .rv-att-managed .attach-item:last-child { margin-bottom: 0; }
+        /* Read-only records keep fields read-only, but attachments and signatures
+           are ALWAYS editable (EHS-18527: downloaded records are read-only except
+           signatures & attachments) — the add/remove affordances always show. */
+
+        /* Read-only Steps: each step card opens a read-only detail view on tap. */
+        .ro-step-card { cursor: pointer; }
+        .ro-step-card:active { background: #f8fafc; }
+        .ro-step-card .record-card-header { position: relative; padding-right: 20px; }
+        .ro-step-card .record-card-header::after {
+            content: "\f054"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+            position: absolute; right: 0; top: 3px; color: rgba(0,0,0,0.28); font-size: 12px;
+        }
 
         /* Bottom-sheet action rows (per-record ellipsis menu) */
         .sheet-action {
@@ -550,14 +563,6 @@
             cursor: pointer; font-family: inherit; height: 30px;
             display: flex; align-items: center; font-weight: 600;
         }
-        /* Conflict resolution action on a record card */
-        .rec-btn-conflict {
-            background: rgba(224,83,61,0.08); border: 1.5px solid #e0533d; color: #b23a26;
-            border-radius: 6px; font-size: 12.5px; padding: 0 12px;
-            cursor: pointer; font-family: inherit; height: 30px;
-            display: inline-flex; align-items: center; gap: 6px; font-weight: 600;
-        }
-        .rec-btn-conflict:active { background: rgba(224,83,61,0.16); }
         /* Cancel an in-flight submission */
         .rec-btn-cancel {
             background: white; border: 1.5px solid rgba(0,0,0,0.25); color: rgba(0,0,0,0.6);
@@ -618,9 +623,9 @@
         .editmode-toggle.on .em-dot { background: rgba(255,255,255,0.55); }
         .editmode-toggle.on .em-dot::after { left: 16px; }
 
-        /* Post-sync conflict notice */
+        /* Post-sync summary notice */
         .sync-note { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 12px; }
-        .sync-note > i { color: #b23a26; font-size: 16px; margin-top: 2px; }
+        .sync-note > i { color: #0a7637; font-size: 16px; margin-top: 2px; }
         .sn-title { font-size: 14.5px; font-weight: 700; color: rgba(0,0,0,0.87); }
         .sn-sub { font-size: 12.5px; color: rgba(0,0,0,0.6); line-height: 1.45; margin-top: 3px; }
         .rec-btn-icon {
@@ -653,9 +658,11 @@
         /* ── Submitting state ── */
         .badge-submitting { background: rgba(2,113,206,0.1); color: #0065ba; }
         @keyframes submit-progress { from { width: 0%; } to { width: 100%; } }
+        /* Sits inside .record-foot-status (which wraps), so it drops to its own
+           line directly under the Submitting badge and spans that status area. */
         .submit-progress-wrap {
-            height: 3px; background: rgba(2,113,206,0.15);
-            border-radius: 2px; margin-top: 8px; overflow: hidden;
+            flex: 0 0 100%; height: 3px; background: rgba(2,113,206,0.15);
+            border-radius: 2px; margin-top: 5px; overflow: hidden;
         }
         .submit-progress-bar {
             height: 100%; width: 0%; background: #0271ce; border-radius: 2px;
@@ -2023,7 +2030,7 @@
         .sig-discard-confirm-btn { background: #b23a26; border: none; color: white; }
 
         /* ════════════════════════════════════════════════════
-           OFFLINE MODE & CONFLICT RESOLUTION
+           OFFLINE MODE
            (new classes only — shared classes reuse main styles)
         ════════════════════════════════════════════════════ */
         .muted { color: rgba(0,0,0,0.55); }
@@ -2032,12 +2039,11 @@
         /* Offline header tint + connection pill */
         .mobile-header.offline { background-image: linear-gradient(93deg, #45525f 0%, #5b6b7d 130%); }
 
-        /* Generic card wrapper used by offline/conflict screens */
+        /* Generic card wrapper used by offline screens */
         .card-wrap { margin:12px 12px 0; background:white; border:1px solid rgba(0,0,0,0.08); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,0.05); overflow:hidden; }
 
         /* New badges */
         .badge-offline  { background: rgba(99,114,130,0.16); color:#44505d; font-weight:600; }
-        .badge-conflict { background: rgba(224,83,61,0.12); color:#b23a26; font-weight:600; }
         .badge-synced   { background: rgba(22,136,70,0.12); color:#0a7637; font-weight:600; }
         .badge-waitingsync { background: rgba(245,158,11,0.18); color:#92400e; font-weight:600; }
         /* Offline records page: "waiting to sync" summary strip */
@@ -2051,22 +2057,8 @@
         .offline-banner i { font-size:14px; flex-shrink:0; }
         .offline-banner.is-offline  { background:#f1ede0; color:#6b5a2e; border-bottom:1px solid #e4dcc4; }
         .offline-banner.is-online   { background:#e4f4ea; color:#0a6b35; border-bottom:1px solid #c4e7d2; }
-        .offline-banner.is-conflict { background:#fbe9e4; color:#9c3320; border-bottom:1px solid #f3cabe; }
         .offline-banner .banner-link { margin-left:auto; font-weight:700; text-decoration:underline; cursor:pointer; white-space:nowrap; }
 
-        /* Google-Docs-style autosave strip */
-        .save-strip { display:flex; align-items:center; gap:8px; padding:8px 16px; background:#f4f6f8; border-bottom:1px solid #e5e7eb; flex-shrink:0; font-size:12px; color:#50616f; font-weight:600; }
-        .save-strip i { font-size:13px; }
-        .save-strip .save-dot { width:7px; height:7px; border-radius:50%; background:#8a98a6; }
-        .save-strip .save-sub { margin-left:auto; font-weight:400; color:#8a98a6; }
-
-        /* "Edited offline" field tags (scoped to edited fields) */
-        .form-field.edited .form-label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-        .form-field.edited .form-input,
-        .form-field.edited .form-select-btn { border-color:#6fbf8e; background:#f6fcf8; }
-        .field-edit-tag { font-size:10.5px; font-weight:700; letter-spacing:0.2px; text-transform:none; padding:2px 7px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; }
-        .field-edit-tag.mine   { background:#dcf3e4; color:#0a7637; }
-        .field-edit-tag.synced { background:#eef1f4; color:#6b7785; }
 
         /* Sync queue */
         .queue-summary { margin:14px 12px 0; background:white; border-radius:12px; padding:16px; border:1px solid rgba(0,0,0,0.08); box-shadow:0 1px 4px rgba(0,0,0,0.05); display:flex; align-items:center; gap:14px; }
@@ -2083,7 +2075,6 @@
         .qi-status { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; flex-shrink:0; }
         .qi-status.waiting  { color:#8a7029; }
         .qi-status.synced   { color:#0a7637; }
-        .qi-status.conflict { color:#b23a26; }
 
         /* Syncing hero */
         @keyframes offline-spin { to { transform: rotate(360deg); } }
@@ -2094,168 +2085,6 @@
         .sync-hero p { font-size:13.5px; color:rgba(0,0,0,0.55); line-height:1.5; max-width:260px; }
         .sync-progress-list { padding:8px 12px; display:flex; flex-direction:column; gap:2px; }
 
-        /* Conflict overview — kept deliberately flat: white cards, 1px borders,
-           no avatars. Server-side changes are attributed generically, never to
-           a named user. */
-        .merge-intro { margin:16px 16px 0; }
-        .merge-intro h3 { font-size:16px; font-weight:700; color:rgba(0,0,0,0.87); line-height:1.35; }
-        .merge-intro p { font-size:13px; color:rgba(0,0,0,0.6); line-height:1.5; margin-top:6px; }
-        .merge-intro p b { color:rgba(0,0,0,0.8); }
-        /* Lightweight all-or-nothing conflict resolution */
-        .cr-compare { margin:8px 16px 0; display:flex; flex-direction:column; gap:10px; }
-        .cr-version { border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
-        .cr-version-head { display:flex; align-items:center; gap:8px; padding:10px 12px; font-size:13px; font-weight:700; }
-        .cr-version-head i { font-size:13px; }
-        .cr-version.theirs .cr-version-head { background:rgba(79,70,229,0.08); color:#4338ca; }
-        .cr-version.mine .cr-version-head { background:rgba(22,136,70,0.08); color:#0a7637; }
-        .cr-version-head .cr-meta { margin-left:auto; font-weight:500; font-size:11.5px; color:rgba(0,0,0,0.5); }
-        .cr-changes { list-style:none; margin:0; padding:2px 0; }
-        .cr-changes li { display:flex; gap:10px; padding:9px 12px; font-size:13px; border-top:1px solid #f1f3f5; }
-        .cr-changes li:first-child { border-top:none; }
-        .cr-field { flex-shrink:0; width:92px; color:rgba(0,0,0,0.5); font-weight:600; }
-        .cr-val { color:rgba(0,0,0,0.85); flex:1; line-height:1.4; }
-        .cr-actions-note { margin:8px 16px 2px; font-size:12.5px; color:rgba(0,0,0,0.5); line-height:1.45; }
-        .cr-actions { margin:8px 16px 16px; display:flex; flex-direction:column; gap:10px; }
-        .cr-action { display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:white; border:1.5px solid #e5e7eb; border-radius:12px; padding:14px; cursor:pointer; font-family:inherit; }
-        .cr-action:active { background:#f8fafc; }
-        .cr-action-icon { width:38px; height:38px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
-        .cr-action-icon.theirs { background:rgba(79,70,229,0.1); color:#4338ca; }
-        .cr-action-icon.mine { background:rgba(22,136,70,0.1); color:#0a7637; }
-        .cr-action-icon.new { background:rgba(2,113,206,0.1); color:#0271ce; }
-        .cr-action-text { flex:1; min-width:0; }
-        .cr-action-title { font-size:14.5px; font-weight:700; color:rgba(0,0,0,0.87); }
-        .cr-action-sub { font-size:12px; color:rgba(0,0,0,0.55); line-height:1.4; margin-top:2px; }
-        .cr-action > .fa-chevron-right { color:rgba(0,0,0,0.3); font-size:13px; flex-shrink:0; }
-        /* Side-by-side per-conflict comparison (shown above the full change summary) */
-        .cr-conflicts { margin:14px 16px 0; display:flex; flex-direction:column; gap:14px; }
-        .cr-conflict { border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
-        .cr-conflict-field { font-size:13px; font-weight:700; color:rgba(0,0,0,0.75); padding:9px 12px; background:#f8fafc; border-bottom:1px solid #eef0f2; }
-        .cr-conflict-cols { display:flex; flex-direction:column; }
-        .cr-col { flex:1; padding:14px 16px; min-width:0; }
-        .cr-col.mine { border-bottom:1px solid #eef0f2; background:rgba(22,136,70,0.04); }
-        .cr-col.theirs { background:rgba(79,70,229,0.04); }
-        .cr-col-tag { display:inline-block; font-size:11px; font-weight:700; text-transform:none; letter-spacing:0.4px; margin-bottom:6px; }
-        .cr-col.mine .cr-col-tag { color:#0a7637; }
-        .cr-col.theirs .cr-col-tag { color:#4338ca; }
-        .cr-col-val { font-size:14.5px; color:rgba(0,0,0,0.85); line-height:1.5; }
-        /* Context breadcrumb inside conflict card */
-        .cr-conflict-ctx { display:flex; align-items:center; gap:8px; padding:12px 16px; background:#fafbfc; border-bottom:1px solid #eef0f2; }
-        .cr-ctx-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
-        .cr-ctx-icon.step { background:rgba(2,113,206,0.1); color:#0271ce; }
-        .cr-ctx-icon.ca { background:rgba(147,51,234,0.1); color:#7c3aed; }
-        .cr-ctx-icon.record { background:rgba(0,0,0,0.07); color:rgba(0,0,0,0.45); }
-        .cr-ctx-label { font-size:15px; font-weight:700; color:rgba(0,0,0,0.85); }
-        .cr-ctx-arrow { font-size:10px; color:rgba(0,0,0,0.3); flex-shrink:0; }
-        .cr-ctx-field { font-size:15px; font-weight:600; color:rgba(0,0,0,0.5); }
-        /* Sticky resolve footer - matches the app's standard action footer */
-        .cr-footer { position:absolute; bottom:0; left:0; right:0; background:white; padding:12px 16px 28px; box-shadow:0 -2px 12px rgba(28,55,90,0.12); display:flex; gap:8px; z-index:20; }
-        .cr-footer > button { flex:1 1 0; width:auto; min-width:0; height:46px; border-radius:10px; font-size:13px; font-weight:700; white-space:nowrap; padding:0 8px; display:flex; align-items:center; justify-content:center; text-align:center; }
-        .cr-footer .cr-resolve-alt { flex:0 0 auto; }   /* Save as New sizes to its text; the dynamic action button takes the rest */
-        #screen-offline-overview .screen-body { padding-bottom: 116px; }
-        #screen-offline-overview .merge-intro h3 { font-size:18px; }
-        #screen-offline-overview .merge-intro p { font-size:13.5px; line-height:1.5; }
-        .cr-resolve-alt { background:white; border:1.5px solid #d1d5db; color:rgba(0,0,0,0.7); font-family:inherit; cursor:pointer; }
-        .cr-resolve-alt:active { background:#f3f4f6; }
-        /* Discard warning inside the confirm sheet (destructive choices only) */
-        .cr-confirm-warning { display:flex; align-items:flex-start; gap:8px; margin:0 20px 6px; padding:10px 12px; background:rgba(217,45,32,0.08); border:1px solid rgba(217,45,32,0.22); border-radius:8px; color:#b42318; font-size:13px; line-height:1.45; font-weight:600; }
-        .cr-confirm-warning i { margin-top:1px; font-size:13px; flex-shrink:0; }
-        .cr-confirm-warning.hide { display:none; }
-        /* Info note: only conflicting changes need a decision; non-conflicting edits from both are kept */
-        .cr-merge-note { display:flex; align-items:flex-start; gap:9px; margin:16px 16px 0; padding:12px 14px; background:rgba(2,113,206,0.06); border:1px solid rgba(2,113,206,0.18); border-radius:10px; color:rgba(0,0,0,0.7); font-size:13px; line-height:1.5; }
-        .cr-merge-note i { color:#0271ce; margin-top:2px; font-size:14px; flex-shrink:0; }
-        /* Per-item (radio) resolver */
-        .cr-opt { display:flex; gap:12px; align-items:flex-start; padding:13px 16px; background:white; border:none; border-top:1px solid #eef0f2; width:100%; text-align:left; font-family:inherit; cursor:pointer; }
-        .cr-opt:first-of-type { border-top:none; }
-        .cr-opt.selected.mine { background:rgba(22,136,70,0.06); }
-        .cr-opt.selected.theirs { background:rgba(79,70,229,0.06); }
-        .cr-radio { width:20px; height:20px; border-radius:50%; border:2px solid #cbd5e1; flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; background:white; }
-        .cr-radio i { color:white; font-size:10px; opacity:0; }
-        .cr-opt.selected.mine .cr-radio { border-color:#0a7637; background:#0a7637; }
-        .cr-opt.selected.theirs .cr-radio { border-color:#4338ca; background:#4338ca; }
-        .cr-opt.selected .cr-radio i { opacity:1; }
-        .cr-opt-body { flex:1; min-width:0; }
-        .cr-opt-tag { display:block; font-size:11px; font-weight:700; text-transform:none; letter-spacing:0.4px; margin-bottom:4px; }
-        .cr-opt.mine .cr-opt-tag { color:#0a7637; }
-        .cr-opt.theirs .cr-opt-tag { color:#4338ca; }
-        .cr-opt-val { font-size:14.5px; color:rgba(0,0,0,0.85); line-height:1.5; }
-        .cr-bulk { display:flex; align-items:center; gap:8px; margin:14px 16px 0; }
-        .cr-bulk-label { font-size:12.5px; color:rgba(0,0,0,0.55); font-weight:600; flex-shrink:0; }
-        .cr-bulk-btn { flex:1; border:1.5px solid #d1d5db; background:white; border-radius:8px; padding:9px 6px; font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; white-space:nowrap; }
-        .cr-bulk-btn.mine { border-color:#9fd4b2; color:#0a7637; }
-        .cr-bulk-btn.theirs { border-color:#c3c8f2; color:#4338ca; }
-        .cr-bulk-btn:active { background:#f8fafc; }
-        .cr-switch-link { display:flex; align-items:center; justify-content:center; gap:7px; margin:14px auto 0; background:none; border:none; color:#0271ce; font-family:inherit; font-size:13.5px; font-weight:600; cursor:pointer; width:100%; }
-        .cr-switch-link i { font-size:12px; }
-        /* All-or-nothing: two selectable version cards (no diffs, no source icons) */
-        .cr-vcards { margin:14px 16px 0; display:flex; flex-direction:column; gap:12px; }
-        .cr-vcard { display:flex; gap:12px; align-items:center; border:1.5px solid #e0e4e9; border-radius:12px; padding:15px 14px; background:white; width:100%; text-align:left; font-family:inherit; cursor:pointer; }
-        .cr-vcard.selected { border-color:#0271ce; box-shadow:0 0 0 1px #0271ce; }
-        .cr-vcard-radio { width:22px; height:22px; border-radius:50%; border:2px solid #cbd5e1; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:white; }
-        .cr-vcard-radio i { color:white; font-size:11px; opacity:0; }
-        .cr-vcard.selected .cr-vcard-radio { border-color:#0271ce; background:#0271ce; }
-        .cr-vcard.selected .cr-vcard-radio i { opacity:1; }
-        .cr-vcard-body { flex:1; min-width:0; }
-        .cr-vcard-name { font-size:15px; font-weight:700; color:rgba(0,0,0,0.87); display:flex; align-items:center; gap:8px; }
-        .cr-vcard-tag { font-size:10px; font-weight:700; text-transform:none; letter-spacing:0.3px; padding:2px 7px; border-radius:4px; background:rgba(2,113,206,0.1); color:#0065ba; }
-        .cr-vcard-when { font-size:13px; color:rgba(0,0,0,0.6); margin-top:5px; display:flex; align-items:center; gap:7px; }
-        .cr-vcard-when i { color:rgba(0,0,0,0.4); }
-        .cr-helper { margin:14px 16px 0; font-size:12.5px; color:rgba(0,0,0,0.55); line-height:1.5; }
-        .version-meta { margin:14px 16px 0; background:white; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
-        .vm-row { display:flex; align-items:center; gap:9px; padding:11px 14px; }
-        .vm-row + .vm-row { border-top:1px solid #eef0f2; }
-        .vm-row > i { width:16px; text-align:center; color:rgba(0,0,0,0.45); font-size:13px; flex-shrink:0; }
-        .vm-label { font-size:13px; font-weight:700; color:rgba(0,0,0,0.82); white-space:nowrap; }
-        .vm-tag { font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px; white-space:nowrap; }
-        .vm-tag.mine   { background:rgba(22,136,70,0.1); color:#0a7637; }
-        .vm-tag.theirs { background:rgba(79,70,229,0.1); color:#4338ca; }
-        .vm-meta { margin-left:auto; font-size:11.5px; color:rgba(0,0,0,0.5); text-align:right; }
-        .conflict-progress { margin:18px 16px 0; }
-        .cp-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
-        .cp-label { font-size:12.5px; font-weight:600; color:rgba(0,0,0,0.6); }
-        .cp-count { font-size:12.5px; font-weight:700; color:rgba(0,0,0,0.75); }
-        .cp-count.done { color:#0a7637; }
-        .cp-track { height:5px; background:#e8ecf0; border-radius:4px; overflow:hidden; }
-        .cp-fill { height:100%; width:0%; background:#0271ce; border-radius:4px; transition:width 0.35s ease, background 0.35s; }
-        .cp-fill.done { background:#168846; }
-        /* Change list — numbered rows, one per field needing a decision */
-        .conflict-field-card { margin:10px 16px 0; background:white; border-radius:8px; overflow:hidden; border:1px solid #e0e4e9; cursor:pointer; }
-        .conflict-field-card:active { background:#fafbfc; }
-        .conflict-field-card.resolved { border-color:#cfe5d8; }
-        .cfc-head { display:flex; align-items:center; gap:10px; padding:12px 14px; }
-        .cfc-num { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; background:#eef2f7; color:#44505d; }
-        .conflict-field-card.resolved .cfc-num { background:rgba(22,136,70,0.12); color:#0a7637; }
-        .cfc-main { flex:1; min-width:0; }
-        .cfc-field-name { font-size:14px; font-weight:700; color:rgba(0,0,0,0.87); }
-        .cfc-field-sub { font-size:12px; color:rgba(0,0,0,0.55); margin-top:1px; }
-        .cfc-status { font-size:10.5px; font-weight:700; text-transform:none; letter-spacing:0.3px; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-        .cfc-status.review   { background:rgba(224,83,61,0.1); color:#b23a26; }
-        .cfc-status.resolved { background:rgba(22,136,70,0.1); color:#0a7637; }
-        .cfc-chevron { color:rgba(0,0,0,0.3); font-size:13px; margin-left:2px; }
-        .cfc-mini { display:flex; flex-direction:column; gap:7px; padding:2px 14px 13px; }
-        .cfc-mini-col { display:flex; align-items:baseline; gap:8px; font-size:12.5px; line-height:1.45; color:rgba(0,0,0,0.7); padding-left:10px; border-left:2px solid transparent; }
-        .cfc-mini-col .mc-tag { flex-shrink:0; width:46px; font-size:10px; font-weight:700; text-transform:none; letter-spacing:0.3px; }
-        .cfc-mini-col.yours  { border-left-color:#9fd4b2; }
-        .cfc-mini-col.yours .mc-tag { color:#0a7637; }
-        .cfc-mini-col.theirs { border-left-color:#c3c8f2; }
-        .cfc-mini-col.theirs .mc-tag { color:#4338ca; }
-        .cfc-mini-col.chosen { color:rgba(0,0,0,0.87); font-weight:600; }
-        .cfc-mini-col.dimmed { opacity:0.45; }
-        .cfc-mini-val { display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .auto-merged { margin:12px 16px 0; background:white; border-radius:8px; overflow:hidden; border:1px solid #e5e7eb; }
-        .auto-merged-head { display:flex; align-items:center; gap:10px; padding:13px 14px; cursor:pointer; }
-        .auto-merged-head .am-icon { color:#0a7637; font-size:15px; }
-        .auto-merged-head .am-title { font-size:13.5px; font-weight:700; color:rgba(0,0,0,0.82); flex:1; }
-        .auto-merged-head .am-chevron { color:rgba(0,0,0,0.4); transition:transform 0.2s; }
-        .auto-merged.open .am-chevron { transform:rotate(180deg); }
-        .auto-merged-body { display:none; padding:0 14px 6px; }
-        .auto-merged.open .auto-merged-body { display:block; }
-        .am-row { display:flex; align-items:flex-start; gap:9px; padding:9px 0; border-top:1px solid #eef0f2; font-size:12.5px; }
-        .am-row i { color:#0a7637; margin-top:2px; font-size:11px; }
-        .am-row .am-field { font-weight:700; color:rgba(0,0,0,0.8); }
-        .am-row .am-detail { color:rgba(0,0,0,0.55); }
-        .am-src { font-size:10.5px; font-weight:700; color:#4f46e5; }
-        .am-src.mine { color:#0a7637; }
-
         /* Sticky bottom CTA + buttons */
         .sticky-cta { position:absolute; bottom:0; left:0; right:0; background:white; border-top:1px solid #e5e7eb; box-shadow:0 -2px 10px rgba(0,0,0,0.06); padding:12px 16px; z-index:50; }
         .btn-primary { width:100%; height:48px; background:#0271ce; color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
@@ -2263,72 +2092,6 @@
         .btn-primary:disabled { background:#c7d2dd; color:#fff; cursor:not-allowed; }
         .btn-ghost { width:100%; height:46px; background:white; color:#0271ce; border:1.5px solid #0271ce; border-radius:10px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
         .cta-hint { text-align:center; font-size:11.5px; color:rgba(0,0,0,0.45); margin-top:8px; }
-
-        /* Field compare (three-way) */
-        .compare-body { flex:1; overflow-y:auto; padding:16px 12px 24px; }
-        .compare-body::-webkit-scrollbar { display:none; }
-        .compare-q { font-size:17px; font-weight:700; color:rgba(0,0,0,0.87); padding:0 4px; line-height:1.35; }
-        .compare-sub { font-size:13px; color:rgba(0,0,0,0.55); padding:6px 4px 0; line-height:1.5; }
-        .base-value { margin:14px 0 0; background:#f8f9fb; border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; }
-        .base-value .bv-tag { font-size:10.5px; font-weight:700; text-transform:none; letter-spacing:0.3px; color:#7b8794; display:flex; align-items:center; gap:6px; }
-        .base-value .bv-text { font-size:13px; color:rgba(0,0,0,0.6); margin-top:5px; line-height:1.5; }
-        .vs-divider { display:flex; align-items:center; gap:10px; margin:18px 2px 2px; }
-        .vs-divider::before, .vs-divider::after { content:''; flex:1; height:1px; background:#e0e4e9; }
-        .vs-divider span { font-size:10.5px; font-weight:700; color:#7b8794; letter-spacing:0.6px; }
-        /* Version options — a record can only keep one; combining is not supported */
-        .version-card { border-radius:8px; border:1.5px solid #e0e4e9; padding:13px 14px; margin-top:10px; cursor:pointer; position:relative; background:white; }
-        .version-card:active { background:#fafbfc; }
-        .version-card.selected { border-color:#0271ce; box-shadow:0 0 0 1px #0271ce; }
-        .vc-head { display:flex; align-items:center; gap:9px; }
-        .vc-who { font-size:13.5px; font-weight:700; color:rgba(0,0,0,0.87); }
-        .vc-meta { font-size:11.5px; color:rgba(0,0,0,0.5); margin-top:2px; display:flex; align-items:center; gap:6px; }
-        .vc-src-tag { font-size:10px; font-weight:700; text-transform:none; letter-spacing:0.3px; padding:2px 6px; border-radius:4px; margin-left:4px; }
-        .version-card.yours  .vc-src-tag { background:rgba(22,136,70,0.1); color:#0a7637; }
-        .version-card.theirs .vc-src-tag { background:rgba(79,70,229,0.1); color:#4338ca; }
-        .vc-radio { margin-left:auto; width:22px; height:22px; border-radius:50%; border:2px solid #cbd5e1; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; }
-        .version-card.selected .vc-radio { background:#0271ce; border-color:#0271ce; }
-        .vc-value { margin-top:10px; font-size:13.5px; line-height:1.55; color:rgba(0,0,0,0.85); background:#f8f9fb; border-radius:6px; padding:10px 12px; border:1px solid #eef0f2; }
-        .vc-value.single { font-size:15px; font-weight:700; }
-        .diff-add   { background:#d9efe1; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
-        .diff-del   { background:#f6ddd7; color:#8a3422; text-decoration:line-through; border-radius:3px; padding:0 2px; }
-        .diff-add-i { background:#e2e4f8; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
-
-        /* Merged preview */
-        .resolved-tag { font-size:10px; font-weight:700; text-transform:none; letter-spacing:0.3px; padding:2px 7px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; }
-        .resolved-tag.mine   { background:rgba(22,136,70,0.1); color:#0a7637; }
-        .resolved-tag.theirs { background:rgba(79,70,229,0.1); color:#4338ca; }
-        .resolved-tag.auto   { background:#eef1f4; color:#6b7785; }
-        .preview-field { margin:0 16px 10px; background:white; border-radius:8px; padding:12px 14px; border:1px solid #e5e7eb; }
-        .preview-field.changed { border-left:3px solid #0271ce; }
-        .pf-label { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-        .pf-name { font-size:12.5px; font-weight:700; color:rgba(0,0,0,0.6); }
-        .pf-value { font-size:14.5px; color:rgba(0,0,0,0.87); margin-top:6px; line-height:1.5; font-weight:600; }
-        .pf-value.normal { font-weight:400; font-size:14px; }
-
-        /* Merge complete */
-        .done-hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:56px 32px 24px; gap:6px; }
-        .done-check { width:64px; height:64px; border-radius:50%; background:rgba(22,136,70,0.1); color:#168846; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:14px; }
-        .done-hero h2 { font-size:21px; font-weight:700; color:rgba(0,0,0,0.87); }
-        .done-hero p { font-size:14px; color:rgba(0,0,0,0.55); line-height:1.55; max-width:280px; }
-
-        /* Version history timeline */
-        .timeline { padding:16px 16px 24px; position:relative; }
-        .tl-item { display:flex; gap:14px; position:relative; padding-bottom:22px; }
-        .tl-item:last-child { padding-bottom:0; }
-        .tl-rail { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
-        .tl-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11.5px; color:white; flex-shrink:0; z-index:1; }
-        .tl-dot.base   { background:#94a3b8; }
-        .tl-dot.mine   { background:#168846; }
-        .tl-dot.theirs { background:#6168d6; }
-        .tl-dot.merge  { background:#0271ce; }
-        .tl-line { flex:1; width:2px; background:#dfe4ea; margin:4px 0 -4px; }
-        .tl-item:last-child .tl-line { display:none; }
-        .tl-card { flex:1; background:white; border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
-        .tl-when { font-size:11px; color:rgba(0,0,0,0.45); font-weight:600; }
-        .tl-who { font-size:14px; font-weight:700; color:rgba(0,0,0,0.87); margin-top:2px; }
-        .tl-what { font-size:12.5px; color:rgba(0,0,0,0.6); margin-top:5px; line-height:1.5; }
-        .tl-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-        .tl-chip { font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; background:#eef1f4; color:#50616f; }
 
         /* Toast */
         .toast { position:absolute; bottom:96px; left:16px; right:16px; background:#1c3a5c; color:white; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:9px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,0.3); z-index:200; transform:translateY(90px); opacity:0; transition:transform 0.25s, opacity 0.25s; pointer-events:none; }
@@ -2356,7 +2119,11 @@
             <option value="records">Records</option>
             <option value="record-view">Record: Details</option>
             <option value="record-attachments">Record: Attachments</option>
-            <option value="record-readonly">Record: Full (read-only)</option>
+            <option value="ro-basic">Read-only: Basic Info</option>
+            <option value="ro-steps">Read-only: Steps</option>
+            <option value="ro-additional">Read-only: Additional</option>
+            <option value="ro-signature">Read-only: Signatures</option>
+            <option value="ro-step-detail">Read-only: Step detail</option>
         </optgroup>
         <optgroup label="JSA flow">
             <option value="jsa-start">JSA: Start</option>
@@ -2369,15 +2136,10 @@
             <option value="jsa-ca">JSA: Corrective Action</option>
             <option value="jsa-signature">JSA: Signature</option>
         </optgroup>
-        <optgroup label="Offline &amp; conflict">
+        <optgroup label="Offline">
             <option value="offline-home">Offline: Home</option>
-            <option value="offline-editor">Offline: Editing JSA</option>
             <option value="offline-records">Offline: Records</option>
             <option value="offline-syncing">Offline: Reconnecting</option>
-            <option value="offline-overview">Conflict: Resolve (all)</option>
-            <option value="offline-resolve-each">Conflict: Resolve (per item)</option>
-            <option value="offline-done">Conflict: Complete</option>
-            <option value="offline-history">Conflict: Version History</option>
         </optgroup>
     </select>
 </div>
@@ -2398,6 +2160,12 @@
                         <i class="fa-solid fa-battery-three-quarters"></i>
                     </div>
                 </div>
+            </div>
+
+            <!-- Live offline banner (only while the Offline toggle is on) -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
             </div>
 
             <div class="screen-body" style="background:#f5f9fd;">
@@ -2427,6 +2195,9 @@
 
                 <span class="section-label">Jump Back In</span>
                 <div class="jbi-card-container">
+                    <!-- Jump Back In cards mirror the records-card badge placement:
+                         type + form status on top, sync status + downloaded indicator
+                         bottom-left (these are downloaded, they're being worked on) -->
                     <div class="record-card-row" onclick="showScreen('records')">
                         <div class="record-title">Incident – Warehouse 12, Atlanta, Georgia, USA</div>
                         <div class="record-badges">
@@ -2436,7 +2207,12 @@
                         <div class="record-desc">Worker reported a slip and fall near the loading bay entrance. Initial assessment completed; follow-up steps pending supervisor review.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM</div>
+                        </div>
+                        <div class="record-foot">
+                            <div class="record-foot-status">
+                                <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                            </div>
                         </div>
                     </div>
                     <div class="record-card-row alt-bg" onclick="showScreen('records')">
@@ -2448,19 +2224,29 @@
                         <div class="record-desc">Daily inspection checklist for forklift unit #4 at Dock C. Hydraulic fluid level and brake function checks flagged for follow-up.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/14/26, 3:45:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26, 3:45:00 PM</div>
+                        </div>
+                        <div class="record-foot">
+                            <div class="record-foot-status">
+                                <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                            </div>
                         </div>
                     </div>
                     <div class="record-card-row" onclick="showScreen('records')">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
                         </div>
                         <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/13/26, 2:30:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/13/26, 2:30:00 PM</div>
+                        </div>
+                        <div class="record-foot">
+                            <div class="record-foot-status">
+                                <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2500,19 +2286,18 @@
                     </div>
                 </div>
                 <div class="header-bar">
-                    <!-- Offline indicator (EHS-18527 follow-up, item 3): replaces the
-                         offline banner. Only visible while offline; tapping shows a
-                         short helper popover. -->
-                    <button class="hdr-btn offline-ind" onclick="toggleOfflinePop(this)" aria-label="You're offline" style="margin-left:-6px;">
-                        <i class="fa-solid fa-cloud-slash" style="font-size:15px;"></i>
-                    </button>
                     <span class="header-title">Records</span>
                     <div class="header-action-right">
                         <button class="hdr-btn" id="records-settings-btn" onclick="openRecordsSettings()" title="Records settings" aria-label="Records settings"><i class="fa-solid fa-gear"></i></button>
                     </div>
-                    <!-- Helper popover for the offline indicator -->
-                    <div class="offline-pop">You're offline. Downloaded records are read-only until you reconnect, but you can still add signatures and attachments. Changes sync automatically when you're back online.</div>
                 </div>
+            </div>
+
+            <!-- Live offline banner (only while the Offline toggle is on) —
+                 replaces the old cloud-slash header indicator -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> Changes you make offline will sync automatically when you reconnect.</span>
             </div>
 
             <!-- Sticky overlay toolbar (appears when scrolling up, past flow toolbar) -->
@@ -2573,7 +2358,7 @@
                         <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition. Two open findings require resolution before submission.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26 – 12:12:34 PM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -2603,7 +2388,7 @@
                         <div class="record-desc">Pre-operation safety analysis for forklift units at Loading Dock B. Covers load limits, travel paths, and spotter requirements for the shift.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/15/26 – 12:12:34 PM</div>
                             <div class="record-meta-row record-id-row" data-id="12345679"><i class="fa-regular fa-copy"></i> ID: 12345679</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -2634,7 +2419,7 @@
                         <div class="record-desc">Lockout/tagout and panel inspection for the main electrical room. All steps completed and verified by a licensed electrician before energization.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/14/26 – 9:45:12 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26 – 9:45:12 AM</div>
                             <div class="record-meta-row record-id-row" data-id="12345671"><i class="fa-regular fa-copy"></i> ID: 12345671</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -2649,8 +2434,10 @@
                     </div>
                 </div>
 
-                <!-- Card 4: JSA + Conflict (offline edit collided with a server change) -->
-                <div class="rec-card-wrap" data-card-state="conflict" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                <!-- Card 4: JSA + Pending + Downloaded (was the conflict demo card;
+                     conflict resolution is out of this phase — sync is all-or-nothing,
+                     server changes replace the local copy wholesale) -->
+                <div class="rec-card-wrap" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
                     <div class="record-card-row">
                         <div class="record-card-header">
                             <div class="record-title">Roof Access – Maintenance Crew</div>
@@ -2661,19 +2448,19 @@
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
                             <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
                         </div>
-                        <div class="record-desc">Fall protection and tie-off requirements for rooftop HVAC work. This record was changed on the server while your offline edit was waiting to sync.</div>
+                        <div class="record-desc">Fall protection and tie-off requirements for rooftop HVAC work. Anchor points inspected and harness assignments confirmed for the maintenance crew.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row" style="color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i> 2 fields need your decision</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/14/26 – 2:05:00 PM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
                             <div class="record-foot-status">
-                                <span class="badge badge-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict</span>
+                                <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-conflict" data-action="resolve-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:11px;"></i> Resolve conflict</button>
+                                <button class="rec-btn-outline" data-action="submit">Submit</button>
                             </div>
                         </div>
                     </div>
@@ -2694,7 +2481,7 @@
                         <div class="record-desc">Hazardous materials inventory check for Bay 4. SDS sheets verified, secondary containment inspected, and spill kit inventory confirmed in stock.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/13/26 – 10:00:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/13/26 – 10:00:00 AM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -2723,7 +2510,7 @@
                         <div class="record-desc">Multi-level scaffold setup for exterior facade repairs. All components inspected and tagged; base plates and guardrails confirmed installed per spec.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/12/26 – 8:15:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/12/26 – 8:15:00 AM</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
                         <div class="record-foot">
@@ -2753,7 +2540,7 @@
                         <div class="record-desc">Welding and cutting operations near flammable storage. Fire watch assigned, area cleared, and permit countersigned before ignition.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/11/26 – 7:30:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/11/26 – 7:30:00 AM</div>
                             <div class="record-meta-row record-id-row" data-id="99182743"><i class="fa-regular fa-copy"></i> ID: 99182743</div>
                         </div>
                         <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
@@ -2783,7 +2570,7 @@
                         <div class="record-desc">Annual arc-flash hazard assessment for Panel Room B. PPE category and incident energy values still require sign-off from the electrical engineer on file.</div>
                         <div class="record-meta">
                             <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/10/26 – 3:00:00 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last updated: 1/10/26 – 3:00:00 PM</div>
                         </div>
                         <div class="record-foot">
                             <div class="record-foot-status">
@@ -2823,7 +2610,6 @@
                             <button class="filter-status-pill active" data-draft-status="all">All</button>
                             <button class="filter-status-pill" data-draft-status="pending">Pending</button>
                             <button class="filter-status-pill" data-draft-status="submitted">Submitted</button>
-                            <button class="filter-status-pill" data-draft-status="conflict">Conflict</button>
                             <button class="filter-status-pill" data-draft-status="missing">Missing Fields</button>
                             <button class="filter-status-pill" data-draft-status="error">Error</button>
                             <!-- Downloaded filter (EHS-18527 follow-up, item 5, main file only):
@@ -3000,16 +2786,14 @@
                 </div>
                 <div class="header-bar">
                     <button class="hdr-btn" onclick="showScreen('records')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <!-- Offline indicator (EHS-18527 follow-up, item 3): replaces the
-                         old read-only banner. Only visible while offline; tapping
-                         shows the helper popover below. -->
-                    <button class="hdr-btn offline-ind" onclick="toggleOfflinePop(this)" aria-label="You're offline">
-                        <i class="fa-solid fa-cloud-slash" style="font-size:15px;"></i>
-                    </button>
                     <span class="header-title">Record</span>
-                    <!-- Helper popover for the offline indicator -->
-                    <div class="offline-pop">You're offline. This record is read-only until you reconnect, but you can still add signatures and attachments.</div>
                 </div>
+            </div>
+
+            <!-- Live offline banner (only while the Offline toggle is on) -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
             </div>
 
             <!-- Details page = brief summary (item 2). Downloaded/submitted JSAs are
@@ -3028,12 +2812,15 @@
                         <div class="rv-field-value" id="rv-location">–</div>
                     </div>
                     <div class="rv-field">
-                        <div class="rv-field-label">Created</div>
+                        <div class="rv-field-label">Last updated</div>
                         <div class="rv-field-value" id="rv-created">–</div>
                     </div>
                     <div class="rv-field">
                         <div class="rv-field-label">Record ID</div>
-                        <div class="rv-field-value" id="rv-id">–</div>
+                        <div class="rv-field-value rv-id-row">
+                            <span id="rv-id">–</span>
+                            <button class="rv-icon-btn" onclick="rvCopyId()" title="Copy ID" aria-label="Copy ID"><i class="fa-regular fa-copy"></i></button>
+                        </div>
                     </div>
                 </div>
 
@@ -3041,7 +2828,7 @@
                 <div class="rv-section">
                     <div class="rv-section-head">
                         <span class="rv-section-title">Signatures</span>
-                        <button class="rv-add-btn" onclick="rvEditSignatures()"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+                        <button class="rv-icon-btn" onclick="rvEditSignatures()" title="Edit signatures" aria-label="Edit signatures"><i class="fa-regular fa-pen-to-square"></i></button>
                     </div>
                     <div id="rv-sig-list">
                         <div class="rv-item-row"><i class="fa-solid fa-signature"></i><div class="rv-item-main">Andy Xia<div class="rv-item-sub">Signed 1/15/26, 9:31 AM</div></div></div>
@@ -3053,7 +2840,7 @@
                 <div class="rv-section">
                     <div class="rv-section-head">
                         <span class="rv-section-title">Attachments</span>
-                        <button class="rv-add-btn" onclick="openRecordAttachments()"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+                        <button class="rv-icon-btn" onclick="openRecordAttachments()" title="Edit attachments" aria-label="Edit attachments"><i class="fa-regular fa-pen-to-square"></i></button>
                     </div>
                     <div id="rv-att-list" class="rv-att-managed">
                         <div class="attach-item">
@@ -3066,17 +2853,17 @@
                     </div>
                 </div>
 
-                <!-- Full read-only record (item 3): every previously editable field as a labeled value -->
-                <button class="rv-viewfull" onclick="openRecordReadonly()">
-                    <span><i class="fa-regular fa-file-lines"></i> View full record</span>
-                    <i class="fa-solid fa-chevron-right rv-viewfull-chev"></i>
-                </button>
             </div>
 
-            <!-- Submit directly from the details page when the record hasn't been
-                 submitted yet (item 2). Toggled on/off in openRecordView. -->
+            <!-- Footer actions (always visible): the secondary button is Edit when
+                 the edit-mode preview is on (and online), otherwise "View full
+                 record" (read-only initiative). Submit appears only while the
+                 record hasn't been submitted yet (item 2). -->
             <div class="rv-footer" id="rv-footer">
-                <button class="rv-submit-btn" onclick="rvSubmitRecord()">Submit</button>
+                <div class="rv-footer-row">
+                    <button class="rv-footer-secondary" id="rv-secondary-btn" data-mode="view" onclick="rvSecondaryAction()">View full record</button>
+                    <button class="rv-submit-btn" id="rv-submit-btn" onclick="rvSubmitRecord()">Submit</button>
+                </div>
             </div>
         </div>
 
@@ -3117,16 +2904,21 @@
         </div>
 
         <!-- ══════════════════════════════════════ -->
-        <!-- SCREEN: RECORD READ-ONLY (full)        -->
+        <!-- READ-ONLY FLOW (mirrors the edit flow) -->
         <!-- ══════════════════════════════════════ -->
-        <!-- Full read-only view of a submitted/downloaded JSA (EHS-18527 item 3).
-             Every control that is editable in the stepper (text fields, dropdowns,
-             dates) is shown here as a clean labeled value — no inputs, no dropdowns,
-             no form chrome. Sample values shown; a real record would bind these.
-             AMBIGUITY: this mirrors the JSA "Basic Information" step field set; the
-             per-step task list is summarized rather than fully expanded — flag for
-             review if the full step breakdown is wanted here. -->
-        <div class="screen" id="screen-record-readonly">
+        <!-- Read-only view of a submitted/downloaded JSA (EHS-18527 follow-up):
+             NOT a single page. It mirrors the multi-step edit workflow, same
+             steps, same layout, same Back/Next navigation, but every editable
+             control (text field, dropdown, date, currency) renders as a clean
+             labeled VALUE with no input chrome.
+             AMBIGUITIES flagged rather than guessed:
+             - The stepper label is static here (no step-jump drawer); navigation
+               is linear via the footer, header back exits to the record details.
+             - Adding signatures/attachments stays available from the record
+               DETAILS page; this flow keeps step 3/4 content strictly read-only. -->
+
+        <!-- Read-only step 1 · Basic Information -->
+        <div class="screen" id="screen-ro-basic">
             <div class="mobile-header">
                 <div class="status-bar-area">
                     <span>9:30 PM</span>
@@ -3135,58 +2927,304 @@
                     </div>
                 </div>
                 <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('record-view')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button class="hdr-btn offline-ind" onclick="toggleOfflinePop(this)" aria-label="You're offline">
-                        <i class="fa-solid fa-cloud-slash" style="font-size:15px;"></i>
-                    </button>
-                    <span class="header-title" style="font-size:17px;">Full record</span>
-                    <div class="offline-pop">You're offline. This record is read-only until you reconnect, but you can still add signatures and attachments.</div>
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
                 </div>
             </div>
-            <div class="screen-body" style="background:#f9fafb;padding-bottom:32px;">
-                <div class="rv-card">
-                    <div class="rv-title" id="ro-title">JSA Record</div>
-                    <div class="record-badges" id="ro-badges" style="margin-bottom:2px;"></div>
+            <!-- Live offline banner (only while the Offline toggle is on) -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('basic')">
+                        <span class="stepper-step-name">Basic Information</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
                 </div>
-
-                <div class="rv-section">
-                    <div class="ro-group-title" style="margin-top:0;">Basic Information</div>
-                    <div class="ro-field"><div class="ro-field-label">Task Name</div><div class="ro-field-value" id="ro-task">–</div></div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:25%;"></div>
+                </div>
+            </div>
+            <div class="screen-body">
+                <div class="ro-body">
+                    <div class="ro-field"><div class="ro-field-label">Task Name</div><div class="ro-field-value" id="ro-task">Forklift Operation – Loading Dock B</div></div>
                     <div class="ro-field"><div class="ro-field-label">Division</div><div class="ro-field-value">Operations</div></div>
-                    <div class="ro-field"><div class="ro-field-label">Facility</div><div class="ro-field-value" id="ro-facility">Warehouse 12, Atlanta, GA</div></div>
-                    <div class="ro-field"><div class="ro-field-label">Status</div><div class="ro-field-value" id="ro-status">Draft</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Facility</div><div class="ro-field-value">Warehouse 12, Atlanta, GA</div></div>
+                    <div class="ro-field"><div class="ro-field-label">Status</div><div class="ro-field-value">Draft</div></div>
                     <div class="ro-field"><div class="ro-field-label">Start Date</div><div class="ro-field-value">May 13, 2026</div></div>
                     <div class="ro-field"><div class="ro-field-label">Analysis Done By</div><div class="ro-field-value">Xia, Andy</div></div>
                     <div class="ro-field"><div class="ro-field-label">Category</div><div class="ro-field-value empty">Not set</div></div>
                     <div class="ro-field"><div class="ro-field-label">Supervisor's Name</div><div class="ro-field-value">Dana Whitfield</div></div>
+                    <div class="ro-field"><div class="ro-field-label">New Currency Field 326</div><div class="ro-field-value empty">Not set</div></div>
                     <div class="ro-field"><div class="ro-field-label">Supervisor's ID</div><div class="ro-field-value">SV-4821</div></div>
                     <div class="ro-field"><div class="ro-field-label">Supervisor's Title</div><div class="ro-field-value">Shift Supervisor</div></div>
                     <div class="ro-field"><div class="ro-field-label">Review Cycle</div><div class="ro-field-value">Annual</div></div>
                     <div class="ro-field"><div class="ro-field-label">Last Review Date</div><div class="ro-field-value empty">Not set</div></div>
                 </div>
-
-                <div class="rv-section">
-                    <div class="ro-group-title" style="margin-top:0;">Steps</div>
-                    <div class="ro-field"><div class="ro-field-label">Step 1 · Don PPE &amp; Verify Tools</div><div class="ro-field-value">Hazards: Pinch points, dropped tools. Controls: Gloves, tethering.</div></div>
-                    <div class="ro-field"><div class="ro-field-label">Step 2 · Inspect Work Area</div><div class="ro-field-value">Hazards: Slips/trips. Controls: Clear walkways, signage.</div></div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="roLeaveFlow()">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('ro-steps')">Next</button>
                 </div>
+            </div>
+        </div>
 
-                <div class="rv-section">
-                    <div class="ro-group-title" style="margin-top:0;">Signatures</div>
-                    <div class="rv-item-row"><i class="fa-solid fa-signature"></i><div class="rv-item-main">Andy Xia<div class="rv-item-sub">Signed 1/15/26, 9:31 AM</div></div></div>
+        <!-- Read-only step 2 · Steps -->
+        <div class="screen" id="screen-ro-steps">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
                 </div>
-
-                <div class="rv-section">
-                    <div class="ro-group-title" style="margin-top:0;">Attachments</div>
-                    <div class="rv-att-managed">
-                        <div class="attach-item">
-                            <div class="attach-thumb"><i class="fa-regular fa-image"></i></div>
-                            <div class="attach-info">
-                                <div class="attach-name">site_photo_01.jpg</div>
-                                <div class="attach-meta">1.2 MB · added 1/15/26</div>
-                            </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('steps')">
+                        <span class="stepper-step-name">Steps</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:50%;"></div>
+                </div>
+            </div>
+            <div class="screen-body">
+                <div class="steps-toolbar">
+                    <span class="steps-toolbar-count">3 Steps</span>
+                </div>
+                <!-- Step cards mirror the edit layout minus drag handles, menus and Edit actions -->
+                <div class="record-card-row step-card ro-step-card" onclick="openRoStep(this)">
+                    <div class="record-card-header">
+                        <div>
+                            <div class="step-number">Step 1</div>
+                            <div class="record-title">Don PPE &amp; Verify Tools</div>
                         </div>
                     </div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Physical</span>
+                        <span class="badge badge-risk-low">Risk: Low</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Confirm all required PPE is worn (Class 2 arc-rated FR clothing, dielectric gloves, face shield) and inspect insulated tools for wear before approaching the panel.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
+                    </div>
+                </div>
+                <div class="record-card-row step-card ro-step-card" onclick="openRoStep(this)">
+                    <div class="record-card-header">
+                        <div>
+                            <div class="step-number">Step 2</div>
+                            <div class="record-title">Lockout / Tagout Panel</div>
+                        </div>
+                    </div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Electrical</span>
+                        <span class="badge badge-risk-high">Risk: High</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Ensure all energy sources are isolated before performing maintenance. Use approved lockout devices on every breaker and verify zero energy state with a voltage meter before proceeding with any work on the panel.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
+                    </div>
+                </div>
+                <div class="record-card-row step-card ro-step-card" onclick="openRoStep(this)">
+                    <div class="record-card-header">
+                        <div>
+                            <div class="step-number">Step 3</div>
+                            <div class="record-title">Re-Energize &amp; Verify</div>
+                        </div>
+                    </div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Electrical</span>
+                        <span class="badge badge-risk-low">Risk: Low</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Remove lockout devices in reverse order, restore power, and confirm normal operation with a supervisor present before releasing the area.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
+                    </div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="showScreen('ro-basic')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('ro-additional')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only step 3 · Additional Features -->
+        <div class="screen" id="screen-ro-additional">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('additional')">
+                        <span class="stepper-step-name">Additional Features</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:75%;"></div>
+                </div>
+            </div>
+            <div class="screen-body">
+                <div class="feat-section">
+                    <div class="feat-section-header">
+                        <span class="feat-section-title">Attachments</span>
+                        <span class="feat-section-badge" id="ro-attach-count">1</span>
+                    </div>
+                    <!-- Fields stay read-only offline, but attachments can be added/removed -->
+                    <div id="ro-attach-list">
+                        <div class="attach-item">
+                            <div class="attach-thumb">
+                                <img src="https://picsum.photos/seed/jsaPanel1/88/88" alt="" />
+                            </div>
+                            <div class="attach-info">
+                                <div class="attach-name">IMG_2847.jpg</div>
+                                <div class="attach-meta">Photo &middot; 2.1 MB &middot; 1/15/26</div>
+                            </div>
+                            <button class="attach-remove" onclick="roRemoveAttachment(this)" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                    <div class="attach-add-wrap">
+                        <button class="feat-add-btn" onclick="toggleRoAttachPicker()"><i class="fa-solid fa-plus"></i> Add Attachment</button>
+                        <div class="attach-dropdown" id="roAttachDropdown">
+                            <button class="attach-option-item" onclick="roAddAttachment('camera')"><i class="fa-solid fa-camera"></i> Take Photo</button>
+                            <button class="attach-option-item" onclick="roAddAttachment('library')"><i class="fa-regular fa-images"></i> Photo Library</button>
+                            <button class="attach-option-item" onclick="roAddAttachment('files')"><i class="fa-regular fa-folder-open"></i> Files</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="feat-divider"></div>
+                <div class="feat-section">
+                    <div class="feat-section-header">
+                        <span class="feat-section-title">Corrective Actions</span>
+                        <span class="feat-section-badge">0</span>
+                    </div>
+                    <div class="rv-empty">No corrective actions on this record.</div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="showScreen('ro-steps')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('ro-signature')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only step 4 · Signature Collection -->
+        <div class="screen" id="screen-ro-signature">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="roLeaveFlow()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">View JSA</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <div class="stepper-step-info" onclick="openRoStepNav('signature')">
+                        <span class="stepper-step-name">Signature Collection (1)</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:100%;"></div>
+                </div>
+            </div>
+            <div class="screen-body" style="padding-top:14px;">
+                <div class="rv-section-head ro-add-sig" style="margin:2px 12px 10px;">
+                    <span class="rv-section-title">Signatures</span>
+                    <button class="rv-icon-btn" onclick="roAddSignature()" title="Add signature" aria-label="Add signature"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="signature-card-v2 is-signed">
+                    <div class="sig-card-header">
+                        <div class="sig-avatar signed">AX</div>
+                        <div class="sig-card-info">
+                            <div class="sig-name">Andy Xia</div>
+                            <div class="sig-role-text">Team Lead</div>
+                        </div>
+                    </div>
+                    <div class="sig-preview-area">
+                        <div style="height:56px;display:flex;align-items:center;padding:0 8px;font-family:'Snell Roundhand','Brush Script MT',cursive;font-size:26px;color:#1a2940;">Andy Xia</div>
+                        <div class="sig-preview-timestamp">Signed 1/15/26, 9:31 AM · Andy Xia</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mobile-footer">
+                <div class="footer-btn-group" style="margin-left:auto;">
+                    <button class="footer-btn-back" onclick="showScreen('ro-additional')">Back</button>
+                    <button class="footer-btn-next" onclick="roLeaveFlow()">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: READ-ONLY STEP DETAIL          -->
+        <!-- ══════════════════════════════════════ -->
+        <!-- Tapping a step in the read-only Steps view opens this. Fields are
+             read-only (viewing a step without editing). -->
+        <div class="screen" id="screen-ro-step-detail">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('ro-steps')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title" id="ro-step-heading" style="font-size:17px;">Step</span>
+                </div>
+            </div>
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
+            </div>
+            <div class="screen-body" style="background:#f9fafb;padding-bottom:32px;">
+                <div class="rv-card">
+                    <div class="rv-title" id="ro-step-title">Step</div>
+                    <div class="record-badges" id="ro-step-badges" style="margin-bottom:2px;"></div>
+                </div>
+                <div class="rv-section">
+                    <div class="ro-field"><div class="ro-field-label">Control Measures</div><div class="ro-field-value" id="ro-step-control">&ndash;</div></div>
                 </div>
             </div>
         </div>
@@ -4072,7 +4110,7 @@
                     </div>
                     <div class="step-desc">Control: Confirm all required PPE is worn (Class 2 arc-rated FR clothing, dielectric gloves, face shield) and inspect insulated tools for wear before approaching the panel.</div>
                     <div class="step-footer">
-                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
                     </div>
                     <div class="rec-action-row">
                         <button class="rec-btn-outline" onclick="showScreen('jsa-add-step')"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
@@ -4100,7 +4138,7 @@
                     </div>
                     <div class="step-desc">Control: Ensure all energy sources are isolated before performing maintenance. Use approved lockout devices on every breaker and verify zero energy state with a voltage meter before proceeding with any work on the panel.</div>
                     <div class="step-footer">
-                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
                     </div>
                     <div class="step-section-divider"></div>
                     <div class="step-section">
@@ -4137,7 +4175,7 @@
                     </div>
                     <div class="step-desc">Control: Visually inspect all wiring and connections for signs of wear, arcing, or damage. Do not touch exposed conductors. Use insulated inspection tools throughout and maintain a minimum 18-inch clearance from live components.</div>
                     <div class="step-footer">
-                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                        <i class="fa-regular fa-clock"></i> Last updated: 1/15/26, 12:12:34 PM
                     </div>
                     <div class="step-section-divider"></div>
                     <div class="step-section">
@@ -4863,7 +4901,7 @@
             <!-- Persistent offline banner (Google Docs pattern) -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>You're offline. Keep working — changes save to this device and sync automatically when you reconnect.</span>
+                <span><b>No Connection:</b> You may view downloaded records and edit their attachments and signatures.</span>
             </div>
 
             <div class="screen-body">
@@ -4872,7 +4910,7 @@
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-circle-exclamation"></i></div><span class="qa-label">Incident</span></button>
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-clipboard-list"></i></div><span class="qa-label">Inspection</span></button>
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-triangle-exclamation"></i></div><span class="qa-label">Hazard</span></button>
-                    <button class="qa-btn" onclick="showScreen('offline-editor')"><div class="qa-circle"><i class="fa-solid fa-traffic-cone"></i></div><span class="qa-label">JSA</span></button>
+                    <button class="qa-btn" onclick="openOfflineJsa()"><div class="qa-circle"><i class="fa-solid fa-traffic-cone"></i></div><span class="qa-label">JSA</span></button>
                 </div>
 
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:16px;">
@@ -4881,7 +4919,7 @@
                 </div>
 
                 <div class="card-wrap" style="margin-top:8px;">
-                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -4918,94 +4956,6 @@
         </div>
 
         <!-- ══════════════════════════════════════════════════ -->
-        <!-- 2 · EDITING JSA OFFLINE                              -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-editor">
-            <div class="mobile-header offline">
-                <div class="status-bar-area">
-                    <span>9:30 PM</span>
-                    <div class="status-icons">
-                        <i class="fa-solid fa-signal" style="opacity:0.4;"></i>
-                        <i class="fa-solid fa-wifi-slash"></i>
-                        <i class="fa-solid fa-battery-three-quarters"></i>
-                    </div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-home')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title">JSA</span>
-                </div>
-            </div>
-
-            <div class="jsa-stepper">
-                <div class="stepper-row">
-                    <span class="stepper-step-name">Basic Information</span>
-                    <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
-                </div>
-                <div class="stepper-progress-track"><div class="stepper-progress-fill" style="width:25%;"></div></div>
-            </div>
-
-            <!-- Google-Docs-style autosave strip -->
-            <div class="save-strip">
-                <span class="save-dot"></span>
-                <i class="fa-solid fa-cloud-slash"></i>
-                <span>All changes saved to this device</span>
-                <span class="save-sub">2:14 PM · will sync when online</span>
-            </div>
-
-            <div class="screen-body">
-                <div class="form-body">
-                    <div class="form-field">
-                        <label class="form-label">Task Name <span class="req">*</span></label>
-                        <input class="form-input" type="text" value="Roof Access – Maintenance Crew" />
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Status <span class="req">*</span>
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <button class="form-select-btn"><span>In Review</span><i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i></button>
-                    </div>
-
-                    <div class="form-field">
-                        <label class="form-label">Facility <span class="req">*</span></label>
-                        <button class="form-select-btn"><span>Warehouse 12 — Atlanta, GA</span><i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i></button>
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Start Date
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <input class="form-input" type="date" value="2026-05-13" />
-                    </div>
-
-                    <div class="form-field">
-                        <label class="form-label">Analysis Done By <span class="req">*</span></label>
-                        <button class="form-select-btn"><span>Xia, Andy</span><i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i></button>
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Description
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <textarea class="form-input" rows="5">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins. Wind speed must be checked before access; halt work above 25 mph.</textarea>
-                    </div>
-
-                    <div class="form-field edited">
-                        <label class="form-label">Detailed Location
-                            <span class="field-edit-tag mine"><i class="fa-solid fa-pen"></i> Edited offline</span>
-                        </label>
-                        <textarea class="form-input" rows="2">Building C rooftop — northwest HVAC unit, access via stairwell C-3.</textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sticky-cta">
-                <button class="btn-primary" onclick="showScreen('offline-records')"><i class="fa-solid fa-cloud-slash"></i> Saved offline · Done</button>
-                <div class="cta-hint">Nothing is lost — this JSA uploads automatically once you're back online.</div>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
         <!-- 3 · RECORDS (offline)                                       -->
         <!-- ══════════════════════════════════════════════════ -->
         <div class="screen" id="screen-offline-records">
@@ -5026,8 +4976,7 @@
             <!-- Offline: only records saved to this device are available -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>You're offline. Showing the records saved to this device.</span>
-                <span class="banner-link" onclick="showScreen('offline-syncing')">Reconnect</span>
+                <span><b>No Connection:</b> Changes you make offline will sync automatically when you reconnect.</span>
             </div>
 
             <div class="screen-body">
@@ -5042,7 +4991,7 @@
                 <span class="section-label">On this device (5)</span>
                 <div class="card-wrap" style="margin-top:8px;">
                     <!-- Downloaded + local edits → waiting to sync (tap to keep editing) -->
-                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -5054,7 +5003,7 @@
                             <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 4 fields edited on this device · 2:14 PM</div>
                         </div>
                     </div>
-                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -5160,310 +5109,31 @@
                             </div>
                             <div class="qi-status synced"><i class="fa-solid fa-check"></i> Synced</div>
                         </div>
+                        <!-- All-or-nothing sync: a record changed on the server is simply
+                             refreshed on this device (no conflict/merge flow this phase) -->
                         <div class="queue-item">
-                            <div class="qi-icon" style="background:#fbe9e4;color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="qi-icon" style="background:#e4f4ea;color:#0a7637;"><i class="fa-solid fa-rotate"></i></div>
                             <div class="qi-main">
                                 <div class="qi-title">Roof Access – Maintenance Crew</div>
-                                <div class="qi-meta">Changed by someone else while you were away</div>
+                                <div class="qi-meta">Server had newer changes, local copy refreshed</div>
                             </div>
-                            <div class="qi-status conflict"><i class="fa-solid fa-triangle-exclamation"></i> Conflict</div>
+                            <div class="qi-status synced"><i class="fa-solid fa-check"></i> Synced</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Post-sync notice: revealed by runSyncSequence() once the sync finishes -->
-            <div class="sticky-cta" id="conflictAlert" style="display:none;">
+            <div class="sticky-cta" id="syncDoneAlert" style="display:none;">
                 <div class="sync-note">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <i class="fa-solid fa-circle-check"></i>
                     <div>
-                        <div class="sn-title">1 record has a merge conflict</div>
-                        <div class="sn-sub">Changes made online while you were offline overlap with your edits to <b>Roof Access – Maintenance Crew</b>. You can resolve this now or come back to it later.</div>
+                        <div class="sn-title">All changes synced</div>
+                        <div class="sn-sub">Your offline changes were uploaded, and records changed on the server were refreshed on this device.</div>
                     </div>
                 </div>
-                <button class="btn-primary" onclick="viewConflictRecords()"><i class="fa-solid fa-list-ul"></i> View conflicts</button>
+                <button class="btn-primary" onclick="showScreen('records')"><i class="fa-solid fa-list-ul"></i> View records</button>
                 <button class="btn-ghost" style="margin-top:8px;" onclick="showScreen('home')">Return to home</button>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
-        <!-- 5 · RESOLVE CONFLICTS (overview / merge request)     -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-overview">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:31 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-syncing')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title">Resolve Conflict</span>
-                </div>
-            </div>
-
-            <div class="screen-body no-nav">
-                <div class="merge-intro">
-                    <h3>Roof Access – Maintenance Crew</h3>
-                    <p>J. Okafor saved changes to this record while you were editing it offline. Choose which version to keep, or save yours as a separate record.</p>
-                </div>
-                <span class="section-label" style="margin-top:14px;">Conflicting versions</span>
-                <div class="cr-vcards">
-                    <button class="cr-vcard" data-cr-side="theirs" onclick="crSelectVersion(this)">
-                        <span class="cr-vcard-radio"><i class="fa-solid fa-check"></i></span>
-                        <div class="cr-vcard-body">
-                            <div class="cr-vcard-name">J. Okafor</div>
-                            <div class="cr-vcard-when"><i class="fa-regular fa-clock"></i> Saved Today, 2:08 PM</div>
-                        </div>
-                    </button>
-                    <button class="cr-vcard" data-cr-side="mine" onclick="crSelectVersion(this)">
-                        <span class="cr-vcard-radio"><i class="fa-solid fa-check"></i></span>
-                        <div class="cr-vcard-body">
-                            <div class="cr-vcard-name">Andy Xia <span class="cr-vcard-tag">You</span></div>
-                            <div class="cr-vcard-when"><i class="fa-regular fa-clock"></i> Saved Today, 2:14 PM</div>
-                        </div>
-                    </button>
-                </div>
-
-                <p class="cr-helper">Edits that didn't conflict are merged into the record either way — your choice only applies to the changes that conflict.</p>
-
-                <button class="cr-switch-link" onclick="showScreen('offline-resolve-each')">Decide each conflict individually <i class="fa-solid fa-arrow-right"></i></button>
-
-                <div style="height:16px;"></div>
-            </div>
-
-            <!-- Sticky resolve footer -->
-            <div class="cr-footer">
-                <button class="cr-resolve-alt" onclick="resolveConflict('new')">Save as New</button>
-                <button class="btn-primary" id="cr-apply-btn" disabled onclick="crApplyVersion()">Select a version</button>
-            </div>
-
-            <!-- Resolution confirmation (lightweight sheet) -->
-            <div class="overlay-bg" id="cr-confirm-overlay" onclick="closeConflictConfirm()"></div>
-            <div class="bottom-drawer" id="cr-confirm-drawer">
-                <div class="drawer-handle"></div>
-                <div style="padding:18px 20px 6px;">
-                    <h3 id="cr-confirm-title" style="font-size:17px;font-weight:700;color:rgba(0,0,0,0.87);margin-bottom:8px;line-height:1.35;">Use their version?</h3>
-                    <p id="cr-confirm-body" style="font-size:13.5px;color:rgba(0,0,0,0.6);line-height:1.5;"></p>
-                </div>
-                <div class="cr-confirm-warning hide" id="cr-confirm-warning">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span id="cr-confirm-warning-text"></span>
-                </div>
-                <div class="filter-sheet-footer">
-                    <button class="filter-sheet-reset" onclick="closeConflictConfirm()">Cancel</button>
-                    <button class="filter-sheet-apply" id="cr-confirm-btn" onclick="confirmConflictResolution()"><span>Confirm</span></button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Conflict resolution — per-item (radio) version -->
-        <div class="screen" id="screen-offline-resolve-each">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:31 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-records')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title">Resolve Conflict</span>
-                </div>
-            </div>
-
-            <div class="screen-body no-nav">
-                <div class="merge-intro">
-                    <h3>Roof Access – Maintenance Crew</h3>
-                    <p>J. Okafor updated this record while you were editing it offline. Choose which version to keep for each conflict.</p>
-                </div>
-
-                <div class="cr-bulk">
-                    <span class="cr-bulk-label">Quick fill:</span>
-                    <button class="cr-bulk-btn mine" onclick="crPickAll('mine')"><i class="fa-solid fa-check-double"></i> All Andy Xia's</button>
-                    <button class="cr-bulk-btn theirs" onclick="crPickAll('theirs')"><i class="fa-solid fa-check-double"></i> All J. Okafor's</button>
-                </div>
-
-                <span class="section-label" style="margin-top:16px;">Conflicting changes (3)</span>
-                <div class="cr-conflicts">
-                    <div class="cr-conflict" data-cr-conflict>
-                        <div class="cr-conflict-ctx">
-                            <div class="cr-ctx-icon step"><i class="fa-solid fa-list-check"></i></div>
-                            <span class="cr-ctx-label">Step 2</span>
-                            <i class="fa-solid fa-chevron-right cr-ctx-arrow"></i>
-                            <span class="cr-ctx-field">Hazard note</span>
-                        </div>
-                        <button class="cr-opt mine" data-cr-side="mine" onclick="crPick(this)">
-                            <span class="cr-radio"><i class="fa-solid fa-check"></i></span>
-                            <span class="cr-opt-body"><span class="cr-opt-tag">Andy Xia</span><span class="cr-opt-val">"Wind speed must be below 25 mph - halt work if exceeded."</span></span>
-                        </button>
-                        <button class="cr-opt theirs" data-cr-side="theirs" onclick="crPick(this)">
-                            <span class="cr-radio"><i class="fa-solid fa-check"></i></span>
-                            <span class="cr-opt-body"><span class="cr-opt-tag">J. Okafor</span><span class="cr-opt-val">"Verify anchor points rated for 2x expected load before attaching harness."</span></span>
-                        </button>
-                    </div>
-                    <div class="cr-conflict" data-cr-conflict>
-                        <div class="cr-conflict-ctx">
-                            <div class="cr-ctx-icon record"><i class="fa-solid fa-file-lines"></i></div>
-                            <span class="cr-ctx-label">Record</span>
-                            <i class="fa-solid fa-chevron-right cr-ctx-arrow"></i>
-                            <span class="cr-ctx-field">Status</span>
-                        </div>
-                        <button class="cr-opt mine" data-cr-side="mine" onclick="crPick(this)">
-                            <span class="cr-radio"><i class="fa-solid fa-check"></i></span>
-                            <span class="cr-opt-body"><span class="cr-opt-tag">Andy Xia</span><span class="cr-opt-val">In Review</span></span>
-                        </button>
-                        <button class="cr-opt theirs" data-cr-side="theirs" onclick="crPick(this)">
-                            <span class="cr-radio"><i class="fa-solid fa-check"></i></span>
-                            <span class="cr-opt-body"><span class="cr-opt-tag">J. Okafor</span><span class="cr-opt-val">Approved</span></span>
-                        </button>
-                    </div>
-                    <div class="cr-conflict" data-cr-conflict>
-                        <div class="cr-conflict-ctx">
-                            <div class="cr-ctx-icon ca"><i class="fa-solid fa-circle-check"></i></div>
-                            <span class="cr-ctx-label">Corrective Action 1</span>
-                            <i class="fa-solid fa-chevron-right cr-ctx-arrow"></i>
-                            <span class="cr-ctx-field">Due Date</span>
-                        </div>
-                        <button class="cr-opt mine" data-cr-side="mine" onclick="crPick(this)">
-                            <span class="cr-radio"><i class="fa-solid fa-check"></i></span>
-                            <span class="cr-opt-body"><span class="cr-opt-tag">Andy Xia</span><span class="cr-opt-val">June 18, 2026</span></span>
-                        </button>
-                        <button class="cr-opt theirs" data-cr-side="theirs" onclick="crPick(this)">
-                            <span class="cr-radio"><i class="fa-solid fa-check"></i></span>
-                            <span class="cr-opt-body"><span class="cr-opt-tag">J. Okafor</span><span class="cr-opt-val">June 30, 2026</span></span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="cr-merge-note">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>Pick a version for each conflict above. Every other edit from both you and J. Okafor is saved automatically.</span>
-                </div>
-
-                <button class="cr-switch-link" onclick="showScreen('offline-overview')">Apply one version to everything instead <i class="fa-solid fa-arrow-right"></i></button>
-
-                <div style="height:16px;"></div>
-            </div>
-
-            <div class="cr-footer">
-                <button class="btn-ghost" onclick="showScreen('offline-records')">Cancel</button>
-                <button class="btn-primary" id="cr-each-submit" disabled onclick="crEachSubmit()">Resolve 3 to submit</button>
-            </div>
-        </div>
-
-        <!-- Conflict resolution complete -->
-
-        <div class="screen" id="screen-offline-done">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:32 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <span class="header-title">JSA</span>
-                </div>
-            </div>
-
-            <div class="screen-body no-nav">
-                <div class="done-hero">
-                    <div class="done-check"><i class="fa-solid fa-check"></i></div>
-                    <h2>Conflicts resolved</h2>
-                    <p><b>Roof Access – Maintenance Crew</b> is up to date. Your resolved changes have been synced to the server.</p>
-                </div>
-
-                <div class="card-wrap">
-                    <div class="record-card-row" style="cursor:default;">
-                        <div class="record-title">Roof Access – Maintenance Crew</div>
-                        <div class="record-badges">
-                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-synced"><i class="fa-solid fa-cloud-check"></i> Synced</span>
-                        </div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Resolved by you · 9:32 PM</div>
-                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Up to date with the server</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="padding:20px 16px 0;display:flex;flex-direction:column;gap:10px;">
-                    <button class="btn-ghost" onclick="showScreen('offline-history')"><i class="fa-solid fa-clock-rotate-left"></i> View version history</button>
-                    <button class="btn-primary" onclick="showScreen('offline-home')"><i class="fa-solid fa-house"></i> Back to home</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
-        <!-- 10 · VERSION HISTORY (timeline)                      -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-history">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:32 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-done')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title" style="font-size:17px;">Version History</span>
-                </div>
-            </div>
-
-            <div class="offline-banner is-online" style="background:#eef1f4;color:#50616f;border-bottom:1px solid #e0e4e8;">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                <span>Every version is kept. Nothing is overwritten or lost.</span>
-            </div>
-
-            <div class="screen-body no-nav">
-                <div class="timeline">
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot merge"><i class="fa-solid fa-check"></i></div><div class="tl-line"></div></div>
-                        <div class="tl-card" style="border-color:#bcdcfa;">
-                            <div class="tl-when">9:32 PM · Today · CURRENT</div>
-                            <div class="tl-who">Resolved version</div>
-                            <div class="tl-what" id="cr-hist-what">You resolved this sync conflict. This version is current.</div>
-                            <div class="tl-chips" id="cr-hist-chips">
-                                <span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">Conflict resolved</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot mine"><i class="fa-solid fa-mobile-screen"></i></div><div class="tl-line"></div></div>
-                        <div class="tl-card">
-                            <div class="tl-when">2:14 PM · synced 9:31 PM</div>
-                            <div class="tl-who">Your offline edits</div>
-                            <div class="tl-what">Edited on device without a connection, then synced on reconnect.</div>
-                            <div class="tl-chips">
-                                <span class="tl-chip">Status → In Review</span>
-                                <span class="tl-chip">+ wind-speed note</span>
-                                <span class="tl-chip">Start Date</span>
-                                <span class="tl-chip">Location</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot theirs"><i class="fa-solid fa-cloud"></i></div><div class="tl-line"></div></div>
-                        <div class="tl-card">
-                            <div class="tl-when">2:08 PM · Today</div>
-                            <div class="tl-who">Online edits — another user</div>
-                            <div class="tl-what">This record was edited on the web while you were offline.</div>
-                            <div class="tl-chips">
-                                <span class="tl-chip">Status → Approved</span>
-                                <span class="tl-chip">+ load-rating note</span>
-                                <span class="tl-chip">Review Cycle</span>
-                                <span class="tl-chip">Supervisor</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot base"><i class="fa-solid fa-flag"></i></div></div>
-                        <div class="tl-card">
-                            <div class="tl-when">Yesterday · 4:30 PM</div>
-                            <div class="tl-who">Original version</div>
-                            <div class="tl-what">The shared starting point both of you edited from.</div>
-                            <div class="tl-chips"><span class="tl-chip">Status: Draft</span></div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -6773,11 +6443,13 @@ function submitRecordCard(cardRow) {
     if (!pendingBadge) return;
     pendingBadge.className = 'badge badge-submitting';
     pendingBadge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size:10px;"></i> Submitting';
-    const badgesEl = cardRow.querySelector('.record-badges');
+    /* Tie the submitting bar to the submission status badge: render it directly
+       beneath that badge in the footer status area (not up by the type badges). */
+    const statusEl = cardRow.querySelector('.record-foot-status') || cardRow.querySelector('.record-badges');
     const progressWrap = document.createElement('div');
     progressWrap.className = 'submit-progress-wrap';
     progressWrap.innerHTML = '<div class="submit-progress-bar"></div>';
-    badgesEl.after(progressWrap);
+    statusEl.appendChild(progressWrap);
     /* While the submission is in flight the Submit button becomes a Cancel
        button, giving the user a window to stop it before it finalizes. */
     const actionRow = cardRow.querySelector('.rec-action-row');
@@ -6848,23 +6520,8 @@ function toggleOfflineMode() {
         const st = t.querySelector('.em-state');
         if (st) st.textContent = appOffline ? 'On' : 'Off';
     }
-    /* Close any open offline popovers on either transition */
-    document.querySelectorAll('.offline-pop.show').forEach(p => p.classList.remove('show'));
     if (!appOffline) runRecordsSync('auto');   /* reconnect → automatic resync */
 }
-
-/* Offline indicator popover (replaces the offline banner, EHS-18527 item 3) */
-function toggleOfflinePop(btn) {
-    const bar = btn.closest('.header-bar');
-    const pop = bar && bar.querySelector('.offline-pop');
-    if (pop) pop.classList.toggle('show');
-}
-/* Tap anywhere else to dismiss the offline popover */
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.offline-ind')) {
-        document.querySelectorAll('.offline-pop.show').forEach(p => p.classList.remove('show'));
-    }
-});
 
 /* ── Slim badge variant (prototype toggle): icons only on the record-type badge ── */
 let slimBadges = false;
@@ -6997,7 +6654,7 @@ function openRecordView(row) {
     row.querySelectorAll('.record-meta-row').forEach(m => {
         const t = m.textContent.trim();
         if (m.querySelector('.fa-location-dot')) loc = t;
-        else if (t.startsWith('Created')) created = t.replace(/^Created:\s*/, '');
+        else if (t.startsWith('Last updated')) created = t.replace(/^Last updated:\s*/, '');
         else if (t.startsWith('ID:')) rid = t.replace(/^ID:\s*/, '');
     });
     document.getElementById('rv-location').textContent = loc;
@@ -7009,11 +6666,37 @@ function openRecordView(row) {
     const foot = row.querySelector('.record-foot-status');
     document.getElementById('rv-badges').innerHTML =
         (badges ? badges.innerHTML : '') + (foot ? foot.innerHTML : '');
-    /* Submit is applicable only while the record is not yet submitted (item 2) */
+    /* Footer actions: Submit only while the record is not yet submitted
+       (item 2). The entry button routes by record status (EHS-18527 follow-up):
+       NOT completed -> "Edit Record" into the first step of the edit flow;
+       completed -> "View Record" into the read-only flow. Offline always forces
+       the read-only flow (downloads are read-only offline except signatures and
+       attachments). NOTE: status now decides this button; the edit-mode
+       facilitator toggle only governs card-tap routing on the records list. */
     const canSubmit = !!row.querySelector('.badge-pending');
-    document.getElementById('rv-footer').classList.toggle('show', canSubmit);
-    document.getElementById('rv-body').style.paddingBottom = canSubmit ? '96px' : '24px';
+    document.getElementById('rv-submit-btn').style.display = canSubmit ? '' : 'none';
+    const wrap = row.closest('.rec-card-wrap');
+    const completed = !!(wrap && wrap.dataset.formStatus === 'completed');
+    const offline = (typeof appOffline !== 'undefined' && appOffline);
+    const canEdit = !completed && !offline;
+    const sec = document.getElementById('rv-secondary-btn');
+    sec.dataset.mode = canEdit ? 'edit' : 'view';
+    sec.textContent = canEdit ? 'Edit Record' : 'View Record';
     showScreen('record-view');
+}
+
+/* Inline Copy ID CTA on the details page */
+function rvCopyId() {
+    const id = document.getElementById('rv-id').textContent.trim();
+    if (navigator.clipboard && id && id !== '–') navigator.clipboard.writeText(id).catch(() => {});
+    showToast('ID copied');
+}
+
+/* Footer secondary action: Edit (edit-mode preview) or View full record */
+function rvSecondaryAction() {
+    const sec = document.getElementById('rv-secondary-btn');
+    if (sec.dataset.mode === 'edit' && rvSourceRow) openEditRecord(rvSourceRow);
+    else openRecordReadonly();
 }
 
 /* Signatures "Edit" → the existing full signature interface (item 2) */
@@ -7026,21 +6709,107 @@ function rvSubmitRecord() {
     showScreen('records');
 }
 
-/* Full read-only record (item 3): seed the header bits from the tapped card. */
+/* Read-only flow (EHS-18527 follow-up): mirrors the multi-step edit workflow
+   (Basic Info -> Steps -> Additional Features -> Signatures) with read-only
+   values instead of inputs. Entry lands on the first step. */
 function openRecordReadonly() {
     if (rvSourceRow) {
         const t = rvSourceRow.querySelector('.record-title');
-        document.getElementById('ro-title').textContent = t ? t.textContent.trim() : 'JSA Record';
-        document.getElementById('ro-task').textContent = t ? t.textContent.trim() : '–';
-        const badges = rvSourceRow.querySelector('.record-badges');
-        const foot = rvSourceRow.querySelector('.record-foot-status');
-        document.getElementById('ro-badges').innerHTML =
-            (badges ? badges.innerHTML : '') + (foot ? foot.innerHTML : '');
-        const loc = [...rvSourceRow.querySelectorAll('.record-meta-row')]
-            .find(m => m.querySelector('.fa-location-dot'));
-        if (loc) document.getElementById('ro-facility').textContent = loc.textContent.trim();
+        const el = document.getElementById('ro-task');
+        if (t && el) el.textContent = t.textContent.trim();
     }
-    showScreen('record-readonly');
+    showScreen('ro-basic');
+}
+
+/* ── Offline record flow (EHS-18527 follow-up) ──
+   Editing a downloaded record offline reuses the read-only ro-* flow: fields
+   stay read-only, but attachments and signatures can be added/removed, and the
+   Next/Back/breadcrumb navigation matches the online edit flow. `offline-editing`
+   drives the banner + editable affordances (see gating CSS). */
+function openOfflineJsa() {
+    document.getElementById('app').classList.add('offline-editing');
+    showScreen('ro-basic');
+}
+function roLeaveFlow() {
+    const app = document.getElementById('app');
+    const dest = app.classList.contains('offline-editing') ? 'offline-records' : 'record-view';
+    app.classList.remove('offline-editing');
+    showScreen(dest);
+}
+
+/* Breadcrumb: tap the stepper to jump between read-only steps (reuses the edit
+   flow's step-nav drawer DOM). */
+const roStepDefs = [
+    { key: 'basic',      label: 'Basic Information',    screen: 'ro-basic' },
+    { key: 'steps',      label: 'Steps',                screen: 'ro-steps' },
+    { key: 'additional', label: 'Additional Features',  screen: 'ro-additional' },
+    { key: 'signature',  label: 'Signature Collection', screen: 'ro-signature' },
+];
+function openRoStepNav(activeKey) {
+    const list = document.getElementById('stepNavList');
+    list.innerHTML = '';
+    const activeIdx = roStepDefs.findIndex(s => s.key === activeKey);
+    roStepDefs.forEach((step, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'step-nav-item' + (i === activeIdx ? ' active-step' : '') + (i < activeIdx ? ' done-step' : '');
+        btn.innerHTML = '<div class="step-nav-num">' + (i + 1) + '</div>' +
+            '<span class="step-nav-label">' + step.label + '</span>' +
+            '<i class="fa-solid fa-check step-nav-check"></i>' +
+            '<i class="fa-solid fa-chevron-right step-nav-arrow"></i>';
+        btn.addEventListener('click', () => { closeStepNavDrawer(); showScreen(step.screen); });
+        list.appendChild(btn);
+    });
+    document.getElementById('stepNavOverlay').classList.add('active');
+    document.getElementById('stepNavDrawer').classList.add('open');
+}
+
+/* Read-only step detail: tap a step in the read-only Steps view to open it.
+   Fields are read-only (view without editing). */
+function openRoStep(card) {
+    const g = (sel) => { const el = card.querySelector(sel); return el ? el.textContent.trim() : ''; };
+    document.getElementById('ro-step-title').textContent = g('.record-title') || 'Step';
+    document.getElementById('ro-step-heading').textContent = g('.step-number') || 'Step';
+    const hb = card.querySelector('.step-info-badges');
+    document.getElementById('ro-step-badges').innerHTML = hb ? hb.innerHTML : '';
+    document.getElementById('ro-step-control').textContent = g('.step-desc').replace(/^Control:\s*/, '') || '–';
+    showScreen('ro-step-detail');
+}
+
+/* Editable attachments + signatures in the offline flow (mock) */
+function toggleRoAttachPicker() { document.getElementById('roAttachDropdown').classList.toggle('open'); }
+function roAddAttachment(source) {
+    document.getElementById('roAttachDropdown').classList.remove('open');
+    const list = document.getElementById('ro-attach-list');
+    const n = list.querySelectorAll('.attach-item').length + 1;
+    const el = document.createElement('div');
+    el.className = 'attach-item';
+    el.innerHTML =
+        '<div class="attach-thumb"><i class="fa-regular fa-image"></i></div>' +
+        '<div class="attach-info"><div class="attach-name">photo_' + String(n).padStart(2, '0') + '.jpg</div>' +
+        '<div class="attach-meta">Photo &middot; 2.1 MB &middot; just now</div></div>' +
+        '<button class="attach-remove" onclick="roRemoveAttachment(this)" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>';
+    list.appendChild(el);
+    roUpdateAttachCount();
+    showToast('Attachment added, will sync when online');
+}
+function roRemoveAttachment(btn) { btn.closest('.attach-item').remove(); roUpdateAttachCount(); }
+function roUpdateAttachCount() {
+    const c = document.getElementById('ro-attach-count');
+    if (c) c.textContent = document.querySelectorAll('#ro-attach-list .attach-item').length;
+}
+function roAddSignature() {
+    const now = new Date().toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit' });
+    const cards = document.querySelectorAll('#screen-ro-signature .signature-card-v2');
+    const el = document.createElement('div');
+    el.className = 'signature-card-v2 is-signed';
+    el.innerHTML =
+        '<div class="sig-card-header"><div class="sig-avatar signed">NEW</div>' +
+        '<div class="sig-card-info"><div class="sig-name">New signature</div><div class="sig-role-text">Signed offline</div></div></div>' +
+        '<div class="sig-preview-area"><div style="height:56px;display:flex;align-items:center;padding:0 8px;font-family:\'Snell Roundhand\',cursive;font-size:24px;color:#1a2940;">Signature</div>' +
+        '<div class="sig-preview-timestamp">Signed ' + now + '</div></div>';
+    if (cards.length) cards[cards.length - 1].after(el);
+    else document.querySelector('#screen-ro-signature .screen-body').appendChild(el);
+    showToast('Signature added, will sync when online');
 }
 
 /* ── Attachment management interface (item 2) ──
@@ -7229,19 +6998,10 @@ function saveEditSession() {
     showToast('Changes saved — will sync when online');
 }
 
-/* Post-sync conflict notice → records list filtered to conflicts */
-function viewConflictRecords() {
-    recFilters.statuses = new Set(['conflict']);
-    recFilters.types.clear();
-    applyRecordFilters();
-    renderAppliedChips();
-    showScreen('records');
-}
-
 /* ── Records filters ── */
 const recFilters = { statuses: new Set(), types: new Set() };
 const recDraft   = { statuses: new Set(), types: new Set() };
-const filterLabels = { pending: 'Pending', submitted: 'Submitted', conflict: 'Conflict', missing: 'Missing Fields', error: 'Error', downloaded: 'Downloaded', jsa: 'JSA' };
+const filterLabels = { pending: 'Pending', submitted: 'Submitted', missing: 'Missing Fields', error: 'Error', downloaded: 'Downloaded', jsa: 'JSA' };
 
 let recSearchQuery = '';
 
@@ -7590,13 +7350,6 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
         return;
     }
 
-    /* Resolve a sync conflict → conflict-resolution flow */
-    if (e.target.closest('[data-action="resolve-conflict"]')) {
-        e.stopPropagation();
-        showScreen('offline-overview');
-        return;
-    }
-
     /* Edit a downloaded record (edit mode) */
     if (e.target.closest('[data-action="edit-record"]')) {
         e.stopPropagation();
@@ -7931,137 +7684,14 @@ function toggleReorderMode() {
     }, { passive: true });
 }());
 
-/* ── Conflict resolution (lightweight, all-or-nothing) ──
-   The user reviews both sets of changes (read-only), then picks ONE outcome:
-   use theirs, overwrite with mine, or save mine as a new record. No per-field merge. */
-const conflictActionMeta = {
-    theirs: {
-        confirmTitle: 'Use their changes?',
-        confirmBody: `J. Okafor's version is kept for the conflicting changes.`,
-        warning: 'Your conflicting changes will be discarded.',
-        confirmLabel: 'Keep Theirs',
-        danger: true,
-        doneTitle: 'Their changes kept',
-        doneBody: `<b>Roof Access – Maintenance Crew</b> now uses J. Okafor's version for the changes that conflicted. Edits that didn't conflict were kept from both.`,
-        toast: 'Using their changes'
-    },
-    mine: {
-        confirmTitle: 'Keep your changes?',
-        confirmBody: `Your version is kept for the conflicting changes.`,
-        warning: "J. Okafor's conflicting changes will be discarded.",
-        confirmLabel: 'Keep Mine',
-        danger: true,
-        doneTitle: 'Your changes kept',
-        doneBody: `<b>Roof Access – Maintenance Crew</b> now uses your version for the changes that conflicted. Edits that didn't conflict were kept from both.`,
-        toast: 'Your changes were kept'
-    },
-    new: {
-        confirmTitle: 'Save as a new record?',
-        confirmBody: `The JSA you were working on is saved as a separate new record. The original keeps the other user's version, unchanged. Nothing is discarded.`,
-        warning: null,
-        confirmLabel: 'Save as New',
-        danger: false,
-        doneTitle: 'Saved as a new record',
-        doneBody: `Your work was saved as a new JSA. The original <b>Roof Access – Maintenance Crew</b> keeps the other user's version.`,
-        toast: 'Saved as a new record'
-    }
-};
-let pendingConflictChoice = null;
-let crSelectedSide = null;
-function crSelectVersion(card) {
-    crSelectedSide = card.dataset.crSide;
-    document.querySelectorAll('#screen-offline-overview .cr-vcard').forEach(c => c.classList.toggle('selected', c === card));
-    const btn = document.getElementById('cr-apply-btn');
-    if (btn) { btn.disabled = false; btn.textContent = crSelectedSide === 'mine' ? 'Override with My Changes' : 'Keep Their Changes'; }
-}
-function crApplyVersion() {
-    if (crSelectedSide) resolveConflict(crSelectedSide);
-}
-
-function resolveConflict(choice) {
-    pendingConflictChoice = choice;
-    const m = conflictActionMeta[choice];
-    document.getElementById('cr-confirm-title').textContent = m.confirmTitle;
-    document.getElementById('cr-confirm-body').textContent = m.confirmBody;
-    /* Destructive choices (keep mine / use theirs) show an error-styled warning
-       that the other version will be discarded. "Save as New" keeps both, so no warning. */
-    const warn = document.getElementById('cr-confirm-warning');
-    if (m.warning) {
-        document.getElementById('cr-confirm-warning-text').textContent = m.warning;
-        warn.classList.remove('hide');
-    } else {
-        warn.classList.add('hide');
-    }
-    const btn = document.getElementById('cr-confirm-btn');
-    btn.querySelector('span').textContent = m.confirmLabel;
-    btn.classList.toggle('danger', !!m.danger);
-    document.getElementById('cr-confirm-overlay').classList.add('active');
-    document.getElementById('cr-confirm-drawer').classList.add('open');
-}
-function closeConflictConfirm() {
-    document.getElementById('cr-confirm-overlay').classList.remove('active');
-    document.getElementById('cr-confirm-drawer').classList.remove('open');
-}
-function confirmConflictResolution() {
-    const m = conflictActionMeta[pendingConflictChoice];
-    closeConflictConfirm();
-    const hero = document.querySelector('#screen-offline-done .done-hero');
-    if (hero) {
-        const h = hero.querySelector('h2'); if (h) h.textContent = m.doneTitle;
-        const p = hero.querySelector('p');  if (p) p.innerHTML = m.doneBody;
-    }
-    /* Keep the version-history top entry consistent with the chosen outcome */
-    const histWhat = {
-        theirs: `You kept the other user's version as the source of truth.`,
-        mine:   `You overwrote the server with your version.`,
-        new:    `You saved your work as a new record; the original keeps the other user's version.`
-    };
-    const histChip = { theirs: 'Using their version', mine: 'Your version kept', new: 'Saved as new record' };
-    const hw = document.getElementById('cr-hist-what');
-    if (hw) hw.textContent = histWhat[pendingConflictChoice];
-    const hc = document.getElementById('cr-hist-chips');
-    if (hc) hc.innerHTML = '<span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">' + histChip[pendingConflictChoice] + '</span>';
-    showScreen('offline-done');
-    showToast(m.toast);
-}
-
-/* ── Conflict resolution: per-item (radio) version ── */
-function crPick(btn) {
-    const card = btn.closest('[data-cr-conflict]');
-    card.querySelectorAll('.cr-opt').forEach(o => o.classList.remove('selected'));
-    btn.classList.add('selected');
-    crUpdateSubmit();
-}
-function crPickAll(side) {
-    document.querySelectorAll('#screen-offline-resolve-each [data-cr-conflict]').forEach(card => {
-        card.querySelectorAll('.cr-opt').forEach(o => o.classList.toggle('selected', o.dataset.crSide === side));
-    });
-    crUpdateSubmit();
-}
-function crUpdateSubmit() {
-    const cards = document.querySelectorAll('#screen-offline-resolve-each [data-cr-conflict]');
-    const btn = document.getElementById('cr-each-submit');
-    if (!btn) return;
-    const left = [...cards].filter(c => !c.querySelector('.cr-opt.selected')).length;
-    btn.disabled = left > 0;
-    btn.textContent = left > 0 ? ('Resolve ' + left + ' to submit') : 'Submit';
-}
-function crEachSubmit() {
-    const hero = document.querySelector('#screen-offline-done .done-hero');
-    if (hero) {
-        const h = hero.querySelector('h2'); if (h) h.textContent = 'Conflicts resolved';
-        const p = hero.querySelector('p'); if (p) p.innerHTML = 'Your selections were applied to <b>Roof Access – Maintenance Crew</b> and synced to the server.';
-    }
-    showScreen('offline-done');
-    showToast('Conflicts resolved');
-}
-
 /* Edit-session Next from Basic Info jumps to the filled steps (the record already has them). */
 function afterBasicNext() {
     showScreen(document.getElementById('app').classList.contains('edit-session') ? 'jsa-steps-filled' : 'jsa-steps-empty');
 }
 
-/* Sync screen: show the spinner first, then reveal the post-sync conflict notice. */
+/* Sync screen: show the spinner first, then reveal the post-sync summary.
+   Sync is all-or-nothing: server changes replace local copies wholesale, so
+   there is nothing for the user to review or resolve. */
 let syncSeqTimer;
 function runSyncSequence() {
     const ring = document.getElementById('syncHeroRing');
@@ -8069,7 +7699,7 @@ function runSyncSequence() {
     const sub = document.getElementById('syncHeroSub');
     const banner = document.getElementById('syncBanner');
     const queue = document.getElementById('syncQueueList');
-    const alertEl = document.getElementById('conflictAlert');
+    const alertEl = document.getElementById('syncDoneAlert');
     /* reset to the in-progress state */
     if (ring) { ring.classList.remove('done'); ring.innerHTML = ''; }
     if (title) title.textContent = 'Syncing your work';
@@ -8081,8 +7711,8 @@ function runSyncSequence() {
     syncSeqTimer = setTimeout(() => {
         if (ring) { ring.classList.add('done'); ring.innerHTML = '<i class="fa-solid fa-check"></i>'; }
         if (title) title.textContent = 'Sync complete';
-        if (sub) sub.textContent = 'Most changes synced. 1 record needs your review before it can finish.';
-        if (banner) banner.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Sync complete — 1 record needs your review</span>';
+        if (sub) sub.textContent = 'All changes synced. This device is up to date.';
+        if (banner) banner.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Sync complete — all changes synced</span>';
         if (queue) queue.style.display = '';
         if (alertEl) alertEl.style.display = '';
     }, 1900);
