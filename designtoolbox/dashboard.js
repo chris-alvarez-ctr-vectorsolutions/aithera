@@ -1165,9 +1165,17 @@
       const el = [...document.querySelectorAll('.mock-card, .proto-row')]
         .find(n => n.dataset.rel === relKey);
       if (!el) return;
+      // Skip the staggered entry fade-in for the card we jumped to — otherwise a
+      // card far down the list appears up to half a second after the rest, which
+      // reads as "slow to populate." (Cancelling `animation` doesn't affect the
+      // outline-based flash, which is a transition.)
+      if (el.classList.contains('mock-card')) {
+        el.style.animation = 'none';
+        el.style.opacity = '1';
+      }
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.remove('mock-flash');
-      void el.offsetWidth; // restart the animation if it's still applied
+      void el.offsetWidth; // ensure the outline-color transition (re)triggers
       el.classList.add('mock-flash');
       setTimeout(() => el.classList.remove('mock-flash'), 1700);
     });
@@ -2171,7 +2179,11 @@
         position: relative; background: var(--card-bg); border: 1px solid var(--border);
         border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px;
         box-shadow: var(--shadow-sm);
-        transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+        /* outline is always present but transparent — the flash just fades its
+           color in/out, so it never touches the animation property (which drives
+           the entry fade-in) and never shifts layout. */
+        outline: 2px solid transparent; outline-offset: 3px;
+        transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease, outline-color 0.6s ease;
         opacity: 0; animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards; overflow: hidden;
       }
       @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -2195,12 +2207,12 @@
       /* List view: an amber accent bar down the row's leading edge. */
       .proto-row--fav td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
 
-      /* Brief flash when a side-nav Favorites bookmark scrolls you to its card. */
-      .mock-flash { animation: mock-flash 1.6s ease-out; }
-      @keyframes mock-flash {
-        0%, 12% { outline: 2px solid #f59e0b; outline-offset: 3px; background-color: rgba(245, 158, 11, 0.10); }
-        100% { outline: 2px solid rgba(245, 158, 11, 0); outline-offset: 3px; background-color: transparent; }
-      }
+      /* Brief flash when a side-nav Favorites bookmark scrolls you to its card.
+         Implemented as an outline-color change (transitioned by the base rules),
+         NOT a keyframe animation — so it can't override the card's entry
+         fade-in (the rise animation) and leave the card stuck invisible. */
+      .mock-card.mock-flash { outline-color: #f59e0b; }
+      .proto-row.mock-flash { background: #fef3c7; }
 
       /* Card header: a badge row (status pill + Jira ticket) sits above the
          title on its own full-width row (room for long titles). */
