@@ -1,0 +1,356 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Möbius — turning in on itself</title>
+
+<style>
+  /* Pure black studio. */
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    cursor: grab;
+  }
+  body:active { cursor: grabbing; }
+
+  /* Loader size — change this one value to scale the whole thing. */
+  :root { --loader-size: 72px; }
+  #gl {
+    position: fixed;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--loader-size);
+    height: var(--loader-size);
+    display: block;
+  }
+
+  /* Minimal caption — unobtrusive, bottom-left. */
+  #caption {
+    position: fixed;
+    left: 22px;
+    bottom: 20px;
+    color: rgba(200, 220, 230, 0.42);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 1.45;
+    pointer-events: none;
+    user-select: none;
+  }
+  #caption b { color: rgba(220, 235, 240, 0.72); font-weight: 600; letter-spacing: 0.02em; }
+  #caption small { display: block; font-size: 11.5px; opacity: 0.72; margin-top: 2px; }
+
+  #fallback {
+    position: fixed; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    color: #cfe0ec; font-size: 15px; text-align: center; padding: 24px;
+  }
+</style>
+
+<canvas id="gl"></canvas>
+<div id="caption"><b>Möbius strip</b><small>everting — cubes lit blue → green · drag to look around</small></div>
+<div id="fallback">This animation needs WebGL, which isn't available in this browser.</div>
+
+<!-- Vertex shader (instanced): every cube is one instance, placed AND oriented on the
+     Möbius band using the band's local surface frame (so cubes sit flat, like tiles).
+     uTwist everts the band; uWave gives the slowly rotating triangular opening. -->
+<script id="vs" type="x-shader/x-vertex">
+  attribute vec3 aCubePos;     // unit cube vertex, corners at ±0.5
+  attribute vec3 aCubeNormal;  // that vertex's (flat) face normal, cube-local
+  attribute vec2 aParam;       // per-instance: base angle u (0..2π), position across band (v)
+
+  uniform mat4 uProj;
+  uniform mat4 uView;
+  uniform mat4 uModel;         // whole-object tilt (pure rotation)
+  uniform mat3 uNormalMat;     // rotation part of uModel
+  uniform float uPhase;        // slowly slides the twist around the loop
+  uniform float uTwist;        // animated eversion: rotates every cross-section
+  uniform float uWavePhase;    // rotates the 3-fold undulation (turns the triangular hole)
+  uniform float uWaveAmp;      // undulation amplitude
+  uniform float uCube;         // cube edge length
+
+  varying vec3 vNormalW;       // world-space face normal, for lighting
+  varying vec3 vWorldPos;
+
+  const float R = 1.1;         // loop radius
+
+  void main() {
+    float u = aParam.x + uPhase;
+    float v = aParam.y;
+
+    // Cross-section twist: u*0.5 half-twist (Möbius) + uTwist eversion.
+    float tw = u * 0.5 + uTwist;
+    float c = cos(tw), s = sin(tw);
+    float C = cos(u), S = sin(u);
+    float rad = R + v * c;
+
+    vec3 P = vec3(rad * C, rad * S, v * s);
+    float wave = uWaveAmp * sin(3.0 * u + uWavePhase);   // gentle 3-fold vertical undulation
+    P.z += wave;
+
+    // Band tangents -> a local orthonormal frame (along-loop, across-band, surface-normal).
+    vec3 Pv = vec3(c * C, c * S, s);
+    float dr = -0.5 * v * s;
+    vec3 Pu = vec3(dr * C - rad * S, dr * S + rad * C, 0.5 * v * c);
+    Pu.z += uWaveAmp * 3.0 * cos(3.0 * u + uWavePhase);  // keep the frame on the wavy surface
+
+    vec3 T   = normalize(Pu);
+    vec3 Nrm = normalize(cross(Pu, Pv));
+    vec3 Bt  = cross(Nrm, T);
+
+    // Place and orient the cube in that frame (x=along loop, y=across band, z=out of band).
+    vec3 local = aCubePos * uCube;
+    vec3 objPos = P + local.x * T + local.y * Bt + local.z * Nrm;
+    vec3 nBand  = aCubeNormal.x * T + aCubeNormal.y * Bt + aCubeNormal.z * Nrm;
+
+    vec4 world = uModel * vec4(objPos, 1.0);
+    vWorldPos = world.xyz;
+    vNormalW = uNormalMat * nBand;
+
+    gl_Position = uProj * uView * world;
+  }
+</script>
+
+<!-- Fragment shader: ONE material, colored purely by light. A GREEN glow at the ring
+     centre lights inward faces; a BLUE key from the top/outside lights outward faces;
+     where they meet reads cyan/teal (the logo ramp). Unlit faces fall to near-black. -->
+<script id="fs" type="x-shader/x-fragment">
+  precision highp float;
+
+  varying vec3 vNormalW;
+  varying vec3 vWorldPos;
+
+  uniform vec3 uCamPos;
+  uniform vec3 uWarmPos;   // position of the green glow (centre of the ring), world space
+
+  void main() {
+    vec3 N = normalize(vNormalW);
+    vec3 V = normalize(uCamPos - vWorldPos);
+
+    // Blue key from the top/outside -> outward faces read blue.
+    vec3 blueDir = normalize(vec3(0.12, 0.90, 0.42));
+    float dBlue = max(dot(N, blueDir), 0.0);
+
+    // Green glow from the centre of the ring -> inward (concave) faces read green.
+    vec3 greenDir = normalize(uWarmPos - vWorldPos);
+    float dGreen = max(dot(N, greenDir), 0.0);
+
+    // Faint back rim so silhouettes lift off the black.
+    vec3 rimDir = normalize(vec3(-0.15, -0.45, -0.65));
+    float dRim = max(dot(N, rimDir), 0.0);
+
+    // Faint sheen only — speculars dialed way down (was glossy/shiny).
+    vec3 Hb = normalize(blueDir + V);
+    vec3 Hg = normalize(greenDir + V);
+    float spec = pow(max(dot(N, Hb), 0.0), 90.0) * 0.16
+               + pow(max(dot(N, Hg), 0.0), 70.0) * 0.09;
+
+    // Colors sampled from products/Bridge/assets/vector-solutions-logo.svg (saturated)
+    vec3 blue  = vec3(0.03, 0.45, 0.92);   // logo azure   (~#0374BB / #1361A6)
+    vec3 green = vec3(0.40, 0.97, 0.16);   // logo lime    (~#96CD68 / #BBD63B)
+    vec3 deep  = vec3(0.01, 0.05, 0.15);   // deepest logo blue (#03529C) -> shadow tint
+    float albedo = 0.9;
+
+    vec3 col = vec3(albedo) * (deep                   // deep-navy ambient (brand shadow)
+             + blue  * dBlue  * dBlue  * 1.35          // azure key, squared -> punchy
+             + green * dGreen * dGreen * 1.85          // lime glow, concentrated on inward faces
+             + blue  * dRim   * 0.08);
+    col += vec3(0.7, 1.0, 0.9) * spec;                // faint sheen
+
+    col = vec3(1.0) - exp(-col * 1.5);                // gentle exposure
+
+    // Dial up saturation — push each channel away from the pixel's luma.
+    float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = clamp(mix(vec3(luma), col, 1.35), 0.0, 1.0);
+
+    gl_FragColor = vec4(col, 1.0);
+  }
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  const canvas = document.getElementById("gl");
+  const gl = canvas.getContext("webgl", { antialias: true, alpha: true, premultipliedAlpha: false });
+  const ext = gl && gl.getExtension("ANGLE_instanced_arrays");
+  if (!gl || !ext) {
+    document.getElementById("fallback").style.display = "flex";
+    return;
+  }
+
+  /* ---------- tiny mat4 / mat3 helpers (column-major) ---------- */
+  function perspective(fovy, aspect, near, far) {
+    const f = 1.0 / Math.tan(fovy / 2), nf = 1.0 / (near - far);
+    return new Float32Array([f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
+  }
+  function translate(x, y, z) { return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, x,y,z,1]); }
+  function rotX(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]);}
+  function rotY(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]);}
+  function mul(a, b) {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++)
+      for (let r = 0; r < 4; r++)
+        o[c*4+r] = a[r]*b[c*4] + a[4+r]*b[c*4+1] + a[8+r]*b[c*4+2] + a[12+r]*b[c*4+3];
+    return o;
+  }
+  function mat3Rotation(m){ return new Float32Array([m[0],m[1],m[2], m[4],m[5],m[6], m[8],m[9],m[10]]); }
+
+  /* ---------- shader compile / link ---------- */
+  function compile(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error("shader:", gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, document.getElementById("vs").textContent));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, document.getElementById("fs").textContent));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error("link:", gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  /* ---------- unit cube mesh (shared by every instance) ---------- */
+  function makeCube() {
+    // 6 faces, each 4 vertices carrying that face's flat normal; corners at ±0.5.
+    const faces = [
+      { n: [ 0, 0, 1], v: [[-1,-1, 1],[ 1,-1, 1],[ 1, 1, 1],[-1, 1, 1]] },
+      { n: [ 0, 0,-1], v: [[ 1,-1,-1],[-1,-1,-1],[-1, 1,-1],[ 1, 1,-1]] },
+      { n: [ 1, 0, 0], v: [[ 1,-1, 1],[ 1,-1,-1],[ 1, 1,-1],[ 1, 1, 1]] },
+      { n: [-1, 0, 0], v: [[-1,-1,-1],[-1,-1, 1],[-1, 1, 1],[-1, 1,-1]] },
+      { n: [ 0, 1, 0], v: [[-1, 1, 1],[ 1, 1, 1],[ 1, 1,-1],[-1, 1,-1]] },
+      { n: [ 0,-1, 0], v: [[-1,-1,-1],[ 1,-1,-1],[ 1,-1, 1],[-1,-1, 1]] },
+    ];
+    const pos = [], nor = [], idx = [];
+    faces.forEach((f, fi) => {
+      f.v.forEach((p) => { pos.push(p[0]*0.5, p[1]*0.5, p[2]*0.5); nor.push(f.n[0], f.n[1], f.n[2]); });
+      const b = fi * 4;
+      idx.push(b, b+1, b+2, b, b+2, b+3);
+    });
+    return { pos: new Float32Array(pos), nor: new Float32Array(nor), idx: new Uint16Array(idx) };
+  }
+  const cube = makeCube();
+
+  const posVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, posVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, cube.pos, gl.STATIC_DRAW);
+  const aCubePos = gl.getAttribLocation(prog, "aCubePos");
+  gl.enableVertexAttribArray(aCubePos);
+  gl.vertexAttribPointer(aCubePos, 3, gl.FLOAT, false, 0, 0);
+
+  const norVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, norVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, cube.nor, gl.STATIC_DRAW);
+  const aCubeNormal = gl.getAttribLocation(prog, "aCubeNormal");
+  gl.enableVertexAttribArray(aCubeNormal);
+  gl.vertexAttribPointer(aCubeNormal, 3, gl.FLOAT, false, 0, 0);
+
+  const cubeIBO = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIBO);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.idx, gl.STATIC_DRAW);
+
+  /* ---------- one instance per cube, laid out on the u × v grid ---------- */
+  const N_U = 52;       // cubes around the loop
+  const N_V = 6;        // cubes across the band
+  const HALF_W = 0.34;  // half the band width
+  const CUBE = 0.10;    // cube edge (smaller than the cell -> tile gaps)
+
+  const inst = [];
+  for (let i = 0; i < N_U; i++) {
+    const u = i / N_U * Math.PI * 2;
+    for (let j = 0; j < N_V; j++) {
+      const v = (j / (N_V - 1) * 2 - 1) * HALF_W;
+      inst.push(u, v);
+    }
+  }
+  const INSTANCES = N_U * N_V;
+
+  const instVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, instVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STATIC_DRAW);
+  const aParam = gl.getAttribLocation(prog, "aParam");
+  gl.enableVertexAttribArray(aParam);
+  gl.vertexAttribPointer(aParam, 2, gl.FLOAT, false, 0, 0);
+  ext.vertexAttribDivisorANGLE(aParam, 1);   // advance once per instance
+
+  /* ---------- uniforms ---------- */
+  const U = {
+    proj: gl.getUniformLocation(prog, "uProj"),
+    view: gl.getUniformLocation(prog, "uView"),
+    model: gl.getUniformLocation(prog, "uModel"),
+    normalMat: gl.getUniformLocation(prog, "uNormalMat"),
+    phase: gl.getUniformLocation(prog, "uPhase"),
+    twist: gl.getUniformLocation(prog, "uTwist"),
+    wavePhase: gl.getUniformLocation(prog, "uWavePhase"),
+    waveAmp: gl.getUniformLocation(prog, "uWaveAmp"),
+    cube: gl.getUniformLocation(prog, "uCube"),
+    camPos: gl.getUniformLocation(prog, "uCamPos"),
+    warmPos: gl.getUniformLocation(prog, "uWarmPos"),
+  };
+  gl.uniform1f(U.cube, CUBE);
+  gl.uniform1f(U.waveAmp, 0.12);          // strength of the triangular undulation
+  gl.uniform3f(U.warmPos, 0, 0, 0.35);    // green glow sits at the ring centre
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.disable(gl.CULL_FACE);
+  gl.clearColor(0, 0, 0, 1);
+
+  /* ---------- camera ---------- */
+  const CAM_Z = 4.3;   // framed to fill the small loader box (still clears the everting bulge)
+  let proj;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.floor(canvas.clientWidth * dpr), h = Math.floor(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    proj = perspective(40 * Math.PI / 180, canvas.width / canvas.height, 0.1, 100);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const view = translate(0, 0, -CAM_Z);
+  gl.uniform3f(U.camPos, 0, 0, CAM_Z);
+
+  /* ---------- drag to look around ---------- */
+  let targetX = 0, targetY = 0, curX = 0, curY = 0;
+  window.addEventListener("pointermove", (e) => {
+    targetX = (e.clientX / window.innerWidth) * 2 - 1;
+    targetY = (e.clientY / window.innerHeight) * 2 - 1;
+  });
+  window.addEventListener("pointerleave", () => { targetX = 0; targetY = 0; });
+
+  /* ---------- render loop ---------- */
+  const BASE_TILT = -0.62;     // view the loop slightly from above so the hole shows
+  const start = performance.now();
+
+  function frame(now) {
+    const t = (now - start) * 0.001;
+    resize();
+
+    curX += (targetX - curX) * 0.06;
+    curY += (targetY - curY) * 0.06;
+
+    const twist = t * 0.7;       // eversion
+    const phase = t * 0.12;      // twist migrates around the loop
+    const wave  = t * 0.5;       // the triangular opening rotates
+    const tilt  = BASE_TILT + curY * 0.5;
+    const wob   = curX * 0.6;
+
+    const model = mul(rotX(tilt), rotY(wob));
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniformMatrix4fv(U.proj, false, proj);
+    gl.uniformMatrix4fv(U.view, false, view);
+    gl.uniformMatrix4fv(U.model, false, model);
+    gl.uniformMatrix3fv(U.normalMat, false, mat3Rotation(model));
+    gl.uniform1f(U.phase, phase);
+    gl.uniform1f(U.twist, twist);
+    gl.uniform1f(U.wavePhase, wave);
+
+    ext.drawElementsInstancedANGLE(gl.TRIANGLES, cube.idx.length, gl.UNSIGNED_SHORT, 0, INSTANCES);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
