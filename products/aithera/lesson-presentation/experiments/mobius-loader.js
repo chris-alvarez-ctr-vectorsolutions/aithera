@@ -21,6 +21,7 @@
  *   background  — CSS color painted behind the strip (default: transparent)
  *   colors      — { blue:[r,g,b], green:[r,g,b], deep:[r,g,b] } in 0..1
  *   density     — { around, across } tile counts (default 52 x 6)
+ *   wave        — 3-fold undulation amplitude (default 0 = smooth circular ring; try 0.12)
  *   saturation  — post saturation multiplier (default 1.35)
  *   dprCap      — max devicePixelRatio (default 2)
  *
@@ -144,7 +145,8 @@
 
     const reduce = global.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     const speed = o.speed * (reduce ? 0.45 : 1);
-    const waveAmp = reduce ? 0.0 : 0.12;
+    // 0 = smooth classic circular ring; >0 adds the 3-fold "triangular hole" undulation
+    const waveAmp = reduce ? 0.0 : (opts.wave != null ? +opts.wave : 0.0);
 
     const canvas = document.createElement("canvas");
     canvas.style.cssText = "display:block;width:100%;height:100%;";

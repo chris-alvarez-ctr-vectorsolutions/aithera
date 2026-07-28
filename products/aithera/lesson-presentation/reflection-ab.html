@@ -329,6 +329,10 @@
       /* the animated Möbius loader fills the orb; the check sits on top when done */
       .orb-core .orb-loader { position: absolute; inset: 4px; transition: opacity .3s ease; }
       .orb-check[hidden] { display: none; }  /* beat Font Awesome's forced display */
+      /* the chat-header "AI Helper" mark also hosts the Möbius loader */
+      .cs-head-orb { position: relative; overflow: hidden;
+        background: radial-gradient(circle at 32% 28%, #123047, #0a1826 62%, #050d16); }
+      .cs-head-orb .cs-orb-loader { position: absolute; inset: 2px; }
       .orb-calm { animation: breathe 5.5s ease-in-out infinite; filter: saturate(.9) brightness(.96); }
       .orb-live { animation: breathe 3.4s ease-in-out infinite; }
       @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
@@ -571,7 +575,7 @@
     <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
     <script src="js/frame.js?v=3"></script>
     <!-- Möbius "AI is thinking" loader — replaces the orb's wand icon (experiment) -->
-    <script src="experiments/mobius-loader.js?v=1"></script>
+    <script src="experiments/mobius-loader.js?v=2"></script>
     <script>
     /* ========================================================================
        Reflection A/B — two presentations of ONE post-video reflection gate.
@@ -734,18 +738,21 @@ Respond with ONLY a JSON object, no markdown fences:
       let vidPhase  = 'idle';  // idle | playing | done
       let vidRaf    = null;
       let surfaceRefs = null;  // live references to the current chat-surface DOM
+      let headMarkLoader = null;  // Möbius loader inside the chat-header "AI Helper" mark
 
       // ====== chat-surface (single source of truth, reparented per variant) ======
       const surface = document.createElement('div');
       surface.className = 'chat-surface';
 
       function buildSurface() {
+        // surface.innerHTML is about to be replaced — tear down the old header loader
+        if (headMarkLoader) { headMarkLoader.destroy(); headMarkLoader = null; }
         const showMin = variant === 'B';
         surface.innerHTML =
           '<div class="cs-head">' +
             '<div class="cs-head-id">' +
-              '<span class="orb-mark" style="width:28px;height:28px;font-size:13px;">' +
-                '<i class="fa-solid fa-wand-magic-sparkles"></i></span>' +
+              '<span class="orb-mark cs-head-orb" style="width:28px;height:28px;">' +
+                '<span class="cs-orb-loader" id="csHeadLoader"></span></span>' +
               '<div><div class="cs-title">AI Helper</div>' +
               '<div class="cs-note">Reflecting on the clip</div></div>' +
             '</div>' +
@@ -760,6 +767,8 @@ Respond with ONLY a JSON object, no markdown fences:
           min:    surface.querySelector('#csMin'),
         };
         if (surfaceRefs.min) surfaceRefs.min.addEventListener('click', closePanel);
+        const headLoaderEl = surface.querySelector('#csHeadLoader');
+        if (headLoaderEl && window.initMobiusLoader) headMarkLoader = initMobiusLoader(headLoaderEl);
         renderThread();
         renderFoot();
       }
