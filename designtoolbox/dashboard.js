@@ -1326,30 +1326,28 @@
     divider.className = 'fnav-divider';
     nav.appendChild(divider);
 
-    // Pinned favorites: flat quick links above the tree (full path as the
-    // label so nested pins stay unambiguous). The folder also remains in the
-    // tree below, star filled.
-    if (favs.length) {
-      favs.slice().sort((a, b) => a.localeCompare(b)).forEach(p => {
-        nav.appendChild(row(folderDisplay(p), descendantMocks(folders, p), p,
-          (!searching && state.tab === p) ? 'fa-folder-open' : 'fa-folder', { favoritable: true }));
-      });
-      const d = document.createElement('div');
-      d.className = 'fnav-divider';
-      nav.appendChild(d);
-    }
+    // Favoriting a folder simply floats it to the TOP of its level (below Main)
+    // — no separate pinned section, no duplicate row. Sibling folders sort
+    // favorited-first, then A→Z.
+    const favSet = new Set(favs);
+    const orderNodes = nodes => nodes.slice().sort((a, b) => {
+      const fa = favSet.has(a.path), fb = favSet.has(b.path);
+      if (fa !== fb) return fa ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 
     // The folder tree — n levels deep, chevrons collapse a branch, counts and
-    // pills on a parent describe its whole subtree.
+    // pills on a parent describe its whole subtree. Favorited folders lead each
+    // level (star filled in place).
     const renderNode = (node, depth) => {
-      const kids = [...node.children.values()];
+      const kids = orderNodes([...node.children.values()]);
       const isOpen = !closed.has(node.path);
       nav.appendChild(row(node.name, descendantMocks(folders, node.path), node.path,
         (!searching && state.tab === node.path) ? 'fa-folder-open' : 'fa-folder',
         { favoritable: true, depth, childCount: kids.length, isOpen }));
       if (kids.length && isOpen) kids.forEach(k => renderNode(k, depth + 1));
     };
-    [...tree.children.values()].forEach(n => renderNode(n, 0));
+    orderNodes([...tree.children.values()]).forEach(n => renderNode(n, 0));
   }
 
   // Status-grouped sections of FULL cards — used for the main (loose) area and,
