@@ -359,10 +359,11 @@
   // Cards are ALWAYS grouped by status; the sort controls ordering WITHIN each
   // status group (there is no standalone "by status" sort — grouping is implicit).
   const SORTS = {
-    updated: 'Recently updated',
-    oldest:  'Oldest updated',
-    az:      'Name (A–Z)',
-    za:      'Name (Z–A)',
+    updated:   'Recently updated',
+    oldest:    'Oldest updated',
+    az:        'Name (A–Z)',
+    za:        'Name (Z–A)',
+    favorited: 'Favorited first',
   };
   const state = {
     allMocks: [],
@@ -403,6 +404,17 @@
       case 'az': return byName;
       case 'za': return (a, b) => byName(b, a);
       case 'oldest': return byDate('asc');
+      case 'favorited': {
+        // Starred features first, the rest after — ordered by recency within
+        // each group. Applied WITHIN each status group like every other sort.
+        const favs = new Set(readFavMocks());
+        const recent = byDate('desc');
+        return (a, b) => {
+          const fa = favs.has(a.relKey), fb = favs.has(b.relKey);
+          if (fa !== fb) return fa ? -1 : 1;
+          return recent(a, b);
+        };
+      }
       case 'updated':
       default: return byDate('desc');
     }
@@ -705,23 +717,7 @@
     renderFilterChips(filtered);
     if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
 
-    // Name the active scope in the content column: a breadcrumb of the folder
-    // path (each ancestor clickable) so nested selections are legible.
-    if (sidebar && inFolder) renderFolderBreadcrumb(root, state.tab, filtered.length);
-
-    // Favorites are CROSS-FOLDER: pinned mocks follow you into every scope —
-    // that's the point of pinning (instant access from anywhere, including
-    // the Main landing view). Search and status filters still apply; the
-    // folder scope does not. In-scope pins are HOISTED out of the sections
-    // below so nothing renders twice; each pinned card shows a folder chip
-    // naming where it lives.
-    const favSet = new Set(readFavMocks());
-    let favMocks = state.allMocks.filter(m => favSet.has(m.relKey));
-    if (search) favMocks = favMocks.filter(matchesSearch);
-    if (statusFilter.size > 0) favMocks = favMocks.filter(m => statusFilter.has(m.status));
-    const rest = filtered.filter(m => !favSet.has(m.relKey));
-
-    if (filtered.length === 0 && favMocks.length === 0) {
+    if (filtered.length === 0) {
       // Full no-results state when everything was in scope (global search or
       // no folders); a lighter "check another folder" note when only the
       // selected folder came up empty.
@@ -731,61 +727,18 @@
       return;
     }
 
-    if (favMocks.length) renderFavoritesSection(favMocks, root);
+    // Name the active scope in the content column: a breadcrumb of the folder
+    // path (each ancestor clickable) so nested selections are legible.
+    if (sidebar && inFolder) renderFolderBreadcrumb(root, state.tab, filtered.length);
 
-    // Same set, two layouts — the view switcher just picks the renderer.
-    if (rest.length) {
-      if (state.view === 'list') renderListView(rest, root);
-      else renderCardView(rest, root);
-    }
+    // Starred features are NOT hoisted into a separate section any more — they
+    // stay in their status group with a highlighted border (see .mock-card--fav
+    // / buildCard). The side-nav "Favorites" bookmarks (renderFolderNav) are the
+    // cross-folder quick links; clicking one jumps to the card. The "Favorited
+    // first" sort orders each status group starred-first.
+    if (state.view === 'list') renderListView(filtered, root);
+    else renderCardView(filtered, root);
     if (state.view === 'card') scheduleAlign();
-  }
-
-  // Collapsible Favorites section — pinned cards sorted by the active sort,
-  // not status-grouped (each card carries its own status badge). Open/closed
-  // state persists per browser.
-  function renderFavoritesSection(mocks, root) {
-    const wrap = document.createElement('section');
-    wrap.className = 'section fav-section';
-    const det = document.createElement('details');
-    det.className = 'fav-details';
-    det.open = readFavsOpen();
-
-    const sorted = mocks.slice().sort(mockComparator(state.sort));
-    const summary = document.createElement('summary');
-    summary.className = 'section-header fav-header';
-    summary.innerHTML = `
-      <i class="fa-solid fa-chevron-right fav-chevron"></i>
-      <h2 class="section-title"><i class="fa-solid fa-star fav-title-star"></i> Favorites</h2>
-      <span class="section-count">${sorted.length}</span>`;
-    det.appendChild(summary);
-
-    const body = document.createElement('div');
-    if (state.view === 'list') {
-      body.className = 'proto-table-wrap';
-      body.innerHTML = `
-        <table class="proto-table">
-          <thead>
-            <tr>
-              <th>Prototype</th>
-              <th class="col-status">Status</th>
-              <th class="col-jira">Jira</th>
-              <th class="col-date">Last updated</th>
-            </tr>
-          </thead>
-          <tbody>${sorted.map(m => listRow(m, true)).join('')}</tbody>
-        </table>`;
-    } else {
-      body.className = 'card-grid';
-      sorted.forEach((m, i) => body.appendChild(buildCard(m, i, true)));
-    }
-    det.appendChild(body);
-    det.addEventListener('toggle', () => {
-      try { localStorage.setItem(FAVS_OPEN_KEY, det.open ? 'true' : 'false'); } catch { /* private mode */ }
-      if (det.open && state.view === 'card') scheduleAlign();
-    });
-    wrap.appendChild(det);
-    root.appendChild(wrap);
   }
 
   // --------------------------------------------------------------------------
@@ -1160,9 +1113,11 @@
     try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
   }
 
-  // Favorited MOCKS (cards) — separate from folder favorites. The star on a
-  // card/row pins it into the collapsible "Favorites" section that renders
-  // above the status sections. Keyed by relKey, per browser per product.
+  // Favorited MOCKS (features) — separate from folder favorites. The star on a
+  // card/row pins the feature: it gets a highlighted border in place (it stays
+  // in its status group, never hoisted) and shows up as a bookmark in the side
+  // nav "Favorites" list, from which one click jumps to its card. Keyed by
+  // relKey, per browser per product; the stored array preserves pin order.
   const MOCK_FAV_KEY = 'designlab-fav-mocks:' + PRODUCT;
   function readFavMocks() {
     try {
@@ -1176,10 +1131,11 @@
     if (i === -1) favs.push(relKey); else favs.splice(i, 1);
     try { localStorage.setItem(MOCK_FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
   }
-  // Favorites section open/closed, persisted. Defaults to open.
-  const FAVS_OPEN_KEY = 'designlab-favs-open:' + PRODUCT;
-  function readFavsOpen() {
-    try { return localStorage.getItem(FAVS_OPEN_KEY) !== 'false'; } catch { return true; }
+  // Favorited features resolved to mock objects, in pin order — the source for
+  // the side-nav Favorites bookmarks. Skips any pin whose mock no longer exists.
+  function favFeatureMocks() {
+    const byKey = new Map(state.allMocks.map(m => [m.relKey, m]));
+    return readFavMocks().map(k => byKey.get(k)).filter(Boolean);
   }
   // One delegated handler covers stars in both views (cards are rebuilt on
   // every render, so per-element listeners would need constant rebinding).
@@ -1190,6 +1146,56 @@
     toggleFavMock(star.dataset.rel);
     applyFiltersAndRender();
   });
+
+  // Jump straight to a feature's card from a side-nav bookmark: put the card in
+  // scope (its folder or Main), clear search + status filters so nothing hides
+  // it, render, then scroll to it and flash a highlight.
+  function goToMock(relKey) {
+    const mock = state.allMocks.find(m => m.relKey === relKey);
+    if (!mock) return;
+    state.search = '';
+    const input = byId('searchInput');
+    if (input) { input.value = ''; byId('searchWrapper').classList.remove('has-value'); }
+    state.statuses.clear();
+    const scope = mock.groupKey || MAIN_KEY;
+    if (scope !== MAIN_KEY) openAncestors(scope);
+    state.tab = scope;
+    applyFiltersAndRender();
+    requestAnimationFrame(() => {
+      const el = [...document.querySelectorAll('.mock-card, .proto-row')]
+        .find(n => n.dataset.rel === relKey);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('mock-flash');
+      void el.offsetWidth; // restart the animation if it's still applied
+      el.classList.add('mock-flash');
+      setTimeout(() => el.classList.remove('mock-flash'), 1700);
+    });
+  }
+
+  // A side-nav Favorites bookmark row for one starred feature. Clicking the row
+  // navigates to the card; the trailing ✕ (shown on hover) unpins it.
+  function favBookmarkRow(mock) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fnav-item fnav-fav';
+    btn.title = 'Go to ' + mock.title;
+    btn.innerHTML = `
+      <span class="fnav-name">
+        <i class="fa-solid fa-star fnav-icon fnav-fav-icon"></i>
+        <span class="fnav-text">${escapeHtml(mock.title)}</span>
+      </span>
+      <span class="fnav-fav-unstar" role="button" tabindex="0" title="Remove from Favorites" aria-label="Remove ${escapeHtml(mock.title)} from Favorites"><i class="fa-solid fa-xmark"></i></span>`;
+    btn.addEventListener('click', e => {
+      if (e.target.closest('.fnav-fav-unstar')) {
+        toggleFavMock(mock.relKey);
+        applyFiltersAndRender();
+        return;
+      }
+      goToMock(mock.relKey);
+    });
+    return btn;
+  }
 
   // Collapsed tree branches, persisted per browser. Stored as the CLOSED set
   // (not the open set) so newly added folders default to expanded.
@@ -1224,10 +1230,14 @@
 
   function renderFolderNav(folders, loose, searching) {
     const nav = byId('folderNav');
-    if (!folders.size) { nav.hidden = true; nav.innerHTML = ''; return; }
+    const favFeatures = favFeatureMocks();
+    const hasFolders = folders.size > 0;
+    // The rail now hosts feature Favorites too, so it appears even for products
+    // with NO nested folders — as long as at least one feature is favorited.
+    if (!hasFolders && !favFeatures.length) { nav.hidden = true; nav.innerHTML = ''; return; }
 
-    // Reset a stale selection (e.g. the folder disappeared from products.json).
-    if (state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
+    // Reset a stale folder selection (e.g. the folder disappeared from products.json).
+    if (hasFolders && state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
       state.tab = MAIN_KEY;
     }
 
@@ -1235,6 +1245,26 @@
     nav.innerHTML = '';
     nav.dataset.searching = searching ? 'true' : 'false';
     nav.title = searching ? 'Search looks across all folders' : '';
+
+    // ── Favorites bookmarks (starred FEATURES) — cross-folder quick links that
+    //    jump straight to a card. Rendered above the folder tree, and present
+    //    even when the product is flat (no folders below).
+    if (favFeatures.length) {
+      const favLabel = document.createElement('div');
+      favLabel.className = 'fnav-label';
+      favLabel.textContent = 'Favorites';
+      nav.appendChild(favLabel);
+      favFeatures.forEach(m => nav.appendChild(favBookmarkRow(m)));
+      if (hasFolders) {
+        const d = document.createElement('div');
+        d.className = 'fnav-divider';
+        nav.appendChild(d);
+      }
+    }
+
+    // A flat product (no folders) has nothing more to draw — the Favorites list
+    // stands on its own.
+    if (!hasFolders) return;
 
     const favs = readFavFolders().filter(p => folderExists(folders, p));
     const closed = new Set(readClosedFolders());
@@ -1419,9 +1449,10 @@
         : '';
 
     const updated = mock.lastUpdated ? escapeHtml(formatDateTime(mock.lastUpdated)) : '—';
+    const isFav = readFavMocks().includes(mock.relKey);
 
     return `
-          <tr class="proto-row">
+          <tr class="proto-row${isFav ? ' proto-row--fav' : ''}" data-rel="${escapeHtml(mock.relKey)}">
             <td>
               <div class="proto-cell">
                 <a class="proto-name" href="${href}" target="_blank" rel="noopener">
@@ -1621,8 +1652,12 @@
       </div>`;
     }
 
+    const isFav = readFavMocks().includes(mock.relKey);
     const card = document.createElement('div');
-    card.className = 'mock-card' + (mock.recentlyUpdated ? ' mock-card--recent' : '');
+    card.className = 'mock-card'
+      + (mock.recentlyUpdated ? ' mock-card--recent' : '')
+      + (isFav ? ' mock-card--fav' : '');
+    card.dataset.rel = mock.relKey; // scroll target for side-nav Favorites bookmarks
     card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
     card.innerHTML = `
       <div class="card-header">
@@ -2154,6 +2189,21 @@
          spot in the grid — the same notification violet as the LOG dot + hot rows. */
       .mock-card--recent { border-color: #a78bfa; box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15), var(--shadow-sm); }
 
+      /* Favorited features stay in their status group but get a highlighted amber
+         border (matching the star). Declared AFTER --recent so a pinned card that
+         also changed recently reads as favorited. */
+      .mock-card--fav { border-color: #f59e0b; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.30), var(--shadow-sm); }
+      .mock-card--fav:hover { border-color: #f59e0b; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35), var(--shadow-md); }
+      /* List view: an amber accent bar down the row's leading edge. */
+      .proto-row--fav td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+
+      /* Brief flash when a side-nav Favorites bookmark scrolls you to its card. */
+      .mock-flash { animation: mock-flash 1.6s ease-out; }
+      @keyframes mock-flash {
+        0%, 12% { outline: 2px solid #f59e0b; outline-offset: 3px; background-color: rgba(245, 158, 11, 0.10); }
+        100% { outline: 2px solid rgba(245, 158, 11, 0); outline-offset: 3px; background-color: transparent; }
+      }
+
       /* Card header: a badge row (status pill + Jira ticket) sits above the
          title on its own full-width row (room for long titles). */
       .card-header { display: block; }
@@ -2352,6 +2402,19 @@
       .fnav-star[data-fav="true"] { opacity: 1; color: #f59e0b; }
       .fnav-item[data-active="true"] .fnav-star { color: rgba(255,255,255,0.85); }
       .fnav-item[data-active="true"] .fnav-star[data-fav="true"] { color: #fde68a; }
+
+      /* Favorites bookmark rows (starred FEATURES) — a filled amber star and a
+         trailing ✕ that appears on hover to unpin. Clicking the row jumps to the
+         card (see goToMock). */
+      .fnav-fav-icon { color: #f59e0b; }
+      .fnav-fav-unstar {
+        display: inline-flex; align-items: center; padding: 2px 4px; border-radius: 6px;
+        color: var(--text-muted); font-size: 11px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, background 0.1s ease;
+      }
+      .fnav-fav:hover .fnav-fav-unstar { opacity: 0.7; }
+      .fnav-fav-unstar:hover { opacity: 1 !important; color: #b91c1c; background: rgba(0,0,0,0.06); }
+      @media (hover: none) { .fnav-fav-unstar { opacity: 0.55; } }
 
       /* Narrow screens: the sidebar becomes a wrapping row above the content. */
       @media (max-width: 980px) {
