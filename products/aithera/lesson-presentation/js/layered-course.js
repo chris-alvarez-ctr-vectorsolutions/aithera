@@ -55,6 +55,9 @@
             '<div class="cv-spinner" aria-hidden="true"></div>' +
             '<div>Loading video… <b id="cvPct">0%</b></div>' +
           '</div>' +
+          // Prototype-only skip ON the video (matches the scenario\'s cold-open
+          // .intro-skip): jumps past the clip so CLARA pops up.
+          '<button class="cv-skip" id="cvSkip" type="button" aria-label="Skip video">Skip <i class="fa-solid fa-forward"></i></button>' +
         '</div>' +
       '</main>';
   }
@@ -124,10 +127,25 @@
     correctReply: 'Exactly. That’s the kind of moment a bystander can step into — which is what you’ll practice next.',
     wrongReply: 'Not quite — think back to the comments that made the moment uncomfortable, and try again.'
   };
+  // Prototype-only on-video skip (mirrors the scenario's cold-open .intro-skip):
+  // jump past the clip so CLARA's beat fires — her question on the pre-roll,
+  // her reflection on the close.
+  function wireVideoSkip(video) {
+    var skip = document.getElementById('cvSkip');
+    if (!skip) return;
+    skip.addEventListener('click', function () {
+      var wrap = document.getElementById('videoWrap');
+      if (wrap) wrap.classList.add('is-ready');            // in case still buffering
+      try { video.pause(); if (isFinite(video.duration) && video.duration > 0) video.currentTime = video.duration; } catch (e) {}
+      video.dispatchEvent(new Event('ended'));             // reveal CLARA (idempotent guards)
+    });
+  }
+
   function videoInit(ctx) {
     var video = document.getElementById('courseVideo');
     var asked = false, answered = false;
     preloadVideoFully(video);
+    wireVideoSkip(video);
     video.addEventListener('play', function () { ctx.floatClose(); });
     video.addEventListener('ended', revealQuestion);
 
@@ -193,6 +211,7 @@
     var video = document.getElementById('courseVideo');
     var closed = false;
     preloadVideoFully(video);
+    wireVideoSkip(video);
     video.addEventListener('play', function () { ctx.floatClose(); });
     video.addEventListener('ended', function () {
       if (closed) return; closed = true;
