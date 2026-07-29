@@ -109,7 +109,7 @@
      calibration, earned-disclosure ledgers, SME ideal close). Fictional school,
      no state named — policy-agnostic by design.
      ======================================================================= */
-  const OPENING_SITUATION = 'You teach 7th grade at Pleasant Street Middle School. Sofia joined your class this year — quiet, a little shy, happiest with a sketchbook open. For the first few months she seemed to be settling in. Lately, though, something’s off. She’s stopped raising her hand. She eats lunch alone. Last week you found her lingering in your room during passing period, like she didn’t want to go back out into the hall.\n\nYou told yourself you’d keep an eye on it. Then this morning you got a message: Sofia’s mother, Ms. Reyes, has asked to meet with you before first period. She took time off work to come in.\n\nNow she’s sitting across from you. She looks tired, and worried, and like she’s been holding something in for a while. You can tell this isn’t a small thing.';
+  const OPENING_SITUATION = 'You teach 7th grade at Pleasant Street Middle School. Sofia joined your class this year — quiet, a little shy, happiest with a sketchbook open. For the first few months she seemed to be settling in. Lately, though, something’s off. She’s stopped raising her hand. She eats lunch alone. Last week you found her lingering in your room during passing period, like she didn’t want to go back out into the hall.\n\nYou told yourself you’d keep an eye on it. Then this morning you got a message: Sofia’s mother has asked to meet with you before first period. She took time off work to come in.\n\nNow she’s sitting across from you. She looks tired, and worried, and like she’s been holding something in for a while. You can tell this isn’t a small thing.';
 
   const DEFAULT = {
     v: 1,
@@ -138,7 +138,7 @@
         eyebrow: 'The situation · read',
         title: 'Before first period',
         text: OPENING_SITUATION,
-        continueLabel: 'Meet Ms. Reyes',
+        continueLabel: 'Continue',
       },
     },
 
@@ -151,7 +151,7 @@
     // Ms. Reyes. (The source deck opens straight on the parent; we keep a light
     // ENTER beat for house consistency — it never grades and hands right in.)
     reflection: {
-      prompt: 'Before Ms. Reyes starts — take a second. You’ve watched Sofia go quiet for weeks, and now her mother has taken time off work to come in. What’s your read walking into this, and what are you hoping to do for Sofia?',
+      prompt: 'Before Sofia’s mother starts — take a second. You’ve watched Sofia go quiet for weeks, and now her mother has taken time off work to come in. What’s your read walking into this, and what are you hoping to do for Sofia?',
       feedbackGuidance: 'CALIBRATION ONLY, do not evaluate. 2-3 short bubbles: acknowledge their read in their own words; note whether they’re leaning toward believing-and-helping vs. wait-and-see, without grading it. END on that calibration — do NOT preview the meeting or hand off; the app opens the scene with Ms. Reyes next.',
     },
 

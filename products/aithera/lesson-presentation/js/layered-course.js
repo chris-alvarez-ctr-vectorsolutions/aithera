@@ -241,9 +241,14 @@
 
     var band = overall >= 90 ? 'Excellent work' : overall >= 75 ? 'Nicely done' : 'Good start';
     document.getElementById('resHeadline').textContent = band + ', Rob.';
-    ctx.setCoachSay(overall >= 90
-      ? 'That was strong, Rob — you read the moment and acted on it. Here’s the breakdown.'
-      : 'Solid work, Rob. You made it through the whole thing — here’s where you shone and where to keep sharpening.');
+    // CLARA's feedback TYPES IN as two bubbles (typing indicator → text) rather
+    // than rendering statically on load — see typeFeedback().
+    typeFeedback(ctx, [
+      (overall >= 90)
+        ? 'That was strong, Rob. Here’s how you did overall.'
+        : 'Solid work, Rob. Here’s how you did overall.',
+      'I’m here if you have any questions.'
+    ]);
 
     var cards = [];
     cards.push(card('fa-circle-question', 'Comprehension check',
@@ -290,6 +295,39 @@
     }
   }
 
+  // Type a sequence of CLARA bubbles into the sidebar thread: each shows a
+  // typing indicator first, then reveals its text. The first message reuses the
+  // chrome's own (empty) greeting bubble; the rest are appended after it lands.
+  // Runs inside resultsInit → inside showStep's synchronous build, so the first
+  // bubble becomes a typing indicator before the browser paints (no flash of an
+  // empty/placeholder bubble). Near-instant under reduced motion (T() → 0).
+  function typeFeedback(ctx, lines) {
+    var echo = ctx.chrome.querySelector('#claraEcho');
+    if (!echo || !lines.length) return;
+    function showTyping(b) {
+      b.className = 'cbub clara typing';
+      b.innerHTML = '<span></span><span></span><span></span>';
+      echo.scrollTop = echo.scrollHeight;
+    }
+    function reveal(b, text) {
+      b.className = 'cbub clara';
+      b.textContent = text;
+      echo.scrollTop = echo.scrollHeight;
+    }
+    function run(i, bubble) {
+      showTyping(bubble);
+      setTimeout(function () {
+        reveal(bubble, lines[i]);
+        if (i + 1 < lines.length) {
+          var next = document.createElement('div');
+          echo.appendChild(next);
+          run(i + 1, next);
+        }
+      }, T(i === 0 ? 750 : 900));
+    }
+    run(0, echo.querySelector('.clara-say') || echo.querySelector('.cbub.clara') || echo.appendChild(document.createElement('div')));
+  }
+
   // Docked-CLARA chat (results step): a canned back-and-forth in the sidebar
   // panel — type a question, CLARA answers (no LLM yet). The thread auto-scrolls
   // to the newest message, following the coach-panel behavior. PLACEHOLDER
@@ -331,9 +369,9 @@
   var STEPS = [
     { id: 'intro', n: 1, mode: 'ambient', lesson: 'Welcome',
       caption: { title: 'Course intro · Ambient presence', note: 'CLARA fills the space to open the lesson.' },
-      coach: { eyebrow: 'Your coach', headline: "Hi, Rob. I'm CLARA.",
-        lede: "I'll be with you through this lesson, changing shape to fit whatever you're working on. " +
-              "When we move between activities I come along — so it never feels like starting over. Ready when you are." } },
+      coach: { eyebrow: '- CLARA -', headline: "Hi, Rob. Ready to begin?",
+        lede: "We'll be working through some sensitive scenarios today, related to sexual harassment in the workplace. " +
+              "I'll guide you through each section and may ask a few questions as you progress through each." } },
 
     { id: 'video', n: 2, mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'Gated video · Floating companion', note: 'The clip must play and the learner must answer CLARA’s check before Continue unlocks.' },
@@ -362,7 +400,7 @@
 
     { id: 'results', n: 6, mode: 'sidebar', lesson: 'Your Results',
       caption: { title: 'Course results · Docked guide', note: 'An overall score ring plus a per-section breakdown from the record each step wrote.' },
-      coach: { say: "Here's the whole picture, Rob. Take a look — then you're all set.", ask: 'Ask CLARA about your results…' },
+      coach: { say: '', ask: 'Ask CLARA about your results…' },   // greeting is TYPED IN by resultsInit (typing bubble → text)
       content: RESULTS_CONTENT, init: resultsInit }
   ];
   var TOTAL = STEPS.length;
