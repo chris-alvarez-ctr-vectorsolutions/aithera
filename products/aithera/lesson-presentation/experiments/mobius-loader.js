@@ -206,7 +206,7 @@
     ["uProj","uView","uModel","uNormalMat","uPhase","uTwist","uWavePhase","uWaveAmp","uCube","uCamPos","uWarmPos","uBlue","uGreen","uDeep","uSat"]
       .forEach(n => U[n] = gl.getUniformLocation(prog, n));
 
-    const CAM_Z = 4.3, CUBE = 0.10;
+    const CAM_Z = 4.05, CUBE = 0.10;
     gl.uniform1f(U.uCube, CUBE);
     gl.uniform1f(U.uWaveAmp, waveAmp);
     gl.uniform1f(U.uSat, o.saturation);
@@ -235,14 +235,18 @@
     if (global.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(canvas); } else { global.addEventListener("resize", resize); }
     resize();
 
-    const BASE_TILT = -0.62;
+    const BASE_TILT = -0.28;   // flatter -> the ring fills the disc (was -0.62, a steep oval)
     let raf = 0, running = true, spd = speed, t0 = performance.now();
     function frame(now) {
       if (!running) return;
       if (!proj || canvas.clientWidth === 0) { raf = requestAnimationFrame(frame); return; }
       const t = (now - t0) * 0.001 * spd;
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      const model = mul(rotX(BASE_TILT), rotY(0));
+      // gentle wobble: tilt tips toward/away (fills the top at the shallow end),
+      // with a small sway so the motion feels organic
+      const tilt = BASE_TILT + 0.16 * Math.sin(t * 0.5);
+      const sway = 0.12 * Math.sin(t * 0.37);
+      const model = mul(rotX(tilt), rotY(sway));
       gl.uniformMatrix4fv(U.uProj, false, proj);
       gl.uniformMatrix4fv(U.uModel, false, model);
       gl.uniformMatrix3fv(U.uNormalMat, false, mat3Rot(model));
