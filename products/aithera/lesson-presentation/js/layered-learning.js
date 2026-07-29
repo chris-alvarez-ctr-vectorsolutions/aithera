@@ -56,8 +56,36 @@
     });
   }
 
+  // ------------------------------------------------------------------------
+  // Course results — a tiny cross-page record kept in sessionStorage so a
+  // multi-page flow (see the layered-course-*.html pages) can carry each
+  // page's outcome to a final results page. Exposed on window.Layered too.
+  // ------------------------------------------------------------------------
+  function readCourse() {
+    try { return JSON.parse(sessionStorage.getItem('ll-course') || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function saveResult(key, value) {
+    var c = readCourse();
+    c[key] = value;
+    try { sessionStorage.setItem('ll-course', JSON.stringify(c)); } catch (e) {}
+    return c;
+  }
+
+  // ------------------------------------------------------------------------
+  // Ready hook — page interaction scripts call window.onLayeredReady(cb) to
+  // get the public API once build() has run, no matter their script order.
+  // ------------------------------------------------------------------------
+  var readyCbs = [];
+  window.onLayeredReady = function (cb) {
+    if (typeof cb !== 'function') return;
+    if (window.Layered) { cb(window.Layered); }
+    else { readyCbs.push(cb); }
+  };
+
   // Refs filled during build()
   var stage, orb, chrome, object, footer;
+  var beforeNav = [];                              // callbacks run just before we navigate away
 
   // ------------------------------------------------------------------------
   // Coach chrome — one builder per presentation. Returns the inner HTML for a
@@ -180,6 +208,7 @@
   function go(href, dir) {
     if (navigating || !href) return;
     navigating = true;
+    beforeNav.forEach(function (fn) { try { fn(dir, href); } catch (e) {} });
     // Hand the travel direction to the next file so its orb enters from the
     // matching side, and set this page's exit offset to match.
     document.body.style.setProperty('--in-x',  dir === 'back' ? '64px'  : '-64px');
@@ -280,8 +309,14 @@
       '</div>';
     document.body.appendChild(footer);
 
-    footer.querySelector('#llBack').addEventListener('click', function () { go(cfg.prev, 'back'); });
-    footer.querySelector('#llNext').addEventListener('click', function () { go(nextHref, 'fwd'); });
+    var backBtn = footer.querySelector('#llBack');
+    var nextBtn = footer.querySelector('#llNext');
+    backBtn.addEventListener('click', function () { go(cfg.prev, 'back'); });
+    nextBtn.addEventListener('click', function () { go(nextHref, 'fwd'); });
+
+    // Gated Continue (opt-in): starts disabled; a page script enables it once
+    // its condition is met (e.g. a video watched + question answered).
+    if (cfg.gate) nextBtn.disabled = true;
 
     if (cfg.mode === 'overlay') wireComposer();
 
@@ -325,6 +360,32 @@
       clearTimeout(rt);
       rt = setTimeout(function () { positionOrb(false); }, 80);
     });
+
+    // ---- Public API -------------------------------------------------------
+    // Page interaction scripts reach these via window.onLayeredReady(cb). All
+    // are no-ops for the four original demo pages (which never call them).
+    window.Layered = {
+      mode:  cfg.mode,
+      stage: stage, orb: orb, chrome: chrome, footer: footer,
+      els: {
+        next: nextBtn, back: backBtn,
+        coachSay: chrome.querySelector('.clara-say'),
+        bubble:   chrome.querySelector('.clara-bubble')
+      },
+      enableNext:   function () { nextBtn.disabled = false; },
+      disableNext:  function () { nextBtn.disabled = true;  },
+      setNextLabel: function (t) { nextBtn.innerHTML = esc(t) + ' <i class="fa-solid fa-arrow-right"></i>'; },
+      setNextHref:  function (h) { nextHref = h; },
+      floatOpen:    function () { if (stage) stage.dataset.float = 'open';   },
+      floatClose:   function () { if (stage) stage.dataset.float = 'closed'; },
+      setCoachSay:  function (html) { var s = chrome.querySelector('.clara-say'); if (s) s.innerHTML = html; },
+      positionOrb:  positionOrb,
+      onNext:       function (fn) { if (typeof fn === 'function') beforeNav.push(fn); },
+      saveResult:   saveResult,
+      readCourse:   readCourse
+    };
+    readyCbs.forEach(function (cb) { try { cb(window.Layered); } catch (e) {} });
+    readyCbs = [];
 
     playEnter();
     // Re-park once late web-fonts/layout settle (avoids a first-paint mis-align).

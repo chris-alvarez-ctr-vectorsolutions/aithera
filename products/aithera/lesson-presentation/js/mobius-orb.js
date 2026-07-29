@@ -101,11 +101,12 @@
   ].join('\n');
 
   // Default "CLARA" preset (no bg — the component is always transparent).
+  // Values tuned in experiments/mobius-strip.html (2026-07-29).
   var PRESET = {
     interactive: false,
-    tilt: 0.0, zoom: 4.05, fov: 75, speed: 2.0, eversion: 0.2,
-    wobble: 0.47, sway: 0.0, wave: 0.24, reverse: true,
-    rows: 5, segments: 75, volume: 0.05, thick: 0.05, width: 0.19, round: 0.28,
+    tilt: 0.0, zoom: 2.8, fov: 75, speed: 0.55, eversion: 1.2,
+    wobble: 0.6, sway: 0.0, wave: 0.4, reverse: false,
+    rows: 4, segments: 49, volume: 0.115, thick: 0.015, width: 0.22, round: 0.22,
     green: [0.400, 0.969, 0.161], blue: [0.031, 0.451, 0.922], deep: [0.012, 0.051, 0.149]
   };
 
