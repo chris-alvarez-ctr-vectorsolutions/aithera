@@ -369,7 +369,7 @@
   var STEPS = [
     { id: 'intro', n: 1, mode: 'ambient', lesson: 'Welcome',
       caption: { title: 'Course intro · Ambient presence', note: 'CLARA fills the space to open the lesson.' },
-      coach: { eyebrow: '- CLARA -', headline: "Hi, Rob. Ready to begin?",
+      coach: { eyebrow: 'Duration ≅ 10 minutes', headline: "Hi, Rob. Ready to begin?",
         lede: "We'll be working through some sensitive scenarios today, related to sexual harassment in the workplace. " +
               "I'll guide you through each section and may ask a few questions as you progress through each." } },
 
