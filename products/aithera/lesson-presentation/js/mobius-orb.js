@@ -17,6 +17,11 @@
          paused: false,       // start paused
        });
 
+   Each tiled instance is a "volume" — a rounded box that morphs toward a sphere
+   as `round` goes 0→1. `volume` sets its footprint on the band; `thick` sets its
+   depth off the surface (equal = a cube, small = a thin plate). A legacy `cube`
+   config still works: it sets `volume` and `thick` together (a uniform cube).
+
    The default config is the Vector "CLARA" look. Colours accept either a
    [r,g,b] 0–1 array or a '#rrggbb' string. The component sizes itself to the
    host element (per-frame), uses devicePixelRatio for crispness, and pauses
@@ -27,13 +32,13 @@
 
   // ---- shaders (verbatim from the toy) -------------------------------------
   var VS = [
-    'attribute vec3 aCubePos;',
+    'attribute vec3 aVolumePos;',
     'attribute vec3 aSpherePos;',
-    'attribute vec3 aCubeNormal;',
+    'attribute vec3 aVolumeNormal;',
     'attribute vec2 aParam;',
     'uniform mat4 uProj; uniform mat4 uView; uniform mat4 uModel; uniform mat3 uNormalMat;',
     'uniform float uPhase; uniform float uTwist; uniform float uWavePhase; uniform float uWaveAmp;',
-    'uniform float uCube; uniform float uRound; uniform float uSeg; uniform float uRows; uniform float uWidth;',
+    'uniform float uVolume; uniform float uThick; uniform float uRound; uniform float uSeg; uniform float uRows; uniform float uWidth;',
     'varying vec3 vNormalW; varying vec3 vWorldPos;',
     'const float R = 1.1;',
     'void main() {',
@@ -56,11 +61,12 @@
     '  vec3 T   = normalize(Pu);',
     '  vec3 Nrm = normalize(cross(Pu, Pv));',
     '  vec3 Bt  = cross(Nrm, T);',
-    '  vec3 rPos = mix(aCubePos, aSpherePos, uRound);',
-    '  vec3 rNrm = normalize(mix(aCubeNormal, normalize(aSpherePos), uRound));',
-    '  vec3 local = rPos * (uCube * pres);',
+    '  vec3 rPos = mix(aVolumePos, aSpherePos, uRound);',
+    '  vec3 rNrm = normalize(mix(aVolumeNormal, normalize(aSpherePos), uRound));',
+    '  vec3 local = rPos * vec3(uVolume, uVolume, uThick) * pres;',
+    '  vec3 nScaled = normalize(vec3(rNrm.x / uVolume, rNrm.y / uVolume, rNrm.z / uThick));',
     '  vec3 objPos = P + local.x * T + local.y * Bt + local.z * Nrm;',
-    '  vec3 nBand  = rNrm.x * T + rNrm.y * Bt + rNrm.z * Nrm;',
+    '  vec3 nBand  = nScaled.x * T + nScaled.y * Bt + nScaled.z * Nrm;',
     '  vec4 world = uModel * vec4(objPos, 1.0);',
     '  vWorldPos = world.xyz;',
     '  vNormalW = uNormalMat * nBand;',
@@ -90,7 +96,7 @@
     '  col = vec3(1.0) - exp(-col * 1.5);',
     '  float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));',
     '  col = clamp(mix(vec3(luma), col, 1.35), 0.0, 1.0);',
-    '  gl_FragColor = vec4(col, 1.0);',   // opaque cubes; the CLEAR is transparent
+    '  gl_FragColor = vec4(col, 1.0);',   // opaque volumes; the CLEAR is transparent
     '}'
   ].join('\n');
 
@@ -99,7 +105,7 @@
     interactive: false,
     tilt: 0.0, zoom: 4.05, fov: 75, speed: 2.0, eversion: 0.2,
     wobble: 0.47, sway: 0.0, wave: 0.24, reverse: true,
-    rows: 5, segments: 75, cube: 0.05, width: 0.19, round: 0.28,
+    rows: 5, segments: 75, volume: 0.05, thick: 0.05, width: 0.19, round: 0.28,
     green: [0.400, 0.969, 0.161], blue: [0.031, 0.451, 0.922], deep: [0.012, 0.051, 0.149]
   };
 
@@ -124,7 +130,7 @@
   }
   function mat3Rotation(m) { return new Float32Array([m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]]); }
 
-  function makeRoundedCube(S) {
+  function makeRoundedVolume(S) {
     var sph = function (x, y, z) {
       return [
         x * Math.sqrt(1 - y * y / 2 - z * z / 2 + y * y * z * z / 3),
@@ -161,6 +167,12 @@
     opts = opts || {};
     var P = Object.assign({}, PRESET, opts.config || {});
     P.green = col(P.green); P.blue = col(P.blue); P.deep = col(P.deep);
+    // Legacy: a `cube` config once meant a uniform cube — map it to volume + thick
+    // (an explicit volume/thick still wins).
+    if (opts.config && opts.config.cube != null) {
+      if (opts.config.volume == null) P.volume = opts.config.cube;
+      if (opts.config.thick == null) P.thick = opts.config.cube;
+    }
 
     var canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;background:transparent;pointer-events:none;';
@@ -183,7 +195,7 @@
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error('mobius link:', gl.getProgramInfoLog(prog));
     gl.useProgram(prog);
 
-    var cube = makeRoundedCube(6);
+    var volume = makeRoundedVolume(6);
     function bindAttrib(name, data) {
       var vbo = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -192,12 +204,12 @@
       gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
     }
-    bindAttrib('aCubePos', cube.pos);
-    bindAttrib('aSpherePos', cube.sphere);
-    bindAttrib('aCubeNormal', cube.nor);
-    var cubeIBO = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIBO);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.idx, gl.STATIC_DRAW);
+    bindAttrib('aVolumePos', volume.pos);
+    bindAttrib('aSpherePos', volume.sphere);
+    bindAttrib('aVolumeNormal', volume.nor);
+    var volumeIBO = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, volumeIBO);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, volume.idx, gl.STATIC_DRAW);
 
     var SEG_MAX = 140, ROW_MAX = 12;
     var aParam = gl.getAttribLocation(prog, 'aParam');
@@ -213,7 +225,7 @@
 
     var U = {};
     ['uProj', 'uView', 'uModel', 'uNormalMat', 'uPhase', 'uTwist', 'uWavePhase', 'uWaveAmp',
-     'uCube', 'uRound', 'uSeg', 'uRows', 'uWidth', 'uCamPos', 'uWarmPos', 'uBlue', 'uGreen', 'uDeep']
+     'uVolume', 'uThick', 'uRound', 'uSeg', 'uRows', 'uWidth', 'uCamPos', 'uWarmPos', 'uBlue', 'uGreen', 'uDeep']
       .forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
     gl.uniform3f(U.uWarmPos, 0, 0, 0.35);
     gl.enable(gl.DEPTH_TEST);
@@ -254,7 +266,8 @@
       gl.uniform1f(U.uPhase, phase);
       gl.uniform1f(U.uTwist, twist);
       gl.uniform1f(U.uWavePhase, wave);
-      gl.uniform1f(U.uCube, P.cube);
+      gl.uniform1f(U.uVolume, P.volume);
+      gl.uniform1f(U.uThick, P.thick);
       gl.uniform1f(U.uRound, P.round);
       gl.uniform1f(U.uSeg, P.segments);
       gl.uniform1f(U.uRows, P.rows);
@@ -263,7 +276,7 @@
       gl.uniform3fv(U.uBlue, P.blue);
       gl.uniform3fv(U.uGreen, P.green);
       gl.uniform3fv(U.uDeep, P.deep);
-      ext.drawElementsInstancedANGLE(gl.TRIANGLES, cube.idx.length, gl.UNSIGNED_SHORT, 0, INSTANCES);
+      ext.drawElementsInstancedANGLE(gl.TRIANGLES, volume.idx.length, gl.UNSIGNED_SHORT, 0, INSTANCES);
     }
 
     function frame(now) {
@@ -300,6 +313,10 @@
         if (cfg && cfg.green) P.green = col(cfg.green);
         if (cfg && cfg.blue) P.blue = col(cfg.blue);
         if (cfg && cfg.deep) P.deep = col(cfg.deep);
+        if (cfg && cfg.cube != null) {          // legacy alias — see create()
+          if (cfg.volume == null) P.volume = cfg.cube;
+          if (cfg.thick == null) P.thick = cfg.cube;
+        }
         render();
       },
       pause: function () { visible = false; if (raf) { cancelAnimationFrame(raf); raf = null; } },
