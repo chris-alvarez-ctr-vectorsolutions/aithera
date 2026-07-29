@@ -138,7 +138,7 @@
       speed: opts.speed != null ? +opts.speed : 1,
       background: opts.background || null,
       colors: opts.colors || { blue:[0.03,0.45,0.92], green:[0.40,0.97,0.16], deep:[0.01,0.05,0.15] },
-      density: opts.density || { around:52, across:6 },
+      density: opts.density || { around:52, across:5 },
       saturation: opts.saturation != null ? +opts.saturation : 1.35,
       dprCap: opts.dprCap != null ? +opts.dprCap : 2,
     };
