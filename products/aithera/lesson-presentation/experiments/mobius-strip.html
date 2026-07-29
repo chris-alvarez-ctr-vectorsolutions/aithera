@@ -61,6 +61,8 @@
   .pr .pv { text-align: right; color: #eaf1f6; font-variant-numeric: tabular-nums; font-size: 11px; }
   .pr input[type=range] { width: 100%; accent-color: #2dd4bf; cursor: pointer; }
   .pr input[type=color] { width: 100%; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,.15); border-radius: 5px; background: none; cursor: pointer; }
+  .pr .ptog { justify-self: start; font: inherit; font-size: 11px; color: #cfe0ec; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 3px 14px; cursor: pointer; }
+  .pr .ptog.on { background: rgba(45,212,191,.22); color: #7fe9d6; border-color: rgba(45,212,191,.5); }
   #pMsg { color: #7fe9d6; font-size: 11px; padding: 0 12px 10px; }
 </style>
 
@@ -279,6 +281,7 @@
 
   /* ---------- tunable params (wired to the control panel below) ---------- */
   const P = {
+    interactive: true,
     tilt: -0.28, zoom: 4.8, speed: 1.0, eversion: 0.7,
     wobble: 0.16, sway: 0.12, wave: 0.0,
     rows: 5, segments: 52, cube: 0.10, width: 0.34,
@@ -343,6 +346,7 @@
   /* ---------- drag to look around (ignores the control panel) ---------- */
   let targetX = 0, targetY = 0, curX = 0, curY = 0;
   window.addEventListener("pointermove", (e) => {
+    if (!P.interactive) return;
     if (e.target.closest && e.target.closest('#panel')) return;
     targetX = (e.clientX / window.innerWidth) * 2 - 1;
     targetY = (e.clientY / window.innerHeight) * 2 - 1;
@@ -390,6 +394,8 @@
 
   /* ---------- control panel ---------- */
   const CONTROLS = [
+    { group: 'View' },
+    { k: 'interactive', label: 'Drag to look', toggle: true },
     { group: 'Camera' },
     { k: 'tilt', label: 'Angle', min: -1.2, max: 0.2, step: 0.01 },
     { k: 'zoom', label: 'Zoom', min: 3, max: 8, step: 0.05 },
@@ -421,6 +427,22 @@
       const row = document.createElement('label'); row.className = 'pr';
       const name = document.createElement('span'); name.className = 'pl'; name.textContent = c.label;
       const val = document.createElement('span'); val.className = 'pv';
+      if (c.toggle) {
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ptog';
+        const render = () => { btn.textContent = P[c.k] ? 'On' : 'Off'; btn.classList.toggle('on', !!P[c.k]); };
+        render();
+        btn.addEventListener('click', () => {
+          P[c.k] = !P[c.k]; render();
+          if (c.k === 'interactive') {
+            document.body.style.cursor = P.interactive ? 'grab' : 'default';
+            if (!P.interactive) { targetX = targetY = 0; curX = curY = 0; }   // reset the view
+          }
+        });
+        row.appendChild(name); row.appendChild(btn); row.appendChild(val);
+        body.appendChild(row);
+        bound.push(() => { render(); if (c.k === 'interactive') document.body.style.cursor = P.interactive ? 'grab' : 'default'; });
+        return;
+      }
       const input = document.createElement('input');
       input.autocomplete = 'off';   // don't let the browser restore stale values on reload
       if (c.color) {
