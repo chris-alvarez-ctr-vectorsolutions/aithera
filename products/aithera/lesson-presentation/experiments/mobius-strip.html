@@ -321,7 +321,7 @@
   /* ---------- tunable params (wired to the control panel below) ---------- */
   const P = {
     interactive: false,
-    tilt: 0.0, zoom: 8.0, speed: 0.7, eversion: 1.5,
+    tilt: 0.0, zoom: 8.0, fov: 40, speed: 0.7, eversion: 1.5,
     wobble: 0.47, sway: 0.0, wave: 0.24, reverse: false,
     rows: 5, segments: 26, cube: 0.08, width: 0.25, round: 0.32,
     green: [0.40, 0.97, 0.16], blue: [0.03, 0.45, 0.92], deep: [0.01, 0.05, 0.15],
@@ -372,13 +372,13 @@
   gl.clearColor(0, 0, 0, 1);
 
   /* ---------- camera (distance driven by P.zoom, applied per-frame) ---------- */
-  let proj;
+  let aspect = 1;
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.floor(canvas.clientWidth * dpr), h = Math.floor(canvas.clientHeight * dpr);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     gl.viewport(0, 0, canvas.width, canvas.height);
-    proj = perspective(40 * Math.PI / 180, canvas.width / canvas.height, 0.1, 100);
+    aspect = canvas.width / canvas.height;   // proj is built per-frame from P.fov
   }
   window.addEventListener("resize", resize);
   resize();
@@ -402,6 +402,7 @@
     everClock += dt * P.speed * P.eversion * (P.reverse ? -1 : 1);  // eversion, separately accrued
     const t = clock;
     resize();
+    const proj = perspective(P.fov * Math.PI / 180, aspect, 0.1, 100);
 
     curX += (targetX - curX) * 0.06;
     curY += (targetY - curY) * 0.06;
@@ -440,7 +441,8 @@
     { k: 'interactive', label: 'Drag to look', toggle: true },
     { group: 'Camera' },
     { k: 'tilt', label: 'Angle', min: -1.2, max: 0.2, step: 0.01 },
-    { k: 'zoom', label: 'Zoom', min: 3, max: 8, step: 0.05 },
+    { k: 'zoom', label: 'Zoom', min: 2.5, max: 12, step: 0.05 },
+    { k: 'fov', label: 'Lens (FOV)', min: 15, max: 90, step: 1, int: true },
     { group: 'Motion' },
     { k: 'speed', label: 'Speed', min: 0, max: 2.5, step: 0.05 },
     { k: 'eversion', label: 'Eversion', min: 0, max: 1.5, step: 0.05 },
@@ -552,5 +554,12 @@
   }
   buildPanel();
   document.body.style.cursor = P.interactive ? 'grab' : 'default';
+
+  // Browsers can restore stale form-control values on reload / bfcache (autocomplete=off
+  // isn't always enough). Presets aren't persisted, so always start from the defaults:
+  // re-assert them after the first paints, and on bfcache restore.
+  const forceDefaults = () => applyValues(DEFAULTS);
+  requestAnimationFrame(() => requestAnimationFrame(forceDefaults));
+  window.addEventListener('pageshow', (e) => { if (e.persisted) forceDefaults(); });
 })();
 </script>
