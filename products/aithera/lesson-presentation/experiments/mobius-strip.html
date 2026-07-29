@@ -116,6 +116,9 @@
   uniform float uWaveAmp;      // undulation amplitude
   uniform float uCube;         // cube edge length
   uniform float uRound;        // 0 = sharp cube, 1 = sphere (corner rounding)
+  uniform float uSeg;          // segments around the loop (float, so it can tween)
+  uniform float uRows;         // rows across the band (float, so it can tween)
+  uniform float uWidth;        // half band width
 
   varying vec3 vNormalW;       // world-space face normal, for lighting
   varying vec3 vWorldPos;
@@ -123,8 +126,14 @@
   const float R = 1.1;         // loop radius
 
   void main() {
-    float u = aParam.x + uPhase;
-    float v = aParam.y;
+    // aParam = (i, j) grid indices; spacing comes from the (float) counts, so tweening
+    // uSeg/uRows re-tiles the ring smoothly.
+    float i = aParam.x, j = aParam.y;
+    float u = (i / uSeg) * 6.2831853 + uPhase;
+    float vnorm = uRows > 1.0 ? (j / (uRows - 1.0) * 2.0 - 1.0) : 0.0;
+    float v = vnorm * uWidth;
+    // presence: a cube fades in (scale 0->1) as the count passes its index -> grow/shrink
+    float pres = clamp(uSeg - i, 0.0, 1.0) * clamp(uRows - j, 0.0, 1.0);
 
     // Cross-section twist: u*0.5 half-twist (Möbius) + uTwist eversion.
     float tw = u * 0.5 + uTwist;
@@ -151,7 +160,7 @@
     vec3 rNrm = normalize(mix(aCubeNormal, normalize(aSpherePos), uRound));
 
     // Place and orient in the band frame (x=along loop, y=across band, z=out of band).
-    vec3 local = rPos * uCube;
+    vec3 local = rPos * (uCube * pres);   // pres=0 collapses absent cubes to a point
     vec3 objPos = P + local.x * T + local.y * Bt + local.z * Nrm;
     vec3 nBand  = rNrm.x * T + rNrm.y * Bt + rNrm.z * Nrm;
 
@@ -328,25 +337,22 @@
     bg: [0.0, 0.0, 0.0],
   };
   const DEFAULTS = JSON.parse(JSON.stringify(P));
+  let tween = null;   // active preset glide (see startTween / render loop)
 
-  /* ---------- one instance per cube; rebuilt when geometry params change ---------- */
+  /* ---------- one fixed superset grid: (i,j) indices for up to SEG_MAX × ROW_MAX cubes.
+     Visibility + spacing are decided in the shader from the (float) uSeg/uRows uniforms,
+     so row/segment counts tween smoothly like every other param — no buffer rebuilds. ---------- */
+  const SEG_MAX = 140, ROW_MAX = 12;
   const aParam = gl.getAttribLocation(prog, "aParam");
   const instVBO = gl.createBuffer();
-  let INSTANCES = 0;
-  function rebuildInstances() {
-    const NU = P.segments, NV = P.rows, HW = P.width, inst = [];
-    for (let i = 0; i < NU; i++) {
-      const u = i / NU * Math.PI * 2;
-      for (let j = 0; j < NV; j++) inst.push(u, NV > 1 ? (j / (NV - 1) * 2 - 1) * HW : 0);
-    }
-    INSTANCES = NU * NV;
-    gl.bindBuffer(gl.ARRAY_BUFFER, instVBO);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(aParam);
-    gl.vertexAttribPointer(aParam, 2, gl.FLOAT, false, 0, 0);
-    ext.vertexAttribDivisorANGLE(aParam, 1);
-  }
-  rebuildInstances();
+  const grid = [];
+  for (let i = 0; i < SEG_MAX; i++) for (let j = 0; j < ROW_MAX; j++) grid.push(i, j);
+  const INSTANCES = SEG_MAX * ROW_MAX;
+  gl.bindBuffer(gl.ARRAY_BUFFER, instVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(grid), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(aParam);
+  gl.vertexAttribPointer(aParam, 2, gl.FLOAT, false, 0, 0);
+  ext.vertexAttribDivisorANGLE(aParam, 1);
 
   /* ---------- uniforms ---------- */
   const U = {
@@ -360,6 +366,9 @@
     waveAmp: gl.getUniformLocation(prog, "uWaveAmp"),
     cube: gl.getUniformLocation(prog, "uCube"),
     round: gl.getUniformLocation(prog, "uRound"),
+    seg: gl.getUniformLocation(prog, "uSeg"),
+    rows: gl.getUniformLocation(prog, "uRows"),
+    width: gl.getUniformLocation(prog, "uWidth"),
     camPos: gl.getUniformLocation(prog, "uCamPos"),
     warmPos: gl.getUniformLocation(prog, "uWarmPos"),
     blue: gl.getUniformLocation(prog, "uBlue"),
@@ -399,6 +408,25 @@
 
   function frame(now) {
     const dt = (now - last) * 0.001; last = now;
+
+    // advance a preset glide (updates P, then the rest of the frame uses it)
+    if (tween) {
+      tween.elapsed += dt;
+      const k = Math.min(tween.elapsed / tween.dur, 1);
+      const e = k * k * (3 - 2 * k);   // smoothstep
+      for (const key in tween.from) {
+        const a = tween.from[key], b = tween.to[key];
+        if (Array.isArray(a)) P[key] = [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e];
+        else P[key] = a + (b - a) * e;
+      }
+      if (k >= 1) {
+        for (const key in tween.to) P[key] = Array.isArray(tween.to[key]) ? tween.to[key].slice() : tween.to[key];
+        P.segments = Math.round(P.segments); P.rows = Math.round(P.rows);
+        tween = null;
+      }
+      bound.forEach(fn => fn());
+    }
+
     clock += dt * P.speed;            // speed scales the clock (no phase jump when adjusted)
     everClock += dt * P.speed * P.eversion * (P.reverse ? -1 : 1);  // eversion, separately accrued
     const t = clock;
@@ -427,6 +455,9 @@
     gl.uniform1f(U.wavePhase, wave);
     gl.uniform1f(U.cube, P.cube);
     gl.uniform1f(U.round, P.round);
+    gl.uniform1f(U.seg, P.segments);
+    gl.uniform1f(U.rows, P.rows);
+    gl.uniform1f(U.width, P.width);
     gl.uniform1f(U.waveAmp, P.wave);
     gl.uniform3fv(U.blue, P.blue);
     gl.uniform3fv(U.green, P.green);
@@ -453,11 +484,11 @@
     { k: 'sway', label: 'Sway', min: 0, max: 0.5, step: 0.01 },
     { k: 'wave', label: 'Undulation', min: 0, max: 0.4, step: 0.01 },
     { group: 'Geometry' },
-    { k: 'rows', label: 'Rows', min: 2, max: 12, step: 1, int: true, rebuild: true },
-    { k: 'segments', label: 'Segments', min: 16, max: 140, step: 1, int: true, rebuild: true },
+    { k: 'rows', label: 'Rows', min: 2, max: 12, step: 1, int: true },
+    { k: 'segments', label: 'Segments', min: 16, max: 140, step: 1, int: true },
     { k: 'cube', label: 'Cube size', min: 0.03, max: 0.18, step: 0.005 },
     { k: 'round', label: 'Corner round', min: 0, max: 1, step: 0.02 },
-    { k: 'width', label: 'Band width', min: 0.15, max: 0.55, step: 0.01, rebuild: true },
+    { k: 'width', label: 'Band width', min: 0.15, max: 0.55, step: 0.01 },
     { group: 'Colours' },
     { k: 'green', label: 'Glow', color: true },
     { k: 'blue', label: 'Key', color: true },
@@ -471,10 +502,24 @@
 
   /* ---------- local presets (in-memory; not persisted across refresh) ---------- */
   const presets = [];
+  // instant apply (Reset, shift-click a chip, forceDefaults)
   function applyValues(vals) {
+    tween = null;
     Object.assign(P, JSON.parse(JSON.stringify(vals)));
     bound.forEach(fn => fn());
-    rebuildInstances();
+  }
+  // glide: tween numeric + colour params current -> target (~0.8s). Booleans snap;
+  // segments/rows tween as floats (uSeg/uRows presence in the shader grows/shrinks cubes).
+  const TWEEN_NUM = ['tilt', 'zoom', 'fov', 'speed', 'eversion', 'wobble', 'sway', 'wave', 'cube', 'round', 'width', 'segments', 'rows'];
+  const TWEEN_COL = ['green', 'blue', 'deep', 'bg'];
+  function startTween(target, dur) {
+    const t = JSON.parse(JSON.stringify(target));
+    P.interactive = !!t.interactive; P.reverse = !!t.reverse;   // booleans snap
+    const from = {}, to = {};
+    TWEEN_NUM.forEach(k => { from[k] = +P[k]; to[k] = +t[k]; });
+    TWEEN_COL.forEach(k => { from[k] = P[k].slice(); to[k] = t[k].slice(); });
+    tween = { from, to, elapsed: 0, dur: dur || 0.8 };
+    bound.forEach(fn => fn());   // reflect snapped booleans right away
   }
   function renderChips() {
     const wrap = document.getElementById('pChips');
@@ -482,7 +527,8 @@
     presets.forEach((pr, i) => {
       const chip = document.createElement('span'); chip.className = 'chip'; chip.title = 'Apply preset';
       const label = document.createElement('b'); label.textContent = pr.name;
-      label.addEventListener('click', () => applyValues(pr.values));
+      chip.title = 'Click to glide · Shift-click to snap';
+      label.addEventListener('click', (ev) => ev.shiftKey ? applyValues(pr.values) : startTween(pr.values));
       const x = document.createElement('span'); x.className = 'x'; x.textContent = '×'; x.title = 'Delete preset';
       x.addEventListener('click', (e) => { e.stopPropagation(); presets.splice(i, 1); renderChips(); });
       chip.appendChild(label); chip.appendChild(x);
@@ -510,6 +556,7 @@
         const render = () => { btn.textContent = P[c.k] ? 'On' : 'Off'; btn.classList.toggle('on', !!P[c.k]); };
         render();
         btn.addEventListener('click', () => {
+          tween = null;
           P[c.k] = !P[c.k]; render();
           if (c.k === 'interactive') {
             document.body.style.cursor = P.interactive ? 'grab' : 'default';
@@ -526,16 +573,16 @@
       if (c.color) {
         input.type = 'color'; input.value = rgbToHex(P[c.k]);
         const syncBg = () => { if (c.k === 'bg') document.body.style.background = rgbToHex(P.bg); };
-        input.addEventListener('input', () => { P[c.k] = hexToRgb(input.value); syncBg(); });
+        input.addEventListener('input', () => { tween = null; P[c.k] = hexToRgb(input.value); syncBg(); });
         bound.push(() => { input.value = rgbToHex(P[c.k]); syncBg(); });
       } else {
         input.type = 'range'; input.min = c.min; input.max = c.max; input.step = c.step; input.value = P[c.k];
-        const fmt = () => c.int ? String(P[c.k]) : (+P[c.k]).toFixed(2);
+        const fmt = () => c.int ? String(Math.round(P[c.k])) : (+P[c.k]).toFixed(2);
         val.textContent = fmt();
         input.addEventListener('input', () => {
+          tween = null;
           P[c.k] = c.int ? parseInt(input.value, 10) : parseFloat(input.value);
           val.textContent = fmt();
-          if (c.rebuild) rebuildInstances();
         });
         bound.push(() => { input.value = P[c.k]; val.textContent = fmt(); });
       }
