@@ -606,6 +606,39 @@
         box-shadow: var(--shadow-sm);
       }
 
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
+
       /* Your coaching reply: right-aligned accent bubble */
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
       .you-coach .cap {
@@ -2184,8 +2217,18 @@ You didn't carry this alone, and you didn't ask her to either.` },
           // The closing recap shows here like any other coach line — the
           // loading beats live in the CTA slot below (see showAnalyzing).
           const coachingRun = trailingRun(messages, 'coaching');
-          coachingRun.forEach((m) => coachPanelBody.appendChild(
-            m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m))));
+          const _last = coachingRun[coachingRun.length - 1];
+          const _askMsg = (_last && _last.speaker === 'coach' && /\?/.test(String(_last.text || '')) && !state.complete) ? _last : null;
+          coachingRun.forEach((m, i) => {
+            const node = m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m));
+            if (m.speaker === 'coach') {
+              const prev = coachingRun[i - 1], next = coachingRun[i + 1];
+              if (!prev || prev.speaker !== 'coach') node.classList.add('grp-first');
+              if (!next || next.speaker !== 'coach') node.classList.add('grp-last');
+              if (m === _askMsg) { node.classList.add('is-prompt'); if (m._enter) node.classList.add('just-asked'); }
+            }
+            coachPanelBody.appendChild(node);
+          });
           // The full strengths/growth-areas report lives in its own modal (see
           // resultsModal below) — opened only when the learner taps "View full
           // results" in the footer, never dumped in here. Resources are the
@@ -2246,7 +2289,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
         composer.placeholder = `Say this to ${SCENARIO.character}…`;
         inputIcon.className = 'fa-solid fa-microphone lead-icon';
       } else {
-        composer.placeholder = 'Type your response…';
+        composer.placeholder = coachPanelBody.querySelector('.coach-msg.is-prompt') ? 'Type your answer…' : 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
       }
 

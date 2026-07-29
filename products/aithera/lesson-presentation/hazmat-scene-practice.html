@@ -590,7 +590,41 @@
         color: var(--c-ink);
         white-space: pre-wrap;
         box-shadow: var(--shadow-sm);
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
       }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
 
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
       .you-coach .cap {
@@ -1651,8 +1685,21 @@ Nothing about that tank got safer today. The difference is you'd have kept every
         {
           // The recap stays visible here; the loading beats run in the CTA
           // slot below (see showClosing), not stacked over the conversation.
-          messages.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
+          // Lift the live question + group the coach run (name on first, avatar on last).
+          const _last = messages[messages.length - 1];
+          const _askMsg = (_last && _last.speaker === 'coach' && /\?/.test(String(_last.text || '')) && !complete) ? _last : null;
+          messages.forEach((m, i) => {
+            const node = m.speaker === 'you' ? youCoachNode(m) : coachNode(m);
+            if (m.speaker === 'coach') {
+              const prev = messages[i - 1], next = messages[i + 1];
+              if (!prev || prev.speaker !== 'coach') node.classList.add('grp-first');
+              if (!next || next.speaker !== 'coach') node.classList.add('grp-last');
+              if (m === _askMsg) { node.classList.add('is-prompt'); if (m._enter) node.classList.add('just-asked'); }
+            }
+            coachPanelBody.appendChild(node);
+          });
           if (complete && !state.delivering && state.resultsViewed) coachPanelBody.appendChild(checklistNode());
+          composer.placeholder = coachPanelBody.querySelector('.coach-msg.is-prompt') ? 'Type your answer…' : 'Type your response…';
         }
       }
       resumeBtn.hidden = !coachUp;

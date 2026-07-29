@@ -766,7 +766,48 @@
         color: var(--c-ink);
         white-space: pre-wrap;
         box-shadow: var(--shadow-sm);
+        /* smooth both directions: floats forward when it's the live question,
+           settles back to flat when the learner answers it (see .is-prompt). */
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
       }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking, so the ONE line the learner must
+         answer right now is easy to lose. We DON'T decorate it — no chip, no
+         accent spine. We just LIFT it: the live question drops its flat outline
+         and floats a touch above the teaching bubbles on a soft, faintly indigo
+         shadow, blooming forward as it lands. It flattens back to a plain bubble
+         the instant the learner replies — an answered probe is history, not a
+         task. Driven by markActivePrompt() at render. */
+      .coach-msg.is-prompt .coach-bubble {
+        /* a faint hairline in the glow color — a lit edge, not an outline — plus
+           the soft float shadow; together they lift the live question forward. */
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. grp-first / grp-last are
+         toggled per render by markCoachGroups(). */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }   /* reserve the 34px column */
+      .coach-msg.grp-last { align-items: flex-end; }                    /* avatar hugs the last bubble */
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }     /* tuck grouped bubbles closer */
 
       /* Your coaching reply: right-aligned accent bubble */
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
@@ -2420,6 +2461,64 @@
       if (typing && typing.parentNode === coachPanelBody) coachPanelBody.appendChild(typing);  // keep dots last
     }
 
+    /* Lift the coach's ACTIVE question out of the teaching stream. The coach mixes
+       teaching and asking; the ONE bubble the learner must answer right now is the
+       latest coach line that hands a "?" back with no reply yet. We tag its cached
+       node .is-prompt (float + faint lit edge) and, the first render it becomes
+       active, .just-asked for a one-time settle. It clears the
+       moment the learner replies (the last coaching message becomes their own) — an
+       answered probe is history, not a task. Works off text alone (a "?" anywhere
+       in the handed-back line — a question may trail an imperative, e.g. "…does
+       this qualify? Walk me through it."), so it needs nothing new from the model
+       and degrades gracefully everywhere. */
+    let activePromptMsg = null;
+    function markActivePrompt(msgs, complete) {
+      // Only the LAST coaching-world message can be the live prompt: if it's a
+      // coach bubble that poses a question (a "?" anywhere in it), the turn was
+      // handed back and is unanswered; a 'you' reply sitting last means it was
+      // already answered → nothing active.
+      let cand = null;
+      if (!complete) {
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (worldOf(msgs[i]) !== 'coaching') continue;   // skip a trailing scene run
+          const m = msgs[i];
+          if (m.speaker === 'coach' && /\?/.test(String(m.text || ''))) cand = m;
+          break;   // decided by the last coaching message only
+        }
+      }
+      if (cand === activePromptMsg) return;                // unchanged → don't re-glow
+      const prev = activePromptMsg && coachNodeMap.get(activePromptMsg);
+      if (prev) prev.classList.remove('is-prompt', 'just-asked');
+      activePromptMsg = cand;
+      const node = cand && coachNodeMap.get(cand);
+      if (node) {
+        node.classList.add('is-prompt');
+        // Glow ONCE, only when it's freshly delivered — never on resume/re-render.
+        if (cand._enter) {
+          node.classList.add('just-asked');
+          setTimeout(() => node.classList.remove('just-asked'), 1400);
+        }
+      }
+    }
+
+    /* WhatsApp-style grouping: within the trailing coaching run, a contiguous
+       block of coach messages is ONE identity — the "AI Coach" name shows on the
+       FIRST, the avatar attaches to the LAST. We toggle grp-first/grp-last per
+       render, so the avatar hops to the newest bubble as a burst streams and the
+       run re-splits when a learner reply lands between coach turns. A 'you' reply
+       (or any non-coach message) breaks the group. */
+    function markCoachGroups(run) {
+      for (let i = 0; i < run.length; i++) {
+        const m = run[i];
+        if (m.speaker !== 'coach') continue;
+        const node = coachNodeMap.get(m);
+        if (!node) continue;
+        const prev = run[i - 1], next = run[i + 1];
+        node.classList.toggle('grp-first', !prev || prev.speaker !== 'coach');
+        node.classList.toggle('grp-last',  !next || next.speaker !== 'coach');
+      }
+    }
+
     /* —— The coach sheet's rise + follow-scroll motion ————————————————————————
        Bottom-anchored, it eases the WHOLE sheet (header + thread) up as it grows
        and glides the thread smoothly once it's maxed out. That logic is shared
@@ -2568,7 +2667,10 @@
         // Incremental — preserves scroll (see reconcileCoachBody). The closing
         // recap shows here like any other coach line; loading beats live in the
         // CTA slot below (see showAnalyzing), not stacked over the conversation.
-        reconcileCoachBody(trailingRun(messages, 'coaching'));
+        const coachRun = trailingRun(messages, 'coaching');
+        reconcileCoachBody(coachRun);
+        markCoachGroups(coachRun);   // name on the run's first, avatar on its last
+        markActivePrompt(messages, complete);   // flag the live question as the thing to answer
         // The full strengths/growth-areas report lives in its own modal — opened
         // only when the learner taps "View full results", never dumped here.
         // Resources are the one thing that shows inline, and only once they've
@@ -2660,7 +2762,7 @@
         sendBtn.setAttribute('aria-label', 'Respond');
         sendBtn.innerHTML = 'Respond <i class="fa-solid fa-arrow-right"></i>';
       } else {
-        composer.placeholder = 'Type your response…';
+        composer.placeholder = coachPanelBody.querySelector('.coach-msg.is-prompt') ? 'Type your answer…' : 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
         sendBtn.classList.remove('is-respond');
         sendBtn.setAttribute('aria-label', 'Send');
