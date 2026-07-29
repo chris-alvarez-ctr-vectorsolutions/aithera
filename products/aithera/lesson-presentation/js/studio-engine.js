@@ -54,6 +54,21 @@
     const isValid = (hooks && hooks.isValid) || (() => true);
     const normalize = (hooks && hooks.normalize) || ((s) => s);
 
+    // localStorage is ~5MB/origin. A scenario that embeds an uploaded photo (a
+    // base64 data URL) can approach that, and setItem throws on overflow — so
+    // guard writes and surface a plain, actionable message instead of a silent
+    // uncaught throw. Returns true on success.
+    function safeSet(key, value) {
+      try { localStorage.setItem(key, value); return true; }
+      catch (e) {
+        const quota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);
+        alert(quota
+          ? 'This scenario is too large to save in the browser — usually an embedded photo. Use a smaller image, or paste an image path/URL instead of uploading it.'
+          : 'Could not save to browser storage: ' + ((e && e.message) || e));
+        return false;
+      }
+    }
+
     /* published slot — the live page reads this */
     function loadPublished() {
       try {
@@ -66,7 +81,7 @@
       } catch (e) { return null; }
     }
     function publish(scenario) {
-      localStorage.setItem(keys.published, JSON.stringify({
+      return safeSet(keys.published, JSON.stringify({
         savedAt: new Date().toISOString(), scenario,
       }));
     }
@@ -87,8 +102,7 @@
       const lib = readLibrary();
       const key = id || 'scn-' + Date.now().toString(36);
       lib[key] = { savedAt: new Date().toISOString(), scenario };
-      localStorage.setItem(keys.library, JSON.stringify(lib));
-      return key;
+      return safeSet(keys.library, JSON.stringify(lib)) ? key : null;
     }
     function loadFromLibrary(id) {
       const entry = readLibrary()[id];

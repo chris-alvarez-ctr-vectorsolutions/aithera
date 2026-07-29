@@ -352,67 +352,161 @@
       .stage { background: var(--scene-paint); }
 
       /* ===================================================================
-         SCENE SWEEP — the persistent illustrated work area + coverage rail.
-         Lives in the stage's top "peek" above the coach sheet; kept crisp
-         (never blurred) so the learner can study it while the coach talks.
+         SCENE SWEEP — a full-bleed PHOTO the learner sweeps for hazards
+         (the "Observe" world), plus the coach conversation (the "React"
+         world). The photo is the persistent base layer in BOTH worlds:
+         crisp + tappable in Observe; blurred + dimmed behind the coach sheet
+         in React. The Observe|React toggle (top) swaps between them.
          =================================================================== */
-      .app.sweep.coach-up .scrim { opacity: .28; }           /* light dim, not the full block-out */
-      .app.sweep .stage.is-frozen { filter: none; }          /* belt-and-suspenders: never blur the scene */
-      .sweep-scene {
-        width: 100%; max-width: 680px; margin: 0 auto;
-        display: flex; flex-direction: column; gap: 12px;
+      /* React mode: dim + blur the busy photo so the coach reads clearly over it. */
+      .app.sweep.coach-up .scrim { opacity: 1; }
+      .app.sweep .stage.is-frozen { filter: blur(6px) brightness(.7); }
+
+      /* Observe mode: the composer is meaningless — the learner taps the scene,
+         not types. Hide the footer; the canvas carries its own CTA. React mode
+         (coaching) shows the composer again for the fix/prevent beats. */
+      .app.sweep[data-mode="scene"] .inputbar { display: none; }
+
+      /* The Observe canvas is position:absolute over the whole stage, so it
+         ignores the stage column entirely. That leaves the column free to just
+         CENTER its in-flow cards (the reading-intro context + the establishing
+         card) vertically as well as horizontally. */
+      .app.sweep .stage-inner { justify-content: center; }
+      .sweep-scene { position: absolute; inset: 0; }
+      .sweep-stage { position: absolute; inset: 0; background: #0b0d12; overflow: hidden; }
+      .sweep-photo {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: contain; -webkit-user-select: none; user-select: none;
       }
-      .sweep-imgwrap {
-        position: relative; border-radius: 14px; overflow: hidden;
-        border: 1px solid var(--c-line); background: #0d1117;
-        box-shadow: var(--shadow-lg);
-        max-height: 30vh;
+      /* soft vignette so the floating chrome stays legible over a bright photo */
+      .sweep-stage::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(180deg, rgba(0,0,0,.34) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 58%, rgba(0,0,0,.44) 100%);
       }
-      .sweep-img {
-        display: block; width: 100%; height: 100%;
-        max-height: 30vh; object-fit: contain; background: #cdd4dc;
+      /* tap surface + pin overlay sit exactly over the photo */
+      .sweep-hits { position: absolute; inset: 0; cursor: crosshair; z-index: 2; }
+      .sweep-pins { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+
+      /* a marked hazard — teal pulsing ring + number + label (immersive-style) */
+      .sweep-pin {
+        position: absolute; transform: translate(-50%, -50%);
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        animation: pin-drop .3s var(--ease) both;
       }
-      /* the coverage rail — perception-grading made visible */
-      .sweep-rail {
-        border: 1px solid var(--c-line); border-radius: 12px;
-        background: var(--c-surface); padding: 10px 12px;
+      @keyframes pin-drop { from { opacity: 0; transform: translate(-50%,-50%) scale(.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+      .sweep-pin-ring {
+        width: 52px; height: 52px; border-radius: 50%;
+        border: 3px solid #4adebe; display: grid; place-items: center;
+        box-shadow: 0 0 0 4px rgba(74,222,190,.18), 0 0 22px rgba(74,222,190,.5);
+        animation: pin-pulse 1.8s ease-in-out infinite;
       }
-      .sweep-rail-head {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 8px;
+      @keyframes pin-pulse {
+        0%,100% { box-shadow: 0 0 0 4px rgba(74,222,190,.18), 0 0 22px rgba(74,222,190,.5); }
+        50%     { box-shadow: 0 0 0 8px rgba(74,222,190,.05), 0 0 30px rgba(74,222,190,.72); }
       }
-      .sweep-rail-ttl {
-        font-size: 12px; font-weight: 700; letter-spacing: .02em;
-        color: var(--c-muted); text-transform: uppercase;
-        display: inline-flex; align-items: center; gap: 7px;
+      .sweep-pin-ring .n { width: 25px; height: 25px; border-radius: 50%; background: #4adebe; color: #07221c; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+      .sweep-pin-label {
+        padding: 3px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 700;
+        background: rgba(7,34,28,.92); border: 1px solid rgba(74,222,190,.5);
+        color: #d9fff5; white-space: nowrap; max-width: 42vw; overflow: hidden; text-overflow: ellipsis;
       }
-      .sweep-rail-count { font-size: 18px; font-weight: 800; color: var(--c-ink); }
-      .sweep-rail-count span { font-size: 13px; font-weight: 600; color: var(--c-muted); }
+      @media (prefers-reduced-motion: reduce) { .sweep-pin, .sweep-pin-ring { animation: none; } }
+
+      /* miss toast */
+      .sweep-toast {
+        position: absolute; left: 50%; top: 76px; transform: translateX(-50%) translateY(-6px);
+        z-index: 5; pointer-events: none; color: #fff;
+        background: rgba(0,0,0,.72); backdrop-filter: blur(8px);
+        border: 1px solid rgba(255,255,255,.14);
+        padding: 8px 15px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+        opacity: 0; transition: opacity .2s var(--ease), transform .2s var(--ease);
+      }
+      .sweep-toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+      /* top-center progress pill */
+      .sweep-progress {
+        position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
+        z-index: 4; display: inline-flex; align-items: center; gap: 12px; color: #fff;
+        background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 8px 16px;
+      }
+      .sweep-progress .lbl { font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+      .sweep-progress .lbl i { color: #4adebe; }
+      .sweep-progress .dots { display: inline-flex; gap: 6px; }
+      .sweep-progress .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.2); transition: background .3s var(--ease), transform .3s var(--ease); }
+      .sweep-progress .dot.on { background: #4adebe; transform: scale(1.12); }
+
+      /* bottom-center CTA cluster: the explore hint, then the "talk to your coach" nudge */
+      .sweep-cta-wrap {
+        position: absolute; left: 0; right: 0; bottom: 26px; z-index: 4;
+        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        pointer-events: none;   /* only the buttons inside are interactive */
+      }
+      .sweep-cta-wrap > * { pointer-events: auto; }
+      .sweep-hint {
+        background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.9);
+        padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      }
+      .sweep-react-cta {
+        display: inline-flex; align-items: center; gap: 11px;
+        padding: 13px 24px; border: 0; border-radius: 999px;
+        background: linear-gradient(135deg, var(--s-you), #e3a02f); color: var(--s-you-ink);
+        font: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+        box-shadow: 0 10px 26px rgba(241,179,74,.4);
+        animation: cta-rise .35s var(--ease) both;
+      }
+      @keyframes cta-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      .sweep-react-cta:hover { filter: brightness(1.05); }
+      .sweep-react-cta:active { transform: scale(.97); }
+      .sweep-react-cta .arrow { transition: transform .15s var(--ease); }
+      .sweep-react-cta:hover .arrow { transform: translateX(3px); }
+      .sweep-stuck {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.42);
+        color: rgba(255,255,255,.82); font: inherit; font-size: 12.5px; font-weight: 600;
+        cursor: pointer; padding: 7px 14px; border-radius: 999px; backdrop-filter: blur(8px);
+      }
+      .sweep-stuck:hover { color: #fff; background: rgba(0,0,0,.62); }
+
+      /* briefing overlay — the "explore the scene" moment that opens Observe */
+      .sweep-brief {
+        position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 20px;
+        background: rgba(8,10,14,.6); backdrop-filter: blur(6px); transition: opacity .3s var(--ease);
+      }
+      .sweep-brief.is-out { opacity: 0; pointer-events: none; }
+      .sweep-brief-card {
+        max-width: 420px; width: 100%; text-align: center;
+        background: rgba(20,22,28,.9); border: 1px solid rgba(255,255,255,.1);
+        border-radius: 18px; padding: 26px 24px 22px; box-shadow: var(--shadow-lg);
+      }
+      .sweep-brief-eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: 8px; }
+      .sweep-brief-title { font-size: 21px; font-weight: 800; color: #fff; margin: 0 0 10px; line-height: 1.25; }
+      .sweep-brief-sub { font-size: 14px; line-height: 1.55; color: rgba(255,255,255,.8); margin: 0 0 18px; }
+      .sweep-brief-btn {
+        display: inline-flex; align-items: center; gap: 10px; padding: 13px 24px; border: 0;
+        border-radius: 999px; background: #fff; color: #111; font: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer;
+      }
+      .sweep-brief-btn:hover { background: #f0f0f0; }
+
+      /* coverage chip rail — perception-grading made visible; rides the top of
+         the coach sheet in React mode so the coach's credit maps to the chips. */
+      .sweep-rail { border-bottom: 1px solid var(--c-line); background: var(--c-surface-2); padding: 10px 14px; margin: -16px -16px 6px; }
+      .sweep-rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+      .sweep-rail-ttl { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--c-ink-faint); text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; }
+      .sweep-rail-count { font-size: 16px; font-weight: 800; color: var(--c-ink); }
+      .sweep-rail-count span { font-size: 12px; font-weight: 600; color: var(--c-ink-faint); }
       .sweep-chips { display: flex; flex-wrap: wrap; gap: 7px; }
       .sweep-chip {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 5px 10px; border-radius: 999px;
-        font-size: 12px; font-weight: 600;
-        border: 1px solid var(--c-line); color: var(--c-muted);
-        background: color-mix(in srgb, var(--c-surface) 70%, transparent);
-        transition: all .3s var(--ease);
+        display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+        font-size: 12px; font-weight: 600; border: 1px solid var(--c-line); color: var(--c-ink-faint);
+        background: var(--c-surface); transition: all .3s var(--ease);
       }
       .sweep-chip i { font-size: 11px; opacity: .7; }
-      .sweep-chip.got {
-        border-color: color-mix(in srgb, #2ecc71 55%, var(--c-line));
-        color: var(--c-ink);
-        background: color-mix(in srgb, #2ecc71 16%, transparent);
-      }
+      .sweep-chip.got { border-color: color-mix(in srgb, #2ecc71 55%, var(--c-line)); color: var(--c-ink); background: color-mix(in srgb, #2ecc71 16%, transparent); }
       .sweep-chip.got i { color: #2ecc71; opacity: 1; }
-      .sweep-chip.missed {
-        border-color: color-mix(in srgb, var(--s-you) 45%, var(--c-line));
-        color: var(--c-ink);
-        background: color-mix(in srgb, var(--s-you) 12%, transparent);
-      }
+      .sweep-chip.missed { border-color: color-mix(in srgb, var(--s-you) 45%, var(--c-line)); color: var(--c-ink); background: color-mix(in srgb, var(--s-you) 12%, transparent); }
       .sweep-chip.missed i { color: var(--s-you); opacity: 1; }
-      @media (max-height: 760px) { .sweep-imgwrap, .sweep-img { max-height: 24vh; } }
-      /* Coach-only: no Learn/Practice mode switch, no scene to step into. */
-      .app.sweep .mode-indicator { display: none !important; }
 
       /* —— Establishing card — the practice base before the scene begins.
          Anchors the learner to what they're about to practice while the coach
@@ -672,7 +766,48 @@
         color: var(--c-ink);
         white-space: pre-wrap;
         box-shadow: var(--shadow-sm);
+        /* smooth both directions: floats forward when it's the live question,
+           settles back to flat when the learner answers it (see .is-prompt). */
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
       }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking, so the ONE line the learner must
+         answer right now is easy to lose. We DON'T decorate it — no chip, no
+         accent spine. We just LIFT it: the live question drops its flat outline
+         and floats a touch above the teaching bubbles on a soft, faintly indigo
+         shadow, blooming forward as it lands. It flattens back to a plain bubble
+         the instant the learner replies — an answered probe is history, not a
+         task. Driven by markActivePrompt() at render. */
+      .coach-msg.is-prompt .coach-bubble {
+        /* a faint hairline in the glow color — a lit edge, not an outline — plus
+           the soft float shadow; together they lift the live question forward. */
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. grp-first / grp-last are
+         toggled per render by markCoachGroups(). */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }   /* reserve the 34px column */
+      .coach-msg.grp-last { align-items: flex-end; }                    /* avatar hugs the last bubble */
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }     /* tuck grouped bubbles closer */
 
       /* Your coaching reply: right-aligned accent bubble */
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
@@ -1394,6 +1529,20 @@
             <i class="fa-solid fa-door-open"></i> Continue practicing <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
+        <!-- SCENE SWEEP look-again CTA: while the coach is nudging back to the
+             photo during the Observe beat (hazards still unspotted), the coach
+             sheet covers the scene — so the primary move is to GO LOOK, not to
+             type. This amber CTA (scene-colored) drops the learner back onto the
+             photo; a quiet escape hands the composer back for those who'd rather
+             tell the coach they're done looking. -->
+        <div class="input-entry" id="inputLookAgain" hidden>
+          <button class="enter-cta enter-cta-bar" id="lookAgainCta">
+            <i class="fa-solid fa-magnifying-glass-location"></i> Look at the scene again <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+          <button class="keep-talking" id="lookAgainType">
+            <i class="fa-solid fa-comment"></i> Or answer your coach here
+          </button>
+        </div>
         <!-- Results CTA: shown once the closing recap has landed — the full
              strengths/growth-areas report opens in its own modal, not dumped
              into the chat thread. -->
@@ -1451,7 +1600,7 @@
          DEFAULT — the WPV "Reading the Warning Signs" build — when nothing is
          published). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/scene-sweep.js?v=1"></script>
+    <script src="js/scenario-types/scene-sweep.js?v=4"></script>
 
     <script>
     /* =====================================================================
@@ -1622,6 +1771,14 @@
       scenePlaceholder: '',     // the live phase's authored composer placeholder
       entryLabel: '',           // the live phase's authored crossing CTA ("Step into the room")
       covered: new Set(),       // scene sweep: rubric hazard ids the learner has spotted (drives the coverage rail)
+      // —— SCENE SWEEP: the Observe (tap-to-mark) phase ——
+      marking: false,           // true while the learner is in the Observe canvas (pre/return, tapping the photo)
+      markStarted: false,       // they dismissed the briefing / made a first mark (bottom CTA appears)
+      briefUp: false,           // the "Start looking" briefing overlay is up
+      misses: 0,                // taps that hit nothing — a couple reveals the "stuck?" escape hatch
+      coachStarted: false,      // the coach conversation has begun (first cross to React)
+      reportedToCoach: new Set(), // hazard ids already summarized to the coach (re-cross only mentions new finds)
+      lookAgainDismissed: false, // learner chose to type instead of going back to the photo on a nudge
     };
     // Seed the declared session state with its authored initial values.
     (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
@@ -1749,6 +1906,9 @@
     const inputDebrief  = document.getElementById('inputDebrief');
     const inputReturn   = document.getElementById('inputReturn');
     const returnCtaBtn  = document.getElementById('returnCtaBtn');
+    const inputLookAgain= document.getElementById('inputLookAgain');
+    const lookAgainCta  = document.getElementById('lookAgainCta');
+    const lookAgainType = document.getElementById('lookAgainType');
     const inputStart    = document.getElementById('inputStart');
     const startCtaBtn   = document.getElementById('startCtaBtn');
     const enterCtaBar   = document.getElementById('enterCtaBar');
@@ -1773,27 +1933,184 @@
     }
     const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
-    /* —— SCENE SWEEP: the persistent illustrated work area + coverage rail ——
-       The image is what the learner studies the whole time; the rail is the
-       perception-grading made visible — a chip per rubric hazard that lights up
-       as the coach credits it (driven by state.covered, accumulated from the
-       model's `spotted` ids). Built ONCE (mount guard in render) so the image
-       never reloads; updateSweepRail() refreshes only the chips + the count. */
+    /* —— SCENE SWEEP: the OBSERVE canvas (a full-bleed photo the learner taps
+       to mark hazards) + the coverage rail (perception-grading made visible).
+
+       The photo is the persistent base layer, mounted ONCE (render's mount
+       guard) so it never reloads. In OBSERVE mode the learner taps it: a hit
+       inside a hazard's hotspot drops a numbered pin and lights its chip; a
+       miss shows a "nothing there" toast. Once the coverage TARGET is met (or
+       they say they're stuck), a CTA hands off to the coach — REACT mode —
+       where the coach credits what they marked (state.covered already feeds the
+       [SYSTEM STATE] coverage line) and works Remediate → Prevent → close.
+       The Observe|React toggle swaps between the two at will. */
+
+    // A first-person phrase per hazard for the summary handed to the coach on
+    // crossing (reads like the learner reporting, not a rubric dump).
+    const MARK_PHRASE = {
+      jug: 'the unlabeled jug on the bench',
+      ppe: 'my coworker working with no gloves',
+      sds: 'the out-of-date safety data sheet',
+      label: 'the torn, unreadable label on the drum',
+    };
+    const SWEEP_REQUIRED = (COVERAGE && COVERAGE.required) || Math.max(1, HAZARDS.length - 1);
+    const SWEEP_TOTAL = (COVERAGE && COVERAGE.total) || HAZARDS.length;
+    function listJoin(items) {
+      items = items.filter(Boolean);
+      if (items.length <= 1) return items.join('');
+      if (items.length === 2) return items[0] + ' and ' + items[1];
+      return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
+    }
+
+    let sweepPhotoEl = null;
     function sweepSceneNode() {
       const wrap = el('div', 'sweep-scene');
       wrap.innerHTML =
-        `<div class="sweep-imgwrap">
-           <img class="sweep-img" src="${esc(SCENE_IMG)}" alt="${esc(SCENE_ALT)}" />
-         </div>
-         <div class="sweep-rail" id="sweepRail" aria-label="Hazards spotted"></div>`;
+        `<div class="sweep-stage">
+           <img class="sweep-photo" id="sweepPhoto" src="${esc(SCENE_IMG)}" alt="${esc(SCENE_ALT)}" draggable="false" />
+           <div class="sweep-hits" id="sweepHits"></div>
+           <div class="sweep-pins" id="sweepPins"></div>
+           <div class="sweep-toast" id="sweepToast">Nothing unsafe there</div>
+           <div class="sweep-progress" id="sweepProgress" aria-live="polite"></div>
+           <div class="sweep-cta-wrap" id="sweepCtaWrap"></div>
+           <div class="sweep-brief" id="sweepBrief">
+             <div class="sweep-brief-card">
+               <div class="sweep-brief-eyebrow">Spot the hazard</div>
+               <h2 class="sweep-brief-title">Take a slow look around.</h2>
+               <p class="sweep-brief-sub">You just finished the training — now you’re on the floor. Tap anything that looks unsafe. Find at least ${SWEEP_REQUIRED}, then talk it through with your coach.</p>
+               <button class="sweep-brief-btn" id="sweepBriefBtn"><i class="fa-solid fa-magnifying-glass"></i> Start looking</button>
+             </div>
+           </div>
+         </div>`;
+      sweepPhotoEl = wrap.querySelector('#sweepPhoto');
+      wrap.querySelector('#sweepHits').addEventListener('click', onSweepTap);
+      wrap.querySelector('#sweepBriefBtn').addEventListener('click', dismissBrief);
+      // keep pins glued to their spots as the photo's drawn rect changes
+      sweepPhotoEl.addEventListener('load', repositionPins);
       return wrap;
     }
-    function updateSweepRail() {
-      const rail = document.getElementById('sweepRail');
-      if (!rail) return;
-      const total = (COVERAGE && COVERAGE.total) || HAZARDS.length;
+
+    // The photo is object-fit:contain, so it's letterboxed inside its box.
+    // Compute the DRAWN image rect (offset + size) within the <img> element so
+    // taps and pins map to the picture, not the letterbox bars.
+    // The letterbox geometry + hit-test are the SHARED module (window.SceneSweepGeo,
+    // defined in scene-sweep.js) so the learner's "tap it" math is byte-identical
+    // to the Studio author's "place it" math — they can never drift.
+    function imgDrawRect() { return SceneSweepGeo.drawRect(sweepPhotoEl); }
+
+    // author helper: append ?author=1 to log normalized tap coords for placing
+    // hazard hotspots without guessing (mirrors immersive.html's authoring mode).
+    const SWEEP_AUTHOR = new URLSearchParams(location.search).has('author');
+
+    function onSweepTap(e) {
+      if (state.mode !== 'scene' || state.briefUp) return;
+      const img = sweepPhotoEl; if (!img) return;
+      const n = SceneSweepGeo.toNormalized(img, e.clientX, e.clientY);
+      if (!n) return;   // tap landed in the letterbox, not the picture
+      if (SWEEP_AUTHOR) { console.log(`[author] x:${n.x.toFixed(3)}, y:${n.y.toFixed(3)}`); showSweepMiss('x ' + n.x.toFixed(2) + ', y ' + n.y.toFixed(2)); return; }
+      const hit = SceneSweepGeo.hitTest(HAZARDS, n.x, n.y, state.covered);
+      if (hit) markHazard(hit);
+      else showSweepMiss();
+    }
+
+    function markHazard(h) {
+      state.covered.add(h.id);
+      state.markStarted = true;
+      dropPin(h);
+      updateObserveHud();
+      updateCoachRail();
+      const n = HAZARDS.filter((x) => state.covered.has(x.id)).length;
+      announce('Marked ' + h.short + '. ' + n + ' of ' + SWEEP_TOTAL + ' found.');
+    }
+
+    function dropPin(h) {
+      const pins = document.getElementById('sweepPins'); if (!pins) return;
+      const idx = HAZARDS.filter((x) => state.covered.has(x.id)).length;   // 1-based order marked
+      const pin = el('div', 'sweep-pin');
+      pin.dataset.hz = h.id;
+      pin.innerHTML = `<div class="sweep-pin-ring"><span class="n">${idx}</span></div><div class="sweep-pin-label">${esc(h.short)}</div>`;
+      pins.appendChild(pin);
+      positionPin(pin, h, imgDrawRect());
+    }
+    function positionPin(pin, h, dr) {
+      dr = dr || imgDrawRect();
+      if (!dr || !h.spot) return;
+      pin.style.left = (dr.left + h.spot.x * dr.width) + 'px';
+      pin.style.top  = (dr.top + h.spot.y * dr.height) + 'px';
+    }
+    function repositionPins() {
+      const pins = document.getElementById('sweepPins'); if (!pins) return;
+      const dr = imgDrawRect(); if (!dr) return;
+      Array.from(pins.children).forEach((pin) => {
+        const h = HAZARDS.find((x) => x.id === pin.dataset.hz);
+        if (h) positionPin(pin, h, dr);
+      });
+    }
+
+    let sweepToastTimer = 0;
+    function showSweepMiss(msg) {
+      if (!SWEEP_AUTHOR) state.misses = (state.misses || 0) + 1;
+      const t = document.getElementById('sweepToast');
+      if (t) {
+        t.textContent = msg || 'Nothing unsafe there';
+        t.classList.add('on');
+        clearTimeout(sweepToastTimer);
+        sweepToastTimer = setTimeout(() => t.classList.remove('on'), 1300);
+      }
+      updateObserveHud();   // a couple of misses reveals the "stuck?" escape hatch
+    }
+
+    function dismissBrief() {
+      state.briefUp = false;
+      state.markStarted = true;
+      const b = document.getElementById('sweepBrief'); if (b) b.classList.add('is-out');
+      updateObserveHud();
+    }
+
+    // Refresh the Observe HUD (top progress pill + bottom CTA cluster). Called
+    // on every mark/miss and on render while the canvas is mounted.
+    function updateObserveHud() {
+      const n = HAZARDS.filter((h) => state.covered.has(h.id)).length;
+      const prog = document.getElementById('sweepProgress');
+      if (prog) {
+        const dots = HAZARDS.map((h) => `<span class="dot ${state.covered.has(h.id) ? 'on' : ''}"></span>`).join('');
+        prog.innerHTML = `<span class="lbl"><i class="fa-solid fa-magnifying-glass"></i> Found ${n} of ${SWEEP_TOTAL}</span><span class="dots">${dots}</span>`;
+      }
+      const wrap = document.getElementById('sweepCtaWrap');
+      if (wrap) {
+        const met = n >= SWEEP_REQUIRED;
+        const stuck = !met && (state.misses >= 2 || n >= 1);
+        let html = '';
+        if (!state.markStarted) {
+          html = '';   // briefing still owns the moment
+        } else if (met) {
+          html = `<button class="sweep-react-cta" id="sweepReactCta"><i class="fa-solid fa-comments"></i> Talk it through with your coach <i class="fa-solid fa-arrow-right arrow"></i></button>`;
+        } else {
+          html = `<div class="sweep-hint">Keep looking — tap anything unsafe</div>`;
+          if (stuck) html += `<button class="sweep-stuck" id="sweepStuckBtn"><i class="fa-solid fa-comment"></i> Stuck? Talk it through with your coach</button>`;
+        }
+        wrap.innerHTML = html;
+        const rc = wrap.querySelector('#sweepReactCta'); if (rc) rc.addEventListener('click', () => crossToReact('found'));
+        const sc = wrap.querySelector('#sweepStuckBtn'); if (sc) sc.addEventListener('click', () => crossToReact('stuck'));
+      }
+    }
+
+    // The coverage chip rail — lives at the top of the coach sheet in React mode
+    // so the coach's credit maps to the chips. Managed by id (reconcile leaves it).
+    function updateCoachRail() {
+      const coachUp = state.mode === 'coaching' && state.started;
+      let rail = document.getElementById('sweepRail');
+      if (IS_SWEEP && coachUp && state.coachStarted) {
+        if (!rail) { rail = el('div', 'sweep-rail'); rail.id = 'sweepRail'; rail.setAttribute('aria-label', 'Hazards spotted'); }
+        if (rail.parentNode !== coachPanelBody || coachPanelBody.firstChild !== rail) coachPanelBody.insertBefore(rail, coachPanelBody.firstChild);
+        renderRailInto(rail);
+      } else if (rail) {
+        rail.remove();
+      }
+    }
+    function renderRailInto(rail) {
       const spotN = HAZARDS.filter((h) => state.covered.has(h.id)).length;
-      // During the spot beat the labels stay hidden until caught (spot-the-hazard);
+      // labels stay hidden until caught during the spot beat (spot-the-hazard);
       // once the Observe debrief has run (past the spot beat) every hazard is named.
       const spotIdx = (ACTIVE_SCENARIO.phases || []).findIndex((p) => p.id === SPOT_PHASE_ID);
       const revealAll = state.phaseIdx > spotIdx || state.complete;
@@ -1808,10 +2125,13 @@
       rail.innerHTML =
         `<div class="sweep-rail-head">
            <span class="sweep-rail-ttl"><i class="fa-solid fa-magnifying-glass"></i> Hazards spotted</span>
-           <span class="sweep-rail-count">${spotN}<span>/${total}</span></span>
+           <span class="sweep-rail-count">${spotN}<span>/${SWEEP_TOTAL}</span></span>
          </div>
          <div class="sweep-chips">${chips}</div>`;
     }
+
+    // keep pins aligned when the viewport resizes (the drawn photo rect moves)
+    addEventListener('resize', () => { if (IS_SWEEP) repositionPins(); });
 
     // Built ONCE per video phase and never re-rendered mid-playback (render()
     // isn't called again until finishVideoIntro) — every clip gets its own
@@ -2141,6 +2461,64 @@
       if (typing && typing.parentNode === coachPanelBody) coachPanelBody.appendChild(typing);  // keep dots last
     }
 
+    /* Lift the coach's ACTIVE question out of the teaching stream. The coach mixes
+       teaching and asking; the ONE bubble the learner must answer right now is the
+       latest coach line that hands a "?" back with no reply yet. We tag its cached
+       node .is-prompt (float + faint lit edge) and, the first render it becomes
+       active, .just-asked for a one-time settle. It clears the
+       moment the learner replies (the last coaching message becomes their own) — an
+       answered probe is history, not a task. Works off text alone (a "?" anywhere
+       in the handed-back line — a question may trail an imperative, e.g. "…does
+       this qualify? Walk me through it."), so it needs nothing new from the model
+       and degrades gracefully everywhere. */
+    let activePromptMsg = null;
+    function markActivePrompt(msgs, complete) {
+      // Only the LAST coaching-world message can be the live prompt: if it's a
+      // coach bubble that poses a question (a "?" anywhere in it), the turn was
+      // handed back and is unanswered; a 'you' reply sitting last means it was
+      // already answered → nothing active.
+      let cand = null;
+      if (!complete) {
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (worldOf(msgs[i]) !== 'coaching') continue;   // skip a trailing scene run
+          const m = msgs[i];
+          if (m.speaker === 'coach' && /\?/.test(String(m.text || ''))) cand = m;
+          break;   // decided by the last coaching message only
+        }
+      }
+      if (cand === activePromptMsg) return;                // unchanged → don't re-glow
+      const prev = activePromptMsg && coachNodeMap.get(activePromptMsg);
+      if (prev) prev.classList.remove('is-prompt', 'just-asked');
+      activePromptMsg = cand;
+      const node = cand && coachNodeMap.get(cand);
+      if (node) {
+        node.classList.add('is-prompt');
+        // Glow ONCE, only when it's freshly delivered — never on resume/re-render.
+        if (cand._enter) {
+          node.classList.add('just-asked');
+          setTimeout(() => node.classList.remove('just-asked'), 1400);
+        }
+      }
+    }
+
+    /* WhatsApp-style grouping: within the trailing coaching run, a contiguous
+       block of coach messages is ONE identity — the "AI Coach" name shows on the
+       FIRST, the avatar attaches to the LAST. We toggle grp-first/grp-last per
+       render, so the avatar hops to the newest bubble as a burst streams and the
+       run re-splits when a learner reply lands between coach turns. A 'you' reply
+       (or any non-coach message) breaks the group. */
+    function markCoachGroups(run) {
+      for (let i = 0; i < run.length; i++) {
+        const m = run[i];
+        if (m.speaker !== 'coach') continue;
+        const node = coachNodeMap.get(m);
+        if (!node) continue;
+        const prev = run[i - 1], next = run[i + 1];
+        node.classList.toggle('grp-first', !prev || prev.speaker !== 'coach');
+        node.classList.toggle('grp-last',  !next || next.speaker !== 'coach');
+      }
+    }
+
     /* —— The coach sheet's rise + follow-scroll motion ————————————————————————
        Bottom-anchored, it eases the WHOLE sheet (header + thread) up as it grows
        and glides the thread smoothly once it's maxed out. That logic is shared
@@ -2180,39 +2558,54 @@
       modeIndicator.setAttribute('aria-hidden', String(!state.started));
       modeIndicator.inert = !state.started;
 
-      /* —— Mode indicator: Learn | Practice toggle (raises/lowers the sheet) —— */
+      /* —— Mode indicator: the two-world toggle. Sweep relabels it OBSERVE
+         (the tap-to-mark photo) | REACT (the coach), and keeps both live once
+         the experience has started so the learner can swap at will. Other
+         scenarios keep Learn | Practice (raises/lowers the coach sheet). —— */
       const busy = state.transitioning || state.sending || state.delivering;
-      // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
-      const coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
-      // "Practice" lights up once the coach has invited entry, even before stepping in
-      const sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
-      // hover tooltips clarify what tapping the inactive segment does (only meaningful
-      // when it's enabled and not already the active mode)
-      const learnTip = (mode !== 'coaching' && !coachDisabled)
-        ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
-      const sceneTip = (mode !== 'scene' && !sceneDisabled)
-        ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
+      let coachDisabled, sceneDisabled, learnTip, sceneTip, coachSeg, sceneSeg;
+      if (IS_SWEEP) {
+        coachSeg = { label: 'React', icon: 'fa-comments' };
+        sceneSeg = { label: 'Observe', icon: 'fa-magnifying-glass-location' };
+        // both live once started; only busy (a reveal in flight) locks them
+        coachDisabled = mode !== 'coaching' && (busy || !state.started);
+        sceneDisabled = mode !== 'scene' && (busy || !state.started);
+        learnTip = (mode !== 'coaching' && !coachDisabled)
+          ? (state.coachStarted ? 'Back to your coach' : 'Talk it through with your coach') : '';
+        sceneTip = (mode !== 'scene' && !sceneDisabled) ? 'Look at the scene again' : '';
+      } else {
+        coachSeg = { label: 'Learn', icon: 'fa-chalkboard-user' };
+        sceneSeg = { label: 'Practice', icon: 'fa-door-open' };
+        // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
+        coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
+        // "Practice" lights up once the coach has invited entry, even before stepping in
+        sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
+        learnTip = (mode !== 'coaching' && !coachDisabled)
+          ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
+        sceneTip = (mode !== 'scene' && !sceneDisabled)
+          ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
+      }
       modeIndicator.innerHTML =
-        `<div class="mode-toggle" role="group" aria-label="Learn or practice mode">
+        `<div class="mode-toggle" role="group" aria-label="${IS_SWEEP ? 'Observe or react mode' : 'Learn or practice mode'}">
            <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
                    ${learnTip ? `data-tip="${learnTip}"` : ''}
                    aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
-             <i class="fa-solid fa-chalkboard-user"></i> Learn
+             <i class="fa-solid ${coachSeg.icon}"></i> ${coachSeg.label}
            </button>
            <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
                    ${sceneTip ? `data-tip="${sceneTip}"` : ''}
                    aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
-             <i class="fa-solid fa-door-open"></i> Practice
+             <i class="fa-solid ${sceneSeg.icon}"></i> ${sceneSeg.label}
            </button>
          </div>`;
 
       /* —— Practice base (ALWAYS the base layer) ——
          Pre-entry → an establishing card; entered → the live scene. Dimmed,
          lightly blurred + inert whenever the coach sheet is up over it. */
-      // Scene Sweep keeps the illustration CRISP behind the coach panel (the
-      // learner is studying it as they talk) — no blur; the reduced scrim (CSS)
-      // keeps it legible. Other scenarios freeze the peek as before.
-      stage.classList.toggle('is-frozen', coachUp && !IS_SWEEP);
+      // In React mode the full-bleed photo is blurred + dimmed behind the coach
+      // sheet (CSS .app.sweep .stage.is-frozen) so the coach reads clearly over
+      // the busy scene; tapping the dimmed peek (or the Observe toggle) returns.
+      stage.classList.toggle('is-frozen', coachUp);
       stage.toggleAttribute('inert', coachUp);
       stage.setAttribute('aria-hidden', coachUp ? 'true' : 'false');
       // While the video is up, only mount it once — re-rendering for OTHER
@@ -2259,18 +2652,25 @@
           stageInner.appendChild(est);
         }
       }
-      // Refresh the coverage rail every render (chips light up as hazards are
-      // credited); the image itself stays mounted and untouched.
-      if (IS_SWEEP && stageInner.querySelector('.sweep-scene')) updateSweepRail();
+      // Refresh the Observe HUD every render (progress pill + bottom CTA) while
+      // the full-bleed photo canvas is mounted; the photo itself stays untouched.
+      if (IS_SWEEP && stageInner.querySelector('.sweep-scene')) { updateObserveHud(); repositionPins(); }
 
       /* —— AI Coach sheet — up whenever we're in Learn mode (prep AND debriefs) —— */
       coachPanel.toggleAttribute('inert', !coachUp);
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
+      // Scene Sweep: keep the coverage chip rail pinned to the top of the coach
+      // sheet in React mode (and remove it otherwise). Runs before the body
+      // reconcile so the rail stays the first child.
+      if (IS_SWEEP) updateCoachRail();
       if (coachUp) {
         // Incremental — preserves scroll (see reconcileCoachBody). The closing
         // recap shows here like any other coach line; loading beats live in the
         // CTA slot below (see showAnalyzing), not stacked over the conversation.
-        reconcileCoachBody(trailingRun(messages, 'coaching'));
+        const coachRun = trailingRun(messages, 'coaching');
+        reconcileCoachBody(coachRun);
+        markCoachGroups(coachRun);   // name on the run's first, avatar on its last
+        markActivePrompt(messages, complete);   // flag the live question as the thing to answer
         // The full strengths/growth-areas report lives in its own modal — opened
         // only when the learner taps "View full results", never dumped here.
         // Resources are the one thing that shows inline, and only once they've
@@ -2296,6 +2696,15 @@
       // The coach has replied and is ready to send the learner back into the
       // scene, but waits for this tap rather than auto-transitioning.
       const showReturn    = state.awaitingReturn && !state.delivering;
+      // SCENE SWEEP: the coach is nudging back to the photo (still in the Observe
+      // beat, hazards left to find) but the sheet covers it — offer the way back
+      // as the PRIMARY action, right under the nudge, unless they've opted to type.
+      const sweepSpotIdx  = (ACTIVE_SCENARIO.phases || []).findIndex((p) => p.id === SPOT_PHASE_ID);
+      const sweepUnspotted = HAZARDS.filter((h) => !state.covered.has(h.id)).length;
+      const showLookAgain = IS_SWEEP && state.coachStarted && mode === 'coaching'
+        && !complete && !state.delivering && !state.sending && !state.analyzing
+        && !state.awaitingDebrief && !state.awaitingResults && !state.awaitingReturn
+        && state.phaseIdx === sweepSpotIdx && sweepUnspotted > 0 && !state.lookAgainDismissed;
       // Once the recap lands, this replaces the composer just like every other
       // CTA here — tapping it is what opens the results modal (never auto-shown).
       const showResults   = state.awaitingResults && !state.resultsModalOpen;
@@ -2310,17 +2719,21 @@
       inputWatching.hidden  = !showWatching;
       inputDebrief.hidden   = !showDebrief;
       inputReturn.hidden    = !showReturn;
+      inputLookAgain.hidden = !showLookAgain;
       inputResults.hidden   = !showResults;
       inputContinue.hidden  = !showContinue;
       inputDone.hidden      = !showDone;
-      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showResults || showContinue || showDone;
+      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showLookAgain || showResults || showContinue || showDone;
       if (showAnalyzing) {
         inputAnalyzing.lastChild.textContent = state.closingStepperActive
           ? DEBRIEF.closingLabel()
           : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showWatching) {
-        inputWatching.lastChild.textContent = state.audioIntroPlaying ? 'Setting the scene — listen or read, then continue' : 'Watching the scene…';
+        // Modality-aware: a READING context has no audio player, so don't say "listen".
+        inputWatching.lastChild.textContent = state.audioIntroPlaying
+          ? (AUDIO_INTRO_MODALITY === 'reading' ? 'Read the scene, then continue' : 'Setting the scene — listen or read, then continue')
+          : 'Watching the scene…';
       }
       if (showDebrief) {
         debriefCtaBtn.innerHTML = complete
@@ -2349,7 +2762,7 @@
         sendBtn.setAttribute('aria-label', 'Respond');
         sendBtn.innerHTML = 'Respond <i class="fa-solid fa-arrow-right"></i>';
       } else {
-        composer.placeholder = 'Type your response…';
+        composer.placeholder = coachPanelBody.querySelector('.coach-msg.is-prompt') ? 'Type your answer…' : 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
         sendBtn.classList.remove('is-respond');
         sendBtn.setAttribute('aria-label', 'Send');
@@ -2866,6 +3279,7 @@
     async function send() {
       const text = composer.value.trim();
       if (!text || state.sending || state.complete || state.transitioning) return;
+      state.lookAgainDismissed = false;   // a fresh turn re-arms the sweep "look again" CTA
 
       let youMsg = null;
       if (state.mode === 'scene') {
@@ -3033,6 +3447,7 @@
       const intoDebrief = (i < items.length)
         && (state.complete || (state.hasEnteredScene && state.mode === 'scene'));
       if (intoDebrief) {
+        hideTyping();                                // clear the send() "thinking" dots — the closing/debrief flow owns the beat now (they'd otherwise linger forever beside the CTA)
         state.analyzing = true;
         render();                                    // input bar: "Analyzing your response…"
         announce(state.complete ? 'Wrapping up your practice.' : 'Analyzing your response.');
@@ -3264,6 +3679,9 @@
         // reset the app-owned arc engine + coverage
         phaseIdx: -1, turnsInPhase: 0, ladder: {}, vars: {}, lastTier: null,
         scenePlaceholder: '', entryLabel: '', covered: new Set(),
+        // reset the Scene Sweep Observe phase
+        marking: false, markStarted: false, briefUp: false, misses: 0,
+        coachStarted: false, reportedToCoach: new Set(), lookAgainDismissed: false,
       });
       (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
       app.classList.remove('was-trap');
@@ -3284,11 +3702,82 @@
         appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
       });
+      // SCENE SWEEP diverges here: rather than raising the coach with a reflection
+      // prompt, the learner first OBSERVES — a full-bleed photo they sweep for
+      // hazards. The coach comes in later (React), on the learner's own crossing.
+      if (IS_SWEEP) { enterMarking(); return; }
       state.started = true;
       state.mode = 'coaching'; state.inputTarget = 'coach';
       announce('Bringing in your AI coach.');
       render();                 // the sheet rises (empty) over the scene anchor
       await deliverOpening();   // each opening line types into the sheet, one by one
+    }
+
+    /* =====================================================================
+       SCENE SWEEP — the Observe (mark) ⇄ React (coach) crossings.
+       ===================================================================== */
+    // Land in Observe: the full-bleed photo with the "Start looking" briefing.
+    function enterMarking() {
+      state.started = true;         // reveals the Observe|React toggle
+      state.marking = true;
+      state.mode = 'scene'; state.inputTarget = 'coach';   // footer is hidden in Observe anyway
+      state.briefUp = true;
+      announce('Take a slow look around the work area. Tap anything that looks unsafe.');
+      render();                     // mounts the full-bleed Observe canvas
+    }
+
+    // Toggle → Observe: return to the photo to keep looking (mid-conversation too).
+    function enterObserve() {
+      if (!state.started || state.sending || state.delivering) return;
+      state.marking = true;
+      state.lookAgainDismissed = false;   // re-arm the nudge CTA for the next return
+      state.mode = 'scene'; state.inputTarget = 'coach';
+      announce('Back at the scene. Tap anything you missed.');
+      render();
+    }
+
+    // Build the first-person summary of NEWLY-marked hazards to hand the coach.
+    function freshMarkSummary(reason) {
+      const fresh = HAZARDS.filter((h) => state.covered.has(h.id) && !state.reportedToCoach.has(h.id));
+      fresh.forEach((h) => state.reportedToCoach.add(h.id));
+      if (fresh.length) {
+        return 'I marked ' + listJoin(fresh.map((h) => MARK_PHRASE[h.id] || String(h.short || '').toLowerCase())) + '.';
+      }
+      if (reason === 'stuck') return 'I’ve looked around, but I’m not sure what else is unsafe here.';
+      return 'I’ve taken a look around the work area.';
+    }
+
+    // Cross to React: hand the coach what the learner marked. First crossing
+    // raises the sheet, opens the Observe beat, and auto-sends the marks so the
+    // coach credits them; a later crossing (after a "look again") sends only the
+    // NEW finds, or just returns to the thread if nothing new was marked.
+    async function crossToReact(reason) {
+      if (state.sending || state.delivering) return;
+      state.marking = false;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      const fresh = HAZARDS.filter((h) => state.covered.has(h.id) && !state.reportedToCoach.has(h.id));
+
+      if (!state.coachStarted) {
+        state.coachStarted = true;
+        state.phaseIdx = 0; state.turnsInPhase = 0;   // straight into Observe (marking replaced the free-text reflection)
+        // a short, warm opener instead of the reflection prompt
+        state.pendingOpening = [{ speaker: 'coach', kind: 'coaching',
+          text: 'Good — you’ve had a look around. Let’s talk through what you flagged.' }];
+        render();                 // the sheet rises (empty) over the blurred scene
+        await deliverOpening();   // the opener types in
+        composer.value = freshMarkSummary(reason);
+        send();                   // hand the marks to the coach as the Observe input
+        return;
+      }
+      // returning from a look-again
+      if (fresh.length && state.phaseIdx === 0 && !state.complete) {
+        render();
+        composer.value = freshMarkSummary(reason);
+        send();
+      } else {
+        announce('Back with your coach.');
+        render();
+      }
     }
 
     // Reveal the coach's opening prep message-by-message (typing beat between each),
@@ -3337,12 +3826,22 @@
       if (resumeBtn.dataset.action === 'begin') enterScene();
       else resumeScene();
     });
-    scrim.addEventListener('click', resumeScene);     // tap the dimmed scene to resume
+    // Tap the dimmed peek behind the coach: sweep goes back to the photo (Observe),
+    // every other scenario resumes its live scene.
+    scrim.addEventListener('click', () => { if (IS_SWEEP) enterObserve(); else resumeScene(); });
 
     // Entry bar: the CTA steps in; "keep talking" hands the bar back to the composer.
     enterCtaBar.addEventListener('click', enterScene);
     keepTalkingBtn.addEventListener('click', () => {
       state.entryPromptDismissed = true;
+      render();
+      composer.focus();
+    });
+    // Sweep "look again" bar: the CTA drops back onto the photo; the escape hands
+    // the composer back for a learner who'd rather tell the coach they're done.
+    lookAgainCta.addEventListener('click', enterObserve);
+    lookAgainType.addEventListener('click', () => {
+      state.lookAgainDismissed = true;
       render();
       composer.focus();
     });
@@ -3390,6 +3889,13 @@
       const seg = e.target.closest('.seg');
       if (!seg || seg.disabled) return;
       const which = seg.dataset.seg;
+      // SCENE SWEEP: the toggle swaps Observe (the photo) ⇄ React (the coach).
+      if (IS_SWEEP) {
+        if (which === state.mode) return;
+        if (which === 'scene') enterObserve();          // → look at the scene again
+        else crossToReact('toggle');                    // → the coach (credits new marks)
+        return;
+      }
       if (which === 'coaching' && !state.started) { CONTEXT.done({ modality: 'none' }); return; }  // begin (skips the intro)
       if (which === state.mode) return;               // already active
       if (which === 'coaching') {                     // → the coach layer

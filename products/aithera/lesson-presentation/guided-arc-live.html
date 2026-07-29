@@ -609,7 +609,48 @@
         color: var(--c-ink);
         white-space: pre-wrap;
         box-shadow: var(--shadow-sm);
+        /* smooth both directions: floats forward when it's the live question,
+           settles back to flat when the learner answers it (see .is-prompt). */
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
       }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking, so the ONE line the learner must
+         answer right now is easy to lose. We DON'T decorate it — no chip, no
+         accent spine. We just LIFT it: the live question drops its flat outline
+         and floats a touch above the teaching bubbles on a soft, faintly indigo
+         shadow, blooming forward as it lands. It flattens back to a plain bubble
+         the instant the learner replies — an answered probe is history, not a
+         task. Driven by markActivePrompt() at render. */
+      .coach-msg.is-prompt .coach-bubble {
+        /* a faint hairline in the glow color — a lit edge, not an outline — plus
+           the soft float shadow; together they lift the live question forward. */
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. grp-first / grp-last are
+         toggled per render by markCoachGroups(). */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }   /* reserve the 34px column */
+      .coach-msg.grp-last { align-items: flex-end; }                    /* avatar hugs the last bubble */
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }     /* tuck grouped bubbles closer */
 
       /* Your coaching reply: right-aligned accent bubble */
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
@@ -1710,18 +1751,30 @@
     const narrationHTML = (m) => (m && m._enter ? revealHTML(m.text) : esc(m.text));
 
     /* Restage a first-person action into the second-person cinematic voice
-       ("I step in beside Marshall" → "You step in beside Marshall"). Pure
-       pronoun/verb transform — it never rewrites content, so there's no
-       distortion (and no LLM round-trip). Applied ONLY to the learner's action
+       ("I step in beside Marshall" → "You step in beside Marshall"). A pronoun
+       transform that ALSO normalizes future/conditional intent to present tense
+       ("I'd punch Jake" → "You punch Jake"), so the action reads as a stage
+       direction the learner does NOW. It never changes WHAT they do, only how the
+       move is staged (and no LLM round-trip). Applied ONLY to the learner's action
        narration; their spoken words (in quotes) are always kept verbatim. */
     function toSecondPerson(text) {
       let s = String(text || '').trim();
       const rules = [
+        // Future/conditional → present: drop the modal so "I'd/I'll/I would/I will
+        // punch" → "You punch". would/will/'d/'ll are modal + bare verb, so always
+        // safe. "going to"/"gonna" is dropped ONLY before a verb — never before a
+        // determiner, so "I'm going to the door" stays a destination.
+        [/\bI\s+am\s+going\s+to\s+(?!(?:the|a|an|my|your|his|her|their|our|its|this|that|these|those|some|any)\b)/gi, 'you '],
+        [/\bI['’]m\s+going\s+to\s+(?!(?:the|a|an|my|your|his|her|their|our|its|this|that|these|those|some|any)\b)/gi, 'you '],
+        [/\bI\s+am\s+gonna\s+/gi, 'you '],
+        [/\bI['’]m\s+gonna\s+/gi, 'you '],
+        [/\bI\s+would\b/gi, 'you'],
+        [/\bI\s+will\b/gi, 'you'],
+        [/\bI['’]d\b/gi, 'you'],
+        [/\bI['’]ll\b/gi, 'you'],
         [/\bI['’]m\b/gi, "you're"],
         [/\bI am\b/g, 'you are'],
         [/\bI was\b/g, 'you were'],
-        [/\bI['’]d\b/gi, "you'd"],
-        [/\bI['’]ll\b/gi, "you'll"],
         [/\bI['’]ve\b/gi, "you've"],
         [/\bI\b/g, 'you'],
         [/\bmyself\b/gi, 'yourself'],
@@ -1734,27 +1787,47 @@
       return s.replace(/(^|[.!?]\s+)([a-z])/g, (m, p, c) => p + c.toUpperCase());
     }
 
-    /* Split a learner's scene input into ACTION (what they do → narration) and
-       SPEECH (what they say → a bubble). Rule the placeholder teaches: anything
-       in "quotes" is spoken aloud; a line starting with "I …" is an action;
-       otherwise a bare line is treated as speech. The raw text still goes to the
-       model verbatim (this only drives DISPLAY, via the message's _display). */
+    /* Split a learner's scene input into ORDERED beats — the things they do
+       (→ narration) and the things they say (→ bubbles) — IN THE ORDER they
+       appear, so a move like `do "say" do` renders do → say → do rather than
+       all-actions-then-all-speech. Anything in "quotes" is spoken aloud; the
+       words around it are actions; multiple quotes/actions each get their own
+       beat. Un-quoted free text falls back to the coarse "I …" = action rule.
+       The raw text still goes to the model verbatim (this only drives DISPLAY,
+       via the message's _display). This is the deterministic fallback; the AI
+       split below is the primary path for free-form, multi-part moves. */
     function splitSceneInput(raw) {
       const t = String(raw || '').trim();
+      if (!t) return [];
       const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g;
-      const found = t.match(quoteRe);
-      if (found && found.length) {
-        const speech = found.map((q) => q.replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim()).filter(Boolean);
-        let action = t.replace(quoteRe, ' ').replace(/\s{2,}/g, ' ').trim();
-        // drop a dangling speech connector ("… and say", "… tells him:", "…:")
-        action = action.replace(/[,:—-]*\s*(and|then|,)?\s*(says?|said|yells?|shouts?|adds?|tells?\s+\w+)\s*[:,]?\s*$/i, '').replace(/[\s,:—-]+$/, '').trim();
-        const beats = [];
-        if (action && /[a-z0-9]/i.test(action)) beats.push({ kind: 'narration', text: toSecondPerson(action) });
-        speech.forEach((s) => beats.push({ kind: 'dialogue', text: s }));
-        return beats.length ? beats : [{ kind: 'dialogue', text: t }];
+      const beats = [];
+      const pushAction = (chunk) => {
+        // strip the connective glue that introduced/followed a quote
+        let a = String(chunk || '')
+          .replace(/[,:;—-]*\s*(and|then|,|but|so)?\s*(says?|said|yells?|shouts?|adds?|snaps?|asks?|tells?\s+\w+)\s*[:,]?\s*$/i, '')
+          .replace(/^\s*(and|then|but|so)\b[\s,]*/i, '')
+          .replace(/\s{2,}/g, ' ')
+          .replace(/^[\s,:;—-]+|[\s,:;—-]+$/g, '')
+          .trim();
+        // Drop a chunk that stripped down to just a subject ("I", "I'd", "you") —
+        // a leftover speech introducer ("I say", "and I tell him"), not an action.
+        if (a && /[a-z0-9]/i.test(a) && !/^(i|he|she|they|we|it|you)(['’]?(d|ll|m|ve|re|s))?$/i.test(a)) {
+          beats.push({ kind: 'narration', text: toSecondPerson(a) });
+        }
+      };
+      let last = 0, m;
+      while ((m = quoteRe.exec(t)) !== null) {
+        pushAction(t.slice(last, m.index));                 // action before this quote
+        const spoken = m[0].replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim();
+        if (spoken) beats.push({ kind: 'dialogue', text: spoken });
+        last = quoteRe.lastIndex;
       }
-      if (/^(i |i'd |i would |i'll |i'm |i am |i just )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
-      return [{ kind: 'dialogue', text: t }];
+      if (last === 0) {   // no quotes — coarse single-beat fallback
+        if (/^(i |i'd |i would |i'll |i'm |i am |i just |you )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+        return [{ kind: 'dialogue', text: t }];
+      }
+      pushAction(t.slice(last));                             // action after the last quote
+      return beats.length ? beats : [{ kind: 'dialogue', text: t }];
     }
 
     /* AI split — the reliable path for free-form input (no quotes needed). A fast
@@ -1766,20 +1839,33 @@
        every Guided Arc scene (the author toggles it via scene.sayDoSplit, and names
        the people via scene.characters; the splitter itself needs no scenario detail).
        Kept static so the FAST-model call stays cache-friendly. */
-    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, move toward someone), rewritten in SECOND person ("You step in beside them"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"knock it off" -> {"action":"","speech":"Knock it off"}\n"I\'d tell him to shut up" -> {"action":"","speech":"Shut up"}\n"tell him to drop it and then check on her after" -> {"action":"You turn to check on her after","speech":"Drop it"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look over and say cut it out" -> {"action":"You look over","speech":"Cut it out"}';
+    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into an ORDERED list of beats — the things they DO and the things they SAY — for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"beats":[{"kind":"do"|"say","text":"..."}]}.\n- Walk the move from START to FINISH and emit ONE beat per distinct thing they do or say, IN THE ORDER THEY EXPRESSED IT. A move can be several beats and can alternate — do, say, do — keep that exact sequence. NEVER reorder. NEVER merge two separate actions into one beat, and NEVER merge two separate spoken lines into one beat.\n- "kind":"do" — one physical thing they do (step, look, turn, stand, move toward someone, punch, walk away), rewritten in SECOND person ("You step in beside them"). Never invent words for a physical action.\n- "kind":"say" — one thing they say out loud. If they quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never add content they did not express.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY. Only truly physical, non-verbal moves are DO. Return an empty beats array only if there is genuinely nothing to show.\nExamples:\n"step between them" -> {"beats":[{"kind":"do","text":"You step between them"}]}\n"knock it off" -> {"beats":[{"kind":"say","text":"Knock it off"}]}\n"I\'d tell him to shut up" -> {"beats":[{"kind":"say","text":"Shut up"}]}\n"I\'d punch Jake, tell him to shove off and then run away" -> {"beats":[{"kind":"do","text":"You punch Jake"},{"kind":"say","text":"Shove off"},{"kind":"do","text":"You run away"}]}\n"tell him to drop it and then check on her after" -> {"beats":[{"kind":"say","text":"Drop it"},{"kind":"do","text":"You check on her after"}]}\n"I look over and say cut it out" -> {"beats":[{"kind":"do","text":"You look over"},{"kind":"say","text":"Cut it out"}]}\n"I\'d calmly ask him to please stop" -> {"beats":[{"kind":"say","text":"Please stop"}]}';
     async function splitSceneInputAI(text) {
       const raw = await SimCore.callModel({
         model: SimCore.MODELS.FAST,
-        maxTokens: 200,
+        maxTokens: 400,
         system: SPLIT_SYSTEM,
         messages: [{ role: 'user', content: String(text || '') }],
       });
       const obj = SimCore.parseJson(raw) || {};
-      const action = String(obj.action || '').trim();
-      const speech = String(obj.speech || '').trim();
       const beats = [];
-      if (action) beats.push({ kind: 'narration', text: action });
-      if (speech) beats.push({ kind: 'dialogue', text: speech });
+      // Primary shape: an ORDERED beats[] list — keep it in order so an
+      // alternating move (do, say, do) shows in the sequence the learner meant.
+      if (Array.isArray(obj.beats)) {
+        obj.beats.forEach((b) => {
+          if (!b) return;
+          const bt = String(b.text || '').trim();
+          if (!bt) return;
+          const kind = /^(do|act|narr)/i.test(String(b.kind || '')) ? 'narration' : 'dialogue';
+          beats.push({ kind, text: bt });
+        });
+      }
+      if (!beats.length) {   // legacy {action, speech} fallback (stale cache / older reply)
+        const action = String(obj.action || '').trim();
+        const speech = String(obj.speech || '').trim();
+        if (action) beats.push({ kind: 'narration', text: action });
+        if (speech) beats.push({ kind: 'dialogue', text: speech });
+      }
       return beats.length ? beats : null;
     }
     /* Resolve the learner's scene move for display ONCE: try the fast AI split
@@ -1853,22 +1939,35 @@
         r.addEventListener('click', () => tryDifferentApproach(absIndex));
         return r;
       };
-      // ACTION lines first (centered), in order.
-      disp.filter((b) => b.kind === 'narration').forEach((b) => {
-        card.appendChild(el('div', 'you-narration' + ec(m), esc(b.text)));
+      // Render the move IN ORDER — each thing they DO as its own centered
+      // action line, each run of consecutive speech as one amber "You" bubble
+      // stack. Interleaving is preserved: "punch / say / run" shows do → say →
+      // do, never all-actions-then-all-speech. A narration beat closes the open
+      // speech stack so the next speech starts a fresh one.
+      let speechWrap = null;
+      disp.forEach((b) => {
+        if (b.kind === 'narration') {
+          speechWrap = null;
+          card.appendChild(el('div', 'you-narration' + ec(m), esc(b.text)));
+        } else {
+          if (!speechWrap) {
+            speechWrap = el('div', 'you-scene' + ec(m));
+            speechWrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
+            card.appendChild(speechWrap);
+          }
+          speechWrap.appendChild(el('div', 'bubble', esc(b.text)));
+        }
       });
-      // SPEECH lines grouped under one "You" bubble stack (retry lives here).
-      const speech = disp.filter((b) => b.kind === 'dialogue');
-      if (speech.length) {
-        const wrap = el('div', 'you-scene' + ec(m));
-        wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
-        speech.forEach((b) => wrap.appendChild(el('div', 'bubble', esc(b.text))));
-        if (showRetry) wrap.appendChild(retryNode());
-        card.appendChild(wrap);
-      } else if (showRetry) {
-        const holder = el('div', 'you-narration-actions');
-        holder.appendChild(retryNode());
-        card.appendChild(holder);
+      // Retry attaches to the final beat: inside the last speech stack if the
+      // move ended on speech, otherwise a trailing right-aligned holder.
+      if (showRetry) {
+        if (speechWrap) {
+          speechWrap.appendChild(retryNode());
+        } else {
+          const holder = el('div', 'you-narration-actions');
+          holder.appendChild(retryNode());
+          card.appendChild(holder);
+        }
       }
     }
     // narration that belongs to a character line WITH dialogue is rendered inside
@@ -1994,6 +2093,64 @@
       if (typing && typing.parentNode === coachPanelBody) coachPanelBody.appendChild(typing);  // keep dots last
     }
 
+    /* Lift the coach's ACTIVE question out of the teaching stream. The coach mixes
+       teaching and asking; the ONE bubble the learner must answer right now is the
+       latest coach line that hands a "?" back with no reply yet. We tag its cached
+       node .is-prompt (float + faint lit edge) and, the first render it becomes
+       active, .just-asked for a one-time settle. It clears the
+       moment the learner replies (the last coaching message becomes their own) — an
+       answered probe is history, not a task. Works off text alone (a "?" anywhere
+       in the handed-back line — a question may trail an imperative, e.g. "…does
+       this qualify? Walk me through it."), so it needs nothing new from the model
+       and degrades gracefully everywhere. */
+    let activePromptMsg = null;
+    function markActivePrompt(msgs, complete) {
+      // Only the LAST coaching-world message can be the live prompt: if it's a
+      // coach bubble that poses a question (a "?" anywhere in it), the turn was
+      // handed back and is unanswered; a 'you' reply sitting last means it was
+      // already answered → nothing active.
+      let cand = null;
+      if (!complete) {
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (worldOf(msgs[i]) !== 'coaching') continue;   // skip a trailing scene run
+          const m = msgs[i];
+          if (m.speaker === 'coach' && /\?/.test(String(m.text || ''))) cand = m;
+          break;   // decided by the last coaching message only
+        }
+      }
+      if (cand === activePromptMsg) return;                // unchanged → don't re-glow
+      const prev = activePromptMsg && coachNodeMap.get(activePromptMsg);
+      if (prev) prev.classList.remove('is-prompt', 'just-asked');
+      activePromptMsg = cand;
+      const node = cand && coachNodeMap.get(cand);
+      if (node) {
+        node.classList.add('is-prompt');
+        // Glow ONCE, only when it's freshly delivered — never on resume/re-render.
+        if (cand._enter) {
+          node.classList.add('just-asked');
+          setTimeout(() => node.classList.remove('just-asked'), 1400);
+        }
+      }
+    }
+
+    /* WhatsApp-style grouping: within the trailing coaching run, a contiguous
+       block of coach messages is ONE identity — the "AI Coach" name shows on the
+       FIRST, the avatar attaches to the LAST. We toggle grp-first/grp-last per
+       render, so the avatar hops to the newest bubble as a burst streams and the
+       run re-splits when a learner reply lands between coach turns. A 'you' reply
+       (or any non-coach message) breaks the group. */
+    function markCoachGroups(run) {
+      for (let i = 0; i < run.length; i++) {
+        const m = run[i];
+        if (m.speaker !== 'coach') continue;
+        const node = coachNodeMap.get(m);
+        if (!node) continue;
+        const prev = run[i - 1], next = run[i + 1];
+        node.classList.toggle('grp-first', !prev || prev.speaker !== 'coach');
+        node.classList.toggle('grp-last',  !next || next.speaker !== 'coach');
+      }
+    }
+
     /* —— The coach sheet's rise + follow-scroll motion ————————————————————————
        Bottom-anchored, it eases the WHOLE sheet (header + thread) up as it grows
        and glides the thread smoothly once it's maxed out. That logic is shared
@@ -2108,7 +2265,9 @@
         // Incremental — preserves scroll (see reconcileCoachBody). The closing
         // recap shows here like any other coach line; loading beats live in the
         // CTA slot below (see showAnalyzing), not stacked over the conversation.
-        reconcileCoachBody(trailingRun(messages, 'coaching'));
+        const coachRun = trailingRun(messages, 'coaching');
+        reconcileCoachBody(coachRun);
+        markCoachGroups(coachRun);   // name on the run's first, avatar on its last
         // The full strengths/growth-areas report lives in its own modal — opened
         // only when the learner taps "View full results", never dumped here.
         // Resources are the one thing that shows inline, and only once they've
@@ -2117,6 +2276,8 @@
         let resNode = document.getElementById('coachResources');
         if (showRes && !resNode) { resNode = resourcesNode(); resNode.id = 'coachResources'; coachPanelBody.appendChild(resNode); }
         else if (!showRes && resNode) { resNode.remove(); }
+        // Flag the live question (if any) so it reads as the thing to answer.
+        markActivePrompt(messages, complete);
       }
 
       /* —— Input bar — the composer, OR a CTA/indicator that takes its place —— */
@@ -2181,7 +2342,8 @@
         sendBtn.setAttribute('aria-label', 'Respond');
         sendBtn.innerHTML = 'Respond <i class="fa-solid fa-arrow-right"></i>';
       } else {
-        composer.placeholder = 'Type your response…';
+        // When the coach is holding a live question, the composer names the task.
+        composer.placeholder = activePromptMsg ? 'Type your answer…' : 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
         sendBtn.classList.remove('is-respond');
         sendBtn.setAttribute('aria-label', 'Send');

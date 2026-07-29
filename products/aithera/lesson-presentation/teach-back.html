@@ -338,7 +338,42 @@
         border-radius: 4px 16px 16px 16px; padding: 12px 15px;
         font-size: 15px; line-height: 1.55; color: var(--c-ink);
         white-space: pre-wrap; box-shadow: var(--shadow-sm);
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
       }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
+
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 65%; margin-left: auto; }
       .you-coach .cap {
         font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -766,6 +801,9 @@
          <div class="coach-body"><div class="coach-label">AI Coach</div>
          <div class="coach-bubble">${opts.raw ? text : escapeHtml(text).replace(/\n/g, '<br>')}</div></div>`);
       body.appendChild(node);
+      // If this coach line poses a question, glow once as it lands (the live-prompt lift).
+      if (/\?/.test(String(text || ''))) { node.classList.add('just-asked'); setTimeout(() => node.classList.remove('just-asked'), 1400); }
+      regroupCoach();
       body.scrollTop = body.scrollHeight;
       return node;
     }
@@ -773,7 +811,29 @@
       const body = $('coachPanelBody');
       const node = el('div', 'you-coach enter', `<div class="cap">You</div><div class="bubble">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`);
       body.appendChild(node);
+      regroupCoach();
       body.scrollTop = body.scrollHeight;
+    }
+    /* WhatsApp-style grouping + live-question lift for the imperative coach thread:
+       recomputed after each coachSay/youSay (nodes are appended, not re-rendered).
+       Name shows once at a run's top (grp-first); the avatar attaches to the run's
+       LAST message (grp-last); the final coach line gets .is-prompt while it poses
+       an unanswered question (a "?" with no learner reply after it). */
+    function regroupCoach() {
+      const items = Array.from($('coachPanelBody').children)
+        .filter((n) => n.classList && (n.classList.contains('coach-msg') || n.classList.contains('you-coach')));
+      items.forEach((node, i) => {
+        if (!node.classList.contains('coach-msg')) return;
+        const prev = items[i - 1], next = items[i + 1];
+        node.classList.toggle('grp-first', !prev || !prev.classList.contains('coach-msg'));
+        node.classList.toggle('grp-last',  !next || !next.classList.contains('coach-msg'));
+        node.classList.remove('is-prompt');
+      });
+      const last = items[items.length - 1];
+      if (last && last.classList.contains('coach-msg')) {
+        const b = last.querySelector('.coach-bubble');
+        if (b && /\?/.test(b.textContent || '')) last.classList.add('is-prompt');
+      }
     }
     function coachTyping(on) {
       const body = $('coachPanelBody');
