@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluations+ Admin UI — Dashboard</title>
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 Icons (Default Icon Library) -->
+<link
+rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+/>
+
+<style>
+/* ==========================================================================
+   Evaluations+ Admin UI — BASE CHROME
+   --------------------------------------------------------------------------
+   This file is a faithful replica of the CURRENT PRODUCTION Evaluations+
+   admin shell (top bar + left nav). See ../explanation-summary.md.
+
+   >>> THE TOP NAV AND SIDE NAV ARE FROZEN. <<<
+   They reproduce today's shipped behavior and must not be redesigned here.
+   All design iteration happens inside #content-region ONLY.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   ACCOUNT HEADER COLOR — an admin preference in this section.
+   Single source of truth for the global header color. The frozen top bar and
+   the landing accent bar both read from it, so changing the account's header
+   color updates both together. The legacy Evaluations+ amber is the default.
+   In the real app this value comes from the account's configured preference.
+   Not a Vector theme token — no palette token matches this legacy amber.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --app-header-color: #ef8f3c;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: #333;
+  background: #fff;
+  /* The legacy app is a fixed-chrome shell: only the content column scrolls. */
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FROZEN CHROME — TOP NAV
+   Legacy orange utility bar. Three zones: brand (left), account title
+   (absolutely centered against the full viewport), utilities (right).
+   ───────────────────────────────────────────────────────────────────────── */
+.topnav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  z-index: 200;
+
+  display: flex;
+  align-items: center;
+
+  /* Reads the account header-color preference (see :root). Same rendered
+     amber as before — sourcing it from the variable is what lets the landing
+     accent bar stay in sync. */
+  background: var(--app-header-color, #ef8f3c);
+  color: #fff;
+}
+
+/* Brand cluster: Vector Solutions mark + product name */
+.topnav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  flex: 0 0 auto;
+}
+
+.topnav-logo {
+  display: block;
+  height: 22px;
+  width: auto;
+}
+
+.topnav-product {
+  font-size: 14px;
+  font-weight: 400;
+  color: #fff;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* Account title — centered on the VIEWPORT (not on the remaining space),
+   which is how the legacy bar reads. Pointer-events off so it never
+   intercepts clicks aimed at the zones beneath it. */
+.topnav-account {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 400;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Right-hand utilities: user menu + icon buttons */
+.topnav-utils {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 10px;
+  flex: 0 0 auto;
+}
+
+.topnav-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 0;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.topnav-user .caret { font-size: 9px; opacity: .9; }
+
+.topnav-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.topnav-user:hover,
+.topnav-icon-btn:hover { background: rgba(255, 255, 255, .18); }
+
+.topnav-user:focus-visible,
+.topnav-icon-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FROZEN CHROME — SIDE NAV
+   Legacy dense nav: bold flush-left SECTION rows and indented CHILD links,
+   all permanently expanded (no accordion). Section rows are themselves
+   navigable in the real app.
+   ───────────────────────────────────────────────────────────────────────── */
+.sidenav {
+  position: fixed;
+  top: 38px;
+  bottom: 0;
+  left: 0;
+  width: 117px;
+  z-index: 150;
+
+  background: #f2f2f2;
+  border-right: 1px solid #d9d9d9;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sidenav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Shared row geometry so section + child rows share one rhythm */
+.sidenav a {
+  display: block;
+  padding: 3px 6px 3px 10px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: #333;
+  text-decoration: none;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.sidenav a:hover { background: #e6e6e6; }
+
+.sidenav a:focus-visible {
+  outline: 2px solid #1f4596;
+  outline-offset: -2px;
+}
+
+/* Section header row: bold, flush left */
+.sidenav .nav-section > a {
+  font-weight: 700;
+}
+
+/* Child row: indented */
+.sidenav .nav-child > a {
+  padding-left: 20px;
+  font-weight: 400;
+}
+
+/* Current page. In the legacy app the active row is the pale-blue selected
+   row seen on "Dashboard". */
+.sidenav a[aria-current="page"] {
+  background: #cfe0f2;
+  font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CONTENT REGION — the ONLY part of this file meant to change
+   ───────────────────────────────────────────────────────────────────────── */
+.main {
+  position: fixed;
+  top: 38px;
+  left: 117px;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  background: #fff;
+
+  /* Flex column so a content child can stretch to fill the column height
+     (enabling vertical centering) while still scrolling when it overflows. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   ▼▼▼ EDITABLE ZONE — replace everything inside #content-region ▼▼▼
+   The styles below dress the ADMIN LANDING GREETING only. When a new design
+   replaces the content, these rules can go with it. Nothing above this
+   banner should be touched.
+
+   This is an admin landing screen: a quiet welcome and orientation. It shows
+   NO data — no metrics, charts, counts, or activity. See
+   ../explanation-summary.md.
+   ========================================================================== */
+
+/* Centers the greeting in the content column. #content-region and .landing both
+   stretch to fill .main's height (flex-grow) so the block can center vertically;
+   min-height keeps it from collapsing, and it still scrolls if it ever
+   outgrows the column. */
+#content-region {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing {
+  flex: 1 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--lumo-space-xl) var(--lumo-space-l) 72px;
+  text-align: center;
+}
+
+.landing-inner { max-width: 520px; }
+
+/* ── Heading ──────────────────────────────────────────────────────────────
+   Built on vwc-headline (heading-level="1"). The component owns the semantic
+   <h1> and its fixed 24px size; we only set host-level layout here.
+
+   Bold is applied to the SLOTTED span (.landing-greeting-text) rather than to
+   the host: slotted content stays in the light DOM, so font-weight inherits
+   through the slot without needing to pierce the component's shadow DOM.
+   vwc-headline documents no theme attribute, font-weight prop, or CSS custom
+   property for weight — this is the supported way to get there. */
+.landing-headline {
+  display: block;
+  margin-bottom: var(--lumo-space-m);
+}
+
+.landing-greeting-text {
+  font-weight: 700;
+  color: var(--lumo-header-text-color);
+}
+
+/* Accent bar. Its color mirrors the GLOBAL HEADER COLOR, which is an admin
+   preference in this section — so it reads from a single variable rather than
+   a literal. Fallback matches the legacy Evaluations+ amber. The real app
+   should feed the account's configured header color into this variable.
+   Kept as a <div>: vwc-divider is a full-width separator with no width,
+   thickness, or color API, so it cannot express a short accent bar. */
+.landing-divider {
+  width: 40px;
+  height: 2px;
+  margin: 0 auto var(--lumo-space-m);
+  background: var(--app-header-color, #ef8f3c);
+  border-radius: var(--lumo-border-radius-s);
+}
+
+/* Orientation copy — one calm sentence, deliberately not instructional.
+   Uses --lumo-secondary-text-color (5.74:1 on white), NOT
+   --lumo-tertiary-text-color: tertiary computes to only 3.11:1 and fails
+   WCAG 2.2 AA. Keep body text here at secondary or darker. */
+.landing-copy {
+  margin: 0;
+  font-size: var(--lumo-font-size-m);
+  line-height: 1.65;
+  color: var(--lumo-secondary-text-color);
+}
+
+/* ▲▲▲ END EDITABLE ZONE STYLES ▲▲▲ */
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FROZEN: TOP NAV
+     Reproduces the shipped Evaluations+ top bar. Do not restyle or
+     restructure — see ../explanation-summary.md.
+     ══════════════════════════════════════════════════════════════════════ -->
+<header class="topnav">
+  <div class="topnav-brand">
+    <!-- Vector Solutions mark (inline so the file stays self-contained) -->
+    <svg class="topnav-logo" viewBox="0 0 120 34" role="img" aria-label="Vector Solutions">
+      <path d="M4 6 L18 6 L27 26 L36 6 L50 6 L31 30 L23 30 Z" fill="#fff"/>
+      <path d="M20 2 L34 2 L27 14 Z" fill="#fff" opacity=".55"/>
+      <text x="56" y="15" font-family="Open Sans, Arial, sans-serif"
+            font-size="10" font-weight="700" fill="#fff">VECTOR</text>
+      <text x="56" y="27" font-family="Open Sans, Arial, sans-serif"
+            font-size="8" font-weight="400" fill="#fff" opacity=".9">SOLUTIONS</text>
+    </svg>
+    <a class="topnav-product" href="#">Evaluations+</a>
+  </div>
+
+  <div class="topnav-account">Rachel Thompson 2026 Demo Account</div>
+
+  <div class="topnav-utils">
+    <button type="button" class="topnav-user" aria-haspopup="true" aria-expanded="false">
+      Austin Smith <span class="caret" aria-hidden="true">▼</span>
+    </button>
+    <button type="button" class="topnav-icon-btn" aria-label="Messages">
+      <i class="fa-regular fa-envelope" aria-hidden="true"></i>
+    </button>
+    <button type="button" class="topnav-icon-btn" aria-label="Reports">
+      <i class="fa-solid fa-print" aria-hidden="true"></i>
+    </button>
+    <button type="button" class="topnav-icon-btn" aria-label="Help">
+      <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+    </button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FROZEN: SIDE NAV
+     Full production information architecture, permanently expanded.
+     Do not add/remove/reorder items or convert to an accordion.
+     ══════════════════════════════════════════════════════════════════════ -->
+<nav class="sidenav" aria-label="Admin navigation">
+  <ul class="sidenav-list">
+    <li class="nav-section"><a href="#" aria-current="page">Dashboard</a></li>
+    <li class="nav-child"><a href="#">Logs</a></li>
+
+    <li class="nav-section"><a href="#">Users</a></li>
+    <li class="nav-child"><a href="#">Schools</a></li>
+    <li class="nav-child"><a href="#">Subjects</a></li>
+    <li class="nav-child"><a href="#">Jobs</a></li>
+    <li class="nav-child"><a href="#">Regions</a></li>
+    <li class="nav-child"><a href="#">Departments</a></li>
+    <li class="nav-child"><a href="#">Teams</a></li>
+    <li class="nav-child"><a href="#">Professional Status</a></li>
+    <li class="nav-child"><a href="#">Grade Levels</a></li>
+    <li class="nav-child"><a href="#">Vector Training User</a></li>
+
+    <li class="nav-section"><a href="#">Permissions</a></li>
+
+    <li class="nav-section"><a href="#">Forms</a></li>
+    <li class="nav-child"><a href="#">Paragraph Banks</a></li>
+    <li class="nav-child"><a href="#">Computed Reports</a></li>
+    <li class="nav-child"><a href="#">Library</a></li>
+
+    <li class="nav-section"><a href="#">Data Explorer</a></li>
+
+    <li class="nav-section"><a href="#">Tags</a></li>
+
+    <li class="nav-section"><a href="#">Plans</a></li>
+    <li class="nav-child"><a href="#">Plan Assignments</a></li>
+
+    <li class="nav-section"><a href="#">Account Preferences</a></li>
+    <li class="nav-child"><a href="#">Resources</a></li>
+    <li class="nav-child"><a href="#">Assets</a></li>
+    <li class="nav-child"><a href="#">Color Scales</a></li>
+
+    <li class="nav-section"><a href="#">PD Tracking</a></li>
+    <li class="nav-child"><a href="#">Programs</a></li>
+    <li class="nav-child"><a href="#">Form Sections</a></li>
+    <li class="nav-child"><a href="#">Feedback</a></li>
+    <li class="nav-child"><a href="#">Certificates</a></li>
+    <li class="nav-child"><a href="#">Transcripts</a></li>
+    <li class="nav-child"><a href="#">License Tracking</a></li>
+    <li class="nav-child"><a href="#">Budgeting</a></li>
+    <li class="nav-child"><a href="#">PA PERMS</a></li>
+
+    <li class="nav-section"><a href="#">Vector Training</a></li>
+
+    <li class="nav-section"><a href="#">Canvas Courses</a></li>
+
+    <li class="nav-section"><a href="#">Badges</a></li>
+    <li class="nav-child"><a href="#">Certificates</a></li>
+    <li class="nav-child"><a href="#">Issue Badges</a></li>
+  </ul>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     CONTENT — the editable area
+     ══════════════════════════════════════════════════════════════════════ -->
+<main class="main" id="main">
+  <!-- ▼▼▼ EDITABLE ZONE: replace this whole region with the new design ▼▼▼ -->
+  <!-- Admin landing screen. Intentionally shows NO data — no metrics, charts,
+       counts, or activity feeds. Audience is an administrator. -->
+  <div id="content-region">
+
+    <section class="landing">
+      <div class="landing-inner">
+        <!-- vwc-headline owns the semantic <h1>. The icon slot is omitted
+             entirely — supplying it renders an empty vwc-icon placeholder that
+             reserves phantom space.
+             NOTE the attribute is `headinglevel`, NOT `heading-level`: the
+             hyphenated form is silently ignored and the component falls back to
+             its default h2. Verified in-browser. -->
+        <vwc-headline headinglevel="1" class="landing-headline">
+          <span slot="header-text" class="landing-greeting-text">
+            Welcome to Evaluations+ Administration
+          </span>
+        </vwc-headline>
+
+        <div class="landing-divider" aria-hidden="true"></div>
+
+        <p class="landing-copy">
+          Use the navigation to your left to manage this account&rsquo;s settings
+          and configuration.
+        </p>
+      </div>
+    </section>
+
+  </div>
+  <!-- ▲▲▲ END EDITABLE ZONE ▲▲▲ -->
+</main>
+
+<!-- Design Toolbox — review/handoff tooling ONLY. Not part of the product.
+     Developers must strip this one line for production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
