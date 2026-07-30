@@ -204,12 +204,33 @@
       display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
       background: #f4f5f7; border-left: 1px solid rgba(0,0,0,.06);
     }
-    .pv-head { flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 15px 28px 14px; border-bottom: 1px solid rgba(0,0,0,.06); background: #fff; }
+    .pv-head { position: relative; flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 13px 28px 12px; border-bottom: 1px solid rgba(0,0,0,.06); background: #fff; }
     .pv-headings { min-width: 0; }
     .pv-title { font-size: 16px; font-weight: 700; color: #0f2e3d; }
-    .pv-arch { font-size: 11.5px; color: #6b7280; display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-    .pv-arch .pill { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.1); border-radius: 4px; padding: 2px 7px; }
+    .pv-arch { width: 100%; font-size: 11.5px; color: #6b7280; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .pv-arch .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.1); border-radius: 4px; padding: 2px 7px; }
+    .pv-arch .arch-suffix { color: #9aa3af; }
     .pv-spacer { flex: 1; }
+
+    /* Add-template control + menu */
+    .pv-addtmpl {
+      display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+      border: 1px solid rgba(124,58,237,0.35); background: #fff; color: #6d28d9; border-radius: 7px;
+      cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; transition: all 0.12s;
+    }
+    .pv-addtmpl:hover { background: #f5f0fd; border-color: #7c3aed; }
+    .addtmpl-menu {
+      display: none; position: absolute; top: 52px; right: 28px; z-index: 30;
+      background: #fff; border: 1px solid #e6e8ec; border-radius: 12px; padding: 6px;
+      box-shadow: 0 12px 30px rgba(16,24,40,.16); width: 320px;
+    }
+    .addtmpl-menu.show { display: block; }
+    .addtmpl-menu .atm-header { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9aa3af; padding: 8px 10px 6px; }
+    .atm-item { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; padding: 10px; border: none; background: none; border-radius: 8px; cursor: pointer; font-family: inherit; transition: background 0.1s; }
+    .atm-item:hover { background: rgba(124,58,237,0.07); }
+    .atm-item .atm-ico { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; color: #7c3aed; background: rgba(124,58,237,0.1); }
+    .atm-item .atm-title { font-size: 13px; font-weight: 700; color: #0f2e3d; }
+    .atm-item .atm-desc { font-size: 11.5px; color: #6b7280; line-height: 1.4; margin-top: 2px; }
 
     /* view toggle */
     .view-toggle { display: flex; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18); border-radius: 7px; padding: 2px; gap: 1px; }
@@ -220,6 +241,12 @@
     .pv-inner { max-width: 760px; margin: 0 auto; }
 
     /* ---- Preview block (mounted floating card) ---- */
+    /* template-group divider between blocks from different templates */
+    .tmpl-divider { display: flex; align-items: center; gap: 12px; margin: 6px 0 16px; }
+    .tmpl-divider:first-child { margin-top: 0; }
+    .tmpl-divider .td-line { flex: 1; height: 1px; background: rgba(124,58,237,0.18); }
+    .tmpl-divider .td-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18); border-radius: 20px; padding: 4px 12px; }
+
     .pblock {
       position: relative; background: #fff; border: 1px solid rgba(255,255,255,0.7);
       border-radius: 13px; margin-bottom: 14px; overflow: hidden;
@@ -335,12 +362,15 @@
         <div class="pv-head">
           <div class="pv-title">Scenario</div>
           <div class="pv-spacer"></div>
+          <button class="pv-addtmpl" id="addTmplBtn" onclick="toggleAddTmplMenu(event)"><i class="fa-solid fa-plus"></i> Add template</button>
           <div class="view-toggle">
             <button class="vt-btn active" id="vt-cards" onclick="setView('cards')"><i class="fa-solid fa-list-ul"></i> Cards</button>
             <button class="vt-btn" id="vt-script" onclick="setView('script')"><i class="fa-solid fa-align-left"></i> Script</button>
           </div>
-          <div class="pv-arch"><span class="pill" id="archTag">Guided Arc</span> architecture · drives the shape</div>
+          <div class="pv-arch" id="archTags"></div>
         </div>
+        <!-- Add-template menu (populated on open) -->
+        <div class="addtmpl-menu" id="addTmplMenu"></div>
 
         <div class="pv-scroll" id="pvScroll">
           <div class="pv-inner" id="pvInner">
@@ -363,11 +393,30 @@
   <script>
     // ---- Read setup params (carried from scenario-setup.html) ----
     const params = new URLSearchParams(location.search);
-    const TEMPLATE_LABELS = { 'roleplay':'Roleplay', 'guided-arc':'Guided Arc', 'observe':'Observe / React', 'teach-back':'Teach-Back', 'upload':'Custom template' };
+    const TEMPLATE_LABELS = { 'roleplay':'Roleplay', 'guided-arc':'Guided Arc', 'observe':'Observe / React', 'teach-back':'Teach-Back', 'custom':'Custom', 'upload':'Custom template' };
+    const TEMPLATE_ICONS  = { 'roleplay':'fa-comments', 'guided-arc':'fa-diagram-project', 'observe':'fa-clapperboard', 'teach-back':'fa-chalkboard-user', 'custom':'fa-wand-magic-sparkles' };
     const projTitle = params.get('name') || 'Bystander to Harassment — The Marshall Situation';
     const template  = params.get('template') || 'guided-arc';
     document.getElementById('ph-title').textContent = projTitle;
-    document.getElementById('archTag').textContent = TEMPLATE_LABELS[template] || 'Guided Arc';
+
+    // Templates layered into this scenario, in order. The setup's choice seeds
+    // the first; more can be added mid-build. Each new block is tagged with the
+    // template currently being appended (curTemplate).
+    const usedTemplates = [];   // [{id,label}]
+    let curTemplate = template === 'custom' ? null : template;
+    function ensureTemplateUsed(id) {
+      if (!id || usedTemplates.some(u => u.id === id)) return;
+      usedTemplates.push({ id, label: TEMPLATE_LABELS[id] || id });
+      renderArchTags();
+    }
+    function renderArchTags() {
+      const wrap = document.getElementById('archTags');
+      if (!wrap) return;
+      wrap.innerHTML = usedTemplates.length
+        ? usedTemplates.map(u => `<span class="pill"><i class="fa-solid ${TEMPLATE_ICONS[u.id]||'fa-layer-group'}"></i> ${u.label}</span>`).join('')
+          + ` <span class="arch-suffix">${usedTemplates.length > 1 ? 'templates' : 'template'} · drives the shape</span>`
+        : `<span class="arch-suffix">Custom · build freely</span>`;
+    }
 
     /* =====================================================================
        DRAFT MODEL — the live scenario preview. Blocks fill in as the
@@ -392,6 +441,8 @@
     function addBlock(b, { animate = true } = {}) {
       b.id = ++blockSeq;
       b.locked = false;
+      if (b.tmpl === undefined) b.tmpl = curTemplate;   // tag with the template being appended
+      ensureTemplateUsed(b.tmpl);
       const firstBlock = blocks.length === 0;
       blocks.push(b);
       enterSplitStage();
@@ -427,15 +478,27 @@
         fields: [ {key:'setup', label:'Scene setup'}, {key:'goal', label:'What the learner must do'} ] },
     };
 
-    // ---- Render the preview (cards or script) ----
+    // ---- Render the preview (cards or script), grouped by source template ----
     function renderPreview() {
       const inner = document.getElementById('pvInner');
       const empty = document.getElementById('pvEmpty');
       if (!blocks.length) { if (empty) empty.style.display = ''; return; }
       if (empty) empty.style.display = 'none';
 
-      if (view === 'cards') inner.innerHTML = blocks.map(cardHTML).join('');
-      else                  inner.innerHTML = blocks.map(scriptHTML).join('');
+      const render = view === 'cards' ? cardHTML : scriptHTML;
+      let lastTmpl = undefined;
+      let html = '';
+      blocks.forEach(b => {
+        // Insert a template-group divider whenever the source template changes.
+        if (b.tmpl !== lastTmpl) {
+          const label = TEMPLATE_LABELS[b.tmpl] || 'Custom';
+          const icon = TEMPLATE_ICONS[b.tmpl] || 'fa-layer-group';
+          html += `<div class="tmpl-divider"><span class="td-line"></span><span class="td-tag"><i class="fa-solid ${icon}"></i> ${label}</span><span class="td-line"></span></div>`;
+          lastTmpl = b.tmpl;
+        }
+        html += render(b);
+      });
+      inner.innerHTML = html;
     }
 
     function fieldValue(b, key) { return (b.fields[key] || '').trim(); }
@@ -702,6 +765,91 @@
       }});
     }
 
+    /* =====================================================================
+       MULTI-TEMPLATE — append another template's structure mid-build.
+       Each appender switches curTemplate so its blocks group under it, then
+       seeds a representative starting structure the author can edit.
+    ===================================================================== */
+    const ADDABLE_TEMPLATES = [
+      { id:'observe',    icon:'fa-clapperboard',      title:'Observe / React',
+        desc:'Review a moment beat-by-beat and react with a coach.' },
+      { id:'roleplay',   icon:'fa-comments',          title:'Roleplay',
+        desc:'Rehearse a hard conversation with a simulated person.' },
+      { id:'teach-back', icon:'fa-chalkboard-user',   title:'Teach-Back',
+        desc:'Have the learner explain the key points back from memory.' },
+      { id:'guided-arc', icon:'fa-diagram-project',   title:'Guided Arc',
+        desc:'Another scripted Practice → Learn arc of phases.' },
+    ];
+
+    // Append a template's starting blocks (tagged with that template).
+    function appendTemplate(id) {
+      const prev = curTemplate;
+      curTemplate = id;
+      if (id === 'observe') {
+        addBlock({ type:'practice', title:'Observe · The Group Chat Surfaces', phase:'PRACTICE', fields:{
+          setup: "The coach plays the moment the group-chat images reach public social media. Pause on Marshall's reaction.",
+          goal: "React to what you just watched — what changed, and what do you notice about how it's landing on Marshall?",
+        }});
+        addBlock({ type:'phase', title:'React · Name What You Saw', phase:'ENGAGE', fields:{
+          signpost: "Let's slow the tape. What did you actually just witness?",
+          task: "Put words to it — was that harassment, and what makes this different from the earlier 'jokes'?",
+          through: "Public, targeted, gender-based ridicule is harassment; escalation and audience raise the stakes and the duty to act.",
+        }});
+      } else if (id === 'roleplay') {
+        addBlock({ type:'phase', title:'Roleplay · Checking In With Marshall', phase:'PRACTICE', fields:{
+          signpost: "You catch Marshall alone. Open the conversation.",
+          task: "Speak as yourself — what do you say to a colleague who's clearly worn down but hasn't asked for help?",
+          through: "Lead with what you noticed, not advice; offer support and options (including reporting) without taking over.",
+        }});
+      } else if (id === 'teach-back') {
+        addBlock({ type:'phase', title:'Teach-Back · Say It In Your Words', phase:'ENGAGE', fields:{
+          signpost: "Before we wrap — teach it back to me.",
+          task: "In your own words: what counts as harassment here, and what are a bystander's real options?",
+          through: "Learner can restate the standard + the report path unprompted; coach fills only what's missing.",
+        }});
+      } else { // guided-arc
+        addBlock({ type:'phase', title:'Phase · Another Beat', phase:'ENGAGE', fields:{
+          signpost: "Now let's turn to the next piece.",
+          task: "Reason through the next decision the learner faces.",
+          through: "The takeaway every learner should leave this phase with.",
+        }});
+      }
+      curTemplate = prev;   // subsequent auto-seeds go back to the base template
+    }
+
+    // ----- Add-template menu (preview header control) -----
+    function toggleAddTmplMenu(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('addTmplMenu');
+      const open = menu.classList.contains('show');
+      if (open) { menu.classList.remove('show'); return; }
+      menu.innerHTML = `<div class="atm-header">Layer in another template</div>` +
+        ADDABLE_TEMPLATES.map(t => `
+          <button class="atm-item" onclick="pickAddTemplate('${t.id}')">
+            <span class="atm-ico"><i class="fa-solid ${t.icon}"></i></span>
+            <span><span class="atm-title">${t.title}</span><span class="atm-desc" style="display:block">${t.desc}</span></span>
+          </button>`).join('');
+      menu.classList.add('show');
+    }
+    function pickAddTemplate(id) {
+      document.getElementById('addTmplMenu').classList.remove('show');
+      const label = TEMPLATE_LABELS[id] || id;
+      addUserMsg(`Add a ${label} section`);
+      withTyping(() => {
+        appendTemplate(id);
+        addAiMsg(`Added a <strong>${label}</strong> section and moved the arc into it. Its blocks are grouped under the ${label} tag — edit, lock, or regenerate them like the rest.`,
+          `Layered in the ${label} template`);
+        addSuggests([ 'Regenerate the new section', 'Push it all to the editor' ]);
+      });
+    }
+    // close the menu on outside click
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('addTmplMenu');
+      if (menu && menu.classList.contains('show') && !e.target.closest('#addTmplMenu') && !e.target.closest('#addTmplBtn')) {
+        menu.classList.remove('show');
+      }
+    });
+
     // ----- Step 1: the AI asks how to work (ask vs auto-fill) -----
     function askWorkingMode() {
       withTyping(() => {
@@ -865,11 +1013,35 @@
     }
 
     // ----- Shared wrap-up + free-form refinement -----
+    let offeredTemplate = false;
     function wrapUp(note) {
       withTyping(() => {
         addAiMsg(`${note} You can also just tell me what to change — e.g. "make phase 1 warmer" or "give me two options for the practice scene."`);
+        // Proactively offer to layer in another template once the base arc is drafted.
+        if (!offeredTemplate && blocks.length >= 3) {
+          offeredTemplate = true;
+          addWidget(gapHTML(
+            'Want to layer in another template?',
+            "This arc reasons the situation through. You could move into an <strong>Observe / React</strong> beat — watch the moment the images go public and react to it — for a stronger emotional turn before the wrap.",
+            [
+              { id:'observe', primary:true, label:'Add an Observe / React section', echo:'Add an Observe / React section' },
+              { id:'more',              label:'Show me other templates',      echo:'Show me other templates' },
+              { id:'no',                label:'No, this arc is enough',        echo:'This arc is enough' },
+            ]
+          ), (choice) => {
+            if (choice === 'observe') {
+              withTyping(() => { appendTemplate('observe'); addAiMsg('Layered in an <strong>Observe / React</strong> section, grouped under its own template tag. Tune it like the rest.', 'Added the Observe / React template'); afterExtra(); });
+            } else if (choice === 'more') {
+              toggleAddTmplMenu();
+              afterExtra();
+            } else { afterExtra(); }
+          });
+        }
         addSuggests([ 'Give me 2 options for the practice scene', 'Regenerate Phase 1', 'Push it all to the editor' ]);
       });
+    }
+    function afterExtra() {
+      withTyping(() => { addSuggests([ 'Add another template', 'Push it all to the editor' ]); });
     }
 
     // ----- Composer + free-form handling -----
@@ -886,6 +1058,13 @@
       if (!started) { started = true; askWorkingMode(); return; }
       // A few intents are recognized so free-typing feels responsive.
       if (/push|editor|done|looks good|ship/i.test(text)) { withTyping(() => addAiMsg('Pushing it into the editor…')); setTimeout(pushToEditor, 700); return; }
+      // Layer in another template — recognize a named one, else open the menu.
+      if (/\b(add|layer|move into|bring in|another).*(template|section|observe|roleplay|teach.?back|guided arc)|observe.?react/i.test(text)) {
+        const named = /observe|react/i.test(text) ? 'observe' : /roleplay/i.test(text) ? 'roleplay' : /teach.?back/i.test(text) ? 'teach-back' : /guided arc/i.test(text) ? 'guided-arc' : null;
+        if (named) { const label = TEMPLATE_LABELS[named]; withTyping(() => { appendTemplate(named); addAiMsg(`Layered in a <strong>${label}</strong> section, grouped under its own template tag.`, `Added the ${label} template`); afterExtra(); }); }
+        else { withTyping(() => { addAiMsg('Sure — which template should I layer in?'); toggleAddTmplMenu(); }); }
+        return;
+      }
       if (/2 options|two options|give me options|not sure|options for/i.test(text)) { offerPracticeOptions(); return; }
       if (/regenerate|redo|try again/i.test(text)) { const b = blocks[blocks.length-1]; if (b) { withTyping(()=>addAiMsg('Regenerating that block…')); setTimeout(()=>regenBlock(b.id),700); } return; }
       // Default: acknowledge and offer choices rather than assume.
@@ -953,12 +1132,14 @@
     }
 
     // ---- Kick off the conversation ----
+    renderArchTags();   // paint the starting-template tag(s)
     addAiMsg(`Let's draft <strong>${escapeHTML(projTitle)}</strong> together. Tell me the journey you want the learner to go on — or start from one of these and I'll take it from there.`);
     addSuggests([
       'Start from the Marshall situation',
       'Learner should recognize it and know how to act',
       'Not sure yet — help me shape it',
     ]);
+
 </script>
 </body>
 </html>
