@@ -599,7 +599,7 @@
       .coach-bubble {
         background: var(--c-surface);
         border: 1px solid var(--c-line);
-        border-radius: 4px 16px 16px 16px;
+        border-radius: 16px 16px 16px 4px;   /* sharp corner bottom-left — points down to CLARA's orb */
         padding: 12px 15px;
         font-size: 15px;
         line-height: 1.55;
@@ -662,7 +662,7 @@
       .you-coach .bubble {
         background: var(--c-accent);
         color: var(--c-on-accent);
-        border-radius: 16px 4px 16px 16px;
+        border-radius: 16px 16px 4px 16px;   /* sharp corner bottom-right — mirrors the coach bubble */
         padding: 11px 15px;
         font-size: 15px;
         line-height: 1.5;
@@ -2012,7 +2012,11 @@
     var claraOrbHost = null;   // set by the mount script once MobiusOrb is loaded
     function placeClaraOrb() {
       if (!claraOrbHost || !coachPanelBody) return;
-      const slot = coachPanelBody.querySelector('.coach-msg.grp-last .coach-avatar');
+      // The orb rides the LAST avatar in the thread — the typing indicator while
+      // the coach is "typing", then the newest message once it lands. Each coach
+      // run marks its own grp-last, so take the LAST match, not the first.
+      const slots = coachPanelBody.querySelectorAll('.coach-msg.grp-last .coach-avatar');
+      const slot = slots[slots.length - 1];
       if (slot && claraOrbHost.parentNode !== slot) slot.appendChild(claraOrbHost);
     }
     function youCoachNode(m) {
@@ -2560,14 +2564,21 @@
       const coachUp = state.mode === 'coaching';
       const dots = '<span class="tdots"><span></span><span></span><span></span></span>';
       const lbl = label ? `<span class="tlabel">${esc(label)}</span>` : '';
-      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), dots + lbl);
-      node.id = 'typingNode';
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
       if (coachUp) {
+        // Wrap the dots in the SAME coach-msg row as a real message (empty avatar
+        // slot + bubble) so CLARA's ONE orb rides the typing indicator via
+        // placeClaraOrb(), then hops to the message when it replaces the dots.
+        const node = el('div', 'coach-msg grp-last typing-msg',
+          '<div class="coach-avatar"></div><div class="coach-body"><div class="typing">' + dots + lbl + '</div></div>');
+        node.id = 'typingNode';
         typingHost = coachPanelBody; coachPanelBody.appendChild(node);
+        placeClaraOrb();     // orb → the typing indicator's avatar slot
         // The dots grow the sheet too — tween that growth, or pin if maxed out.
         coachSheet.pin();
       } else {
+        const node = el('div', 'typing scene', dots + lbl);
+        node.id = 'typingNode';
         typingHost = stageInner; stageInner.appendChild(node);
         requestAnimationFrame(() => { stage.scrollTop = 1e9; });
       }
@@ -2576,6 +2587,7 @@
       const t = document.getElementById('typingNode');
       if (t) t.remove();
       typingHost = null;
+      placeClaraOrb();   // the orb lived in the dots row — re-home it on the last message
     }
 
     /* =====================================================================
