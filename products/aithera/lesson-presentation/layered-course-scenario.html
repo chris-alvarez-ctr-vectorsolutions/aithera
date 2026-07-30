@@ -585,10 +585,7 @@
         width: 34px; height: 34px;
         border-radius: 50%;
         display: grid; place-items: center;
-        background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
-        color: #fff;
-        font-size: 14px;
-        box-shadow: var(--shadow-sm);
+        overflow: visible;   /* CLARA's orb (transparent, soft aura) hosts here — no disc behind it */
       }
       .coach-body { min-width: 0; }
       .coach-label {
@@ -1363,8 +1360,19 @@
          re-scope by #resultsModal id so we beat its runtime-injected rules. */
       #resultsModal .report-section.playbook { --accent-color: #2ee6cf; }
       #resultsModal .report-section.growth   { --accent-color: #f1b34a; }
-      /* CLARA continuity: the shared Möbius orb mounted as the coach avatar. */
-      .coach-panel-head .clara-mini { display: inline-block; width: 22px; height: 22px; vertical-align: middle; }
+      /* CLARA continuity: the shared Möbius orb, hosted as CLARA's message avatar
+         (see placeClaraOrb()). No longer in the panel header. position:relative is
+         required — MobiusOrb's canvas is absolute/inset:0, so it sizes to the
+         nearest positioned ancestor; without this it balloons past the 34px slot.
+         At 34px the orb's fine detail muddies against the dark navy panel, so a
+         gentle green-ish glow sits BEHIND it (host background + soft halo) to lift
+         it off the panel and keep it reading as CLARA. */
+      .clara-orb-avatar {
+        position: relative; width: 34px; height: 34px; border-radius: 50%;
+        background: radial-gradient(circle at 50% 48%,
+                     rgba(102,247,41,0.22) 0%, rgba(102,247,41,0.07) 52%, transparent 74%);
+        box-shadow: 0 0 10px 1px rgba(102,247,41,0.22);
+      }
       /* Review-only demo-skip control in the frame's actions slot. */
       #llDemoSkip { opacity: .85; }
       #llDemoSkip:hover { opacity: 1; }
@@ -1398,9 +1406,9 @@
 
       <!-- AI Coach layer: scrim dims the practice peek; the sheet rises over it -->
       <div class="scrim" id="scrim"></div>
-      <aside class="coach-panel" id="coachPanel" role="region" aria-label="AI Coach" aria-hidden="true" inert>
+      <aside class="coach-panel" id="coachPanel" role="region" aria-label="Discussion with CLARA" aria-hidden="true" inert>
         <div class="coach-panel-head">
-          <span class="ttl"><span class="clara-mini" id="claraMini" aria-hidden="true"></span> AI Coach</span>
+          <span class="ttl">Let’s discuss…</span>
           <span class="spacer"></span>
           <button class="coach-panel-resume" id="resumeBtn">
             Back to practice <i class="fa-solid fa-chevron-down"></i>
@@ -1458,7 +1466,7 @@
         <!-- Debrief CTA: the coach is ready, opened only when the learner chooses -->
         <div class="input-entry" id="inputDebrief" hidden>
           <button class="debrief-cta" id="debriefCtaBtn">
-            <i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>
+            <i class="fa-solid fa-chalkboard-user"></i> See CLARA’s feedback <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
         <!-- Return CTA: the coach has replied and is ready to send the learner
@@ -1982,12 +1990,24 @@
 
     function coachNode(m) {
       const wrap = el('div', 'coach-msg' + ec(m));
-      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      wrap.appendChild(el('div', 'coach-avatar', ''));   // empty slot — placeClaraOrb() hosts the ONE orb here (grp-last only)
       const body = el('div', 'coach-body');
-      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      body.appendChild(el('div', 'coach-label', 'CLARA'));
       body.appendChild(el('div', 'coach-bubble', esc(m.text)));
       wrap.appendChild(body);
       return wrap;
+    }
+
+    // CLARA's avatar is a SINGLE shared Möbius orb (created once, see the mount
+    // script at the end of the page). Like WhatsApp group chats, exactly one
+    // avatar shows per coach run and it rides the LAST bubble — so we simply move
+    // the one orb into whichever .coach-avatar is currently grp-last. Moving a
+    // canvas in the DOM keeps its WebGL context, so this stays one instance.
+    var claraOrbHost = null;   // set by the mount script once MobiusOrb is loaded
+    function placeClaraOrb() {
+      if (!claraOrbHost || !coachPanelBody) return;
+      const slot = coachPanelBody.querySelector('.coach-msg.grp-last .coach-avatar');
+      if (slot && claraOrbHost.parentNode !== slot) slot.appendChild(claraOrbHost);
     }
     function youCoachNode(m) {
       const wrap = el('div', 'you-coach' + ec(m));
@@ -2297,7 +2317,7 @@
       // hover tooltips clarify what tapping the inactive segment does (only meaningful
       // when it's enabled and not already the active mode)
       const learnTip = (mode !== 'coaching' && !coachDisabled)
-        ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
+        ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See CLARA’s feedback') : 'Talk with CLARA') : '';
       const sceneTip = (mode !== 'scene' && !sceneDisabled)
         ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
       modeIndicator.innerHTML =
@@ -2367,6 +2387,7 @@
         const coachRun = trailingRun(messages, 'coaching');
         reconcileCoachBody(coachRun);
         markCoachGroups(coachRun);   // name on the run's first, avatar on its last
+        placeClaraOrb();             // move the ONE orb onto that grp-last avatar
         // The full strengths/growth-areas report lives in its own modal — opened
         // only when the learner taps "View full results", never dumped here.
         // Resources are the one thing that shows inline, and only once they've
@@ -2423,7 +2444,7 @@
       if (showDebrief) {
         debriefCtaBtn.innerHTML = complete
           ? '<i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>'
-          : '<i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>';
+          : '<i class="fa-solid fa-chalkboard-user"></i> See CLARA’s feedback <i class="fa-solid fa-arrow-right arrow"></i>';
       }
       if (showReturn) {
         // A coach-led hand-off can name its own CTA (e.g. "Check in with Marshall").
@@ -3290,7 +3311,10 @@
       app.classList.remove('was-trap');
       followStage = true;
       announce('Practice restarted.');
-      render();   // back to the scene anchor with an "Enter scenario" prompt
+      // Skip the establishing card on restart too (CONTEXT.reset() above re-armed
+      // the coupler). A Restart click is a user gesture, so the sound-on cold-open
+      // autoplays straight away here.
+      CONTEXT.begin();
     }
 
     // "Chat with AI Coach" — the learner brings the coach in on their command. The
@@ -3465,10 +3489,13 @@
     });
     document.getElementById('restartBtn').addEventListener('click', restart);
 
-    // Opening beat: anchor on the practice base ("Kendra's room") with an "Enter
-    // scenario" prompt. The cold-open video and the coach sheet both stay down
-    // until the learner chooses to begin.
-    render();
+    // Opening beat: the course's Step 3 ("Setting the Scene") is now the ONLY
+    // scene-setter, so this page skips its own establishing card ("A colleague
+    // named Marshall" + "Enter scenario" CTA) and begins the intro immediately —
+    // dropping straight into the cold-open. (Marshall's clip is sound-on, so a
+    // fresh navigation can't autoplay it; runIntroSequence's introBeginBtn play
+    // fallback covers that — the learner taps play once, over the scene itself.)
+    CONTEXT.begin();
     </script>
 
     <!-- ===== Course-delivery frame ===================================== -->
@@ -3516,14 +3543,22 @@
       })();
     </script>
 
-    <!-- CLARA continuity: mount the shared Möbius orb as the coach avatar so she
-         carries visually across from the layered-course-* pages. One instance. -->
+    <!-- CLARA continuity: ONE shared Möbius orb, hosted as CLARA's message avatar.
+         It rides the last (grp-last) coach bubble via placeClaraOrb() on every
+         render — WhatsApp-style, one avatar per run — so she carries visually
+         across from the layered-course-* pages. One instance, re-parented (moving
+         a canvas in the DOM keeps its WebGL context). -->
     <script src="js/mobius-orb.js?v=5"></script>
     <script>
       (function () {
         function mountOrb() {
-          var host = document.getElementById('claraMini');
-          if (host && window.MobiusOrb) window.MobiusOrb.create(host);
+          if (!window.MobiusOrb) return;
+          var host = document.createElement('div');
+          host.className = 'clara-orb-avatar';
+          host.setAttribute('aria-hidden', 'true');   // decorative; the "CLARA" label names the speaker
+          window.MobiusOrb.create(host);
+          claraOrbHost = host;                         // hand it to the render-time placer (defined in the main script)
+          if (typeof placeClaraOrb === 'function') placeClaraOrb();   // in case a coach run is already on screen
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountOrb);
         else mountOrb();

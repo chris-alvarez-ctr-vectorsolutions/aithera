@@ -118,14 +118,14 @@
 
   // Step 2 — gated pre-roll video with CLARA's comprehension check.
   var VIDEO_QUESTION = {
-    stem: 'Quick check — <strong>what did you notice in that exchange?</strong>',
+    stem: 'Quick check — <strong>After watching this video, how confident are you that you know the basics of sexual harassment?</strong>',
+    // Self-report — this is the course intro, not the Marshall clip, so there is no
+    // right answer. Any choice acknowledges the learner and unlocks Continue.
     options: [
-      { t: 'Jake made repeated, unwelcome comments about Marshall', correct: true },
-      { t: 'Jake asked Marshall for help with a work task', correct: false },
-      { t: 'Jake thanked Marshall for covering his shift', correct: false }
-    ],
-    correctReply: 'Exactly. That’s the kind of moment a bystander can step into — which is what you’ll practice next.',
-    wrongReply: 'Not quite — think back to the comments that made the moment uncomfortable, and try again.'
+      { t: 'Pretty confident',   reply: 'Love that. We’ll put it to work in a real moment in a bit.' },
+      { t: 'Somewhat confident', reply: 'Good place to start — what’s coming up will help sharpen it.' },
+      { t: 'Not very confident', reply: 'That’s completely okay — building that up is exactly what we’re here to do.' }
+    ]
   };
   // Prototype-only on-video skip (mirrors the scenario's cold-open .intro-skip):
   // jump past the clip so CLARA's beat fires — her question on the pre-roll,
@@ -168,19 +168,13 @@
     }
     function choose(opt, btn, chips) {
       if (answered) return;
+      answered = true;                                      // self-report: any answer is accepted
       var fb = ctx.els.bubble.querySelector('.vq-feedback');
-      if (opt.correct) {
-        answered = true;
-        chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
-        btn.classList.add('is-correct');
-        fb.className = 'vq-feedback ok'; fb.textContent = VIDEO_QUESTION.correctReply;
-        ctx.enableNext();
-        saveResult('video1', { correct: true });
-      } else {
-        btn.classList.add('is-wrong'); btn.disabled = true;
-        fb.className = 'vq-feedback bad'; fb.textContent = VIDEO_QUESTION.wrongReply;
-        saveResult('video1', { correct: false, attempted: true });
-      }
+      chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
+      btn.classList.add('is-correct');
+      fb.className = 'vq-feedback ok'; fb.textContent = opt.reply;
+      ctx.enableNext();
+      saveResult('video1', { answered: true, choice: opt.t });
       ctx.positionOrb(true);
     }
   }
@@ -203,29 +197,67 @@
     ctx.positionOrb(false);
   }
 
-  // Step 5 — closing video, light gate (watch → reflection unlocks Continue).
-  var CLOSING_REFLECTION =
-    'That’s the difference a single bystander makes. You noticed it, you named it, and you gave ' +
-    'Marshall an out — that’s the whole skill. Let’s see how you did.';
+  // Step 5 — closing video, gated by a true/false knowledge check on the clip.
+  // Same binary right/wrong mechanics as the (former) step-2 comprehension check:
+  // a wrong pick is disabled with a nudge; the correct pick unlocks Continue.
+  var CLOSING_QUESTION = {
+    stem: 'True or false — <strong>Harassing or firing an employee because of their sexual orientation, ' +
+          'gender identity, or departure from gender stereotypes violates federal law.</strong>',
+    options: [
+      { t: 'True', correct: true },
+      { t: 'False', correct: false }
+    ],
+    correctReply: 'Correct — it’s true. Federal law protects employees from harassment or firing based on ' +
+                  'sexual orientation, gender identity, or not conforming to gender stereotypes. Let’s see how you did.',
+    wrongReply: 'Not quite — it’s actually true. All three are protected under federal law, so give it another look.'
+  };
   function closingInit(ctx) {
     var video = document.getElementById('courseVideo');
-    var closed = false;
+    var asked = false, answered = false;
     preloadVideoFully(video);
     wireVideoSkip(video);
     video.addEventListener('play', function () { ctx.floatClose(); });
-    video.addEventListener('ended', function () {
-      if (closed) return; closed = true;
+    video.addEventListener('ended', revealQuestion);
+
+    function revealQuestion() {
+      if (asked) return; asked = true;
       ctx.floatOpen();
-      ctx.setCoachSay(CLOSING_REFLECTION);
-      ctx.enableNext();
-      saveResult('closing', { watched: true });
+      ctx.setCoachSay(CLOSING_QUESTION.stem);
+      var bubble = ctx.els.bubble;
+      var chips = document.createElement('div');
+      chips.className = 'clara-chips vq-chips';
+      CLOSING_QUESTION.options.forEach(function (opt) {
+        var b = document.createElement('button');
+        b.className = 'clara-chip'; b.type = 'button'; b.textContent = opt.t;
+        b.addEventListener('click', function () { choose(opt, b, chips); });
+        chips.appendChild(b);
+      });
+      var fb = document.createElement('div'); fb.className = 'vq-feedback';
+      bubble.appendChild(chips); bubble.appendChild(fb);
       ctx.positionOrb(true);
-    });
+    }
+    function choose(opt, btn, chips) {
+      if (answered) return;
+      var fb = ctx.els.bubble.querySelector('.vq-feedback');
+      if (opt.correct) {
+        answered = true;
+        chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
+        btn.classList.add('is-correct');
+        fb.className = 'vq-feedback ok'; fb.textContent = CLOSING_QUESTION.correctReply;
+        ctx.enableNext();
+        saveResult('closing', { correct: true });
+      } else {
+        btn.classList.add('is-wrong'); btn.disabled = true;
+        fb.className = 'vq-feedback bad'; fb.textContent = CLOSING_QUESTION.wrongReply;
+        saveResult('closing', { correct: false, attempted: true });
+      }
+      ctx.positionOrb(true);
+    }
   }
 
   // Step 6 — results: assemble the score from the cross-page record.
   function computeCourseScore(v, s) {
-    var videoPts = (v.correct === true) ? 100 : (v.attempted ? 72 : 80);
+    var videoPts = v.answered ? 100 : 80;   // self-report: full credit for answering, else participation floor
     var scenPts = (typeof s.score === 'number') ? s.score
                   : (s.status === 'complete') ? 88 : (s.status === 'skipped') ? 80 : 82;
     return { overall: Math.round(videoPts * 0.3 + scenPts * 0.7), scenPts: scenPts };
@@ -251,11 +283,10 @@
     ]);
 
     var cards = [];
-    cards.push(card('fa-circle-question', 'Comprehension check',
-      v.correct === true ? 'You spotted what mattered in the clip on the first read.'
-        : v.attempted ? 'You landed it after a second look — that counts.'
+    cards.push(card('fa-gauge-high', 'Confidence check',
+      v.answered ? 'You rated your starting confidence: “' + esc(v.choice) + '.”'
         : v.skipped ? 'Skipped (demo).' : 'Not recorded this run.',
-      v.correct === true ? ['ok', 'Passed'] : v.attempted ? ['warn', 'Retried'] : v.skipped ? ['warn', 'Skipped'] : ['mut', '—']));
+      v.answered ? ['ok', 'Logged'] : v.skipped ? ['warn', 'Skipped'] : ['mut', '—']));
 
     var scenBody, scenPill;
     if (s.status === 'complete') { scenBody = 'You worked the full arc with CLARA and reached the debrief.'; scenPill = ['ok', 'Completed']; }
@@ -273,9 +304,11 @@
     cards.push(scenCard);
 
     var cl = course.closing || {};
-    cards.push(card('fa-flag-checkered', 'Closing reflection',
-      cl.watched ? 'You watched how the moment can go, done well.' : cl.skipped ? 'Skipped (demo).' : 'Not recorded this run.',
-      cl.watched ? ['ok', 'Viewed'] : cl.skipped ? ['warn', 'Skipped'] : ['mut', '—']));
+    cards.push(card('fa-flag-checkered', 'Knowledge check',
+      cl.correct === true ? 'You answered the closing true/false correctly on the first try.'
+        : cl.attempted ? 'You landed the closing true/false after another look — that counts.'
+        : cl.skipped ? 'Skipped (demo).' : 'Not recorded this run.',
+      cl.correct === true ? ['ok', 'Passed'] : cl.attempted ? ['warn', 'Retried'] : cl.skipped ? ['warn', 'Skipped'] : ['mut', '—']));
 
     var list = document.getElementById('resBreakdown');
     cards.forEach(function (c) { list.appendChild(c); });
@@ -375,14 +408,14 @@
 
     { id: 'video', n: 2, mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'Gated video · Floating companion', note: 'The clip must play and the learner must answer CLARA’s check before Continue unlocks.' },
-      coach: { say: 'Press play when you’re ready — I’ll watch along and have one quick question once it wraps.' },
-      content: videoContent({ eyebrow: 'Watch', heading: 'See it happen',
-        sub: 'Watch the moment unfold in the break room. When the clip wraps, CLARA has one quick question before you move on.',
+      coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
+      content: videoContent({ eyebrow: 'Watch', heading: 'Introduction',
+        sub: 'First, let’s introduce you to the basics of sexual harassment, how to respond, and why this lesson matters.',
         src: '../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
-    { id: 'scene', n: 3, mode: 'ambient', lesson: 'Setting the Scene',
-      caption: { title: 'Scene-setting · Ambient presence', note: 'CLARA hands off into the practice — establishing who/where/what.' },
+    { id: 'scene', n: 3, mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
+      caption: { title: 'Scene-setting · Ambient presence', note: 'CLARA hands off into the practice — establishing who/where/what. This is now the ONLY scene-setter; the scenario page skips its own establishing card and drops straight into the cold-open.' },
       coach: { eyebrow: 'Before you step in', headline: "Here's the moment you're walking into.",
         lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on — " +
               "then it's your call how to respond. There's no perfect script; I'll be right here as you work through it." },
@@ -391,10 +424,10 @@
     { id: 'scenario', n: 4, external: 'layered-course-scenario.html', lesson: 'The Marshall Scenario' },
 
     { id: 'closing', n: 5, mode: 'floating', lesson: 'Wrapping Up', gate: true,
-      caption: { title: 'Closing video · Floating companion', note: 'Lighter gate — watch the clip and CLARA’s reflection unlocks Continue.' },
-      coach: { say: 'Press play for the last clip — when it wraps I’ll pull the whole thing together before your results.' },
-      content: videoContent({ eyebrow: 'Wrapping up', heading: 'How it can go',
-        sub: 'One more short clip — the same moment, handled well. When it wraps, CLARA closes the loop before your results.',
+      caption: { title: 'Closing video · Floating companion', note: 'Watch the clip, then answer CLARA’s true/false knowledge check to unlock Continue.' },
+      coach: { say: 'Press play for the last clip — I’ve got one quick true-or-false question for you when it wraps.' },
+      content: videoContent({ eyebrow: 'Watch', heading: 'Wrapping up',
+        sub: 'Let’s close the loop and look at a real case example.',
         src: '../assets/videos/marshall-postscenario.mp4' }),
       init: closingInit },
 
@@ -486,7 +519,7 @@
     if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
     backBtn.disabled = (step.n <= 1);
     var isLast = (step.n >= TOTAL);
-    nextBtn.innerHTML = (isLast ? 'Finish' : 'Continue') + ' <i class="fa-solid fa-arrow-right"></i>';
+    nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
     nextBtn.disabled = !!step.gate;                 // gated steps re-enable via ctx.enableNext()
     // Popover caption
     if (step.caption) {
