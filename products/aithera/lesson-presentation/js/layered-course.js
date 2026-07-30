@@ -416,8 +416,8 @@
 
     { id: 'scene', n: 3, mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
       caption: { title: 'Scene-setting · Ambient presence', note: 'CLARA hands off into the practice — establishing who/where/what. This is now the ONLY scene-setter; the scenario page skips its own establishing card and drops straight into the cold-open.' },
-      coach: { eyebrow: 'Before you step in', headline: "Here's the moment you're walking into.",
-        lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on — " +
+      coach: { eyebrow: "Let's practice", headline: '“The Marshall Scenario”',
+        lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on, " +
               "then it's your call how to respond. There's no perfect script; I'll be right here as you work through it." },
       init: sceneInit },
 
