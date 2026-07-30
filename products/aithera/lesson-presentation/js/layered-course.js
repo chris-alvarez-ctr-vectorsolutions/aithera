@@ -197,6 +197,19 @@
     ctx.positionOrb(false);
   }
 
+  // Step 1 — the welcome "cover." Re-adds the run-time estimate as a single
+  // detail pill, reusing the Marshall scene-setter's chip treatment
+  // (.ll-scene-fact) so the two title slides read as one family.
+  function introInit(ctx) {
+    var wrap = document.createElement('div');
+    wrap.className = 'll-scene-facts';
+    wrap.innerHTML =
+      '<span class="ll-scene-fact"><i class="fa-solid fa-clock"></i>' +
+        '<span><b>Duration:</b> ≈ 10 minutes</span></span>';
+    if (ctx.chrome) ctx.chrome.appendChild(wrap);
+    ctx.positionOrb(false);
+  }
+
   // Step 5 — closing video, gated by a true/false knowledge check on the clip.
   // Same binary right/wrong mechanics as the (former) step-2 comprehension check:
   // a wrong pick is disabled with a nudge; the correct pick unlocks Continue.
@@ -402,9 +415,13 @@
   var STEPS = [
     { id: 'intro', n: 1, mode: 'ambient', lesson: 'Welcome',
       caption: { title: 'Course intro · Ambient presence', note: 'CLARA fills the space to open the lesson.' },
-      coach: { eyebrow: 'Duration ≅ 10 minutes', headline: "Hi, Rob. Ready to begin?",
+      // Welcome screen reads as the "cover": the greeting is the warm eyebrow,
+      // the course title is the hero. (The top band still carries course/lesson
+      // for wayfinding — the big title here is deliberate cover emphasis.)
+      coach: { eyebrow: "Hi, Rob. Ready to begin?", headline: COURSE,
         lede: "We'll be working through some sensitive scenarios today, related to sexual harassment in the workplace. " +
-              "I'll guide you through each section and may ask a few questions as you progress through each." } },
+              "I'll guide you through each section and may ask a few questions as you progress through each." },
+      init: introInit },
 
     { id: 'video', n: 2, mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'Gated video · Floating companion', note: 'The clip must play and the learner must answer CLARA’s check before Continue unlocks.' },
@@ -472,7 +489,7 @@
   // ==========================================================================
   //  Shell — built once; steps swap in place.
   // ==========================================================================
-  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footStep, pop, infoBtn, skipBtn;
+  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn;
   var frameLesson, frameStep, frameBar;
   var idx = -1, busy = false, nextHref = null;
 
@@ -508,14 +525,16 @@
 
   function updateFrame(step) {
     if (frameLesson) frameLesson.textContent = step.lesson;
-    if (frameStep) frameStep.textContent = 'Step ' + step.n + ' of ' + TOTAL;
+    if (frameStep) frameStep.textContent = 'Section ' + step.n + ' of ' + TOTAL;
     if (frameBar) frameBar.setAttribute('value', String(step.n / TOTAL));
   }
 
   function updateFooter(step) {
-    footer.querySelector('.ll-foot-course').textContent = COURSE;
-    var lessonSpan = footer.querySelector('.ll-foot-lesson');
-    lessonSpan.textContent = step.lesson + ' · Step ' + step.n + ' of ' + TOTAL + ' ';
+    // Section counter + progress live in the bottom bar (the unified flow zone
+    // with Back/Continue). Course + lesson stay in the top band, so there's no
+    // duplication.
+    if (footCount) footCount.textContent = 'Section ' + step.n + ' of ' + TOTAL;
+    if (footBar) footBar.setAttribute('value', String(step.n / TOTAL));
     if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
     backBtn.disabled = (step.n <= 1);
     var isLast = (step.n >= TOTAL);
@@ -609,12 +628,16 @@
   function buildFooter() {
     footer = document.createElement('footer');
     footer.className = 'll-footer';
+    // Bottom bar = the unified "flow" zone: the section counter + progress bar
+    // ride here beside Back/Continue (moved down out of the top band), with the
+    // "?" review aid tucked in right after the bar (bottom-left corner).
     footer.innerHTML =
       '<div class="ll-footer-meta">' +
-        '<span class="ll-foot-course"></span>' +
-        '<span class="ll-foot-step"><span class="ll-foot-lesson"></span>' +
-          '<button class="ll-info" id="llInfo" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="About this presentation">?</button>' +
-        '</span>' +
+        '<div class="ll-foot-progress">' +
+          '<span class="ll-foot-count"></span>' +
+          '<vaadin-progress-bar class="ll-foot-bar" value="0" aria-label="Course progress"></vaadin-progress-bar>' +
+        '</div>' +
+        '<button class="ll-info" id="llInfo" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="About this presentation">?</button>' +
       '</div>' +
       '<div class="ll-nav">' +
         '<button class="ll-btn ll-btn--ghost" id="llBack"><i class="fa-solid fa-arrow-left"></i> Back</button>' +
@@ -623,10 +646,13 @@
     document.body.appendChild(footer);
     backBtn = footer.querySelector('#llBack');
     nextBtn = footer.querySelector('#llNext');
+    footCount = footer.querySelector('.ll-foot-count');
+    footBar = footer.querySelector('.ll-foot-bar');
     infoBtn = footer.querySelector('#llInfo');
     backBtn.addEventListener('click', function () { go(-1); });
     nextBtn.addEventListener('click', function () { go(1); });
 
+    // The "About this presentation" review popover, anchored to the footer "?".
     pop = document.createElement('div');
     pop.className = 'll-pop'; pop.id = 'llPop';
     pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'About this presentation');
@@ -637,7 +663,7 @@
       e.stopPropagation();
       pop.classList.contains('open') ? closePop() : (pop.classList.add('open'), infoBtn.setAttribute('aria-expanded', 'true'));
     });
-    document.addEventListener('click', function (e) { if (pop.classList.contains('open') && !pop.contains(e.target) && e.target !== infoBtn) closePop(); });
+    document.addEventListener('click', function (e) { if (pop.classList.contains('open') && !infoBtn.contains(e.target)) closePop(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePop(); });
   }
 
