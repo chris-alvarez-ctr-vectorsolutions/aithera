@@ -7,11 +7,11 @@
 
      · coverageHero    (Battalion Chief) — Battalion Pulse meter, per-area
                         readiness facets with sparklines, and the right-hand
-                        stack: widgets rail → dashboards rail → Copilot card
+                        stack: widgets rail → dashboards rail → Agency Intelligence card
      · complianceHero  (Training Officer) — cohort progress, credential
                         expiry bars, action/monitor split
      · publishedDashboard — a dashboard as an END USER consumes it: the output
-                        of the Copilot builder dropped onto someone's home
+                        of the Agency Intelligence builder dropped onto someone's home
                         hero. No builder chrome, just the widgets.
    ======================================================================== */
 
@@ -257,7 +257,16 @@
   }
 
   /* =====================================================================
-     COVERAGE HERO (Battalion Chief)
+     COVERAGE HERO (Battalion Chief) — RETIRED
+     ---------------------------------------------------------------------
+     No longer rendered. At ~500px+ it put the top of the task list below the
+     fold, so CHIEF_DASH (a published dashboard, ~250px) replaces it; the rail's
+     Agency Intelligence links moved into that dashboard's header.
+
+     Kept here, unreferenced, because it is cheap to restore during review. The
+     machinery only this function uses: computePulse, pulseMeter, facets,
+     facetRows, facetDetail, microSpark, buildCountHistory, FACET_DEFS, and the
+     [data-facet*] handlers in wire().
      ===================================================================== */
   function coverageHero(tasks) {
     var pulse = computePulse(tasks);
@@ -274,10 +283,10 @@
       '<div class="kx-facets">' + (open ? facetDetail(open) : facetRows(list)) + '</div>' +
       '</div></div>' +
 
-      // Right column: widget tiles, then published dashboards, then Copilot.
+      // Right column: widget tiles, then published dashboards, then Agency Intelligence.
       '<div style="display:flex;flex-direction:column;gap:12px;min-width:0">' +
-      (window.KXCopilot ? window.KXCopilot.widgetsRail() + window.KXCopilot.dashboardsRail() : '') +
-      '<div id="kxCopilotSlot"></div>' +
+      (window.KXAgencyIntel ? window.KXAgencyIntel.widgetsRail() + window.KXAgencyIntel.dashboardsRail() : '') +
+      '<div id="kxAgencyIntelSlot"></div>' +
       '</div></div>';
   }
 
@@ -396,6 +405,14 @@
     return r ? r.label : 'Last 30 days';
   }
 
+  // Abbreviated forms for narrow (w:4) widgets, where the full label would eat
+  // the space the widget title needs. The menu still spells every option out.
+  var PD_RANGES_SHORT = {
+    last_7: 'Last 7d', last_30: 'Last 30d', last_90: 'Last 90d', qtd: 'QTD',
+    ytd: 'YTD', last_12mo: 'Last 12mo', next_14: 'Next 14d', next_30: 'Next 30d'
+  };
+  function rangeLabelShort(v) { return PD_RANGES_SHORT[v] || rangeLabel(v); }
+
   // The Lieutenant gets a fuller, crew-scoped dashboard a Chief would publish.
   var LT_DASH = {
     name: 'B-Shift Readiness', scope: 'Station 4 · B-Shift',
@@ -410,24 +427,59 @@
     ]
   };
 
-  // The Firefighter gets a smaller, personal readiness dashboard — a couple of
-  // charts about their own certs and training, published by the Training Officer.
+  // The Chief's own dashboard, built in Agency Intelligence and dropped on their home
+  // hero. One row of three KPIs — deliberately one metric per source app, so the
+  // "one surface over five products" premise reads at a glance. Each maps to a task
+  // type already in the table below, so clicking through stays coherent.
+  //
+  // Height is the governing constraint: three w:4 KPI widgets in a single row keep
+  // the card at ~250px, which is what keeps the top of the task list above the fold.
+  // Trend comes free from pdKpi's built-in 26px sparkline — no second row of charts.
+  var CHIEF_DASH = {
+    name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
+    owned: true, ownerShort: 'you',
+    widgets: [
+      { id: 'ch1', metricId: 'open_shifts',            viz: 'kpi', w: 4, range: 'next_14', source: ['sched'], title: 'Open shifts' },
+      { id: 'ch2', metricId: 'credential_expirations', viz: 'kpi', w: 4, range: 'next_30', source: ['ts'],    title: 'Credentials expiring' },
+      { id: 'ch3', metricId: 'overdue_inspections',    viz: 'kpi', w: 4, range: 'last_30', source: ['ci'],    title: 'Overdue inspections' }
+    ]
+  };
+
+  // The Firefighter's dashboard — the safe-by-default proposal. Ships as a Keystone
+  // starter template that the agency's training staff publishes.
+  //
+  // Every widget clears three bars: it is the firefighter's OWN record, it is data
+  // they can already see in the source product today, and they can personally act on
+  // it. Nothing here tells them anything new about anybody else, which is what keeps
+  // this pushable to every customer without complaints coming back.
+  //
+  // Deliberately NOT here, and why:
+  //   · no peer comparison / ranking / leaderboard — reads as surveillance and lands
+  //     as a labor-relations problem, not a UX one
+  //   · no station / battalion / department rollups — any aggregate is a window into
+  //     colleagues' compliance status
+  //   · no staffing, overtime, sick-leave or PTO figures — labor-sensitive, and not a
+  //     line firefighter's to see in aggregate
+  //   · no Guardian Tracking, evaluation or disciplinary signal — the most sensitive
+  //     record class in the suite; never on a home dashboard, even one's own
+  //   · no response-time or incident metrics — invites misreading, not personally actionable
+  //   · nothing framed as a score — all three are completion-or-countdown against a
+  //     stated requirement, never a grade
   var FF_DASH = {
     name: 'My Readiness', scope: 'Riley Brennan · FF / EMT',
     publisher: 'Training Officer Whitfield', ownerShort: 'Training',
+    template: 'Keystone starter template',
     widgets: [
       { id: 'ff1', kind: 'kpi', w: 4, range: 'ytd', source: ['ts'], icon: 'school',
-        title: 'Mandatory training', num: '92%', delta: '2 courses remaining', tone: 'good' },
+        title: 'My required training', num: '92%', delta: '2 courses remaining', tone: 'good',
+        trend: [{ x: 'Feb', y: 61 }, { x: 'Mar', y: 68 }, { x: 'Apr', y: 74 },
+                { x: 'May', y: 83 }, { x: 'Jun', y: 88 }, { x: 'Jul', y: 92 }] },
       { id: 'ff2', kind: 'kpi', w: 4, range: 'next_30', source: ['ts'], icon: 'workspace_premium',
-        title: 'Paramedic recert', num: '18', unit: 'days', delta: 'renew by Jul 12', tone: 'warn' },
-      { id: 'ff3', kind: 'donut', w: 4, range: 'ytd', source: ['ev'], icon: 'school',
-        title: 'CEU progress', center: '38%',
-        donut: [{ label: 'Complete', value: 38, color: 'var(--teal-400)' },
-                { label: 'Remaining', value: 62, color: 'var(--ink-200)' }] },
-      { id: 'ff4', kind: 'line', w: 12, range: 'last_12mo', source: ['ev'], icon: 'trending_up',
-        title: 'My CEU hours logged', color: 'var(--teal-400)', ySuffix: 'h',
-        data: [{ x: 'Jan', y: 4 }, { x: 'Feb', y: 6 }, { x: 'Mar', y: 5 },
-               { x: 'Apr', y: 9 }, { x: 'May', y: 8 }, { x: 'Jun', y: 12 }] }
+        title: 'Next credential due', num: '18', unit: 'days',
+        delta: 'Paramedic recert · renew by Jul 12', tone: 'warn' },
+      { id: 'ff3', kind: 'progress', w: 4, range: 'ytd', source: ['ev'], icon: 'school',
+        title: 'CEU progress', num: '38%', pct: 38, delta: '14 of 36 hours · due Dec 31',
+        tone: 'neutral', color: 'var(--teal-400)' }
     ]
   };
 
@@ -435,15 +487,17 @@
   // owner can save the default — the same rule as the builder's preview.
   var pdOverrides = {};
 
-  function pdRangeControl(w, ownerLabel) {
+  function pdRangeControl(w, ownerLabel, compact) {
     var saved = w.range || 'last_30';
     var local = pdOverrides[w.id];
     var dirty = local != null && local !== saved;
     var current = dirty ? local : saved;
     return '<span style="position:relative;display:inline-flex;align-items:center;flex-shrink:0">' +
       '<button class="kx-range-btn' + (dirty ? ' is-dirty' : '') + '" data-range-toggle="' + KX.attr(w.id) + '" ' +
-      'title="' + (dirty ? 'Exploring — only the owner can save this default' : 'Change date range') + '">' +
-      micon('calendar_today', { size: 13 }) + '<span>' + esc(rangeLabel(current)) + '</span>' +
+      'title="' + esc(rangeLabel(current)) + ' — ' +
+      (dirty ? 'exploring, only the owner can save this default' : 'change date range') + '">' +
+      micon('calendar_today', { size: 13 }) +
+      '<span>' + esc(compact ? rangeLabelShort(current) : rangeLabel(current)) + '</span>' +
       (dirty ? '<span title="Exploring — unsaved" style="width:5px;height:5px;border-radius:99px;background:var(--amber-500)"></span>' : '') +
       micon('expand_more', { size: 14 }) + '</button>' +
       (dirty ? '<button data-range-reset="' + KX.attr(w.id) + '" title="Reset to the owner\'s default" ' +
@@ -496,6 +550,18 @@
     } else if (kind === 'donut') {
       icon = icon || 'donut_large';
       body = KXCharts.pdDonut(w.donut, w.center);
+    } else if (kind === 'progress') {
+      // A KPI with a slim completion bar instead of a sparkline. Used where the
+      // number is progress against a fixed requirement rather than a trend — it
+      // reads as "how far along am I", never as a score, and it keeps the widget
+      // the same height as its KPI siblings so the row stays one row.
+      icon = icon || 'donut_large';
+      body = '<div style="display:flex;flex-direction:column;gap:6px;height:100%">' +
+        '<div class="kx-kpi-num" style="color:var(--ink-900)">' + esc(w.num) + '</div>' +
+        (w.delta ? '<div style="font-size:11.5px;color:var(--ink-500);font-weight:500">' + esc(w.delta) + '</div>' : '') +
+        '<div class="kx-pubprogress" style="margin-top:auto"><div class="fill" style="width:' +
+        Math.max(0, Math.min(100, w.pct || 0)) + '%;background:' + (w.color || 'var(--teal-400)') + '"></div></div>' +
+        '</div>';
     } else if (kind === 'table') {
       var ts = w.metricId ? CC.buildSpec(w.metricId, 'table') : null;
       icon = icon || (ts ? ts.icon : 'table_rows');
@@ -503,54 +569,127 @@
       body = KXCharts.pdTable(w.cols || (ts ? ts.cols : []), w.rows || (ts ? ts.rows : []));
     }
 
-    var srcs = (w.source || []).map(function (s) { return KX.srcChip(s); }).join('');
-    var wide = (w.w || 6) >= 6;
     var iconChip = '<span class="icon-chip">' + micon(icon, { size: 14, fill: 1 }) + '</span>';
 
+    // One header row at every widget width. Narrow (w:4) widgets used to stack
+    // the title above a second row of source chips + range control, which cost
+    // ~31px per widget — the difference between the card clearing the fold with
+    // one task row visible and clearing it with four.
+    //
+    // At w:4 there is only ~330px to work with, so the title gets priority: the
+    // per-widget source chip drops (the card header already lists the union of
+    // sources) and the range label abbreviates. Wide widgets keep both in full.
+    var narrow = (w.w || 6) <= 4;
+    var srcs = narrow ? '' : (w.source || []).map(function (s) { return KX.srcChip(s); }).join('');
+
     return '<div class="kx-pubwidget" style="grid-column:span ' + (w.w || 6) + '">' +
-      (wide
-        ? '<div style="display:flex;align-items:center;gap:10px">' + iconChip +
-          '<span class="title" style="flex:0 1 auto">' + esc(title) + '</span>' +
-          '<div style="display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden">' + srcs + '</div>' +
-          '<div style="margin-left:auto">' + pdRangeControl(w, ownerLabel) + '</div></div>'
-        : '<div><div style="display:flex;align-items:center;gap:8px;min-width:0">' + iconChip +
-          '<span class="title" style="flex:1">' + esc(title) + '</span></div>' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:7px">' +
-          '<div style="display:flex;gap:6px">' + srcs + '</div>' + pdRangeControl(w, ownerLabel) + '</div></div>') +
-      '<div style="margin-top:12px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
+      '<div class="kx-pubwidget-head">' + iconChip +
+      '<span class="title">' + esc(title) + '</span>' +
+      (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +
+      '<span class="rng">' + pdRangeControl(w, ownerLabel, narrow) + '</span></div>' +
+      '<div style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
       '</div>';
   }
 
+  /* ---------------------------------------------------------------------
+     HEADER CONTROL CLUSTER
+     ---------------------------------------------------------------------
+     New home for the links that used to live in the retired coverage hero's
+     right-hand rail: the "My dashboards" switcher and the way into Agency
+     Intelligence. Folding them into the header the card already draws costs no
+     extra height, which is the whole point.
+
+     Reads CC.loadDashboards() directly rather than going through the
+     agency-intel layer, so nothing in that module needs to change.
+
+     The pinned-widget-tiles rail is NOT relocated — it showed the same metrics
+     this dashboard now shows, one card higher up.
+     --------------------------------------------------------------------- */
+
+  var openDashMenu = false;
+
+  function pdHeaderControls(cfg, variant) {
+    var isAdmin = variant === 'chief';
+    var saved = (window.KEYSTONE_CUSTOM && window.KEYSTONE_CUSTOM.loadDashboards()) || [];
+    // The Firefighter only gets a switcher if there is genuinely something to
+    // switch to; otherwise their header stays a clean title.
+    var showSwitcher = isAdmin || saved.length > 0;
+    if (!showSwitcher && !isAdmin) return '';
+
+    var out = '<div class="kx-pubhead-ctl">';
+
+    if (showSwitcher) {
+      out += '<span style="position:relative;display:inline-flex">' +
+        '<button class="kx-pubhead-btn" data-dash-toggle title="Switch dashboard">' +
+        micon('dashboard_customize', { size: 14, fill: 1 }) +
+        '<span class="lbl">Switch dashboard</span>' + micon('expand_more', { size: 15 }) + '</button>' +
+        (openDashMenu
+          ? '<div class="kx-menu kx-menu--right" style="width:250px;top:calc(100% + 4px)">' +
+            '<button class="kx-menu-row">' +
+            micon('check', { size: 14, color: 'var(--amber-600)' }) +
+            '<span class="label">' + esc(cfg.name) + '</span></button>' +
+            (saved.length
+              ? saved.map(function (d) {
+                  return '<a class="kx-menu-row" href="agency-intelligence-dashboard.html?custom=' +
+                    encodeURIComponent(d.id) + '" target="_blank" rel="noreferrer">' +
+                    micon('dashboard_customize', { size: 14, color: 'var(--ink-400)' }) +
+                    '<span class="label">' + esc(d.name) + '</span>' +
+                    '<span style="font-size:10px;color:var(--ink-400)">' + d.metrics.length + ' metric' +
+                    (d.metrics.length === 1 ? '' : 's') + '</span></a>';
+                }).join('')
+              : '<div style="padding:8px;font-size:11px;color:var(--ink-400);line-height:1.45">' +
+                'No other dashboards yet. Build one in Agency Intelligence.</div>') +
+        '</div>'
+          : '') + '</span>';
+    }
+
+    if (isAdmin) {
+      out += '<a class="kx-pubhead-btn" href="agency-intelligence-dashboard.html" target="_blank" rel="noreferrer" ' +
+        'title="Open Agency Intelligence">' + micon('auto_awesome', { size: 14, fill: 1 }) +
+        '<span class="lbl">Agency Intelligence</span>' + micon('open_in_new', { size: 13 }) + '</a>';
+    }
+
+    return out + '</div>';
+  }
+
   function publishedDashboard(variant) {
-    var cfg = variant === 'firefighter' ? FF_DASH : LT_DASH;
+    var cfg = variant === 'chief' ? CHIEF_DASH
+            : variant === 'firefighter' ? FF_DASH
+            : LT_DASH;
     var union = {};
     cfg.widgets.forEach(function (w) { (w.source || []).forEach(function (s) { union[s] = true; }); });
 
+    // The Chief builds their own, so the badge and footer say so — which is what
+    // earns them the "Agency Intelligence" affordance. Everyone else is a consumer.
+    var badge = cfg.owned
+      ? '<span class="kx-pubbadge is-owned">' + micon('person', { size: 12, fill: 1 }) + ' Your dashboard</span>'
+      : '<span class="kx-pubbadge">' + micon('campaign', { size: 12, fill: 1 }) + ' Published to you</span>';
+
+    var meta = esc(cfg.scope) +
+      (cfg.owned ? '' : ' · published by ' + esc(cfg.publisher)) +
+      (cfg.template ? ' · ' + esc(cfg.template) : '');
+
+    var footRight = cfg.owned
+      ? micon('edit', { size: 12 }) + ' You own this · edit in Agency Intelligence'
+      : micon('lock', { size: 12 }) + ' Read-only · explore freely, only ' + esc(cfg.ownerShort) + ' can edit';
+
     return '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
-      '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;flex-wrap:wrap">' +
-      '<span style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg, var(--amber-400), var(--coral-400));' +
-      'color:white;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' +
-      micon('dashboard_customize', { size: 19, fill: 1 }) + '</span>' +
+      '<div class="kx-pubhead">' +
+      '<span class="kx-pubmark">' + micon('dashboard_customize', { size: 18, fill: 1 }) + '</span>' +
       '<div style="min-width:0;flex:1">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-      '<span style="font-family:var(--font-display);font-weight:500;font-size:21px;color:var(--ink-900);letter-spacing:-0.3px">' +
-      esc(cfg.name) + '</span>' +
-      '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;' +
-      'background:var(--teal-50);color:var(--teal-600);border:1px solid var(--teal-100);font-size:10.5px;font-weight:700">' +
-      micon('campaign', { size: 12, fill: 1 }) + ' Published to you</span></div>' +
-      '<div style="font-size:12px;color:var(--ink-500);margin-top:3px">' + esc(cfg.scope) +
-      ' · published by ' + esc(cfg.publisher) + '</div></div>' +
-      '<div style="display:flex;gap:6px;flex-shrink:0;padding-top:4px">' +
-      Object.keys(union).map(function (s) { return KX.srcChip(s); }).join('') + '</div></div>' +
+      '<span class="kx-pubtitle">' + esc(cfg.name) + '</span>' + badge +
+      '<span class="kx-pubsrcs">' + Object.keys(union).map(function (s) { return KX.srcChip(s); }).join('') + '</span>' +
+      '</div>' +
+      '<div class="kx-pubmeta">' + meta + '</div></div>' +
+      pdHeaderControls(cfg, variant) + '</div>' +
 
       '<div class="kx-pubgrid">' + cfg.widgets.map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('') + '</div>' +
 
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;' +
-      'font-size:11.5px;color:var(--ink-400);flex-wrap:wrap">' +
+      '<div class="kx-pubfoot">' +
       '<span style="display:inline-flex;align-items:center;gap:5px">' +
       micon('cloud_done', { size: 13, fill: 1, color: 'var(--teal-500)' }) + ' Auto-refreshed 2 min ago</span>' +
-      '<span style="display:inline-flex;align-items:center;gap:4px">' + micon('lock', { size: 12 }) +
-      ' Read-only · explore freely, only ' + esc(cfg.ownerShort) + ' can edit</span></div></div>';
+      '<span style="display:inline-flex;align-items:center;gap:4px">' + footRight + '</span></div></div>';
   }
 
   /* =====================================================================
@@ -610,7 +749,20 @@
       }
       var rr = e.target.closest('[data-range-reset]');
       if (rr) { delete pdOverrides[rr.getAttribute('data-range-reset')]; window.KXHub.render(); return; }
-      if (openRangeMenu && !e.target.closest('.kx-menu')) { openRangeMenu = null; window.KXHub.render(); }
+
+      /* -- published-dashboard header: dashboard switcher -- */
+      if (e.target.closest('[data-dash-toggle]')) {
+        openDashMenu = !openDashMenu;
+        openRangeMenu = null;
+        window.KXHub.render();
+        return;
+      }
+
+      if ((openRangeMenu || openDashMenu) && !e.target.closest('.kx-menu')) {
+        openRangeMenu = null;
+        openDashMenu = false;
+        window.KXHub.render();
+      }
     });
   }
 

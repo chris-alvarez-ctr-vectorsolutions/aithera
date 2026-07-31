@@ -1,6 +1,6 @@
 /* global window, document, KEYSTONE, KX, KXCharts */
 /* ========================================================================
-   hub-copilot.js — the Hub's embedded Copilot card (phase 2).
+   hub-agency-intel.js — the Hub's embedded Agency Intelligence card (phase 2).
    ------------------------------------------------------------------------
    An AI chat surface that queries across all source apps (TargetSolutions,
    Check It, Guardian, Scheduling, EV+) and returns a text answer, an inline
@@ -186,7 +186,7 @@
         (msg.metricCount === 1 ? '' : 's') + ' included. Click the tile to open it, or share the link with your battalion.</div>' +
         '<div class="cp-actions">' +
         action({ icon: 'open_in_new', label: 'Open dashboard', primary: true,
-          href: 'copilot-dashboard.html?custom=' + encodeURIComponent(msg.dashboardId) }) +
+          href: 'agency-intelligence-dashboard.html?custom=' + encodeURIComponent(msg.dashboardId) }) +
         '</div></div></div>';
     }
     return '<div class="cp-turn-ai"><span class="badge">' + micon('auto_awesome', { size: 16, fill: 1 }) + '</span>' +
@@ -198,7 +198,7 @@
         ? '<div class="cp-actions">' +
           (msg.csv ? action({ icon: 'download', label: 'Export CSV', action: 'csv', arg: String(idx) }) : '') +
           (msg.dashboard ? action({ icon: 'open_in_new', label: 'Open as dashboard', primary: true,
-            href: 'copilot-dashboard.html?view=' + msg.dashboard + '&q=' + encodeURIComponent(msg.prompt || '') }) : '') +
+            href: 'agency-intelligence-dashboard.html?view=' + msg.dashboard + '&q=' + encodeURIComponent(msg.prompt || '') }) : '') +
           '</div>'
         : '') +
       '</div></div>';
@@ -542,7 +542,7 @@
      RAILS
      ===================================================================== */
 
-  // Sits above the Copilot card. One tile per published dashboard; hidden
+  // Sits above the Agency Intelligence card. One tile per published dashboard; hidden
   // until the user has published at least one.
   function dashboardsRail() {
     var list = CC.loadDashboards();
@@ -551,7 +551,7 @@
       micon('push_pin', { size: 14, fill: 1, color: 'var(--ink-500)' }) +
       '<span class="t">My dashboards</span><span class="n">· ' + list.length + '</span></div>' +
       '<div class="cp-dashgrid">' + list.map(function (d) {
-        return '<a class="cp-dash-tile" href="copilot-dashboard.html?custom=' + encodeURIComponent(d.id) +
+        return '<a class="cp-dash-tile" href="agency-intelligence-dashboard.html?custom=' + encodeURIComponent(d.id) +
           '" target="_blank" rel="noreferrer">' +
           '<div style="display:flex;align-items:center;gap:6px">' +
           '<span class="cp-tile-icon">' + micon('dashboard_customize', { size: 11, fill: 1 }) + '</span>' +
@@ -575,7 +575,7 @@
 
   // Single-metric (or paired correlation) chart tiles pinned above the
   // dashboards rail. Hidden until at least one widget exists — the user
-  // bootstraps via the Copilot prompt button below.
+  // bootstraps via the Agency Intelligence prompt button below.
   function widgetsRail() {
     var widgets = CC.loadWidgets();
     if (!widgets.length) return '';
@@ -623,11 +623,11 @@
       '<div class="cp-head">' +
       '<span class="cp-mark">' + micon('auto_awesome', { size: 17, fill: 1 }) + '</span>' +
       '<div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">' +
-      '<div style="font-weight:700;font-size:16px;color:var(--ink-900);line-height:1.2">Copilot</div>' +
+      '<div style="font-weight:700;font-size:16px;color:var(--ink-900);line-height:1.2">Agency Intelligence</div>' +
       '<div style="font-size:12.5px;font-weight:600;color:var(--ink-800);line-height:1.35">' +
       'Ask the data across your apps.</div>' +
       '<div style="font-size:11.5px;color:var(--ink-500);line-height:1.45">' +
-      'Copilot pulls signals from TargetSolutions, Check It, Guardian, Scheduling, and EV+ — ' +
+      'Agency Intelligence pulls signals from TargetSolutions, Check It, Guardian, Scheduling, and EV+ — ' +
       'and looks for connections between them.</div></div>' +
       (hasThread
         ? '<button class="cp-action" data-cp-clear title="Start a new conversation" style="flex-shrink:0">' +
@@ -653,7 +653,7 @@
       (ready ? '' : ' disabled') + '>' + micon('arrow_upward', { size: 18, weight: 500 }) + '</button>' +
       '</div>' +
       '<div class="cp-foot">' +
-      '<span>Copilot drafts may contain inaccuracies — always verify before acting.</span>' +
+      '<span>Agency Intelligence drafts may contain inaccuracies — always verify before acting.</span>' +
       '<span><span class="kbd">↵</span> send · <span class="kbd">⇧↵</span> newline</span>' +
       '</div></div></div>';
   }
@@ -883,7 +883,7 @@
       var csv = e.target.closest('[data-cp-action="csv"]');
       if (csv) {
         var msg = state.thread[+csv.getAttribute('data-cp-arg')];
-        if (msg && msg.csv) KXCharts.downloadCSV(msg.prompt || 'copilot', msg.csv);
+        if (msg && msg.csv) KXCharts.downloadCSV(msg.prompt || 'agency-intel', msg.csv);
         return;
       }
 
@@ -963,14 +963,14 @@
       }
     });
 
-    // "+ Add widget" in the widgets rail routes through the same Copilot flow
+    // "+ Add widget" in the widgets rail routes through the same Agency Intelligence flow
     // as the prompt button.
     window.addEventListener('kx-start-widget-wizard', function () { startWizard('widget'); });
   }
 
   wire();
 
-  window.KXCopilot = {
+  window.KXAgencyIntel = {
     mountInto: mountInto,
     widgetsRail: widgetsRail,
     dashboardsRail: dashboardsRail

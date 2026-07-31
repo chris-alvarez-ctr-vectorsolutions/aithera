@@ -1,6 +1,6 @@
-/* global window, document, KEYSTONE, KX, KXCanvas, COPILOT */
+/* global window, document, KEYSTONE, KX, KXCanvas, AGENCY_INTEL */
 /* ========================================================================
-   copilot-explore.js — Data Explorer (admin-only).
+   agency-intel-explore.js — Data Explorer (admin-only).
    ------------------------------------------------------------------------
    Ported from copilot-explore.jsx + SendReportModal/ReportStep in
    copilot-report.jsx.
@@ -24,7 +24,7 @@
 
   var K = window.KEYSTONE;
   var CC = window.KEYSTONE_CUSTOM;
-  var CP = window.COPILOT;
+  var CP = window.AGENCY_INTEL;
   var esc = KX.esc, micon = KX.micon;
 
   /* =====================================================================
@@ -132,11 +132,11 @@
 
   function startHtml() {
     return '<div style="max-width:760px;margin:0 auto;padding:8px 0 20px">' +
-      '<div style="text-align:center;margin-bottom:22px">' + vMark(52) +
+      '<div style="text-align:center;margin-bottom:22px">' + aiMark(52) +
       '<h2 style="font-family:var(--font-display);font-weight:500;font-size:27px;color:var(--ink-900);' +
       'margin:14px 0 6px">Explore your data</h2>' +
       '<p style="font-size:14px;color:var(--ink-500);margin:0;line-height:1.55">' +
-      'Ask Vectoria anything across your connected apps. Follow a thread wherever it leads — ' +
+      'Ask Agency Intelligence anything across your connected apps. Follow a thread wherever it leads — ' +
       'you don\'t have to build a dashboard.</p></div>' +
 
       '<div style="position:relative;margin-bottom:22px">' +
@@ -146,7 +146,7 @@
       '<div style="display:flex;justify-content:flex-end;margin-top:10px">' +
       '<vaadin-button theme="primary" id="exRun"' + (state.query.trim() ? '' : ' disabled') + '>' +
       micon('auto_awesome', { size: 16 }) +
-      '<span style="margin-left:6px">Explore with Vectoria</span></vaadin-button></div></div>' +
+      '<span style="margin-left:6px">Explore with Agency Intelligence</span></vaadin-button></div></div>' +
 
       '<div style="display:flex;align-items:center;gap:12px;margin:4px 0 16px">' +
       '<div style="flex:1;height:1px;background:var(--ink-100)"></div>' +
@@ -167,9 +167,9 @@
       }).join('') + '</div></div>';
   }
 
-  function vMark(size) {
+  function aiMark(size) {
     size = size || 30;
-    return '<span class="vectoria-mark" style="width:' + size + 'px;height:' + size + 'px">' +
+    return '<span class="agency-intel-mark" style="width:' + size + 'px;height:' + size + 'px">' +
       micon('auto_awesome', { size: Math.round(size * 0.56), fill: 1 }) + '</span>';
   }
 
@@ -252,7 +252,7 @@
     if (/correl|relationship|relate|driv/.test(s)) return correlationsHtml();
     if (/opportun|action|improv|fix|reduce|focus|risk/.test(s)) return opportunitiesHtml();
     return exploreCard(
-      '<div style="display:flex;gap:12px;align-items:flex-start">' + vMark(30) +
+      '<div style="display:flex;gap:12px;align-items:flex-start">' + aiMark(30) +
       '<div style="font-size:13.5px;line-height:1.6;color:var(--ink-800)">' +
       'Here\'s what I found across your connected apps. Explore any thread below, or refine your question — ' +
       'nothing is saved unless you pin it.' +
@@ -290,14 +290,14 @@
       'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(title) + '</span></span></div>' +
 
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12.5px;color:var(--ink-500)">' +
-      vMark(18) + ' Vectoria explored your connected apps — nothing here is saved. ' +
+      aiMark(18) + ' Agency Intelligence explored your connected apps — nothing here is saved. ' +
       'Pin a finding to keep it as a dashboard, or send it out as a one-off report.</div>' +
 
       body + '</div>';
   }
 
   function html() {
-    return '<div data-screen-label="Copilot — Data Explorer">' +
+    return '<div data-screen-label="Agency Intelligence — Data Explorer">' +
       (state.phase === 'start' ? startHtml() : resultsHtml()) + '</div>';
   }
 
@@ -407,7 +407,7 @@
         'border:1px solid var(--ink-100);background:var(--surface-2);cursor:pointer">' +
         '<vaadin-checkbox id="srSummary" checked></vaadin-checkbox>' +
         '<span style="flex:1"><span style="display:block;font-weight:600;font-size:13px">' +
-        'Include Vectoria\'s written summary</span>' +
+        'Include Agency Intelligence\'s written summary</span>' +
         '<span style="font-size:11.5px;color:var(--ink-500)">A short cover read of what changed this period, ' +
         'written fresh on every send.</span></span></label>' +
 
@@ -536,7 +536,7 @@
     state.submittedQ = q || '';
     state.phase = 'results';
     window.scrollTo({ top: 0 });
-    window.KXCopilotPage.render();
+    window.KXAgencyIntelPage.render();
   }
 
   function reset() {
@@ -544,7 +544,7 @@
     state.mode = null;
     state.submittedQ = '';
     window.scrollTo({ top: 0 });
-    window.KXCopilotPage.render();
+    window.KXAgencyIntelPage.render();
   }
 
   // Delegated once on document — the Explorer renders inside #root, but its
@@ -572,7 +572,7 @@
           var f = scanCorrelations()[idx];
           var la = CC.metricById(f.a).label, lb = CC.metricById(f.b).label;
           // Pinning creates a brand-new dashboard seeded with this finding.
-          window.KXCopilotPage.createDashboardWith(
+          window.KXAgencyIntelPage.createDashboardWith(
             [CP.newWidget({ metricIds: [f.a, f.b], viz: 'scatter' })],
             la + ' × ' + lb
           );

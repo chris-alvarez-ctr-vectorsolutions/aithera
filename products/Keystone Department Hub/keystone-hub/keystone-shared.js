@@ -88,7 +88,7 @@
 
   // Keystone statuses mapped onto Vector's semantic tones. The design renders
   // status as plain text (no badge fill) — the meta is kept because the
-  // Copilot surfaces still use the tones.
+  // Agency Intelligence surfaces still use the tones.
   var STATUS_META = {
     overdue:    { label: 'Overdue',    fg: 'var(--lumo-error-text-color)',     bg: 'var(--lumo-error-color-10pct)',   dot: 'var(--lumo-error-color)' },
     past_sla:   { label: 'Past SLA',   fg: 'var(--lumo-error-text-color)',     bg: 'var(--lumo-error-color-10pct)',   dot: 'var(--lumo-error-color)' },

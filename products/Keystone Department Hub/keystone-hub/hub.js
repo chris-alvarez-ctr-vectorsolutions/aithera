@@ -1,4 +1,4 @@
-/* global window, document, KEYSTONE, KX, KXHero, KXCopilot */
+/* global window, document, KEYSTONE, KX, KXHero, KXAgencyIntel */
 /* ========================================================================
    hub.js — Keystone Department Hub. Vanilla JS.
    ------------------------------------------------------------------------
@@ -214,6 +214,9 @@
     return 'You\'re clear. Nothing\'s on fire.';
   }
 
+  // RETIRED — the descriptive per-role sentence cost two lines in the greeting.
+  // The slim header shows the role's scope + inline task counts instead. Kept
+  // because the copy is worth restoring if the header ever gets its height back.
   function subtitleFor(r) {
     if (r.hero === 'coverage') return 'Coverage and apparatus status across your battalion. Late shifts, gear, and inspections surface here first.';
     if (r.hero === 'compliance') return 'Department-wide credential health, cohort progress, and mandatory training completion.';
@@ -238,15 +241,20 @@
     ink:  { bg: 'var(--surface-3)', fg: 'var(--ink-800)', border: 'var(--ink-100)' }
   };
 
-  function vitalTile(t) {
-    var c = VITAL_TONES[t.tone];
-    var muted = t.n === 0;
-    return '<div class="kx-vital' + (muted ? ' is-muted' : '') + '"' +
-      (muted ? '' : ' style="background:' + c.bg + ';border:1px solid ' + c.border + '"') + '>' +
-      '<div class="top">' +
-      micon(t.icon, { size: 14, fill: muted ? 0 : 1, color: muted ? 'var(--ink-400)' : c.fg }) +
-      '<div class="n"' + (muted ? '' : ' style="color:' + c.fg + '"') + '>' + t.n + '</div></div>' +
-      '<div class="lbl">' + esc(t.label) + '</div></div>';
+  // The day overview, inline. Replaces the old right-hand rail of three big-number
+  // tiles (~70px) with a single ~20px line, freeing the fold for the published
+  // dashboard. These are TASK-QUEUE counts — deliberately a different data layer
+  // from the dashboard's readiness metrics, so the two don't say the same thing.
+  function vitalLine(tiles) {
+    var shown = tiles.filter(function (t) { return t.n > 0; });
+    if (!shown.length) return '';
+    return '<span class="kx-vitalline">' + shown.map(function (t) {
+      var c = VITAL_TONES[t.tone];
+      return '<span class="kx-vitalline__stat" title="' + KX.attr(t.label) + '">' +
+        '<span class="dot" style="background:' + c.fg + '"></span>' +
+        '<span class="n" style="color:' + c.fg + '">' + t.n + '</span>' +
+        '<span class="lbl">' + esc(t.label.toLowerCase()) + '</span></span>';
+    }).join('<span class="kx-vitalline__sep">·</span>') + '</span>';
   }
 
   function greetingHeader(tasks) {
@@ -288,16 +296,18 @@
         headlineN + '</span> items ' + esc(headlineWord) + ' <span class="muted">today.</span>'
       : esc(greetingFor(r, c));
 
+    // Single column now — the published dashboard below is what we want the eye to
+    // land on, so the greeting gives back its right-hand rail and most of its height.
+    var stats = vitalLine(tiles);
     return '<div class="kx-greeting">' +
-      '<div style="min-width:0">' +
       '<div class="kx-eyebrow"><span class="pip" style="background:' + pip + ';box-shadow:0 0 8px ' + glow + '"></span>' +
       '<span class="txt">' + esc(greetingTime(TODAY)) + ' · ' +
       esc(TODAY.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })) + '</span></div>' +
       '<h1>' + headline + '</h1>' +
-      '<div class="kx-greeting-sub">' + esc(subtitleFor(r)) + '</div>' +
-      '</div>' +
-      '<div class="kx-vitals">' + tiles.map(vitalTile).join('') + '</div>' +
-      '</div>';
+      '<div class="kx-greeting-sub">' +
+      '<span class="kx-greeting-scope">' + esc(r.sub || '') + '</span>' +
+      (stats ? '<span class="kx-vitalline__sep">·</span>' + stats : '') +
+      '</div></div>';
   }
 
   /* ---------------------------------------------------------------------
@@ -822,9 +832,11 @@
     var filtered = visibleTasks();
 
     // Role heroes are phase-2: v1 ships the greeting + task table only.
+    // The Chief's Battalion Pulse hero is RETIRED — a published dashboard replaces
+    // it, so the top of the task list stays above the fold.
     var hero = '';
     if (flags.futureOn && window.KXHero) {
-      if (r.hero === 'coverage') hero = KXHero.coverageHero(scoped);
+      if (r.hero === 'coverage') hero = KXHero.publishedDashboard('chief');
       else if (r.hero === 'compliance') hero = KXHero.complianceHero(scoped);
       else if (r.hero === 'crew') hero = KXHero.publishedDashboard('lieutenant');
       else if (r.hero === 'personal') hero = KXHero.publishedDashboard('firefighter');
@@ -836,13 +848,14 @@
       '<section class="kx-hero"><div class="kx-hero-inner">' +
       greetingHeader(scoped) + hero +
       '</div></section>' +
-      '<div style="height:12px"></div>' +
+      '<div style="height:6px"></div>' +
       filterBar(filtered) +
       taskTable(filtered) +
       '</main></div></div></div>';
 
-    // The Copilot card lives inside the coverage hero's right column.
-    if (flags.futureOn && window.KXCopilot) KXCopilot.mountInto(document.getElementById('kxCopilotSlot'));
+    // The Agency Intelligence chat card used to mount inside the retired coverage
+    // hero's right column. The hub now links out to it from the published
+    // dashboard's header instead — no in-page mount, no height cost.
     if (window.KXHero) KXHero.wire();
     syncBucketGroup();
   }
@@ -1482,6 +1495,6 @@
     else render();
   });
 
-  // Expose for the hero/copilot layers and for debugging.
+  // Expose for the hero/agency-intelligence layers and for debugging.
   window.KXHub = { applyFilter: applyFilter, bucketCounts: bucketCounts, render: render, state: state };
 })();

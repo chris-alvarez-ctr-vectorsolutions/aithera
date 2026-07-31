@@ -20,7 +20,7 @@
 
   v1 ships the greeting header + task table. The "Future functionality" flag
   in the FAB reveals the phase-2 surfaces: the two gated roles, the Battalion
-  Pulse / readiness-facet hero, published dashboards, the Copilot card,
+  Pulse / readiness-facet hero, published dashboards, the Agency Intelligence card,
   saved-view management, the density switcher, and reminder/reassign actions.
 
   Reskinned on Vector web components: the task list is a real table using
@@ -40,20 +40,23 @@
 <style>
   /* ====================================================================
      GREETING HEADER
-     Editorial layout: oversized serif headline on the left balanced by a
-     right rail of "vital sign" stat tiles. The headline pulls the attention
-     number into a giant numeral so the eye lands on it first.
+     Slimmed to roughly half its former height. It used to be a two-column
+     editorial layout — oversized serif headline balanced by a right rail of
+     three big-number "vital sign" tiles. The published dashboard below is now
+     what we want the eye to land on, so the greeting gives back both the rail
+     and most of its type scale: one column, a smaller (still serif) headline,
+     and the day's counts compressed into a single inline stat line.
+
+     Budget: ~175px before, ~90px after. That reclaimed height is what keeps the
+     top of the task list above the fold once the dashboard is in place.
      ==================================================================== */
   .kx-hero {
     background: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-1) 70%, transparent 100%);
-    padding-bottom: 8px;
+    padding-bottom: 6px;
   }
-  .kx-hero-inner { padding: 24px 24px 8px; }
-  .kx-greeting {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-    gap: 32px; align-items: center; padding: 8px 0 24px; margin-bottom: 16px;
-  }
-  .kx-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .kx-hero-inner { padding: 16px 24px 6px; }
+  .kx-greeting { padding: 4px 0 12px; margin-bottom: 10px; min-width: 0; }
+  .kx-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .kx-eyebrow .pip { width: 6px; height: 6px; border-radius: 99px; }
   .kx-eyebrow .txt {
     font-size: 11px; color: var(--ink-500); font-weight: 700;
@@ -61,40 +64,41 @@
   }
   .kx-greeting h1 {
     margin: 0; font-family: var(--font-display); font-weight: 500;
-    font-size: clamp(28px, 3.4vw, 44px); line-height: 1.02; letter-spacing: -1.2px;
+    font-size: clamp(20px, 2.1vw, 26px); line-height: 1.12; letter-spacing: -0.6px;
     color: var(--ink-900); text-wrap: balance;
   }
   .kx-greeting h1 .num { font-variant-numeric: lining-nums tabular-nums; }
   .kx-greeting h1 .muted { color: var(--ink-500); }
-  .kx-greeting-sub { margin-top: 10px; font-size: 14px; color: var(--ink-600); max-width: 620px; line-height: 1.5; }
+  .kx-greeting-sub {
+    margin-top: 6px; font-size: 13px; color: var(--ink-600); line-height: 1.45;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .kx-greeting-scope { font-weight: 600; color: var(--ink-700); }
 
-  .kx-vitals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .kx-vital {
-    border-radius: 14px; padding: 12px 12px 10px;
-    display: flex; flex-direction: column; gap: 4px;
+  /* The day overview, inline — replaces the ~70px tile rail with a ~20px line.
+     These are task-queue counts, a different layer from the dashboard's
+     readiness metrics, so the two never say the same thing. */
+  .kx-vitalline { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .kx-vitalline__sep { color: var(--ink-300); }
+  .kx-vitalline__stat { display: inline-flex; align-items: baseline; gap: 5px; }
+  .kx-vitalline__stat .dot {
+    width: 6px; height: 6px; border-radius: 99px; align-self: center; flex-shrink: 0;
   }
-  .kx-vital .top { display: flex; align-items: center; justify-content: space-between; }
-  .kx-vital .n {
-    font-family: var(--font-numeric); font-weight: 700; font-size: 28px;
-    line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums;
+  .kx-vitalline__stat .n {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 14px;
+    letter-spacing: -0.2px; font-variant-numeric: tabular-nums;
   }
-  .kx-vital .lbl { font-size: 11px; color: var(--ink-600); font-weight: 600; letter-spacing: 0.3px; }
-  .kx-vital.is-muted { background: var(--surface-1); border: 1px solid var(--ink-100); opacity: 0.7; }
-  .kx-vital.is-muted .n { color: var(--ink-400); }
+  .kx-vitalline__stat .lbl { font-size: 12.5px; color: var(--ink-600); }
 
-  @media (max-width: 960px) {
-    .kx-greeting { grid-template-columns: 1fr !important; gap: 18px; padding: 4px 0 16px; }
-  }
   @media (max-width: 860px) {
-    .kx-hero-inner { padding: 16px 0 8px; }
-    .kx-greeting h1 { font-size: clamp(22px, 6vw, 30px); }
+    .kx-hero-inner { padding: 14px 0 6px; }
+    .kx-greeting h1 { font-size: clamp(19px, 5vw, 24px); }
   }
-  @media (max-width: 540px) { .kx-vitals { grid-template-columns: repeat(3, 1fr); } }
 
   /* ====================================================================
      FILTER BAR
      ==================================================================== */
-  .kx-filterbar { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; }
+  .kx-filterbar { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; }
   .kx-filterbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .kx-count {
     font-size: 16px; font-weight: 400; color: var(--ink-700);
@@ -385,15 +389,76 @@
   }
   .kx-action-card { border-radius: 16px; padding: 14px; flex: 1; }
 
-  /* Published dashboard (Lieutenant / Firefighter heroes) */
-  .kx-pubdash { background: var(--surface-2); border: 1px solid var(--ink-100); border-radius: 20px; padding: 16px; }
+  /* ====================================================================
+     PUBLISHED DASHBOARD (Chief / Lieutenant / Firefighter heroes)
+     The Chief's and Firefighter's are single-row, three-widget cards sized to
+     land at ~250px so the task list top clears the fold. The header carries the
+     controls that used to live in the retired coverage hero's right-hand rail.
+     ==================================================================== */
+  .kx-pubdash { background: var(--surface-2); border: 1px solid var(--ink-100); border-radius: 20px; padding: 14px; }
+
+  .kx-pubhead { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .kx-pubmark {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--amber-400), var(--coral-400));
+    color: white; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .kx-pubtitle {
+    font-family: var(--font-display); font-weight: 500; font-size: 19px;
+    color: var(--ink-900); letter-spacing: -0.3px;
+  }
+  .kx-pubmeta { font-size: 11.5px; color: var(--ink-500); margin-top: 2px; }
+  .kx-pubsrcs { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+  .kx-pubbadge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    background: var(--teal-50); color: var(--teal-600); border: 1px solid var(--teal-100);
+    font-size: 10.5px; font-weight: 700;
+  }
+  .kx-pubbadge.is-owned {
+    background: var(--amber-50); color: var(--amber-700); border-color: var(--amber-300);
+  }
+
+  /* Header control cluster — dashboard switcher + Agency Intelligence link. */
+  .kx-pubhead-ctl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+  .kx-pubhead-btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px;
+    border: 1px solid var(--ink-200); background: var(--surface-1); color: var(--ink-700);
+    font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+    text-decoration: none; white-space: nowrap; transition: background 0.15s, border-color 0.15s;
+  }
+  .kx-pubhead-btn:hover { background: var(--surface-3); border-color: var(--ink-300); }
+  @media (max-width: 860px) {
+    .kx-pubhead-ctl { margin-left: 0; width: 100%; }
+    .kx-pubhead-btn .lbl { display: none; }
+  }
+
+  .kx-pubfoot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 10px; font-size: 11.5px; color: var(--ink-400); flex-wrap: wrap;
+  }
+
+  /* Completion bar for the 'progress' widget kind — progress against a fixed
+     requirement, never a score. Sized to match a KPI sparkline's footprint so a
+     mixed row of KPI + progress widgets stays visually level. */
+  .kx-pubprogress {
+    height: 7px; border-radius: 99px; background: var(--ink-100);
+    overflow: hidden; width: 100%;
+  }
+  .kx-pubprogress .fill { height: 100%; border-radius: 99px; transition: width 0.6s; }
   .kx-pubgrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; align-items: stretch; }
   @media (max-width: 860px) { .kx-pubgrid { gap: 10px; } .kx-pubgrid > * { grid-column: 1 / -1 !important; } }
   .kx-pubwidget {
     background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 14px;
-    box-shadow: var(--elev-1); padding: 14px;
+    box-shadow: var(--elev-1); padding: 12px;
     display: flex; flex-direction: column; min-width: 0;
   }
+  /* Single header row at every width — title shrinks with ellipsis, source chips
+     and the range control hold their size on the right. */
+  .kx-pubwidget-head {
+    display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap;
+  }
+  .kx-pubwidget-head .srcs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .kx-pubwidget-head .rng { margin-left: auto; flex-shrink: 0; }
   .kx-pubwidget .icon-chip {
     width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
     display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -410,12 +475,12 @@
   .kx-range-btn:hover { background: var(--surface-3); }
   .kx-range-btn.is-dirty { border-color: var(--amber-300); background: var(--amber-50); color: var(--amber-700); }
   .kx-kpi-num {
-    font-family: var(--font-numeric); font-weight: 700; font-size: 38px; line-height: 1;
+    font-family: var(--font-numeric); font-weight: 700; font-size: 33px; line-height: 1;
     letter-spacing: -1.5px; font-variant-numeric: tabular-nums;
   }
 
   /* ====================================================================
-     COPILOT CARD (v2)
+     AGENCY_INTEL CARD (v2)
      ==================================================================== */
   .cp-card {
     background: var(--surface-1); border-radius: 20px; border: 1px solid var(--ink-100);
@@ -572,7 +637,7 @@
 <script src="keystone-shared.js"></script>
 <script src="charts.js"></script>
 <script src="hub-hero.js"></script>
-<script src="hub-copilot.js"></script>
+<script src="hub-agency-intel.js"></script>
 <script src="hub.js"></script>
 
 </body>
