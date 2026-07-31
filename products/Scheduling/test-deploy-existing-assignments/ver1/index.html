@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deploy Existing Assignments — CrewScheduler</title>
+
+<!-- Design-specified fonts (CrewScheduler concept styling) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ── Base ─────────────────────────────────────────────────────────── */
+html,body{margin:0;padding:0;background:#EEF0ED;}
+*{box-sizing:border-box;}
+body{font-family:'IBM Plex Sans',sans-serif;color:#1A2530;}
+input,select,button,textarea{font-family:'IBM Plex Sans',sans-serif;}
+
+@keyframes toastUp{from{opacity:0;transform:translate(-50%,8px);}to{opacity:1;transform:translate(-50%,0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+
+/* ── Hover states (the markup below is re-rendered from state, so
+     hovers live here as classes rather than inline styles) ─────────── */
+.hv-lt:hover{background:#F4F6F3;}                    /* light wash — secondary buttons, list rows */
+.hv-pri:hover{background:#A83615;}                   /* primary CTA darken */
+.hv-dash:hover{background:#F4F6F3;color:#1A2530;}    /* dashed "build new" button */
+.hv-x:hover{color:#C7431F;background:#FBEDE8;}       /* roster-slot remove ✕ */
+.hv-x2:hover{color:#C7431F;}                         /* template-position remove ✕ */
+.hv-fill:hover{background:#FBF1DD;}                  /* open-slot fill button */
+.hv-del:hover{background:#FBEDE8;}                   /* template Delete button */
+</style>
+</head>
+<body>
+
+<!-- The entire prototype renders into #app from state (see script below). -->
+<div id="app"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   Deploy Existing Assignments — interactive prototype (SCHED-22431)
+
+   Screens: Deployments list · Select Existing Assignment(s) · Templates ·
+            Template editor · CrewScheduler day view
+   Modals:  Fill open slot · Assignment settings · Start-date confirm ·
+            Double-booking conflict · Save-changes note · Toast
+
+   State-driven: every interaction mutates `state` via setState(), which
+   re-renders the whole app. Click/change/input handlers are registered
+   into the ACT registry during render and dispatched by delegation.
+   ════════════════════════════════════════════════════════════════════ */
+
+// Prototype feature flags (mirrors the design's configurable props)
+var PROPS = { deploymentsModuleEnabled: true, prepopulateRosters: true };
+
+var TODAY = '2026-07-02'; // fictional "today" used throughout the mock
+
+// ── Mock personnel roster ─────────────────────────────────────────────
+var EMP = [
+  { id: 1,  name: 'D. Ramirez',   quals: ['Captain', 'S-230', 'EMT'] },
+  { id: 2,  name: 'M. Chen',      quals: ['Engineer', 'Class B License'] },
+  { id: 3,  name: 'J. Okafor',    quals: ['Firefighter', 'EMT'] },
+  { id: 4,  name: 'S. Delgado',   quals: ['Captain', 'Class B License'] },
+  { id: 5,  name: 'P. Novak',     quals: ['Engineer', 'S-230'] },
+  { id: 6,  name: 'T. Bright',    quals: ['Firefighter'] },
+  { id: 7,  name: 'L. Vasquez',   quals: ['Paramedic', 'EMT'] },
+  { id: 8,  name: 'H. Kim',       quals: ['Captain', 'S-230'] },
+  { id: 9,  name: 'A. Moreau',    quals: ['Firefighter', 'Class B License'] },
+  { id: 10, name: 'R. Sandoval',  quals: ['Engineer'] },
+  { id: 11, name: 'B. Ostrander', quals: ['Firefighter', 'S-230'] },
+  { id: 12, name: 'C. Whitfield', quals: ['Paramedic'] },
+  { id: 13, name: 'K. Iverson',   quals: ['Engineer', 'S-230'] },
+  { id: 14, name: 'J. Park',      quals: ['Firefighter', 'EMT'] }
+];
+
+// ── App state ─────────────────────────────────────────────────────────
+var state = {
+  screen: 'deployments',
+  assignments: [
+    { id: 1, name: 'Brush Patrol 12',         code: 'BP-12', active: true,  deployable: true,  shared: 'S-230',           slots: [{ q: 'Captain', pre: 8 }, { q: 'Engineer', pre: 10 }, { q: 'Firefighter', pre: 3 }, { q: 'Firefighter', pre: null }] },
+    { id: 2, name: 'Engine 331 — OES Type 1', code: 'E-331', active: true,  deployable: true,  shared: 'Class B License', slots: [{ q: 'Captain', pre: 4 }, { q: 'Engineer', pre: 2 }, { q: 'Firefighter', pre: 6 }, { q: 'Firefighter', pre: 14 }] },
+    { id: 3, name: 'Hand Crew 14',            code: 'HC-14', active: false, deployable: true,  shared: 'S-230',           slots: [{ q: 'Captain', pre: null }, { q: 'Firefighter', pre: 11 }, { q: 'Firefighter', pre: null }] },
+    { id: 4, name: 'Water Tender 7',          code: 'WT-7',  active: true,  deployable: true,  shared: 'Class B License', slots: [{ q: 'Engineer', pre: null }, { q: 'Firefighter', pre: 9 }] },
+    { id: 5, name: 'Medic 42',                code: 'M-42',  active: true,  deployable: true,  shared: 'EMT',             slots: [{ q: 'Paramedic', pre: 7 }, { q: 'Paramedic', pre: null }] },
+    { id: 6, name: 'Ladder 9',                code: 'L-9',   active: true,  deployable: false, shared: '',                slots: [{ q: 'Captain', pre: 1 }, { q: 'Engineer', pre: 13 }, { q: 'Firefighter', pre: null }] },
+    { id: 7, name: 'Rescue 3',                code: 'R-3',   active: true,  deployable: false, shared: 'EMT',             slots: [{ q: 'Firefighter', pre: null }, { q: 'Firefighter', pre: null }] }
+  ],
+  adhoc: [], // one-off assignments built inside a deployment (never saved as templates)
+  templates: [
+    { id: 1, name: 'Type 3 Engine',      legacy: false, shared: 'S-230', slots: [{ q: 'Captain' }, { q: 'Engineer' }, { q: 'Firefighter' }, { q: 'Firefighter' }] },
+    { id: 2, name: 'Overhead Support',   legacy: false, shared: '',      slots: [{ q: '' }, { q: '' }, { q: '' }, { q: '' }] },
+    { id: 3, name: 'Strike Team 9442-C', legacy: true,  shared: 'S-230', slots: [{ q: 'Captain' }, { q: 'Engineer' }, { q: 'Firefighter' }, { q: 'Firefighter' }, { q: 'Firefighter' }] }
+  ],
+  deployments: [
+    { id: 'd1', name: 'Creek Fire — IMT Support', start: '2026-06-28', end: '2026-07-05', items: [{ label: 'Engine 331 — OES Type 1 - Deployment', code: 'E-331' }], open: 0, selIds: ['a2'], rosters: null, note: '' }
+  ],
+  schedExtra: [],    // deployment rows shown on the CrewScheduler after deploying
+  wizard: null,      // { mode, name, start, end, editingId?, preselect? }
+  sel: null,         // { ids: [key], rosters: { key: [{q,s,emp}] } }
+  search: '',
+  slotPick: null,    // { key, idx } — open-slot fill modal
+  menuFor: null,     // assignment id with the ⋯ menu open
+  settingsFor: null, // assignment id with the settings modal open
+  editTpl: null,     // template editor working copy
+  dirty: false,      // roster edited since last (re)population
+  pendingStart: null,// start-date change awaiting confirmation
+  conflict: null,    // double-booking prompt
+  noteModal: false,
+  noteText: '',
+  toast: ''
+};
+
+// Expand catalog to realistic volume (~25 assignments, 8 templates)
+(function seedCatalog() {
+  var patterns = [
+    { shared: 'S-230',           slots: ['Captain', 'Engineer', 'Firefighter'] },
+    { shared: 'Class B License', slots: ['Engineer', 'Firefighter', 'Firefighter'] },
+    { shared: '',                slots: ['Captain', 'Firefighter'] },
+    { shared: 'EMT',             slots: ['Paramedic', 'Paramedic'] }
+  ];
+  var extraA = [
+    ['Air Utility 2', 'AU-2', true, true],  ['Battalion 61', 'B-61', true, true],
+    ['Breathing Support 8', 'BS-8', true, false], ['Crew Transport 4', 'CT-4', true, true],
+    ['Dozer 3', 'DZ-3', false, true],       ['Engine 314', 'E-314', true, true],
+    ['Engine 318 — Type 3', 'E-318', true, true], ['Engine 325', 'E-325', true, true],
+    ['Fuels Crew 6', 'FC-6', false, true],  ['Helitack 44', 'H-44', true, true],
+    ['Interface Engine 9', 'IE-9', true, true], ['Medic 47', 'M-47', true, false],
+    ['Patrol 16', 'P-16', true, true],      ['Squad 5', 'SQ-5', true, true],
+    ['Type 6 Engine 402', 'E-402', true, true], ['Utility 21', 'U-21', true, false],
+    ['Water Tender 11', 'WT-11', true, true], ['Wildland Engine 7', 'WE-7', true, true]
+  ];
+  extraA.forEach(function (x, i) {
+    var pat = patterns[i % patterns.length];
+    state.assignments.push({
+      id: 100 + i, name: x[0], code: x[1], active: x[2], deployable: x[3], shared: pat.shared,
+      slots: pat.slots.map(function (qq, j) { return { q: qq, pre: (i * 3 + j) % 7 === 0 ? ((i + j) % 14) + 1 : null }; })
+    });
+  });
+  var extraT = [
+    ['Type 6 Engine', patterns[2]], ['Dozer Group', patterns[1]],
+    ['Fuels Crew — 6 Positions', { shared: 'S-230', slots: ['Captain', 'Firefighter', 'Firefighter', 'Firefighter', 'Firefighter', 'Firefighter'] }],
+    ['Water Tender Strike Team', patterns[1]],
+    ['EMS Task Force', patterns[3]]
+  ];
+  extraT.forEach(function (x, i) {
+    state.templates.push({ id: 100 + i, name: x[0], legacy: i === 1, shared: x[1].shared, slots: x[1].slots.map(function (qq) { return { q: qq }; }) });
+  });
+})();
+
+var _toastT = null, _tplSeq = 10, _depSeq = 10;
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function setState(patch) { Object.assign(state, patch); render(); }
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function fmt(d) {
+  if (!d) return '—';
+  var dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function toast(msg) {
+  clearTimeout(_toastT);
+  setState({ toast: msg });
+  _toastT = setTimeout(function () { setState({ toast: '' }); }, 3200);
+}
+function emp(id) { return EMP.find(function (e) { return e.id === id; }) || null; }
+function initials(name) { return name.split(' ').map(function (w) { return w[0]; }).join('').replace('.', '').slice(0, 2).toUpperCase(); }
+function slotLabel(sl) {
+  if (!sl.q && !sl.s) return 'Any position';
+  return sl.q ? (sl.s ? sl.q + ' · ' + sl.s : sl.q) : sl.s;
+}
+
+/* Roster keys: 'a<id>' = existing assignment, 't<id>' = template,
+   'x<id>' = one-off (ad-hoc) assignment built for this deployment. */
+function buildRoster(key) {
+  var prepop = PROPS.prepopulateRosters;
+  if (key[0] === 'a') {
+    var a = state.assignments.find(function (x) { return x.id === +key.slice(1); });
+    return a.slots.map(function (sl) { return { q: sl.q, s: a.shared, emp: prepop ? sl.pre : null }; });
+  }
+  if (key[0] === 'x') {
+    var ah = state.adhoc.find(function (x) { return x.id === +key.slice(1); });
+    return ah.slots.map(function (sl) { return { q: sl.q, s: ah.shared, emp: null }; });
+  }
+  var t = state.templates.find(function (x) { return x.id === +key.slice(1); });
+  return t.slots.map(function (sl) { return { q: sl.q, s: t.shared, emp: null }; });
+}
+function keyInfo(key) {
+  if (key[0] === 'a') {
+    var a = state.assignments.find(function (x) { return x.id === +key.slice(1); });
+    return a ? { name: a.name, code: a.code, active: a.active } : null;
+  }
+  if (key[0] === 'x') {
+    var ah = state.adhoc.find(function (x) { return x.id === +key.slice(1); });
+    return ah ? { name: ah.name, code: 'ONE-OFF', active: true } : null;
+  }
+  var t = state.templates.find(function (x) { return x.id === +key.slice(1); });
+  return t ? { name: t.name, code: 'TEMPLATE', active: true } : null;
+}
+
+// ── Selection / roster mutations ──────────────────────────────────────
+function toggleSelect(key) {
+  var sel = state.sel;
+  var ids = sel.ids.slice();
+  var rosters = Object.assign({}, sel.rosters);
+  var i = ids.indexOf(key);
+  if (i >= 0) { ids.splice(i, 1); delete rosters[key]; }
+  else { ids.push(key); rosters[key] = buildRoster(key); }
+  setState({ sel: { ids: ids, rosters: rosters } });
+}
+function setSlot(key, idx, empId) {
+  var sel = state.sel;
+  var rosters = Object.assign({}, sel.rosters);
+  rosters[key] = rosters[key].map(function (s, i) { return i === idx ? Object.assign({}, s, { emp: empId }) : s; });
+  setState({ sel: { ids: sel.ids, rosters: rosters }, dirty: true });
+}
+function usedEmpMap() {
+  var used = {};
+  var sel = state.sel;
+  if (!sel) return used;
+  sel.ids.forEach(function (key) {
+    sel.rosters[key].forEach(function (s, i) { if (s.emp && used[s.emp] == null) used[s.emp] = { key: key, idx: i }; });
+  });
+  return used;
+}
+function applyStart(v) {
+  var sel = state.sel;
+  if (!sel) { setState({ wizard: Object.assign({}, state.wizard, { start: v }), pendingStart: null }); return; }
+  var rosters = {};
+  sel.ids.forEach(function (k) { rosters[k] = buildRoster(k); });
+  setState({ wizard: Object.assign({}, state.wizard, { start: v }), sel: { ids: sel.ids, rosters: rosters }, dirty: false, pendingStart: null });
+  if (sel.ids.length) toast('Rosters re-populated from schedules on the new start date.');
+}
+
+// ── Deploy / save ─────────────────────────────────────────────────────
+function buildDepData(sel) {
+  var open = 0, items = [], extras = [];
+  sel.ids.forEach(function (key) {
+    var info = keyInfo(key);
+    var roster = sel.rosters[key];
+    var o = roster.filter(function (s) { return !s.emp; }).length;
+    open += o;
+    var code = (info.code === 'TEMPLATE' || info.code === 'ONE-OFF') ? '—' : info.code;
+    items.push({ label: info.name + ' - Deployment', code: code });
+    extras.push({ name: info.name + ' - Deployment', code: code, staff: roster.filter(function (s) { return s.emp; }).map(function (s) { return emp(s.emp).name; }), open: o });
+  });
+  return { open: open, items: items, extras: extras };
+}
+function deployNow() {
+  var w = state.wizard, sel = state.sel;
+  if (!sel || !sel.ids.length) return;
+  if (w && w.editingId) { setState({ noteModal: true, noteText: '' }); return; } // edits require a change note
+  var d = buildDepData(sel);
+  var dep = { id: 'd' + (_depSeq++), name: w.name || 'Untitled Deployment', start: w.start, end: w.end, items: d.items, open: d.open, selIds: sel.ids.slice(), rosters: sel.rosters, note: '' };
+  setState({
+    deployments: [dep].concat(state.deployments),
+    schedExtra: state.schedExtra.concat(d.extras.map(function (x) { return Object.assign({ depId: dep.id }, x); })),
+    wizard: null, sel: null, slotPick: null, screen: 'deployments', dirty: false
+  });
+  toast('Deployment "' + dep.name + '" created — ' + d.items.length + ' assignment(s), ' + d.open + ' open slot(s) fillable via callback.');
+}
+function confirmEditSave() {
+  var w = state.wizard, sel = state.sel, noteText = state.noteText;
+  var d = buildDepData(sel);
+  var depId = w.editingId;
+  setState({
+    deployments: state.deployments.map(function (x) {
+      return x.id === depId ? Object.assign({}, x, { name: w.name || x.name, end: w.end, items: d.items, open: d.open, selIds: sel.ids.slice(), rosters: sel.rosters, note: noteText.trim() }) : x;
+    }),
+    schedExtra: state.schedExtra.filter(function (x) { return x.depId !== depId; }).concat(d.extras.map(function (x) { return Object.assign({ depId: depId }, x); })),
+    wizard: null, sel: null, slotPick: null, noteModal: false, noteText: '', screen: 'deployments', dirty: false
+  });
+  toast('Deployment updated' + (noteText.trim() ? ' — note added to the change record.' : '.'));
+}
+
+// ── Template editor save ──────────────────────────────────────────────
+function saveTpl() {
+  var et = state.editTpl;
+  if (!et || !et.name.trim()) return;
+  var name = et.name.trim();
+  var mkRoster = function () { return et.slots.map(function (sl) { return { q: sl.q, s: et.shared, emp: null }; }); };
+  // One-off assignment: used in this deployment only, never saved as a template
+  if (et.fromSelect && !et.saveAs) {
+    var id = _tplSeq++;
+    var key = 'x' + id;
+    var sel = state.sel || { ids: [], rosters: {} };
+    var rosters = Object.assign({}, sel.rosters); rosters[key] = mkRoster();
+    setState({
+      adhoc: state.adhoc.concat([{ id: id, name: name, shared: et.shared, slots: et.slots }]),
+      editTpl: null, screen: 'select',
+      sel: { ids: sel.ids.concat([key]), rosters: rosters }
+    });
+    toast('"' + name + '" added to this deployment only — not saved as a template.');
+    return;
+  }
+  var templates = state.templates.slice();
+  var newId = null;
+  if (et.id != null) {
+    templates = templates.map(function (t) { return t.id === et.id ? { id: t.id, name: name, legacy: t.legacy, shared: et.shared, slots: et.slots } : t; });
+  } else {
+    newId = _tplSeq++;
+    templates.push({ id: newId, name: name, legacy: false, shared: et.shared, slots: et.slots });
+  }
+  if (et.fromSelect && newId != null) {
+    var key2 = 't' + newId;
+    var sel2 = state.sel || { ids: [], rosters: {} };
+    var rosters2 = Object.assign({}, sel2.rosters); rosters2[key2] = mkRoster();
+    setState({
+      templates: templates, editTpl: null, screen: 'select',
+      sel: { ids: sel2.ids.concat([key2]), rosters: rosters2 }
+    });
+    toast('Template "' + name + '" saved and added to this deployment.');
+    return;
+  }
+  setState({ templates: templates, editTpl: null, screen: et.returnTo });
+  toast(et.id != null ? 'Template updated.' : 'Template saved — available in future deployments.');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RENDER — rebuilds #app from state.
+   Handlers are registered into ACT during the build and dispatched by
+   the delegated listeners at the bottom of this script.
+   ════════════════════════════════════════════════════════════════════ */
+var app = document.getElementById('app');
+var ACT = [];
+function act(fn) { ACT.push(fn); return ACT.length - 1; }
+
+// Qualifier badge styling: [bg, color, border]
+var ABBR = { Captain: 'CPT', Engineer: 'ENG', Firefighter: 'FF', Paramedic: 'PM' };
+var BADGE = {
+  CPT: ['#14232F', '#FFFFFF', '#14232F'],
+  ENG: ['#1F7A4D', '#FFFFFF', '#1F7A4D'],
+  FF:  ['#FFFFFF', '#1A2530', '#C9D1CC'],
+  PM:  ['#5B4A8A', '#FFFFFF', '#5B4A8A'],
+  ANY: ['#EFF1EE', '#5C6B78', '#DDE2DE']
+};
+
+function render() {
+  ACT = [];
+  var st = state, S = st.screen;
+
+  // Preserve focus (typed inputs) and inner scroll positions across re-renders
+  var focusF = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.f : null;
+  var selS = null, selE = null;
+  if (focusF) { try { selS = document.activeElement.selectionStart; selE = document.activeElement.selectionEnd; } catch (e) {} }
+  var mainEl = document.getElementById('main');
+  var mainScroll = mainEl ? mainEl.scrollTop : 0;
+  var pickEl = document.getElementById('pickScroll');
+  var pickScroll = pickEl ? pickEl.scrollTop : 0;
+
+  var navStyle = function (on) { return on ? ['#26506B', '#FFFFFF'] : ['transparent', '#B9C6CF']; };
+  var nsch = navStyle(S === 'scheduler');
+  var ndep = navStyle(S === 'deployments' || S === 'select');
+  var ntpl = navStyle(S === 'templates' || S === 'tplEditor');
+  var nav = function (scr) { return act(function () { setState({ screen: scr, menuFor: null }); }); };
+
+  var main = '';
+  if (S === 'deployments') main = viewDeployments();
+  else if (S === 'select') main = viewSelect();
+  else if (S === 'templates') main = viewTemplates();
+  else if (S === 'tplEditor') main = viewTplEditor();
+  else if (S === 'scheduler') main = viewScheduler();
+
+  app.innerHTML =
+    '<div style="display:flex; height:100vh; overflow:hidden;">' +
+
+      // ══════════ SIDEBAR ══════════
+      '<div style="width:212px; flex-shrink:0; background:#14232F; color:#B9C6CF; display:flex; flex-direction:column; padding:20px 12px;">' +
+        '<div style="padding:4px 10px 22px 10px;">' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:17px; letter-spacing:1.5px; color:#FFFFFF;">CREWSCHEDULER</div>' +
+          '<div style="font-size:11px; color:#6E8090; margin-top:2px;">Mesa County Fire — Ops</div>' +
+        '</div>' +
+        '<div style="display:flex; flex-direction:column; gap:2px;">' +
+          '<button data-act="' + nav('scheduler') + '" style="display:flex; align-items:center; gap:10px; text-align:left; border:none; cursor:pointer; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; background:' + nsch[0] + '; color:' + nsch[1] + ';">' +
+            '<span style="font-size:15px; width:18px; text-align:center;">▦</span> CrewScheduler</button>' +
+          '<button data-act="' + nav('deployments') + '" style="display:flex; align-items:center; gap:10px; text-align:left; border:none; cursor:pointer; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; background:' + ndep[0] + '; color:' + ndep[1] + ';">' +
+            '<span style="font-size:15px; width:18px; text-align:center;">⛟</span> Deployments</button>' +
+          '<button data-act="' + nav('templates') + '" style="display:flex; align-items:center; gap:10px; text-align:left; border:none; cursor:pointer; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; background:' + ntpl[0] + '; color:' + ntpl[1] + ';">' +
+            '<span style="font-size:15px; width:18px; text-align:center;">▤</span> Templates</button>' +
+        '</div>' +
+        '<div style="margin-top:auto; padding:12px 10px; border-top:1px solid #24384A; font-size:11.5px; color:#6E8090; line-height:1.5;">' +
+          'Wed, Jul 2 2026<br>Logged in as <span style="color:#B9C6CF;">Battalion Admin</span>' +
+        '</div>' +
+      '</div>' +
+
+      // ══════════ MAIN ══════════
+      '<div id="main" style="flex:1; overflow-y:auto; position:relative;">' + main + '</div>' +
+    '</div>' +
+
+    modalSlotPick() + modalSettings() + modalStartConfirm() + modalConflict() + modalNote() +
+
+    // ══════════ TOAST ══════════
+    (st.toast ?
+      '<div style="position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:#14232F; color:#FFFFFF; font-size:13px; font-weight:500; padding:11px 20px; border-radius:9px; box-shadow:0 8px 24px rgba(20,35,47,0.3); z-index:200; animation:toastUp 0.2s ease; max-width:560px;">' + esc(st.toast) + '</div>'
+      : '');
+
+  // Restore focus + scroll positions
+  if (focusF) {
+    var fel = app.querySelector('[data-f="' + focusF + '"]');
+    if (fel) { fel.focus(); if (selS != null) { try { fel.setSelectionRange(selS, selE); } catch (e) {} } }
+  }
+  var mainEl2 = document.getElementById('main');
+  if (mainEl2) mainEl2.scrollTop = mainScroll;
+  var pickEl2 = document.getElementById('pickScroll');
+  if (pickEl2) pickEl2.scrollTop = pickScroll;
+}
+
+/* ─────── DEPLOYMENTS list ─────── */
+function viewDeployments() {
+  var st = state;
+  var cards = st.deployments.map(function (d) {
+    var canEdit = !!(d.selIds && d.selIds.length);
+    var onEnd = act(function (e) {
+      var v = e.target.value;
+      setState({ deployments: state.deployments.map(function (x) { return x.id === d.id ? Object.assign({}, x, { end: v }) : x; }) });
+      toast('End date updated for all ' + d.items.length + ' assignment(s) in this deployment.');
+    });
+    var onEdit = act(function () {
+      var rosters = {};
+      (d.selIds || []).forEach(function (k) {
+        rosters[k] = (d.rosters && d.rosters[k]) ? d.rosters[k].map(function (s) { return Object.assign({}, s); }) : buildRoster(k);
+      });
+      setState({
+        wizard: { mode: 'existing', name: d.name, start: d.start, end: d.end, editingId: d.id },
+        sel: { ids: (d.selIds || []).slice(), rosters: rosters },
+        dirty: false, screen: 'select', search: ''
+      });
+    });
+    var openLabel = d.open > 0 ? d.open + ' open slot(s) — fill via callback' : 'Fully staffed';
+    var openColor = d.open > 0 ? '#B07E1F' : '#1F7A4D';
+    return (
+      '<div style="background:#FFFFFF; border:1px solid #DDE2DE; border-radius:10px; padding:20px 22px; box-shadow:0 1px 2px rgba(20,35,47,0.05);">' +
+        '<div style="display:flex; align-items:center; gap:12px;">' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:600; font-size:19px;">' + esc(d.name) + '</div>' +
+          '<div style="font-size:11px; font-weight:600; letter-spacing:0.5px; padding:3px 9px; border-radius:99px; background:#E3F1E8; color:#1F7A4D;">ACTIVE</div>' +
+          '<div style="margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12.5px; color:#5C6B78;">' +
+            '<span>' + esc(fmt(d.start) + ' → ' + fmt(d.end)) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;">' +
+          d.items.map(function (it) {
+            return '<div style="display:flex; align-items:center; gap:8px; border:1px solid #E3E7E2; background:#F7F8F6; border-radius:7px; padding:7px 12px; font-size:12.5px;">' +
+              '<span style="font-weight:600;">' + esc(it.label) + '</span>' +
+              '<span style="font-size:11px; color:#8A968F; border:1px solid #DDE2DE; border-radius:4px; padding:1px 6px; background:#FFFFFF;">' + esc(it.code) + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        (d.note ?
+          '<div style="margin-top:12px; font-size:12px; color:#5C6B78; background:#F7F8F6; border:1px solid #E3E7E2; border-radius:7px; padding:8px 12px;"><span style="font-weight:600; color:#8A968F;">Last change note:</span> ' + esc(d.note) + '</div>'
+          : '') +
+        '<div style="display:flex; align-items:center; gap:18px; margin-top:14px; padding-top:12px; border-top:1px solid #EEF1ED;">' +
+          '<div style="font-size:12.5px; color:' + openColor + '; font-weight:500;">' + esc(openLabel) + '</div>' +
+          '<div style="margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12.5px; color:#5C6B78;">' +
+            (canEdit ? '<button data-act="' + onEdit + '" class="hv-lt" style="border:1px solid #C9D1CC; background:#FFFFFF; color:#1A2530; padding:6px 14px; border-radius:6px; font-size:12.5px; font-weight:500; cursor:pointer;">Edit Deployment</button>' : '') +
+            '<span>Group end date</span>' +
+            '<input type="date" value="' + esc(d.end) + '" data-chg="' + onEnd + '" style="border:1px solid #C9D1CC; border-radius:6px; padding:5px 8px; font-size:12.5px; color:#1A2530; background:#FFFFFF;">' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  var manageTpl = act(function () { setState({ screen: 'templates', menuFor: null }); });
+  var openWizard = act(function () {
+    setState({ wizard: { mode: 'existing', name: '', start: TODAY, end: '2026-07-09', preselect: null }, sel: { ids: [], rosters: {} }, screen: 'select', search: '' });
+  });
+
+  return (
+    '<div style="max-width:980px; margin:0 auto; padding:36px 40px 80px 40px;">' +
+      '<div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:28px;">' +
+        '<div>' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:30px; letter-spacing:0.2px;">Deployments</div>' +
+          '<div style="font-size:13.5px; color:#5C6B78; margin-top:4px;">Mobilize personnel for incidents from pre-built assignments or from scratch.</div>' +
+        '</div>' +
+        '<div style="display:flex; gap:10px;">' +
+          '<button data-act="' + manageTpl + '" class="hv-lt" style="border:1px solid #C9D1CC; background:#FFFFFF; color:#1A2530; padding:9px 16px; border-radius:7px; font-size:13.5px; font-weight:500; cursor:pointer;">Manage Templates</button>' +
+          '<button data-act="' + openWizard + '" class="hv-pri" style="border:none; background:#C7431F; color:#FFFFFF; padding:9px 18px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(20,35,47,0.2);">+ New Deployment</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex; flex-direction:column; gap:14px;">' + cards + '</div>' +
+      '<div style="margin-top:22px; font-size:12px; color:#8A968F; line-height:1.6;">' +
+        'Assignments deployed together act as one deployment — changing the group end date extends or shortens every assignment in the group. Start dates are locked after creation.' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ─────── SELECT EXISTING ASSIGNMENT(S) ─────── */
+function mkSlotView(qual, empId) {
+  var ab = ABBR[qual] || 'ANY';
+  var b = BADGE[ab];
+  var e = empId ? emp(empId) : null;
+  return {
+    label: e ? e.name : 'Open slot',
+    labelColor: e ? '#1A2530' : '#8A6414',
+    rowBg: e ? '#F1F5F1' : '#FDF8EE',
+    rowBorder: e ? '#DCE5DC' : '#EFE3C2',
+    badge: ab, badgeBg: b[0], badgeColor: b[1], badgeBorder: b[2]
+  };
+}
+function pickRow(key, name, meta, tag, tagBg, tagColor) {
+  var sel = state.sel;
+  var on = sel && sel.ids.indexOf(key) >= 0;
+  var onToggle = act(function () { toggleSelect(key); });
+  return (
+    '<div data-act="' + onToggle + '" class="hv-lt" style="display:flex; align-items:center; gap:11px; padding:11px 16px; cursor:pointer; background:' + (on ? '#FBF3F0' : '#FFFFFF') + '; border-left:3px solid ' + (on ? '#C7431F' : 'transparent') + ';">' +
+      '<div style="width:18px; height:18px; flex-shrink:0; border-radius:5px; border:1.5px solid ' + (on ? '#C7431F' : '#B7C2BB') + '; background:' + (on ? '#C7431F' : '#FFFFFF') + '; color:#FFFFFF; font-size:12px; line-height:16px; text-align:center; font-weight:700;">' + (on ? '✓' : '') + '</div>' +
+      '<div style="min-width:0;">' +
+        '<div style="font-size:13.5px; font-weight:500;">' + esc(name) + '</div>' +
+        '<div style="font-size:11.5px; color:#8A968F; margin-top:1px;">' + esc(meta) + '</div>' +
+      '</div>' +
+      '<div style="margin-left:auto; flex-shrink:0; font-size:10.5px; font-weight:600; letter-spacing:0.4px; padding:2px 7px; border-radius:99px; background:' + tagBg + '; color:' + tagColor + ';">' + tag + '</div>' +
+    '</div>'
+  );
+}
+function viewSelect() {
+  var st = state, w = st.wizard, sel = st.sel;
+  var q = st.search.trim().toLowerCase();
+  var editing = !!(w && w.editingId);
+
+  // Pick lists (left column)
+  var asgRows = st.assignments
+    .filter(function (a) { return a.deployable && (!q || a.name.toLowerCase().indexOf(q) >= 0); })
+    .sort(function (a, b) { return a.name.localeCompare(b.name); })
+    .map(function (a) {
+      return pickRow('a' + a.id, a.name, a.code + ' · ' + a.slots.length + ' positions',
+        a.active ? 'ACTIVE' : 'INACTIVE',
+        a.active ? '#E3F1E8' : '#EFF1EE', a.active ? '#1F7A4D' : '#8A968F');
+    });
+  st.adhoc.filter(function (a) { return !q || a.name.toLowerCase().indexOf(q) >= 0; }).forEach(function (a) {
+    asgRows.unshift(pickRow('x' + a.id, a.name, a.slots.length + ' positions · this deployment only', 'ONE-OFF', '#FDF8EE', '#8A6414'));
+  });
+  var tplRows = st.templates
+    .filter(function (t) { return !q || t.name.toLowerCase().indexOf(q) >= 0; })
+    .sort(function (a, b) { return a.name.localeCompare(b.name); })
+    .map(function (t) {
+      return pickRow('t' + t.id, t.name, t.slots.length + ' positions' + (t.legacy ? ' · migrated' : ''), 'TEMPLATE', '#EDE9F6', '#5B4A8A');
+    });
+
+  // Roster cards (right column)
+  var totalSlots = 0, filledSlots = 0;
+  var cards = (sel ? sel.ids : []).map(function (key) {
+    var info = keyInfo(key);
+    var roster = sel.rosters[key];
+    var filled = roster.filter(function (s) { return s.emp; }).length;
+    totalSlots += roster.length; filledSlots += filled;
+    var rShared = roster.length ? (roster[0].s || '') : '';
+    var covered = rShared ? roster.some(function (s) { return s.emp && emp(s.emp).quals.indexOf(rShared) >= 0; }) : false;
+    var onToggle = act(function () { toggleSelect(key); });
+
+    var slotsHtml = roster.map(function (s, idx) {
+      var v = mkSlotView(s.q, s.emp);
+      if (s.emp) {
+        var onRemove = act(function () { setSlot(key, idx, null); toast('Removed from deployment roster — their CrewScheduler assignment is unaffected.'); });
+        return (
+          '<div style="display:flex; align-items:center; gap:8px; background:' + v.rowBg + '; border:1px solid ' + v.rowBorder + '; border-radius:8px; padding:9px 12px;">' +
+            '<span style="font-size:13px; font-weight:500; color:' + v.labelColor + '; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(v.label) + '</span>' +
+            '<span style="font-size:10.5px; font-weight:700; letter-spacing:0.4px; padding:2px 8px; border-radius:6px; background:' + v.badgeBg + '; color:' + v.badgeColor + '; border:1px solid ' + v.badgeBorder + ';">' + v.badge + '</span>' +
+            '<button data-act="' + onRemove + '" title="Remove from this deployment (their CrewScheduler assignment is unaffected)" class="hv-x" style="border:none; background:transparent; color:#B0BAB3; cursor:pointer; font-size:14px; padding:1px 3px; border-radius:5px; line-height:1;">✕</button>' +
+          '</div>'
+        );
+      }
+      var onFill = act(function () { setState({ slotPick: { key: key, idx: idx } }); });
+      return (
+        '<button data-act="' + onFill + '" title="Click to fill this slot" class="hv-fill" style="display:flex; align-items:center; gap:8px; background:' + v.rowBg + '; border:1px solid ' + v.rowBorder + '; border-radius:8px; padding:9px 12px; cursor:pointer; text-align:left; width:100%;">' +
+          '<span style="font-size:13px; font-weight:500; color:' + v.labelColor + '; flex:1;">' + esc(v.label) + '</span>' +
+          '<span style="font-size:10.5px; font-weight:700; letter-spacing:0.4px; padding:2px 8px; border-radius:6px; background:' + v.badgeBg + '; color:' + v.badgeColor + '; border:1px solid ' + v.badgeBorder + ';">' + v.badge + '</span>' +
+        '</button>'
+      );
+    }).join('');
+
+    return (
+      '<div style="background:#FFFFFF; border:2px solid #C7431F; border-radius:12px; overflow:hidden; animation:fadeIn 0.25s ease; flex:0 1 340px; min-width:0; max-width:100%;">' +
+        '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; padding:14px 16px;">' +
+          '<div data-act="' + onToggle + '" title="Unselect — removes this assignment from the deployment" style="width:19px; height:19px; flex-shrink:0; border-radius:5px; background:#C7431F; border:1.5px solid #C7431F; color:#FFFFFF; font-size:12px; line-height:17px; text-align:center; font-weight:700; cursor:pointer;">✓</div>' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:600; font-size:17px; color:#C7431F;">' + esc(info.name) + '</div>' +
+          '<span style="font-size:11px; color:#8A968F; border:1px solid #DDE2DE; border-radius:4px; padding:1px 7px; background:#FFFFFF;">' + esc(info.code) + '</span>' +
+          (rShared ?
+            '<span title="Shared qualifier — at least one person on this assignment must hold it" style="font-size:11px; color:' + (covered ? '#1F7A4D' : '#8A6414') + '; border:1px solid ' + (covered ? '#CBE5D4' : '#EBD9A9') + '; border-radius:99px; padding:2px 9px; background:' + (covered ? '#E3F1E8' : '#FDF8EE') + ';">' +
+              esc(covered ? 'Shared: ' + rShared + ' ✓ covered' : 'Shared: ' + rShared + ' — not covered yet') + '</span>'
+            : '') +
+          '<div style="margin-left:auto; font-size:12px; color:' + (filled === roster.length ? '#1F7A4D' : '#B07E1F') + '; font-weight:500;">' + filled + ' / ' + roster.length + ' slots filled</div>' +
+        '</div>' +
+        '<div style="display:flex; flex-direction:column; gap:8px; padding:0 16px 16px 16px;">' + slotsHtml + '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  var noneSelected = !sel || sel.ids.length === 0;
+  var canDeploy = !!(sel && sel.ids.length && w && w.start && w.end);
+
+  var cancelSelect = act(function () { setState({ screen: 'deployments', sel: null, wizard: null, slotPick: null }); });
+  var onName = act(function (e) { setState({ wizard: Object.assign({}, state.wizard, { name: e.target.value }) }); });
+  var onStart = act(function (e) {
+    var v = e.target.value;
+    if (v && state.dirty && state.sel && state.sel.ids.length) { setState({ pendingStart: v }); return; }
+    applyStart(v);
+  });
+  var onEnd = act(function (e) { setState({ wizard: Object.assign({}, state.wizard, { end: e.target.value }) }); });
+  var onSearch = act(function (e) { setState({ search: e.target.value }); });
+  var newFromSelect = act(function () {
+    setState({ editTpl: { id: null, name: '', shared: '', slots: [{ q: '' }, { q: '' }, { q: '' }], returnTo: 'select', fromSelect: true, saveAs: false }, screen: 'tplEditor' });
+  });
+  var doDeploy = act(function () { deployNow(); });
+
+  return (
+    '<div style="display:flex; flex-direction:column; min-height:100%;">' +
+
+      // Sticky header: name + dates
+      '<div style="background:#FFFFFF; border-bottom:1px solid #DDE2DE; padding:14px 32px; display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px; position:sticky; top:0; z-index:20;">' +
+        '<button data-act="' + cancelSelect + '" class="hv-lt" style="border:1px solid #C9D1CC; background:#FFFFFF; border-radius:7px; width:34px; height:34px; flex-shrink:0; cursor:pointer; font-size:15px; color:#5C6B78;">←</button>' +
+        '<div style="min-width:0;">' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:21px; white-space:nowrap;">' + (editing ? 'Edit Deployment' : 'New Deployment') + '</div>' +
+          '<div style="font-size:12.5px; color:#5C6B78; margin-top:1px;">Pick existing assignments, or build one from scratch.</div>' +
+        '</div>' +
+        '<div style="margin-left:auto; display:flex; align-items:center; flex-wrap:wrap; gap:10px;">' +
+          '<input data-inp="' + onName + '" data-f="wizname" value="' + esc(w ? w.name : '') + '" placeholder="Deployment name" style="width:190px; min-width:0; border:1px solid #C9D1CC; border-radius:7px; padding:8px 12px; font-size:13px; outline:none;">' +
+          '<div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#5C6B78;">' +
+            '<span style="font-weight:600;">Start <span style="color:#C7431F;">*</span></span>' +
+            '<input type="date" value="' + esc(w ? w.start : '') + '" data-chg="' + onStart + '" ' + (editing ? 'disabled ' : '') + 'title="Changing the start date re-populates rosters from schedules. Locked after the deployment is created." style="border:1px solid #C9D1CC; border-radius:7px; padding:7px 9px; font-size:12.5px; background:#FFFFFF;">' +
+          '</div>' +
+          '<div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#5C6B78;">' +
+            '<span style="font-weight:600;">End <span style="color:#C7431F;">*</span></span>' +
+            '<input type="date" value="' + esc(w ? w.end : '') + '" data-chg="' + onEnd + '" style="border:1px solid #C9D1CC; border-radius:7px; padding:7px 9px; font-size:12.5px; background:#FFFFFF;">' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex; gap:24px; padding:24px 32px 110px 32px; align-items:flex-start;">' +
+
+        // Left: pick list
+        '<div style="width:340px; flex-shrink:0; background:#FFFFFF; border:1px solid #DDE2DE; border-radius:10px; overflow:hidden;">' +
+          '<div style="padding:14px 14px 10px 14px; border-bottom:1px solid #EEF1ED;">' +
+            '<input data-inp="' + onSearch + '" data-f="search" value="' + esc(st.search) + '" placeholder="Search assignments &amp; templates…" style="width:100%; border:1px solid #C9D1CC; border-radius:7px; padding:9px 12px; font-size:13px; outline:none;">' +
+          '</div>' +
+          '<div id="pickScroll" style="max-height:calc(100vh - 205px); overflow-y:auto;">' +
+            '<div style="position:sticky; top:0; z-index:2; background:#FFFFFF; font-size:11px; font-weight:600; letter-spacing:0.8px; color:#8A968F; padding:12px 16px 6px 16px; border-bottom:1px solid #EEF1ED;">DEPLOYABLE ASSIGNMENTS · A–Z · ' + asgRows.length + '</div>' +
+            asgRows.join('') +
+            (asgRows.length === 0 ?
+              '<div style="padding:18px 16px; font-size:12px; color:#8A968F; line-height:1.6;">No deployable assignments found. Assignments appear here once &quot;Deployable&quot; is enabled in their settings on the CrewScheduler.</div>'
+              : '') +
+            '<div style="position:sticky; top:0; z-index:2; background:#FFFFFF; font-size:11px; font-weight:600; letter-spacing:0.8px; color:#8A968F; padding:12px 16px 6px 16px; border-top:1px solid #EEF1ED; border-bottom:1px solid #EEF1ED; margin-top:8px;">ASSIGNMENT TEMPLATES · ' + tplRows.length + '</div>' +
+            tplRows.join('') +
+            '<div style="padding:12px 16px 16px 16px;">' +
+              '<button data-act="' + newFromSelect + '" class="hv-dash" style="width:100%; border:1px dashed #B7C2BB; background:#FBFCFA; color:#5C6B78; padding:10px; border-radius:7px; font-size:12.5px; font-weight:500; cursor:pointer;">+ Build New Assignment…</button>' +
+              '<div style="font-size:11px; color:#8A968F; margin-top:6px; line-height:1.5; text-align:center;">One-off for this deployment, or save it as a reusable template.</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Right: rosters
+        '<div style="flex:1; min-width:0; display:flex; flex-wrap:wrap; align-items:flex-start; align-content:flex-start; gap:16px;">' +
+          (noneSelected ?
+            '<div style="border:1.5px dashed #C9D1CC; border-radius:10px; padding:60px 20px; text-align:center; color:#8A968F; flex:1 1 100%;">' +
+              '<div style="font-size:26px; margin-bottom:10px;">⛟</div>' +
+              '<div style="font-size:14px; font-weight:500; color:#5C6B78;">Select one or more deployable assignments</div>' +
+              '<div style="font-size:12.5px; margin-top:6px; max-width:420px; margin-left:auto; margin-right:auto; line-height:1.6;">Personnel scheduled on ' + esc(w ? fmt(w.start) : '') + ' will be pre-populated into their qualifier slots automatically. Review, adjust, and deploy.</div>' +
+            '</div>'
+            : '') +
+          cards +
+        '</div>' +
+      '</div>' +
+
+      // Sticky footer
+      '<div style="position:fixed; left:212px; right:0; bottom:0; background:#FFFFFF; border-top:1px solid #DDE2DE; padding:14px 32px; display:flex; align-items:center; gap:14px; z-index:30; box-shadow:0 -4px 16px rgba(20,35,47,0.06);">' +
+        '<div style="font-size:13px; color:#5C6B78;">' + (sel ? (sel.ids.length + ' assignment(s) selected · ' + filledSlots + ' of ' + totalSlots + ' slots filled') : '') + '</div>' +
+        '<div style="font-size:12px; color:#8A968F;">Open slots can be filled later via callback.</div>' +
+        '<div style="margin-left:auto; display:flex; gap:10px;">' +
+          '<button data-act="' + cancelSelect + '" class="hv-lt" style="border:1px solid #C9D1CC; background:#FFFFFF; color:#1A2530; padding:10px 18px; border-radius:7px; font-size:13.5px; font-weight:500; cursor:pointer;">Cancel</button>' +
+          '<button data-act="' + doDeploy + '" ' + (canDeploy ? '' : 'disabled ') + 'style="border:none; background:' + (canDeploy ? '#C7431F' : '#D8C9C3') + '; color:#FFFFFF; padding:10px 22px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:' + (canDeploy ? 'pointer' : 'not-allowed') + ';">' + (editing ? 'Save Changes' : 'Save Roster &amp; Deploy') + '</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ─────── TEMPLATES ─────── */
+function viewTemplates() {
+  var st = state;
+  var newTpl = act(function () {
+    setState({ editTpl: { id: null, name: '', shared: '', slots: [{ q: '' }, { q: '' }, { q: '' }], returnTo: 'templates', fromSelect: false, saveAs: true }, screen: 'tplEditor' });
+  });
+  var cards = st.templates.map(function (t) {
+    var prim = t.slots.map(function (sl) { return sl.q || 'Any'; });
+    var quals = prim.every(function (x) { return x === 'Any'; }) ? 'Flexible — no position qualifiers' : prim.join('  ·  ');
+    var onEdit = act(function () {
+      setState({ editTpl: { id: t.id, name: t.name, shared: t.shared || '', slots: t.slots.map(function (s) { return Object.assign({}, s); }), returnTo: 'templates', fromSelect: false, saveAs: true }, screen: 'tplEditor' });
+    });
+    var onDelete = act(function () {
+      setState({ templates: state.templates.filter(function (x) { return x.id !== t.id; }) });
+      toast('Template "' + t.name + '" deleted. Historical deployment records are preserved.');
+    });
+    return (
+      '<div style="background:#FFFFFF; border:1px solid #DDE2DE; border-radius:10px; padding:18px 20px; display:flex; flex-direction:column; gap:10px;">' +
+        '<div style="display:flex; align-items:center; gap:8px;">' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:600; font-size:17px;">' + esc(t.name) + '</div>' +
+          (t.legacy ? '<span style="font-size:10px; font-weight:600; letter-spacing:0.4px; padding:2px 7px; border-radius:99px; background:#EDE9F6; color:#5B4A8A;" title="Automatically migrated from the legacy Strike Teams module">MIGRATED</span>' : '') +
+        '</div>' +
+        '<div style="font-size:12.5px; color:#5C6B78;">' + t.slots.length + ' positions' + (t.shared ? ' · Shared: ' + esc(t.shared) : '') + '</div>' +
+        '<div style="font-size:12px; color:#8A968F; line-height:1.6; min-height:36px;">' + esc(quals) + '</div>' +
+        '<div style="display:flex; gap:8px; margin-top:auto; padding-top:6px; border-top:1px solid #EEF1ED;">' +
+          '<button data-act="' + onEdit + '" class="hv-lt" style="border:1px solid #C9D1CC; background:#FFFFFF; padding:6px 14px; border-radius:6px; font-size:12.5px; font-weight:500; cursor:pointer;">Edit</button>' +
+          '<button data-act="' + onDelete + '" title="Historical deployment data is preserved" class="hv-del" style="border:1px solid #EAD4CC; background:#FFFFFF; color:#C7431F; padding:6px 14px; border-radius:6px; font-size:12.5px; font-weight:500; cursor:pointer;">Delete</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div style="max-width:980px; margin:0 auto; padding:36px 40px 80px 40px;">' +
+      '<div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:28px;">' +
+        '<div>' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:30px;">Assignment Templates</div>' +
+          '<div style="font-size:13.5px; color:#5C6B78; margin-top:4px;">Reusable qualifier-based roster structures. Save now, deploy when needed.</div>' +
+        '</div>' +
+        '<button data-act="' + newTpl + '" class="hv-pri" style="border:none; background:#C7431F; color:#FFFFFF; padding:9px 18px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:pointer;">+ New Template</button>' +
+      '</div>' +
+      '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:14px;">' + cards + '</div>' +
+      '<div style="margin-top:22px; font-size:12px; color:#8A968F;">Deleting a template preserves all historical deployment records that referenced it.</div>' +
+    '</div>'
+  );
+}
+
+/* ─────── TEMPLATE EDITOR / BUILD NEW ASSIGNMENT ─────── */
+function viewTplEditor() {
+  var et = state.editTpl;
+  if (!et) return '';
+  var title = et.id != null ? 'Edit Template' : (et.fromSelect ? 'Build New Assignment' : 'New Assignment Template');
+  var showSaveAs = !!(et.fromSelect && et.id == null);
+  var canSave = !!(et.name.trim() && et.slots.length);
+
+  var cancel = act(function () { setState({ editTpl: null, screen: et.returnTo }); });
+  var onName = act(function (e) { setState({ editTpl: Object.assign({}, state.editTpl, { name: e.target.value }) }); });
+  var onShared = act(function (e) { setState({ editTpl: Object.assign({}, state.editTpl, { shared: e.target.value }) }); });
+  var addPos = act(function () { setState({ editTpl: Object.assign({}, state.editTpl, { slots: state.editTpl.slots.concat([{ q: '', s: '' }]) }) }); });
+  var toggleSaveAs = act(function () { setState({ editTpl: Object.assign({}, state.editTpl, { saveAs: !state.editTpl.saveAs }) }); });
+  var doSave = act(function () { saveTpl(); });
+
+  var QUAL_OPTS = ['Captain', 'Engineer', 'Firefighter', 'Paramedic'];
+  var SHARED_OPTS = ['S-230', 'Class B License', 'EMT'];
+
+  var slotRows = et.slots.map(function (p, i) {
+    var onQ = act(function (e) {
+      var slots = state.editTpl.slots.map(function (x, j) { return j === i ? Object.assign({}, x, { q: e.target.value }) : x; });
+      setState({ editTpl: Object.assign({}, state.editTpl, { slots: slots }) });
+    });
+    var onRemove = act(function () {
+      if (state.editTpl.slots.length <= 1) return;
+      setState({ editTpl: Object.assign({}, state.editTpl, { slots: state.editTpl.slots.filter(function (_, j) { return j !== i; }) }) });
+    });
+    return (
+      '<div style="display:flex; align-items:center; gap:10px; border:1px solid #E3E7E2; border-radius:8px; padding:10px 12px; background:#FBFCFA;">' +
+        '<div style="font-size:12px; font-weight:600; color:#8A968F; width:74px;">Position ' + (i + 1) + '</div>' +
+        '<select data-chg="' + onQ + '" style="flex:1; border:1px solid #C9D1CC; border-radius:6px; padding:7px 8px; font-size:12.5px; background:#FFFFFF;">' +
+          '<option value=""' + (p.q === '' ? ' selected' : '') + '>No primary qualifier</option>' +
+          QUAL_OPTS.map(function (o) { return '<option value="' + o + '"' + (p.q === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
+        '</select>' +
+        '<button data-act="' + onRemove + '" class="hv-x2" style="border:none; background:transparent; color:#B0BAB3; cursor:pointer; font-size:14px; padding:4px;">✕</button>' +
+      '</div>'
+    );
+  }).join('');
+
+  var saveLabel = et.fromSelect ? (et.saveAs ? 'Save Template &amp; Add' : 'Add to Deployment') : 'Save Template';
+  var footNote = et.fromSelect
+    ? (et.saveAs ? 'Saved as a reusable template and added to this deployment.' : 'One-off — used for this deployment only, not saved as a template.')
+    : 'Saving does not deploy — the template becomes available in future deployments.';
+
+  return (
+    '<div style="max-width:720px; margin:0 auto; padding:36px 40px 80px 40px;">' +
+      '<div style="display:flex; align-items:center; gap:14px; margin-bottom:24px;">' +
+        '<button data-act="' + cancel + '" style="border:1px solid #C9D1CC; background:#FFFFFF; border-radius:7px; width:34px; height:34px; cursor:pointer; font-size:15px; color:#5C6B78;">←</button>' +
+        '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:26px;">' + title + '</div>' +
+      '</div>' +
+      '<div style="background:#FFFFFF; border:1px solid #DDE2DE; border-radius:10px; padding:24px;">' +
+        '<div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">Template name <span style="color:#C7431F;">*</span></div>' +
+        '<input data-inp="' + onName + '" data-f="tplname" value="' + esc(et.name) + '" placeholder="e.g. Type 3 Engine — Wildland" style="width:100%; border:1px solid #C9D1CC; border-radius:7px; padding:10px 12px; font-size:13.5px; outline:none;">' +
+        '<div style="margin-top:18px;">' +
+          '<div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">Shared qualifier <span style="font-weight:400; color:#8A968F;">— optional; once set, it is mandatory for every position</span></div>' +
+          '<select data-chg="' + onShared + '" style="width:100%; border:1px solid #C9D1CC; border-radius:7px; padding:9px 10px; font-size:13px; background:#FFFFFF;">' +
+            '<option value=""' + (et.shared === '' ? ' selected' : '') + '>No shared qualifier</option>' +
+            SHARED_OPTS.map(function (o) { return '<option value="' + o + '"' + (et.shared === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
+          '</select>' +
+        '</div>' +
+        '<div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px; margin-bottom:10px;">' +
+          '<div style="font-size:12.5px; font-weight:600;">Positions <span style="font-weight:400; color:#8A968F;">— primary qualifier optional per position</span></div>' +
+          '<button data-act="' + addPos + '" class="hv-lt" style="border:1px solid #C9D1CC; background:#FFFFFF; padding:6px 12px; border-radius:6px; font-size:12.5px; font-weight:500; cursor:pointer;">+ Add position</button>' +
+        '</div>' +
+        '<div style="display:flex; flex-direction:column; gap:8px;">' + slotRows + '</div>' +
+        (showSaveAs ?
+          '<div data-act="' + toggleSaveAs + '" class="hv-lt" style="display:flex; align-items:flex-start; gap:11px; margin-top:22px; border:1px solid #E3E7E2; border-radius:8px; padding:12px 14px; cursor:pointer; background:#FBFCFA;">' +
+            '<div style="width:18px; height:18px; flex-shrink:0; margin-top:1px; border-radius:5px; border:1.5px solid ' + (et.saveAs ? '#14232F' : '#B7C2BB') + '; background:' + (et.saveAs ? '#14232F' : '#FFFFFF') + '; color:#FFFFFF; font-size:12px; line-height:16px; text-align:center; font-weight:700;">' + (et.saveAs ? '✓' : '') + '</div>' +
+            '<div>' +
+              '<div style="font-size:13px; font-weight:600;">Save as reusable template</div>' +
+              '<div style="font-size:11.5px; color:#8A968F; margin-top:2px;">Unchecked, this assignment is used for this deployment only and won\'t appear in future deployments.</div>' +
+            '</div>' +
+          '</div>'
+          : '') +
+        '<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:24px; padding-top:16px; border-top:1px solid #EEF1ED;">' +
+          '<button data-act="' + cancel + '" style="border:1px solid #C9D1CC; background:#FFFFFF; padding:9px 18px; border-radius:7px; font-size:13.5px; font-weight:500; cursor:pointer;">Cancel</button>' +
+          '<button data-act="' + doSave + '" ' + (canSave ? '' : 'disabled ') + 'style="border:none; background:' + (canSave ? '#14232F' : '#C3CAC5') + '; color:#FFFFFF; padding:9px 20px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:' + (canSave ? 'pointer' : 'not-allowed') + ';">' + saveLabel + '</button>' +
+        '</div>' +
+        '<div style="font-size:12px; color:#8A968F; margin-top:12px; text-align:right;">' + footNote + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ─────── CREWSCHEDULER day view ─────── */
+function viewScheduler() {
+  var st = state;
+  var rows = st.assignments.map(function (a) {
+    var staff = a.slots.filter(function (s) { return s.pre; }).map(function (s) { return emp(s.pre).name; });
+    var openN = a.slots.filter(function (s) { return !s.pre; }).length;
+    var menuOpen = st.menuFor === a.id;
+    var onMenu = act(function (e) { e.stopPropagation(); setState({ menuFor: state.menuFor === a.id ? null : a.id }); });
+    var onDeploy = act(function () {
+      var key = a.deployable ? 'a' + a.id : null;
+      var ids = key ? [key] : [];
+      var rosters = {};
+      ids.forEach(function (k) { rosters[k] = buildRoster(k); });
+      setState({
+        menuFor: null, screen: 'select', search: '',
+        wizard: { mode: 'existing', name: a.name + ' Deployment', start: TODAY, end: '2026-07-09', preselect: key },
+        sel: { ids: ids, rosters: rosters }
+      });
+      if (!a.deployable) toast('Note: "' + a.name + '" is not marked Deployable — enable it in assignment settings to pre-select it.');
+    });
+    var onSettings = act(function () { setState({ menuFor: null, settingsFor: a.id }); });
+    return (
+      '<div style="display:grid; grid-template-columns:280px 1fr 44px; align-items:center; padding:12px 18px; border-bottom:1px solid #EEF1ED; background:#FFFFFF; border-left:3px solid transparent;">' +
+        '<div>' +
+          '<div style="display:flex; align-items:center; gap:8px;">' +
+            '<span style="font-size:13.5px; font-weight:600;">' + esc(a.name) + '</span>' +
+          '</div>' +
+          '<div style="font-size:11.5px; color:#8A968F; margin-top:2px;">' + esc(a.code + ' · ' + (a.active ? 'Active' : 'Inactive') + (a.deployable ? ' · Deployable' : '')) + '</div>' +
+        '</div>' +
+        '<div style="display:flex; flex-wrap:wrap; gap:6px;">' +
+          staff.map(function (p) { return '<span style="font-size:11.5px; background:#F1F3F0; border:1px solid #E3E7E2; border-radius:99px; padding:3px 10px; color:#3D4A55;">' + esc(p) + '</span>'; }).join('') +
+          (openN ? '<span style="font-size:11.5px; background:#FDF8EE; border:1px dashed #D9A441; border-radius:99px; padding:3px 10px; color:#8A6414;">' + openN + ' open</span>' : '') +
+        '</div>' +
+        '<div style="position:relative; text-align:right;" data-menu>' +
+          '<button data-act="' + onMenu + '" class="hv-lt" style="border:1px solid #DDE2DE; background:#FFFFFF; border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:15px; color:#5C6B78; line-height:1;">⋯</button>' +
+          (menuOpen ?
+            '<div style="position:absolute; right:0; top:36px; z-index:60; background:#FFFFFF; border:1px solid #DDE2DE; border-radius:9px; box-shadow:0 8px 24px rgba(20,35,47,0.14); width:230px; padding:6px; text-align:left;">' +
+              '<button data-act="' + onDeploy + '" class="hv-lt" style="display:block; width:100%; text-align:left; border:none; background:transparent; padding:9px 12px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; color:#1A2530;">⛟&nbsp; Deploy this assignment…</button>' +
+              '<button data-act="' + onSettings + '" class="hv-lt" style="display:block; width:100%; text-align:left; border:none; background:transparent; padding:9px 12px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; color:#1A2530;">⚙&nbsp; Assignment settings</button>' +
+            '</div>'
+            : '') +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  // Grouped deployment rows appended after a deployment is created
+  var depRows = st.schedExtra.map(function (x) {
+    return (
+      '<div style="display:grid; grid-template-columns:280px 1fr 44px; align-items:center; padding:12px 18px; border-bottom:1px solid #EEF1ED; background:#FDF6F3; border-left:3px solid #C7431F;">' +
+        '<div>' +
+          '<div style="display:flex; align-items:center; gap:8px;">' +
+            '<span style="font-size:13.5px; font-weight:600;">' + esc(x.name) + '</span>' +
+            '<span style="font-size:10px; font-weight:600; letter-spacing:0.4px; padding:2px 7px; border-radius:99px; background:#FBEDE8; color:#C7431F;">DEPLOYMENT</span>' +
+          '</div>' +
+          '<div style="font-size:11.5px; color:#8A968F; margin-top:2px;">' + esc(x.code + ' · Grouped deployment') + '</div>' +
+        '</div>' +
+        '<div style="display:flex; flex-wrap:wrap; gap:6px;">' +
+          x.staff.map(function (p) { return '<span style="font-size:11.5px; background:#F1F3F0; border:1px solid #E3E7E2; border-radius:99px; padding:3px 10px; color:#3D4A55;">' + esc(p) + '</span>'; }).join('') +
+          (x.open ? '<span style="font-size:11.5px; background:#FDF8EE; border:1px dashed #D9A441; border-radius:99px; padding:3px 10px; color:#8A6414;">' + x.open + ' open — callback</span>' : '') +
+        '</div>' +
+        '<div></div>' +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div style="max-width:1060px; margin:0 auto; padding:36px 40px 80px 40px;">' +
+      '<div style="margin-bottom:24px;">' +
+        '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:30px;">CrewScheduler</div>' +
+        '<div style="font-size:13.5px; color:#5C6B78; margin-top:4px;">Wednesday, July 2 2026 · Day shift</div>' +
+      '</div>' +
+      '<div style="background:#FFFFFF; border:1px solid #DDE2DE; border-radius:10px; overflow:visible;">' +
+        '<div style="display:grid; grid-template-columns:280px 1fr 44px; padding:10px 18px; border-bottom:1px solid #EEF1ED; font-size:11px; font-weight:600; letter-spacing:0.8px; color:#8A968F;">' +
+          '<div>ASSIGNMENT</div><div>SCHEDULED PERSONNEL</div><div></div>' +
+        '</div>' +
+        rows + depRows +
+      '</div>' +
+      '<div style="margin-top:18px; font-size:12px; color:#8A968F;">Use the ⋯ menu on any assignment to deploy it directly — the assignment and today\'s date are pre-selected in the deployment flow.</div>' +
+    '</div>'
+  );
+}
+
+/* ─────── MODALS ─────── */
+
+// Fill open slot — qualifier-filtered candidate list
+function modalSlotPick() {
+  var st = state, sp = st.slotPick, sel = st.sel;
+  if (!sp || !sel || !sel.rosters[sp.key]) return '';
+  var slot = sel.rosters[sp.key][sp.idx];
+  var info = keyInfo(sp.key);
+  var label = info.name + ' — ' + slotLabel(slot);
+  var used = usedEmpMap();
+  var cands = EMP.slice();
+  var hint;
+  if (slot.q) {
+    cands = cands.filter(function (e) { return e.quals.indexOf(slot.q) >= 0; });
+    hint = slot.s
+      ? 'Filtered to ' + slot.q + '. At least one person on this assignment must hold ' + slot.s + ' — candidates who do are labeled Recommended.'
+      : 'Showing only personnel who meet this slot’s qualifier requirements.';
+  } else {
+    hint = slot.s
+      ? 'No position qualifier on this slot. At least one person on this assignment must hold ' + slot.s + ' — candidates who do are labeled Recommended.'
+      : 'This slot has no qualifier requirements — all available personnel are shown.';
+  }
+  var isRec = function (e) { return !!slot.s && e.quals.indexOf(slot.s) >= 0 && (!slot.q || e.quals.indexOf(slot.q) >= 0); };
+  cands.sort(function (a, b) { return (isRec(b) - isRec(a)) || a.name.localeCompare(b.name); });
+
+  var close = act(function () { setState({ slotPick: null }); });
+  var swallow = act(function (e) { e.stopPropagation(); });
+
+  var rows = cands.map(function (e) {
+    var u = used[e.id];
+    var inOther = !!(u && !(u.key === sp.key && u.idx === sp.idx));
+    var onPick = act(function () {
+      if (inOther) {
+        setState({ conflict: { empId: e.id, empName: e.name, fromKey: u.key, fromIdx: u.idx, fromName: keyInfo(u.key).name, toKey: sp.key, toIdx: sp.idx } });
+        return;
+      }
+      setSlot(sp.key, sp.idx, e.id);
+      setState({ slotPick: null });
+    });
+    return (
+      '<button data-act="' + onPick + '" class="hv-lt" style="display:flex; align-items:center; gap:12px; width:100%; text-align:left; border:none; background:transparent; padding:10px 12px; border-radius:8px; cursor:pointer;">' +
+        '<div style="width:34px; height:34px; border-radius:99px; background:#E8EDE9; color:#3D5548; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; flex-shrink:0;">' + esc(initials(e.name)) + '</div>' +
+        '<div style="min-width:0; flex:1;">' +
+          '<div style="font-size:13.5px; font-weight:600;">' + esc(e.name) + '</div>' +
+          '<div style="font-size:11.5px; color:#8A968F; margin-top:1px;">' + esc(e.quals.join(' · ')) + '</div>' +
+        '</div>' +
+        (inOther ? '<span title="Already assigned in this deployment — picking them will prompt to move" style="font-size:10.5px; font-weight:600; padding:3px 9px; border-radius:99px; background:#FDF8EE; color:#8A6414; border:1px dashed #D9A441;">' + esc('On ' + keyInfo(u.key).name) + '</span>' : '') +
+        (isRec(e) ? '<span style="font-size:10.5px; font-weight:700; letter-spacing:0.4px; padding:3px 9px; border-radius:99px; background:#E3F1E8; color:#1F7A4D;">RECOMMENDED</span>' : '') +
+      '</button>'
+    );
+  }).join('');
+
+  return (
+    '<div data-act="' + close + '" style="position:fixed; inset:0; background:rgba(20,35,47,0.45); z-index:110; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.15s ease;">' +
+      '<div data-act="' + swallow + '" style="background:#FFFFFF; border-radius:12px; width:520px; max-width:calc(100vw - 48px); max-height:76vh; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(20,35,47,0.3); overflow:hidden;">' +
+        '<div style="padding:20px 24px 14px 24px; border-bottom:1px solid #EEF1ED;">' +
+          '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:19px;">Fill open slot</div>' +
+          '<div style="font-size:12.5px; color:#5C6B78; margin-top:3px;">' + esc(label) + '</div>' +
+        '</div>' +
+        '<div style="overflow-y:auto; padding:10px 12px;">' +
+          rows +
+          (cands.length === 0 ? '<div style="padding:28px; text-align:center; font-size:13px; color:#8A968F;">No available personnel meet this slot\'s qualifier requirements.</div>' : '') +
+        '</div>' +
+        '<div style="padding:12px 24px; border-top:1px solid #EEF1ED; font-size:11.5px; color:#8A968F;">' + esc(hint) + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+// Assignment settings — the "Deployable" toggle
+function modalSettings() {
+  var st = state;
+  var sa = st.settingsFor ? st.assignments.find(function (a) { return a.id === st.settingsFor; }) : null;
+  if (!sa) return '';
+  var close = act(function () { setState({ settingsFor: null }); });
+  var swallow = act(function (e) { e.stopPropagation(); });
+  var toggle = act(function () {
+    var next = !sa.deployable;
+    setState({ assignments: state.assignments.map(function (a) { return a.id === sa.id ? Object.assign({}, a, { deployable: next }) : a; }) });
+    toast(next ? '"' + sa.name + '" is now Deployable — it will appear in the Select Existing Assignment(s) list.' : '"' + sa.name + '" removed from the deployable list. Active and historical deployments are unaffected.');
+  });
+  var deployableTip = 'Deployable assignments appear in the Select Existing Assignment(s) list when creating a deployment. Enabling this has no effect on active or historical deployments.';
+
+  return (
+    '<div data-act="' + close + '" style="position:fixed; inset:0; background:rgba(20,35,47,0.45); z-index:120; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.15s ease;">' +
+      '<div data-act="' + swallow + '" style="background:#FFFFFF; border-radius:12px; width:480px; max-width:calc(100vw - 48px); box-shadow:0 24px 64px rgba(20,35,47,0.3); padding:26px 28px;">' +
+        '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:21px;">Assignment settings</div>' +
+        '<div style="font-size:13px; color:#5C6B78; margin-top:3px;">' + esc(sa.name + ' · ' + sa.code) + '</div>' +
+        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px;">' +
+          '<div style="border:1px solid #E3E7E2; border-radius:8px; padding:12px 14px; background:#FBFCFA;">' +
+            '<div style="font-size:11px; font-weight:600; letter-spacing:0.5px; color:#8A968F;">ASSIGNMENT CODE</div>' +
+            '<div style="font-size:14px; font-weight:600; margin-top:4px;">' + esc(sa.code) + '</div>' +
+          '</div>' +
+          '<div style="border:1px solid #E3E7E2; border-radius:8px; padding:12px 14px; background:#FBFCFA;">' +
+            '<div style="font-size:11px; font-weight:600; letter-spacing:0.5px; color:#8A968F;">STATUS</div>' +
+            '<div style="font-size:14px; font-weight:600; margin-top:4px; color:' + (sa.active ? '#1F7A4D' : '#8A968F') + ';">' + (sa.active ? 'Active' : 'Inactive') + '</div>' +
+          '</div>' +
+        '</div>' +
+        (PROPS.deploymentsModuleEnabled ?
+          '<div style="display:flex; align-items:flex-start; gap:14px; margin-top:16px; border:1px solid #E3E7E2; border-radius:8px; padding:14px;">' +
+            '<button data-act="' + toggle + '" title="' + deployableTip + '" style="width:42px; height:24px; border-radius:99px; border:none; cursor:pointer; flex-shrink:0; position:relative; background:' + (sa.deployable ? '#1F7A4D' : '#C3CAC5') + '; transition:background 0.15s ease;">' +
+              '<span style="position:absolute; top:3px; width:18px; height:18px; border-radius:99px; background:#FFFFFF; box-shadow:0 1px 3px rgba(0,0,0,0.25); left:' + (sa.deployable ? '21px' : '3px') + '; transition:left 0.15s ease;"></span>' +
+            '</button>' +
+            '<div>' +
+              '<div style="display:flex; align-items:center; gap:6px; font-size:13.5px; font-weight:600;">Deployable' +
+                '<span title="' + deployableTip + '" style="font-size:11px; color:#8A968F; border:1px solid #C9D1CC; border-radius:99px; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; cursor:help;">i</span>' +
+              '</div>' +
+              '<div style="font-size:12px; color:#8A968F; margin-top:3px; line-height:1.55;">When enabled, this assignment appears in the Select Existing Assignment(s) workflow. Changing this never affects active or historical deployments.</div>' +
+            '</div>' +
+          '</div>'
+          : '') +
+        '<div style="display:flex; justify-content:flex-end; margin-top:22px;">' +
+          '<button data-act="' + close + '" style="border:none; background:#14232F; color:#FFFFFF; padding:9px 20px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:pointer;">Done</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+// Start-date change confirmation (destructive: resets roster edits)
+function modalStartConfirm() {
+  var st = state;
+  if (!st.pendingStart) return '';
+  var keep = act(function () { setState({ pendingStart: null }); });
+  var change = act(function () { applyStart(state.pendingStart); });
+  return (
+    '<div style="position:fixed; inset:0; background:rgba(20,35,47,0.45); z-index:130; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.15s ease;">' +
+      '<div style="background:#FFFFFF; border-radius:12px; width:440px; max-width:calc(100vw - 48px); box-shadow:0 24px 64px rgba(20,35,47,0.3); padding:26px 28px;">' +
+        '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:20px;">Change start date?</div>' +
+        '<div style="font-size:13px; color:#5C6B78; margin-top:10px; line-height:1.6;">Changing the start date to <span style="font-weight:600; color:#1A2530;">' + esc(fmt(st.pendingStart)) + '</span> re-populates all rosters from that day\'s schedules. <span style="font-weight:600; color:#C7431F;">Your roster changes will be reset.</span></div>' +
+        '<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:22px;">' +
+          '<button data-act="' + keep + '" style="border:1px solid #C9D1CC; background:#FFFFFF; padding:9px 18px; border-radius:7px; font-size:13.5px; font-weight:500; cursor:pointer;">Keep my changes</button>' +
+          '<button data-act="' + change + '" style="border:none; background:#C7431F; color:#FFFFFF; padding:9px 20px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:pointer;">Change &amp; re-populate</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+// Double-booking conflict — offer to move the person
+function modalConflict() {
+  var c = state.conflict;
+  if (!c) return '';
+  var cancel = act(function () { setState({ conflict: null }); });
+  var move = act(function () {
+    var sel = state.sel;
+    if (!sel) return;
+    var rosters = Object.assign({}, sel.rosters);
+    rosters[c.fromKey] = rosters[c.fromKey].map(function (s, i) { return i === c.fromIdx ? Object.assign({}, s, { emp: null }) : s; });
+    rosters[c.toKey] = rosters[c.toKey].map(function (s, i) { return i === c.toIdx ? Object.assign({}, s, { emp: c.empId }) : s; });
+    setState({ sel: { ids: sel.ids, rosters: rosters }, dirty: true, conflict: null, slotPick: null });
+    toast(c.empName + ' moved — the slot on ' + c.fromName + ' is now open.');
+  });
+  return (
+    '<div style="position:fixed; inset:0; background:rgba(20,35,47,0.45); z-index:140; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.15s ease;">' +
+      '<div style="background:#FFFFFF; border-radius:12px; width:440px; max-width:calc(100vw - 48px); box-shadow:0 24px 64px rgba(20,35,47,0.3); padding:26px 28px;">' +
+        '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:20px;">Already on this deployment</div>' +
+        '<div style="font-size:13px; color:#5C6B78; margin-top:10px; line-height:1.6;"><span style="font-weight:600; color:#1A2530;">' + esc(c.empName) + '</span> is already assigned to <span style="font-weight:600; color:#1A2530;">' + esc(c.fromName) + '</span> in this deployment. Move them here instead? Their slot on ' + esc(c.fromName) + ' will become open.</div>' +
+        '<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:22px;">' +
+          '<button data-act="' + cancel + '" style="border:1px solid #C9D1CC; background:#FFFFFF; padding:9px 18px; border-radius:7px; font-size:13.5px; font-weight:500; cursor:pointer;">Cancel</button>' +
+          '<button data-act="' + move + '" style="border:none; background:#14232F; color:#FFFFFF; padding:9px 20px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:pointer;">Move here</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+// Save-changes note — required step when saving edits to a live deployment
+function modalNote() {
+  var st = state;
+  if (!st.noteModal) return '';
+  var back = act(function () { setState({ noteModal: false }); });
+  var save = act(function () { confirmEditSave(); });
+  var onText = act(function (e) { setState({ noteText: e.target.value }); });
+  return (
+    '<div style="position:fixed; inset:0; background:rgba(20,35,47,0.45); z-index:150; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.15s ease;">' +
+      '<div style="background:#FFFFFF; border-radius:12px; width:480px; max-width:calc(100vw - 48px); box-shadow:0 24px 64px rgba(20,35,47,0.3); padding:26px 28px;">' +
+        '<div style="font-family:\'Barlow Semi Condensed\',sans-serif; font-weight:700; font-size:20px;">Save changes to this deployment</div>' +
+        '<div style="font-size:13px; color:#5C6B78; margin-top:8px; line-height:1.6;">Add a note describing what changed — it\'s attached to the save confirmation and the deployment\'s change record.</div>' +
+        '<textarea data-inp="' + onText + '" data-f="note" rows="3" placeholder="e.g. Swapped H. Kim to Hand Crew 14; extended per OES order 2231" style="width:100%; margin-top:14px; border:1px solid #C9D1CC; border-radius:7px; padding:10px 12px; font-size:13px; resize:vertical; outline:none;">' + esc(st.noteText) + '</textarea>' +
+        '<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:18px;">' +
+          '<button data-act="' + back + '" style="border:1px solid #C9D1CC; background:#FFFFFF; padding:9px 18px; border-radius:7px; font-size:13.5px; font-weight:500; cursor:pointer;">Back</button>' +
+          '<button data-act="' + save + '" style="border:none; background:#C7431F; color:#FFFFFF; padding:9px 20px; border-radius:7px; font-size:13.5px; font-weight:600; cursor:pointer;">Save Changes</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ─────── Event delegation ─────── */
+app.addEventListener('click', function (e) {
+  var el = e.target.closest('[data-act]');
+  if (el && el.dataset.act !== '') {
+    var fn = ACT[+el.dataset.act];
+    if (fn) { fn(e); return; }
+  }
+  // Clicking anywhere outside the ⋯ menu closes it
+  if (state.menuFor != null && !e.target.closest('[data-menu]')) setState({ menuFor: null });
+});
+app.addEventListener('change', function (e) {
+  var el = e.target.closest('[data-chg]');
+  if (el) { var fn = ACT[+el.dataset.chg]; if (fn) fn(e); }
+});
+app.addEventListener('input', function (e) {
+  var el = e.target.closest('[data-inp]');
+  if (el) { var fn = ACT[+el.dataset.inp]; if (fn) fn(e); }
+});
+
+render();
+</script>
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     Flow Map state driver — REVIEW / HANDOFF TOOLING ONLY (not the product).
+     Drives the prototype into each screen/modal so the Design Toolbox flow
+     map can render live thumbnails and deep-link each node (#fm=<state>). -->
+<script>
+  // Reset transient UI state, keep created data (deployments, templates…)
+  function fmReset(patch) {
+    Object.assign(state, {
+      wizard: null, sel: null, search: '', slotPick: null, menuFor: null,
+      settingsFor: null, editTpl: null, dirty: false, pendingStart: null,
+      conflict: null, noteModal: false, noteText: '', toast: ''
+    }, patch);
+  }
+  // Start a fresh "New Deployment" with the given roster keys pre-selected
+  function fmNewDeployment(ids) {
+    var rosters = {};
+    ids.forEach(function (k) { rosters[k] = buildRoster(k); });
+    fmReset({
+      screen: 'select',
+      wizard: { mode: 'existing', name: 'Creek Fire — Night Ops', start: TODAY, end: '2026-07-09', preselect: null },
+      sel: { ids: ids.slice(), rosters: rosters }
+    });
+  }
+  // Enter Edit mode on the first (seeded) deployment
+  function fmEditDeployment() {
+    var d = state.deployments[state.deployments.length - 1]; // seeded 'Creek Fire — IMT Support'
+    var rosters = {};
+    (d.selIds || []).forEach(function (k) {
+      rosters[k] = (d.rosters && d.rosters[k]) ? d.rosters[k].map(function (s) { return Object.assign({}, s); }) : buildRoster(k);
+    });
+    fmReset({
+      screen: 'select',
+      wizard: { mode: 'existing', name: d.name, start: d.start, end: d.end, editingId: d.id },
+      sel: { ids: (d.selIds || []).slice(), rosters: rosters }
+    });
+  }
+
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'deployments':  fmReset({ screen: 'deployments' }); break;
+      case 'scheduler':    fmReset({ screen: 'scheduler' }); break;
+      case 'settings':     fmReset({ screen: 'scheduler', settingsFor: 1 }); break;
+      case 'select':       fmNewDeployment(['a1', 'a5']); break;
+      case 'slotpick':     fmNewDeployment(['a1']); state.slotPick = { key: 'a1', idx: 3 }; break;
+      case 'conflict':
+        // Filling Brush Patrol 12's open FF slot with J. Park, who is already on Engine 331
+        fmNewDeployment(['a1', 'a2']);
+        state.slotPick = { key: 'a1', idx: 3 };
+        state.conflict = { empId: 14, empName: 'J. Park', fromKey: 'a2', fromIdx: 3, fromName: 'Engine 331 — OES Type 1', toKey: 'a1', toIdx: 3 };
+        break;
+      case 'startconfirm': fmNewDeployment(['a1']); state.dirty = true; state.pendingStart = '2026-07-03'; break;
+      case 'editdeploy':   fmEditDeployment(); break;
+      case 'notemodal':    fmEditDeployment(); state.noteModal = true; state.noteText = ''; break;
+      case 'templates':    fmReset({ screen: 'templates' }); break;
+      case 'tpleditor':
+        fmReset({ screen: 'tplEditor', editTpl: { id: null, name: '', shared: '', slots: [{ q: '' }, { q: '' }, { q: '' }], returnTo: 'templates', fromSelect: false, saveAs: true } });
+        break;
+      default:             fmReset({ screen: 'deployments' });
+    }
+    render();
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  // Hash boot: honor a flow-map deep link (#fm=<state>) on load and on change.
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (_) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Deploy Existing Assignments — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 2100, h: 1160 },
+      flows: [
+        { id: 'deploy', name: 'New Deployment', pill: 'A', color: '#f2a07b',
+          lane: { x: 20, y: 20, w: 2060, h: 420 }, labelXY: { x: 40, y: 40 } },
+        { id: 'sched', name: 'Scheduler Entry', pill: 'B', color: '#8fc7f2',
+          lane: { x: 20, y: 460, w: 1020, h: 300 }, labelXY: { x: 40, y: 480 } },
+        { id: 'tpl', name: 'Templates', pill: 'C', color: '#c9b8f0',
+          lane: { x: 20, y: 780, w: 1020, h: 300 }, labelXY: { x: 40, y: 800 } }
+      ],
+      nodes: [
+        { id: 'deployments', flow: 'deploy', entry: true, x: 60, y: 160, step: 'Entry', name: 'Deployments', state: 'deployments', match: ['Deployments'],
+          desc: 'Landing list of active deployments. Grouped assignments share one end date; Edit re-opens the roster flow. "+ New Deployment" starts the select flow.' },
+        { id: 'select', flow: 'deploy', x: 400, y: 160, step: 'Step 1', name: 'Select Assignment(s)', state: 'select', match: ['New Deployment', 'Select Existing'],
+          desc: 'Pick deployable assignments and templates from the searchable list. Rosters pre-populate from the start date’s schedules; each card shows fill status and the shared-qualifier check.' },
+        { id: 'slotpick', flow: 'deploy', x: 740, y: 60, step: 'Step 2', name: 'Fill Open Slot', state: 'slotpick', match: ['Fill open slot'],
+          desc: 'Candidates filtered by the slot’s primary qualifier; holders of the shared qualifier are labeled RECOMMENDED. People already placed elsewhere show an "On …" chip.' },
+        { id: 'conflict', flow: 'deploy', x: 1080, y: 60, step: 'Guard', name: 'Double-booking', state: 'conflict', match: ['Already on this deployment'],
+          desc: 'Picking someone already placed in this deployment prompts a move — their previous slot becomes open. Never silently double-books.' },
+        { id: 'startconfirm', flow: 'deploy', x: 740, y: 280, step: 'Guard', name: 'Start-date Confirm', state: 'startconfirm', match: ['Change start date'],
+          desc: 'Changing the start date after roster edits warns that all rosters re-populate from the new day’s schedules and manual changes are reset.' },
+        { id: 'editdeploy', flow: 'deploy', x: 1420, y: 160, step: 'Step 3', name: 'Edit Deployment', state: 'editdeploy', match: ['Edit Deployment'],
+          desc: 'Same select/roster screen in edit mode: start date is locked (title tooltip explains why), footer button becomes "Save Changes".' },
+        { id: 'notemodal', flow: 'deploy', x: 1760, y: 160, step: 'Step 4', name: 'Change Note', state: 'notemodal', match: ['Save changes'],
+          desc: 'Saving edits to a live deployment asks for a change note; it’s attached to the confirmation and shown on the deployment card as "Last change note".' },
+        { id: 'scheduler', flow: 'sched', x: 60, y: 580, step: 'Alt Entry', name: 'CrewScheduler', state: 'scheduler', match: ['CrewScheduler'],
+          desc: 'Day view of all assignments. The ⋯ menu deep-links into the deployment flow with that assignment and today’s date pre-selected.' },
+        { id: 'settings', flow: 'sched', x: 400, y: 580, step: 'Modal', name: 'Assignment Settings', state: 'settings', match: ['Assignment settings', 'Deployable'],
+          desc: 'The "Deployable" toggle controls whether an assignment appears in the select list. Changing it never affects active or historical deployments.' },
+        { id: 'templates', flow: 'tpl', x: 60, y: 900, step: 'Manage', name: 'Templates', state: 'templates', match: ['Templates'],
+          desc: 'Reusable qualifier-based roster structures, including MIGRATED legacy strike teams. Deleting preserves historical deployment records.' },
+        { id: 'tpleditor', flow: 'tpl', x: 400, y: 900, step: 'Editor', name: 'Template Editor', state: 'tpleditor', match: ['Template editor', 'Build New Assignment'],
+          desc: 'Name, optional shared qualifier (mandatory for every position once set), and per-position primary qualifiers. From the select flow it can also create a one-off assignment.' }
+      ],
+      edges: [
+        ['deployments', 'select'],
+        ['select', 'slotpick'],
+        ['slotpick', 'conflict', 'branch'],
+        ['select', 'startconfirm', 'branch'],
+        ['deployments', 'editdeploy', 'branch'],
+        ['editdeploy', 'notemodal'],
+        ['scheduler', 'settings', 'branch'],
+        ['scheduler', 'select', 'branch'],
+        ['templates', 'tpleditor'],
+        ['select', 'tpleditor', 'branch']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox (review/handoff tooling — not part of the product).
+     Adds the comment widget + flow-map dock; the loader merges version
+     buttons into this same bottom-center pill. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
