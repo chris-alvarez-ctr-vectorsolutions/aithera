@@ -69,7 +69,7 @@
     note: 'Hard limits on every in-scene character — they hold whatever the author writes and however the learner behaves.',
     text: () =>
 `CHARACTER CONDUCT FLOOR — LOCKED, applies to every character you voice, over and above any authored guidance:
-- Characters may deflect, push back, or double down — but they are NEVER abusive, threatening beyond what the authored scenario itself establishes, sexually explicit, or demeaning, and always appropriate for a school/learning audience.
+- Characters may deflect, push back, or double down — but they are NEVER abusive, threatening beyond what the authored scenario itself establishes, sexually explicit, or demeaning, and always appropriate for a professional or educational learning audience.
 - Keep every moment RECOVERABLE: however badly the learner plays a beat, a better next move can still land. Never write a character into an irreversible blow-up unless the authored arc calls for it.
 - Characters stay human and specific — flawed, not villains, never a caricature or a stereotype of any group.
 - If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
@@ -119,6 +119,7 @@
     learnerName: 'you',
     characterName: 'Ms. Reyes',   // the first counterpart; per-phase counterpart overrides labels
     elevatedStakes: true,         // a distressed child — the 988 floor + crisis resources apply
+    involvesMinors: true,         // both students are 12 — compile the minor-safeguarding floor
 
     framing: 'a summative role-play on recognizing and responding to identity-based bullying — one situation, one cast, unfolding over about a week',
     learnerRole: 'Sofia’s 7th-grade teacher — the same adult across all four phases, the one who has to carry this from the first report to the follow-through',
@@ -561,9 +562,13 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     parts.push(
 `LEARNER SAFETY — HIGHEST PRIORITY, overrides everything: if the learner discloses, AS THEMSELVES rather than as a line in the exercise, that THEY are in distress or being harmed, drop the exercise immediately (set "action":"redirect"). In the coach voice, acknowledge with warmth and zero assessment, say the practice can wait, and point to real support.${s.elevatedStakes ? ' If they mention self-harm — theirs or a student’s — add the 988 Suicide & Crisis Lifeline (call or text 988).' : ''} Ask nothing probing.`);
 
-    // 8b) The two locked floors.
+    // 8b) The locked conduct floor (always) + the minor-safeguarding floor
+    //     (ONLY when this scenario actually involves minors — a generic
+    //     multi-character scenario with adult characters must not claim it
+    //     involves children). `involvesMinors` defaults true for back-compat
+    //     (fail safe: keep the floor unless an author explicitly turns it off).
     parts.push(CONDUCT_SECTION.text());
-    parts.push(MINOR_SECTION.text());
+    if (s.involvesMinors) parts.push(MINOR_SECTION.text());
 
     // 9) Behavioral rules.
     parts.push('BEHAVIORAL RULES:\n' + [
@@ -678,6 +683,9 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     out.characterName = typeof out.characterName === 'string' ? out.characterName : '';
     out.learnerName = (typeof out.learnerName === 'string' && out.learnerName) ? out.learnerName : 'you';
     out.elevatedStakes = out.elevatedStakes === true;
+    // Fail safe: undefined → true, so a pre-field draft keeps the minor floor;
+    // only an explicit false (a scenario with adult characters) drops it.
+    out.involvesMinors = out.involvesMinors !== false;
     out.framing = typeof out.framing === 'string' ? out.framing : '';
     out.learnerRole = typeof out.learnerRole === 'string' ? out.learnerRole : '';
     out.establishing = { eyebrow: '', title: '', sub: '', ...obj(out.establishing) };
@@ -717,7 +725,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     return normalize({
       v: 1, type: 'ensemble-arc',
       title: '', course: '', characterName: '', learnerName: 'you',
-      elevatedStakes: false, framing: '', learnerRole: '',
+      elevatedStakes: false, involvesMinors: false, framing: '', learnerRole: '',
       establishing: { eyebrow: '', title: '', sub: '' }, openingImage: '',
       intro: { type: 'none', video: { sound: true, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
       voice: { persona: '', guidance: '' },
@@ -740,6 +748,402 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     return normalize(out);
   }
 
+  /* =======================================================================
+     LINTS — same shape as every other type ({severity, section, msg, why});
+     `section` matches a section id so the shell can jump the author to it.
+     ======================================================================= */
+  function lints(s) {
+    const L = [];
+    const add = (severity, section, msg, why) => L.push({ severity, section, msg, why });
+    const empty = (v) => !String(v ?? '').trim();
+
+    if (empty(s.title)) add('err', 'basics', 'The scenario needs a title.', 'It appears in the learner’s top bar.');
+    if (empty(s.course)) add('warn', 'basics', 'No course named.', 'The prompt says the arc lives "inside a … course" — name it so the AI gets the register.');
+    if (empty(s.framing)) add('info', 'basics', 'No framing line.', 'A one-line premise ("a summative role-play on …") opens the system prompt. Without it a generic line is used.');
+    if (empty(s.learnerRole)) add('info', 'basics', 'No learner role.', 'Who the learner plays across every phase (e.g. "the student’s teacher") sharpens the coaching.');
+
+    const intro = s.intro || {};
+    const situation = (intro.audio || {}).text;
+    if (empty(situation)) add('warn', 'intro', 'No situation text — the coach has little to ground on.', 'This is the read-along/narration script AND the coach’s only picture of the setup.');
+    else if (String(situation).trim().length < 120) add('info', 'intro', 'The situation text is short.', 'The coach grounds its whole conversation in this — give it the real history.');
+    if (intro.type === 'video') {
+      const scenes = arr((intro.video || {}).scenes).filter((sc) => sc && (!empty(sc.src) || !empty(sc.caption)));
+      if (!scenes.length) add('warn', 'intro', 'Video modality selected, but there are no scenes.', 'Add a scene with a video URL, or switch the modality.');
+    }
+
+    const canon = arr(s.canon).filter((c) => !empty(c));
+    if (!canon.length) add('warn', 'canon', 'No locked canon.', 'Characters draw from the canon and never invent beyond it — without it, facts drift run to run.');
+
+    const cast = arr(s.cast).filter((c) => c && !empty(c.name));
+    if (!cast.length) add('warn', 'cast', 'No characters in the cast.', 'Multiple believable counterparts in one run is the point of this type — name at least the people the learner faces.');
+    cast.forEach((c) => {
+      if (empty(c.baseline)) add('info', 'cast', `${c.name} has no baseline.`, 'How they start the scene, before the learner does anything.');
+      if (!arr(c.reactions).filter((r) => !empty(r.when) || !empty(r.then)).length) add('info', 'cast', `${c.name} has no reaction map.`, 'How they meet good vs. bad handling is what keeps them from feeling scripted.');
+    });
+    if (cast.length && !cast.some((c) => arr(c.disclosures).some((d) => !empty(d.fact)))) {
+      add('info', 'cast', 'No earned disclosures on any character.', 'Progressive disclosure — facts a character reveals only when the learner earns it — is this type’s headline capability.');
+    }
+
+    const stateVars = arr(s.state).filter((v) => !empty(v.key));
+    if (!stateVars.length) add('info', 'state', 'No cross-phase state declared.', 'State is how an earlier conversation shapes a later one — the thing that makes a returning character feel remembered.');
+
+    const phases = arr(s.phases);
+    if (!phases.length) add('err', 'phases', 'The arc has no phases.', 'An Ensemble arc needs at least one Practice↔Learn phase.');
+    const ids = phases.map((p) => p.id);
+    phases.forEach((p, i) => {
+      const n = i + 1;
+      const nm = p.label || p.id;
+      if (empty(p.exitCriteria)) add('warn', 'phases', `Phase ${n} (${nm}) has no exit criteria.`, 'What "done" means — it drives the coach’s within-phase probing and the tier it reports.');
+      if (empty((p.debrief || {}).talkItThrough)) add('warn', 'phases', `Phase ${n} (${nm}) has no "talk it through" line.`, 'The coach opens the debrief with this word-for-word.');
+      if (!arr(p.calibration).filter((t) => !empty(t.tier)).length) add('info', 'phases', `Phase ${n} (${nm}) has no calibration tiers.`, 'Tiers tell the coach how to read a weak / middling / strong pass and which tier to report.');
+      if (p.world === 'scene' && empty(p.counterpart)) add('info', 'phases', `Phase ${n} (${nm}) is a scene with no counterpart.`, 'Name who the learner faces (or "Narrator" for a narrated moment).');
+      arr(p.transitions).forEach((t) => {
+        if (!empty(t.next) && !ids.includes(t.next)) add('warn', 'phases', `Phase ${n} routes to "${t.next}", which isn’t a phase id.`, 'A transition’s "next" must match another phase’s id.');
+        Object.keys(obj(t.set)).forEach((k) => {
+          if (String(t.set[k] ?? '').trim() && !stateVars.some((v) => v.key === k)) {
+            add('info', 'state', `Phase ${n} writes state "${k}", which isn’t declared.`, 'Declare it in Cross-phase state so the [SYSTEM STATE] line carries it.');
+          }
+        });
+      });
+    });
+
+    if (empty((s.voice || {}).persona)) add('info', 'voice', 'No coach persona set.', 'A short stance keeps the coaching consistent (the detailed voice rules are locked).');
+
+    const pbs = arr(s.playbook).filter((p) => !empty(p.title) || !empty(p.body));
+    if (!pbs.length) add('err', 'playbook', 'The playbook is empty — nothing is guaranteed to every learner.', 'The role-plays personalize; the playbook standardizes.');
+    pbs.forEach((p, i) => { if (empty(p.title) || empty(p.body)) add('warn', 'playbook', `Component #${i + 1} is missing its ${empty(p.title) ? 'title' : 'explanation'}.`); });
+    if (pbs.length > 10) add('warn', 'playbook', `${pbs.length} playbook components is a lot to absorb at the end.`, 'Past 8–9 the closing screen reads as a wall. Merge or cut.');
+
+    const resItems = arr((s.resources || {}).items).filter((r) => !empty(r.title) || !empty(r.body));
+    if (!resItems.length && !s.elevatedStakes) add('warn', 'resources', 'No resources, and stakes not elevated.', 'The learner leaves with nowhere to point — add at least one real place to go.');
+
+    return L;
+  }
+
+  /* =======================================================================
+     FORM: sections + field renderers. Section groups + stage chips follow the
+     house taxonomy (meta / context / interaction / debrief / reference) so the
+     Ensemble editor slots into the same studio spine as every other type.
+     ======================================================================= */
+  const sections = [
+    { id: 'basics', group: 'meta', icon: 'fa-id-card', title: 'Basics',
+      lead: 'What this arc is called, the course and premise it lives in, and the through-line role the learner plays across every phase.' },
+
+    { id: 'intro', group: 'context', stage: 'ENTER', icon: 'fa-book-open', title: 'Intro & situation',
+      lead: 'How the scene is set before the arc begins — the modality (reading, audio, video, or none), the establishing card, and the situation the coach grounds on.',
+      bridgeTitle: 'One door in, and the coach’s only window',
+      bridge: 'The intro modality is swappable. The <b>situation text</b> doubles as the read-along/narration script AND the coach’s grounding — it never sees a video, so write there what it needs to know. Use <b>{{character}}</b> so a rename propagates.' },
+    { id: 'canon', group: 'context', icon: 'fa-lock', title: 'Locked scenario canon',
+      lead: 'The fixed, do-not-generate facts every character draws from — cast, world, the pattern, what each person knows. The model never invents beyond these.',
+      bridgeTitle: 'Canon, not prompts',
+      bridge: 'These facts are the source of truth for the characters. They’re revealed <b>progressively</b> (see each character’s earned disclosures), never dumped — and the model must never add incidents, names, or biography beyond them.' },
+
+    { id: 'reflection', group: 'interaction', stage: 'ENTER', icon: 'fa-comment', title: 'Reflection',
+      lead: 'An optional non-evaluated gut-read before the first character. Its prompt is delivered VERBATIM; the coach calibrates it and hands straight into Phase 1 — it never grades it.' },
+    { id: 'cast', group: 'interaction', icon: 'fa-user-group', title: 'The cast',
+      lead: 'The characters the learner faces across the arc — each with a behavior model AND an earned-disclosure ledger. Multiple believable counterparts in one run is this type’s reason to exist.',
+      bridgeTitle: 'Two behavior models, and what each holds back',
+      bridge: 'Each character reacts to <b>how the learner treats them</b> — never randomly. Their <b>disclosures</b> are facts they reveal ONLY when the learner earns it (doubt makes one guard; dignity makes another open up). Phases point at a character by the name here, in <b>counterpart</b>.' },
+    { id: 'state', group: 'interaction', icon: 'fa-diagram-project', title: 'Cross-phase state',
+      lead: 'The session memory that carries forward. Phase transitions write it; later phases read it — so a returning character, or a promise made, feels shaped by an earlier conversation.',
+      bridgeTitle: 'The thing that makes it one story, not four',
+      bridge: 'Declare a variable (e.g. how much a parent trusts you), then in a phase’s <b>transitions</b> write it per tier. The [SYSTEM STATE] line carries it into every later phase, and the coach must honor it — a parent who left guarded stays guarded until it’s earned back.' },
+    { id: 'phases', group: 'interaction', stage: 'ENGAGE', icon: 'fa-layer-group', title: 'The phases',
+      lead: 'The ordered Practice↔Learn phases the arc walks. Each lives in a world (a live scene opposite a character, or a coaching turn), runs to a turn cap, and ends in a debrief that lands its point for every learner.',
+      bridgeTitle: 'Practice, then Learn — one phase at a time',
+      bridge: 'Each phase opens with a verbatim <b>hand-off</b> (bridge / signpost / scene beats), runs the learner up to its <b>turn cap</b>, then the coach steps back and lands the <b>debrief</b>. <b>Calibration</b> tiers tell it how to read the pass and which tier to report; <b>transitions</b> write the cross-phase state.' },
+    { id: 'voice', group: 'interaction', stage: 'COACH', icon: 'fa-comment-dots', title: 'Coach voice',
+      lead: 'A short persona and working style for the coach between and after the scenes. The detailed voice rules (short bubbles, banned phrases) are locked; this tunes the stance.' },
+
+    { id: 'playbook', group: 'debrief', stage: 'TAKEAWAYS', icon: 'fa-list-check', title: 'The playbook',
+      lead: 'The expert-validated points every learner leaves with, identically, however the conversations went. Shown after the personal results — never AI-generated.',
+      bridgeTitle: 'The compliance close',
+      bridge: 'The role-plays personalize; the playbook standardizes — that pairing is what lets one summative scenario carry the instructional load of the static checks it replaces.' },
+    { id: 'resources', group: 'debrief', stage: 'TAKEAWAYS', icon: 'fa-hand-holding-medical', title: 'Resources',
+      lead: 'Where the learner can really turn. Make these real for the scenario’s world.',
+      bridgeTitle: 'The locked crisis floor',
+      bridge: 'When a scenario is flagged <b>elevated stakes</b>, the 988 crisis line is appended after your resources automatically. You author everything above it; you can’t remove it.' },
+
+    { id: 'guardrails', group: 'reference', icon: 'fa-lock', title: 'System guardrails', locked: true,
+      lead: 'The strict JSON output contract, the character-conduct floor, and the minor-safeguarding floor. You can read them; you can’t break them.' },
+  ];
+
+  function renderFields(sec, H) {
+    const { tf, rowsBlock, rowCard, guidance, esc, scheduleUpdate } = H;
+    const s = H.getScenario();
+    const box = document.createElement('div');
+    box.className = 'fields';
+    const CRISIS_FLOOR = (window.AitheraScenario && window.AitheraScenario.CRISIS_FLOOR) || null;
+
+    // a plain outlined number field bound to obj[key] (no numField in H)
+    const numField = (label, get, set, opts = {}) => {
+      const nf = document.createElement('vaadin-number-field');
+      nf.setAttribute('theme', 'outlined');
+      nf.label = label;
+      if (opts.helper) nf.helperText = opts.helper;
+      nf.min = opts.min != null ? opts.min : 1; nf.step = 1;
+      nf.value = String(get());
+      const on = () => { const n = parseInt(nf.value, 10); set(Number.isFinite(n) && n >= nf.min ? n : nf.min); scheduleUpdate(); };
+      nf.addEventListener('input', on); nf.addEventListener('change', on);
+      return nf;
+    };
+    const row2 = (...kids) => { const r = document.createElement('div'); r.className = 'row2'; r.append(...kids); return r; };
+
+    if (sec.id === 'basics') {
+      const stakes = document.createElement('vaadin-checkbox');
+      stakes.label = 'Elevated stakes — a distressed child / wellbeing scenario (adds the 988 crisis floor)';
+      stakes.checked = !!s.elevatedStakes;
+      const floorCard = document.createElement('div');
+      floorCard.className = 'rowcard lockcard';
+      const renderFloor = () => {
+        floorCard.style.display = (s.elevatedStakes && CRISIS_FLOOR) ? '' : 'none';
+        if (CRISIS_FLOOR) floorCard.innerHTML = `
+          <div class="lockhead"><i class="fa-solid fa-lock"></i> Crisis floor (appended automatically)</div>
+          <div class="note">Because this scenario is flagged elevated stakes, the learner's resources always end with:</div>
+          <details open><summary>${esc(CRISIS_FLOOR.title)}</summary><pre>${esc(CRISIS_FLOOR.body)}</pre></details>`;
+      };
+      const onStakes = () => { s.elevatedStakes = !!stakes.checked; renderFloor(); scheduleUpdate(); };
+      stakes.addEventListener('change', onStakes);
+      stakes.addEventListener('checked-changed', onStakes);
+      renderFloor();
+
+      const minors = document.createElement('vaadin-checkbox');
+      minors.label = 'Involves minors — compile the locked minor-safeguarding floor (age-appropriate portrayal, no peer mediation, the target is never voiced)';
+      minors.checked = !!s.involvesMinors;
+      const onMinors = () => { s.involvesMinors = !!minors.checked; scheduleUpdate(); };
+      minors.addEventListener('change', onMinors);
+      minors.addEventListener('checked-changed', onMinors);
+
+      box.append(
+        tf('title', 'Scenario title', { helper: 'Shown in the learner’s top bar.' }),
+        row2(
+          tf('characterName', 'Default character name (optional)', { helper: 'A fallback for {{character}} (e.g. the first counterpart). Per-phase counterpart overrides the on-screen label.' }),
+          tf('course', 'Course context', { helper: 'The course this arc lives inside — grounds the AI’s register.' }),
+        ),
+        tf('framing', 'Framing line (the premise)', { area: true, minRows: 2, helper: 'Opens the system prompt: "You facilitate <this>, inside a … course." E.g. "a summative role-play on recognizing and responding to identity-based bullying".' }),
+        tf('learnerRole', 'The role the learner plays', { area: true, minRows: 2, helper: 'The through-line role across every phase. E.g. "the student’s 7th-grade teacher — the same adult from the first report to the follow-through".' }),
+        stakes, floorCard, minors,
+      );
+    }
+
+    if (sec.id === 'intro') {
+      box.append(
+        row2(
+          tf('establishing.eyebrow', 'Establishing eyebrow', { placeholder: 'The scenario' }),
+          tf('establishing.title', 'Establishing title', { placeholder: 'The Call from Home' }),
+        ),
+        tf('establishing.sub', 'Establishing sub-line', { area: true, minRows: 2, helper: 'The line under the title on the establishing card.' }),
+      );
+      const rg = document.createElement('vaadin-radio-group');
+      rg.label = 'How the scene is set before the arc';
+      [['reading', 'Reading — text only'], ['audio', 'Narrated audio (listen or read)'], ['video', 'Video cold open'], ['none', 'None — straight in']].forEach(([v, l]) => {
+        const rb = document.createElement('vaadin-radio-button'); rb.value = v; rb.label = l; rg.appendChild(rb);
+      });
+      rg.value = s.intro.type;
+      const introBody = document.createElement('div');
+      const renderIntroBody = () => {
+        introBody.innerHTML = '';
+        const t = s.intro.type;
+        if (t === 'video') {
+          introBody.appendChild(guidance('Adding your own footage', 'fa-film',
+            'Put the clip in <code>products/aithera/assets/videos/</code> (or send it to Chris to add), then paste its URL — relative like <code>../assets/videos/my-clip.mp4</code>, or a full URL. If the clip has its own audio, leave the caption blank.'));
+          introBody.appendChild(rowsBlock('intro.video.scenes', (sc, i, onDel) => rowCard(
+            `Scene ${i + 1}`, onDel,
+            tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../assets/videos/clip.mp4' }),
+            tf(`intro.video.scenes.${i}.caption`, 'Caption (leave blank if the clip is narrated)', { area: true, minRows: 2 }),
+          ), 'Add scene', () => ({ src: '', caption: '' })));
+        }
+        if (t === 'audio' || t === 'reading') {
+          introBody.appendChild(guidance(
+            t === 'audio' ? 'Narrated by the browser — no audio file needed' : 'A read-only context card',
+            t === 'audio' ? 'fa-headphones' : 'fa-book-open',
+            t === 'audio'
+              ? 'The situation is shown and read aloud, each word highlighting as it’s spoken. The learner can listen or just read, then continue into the arc.'
+              : 'The situation is shown as a reading activity. The learner reads, then continues — and the first character appears.'));
+          introBody.append(row2(
+            tf('intro.audio.eyebrow', 'Eyebrow (small label above the card)', { placeholder: 'The situation · read' }),
+            tf('intro.audio.title', 'Card title', { placeholder: 'Before first period' }),
+          ));
+        }
+        if (t === 'none') {
+          introBody.appendChild(guidance('No cold open', 'fa-forward',
+            'The learner lands straight on the establishing card and into the arc. The situation text below still grounds the coach.'));
+        }
+      };
+      const onType = () => { const v = rg.value; if (!v || v === s.intro.type) return; s.intro.type = v; renderIntroBody(); scheduleUpdate(); };
+      rg.addEventListener('value-changed', onType);
+      rg.addEventListener('change', onType);
+      renderIntroBody();
+      box.append(rg, introBody,
+        tf('intro.audio.text', 'The situation (grounds the coach; also the audio/reading script)', { area: true, minRows: 8,
+          helper: 'Everything the coach treats as true about the setup. It never sees the video — this is what it knows. {{character}} / {{learner}} work here.' }));
+    }
+
+    if (sec.id === 'canon') {
+      box.append(guidance('Do-not-generate facts', 'fa-lock',
+        'The fixed source of truth. Characters draw from here and never invent beyond it. Keep each entry one idea; the model reveals them progressively, never all at once.'));
+      box.append(rowsBlock('canon', (c, i, onDel) => rowCard(`Fact ${i + 1}`, onDel,
+        tf('canon.' + i, 'Canon fact', { area: true, minRows: 2 }),
+      ), 'Add canon fact', () => ''));
+    }
+
+    if (sec.id === 'reflection') {
+      box.append(
+        guidance('Optional — calibration, not evaluation', 'fa-comment',
+          'A light opening gut-read. The prompt is delivered verbatim; the coach reflects it back and hands straight into Phase 1 — it never grades this turn. Some arcs (like a parent already sitting across from you) open straight on the first character instead — clear both fields to skip it.'),
+        tf('reflection.prompt', 'Reflection prompt (delivered verbatim)', { area: true, minRows: 3, helper: 'The exact opening line, in the coach’s voice.' }),
+        tf('reflection.feedbackGuidance', 'How the coach responds', { area: true, minRows: 4, helper: 'Calibration guidance — what to acknowledge, what to note. Ends WITHOUT previewing the scene; the app opens Phase 1 next.' }),
+      );
+    }
+
+    if (sec.id === 'cast') {
+      box.append(guidance('Each character reacts to how they’re treated — and reveals only what’s earned', 'fa-user-group',
+        'A character’s <b>reactions</b> map how they respond to being handled well vs. badly. Their <b>disclosures</b> are facts they hold back and give up ONLY when the learner earns it. Phases point at a character by the <b>name</b> here (in the phase’s counterpart).'));
+      box.append(rowsBlock('cast', (c, i, onDel) => rowCard(`Character ${i + 1}${c.name ? ' · ' + esc(c.name) : ''}`, onDel,
+        tf(`cast.${i}.name`, 'Name', { placeholder: 'Ms. Reyes' }),
+        tf(`cast.${i}.baseline`, 'Baseline — how they start, before the learner acts', { area: true, minRows: 2 }),
+        tf(`cast.${i}.driver`, 'Underlying driver (they never announce it)', { area: true, minRows: 2, helper: 'What’s really going on for them — it shapes every reaction and leaks only under the right treatment.' }),
+        guidance('Reaction map — how they meet the learner', 'fa-arrows-split-up-and-left',
+          'Per row: <b>when</b> the learner does X → <b>then</b> the character does Y. Order them best-to-worst, or by the learner’s stance.'),
+        rowsBlock(`cast.${i}.reactions`, (r, j, onDelR) => rowCard(`Reaction ${j + 1}`, onDelR,
+          tf(`cast.${i}.reactions.${j}.when`, 'When the learner…', { area: true, minRows: 2, placeholder: 'Believes and validates her first, then asks with care' }),
+          tf(`cast.${i}.reactions.${j}.then`, '…the character…', { area: true, minRows: 2, placeholder: 'softens, shares more, becomes a partner' }),
+        ), 'Add reaction', () => ({ when: '', then: '' })),
+        tf(`cast.${i}.styleNotes`, 'Style notes (voice, limits, what they never do)', { area: true, minRows: 2 }),
+        guidance('Earned disclosures — what they hold back', 'fa-key',
+          'The heart of this type. Each fact is revealed ONLY when the learner earns it — never volunteered, never dumped. If it’s never earned, the character keeps it (the debrief still makes sure the learner leaves knowing what mattered).'),
+        rowsBlock(`cast.${i}.disclosures`, (d, j, onDelD) => rowCard(`Disclosure ${j + 1}`, onDelD,
+          tf(`cast.${i}.disclosures.${j}.fact`, 'Holds back…', { area: true, minRows: 2, placeholder: 'the past inaction — the ignored email, the counselor voicemail never returned' }),
+          tf(`cast.${i}.disclosures.${j}.earnedBy`, 'Earned by…', { area: true, minRows: 2, placeholder: 'she raises it when she feels doubted, as evidence she’s been let down — not as a gift' }),
+        ), 'Add disclosure', () => ({ fact: '', earnedBy: '' })),
+      ), 'Add character', () => ({ name: '', baseline: '', driver: '', reactions: [], styleNotes: '', disclosures: [] })));
+    }
+
+    if (sec.id === 'state') {
+      box.append(guidance('The memory that carries between phases', 'fa-diagram-project',
+        'Declare a variable, give it a starting value, then write it in a phase’s <b>transitions</b>. The [SYSTEM STATE] line carries the current value into every later phase, and the coach honors it — a returning character remembers.'));
+      box.append(rowsBlock('state', (v, i, onDel) => rowCard(`State variable ${i + 1}${v.label ? ' · ' + esc(v.label) : ''}`, onDel,
+        tf(`state.${i}.key`, 'Key (a short handle transitions write)', { placeholder: 'reyesTrust' }),
+        tf(`state.${i}.label`, 'Label (how it reads on the state line)', { placeholder: 'Ms. Reyes’s trust' }),
+        tf(`state.${i}.initial`, 'Starting value', { area: true, minRows: 2, placeholder: 'guarded — she’s already tried the normal channels' }),
+      ), 'Add state variable', () => ({ key: '', label: '', initial: '' })));
+    }
+
+    if (sec.id === 'phases') {
+      box.append(guidance('Each phase is Practice → Learn, in a world', 'fa-layer-group',
+        'The <b>hand-off</b> beats (bridge / signpost / opening scene beats) are shown VERBATIM. In a <b>live scene</b> the learner acts opposite a <b>counterpart</b>; in a coaching turn they answer the coach. The phase runs to its <b>turn cap</b>, then the coach opens the debrief with the exact <b>talk it through</b> line. <b>Transitions</b> write the cross-phase state.'));
+      box.append(rowsBlock('phases', (p, i, onDel) => {
+        const scene = document.createElement('vaadin-checkbox');
+        scene.label = 'Live scene — the learner acts opposite a character (off = a coaching turn)';
+        scene.checked = p.world === 'scene';
+        const onScene = () => { p.world = scene.checked ? 'scene' : 'coaching'; scheduleUpdate(); };
+        scene.addEventListener('change', onScene); scene.addEventListener('checked-changed', onScene);
+
+        const cap = numField('Turn cap (learner turns before the coach must close the phase)',
+          () => Math.max(1, p.maxTurns || 3), (n) => { p.maxTurns = n; }, { min: 1 });
+
+        const idList = arr(s.phases).map((x) => x.id).filter(Boolean).join(', ') || '—';
+        const stateVars = arr(s.state).filter((v) => String(v.key || '').trim());
+        const transBlock = rowsBlock(`phases.${i}.transitions`, (t, j, onDelT) => {
+          if (!obj(t.set) || typeof t.set !== 'object') t.set = {};
+          const kids = [
+            tf(`phases.${i}.transitions.${j}.onTier`, 'On tier (blank = every path — convergent)', { placeholder: 'STRONG / NEUTRAL / UNTHOUGHTFUL' }),
+            tf(`phases.${i}.transitions.${j}.next`, 'Then go to phase id', { helper: 'Another phase’s id. Blank advances to the next phase in order. Ids: ' + idList }),
+          ];
+          if (stateVars.length) {
+            stateVars.forEach((v) => kids.push(
+              tf(`phases.${i}.transitions.${j}.set.${v.key}`, `Write “${v.label || v.key}”`, { area: true, minRows: 2, helper: 'What this state becomes on this path. Leave blank to not change it.' })));
+          } else {
+            const note = document.createElement('div'); note.className = 'note';
+            note.textContent = 'Declare variables in Cross-phase state to write them here.';
+            kids.push(note);
+          }
+          return rowCard(`Transition ${j + 1}`, onDelT, ...kids);
+        }, 'Add transition', () => ({ onTier: '', next: '', set: {} }));
+
+        return rowCard(`Phase ${i + 1}${p.label ? ' · ' + esc(p.label) : ''}`, onDel,
+          row2(
+            tf(`phases.${i}.label`, 'Phase label', { placeholder: 'The Report' }),
+            tf(`phases.${i}.id`, 'Phase id (transitions point here)', { placeholder: 'report', helper: 'A short handle. Auto-filled if blank.' }),
+          ),
+          tf(`phases.${i}.level`, 'Phase sub-label (optional)', { placeholder: 'Phase 1 · believe, recognize, commit' }),
+          scene,
+          tf(`phases.${i}.counterpart`, 'Counterpart — who the learner faces (scene phases)', { placeholder: 'Ms. Reyes  ·  or "Narrator"', helper: 'A name from the cast, or "Narrator" for a narrated moment. Ignored for coaching phases.' }),
+          cap,
+          guidance('The hand-off INTO this phase (app-owned, shown verbatim)', 'fa-right-to-bracket',
+            'What the learner sees entering the phase. <b>Bridge</b> advances time; <b>signpost</b> frames the task; for a scene, add the locked <b>opening beats</b> (a narration beat, then the character’s first line). Leave a field blank to omit it.'),
+          tf(`phases.${i}.entry.bridge`, 'Bridge (advance-the-story line)', { area: true, minRows: 2 }),
+          tf(`phases.${i}.entry.signpost`, 'Signpost (the on-screen task / hand-off line)', { area: true, minRows: 2 }),
+          tf(`phases.${i}.entry.prompt`, 'Prompt (coaching phases — the task line)', { area: true, minRows: 2 }),
+          rowsBlock(`phases.${i}.entry.beats`, (b, k, onDelB) => rowCard(`Opening beat ${k + 1}`, onDelB,
+            tf(`phases.${i}.entry.beats.${k}.kind`, 'Kind (narration / dialogue)', { placeholder: 'narration' }),
+            tf(`phases.${i}.entry.beats.${k}.name`, 'Speaker name (dialogue only)', { placeholder: 'Ms. Reyes' }),
+            tf(`phases.${i}.entry.beats.${k}.text`, 'The beat (verbatim)', { area: true, minRows: 2 }),
+          ), 'Add opening beat', () => ({ speaker: 'character', kind: 'narration', text: '' })),
+          tf(`phases.${i}.entry.cta`, 'Continue-button label (into the phase)', { placeholder: 'Talk to Ms. Reyes' }),
+          tf(`phases.${i}.inputPlaceholder`, 'Composer placeholder', { placeholder: 'Respond to Ms. Reyes…' }),
+          tf(`phases.${i}.exitCriteria`, 'Exit criteria — what "done" means', { area: true, minRows: 3, helper: 'The coach probes toward this and reports the tier against it. E.g. "the learner believes her first, draws out the pattern, and commits to report + support".' }),
+          tf(`phases.${i}.reactionGuidance`, 'How the scene / character reacts', { area: true, minRows: 4, helper: 'How the moment plays turn to turn — for a narrated scene, how it escalates on hesitation vs. resolves on a strong move.' }),
+          guidance('Calibration — how the coach reads the pass', 'fa-gauge',
+            'Per tier, what a weak / middling / strong handling looks like. Drives the within-phase reactions, the debrief, and the tier the coach reports (which writes the state).'),
+          rowsBlock(`phases.${i}.calibration`, (t, j, onDelT) => rowCard(`Tier ${j + 1}`, onDelT,
+            tf(`phases.${i}.calibration.${j}.tier`, 'Tier name', { placeholder: 'UNTHOUGHTFUL / NEUTRAL / STRONG' }),
+            tf(`phases.${i}.calibration.${j}.guidance`, 'How to read it + what the debrief must add', { area: true, minRows: 3 }),
+          ), 'Add tier', () => ({ tier: '', guidance: '' })),
+          tf(`phases.${i}.debrief.talkItThrough`, '"Talk it through" line (coach opens the debrief with this, verbatim)', { area: true, minRows: 2 }),
+          tf(`phases.${i}.debrief.points`, 'What the debrief lands (every learner leaves with this)', { area: true, minRows: 4 }),
+          guidance('Transitions — where it goes next & what it remembers', 'fa-diagram-project',
+            'Usually convergent: one transition with a blank tier that always advances. The power is the <b>state writes</b> — per tier, record how this phase went so a later phase (or a returning character) is shaped by it.'),
+          transBlock,
+        );
+      }, 'Add phase', () => ({ id: '', label: '', level: '', world: 'scene', counterpart: '', maxTurns: 5, entry: { bridge: '', bridgesByTier: {}, signpost: '', prompt: '', beats: [], cta: '' }, inputPlaceholder: '', exitCriteria: '', reactionGuidance: '', calibration: [], debrief: { talkItThrough: '', points: '' }, transitions: [] })));
+    }
+
+    if (sec.id === 'voice') {
+      box.append(
+        tf('voice.persona', 'Who the coach is', { area: true, minRows: 2, helper: 'A stance, not a script — e.g. "a warm, steady peer coach who has taught middle school and sat in these meetings".' }),
+        tf('voice.guidance', 'How the coach works (optional)', { area: true, minRows: 3, helper: 'Extra working style. The locked voice rules already enforce short bubbles and banned phrases.' }),
+      );
+    }
+
+    if (sec.id === 'playbook') {
+      box.append(rowsBlock('playbook', (p, i, onDel) => rowCard(`Component ${i + 1}`, onDel,
+        tf(`playbook.${i}.title`, 'The point', { placeholder: 'e.g. Believe the report — even secondhand' }),
+        tf(`playbook.${i}.body`, 'What it means / why it matters', { area: true, minRows: 2 }),
+        tf(`playbook.${i}.source`, 'Source (optional — audit provenance, never shown to the learner)', { placeholder: 'JEDU-00422 slide 49' }),
+      ), 'Add component', () => ({ title: '', body: '', source: '' })));
+    }
+
+    if (sec.id === 'resources') {
+      box.append(
+        tf('resources.lead', 'Lead-in line', { area: true, minRows: 2, helper: 'The coach’s sentence introducing the list.' }),
+        rowsBlock('resources.items', (r, i, onDel) => rowCard(`Resource ${i + 1}`, onDel,
+          tf(`resources.items.${i}.title`, 'Resource', { placeholder: 'e.g. Your school’s anti-bullying policy' }),
+          tf(`resources.items.${i}.body`, 'What it offers / how to reach it', { area: true, minRows: 2 }),
+        ), 'Add resource', () => ({ title: '', body: '' })),
+      );
+    }
+
+    if (sec.id === 'guardrails') {
+      // The minor-safeguarding floor is compiled only when the scenario
+      // involves minors — hide its card otherwise so the guardrails reflect
+      // what actually ships for this scenario.
+      EN_ENGINE_SECTIONS.filter((g) => g.id !== 'minor' || s.involvesMinors).forEach((g) => {
+        const card = document.createElement('div');
+        card.className = 'rowcard lockcard';
+        card.innerHTML = `
+          <div class="lockhead"><i class="fa-solid fa-lock"></i> ${esc(g.title)}</div>
+          <div class="note">${esc(g.note || '')}</div>
+          <details><summary>Read the exact locked text</summary><pre data-guardrail="${esc(g.id)}"></pre></details>`;
+        box.appendChild(card);
+      });
+      box.appendChild(guidance('Why these are locked', 'fa-shield-halved',
+        'The page can only render the exact JSON turn shape shown here, and the safety + minor-safeguarding rules always apply. Your canon, cast, phases, and voice fill the prompt around them; they can’t change the shapes the page depends on.'));
+    }
+
+    return box;
+  }
+
   /* ---- the type object ---------------------------------------------------- */
   const TYPE = {
     id: 'ensemble-arc',
@@ -757,10 +1161,11 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     fill,
     highlightStrings,
     previewUrl: () => 'ensemble-arc-live.html',
-    // Studio editor lands in stage 2 (the POC runs the live page off DEFAULT).
-    sections: [],
-    renderFields: () => {},
-    lints: [],
+    sections,
+    renderFields,
+    lints,
+    // v1: no in-studio playtest — publish + open the live page (mirrors
+    // scene-sweep; the multi-phase locked-beat engine playtests on the page).
     playtest: null,
   };
 
