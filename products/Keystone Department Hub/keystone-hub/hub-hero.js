@@ -736,6 +736,7 @@
       if (rt) {
         var id = rt.getAttribute('data-range-toggle');
         openRangeMenu = openRangeMenu === id ? null : id;
+        openDashMenu = false;   // only one menu open at a time, both directions
         window.KXHub.render();
         return;
       }

@@ -831,15 +831,19 @@
     var scoped = roleScope() ? applyFilter(K.TASKS, roleScope()) : K.TASKS;
     var filtered = visibleTasks();
 
-    // Role heroes are phase-2: v1 ships the greeting + task table only.
-    // The Chief's Battalion Pulse hero is RETIRED — a published dashboard replaces
-    // it, so the top of the task list stays above the fold.
+    // The Chief's and Firefighter's published dashboards ship in v1 — no flag.
+    // Both are sized to a single widget row so the top of the task list stays
+    // above the fold, which is what makes them safe to turn on by default. The
+    // Chief's Battalion Pulse hero is RETIRED; this replaces it.
+    //
+    // The two gated roles' heroes stay behind the Future-functionality flag,
+    // as do the rest of the phase-2 surfaces.
     var hero = '';
-    if (flags.futureOn && window.KXHero) {
+    if (window.KXHero) {
       if (r.hero === 'coverage') hero = KXHero.publishedDashboard('chief');
-      else if (r.hero === 'compliance') hero = KXHero.complianceHero(scoped);
-      else if (r.hero === 'crew') hero = KXHero.publishedDashboard('lieutenant');
       else if (r.hero === 'personal') hero = KXHero.publishedDashboard('firefighter');
+      else if (flags.futureOn && r.hero === 'compliance') hero = KXHero.complianceHero(scoped);
+      else if (flags.futureOn && r.hero === 'crew') hero = KXHero.publishedDashboard('lieutenant');
     }
 
     document.getElementById('root').innerHTML =
