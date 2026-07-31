@@ -21,23 +21,23 @@
 
     <style>
       /* ===================================================================
-         MARSHALL — MODE SELECT + NO-AI GUIDED LADDER
+         MARSHALL — TITLE SLIDE + MODE-SELECT MODAL + NO-AI LADDER
 
-         Two decisions live on this page:
-           1) A pre-scenario MODE-SELECT card — the actual UX artifact under
-              review. It offers two EQUAL-STATUS ways to do the same practice:
-                · Conversation practice (AI)  — default, hands off to the live
-                  guided-arc-live.html experience.
-                · Guided scenario (no AI)     — a branching consequence ladder
-                  rendered on this page. No model calls; genuinely AI-free.
-           2) The no-AI ladder itself, deliberately built as an EQUAL — same
-              beats, non-obvious choices, consequence teaching, competency
-              gates (you cannot click straight through), and the IDENTICAL
-              closing toolkit. Not a "lite" multiple-choice speed-run.
+         Flow:
+           1) The learner lands on the Marshall scenario TITLE SLIDE (dark
+              "stage" world), so the choice has context — they can see what
+              they're about to enter.
+           2) A MODAL (light "coaching" world) rises over it: context + an
+              equal-status choice between the live AI conversation practice
+              and a no-AI guided branching ladder. AI is pre-selected; neither
+              is framed as "recommended."
+           3) The choice is echoed back on the title slide with a "Change"
+              affordance, then a "Begin" CTA enters the scenario.
+              · AI     → hands off to guided-arc-live.html (untouched)
+              · No AI  → the branching ladder renders in-page (an EQUAL, not a
+                         lite MCQ — competency gates + identical closing toolkit)
 
-         Palette borrowed from the coaching world of guided-arc-live.html so
-         this reads as part of the same Marshall experience. Vanilla JS,
-         render-by-append, no build, no storage.
+         Vanilla JS, render-by-append, no build, no storage.
          =================================================================== */
       :root {
         color-scheme: light dark;
@@ -58,6 +58,7 @@
         /* Scene world — a lit set in a dark room, constant across themes. */
         --s-ink:         #f3ede5;
         --s-ink-soft:    #c3b6a8;
+        --s-ink-faint:   #a89b8c;
         --s-surface:     #211a16;
         --s-surface-2:   #2c241e;
         --s-line:        #43372e;
@@ -73,6 +74,7 @@
         --radius-sm:10px;
         --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
         --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --shadow-lg: 0 24px 60px rgba(8,10,20,.45);
         --ease: cubic-bezier(.4, 0, .2, 1);
         --measure: 62ch;
       }
@@ -98,53 +100,121 @@
       .app { display: flex; flex-direction: column; height: 100dvh; }
       .stage {
         flex: 1 1 auto;
-        min-height: 0;          /* lets the flex child scroll internally instead of growing the page */
+        min-height: 0;
         overflow-y: auto;
-        display: flex;
-        justify-content: center;
-        padding: clamp(20px, 4vw, 48px) 20px 96px;
+        position: relative;
       }
-      .col { width: 100%; max-width: 720px; }
 
-      /* ============================ MODE SELECT ========================= */
-      .mode-select { animation: rise .4s var(--ease) both; }
-      @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
-      .ms-eyebrow {
-        font-size: .72rem; font-weight: 700; letter-spacing: .09em;
-        text-transform: uppercase; color: var(--c-accent); margin: 0 0 8px;
+      /* ============================ TITLE SLIDE ======================== */
+      /* The Marshall scenario's own landing card — dark "stage" world, so the
+         choice is made in view of what's being entered. */
+      .title-slide {
+        min-height: 100%;
+        background: var(--scene-paint);
+        background-color: #14100c;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 28px; padding: clamp(28px, 6vh, 72px) 24px;
+        text-align: center; color: var(--s-ink);
       }
-      .ms-title { font-size: clamp(1.5rem, 3.4vw, 2rem); line-height: 1.15; margin: 0 0 12px; letter-spacing: -.01em; }
-      .ms-sub {
-        font-size: 1.02rem; line-height: 1.55; color: var(--c-ink-soft);
-        margin: 0 0 28px; max-width: var(--measure);
+      .ts-hero { max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .est-eyebrow {
+        font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+        color: var(--s-ink-faint);
       }
-      .ms-options { display: grid; gap: 14px; }
-      @media (min-width: 720px) { .ms-options { grid-template-columns: 1fr 1fr; } }
+      .est-title { margin: 0; font-size: clamp(26px, 5vw, 38px); font-weight: 700; letter-spacing: -.01em; line-height: 1.1; }
+      .est-sub { margin: 0; font-size: 16px; line-height: 1.6; color: var(--s-ink-soft); max-width: 40ch; }
+      .est-with { margin-top: 2px; font-size: 13px; letter-spacing: .02em; color: var(--s-ink-faint); text-transform: uppercase; }
+
+      /* actions area — filled after a choice is made */
+      .ts-actions { min-height: 1px; display: flex; flex-direction: column; align-items: center; gap: 18px; width: 100%; }
+
+      /* the echoed selection */
+      .mode-chip {
+        display: inline-flex; align-items: center; gap: 16px;
+        background: rgba(255,255,255,.05); border: 1px solid var(--s-line);
+        border-radius: 999px; padding: 9px 10px 9px 18px; max-width: 100%;
+        animation: fade .35s var(--ease) both;
+      }
+      .mc-icon {
+        width: 34px; height: 34px; flex: none; border-radius: 50%;
+        display: grid; place-items: center; font-size: .95rem;
+        background: var(--s-you-soft, rgba(241,179,74,.16)); color: var(--s-you);
+      }
+      .mc-text { text-align: left; display: flex; flex-direction: column; line-height: 1.3; }
+      .mc-label { font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--s-ink-faint); }
+      .mc-value { font-size: .98rem; font-weight: 700; color: var(--s-ink); }
+      .mc-value .mc-tag { font-weight: 600; color: var(--s-ink-soft); font-size: .82rem; }
+      .mc-change {
+        font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 6px; flex: none;
+        background: rgba(255,255,255,.06); color: var(--s-ink-soft);
+        border: 1px solid var(--s-line); border-radius: 999px; padding: 7px 14px;
+        transition: background .15s var(--ease), color .15s var(--ease);
+      }
+      .mc-change:hover { background: rgba(255,255,255,.12); color: var(--s-ink); }
+      .mc-change:focus-visible { outline: 2px solid var(--s-you); outline-offset: 2px; }
+
+      /* Begin — wears the scene's warm amber, previewing the destination. */
+      .ts-begin {
+        display: inline-flex; align-items: center; gap: 10px;
+        font: inherit; font-weight: 700; font-size: 1.02rem;
+        padding: 14px 28px; border: none; border-radius: 999px; cursor: pointer;
+        background: var(--s-you); color: var(--s-you-ink);
+        box-shadow: 0 10px 30px rgba(241,179,74,.22);
+        transition: transform .16s var(--ease), box-shadow .16s var(--ease);
+        animation: fade .35s var(--ease) .05s both;
+      }
+      .ts-begin:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(241,179,74,.3); }
+      .ts-begin:focus-visible { outline: 2px solid var(--s-you); outline-offset: 3px; }
+      @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+
+      /* ============================ MODAL ============================= */
+      .modal-scrim {
+        position: fixed; inset: 0; z-index: 60;
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+        background: rgba(8,10,20,.62); backdrop-filter: blur(2px);
+        animation: scrimIn .25s var(--ease) both;
+      }
+      @keyframes scrimIn { from { opacity: 0; } }
+      .modal {
+        width: 100%; max-width: 660px; max-height: calc(100dvh - 48px); overflow-y: auto;
+        background: var(--c-surface); color: var(--c-ink);
+        border: 1px solid var(--c-line); border-radius: var(--radius);
+        box-shadow: var(--shadow-lg); padding: clamp(22px, 4vw, 32px);
+        animation: modalIn .3s var(--ease) both;
+      }
+      @keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+      .modal-eyebrow {
+        font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+        color: var(--c-accent); margin: 0 0 8px;
+      }
+      .modal-title { font-size: clamp(1.35rem, 3vw, 1.7rem); line-height: 1.15; margin: 0 0 12px; letter-spacing: -.01em; }
+      .modal-context { font-size: .98rem; line-height: 1.55; color: var(--c-ink-soft); margin: 0 0 22px; }
+      .modal-context b { color: var(--c-ink); font-weight: 700; }
+
+      .ms-options { display: grid; gap: 12px; }
+      @media (min-width: 560px) { .ms-options { grid-template-columns: 1fr 1fr; } }
 
       /* Each option is a full radio label. NEITHER carries a "recommended"
-         badge — the AI option is only the DEFAULT selection, never framed as
-         the better one. Both show identical time + credit so they read as
-         genuine equals. */
+         badge — AI is only the DEFAULT selection. Both show the same time
+         estimate so they read as genuine equals. */
       .ms-opt {
         position: relative; display: flex; flex-direction: column; cursor: pointer;
-        background: var(--c-surface);
-        border: 1.5px solid var(--c-line);
-        border-radius: var(--radius);
-        padding: 20px 20px 18px;
-        box-shadow: var(--shadow-sm);
+        background: var(--c-surface); border: 1.5px solid var(--c-line);
+        border-radius: var(--radius-sm); padding: 16px 16px 14px;
         transition: border-color .18s var(--ease), box-shadow .18s var(--ease), transform .18s var(--ease);
       }
       .ms-opt:hover { border-color: var(--c-accent); transform: translateY(-1px); box-shadow: var(--shadow-md); }
       .ms-opt:focus-within { outline: 2px solid var(--c-accent); outline-offset: 2px; }
       .ms-opt input { position: absolute; opacity: 0; pointer-events: none; }
-      .ms-opt:has(input:checked) { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft), var(--shadow-md); }
-      .ms-opt-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+      .ms-opt:has(input:checked) { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); }
+      .ms-opt-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
       .ms-opt-icon {
-        width: 38px; height: 38px; flex: none; border-radius: 10px;
-        display: grid; place-items: center; font-size: 1.05rem;
+        width: 34px; height: 34px; flex: none; border-radius: 9px;
+        display: grid; place-items: center; font-size: .98rem;
         background: var(--c-accent-soft); color: var(--c-accent);
       }
-      .ms-opt-name { font-weight: 700; font-size: 1.08rem; flex: 1; }
+      .ms-opt-name { font-weight: 700; font-size: 1.04rem; flex: 1; }
       .ms-radio {
         width: 20px; height: 20px; flex: none; border-radius: 50%;
         border: 2px solid var(--c-line); display: grid; place-items: center;
@@ -153,16 +223,15 @@
       .ms-opt:has(input:checked) .ms-radio { border-color: var(--c-accent); }
       .ms-radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c-accent); transform: scale(0); transition: transform .18s var(--ease); }
       .ms-opt:has(input:checked) .ms-radio::after { transform: scale(1); }
-      .ms-opt-desc { font-size: .95rem; line-height: 1.5; color: var(--c-ink-soft); margin: 0 0 14px; }
       .ms-tag {
         display: inline-flex; align-items: center; gap: 6px;
-        font-size: .74rem; font-weight: 600; letter-spacing: .01em;
-        padding: 3px 9px; border-radius: 999px; margin-bottom: 12px;
-        background: var(--c-surface-2); color: var(--c-ink-faint);
+        font-size: .74rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; margin-bottom: 10px;
+        background: var(--c-surface-2); color: var(--c-ink-faint); align-self: flex-start;
       }
       .ms-tag i { font-size: .82em; }
+      .ms-opt-desc { font-size: .92rem; line-height: 1.5; color: var(--c-ink-soft); margin: 0 0 12px; }
       .ms-meta {
-        list-style: none; margin: auto 0 0; padding: 12px 0 0; border-top: 1px solid var(--c-line);
+        list-style: none; margin: auto 0 0; padding: 10px 0 0; border-top: 1px solid var(--c-line);
         display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .82rem; color: var(--c-ink-faint);
       }
       .ms-meta li { display: flex; align-items: center; gap: 6px; }
@@ -170,25 +239,26 @@
 
       .ms-note {
         display: flex; align-items: flex-start; gap: 9px;
-        font-size: .86rem; line-height: 1.5; color: var(--c-ink-faint);
-        margin: 22px 0 26px; padding: 12px 14px;
+        font-size: .85rem; line-height: 1.5; color: var(--c-ink-faint);
+        margin: 18px 0 22px; padding: 11px 13px;
         background: var(--c-surface-2); border-radius: var(--radius-sm);
-        max-width: var(--measure);
       }
       .ms-note i { color: var(--c-ink-soft); margin-top: 2px; }
 
+      .modal-actions { display: flex; justify-content: flex-end; }
       .btn-primary {
         display: inline-flex; align-items: center; gap: 10px;
         font: inherit; font-weight: 700; font-size: 1rem;
-        padding: 13px 24px; border: none; border-radius: 999px; cursor: pointer;
+        padding: 12px 24px; border: none; border-radius: 999px; cursor: pointer;
         background: var(--c-accent); color: var(--c-on-accent);
         box-shadow: var(--shadow-md); transition: background .16s var(--ease), transform .16s var(--ease);
       }
       .btn-primary:hover { background: var(--c-accent-strong); transform: translateY(-1px); }
-      .btn-primary:active { transform: translateY(0); }
       .btn-primary:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
 
       /* ============================ LADDER ============================= */
+      .ladder-wrap { display: flex; justify-content: center; padding: clamp(20px, 4vw, 44px) 20px 96px; }
+      .ladder-col { width: 100%; max-width: 720px; }
       .ladder { display: flex; flex-direction: column; gap: 14px; }
       .ladder-head { margin-bottom: 6px; }
       .ladder-eyebrow {
@@ -204,6 +274,7 @@
       .ladder-eyebrow .switch:hover { text-decoration: underline; }
 
       .msg { display: flex; gap: 10px; align-items: flex-start; animation: rise .34s var(--ease) both; }
+      @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
       .avatar {
         width: 32px; height: 32px; flex: none; border-radius: 50%;
         display: grid; place-items: center; font-size: .85rem;
@@ -250,11 +321,7 @@
       .btn-continue:hover { background: var(--c-accent); color: var(--c-on-accent); transform: translateY(-1px); }
       .btn-continue:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
-      /* Gate note — the "you must show you got it" follow-up. */
-      .gate {
-        border-left: 3px solid var(--c-accent); padding-left: 14px; margin-top: 4px;
-        animation: rise .3s var(--ease) both;
-      }
+      .gate { border-left: 3px solid var(--c-accent); padding-left: 14px; margin-top: 4px; animation: rise .3s var(--ease) both; }
       .gate-flag {
         font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
         color: var(--c-accent); margin: 0 0 8px; display: flex; align-items: center; gap: 6px;
@@ -265,8 +332,7 @@
         background: var(--scene-paint); background-color: #14100c;
         border: 1px solid var(--s-line); border-radius: var(--radius);
         padding: 20px; margin: 6px 0; color: var(--s-ink);
-        display: flex; flex-direction: column; gap: 12px;
-        animation: rise .4s var(--ease) both;
+        display: flex; flex-direction: column; gap: 12px; animation: rise .4s var(--ease) both;
       }
       .scene-flag {
         font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
@@ -276,7 +342,7 @@
       .scene-line { display: flex; gap: 10px; align-items: flex-start; }
       .scene-line .who { font-weight: 700; font-size: .8rem; color: var(--s-char); flex: none; width: 42px; padding-top: 2px; }
       .scene-line .said {
-        background: var(--s-char-soft, rgba(199,155,255,.16)); color: var(--s-ink);
+        background: rgba(199,155,255,.16); color: var(--s-ink);
         border-radius: 4px 12px 12px 12px; padding: 10px 14px; font-size: .98rem; line-height: 1.5; max-width: var(--measure);
       }
       .scene-you { display: flex; flex-direction: row-reverse; gap: 10px; }
@@ -285,10 +351,7 @@
         padding: 10px 14px; font-size: .98rem; line-height: 1.5; font-weight: 600; max-width: var(--measure);
       }
       .scene-stage .decide-prompt { color: var(--s-ink); }
-      .scene-stage .opt {
-        background: var(--s-surface-2); color: var(--s-ink); border-color: var(--s-line);
-        box-shadow: none;
-      }
+      .scene-stage .opt { background: var(--s-surface-2); color: var(--s-ink); border-color: var(--s-line); box-shadow: none; }
       .scene-stage .opt:hover { border-color: var(--s-you); }
       .scene-stage .opt .dot { background: var(--s-line); }
       .scene-stage .opt:hover .dot { background: var(--s-you); }
@@ -298,31 +361,21 @@
       .close-banner {
         display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
         padding: 14px 16px; border-radius: var(--radius-sm);
-        background: var(--c-ok-soft); color: var(--c-ok);
-        font-weight: 700; font-size: 1rem;
+        background: var(--c-ok-soft); color: var(--c-ok); font-weight: 700; font-size: 1rem;
       }
       .close-banner i { font-size: 1.3rem; }
       .close-lead { font-size: 1.05rem; line-height: 1.5; margin: 0 0 6px; }
       .close-sub { font-size: .92rem; color: var(--c-ink-soft); margin: 0 0 20px; max-width: var(--measure); }
       .toolkit { display: grid; gap: 12px; }
       @media (min-width: 640px) { .toolkit { grid-template-columns: 1fr 1fr; } }
-      .tk {
-        background: var(--c-surface); border: 1px solid var(--c-line);
-        border-radius: var(--radius-sm); padding: 14px 16px; box-shadow: var(--shadow-sm);
-      }
+      .tk { background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--radius-sm); padding: 14px 16px; box-shadow: var(--shadow-sm); }
       .tk.framework { border-color: var(--c-accent); background: var(--c-accent-soft); }
       .tk-title { font-weight: 700; font-size: .96rem; margin: 0 0 5px; display: flex; align-items: center; gap: 8px; }
       .tk.framework .tk-title { color: var(--c-accent-strong); }
-      .tk-num {
-        width: 22px; height: 22px; flex: none; border-radius: 6px; display: grid; place-items: center;
-        font-size: .72rem; font-weight: 700; background: var(--c-surface-2); color: var(--c-ink-faint);
-      }
+      .tk-num { width: 22px; height: 22px; flex: none; border-radius: 6px; display: grid; place-items: center; font-size: .72rem; font-weight: 700; background: var(--c-surface-2); color: var(--c-ink-faint); }
       .tk.framework .tk-num { background: var(--c-accent); color: var(--c-on-accent); }
       .tk-body { font-size: .88rem; line-height: 1.5; color: var(--c-ink-soft); margin: 0; }
-      .tk-section-label {
-        grid-column: 1 / -1; font-size: .76rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-        color: var(--c-ink-faint); margin: 12px 0 -2px;
-      }
+      .tk-section-label { grid-column: 1 / -1; font-size: .76rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--c-ink-faint); margin: 12px 0 -2px; }
       .resources { margin-top: 24px; }
       .resources h3 { font-size: 1.05rem; margin: 0 0 4px; }
       .resources .lead { font-size: .92rem; color: var(--c-ink-soft); margin: 0 0 14px; }
@@ -338,27 +391,83 @@
       }
       .btn-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
 
-      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+      [hidden] { display: none !important; }
     </style>
 </head>
 <body>
     <div class="app" id="app">
       <main class="stage" id="stage">
-        <div class="col" id="col"><!-- mode-select card, then ladder, render here --></div>
+
+        <!-- The Marshall scenario title slide — the backdrop for the choice. -->
+        <section class="title-slide" id="titleSlide">
+          <div class="ts-hero">
+            <div class="est-eyebrow">The scenario</div>
+            <h1 class="est-title">A colleague named Marshall</h1>
+            <p class="est-sub">You’ve watched it build for eight months. Today you decide what your role in it is.</p>
+            <div class="est-with">Harassment Prevention for Employees</div>
+          </div>
+          <div class="ts-actions" id="tsActions"><!-- selection + Begin injected after the modal --></div>
+        </section>
+
+        <!-- The no-AI ladder mounts here when the learner enters in guided mode. -->
+        <div class="ladder-wrap" id="ladderWrap" hidden>
+          <div class="ladder-col" id="ladderCol"></div>
+        </div>
       </main>
+    </div>
+
+    <!-- ============================ MODE-SELECT MODAL ==================== -->
+    <div class="modal-scrim" id="modalScrim" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <p class="modal-eyebrow">Before you begin</p>
+        <h2 class="modal-title" id="modalTitle">Choose how you’d like to practice</h2>
+        <p class="modal-context">You’re about to step into <b>the Marshall scenario</b> — a break-room moment you’ll have to read and respond to. It can run as a live AI conversation or as a guided scenario without AI. Both cover the same situation and reach the same takeaways, and you can change your choice before you start.</p>
+
+        <div class="ms-options" role="radiogroup" aria-label="How would you like to practice?">
+          <label class="ms-opt">
+            <input type="radio" name="mode" value="ai" checked>
+            <div class="ms-opt-top">
+              <span class="ms-opt-icon"><i class="fa-solid fa-comments"></i></span>
+              <span class="ms-opt-name">Conversation practice</span>
+              <span class="ms-radio" aria-hidden="true"></span>
+            </div>
+            <span class="ms-tag"><i class="fa-solid fa-microchip"></i> Powered by AI</span>
+            <p class="ms-opt-desc">Respond in your own words. A coach preps you before each moment, and an in-character colleague reacts to what you actually say.</p>
+            <ul class="ms-meta"><li><i class="fa-regular fa-clock"></i> About 12 minutes</li></ul>
+          </label>
+
+          <label class="ms-opt">
+            <input type="radio" name="mode" value="guided">
+            <div class="ms-opt-top">
+              <span class="ms-opt-icon"><i class="fa-solid fa-hand-pointer"></i></span>
+              <span class="ms-opt-name">Guided scenario</span>
+              <span class="ms-radio" aria-hidden="true"></span>
+            </div>
+            <p class="ms-opt-desc">Work through the same situation by choosing how to respond. Every choice plays out its consequence, and the coach talks each one through.</p>
+            <ul class="ms-meta"><li><i class="fa-regular fa-clock"></i> About 12 minutes</li></ul>
+          </label>
+        </div>
+
+        <p class="ms-note">
+          <i class="fa-solid fa-lock"></i>
+          <span>Your choice is private — it isn’t recorded against you or shared with your manager, and both paths earn the same credit.</span>
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn-primary" id="modalContinue">Continue <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+      </div>
     </div>
 
     <script>
     /* ==================================================================
        CONTENT — the no-AI ladder, authored from the Marshall v3 scenario
-       (js/scenario-types/guided-arc.js DEFAULT). Every option maps to one
-       of the scenario's calibration tiers; weak/mid answers on the graded
-       beats route through a GATE the learner must clear before advancing.
+       (js/scenario-types/guided-arc.js DEFAULT). Every option maps to a
+       calibration tier; graded beats route weak answers through a GATE the
+       learner must clear before advancing.
        ================================================================== */
     const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-    // A NODE is one of: {say:[...]}, {decide:{...}}, {sceneStart:{...}},
-    // {sceneStep:{...}}, {close:true}. Decisions may nest a `gate`.
     const LADDER = [
       { say: [
         "Whichever way you practice, you’ll work through the same four moments — your gut read, the law, the human cost, and a live moment in the break room — and finish with the very same toolkit.",
@@ -483,9 +592,6 @@
       { close: true },
     ];
 
-    /* The GUARANTEED CLOSE — identical to what the AI path lands on, verbatim
-       from the scenario's playbook + resources. This is what makes the two
-       paths equal: same nine components, same framework, same resources. */
     const PLAYBOOK = [
       { title: "Know what actually qualifies", body: "Gender-stereotype-based conduct is sex-based harassment under Title VII — even without explicit sexual advances or a quid pro quo exchange." },
       { title: "Apply the hostile-work-environment standard", body: "Pervasive, gender-based conduct that makes the workplace intimidating qualifies — and it affects everyone in that environment, not only the primary target." },
@@ -509,78 +615,77 @@
     };
 
     /* ==================================================================
-       RENDER
+       APP STATE + FLOW: title slide → modal → echoed choice → enter
        ================================================================== */
-    const col = document.getElementById('col');
-    const stage = document.getElementById('stage');
     const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
-    const scrollEnd = () => requestAnimationFrame(() => stage.scrollTo({ top: stage.scrollHeight, behavior: 'smooth' }));
+    const stage      = document.getElementById('stage');
+    const titleSlide = document.getElementById('titleSlide');
+    const tsActions  = document.getElementById('tsActions');
+    const ladderWrap = document.getElementById('ladderWrap');
+    const ladderCol  = document.getElementById('ladderCol');
+    const scrim      = document.getElementById('modalScrim');
+    const modalContinue = document.getElementById('modalContinue');
 
-    /* ---------- The mode-select card (the UX artifact under review) ---------- */
-    function renderModeSelect() {
-      col.innerHTML = '';
-      const s = el('section', 'mode-select');
-      s.innerHTML = `
-        <p class="ms-eyebrow">Before you begin</p>
-        <h1 class="ms-title">Choose how you’d like to practice</h1>
-        <p class="ms-sub">Both options cover the same situation and the same takeaways, and both count the same toward completion. Pick whichever fits you.</p>
+    const MODE = {
+      ai:     { icon: 'fa-comments',     label: 'Conversation practice', tag: 'Powered by AI' },
+      guided: { icon: 'fa-hand-pointer', label: 'Guided scenario',       tag: '' },
+    };
+    let chosenMode = null;
 
-        <div class="ms-options" role="radiogroup" aria-label="How would you like to practice?">
-          <label class="ms-opt">
-            <input type="radio" name="mode" value="ai" checked>
-            <div class="ms-opt-top">
-              <span class="ms-opt-icon"><i class="fa-solid fa-comments"></i></span>
-              <span class="ms-opt-name">Conversation practice</span>
-              <span class="ms-radio" aria-hidden="true"></span>
-            </div>
-            <span class="ms-tag"><i class="fa-solid fa-microchip"></i> Powered by AI</span>
-            <p class="ms-opt-desc">Respond in your own words. A coach preps you before each moment, and an in-character colleague reacts to what you actually say.</p>
-            <ul class="ms-meta">
-              <li><i class="fa-regular fa-clock"></i> About 12 minutes</li>
-              <li><i class="fa-solid fa-circle-check"></i> Counts toward completion</li>
-            </ul>
-          </label>
+    function openModal() {
+      // pre-select the current choice (default AI) when reopening
+      const val = chosenMode || 'ai';
+      const input = scrim.querySelector(`input[value="${val}"]`);
+      if (input) input.checked = true;
+      scrim.hidden = false;
+      requestAnimationFrame(() => (input || scrim.querySelector('input')).focus());
+    }
+    function closeModal() { scrim.hidden = true; }
 
-          <label class="ms-opt">
-            <input type="radio" name="mode" value="guided">
-            <div class="ms-opt-top">
-              <span class="ms-opt-icon"><i class="fa-solid fa-hand-pointer"></i></span>
-              <span class="ms-opt-name">Guided scenario</span>
-              <span class="ms-radio" aria-hidden="true"></span>
-            </div>
-            <p class="ms-opt-desc">Work through the same situation by choosing how to respond. Every choice plays out its consequence, and the coach talks each one through.</p>
-            <ul class="ms-meta">
-              <li><i class="fa-regular fa-clock"></i> About 12 minutes</li>
-              <li><i class="fa-solid fa-circle-check"></i> Counts toward completion</li>
-            </ul>
-          </label>
-        </div>
-
-        <p class="ms-note">
-          <i class="fa-solid fa-lock"></i>
-          <span>Your choice is private — it isn’t recorded against you or shared with your manager, and both paths earn the same credit. You can switch at any time.</span>
-        </p>
-
-        <button class="btn-primary" id="beginBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>
-      `;
-      col.appendChild(s);
-      s.querySelector('#beginBtn').addEventListener('click', () => {
-        const mode = s.querySelector('input[name="mode"]:checked').value;
-        if (mode === 'ai') {
-          // Hand off to the existing LIVE Marshall (guided arc). Untouched.
-          window.location.href = 'guided-arc-live.html';
-        } else {
-          startLadder();
-        }
-      });
-      stage.scrollTo({ top: 0 });
+    function confirmChoice() {
+      chosenMode = scrim.querySelector('input[name="mode"]:checked').value;
+      closeModal();
+      renderSelection();
     }
 
-    /* ---------- The no-AI ladder engine ---------- */
-    let ladderEl = null;   // the transcript container
-    let sceneEl  = null;   // active scene panel (null when in coaching world)
+    // Echo the choice back on the title slide with a Change + Begin.
+    function renderSelection() {
+      const m = MODE[chosenMode];
+      tsActions.innerHTML = '';
+      const chip = el('div', 'mode-chip');
+      chip.innerHTML = `
+        <span class="mc-icon"><i class="fa-solid ${m.icon}"></i></span>
+        <span class="mc-text">
+          <span class="mc-label">You’ll practice with</span>
+          <span class="mc-value">${esc(m.label)}${m.tag ? ` <span class="mc-tag">· ${esc(m.tag)}</span>` : ''}</span>
+        </span>
+        <button class="mc-change" id="changeModeBtn"><i class="fa-solid fa-rotate"></i> Change</button>`;
+      const begin = el('button', 'ts-begin', 'Begin <i class="fa-solid fa-arrow-right"></i>');
+      tsActions.appendChild(chip);
+      tsActions.appendChild(begin);
+      chip.querySelector('#changeModeBtn').addEventListener('click', openModal);
+      begin.addEventListener('click', enter);
+    }
 
-    const target = () => sceneEl || ladderEl;
+    function enter() {
+      if (chosenMode === 'ai') {
+        window.location.href = 'guided-arc-live.html';   // the live Marshall, untouched
+      } else {
+        titleSlide.hidden = true;
+        ladderWrap.hidden = false;
+        startLadder();
+      }
+    }
+
+    modalContinue.addEventListener('click', confirmChoice);
+
+    /* ==================================================================
+       NO-AI LADDER ENGINE (unchanged behaviour: say / decide / gate /
+       scene / close)
+       ================================================================== */
+    const scrollEnd = () => requestAnimationFrame(() => stage.scrollTo({ top: stage.scrollHeight, behavior: 'smooth' }));
+    let ladderEl = null;   // transcript container
+    let sceneEl  = null;   // active scene panel (null when in coaching world)
 
     function coachBubble(text) {
       const m = el('div', 'msg coach');
@@ -594,7 +699,6 @@
       m.appendChild(el('div', 'bubble', esc(text)));
       ladderEl.appendChild(m);
     }
-
     function sceneNarr(text) { sceneEl.appendChild(el('div', 'scene-narr', esc(text))); }
     function sceneSaid(who, text) {
       const row = el('div', 'scene-line');
@@ -609,15 +713,19 @@
     }
 
     function startLadder() {
-      col.innerHTML = '';
+      ladderCol.innerHTML = '';
       sceneEl = null;
       const head = el('div', 'ladder-head');
-      head.innerHTML = `<p class="ladder-eyebrow"><i class="fa-solid fa-hand-pointer"></i> Guided scenario · no AI
+      head.innerHTML = `<p class="ladder-eyebrow"><i class="fa-solid fa-hand-pointer"></i> Guided scenario
         <button class="switch" id="switchBtn"><i class="fa-solid fa-arrow-left"></i> Switch mode</button></p>`;
-      col.appendChild(head);
+      ladderCol.appendChild(head);
       ladderEl = el('div', 'ladder');
-      col.appendChild(ladderEl);
-      head.querySelector('#switchBtn').addEventListener('click', renderModeSelect);
+      ladderCol.appendChild(ladderEl);
+      head.querySelector('#switchBtn').addEventListener('click', () => {
+        ladderWrap.hidden = true;
+        titleSlide.hidden = false;
+        openModal();
+      });
       runNode(0);
     }
 
@@ -626,32 +734,22 @@
       const node = LADDER[i];
       const next = () => runNode(i + 1);
 
-      if (node.say) {
-        node.say.forEach(coachBubble);
-        addContinue(next);
-      } else if (node.decide) {
-        renderDecide(node.decide, next);
-      } else if (node.sceneStart) {
+      if (node.say) { node.say.forEach(coachBubble); addContinue(next); }
+      else if (node.decide) { renderDecide(node.decide, next); }
+      else if (node.sceneStart) {
         sceneEl = el('div', 'scene-stage');
         sceneEl.appendChild(el('div', 'scene-flag', `<i class="fa-solid fa-mug-hot"></i> ${esc(node.sceneStart.flag)}`));
         ladderEl.appendChild(sceneEl);
         node.sceneStart.lines.forEach(l => l.narr ? sceneNarr(l.narr) : sceneSaid(l.who, l.said));
         next();
-      } else if (node.sceneLines) {
-        node.sceneLines.forEach(l => l.narr ? sceneNarr(l.narr) : sceneSaid(l.who, l.said));
-        next();
-      } else if (node.sceneStep) {
-        renderSceneStep(node.sceneStep, next);
-      } else if (node.sceneEnd) {
-        sceneEl = null;   // back to the coaching world
-        next();
-      } else if (node.close) {
-        renderClose();
       }
+      else if (node.sceneLines) { node.sceneLines.forEach(l => l.narr ? sceneNarr(l.narr) : sceneSaid(l.who, l.said)); next(); }
+      else if (node.sceneStep) { renderSceneStep(node.sceneStep, next); }
+      else if (node.sceneEnd) { sceneEl = null; next(); }
+      else if (node.close) { renderClose(); }
       scrollEnd();
     }
 
-    // A continue affordance so the learner paces their own reading.
     function addContinue(cb) {
       const row = el('div', 'continue-row');
       const btn = el('button', 'btn-continue', 'Continue <i class="fa-solid fa-arrow-down"></i>');
@@ -661,7 +759,6 @@
       btn.focus();
     }
 
-    // A coaching-world decision. Weak options may nest a gate.
     function renderDecide(d, done) {
       const wrap = el('div', 'decide');
       wrap.appendChild(el('p', 'decide-prompt', esc(d.prompt)));
@@ -669,15 +766,10 @@
       d.options.forEach(o => {
         const b = el('button', 'opt', `<span class="dot"></span><span>${esc(o.text)}</span>`);
         b.addEventListener('click', () => {
-          // lock the choice set
           opts.querySelectorAll('.opt').forEach(x => x.disabled = true);
           youBubble(o.you || o.text);
           (o.reply || []).forEach(coachBubble);
-          if (o.gate) {
-            renderGate(o.gate, done);
-          } else {
-            addContinue(done);
-          }
+          if (o.gate) renderGate(o.gate, done); else addContinue(done);
           scrollEnd();
         });
         opts.appendChild(b);
@@ -686,8 +778,8 @@
       ladderEl.appendChild(wrap);
     }
 
-    // The competency gate: you must pick the correct follow-up to advance.
-    // Wrong picks are coached and re-offered — no clicking straight through.
+    // Competency gate: must pick the correct follow-up to advance; wrong picks
+    // are coached and re-offered (no click-through).
     function renderGate(gate, done) {
       const wrap = el('div', 'gate');
       wrap.appendChild(el('p', 'gate-flag', '<i class="fa-solid fa-turn-down"></i> One more'));
@@ -700,12 +792,8 @@
           b.addEventListener('click', () => {
             youBubble(o.text);
             (o.reply || []).forEach(coachBubble);
-            if (o.correct) {
-              opts.querySelectorAll('.opt').forEach(x => x.disabled = true);
-              addContinue(done);
-            } else {
-              build();   // re-offer the gate after coaching
-            }
+            if (o.correct) { opts.querySelectorAll('.opt').forEach(x => x.disabled = true); addContinue(done); }
+            else build();
             scrollEnd();
           });
           opts.appendChild(b);
@@ -716,7 +804,6 @@
       ladderEl.appendChild(wrap);
     }
 
-    // A scene decision — same shape, rendered inside the dark stage panel.
     function renderSceneStep(step, done) {
       const wrap = el('div', 'decide');
       wrap.appendChild(el('p', 'decide-prompt', esc(step.prompt)));
@@ -736,7 +823,7 @@
       sceneEl.appendChild(wrap);
     }
 
-    /* ---------- The guaranteed close (identical for both paths) ---------- */
+    /* The guaranteed close — identical for both paths. */
     function renderClose() {
       const c = el('div', 'close-block');
       c.appendChild(el('div', 'close-banner', '<i class="fa-solid fa-circle-check"></i> Practice complete'));
@@ -745,27 +832,21 @@
 
       const grid = el('div', 'toolkit');
       grid.appendChild(el('div', 'tk-section-label', 'The nine components'));
-      PLAYBOOK.forEach((p, i) => {
-        grid.appendChild(el('div', 'tk',
-          `<p class="tk-title"><span class="tk-num">${i + 1}</span> ${esc(p.title)}</p><p class="tk-body">${esc(p.body)}</p>`));
-      });
+      PLAYBOOK.forEach((p, i) => grid.appendChild(el('div', 'tk',
+        `<p class="tk-title"><span class="tk-num">${i + 1}</span> ${esc(p.title)}</p><p class="tk-body">${esc(p.body)}</p>`)));
       grid.appendChild(el('div', 'tk-section-label', 'In the moment — the three moves'));
-      FRAMEWORK.forEach((p, i) => {
-        grid.appendChild(el('div', 'tk framework',
-          `<p class="tk-title"><span class="tk-num">${i + 7}</span> ${esc(p.title)}</p><p class="tk-body">${esc(p.body)}</p>`));
-      });
+      FRAMEWORK.forEach((p, i) => grid.appendChild(el('div', 'tk framework',
+        `<p class="tk-title"><span class="tk-num">${i + 7}</span> ${esc(p.title)}</p><p class="tk-body">${esc(p.body)}</p>`)));
       c.appendChild(grid);
 
       const res = el('div', 'resources');
       res.innerHTML = `<h3>Where to turn</h3><p class="lead">${esc(RESOURCES.lead)}</p>`;
-      RESOURCES.items.forEach(r => {
-        res.appendChild(el('div', 'res', `<p class="res-title">${esc(r.title)}</p><p class="res-body">${esc(r.body)}</p>`));
-      });
+      RESOURCES.items.forEach(r => res.appendChild(el('div', 'res', `<p class="res-title">${esc(r.title)}</p><p class="res-body">${esc(r.body)}</p>`)));
       c.appendChild(res);
 
       const rr = el('div', 'restart-row');
-      const again = el('button', 'btn-ghost', '<i class="fa-solid fa-rotate-left"></i> Back to mode select');
-      again.addEventListener('click', renderModeSelect);
+      const again = el('button', 'btn-ghost', '<i class="fa-solid fa-rotate-left"></i> Back to the title slide');
+      again.addEventListener('click', () => { ladderWrap.hidden = true; titleSlide.hidden = false; stage.scrollTo({ top: 0 }); });
       rr.appendChild(again);
       c.appendChild(rr);
 
@@ -773,8 +854,8 @@
       scrollEnd();
     }
 
-    // Boot on the mode-select card.
-    renderModeSelect();
+    // Boot: show the title slide with the choice modal over it.
+    openModal();
     </script>
 
     <!-- ===== Course-delivery frame (production Vector Training chrome) ===== -->
