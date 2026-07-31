@@ -2459,7 +2459,10 @@
       const intoDebrief = (i < items.length) && state.hasEnteredScene
         && (state.mode === 'scene' || state.complete);
       if (intoDebrief) {
+        hideTyping();                                // the reply has arrived — drop the "…" before the Analyzing beat
+                                                     // (a coaching-only close has no leadScene/revealScene to clear it, so it would otherwise hang)
         state.analyzing = true;
+        followStage = true;                          // the input bar swaps height here → keep the last beat pinned in view
         render();                                    // input bar: "Analyzing your response…"
         announce(state.complete ? 'Wrapping up your practice.' : 'Analyzing your response.');
         await wait(reducedMotion() ? 500 : 1600);
@@ -2474,6 +2477,7 @@
           ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null }
           : null;
         state.delivering = false;
+        followStage = true;                          // the taller debrief CTA shrinks the stage → re-pin so the last beat isn't cut off
         render();                                    // input bar: "See what your AI coach noticed →"
         announce('Your AI coach noticed something. Open the coach when you’re ready.');
         return;
@@ -2541,7 +2545,7 @@
     // "See what your AI coach noticed" — the learner opens the queued debrief when
     // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
     // (with the line) stays visible, dimmed, above it.
-    function openDebrief() {
+    async function openDebrief() {
       if (!state.awaitingDebrief || state.sending || state.delivering) return;
       const pending = state.pendingDebrief || [];
       state.pendingDebrief = null;
@@ -2549,10 +2553,10 @@
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
       if (state.complete) { DEBRIEF.openClosing(pending); return; }   // final → the SHARED Section-3 debrief
-      pending.forEach((m) => { m._enter = true; state.messages.push(m); });
       // If the coach's message is a hand-off back into the scene, offer the
       // return as its own reinforcing CTA (e.g. "Check in with Marshall →")
-      // rather than making the learner type — the coach steps them across.
+      // rather than making the learner type — the coach steps them across. Armed
+      // now, but the CTA stays hidden (gated on state.delivering) until the coach finishes.
       if (state.debriefReturn) {
         state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget, sceneSetup: state.debriefReturn.sceneSetup };
         state.returnLabel = state.debriefReturn.label;
@@ -2560,7 +2564,28 @@
         state.awaitingReturn = true;
       }
       announce('Stepped out to your AI coach.');
-      render();   // the coach sheet rises with the debrief (+ a return CTA if armed)
+      // Reveal the debrief one bubble at a time (typing beat between each), the
+      // SAME as the opening prep — not a wall of text dumped in at once. The sheet
+      // rises first (empty), each line types in, then the return CTA appears.
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.delivering = true;
+      render();   // the coach sheet rises (empty); the return CTA is held while delivering
+      let prevText = '';
+      for (let k = 0; k < pending.length; k++) {
+        const m = pending[k];
+        hideTyping();
+        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        prevText = m.text || '';
+        if (k < pending.length - 1) await wait(reducedMotion() ? 80 : 700);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();   // now the return CTA appears beneath the debrief
     }
 
     /* The FINAL debrief — stepper build-up, results modal paging, the
