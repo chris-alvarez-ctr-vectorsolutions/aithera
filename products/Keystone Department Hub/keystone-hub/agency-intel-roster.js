@@ -594,6 +594,17 @@
   }
   function groupById(id) { return GROUPS.find(function (g) { return g.id === id; }) || null; }
 
+  // Edit a saved group in place. Because a group is a live rule, this
+  // changes the audience of every dashboard already published to it —
+  // the dialog surfaces that usage count before the user commits.
+  function updateGroup(id, name, clauses) {
+    var g = groupById(id);
+    if (!g) return null;
+    if (name) g.name = name;
+    if (clauses) g.clauses = clauses.slice();
+    return g;
+  }
+
   /* =====================================================================
      AUDIENCE RESOLUTION
      Titles report counts while groups resolve to people, so reach has to
@@ -632,6 +643,7 @@
     GROUPS: GROUPS,
     groupById: groupById,
     saveGroup: saveGroup,
+    updateGroup: updateGroup,
     resolveAudience: resolveAudience,
     audienceCount: audienceCount,
     FIELD_LIST: FIELD_LIST

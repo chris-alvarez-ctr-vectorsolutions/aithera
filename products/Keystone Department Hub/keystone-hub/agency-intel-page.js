@@ -1165,6 +1165,14 @@
   function openAssignDialog(d) {
     AGENCY_INTEL_AUDIENCE.open({
       dashboard: d,
+      // How many OTHER dashboards ride on this group — editing a live rule
+      // changes their audience too, so the dialog warns before saving.
+      groupUsage: function (gid) {
+        return state.dashboards.filter(function (x) {
+          return x.id !== d.id && x.assignedTo &&
+            (x.assignedTo.groups || []).indexOf(gid) !== -1;
+        }).length;
+      },
       onPublish: function (out) {
         assignDash(d.id, out.audience, out.delivery);
         var live = !!out.audience;

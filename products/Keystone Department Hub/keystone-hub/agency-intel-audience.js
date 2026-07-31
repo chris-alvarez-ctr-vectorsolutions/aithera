@@ -31,6 +31,7 @@
   var NAME_CAP = 8;                       // names shown before "+ N more"
 
   var S = null;                           // per-open state
+  var OPTS = null;                        // options passed to open()
   var HOST = null;                        // dialog body element
   var DLG = null;
 
@@ -136,8 +137,10 @@
           '<span style="flex:1;min-width:0">' +
           '<span class="au-row-name">' + micon('auto_awesome', { size: 13 }) + ' ' + esc(g.name) + '</span>' +
           '<span class="au-row-sub">Live rule · re-evaluates nightly · ' + n + ' today</span></span>' +
+          '<span class="au-dup" data-au-edit="' + attr(g.id) + '" role="button" ' +
+          'title="Change this group\'s rule or name">Edit</span>' +
           '<span class="au-dup" data-au-dup="' + attr(g.id) + '" role="button" ' +
-          'title="Start a new group from this one">Duplicate &amp; refine</span>' +
+          'title="Start a new group from this one">Duplicate</span>' +
           '</button>';
       }).join('') + '</div>';
   }
@@ -208,14 +211,38 @@
           : '')
       : '';
 
-    var save = (hasRule && res.count)
-      ? '<div class="au-save">' +
-        '<input class="au-search" id="auGroupName" value="' + attr(S.name || R.suggestName(S.rule)) + '">' +
-        '<vaadin-button theme="primary" id="auSaveGroup">' + micon('bookmark_add', { size: 16 }) +
-        '<span style="margin-left:6px">Save &amp; use</span></vaadin-button></div>'
+    // Editing an existing group edits a LIVE RULE — every dashboard already
+    // published to it follows the change. Say so plainly, with the count,
+    // before the user commits.
+    var editing = S.editingId ? R.groupById(S.editingId) : null;
+    var used = (editing && OPTS && OPTS.groupUsage) ? OPTS.groupUsage(S.editingId) : 0;
+    var banner = editing
+      ? '<div class="au-editing">' + micon('edit', { size: 14, fill: 1 }) +
+        '<span>Editing <b>' + esc(editing.name) + '</b>' +
+        (used
+          ? ' — this rule is live on <b>' + used + '</b> other dashboard' + (used === 1 ? '' : 's') +
+            ', which will follow this change.'
+          : ' — not used by any other dashboard yet.') +
+        '</span><button class="au-link" data-au-canceledit="1">Cancel</button></div>'
       : '';
 
-    return '<div class="au-sec">' + (S.thread.length ? 'Building a group' : 'Describe a new group') + '</div>' +
+    var save = (hasRule && res.count)
+      ? '<div class="au-save">' +
+        '<input class="au-search" id="auGroupName" value="' +
+        attr(S.name || (editing ? editing.name : R.suggestName(S.rule))) + '">' +
+        (editing
+          ? '<vaadin-button theme="primary" id="auUpdateGroup">' + micon('check', { size: 16 }) +
+            '<span style="margin-left:6px">Save changes</span></vaadin-button>' +
+            '<vaadin-button theme="secondary" id="auSaveGroup">' +
+            '<span>Save as new</span></vaadin-button>'
+          : '<vaadin-button theme="primary" id="auSaveGroup">' + micon('bookmark_add', { size: 16 }) +
+            '<span style="margin-left:6px">Save &amp; use</span></vaadin-button>') +
+        '</div>'
+      : '';
+
+    return '<div class="au-sec">' +
+      (S.editingId ? 'Editing a group' : S.thread.length ? 'Building a group' : 'Describe a new group') +
+      '</div>' + banner +
       '<div class="au-chat">' +
       '<div class="au-thread" id="auThread">' +
       (S.thread.length ? thread :
@@ -377,13 +404,14 @@
     var a = d.assignedTo || {};
     var del = CP.deliveryOf(d);
 
+    OPTS = opts;
     S = {
       step: 'audience', tab: 'titles',
       titles: (a.titles || []).slice(),
       individuals: (a.individuals || []).slice(),
       groups: (a.groups || []).slice(),
       search: '',
-      thread: [], rule: { clauses: [] }, showNames: false, name: '', showSaved: false,
+      thread: [], rule: { clauses: [] }, showNames: false, name: '', showSaved: false, editingId: null,
       // Sources this dashboard's widgets actually read — scopes the
       // entitlement warning so it only fires on relevant gaps.
       required: (function () {
@@ -440,6 +468,21 @@
             if (pi === -1) S.individuals.push(pid); else S.individuals.splice(pi, 1);
             paint(); return;
           }
+          // Edit a saved group in place — loads its rule into the chat.
+          if ((el = e.target.closest('[data-au-edit]'))) {
+            e.stopPropagation();
+            var eg = R.groupById(el.getAttribute('data-au-edit'));
+            if (eg) {
+              S.editingId = eg.id;
+              S.rule = { clauses: eg.clauses.map(function (c) { return Object.assign({}, c); }) };
+              S.name = eg.name;
+              S.showSaved = false;
+              S.thread = [{ role: 'ai', text: 'Editing “' + eg.name +
+                '”. Tell me what to change, or edit the criteria directly.' }];
+              paint();
+            }
+            return;
+          }
           // "Duplicate & refine" sits inside the group row — check it first
           // so it doesn't also toggle selection.
           if ((el = e.target.closest('[data-au-dup]'))) {
@@ -458,6 +501,29 @@
             var gid = el.getAttribute('data-au-group');
             var gi = S.groups.indexOf(gid);
             if (gi === -1) S.groups.push(gid); else S.groups.splice(gi, 1);
+            paint(); return;
+          }
+          if (e.target.closest('[data-au-canceledit]')) {
+            S.editingId = null; S.rule = { clauses: [] }; S.thread = []; S.name = '';
+            paint(); return;
+          }
+          if (e.target.closest('#auUpdateGroup')) {
+            var upName = HOST.querySelector('#auGroupName');
+            var updated = R.updateGroup(S.editingId,
+              (upName && upName.value.trim()) || null, S.rule.clauses);
+            if (updated) {
+              var others = OPTS.groupUsage ? OPTS.groupUsage(updated.id) : 0;
+              KX.pushToast({
+                title: 'Group updated',
+                body: updated.name + ' · ' + R.evaluate(updated).count + ' people today' +
+                  (others ? ' · ' + others + ' other dashboard' + (others === 1 ? '' : 's') + ' updated' : ''),
+                icon: 'edit', tone: 'success'
+              });
+              // Using the group here too is the common intent after editing.
+              if (S.groups.indexOf(updated.id) === -1) S.groups.push(updated.id);
+            }
+            S.editingId = null; S.rule = { clauses: [] }; S.thread = []; S.name = '';
+            S.showSaved = true;
             paint(); return;
           }
           if (e.target.closest('[data-au-showsaved]')) { S.showSaved = true; paint(); return; }
@@ -504,6 +570,7 @@
             S.rule = { clauses: [] };
             S.thread = [];
             S.name = '';
+            S.editingId = null;
             KX.pushToast({ title: 'Group saved', body: g.name + ' · ' + R.evaluate(g).count +
               ' people today', icon: 'bookmark_added', tone: 'success' });
             paint(); return;
