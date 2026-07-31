@@ -339,6 +339,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     id: 'teach-back',
     label: 'Teach-Back',
     icon: 'fa-chalkboard-user',
+    blurb: 'Explain the required topics back from memory.',
     DEFAULT,
     ENGINE_SECTIONS,
     fill: (t) => String(t == null ? '' : t),   // no placeholder substitution here

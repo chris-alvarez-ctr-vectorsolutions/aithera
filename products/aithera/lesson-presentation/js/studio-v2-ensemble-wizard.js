@@ -34,10 +34,11 @@
   if (!T || T.wizard) return;
   const D = T.DEFAULT;
 
-  const lines = (v) => String(v || '').split('\n').map((x) => x.trim()).filter(Boolean);
-  const trim = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n) + '\n[…source trimmed for length…]' : s; };
-  const depunct = (s) => String(s || '').trim().replace(/\.+$/, '');
-  const str = (v) => String(v == null ? '' : v);
+  // Shared intake helpers + coach-voice atoms live in js/studio-wizard-craft.js.
+  const craft = window.AitheraWizardCraft;
+  if (!craft) return;
+  const { lines, trim, depunct, str, sourceBlock,
+          BANNED_PHRASES, GROUNDING_BASE, CITATION_RULE, OUTPUT_JSON_RULE } = craft;
   const clampInt = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 1 ? n : d; };
   const camelKey = (v) => String(v || '').trim().replace(/[^a-zA-Z0-9 ]/g, '').split(/\s+/)
     .map((w, i) => i === 0 ? w.toLowerCase() : (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())).join('').slice(0, 40);
@@ -46,14 +47,14 @@
   /* ---- the shared craft spine (same rules the other specs bake in) ------- */
   const CRAFT_COMMON =
 `You write TWO registers, and keeping them apart is everything:
-- LEARNER-FACING LINES (a character's spoken beats, the coach's scripted openers, narration): short, warm, plain, real. In-character lines are emotional and consequential; coach lines are a sharp colleague, never an AI assistant. Contractions. BANNED for the COACH (and anything pattern-matching them): "I hear you", "that's valid", "sit with that", "here's the thing", "let's unpack", "lean into", "hold space", "great question", "you're not alone in that", "does that resonate", "I want to gently push".
+- LEARNER-FACING LINES (a character's spoken beats, the coach's scripted openers, narration): short, warm, plain, real. In-character lines are emotional and consequential; coach lines are a sharp colleague, never an AI assistant. Contractions. BANNED for the COACH (and anything pattern-matching them): ${BANNED_PHRASES}.
 - GUIDANCE TO THE AI (reaction maps, disclosure ledgers, exit criteria, calibration tiers, debrief points): dense INSTRUCTIONS a model reads mid-conversation. Imperative, specific, semicolon-packed; name the misconceptions to counter and the exact bar to hold.
 
-Ground every field in the designer's interview answers and source material. Invent plausible texture (names, small details) when needed, but NEVER invent laws, statistics, or policy specifics that aren't in the source or common knowledge. Write names literally (no placeholders). NEVER fabricate a source citation — provenance is a compliance record; use an empty string when nothing specific grounds a point.
+${GROUNDING_BASE} ${CITATION_RULE}
 
 DO NOT COPY THE EXEMPLARS' CONTENT: the shipped build is about a parent (Ms. Reyes), a student (Bianca), and a bullied child (Sofia) at Pleasant Street Middle School. Those names, that place, and that topic are a CRAFT reference only — match their density and structure, never their people or facts. Write THIS scenario's world.
 
-OUTPUT — return ONLY one JSON object matching the requested shape: no markdown fences, no commentary, start with { and end with }. Never emit a raw line break inside a JSON string — escape paragraph breaks as \\n\\n.`;
+${OUTPUT_JSON_RULE}`;
 
   const SYS = `You are an expert learning-experience designer and prompt engineer for Aithera's ENSEMBLE engine: a summative, multi-phase role-play where the learner faces MORE THAN ONE distinct character across a connected arc — each character has their own behavior model and their own EARNED-DISCLOSURE ledger, and how the learner treated someone earlier is REMEMBERED and shapes a later beat. The path is CONVERGENT (every learner works all phases in order), but the SESSION STATE carries forward. A designer has answered a plain-language interview; you translate it into scenario fields with shipped-quality craft.
 
@@ -64,10 +65,6 @@ ENSEMBLE-SPECIFIC CRAFT:
 - CHARACTERS REACT IN STEPS: never capitulate in one line, never melt down theatrically; a window closes and reopens slowly; flawed and human, never a caricature or a stereotype of any group.
 - STATE KEYS ARE GENERIC: a session variable's "key" is a short camelCase handle for the RELATIONSHIP or COMMITMENT it tracks — e.g. "parentTrust", "employeeRapport", "commitmentMade" — NEVER a character's proper name (a key like "reyesTrust" is WRONG).`;
 
-  function sourceBlock(intake, cap) {
-    const s = trim(intake.sourceText, cap);
-    return s ? `SOURCE MATERIAL (pasted by the designer — mine it for specifics, echo its facts, never contradict it):\n"""\n${s}\n"""` : 'SOURCE MATERIAL: none pasted — work from the interview alone.';
-  }
   function briefBlock(ik) {
     return `THE BRIEF
 - Topic: ${ik.topic || '(unspecified)'}
@@ -207,7 +204,10 @@ CRAFT EXEMPLAR (shipped build — match craft and density, NOT the topic or the 
             draft.involvesMinors = !!ik.involvesMinors;
             draft.establishing = { eyebrow: 'The scenario', title: depunct(json.establishingTitle), sub: str(json.establishingSub) };
             draft.voice = { persona: depunct(json.coachPersona), guidance: '' };
-            draft.reflection = { prompt: str(json.reflectionPrompt), feedbackGuidance: str(json.reflectionFeedback) };
+            // Reflection is authored-optional: enable the warm-up only if the
+            // model actually wrote a prompt (an empty prompt = open straight on
+            // the first character, the in-medias-res default the deck used).
+            draft.reflection = { enabled: !!str(json.reflectionPrompt).trim(), prompt: str(json.reflectionPrompt), feedbackGuidance: str(json.reflectionFeedback) };
             // Reading-modality context by default (the ensemble landing is a read).
             draft.intro = {
               type: 'reading',

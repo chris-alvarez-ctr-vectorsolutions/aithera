@@ -1178,6 +1178,7 @@ ${groundLines.join('\n')}`);
     id: 'ensemble-arc',
     label: 'Ensemble',
     icon: 'fa-user-group',
+    blurb: 'Several characters in one arc — an earlier choice shapes a later beat.',
     DEFAULT,
     ENGINE_SECTIONS: EN_ENGINE_SECTIONS,
     CONDUCT_SECTION,

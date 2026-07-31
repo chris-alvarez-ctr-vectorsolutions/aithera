@@ -1045,6 +1045,7 @@ FOR THIS MODULE:
     id: 'scene-sweep',
     label: 'Scene Sweep',
     icon: 'fa-magnifying-glass-location',
+    blurb: 'Spot hazards on a photo, then talk them through.',
     DEFAULT,
     ENGINE_SECTIONS: SS_ENGINE_SECTIONS,
     GROUNDING_SECTION,

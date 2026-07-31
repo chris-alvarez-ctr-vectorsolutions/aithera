@@ -678,6 +678,7 @@
     id: 'observe-react',
     label: 'Observe / React',
     icon: 'fa-clapperboard',
+    blurb: 'Review footage one beat at a time with a coach.',
     DEFAULT,
     ENGINE_SECTIONS,
     fill: (t) => String(t == null ? '' : t),   // no {{}} substitution in this mode

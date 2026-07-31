@@ -732,21 +732,22 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     fill,
     highlightStrings,
     previewUrl: () => 'branching-arc-live.html',
-    // Studio editor surface lands in stage 2 (the POC runs the live page off
-    // DEFAULT / published data directly); an empty rail keeps the registry happy.
-    sections: [],
-    renderFields: () => {},
-    lints: [],
-    playtest: null,
+    // NOTE: no studio editor surface (sections / renderFields / lints /
+    // playtest). Branching Arc is authored by hand in DEFAULT and run by its
+    // live page — it is intentionally NOT registered into the studio, so it
+    // needs none of the studio-form contract.
   };
 
-  // Live pages consume this global directly (the marshall-live pattern);
-  // the studio registration below only matters where the registry exists.
+  // Live pages consume this global directly (the marshall-live pattern).
   window.AitheraBranchingArc = TYPE;
 
+  // Branching Arc is NOT authored in the Writer Studio — the POC runs its live
+  // page (branching-arc-live.html) directly off DEFAULT / published data — so
+  // it deliberately does NOT register into the studio type registry (the studio
+  // only lists authorable types). It still uses the shared per-type store for
+  // the publish → live handoff, so wire that when the engine is present.
   if (window.AitheraStudio) {
-    const S = window.AitheraStudio;
-    TYPE.store = S.makeStore(S.makeKeys(TYPE.id), { isValid, normalize });
-    S.register(TYPE);
+    TYPE.store = window.AitheraStudio.makeStore(
+      window.AitheraStudio.makeKeys(TYPE.id), { isValid, normalize });
   }
 })();

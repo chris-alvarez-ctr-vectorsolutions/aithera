@@ -29,25 +29,25 @@
   'use strict';
   if (!window.AitheraStudio) return;
 
-  const lines = (v) => String(v || '').split('\n').map((x) => x.trim()).filter(Boolean);
-  const trim = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n) + '\n[…source trimmed for length…]' : s; };
-  const depunct = (s) => String(s || '').trim().replace(/\.+$/, '');
-  const str = (v) => String(v == null ? '' : v);
+  // Shared intake helpers + the invariant coach-voice atoms (banned phrases,
+  // grounding, citation, JSON-output rule) live in js/studio-wizard-craft.js
+  // so they can't drift across the wizard specs.
+  const craft = window.AitheraWizardCraft;
+  if (!craft) return;
+  const { lines, trim, depunct, str, sourceBlock,
+          BANNED_PHRASES, GROUNDING_BASE, CITATION_RULE, OUTPUT_JSON_RULE } = craft;
 
-  /* ---- the shared craft spine (same rules the guided-arc spec bakes in) -- */
+  /* ---- the craft spine: THIS pedagogy's two-register framing, composed from
+     the shared atoms above. The framing (what counts as a learner-facing line
+     vs. guidance) is Roleplay-specific; the voice rules are shared. */
   const CRAFT_COMMON =
 `You write TWO registers, and keeping them apart is everything:
-- LEARNER-FACING LINES (opening questions, scripted coach lines, narration captions): the coach's SPOKEN voice. Short, warm, plain, direct — a sharp colleague, never an AI assistant. Contractions. BANNED (and anything that pattern-matches them): "I hear you", "that's valid", "sit with that", "here's the thing", "let's unpack", "lean into", "hold space", "great question", "you're not alone in that", "does that resonate", "I want to gently push".
+- LEARNER-FACING LINES (opening questions, scripted coach lines, narration captions): the coach's SPOKEN voice. Short, warm, plain, direct — a sharp colleague, never an AI assistant. Contractions. BANNED (and anything that pattern-matches them): ${BANNED_PHRASES}.
 - GUIDANCE TO THE AI (rubric strong/weak lines, reaction maps, grading rules, gate nudges, feedback briefs): dense INSTRUCTIONS a model reads mid-conversation. Imperative, specific, semicolon-packed; name the misconceptions to counter and the exact bar to hold.
 
-Ground every field in the designer's interview answers and source material. Invent plausible texture (names, small details) when needed, but NEVER invent laws, statistics, or policy specifics that aren't in the source or common knowledge. Write names literally (no placeholders). NEVER fabricate a source citation — provenance is a compliance record; use an empty string when nothing specific grounds a point.
+${GROUNDING_BASE} ${CITATION_RULE}
 
-OUTPUT — return ONLY one JSON object matching the requested shape: no markdown fences, no commentary, start with { and end with }. Never emit a raw line break inside a JSON string — escape paragraph breaks as \\n\\n.`;
-
-  function sourceBlock(intake, cap) {
-    const s = trim(intake.sourceText, cap);
-    return s ? `SOURCE MATERIAL (pasted by the designer — mine it for specifics, echo its facts, never contradict it):\n"""\n${s}\n"""` : 'SOURCE MATERIAL: none pasted — work from the interview alone.';
-  }
+${OUTPUT_JSON_RULE}`;
 
   /* =======================================================================
      1) ACTION-PRACTICE ("Roleplay") — the Kendra format: the learner speaks
