@@ -480,6 +480,12 @@
             ((widget.w || 6) === s.w ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
         }).join('') +
         '<div class="kx-menu-divider"></div>' +
+        '<div class="kx-menu-label">Export</div>' +
+        '<button class="kx-menu-row" data-w-pdf="' + KX.attr(widget.id) + '">' +
+        micon('picture_as_pdf', { size: 16 }) + '<span class="label">Export as PDF</span></button>' +
+        '<button class="kx-menu-row" data-w-csv="' + KX.attr(widget.id) + '">' +
+        micon('table_view', { size: 16 }) + '<span class="label">Export as CSV</span></button>' +
+        '<div class="kx-menu-divider"></div>' +
         '<button class="kx-menu-row" data-w-remove="' + KX.attr(widget.id) + '" style="color:var(--coral-500)">' +
         micon('delete', { size: 16 }) + '<span class="label">Remove widget</span></button>' +
         '</div>'
