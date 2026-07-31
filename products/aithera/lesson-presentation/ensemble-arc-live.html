@@ -1458,7 +1458,7 @@
          published). It reuses the SAME data-driven ladder engine as
          branching-arc-live.html; only the type wiring differs. -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/ensemble-arc.js?v=4"></script>
+    <script src="js/scenario-types/ensemble-arc.js?v=5"></script>
 
     <script>
     /* =====================================================================
@@ -1501,7 +1501,12 @@
       const g = EN_TYPE.normalize(raw);
       const fillT = (t) => EN_TYPE.fill(t, g);
       return Object.assign({}, g, {
-        opening: [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map(fillT),
+        // The opening reflection is authored-optional: present ONLY when enabled
+        // AND it has a prompt. When off, `opening` is empty and the boot hands
+        // straight into Phase 1 (see startSession / deliverFirstPhase).
+        opening: ((g.reflection || {}).enabled !== false)
+          ? [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map(fillT)
+          : [],
         sceneLineCaption: 'You',
       });
     }
@@ -3291,7 +3296,25 @@
       state.mode = 'coaching'; state.inputTarget = 'coach';
       announce('Bringing in your AI coach.');
       render();                 // the sheet rises (empty) over the scene anchor
-      await deliverOpening();   // each opening line types into the sheet, one by one
+      if (ACTIVE_SCENARIO.opening.length) {
+        await deliverOpening();      // the reflection warm-up: its lines type in, one by one
+      } else {
+        await deliverFirstPhase();   // no warm-up authored → open straight on Phase 1
+      }
+    }
+
+    // No reflection warm-up: after the intro, open straight on the first phase.
+    // Reuses the EXACT post-reflection path — closePhase(null) cues phase 0 and
+    // sets phaseIdx, applyDeliver appends its locked entry (+ the scene handshake
+    // for a scene phase), deliverTurn presents it — carrying any context-seed
+    // opening bubbles first. This avoids stranding the learner at phaseIdx=-1
+    // on an empty coach sheet when there's no gut-read to give.
+    async function deliverFirstPhase() {
+      const t = { turn: [...(state.pendingOpening || [])] };
+      state.pendingOpening = null;
+      closePhase(null, t);      // → t.deliver = phases[0].id, state.phaseIdx = 0
+      applyDeliver(t);          // appends phase 0's entry beats (+ scene handshake)
+      await deliverTurn(t);
     }
 
     // Reveal the coach's opening prep message-by-message (typing beat between each),

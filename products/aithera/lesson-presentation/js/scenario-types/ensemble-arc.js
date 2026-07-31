@@ -148,10 +148,12 @@
       guidance: '',
     },
 
-    // REFLECTION — a brief, non-evaluated gut-read before the learner meets
-    // Ms. Reyes. (The source deck opens straight on the parent; we keep a light
-    // ENTER beat for house consistency — it never grades and hands right in.)
+    // REFLECTION — an OPTIONAL brief, non-evaluated gut-read before the first
+    // character. The source deck opens straight on the parent (no warm-up), so
+    // this ships with enabled:false — the arc hands right into Ms. Reyes. The
+    // prompt is kept so an author can flip it back on with one toggle.
     reflection: {
+      enabled: false,
       prompt: 'Before Sofia’s mother starts — take a second. You’ve watched Sofia go quiet for weeks, and now her mother has taken time off work to come in. What’s your read walking into this, and what are you hoping to do for Sofia?',
       feedbackGuidance: 'CALIBRATION ONLY, do not evaluate. 2-3 short bubbles: acknowledge their read in their own words; note whether they’re leaning toward believing-and-helping vs. wait-and-see, without grading it. END on that calibration — do NOT preview the meeting or hand off; the app opens the scene with Ms. Reyes next.',
     },
@@ -409,6 +411,10 @@
     const course = fill(s.course, s) || 'training';
     const voice = obj(s.voice);
     const refl = obj(s.reflection);
+    // The opening reflection is OPTIONAL — present only when enabled AND it has a
+    // prompt. When off, the arc opens straight on the first phase, so none of the
+    // reflection scaffolding below is compiled into the prompt.
+    const hasRefl = refl.enabled !== false && !!String(fill(refl.prompt, s)).trim();
     const phases = arr(s.phases).filter((p) => p && p.id);
     const namedCounterparts = [...new Set(phases
       .filter((p) => p.world === 'scene' && String(p.counterpart || '').trim() && p.counterpart !== 'Narrator')
@@ -473,10 +479,11 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
 
     // 4) Locked beats verbatim.
     const lockedBlocks = [];
+    const groundLines = [`    THE SITUATION: "${situation}"`];
+    if (hasRefl) groundLines.push(`    Coach: "${fill(refl.prompt, s)}"`);
     lockedBlocks.push(
-`ALREADY DELIVERED before the conversation starts — the learner just read THE SITUATION, then the app showed your reflection prompt. Ground your coaching in these details (don't repeat them back):
-    THE SITUATION: "${situation}"
-    Coach: "${fill(refl.prompt, s)}"`);
+`ALREADY DELIVERED before the conversation starts — the learner just read THE SITUATION${hasRefl ? ', then the app showed your reflection prompt' : ' and the app is opening the first phase now'}. Ground your coaching in these details (don't repeat them back):
+${groundLines.join('\n')}`);
     phases.forEach((p, i) => {
       const e = obj(p.entry);
       const lines = [];
@@ -490,8 +497,8 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
 
     // 5) The arc, phase by phase.
     const arcParts = [];
-    arcParts.push(`THE ARC — reflection, then ${phases.length} connected phases in order, then the close.`);
-    arcParts.push(
+    arcParts.push(`THE ARC — ${hasRefl ? 'reflection, then ' : ''}${phases.length} connected phases in order, then the close.`);
+    if (hasRefl) arcParts.push(
 `REFLECTION (Learn, no evaluation):
 - ${refl.feedbackGuidance ? fill(refl.feedbackGuidance, s) : 'Respond to the learner’s gut read with 2-3 short bubbles — calibration only, never evaluation.'} Set "action":"teach" (no tier — nothing is graded here); the app then opens Phase 1. (If the input is off-script, set "action":"redirect" and re-ask instead.)`);
     phases.forEach((p, i) => {
@@ -572,7 +579,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
 
     // 9) Behavioral rules.
     parts.push('BEHAVIORAL RULES:\n' + [
-      'Reflection feedback is calibration ONLY — acknowledge, never evaluate.',
+      hasRefl ? 'Reflection feedback is calibration ONLY — acknowledge, never evaluate.' : null,
       'In PRACTICE, hold your teaching until the phase closes; teach only when you close it (action:"teach").',
       'A coaching-phase "continue" MUST end with a question that hands the turn back — never a lone statement.',
       'NEVER ask the learner a question AND close the phase in the same turn. A turn that ends on a question is a "continue"; only a landing turn with no dangling question closes.',
@@ -586,7 +593,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       'Reflect the learner’s OWN words back when you acknowledge or recap.',
       'Never shame any response — redirect with curiosity and specificity.',
       `Address the learner only as "${L}".`,
-    ].map((r) => '- ' + r).join('\n'));
+    ].filter(Boolean).map((r) => '- ' + r).join('\n'));
 
     // 10) Completion + the guaranteed close.
     parts.push(
@@ -699,7 +706,9 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     out.intro = intro;
 
     out.voice = { persona: '', guidance: '', ...obj(out.voice) };
-    out.reflection = { prompt: '', feedbackGuidance: '', ...obj(out.reflection) };
+    // enabled defaults true (a pre-field draft that has a prompt keeps its
+    // warm-up); only an explicit false opens straight on the first character.
+    out.reflection = { prompt: '', feedbackGuidance: '', ...obj(out.reflection), enabled: obj(out.reflection).enabled !== false };
     out.canon = arr(out.canon).map((c) => String(c == null ? '' : c));
     out.state = arr(out.state).map(SVAR).filter((v) => v.key);
     out.cast = arr(out.cast).map(CASTC);
@@ -729,7 +738,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       establishing: { eyebrow: '', title: '', sub: '' }, openingImage: '',
       intro: { type: 'none', video: { sound: true, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
       voice: { persona: '', guidance: '' },
-      reflection: { prompt: '', feedbackGuidance: '' },
+      reflection: { enabled: true, prompt: '', feedbackGuidance: '' },
       canon: [], state: [], cast: [],
       phases: [{ id: 'phase1', label: '', level: '', world: 'scene', counterpart: '', maxTurns: 5, entry: { bridge: '', bridgesByTier: {}, signpost: '', prompt: '', beats: [], cta: '' }, inputPlaceholder: '', exitCriteria: '', reactionGuidance: '', calibration: [], debrief: { talkItThrough: '', points: '' }, transitions: [] }],
       playbook: [], resources: { lead: '', items: [] },
@@ -773,6 +782,9 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
 
     const canon = arr(s.canon).filter((c) => !empty(c));
     if (!canon.length) add('warn', 'canon', 'No locked canon.', 'Characters draw from the canon and never invent beyond it — without it, facts drift run to run.');
+
+    const refl = s.reflection || {};
+    if (refl.enabled !== false && empty(refl.prompt)) add('info', 'reflection', 'Warm-up is on but has no prompt.', 'Either write the opening gut-read line, or turn the warm-up off to open straight on the first character.');
 
     const cast = arr(s.cast).filter((c) => c && !empty(c.name));
     if (!cast.length) add('warn', 'cast', 'No characters in the cast.', 'Multiple believable counterparts in one run is the point of this type — name at least the people the learner faces.');
@@ -988,12 +1000,29 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     }
 
     if (sec.id === 'reflection') {
-      box.append(
-        guidance('Optional — calibration, not evaluation', 'fa-comment',
-          'A light opening gut-read. The prompt is delivered verbatim; the coach reflects it back and hands straight into Phase 1 — it never grades this turn. Some arcs (like a parent already sitting across from you) open straight on the first character instead — clear both fields to skip it.'),
-        tf('reflection.prompt', 'Reflection prompt (delivered verbatim)', { area: true, minRows: 3, helper: 'The exact opening line, in the coach’s voice.' }),
-        tf('reflection.feedbackGuidance', 'How the coach responds', { area: true, minRows: 4, helper: 'Calibration guidance — what to acknowledge, what to note. Ends WITHOUT previewing the scene; the app opens Phase 1 next.' }),
-      );
+      box.append(guidance('Optional — a warm-up, or open straight on the character', 'fa-comment',
+        'A light opening gut-read before the first character: the prompt is delivered verbatim, the coach calibrates it (never grades it), then hands into Phase 1. Turn it OFF for an arc that should open <b>in the moment</b> — a parent already sitting across from you — and the learner\'s first move is talking to that character. (The source deck for the shipped Bullying build opens this way.)'));
+
+      const on = document.createElement('vaadin-checkbox');
+      on.label = 'Open with a reflection warm-up first (off = hand straight into the first character)';
+      on.checked = s.reflection.enabled !== false;
+      const fieldsWrap = document.createElement('div');
+      const renderReflFields = () => {
+        fieldsWrap.innerHTML = '';
+        if (s.reflection.enabled === false) {
+          fieldsWrap.append(guidance('Opens straight on the first character', 'fa-forward',
+            'No warm-up — after the intro, the arc hands directly into Phase 1. The prompt below is kept for if you turn the warm-up back on.'));
+        }
+        fieldsWrap.append(
+          tf('reflection.prompt', 'Reflection prompt (delivered verbatim)', { area: true, minRows: 3, helper: 'The exact opening line, in the coach’s voice.' }),
+          tf('reflection.feedbackGuidance', 'How the coach responds', { area: true, minRows: 4, helper: 'Calibration guidance — what to acknowledge, what to note. Ends WITHOUT previewing the scene; the app opens Phase 1 next.' }),
+        );
+      };
+      const onToggle = () => { s.reflection.enabled = !!on.checked; renderReflFields(); scheduleUpdate(); };
+      on.addEventListener('change', onToggle);
+      on.addEventListener('checked-changed', onToggle);
+      renderReflFields();
+      box.append(on, fieldsWrap);
     }
 
     if (sec.id === 'cast') {
