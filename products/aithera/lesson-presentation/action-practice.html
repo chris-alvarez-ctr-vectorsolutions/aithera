@@ -1107,6 +1107,26 @@
       }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
       /* —— "Analyzing your response…" — shown IN the input area (not over the
          scene), so the learner keeps reading the reaction while the coach reviews —— */
       .input-analyzing {
@@ -2538,6 +2558,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
       state.sending = true;
       render();          // shows the learner's line (faded in) and locks input
+      await wait(reducedMotion() ? 80 : 700);   // a beat before the reply begins — a real response doesn't start the instant you hit send
       showTyping();      // the AI is composing — covers the model round-trip
 
       let turn;
@@ -2934,7 +2955,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
         state.messages.push(m);
         render();
         // just a short settle so the next "thinking" doesn't start the same instant
-        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
         if (dead()) return;
       }
       state.delivering = false;

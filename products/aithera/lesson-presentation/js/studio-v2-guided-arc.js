@@ -273,14 +273,16 @@
   /* =======================================================================
      3) THE WIZARD SPEC — brief → interview → staged generation.
      ======================================================================= */
+  // Shared intake helpers + coach-voice atoms live in js/studio-wizard-craft.js
+  // so the voice rules can't drift across specs.
+  const craft = window.AitheraWizardCraft;
+  if (!craft) return;
+  const { lines, trim, depunct, sourceBlock, BANNED_PHRASES, GROUNDING_BASE, OUTPUT_JSON_RULE } = craft;
   const arr = (x) => (Array.isArray(x) ? x : []);
-  const lines = (v) => String(v || '').split('\n').map((x) => x.trim()).filter(Boolean);
-  // The compiler drops these strings into sentences of its own ("You are
-  // <persona>.", "a LIVE <place>") — strip trailing periods / leading
-  // articles so template + generated text never collide.
-  const depunct = (s) => String(s || '').trim().replace(/\.+$/, '');
+  // Guided-arc-only: the compiler drops generated phrases into sentences of its
+  // own ("You are <persona>.", "a LIVE <place>") — strip a leading article so
+  // template + generated text never collide. (depunct is shared above.)
   const noArticle = (s) => String(s || '').trim().replace(/^(the|a|an)\s+/i, '');
-  const trim = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n) + '\n[…source trimmed for length…]' : s; };
   const slug = (s, i) => (String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 24) || ('turn' + (i + 1)));
 
   /* ---- exemplars, pulled live from the shipped Marshall DEFAULT ---------- */
@@ -310,12 +312,12 @@
 `You are an expert learning-experience designer and prompt engineer for Aithera's GUIDED ARC engine — an AI-coached Learn/Practice scenario format. A learning designer has answered a plain-language interview; you translate their answers into scenario fields with shipped-quality craft.
 
 You write TWO registers, and keeping them apart is everything:
-- LEARNER-FACING LINES (signposts, task prompts, "talk it through" openers, scene beats, reflection prompt): the coach's SPOKEN voice. Short, warm, plain, direct — a sharp colleague who has run this training a hundred times, never an AI assistant. Contractions. No corporate-training diction. BANNED (and anything that pattern-matches them): "I hear you", "that's valid", "sit with that", "here's the thing", "let's unpack", "lean into", "hold space", "great question", "you're not alone in that", "does that resonate", "I want to gently push".
+- LEARNER-FACING LINES (signposts, task prompts, "talk it through" openers, scene beats, reflection prompt): the coach's SPOKEN voice. Short, warm, plain, direct — a sharp colleague who has run this training a hundred times, never an AI assistant. Contractions. No corporate-training diction. BANNED (and anything that pattern-matches them): ${BANNED_PHRASES}.
 - GUIDANCE TO THE COACH (calibration tiers, feedback guidance, escalation, debrief points): dense INSTRUCTIONS a coach AI reads mid-conversation. Imperative, specific, semicolon-packed; name the misconceptions to counter head-on and the exact conclusion to land. Written ABOUT the learner, TO the coach.
 
-Ground every field in the designer's interview answers and source material. Invent plausible texture (names, small details) when needed, but NEVER invent laws, statistics, or policy specifics that aren't in the source or common knowledge. Write names literally (no placeholders).
+${GROUNDING_BASE}
 
-OUTPUT — return ONLY one JSON object matching the requested shape: no markdown fences, no commentary, start with { and end with }. Never emit a raw line break inside a JSON string — escape paragraph breaks as \\n\\n.`;
+${OUTPUT_JSON_RULE}`;
 
   /* ---- intake → user-message serialization ------------------------------- */
   function briefBlock(intake) {
@@ -334,10 +336,6 @@ OUTPUT — return ONLY one JSON object matching the requested shape: no markdown
 - What people commonly get wrong or minimize: ${intake.misconceptions || '(unspecified)'}
 - What a sharp, experienced person would say or do: ${intake.strongAnswer || '(unspecified)'}
 - How the coach should come across: ${intake.coachVibe || '(designer left this to you — precise, warm peer)'}`;
-  }
-  function sourceBlock(intake, cap) {
-    const s = trim(intake.sourceText, cap);
-    return s ? `SOURCE MATERIAL (pasted by the designer — mine it for specifics, echo its facts, never contradict it):\n"""\n${s}\n"""` : 'SOURCE MATERIAL: none pasted — work from the interview alone.';
   }
   function foundationBlock(acc) {
     const f = acc.results.foundation || {};

@@ -49,7 +49,19 @@ drawer over the current page" pattern) hits several rough edges:
    **Workaround:** `typeof e.detail === 'boolean' ? e.detail : el.open`.
    **Ask:** align on `detail.value` (or document the boolean-detail shape).
 
-5. **Built-in close (collapse-button) vs. custom header.**
+5. **Slotted content isn't stretched to panel height (and is slotted at an offset).**
+   `drawer-content` content is not sized to the drawer's height, and the host
+   places it at a vertical offset — so a flex column with `height:100%` collapses
+   (its scroll region never engages) and `height:100vh` overshoots past the
+   viewport bottom. Result: the panel's own content overflowed below the viewport
+   instead of scrolling internally.
+   **Workaround:** pin the slotted panel itself with `position: fixed; top:0;
+   right:0; bottom:0` (moving width + shadow onto it), so its `flex:1;
+   overflow-y:auto` body scrolls and header/footer stay fixed.
+   **Ask:** stretch `drawer-content` to fill the drawer panel (no offset), so a
+   normal `height:100%` flex column with an internal scroll area just works.
+
+6. **Built-in close (collapse-button) vs. custom header.**
    The drawer renders its own collapse/close button; we needed a custom title
    row + close affordance, so we set `closable="false"` and supplied our own.
    Minor — works fine — but worth noting there's no "header slot with a built-in

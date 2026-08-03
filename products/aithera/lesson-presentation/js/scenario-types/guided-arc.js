@@ -1311,6 +1311,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     id: 'guided-arc',
     label: 'Guided Arc',
     icon: 'fa-diagram-project',
+    blurb: 'Coached Learn turns, then a live Practice scene.',
     DEFAULT,
     ENGINE_SECTIONS: GA_ENGINE_SECTIONS,
     CRISIS_FLOOR: (window.AitheraScenario && window.AitheraScenario.CRISIS_FLOOR) || null,

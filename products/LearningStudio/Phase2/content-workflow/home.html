@@ -102,7 +102,7 @@
 
     /* ---- Start something new (type tiles) ---- */
     .start-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    @media (min-width: 820px) { .start-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 820px) { .start-grid { grid-template-columns: repeat(3, 1fr); } }
     .start-tile {
       position: relative; overflow: hidden; background: #fff; border: 1px solid rgba(0,0,0,.04);
       border-radius: 15px; padding: 20px; cursor: pointer;
@@ -118,7 +118,8 @@
       color: #fff; font-size: 18px; margin-bottom: 14px; background: var(--accent);
       transition: transform .26s cubic-bezier(.2,.7,.3,1), box-shadow .26s;
     }
-    .start-tile h4 { position: relative; margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+    .start-tile h4 { position: relative; margin: 0 0 4px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+    .start-tile .st-soon { font-size: 8.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 20px; padding: 1px 6px; }
     .start-tile p { position: relative; margin: 0; font-size: 12px; line-height: 1.5; color: var(--lumo-secondary-text-color, #5b6472); }
 
     /* ---- Recent work ---- */
@@ -262,12 +263,12 @@
     /* ============================================================
        DATA
        ============================================================ */
-    // Content types — mirror the builder entry tiles
+    // Quick-start — learning approaches. Each opens the activity setup with the
+    // approach pre-selected. Scenario is available today; the others are coming soon.
     const TYPES = [
-      { id: 'course',     name: 'Course',            icon: 'fa-graduation-cap', accent: '#1676f3', desc: 'Multi-scene learning experience' },
-      { id: 'activity',   name: 'Learning Activity', icon: 'fa-list-check',     accent: '#7c3aed', desc: 'Focused, single-concept practice' },
-      { id: 'simulation', name: 'Simulation',        icon: 'fa-vr-cardboard',   accent: '#0891b2', desc: 'Branching, hands-on decisions' },
-      { id: 'scenario',   name: 'Scenario',          icon: 'fa-comments',       accent: '#db2777', desc: 'Story-driven, real-world moment' },
+      { id: 'video',      name: 'Video Based Learning', icon: 'fa-film',         accent: '#1676f3', desc: 'Narrated video scenes + checks', soon: true },
+      { id: 'scenario',   name: 'Scenario Learning',    icon: 'fa-comments',     accent: '#db2777', desc: 'Story-driven, real-world moment' },
+      { id: 'simulation', name: 'Simulation',           icon: 'fa-vr-cardboard', accent: '#0891b2', desc: 'Branching, hands-on decisions', soon: true },
     ];
 
     // Recent work — reuses the Content Portal's content model, links back to its detail pages
@@ -287,7 +288,7 @@
     ];
 
     /* ============================================================
-       RENDER — Start tiles (→ builder for that type)
+       RENDER — Start tiles (→ activity setup, approach pre-selected)
        ============================================================ */
     const startGrid = document.getElementById('startGrid');
     TYPES.forEach(t => {
@@ -298,9 +299,10 @@
       el.style.setProperty('--wash', rgba(t.accent, .14));
       el.innerHTML = `
         <div class="st-ico"><i class="fa-solid ${t.icon}"></i></div>
-        <h4>${t.name}</h4>
+        <h4>${t.name}${t.soon ? ' <span class="st-soon">Soon</span>' : ''}</h4>
         <p>${t.desc}</p>`;
-      el.addEventListener('click', () => window.location = `builder.html?type=${t.id}&path=ai`);
+      // Each approach opens the guided activity setup with that approach pre-selected.
+      el.addEventListener('click', () => window.location = `scenario-setup.html?approach=${t.id}`);
       startGrid.appendChild(el);
     });
 
@@ -343,8 +345,14 @@
         <p>${tp.desc}</p>
         <span class="use">Start from this <i class="fa-solid fa-arrow-right"></i></span>`;
       el.addEventListener('click', () => {
-        const params = new URLSearchParams({ type: tp.type, path: 'combined', template: tp.name });
-        window.location = `builder.html?${params.toString()}`;
+        // Scenario-based templates open the guided activity setup (scenario approach);
+        // other types still go to the conversational builder.
+        if (tp.type === 'scenario') {
+          window.location = `scenario-setup.html?approach=scenario`;
+        } else {
+          const params = new URLSearchParams({ type: tp.type, path: 'combined', template: tp.name });
+          window.location = `builder.html?${params.toString()}`;
+        }
       });
       tplGrid.appendChild(el);
     });

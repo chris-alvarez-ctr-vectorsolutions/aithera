@@ -1489,6 +1489,9 @@
     id: 'action-practice',
     label: 'Roleplay',
     icon: 'fa-comments',
+    // One-line description for the studio's mode chooser (the type owns its
+    // own copy — the shell no longer hardcodes a per-type blurb map).
+    blurb: 'Rehearse a hard conversation with a simulated person.',
     DEFAULT: DEFAULT_SCENARIO,
     ENGINE_SECTIONS,
     CRISIS_FLOOR,

@@ -884,6 +884,26 @@
       .coach-msg.enter, .you-coach.enter { animation: msg-enter .34s var(--ease) both; }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
       .input-analyzing {
         max-width: 720px;
         margin: 0 auto;
@@ -2025,6 +2045,7 @@ Nothing about that tank got safer today. The difference is you'd have kept every
 
       state.sending = true;
       render();
+      await wait(reducedMotion() ? 80 : 700);   // a beat before the reply begins — a real response doesn't start the instant you hit send
       showTyping();
 
       let turn;
@@ -2135,7 +2156,7 @@ Nothing about that tank got safer today. The difference is you'd have kept every
         m._enter = true;
         state.messages.push(m);
         render();
-        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
         if (dead()) return;
       }
       state.delivering = false;

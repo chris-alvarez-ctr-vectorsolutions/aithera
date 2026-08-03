@@ -618,6 +618,14 @@
     .ip-edit-ico { flex-shrink: 0; color: #7c3aed; font-size: 13px; }
     .ip-edit-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #0f2e3d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ip-edit-phase { flex-shrink: 0; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.12); border-radius: 3px; padding: 2px 6px; }
+    /* drag handle + source-template tag */
+    .ip-drag { flex-shrink: 0; width: 16px; display: flex; align-items: center; justify-content: center; color: var(--lumo-disabled-text-color); font-size: 12px; cursor: grab; }
+    .ip-drag:active { cursor: grabbing; }
+    .ip-edit-tmpl { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600; color: #6d28d9; background: rgba(124,58,237,0.07); border: 1px solid rgba(124,58,237,0.18); border-radius: 20px; padding: 2px 8px; }
+    .ip-edit-tmpl i { font-size: 9px; }
+    .ip-edit.dragging { opacity: 0.4; }
+    .ip-edit.drop-before { box-shadow: 0 -3px 0 0 var(--lumo-primary-color, #0271ce); }
+    .ip-edit.drop-after { box-shadow: 0 3px 0 0 var(--lumo-primary-color, #0271ce); }
     /* "Previewing" badge on the active point */
     .ip-edit-live { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #fff; background: var(--lumo-primary-color, #0271ce); border-radius: 20px; padding: 3px 9px; }
     .ip-edit-live i { font-size: 9px; }
@@ -6447,14 +6455,24 @@ const IP_TYPES = {
 // Order the add-menu presents the types in.
 const IP_TYPE_ORDER = ['reflection', 'multi-phase', 'live-scene', 'coach-interaction'];
 
+// Source templates a scenario can be built from (a base guide per point).
+// Multiple can be layered into one scenario; each point is tagged by its source.
+const TEMPLATE_META = {
+  'guided-arc': { label: 'Guided Arc',      icon: 'fa-diagram-project' },
+  'roleplay':   { label: 'Roleplay',        icon: 'fa-comments' },
+  'observe':    { label: 'Observe / React', icon: 'fa-clapperboard' },
+  'teach-back': { label: 'Teach-Back',      icon: 'fa-chalkboard-user' },
+  'custom':     { label: 'Custom',          icon: 'fa-wand-magic-sparkles' },
+};
+
 let interactionPoints = [
   {
-    id: 1, type: 'reflection',
+    id: 1, type: 'reflection', tmpl: 'guided-arc',
     prompt: "Before we get into the specifics — take a moment. What's your gut reaction to this behavior? Is anything about this situation standing out to you, or feeling unclear?",
     coach: "CALIBRATION ONLY, do not evaluate. 2-3 short bubbles: acknowledge in their own words; gently note any misconception (\"nothing sexual is happening\", \"just banter\"). END on that calibration — do NOT add a bubble that hands off, transitions, or previews looking closer / slowing down / naming what's going on; the app delivers the next signpost, and anticipating it just repeats it.",
   },
   {
-    id: 2, type: 'multi-phase',
+    id: 2, type: 'multi-phase', tmpl: 'guided-arc',
     phases: [
       {
         id: 1, label: 'The Law', hasAnswer: true,
@@ -6592,15 +6610,18 @@ function renderInteractionPoints() {
   if (!wrap) return;
   wrap.innerHTML = interactionPoints.map((p, idx) => {
     const t = IP_TYPES[p.type] || IP_TYPES.reflection;
+    const tm = TEMPLATE_META[p.tmpl];
     const collapsed = !!ipCollapsed[p.id];
     const isActive = p.id === activeIpId;
     return `
-      <div class="ip-edit ${collapsed ? 'collapsed' : ''} ${isActive ? 'active' : 'inactive'}" data-ipid="${p.id}">
+      <div class="ip-edit ${collapsed ? 'collapsed' : ''} ${isActive ? 'active' : 'inactive'}" data-ipid="${p.id}" draggable="true">
         <div class="ip-edit-head" onclick="selectInteractionPoint(${p.id})" title="${isActive ? 'Active — driving the preview' : 'Click to preview this interaction point'}">
+          <span class="ip-drag" title="Drag to reorder" onclick="event.stopPropagation()"><i class="fa-solid fa-grip-vertical"></i></span>
           <span class="ip-edit-num">${idx + 1}</span>
           <i class="fa-solid ${t.icon} ip-edit-ico"></i>
           <span class="ip-edit-title">${escapeHTML(t.label)}</span>
           <span class="ip-edit-phase">${t.phase}</span>
+          ${tm ? `<span class="ip-edit-tmpl" title="From the ${escapeHTML(tm.label)} template"><i class="fa-solid ${tm.icon}"></i> ${escapeHTML(tm.label)}</span>` : ''}
           ${isActive ? '<span class="ip-edit-live"><i class="fa-solid fa-circle-play"></i> Previewing</span>' : ''}
           <button class="ip-edit-del" title="Remove interaction point" onclick="event.stopPropagation(); deleteInteractionPoint(${p.id})"><i class="fa-solid fa-trash-can"></i></button>
           <button class="ip-edit-caret-btn" title="Collapse / expand" onclick="event.stopPropagation(); toggleIpEdit(${p.id})"><i class="fa-solid fa-chevron-down ip-edit-caret"></i></button>
@@ -6613,6 +6634,47 @@ function renderInteractionPoints() {
   }).join('');
   const countEl = document.getElementById('ip-count');
   if (countEl) countEl.textContent = interactionPoints.length;
+  initIpDragDrop();
+}
+
+// Drag-to-reorder interaction points (works across source templates).
+let ipDragId = null;
+function initIpDragDrop() {
+  document.querySelectorAll('.ip-edit').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      ipDragId = Number(el.dataset.ipid);
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.ip-edit').forEach(x => x.classList.remove('drop-before','drop-after'));
+      ipDragId = null;
+    });
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (Number(el.dataset.ipid) === ipDragId) return;
+      const r = el.getBoundingClientRect();
+      const after = e.clientY > r.top + r.height / 2;
+      el.classList.toggle('drop-after', after);
+      el.classList.toggle('drop-before', !after);
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-before','drop-after'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      const targetId = Number(el.dataset.ipid);
+      if (ipDragId == null || targetId === ipDragId) return;
+      const r = el.getBoundingClientRect();
+      const after = e.clientY > r.top + r.height / 2;
+      const from = interactionPoints.findIndex(p => p.id === ipDragId);
+      let to = interactionPoints.findIndex(p => p.id === targetId);
+      const moved = interactionPoints.splice(from, 1)[0];
+      to = interactionPoints.findIndex(p => p.id === targetId);
+      interactionPoints.splice(after ? to + 1 : to, 0, moved);
+      renderInteractionPoints();
+      markPreviewStale();
+    });
+  });
 }
 
 // The per-type field markup rendered inline in each point's editor body.
@@ -7026,7 +7088,7 @@ function addInteractionPoint(type = 'reflection') {
   closeAllDropdowns();
   const t = IP_TYPES[type] ? type : 'reflection';
   const id = Math.max(0, ...interactionPoints.map(p => p.id)) + 1;
-  const point = { id, type: t, prompt: '', coach: '' };
+  const point = { id, type: t, tmpl: 'custom', prompt: '', coach: '' };
   if (t === 'multi-phase') point.phases = [newPhase()];
   interactionPoints.push(point);
   selectInteractionPoint(id);

@@ -1190,6 +1190,26 @@
       }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
       /* —— "Analyzing your response…" — shown IN the input area (not over the
          scene), so the learner keeps reading the reaction while the coach reviews —— */
       .input-analyzing {
@@ -1358,6 +1378,14 @@
           <span class="dots"><span></span><span></span><span></span></span>
           Watching the scene…
         </div>
+        <!-- Reading / audio context: unlike the video (which auto-advances), the
+             learner drives the forward step — so its CTA lives HERE at the bottom
+             bar, like every other forward step, not buried in the context card. -->
+        <div class="input-entry" id="inputIntroContinue" hidden>
+          <button class="debrief-cta" id="introContinueBtn">
+            Continue <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
         <!-- Debrief CTA: the coach is ready, opened only when the learner chooses -->
         <div class="input-entry" id="inputDebrief" hidden>
           <button class="debrief-cta" id="debriefCtaBtn">
@@ -1429,7 +1457,7 @@
          DEFAULT — the WPV "Reading the Warning Signs" build — when nothing is
          published). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/branching-arc.js?v=1"></script>
+    <script src="js/scenario-types/branching-arc.js?v=2"></script>
 
     <script>
     /* =====================================================================
@@ -1696,6 +1724,8 @@
     const inputEntry    = document.getElementById('inputEntry');
     const inputAnalyzing= document.getElementById('inputAnalyzing');
     const inputWatching = document.getElementById('inputWatching');
+    const inputIntroContinue = document.getElementById('inputIntroContinue');
+    const introContinueBtn   = document.getElementById('introContinueBtn');
     const inputDebrief  = document.getElementById('inputDebrief');
     const inputReturn   = document.getElementById('inputReturn');
     const returnCtaBtn  = document.getElementById('returnCtaBtn');
@@ -2247,7 +2277,8 @@
       // videoPlaying stays true after the clips end too (it lingers as the
       // blurred coach-prep backdrop — see the render() guard above), so this
       // needs its own check rather than just mirroring state.videoPlaying.
-      const showWatching  = (state.videoPlaying || state.audioIntroPlaying) && !state.started;
+      const showWatching      = state.videoPlaying && !state.started;
+      const showIntroContinue = state.audioIntroPlaying && !state.started;
       const showDebrief   = state.awaitingDebrief && !state.analyzing && !state.delivering;
       // The coach has replied and is ready to send the learner back into the
       // scene, but waits for this tap rather than auto-transitioning.
@@ -2264,19 +2295,23 @@
       inputEntry.hidden     = !showEntry;
       inputAnalyzing.hidden = !showAnalyzing;
       inputWatching.hidden  = !showWatching;
+      inputIntroContinue.hidden = !showIntroContinue;
       inputDebrief.hidden   = !showDebrief;
       inputReturn.hidden    = !showReturn;
       inputResults.hidden   = !showResults;
       inputContinue.hidden  = !showContinue;
       inputDone.hidden      = !showDone;
-      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showResults || showContinue || showDone;
+      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showIntroContinue || showDebrief || showReturn || showResults || showContinue || showDone;
       if (showAnalyzing) {
         inputAnalyzing.lastChild.textContent = state.closingStepperActive
           ? DEBRIEF.closingLabel()
           : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showWatching) {
-        inputWatching.lastChild.textContent = state.audioIntroPlaying ? 'Setting the scene — listen or read, then continue' : 'Watching the scene…';
+        inputWatching.lastChild.textContent = 'Watching the scene…';
+      }
+      if (showIntroContinue) {
+        introContinueBtn.innerHTML = `${esc(AUDIO_INTRO.continueLabel || 'Continue')} <i class="fa-solid fa-arrow-right arrow"></i>`;
       }
       if (showDebrief) {
         debriefCtaBtn.innerHTML = complete
@@ -2599,9 +2634,13 @@
         eyebrow: AUDIO_INTRO.eyebrow,
         title: AUDIO_INTRO.title,
         text: AitheraScenario.fill(AUDIO_INTRO.text || '', ACTIVE_SCENARIO),
-        continueLabel: AUDIO_INTRO.continueLabel || 'Talk it through with your coach',
+        continueLabel: AUDIO_INTRO.continueLabel || 'Continue',
         onContinue: finishAudioIntro,
       });
+      // The forward CTA lives in the bottom input bar (#inputIntroContinue),
+      // consistent with every other step here — so hide the module's own in-card
+      // button to avoid a duplicate. The bottom CTA calls finishAudioIntro too.
+      if (audioIntroHandle && audioIntroHandle.continueEl) audioIntroHandle.continueEl.style.display = 'none';
     }
     function enterAudioIntro() {
       if (state.audioIntroPlaying || state.started || state.delivering) return;
@@ -2610,9 +2649,14 @@
       announce(AUDIO_INTRO_MODALITY === 'reading' ? 'Read the scene, then continue.' : 'Setting the scene. Listen or read along, then continue.');
     }
     function finishAudioIntro() {
-      if (!state.audioIntroPlaying) return;
-      if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
-      state.audioIntroPlaying = false;   // the context's job is done — the coach takes the stage
+      if (!state.audioIntroPlaying || state.started) return;
+      // Stop the narration but LEAVE the reading/audio card mounted. Exactly like
+      // finishVideoIntro keeps its frozen final frame, the context card stays as
+      // the (blurred, frozen) backdrop the coach sheet rises OVER — so the coach
+      // appears over the context page, not over a flash back to the establishing
+      // title card. audioIntroPlaying is cleared for good in enterScene(), when
+      // the real scene finally takes the stage.
+      if (audioIntroHandle) audioIntroHandle.stop();
       CONTEXT.done({ modality: AUDIO_INTRO_MODALITY });   // → startSession(record)
     }
 
@@ -2874,6 +2918,7 @@
       if (youMsg && youMsg._pending) { await finalizeYouDisplay(youMsg); render(); }
 
       // The wait for the scene/coach reply now carries a visible indicator.
+      await wait(reducedMotion() ? 80 : 700);   // a beat before the reply begins — a real response doesn't start the instant you hit send
       showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');
 
       const turn = await turnP;
@@ -2944,7 +2989,7 @@
           m._enter = true;
           state.messages.push(m);
           render();
-          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 480);
+          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 700);
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -2982,7 +3027,10 @@
       const intoDebrief = (i < items.length) && state.hasEnteredScene
         && (state.mode === 'scene' || state.complete);
       if (intoDebrief) {
+        hideTyping();                                // the reply has arrived — drop the "…" before the Analyzing beat
+                                                     // (a coaching-only close has no leadScene/revealScene to clear it, so it would otherwise hang)
         state.analyzing = true;
+        followStage = true;                          // the input bar swaps height here → keep the last beat pinned in view
         render();                                    // input bar: "Analyzing your response…"
         announce(state.complete ? 'Wrapping up your practice.' : 'Analyzing your response.');
         await wait(reducedMotion() ? 500 : 1600);
@@ -2997,6 +3045,7 @@
           ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null }
           : null;
         state.delivering = false;
+        followStage = true;                          // the taller debrief CTA shrinks the stage → re-pin so the last beat isn't cut off
         render();                                    // input bar: "See what your AI coach noticed →"
         announce('Your AI coach noticed something. Open the coach when you’re ready.');
         return;
@@ -3017,7 +3066,7 @@
         render();
         prevText = m.text || '';
         i++;
-        if (i < items.length) await wait(reducedMotion() ? 80 : 480);
+        if (i < items.length) await wait(reducedMotion() ? 80 : 700);
         if (dead()) return;
       }
 
@@ -3075,7 +3124,7 @@
     // "See what your AI coach noticed" — the learner opens the queued debrief when
     // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
     // (with the line) stays visible, dimmed, above it.
-    function openDebrief() {
+    async function openDebrief() {
       if (!state.awaitingDebrief || state.sending || state.delivering) return;
       const pending = state.pendingDebrief || [];
       state.pendingDebrief = null;
@@ -3090,10 +3139,10 @@
       // behind the sheet before they choose to step back in.
       const coachPart = [], scenePart = [];
       pending.forEach((m) => (worldOf(m) === 'scene' ? scenePart : coachPart).push(m));
-      coachPart.forEach((m) => { m._enter = true; state.messages.push(m); });
       // If the coach's message is a hand-off back into the scene, offer the
       // return as its own reinforcing CTA (e.g. "Keep going →") rather than
-      // making the learner type — the coach steps them across.
+      // making the learner type — the coach steps them across. Armed now, but the
+      // CTA stays hidden (gated on state.delivering) until the coach finishes.
       if (state.debriefReturn) {
         state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget, sceneSetup: state.debriefReturn.sceneSetup, beats: scenePart };
         state.returnLabel = state.debriefReturn.label;
@@ -3104,7 +3153,28 @@
         scenePart.forEach((m) => { m._enter = true; state.messages.push(m); });
       }
       announce('Stepped out to your AI coach.');
-      render();   // the coach sheet rises with the debrief (+ a return CTA if armed)
+      // Reveal the debrief one bubble at a time (typing beat between each), the
+      // SAME as the opening prep — not a wall of text dumped in at once. The sheet
+      // rises first (empty), each line types in, then the return CTA appears.
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.delivering = true;
+      render();   // the coach sheet rises (empty); the return CTA is held while delivering
+      let prevText = '';
+      for (let k = 0; k < coachPart.length; k++) {
+        const m = coachPart[k];
+        hideTyping();
+        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        prevText = m.text || '';
+        if (k < coachPart.length - 1) await wait(reducedMotion() ? 80 : 700);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();   // now the return CTA (e.g. "Continue →") appears beneath the debrief
     }
 
     /* The FINAL debrief — stepper build-up, results modal paging, the
@@ -3122,6 +3192,8 @@
       state.entryPromptDismissed = false;
       state.hasEnteredScene = true;
       state.videoPlaying = false;   // the cold-open's job is done — swap its frozen frame for the real scene
+      state.audioIntroPlaying = false;   // likewise the reading/audio context backdrop — the real scene takes over now
+      if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
       state.mode = 'scene'; state.inputTarget = 'character';
       state.delivering = true;
       announce('You step into the moment.');
@@ -3261,7 +3333,7 @@
         state.messages.push(m);
         render();
         // just a short settle so the next "thinking" doesn't start the same instant
-        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
         if (dead()) return;
       }
       state.delivering = false;
@@ -3332,6 +3404,7 @@
       onDone: startSession,
     });
     startCtaBtn.addEventListener('click', CONTEXT.begin);
+    introContinueBtn.addEventListener('click', finishAudioIntro);   // reading/audio context → bring the coach in
 
     // The mode toggle: tap the inactive segment to switch states (delegated, as
     // the toggle is rebuilt on every render). Disabled segments don't fire.
