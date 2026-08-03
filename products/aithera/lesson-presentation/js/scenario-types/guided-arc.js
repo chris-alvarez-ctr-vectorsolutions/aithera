@@ -749,6 +749,28 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       if (!arr(sc.characters).filter((c) => !empty(c)).length) add('info', 'scene', 'No characters named for the coach to voice.', 'The coach voices the scene\'s other people — name them so it knows who speaks (the first is the default speaker).');
       if (!arr(sc.actionCalibration).filter((t) => !empty(t.tier)).length) add('info', 'scene', 'The scene has no action-calibration tiers.', 'Tiers tell the coach how to read the learner\'s first move and pick the matching outcome.');
       if (empty((sc.debrief || {}).talkItThrough)) add('info', 'scene', 'No scene-debrief "talk it through" line.', 'The verbatim opener of the post-scene teaching turn.');
+
+      /* CONSISTENCY — a character the learner ACTS AGAINST must be on-stage in the
+         scene the learner sees, not only modeled in the reaction ledger. This is
+         the off-stage-actor guardrail adapted to Guided Arc's single action scene:
+         if you write a behavior MODEL for someone (scene.cast — an active
+         participant), they must appear in the setup beats, by name. Otherwise the
+         learner reacts to a person they never actually met on screen. */
+      const gaSceneText = arr(sc.setup).map((b) => `${(b || {}).name || ''} ${(b || {}).text || ''}`).join(' ') + ' ' + String(sc.pivot || '');
+      const gaHasName = (text, name) => {
+        const t = String(text || ''); if (!t || !name) return false;
+        const toks = String(name).split(/\s+/)
+          .map((x) => x.replace(/[^\p{L}\p{N}]/gu, ''))
+          .filter((x) => x.length >= 3 && !/^(ms|mr|mrs|dr|mx|sir)$/i.test(x));
+        const probes = toks.length ? toks : [String(name).replace(/[^\p{L}\p{N}]/gu, '')].filter(Boolean);
+        return probes.some((p) => new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(t));
+      };
+      arr(sc.cast).filter((c) => c && !empty(c.name)).forEach((c) => {
+        if (!gaHasName(gaSceneText, c.name)) {
+          add('warn', 'scene', `${c.name} has a behavior model but never appears in the scene’s setup beats.`,
+            'The learner reacts to who’s in the scene — a modeled character who isn’t established on-stage is someone the learner never actually meets. Put them in the setup, by name and a visible action.');
+        }
+      });
     }
 
     if (empty((s.voice || {}).persona)) add('info', 'voice', 'No coach persona set.', 'A short stance keeps the coaching consistent (the detailed voice rules are locked).');
