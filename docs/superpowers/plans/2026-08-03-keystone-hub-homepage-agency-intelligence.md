@@ -569,6 +569,178 @@ unchanged. Ungranted roles get the grid exactly as it shipped before."
 
 ---
 
+## Task 2b: Let the hub flex, and let widgets wrap
+
+**Why this task exists (added after Task 2):** the original plan claimed three
+`w:4` widgets would sit at ~335px each beside the 320px panel. That was wrong —
+`styles.css:349` caps `.kx-main` at `max-width: 1200px`, which the plan's research
+missed. The real grid width is 726px, each widget 234px, and **all three widget
+titles clip** ("Open s…", "Creden…", "Overdu…"). Legible titles need ~275px per
+widget, so three widgets plus a usable panel cannot fit inside 1200px.
+
+The human partner ruled the 1200px cap arbitrary: **the dashboard and the task
+list below it should both flex to fill the available width**, and **dashboard
+widgets may wrap to multiple rows when the screen is small**.
+
+**Files:**
+- Modify: `products/Keystone Department Hub/keystone-hub/styles.css:349`
+- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (widget-span breakpoints, next to the existing `.kx-pubgrid` rules)
+
+**Interfaces:** none new. This is a CSS-only change.
+
+- [ ] **Step 1: Remove the width cap**
+
+In `<HUB>/styles.css:349`, the rule currently reads:
+
+```css
+.kx-main { flex: 1; min-width: 0; max-width: 1200px; margin: 0 auto; padding: 0 32px; width: 100%; }
+```
+
+Replace it with:
+
+```css
+/* No width cap: the dashboard and the task list below it both flex to fill the
+   available space. A fixed 1200px cap starved the dashboard body once the
+   Agency Intelligence panel took 320px of it — three KPI widgets fell to 234px
+   and every title ellipsized. */
+.kx-main { flex: 1; min-width: 0; margin: 0 auto; padding: 0 32px; width: 100%; }
+```
+
+This affects every role and the whole page, not just the dashboard — that is
+intended and explicitly authorised.
+
+- [ ] **Step 2: Let the widgets wrap instead of clipping**
+
+Widget spans come from inline `grid-column: span N` written by `pubWidget()`, so
+the breakpoints must override with `!important`, exactly as the existing 860px
+rule at `index.html:455` already does.
+
+Add immediately after the `.kx-pubbody` rules added in Task 2:
+
+```css
+  /* Widget wrapping. Spans are inline styles from pubWidget(), so these
+     overrides need !important — same technique as the 860px rule below.
+     Thresholds are viewport-based because the grid's own width depends on
+     whether the AI panel is docked beside it. */
+  /* Two across: the panel plus three widgets stops being legible here. */
+  @media (max-width: 1360px) {
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 6 !important; }
+  }
+  /* Panel has stacked above the grid by now, so the grid has full width back
+     and three across fits again. */
+  @media (max-width: 980px) {
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 4 !important; }
+  }
+```
+
+The existing `@media (max-width: 860px)` rule that forces `grid-column: 1 / -1`
+stays as-is and continues to win below 860px because it comes later in the file.
+
+Note both new rules are scoped to `.kx-pubbody` — a dashboard **without** the AI
+panel keeps its original three-across behaviour at every width, so ungranted
+roles see no change whatsoever.
+
+- [ ] **Step 3: Verify titles are legible and nothing else regressed**
+
+```
+browser_navigate → http://127.0.0.1:8765/products/Keystone%20Department%20Hub/keystone-hub/index.html
+```
+
+```
+browser_evaluate → () => {
+  const t = [...document.querySelectorAll('.kx-pubwidget .title')];
+  return {
+    viewport: window.innerWidth,
+    mainWidth: Math.round(document.querySelector('.kx-main').getBoundingClientRect().width),
+    gridWidth: Math.round(document.querySelector('.kx-pubgrid').getBoundingClientRect().width),
+    widgetWidth: Math.round(document.querySelector('.kx-pubwidget').getBoundingClientRect().width),
+    anyClipped: t.some(e => e.scrollWidth > e.clientWidth + 1),
+    titles: t.map(e => e.textContent)
+  };
+}
+```
+
+Expected: `mainWidth` **greater than 1200** (the cap is gone),
+`anyClipped: false`, and `titles` reading in full:
+`["Open shifts", "Credentials expiring", "Overdue inspections"]`.
+
+- [ ] **Step 4: Verify the wrap thresholds and the ungranted role**
+
+Load `mcp__playwright__browser_resize` as well for this step.
+
+At each width, resize then measure:
+
+```
+browser_resize → 1500 x 900
+browser_evaluate → () => ({
+  rows: new Set([...document.querySelectorAll('.kx-pubwidget')].map(e => Math.round(e.getBoundingClientRect().top))).size,
+  anyClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1)
+})
+```
+
+Expected at 1500: `rows: 1`, `anyClipped: false`.
+
+Repeat at **1200 x 900** — expected `rows: 2`, `anyClipped: false` (two across,
+third wraps).
+
+Repeat at **900 x 900** — expected `anyClipped: false`; the panel has stacked
+above the grid, so also assert:
+
+```
+browser_evaluate → () => {
+  const p = document.querySelector('.kx-aipanel');
+  const g = document.querySelector('.kx-pubgrid');
+  return { panelFullWidth: Math.abs(p.getBoundingClientRect().width - g.getBoundingClientRect().width) < 4,
+           panelAboveGrid: p.getBoundingClientRect().bottom <= g.getBoundingClientRect().top + 1 };
+}
+```
+
+Expected: both `true`. **This also clears the Task 2 deferred minor** that the
+980px stacking had never been exercised in a browser — report it as verified.
+
+Then confirm the ungranted role is untouched at a wrapping width:
+
+```
+browser_resize → 1200 x 900
+browser_evaluate → () => {
+  window.KXHub.state.role = 'ff'; window.KXHub.render();
+  return {
+    bodyWrapper: !!document.querySelector('.kx-pubbody'),
+    rows: new Set([...document.querySelectorAll('.kx-pubwidget')].map(e => Math.round(e.getBoundingClientRect().top))).size
+  };
+}
+```
+
+Expected: `bodyWrapper: false` and `rows: 1` — with no panel there is no
+`.kx-pubbody`, so the new breakpoints do not apply and the Firefighter's three
+widgets stay on one row exactly as they always did.
+
+Finally restore the window and check the console:
+
+```
+browser_resize → 1405 x 900
+browser_console_messages
+```
+
+Expected: no `error` entries (a favicon 404 is pre-existing and not a finding).
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
+git add "products/Keystone Department Hub/keystone-hub/styles.css" \
+        "products/Keystone Department Hub/keystone-hub/index.html"
+git commit -m "Keystone hub: let the page flex, and let dashboard widgets wrap
+
+The 1200px cap on .kx-main was arbitrary, and once the Agency Intelligence
+panel claimed 320px of the dashboard body it starved the widgets to 234px
+— every KPI title ellipsized. The page now fills the available width, and
+widgets beside the panel wrap to two rows before they'd become unreadable.
+Scoped to .kx-pubbody, so a dashboard without the panel is unchanged."
+```
+
+---
+
 ## Task 3: Ask and answer — the expanded state
 
 **Files:**
@@ -707,7 +879,39 @@ In `<HUB>/hub-ai-panel.js`, insert after the `mark()` helper:
   }
 ```
 
-- [ ] **Step 3: Rewrite `html()` to show the thread once expanded**
+- [ ] **Step 3: Move the disclaimer into the expanded state only**
+
+**Controller amendment, decided after Task 2 measured the compact panel.** The
+compact panel has no height headroom — the granted/ungranted height delta is
+already at its 8px ceiling. The chips row adds ~34px, which would blow it.
+
+Resolution: **in compact, the chips row takes the disclaimer's place.** The
+disclaimer only matters once answers exist, so it renders only when expanded.
+Net compact height change: roughly zero.
+
+Change `inputHtml()` (added in Task 2) to take the flag:
+
+```js
+  function inputHtml(expanded) {
+    var ready = !!state.draft.trim() && !state.thinking;
+    return '<div class="kx-ai-input-wrap"><div class="kx-ai-input">' +
+      '<textarea id="kxAiDraft" rows="1" ' +
+      'placeholder="Ask Agency Intelligence about your data">' + esc(state.draft) + '</textarea>' +
+      '<button class="kx-ai-send' + (ready ? ' is-ready' : '') + '" id="kxAiSend" ' +
+      'title="Send" aria-label="Send"' + (ready ? '' : ' disabled') + '>' +
+      micon('arrow_upward', { size: 17, weight: 500 }) + '</button>' +
+      '</div>' +
+      // Only once there are answers to caveat. The compact panel spends that
+      // vertical space on suggestion chips instead, and has none to spare.
+      (expanded
+        ? '<div class="kx-ai-legal">Charts land on the dashboard, never in chat. ' +
+          'Agency Intelligence can be wrong — verify before acting.</div>'
+        : '') +
+      '</div>';
+  }
+```
+
+- [ ] **Step 4: Rewrite `html()` to show the thread once expanded**
 
 Replace the `html(cfg)` function from Task 2 with:
 
@@ -721,7 +925,7 @@ Replace the `html(cfg)` function from Task 2 with:
       '<div class="s">Ask about ' + esc((cfg && cfg.name) || 'your dashboard') + '</div>' +
       '</div></div>' +
       (isExpanded() ? threadHtml() : chipsHtml(person)) +
-      inputHtml() +
+      inputHtml(isExpanded()) +
       '</div>';
   }
 ```
@@ -743,7 +947,7 @@ the access check:
     AI.setRole(VARIANT_ROLE[variant]);
 ```
 
-- [ ] **Step 4: Add send + respond + wiring**
+- [ ] **Step 5: Add send + respond + wiring**
 
 Append to `<HUB>/hub-ai-panel.js`, before the export block:
 
@@ -859,7 +1063,7 @@ Add `wire()` to the export block and call it on load:
   }
 ```
 
-- [ ] **Step 5: Verify an answered question**
+- [ ] **Step 6: Verify an answered question**
 
 ```
 browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
@@ -895,7 +1099,7 @@ Expected: `expanded: true`, `dashHeight` at least `500`, `turns: 2`,
 `answer` starts with `"Training completion is at 79%"`, `deniedShown: false`,
 `widgetsStillOneRow: true` — **the widget row must not have moved or reflowed.**
 
-- [ ] **Step 6: Verify the decline path — the Chief and Scheduling**
+- [ ] **Step 7: Verify the decline path — the Chief and Scheduling**
 
 ```
 browser_evaluate → () => {
@@ -920,7 +1124,7 @@ browser_console_messages
 
 Expected: no `error` entries.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
