@@ -166,12 +166,12 @@
       'Sofia Reyes (12, 7th grade): quiet, artistic, new to the school this year. US-born; her family emigrated from Guatemala; Spanish and English at home.',
       'Ms. Elena Reyes: Sofia’s mother. Works two jobs and took time off to come in. Protective, and already feels brushed off once by the school.',
       'Bianca Duarte (12, 7th grade): the ringleader — socially dominant, popular. NOT a "bad kid"; she is reacting to her own turmoil.',
-      'Maya films the hallway incident on her phone; Jordan shoves Sofia’s bag; ~5–6 other students watch, two laughing.',
+      'Maya films the hallway incident on her phone; Bianca shoves Sofia’s bag off her shoulder; ~5–6 other students watch, two laughing.',
       'The pattern (~3 months, escalating): exclusion (dropped from Bianca’s group, seats saved so Sofia can’t sit, eats alone); a group chat "the REAL 7B" Sofia isn’t in, with screenshots mocking her clothes and calling her family "border hoppers" and "does she even have papers"; identity comments about where the family is "really from" and mocking Ms. Reyes’s accent; yesterday a girl knocked Sofia’s binder to the floor and no one helped.',
       'Sofia’s changes: stopped eating lunch, fakes stomachaches to stay home, deleted her art account, cries at night, "doesn’t want to come to school."',
       'Ms. Reyes’s past attempts (she raises these when she feels doubted): emailed the office three weeks ago and got a generic reply; left the counselor a voicemail that was never returned; at parent night was told "girls that age are catty, it blows over." "I already tried the normal way."',
-      'The hallway (Phase 2): three days later, before 2nd period in the east hallway. Sofia is backed against the lockers; Maya is filming; Jordan shoves her bag off her shoulder and books hit the floor; Bianca is directing it; an audible slur — "Go back to your own country" / "does your mom even have papers?"; ~5–6 students watch, two laugh, someone says "worldstar." Sofia is shaken but not injured (a minor scrape). The recording is the reportable escalation — it may be posted.',
-      'Bianca (Phase 3), same day while Sofia is with the counselor: her deflections in escalation order — "It was a joke"; "Everyone was doing it — why am I the only one here?"; "She’s too sensitive; she took it wrong"; "I didn’t even touch her — that was Jordan"; and if shamed, she shuts down: "So I’m just the bad guy now."',
+      'The hallway (Phase 2): three days later, before 2nd period in the east hallway. Sofia is backed against the lockers; Maya is filming; Bianca shoves her bag off her shoulder and books hit the floor; Bianca says the slur, loud enough for the hall to hear — "Go back to your own country" / "does your mom even have papers?"; ~5–6 students watch, two laugh, someone says "worldstar." Sofia is shaken but not injured (a minor scrape). The recording is the reportable escalation — it may be posted.',
+      'Bianca (Phase 3), same day while Sofia is with the counselor: her deflections in escalation order — "It was a joke"; "Everyone was doing it — why am I the only one here?"; "She’s too sensitive; she took it wrong"; "I didn’t even touch her; it was just her bag"; and if shamed, she shuts down: "So I’m just the bad guy now."',
       'Bianca’s backstory (surfaces ONLY if the learner asks with dignity): her parents separated over the summer and she’s splitting time between two houses; an older group dropped her, so she "did it first" to Sofia to stay on top; she is not proud of the family comments — "my abuela’s from Mexico, it’s not like —" (she trails off).',
       'The close (Phase 4) is POLICY-AGNOSTIC: report the incident yourself and follow the school’s process (whatever it is — never a specific form, statute, or timeline); build Sofia’s support plan WITH the family (passing-period/schedule adjustments so she avoids the group, a named check-in adult, a counselor referral, Sofia’s own voice — never mediation); follow up with Ms. Reyes as promised; and name one preventive/climate step.',
     ],
@@ -185,7 +185,7 @@
     ],
 
     // THE CAST — the two role-play counterparts, each with a behavior model AND
-    // an earned-disclosure ledger. (Jordan/Maya/bystanders live in the canon and
+    // an earned-disclosure ledger. (Maya and the bystanders live in the canon and
     // the hallway reactionGuidance, not as full models.)
     cast: [
       {
@@ -271,7 +271,7 @@
           signpost: '',
           prompt: '',
           beats: [
-            { speaker: 'character', kind: 'narration', text: 'You round the corner into the east hallway. Sofia is backed against the lockers. Maya has her phone up, filming. Jordan knocks her bag off her shoulder — books hit the floor. You hear it: "Go back to your own country — does your mom even have papers?" Kids are watching; two are laughing. What do you do — right now?' },
+            { speaker: 'character', kind: 'narration', text: 'You round the corner into the east hallway. Sofia is backed against the lockers. Bianca knocks Sofia’s bag off her shoulder — books hit the floor — and says it loud enough for the hall to hear: "Go back to your own country — does your mom even have papers?" Maya has her phone up, filming. Kids are watching; two are laughing. What do you do — right now?' },
           ],
           cta: 'Continue',
         },
@@ -280,7 +280,7 @@
         reactionGuidance: 'This is a witnessed emergency and the scene scales with SPEED and completeness — hesitation is itself a scored outcome. Narrate at arm’s length, never graphically: on hesitation ("I’ll keep an eye on it") the moment worsens — the shove lands again, the phone stays up, the slur repeats; a partial stop leaves Maya still filming and the crowd laughing; a full intervention breaks it up, phones down, Sofia shaken but unhurt, Bianca separated to talk. Keep the recording and Sofia’s safety in play until BOTH are addressed. Do not depict the assault for effect; convey it through its social reality. Every path ends with Bianca separated — the bridge into Phase 3.',
         calibration: [
           { tier: 'UNTHOUGHTFUL', guidance: 'waits, observes, or says "I’ll keep an eye on it"; plans to step in only if it worsens. Name that a witnessed incident is the exception to "keep an eye on it" — waiting let it escalate on camera. Deliver the intervene-now standard: stop it, check safety, address everyone.' },
-          { tier: 'NEUTRAL', guidance: 'steps in and stops the shover but addresses only Bianca/Jordan — ignores the phone and the laughing crowd, or skips the safety check. Affirm stepping in; close the gap: the recording and the bystanders are part of the harm, and the recording is reportable even if you don’t know who’ll post it.' },
+          { tier: 'NEUTRAL', guidance: 'steps in and stops the shover but addresses only Bianca — ignores Maya’s phone and the laughing crowd, or skips the safety check. Affirm stepping in; close the gap: the recording and the bystanders are part of the harm, and the recording is reportable even if you don’t know who’ll post it.' },
           { tier: 'STRONG', guidance: 'intervenes immediately — stops it, phones down, checks Sofia’s safety/injury, addresses the whole group (recorders and laughers included), names it as seen and reportable, and separates Bianca to talk rather than confronting her in the crowd. Confirm the immediate-intervention standard and that separating Bianca sets up accountability done right.' },
         ],
         debrief: {
@@ -816,6 +816,54 @@ ${groundLines.join('\n')}`);
             add('info', 'state', `Phase ${n} writes state "${k}", which isn’t declared.`, 'Declare it in Cross-phase state so the [SYSTEM STATE] line carries it.');
           }
         });
+      });
+    });
+
+    /* CONSISTENCY — establish an actor ON-STAGE before the learner faces them.
+       Catches the "off-stage antagonist" defect: a character the learner is sent
+       to confront in a later scene must have been SHOWN ACTING in the scene where
+       the incident happens — not left in the reaction notes while other names
+       carry the visible beats. (This is the Bianca/hallway class of miss: the deck
+       named her as directing it, but the on-screen narrator only showed the others,
+       so the learner reached the confrontation never having seen her act.) */
+    const castNames = cast.map((c) => c.name);
+    const hasName = (text, name) => {
+      const t = String(text || '');
+      if (!t || !name) return false;
+      const toks = String(name).split(/\s+/)
+        .map((x) => x.replace(/[^\p{L}\p{N}]/gu, ''))
+        .filter((x) => x.length >= 3 && !/^(ms|mr|mrs|dr|mx|sir)$/i.test(x));
+      const probes = toks.length ? toks : [String(name).replace(/[^\p{L}\p{N}]/gu, '')].filter(Boolean);
+      return probes.some((p) => new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(t));
+    };
+    const isScene = (p) => (p.world || 'scene') === 'scene';
+    const beatsText = (p) => arr((p.entry || {}).beats).map((b) => `${(b || {}).name || ''} ${(b || {}).text || ''}`).join(' ');
+    const backstageText = (p) => [p.reactionGuidance, p.exitCriteria].concat(arr(p.calibration).map((t) => (t || {}).guidance)).join(' ');
+
+    phases.forEach((p, i) => {
+      if (!isScene(p)) return;
+      const nm = p.label || p.id;
+      const onstage = beatsText(p);
+      const cp = String(p.counterpart || '').trim();
+
+      // (a) the character the learner FACES here should appear in this scene's beats.
+      if (cp && !/^narrator$/i.test(cp) && castNames.indexOf(cp) !== -1 && !hasName(onstage, cp)) {
+        add('warn', 'phases', `Phase ${i + 1} (${nm}) faces ${cp}, but ${cp} never appears in its opening beats.`,
+          'The learner should see or hear the character they’re facing in the scene’s first moment — otherwise the hand-off names someone who isn’t on screen.');
+      }
+
+      // (b) an antagonist CONFRONTED in a later scene must be shown ACTING here — not
+      //     only referenced in the reaction notes. This is the off-stage-actor miss.
+      const back = backstageText(p);
+      cast.forEach((c) => {
+        if (c.name === cp) return; // their own scene is covered by (a)
+        const laterIdx = phases.findIndex((q, j) => j > i && isScene(q) && String(q.counterpart || '').trim() === c.name);
+        if (laterIdx === -1) return; // not confronted later — nothing to anchor
+        if (hasName(back, c.name) && !hasName(onstage, c.name)) {
+          add('warn', 'phases',
+            `Phase ${i + 1} (${nm}): ${c.name} drives this moment but never appears in the scene the learner sees — yet Phase ${laterIdx + 1} asks the learner to confront ${c.name}.`,
+            `Establish ${c.name} on-stage here, by a visible action, so the later confrontation has something to anchor to. Right now the learner is sent to face ${c.name} without having witnessed them act.`);
+        }
       });
     });
 

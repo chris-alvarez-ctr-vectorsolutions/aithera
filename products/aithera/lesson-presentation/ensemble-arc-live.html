@@ -1447,7 +1447,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=3"></script>
+    <script src="js/sim-core.js?v=5"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1458,7 +1458,7 @@
          published). It reuses the SAME data-driven ladder engine as
          branching-arc-live.html; only the type wiring differs. -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/ensemble-arc.js?v=5"></script>
+    <script src="js/scenario-types/ensemble-arc.js?v=8"></script>
 
     <script>
     /* =====================================================================
@@ -2908,11 +2908,12 @@
       // Count this learner turn against the LIVE phase's cap — but only when it
       // was spent IN that phase's world (a manual-timeout chat with the coach
       // never burns scene turns).
+      let counted = false;   // did THIS send spend a phase turn? (rolled back if the call fails)
       {
         const phases = ACTIVE_SCENARIO.phases || [];
         const p = (state.phaseIdx >= 0 && state.phaseIdx < phases.length) ? phases[state.phaseIdx] : null;
         const inPhaseWorld = p && !state.manualTimeout && ((p.world === 'scene') === (state.mode === 'scene'));
-        if (inPhaseWorld) state.turnsInPhase++;
+        if (inPhaseWorld) { state.turnsInPhase++; counted = true; }
       }
 
       state.sending = true;
@@ -2922,7 +2923,7 @@
       // move — both read the same raw text. Failures resolve to a graceful turn.
       const turnP = getTurn(state.messages).catch(() => {
         announce('Something hiccuped reaching the AI coach. Take a breath and try that again.');
-        return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+        return { __transportError: true, turn: [{ speaker: 'coach', kind: 'coaching', text:
           'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
       });
 
@@ -2934,6 +2935,20 @@
       showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');
 
       const turn = await turnP;
+
+      // TRANSPORT FAILURE — the Worker was unreachable even after retries. This is
+      // NOT a turn: hand the learner's turn back instead of burning it and force-
+      // advancing the ladder. Show the hiccup (keeps the transcript alternating so
+      // the retry is clean), roll back the counted turn, and re-open input.
+      if (turn && turn.__transportError) {
+        if (counted) state.turnsInPhase = Math.max(0, state.turnsInPhase - 1);
+        await deliverTurn(turn);
+        state.sending = false;
+        state.manualTimeout = false;
+        render();
+        if (!composer.disabled && !inputMain.hidden) composer.focus();
+        return;
+      }
 
       // LOCKED (grey) beats: the model only writes the dynamic feedback, then
       // asks us to show the next app-owned beat via turn.deliver. We append that

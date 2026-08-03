@@ -169,6 +169,9 @@ function buildProduct(product, jiraBase) {
     if (it._folder) entry.folder = it._folder;
     if (it.jira) entry.ticket = it.jira;
     if (it.status) entry.status = it.status;
+    // Optional annotation shown in the card's Designer Versions drawer
+    // (e.g. "Blue sky UI design") — what the working file represents.
+    if (it.designerNote) entry.designerNote = it.designerNote;
     // Curated last-modified date — the dashboard's fallback when no commit in
     // recentChanges can be attributed to this mock.
     if (it.modified) entry.modified = it.modified;

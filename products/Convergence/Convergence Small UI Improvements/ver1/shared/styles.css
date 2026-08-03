@@ -1,0 +1,985 @@
+/* ============================================================================
+   CONVERGENCE - SMALL UI IMPROVEMENTS
+   A styling pass across six areas of the Convergence LMS.
+
+   Everything below is driven by ONE shared token set so all six areas inherit
+   the same type hierarchy, spacing rhythm, colour semantics, radius, shadow
+   and interaction states. Area-specific rules only ever compose tokens.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   1. SHARED TOKENS  (the single source of truth for all six areas)
+   ------------------------------------------------------------------------ */
+:root {
+  /* Action / brand blue (Vector primary) */
+  --c-primary:        #0271ce;
+  --c-primary-hover:  #015fae;
+  --c-primary-press:  #014e8f;
+  --c-primary-soft:   #e8f2fc;   /* selected row / tile fill */
+  --c-primary-faint:  #f4f9fd;   /* hover fill on light surfaces */
+  --c-primary-line:   #a9d1f0;
+
+  /* Neutral ramp: 4 text levels, 3 line levels, 3 surfaces */
+  --c-ink:            #101828;   /* page + card titles */
+  --c-body:           #344054;   /* row labels */
+  --c-meta:           #667085;   /* secondary / meta text */
+  --c-faint:          #98a2b3;   /* placeholder, disabled */
+  --c-line:           #e4e7ec;   /* structural border */
+  --c-line-soft:      #f0f2f5;   /* row hairline */
+  --c-surface:        #ffffff;
+  --c-surface-alt:    #f8fafc;   /* level-2 band */
+  --c-surface-alt2:   #f2f6fb;   /* level-1 band */
+  --c-canvas:         #f5f9fd;   /* page canvas (Convergence default) */
+  --c-hover:          #f4f7fb;
+
+  /* Status semantics - used identically by pills, dots and badges */
+  --c-warn-bg:  #fffaeb;  --c-warn-line: #fedf89;  --c-warn-ink:  #b54708;  --c-warn-dot:  #f79009;
+  --c-idle-bg:  #f2f4f7;  --c-idle-line: #e4e7ec;  --c-idle-ink:  #475467;  --c-idle-dot:  #98a2b3;
+  --c-err-bg:   #fef3f2;  --c-err-line:  #fecdca;  --c-err-ink:   #b42318;  --c-err-dot:   #f04438;
+  --c-ok-bg:    #ecfdf3;  --c-ok-line:   #abefc6;  --c-ok-ink:    #067647;  --c-ok-dot:    #12b76a;
+  --c-info-bg:  #eff8ff;  --c-info-line: #b2ddff;  --c-info-ink:  #175cd3;
+
+  /* Type scale: page title / section / row label / body / meta / micro */
+  --t-page:     20px;
+  --t-section:  14px;
+  --t-row:      13.5px;
+  --t-body:     13px;
+  --t-meta:     12.5px;
+  --t-micro:    11.5px;
+
+  /* Spacing scale (4px base) */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
+
+  /* Radius */
+  --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
+
+  /* Elevation */
+  --e-1: 0 1px 2px rgba(16,24,40,.06);
+  --e-2: 0 4px 12px rgba(16,24,40,.08);
+  --e-3: 0 14px 36px rgba(16,24,40,.16);
+
+  /* Focus ring - one definition, every interactive element uses it */
+  --focus-ring: 0 0 0 3px rgba(2,113,206,.28);
+
+  /* Chrome metrics */
+  --h-topnav: 60px;
+  --h-pagebar: 66px;
+  --w-sidenav: 252px;
+  --w-sidenav-min: 58px;
+  --w-filter: 244px;
+  --w-filter-min: 58px;
+
+  /* Card grid density (Area 4) - the only value that changes between sizes */
+  --card-min: 208px;
+  --card-max: 260px;
+
+  /* Compact Vector buttons inside dense rows / tables */
+  --lumo-font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   2. BASE
+   ------------------------------------------------------------------------ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--t-body);
+  color: var(--c-body);
+  background: var(--c-canvas);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+a { color: var(--c-primary); }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+.app-body { flex: 1; display: flex; min-height: 0; }
+.grow { flex: 1; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Shared compact icon button (used in nav, page bar, rows, cards, tables) */
+.icon-btn {
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
+  color: var(--c-meta); cursor: pointer; font-size: 14px;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.icon-btn:hover { background: var(--c-hover); color: var(--c-ink); }
+.icon-btn:active { background: #e9eef5; }
+.icon-btn.bordered { border-color: var(--c-line); background: var(--c-surface); }
+.icon-btn.bordered:hover { border-color: var(--c-primary-line); color: var(--c-primary); }
+.icon-btn[aria-pressed="true"] { background: var(--c-primary-soft); color: var(--c-primary); border-color: var(--c-primary-line); }
+
+/* ---------------------------------------------------------------------------
+   3. AREA 2 - TOP NAV  (+ relocated location picker)
+   Before: light top bar of tabs, with a bordered "Location" pin button living
+   on a second, dark breadcrumb bar underneath.
+   After:  location picker is a first-class top-nav control (a dropdown that
+   opens the location tree); the second bar becomes a light page header that
+   carries the breadcrumb + page title + page actions.
+   ------------------------------------------------------------------------ */
+.topnav {
+  flex: 0 0 var(--h-topnav);
+  height: var(--h-topnav);
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: 0 var(--s-4);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-line);
+  position: relative; z-index: 30;
+}
+
+.nav-burger { display: none; }
+
+.brand { display: flex; align-items: center; gap: var(--s-2); text-decoration: none; flex-shrink: 0; }
+.brand-mark {
+  width: 30px; height: 30px; border-radius: var(--r-sm);
+  background: linear-gradient(135deg, #0271ce, #17408b);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.brand-text { line-height: 1.15; }
+.brand-name { display: block; font-size: var(--t-row); font-weight: 700; color: var(--c-ink); letter-spacing: -.1px; }
+.brand-sub  { display: block; font-size: var(--t-micro); color: var(--c-meta); }
+
+/* Location trigger: sits among the top-nav controls, vertically centred */
+.loc-trigger {
+  display: flex; align-items: center; gap: var(--s-2);
+  height: 40px; padding: 0 var(--s-3);
+  margin-left: var(--s-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  cursor: pointer; text-align: left;
+  transition: background .12s, border-color .12s, box-shadow .12s;
+}
+.loc-trigger:hover { background: var(--c-primary-faint); border-color: var(--c-primary-line); }
+.loc-trigger[aria-expanded="true"] {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+  box-shadow: var(--e-1);
+}
+.loc-trigger .loc-pin { color: var(--c-primary); font-size: 14px; }
+.loc-trigger .loc-copy { line-height: 1.2; min-width: 0; }
+.loc-trigger .loc-name { display: block; font-size: var(--t-body); font-weight: 600; color: var(--c-ink); white-space: nowrap; }
+.loc-trigger .loc-path { display: block; font-size: var(--t-micro); color: var(--c-meta); white-space: nowrap; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.loc-trigger .loc-caret { color: var(--c-faint); font-size: 10px; transition: transform .18s; }
+.loc-trigger[aria-expanded="true"] .loc-caret { transform: rotate(180deg); color: var(--c-primary); }
+.loc-away {
+  display: none; align-items: center; gap: 4px;
+  background: var(--c-warn-bg); border: 1px solid var(--c-warn-line); color: var(--c-warn-ink);
+  border-radius: var(--r-pill); padding: 1px 7px; font-size: var(--t-micro); font-weight: 600;
+}
+.loc-trigger.is-away .loc-away { display: inline-flex; }
+
+/* Tabs: even spacing, one active treatment (blue label + underline) */
+.tabs { display: flex; align-items: stretch; height: 100%; gap: var(--s-1); }
+.tab {
+  position: relative;
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 0 var(--s-5);
+  background: none; border: 0; cursor: pointer;
+  font-size: var(--t-section); font-weight: 600; color: var(--c-body);
+  transition: color .12s, background .12s;
+}
+.tab:hover { color: var(--c-primary); background: var(--c-primary-faint); }
+.tab.active { color: var(--c-primary); }
+.tab.active::after {
+  content: ''; position: absolute; left: var(--s-3); right: var(--s-3); bottom: 0;
+  height: 3px; border-radius: 3px 3px 0 0; background: var(--c-primary);
+}
+.beta {
+  background: var(--c-primary-soft); color: var(--c-primary);
+  border: 1px solid var(--c-primary-line);
+  border-radius: var(--r-pill); padding: 1px 7px;
+  font-size: var(--t-micro); font-weight: 700;
+}
+.nav-icons { display: flex; align-items: center; gap: var(--s-1); margin-left: var(--s-2); }
+
+/* --- Location dropdown panel (the nest / tree view) --------------------- */
+.loc-backdrop { position: fixed; inset: 0; z-index: 60; display: none; }
+.loc-backdrop.open { display: block; }
+.loc-panel {
+  position: fixed; top: 0; left: 0;
+  width: 380px; max-height: min(520px, 80vh);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--e-3);
+  z-index: 70; display: none; flex-direction: column; overflow: hidden;
+}
+.loc-panel.open { display: flex; }
+.loc-panel-head { padding: var(--s-4) var(--s-4) var(--s-3); border-bottom: 1px solid var(--c-line-soft); }
+.loc-panel-title { font-size: var(--t-section); font-weight: 600; color: var(--c-ink); margin: 0 0 var(--s-3); }
+.loc-panel-tree { overflow: auto; padding: var(--s-2) var(--s-2) var(--s-3); flex: 1; min-height: 0; }
+vwc-tree-list { display: block; }
+.loc-panel-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--c-line-soft); background: var(--c-surface-alt);
+}
+.loc-viewing { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--t-meta); color: var(--c-meta); white-space: nowrap; }
+.loc-viewing strong { color: var(--c-ink); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.loc-panel-foot vaadin-button { flex-shrink: 0; }
+.dot-ok { width: 8px; height: 8px; border-radius: 50%; background: var(--c-ok-dot); flex-shrink: 0; }
+
+/* ---------------------------------------------------------------------------
+   4. AREA 1 - SIDE NAVIGATION
+   Before: every row separated by a heavy full-width divider, ~54px rows, two
+   unrelated active treatments, right-pinned carets, heavy icons.
+   After:  one selection language (blue rail + soft fill) used at every depth,
+   40px rows with no dividers, carets tied to the label, normalised 18px icons,
+   light section headers, and a preserved collapsed (icon-only) state.
+   ------------------------------------------------------------------------ */
+/* Width drives the collapse (flex-basis stays auto), so there is one animated
+   property instead of two saying the same thing. overflow:hidden keeps the
+   labels from spilling past the rail while it animates. */
+.sidenav {
+  flex: 0 0 auto; width: var(--w-sidenav); min-width: 0;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-line);
+  display: flex; flex-direction: column; min-height: 0;
+  overflow: hidden;
+  transition: width .2s cubic-bezier(.4,0,.2,1);
+}
+.sidenav[hidden] { display: none; }
+.app.nav-collapsed .sidenav { width: var(--w-sidenav-min); }
+
+.sn-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3); border-bottom: 1px solid var(--c-line-soft); }
+.sn-search { position: relative; flex: 1; min-width: 0; }
+.sn-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--c-faint); pointer-events: none; }
+.sn-search input {
+  width: 100%; height: 34px; padding: 0 var(--s-3) 0 30px;
+  border: 1px solid var(--c-line); border-radius: var(--r-sm);
+  background: var(--c-surface-alt); color: var(--c-ink);
+  font: inherit; font-size: var(--t-meta); outline: none;
+  transition: border-color .12s, background .12s, box-shadow .12s;
+}
+.sn-search input::placeholder { color: var(--c-faint); }
+.sn-search input:focus { background: var(--c-surface); border-color: var(--c-primary); box-shadow: var(--focus-ring); }
+.app.nav-collapsed .sn-search { display: none; }
+/* The collapse button is the first child of .sn-head and keeps the same 12px
+   left padding in both states, so it never moves when the nav opens or closes.
+   --w-sidenav-min is sized so it also lines up with the collapsed row icons. */
+
+.sn-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--s-2) var(--s-2) var(--s-6); }
+.sn-list::-webkit-scrollbar { width: 8px; }
+.sn-list::-webkit-scrollbar-thumb { background: #d6dbe2; border-radius: 4px; }
+
+/* Level 0: section header - the quietest level */
+.sn-section {
+  font-size: var(--t-micro); font-weight: 600; color: var(--c-faint);
+  padding: var(--s-4) var(--s-3) var(--s-2);
+}
+.app.nav-collapsed .sn-section { display: none; }
+.app.nav-collapsed .sn-list { padding-top: var(--s-3); }
+
+/* Level 1: parent / solo row */
+.sn-row {
+  position: relative;
+  display: flex; align-items: center; gap: var(--s-2);
+  width: 100%; height: 40px; padding: 0 var(--s-2) 0 10px;
+  margin-bottom: 2px;
+  background: none; border: 0; border-radius: var(--r-sm);
+  font-size: var(--t-row); font-weight: 500; color: var(--c-body);
+  cursor: pointer; text-align: left;
+  transition: background .12s, color .12s;
+}
+.sn-row:hover { background: var(--c-hover); color: var(--c-ink); }
+.sn-row .sn-icon {
+  width: 20px; flex-shrink: 0; text-align: center;
+  font-size: 15px; color: var(--c-meta);
+  transition: color .12s;
+}
+.sn-row .sn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Caret sits immediately after the label, not pinned to the far right */
+.sn-row .sn-caret { font-size: 9px; color: var(--c-faint); transition: transform .18s, color .12s; flex-shrink: 0; }
+.sn-row[aria-expanded="true"] .sn-caret { transform: rotate(180deg); }
+
+/* ONE selection language, used at every depth: blue rail + soft fill */
+.sn-row.selected, .sn-child.selected {
+  background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600;
+}
+.sn-row.selected .sn-icon, .sn-row.selected .sn-caret { color: var(--c-primary); }
+.sn-row.selected::before, .sn-child.selected::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--c-primary);
+}
+/* Trail state: a parent whose child is selected reads bolder, but is never
+   confused with the selected item itself. */
+.sn-row.trail { color: var(--c-ink); font-weight: 600; }
+.sn-row.trail .sn-icon { color: var(--c-primary); }
+
+/* Level 2: children - indentation + a guide line, no dividers */
+.sn-children { position: relative; margin: 2px 0 var(--s-2) 0; padding-left: 22px; }
+.sn-children::before {
+  content: ''; position: absolute; left: 19px; top: 2px; bottom: 2px;
+  width: 1px; background: var(--c-line);
+}
+.sn-child {
+  position: relative;
+  display: flex; align-items: center; width: 100%; height: 34px;
+  padding: 0 var(--s-2) 0 var(--s-3); margin-bottom: 1px;
+  background: none; border: 0; border-radius: var(--r-sm);
+  font-size: var(--t-meta); font-weight: 400; color: var(--c-meta);
+  cursor: pointer; text-align: left;
+  transition: background .12s, color .12s;
+}
+.sn-child:hover { background: var(--c-hover); color: var(--c-ink); }
+.sn-child.inert { color: var(--c-faint); }
+.sn-child.inert:hover { background: var(--c-hover); color: var(--c-meta); }
+
+.app.nav-collapsed .sn-row { justify-content: center; padding: 0; }
+.app.nav-collapsed .sn-row .sn-label, .app.nav-collapsed .sn-row .sn-caret { display: none; }
+.app.nav-collapsed .sn-children { display: none; }
+
+/* ---------------------------------------------------------------------------
+   5. PAGE HEADER BAR  (Area 2 - reconciling the two stacked bars)
+   ------------------------------------------------------------------------ */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pagebar {
+  flex: 0 0 auto; min-height: var(--h-pagebar);
+  display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-3) var(--s-6);
+  background: var(--c-surface); border-bottom: 1px solid var(--c-line);
+}
+.crumbs { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-meta); color: var(--c-meta); }
+.crumbs a { color: var(--c-primary); text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.crumbs i { font-size: 8px; color: var(--c-faint); }
+.page-title { margin: 2px 0 0; font-size: var(--t-page); font-weight: 600; color: var(--c-ink); letter-spacing: -.2px; }
+.pagebar-actions { margin-left: auto; display: flex; align-items: center; gap: var(--s-2); }
+.action-group { display: none; align-items: center; gap: var(--s-2); }
+.action-group.active { display: flex; }
+
+.searchbox { position: relative; }
+.searchbox i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--c-faint); pointer-events: none; }
+.searchbox input {
+  width: 220px; height: 36px; padding: 0 var(--s-3) 0 32px;
+  border: 1px solid var(--c-line); border-radius: var(--r-sm);
+  background: var(--c-surface); font: inherit; font-size: var(--t-meta); color: var(--c-ink); outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+.searchbox input::placeholder { color: var(--c-faint); }
+.searchbox input:focus { border-color: var(--c-primary); box-shadow: var(--focus-ring); }
+
+/* Segmented control - shared by the page bar and the filter panel (Area 3/4) */
+.segmented { display: inline-flex; background: var(--c-surface-alt); border: 1px solid var(--c-line); border-radius: var(--r-sm); padding: 2px; gap: 2px; }
+.segmented button {
+  width: 34px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: var(--r-xs);
+  color: var(--c-meta); cursor: pointer; font-size: 13px;
+  transition: background .12s, color .12s, box-shadow .12s;
+}
+.segmented button:hover { color: var(--c-ink); background: rgba(255,255,255,.7); }
+.segmented button[aria-pressed="true"] { background: var(--c-surface); color: var(--c-primary); box-shadow: var(--e-1); }
+
+.canvas { flex: 1; min-height: 0; display: flex; }
+.view { display: none; flex: 1; min-width: 0; min-height: 0; }
+.view.active { display: flex; }
+.view-scroll { flex: 1; min-width: 0; overflow: auto; padding: var(--s-6); }
+.view-scroll.flush { padding: 0; }
+
+/* ---------------------------------------------------------------------------
+   6. SHARED PRIMITIVES  (defined once, inherited by Areas 3-6)
+   ------------------------------------------------------------------------ */
+
+/* Status pill: one size, one shape, colour carries the meaning */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 24px; padding: 0 10px;
+  border-radius: var(--r-pill); border: 1px solid transparent;
+  font-size: var(--t-meta); font-weight: 600; white-space: nowrap;
+}
+.pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: .85; }
+.pill.no-dot::before { display: none; }
+.pill-progress { background: var(--c-warn-bg); border-color: var(--c-warn-line); color: var(--c-warn-ink); }
+.pill-incomplete { background: var(--c-idle-bg); border-color: var(--c-idle-line); color: var(--c-idle-ink); }
+.pill-overdue { background: var(--c-err-bg); border-color: var(--c-err-line); color: var(--c-err-ink); }
+.pill-complete { background: var(--c-ok-bg); border-color: var(--c-ok-line); color: var(--c-ok-ink); }
+.pill-new { background: var(--c-info-bg); border-color: var(--c-info-line); color: var(--c-info-ink); }
+
+/* Progress meter: replaces the empty capsule + tiny caption */
+.meter { display: flex; align-items: center; gap: var(--s-2); }
+.meter-track {
+  display: block; width: 72px; height: 6px;
+  border-radius: var(--r-pill); background: #dde5ee; overflow: hidden; flex-shrink: 0;
+}
+.meter-fill { display: block; height: 6px; border-radius: var(--r-pill); background: var(--c-primary); transition: width .3s; }
+.meter-label { font-size: var(--t-meta); color: var(--c-meta); white-space: nowrap; }
+.meter-label strong { color: var(--c-ink); font-weight: 600; }
+
+/* Inline notice: an intentional notice, not a raw orange block */
+.notice {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 5px 10px;
+  background: var(--c-warn-bg); border: 1px solid var(--c-warn-line); border-radius: var(--r-sm);
+  color: var(--c-warn-ink); font-size: var(--t-meta); font-weight: 600; line-height: 1.3;
+}
+.notice i { font-size: 12px; opacity: .9; flex-shrink: 0; }
+.notice-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Type glyph: one treatment for every activity / content type */
+.tglyph {
+  width: 24px; height: 24px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-xs); font-size: 11px;
+  background: var(--c-primary-soft); color: var(--c-primary);
+}
+
+/* Thumbnail placeholder (real course art is supplied by the LMS) */
+.thumb { position: relative; overflow: hidden; background: #dbe3ec; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.9); }
+.thumb i { font-size: 26px; }
+.thumb.t-video    { background: linear-gradient(135deg,#3f5f86,#233a58); }
+.thumb.t-cbt      { background: linear-gradient(135deg,#43678f,#2a4a6b); }
+.thumb.t-quiz     { background: linear-gradient(135deg,#5b6b95,#343f66); }
+.thumb.t-tasklist { background: linear-gradient(135deg,#4c7f8c,#2c5460); }
+.thumb.t-doc      { background: linear-gradient(135deg,#7a6e93,#4a4064); }
+
+/* Yes / no status glyphs (Area 5 Mobile column) */
+.glyph {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; cursor: default;
+}
+.glyph-yes { background: var(--c-ok-bg); color: var(--c-ok-ink); border: 1px solid var(--c-ok-line); }
+.glyph-no  { background: var(--c-err-bg); color: var(--c-err-ink); border: 1px solid var(--c-err-line); }
+
+/* Card surface used by every panel (list, table, wizard, guide) */
+.panel { background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--r-lg); box-shadow: var(--e-1); overflow: hidden; }
+
+/* Compact Vector buttons for dense rows. The tertiary theme adds an underline
+   by default; the shared button system keeps every variant underline-free. */
+.btn-compact { --lumo-size-m: 32px; --lumo-font-size-m: var(--t-meta); }
+vaadin-button { cursor: pointer; }
+vaadin-button::part(label) { text-decoration: none !important; }
+vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
+
+/* ---------------------------------------------------------------------------
+   7. AREA 3 - TRAINING PLAN ACCORDION
+   Before: 3 indistinguishable nesting levels, empty completion capsules with a
+   tiny caption, small low-contrast pills, loose columns, heavy full-width
+   borders on every row.
+   After:  4 explicit depth levels (band + indent + label weight), a progress
+   meter with a legible label, standardised pills, a fixed column grid shared
+   by header and rows, and one light hairline rhythm.
+   ------------------------------------------------------------------------ */
+
+/* The column grid is declared once and reused by the header and EVERY depth,
+   so the group, qualification, requirement and activity rows all line their
+   Completion / Duration / Due / Actions values up under the same headings. */
+.tp {
+  --grid: minmax(0, 1fr) 212px 88px 88px 100px 44px;
+}
+.tp-head, .tp-act, .tp-group, .tp-qual, .tp-req {
+  display: grid; grid-template-columns: var(--grid); align-items: center;
+  gap: var(--s-3);
+}
+.tp-name-cell { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.tp-head > *, .tp-act > *, .tp-group > *, .tp-qual > *, .tp-req > * { min-width: 0; overflow: hidden; }
+.tp-head {
+  position: sticky; top: 0; z-index: 5;
+  padding: var(--s-3) var(--s-4);
+  background: var(--c-surface-alt); border-bottom: 1px solid var(--c-line);
+  font-size: var(--t-meta); font-weight: 600; color: var(--c-idle-ink);
+}
+.tp-head .col-actions { text-align: right; }
+
+/* Depth 1: the plan group */
+.tp-group {
+  padding: var(--s-4);
+  background: var(--c-surface-alt2);
+  border-bottom: 1px solid var(--c-line);
+}
+.tp-group .tp-name { font-size: var(--t-section); font-weight: 700; color: var(--c-ink); }
+
+/* Depth 2: qualification */
+.tp-qual {
+  padding: var(--s-3) var(--s-4) var(--s-3) var(--s-8);
+  background: var(--c-surface-alt);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.tp-qual .tp-name { font-size: var(--t-row); font-weight: 600; color: var(--c-ink); }
+
+/* Depth 3: requirement */
+.tp-req {
+  padding: var(--s-2) var(--s-4) var(--s-2) var(--s-10);
+  background: #fbfcfe;
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.tp-req .tp-name { font-size: var(--t-body); font-weight: 600; color: var(--c-body); }
+/* The notice stays inline beside the label while it fits, then wraps onto its
+   own line rather than truncating either piece of text. */
+.tp-req .tp-name-cell { flex-wrap: wrap; row-gap: 6px; }
+.tp-req .tp-name { flex: 0 1 auto; min-width: 0; }
+.tp-req .notice { flex: 0 0 auto; }
+.tp-group .tp-name, .tp-qual .tp-name, .tp-req .tp-name {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Depth 4: activity row */
+.tp-act {
+  padding: var(--s-2) var(--s-4) var(--s-2) 56px;
+  min-height: 52px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-line-soft);
+  transition: background .12s;
+}
+.tp-act:hover { background: var(--c-primary-faint); }
+.tp-act:last-child { border-bottom: 0; }
+.tp-act .tp-actname { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.tp-act .tp-launch { flex-shrink: 0; }
+.tp-act .tp-title {
+  font-size: var(--t-row); font-weight: 500; color: var(--c-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tp-act .col-num { font-size: var(--t-meta); color: var(--c-body); font-variant-numeric: tabular-nums; }
+.tp-act .col-num.is-overdue { color: var(--c-err-ink); font-weight: 600; }
+.tp-act .col-actions { text-align: right; }
+.tp-act .col-empty { color: var(--c-faint); }
+
+/* Disclosure caret used at every depth of the accordion */
+.disc {
+  width: 22px; height: 22px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: var(--r-xs);
+  color: var(--c-meta); cursor: pointer; font-size: 10px;
+  transition: background .12s, transform .18s, color .12s;
+}
+.disc:hover { background: rgba(16,24,40,.06); color: var(--c-ink); }
+.disc[aria-expanded="false"] { transform: rotate(-90deg); }
+
+.tp-actions { text-align: right; }
+
+/* --- Left filter panel (Area 3) ----------------------------------------
+   The funnel that opens the panel lives INSIDE the panel, not across the
+   page in the header, so the control and the thing it controls are the same
+   column. Closed, the panel is a 58px rail holding just the funnel; open, it
+   is the full 244px panel with the funnel in exactly the same spot. Same
+   pattern and same button position as the side nav's collapse control. */
+.filter-panel {
+  flex: 0 0 auto; width: var(--w-filter); min-width: 0;
+  background: var(--c-surface); border-right: 1px solid var(--c-line);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: width .2s cubic-bezier(.4,0,.2,1);
+}
+.fp-head {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-3); flex-shrink: 0;
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.fp-head-label { font-size: var(--t-row); font-weight: 600; color: var(--c-ink); white-space: nowrap; }
+.fp-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: var(--s-4);
+  display: flex; flex-direction: column; gap: var(--s-5);
+}
+/* Closed: the rail keeps only the funnel. */
+.view.filters-closed .filter-panel { width: var(--w-filter-min); }
+.view.filters-closed .fp-head-label,
+.view.filters-closed .fp-body { display: none; }
+.fp-title { font-size: var(--t-micro); font-weight: 600; color: var(--c-faint); margin: 0 0 var(--s-2); }
+.fp-list { display: flex; flex-direction: column; gap: 2px; }
+.fp-item {
+  position: relative;
+  display: flex; align-items: center; gap: var(--s-3);
+  height: 36px; padding: 0 var(--s-3);
+  background: none; border: 0; border-radius: var(--r-sm);
+  font-size: var(--t-meta); color: var(--c-body); cursor: pointer; text-align: left; width: 100%;
+  transition: background .12s, color .12s;
+}
+.fp-item i { width: 18px; text-align: center; font-size: 13px; color: var(--c-meta); flex-shrink: 0; }
+.fp-item:hover { background: var(--c-hover); color: var(--c-ink); }
+.fp-item.selected { background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
+.fp-item.selected i { color: var(--c-primary); }
+.fp-item.selected::before {
+  content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--c-primary);
+}
+.fp-group { display: flex; flex-direction: column; gap: var(--s-3); }
+.fp-divider { height: 1px; background: var(--c-line-soft); }
+.fp-row { display: flex; align-items: center; gap: var(--s-2); }
+
+/* ---------------------------------------------------------------------------
+   8. AREA 4 - TRAINING PLAN CARD VIEW
+   One card component; only --card-min changes between the two densities, so
+   thumbnail ratio, badge placement, radius, shadow and controls stay identical.
+   ------------------------------------------------------------------------ */
+.tp-cardwrap { padding: var(--s-4) var(--s-4) var(--s-5) 56px; background: var(--c-surface); border-bottom: 1px solid var(--c-line-soft); }
+/* A responsive grid with consistent gutters. Tracks are capped so a partial
+   row keeps the card size instead of stretching a few cards across the page. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min), var(--card-max)));
+  justify-content: start;
+  gap: var(--s-4);
+}
+.tp-cards.dense { --card-min: 168px; --card-max: 208px; }
+.tp-cards.large { --card-min: 248px; --card-max: 300px; }
+
+.tcard {
+  display: flex; flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--c-line); border-radius: var(--r-md);
+  box-shadow: var(--e-1); overflow: hidden;
+  transition: box-shadow .16s, border-color .16s, transform .16s;
+}
+.tcard:hover { box-shadow: var(--e-2); border-color: var(--c-primary-line); transform: translateY(-2px); }
+.tcard-thumb { aspect-ratio: 16 / 9; width: 100%; }
+.tcard-badge { position: absolute; top: var(--s-2); left: var(--s-2); }
+.tcard-badge .pill { height: 22px; background: rgba(255,255,255,.94); backdrop-filter: blur(2px); }
+.tcard-dur {
+  position: absolute; bottom: var(--s-2); right: var(--s-2);
+  background: rgba(16,24,40,.78); color: #fff;
+  border-radius: var(--r-xs); padding: 2px 7px;
+  font-size: var(--t-micro); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.tcard-body { padding: var(--s-3); display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.tcard-title {
+  display: flex; align-items: flex-start; gap: var(--s-2);
+  font-size: var(--t-row); font-weight: 600; color: var(--c-ink); line-height: 1.35;
+}
+.tcard-title span {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-width: 0;
+}
+.tcard-meta { display: flex; align-items: center; gap: 6px; font-size: var(--t-micro); color: var(--c-meta); margin-top: auto; }
+.tcard-meta.is-overdue { color: var(--c-err-ink); font-weight: 600; }
+.tcard-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-2);
+  padding: var(--s-2) var(--s-3) var(--s-3);
+}
+.tp-cards.dense .tcard-title { font-size: var(--t-body); }
+.tp-cards.dense .tcard-body { padding: 10px; }
+.tp-cards.dense .tcard-foot { padding: 6px 10px 10px; }
+
+/* ---------------------------------------------------------------------------
+   9. AREA 5 - CATALOG TABLE
+   Before: thumbnails bleeding to the viewport edge, uneven rows, ad hoc
+   check / X glyphs, mismatched pills and buttons.
+   After:  a 24px gutter, one 56px row rhythm, standardised glyphs, shared
+   pill + button system, and columns aligned by intent (icons centred, text
+   left, actions right) with Name given the priority width.
+   ------------------------------------------------------------------------ */
+.cat-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.cat-table thead th {
+  position: sticky; top: 0; z-index: 3;
+  padding: var(--s-3) var(--s-3);
+  background: var(--c-surface-alt); border-bottom: 1px solid var(--c-line);
+  font-size: var(--t-meta); font-weight: 600; color: var(--c-idle-ink);
+  text-align: left; white-space: nowrap;
+}
+.cat-table thead th:first-child { padding-left: var(--s-6); }
+.cat-table thead th:last-child { padding-right: var(--s-6); text-align: right; }
+.cat-table th.c-mid, .cat-table td.c-mid { text-align: center; }
+.cat-table tbody td {
+  padding: var(--s-2) var(--s-3);
+  height: 56px;
+  border-bottom: 1px solid var(--c-line-soft);
+  font-size: var(--t-meta); color: var(--c-body); vertical-align: middle;
+}
+.cat-table tbody td:first-child { padding-left: var(--s-6); }
+.cat-table tbody td:last-child { padding-right: var(--s-6); text-align: right; }
+.cat-table tbody tr { transition: background .12s; }
+.cat-table tbody tr:hover { background: var(--c-primary-faint); }
+.cat-table tbody tr:last-child td { border-bottom: 0; }
+.cat-thumb { width: 60px; height: 38px; border-radius: var(--r-xs); border: 1px solid var(--c-line); }
+.cat-thumb i { font-size: 14px; }
+.cat-name { font-size: var(--t-row); font-weight: 500; color: var(--c-ink); }
+.cat-name-sub { display: block; font-size: var(--t-micro); color: var(--c-meta); margin-top: 1px; }
+.col-w-name { width: 36%; }
+.cat-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Meta columns never wrap, so every row keeps the same height. */
+.cat-table td.c-nowrap, .cat-table th.c-nowrap { white-space: nowrap; }
+
+/* ---------------------------------------------------------------------------
+   10. AREA 6 - CONTENT WIZARD
+   Before: a skeuomorphic gray monitor / TV frame, unequal blue icon squares,
+   flat heading hierarchy, an always-gray Start button and bare step dots.
+   After:  one centred panel used identically on all four steps, a labelled
+   stepper, equal selectable tiles with real hover / focus / selected states,
+   a unified title + helper hierarchy and standardised footer controls.
+   ------------------------------------------------------------------------ */
+.wz-scroll { display: flex; justify-content: center; align-items: flex-start; padding: var(--s-8) var(--s-6); }
+.wz-card { width: 100%; max-width: 780px; display: flex; flex-direction: column; }
+.wz-steps { padding: var(--s-5) var(--s-6) 0; }
+.wz-body { padding: var(--s-6) var(--s-6) var(--s-8); }
+.wz-head { text-align: center; margin-bottom: var(--s-6); }
+.wz-title { margin: 0; font-size: 22px; font-weight: 600; color: var(--c-ink); letter-spacing: -.2px; }
+.wz-help { margin: var(--s-2) 0 0; font-size: var(--t-row); color: var(--c-meta); line-height: 1.5; }
+.wz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s-3); }
+.wz-tiles.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.wz-tiles.cols-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.wz-tile {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: var(--s-2);
+  padding: var(--s-4) var(--s-3);
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-line); border-radius: var(--r-lg);
+  cursor: pointer; text-align: center;
+  transition: border-color .14s, background .14s, box-shadow .14s, transform .14s;
+}
+.wz-tile:hover { border-color: var(--c-primary-line); background: var(--c-primary-faint); box-shadow: var(--e-1); transform: translateY(-2px); }
+.wz-tile:focus-visible { border-color: var(--c-primary); box-shadow: var(--focus-ring); }
+.wz-tile-icon {
+  width: 46px; height: 46px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--c-primary-soft); color: var(--c-primary); font-size: 19px;
+  transition: background .14s, color .14s;
+}
+.wz-tile-label { font-size: var(--t-row); font-weight: 600; color: var(--c-ink); }
+.wz-tile-sub { font-size: var(--t-micro); color: var(--c-meta); line-height: 1.4; }
+.wz-tile.selected {
+  border-color: var(--c-primary); background: var(--c-primary-soft);
+  box-shadow: 0 0 0 1px var(--c-primary) inset;
+}
+.wz-tile.selected .wz-tile-icon { background: var(--c-primary); color: #fff; }
+.wz-tile-check {
+  position: absolute; top: 8px; right: 8px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--c-primary); color: #fff;
+  display: none; align-items: center; justify-content: center; font-size: 9px;
+}
+.wz-tile.selected .wz-tile-check { display: flex; }
+
+.wz-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
+  padding: var(--s-4) var(--s-6);
+  border-top: 1px solid var(--c-line); background: var(--c-surface-alt);
+}
+.wz-foot-hint { font-size: var(--t-meta); color: var(--c-meta); }
+
+/* Step 3: repository picker */
+.wz-picker { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-3); align-items: stretch; }
+.wz-picked {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--c-ok-bg); border: 1px solid var(--c-ok-line); border-radius: var(--r-md);
+  font-size: var(--t-row); color: var(--c-ok-ink); font-weight: 600;
+}
+.wz-picked[hidden] { display: none; }
+.wz-empty {
+  display: flex; flex-direction: column; align-items: center; gap: var(--s-3);
+  padding: var(--s-8) var(--s-6);
+  border: 1.5px dashed var(--c-line); border-radius: var(--r-lg); background: var(--c-surface-alt);
+  text-align: center;
+}
+.wz-empty i { font-size: 24px; color: var(--c-faint); }
+.wz-empty p { margin: 0; font-size: var(--t-meta); color: var(--c-meta); }
+
+/* Step 4: form rhythm */
+.wz-form { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-5); }
+.wz-field { display: flex; flex-direction: column; gap: 6px; }
+.wz-label { font-size: var(--t-row); font-weight: 600; color: var(--c-body); }
+.req { color: var(--c-err-ink); margin-left: 2px; }
+.wz-hint { font-size: var(--t-micro); color: var(--c-meta); }
+.wz-inline { display: flex; align-items: center; gap: var(--s-3); }
+.wz-inline .unit { font-size: var(--t-meta); color: var(--c-meta); }
+.wz-reqnote { text-align: center; font-size: var(--t-meta); color: var(--c-meta); margin: 0 0 var(--s-5); }
+
+/* ---------------------------------------------------------------------------
+   11. REVIEW GUIDE (prototype landing - not part of the six areas)
+   ------------------------------------------------------------------------ */
+.guide { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-6); }
+.guide-lede { font-size: var(--t-row); color: var(--c-meta); line-height: 1.6; max-width: 78ch; margin: 0; }
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s-4); }
+.guide-card { padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-3); }
+.guide-card h3 { margin: 0; font-size: var(--t-section); font-weight: 600; color: var(--c-ink); }
+.guide-card p { margin: 0; font-size: var(--t-meta); color: var(--c-meta); line-height: 1.55; flex: 1; }
+.guide-num {
+  width: 26px; height: 26px; border-radius: var(--r-sm);
+  background: var(--c-primary-soft); color: var(--c-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--t-meta); font-weight: 700;
+}
+.guide-top { display: flex; align-items: center; gap: var(--s-3); }
+.tokens { padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-5); }
+.tokens h3 { margin: 0; font-size: var(--t-section); font-weight: 600; color: var(--c-ink); }
+.token-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.token-row .cap { font-size: var(--t-micro); color: var(--c-faint); width: 92px; flex-shrink: 0; }
+.swatch { display: flex; align-items: center; gap: 6px; font-size: var(--t-micro); color: var(--c-meta); }
+.swatch b { width: 22px; height: 22px; border-radius: var(--r-xs); border: 1px solid rgba(16,24,40,.08); display: block; }
+.type-sample { display: flex; flex-direction: column; gap: 2px; }
+
+/* ---------------------------------------------------------------------------
+   12. RESPONSIVE  (the narrow / mobile nav state is preserved)
+   ------------------------------------------------------------------------ */
+@media (max-width: 1400px) {
+  .brand-text { display: none; }
+  .tab { padding: 0 var(--s-3); font-size: var(--t-row); }
+  .searchbox input { width: 150px; }
+  /* Dropping a column must hide that cell at EVERY depth, or the deeper rows
+     spill onto a second grid line. */
+  .tp { --grid: minmax(0, 1fr) 140px 84px 96px 44px; }
+  .tp .col-spent { display: none; }
+  .meter-unit { display: none; }
+  .meter-track { width: 64px; }
+}
+@media (max-width: 900px) {
+  .nav-burger {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; background: none; border: 0; border-radius: var(--r-sm);
+    color: var(--c-body); cursor: pointer; font-size: 15px;
+  }
+  .nav-burger:hover { background: var(--c-hover); }
+  .loc-trigger .loc-path { display: none; }
+  .tabs { display: none; }
+  .sidenav {
+    position: fixed; top: var(--h-topnav); bottom: 0; left: 0; z-index: 40;
+    box-shadow: var(--e-3); transform: translateX(-100%);
+    transition: transform .2s cubic-bezier(.4,0,.2,1);
+  }
+  .app.nav-open .sidenav { transform: none; }
+  /* Narrow: the open panel floats over the content instead of squeezing it.
+     The closed funnel rail stays in flow. */
+  .view:not(.filters-closed) .filter-panel {
+    position: absolute; z-index: 20; top: 0; bottom: 0; left: 0; box-shadow: var(--e-2);
+  }
+  .canvas { position: relative; }
+  .tp { --grid: minmax(0, 1fr) 118px 44px; }
+  .meter-unit { display: none; }
+  .meter-track { width: 56px; }
+  .tp .col-dur, .tp .col-due { display: none; }
+  .view-scroll { padding: var(--s-4); }
+  .page-title { font-size: 17px; }
+}
+
+/* ---------------------------------------------------------------------------
+   13. AREA 7 - HOME DASHBOARD
+   Before: cards with gray header bars, square corners and heavy borders; three
+   donuts in a serif face with three unrelated colours, one of them reading
+   "100% No Items Found" in alarm orange for an empty list; an unstyled gray
+   "View Incomplete Items" button on two of three rings; a green Launch button;
+   a dark red error block for an empty class list; and a "View All" button
+   floating over the news text.
+   After: the shared .panel surface with a real card header and footer, one ring
+   geometry and one arc colour for all three stats, a neutral empty state that
+   is not an error, the shared primary Launch button, and footers that can never
+   overlap the content.
+   ------------------------------------------------------------------------ */
+.dash {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--s-6); align-items: start;
+  max-width: 1360px; margin: 0 auto;
+}
+.dash-progress { grid-column: span 8; }
+.dash-upcoming { grid-column: span 4; }
+.dash-classes  { grid-column: span 4; }
+.dash-news     { grid-column: span 8; }
+
+/* Card chrome, shared by all four cards */
+.card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.card-title {
+  display: flex; align-items: center; gap: var(--s-2);
+  margin: 0; font-size: var(--t-section); font-weight: 600; color: var(--c-ink);
+}
+.card-title i { font-size: 13px; color: var(--c-primary); }
+.card-body { padding: var(--s-5); }
+.card-body.flush { padding: 0; }
+.card-foot {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--c-line-soft); background: var(--c-surface-alt);
+}
+
+/* --- Progress rings ---------------------------------------------------- */
+.stat-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--s-5); padding: var(--s-6) var(--s-5);
+}
+.stat { display: flex; flex-direction: column; align-items: center; gap: var(--s-3); text-align: center; }
+.stat-label { margin: 0; font-size: var(--t-row); font-weight: 600; color: var(--c-body); }
+.stat-ring { position: relative; width: 132px; height: 132px; }
+.ring { width: 132px; height: 132px; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 12; }
+.ring-track { stroke: #e3e9f1; }
+.ring-fill { stroke: var(--c-primary); stroke-linecap: round; transition: stroke-dasharray .45s cubic-bezier(.4,0,.2,1); }
+/* Empty is a dashed track and no arc, so an empty list can never read as a
+   completed one (the legacy card showed 100% in orange for zero items). */
+.ring.is-empty .ring-track { stroke: var(--c-line); stroke-dasharray: 2 7; stroke-linecap: round; }
+.stat-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+}
+.stat-pct { font-size: 26px; font-weight: 600; color: var(--c-ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat-none { font-size: 17px; font-weight: 600; color: var(--c-faint); }
+.stat-caption { font-size: var(--t-meta); color: var(--c-meta); }
+.stat-hint { margin: 0; font-size: var(--t-meta); color: var(--c-meta); line-height: 1.45; max-width: 22ch; min-height: 2.9em; }
+.stat-hint strong { color: var(--c-ink); font-weight: 600; }
+
+/* --- Mini table (upcoming training) ------------------------------------ */
+.mini-head, .mini-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 76px auto;
+  align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-4);
+}
+.mini-head {
+  padding-top: var(--s-3); padding-bottom: var(--s-3);
+  background: var(--c-surface-alt); border-bottom: 1px solid var(--c-line);
+  font-size: var(--t-meta); font-weight: 600; color: var(--c-idle-ink);
+}
+.mini-row { min-height: 52px; border-bottom: 1px solid var(--c-line-soft); transition: background .12s; }
+.mini-row:last-child { border-bottom: 0; }
+.mini-row:hover { background: var(--c-primary-faint); }
+.mini-name { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.mini-title {
+  font-size: var(--t-row); font-weight: 500; color: var(--c-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mini-due { font-size: var(--t-meta); color: var(--c-body); font-variant-numeric: tabular-nums; }
+
+/* --- Shared empty state (not an error) -------------------------------- */
+.empty {
+  display: flex; flex-direction: column; align-items: center; gap: var(--s-2);
+  padding: var(--s-8) var(--s-5); text-align: center;
+}
+.empty-icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--c-surface-alt); color: var(--c-faint); font-size: 17px;
+  margin-bottom: var(--s-1);
+}
+.empty-title { margin: 0; font-size: var(--t-row); font-weight: 600; color: var(--c-body); }
+.empty-text { margin: 0 0 var(--s-2); font-size: var(--t-meta); color: var(--c-meta); max-width: 34ch; line-height: 1.5; }
+
+/* --- News feed -------------------------------------------------------- */
+.feed-item {
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--c-line-soft);
+  transition: background .12s; cursor: pointer;
+}
+.feed-item:last-child { border-bottom: 0; }
+.feed-item:hover { background: var(--c-primary-faint); }
+.feed-item:hover .feed-title { color: var(--c-primary); }
+.feed-date {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 var(--s-1); font-size: var(--t-micro); color: var(--c-meta);
+  font-variant-numeric: tabular-nums;
+}
+.feed-title {
+  margin: 0 0 3px; font-size: var(--t-row); font-weight: 600; color: var(--c-ink); line-height: 1.4;
+  transition: color .12s;
+}
+.feed-text {
+  margin: 0; font-size: var(--t-meta); color: var(--c-meta); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+@media (max-width: 1180px) {
+  .dash-progress, .dash-news { grid-column: span 12; }
+  .dash-upcoming, .dash-classes { grid-column: span 6; }
+}
+@media (max-width: 760px) {
+  .dash { gap: var(--s-4); }
+  .dash-upcoming, .dash-classes { grid-column: span 12; }
+  .stat-row { padding: var(--s-5) var(--s-4); }
+}
