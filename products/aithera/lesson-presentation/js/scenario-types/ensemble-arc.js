@@ -819,6 +819,54 @@ ${groundLines.join('\n')}`);
       });
     });
 
+    /* CONSISTENCY — establish an actor ON-STAGE before the learner faces them.
+       Catches the "off-stage antagonist" defect: a character the learner is sent
+       to confront in a later scene must have been SHOWN ACTING in the scene where
+       the incident happens — not left in the reaction notes while other names
+       carry the visible beats. (This is the Bianca/hallway class of miss: the deck
+       named her as directing it, but the on-screen narrator only showed the others,
+       so the learner reached the confrontation never having seen her act.) */
+    const castNames = cast.map((c) => c.name);
+    const hasName = (text, name) => {
+      const t = String(text || '');
+      if (!t || !name) return false;
+      const toks = String(name).split(/\s+/)
+        .map((x) => x.replace(/[^\p{L}\p{N}]/gu, ''))
+        .filter((x) => x.length >= 3 && !/^(ms|mr|mrs|dr|mx|sir)$/i.test(x));
+      const probes = toks.length ? toks : [String(name).replace(/[^\p{L}\p{N}]/gu, '')].filter(Boolean);
+      return probes.some((p) => new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(t));
+    };
+    const isScene = (p) => (p.world || 'scene') === 'scene';
+    const beatsText = (p) => arr((p.entry || {}).beats).map((b) => `${(b || {}).name || ''} ${(b || {}).text || ''}`).join(' ');
+    const backstageText = (p) => [p.reactionGuidance, p.exitCriteria].concat(arr(p.calibration).map((t) => (t || {}).guidance)).join(' ');
+
+    phases.forEach((p, i) => {
+      if (!isScene(p)) return;
+      const nm = p.label || p.id;
+      const onstage = beatsText(p);
+      const cp = String(p.counterpart || '').trim();
+
+      // (a) the character the learner FACES here should appear in this scene's beats.
+      if (cp && !/^narrator$/i.test(cp) && castNames.indexOf(cp) !== -1 && !hasName(onstage, cp)) {
+        add('warn', 'phases', `Phase ${i + 1} (${nm}) faces ${cp}, but ${cp} never appears in its opening beats.`,
+          'The learner should see or hear the character they’re facing in the scene’s first moment — otherwise the hand-off names someone who isn’t on screen.');
+      }
+
+      // (b) an antagonist CONFRONTED in a later scene must be shown ACTING here — not
+      //     only referenced in the reaction notes. This is the off-stage-actor miss.
+      const back = backstageText(p);
+      cast.forEach((c) => {
+        if (c.name === cp) return; // their own scene is covered by (a)
+        const laterIdx = phases.findIndex((q, j) => j > i && isScene(q) && String(q.counterpart || '').trim() === c.name);
+        if (laterIdx === -1) return; // not confronted later — nothing to anchor
+        if (hasName(back, c.name) && !hasName(onstage, c.name)) {
+          add('warn', 'phases',
+            `Phase ${i + 1} (${nm}): ${c.name} drives this moment but never appears in the scene the learner sees — yet Phase ${laterIdx + 1} asks the learner to confront ${c.name}.`,
+            `Establish ${c.name} on-stage here, by a visible action, so the later confrontation has something to anchor to. Right now the learner is sent to face ${c.name} without having witnessed them act.`);
+        }
+      });
+    });
+
     if (empty((s.voice || {}).persona)) add('info', 'voice', 'No coach persona set.', 'A short stance keeps the coaching consistent (the detailed voice rules are locked).');
 
     const pbs = arr(s.playbook).filter((p) => !empty(p.title) || !empty(p.body));
