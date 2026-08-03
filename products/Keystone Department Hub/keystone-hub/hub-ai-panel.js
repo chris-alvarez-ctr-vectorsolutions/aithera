@@ -234,15 +234,30 @@
     // A beat of latency so the thinking state is legible; this is a prototype,
     // there is no request behind it.
     window.setTimeout(function () {
-      var res = window.AGENCY_INTEL_AI.homepageRespond(q, currentPerson, null);
-      state.thinking = false;
-      state.thread.push({
-        role: 'assistant',
-        text: res.text,
-        metricId: (res.entry && res.entry.outcome === 'answered') ? res.entry.metricId : null,
-        denied: !!res.denied,
-        deniedNote: res.denied ? deniedNote(res.entry) : ''
-      });
+      // Guard the call so a throw can never leave `thinking` stuck true —
+      // that would freeze the panel on the animated dots forever, silently
+      // swallowing every message afterward (send() bails out while thinking
+      // is true). Fall through to a plain assistant turn instead.
+      try {
+        var res = window.AGENCY_INTEL_AI.homepageRespond(q, currentPerson, null);
+        state.thinking = false;
+        state.thread.push({
+          role: 'assistant',
+          text: res.text,
+          metricId: (res.entry && res.entry.outcome === 'answered') ? res.entry.metricId : null,
+          denied: !!res.denied,
+          deniedNote: res.denied ? deniedNote(res.entry) : ''
+        });
+      } catch (err) {
+        state.thinking = false;
+        state.thread.push({
+          role: 'assistant',
+          text: 'Something went wrong answering that — try asking again.',
+          metricId: null,
+          denied: false,
+          deniedNote: ''
+        });
+      }
       window.KXHub.render();
       scrollThread();
     }, 620);
