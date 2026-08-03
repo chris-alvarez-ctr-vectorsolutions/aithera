@@ -741,6 +741,238 @@ Scoped to .kx-pubbody, so a dashboard without the panel is unchanged."
 
 ---
 
+## Task 2c: Give the widget title its own row
+
+**Why this task exists (added after Task 2b was measured).** Task 2b removed the
+1200px cap, which fixed the severe clipping. But measurement at a 1405px viewport
+showed the squeeze was not gone, only softened:
+
+| | granted (Chief) | ungranted (Firefighter) |
+|---|---|---|
+| widget rows | 2 | 1 |
+| widget width | 454px | 409px |
+| `.kx-pubdash` height | **422px** | **261px** |
+
+A 161px height delta, versus the 8px Task 2 established. And two-across is
+wasteful — it hands each widget 454px to render a two-digit number, when what it
+needed was ~310px.
+
+The cause is the widget header row: `iconChip + title + range control`, where
+`pdRangeControl()` takes ~105px. That is why a widget needs ~310px for a legible
+title, why three need ~954px of grid, and why that only exists above ~1435px
+viewport beside a 320px panel.
+
+**The human partner's decision: move the date-range control out of the title
+row.** The title then owns its row and needs ~205px, so three-across fits from
+roughly 1100px upward — the compact container keeps today's height on every
+realistic screen, and Task 2b's wrap rules become a true small-screen fallback
+instead of the common case.
+
+**Accepted cost, stated plainly:** the range control becomes a compact footer row
+inside each widget, adding roughly 26px of widget height **for every role,
+including ungranted ones**. That reverses a deliberate choice recorded at
+`hub-hero.js:575-582` ("Narrow (w:4) widgets used to stack the title above a
+second row… which cost ~31px per widget"). It is the right reversal now: 26px is
+the price of legible titles, against 161px for the two-across fallback.
+
+**Files:**
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`pubWidget`, around lines 574-592)
+- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (a footer rule, and re-measured breakpoints)
+
+**Interfaces:** none new. `pdRangeControl(w, ownerLabel, compact)` keeps its
+signature and all its existing behaviour (the dirty-state dot, the Reset button,
+the popover menu) — only its position in the markup changes.
+
+- [ ] **Step 1: Move the range control into a footer row**
+
+In `<HUB>/hub-hero.js`, `pubWidget()` currently ends:
+
+```js
+    return '<div class="kx-pubwidget" style="grid-column:span ' + (w.w || 6) + '">' +
+      '<div class="kx-pubwidget-head">' + iconChip +
+      '<span class="title">' + esc(title) + '</span>' +
+      (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +
+      '<span class="rng">' + pdRangeControl(w, ownerLabel, narrow) + '</span></div>' +
+      '<div style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
+      '</div>';
+```
+
+Replace with:
+
+```js
+    // The range control sits BELOW the value, not beside the title. It used to
+    // share the header row, where it took ~105px and forced every title into an
+    // ellipsis once the Agency Intelligence panel claimed 320px of the body.
+    // Giving the title its own row drops a widget's legible minimum from ~310px
+    // to ~205px, which is what lets three widgets stay on one row at ordinary
+    // laptop widths instead of wrapping to two.
+    return '<div class="kx-pubwidget" style="grid-column:span ' + (w.w || 6) + '">' +
+      '<div class="kx-pubwidget-head">' + iconChip +
+      '<span class="title">' + esc(title) + '</span>' +
+      (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +
+      '</div>' +
+      '<div style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
+      '<div class="kx-pubwidget-foot">' + pdRangeControl(w, ownerLabel, narrow) + '</div>' +
+      '</div>';
+```
+
+Note `narrow` keeps its meaning and still governs both the source-chip drop and
+the abbreviated range label — do not change how it is computed.
+
+- [ ] **Step 2: Style the footer row**
+
+In `<HUB>/index.html`, immediately after the `.kx-pubwidget-head` rule, add:
+
+```css
+  /* Range control's new home: its own compact row under the value, so the
+     title above it never has to share horizontal space with it. */
+  .kx-pubwidget-foot { display: flex; align-items: center; margin-top: 8px; min-width: 0; }
+```
+
+- [ ] **Step 3: Re-measure the breakpoints — do NOT trust arithmetic**
+
+Task 2b's thresholds (1450px and 1090px) were calibrated against the OLD
+~310px-per-widget minimum. With the title on its own row the minimum drops to
+roughly 205px, so both thresholds are now too conservative and must be
+re-derived **by measurement in the browser**, not by calculation. Two earlier
+attempts in this plan got this wrong by computing it.
+
+Method — binary-search each boundary with the real page:
+
+1. Load the page as the Chief (granted, so `.kx-pubbody` exists).
+2. Temporarily neutralise the two Task 2b breakpoints so you can find the true
+   clip point of a three-across layout. In the browser only (never edit the file
+   for this), force spans back and step the viewport width down:
+
+```
+browser_evaluate → () => {
+  document.querySelectorAll('.kx-pubbody .kx-pubgrid > .kx-pubwidget')
+    .forEach(e => e.style.setProperty('grid-column', 'span 4', 'important'));
+  const t = [...document.querySelectorAll('.kx-pubwidget .title')];
+  return { vw: window.innerWidth,
+           widgetW: Math.round(document.querySelector('.kx-pubwidget').getBoundingClientRect().width),
+           anyClipped: t.some(e => e.scrollWidth > e.clientWidth + 1) };
+}
+```
+
+Resize downward (try 1400, 1300, 1200, 1150, 1100, 1050, 1000) re-running the
+probe after each `browser_resize`, and record the widest width at which
+`anyClipped` first becomes `true`. **Round the three-across threshold UP to the
+next 10px above that clip point** — that is your new `span 6` breakpoint.
+
+3. Repeat the same procedure with `span 6` forced, to find where two-across
+   starts clipping. Round up likewise — that is your new `1 / -1` breakpoint.
+
+4. Replace the two `max-width` values in the Task 2b block in `index.html` with
+   your measured numbers, and **update the comment** to state the new
+   ~205px-per-widget minimum and both measured clip points. Leave the existing
+   `@media (max-width: 860px)` rule alone.
+
+Report both measured clip points and both chosen thresholds in your report.
+
+- [ ] **Step 4: Verify the height delta is back to ~flat**
+
+The whole point of this task. With the real (not forced) CSS in place, at a
+1405x900 viewport:
+
+```
+browser_evaluate → () => {
+  const probe = () => {
+    const w = [...document.querySelectorAll('.kx-pubwidget')];
+    return {
+      rows: new Set(w.map(e => Math.round(e.getBoundingClientRect().top))).size,
+      widgetW: Math.round(w[0].getBoundingClientRect().width),
+      dashH: Math.round(document.querySelector('.kx-pubdash').getBoundingClientRect().height),
+      clipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1)
+    };
+  };
+  window.KXHub.state.role = 'chief'; window.KXHub.render();
+  const granted = probe();
+  window.KXHub.state.role = 'ff'; window.KXHub.render();
+  const ungranted = probe();
+  window.KXHub.state.role = 'chief'; window.KXHub.render();
+  return { granted, ungranted, heightDelta: granted.dashH - ungranted.dashH };
+}
+```
+
+Required: `granted.rows` is **1**, `granted.clipped` and `ungranted.clipped` both
+**false**, and `heightDelta` **at most 12**. If the delta exceeds 12, three
+widgets are still not fitting on one row at this width — lower the `span 6`
+threshold and re-measure rather than reporting a pass.
+
+- [ ] **Step 5: Verify the range control still works where it moved to**
+
+Moving markup can break delegated handlers. `hub-hero.js`'s `wire()` delegates
+`[data-range-toggle]`, `[data-range-pick]` and `[data-range-reset]` from `#root`,
+so relocating the control inside the same widget should keep them working — prove
+it:
+
+```
+browser_evaluate → () => {
+  document.querySelector('[data-range-toggle]').click();
+  return { menuOpen: !!document.querySelector('.kx-menu'),
+           optionCount: document.querySelectorAll('[data-range-pick]').length };
+}
+```
+
+Expected: `menuOpen: true` and `optionCount` greater than 0.
+
+Then pick a different range and confirm the dirty state and Reset appear:
+
+```
+browser_evaluate → () => {
+  const opts = [...document.querySelectorAll('[data-range-pick]')];
+  const pick = opts.find(o => o.getAttribute('data-range-val') !== 'next_14') || opts[1];
+  pick.click();
+  return { dirtyDot: !!document.querySelector('.kx-range-btn.is-dirty'),
+           resetShown: !!document.querySelector('[data-range-reset]'),
+           footPresent: !!document.querySelector('.kx-pubwidget-foot') };
+}
+```
+
+Expected: all three `true`.
+
+- [ ] **Step 6: Verify wide and narrow widths, and the ungranted role**
+
+At **1800x900**: `rows: 1`, no clipping, and confirm the page below the
+dashboard still looks reasonable (report anything that now reads badly — the
+task table's column spread at wide widths was already flagged as a concern in
+Task 2b).
+
+At your measured two-across threshold minus 20px: `rows: 2`, no clipping.
+
+At **900x900**: no clipping, panel stacked above the grid.
+
+For the **Firefighter** at 1405x900: `rows: 1`, no clipping, and note the
+widget-height increase from the new footer row is expected and accepted.
+
+```
+browser_console_messages
+```
+
+Expected: no `error` entries (the favicon 404 is pre-existing).
+
+- [ ] **Step 7: Commit**
+
+```bash
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
+git add "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone Department Hub/keystone-hub/index.html"
+git commit -m "Keystone dashboard: the widget title gets its own row
+
+The date-range control shared the header with the title and took ~105px of
+it, so a widget needed ~310px to show its name — and three of those plus
+the Agency Intelligence panel only fit above ~1435px, dropping ordinary
+laptops to a two-across layout 161px taller than it needed to be. The
+control moves to a compact row under the value: a widget now needs ~205px,
+three stay on one row at normal widths, and the dashboard keeps its height.
+
+Costs ~26px of widget height for every role, reversing the single-row-head
+choice made when nothing shared the dashboard body."
+```
+
+---
+
 ## Task 3: Ask and answer — the expanded state
 
 **Files:**
