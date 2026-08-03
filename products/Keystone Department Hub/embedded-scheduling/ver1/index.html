@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keystone Department Hub — in Vector Scheduling</title>
+
+<!--
+  Keystone Department Hub, wearing the Vector Scheduling shell.
+
+  Second of the host-app bake-outs (Target Solutions shipped first, in
+  ../../embedded-target-solutions/; Check It still to come).
+
+  Structure mirrors that first build: persistent Scheduling chrome (dark top bar
+  + dark sidebar) wrapping two sibling views. `data-view` on .sch-app picks one;
+  CSS hides the other. Nothing re-renders on a switch, so the chrome holds
+  perfectly still mid-demo.
+
+    data-view="home"  -> #view-home, a recreation of the Scheduling homepage
+    data-view="hub"   -> #view-hub, an iframe of the REAL keystone-hub/index.html
+
+  The hub is embedded by reference, never copied. Hub edits show up here for
+  free, and all of its interactivity survives because it gets its own document.
+
+  Classes are prefixed `sch-` and shared with nothing. Each host-app view is a
+  standalone file — that is this repo's convention, and it means the reviewed
+  Target Solutions build (which uses `ts-`) can never be broken from here.
+
+  The legacy Scheduling chrome is plain HTML/CSS on purpose. Only genuinely NEW
+  elements — the announcement banner, its buttons, the NEW pill — use Vector
+  components and theme tokens, because those are the parts a developer builds.
+-->
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 PRO — self-hosted at the repo root, four levels up. -->
+<link
+rel="stylesheet"
+href="../../../../assets/fontawesome/css/all.min.css"
+/>
+
+<style id="sch-styles">
+  /* ====================================================================
+     TOKENS — sampled from the current Vector Scheduling product
+     ==================================================================== */
+  :root {
+    --sch-topbar-bg:   #16202a;
+    --sch-sidebar-bg:  #26333f;
+    --sch-sidebar-hov: #313f4d;
+    --sch-sidebar-act: #1d2b38;
+    --sch-page-bg:     #ffffff;
+    --sch-hairline:    #dddddd;
+    --sch-head-bg:     #f5f5f5;
+    --sch-ink-900:     #333333;
+    --sch-ink-700:     #555555;
+    --sch-ink-500:     #777777;
+    --sch-link:        #337ab7;
+    --sch-danger:      #cc0000;
+    --sch-teal:        #17a2b8;
+    --sch-shift:       #1877bf;
+    --sch-sidebar-w:   210px;
+    --sch-topbar-h:    54px;
+
+    /* Roster role badges */
+    --sch-bc:   #f0ad4e;
+    --sch-de1:  #8a6d5e;
+    --sch-cpt:  #e04b42;
+    --sch-ff:   #5cb85c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--sch-ink-900);
+    background: var(--sch-page-bg);
+  }
+  :focus-visible { outline: 2px solid #6cb2f0; outline-offset: 2px; }
+
+  /* ====================================================================
+     APP FRAME
+     Fixed full-viewport so only the content column scrolls — which is what
+     lets the hub iframe below size itself to a real 100% height.
+     ==================================================================== */
+  .sch-app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ====================================================================
+     TOP BAR — decorative
+     ==================================================================== */
+  .sch-topbar {
+    height: var(--sch-topbar-h); flex-shrink: 0;
+    background: var(--sch-topbar-bg); color: #fff;
+    display: flex; align-items: center; gap: 18px; padding: 0 14px;
+  }
+  .sch-user { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+  .sch-user-av {
+    width: 32px; height: 32px; border-radius: 50%; background: #64717d;
+    display: grid; place-items: center; font-size: 16px; color: #d5dae0;
+  }
+  .sch-topbar-item {
+    color: #e8ecef; font-size: 14px; display: flex; align-items: center; gap: 6px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .sch-topbar-item .caret { font-size: 10px; opacity: .8; }
+  .sch-topbar-icon {
+    position: relative; color: #cfd6dc; font-size: 17px; flex-shrink: 0;
+    display: grid; place-items: center; width: 26px; height: 26px;
+  }
+  .sch-topbar-icon .cal-tint { color: #4a90d9; }
+  .sch-bell-badge {
+    position: absolute; top: -4px; right: -3px; min-width: 16px; height: 16px;
+    border-radius: 99px; background: #d9534f; color: #fff;
+    font-size: 10px; font-weight: 700; display: grid; place-items: center; padding: 0 4px;
+  }
+  .sch-admin { color: #e8862e; font-size: 14px; flex-shrink: 0; }
+
+  /* Tenant chip — white card sitting in the dark bar */
+  .sch-tenant {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    background: #fff; color: #555; border-radius: 2px;
+    padding: 5px 12px 5px 6px; font-size: 13px; max-width: 300px;
+  }
+  .sch-tenant .crest { width: 26px; height: 26px; flex-shrink: 0; }
+  .sch-tenant span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .sch-topbar-right {
+    margin-left: auto; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+  }
+  .sch-acct {
+    display: flex; align-items: center; gap: 10px;
+    background: #fff; color: #333; border-radius: 3px;
+    padding: 6px 10px; font-size: 13px; min-width: 210px;
+  }
+  .sch-acct .num { color: var(--sch-link); font-weight: 600; }
+  .sch-acct .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .sch-acct .caret { color: #666; font-size: 11px; }
+  .sch-logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sch-logo-mark { width: 34px; height: 28px; }
+  .sch-logo-text { line-height: 1.05; }
+  .sch-logo-text b { font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+  .sch-logo-text b em { font-style: normal; font-weight: 400; }
+  .sch-logo-text small { display: block; font-size: 9px; color: #aab4bd; letter-spacing: .3px; }
+
+  /* ====================================================================
+     BODY + SIDEBAR
+     ==================================================================== */
+  .sch-body { flex: 1; display: flex; min-height: 0; }
+  .sch-sidebar {
+    width: var(--sch-sidebar-w); flex-shrink: 0;
+    background: var(--sch-sidebar-bg);
+    display: flex; flex-direction: column;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .sch-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+  .sch-collapse {
+    padding: 12px 16px; color: #8d9aa6; font-size: 15px; cursor: default;
+  }
+
+  .sch-nav { display: flex; flex-direction: column; padding-bottom: 24px; }
+  .sch-nav-item {
+    width: 100%; border: 0; background: transparent; font: inherit; font-size: 13.5px;
+    color: #dfe5ea; text-align: left;
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-left: 3px solid transparent;
+    cursor: default;
+  }
+  .sch-nav-item .sch-nav-icon { width: 20px; font-size: 15px; text-align: center; flex-shrink: 0; }
+  .sch-nav-item .sch-nav-label { flex: 1; }
+  .sch-nav-item .sch-nav-caret { font-size: 11px; color: #8d9aa6; flex-shrink: 0; }
+
+  /* Only these two route. */
+  button.sch-nav-item { cursor: pointer; }
+  button.sch-nav-item:hover { background: var(--sch-sidebar-hov); }
+  button.sch-nav-item[aria-current="page"] {
+    background: var(--sch-sidebar-act); border-left-color: #4a9fe0; font-weight: 600;
+  }
+
+  /* The home item carries the product name + a Pro suffix, as in the product. */
+  .sch-nav-home .sch-nav-label { font-size: 14px; }
+  .sch-nav-home .pro { color: #7fc4f0; font-size: 11px; font-style: italic; margin-left: 3px; }
+
+  /* NEW pill — a genuinely new element, so it uses a Vector theme token. */
+  .sch-new-pill {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .6px;
+    padding: 2px 6px; border-radius: 999px; flex-shrink: 0;
+    background: var(--lumo-primary-color, #0271ce);
+    color: var(--lumo-primary-contrast-color, #fff);
+  }
+  .sch-count-pill {
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+    background: #16a3a3; color: #fff; flex-shrink: 0;
+  }
+
+  /* Sidebar icon tints, matching the product's colored glyphs */
+  .ic-crew   { color: #4a90d9; }
+  .ic-asst   { color: #5b9bd5; }
+  .ic-call   { color: #e04b42; }
+  .ic-notify { color: #3f6f9c; }
+  .ic-time   { color: #d08b3e; }
+  .ic-abs    { color: #e04b42; }
+  .ic-bull   { color: #7d8894; }
+  .ic-trade  { color: #4a90d9; }
+  .ic-emp    { color: #16a3a3; }
+  .ic-forms  { color: #e8b93a; }
+  .ic-file   { color: #e08b2e; }
+  .ic-rep    { color: #3a9bd5; }
+  .ic-clock  { color: #16a3a3; }
+  .ic-logs   { color: #8a95a0; }
+  .ic-home   { color: #d8dee4; }
+  .ic-hub    { color: #ff8a5b; }
+
+  /* ====================================================================
+     CONTENT + VIEWS
+     ==================================================================== */
+  .sch-content { flex: 1; min-width: 0; overflow-y: auto; background: var(--sch-page-bg); }
+  .sch-view { display: none; }
+  .sch-app[data-view="home"] #view-home { display: block; }
+  .sch-app[data-view="hub"]  #view-hub  { display: block; }
+
+  #view-home { padding: 16px 22px 40px; }
+
+  /* The hub fills the content area edge to edge and scrolls inside it — which
+     is how an embedded product page actually behaves. */
+  #view-hub { height: 100%; }
+  #view-hub iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .sch-app[data-view="hub"] .sch-content { overflow: hidden; }
+
+  .sch-page-title {
+    margin: 0 0 16px; font-size: 26px; font-weight: 400; color: #4a5560;
+  }
+
+  /* ====================================================================
+     ANNOUNCEMENT BANNER — NEW
+     The one genuinely new element, so it is built from Vector components and
+     theme tokens rather than the hand-matched legacy styles elsewhere.
+     Dismissal is session-only, on purpose: no storage is written, so a reload
+     always restores it and the demo resets to a known state.
+     ==================================================================== */
+  #sch-announce {
+    display: flex; align-items: center; gap: 16px;
+    background: #fff; border: 1px solid var(--sch-hairline);
+    border-left: 5px solid var(--lumo-primary-color, #0271ce);
+    border-radius: 3px; padding: 14px 16px; margin-bottom: 16px;
+  }
+  #sch-announce[hidden] { display: none; }
+  .sch-announce-mark {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 18px;
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+    color: var(--lumo-primary-text-color, #0271ce);
+  }
+  .sch-announce-copy { flex: 1; min-width: 0; }
+  .sch-announce-copy h3 {
+    margin: 0 0 3px; font-size: 15px; font-weight: 700;
+    color: var(--lumo-header-text-color, #333);
+    display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  }
+  .sch-announce-copy p {
+    margin: 0; font-size: 13px; line-height: 1.5;
+    color: var(--lumo-secondary-text-color, #666);
+  }
+  .sch-announce-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+  /* Buttons are pill-shaped — the design system now allows full corner
+     rounding, so Vector buttons drop the old 4px default. */
+  vaadin-button { --vaadin-button-border-radius: 999px; }
+
+  /* ====================================================================
+     HOMEPAGE LAYOUT + SHARED PANEL
+     ==================================================================== */
+  .sch-home-row {
+    display: grid; grid-template-columns: 300px minmax(0, 1fr);
+    gap: 16px; align-items: start;
+  }
+  @media (max-width: 1100px) { .sch-home-row { grid-template-columns: 1fr; } }
+
+  .sch-panel {
+    background: #fff; border: 1px solid var(--sch-hairline); border-radius: 3px;
+    margin-bottom: 16px;
+  }
+  .sch-panel-head {
+    background: var(--sch-head-bg); border-bottom: 1px solid var(--sch-hairline);
+    padding: 11px 14px; font-weight: 700; font-size: 14px; color: #444;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sch-panel-body { padding: 14px; }
+
+  /* ---- Announcements -------------------------------------------------- */
+  .sch-ann h3 { margin: 6px 0 2px; font-size: 19px; font-weight: 400; color: #666; }
+  .sch-ann .stamp { font-size: 12px; color: var(--sch-ink-500); margin-bottom: 12px; }
+  .sch-ann a.red { color: var(--sch-danger); font-weight: 700; display: block; margin-bottom: 10px; text-decoration: none; }
+  .sch-ann a.red:hover, .sch-ann a.blue:hover { text-decoration: underline; }
+  .sch-ann a.blue { color: var(--sch-link); font-weight: 700; display: block; margin-bottom: 14px; text-decoration: none; }
+  .sch-ann p { margin: 0 0 10px; font-size: 13.5px; color: var(--sch-ink-700); }
+  .sch-ann .meta { font-size: 12.5px; color: var(--sch-ink-700); display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+  .sch-ann .meta .fa-trash-can { color: #d9534f; }
+  .sch-ann .meta .edit { color: var(--sch-ink-700); }
+  .sch-ann .byline { font-size: 13px; color: var(--sch-ink-700); margin-bottom: 12px; }
+  .sch-addnew {
+    display: inline-block; margin-top: 8px; padding: 8px 20px; border-radius: 3px;
+    background: var(--sch-teal); color: #fff; font-size: 14px; border: 0;
+    font-family: inherit; cursor: default;
+  }
+
+  /* ---- Today's Roster ------------------------------------------------- */
+  .sch-roster-head { justify-content: space-between; background: #fff; }
+  .sch-roster-head .title { font-weight: 400; font-size: 15px; color: #444; }
+  .sch-roster-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sch-btn {
+    border: 1px solid #ccc; background: #fff; border-radius: 3px;
+    padding: 5px 10px; font: inherit; font-size: 12.5px; color: #444;
+    display: inline-flex; align-items: center; gap: 6px; cursor: default;
+  }
+  .sch-btn i { font-size: 12px; color: #555; }
+
+  .sch-expandrow { padding: 8px 14px; font-size: 13px; }
+  .sch-expandrow a { color: var(--sch-link); text-decoration: none; cursor: default; }
+  .sch-expandrow .sep { color: #bbb; margin: 0 4px; }
+
+  .sch-datenav {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    padding: 6px 14px 14px;
+  }
+  .sch-datenav .arrow {
+    width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ccc;
+    background: #fff; display: grid; place-items: center; color: #555; font-size: 13px;
+    cursor: default;
+  }
+  .sch-datenav .date { font-size: 21px; color: #555; font-weight: 400; }
+  .sch-datenav .fa-calendar { color: #4a90d9; font-size: 18px; }
+
+  .sch-shiftbar {
+    background: var(--sch-shift); color: #fff; text-align: center;
+    font-size: 11px; font-weight: 700; padding: 3px; letter-spacing: .3px;
+  }
+  .sch-countreport {
+    text-align: center; padding: 11px; font-weight: 700; font-size: 14px; color: #444;
+    border-bottom: 1px solid #eee;
+  }
+  .sch-countreport i { font-size: 11px; margin-right: 6px; color: #666; }
+
+  /* Group header rows */
+  .sch-group {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 14px; border-bottom: 1px solid #eee; font-size: 14px; color: #555;
+  }
+  .sch-group .caret { font-size: 11px; color: #666; width: 10px; }
+  .sch-group .name { font-weight: 400; }
+  .sch-group .dist {
+    background: #222; color: #fff; font-size: 10.5px; font-weight: 700;
+    padding: 2px 8px; border-radius: 3px;
+  }
+  /* Staffing meter, right-aligned: a bar with its fraction beneath */
+  .sch-meter { margin-left: auto; text-align: right; min-width: 84px; }
+  /* `display:block` matters on both: these are spans, and a span ignores
+     height while it is still inline. */
+  .sch-meter .track { display: block; height: 5px; background: #e6e6e6; border-radius: 2px; overflow: hidden; }
+  .sch-meter .fill { display: block; height: 100%; }
+  .sch-meter .frac { display: block; font-size: 11.5px; margin-top: 2px; }
+  .sch-meter.ok   .fill { background: #29a3e0; }
+  .sch-meter.ok   .frac { color: #d9534f; }
+  .sch-meter.short .fill { background: #d9534f; }
+  .sch-meter.short .frac { color: #d9534f; }
+  .sch-meter.none .fill { background: #cfcfcf; }
+  .sch-meter.none .frac { color: #d9534f; }
+
+  /* Crew rows */
+  .sch-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 145px minmax(0, 1.35fr) 130px 90px;
+    align-items: stretch; border-bottom: 1px solid #eee; font-size: 13.5px;
+  }
+  .sch-row > * { display: flex; align-items: center; padding: 10px 12px; }
+  .sch-cell-name { gap: 9px; font-weight: 700; color: #333; }
+  .sch-cell-name .av {
+    width: 20px; height: 20px; border-radius: 50%; background: #c9d0d6;
+    display: grid; place-items: center; font-size: 10px; color: #6d7883; flex-shrink: 0;
+  }
+  .sch-tag {
+    font-size: 9.5px; font-weight: 700; padding: 2px 5px; border-radius: 2px;
+    margin-left: auto; flex-shrink: 0;
+  }
+  .sch-tag.haz { background: #f2d024; color: #4a3c00; }
+  .sch-tag.til { background: #d9534f; color: #fff; }
+
+  .sch-cell-role { justify-content: center; color: #fff; font-weight: 700; font-size: 12.5px; }
+  .sch-cell-role.bc  { background: var(--sch-bc); }
+  .sch-cell-role.de1 { background: var(--sch-de1); }
+  .sch-cell-role.cpt { background: var(--sch-cpt); }
+  .sch-cell-role.ff  { background: var(--sch-ff); }
+  .sch-cell-role.none { color: #777; }
+
+  .sch-cell-type { gap: 8px; color: #444; }
+  .sch-cell-type .badge {
+    width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 10px; font-weight: 700;
+    background: #e8eaec; color: #555;
+  }
+  .sch-cell-time { justify-content: center; }
+  .sch-cell-time.alert { color: #d9534f; }
+  .sch-cell-hrs { justify-content: flex-end; color: #444; }
+
+  /* Open Slot rows — yellow with dashed cell separators, as in the product */
+  .sch-row.open { background: #fffbe6; }
+  .sch-row.open > * { border-right: 1px dashed #d9c98a; }
+  .sch-row.open > *:last-child { border-right: 0; }
+  .sch-row.open .sch-cell-name { color: #e08b2e; font-weight: 400; }
+  .sch-row.open .sch-cell-time,
+  .sch-row.open .sch-cell-hrs { color: #d9534f; }
+  .sch-cell-role.cpt-l { background: #f0938c; color: #fff; }
+  .sch-cell-role.de1-l { background: #ab9184; color: #fff; }
+  .sch-cell-role.ff-l  { background: #8ccb8c; color: #fff; }
+
+  @media (max-width: 900px) {
+    .sch-row { grid-template-columns: minmax(0,1fr) 110px; }
+    .sch-cell-type, .sch-cell-time, .sch-cell-hrs { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sch-app" data-view="home">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <header class="sch-topbar">
+    <div class="sch-user">
+      <span class="sch-user-av"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
+      <span class="sch-topbar-item">John Vector <i class="fa-solid fa-caret-down caret" aria-hidden="true"></i></span>
+    </div>
+
+    <span class="sch-topbar-item">Quick + <i class="fa-solid fa-caret-down caret" aria-hidden="true"></i></span>
+
+    <span class="sch-topbar-icon"><i class="fa-solid fa-calendar-days cal-tint" aria-hidden="true"></i></span>
+
+    <span class="sch-topbar-icon">
+      <i class="fa-regular fa-bell" aria-hidden="true"></i>
+      <span class="sch-bell-badge">2</span>
+    </span>
+
+    <span class="sch-topbar-icon"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></span>
+
+    <span class="sch-admin">admin</span>
+
+    <span class="sch-tenant">
+      <svg class="crest" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="3" fill="#1f4e79"/>
+        <path d="M20 6 L25 14 L33 10 L30 20 L36 26 L27 28 L20 34 L13 28 L4 26 L10 20 L7 10 L15 14 Z" fill="#e8b93a"/>
+        <circle cx="20" cy="21" r="5" fill="#c0392b"/>
+      </svg>
+      <span>Crewsense Fire Rescue - Do not change</span>
+    </span>
+
+    <div class="sch-topbar-right">
+      <span class="sch-topbar-icon"><i class="fa-solid fa-wrench" aria-hidden="true"></i></span>
+
+      <span class="sch-acct">
+        <span class="num">#2257</span>
+        <span class="lbl">Crewsense Fire Resc&hellip;</span>
+        <i class="fa-solid fa-caret-down caret" aria-hidden="true"></i>
+      </span>
+
+      <span class="sch-logo">
+        <svg class="sch-logo-mark" viewBox="0 0 40 34" aria-hidden="true">
+          <path d="M2 22 L13 3 L20 15 L15 24 Z"  fill="#ffffff" opacity=".95"/>
+          <path d="M13 3 L24 3 L38 26 L27 26 Z"  fill="#ffffff" opacity=".75"/>
+          <path d="M2 22 L11 22 L17 32 L8 32 Z"  fill="#ffffff" opacity=".55"/>
+        </svg>
+        <span class="sch-logo-text">
+          <b>Vector<em>Solutions</em></b>
+          <small>Vector Scheduling</small>
+        </span>
+      </span>
+    </div>
+  </header>
+
+  <div class="sch-body">
+
+    <!-- ============================ SIDEBAR ============================ -->
+    <aside class="sch-sidebar">
+      <div class="sch-collapse"><i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i></div>
+
+      <nav class="sch-nav" aria-label="Main">
+
+        <!-- The two interactive items. Everything below them is decorative. -->
+        <button class="sch-nav-item sch-nav-home" id="nav-home" type="button"
+                data-target="home" aria-current="page">
+          <i class="fa-solid fa-house sch-nav-icon ic-home" aria-hidden="true"></i>
+          <span class="sch-nav-label">Vector Scheduling <span class="pro">Pro</span></span>
+        </button>
+
+        <button class="sch-nav-item" id="nav-hub" type="button" data-target="hub">
+          <i class="fa-solid fa-fire-flame-curved sch-nav-icon ic-hub" aria-hidden="true"></i>
+          <span class="sch-nav-label">Keystone Hub</span>
+          <span class="sch-new-pill">NEW</span>
+        </button>
+
+        <!-- Decorative from here down — rendered as <span> so nothing is
+             focusable or reads as clickable. -->
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-calendar-days sch-nav-icon ic-crew" aria-hidden="true"></i>
+          <span class="sch-nav-label">Crew Scheduling</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-user-astronaut sch-nav-icon ic-asst" aria-hidden="true"></i>
+          <span class="sch-nav-label">Assistant</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-phone-volume sch-nav-icon ic-call" aria-hidden="true"></i>
+          <span class="sch-nav-label">CallBacks</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-envelope sch-nav-icon ic-notify" aria-hidden="true"></i>
+          <span class="sch-nav-label">Notify</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-briefcase sch-nav-icon ic-time" aria-hidden="true"></i>
+          <span class="sch-nav-label">Time Offs</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-user-xmark sch-nav-icon ic-abs" aria-hidden="true"></i>
+          <span class="sch-nav-label">Absence</span>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-chalkboard sch-nav-icon ic-bull" aria-hidden="true"></i>
+          <span class="sch-nav-label">Bulletin Board</span>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-shuffle sch-nav-icon ic-trade" aria-hidden="true"></i>
+          <span class="sch-nav-label">Trade Board</span>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-users sch-nav-icon ic-emp" aria-hidden="true"></i>
+          <span class="sch-nav-label">Employees</span>
+          <span class="sch-count-pill">485 / 750</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-clipboard sch-nav-icon ic-forms" aria-hidden="true"></i>
+          <span class="sch-nav-label">Forms</span>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-folder-open sch-nav-icon ic-file" aria-hidden="true"></i>
+          <span class="sch-nav-label">File Manager</span>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-chart-column sch-nav-icon ic-rep" aria-hidden="true"></i>
+          <span class="sch-nav-label">Reports</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-clock sch-nav-icon ic-clock" aria-hidden="true"></i>
+          <span class="sch-nav-label">TimeClock</span>
+        </span>
+        <span class="sch-nav-item">
+          <i class="fa-solid fa-file-lines sch-nav-icon ic-logs" aria-hidden="true"></i>
+          <span class="sch-nav-label">Logs</span>
+          <i class="fa-solid fa-chevron-right sch-nav-caret" aria-hidden="true"></i>
+        </span>
+      </nav>
+    </aside>
+
+    <!-- ============================ CONTENT ============================ -->
+    <main class="sch-content" id="sch-content">
+
+      <!-- ---------- VIEW: the recreated Vector Scheduling homepage ---------- -->
+      <div class="sch-view" id="view-home">
+
+        <h1 class="sch-page-title">Welcome to Vector Scheduling, John Vector</h1>
+
+        <!-- ================= ANNOUNCEMENT (NEW) ================= -->
+        <section id="sch-announce" role="region" aria-label="New feature announcement">
+          <div class="sch-announce-mark">
+            <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>
+          </div>
+          <div class="sch-announce-copy">
+            <h3>
+              Introducing the Keystone Department Hub
+              <span class="sch-new-pill">NEW</span>
+            </h3>
+            <p>
+              Every open task across your Vector applications, prioritized in one place —
+              with department readiness at a glance. Find it any time in the left navigation.
+            </p>
+          </div>
+          <div class="sch-announce-actions">
+            <vaadin-button theme="primary" id="sch-announce-cta">View the Department Hub</vaadin-button>
+            <vaadin-button theme="tertiary" id="sch-announce-dismiss" aria-label="Dismiss announcement">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </vaadin-button>
+          </div>
+        </section>
+
+        <div class="sch-home-row">
+
+          <!-- ---------------- LEFT COLUMN ---------------- -->
+          <div>
+            <section class="sch-panel">
+              <div class="sch-panel-head">Announcements</div>
+              <div class="sch-panel-body sch-ann">
+                <h3>System Announcement</h3>
+                <div class="stamp">02/21/2025 09:55</div>
+
+                <a class="red" href="javascript:void(0)">Click here for system status</a>
+                <a class="red" href="javascript:void(0)">Click here for system updates and announcements!</a>
+                <a class="blue" href="javascript:void(0)">Open Support Ticket</a>
+
+                <p>TEST</p>
+                <div class="meta">
+                  <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                  <span>&middot;</span><span class="edit">Edit 06/04/2024 09:11</span>
+                </div>
+                <div class="byline">Stephanie Williamson</div>
+
+                <p>TESTING</p>
+                <p>TEST</p>
+                <div class="meta">
+                  <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                  <span>&middot;</span><span class="edit">Edit 08/31/2021 13:49</span>
+                </div>
+                <div class="byline">Kylene CrewSense &middot; (last modified by VPAT Testing on 04/06/2023 10:21)</div>
+
+                <h3>Implementation Process</h3>
+                <p style="margin-top:12px">I am testing this.</p>
+
+                <button class="sch-addnew" type="button" tabindex="-1">Add new</button>
+              </div>
+            </section>
+
+            <section class="sch-panel">
+              <div class="sch-panel-head">Shift Trading</div>
+              <div class="sch-panel-body sch-ann">
+                <h3>Shift Trades</h3>
+                <p style="margin-top:10px">There are no pending Trade Requests</p>
+              </div>
+            </section>
+          </div>
+
+          <!-- ---------------- TODAY'S ROSTER ---------------- -->
+          <section class="sch-panel">
+            <div class="sch-panel-head sch-roster-head">
+              <span class="title">Today's Roster</span>
+              <span class="sch-roster-btns">
+                <span class="sch-btn"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Monthly Views</span>
+                <span class="sch-btn"><i class="fa-solid fa-users" aria-hidden="true"></i> Edit Schedule</span>
+                <span class="sch-btn"><i class="fa-solid fa-filter" aria-hidden="true"></i> Custom Views</span>
+                <span class="sch-btn"><i class="fa-solid fa-print" aria-hidden="true"></i> Print</span>
+                <span class="sch-btn"><i class="fa-solid fa-question" aria-hidden="true"></i> Help</span>
+              </span>
+            </div>
+
+            <div class="sch-expandrow">
+              <a href="javascript:void(0)">collapse all</a>
+              <span class="sep">/</span>
+              <a href="javascript:void(0)">expand all</a>
+            </div>
+
+            <div class="sch-datenav">
+              <span class="arrow"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></span>
+              <i class="fa-solid fa-calendar" aria-hidden="true"></i>
+              <span class="date">Monday, August 3, 2026</span>
+              <span class="arrow"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+            </div>
+
+            <div class="sch-shiftbar">B Shift</div>
+
+            <div class="sch-countreport">
+              <i class="fa-solid fa-caret-right" aria-hidden="true"></i>Todays Staffing Count Report
+            </div>
+
+            <!-- Availability -->
+            <div class="sch-group">
+              <i class="fa-solid fa-caret-right caret" aria-hidden="true"></i>
+              <span class="name">Availability</span>
+              <span class="sch-meter none">
+                <span class="track"><span class="fill" style="width:100%"></span></span>
+                <span class="frac">0 / 10</span>
+              </span>
+            </div>
+
+            <!-- ===== Battalion 1 — fully staffed ===== -->
+            <div class="sch-group">
+              <i class="fa-solid fa-caret-down caret" aria-hidden="true"></i>
+              <span class="name">Battalion 1</span>
+              <span class="dist">Dist 1</span>
+              <span class="sch-meter ok">
+                <span class="track"><span class="fill" style="width:100%"></span></span>
+                <span class="frac">2 / 1</span>
+              </span>
+            </div>
+
+            <div class="sch-row">
+              <span class="sch-cell-name">
+                <span class="av"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
+                David Farrar
+                <span class="sch-tag haz">HAZ</span>
+              </span>
+              <span class="sch-cell-role bc">BC</span>
+              <span class="sch-cell-type"><span class="badge">R</span> Regular Time [REG]</span>
+              <span class="sch-cell-time alert">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+
+            <div class="sch-row">
+              <span class="sch-cell-name">
+                <span class="av"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
+                Kylene McCallum
+              </span>
+              <span class="sch-cell-role bc">BC</span>
+              <span class="sch-cell-type"><span class="badge">R</span> Regular Time [REG]</span>
+              <span class="sch-cell-time alert">08:00 - 17:00</span>
+              <span class="sch-cell-hrs">9 hrs</span>
+            </div>
+
+            <div class="sch-row">
+              <span class="sch-cell-name">
+                <span class="av"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
+                Kelly Ahrens
+              </span>
+              <span class="sch-cell-role de1">DE1</span>
+              <span class="sch-cell-type"><span class="badge">R</span> Regular Time [REG]</span>
+              <span class="sch-cell-time alert">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+
+            <!-- ===== Engine 11 — short staffed, with open slots ===== -->
+            <div class="sch-group">
+              <i class="fa-solid fa-caret-down caret" aria-hidden="true"></i>
+              <span class="name">Engine 11</span>
+              <span class="dist">Dist 3</span>
+              <span class="sch-meter short">
+                <span class="track"><span class="fill" style="width:67%"></span></span>
+                <span class="frac">2 / 3</span>
+              </span>
+            </div>
+
+            <div class="sch-row">
+              <span class="sch-cell-name">
+                <span class="av"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
+                Elaine Carey
+              </span>
+              <span class="sch-cell-role ff">FF</span>
+              <span class="sch-cell-type"><span class="badge">R</span> Regular Time [REG]</span>
+              <span class="sch-cell-time">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+
+            <div class="sch-row">
+              <span class="sch-cell-name">
+                <span class="av"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
+                Matthew Bilby
+              </span>
+              <span class="sch-cell-role none">-</span>
+              <span class="sch-cell-type"><span class="badge">C</span> Comp Time Worked [CTW]</span>
+              <span class="sch-cell-time">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+
+            <div class="sch-row open">
+              <span class="sch-cell-name">Open Slot</span>
+              <span class="sch-cell-role cpt-l">CPT</span>
+              <span class="sch-cell-type"></span>
+              <span class="sch-cell-time">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+            <div class="sch-row open">
+              <span class="sch-cell-name">Open Slot</span>
+              <span class="sch-cell-role de1-l">DE1</span>
+              <span class="sch-cell-type"></span>
+              <span class="sch-cell-time">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+            <div class="sch-row open">
+              <span class="sch-cell-name">Open Slot</span>
+              <span class="sch-cell-role ff-l">FF</span>
+              <span class="sch-cell-type"></span>
+              <span class="sch-cell-time">08:00 - 08:00</span>
+              <span class="sch-cell-hrs">24 hrs</span>
+            </div>
+
+          </section>
+        </div>
+      </div>
+
+      <!-- ---------- VIEW: the real Keystone Department Hub ----------------
+           Embedded by reference, never copied. Eagerly loaded on purpose:
+           `loading="lazy"` inside a display:none parent defers the fetch until
+           the first click, putting a visible stall in the middle of the demo. -->
+      <div class="sch-view" id="view-hub">
+        <iframe src="../../keystone-hub/index.html" title="Keystone Department Hub"></iframe>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   VIEW SWITCHING
+
+   One attribute on .sch-app drives which view is visible. The shell itself
+   never re-renders, so the top bar and sidebar hold perfectly still while the
+   content swaps — the thing that makes the demo click feel native.
+   ====================================================================== */
+(function () {
+  var app     = document.querySelector('.sch-app');
+  var content = document.getElementById('sch-content');
+  var navBtns = document.querySelectorAll('button.sch-nav-item');
+
+  window.schSetView = function (name) {
+    app.setAttribute('data-view', name);
+
+    // Exactly one nav item reads as selected at a time.
+    navBtns.forEach(function (b) {
+      if (b.dataset.target === name) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+
+    content.scrollTop = 0;
+  };
+
+  navBtns.forEach(function (b) {
+    b.addEventListener('click', function () { window.schSetView(b.dataset.target); });
+  });
+})();
+
+/* ======================================================================
+   ANNOUNCEMENT BANNER
+
+   The CTA calls the same schSetView the nav buttons call, so both demo paths
+   land in exactly the same state — including the sidebar selection moving to
+   Keystone Hub.
+
+   Dismissal deliberately writes no storage. Presenters reload between runs,
+   and a banner that stays gone is a banner you cannot get back mid-demo.
+   ====================================================================== */
+(function () {
+  var banner = document.getElementById('sch-announce');
+
+  document.getElementById('sch-announce-cta')
+    .addEventListener('click', function () { window.schSetView('hub'); });
+
+  document.getElementById('sch-announce-dismiss')
+    .addEventListener('click', function () { banner.hidden = true; });
+})();
+</script>
+
+<!-- Design Toolbox — review/handoff tooling, NOT part of the product design -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+
+</body>
+</html>
