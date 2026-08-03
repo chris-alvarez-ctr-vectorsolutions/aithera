@@ -653,6 +653,26 @@
     return out + '</div>';
   }
 
+  // variant -> the role that renders it (see hub.js:843). Kept local because
+  // window.KXHub does not exist yet during the first render: hub.js calls
+  // setRole() -> render() at :1486, and only assigns window.KXHub at :1503.
+  var VARIANT_ROLE = { chief: 'chief', firefighter: 'ff', lieutenant: 'lt' };
+
+  // The dashboard body. Without a grant this is exactly the grid that shipped
+  // before — no wrapper, no panel, no height change. The ungranted case is a
+  // real no-op, not a hidden element.
+  function dashBody(cfg, variant) {
+    var AI = window.KXAIPanel;
+    var grid = '<div class="kx-pubgrid">' +
+      cfg.widgets.map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('') +
+      '</div>';
+
+    if (!AI || !AI.hasAccess(VARIANT_ROLE[variant])) return grid;
+
+    return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
+      AI.html(cfg) + grid + '</div>';
+  }
+
   function publishedDashboard(variant) {
     var cfg = variant === 'chief' ? CHIEF_DASH
             : variant === 'firefighter' ? FF_DASH
@@ -685,7 +705,7 @@
       '<div class="kx-pubmeta">' + meta + '</div></div>' +
       pdHeaderControls(cfg, variant) + '</div>' +
 
-      '<div class="kx-pubgrid">' + cfg.widgets.map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('') + '</div>' +
+      dashBody(cfg, variant) +
 
       '<div class="kx-pubfoot">' +
       '<span style="display:inline-flex;align-items:center;gap:5px">' +
