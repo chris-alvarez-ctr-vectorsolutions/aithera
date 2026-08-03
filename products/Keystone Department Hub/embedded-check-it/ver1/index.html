@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keystone Department Hub — in Vector Check It</title>
+
+<!--
+  Keystone Department Hub, wearing the Vector Check It shell.
+
+  Third and final host-app bake-out. Target Solutions shipped in
+  ../../embedded-target-solutions/ and Vector Scheduling in ../../embedded-scheduling/.
+
+  Structure matches both: persistent Check It chrome (dark navy top bar + white
+  sidebar) wrapping two sibling views. `data-view` on .ci-app picks one; CSS hides
+  the other. Nothing re-renders on a switch, so the chrome holds perfectly still
+  mid-demo.
+
+    data-view="home"  -> #view-home, a recreation of the Check It homepage
+    data-view="hub"   -> #view-hub, an iframe of the REAL keystone-hub/index.html
+
+  The hub is embedded by reference, never copied. Hub edits show up here for free,
+  and all of its interactivity survives because it gets its own document.
+
+  Classes are prefixed `ci-` and shared with nothing. Each host-app view is a
+  standalone file — this repo's convention — so the two already-shipped builds
+  cannot be broken from here.
+
+  Unlike the other two shells this sidebar is WHITE, so the active nav state is a
+  filled rounded pill rather than a left accent bar.
+
+  The legacy Check It chrome is plain HTML/CSS on purpose. Only genuinely NEW
+  elements — the announcement banner, its buttons, the NEW pill — use Vector
+  components and theme tokens, because those are the parts a developer builds.
+-->
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 PRO — self-hosted at the repo root, four levels up. -->
+<link
+rel="stylesheet"
+href="../../../../assets/fontawesome/css/all.min.css"
+/>
+
+<style id="ci-styles">
+  /* ====================================================================
+     TOKENS — sampled from the current Vector Check It product
+     ==================================================================== */
+  :root {
+    --ci-topbar-bg:  #1b3b5f;
+    --ci-surface:    #ffffff;
+    --ci-hairline:   #dcdcdc;
+    --ci-ink-900:    #2f2f2f;
+    --ci-ink-700:    #444444;
+    --ci-ink-500:    #6b6b6b;
+    --ci-navy:       #16416b;
+    --ci-nav-active: #e4e4e4;   /* the gray pill behind the current item */
+    --ci-alert-bg:   #fdeaea;   /* Department's pale pink pill */
+    --ci-alert-fg:   #d32f2f;
+    --ci-thead-bg:   #f0f0f0;
+    --ci-foot-bg:    #ececec;
+    --ci-chip-bg:    #b7e9c0;
+    --ci-chip-fg:    #14572a;
+    --ci-sidebar-w:  233px;
+    --ci-topbar-h:   70px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--ci-ink-900);
+    background: var(--ci-surface);
+  }
+  :focus-visible { outline: 2px solid #4a90d9; outline-offset: 2px; }
+
+  /* ====================================================================
+     APP FRAME
+     Fixed full-viewport so only the content column scrolls — which is what
+     lets the hub iframe below size itself to a real 100% height.
+     ==================================================================== */
+  .ci-app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ====================================================================
+     TOP BAR — decorative
+     ==================================================================== */
+  .ci-topbar {
+    height: var(--ci-topbar-h); flex-shrink: 0;
+    background: var(--ci-topbar-bg); color: #fff;
+    display: flex; align-items: center; padding: 0 22px;
+  }
+  .ci-logo { display: flex; align-items: center; gap: 10px; }
+  .ci-logo-mark { width: 42px; height: 32px; flex-shrink: 0; }
+  .ci-logo-text { line-height: 1.1; }
+  .ci-logo-text b { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+  .ci-logo-text b em { font-style: normal; font-weight: 400; }
+  .ci-logo-text b sup { font-size: 9px; vertical-align: super; font-weight: 400; }
+  .ci-logo-text small { display: block; font-size: 9.5px; color: #b6c6d6; letter-spacing: .4px; }
+
+  .ci-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .ci-avatar {
+    width: 42px; height: 42px; border-radius: 50%; background: #22b14c;
+    display: grid; place-items: center; font-size: 18px; color: #0d5c25;
+    border: 2px solid #d6f0dd; flex-shrink: 0;
+  }
+  .ci-username { font-size: 16px; color: #fff; white-space: nowrap; }
+
+  /* ====================================================================
+     BODY + SIDEBAR
+     This rail is WHITE, unlike the Scheduling and Target Solutions shells,
+     so the current item reads as a filled pill instead of a left accent bar.
+     ==================================================================== */
+  .ci-body { flex: 1; display: flex; min-height: 0; }
+  .ci-sidebar {
+    width: var(--ci-sidebar-w); flex-shrink: 0;
+    background: var(--ci-surface); border-right: 1px solid var(--ci-hairline);
+    display: flex; flex-direction: column;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .ci-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+  /* Decorative search field */
+  .ci-search { padding: 14px 12px 10px; }
+  .ci-search .box {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #b9b9b9; border-radius: 6px; padding: 8px 10px;
+    font-size: 13px; color: var(--ci-ink-700);
+  }
+  .ci-search .box span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ci-search .box i { color: var(--ci-ink-900); font-size: 14px; }
+
+  .ci-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 24px; }
+  .ci-nav-item {
+    width: 100%; border: 0; background: transparent; font: inherit; font-size: 14.5px;
+    color: var(--ci-ink-900); text-align: left;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px; border-radius: 6px; cursor: default;
+  }
+  .ci-nav-item .ci-nav-icon { width: 22px; font-size: 17px; text-align: center; flex-shrink: 0; }
+  .ci-nav-item .ci-nav-label { flex: 1; line-height: 1.25; }
+  .ci-nav-item .ci-nav-caret { font-size: 12px; color: var(--ci-ink-500); flex-shrink: 0; }
+
+  /* Only these two route. */
+  button.ci-nav-item { cursor: pointer; }
+  button.ci-nav-item:hover { background: #f2f2f2; }
+  button.ci-nav-item[aria-current="page"] { background: var(--ci-nav-active); font-weight: 600; }
+
+  /* Department carries an alert state in the product. */
+  .ci-nav-item.is-alert {
+    background: var(--ci-alert-bg); color: var(--ci-alert-fg);
+  }
+  .ci-nav-item.is-alert .ci-nav-icon,
+  .ci-nav-item.is-alert .ci-nav-caret { color: var(--ci-alert-fg); }
+
+  /* NEW pill — a genuinely new element, so it uses a Vector theme token. */
+  .ci-new-pill {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .6px;
+    padding: 2px 6px; border-radius: 999px; flex-shrink: 0;
+    background: var(--lumo-primary-color, #0271ce);
+    color: var(--lumo-primary-contrast-color, #fff);
+  }
+
+  /* ====================================================================
+     CONTENT + VIEWS
+     ==================================================================== */
+  .ci-content { flex: 1; min-width: 0; overflow-y: auto; position: relative; }
+  .ci-view { display: none; }
+  .ci-app[data-view="home"] #view-home { display: block; }
+  .ci-app[data-view="hub"]  #view-hub  { display: block; }
+
+  #view-home { padding: 20px 24px 40px; }
+
+  /* The hub fills the content area edge to edge and scrolls inside it — which
+     is how an embedded product page actually behaves. */
+  #view-hub { height: 100%; }
+  #view-hub iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .ci-app[data-view="hub"] .ci-content { overflow: hidden; }
+
+  /* ---- Page header ---------------------------------------------------- */
+  .ci-activity {
+    float: right; font-size: 15px; color: var(--ci-ink-900);
+    text-decoration: none; cursor: default;
+  }
+  .ci-page-title { margin: 0 0 4px; font-size: 27px; font-weight: 700; color: var(--ci-ink-900); }
+  .ci-page-sub { margin: 0 0 18px; font-size: 15px; font-weight: 700; color: var(--ci-ink-900); }
+  .ci-rule { height: 1px; background: var(--ci-hairline); margin: 0 0 20px; clear: both; }
+
+  /* ====================================================================
+     ANNOUNCEMENT BANNER — NEW
+     The one genuinely new element, so it is built from Vector components and
+     theme tokens rather than the hand-matched legacy styles elsewhere.
+     Dismissal is session-only, on purpose: no storage is written, so a reload
+     always restores it and the demo resets to a known state.
+     ==================================================================== */
+  #ci-announce {
+    display: flex; align-items: center; gap: 16px;
+    background: #fff; border: 1px solid var(--ci-hairline);
+    border-left: 5px solid var(--lumo-primary-color, #0271ce);
+    border-radius: 4px; padding: 14px 16px; margin-bottom: 22px;
+  }
+  #ci-announce[hidden] { display: none; }
+  .ci-announce-mark {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 18px;
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+    color: var(--lumo-primary-text-color, #0271ce);
+  }
+  .ci-announce-copy { flex: 1; min-width: 0; }
+  .ci-announce-copy h3 {
+    margin: 0 0 3px; font-size: 15px; font-weight: 700;
+    color: var(--lumo-header-text-color, #2f2f2f);
+    display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  }
+  .ci-announce-copy p {
+    margin: 0; font-size: 13px; line-height: 1.5;
+    color: var(--lumo-secondary-text-color, #666);
+  }
+  .ci-announce-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+  /* ====================================================================
+     MY RESPONSIBILITIES
+     ==================================================================== */
+  .ci-section-title { margin: 0 0 14px; font-size: 20px; font-weight: 700; }
+
+  .ci-tabs {
+    display: flex; gap: 30px; border-bottom: 1px solid var(--ci-hairline);
+    margin-bottom: 0;
+  }
+  .ci-tab {
+    border: 0; background: transparent; font: inherit; font-size: 15px;
+    color: var(--ci-ink-700); padding: 6px 2px 12px; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+  }
+  .ci-tab.is-active { color: var(--ci-navy); font-weight: 600; border-bottom-color: var(--ci-navy); }
+
+  /* Table — the body deliberately runs tall and empty beneath two rows, with
+     the paginator pinned below it. That expanse is how the real page looks. */
+  .ci-table-wrap { border: 1px solid var(--ci-hairline); border-top: 0; }
+  .ci-table { width: 100%; border-collapse: collapse; }
+  .ci-table th {
+    background: var(--ci-thead-bg); text-align: left;
+    padding: 13px 16px; font-size: 14.5px; font-weight: 700; color: var(--ci-ink-900);
+    white-space: nowrap;
+  }
+  .ci-table th i { font-size: 11px; margin-left: 5px; }
+  .ci-table td {
+    padding: 12px 16px; font-size: 14.5px; color: var(--ci-ink-700);
+    border-bottom: 1px solid #eee;
+  }
+  .ci-table td a { color: var(--ci-navy); font-weight: 700; text-decoration: none; cursor: default; }
+  .ci-chip {
+    display: inline-block; padding: 3px 8px; border-radius: 3px;
+    background: var(--ci-chip-bg); color: var(--ci-chip-fg); font-size: 13px;
+  }
+  .ci-table-filler { min-height: 330px; }
+
+  .ci-paginator {
+    background: var(--ci-foot-bg); border-top: 1px solid var(--ci-hairline);
+    display: flex; align-items: center; justify-content: center; gap: 26px;
+    padding: 14px 16px; font-size: 14px; color: var(--ci-ink-700);
+  }
+  .ci-paginator .perpage { display: flex; align-items: center; gap: 10px; }
+  .ci-paginator .sel {
+    display: inline-flex; align-items: center; gap: 16px;
+    border: 1px solid #b9b9b9; border-radius: 4px; padding: 5px 9px; background: #fff;
+  }
+  .ci-paginator .sel i { font-size: 11px; color: var(--ci-ink-500); }
+  .ci-paginator .pager { display: flex; align-items: center; gap: 10px; color: var(--ci-ink-700); }
+  .ci-paginator .pager .num {
+    border: 1px solid #b9b9b9; border-radius: 4px; background: #fff;
+    padding: 4px 16px; min-width: 46px; text-align: center;
+  }
+
+  /* Support chat FAB — decorative */
+  .ci-fab {
+    position: absolute; right: 22px; bottom: 22px;
+    width: 46px; height: 46px; border-radius: 50%; background: #1976d2;
+    color: #fff; display: grid; place-items: center; font-size: 18px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.25); cursor: default;
+  }
+  .ci-app[data-view="hub"] .ci-fab { display: none; }
+
+  @media (max-width: 1000px) {
+    .ci-table th:nth-child(4), .ci-table td:nth-child(4),
+    .ci-table th:nth-child(5), .ci-table td:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="ci-app" data-view="home">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <header class="ci-topbar">
+    <div class="ci-logo">
+      <svg class="ci-logo-mark" viewBox="0 0 48 36" aria-hidden="true">
+        <path d="M2 24 L15 4 L23 17 L17 27 Z"  fill="#ffffff" opacity=".95"/>
+        <path d="M15 4 L28 4 L45 28 L32 28 Z"  fill="#ffffff" opacity=".72"/>
+        <path d="M2 24 L12 24 L19 34 L9 34 Z"  fill="#ffffff" opacity=".5"/>
+      </svg>
+      <span class="ci-logo-text">
+        <b>Vector<em>Solutions</em><sup>&trade;</sup></b>
+        <small>Vector Check It</small>
+      </span>
+    </div>
+
+    <div class="ci-topbar-right">
+      <span class="ci-avatar"><i class="fa-solid fa-image-portrait" aria-hidden="true"></i></span>
+      <span class="ci-username">Austin Smith</span>
+    </div>
+  </header>
+
+  <div class="ci-body">
+
+    <!-- ============================ SIDEBAR ============================ -->
+    <aside class="ci-sidebar">
+      <div class="ci-search">
+        <div class="box">
+          <span>Search equipment / Apparat&hellip;</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </div>
+      </div>
+
+      <nav class="ci-nav" aria-label="Main">
+
+        <!-- The two interactive items. Everything below them is decorative. -->
+        <button class="ci-nav-item" id="nav-home" type="button"
+                data-target="home" aria-current="page">
+          <i class="fa-solid fa-house ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Home</span>
+        </button>
+
+        <button class="ci-nav-item" id="nav-hub" type="button" data-target="hub">
+          <i class="fa-solid fa-fire-flame-curved ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Keystone Hub</span>
+          <span class="ci-new-pill">NEW</span>
+        </button>
+
+        <!-- Decorative from here down — rendered as <span> so nothing is
+             focusable or reads as clickable. -->
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-truck-front ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Fleet</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-warehouse ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Store Rooms</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-gear ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Equipment</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-box ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Inventory</span>
+          <i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-syringe ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Controlled Substances</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-table-columns ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Tickets</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-wrench ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Service Tasks</span>
+          <i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-list-check ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Checklist Library</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-gauge ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Dashboards</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-chart-column ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Reports</span>
+          <i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-users ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Users</span>
+          <i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="ci-nav-item is-alert">
+          <i class="fa-solid fa-triangle-exclamation ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Department</span>
+          <i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-square-check ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Fleet Summary</span>
+        </span>
+        <span class="ci-nav-item">
+          <i class="fa-solid fa-circle-question ci-nav-icon" aria-hidden="true"></i>
+          <span class="ci-nav-label">Support Center</span>
+        </span>
+      </nav>
+    </aside>
+
+    <!-- ============================ CONTENT ============================ -->
+    <main class="ci-content" id="ci-content">
+
+      <!-- ---------- VIEW: the recreated Vector Check It homepage ---------- -->
+      <div class="ci-view" id="view-home">
+
+        <a class="ci-activity" href="javascript:void(0)">View Activity Feed</a>
+        <h1 class="ci-page-title">Welcome back, Austin Smith</h1>
+        <p class="ci-page-sub">Review current assignments and recent activity</p>
+        <div class="ci-rule"></div>
+
+        <!-- ================= ANNOUNCEMENT (NEW) ================= -->
+        <section id="ci-announce" role="region" aria-label="New feature announcement">
+          <div class="ci-announce-mark">
+            <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>
+          </div>
+          <div class="ci-announce-copy">
+            <h3>
+              Introducing the Keystone Department Hub
+              <span class="ci-new-pill">NEW</span>
+            </h3>
+            <p>
+              Every open task across your Vector applications, prioritized in one place —
+              with department readiness at a glance. Find it any time in the left navigation.
+            </p>
+          </div>
+          <div class="ci-announce-actions">
+            <vaadin-button theme="primary" id="ci-announce-cta">View the Department Hub</vaadin-button>
+            <vaadin-button theme="tertiary" id="ci-announce-dismiss" aria-label="Dismiss announcement">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </vaadin-button>
+          </div>
+        </section>
+
+        <!-- ================= MY RESPONSIBILITIES ================= -->
+        <h2 class="ci-section-title">My Responsibilities</h2>
+
+        <div class="ci-tabs">
+          <button class="ci-tab is-active" type="button">Equipment</button>
+          <button class="ci-tab" type="button">Inventory</button>
+          <button class="ci-tab" type="button">Apparatus</button>
+          <button class="ci-tab" type="button">Tickets</button>
+        </div>
+
+        <div class="ci-table-wrap">
+          <table class="ci-table">
+            <thead>
+              <tr>
+                <th>Name <i class="fa-solid fa-arrow-up" aria-hidden="true"></i></th>
+                <th>Pool Name (Type)</th>
+                <th>Location</th>
+                <th>Serial No</th>
+                <th>End of Life</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><a href="javascript:void(0)">shark</a></td>
+                <td>A Test for Emily (STANDARD)</td>
+                <td>Austin Smith</td>
+                <td>-</td>
+                <td>-</td>
+                <td><span class="ci-chip">In Service</span></td>
+              </tr>
+              <tr>
+                <td><a href="javascript:void(0)">Test1</a></td>
+                <td>UX Test (PPE)</td>
+                <td>Austin Smith</td>
+                <td></td>
+                <td>-</td>
+                <td><span class="ci-chip">In Service</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- The real page leaves the table body tall and empty beneath the
+               rows, with the paginator pinned below. Kept, not collapsed. -->
+          <div class="ci-table-filler"></div>
+
+          <div class="ci-paginator">
+            <span class="perpage">
+              Items per page:
+              <span class="sel">10 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span>
+            </span>
+            <span>1-2 of 2</span>
+            <span class="pager">
+              <i class="fa-solid fa-backward-step" aria-hidden="true"></i>
+              <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+              <span class="num">1</span>
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <i class="fa-solid fa-forward-step" aria-hidden="true"></i>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- VIEW: the real Keystone Department Hub ----------------
+           Embedded by reference, never copied. Eagerly loaded on purpose:
+           `loading="lazy"` inside a display:none parent defers the fetch until
+           the first click, putting a visible stall in the middle of the demo. -->
+      <div class="ci-view" id="view-hub">
+        <iframe src="../../keystone-hub/index.html" title="Keystone Department Hub"></iframe>
+      </div>
+
+      <span class="ci-fab"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i></span>
+
+    </main>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   VIEW SWITCHING
+
+   One attribute on .ci-app drives which view is visible. The shell itself
+   never re-renders, so the top bar and sidebar hold perfectly still while the
+   content swaps — the thing that makes the demo click feel native.
+   ====================================================================== */
+(function () {
+  var app     = document.querySelector('.ci-app');
+  var content = document.getElementById('ci-content');
+  var navBtns = document.querySelectorAll('button.ci-nav-item');
+
+  window.ciSetView = function (name) {
+    app.setAttribute('data-view', name);
+
+    // Exactly one nav item reads as selected at a time.
+    navBtns.forEach(function (b) {
+      if (b.dataset.target === name) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+
+    content.scrollTop = 0;
+  };
+
+  navBtns.forEach(function (b) {
+    b.addEventListener('click', function () { window.ciSetView(b.dataset.target); });
+  });
+})();
+
+/* ======================================================================
+   MY RESPONSIBILITIES TABS
+
+   Visual only, by design: the active underline moves, the table does not
+   change. The spec scopes this list as static sample data.
+   ====================================================================== */
+(function () {
+  var tabs = document.querySelectorAll('.ci-tab');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (o) { o.classList.remove('is-active'); });
+      t.classList.add('is-active');
+    });
+  });
+})();
+
+/* ======================================================================
+   ANNOUNCEMENT BANNER
+
+   The CTA calls the same ciSetView the nav buttons call, so both demo paths
+   land in exactly the same state — including the sidebar selection moving to
+   Keystone Hub.
+
+   Dismissal deliberately writes no storage. Presenters reload between runs,
+   and a banner that stays gone is a banner you cannot get back mid-demo.
+   ====================================================================== */
+(function () {
+  var banner = document.getElementById('ci-announce');
+
+  document.getElementById('ci-announce-cta')
+    .addEventListener('click', function () { window.ciSetView('hub'); });
+
+  document.getElementById('ci-announce-dismiss')
+    .addEventListener('click', function () { banner.hidden = true; });
+})();
+</script>
+
+<!-- Design Toolbox — review/handoff tooling, NOT part of the product design -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+
+</body>
+</html>
