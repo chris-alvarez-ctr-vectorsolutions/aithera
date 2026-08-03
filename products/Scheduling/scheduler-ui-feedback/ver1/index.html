@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<!-- Scheduler UI Feedback — pixel-faithful reproduction of the CURRENT production
+     Vector Scheduling day view (A Shift, Battalion East + Stations 1–5), built as a
+     base for collecting UI feedback. CSS/structure adapted from
+     ../../event-indicator-UX-2474/current-ui.html. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scheduler UI Feedback — Vector Scheduling</title>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; background: #eef0f3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: #333; }
+
+    /* ══════════ TOP NAV ══════════ */
+    .topnav { height: 52px; background: #16202b; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; color: #cbd2da; flex-shrink: 0; }
+    .tn-left { display: flex; align-items: center; gap: 16px; }
+    .tn-user { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .tn-avatar { width: 34px; height: 34px; border-radius: 50%; background: #4b5563; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 16px; overflow: hidden; }
+    .tn-user span { font-size: 15px; color: #e5e7eb; }
+    .tn-user i { font-size: 10px; color: #9aa6b2; }
+    .tn-quick { display: flex; align-items: center; gap: 6px; font-size: 15px; color: #e5e7eb; cursor: pointer; }
+    .tn-quick i { font-size: 10px; color: #9aa6b2; }
+    .tn-icons { display: flex; align-items: center; gap: 15px; }
+    .tn-icons .tn-ic { position: relative; cursor: pointer; font-size: 16px; display: flex; align-items: center; }
+    .tn-cal { color: #2bb3a3; }
+    .tn-userclock { color: #e0782e; }
+    .tn-bell, .tn-help { color: #9aa6b2; }
+    .tn-badge { position: absolute; top: -7px; right: -10px; background: #e5342b; color: #fff; font-size: 10px; font-weight: 700; line-height: 1; padding: 2px 5px; border-radius: 9px; min-width: 17px; text-align: center; }
+    .tn-admin { background: #e0782e; color: #fff; font-weight: 700; font-size: 13px; padding: 3px 9px; border-radius: 4px; letter-spacing: .3px; }
+    /* fire-department emblem */
+    .tn-emblem { width: 40px; height: 34px; border-radius: 4px; background: #7a1b12; display: flex; align-items: center; justify-content: center; color: #f2c14e; font-size: 18px; }
+    .tn-org { font-size: 15px; color: #6b7785; }
+    .tn-right { display: flex; align-items: center; gap: 16px; }
+    .tn-wrench { color: #8b97a4; font-size: 15px; cursor: pointer; }
+    .tn-account { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #d4d9df; border-radius: 5px; padding: 7px 12px; cursor: pointer; min-width: 220px; }
+    .tn-account .num { color: #2b7fd0; font-weight: 700; font-size: 13px; }
+    .tn-account .nm { color: #2c3744; font-weight: 700; font-size: 13px; flex: 1; }
+    .tn-account i { color: #9aa6b2; font-size: 11px; }
+    .tn-brand { display: flex; align-items: center; gap: 9px; }
+    .tn-brand .mark { color: #fff; font-size: 24px; }
+    .tn-brand .txt { display: flex; flex-direction: column; line-height: 1; }
+    .tn-brand .txt .b1 { font-size: 17px; color: #fff; letter-spacing: -.3px; }
+    .tn-brand .txt .b1 b { font-weight: 800; }
+    .tn-brand .txt .b2 { font-size: 8px; color: #8b97a4; letter-spacing: 2px; margin-top: 3px; }
+
+    /* ══════════ APP BODY ══════════ */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ══════════ SIDE NAV ══════════ */
+    .sidenav { width: 54px; background: #16202b; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 3px; flex-shrink: 0; }
+    .sidenav a { width: 40px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 5px; color: #8b97a4; text-decoration: none; font-size: 17px; transition: all .12s; }
+    .sidenav a:hover { color: #fff; background: #243240; }
+    .sidenav a.active { color: #fff; background: #243240; }
+    .sidenav .sn-phone { color: #d1493f; }
+    .sidenav .sn-brief { color: #e0782e; }
+    .sidenav .sn-shuffle { color: #2b7fd0; }
+    .sidenav .sn-count { font-size: 10px; background: #2b7fd0; color: #fff; border-radius: 10px; padding: 2px 7px; margin: 3px 0; font-weight: 600; white-space: nowrap; }
+
+    /* ══════════ MAIN ══════════ */
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    /* ══════════ TOOLBAR ══════════ */
+    .toolbar { background: #fff; border-bottom: 1px solid #e2e6ea; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; flex-shrink: 0; gap: 10px; }
+    .tb-left { display: flex; align-items: center; gap: 10px; }
+    .tb-right { display: flex; align-items: center; gap: 8px; }
+    .tb-select { display: flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid #ccd2d8; border-radius: 5px; background: #fff; font-size: 13px; color: #3a4651; cursor: pointer; white-space: nowrap; }
+    .tb-select i { font-size: 10px; color: #8b97a4; }
+    .tb-search { padding: 7px 12px; border: 1px solid #ccd2d8; border-radius: 5px; font-size: 13px; width: 200px; outline: none; font-family: inherit; color: #3a4651; }
+    .tb-search::placeholder { color: #9aa6b2; }
+    .tb-add { display: flex; align-items: center; gap: 7px; padding: 7px 14px; border: none; border-radius: 5px; background: #2b7fd0; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .tb-add:hover { background: #2570bb; }
+    .tb-seg { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid #ccd2d8; border-radius: 5px; background: #fff; font-size: 13px; color: #3a4651; cursor: pointer; white-space: nowrap; }
+    .tb-seg.active { background: #eef1f4; border-color: #b9c1c9; }
+    .tb-seg i { font-size: 13px; color: #6b7785; }
+    .tb-btn { display: flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid #ccd2d8; border-radius: 5px; background: #fff; font-size: 13px; color: #3a4651; cursor: pointer; white-space: nowrap; font-family: inherit; }
+    .tb-btn i { font-size: 11px; color: #6b7785; }
+    .tb-btn:hover, .tb-seg:hover, .tb-select:hover { background: #f5f7f9; }
+    .tb-icon { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid #ccd2d8; border-radius: 5px; background: #fff; color: #6b7785; cursor: pointer; font-size: 13px; }
+    .tb-icon:hover { background: #f5f7f9; }
+    .tb-minus { color: #e05a4f; border-color: #e7b0ab; }
+    .tb-plus { color: #4a9e4a; border-color: #acd3ac; }
+
+    /* ══════════ DATE NAV ══════════ */
+    .datenav { background: #fff; border-bottom: 1px solid #e2e6ea; display: flex; align-items: center; padding: 8px 12px; flex-shrink: 0; position: relative; }
+    .dn-left { display: flex; align-items: center; gap: 8px; }
+    .dn-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .dn-btn { padding: 6px 13px; border: 1px solid #ccd2d8; border-radius: 5px; background: #fff; font-size: 13px; color: #3a4651; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .dn-btn:hover { background: #f5f7f9; }
+    .dn-grp { display: flex; border: 1px solid #ccd2d8; border-radius: 5px; overflow: hidden; }
+    .dn-grp button { padding: 6px 11px; border: none; border-right: 1px solid #ccd2d8; background: #fff; font-size: 13px; color: #3a4651; cursor: pointer; font-family: inherit; }
+    .dn-grp button:last-child { border-right: none; }
+    .dn-grp button:hover { background: #f5f7f9; }
+    .dn-grp button.active { background: #2b7fd0; color: #fff; }
+    .dn-center { display: flex; align-items: center; gap: 9px; position: absolute; left: 50%; transform: translateX(-50%); }
+    .dn-center i { color: #2b7fd0; font-size: 17px; }
+    .dn-center .dt { font-size: 19px; color: #6b7785; font-weight: 400; }
+
+    /* ══════════ SHIFT BAR (RED — A shift) ══════════ */
+    .shiftbar { background: #e5342b; display: flex; align-items: center; padding: 5px 12px; flex-shrink: 0; position: relative; min-height: 30px; }
+    .sb-pill { background: #a51d16; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 3px; letter-spacing: .4px; }
+    .sb-center { position: absolute; left: 50%; transform: translateX(-50%); background: #fff; color: #2c3744; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 4px; }
+    .sb-right { margin-left: auto; display: flex; align-items: center; gap: 12px; color: #f2c14e; }
+    .sb-right i { font-size: 14px; cursor: pointer; }
+
+    /* ══════════ SCHEDULE BODY ══════════ */
+    .schedule { flex: 1; overflow: auto; padding: 12px; }
+    .cols { display: flex; gap: 12px; align-items: flex-start; }
+    .col { width: 232px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+    .col.col-side { width: 168px; }
+
+    /* column header bar — neutral grey (this org uses plain grey station headers) */
+    .col-hdr { background: #e9edf1; border: 1px solid #dde2e8; border-radius: 6px; padding: 8px 10px; text-align: center; font-size: 13px; font-weight: 800; color: #55616d; letter-spacing: .6px; }
+
+    /* assignment card */
+    .acard { background: #fff; border: 1px solid #d9dee3; border-radius: 4px; overflow: hidden; }
+    .acard.understaffed { border: 1.5px solid #e53935; }
+    .acard-hdr { display: flex; align-items: flex-start; justify-content: space-between; padding: 8px 9px 3px; gap: 6px; }
+    .acard-title { font-size: 13px; font-weight: 700; color: #2c3744; line-height: 1.25; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .acard-title .ic-person { color: #6b7785; font-size: 11px; }
+    .acard-hdr-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .acount { font-size: 13px; font-weight: 700; }
+    .acount.met { color: #3f8f3f; }
+    .acount.under { color: #e53935; }
+    .acard-warn { color: #e5342b; font-size: 13px; }
+    .acard-menu { color: #8b97a4; cursor: pointer; font-size: 13px; padding: 0 2px; }
+    .east-chip { display: inline-block; background: #2f7fd1; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 3px; margin: 0 9px 5px; letter-spacing: .2px; }
+    .acard-time { font-size: 12px; color: #6b7785; padding: 0 9px 7px; }
+    .acard-body { padding: 0 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+
+    /* person row (assigned) — dark chip, qualifier tags stacked above the name */
+    .prow { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; background: #2c3e50; border-radius: 4px; padding: 7px 9px; font-size: 12px; color: #fff; font-weight: 600; cursor: default; position: relative; }
+    .pq-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .pname-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+    .prow .pname { flex: 1; font-size: 13px; font-weight: 700; }
+
+    /* qualifier badge — colored pill, optional leading credential ✕ circle */
+    .pq { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 3px; line-height: 1.35; }
+    .pq-capt  { background: #c0392b; color: #fff; }
+    .pq-eng   { background: #2e7d32; color: #fff; }
+    .pq-lt    { background: #37474f; color: #fff; }
+    .pq-ff    { background: #f4c430; color: #4a3d05; }
+    .pq-emt   { background: #f6df9c; color: #4a3d05; }
+    .pq-medic { background: #1d70c9; color: #fff; }
+    .pq-hmt   { background: #1d70c9; color: #fff; }
+    .pq-bc    { background: #6D28D9; color: #fff; border-radius: 50%; width: 22px; height: 22px; justify-content: center; padding: 0; }
+    /* credential status ✕ — small red circle w/ white x */
+    .ci { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; background: #DC2626; border: 1px solid rgba(255,255,255,.65); }
+    .ci i { font-size: 7px; color: #fff; font-weight: 900; }
+    /* misc inline chips on a row */
+    .pq-num   { background: #dfe3e8; color: #33404c; font-weight: 800; }
+    .pq-label { background: #d13b30; color: #fff; font-weight: 700; }
+    /* status dot at end of name */
+    .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .pdot.green  { background: #22c55e; }
+    .pdot.yellow { background: #eab308; }
+
+    /* open slot */
+    .oslot { background: repeating-linear-gradient(135deg, #fdf3b8 0 9px, #f7e98f 9px 18px); border-radius: 4px; padding: 8px 9px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #5b5320; cursor: pointer; }
+    .oslot:hover { filter: brightness(.97); }
+    .oslot .os-label { color: #4a4318; }
+    .oslot-badges { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .qbadge { font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 3px; line-height: 1.4; }
+    .qb-ff { background: #f4c430; color: #4a3d05; }
+
+    /* schedule-yourself button */
+    .sched-self { background: #e7eaed; border: 1px solid #d4d9df; border-radius: 4px; padding: 7px; text-align: center; font-size: 11px; font-weight: 700; color: #6b7785; letter-spacing: .4px; cursor: pointer; }
+    .sched-self:hover { background: #dde1e5; }
+
+    /* employees-off / misc cards */
+    .offcard { background: #fff; border: 1px solid #d9dee3; border-radius: 4px; overflow: hidden; }
+    .off-hdr { background: #f3f5f7; padding: 8px 10px; font-size: 13px; font-weight: 700; color: #2c3744; }
+    .offcard .acard-body { padding: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ TOP NAV ══════════ -->
+<div class="topnav">
+  <div class="tn-left">
+    <div class="tn-user">
+      <div class="tn-avatar"><i class="fa-solid fa-user"></i></div>
+      <span>Michael Fulton</span><i class="fa-solid fa-chevron-down"></i>
+    </div>
+    <div class="tn-quick">Quick <span style="font-weight:700">+</span> <i class="fa-solid fa-chevron-down"></i></div>
+    <div class="tn-icons">
+      <span class="tn-ic"><i class="fa-solid fa-calendar-days tn-cal"></i></span>
+      <span class="tn-ic"><i class="fa-solid fa-user-clock tn-userclock"></i></span>
+      <span class="tn-ic"><i class="fa-regular fa-bell tn-bell"></i><span class="tn-badge">57</span></span>
+      <span class="tn-ic"><i class="fa-regular fa-circle-question tn-help"></i></span>
+    </div>
+    <span class="tn-admin">admin</span>
+    <div class="tn-emblem"><i class="fa-solid fa-helmet-safety"></i></div>
+    <span class="tn-org">AE Enterprise</span>
+  </div>
+  <div class="tn-right">
+    <i class="fa-solid fa-wrench tn-wrench"></i>
+    <div class="tn-account"><span class="num">#5530</span><span class="nm">AE Enterprise</span><i class="fa-solid fa-chevron-down"></i></div>
+    <div class="tn-brand">
+      <span class="mark"><i class="fa-solid fa-angles-right"></i></span>
+      <div class="txt"><div class="b1"><span>Vector</span><b>Solutions</b></div><div class="b2">VECTOR SCHEDULING</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ APP BODY ══════════ -->
+<div class="app-body">
+
+  <!-- SIDE NAV -->
+  <nav class="sidenav">
+    <a href="#" title="Switch"><i class="fa-solid fa-right-left"></i></a>
+    <a href="#" title="Home"><i class="fa-solid fa-house"></i></a>
+    <a href="#" class="active" title="Calendar"><i class="fa-regular fa-calendar"></i></a>
+    <a href="#" class="sn-phone" title="Phone"><i class="fa-solid fa-phone"></i></a>
+    <a href="#" title="History"><i class="fa-solid fa-clock-rotate-left"></i></a>
+    <a href="#" title="Mail"><i class="fa-regular fa-envelope"></i></a>
+    <a href="#" class="sn-brief" title="Cases"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" title="Docs"><i class="fa-regular fa-copy"></i></a>
+    <a href="#" class="sn-shuffle" title="Shuffle"><i class="fa-solid fa-shuffle"></i></a>
+    <span class="sn-count">272 / 275</span>
+    <a href="#" title="Reports"><i class="fa-solid fa-chart-column"></i></a>
+    <a href="#" title="Staff"><i class="fa-solid fa-user-group"></i></a>
+    <a href="#" title="File"><i class="fa-regular fa-file"></i></a>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="tb-left">
+        <div class="tb-select">All assignments shown (32) <i class="fa-solid fa-chevron-down"></i></div>
+        <input class="tb-search" type="text" placeholder="Search...">
+        <button class="tb-add"><i class="fa-solid fa-plus"></i> Add New Deployment</button>
+      </div>
+      <div class="tb-right">
+        <div class="tb-seg active"><i class="fa-solid fa-bars"></i> TimelineView</div>
+        <div class="tb-seg"><i class="fa-solid fa-database"></i> ListView</div>
+        <button class="tb-btn"><i class="fa-solid fa-rotate-right"></i> Bulk Change</button>
+        <button class="tb-btn"><i class="fa-solid fa-bars"></i> More options <i class="fa-solid fa-chevron-down"></i></button>
+        <div class="tb-icon"><i class="fa-solid fa-print"></i></div>
+        <div class="tb-icon"><i class="fa-regular fa-circle-question"></i></div>
+        <div class="tb-icon"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></div>
+        <div class="tb-icon tb-minus"><i class="fa-solid fa-minus"></i></div>
+        <div class="tb-icon tb-plus"><i class="fa-solid fa-plus"></i></div>
+      </div>
+    </div>
+
+    <!-- DATE NAV -->
+    <div class="datenav">
+      <div class="dn-left">
+        <button class="dn-btn">today</button>
+        <div class="dn-grp">
+          <button><i class="fa-solid fa-angles-left"></i></button>
+          <button><i class="fa-solid fa-angles-right"></i></button>
+        </div>
+        <div class="dn-grp">
+          <button>month</button>
+          <button>week</button>
+          <button class="active">day</button>
+        </div>
+        <button class="dn-btn">Next A SHIFT day</button>
+      </div>
+      <div class="dn-center">
+        <i class="fa-regular fa-calendar"></i>
+        <span class="dt">Monday, Aug 3, 2026</span>
+      </div>
+      <div class="dn-right">
+        <button class="dn-btn">today</button>
+        <div class="dn-grp">
+          <button><i class="fa-solid fa-angles-left"></i></button>
+          <button><i class="fa-solid fa-angles-right"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHIFT BAR -->
+    <div class="shiftbar">
+      <span class="sb-pill">A SHIFT</span>
+      <span class="sb-center">MONDAY 8/3</span>
+      <span class="sb-right"><i class="fa-solid fa-address-book"></i><i class="fa-solid fa-gear"></i></span>
+    </div>
+
+    <!-- SCHEDULE BODY (rendered from data below) -->
+    <div class="schedule"><div class="cols" id="cols"></div></div>
+
+  </div>
+</div>
+
+<script>
+  // ══════════ DAY-VIEW DATA (matches the screenshot exactly) ══════════
+  // badge codes: capt eng lt ff emt medic hmt bc  — prefix "x:" adds a red credential ✕
+  // row extras: {num:'51'} grey number chip, {label:'Long Label'} red pill, {dot:'green'|'yellow'}
+  const COLUMNS = [
+    { title: 'BATTALION EAST', cards: [
+      { name: 'Battalion Chief East', count: '1/1', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [ { badges: ['bc'], name: 'Joe Turley' } ] },
+      { name: 'Boomers - Battalion 1', count: '0/5', met: false, east: true, person: true, red: true,
+        slots: [ {}, {}, {}, {}, {} ], schedSelf: true },
+    ]},
+    { title: 'STATION 1', cards: [
+      { name: 'Engine 1', count: '3/3', met: true, east: true, time: '8am - 8am (24 hrs)', red: true,
+        rows: [
+          { badges: ['capt','x:emt'], name: 'Kara Chandler' },
+          { badges: ['eng','x:emt'],  name: 'Ebony Blakesley' },
+          { badges: ['x:ff','x:emt'], name: 'Zoe Alma' },
+        ], slots: [ { qb: 'FF' } ] },
+      { name: 'Rescue 1', count: '2/2', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['lt','medic'], name: 'Liyana Cooley' },
+          { badges: ['eng','x:emt'], name: 'Jadyn Foster' },
+        ] },
+    ]},
+    { title: 'STATION 2', cards: [
+      { name: 'Engine 2', count: '4/3', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['lt','x:emt'],    name: 'Leanne Lee' },
+          { badges: ['eng','medic'],   name: 'Forrest Quincey' },
+          { badges: ['x:ff','x:emt'],  name: 'Michael Carina' },
+          { badges: ['x:ff','x:emt'],  name: 'Scott Cassarah' },
+        ] },
+      { name: 'Tower 2', count: '4/4', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['capt'],         name: 'Joe Torres' },
+          { badges: ['eng','x:emt'],  name: 'Madlyn Rowen' },
+          { badges: ['x:ff','x:emt'], name: 'Tyra Florina' },
+          { badges: ['x:ff'],         name: 'Kaelee Jamey' },
+        ] },
+    ]},
+    { title: 'STATION 3', cards: [
+      { name: 'Engine 3', count: '4/3', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['capt'],         name: 'Raymond Carter' },
+          { badges: ['eng','x:emt'],  name: 'Jerrod Harden' },
+          { badges: ['x:ff','x:emt'], name: 'Yadria Alban' },
+          { badges: ['x:ff'],         name: 'Jeremi Enrico' },
+        ] },
+      { name: 'Rescue 3', count: '2/2', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['lt','medic'],  name: 'Eilidh Barr' },
+          { badges: ['eng','x:emt'], name: 'Temperance Hoggard', dot: 'yellow' },
+        ] },
+    ]},
+    { title: 'STATION 4', cards: [
+      { name: 'Engine 4', count: '4/3', met: true, east: true, warn: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['lt','x:emt'],    name: 'Kinsley Debenham' },
+          { badges: ['eng','x:emt'],   name: 'Kristina Dixon' },
+          { badges: ['x:ff','x:emt'],  name: 'Dominick Alessio' },
+          { badges: ['x:ff'],          name: 'Jamey Angelo' },
+        ] },
+      { name: 'Truck 4', count: '4/4', met: true, east: true, warn: true, red: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['capt'], num: '51', label: 'Long Label', name: 'Daniel Fabio', dot: 'green' },
+          { badges: ['eng','hmt','x:emt'],  name: 'Janis Duncan', dot: 'green' },
+          { badges: ['x:ff','hmt','x:emt'], name: 'Justin Carolina' },
+          { badges: ['x:ff','hmt'],         name: 'Wesley Clem' },
+        ] },
+    ]},
+    { title: 'STATION 5', cards: [
+      { name: 'Engine 5', count: '4/3', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['capt','x:emt'], name: 'Diana Bell' },
+          { badges: ['eng'],          name: 'Shirley Anderson' },
+          { badges: ['x:ff','x:emt'], name: 'Jeff Chanelle' },
+          { badges: ['x:ff'],         name: 'Becky Kazia' },
+        ] },
+      { name: 'Rescue 5', count: '2/2', met: true, east: true, time: '8am - 8am (24 hrs)',
+        rows: [
+          { badges: ['lt','medic'],  name: 'Mimi Brewer' },
+          { badges: ['eng','x:emt'], name: 'Stephen Diaz' },
+        ] },
+    ]},
+  ];
+
+  const BADGE_LABEL = { capt:'Capt', eng:'Eng', lt:'LT', ff:'FF', emt:'EMT', medic:'Medic', hmt:'HMT', bc:'BC' };
+
+  function badgeHTML(code) {
+    let cred = false;
+    if (code.startsWith('x:')) { cred = true; code = code.slice(2); }
+    const ci = cred ? '<span class="ci"><i class="fa-solid fa-xmark"></i></span>' : '';
+    return `<span class="pq pq-${code}">${ci}${BADGE_LABEL[code] || code}</span>`;
+  }
+
+  function rowHTML(r) {
+    const tags = (r.badges || []).map(badgeHTML).join('');
+    const num   = r.num   ? `<span class="pq pq-num">${r.num}</span>` : '';
+    const label = r.label ? `<span class="pq pq-label">${r.label}</span>` : '';
+    const dot   = r.dot   ? `<span class="pdot ${r.dot}"></span>` : '';
+    return `<div class="prow">
+      <div class="pq-tags">${tags}${num}${label}</div>
+      <div class="pname-row"><span class="pname">${r.name}</span>${dot}</div>
+    </div>`;
+  }
+
+  function slotHTML(s) {
+    const badges = s.qb ? `<span class="oslot-badges"><span class="qbadge qb-ff">${s.qb}</span></span>` : '';
+    return `<div class="oslot"><span class="os-label">Open slot</span>${badges}</div>`;
+  }
+
+  function cardHTML(c) {
+    const cls = 'acard' + (c.red ? ' understaffed' : '');
+    const person = c.person ? '<i class="fa-solid fa-user-group ic-person"></i> ' : '';
+    const warn = c.warn ? '<i class="fa-solid fa-triangle-exclamation acard-warn"></i>' : '';
+    const count = `<span class="acount ${c.met ? 'met' : 'under'}">${c.count}</span>`;
+    const east = c.east ? '<div class="east-chip">East</div>' : '';
+    const time = c.time ? `<div class="acard-time">${c.time}</div>` : '';
+    const rows = (c.rows || []).map(rowHTML).join('');
+    const slots = (c.slots || []).map(slotHTML).join('');
+    const self = c.schedSelf ? '<div class="sched-self">+ SCHEDULE YOURSELF</div>' : '';
+    return `<div class="${cls}">
+      <div class="acard-hdr">
+        <span class="acard-title">${person}${c.name}</span>
+        <div class="acard-hdr-right">${warn}${count}<i class="fa-solid fa-ellipsis-vertical acard-menu"></i></div>
+      </div>
+      ${east}${time}
+      <div class="acard-body">${rows}${slots}${self}</div>
+    </div>`;
+  }
+
+  function colHTML(col) {
+    return `<div class="col">
+      <div class="col-hdr">${col.title}</div>
+      ${col.cards.map(cardHTML).join('')}
+    </div>`;
+  }
+
+  // build the schedule columns + the right-hand Employees Off / Misc panel
+  const colsEl = document.getElementById('cols');
+  colsEl.innerHTML = COLUMNS.map(colHTML).join('') + `
+    <div class="col col-side">
+      <div class="offcard">
+        <div class="off-hdr">Employees Off</div>
+        <div class="acard-body"><div class="oslot"><span class="os-label">+ Add</span></div></div>
+      </div>
+      <div class="offcard">
+        <div class="off-hdr">Misc</div>
+        <div class="acard-body"><div class="oslot"><span class="os-label">+ Add</span></div></div>
+      </div>
+    </div>`;
+</script>
+
+<!-- Design Toolbox (review/handoff tooling — NOT part of the product) -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
