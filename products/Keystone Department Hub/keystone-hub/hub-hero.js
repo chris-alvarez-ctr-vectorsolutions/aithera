@@ -675,6 +675,7 @@
       '</div>';
 
     if (!AI || !AI.hasAccess(VARIANT_ROLE[variant])) return grid;
+    AI.setRole(VARIANT_ROLE[variant]);
 
     return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
       AI.html(cfg) + grid + '</div>';

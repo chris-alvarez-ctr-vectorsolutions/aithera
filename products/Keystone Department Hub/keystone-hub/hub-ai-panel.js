@@ -81,11 +81,104 @@
       micon('auto_awesome', { size: Math.round(size * 0.56), fill: 1 }) + '</span>';
   }
 
+  // Set every render from the variant the hero is drawing, so respond() and the
+  // suggestion filter always use the right asker.
+  var currentPerson = null;
+  function setRole(roleId) { currentPerson = personFor(roleId); }
+
+  /* =====================================================================
+     SUGGESTIONS
+     ---------------------------------------------------------------------
+     Filtered by the asker's entitlements. The system knows what it will
+     refuse, so it must not suggest it — the Chief lacks Scheduling, and a
+     hand-picked "overtime risk" chip would open the panel on a refusal.
+
+     Each entry's metricId MUST match what matchQuestion() in
+     agency-intel-ai-data.js routes `q` to, or the filter lies. Verified:
+       'behind on training'   -> training_completion
+       'inspections overdue'  -> overdue_inspections
+       'average response time'-> response_time
+       'CEU completion'       -> ceu_progress
+       'cert expires'         -> credential_expirations
+       'shifts are open'      -> open_shifts
+     ===================================================================== */
+
+  var SUGGESTION_POOL = [
+    { metricId: 'training_completion',    label: 'Training compliance',  q: 'Which stations are behind on training?' },
+    { metricId: 'overdue_inspections',    label: 'Overdue inspections',  q: 'Which inspections are overdue at Station 4?' },
+    { metricId: 'response_time',          label: 'Response time',        q: 'What’s our average response time this quarter?' },
+    { metricId: 'ceu_progress',           label: 'CEU progress',         q: 'CEU completion by station?' },
+    { metricId: 'credential_expirations', label: 'Credentials expiring', q: 'Whose paramedic cert expires in the next 60 days?' },
+    { metricId: 'open_shifts',            label: 'Open shifts',          q: 'Which shifts are open next week?' }
+  ];
+
+  function suggestionsFor(person) {
+    var CP = window.AGENCY_INTEL;
+    var AI = window.AGENCY_INTEL_AI;
+    if (!CP || !AI || !person) return [];
+    var ent = AI.personEntitlements(person, null);
+    return SUGGESTION_POOL.filter(function (s) {
+      return CP.metricSources(s.metricId).every(function (src) {
+        return ent.indexOf(src) !== -1;
+      });
+    }).slice(0, 3);
+  }
+
+  function chipsHtml(person) {
+    var list = suggestionsFor(person);
+    if (!list.length) return '';
+    return '<div class="kx-ai-chips">' + list.map(function (s, i) {
+      return '<button class="kx-ai-chip" data-kx-ai-chip="' + i + '" ' +
+        'title="' + KX.attr(s.q) + '">' + esc(s.label) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  // Bold spans in the seeded answers arrive as **markdown**.
+  function bubbleText(text) {
+    return String(text).split('**').map(function (part, i) {
+      return i % 2
+        ? '<strong style="color:var(--ink-900)">' + esc(part) + '</strong>'
+        : esc(part);
+    }).join('');
+  }
+
+  function turnHtml(msg) {
+    if (msg.role === 'user') {
+      return '<div class="kx-ai-user"><div class="bubble">' + esc(msg.text) + '</div></div>';
+    }
+    return '<div class="kx-ai-turn">' + mark(24) +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">' +
+      '<div class="bubble">' + bubbleText(msg.text) + '</div>' +
+      (msg.denied
+        ? '<div class="kx-ai-denied">' + micon('block', { size: 13, fill: 1 }) +
+          '<span>' + esc(msg.deniedNote || 'Outside your data permissions.') + '</span></div>'
+        : '') +
+      '</div></div>';
+  }
+
+  function thinkingHtml() {
+    return '<div class="kx-ai-turn" style="align-items:center">' + mark(24) +
+      '<div style="display:inline-flex;align-items:center;gap:5px;padding:8px 12px;' +
+      'background:var(--surface-2);border:1px solid var(--ink-100);border-radius:13px 13px 13px 4px">' +
+      '<span class="kx-ai-dot"></span>' +
+      '<span class="kx-ai-dot" style="animation-delay:140ms"></span>' +
+      '<span class="kx-ai-dot" style="animation-delay:280ms"></span>' +
+      '<span style="font-size:11px;color:var(--ink-500);margin-left:4px;font-style:italic">' +
+      'Querying your apps…</span></div></div>';
+  }
+
+  function threadHtml() {
+    return '<div class="kx-ai-thread" id="kxAiThread">' +
+      state.thread.map(turnHtml).join('') +
+      (state.thinking ? thinkingHtml() : '') +
+      '</div>';
+  }
+
   /* =====================================================================
      PANEL MARKUP
      ===================================================================== */
 
-  function inputHtml() {
+  function inputHtml(expanded) {
     var ready = !!state.draft.trim() && !state.thinking;
     return '<div class="kx-ai-input-wrap"><div class="kx-ai-input">' +
       '<textarea id="kxAiDraft" rows="1" ' +
@@ -94,26 +187,131 @@
       'title="Send" aria-label="Send"' + (ready ? '' : ' disabled') + '>' +
       micon('arrow_upward', { size: 17, weight: 500 }) + '</button>' +
       '</div>' +
-      '<div class="kx-ai-legal">Charts land on the dashboard, never in chat. ' +
-      'Agency Intelligence can be wrong — verify before acting.</div></div>';
+      // Only once there are answers to caveat. The compact panel spends that
+      // vertical space on suggestion chips instead, and has none to spare.
+      (expanded
+        ? '<div class="kx-ai-legal">Charts land on the dashboard, never in chat. ' +
+          'Agency Intelligence can be wrong — verify before acting.</div>'
+        : '') +
+      '</div>';
   }
 
   function html(cfg) {
+    var person = currentPerson;
     return '<div class="kx-aipanel" id="kxAiPanel">' +
       '<div class="kx-ai-head">' + mark(28) +
       '<div style="flex:1;min-width:0">' +
       '<div class="t">Agency Intelligence</div>' +
       '<div class="s">Ask about ' + esc((cfg && cfg.name) || 'your dashboard') + '</div>' +
       '</div></div>' +
-      inputHtml() +
+      (isExpanded() ? threadHtml() : chipsHtml(person)) +
+      inputHtml(isExpanded()) +
       '</div>';
+  }
+
+  /* =====================================================================
+     ASKING
+     ===================================================================== */
+
+  function deniedNote(entry) {
+    var K2 = window.KEYSTONE;
+    var srcs = (entry && entry.deniedSources) || [];
+    if (!srcs.length) return 'Outside your data permissions.';
+    var names = srcs.map(function (s) {
+      return (K2.SOURCES[s] || {}).name || s;
+    }).join(', ');
+    return 'Needs ' + names + ' — your account has no access. An administrator can grant it.';
+  }
+
+  function send() {
+    var q = state.draft.trim();
+    if (!q || state.thinking || !currentPerson) return;
+    state.thread.push({ role: 'user', text: q });
+    state.draft = '';
+    state.thinking = true;
+    window.KXHub.render();
+
+    // A beat of latency so the thinking state is legible; this is a prototype,
+    // there is no request behind it.
+    window.setTimeout(function () {
+      var res = window.AGENCY_INTEL_AI.homepageRespond(q, currentPerson, null);
+      state.thinking = false;
+      state.thread.push({
+        role: 'assistant',
+        text: res.text,
+        metricId: (res.entry && res.entry.outcome === 'answered') ? res.entry.metricId : null,
+        denied: !!res.denied,
+        deniedNote: res.denied ? deniedNote(res.entry) : ''
+      });
+      window.KXHub.render();
+      scrollThread();
+    }, 620);
+  }
+
+  function scrollThread() {
+    var t = document.getElementById('kxAiThread');
+    if (t) t.scrollTop = t.scrollHeight;
+  }
+
+  /* =====================================================================
+     WIRING — one delegated listener on #root, guarded so the hub's
+     re-renders never stack handlers.
+     ===================================================================== */
+
+  var wired = false;
+  function wire() {
+    if (wired) return;
+    wired = true;
+    var root = document.getElementById('root');
+
+    root.addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-kx-ai-chip]');
+      if (chip) {
+        var list = suggestionsFor(currentPerson);
+        var s = list[Number(chip.getAttribute('data-kx-ai-chip'))];
+        if (s) { state.draft = s.q; send(); }
+        return;
+      }
+      if (e.target.closest('#kxAiSend')) { send(); return; }
+    });
+
+    root.addEventListener('input', function (e) {
+      if (e.target.id === 'kxAiDraft') {
+        state.draft = e.target.value;
+        // Toggle the send button in place — a full re-render would steal focus
+        // and drop the caret mid-sentence.
+        var btn = document.getElementById('kxAiSend');
+        if (btn) {
+          var ready = !!state.draft.trim() && !state.thinking;
+          btn.classList.toggle('is-ready', ready);
+          btn.disabled = !ready;
+        }
+      }
+    });
+
+    root.addEventListener('keydown', function (e) {
+      if (e.target.id === 'kxAiDraft' && e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
   }
 
   window.KXAIPanel = {
     hasAccess: hasAccess,
     personFor: personFor,
+    setRole: setRole,
     html: html,
     isExpanded: isExpanded,
-    addedWidgets: addedWidgets
+    addedWidgets: addedWidgets,
+    wire: wire
   };
+
+  // The hub renders before this file's consumers exist, so wire on DOM ready
+  // rather than from the hero's render path.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wire);
+  } else {
+    wire();
+  }
 })();
