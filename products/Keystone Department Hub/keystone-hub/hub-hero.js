@@ -583,12 +583,19 @@
     var narrow = (w.w || 6) <= 4;
     var srcs = narrow ? '' : (w.source || []).map(function (s) { return KX.srcChip(s); }).join('');
 
+    // The range control sits BELOW the value, not beside the title. It used to
+    // share the header row, where it took ~105px and forced every title into an
+    // ellipsis once the Agency Intelligence panel claimed 320px of the body.
+    // Giving the title its own row drops a widget's legible minimum from ~310px
+    // to ~205px, which is what lets three widgets stay on one row at ordinary
+    // laptop widths instead of wrapping to two.
     return '<div class="kx-pubwidget" style="grid-column:span ' + (w.w || 6) + '">' +
       '<div class="kx-pubwidget-head">' + iconChip +
       '<span class="title">' + esc(title) + '</span>' +
       (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +
-      '<span class="rng">' + pdRangeControl(w, ownerLabel, narrow) + '</span></div>' +
+      '</div>' +
       '<div style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
+      '<div class="kx-pubwidget-foot">' + pdRangeControl(w, ownerLabel, narrow) + '</div>' +
       '</div>';
   }
 

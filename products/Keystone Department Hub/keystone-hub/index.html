@@ -421,32 +421,50 @@
   /* Widget wrapping. Spans are inline styles from pubWidget(), so these
      overrides need !important — same technique as the 860px rule below.
      Thresholds are viewport-based because the grid's own width depends on
-     whether the AI panel is docked beside it. Both thresholds below were
-     measured directly in-browser, not just reasoned from CSS — the
-     widget-head row's date-range control eats ~105px of each widget's
-     ~24px-padded content row, so a title only stays legible once its widget
-     is roughly 310px+ wide.
-     Two across: the panel plus three widgets (span 4 each) stops being
-     legible around viewport 1435px, so 1450px is used as a safe round
-     threshold. (The brief's original plan used 1360px, which left the
-     1405px default viewport still in clipped 3-across mode.) */
-  @media (max-width: 1450px) {
+     whether the AI panel is docked beside it.
+
+     Task 2c moved the date-range control out of the widget-head row into its
+     own footer row (see pubWidget() in hub-hero.js), so a title no longer has
+     to share its row with a ~105px control. A widget's legible minimum
+     dropped from ~310px to ~205px, and BOTH thresholds below were re-measured
+     in-browser from scratch (forcing spans with browser_evaluate + stepping
+     browser_resize, never computed) because Task 2b's numbers (1450px /
+     1090px) were calibrated against the old ~310px minimum and are now far
+     too conservative.
+
+     Three across (natural, unforced spans) stayed clip-free down to 1070px
+     viewport and first clipped at 1065px — so 1070px is the measured-and-
+     rounded-up threshold below which three-across (span 4) gives way to
+     two-across (span 6).
+     Two across (span 6 forced) stayed clip-free down to 470px viewport and
+     first clipped at 465px — so 470px is the measured-and-rounded-up
+     threshold below which two-across gives way to one-per-row. */
+  @media (max-width: 1070px) {
     .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 6 !important; }
   }
-  /* One across: the brief's original plan was to revert to three-across
-     (span 4) once the panel stacks above the grid at 980px, on the
-     assumption the grid then has "full width back." Measured in-browser,
-     that assumption doesn't hold — even stacked, the grid tops out around
-     854px wide (at 979px viewport), well short of the ~954px three widgets
-     need. Worse, two-across (span 6, above) has its own dead zone: with the
-     panel still docked beside the grid (viewport just over 980px, before it
-     stacks), the grid is squeezed enough that even two widgets clip below
-     roughly viewport 1075-1090px. So instead of reverting to three-across,
-     this drops to one-per-row through both trouble spots — the docked
-     squeeze zone and the stacked zone below it — until the existing 860px
-     rule takes over (which this subsumes; kept for clarity, not conflict:
-     both rules agree on 1 / -1 for every width the 860px rule matches). */
-  @media (max-width: 1090px) {
+  /* One across. Measurement shows two-across no longer has a dead zone
+     anywhere between here and 1070px — neither docked-beside-the-panel
+     widths (e.g. 981px, widget 256px wide) nor stacked-above-the-panel
+     widths (e.g. 861px, widget 362px wide) come close to clipping. So unlike
+     Task 2b, which forced one-per-row all the way from 1090px down through
+     the pre-existing 860px rule as a blunt simplification, this reclaims
+     two-across density for the whole 470-1070px range and only drops to one-
+     per-row where measurement actually requires it (below 470px).
+
+     That reclaim works automatically, without touching the 860px rule below:
+     this selector, `.kx-pubbody .kx-pubgrid > .kx-pubwidget`, has specificity
+     (0,3,0) versus the 860px rule's `.kx-pubgrid > *` at (0,1,0), so this
+     rule always wins when both match, regardless of which comes first in the
+     file. In the 470-860px band both rules match (this one says span 6, the
+     860px rule says 1 / -1) and specificity — not source order — is why
+     span 6 is what actually renders. Below 470px this rule also says 1 / -1,
+     so the two rules agree again and there is no conflict. Caution for
+     future edits: because specificity decides here, not order, a future
+     breakpoint that wants a *different* value at ≤860px than this rule
+     provides would silently lose to this rule no matter where it's placed
+     in the file — it would need higher specificity, not just later
+     placement. */
+  @media (max-width: 470px) {
     .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: 1 / -1 !important; }
   }
 
@@ -512,6 +530,9 @@
   }
   .kx-pubwidget-head .srcs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .kx-pubwidget-head .rng { margin-left: auto; flex-shrink: 0; }
+  /* Range control's new home: its own compact row under the value, so the
+     title above it never has to share horizontal space with it. */
+  .kx-pubwidget-foot { display: flex; align-items: center; margin-top: 8px; min-width: 0; }
   .kx-pubwidget .icon-chip {
     width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
     display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
