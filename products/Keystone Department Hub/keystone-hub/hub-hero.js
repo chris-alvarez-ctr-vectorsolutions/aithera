@@ -417,7 +417,7 @@
   // The Lieutenant gets a fuller, crew-scoped dashboard a Chief would publish.
   var LT_DASH = {
     name: 'B-Shift Readiness', scope: 'Station 4 · B-Shift',
-    publisher: 'Chief Reyes · Battalion 1', ownerShort: 'Chief Reyes',
+    publisher: 'Chief Smith · Battalion 1', ownerShort: 'Chief Smith',
     widgets: [
       { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  range: 'qtd',       source: ['ts'],    title: 'Crew training complete' },
       { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  range: 'next_30',   source: ['ts'],    title: 'Credentials expiring' },

@@ -567,7 +567,7 @@
       : savedAt
         ? micon('check_circle', { size: 16, color: 'var(--teal-400)' }) + 'Saved ' +
           savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : micon('history', { size: 16 }) + 'Last edited by Chief Reyes · 12 days ago';
+        : micon('history', { size: 16 }) + 'Last edited by Chief Smith · 12 days ago';
 
     return '<div class="pf-toolbar"><div class="pf-toolbar-inner">' +
       '<div class="pf-status' + (dirty ? ' dirty' : '') + '" id="pfStatus">' + status + '</div>' +
@@ -666,7 +666,7 @@
         : savedAt
           ? micon('check_circle', { size: 16, color: 'var(--teal-400)' }) + 'Saved ' +
             savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : micon('history', { size: 16 }) + 'Last edited by Chief Reyes · 12 days ago';
+          : micon('history', { size: 16 }) + 'Last edited by Chief Smith · 12 days ago';
     }
     var save = document.getElementById('pfSave');
     if (save) {
