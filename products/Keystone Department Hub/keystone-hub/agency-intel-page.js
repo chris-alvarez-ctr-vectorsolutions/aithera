@@ -657,7 +657,7 @@
       '<textarea id="cpvDraft" rows="3" placeholder="Ask Agency Intelligence — e.g. show overtime risk for the next 30 days">' +
       esc(state.draft) + '</textarea>' +
       '<button class="cp-send' + (ready ? ' is-ready' : '') + '" id="cpvSend" title="Send" aria-label="Send"' +
-      (ready ? '' : ' disabled') + ' style="width:32px;height:32px;border-radius:9px;border:none;flex-shrink:0;' +
+      (ready ? '' : ' disabled') + ' style="width:32px;height:32px;border-radius:var(--radius-pill);border:none;flex-shrink:0;' +
       'display:inline-flex;align-items:center;justify-content:center;background:' +
       (ready ? 'var(--ink-900)' : 'var(--ink-200)') + ';color:' + (ready ? 'white' : 'var(--ink-500)') + ';cursor:' +
       (ready ? 'pointer' : 'default') + '">' + micon('arrow_upward', { size: 18, weight: 500 }) + '</button>' +
@@ -1008,7 +1008,7 @@
       '<div class="cp-builder-tabs"><div class="cp-builder-modes">' +
       TABS.map(function (t) {
         return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
-          'padding:7px 18px;border-radius:8px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
+          'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
           'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
           (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
           (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +

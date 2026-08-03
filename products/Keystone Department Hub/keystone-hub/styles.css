@@ -136,6 +136,10 @@
   --radius:    10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  /* Buttons and other capsule controls are fully rounded. Any value past half
+     the control's height clamps to a perfect pill, so one token fits every
+     button size. */
+  --radius-pill: 999px;
 
   /* Elevation — Material Design 3 (https://m3.material.io/styles/elevation).
      Shadow uses the brand's deep-ink hue at M3's opacity so it harmonises
@@ -232,8 +236,12 @@ html {
 
 /* Vector components are display:block by default in a few cases; keep the
    inline rhythm the prototype's flex rows assume. */
-vaadin-button { flex-shrink: 0; }
-/* Icon-only Vector buttons: the prototype's are square-ish, not pill. */
+/* Buttons are pill-shaped. The design system now allows full corner rounding,
+   so every Vector button rides --radius-pill instead of the old 4px default.
+   This is the single lever for DS buttons across all three Keystone surfaces. */
+vaadin-button { flex-shrink: 0; --vaadin-button-border-radius: var(--radius-pill); }
+/* Icon-only Vector buttons: square footprint, so full rounding = a circle,
+   which is the pill system's companion shape for icon actions. */
 vaadin-button[theme~="icon"] { --lumo-button-size: 36px; }
 /* Vector form controls sit in tight grids here — kill the default top label
    padding when a control is used bare (no label attribute). */
@@ -255,6 +263,20 @@ vaadin-dialog-overlay::part(content) { padding: 0; }
 vaadin-dialog-overlay::part(footer) { background: var(--surface-2); border-top: 1px solid var(--ink-100); }
 /* Toggle-button groups stand in for the prototype's segmented controls. */
 vwc-toggle-button-group { --vwc-toggle-button-group-gap: 0; }
+/* Pill the group's outer corners — segments sit flush, so only the first and
+   last get rounded, keeping the group reading as one control. The Vector theme
+   ships these same selectors at 4px; the doubled pseudo-class raises
+   specificity just enough to win without !important. */
+vwc-toggle-button-group vwc-toggle-button:first-child:first-child::part(button) {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+vwc-toggle-button-group vwc-toggle-button:last-child:last-child::part(button) {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+}
+/* A lone segment is a plain pill. */
+vwc-toggle-button-group vwc-toggle-button:only-child:only-child::part(button) {
+  border-radius: var(--radius-pill);
+}
 
 /* ------------------------------------------------------------------------
    BASE
@@ -399,10 +421,23 @@ body::before {
 .kx-btn-elev { transition: box-shadow 0.15s ease, transform 0.15s ease; }
 .kx-btn-elev:hover { box-shadow: var(--elev-2) !important; }
 
+/* ---- Widget date-range button ----
+   Emitted by shared JS (hub-hero.js, agency-intel-canvas.js), so it belongs
+   here rather than in one page's style block — it used to render unstyled on
+   Agency Intelligence because only index.html carried the rules. */
+.kx-range-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+  border: 1px solid transparent; background: transparent; color: var(--ink-500);
+  cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 600;
+}
+.kx-range-btn:hover { background: var(--surface-3); }
+.kx-range-btn.is-dirty { border-color: var(--amber-300); background: var(--amber-50); color: var(--amber-700); }
+
 /* ---- Pill button (the prototype's filter/sort/density controls) ---- */
 .kx-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border-radius: 999px;
+  padding: 7px 12px; border-radius: var(--radius-pill);
   background: var(--surface-1); color: var(--ink-800);
   border: 1px solid var(--ink-200);
   font-size: 16px; font-weight: 400; cursor: pointer;

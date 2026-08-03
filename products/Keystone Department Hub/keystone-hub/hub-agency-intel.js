@@ -267,7 +267,7 @@
 
   function metricChip(m, on, atCap) {
     return '<button data-cp-metric="' + KX.attr(m.id) + '"' + (atCap ? ' disabled' : '') +
-      ' style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;' +
+      ' style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--radius-pill);' +
       'background:' + (on ? 'var(--amber-50)' : 'var(--surface-1)') + ';' +
       'border:1px solid ' + (on ? 'var(--amber-400)' : 'var(--ink-200)') + ';' +
       'cursor:' + (atCap ? 'not-allowed' : 'pointer') + ';opacity:' + (atCap ? 0.45 : 1) + ';' +
@@ -342,7 +342,7 @@
   function customMetricInput() {
     if (!state.customOpen) {
       return '<button data-cp-custom-open style="background:transparent;border:1px dashed var(--ink-200);' +
-        'border-radius:9px;padding:8px 10px;color:var(--ink-600);font-size:11.5px;font-weight:600;' +
+        'border-radius:var(--radius-pill);padding:8px 10px;color:var(--ink-600);font-size:11.5px;font-weight:600;' +
         'cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;align-self:flex-start">' +
         micon('add', { size: 14 }) + 'Describe your own metric</button>';
     }
