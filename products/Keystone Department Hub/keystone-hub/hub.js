@@ -744,12 +744,12 @@
         }).join('') + '</div>';
 
     var actions = '<vaadin-button theme="primary small" data-open-src="' + KX.attr(t.id) + '">' +
-      micon('open_in_new', { size: 16 }) + '<span style="margin-left:6px">Open in ' + esc(src.name) + '</span></vaadin-button>';
+      micon('open_in_new', { size: 16 }) + '<span class="kx-btn-label">Open in ' + esc(src.name) + '</span></vaadin-button>';
     if (flags.futureOn) {
       actions += '<vaadin-button theme="secondary small" data-remind="' + KX.attr(t.id) + '">' +
-        micon('send', { size: 16 }) + '<span style="margin-left:6px">Send Reminder</span></vaadin-button>' +
+        micon('send', { size: 16 }) + '<span class="kx-btn-label">Send Reminder</span></vaadin-button>' +
         '<vaadin-button theme="tertiary small" data-reassign="' + KX.attr(t.id) + '">' +
-        micon('person_add', { size: 16 }) + '<span style="margin-left:6px">Reassign</span></vaadin-button>';
+        micon('person_add', { size: 16 }) + '<span class="kx-btn-label">Reassign</span></vaadin-button>';
     }
 
     return '<div class="kx-detail">' +

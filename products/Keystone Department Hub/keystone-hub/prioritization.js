@@ -544,8 +544,8 @@
 
     var tabs = flags.futureOn
       ? '<vaadin-tabs class="pf-preview-tabs" id="pfPreviewTabs" selected="' + (previewTab === 'types' ? 0 : 1) + '">' +
-        '<vaadin-tab>' + micon('category', { size: 16 }) + '<span style="margin-left:6px">Task types</span></vaadin-tab>' +
-        '<vaadin-tab>' + micon('format_list_bulleted', { size: 16 }) + '<span style="margin-left:6px">Individual tasks</span></vaadin-tab>' +
+        '<vaadin-tab>' + micon('category', { size: 16 }) + '<span class="kx-btn-label">Task types</span></vaadin-tab>' +
+        '<vaadin-tab>' + micon('format_list_bulleted', { size: 16 }) + '<span class="kx-btn-label">Individual tasks</span></vaadin-tab>' +
         '</vaadin-tabs>'
       : '';
 
@@ -573,7 +573,7 @@
       '<div class="pf-status' + (dirty ? ' dirty' : '') + '" id="pfStatus">' + status + '</div>' +
       '<vaadin-button theme="secondary" id="pfReset">Reset to defaults</vaadin-button>' +
       '<vaadin-button theme="primary" id="pfSave"' + (!dirty || !isValid() ? ' disabled' : '') + '>' +
-      micon('save', { size: 16 }) + '<span style="margin-left:6px">Save changes</span></vaadin-button>' +
+      micon('save', { size: 16 }) + '<span class="kx-btn-label">Save changes</span></vaadin-button>' +
       '</div></div>';
   }
 

@@ -343,7 +343,7 @@
         '<p>Ask Agency Intelligence a question in plain language and pin the answer. Your dashboards refresh ' +
         'automatically and live here, ready to publish to your team.</p>' +
         '<vaadin-button theme="primary large" id="cpNewDash">' + micon('add', { size: 18 }) +
-        '<span style="margin-left:6px">Create your first dashboard</span></vaadin-button></div>';
+        '<span class="kx-btn-label">Create your first dashboard</span></vaadin-button></div>';
     }
 
     var list = filteredDashboards();
@@ -490,7 +490,7 @@
       '<p>Who gets an assistant on their homepage. Agency Intelligence can only answer from the apps a ' +
       'person is already entitled to — the dots show each grant\'s reach.</p></div>' +
       '<vaadin-button theme="secondary small" id="cpAiGrant">' + micon('add', { size: 16 }) +
-      '<span style="margin-left:4px">Grant</span></vaadin-button></div>' +
+      '<span class="kx-btn-label">Grant</span></vaadin-button></div>' +
       '<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--surface-2);' +
       'border-bottom:1px solid var(--ink-100)">' +
       '<span style="font-size:12px;color:var(--ink-600)"><b style="font-family:var(--font-numeric);font-size:15px">' +
@@ -573,7 +573,7 @@
       '<p>' + esc(subtitle) + '</p></div>' +
       (tab === 'dashboards' && state.dashboards.length
         ? '<vaadin-button theme="primary" id="cpNewDash">' + micon('add', { size: 18 }) +
-          '<span style="margin-left:6px">New dashboard</span></vaadin-button>'
+          '<span class="kx-btn-label">New dashboard</span></vaadin-button>'
         : '') +
       '</div>' +
 
@@ -775,7 +775,7 @@
           (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
           '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
           '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
-          '<span style="margin-left:6px">Add to dashboard</span></vaadin-button>' +
+          '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
           '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>'
       ) + '</div></div>';
   }
@@ -839,7 +839,7 @@
           }).join('') + '</div>' +
           (preview ? widgetPreviewHtml(preview) : '') +
           '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBAddCorr">' +
-          micon('add', { size: 16 }) + '<span style="margin-left:6px">Add correlation</span></vaadin-button></div>' +
+          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add correlation</span></vaadin-button></div>' +
           '</div>'
         : '') +
       '<input type="hidden" id="cpCorrCompat" value="' + KX.attr(compatible.join(',')) + '">' +
@@ -868,7 +868,7 @@
       }).join('') + '</div>' +
       (state.builder.ideas.length
         ? '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBGenerate">' +
-          micon('auto_awesome', { size: 16 }) + '<span style="margin-left:6px">Build ' +
+          micon('auto_awesome', { size: 16 }) + '<span class="kx-btn-label">Build ' +
           state.builder.ideas.length + ' widget' + (state.builder.ideas.length === 1 ? '' : 's') +
           '</span></vaadin-button></div>'
         : '') +
@@ -911,7 +911,7 @@
       (preview
         ? '<div style="margin-top:16px">' + widgetPreviewHtml(preview) +
           '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBAddTable">' +
-          micon('add', { size: 16 }) + '<span style="margin-left:6px">Add summary table</span></vaadin-button></div>' +
+          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add summary table</span></vaadin-button></div>' +
           '</div>'
         : '') +
       '</div>';
@@ -934,7 +934,7 @@
       esc(b.textBody) + '</textarea></div>' +
       '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
       '<vaadin-button theme="primary" id="cpBAddText"' + (ready ? '' : ' disabled') + '>' +
-      micon('add', { size: 16 }) + '<span style="margin-left:6px">Add text block</span></vaadin-button>' +
+      micon('add', { size: 16 }) + '<span class="kx-btn-label">Add text block</span></vaadin-button>' +
       '<span style="font-size:12px;color:var(--ink-500)">You can keep editing it right on the canvas.</span></div>' +
       '</div>';
   }
@@ -1046,7 +1046,7 @@
     var bar = '<div class="cp-build-bar">' +
       (!locked
         ? '<vaadin-button theme="secondary small" id="cpBack" title="Back to Agency Intelligence">' +
-          micon('arrow_back', { size: 15 }) + '<span style="margin-left:4px">Agency Intelligence</span></vaadin-button>' +
+          micon('arrow_back', { size: 15 }) + '<span class="kx-btn-label">Agency Intelligence</span></vaadin-button>' +
           '<span class="cp-dash-icon">' + micon(d.icon || 'dashboard', { size: 18, fill: 1 }) + '</span>'
         : '<span style="font-family:var(--font-display);font-weight:500;font-size:13px;letter-spacing:0.4px;' +
           'text-transform:uppercase;color:var(--ink-400)">Preview</span>') +
@@ -1070,15 +1070,15 @@
           (delivery
             ? '<vaadin-button theme="secondary small" id="cpEditSchedule" title="Edit the report schedule">' +
               micon(delivery.paused ? 'pause_circle' : 'schedule_send', { size: 14, fill: 1 }) +
-              '<span style="margin-left:4px">' + esc(CP.cadenceMeta(delivery.cadence).short + ' ' +
+              '<span class="kx-btn-label">' + esc(CP.cadenceMeta(delivery.cadence).short + ' ' +
               CP.formatMeta(delivery.format).short) + '</span></vaadin-button>'
             : '') +
           exportControl() +
           (published
             ? '<vaadin-button theme="secondary" id="cpPublish">' + micon('group', { size: 16 }) +
-              '<span style="margin-left:4px">Manage delivery</span></vaadin-button>'
+              '<span class="kx-btn-label">Manage delivery</span></vaadin-button>'
             : '<vaadin-button theme="primary" id="cpPublish">' + micon('campaign', { size: 16 }) +
-              '<span style="margin-left:4px">Publish</span></vaadin-button>')
+              '<span class="kx-btn-label">Publish</span></vaadin-button>')
         : '') +
       '<div class="cp-modes">' +
       [['edit', 'Edit', 'edit'], ['preview', 'Preview', 'visibility']].map(function (o) {
@@ -1118,7 +1118,7 @@
       }).join('') + '</div>' +
       (!locked
         ? '<div style="margin-top:14px"><vaadin-button theme="secondary" id="cpAddWidget">' +
-          micon('add', { size: 16 }) + '<span style="margin-left:4px">Add widget</span></vaadin-button></div>'
+          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add widget</span></vaadin-button></div>'
         : '');
     }
 
@@ -1133,7 +1133,7 @@
   function exportControl() {
     return '<div style="position:relative">' +
       '<vaadin-button theme="secondary" id="cpExport" title="Export this dashboard">' +
-      micon('download', { size: 16 }) + '<span style="margin-left:4px">Export</span>' +
+      micon('download', { size: 16 }) + '<span class="kx-btn-label">Export</span>' +
       micon('expand_more', { size: 14 }) + '</vaadin-button>' +
       (state.exportMenu
         ? '<div class="kx-menu kx-menu--right" style="width:230px">' +

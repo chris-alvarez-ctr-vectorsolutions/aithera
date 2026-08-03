@@ -364,7 +364,7 @@
     return '<vaadin-button theme="' + (o.primary ? 'primary' : 'secondary') + ' small"' +
       ' data-cp-wiz="' + KX.attr(o.action) + '"' + (o.disabled ? ' disabled' : '') + '>' +
       (o.iconLeft && o.icon ? micon(o.icon, { size: 13 }) : '') +
-      '<span style="margin:0 4px">' + esc(o.label) + '</span>' +
+      '<span class="kx-btn-label">' + esc(o.label) + '</span>' +
       (!o.iconLeft && o.icon ? micon(o.icon, { size: 13 }) : '') + '</vaadin-button>';
   }
 

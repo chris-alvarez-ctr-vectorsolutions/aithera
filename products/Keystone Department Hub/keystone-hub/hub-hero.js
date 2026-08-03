@@ -375,7 +375,8 @@
       expiryBar(60, expiring60, expiring90 || 1, 'warn') +
       expiryBar(90, expiring90, expiring90 || 1, 'good') + '</div>' +
       '<vaadin-button theme="secondary small" data-jump-view="sv-cred" style="margin-top:16px">' +
-      'See all credentials' + micon('arrow_forward', { size: 14 }) + '</vaadin-button></div>' +
+      '<span class="kx-btn-label">See all credentials</span>' +
+      micon('arrow_forward', { size: 14 }) + '</vaadin-button></div>' +
 
       '<div style="display:flex;flex-direction:column;gap:12px">' +
       actionCard({ tone: 'action', icon: 'priority_high', headline: 'Requires action', cta: 'Open all', view: 'sv-mand',

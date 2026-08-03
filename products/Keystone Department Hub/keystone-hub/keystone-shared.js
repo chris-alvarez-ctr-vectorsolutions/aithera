@@ -516,7 +516,10 @@
           b.setAttribute('theme', a.theme || 'secondary');
           if (a.id) b.id = a.id;
           if (a.disabled) b.setAttribute('disabled', '');
-          b.innerHTML = (a.icon ? micon(a.icon, { size: 16 }) + ' ' : '') + esc(a.label);
+          // Label rides .kx-btn-label so the icon gap comes from the stylesheet
+          // (a bare space collapsed to ~4px and read as cramped).
+          b.innerHTML = (a.icon ? micon(a.icon, { size: 16 }) : '') +
+            '<span class="kx-btn-label">' + esc(a.label) + '</span>';
           b.addEventListener('click', function () {
             // An action returning false keeps the dialog open.
             var keep = a.onClick && a.onClick(dlg) === false;
