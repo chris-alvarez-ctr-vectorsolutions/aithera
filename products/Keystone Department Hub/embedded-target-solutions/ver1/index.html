@@ -209,6 +209,26 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
      CONTENT COLUMN — filled in Task 3
      ==================================================================== */
   .ts-content { flex: 1; min-width: 0; overflow-y: auto; position: relative; }
+
+  /* ====================================================================
+     VIEWS
+     Two siblings in the content column; `data-view` on .ts-app shows one.
+     Attribute-driven rather than two pages, so the chrome never reloads and
+     the switch is instant mid-demo.
+     ==================================================================== */
+  .ts-view { display: none; }
+  .ts-app[data-view="home"] #view-home { display: block; }
+  .ts-app[data-view="hub"]  #view-hub  { display: block; }
+
+  /* The homepage column */
+  #view-home { padding: 22px 26px 40px; max-width: 1400px; }
+
+  /* The hub fills the content area edge to edge and scrolls inside it — which
+     is how an embedded product page actually behaves. .ts-content is a fixed
+     flex child, so 100% height here is a real pixel height. */
+  #view-hub { height: 100%; }
+  #view-hub iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .ts-app[data-view="hub"] .ts-content { overflow: hidden; }
 </style>
 </head>
 <body>
@@ -368,7 +388,24 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
     </aside>
 
     <!-- ============================ CONTENT ============================ -->
-    <main class="ts-content" id="ts-content"></main>
+    <main class="ts-content" id="ts-content">
+
+      <!-- ---------- VIEW: the recreated Target Solutions homepage ---------- -->
+      <div class="ts-view" id="view-home"></div>
+
+      <!-- ---------- VIEW: the real Keystone Department Hub ----------------
+           Embedded by reference, never copied. Hub edits appear here for free,
+           and its own stylesheet and #root get a clean document instead of
+           fighting the Target Solutions shell. -->
+      <div class="ts-view" id="view-hub">
+        <!-- Eagerly loaded on purpose: `loading="lazy"` inside a display:none
+             parent defers the fetch until the first click, which would put a
+             visible stall in the middle of the demo. -->
+        <iframe src="../../keystone-hub/index.html"
+                title="Keystone Department Hub"></iframe>
+      </div>
+
+    </main>
 
   </div>
 </div>
@@ -393,6 +430,37 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
     if (!panel.children.length) return;
     panel.hidden = !willOpen;
     btn.setAttribute('aria-expanded', String(willOpen));
+  });
+})();
+</script>
+
+<script>
+/* ======================================================================
+   VIEW SWITCHING
+
+   One attribute on .ts-app drives which view is visible. The shell itself
+   never re-renders, so the sidebar and top nav hold perfectly still while
+   the content swaps — the thing that makes the demo click feel native.
+   ====================================================================== */
+(function () {
+  var app     = document.querySelector('.ts-app');
+  var content = document.getElementById('ts-content');
+  var navBtns = document.querySelectorAll('.ts-nav-light .ts-nav-item');
+
+  window.tsSetView = function (name) {
+    app.setAttribute('data-view', name);
+
+    // Exactly one nav item reads as selected at a time.
+    navBtns.forEach(function (b) {
+      if (b.dataset.target === name) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+
+    content.scrollTop = 0;
+  };
+
+  navBtns.forEach(function (b) {
+    b.addEventListener('click', function () { window.tsSetView(b.dataset.target); });
   });
 })();
 </script>
