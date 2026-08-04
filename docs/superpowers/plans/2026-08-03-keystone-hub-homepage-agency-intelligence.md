@@ -1830,9 +1830,13 @@ added — clearing a conversation is not undoing a publish."
 
 ## Task 6: Dedupe the shared mark, update `products.json`, final sweep
 
-**Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/agency-intelligence-dashboard.html:44-49`
-- Modify: `products.json:702-707`
+**Files** — five, because this task also absorbs four cleanups deferred by
+earlier reviews (see Step 2b):
+- Modify: `products/Keystone Department Hub/keystone-hub/agency-intelligence-dashboard.html:44-49` (delete the duplicated `.agency-intel-mark` rule)
+- Modify: `products.json:702-707` (refresh `desc` and `modified`)
+- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (delete the dead `.kx-pubwidget-head .rng` rule)
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js` (confirmation copy, shared-state comment, chevron class)
+- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (chevron positioning per orientation)
 
 **Interfaces:**
 - Consumes: `.agency-intel-mark` now defined in `styles.css` (Task 2).
