@@ -124,8 +124,13 @@ OUTPUT CONTRACT — return ONLY a JSON object, nothing else. Start with { and en
         sceneLine: "[CURRENT SCENE — Later the SAME afternoon, a PRIVATE 1:1 with SAM in a small meeting room. Only SAM is present now (Alex is NOT here). You REMEMBER the earlier open-office argument and how the learner handled it — let Sam's mood and words reflect it (e.g. whether the learner was fair, took sides, or de-escalated). Do not recap the earlier scene verbatim; carry its weight. The learner is meeting Sam fresh in this new moment.]",
         open: [
           {speaker:'character', kind:'narration', text:'Sam pulls out a chair and sits, still a little wound up from earlier.'},
+          {speaker:'character', kind:'dialogue', name:'Sam', text:'Thanks for pulling me in here. Kind of a rough afternoon.'},
         ],
-        modelOpens: true,  // Sam's first line is model-generated so it can reference conv 1
+        // The LEARNER opens the 1:1 (like conv 1's first move). We deliberately
+        // do NOT cold-generate Sam's opening: a model call whose serialized
+        // history ends on an assistant turn (no trailing learner turn) is the one
+        // shape that misbehaves. The real runtime has the same rule — scene opens
+        // are app-owned locked beats; the model only speaks after a learner turn.
       },
     };
 
@@ -233,14 +238,12 @@ OUTPUT CONTRACT — return ONLY a JSON object, nothing else. Start with { and en
       await runModel();
     }
 
-    async function advanceConversation(){
+    function advanceConversation(){
       state.conv = 2; state.advanceReady = false;
-      const c = CONVERSATIONS[2];
-      seed(c.open);
+      seed(CONVERSATIONS[2].open);
       input.placeholder = 'A private word with Sam — what do you say?';
-      render();
-      if (c.modelOpens) await runModel();   // Sam's opening line, generated WITH memory of conv 1
       updatePeek();
+      render();
     }
 
     function updatePeek(){
