@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two Vocabularies, One Simulator — a Crosswalk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F8F4EA;
+    --cream-deep:#F1EADA;
+    --navy:#1B2A4A;
+    --navy-ink:#141F38;
+    --amber:#E8A33D;
+    --amber-deep:#C9861F;
+    --rule:#D8D0BE;
+    /* the two vocabularies */
+    --beat:#3E9E90;       --beat-band:#E3F5F2;      --beat-edge:#7FC9BE;
+    --engine:#8E7DC6;     --engine-band:#F0EDF9;    --engine-edge:#A99BD6;
+    --warn:#C9578F;       --warn-band:#FBEAF3;      --warn-edge:#E39CC1;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{background:var(--cream);color:var(--navy-ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.6}
+  a{color:var(--navy);text-decoration-color:var(--amber)}
+  a:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 32px}
+
+  /* header */
+  header{border-bottom:3px solid var(--navy);padding:56px 0 40px;position:relative;overflow:hidden}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber-deep);margin-bottom:14px;font-weight:500}
+  h1{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(34px,5vw,52px);line-height:1.05;letter-spacing:-.01em;color:var(--navy);max-width:20ch}
+  .lede{max-width:66ch;margin-top:20px;font-size:16.5px;color:#3A4358}
+  .lede strong{color:var(--navy)}
+  .starburst{position:absolute;right:-40px;top:20px;width:220px;height:220px;opacity:.9;pointer-events:none}
+  @media(max-width:760px){.starburst{width:130px;height:130px;right:-30px;top:10px;opacity:.55}}
+  .meta-row{display:flex;gap:28px;flex-wrap:wrap;margin-top:28px;font-family:var(--mono);font-size:12px;color:#5A6376}
+  .meta-row b{color:var(--navy);font-weight:500}
+  .companion{margin-top:18px;font-size:13.5px;color:#5A6376;font-family:var(--mono);background:var(--cream-deep);border:1px solid var(--rule);border-radius:8px;padding:10px 14px;display:inline-block}
+  .companion b{color:var(--navy);font-weight:500}
+  .companion a{white-space:nowrap}
+
+  /* sections */
+  section{padding:52px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+  .sec-num{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--cream);background:var(--navy);width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;transform:translateY(4px)}
+  h2{font-family:'Fraunces',serif;font-size:clamp(24px,3.2vw,32px);font-weight:600;color:var(--navy);line-height:1.15}
+  .sec-intro{max-width:72ch;margin:14px 0 26px;color:#3A4358}
+  h3{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--navy);margin:30px 0 8px}
+  p{max-width:74ch}
+  .lead-in{max-width:74ch;margin:2px 0 18px;color:#3A4358}
+
+  /* two-layer diagram */
+  .layers{display:flex;flex-direction:column;gap:14px;margin:26px 0 10px}
+  .layer{border-radius:14px;padding:18px 22px;border:1.5px solid}
+  .layer.beat{background:var(--beat-band);border-color:var(--beat-edge)}
+  .layer.engine{background:var(--engine-band);border-color:var(--engine-edge)}
+  .layer-lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-bottom:4px}
+  .layer.beat .layer-lbl{color:#2E7367}
+  .layer.engine .layer-lbl{color:#6A5AA6}
+  .layer h4{font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--navy);margin:0 0 4px}
+  .layer p{font-size:13.5px;color:#3A4358;max-width:none;margin:0 0 12px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid;border-radius:99px;padding:5px 13px;font-size:12.5px;font-weight:600;color:var(--navy)}
+  .layer.beat .pill{border-color:var(--beat-edge)}
+  .layer.engine .pill{border-color:var(--engine-edge)}
+  .pill code{font-family:var(--mono);font-size:10.5px;color:#6A5AA6;font-weight:500}
+  .pill-note{font-family:var(--mono);font-size:10px;color:#8A93A8;margin:8px 0 0}
+  .grp-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6A5AA6;font-weight:500;margin:12px 0 6px}
+  .between{display:flex;align-items:center;gap:12px;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--amber-deep);font-weight:500}
+  .between::before,.between::after{content:'';height:1px;flex:1;background:var(--rule)}
+
+  /* tables */
+  .tbl-scroll{overflow-x:auto;margin:22px 0 8px;border-radius:12px;border:1px solid var(--rule)}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:13px;min-width:720px}
+  th{background:var(--navy);color:var(--cream);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;text-align:left;padding:11px 14px;vertical-align:bottom}
+  td{padding:11px 14px;border-top:1px solid var(--rule);vertical-align:top;color:#2A3348;line-height:1.5}
+  td b{color:var(--navy)}
+  .rowhead{background:var(--cream-deep);font-weight:600;color:var(--navy);white-space:nowrap}
+  tr.group td{background:var(--cream-deep);font-family:'Fraunces',serif;font-weight:600;color:var(--navy);font-size:14px}
+  code{font-family:var(--mono);font-size:12px;background:var(--cream-deep);padding:1px 5px;border-radius:4px;color:var(--navy)}
+  .mono-sm{font-family:var(--mono);font-size:11px;color:#5A6376}
+
+  /* status chips */
+  .st{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;padding:2px 7px;border-radius:99px;font-weight:500;white-space:nowrap}
+  .st-core{background:#E7ECF6;color:#3A4A6B;border:1px solid #C3CEE4}
+  .st-poc{background:#F5EED9;color:#8A6D2E;border:1px solid #E0CF9E}
+
+  /* collision callouts */
+  .collide{background:var(--warn-band);border:1px solid var(--warn-edge);border-radius:12px;padding:16px 20px;margin:16px 0}
+  .collide h4{font-family:'Fraunces',serif;font-size:17px;color:#8E2F63;margin:0 0 6px;display:flex;align-items:center;gap:9px}
+  .collide .term{font-family:var(--mono);font-size:11px;background:#fff;border:1px solid var(--warn-edge);color:#8E2F63;padding:2px 9px;border-radius:6px;font-weight:500}
+  .collide p{font-size:13.5px;color:#3A4358;margin:6px 0 0;max-width:none}
+  .collide b{color:var(--navy)}
+  .collide .verdict{margin-top:10px;font-size:13px;color:#8E2F63;font-weight:600;display:flex;gap:8px;align-items:flex-start}
+  .collide .verdict::before{content:'→';font-family:var(--mono);flex:none}
+
+  /* takeaway columns */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:24px 0 6px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+  .col-card{background:#fff;border:1px solid var(--rule);border-radius:14px;padding:20px 24px;box-shadow:0 2px 10px rgba(27,42,74,.05)}
+  .col-card.his{border-top:4px solid var(--beat)}
+  .col-card.ours{border-top:4px solid var(--engine)}
+  .col-card h3{margin:0 0 4px;font-size:18px}
+  .col-card .kick{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-bottom:8px}
+  .col-card.his .kick{color:#2E7367}
+  .col-card.ours .kick{color:#6A5AA6}
+  .col-card ul{list-style:none;margin:8px 0 0;padding:0}
+  .col-card li{position:relative;padding-left:24px;margin:12px 0;font-size:13.5px;color:#2A3348;line-height:1.5}
+  .col-card li b{color:var(--navy)}
+  .col-card li::before{content:'';position:absolute;left:4px;top:7px;width:8px;height:8px;border-radius:2px}
+  .col-card.his li::before{background:var(--beat)}
+  .col-card.ours li::before{background:var(--engine)}
+
+  .note{border-left:4px solid var(--amber);border-radius:0 8px 8px 0;background:var(--cream-deep);padding:14px 18px;margin:20px 0 4px;font-size:13.5px;color:#3A4358}
+  .note b{color:var(--navy)}
+  .legend-note{font-size:13px;color:#5A6376;max-width:74ch;margin-top:12px}
+
+  footer{border-top:3px solid var(--navy);margin-top:56px;padding:26px 0 48px;font-family:var(--mono);font-size:12px;color:#5A6376}
+  footer .frow{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1080px;margin:0 auto;padding:0 32px}
+  footer b{color:var(--navy);font-weight:500}
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="starburst" viewBox="0 0 200 200" aria-hidden="true">
+    <g transform="translate(100,100)">
+      <g fill="none" stroke="#E8A33D" stroke-width="2.5">
+        <line x1="0" y1="-88" x2="0" y2="-46"/><line x1="0" y1="88" x2="0" y2="46"/>
+        <line x1="-88" y1="0" x2="-46" y2="0"/><line x1="88" y1="0" x2="46" y2="0"/>
+        <line x1="-62" y1="-62" x2="-33" y2="-33"/><line x1="62" y1="62" x2="33" y2="33"/>
+        <line x1="-62" y1="62" x2="-33" y2="33"/><line x1="62" y1="-62" x2="33" y2="-33"/>
+      </g>
+      <circle r="14" fill="#1B2A4A"/>
+    </g>
+  </svg>
+  <div class="wrap">
+    <div class="eyebrow">Scenario Simulator · Reconciliation</div>
+    <h1>Two vocabularies, one simulator</h1>
+    <p class="lede">The content team's <strong>&ldquo;interaction types&rdquo;</strong> and our engineering <strong>&ldquo;scenario types&rdquo;</strong> describe the same system at two different altitudes. This page lines them up side by side, shows that all five &ldquo;final&rdquo; frameworks are <strong>already built</strong>, and flags the name collisions that make the two vocabularies look like they disagree when they don't.</p>
+    <div class="companion">Companion to the <b>Build &amp; Authoring Spec</b> (<a href="scenario-simulator-build-spec.html">end-to-end flow</a>) and <b>The Interaction Layer</b> (<a href="scenario-simulator-interaction-layer.html">modes &amp; prompts</a>).</div>
+    <div class="meta-row">
+      <span><b>Reconciles</b> — &ldquo;Interaction Type Mapping&rdquo; (content) ↔ the shipped build</span>
+      <span><b>Prepared</b> — August 2026</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 1. THE TWO LAYERS ============ -->
+<section id="layers">
+  <div class="sec-head"><span class="sec-num">1</span><h2>The core idea: two layers, not two lists</h2></div>
+  <p class="sec-intro">The confusion is that both teams say &ldquo;type,&rdquo; but they mean different layers. The content mapping names <b>what the learner does in a single beat</b>. Our build names <b>the whole-scenario engine</b> that sequences those beats. Neither is wrong — they stack.</p>
+
+  <div class="layers">
+    <div class="layer beat">
+      <div class="layer-lbl">Layer A · the beat — &ldquo;interaction type&rdquo; (content vocabulary)</div>
+      <h4>What the learner is doing at one input moment</h4>
+      <p>This is the content team's mapping. In our runtime it already exists: it's the <b>Engage type</b> on the interaction skeleton, and on our multi-phase engines it's a literal per-phase field — <code>world: 'scene' | 'coaching'</code>.</p>
+      <div class="pills">
+        <span class="pill">Roleplay <span class="mono-sm">talk to a character</span></span>
+        <span class="pill">Coach-Led Inquiry <span class="mono-sm">reason with the coach</span></span>
+        <span class="pill">Observe / React <span class="mono-sm">read a stimulus</span></span>
+      </div>
+      <p class="pill-note">&ldquo;Mix &amp; Match&rdquo; is not a fourth beat type — it's what you get when one scenario uses several of the above across its phases.</p>
+    </div>
+
+    <div class="between">sequenced into ↓</div>
+
+    <div class="layer engine">
+      <div class="layer-lbl">Layer B · the engine — &ldquo;scenario type&rdquo; (our vocabulary)</div>
+      <h4>The whole-scenario pedagogy that strings beats together</h4>
+      <p>Seven ship today. Four are effectively single-beat; three are multi-phase sequencers — and those three <b>are</b> &ldquo;Mix &amp; Match,&rdquo; built as engines.</p>
+      <div class="grp-lbl">Single-beat engines — the scenario is one interaction type throughout</div>
+      <div class="pills">
+        <span class="pill">Roleplay <code>action-practice</code></span>
+        <span class="pill">Footage Observe/React <code>observe-react</code></span>
+        <span class="pill">Teach-Back <code>teach-back</code></span>
+        <span class="pill">Spot-the-Scene <code>scene-sweep</code></span>
+      </div>
+      <div class="grp-lbl">Multi-phase sequencers — mix beat types across an ordered arc <span style="color:#8A93A8">( = &ldquo;Mix &amp; Match&rdquo;)</span></div>
+      <div class="pills">
+        <span class="pill">Guided Arc <code>guided-arc</code></span>
+        <span class="pill">Branching Arc <code>branching-arc</code></span>
+        <span class="pill">Ensemble Arc <code>ensemble-arc</code></span>
+      </div>
+    </div>
+  </div>
+  <p class="legend-note"><b>Read it this way:</b> a content author picks <i>interaction types</i> beat by beat; a developer picks the <i>engine</i> that can run that sequence. The mapping between them is the rest of this page.</p>
+</section>
+
+<!-- ============ 2. FRAMEWORKS ALREADY BUILT ============ -->
+<section id="frameworks">
+  <div class="sec-head"><span class="sec-num">2</span><h2>The five &ldquo;final&rdquo; frameworks are already built</h2></div>
+  <p class="sec-intro">The content mapping reads like a spec for work ahead. It isn't. Every one of the five frameworks already exists as a working prototype — matching phase-for-phase, and in two cases confirmable by course code. The names differ (our engines were built from the same source scripts, some with de-identified characters), which is why the match isn't obvious.</p>
+
+  <div class="tbl-scroll">
+    <table style="min-width:820px">
+      <thead>
+        <tr>
+          <th style="width:20%">Framework · course</th>
+          <th style="width:26%">Practice phases (content mapping)</th>
+          <th style="width:16%">Our build</th>
+          <th>Why it's the same scenario</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Spot the Hazard<br><span class="mono-sm">HazCom GHS</span></td>
+          <td>Observe/React · Coach-Led Inquiry <span class="mono-sm">(2 beats)</span></td>
+          <td><b>scene-sweep</b> <span class="st st-poc">POC</span></td>
+          <td>Its two beats — <b>Observe</b> then <b>Diagnose &amp; Remediate</b> (&ldquo;what would you do right now?&rdquo;) — are the exact labels and prompt in <code>scene-sweep.js</code>.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">The Kendra Scenario<br><span class="mono-sm">AlcoholEdu</span></td>
+          <td>Coach-Led Inquiry · Roleplay <span class="mono-sm">(3 beats)</span></td>
+          <td><b>action-practice</b> <span class="st st-core">core</span></td>
+          <td>Our shipped <code>DEFAULT</code> <i>is</i> &ldquo;The Kendra Situation&rdquo; — a college alcohol-education roleplay (grief, drinking, pills).</td>
+        </tr>
+        <tr>
+          <td class="rowhead">The Renee Scenario<br><span class="mono-sm">Harassment · JCOM-40198</span></td>
+          <td>Coach-Led Inquiry · Roleplay <span class="mono-sm">(4 beats)</span></td>
+          <td><b>guided-arc</b> <span class="st st-core">core</span></td>
+          <td>Our guided-arc <code>DEFAULT</code> is course <b>JCOM-40198</b> — same code — with the same <b>Law → Person → Bystander</b> arc. Characters de-identified (Renee→Marshall, Greg→Jake).</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Reading the Warning Signs<br><span class="mono-sm">Workplace Violence · PS-801</span></td>
+          <td>Coach-Led Inquiry · Roleplay <span class="mono-sm">(5 beats)</span></td>
+          <td><b>branching-arc</b> <span class="st st-poc">POC</span></td>
+          <td>Phase labels match exactly: <b>Notice &amp; Assess · The Conversation · It Escalates · Emergency</b> (Ray, the group-chat threat, the parking lot).</td>
+        </tr>
+        <tr>
+          <td class="rowhead">The Call from Home<br><span class="mono-sm">Bullying K12 · JEDU-00422</span></td>
+          <td>Roleplay · Coach-Led Inquiry <span class="mono-sm">(4 beats)</span></td>
+          <td><b>ensemble-arc</b> <span class="st st-poc">POC</span></td>
+          <td>Phase labels match exactly: <b>The Report · The Hallway · The Follow-Up · Close the Loop</b> (Ms. Reyes, Bianca).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="legend-note"><span class="st st-core">core</span> ships in the main type set · <span class="st st-poc">POC</span> shipped as a stakeholder proof-of-concept (beta). All five run today.</p>
+</section>
+
+<!-- ============ 3. INTERACTION TYPES → WHERE THEY LIVE ============ -->
+<section id="interaction-types">
+  <div class="sec-head"><span class="sec-num">3</span><h2>Where each interaction type lives in our build</h2></div>
+  <p class="sec-intro">The content mapping's four &ldquo;types&rdquo; don't map one-to-one to our seven engines — they map to <b>beats</b>, which our engines contain. Here is where each one actually shows up.</p>
+
+  <div class="tbl-scroll">
+    <table style="min-width:760px">
+      <thead>
+        <tr>
+          <th style="width:20%">Interaction type</th>
+          <th style="width:34%">Where it lives in our build</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Roleplay</td>
+          <td>The whole of <b>action-practice</b>; plus the character phases inside the sequencers — guided-arc's closing scene, ensemble-arc's <i>Report</i> / <i>Follow-Up</i>, branching-arc's <i>Conversation</i>. In data: a phase with <code>world: 'scene'</code>.</td>
+          <td>Clean, well-covered. This is the one place the two vocabularies already agree on the name.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Coach-Led Inquiry</td>
+          <td>A <b>beat</b> inside every sequencer — guided-arc's <i>Law/Person</i>, branching-arc's <i>Notice/Escalates/Emergency</i>, ensemble-arc's <i>Hallway/Close</i>, scene-sweep's <i>Remediate</i>. <b>Teach-Back</b> is one specialized flavor (learner produces, system grades). In data: <code>world: 'coaching'</code>.</td>
+          <td><b>The workhorse (12 of 18 phases) — yet has no standalone authorable home.</b> You can only reach it inside an engine. See gaps, §5.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Observe / React <span class="mono-sm">(image)</span></td>
+          <td><b>scene-sweep</b> — spot issues in a persistent illustrated scene, graded for coverage against a fixed hazard rubric.</td>
+          <td><b>Not</b> our type literally named <code>observe-react</code>. That collision is the whole of §4.</td>
+        </tr>
+        <tr>
+          <td class="rowhead" style="color:#8A93A8">— (no content-side name)</td>
+          <td><b>observe-react</b> — watch authored <i>video footage</i> and react (the HazMat tanker call).</td>
+          <td>A real engine the content mapping has no bucket for; it'd likely file under Coach-Led Inquiry-on-a-stimulus.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Mix &amp; Match</td>
+          <td>Not a type — the default behavior of the three <b>sequencers</b> (guided / branching / ensemble), which route between beat types across phases via locked verbatim signposts.</td>
+          <td>Already built. It's an engine capability, not a thing to spec.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 4. NAME COLLISIONS ============ -->
+<section id="collisions">
+  <div class="sec-head"><span class="sec-num">4</span><h2>Name collisions — the landmines</h2></div>
+  <p class="sec-intro">These are the terms that mean different things to the two teams. Every one is a place where handing a document straight across would point someone at the wrong build. Resolve these first.</p>
+
+  <div class="collide">
+    <h4><span class="term">Observe / React</span> the big one</h4>
+    <p><b>Content meaning:</b> spot issues in a static illustrated <b>image</b> (HazCom / Spot the Hazard).<br>
+       <b>Our code meaning:</b> <code>observe-react.js</code> = watch <b>video footage</b> and react (the HazMat tanker call) — a different pedagogy entirely.</p>
+    <div class="verdict">The content team's &ldquo;Observe/React&rdquo; is our <b>scene-sweep</b>, <i>not</i> our <code>observe-react</code>. Send this doc to eng as-is and they reach for the wrong module.</div>
+  </div>
+
+  <div class="collide">
+    <h4><span class="term">HazCom</span> vs <span class="term">HazMat</span></h4>
+    <p>One letter apart, and they currently point at different builds. <b>HazCom</b> = the image-spotting scenario (our scene-sweep). <b>HazMat</b> = the footage scenario (our observe-react). Our own interaction-layer doc even used &ldquo;HazCom&rdquo; as a Teach-Back illustration — a third pin on the same word.</p>
+    <div class="verdict">Pick one label per build and use it everywhere. Easiest fix in the set.</div>
+  </div>
+
+  <div class="collide">
+    <h4><span class="term">Coach-Led Inquiry</span> a type on one side, a beat on the other</h4>
+    <p><b>Content meaning:</b> a top-level interaction type — in fact the most common one. <b>Our build:</b> not a type at all; a <i>beat</i> that lives inside the sequencer engines, with Teach-Back as its one packaged standalone flavor.</p>
+    <div class="verdict">Agree it's a beat-level primitive. Then decide whether it deserves a first-class authorable engine (§5, gaps).</div>
+  </div>
+
+  <div class="collide">
+    <h4><span class="term">Mix &amp; Match</span> a fourth type, or the default?</h4>
+    <p><b>Content meaning:</b> listed alongside the three real types as if it were a build target. <b>Our build:</b> the ordinary behavior of any multi-phase engine — nothing to build, nothing to pick.</p>
+    <div class="verdict">Drop it from the list of types; describe it as &ldquo;a scenario spans multiple interaction types,&rdquo; which the sequencers already do.</div>
+  </div>
+</section>
+
+<!-- ============ 5. TAKEAWAYS ============ -->
+<section id="takeaways">
+  <div class="sec-head"><span class="sec-num">5</span><h2>What each side should take from this</h2></div>
+  <p class="sec-intro">The content mapping is <b>right about the beat layer</b> — and it surfaces two things our build genuinely hasn't settled. Both columns are action items.</p>
+
+  <div class="cols">
+    <div class="col-card his">
+      <div class="kick">For the content mapping</div>
+      <h3>Three things it doesn't yet reflect</h3>
+      <ul>
+        <li><b>All five frameworks already run.</b> Reframe the doc from &ldquo;types these will need&rdquo; to &ldquo;the interaction types each shipped prototype uses.&rdquo;</li>
+        <li><b>&ldquo;Mix &amp; Match&rdquo; is the default,</b> handled by the sequencer engines — not a fourth type to define.</li>
+        <li><b>The intro video isn't an untyped loose end.</b> It's the context-intro modality (video / story / audio / reading / none) — a solved, swappable first part, which answers the &ldquo;video landings&rdquo; open item.</li>
+      </ul>
+      <p class="legend-note" style="margin-top:14px">And the distinctions the beat taxonomy flattens but our build keeps: <b>Practice⇄Learn</b> alternation, <b>hard/soft action-gates</b> (the required move), <b>Teach-Back</b> as an inverted produce-and-grade mode, and the standardized <b>debrief + proficiency record</b>.</p>
+    </div>
+
+    <div class="col-card ours">
+      <div class="kick">For our build</div>
+      <h3>Real gaps the mapping exposes</h3>
+      <ul>
+        <li><b>Our own spec is stale.</b> The interaction-layer doc described four modes; seven ship. It's now refreshed to all seven — but that lag is what let the vocabularies drift.</li>
+        <li><b>Beat-composition may be the better primitive.</b> &ldquo;An experience = a sequence of phases, each one interaction type&rdquo; is a cleaner authoring contract than &ldquo;pick one of seven bespoke engines.&rdquo; Worth weighing for productionization.</li>
+        <li><b>No first-class Coach-Led Inquiry.</b> The workhorse beat has no simple authorable home; a plain reason-with-the-coach scenario is awkward to build today.</li>
+        <li><b>The open items are open for us too:</b> do Learn-mode input beats count as practice; is reacting to an <i>artifact</i> (a threat screenshot) Observe/React or Coach-Led; should the Bullying hallway become a second perception beat.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note"><b>The one-line reconciliation:</b> the content team names the <b>beats</b>, we name the <b>engines</b> that sequence them, and the two only look like different taxonomies because &ldquo;type,&rdquo; &ldquo;Observe/React,&rdquo; and &ldquo;HazCom&rdquo; each carry two meanings. Fix the words and the disagreement disappears.</div>
+</section>
+
+</main>
+
+<footer>
+  <div class="frow">
+    <span><b>Scenario Simulator</b> · Interaction Types ↔ Scenario Engines — a crosswalk</span>
+    <span>August 2026</span>
+  </div>
+</footer>
+
+</body>
+</html>

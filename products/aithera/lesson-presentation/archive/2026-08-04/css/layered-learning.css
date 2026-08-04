@@ -1,0 +1,554 @@
+/* ============================================================================
+   layered-learning.css — shared styling for the "Layered Learning" concept.
+
+   The idea: the AI coach (CLARA) is *layered on top* of ordinary learning
+   objects so that moving from one page to the next never feels like a hard cut.
+   Each page is a thin file that declares one presentation mode; this stylesheet
+   (with js/layered-learning.js) supplies the dark immersive stage, the coach,
+   the bottom course-navigation, and the coach's exit→enter choreography.
+
+   CLARA appears four ways — one per page:
+     • ambient   — a living presence that fills the space (the welcome / hand-off)
+     • sidebar   — docked as a persistent guide beside a learning object
+     • floating  — a collapsible companion tucked into the bottom-right
+     • overlay   — a coaching card laid over an activity, with a text composer
+
+   The through-line is a single glowing ORB. On every page it drifts in, blooms
+   its surrounding "chrome," and — when you Continue or go Back — the chrome
+   collapses and the orb drifts out before the next page takes over. Because the
+   dark stage, the course frame, and the footer are identical on every page, the
+   cross-page hop reads as one continuous experience.
+
+   Sections:
+     1. Tokens
+     2. Stage + course-navigation footer
+     3. The CLARA orb (persistent presence)
+     4. Presentation chromes (ambient / sidebar / floating / overlay)
+     5. Learning-object content
+     6. Transition states (enter / leave)
+     7. Design-review caption + responsive
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   1. Tokens
+   ------------------------------------------------------------------------- */
+:root {
+  --ll-bg:        #070b14;                       /* deepest — behind everything */
+  --ll-panel:     #111a2e;                       /* coach panels / cards        */
+  --ll-panel-2:   #16203a;                       /* raised surface              */
+  --ll-line:      rgba(255, 255, 255, .11);
+  --ll-line-soft: rgba(255, 255, 255, .06);
+
+  --ll-ink:       #eaf0fb;
+  --ll-ink-soft:  #aab6cc;
+  --ll-ink-faint: #7a879e;
+
+  /* CLARA's teal — the brand accent, brightened so it glows on the dark stage. */
+  --ll-teal:      #2ee6cf;
+  --ll-teal-2:    #14b8a6;
+  --ll-teal-deep: #0c8f83;
+  --ll-teal-glow: rgba(46, 230, 207, .55);
+  --ll-grad:      linear-gradient(135deg, #46f0dc 0%, #16b8a6 55%, #0c8f83 100%);
+
+  --ll-footer-h:  80px;
+  --ll-radius:    18px;
+
+  --ll-shadow:    0 24px 60px rgba(0, 0, 0, .5);
+  --ll-shadow-sm: 0 8px 22px rgba(0, 0, 0, .38);
+
+  /* Drift offsets for the orb's enter/leave — flipped per travel direction by
+     js/layered-learning.js writing body[data-dir]. */
+  --in-x:  -64px;
+  --out-x:  64px;
+
+  --ll-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  /* Dark everywhere so the brief blank between page navigations reads dark,
+     not a white flash — this is what lets separate files feel continuous. */
+  background: var(--ll-bg);
+}
+body {
+  font-family: 'Open Sans', system-ui, sans-serif;
+  color: var(--ll-ink);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;                              /* the stage owns any scroll */
+}
+
+/* ---------------------------------------------------------------------------
+   2. Stage + course-navigation footer
+   The stage sits between the production course frame (top, from frame.css) and
+   the course-nav footer (bottom).
+   ------------------------------------------------------------------------- */
+.ll-stage {
+  position: fixed;
+  left: 0; right: 0;
+  top: var(--header-h, 122px);                   /* frame.css sets --header-h */
+  bottom: var(--ll-footer-h);
+  overflow: hidden;
+  background:
+    radial-gradient(130% 110% at 50% -10%, #0f1a2e 0%, #0a1120 52%, #05080f 100%);
+}
+/* A soft vignette + faint grid so the void has depth without competing with CLARA. */
+.ll-stage::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(60% 55% at 50% 42%, rgba(46, 230, 207, .06), transparent 70%),
+    radial-gradient(100% 100% at 50% 120%, rgba(0, 0, 0, .55), transparent 60%);
+  pointer-events: none;
+}
+
+/* --- Course-navigation footer (the "global course nav" from the sims) ----- */
+.ll-footer {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: var(--ll-footer-h);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 24px;
+  background: linear-gradient(180deg, #0b1322 0%, #070c16 100%);
+  border-top: 1px solid var(--ll-line);
+}
+.ll-footer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ll-ink-faint);
+  font-size: 12px;
+  line-height: 1.3;
+  min-width: 0;
+}
+.ll-footer-meta .ll-foot-course { color: var(--ll-ink-soft); font-weight: 600; }
+
+.ll-nav { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+/* Buttons — hand-styled for the dark bar (Vector teal primary + ghost). */
+.ll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .1s ease, opacity .16s ease;
+  white-space: nowrap;
+}
+.ll-btn:active { transform: translateY(1px); }
+.ll-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ll-btn--ghost {
+  background: transparent;
+  border-color: var(--ll-line);
+  color: var(--ll-ink-soft);
+}
+.ll-btn--ghost:not(:disabled):hover { border-color: rgba(255, 255, 255, .3); color: var(--ll-ink); }
+.ll-btn--primary {
+  background: var(--ll-grad);
+  color: #052b27;
+  box-shadow: 0 6px 18px rgba(20, 184, 166, .34);
+}
+.ll-btn--primary:not(:disabled):hover { filter: brightness(1.06); }
+:focus-visible { outline: 2px solid var(--ll-teal); outline-offset: 3px; }
+
+/* ---------------------------------------------------------------------------
+   3. The CLARA orb — the persistent presence
+   Positioned (left/top/width/height) by JS to sit exactly over the active
+   presentation's invisible .clara-slot, so it aligns with whatever chrome is
+   on screen. Enter/leave is a transform+opacity drift layered on that spot.
+   ------------------------------------------------------------------------- */
+.clara-orb {
+  position: fixed;
+  z-index: 35;                                   /* above the stage, below frame(40)/footer(45) */
+  cursor: default;
+  transition: transform .58s var(--ll-ease), opacity .5s ease;
+  will-change: transform, opacity;
+}
+/* The reusable Möbius component (js/mobius-orb.js) mounts a TRANSPARENT
+   <canvas> here, sized to the orb — CLARA floats on the stage, no backdrop. */
+.clara-orb canvas { display: block; }
+
+/* ---------------------------------------------------------------------------
+   4. Presentation chromes
+   Each chrome is absolutely placed in the stage and carries an invisible
+   .clara-slot that reserves the orb's resting spot for that mode. Only the
+   active mode's chrome is shown (driven by .ll-stage[data-mode="…"]).
+   ------------------------------------------------------------------------- */
+.clara-chrome {
+  position: absolute;
+  display: none;                                 /* shown per active mode below */
+  transition: opacity .42s ease, transform .48s var(--ll-ease);
+}
+.ll-stage[data-mode="ambient"]  .clara-chrome--ambient,
+.ll-stage[data-mode="sidebar"]  .clara-chrome--sidebar,
+.ll-stage[data-mode="floating"] .clara-chrome--floating,
+.ll-stage[data-mode="overlay"]  .clara-chrome--overlay { display: flex; }
+
+/* The slot: reserves the orb's footprint but is itself invisible (the real orb,
+   a fixed element, is painted on top). Its aura child stays visible. */
+.clara-slot { flex: 0 0 auto; border-radius: 50%; visibility: hidden; position: relative; }
+
+.clara-name {
+  font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ll-teal);
+}
+.clara-say { color: var(--ll-ink); font-size: 15px; line-height: 1.6; }
+.clara-say strong { color: #fff; }
+
+/* ---- ambient — CLARA fills the space ------------------------------------ */
+.clara-chrome--ambient {
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: 24px;
+  pointer-events: none;
+}
+.clara-chrome--ambient .clara-slot { width: 150px; height: 150px; margin-bottom: 30px; }
+/* The morphing aura lives inside the slot, so it always centers on the orb. */
+.clara-aura {
+  position: absolute; left: 50%; top: 50%;
+  width: 560px; height: 500px;
+  transform: translate(-50%, -50%);
+  visibility: visible;
+  border-radius: 46% 54% 48% 52% / 54% 46% 54% 46%;
+  background:
+    radial-gradient(45% 45% at 42% 40%, rgba(102, 247, 41, .22), transparent 70%),
+    radial-gradient(60% 60% at 62% 66%, rgba(8, 115, 235, .20), transparent 72%);
+  filter: blur(26px);
+  animation: ll-morph 11s ease-in-out infinite, ll-drift 18s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ll-morph {
+  0%, 100% { border-radius: 46% 54% 48% 52% / 54% 46% 54% 46%; }
+  33%      { border-radius: 60% 40% 55% 45% / 45% 58% 42% 55%; }
+  66%      { border-radius: 40% 60% 42% 58% / 58% 42% 60% 40%; }
+}
+@keyframes ll-drift {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  50%      { transform: translate(-50%, -52%) rotate(12deg) scale(1.05); }
+}
+.clara-chrome--ambient .clara-eyebrow {
+  font-size: 12px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ll-teal); margin-bottom: 10px;
+}
+.clara-chrome--ambient h1 {
+  margin: 0 0 14px; font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -.01em;
+  color: #fff;
+}
+.clara-chrome--ambient .clara-lede {
+  margin: 0; max-width: 52ch; font-size: clamp(15px, 1.7vw, 18px); line-height: 1.65;
+  color: var(--ll-ink-soft);
+}
+
+/* ---- sidebar — docked guide --------------------------------------------- */
+.clara-chrome--sidebar {
+  left: 24px; top: 46px; bottom: 24px;
+  width: 322px;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 22px 22px;
+  background: linear-gradient(180deg, var(--ll-panel) 0%, #0d1526 100%);
+  border: 1px solid var(--ll-line);
+  border-radius: 22px;
+  box-shadow: var(--ll-shadow);
+}
+.clara-chrome--sidebar .clara-slot { width: 66px; height: 66px; margin-top: -30px; }
+.clara-chrome--sidebar .clara-name { margin: 14px 0 12px; }
+.clara-chrome--sidebar .clara-say { text-align: center; }
+/* A decorative "Ask CLARA" affordance pinned to the bottom of the rail. */
+.clara-ask {
+  margin-top: auto;
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--ll-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+  color: var(--ll-ink-faint);
+  font-size: 13px;
+}
+.clara-ask i { color: var(--ll-teal); }
+
+/* ---- floating — collapsible companion ----------------------------------- */
+.clara-chrome--floating {
+  right: 26px; bottom: 26px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 16px;
+}
+.clara-chrome--floating .clara-slot {
+  width: 62px; height: 62px;
+  visibility: hidden;
+  cursor: pointer;                               /* the orb over it is the launcher */
+}
+.clara-bubble {
+  position: relative;
+  width: 320px; max-width: calc(100vw - 60px);
+  padding: 16px 18px 17px;
+  background: linear-gradient(180deg, var(--ll-panel-2), var(--ll-panel));
+  border: 1px solid var(--ll-line);
+  border-radius: 18px 18px 6px 18px;
+  box-shadow: var(--ll-shadow);
+  transition: opacity .3s ease, transform .34s var(--ll-ease);
+}
+.clara-bubble .clara-name { display: block; margin-bottom: 7px; }
+/* Little tail pointing down toward the orb. */
+.clara-bubble::after {
+  content: "";
+  position: absolute; right: 26px; bottom: -7px;
+  width: 14px; height: 14px;
+  background: var(--ll-panel);
+  border-right: 1px solid var(--ll-line);
+  border-bottom: 1px solid var(--ll-line);
+  transform: rotate(45deg);
+}
+/* Collapsed state (tucked away) — only the launcher orb remains. */
+.ll-stage[data-float="closed"] .clara-bubble {
+  opacity: 0; transform: translateY(12px) scale(.96); pointer-events: none;
+}
+/* A tiny "tap me" dot on the launcher while collapsed. */
+.clara-chrome--floating .clara-hint {
+  position: absolute; right: -2px; top: -2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #ff6b6b; border: 2px solid #0a1120;
+  display: none;
+}
+.ll-stage[data-float="closed"] .clara-chrome--floating .clara-hint { display: block; }
+
+/* ---- overlay — coaching card over an activity --------------------------- */
+.clara-chrome--overlay {
+  left: 0; right: 0; bottom: 20px;
+  margin: 0 auto;
+  width: min(720px, calc(100% - 48px));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, var(--ll-panel-2), var(--ll-panel));
+  border: 1px solid var(--ll-line);
+  border-radius: var(--ll-radius);
+  box-shadow: var(--ll-shadow);
+}
+.clara-chrome--overlay .clara-slot { width: 48px; height: 48px; align-self: start; margin-top: 2px; }
+.clara-overlay-body { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.clara-overlay-body .clara-name { margin-bottom: -4px; }
+/* Composer — text entry (the "Course CTAs / text entry" note in the wireframe). */
+.clara-composer { display: flex; gap: 10px; align-items: center; }
+.clara-composer input {
+  flex: 1 1 auto;
+  height: 44px;
+  padding: 0 15px;
+  border-radius: 11px;
+  border: 1px solid var(--ll-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--ll-ink);
+  font: inherit; font-size: 14px;
+}
+.clara-composer input::placeholder { color: var(--ll-ink-faint); }
+.clara-composer input:focus { outline: none; border-color: var(--ll-teal); background: rgba(46, 230, 207, .06); }
+.clara-send {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  border: 0; border-radius: 11px;
+  background: var(--ll-grad);
+  color: #052b27;
+  font-size: 15px;
+  cursor: pointer;
+  display: grid; place-items: center;
+}
+.clara-send:hover { filter: brightness(1.06); }
+.clara-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.clara-chip {
+  border: 1px solid var(--ll-line);
+  background: rgba(255, 255, 255, .03);
+  color: var(--ll-ink-soft);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.clara-chip:hover { border-color: var(--ll-teal); color: var(--ll-ink); background: rgba(46, 230, 207, .08); }
+/* Learner echo + coach reply appended into the card by the composer. */
+.clara-echo { display: flex; flex-direction: column; gap: 8px; }
+.clara-echo .row { font-size: 14px; line-height: 1.5; }
+.clara-echo .row .who { color: var(--ll-teal); font-weight: 700; margin-right: 6px; }
+.clara-echo .row.you .who { color: var(--ll-ink-faint); }
+
+/* ---------------------------------------------------------------------------
+   5. Learning-object content (the page material CLARA layers onto)
+   ------------------------------------------------------------------------- */
+.ll-object {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 6px;
+  padding: clamp(24px, 5vh, 56px);
+  overflow: auto;
+  transition: opacity .44s ease, transform .5s var(--ll-ease);
+}
+/* Make room for the docked coach rail in sidebar mode. */
+.ll-stage[data-mode="sidebar"] .ll-object { padding-left: 384px; align-items: flex-start; }
+/* Keep activity content clear of the coaching card in overlay mode. */
+.ll-stage[data-mode="overlay"] .ll-object { padding-bottom: 168px; }
+
+.ll-eyebrow {
+  font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ll-teal); margin: 0 0 14px;
+}
+.ll-object h2 { margin: 0 0 10px; font-size: clamp(23px, 3vw, 32px); font-weight: 800; color: #fff; letter-spacing: -.01em; }
+.ll-object .ll-sub { margin: 0 0 26px; max-width: 60ch; font-size: 16px; line-height: 1.6; color: var(--ll-ink-soft); }
+
+/* Concept list (sidebar page) */
+.ll-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; width: min(560px, 100%); }
+.ll-steps li {
+  display: grid; grid-template-columns: 42px 1fr; gap: 15px; align-items: start;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--ll-line-soft);
+  border-radius: 14px;
+}
+.ll-steps .num {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center;
+  background: rgba(46, 230, 207, .12);
+  border: 1px solid rgba(46, 230, 207, .3);
+  color: var(--ll-teal); font-weight: 800; font-size: 17px;
+}
+.ll-steps h3 { margin: 2px 0 4px; font-size: 16px; color: #fff; }
+.ll-steps p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ll-ink-soft); }
+
+/* Media block (floating page) */
+.ll-media {
+  position: relative;
+  width: min(680px, 100%);
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--ll-line);
+  background:
+    radial-gradient(120% 120% at 30% 20%, #1c2c4d 0%, #0e1830 55%, #0a1122 100%);
+  display: grid; place-items: center;
+  box-shadow: var(--ll-shadow-sm);
+}
+.ll-media .play {
+  width: 74px; height: 74px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, .3);
+  color: #fff; font-size: 24px;
+  backdrop-filter: blur(4px);
+}
+.ll-media .ll-media-cap {
+  position: absolute; left: 16px; bottom: 14px; right: 16px;
+  font-size: 13px; color: var(--ll-ink-soft);
+}
+
+/* Activity prompt (overlay page) */
+.ll-prompt {
+  width: min(620px, 100%);
+  padding: 26px 28px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--ll-line);
+}
+.ll-prompt .said {
+  display: flex; gap: 14px; align-items: flex-start;
+  font-size: 19px; line-height: 1.5; color: #fff;
+}
+.ll-prompt .said .who {
+  flex: 0 0 auto;
+  width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: #2a3450; color: var(--ll-ink-soft); font-weight: 800;
+}
+.ll-prompt .said em { color: var(--ll-ink); font-style: italic; }
+.ll-prompt .ask { margin: 18px 0 0; font-size: 15px; color: var(--ll-ink-soft); }
+
+/* ---------------------------------------------------------------------------
+   6. Transition states — enter (page load) and leave (Continue / Back)
+   JS toggles .pre-enter → (remove) to bloom in, and adds .leaving to drift out.
+   ------------------------------------------------------------------------- */
+.clara-orb.pre-enter { opacity: 0; transform: translate(var(--in-x), 10px)  scale(.6); }
+.clara-orb.leaving   { opacity: 0; transform: translate(var(--out-x), -6px) scale(.6); }
+
+.clara-chrome.pre-enter { opacity: 0; transform: translateY(14px) scale(.98); }
+.clara-chrome.leaving   { opacity: 0; transform: translateY(10px) scale(.98); }
+
+.ll-object.pre-enter { opacity: 0; transform: translateY(16px); }
+.ll-object.leaving   { opacity: 0; transform: translateY(-10px); }
+
+/* ---------------------------------------------------------------------------
+   7. Design-review info popover + responsive
+   The per-page presentation label is a REVIEW AID (not product UI). It now
+   lives behind a "?" next to the step indicator in the footer, so the stage
+   stays clean, and opens a small popover.
+   ------------------------------------------------------------------------- */
+.ll-foot-step { display: inline-flex; align-items: center; }
+.ll-info {
+  display: inline-grid; place-items: center;
+  width: 19px; height: 19px; margin-left: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--ll-line);
+  background: rgba(255, 255, 255, .05);
+  color: var(--ll-ink-soft);
+  font: inherit; font-size: 11px; font-weight: 800; line-height: 1;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.ll-info:hover,
+.ll-info[aria-expanded="true"] { border-color: var(--ll-teal); color: var(--ll-teal); background: rgba(46, 230, 207, .1); }
+
+.ll-pop {
+  position: fixed;
+  left: 20px; bottom: calc(var(--ll-footer-h) + 12px);
+  z-index: 46;                                   /* above the footer (45) */
+  width: 320px; max-width: calc(100vw - 40px);
+  padding: 13px 15px 14px;
+  background: rgba(12, 18, 30, .95);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--ll-line);
+  border-radius: 13px;
+  box-shadow: var(--ll-shadow);
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.ll-pop.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.ll-pop-eyebrow {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ll-ink-faint); margin-bottom: 6px;
+}
+.ll-pop-eyebrow i { color: var(--ll-teal); }
+.ll-pop-title { font-size: 15px; font-weight: 700; color: var(--ll-ink); margin-bottom: 4px; }
+.ll-pop-note { font-size: 13px; line-height: 1.5; color: var(--ll-ink-soft); }
+
+@media (max-width: 720px) {
+  .clara-chrome--sidebar { left: 16px; right: 16px; width: auto; top: 16px; bottom: auto; }
+  .ll-stage[data-mode="sidebar"] .ll-object { padding-left: clamp(24px, 5vh, 56px); padding-top: 260px; align-items: center; }
+  .clara-chrome--overlay { width: calc(100% - 24px); }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — hold everything still.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

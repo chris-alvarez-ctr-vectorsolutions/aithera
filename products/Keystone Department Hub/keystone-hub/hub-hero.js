@@ -375,7 +375,8 @@
       expiryBar(60, expiring60, expiring90 || 1, 'warn') +
       expiryBar(90, expiring90, expiring90 || 1, 'good') + '</div>' +
       '<vaadin-button theme="secondary small" data-jump-view="sv-cred" style="margin-top:16px">' +
-      'See all credentials' + micon('arrow_forward', { size: 14 }) + '</vaadin-button></div>' +
+      '<span class="kx-btn-label">See all credentials</span>' +
+      micon('arrow_forward', { size: 14 }) + '</vaadin-button></div>' +
 
       '<div style="display:flex;flex-direction:column;gap:12px">' +
       actionCard({ tone: 'action', icon: 'priority_high', headline: 'Requires action', cta: 'Open all', view: 'sv-mand',
@@ -416,7 +417,7 @@
   // The Lieutenant gets a fuller, crew-scoped dashboard a Chief would publish.
   var LT_DASH = {
     name: 'B-Shift Readiness', scope: 'Station 4 · B-Shift',
-    publisher: 'Chief Reyes · Battalion 1', ownerShort: 'Chief Reyes',
+    publisher: 'Chief Smith · Battalion 1', ownerShort: 'Chief Smith',
     widgets: [
       { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  range: 'qtd',       source: ['ts'],    title: 'Crew training complete' },
       { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  range: 'next_30',   source: ['ts'],    title: 'Credentials expiring' },
@@ -582,12 +583,19 @@
     var narrow = (w.w || 6) <= 4;
     var srcs = narrow ? '' : (w.source || []).map(function (s) { return KX.srcChip(s); }).join('');
 
+    // The range control sits BELOW the value, not beside the title. It used to
+    // share the header row, where it took ~105px and forced every title into an
+    // ellipsis once the Agency Intelligence panel claimed 320px of the body.
+    // Giving the title its own row drops a widget's legible minimum from ~310px
+    // to ~205px, which is what lets three widgets stay on one row at ordinary
+    // laptop widths instead of wrapping to two.
     return '<div class="kx-pubwidget" style="grid-column:span ' + (w.w || 6) + '">' +
       '<div class="kx-pubwidget-head">' + iconChip +
       '<span class="title">' + esc(title) + '</span>' +
       (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +
-      '<span class="rng">' + pdRangeControl(w, ownerLabel, narrow) + '</span></div>' +
+      '</div>' +
       '<div style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
+      '<div class="kx-pubwidget-foot">' + pdRangeControl(w, ownerLabel, narrow) + '</div>' +
       '</div>';
   }
 
@@ -652,6 +660,26 @@
     return out + '</div>';
   }
 
+  // variant -> the role that renders it (see hub.js:843). Kept local because
+  // window.KXHub does not exist yet during the first render: hub.js calls
+  // setRole() -> render() at :1486, and only assigns window.KXHub at :1503.
+  var VARIANT_ROLE = { chief: 'chief', firefighter: 'ff', lieutenant: 'lt' };
+
+  // The dashboard body. Without a grant this is exactly the grid that shipped
+  // before — no wrapper, no panel, no height change. The ungranted case is a
+  // real no-op, not a hidden element.
+  function dashBody(cfg, variant) {
+    var AI = window.KXAIPanel;
+    var grid = '<div class="kx-pubgrid">' +
+      cfg.widgets.map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('') +
+      '</div>';
+
+    if (!AI || !AI.hasAccess(VARIANT_ROLE[variant])) return grid;
+
+    return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
+      AI.html(cfg) + grid + '</div>';
+  }
+
   function publishedDashboard(variant) {
     var cfg = variant === 'chief' ? CHIEF_DASH
             : variant === 'firefighter' ? FF_DASH
@@ -684,7 +712,7 @@
       '<div class="kx-pubmeta">' + meta + '</div></div>' +
       pdHeaderControls(cfg, variant) + '</div>' +
 
-      '<div class="kx-pubgrid">' + cfg.widgets.map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('') + '</div>' +
+      dashBody(cfg, variant) +
 
       '<div class="kx-pubfoot">' +
       '<span style="display:inline-flex;align-items:center;gap:5px">' +

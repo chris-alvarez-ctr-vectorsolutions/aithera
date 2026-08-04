@@ -567,6 +567,9 @@
         devHandoff,
         devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
         devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
+        // Optional curated annotation shown inside the Designer Versions drawer
+        // (e.g. "Blue sky UI design") — context for what the working file is.
+        designerNote: (typeof m.designerNote === 'string' && m.designerNote.trim()) ? m.designerNote.trim() : null,
         extraLinks: Array.isArray(m.extraLinks) ? m.extraLinks.map(l => {
           const fileEnc = String(l.file || '').split('/').map(encodeURIComponent).join('/');
           return {
@@ -1564,7 +1567,7 @@
   }
 
   function buildCard(mock, idx, showFolder) {
-    const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, extraLinks } = mock;
+    const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
     let ticketHtml = '';
@@ -1588,6 +1591,12 @@
       // designer file sits in its own box below, collapsed into a drawer.
       const devPages = urlRow('fa-solid fa-globe', 'Pages', devPagesUrl, 'url-row--dev');
       const devGithub = urlRow('fa-brands fa-github', 'GitHub', devBlobUrl, 'url-row--dev');
+      // Optional curated annotation for the designer version (from meta.json's
+      // designerNote), e.g. "Blue sky UI design" — shown inside the drawer so
+      // devs know what the working file represents relative to the dev build.
+      const designerNoteHtml = designerNote
+        ? `<div class="designer-note"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(designerNote)}</div>`
+        : '';
       boxHtml = `
       <div class="url-list url-list--dev">
         <div class="url-list-header">For Dev — Ready-for-Dev Duplicates</div>
@@ -1596,7 +1605,7 @@
       <div class="url-list url-list--designer">
         <details class="design-links-drawer">
           <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer Versions <span class="drawer-note">working files — Pages only</span></summary>
-          <div class="drawer-rows">${designPages}
+          <div class="drawer-rows">${designerNoteHtml}${designPages}
           </div>
         </details>
       </div>`;
@@ -2704,6 +2713,16 @@
       .drawer-chevron { transition: transform 0.2s ease; font-size: 10px; }
       .design-links-drawer[open] > summary .drawer-chevron { transform: rotate(90deg); }
       .drawer-rows { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 8px; }
+
+      /* Curated annotation for the designer version (meta.json designerNote),
+         e.g. "Blue sky UI design" — sits above the Pages row inside the drawer. */
+      .designer-note {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 12px; font-style: italic; color: var(--text-muted);
+        background: #f8fafc; border: 1px solid var(--border);
+        border-radius: 6px; padding: 6px 9px;
+      }
+      .designer-note .fa-circle-info { color: #64748b; font-size: 11px; }
 
       .page-footer {
         max-width: 1400px; margin: 56px auto 0; padding: 24px 32px 32px; border-top: 1px solid var(--border);

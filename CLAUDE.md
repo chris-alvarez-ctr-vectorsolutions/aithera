@@ -220,18 +220,52 @@ Use THEMES-CONTEXT.md as the reference for design tokens and themeing provided f
 
 #### Icons
 
-**Default Icon Library: Font Awesome 6**
+**Default Icon Library: Font Awesome 6 PRO — self-hosted**
 
-This project uses **Font Awesome 6 Free** as the default icon library. Font Awesome provides a comprehensive set of icons for common UI needs.
+We have a Font Awesome **Pro** license. Pro 6.7.2 is vendored into this repo at
+`assets/fontawesome/` (CSS + woff2 webfonts). New mocks link it with a
+**depth-relative** path, the same convention as the Design Toolbox include:
+
+```html
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+```
+
+Four levels up, because every mock lives at
+`products/<Product>/<feature>/verN/index.html`. This is already in
+`base-template/version.html`, so anything scaffolded from the template gets it
+automatically — don't hand-write the CDN URL into a new mock.
+
+**Why self-hosted and not a Kit or the Pro CDN:** both are domain-locked, and a
+domain lock breaks `file://`. Designers must be able to double-click an HTML file
+and still see icons. Self-hosting works on `file://`, localhost, and GitHub Pages
+identically, with no network dependency.
 
 **Font Awesome Usage:**
 - Use standard Font Awesome HTML syntax: `<i class="fa-solid fa-icon-name"></i>`
-- Available styles in Font Awesome 6 Free:
+- Available styles (Pro — all of these work):
   - `fa-solid` - Solid filled icons (most common)
   - `fa-regular` - Regular outline icons
+  - `fa-light` / `fa-thin` - Lighter weights, good for large or decorative icons
+  - `fa-duotone` - Two-tone icons (`--fa-primary-color` / `--fa-secondary-color`)
+  - `fa-sharp` - Squared-off variants; combines with a weight, e.g. `fa-sharp fa-solid`
   - `fa-brands` - Brand logos (GitHub, Twitter, Facebook, etc.)
 - Size icons with CSS `font-size`, or use Font Awesome size classes: `fa-xs`, `fa-sm`, `fa-lg`, `fa-2x`, `fa-3x`, etc.
-- Complete icon catalog: https://fontawesome.com/search?ic=free-collection
+- Complete icon catalog: https://fontawesome.com/search (no need to filter to Free)
+
+**⚠️ Verify icons actually render — silent failure is the trap here.**
+An icon class that isn't in the loaded set renders as a **zero-width invisible
+glyph**: no console error, no broken-image marker, just a blank gap nobody notices
+until it's on a projector. This bit three separate icons in one feature while the
+repo was still on the Free CDN. Before committing a mock, run this in the console
+and require an empty array:
+
+```js
+[...document.querySelectorAll('i[class*="fa-"]')].filter(e => !e.getBoundingClientRect().width).map(e => e.className)
+```
+
+**Legacy mocks:** ~168 existing files still link the Font Awesome **Free** CDN and
+are intentionally left alone. Pro 6 is a superset of Free 6, so they render exactly
+as before. Swap one to the self-hosted Pro path only if that mock needs a Pro icon.
 
 **Basic Examples:**
 ```html
@@ -239,8 +273,13 @@ This project uses **Font Awesome 6 Free** as the default icon library. Font Awes
 <i class="fa-solid fa-user"></i>
 
 <!-- Regular/outline home icon -->
-<i class="fa-regular fa-home"></i>
+<i class="fa-regular fa-house"></i>
 
+<!-- Pro-only styles -->
+<i class="fa-light fa-bell"></i>
+<i class="fa-thin fa-gauge"></i>
+<i class="fa-sharp fa-solid fa-fire-hydrant"></i>
+<i class="fa-duotone fa-truck-medical" style="--fa-primary-color:#c92626;--fa-secondary-color:#8f1414"></i>
 ```
 
 **Vector Icons (vwc-icon):**

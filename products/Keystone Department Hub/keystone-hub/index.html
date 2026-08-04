@@ -187,7 +187,7 @@
   tr.kx-task-row.is-risk > td:first-child { border-left-color: var(--amber-400); }
 
   .kx-chevron {
-    width: 28px; height: 28px; border-radius: 6px; padding: 0;
+    width: 28px; height: 28px; border-radius: var(--radius-pill); padding: 0;
     display: inline-flex; align-items: center; justify-content: center;
     color: var(--ink-500); background: transparent; border: 1px solid transparent;
     cursor: pointer; transition: transform 0.18s, background 0.15s, border-color 0.15s;
@@ -358,7 +358,7 @@
   .kx-facet-row .d { font-size: 10px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; letter-spacing: 0.2px; }
   .kx-facet-back {
     background: rgba(255,255,255,0.08); border: none; width: 26px; height: 26px;
-    border-radius: 7px; color: white; cursor: pointer;
+    border-radius: var(--radius-pill); color: white; cursor: pointer;
     display: flex; align-items: center; justify-content: center; padding: 0;
   }
   .kx-facet-item {
@@ -370,7 +370,7 @@
   }
   .kx-facet-cta {
     width: 100%; padding: 9px 12px; background: var(--amber-400); color: var(--ink-900);
-    border: none; border-radius: 8px; font-size: 11px; font-weight: 700;
+    border: none; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700;
     cursor: pointer; letter-spacing: 0.3px;
     display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit;
   }
@@ -403,6 +403,71 @@
      ==================================================================== */
   .kx-pubdash { background: var(--surface-2); border: 1px solid var(--ink-100); border-radius: 20px; padding: 14px; }
 
+  /* Dashboard body: Agency Intelligence panel (left) + widget grid (right).
+     The grid keeps its own 12-column definition so every w:4 widget spec and
+     pubWidget() work untouched. */
+  .kx-pubbody { display: flex; gap: 12px; align-items: stretch; min-width: 0; }
+  .kx-pubbody > .kx-pubgrid { flex: 1; min-width: 0; }
+  /* Expanded: the container grows downward, but the widget row must NOT
+     stretch to fill it — rows keep natural height and stack from the top,
+     leaving the second row free for widgets added from chat. */
+  .kx-pubbody.is-expanded { min-height: 520px; }
+  .kx-pubbody.is-expanded > .kx-pubgrid { align-content: start; }
+  @media (max-width: 980px) {
+    .kx-pubbody { flex-direction: column; }
+    .kx-pubbody.is-expanded { min-height: 0; }
+  }
+
+  /* Widget wrapping. Spans are inline styles from pubWidget(), so these
+     overrides need !important — same technique as the 860px rule below.
+     Thresholds are viewport-based because the grid's own width depends on
+     whether the AI panel is docked beside it.
+
+     Task 2c moved the date-range control out of the widget-head row into its
+     own footer row (see pubWidget() in hub-hero.js), so a title no longer has
+     to share its row with a ~105px control. A widget's legible minimum
+     dropped from ~310px to ~205px, and BOTH thresholds below were re-measured
+     in-browser from scratch (forcing spans with browser_evaluate + stepping
+     browser_resize, never computed) because Task 2b's numbers (1450px /
+     1090px) were calibrated against the old ~310px minimum and are now far
+     too conservative.
+
+     Three across (natural, unforced spans) stayed clip-free down to 1070px
+     viewport and first clipped at 1065px — so 1070px is the measured-and-
+     rounded-up threshold below which three-across (span 4) gives way to
+     two-across (span 6).
+     Two across (span 6 forced) stayed clip-free down to 470px viewport and
+     first clipped at 465px — so 470px is the measured-and-rounded-up
+     threshold below which two-across gives way to one-per-row. */
+  @media (max-width: 1070px) {
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 6 !important; }
+  }
+  /* One across. Measurement shows two-across no longer has a dead zone
+     anywhere between here and 1070px — neither docked-beside-the-panel
+     widths (e.g. 981px, widget 256px wide) nor stacked-above-the-panel
+     widths (e.g. 861px, widget 362px wide) come close to clipping. So unlike
+     Task 2b, which forced one-per-row all the way from 1090px down through
+     the pre-existing 860px rule as a blunt simplification, this reclaims
+     two-across density for the whole 470-1070px range and only drops to one-
+     per-row where measurement actually requires it (below 470px).
+
+     That reclaim works automatically, without touching the 860px rule below:
+     this selector, `.kx-pubbody .kx-pubgrid > .kx-pubwidget`, has specificity
+     (0,3,0) versus the 860px rule's `.kx-pubgrid > *` at (0,1,0), so this
+     rule always wins when both match, regardless of which comes first in the
+     file. In the 470-860px band both rules match (this one says span 6, the
+     860px rule says 1 / -1) and specificity — not source order — is why
+     span 6 is what actually renders. Below 470px this rule also says 1 / -1,
+     so the two rules agree again and there is no conflict. Caution for
+     future edits: because specificity decides here, not order, a future
+     breakpoint that wants a *different* value at ≤860px than this rule
+     provides would silently lose to this rule no matter where it's placed
+     in the file — it would need higher specificity, not just later
+     placement. */
+  @media (max-width: 470px) {
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: 1 / -1 !important; }
+  }
+
   .kx-pubhead { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
   .kx-pubmark {
     width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
@@ -427,7 +492,7 @@
   /* Header control cluster — dashboard switcher + Agency Intelligence link. */
   .kx-pubhead-ctl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
   .kx-pubhead-btn {
-    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px;
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--radius-pill);
     border: 1px solid var(--ink-200); background: var(--surface-1); color: var(--ink-700);
     font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
     text-decoration: none; white-space: nowrap; transition: background 0.15s, border-color 0.15s;
@@ -465,6 +530,9 @@
   }
   .kx-pubwidget-head .srcs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .kx-pubwidget-head .rng { margin-left: auto; flex-shrink: 0; }
+  /* Range control's new home: its own compact row under the value, so the
+     title above it never has to share horizontal space with it. */
+  .kx-pubwidget-foot { display: flex; align-items: center; margin-top: 8px; min-width: 0; }
   .kx-pubwidget .icon-chip {
     width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
     display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -473,13 +541,8 @@
     font-size: 13.5px; font-weight: 700; color: var(--ink-900);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
   }
-  .kx-range-btn {
-    display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 7px;
-    border: 1px solid transparent; background: transparent; color: var(--ink-500);
-    cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 600;
-  }
-  .kx-range-btn:hover { background: var(--surface-3); }
-  .kx-range-btn.is-dirty { border-color: var(--amber-300); background: var(--amber-50); color: var(--amber-700); }
+  /* .kx-range-btn now lives in styles.css — it is emitted by shared JS
+     (hub-hero.js and agency-intel-canvas.js) so both surfaces need it. */
   .kx-kpi-num {
     font-family: var(--font-numeric); font-weight: 700; font-size: 33px; line-height: 1;
     letter-spacing: -1.5px; font-variant-numeric: tabular-nums;
@@ -575,7 +638,9 @@
     padding: 6px 0; max-height: 96px; line-height: 1.4;
   }
   .cp-send {
-    width: 32px; height: 32px; border-radius: 10px; border: none;
+    /* Square footprint + full rounding = circular icon action, the pill
+       system's companion shape. */
+    width: 32px; height: 32px; border-radius: var(--radius-pill); border: none;
     background: var(--ink-200); color: var(--ink-500);
     display: inline-flex; align-items: center; justify-content: center;
     flex-shrink: 0; transition: background 0.15s; cursor: default;
@@ -624,7 +689,7 @@
   }
   .cp-tile-icon.is-metric { background: var(--amber-100); color: var(--amber-700); }
   .cp-tile-del {
-    width: 18px; height: 18px; padding: 0; border-radius: 4px; background: transparent;
+    width: 18px; height: 18px; padding: 0; border-radius: var(--radius-pill); background: transparent;
     border: none; cursor: pointer; color: var(--ink-500);
     display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
@@ -639,11 +704,18 @@
 <script src="data.js"></script>
 <script src="custom-dashboards.js"></script>
 
+<!-- Agency Intelligence grant model + homepage answer engine. Shared verbatim
+     with agency-intelligence-dashboard.html so the hub's access gate reads the
+     same grants the AI access tab manages. page-data derives INDIVIDUALS from
+     K.PEOPLE, so it must come after data.js. -->
+<script src="agency-intel-page-data.js"></script>
+<script src="agency-intel-ai-data.js"></script>
+
 <!-- Shared helpers, then chart renderers, then the page layers -->
 <script src="keystone-shared.js"></script>
 <script src="charts.js"></script>
 <script src="hub-hero.js"></script>
-<script src="hub-agency-intel.js"></script>
+<script src="hub-ai-panel.js"></script>
 <script src="hub.js"></script>
 
 </body>

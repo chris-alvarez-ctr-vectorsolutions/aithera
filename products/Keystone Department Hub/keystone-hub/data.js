@@ -31,7 +31,7 @@
 
   // ---------- People ----------
   const PEOPLE = [
-    { id: 'u1',  first: 'Marcus',   last: 'Reyes',     rank: 'Battalion Chief',  station: 'st1',  shift: 'A' },
+    { id: 'u1',  first: 'Jamie',    last: 'Smith',     rank: 'Battalion Chief',  station: 'st1',  shift: 'A' },
     { id: 'u2',  first: 'Devon',    last: 'Hartwell',  rank: 'Captain',          station: 'st4',  shift: 'A' },
     { id: 'u3',  first: 'Sloane',   last: 'Kim',       rank: 'Lieutenant',       station: 'st4',  shift: 'B' },
     { id: 'u4',  first: 'Jamal',    last: 'Okafor',    rank: 'Engineer',         station: 'st4',  shift: 'A' },
@@ -224,7 +224,7 @@
   // `gated:true` — they only appear in the role switcher when the
   // "Future functionality" flag is on (phase 2).
   const ROLES = {
-    chief:    { id:'chief',    title:'Chief',            who:'Marcus Reyes',    sub:'B-1 Downtown',     accent:'amber',  hero:'coverage',   selfId:'u1', admin: true },
+    chief:    { id:'chief',    title:'Chief',            who:'Jamie Smith',     sub:'B-1 Downtown',     accent:'amber',  hero:'coverage',   selfId:'u1', admin: true },
     training: { id:'training', title:'Training Officer', who:'Naima Whitfield', sub:'Department-wide',  accent:'teal',   hero:'compliance', selfId:'u12', gated: true, admin: true },
     lt:       { id:'lt',       title:'Lieutenant',       who:'Sloane Kim',      sub:'Sta. 4 — B-Shift', accent:'coral',  hero:'crew',       selfId:'u3',  gated: true },
     ff:       { id:'ff',       title:'Firefighter',      who:'Riley Brennan',   sub:'Sta. 4 — A-Shift', accent:'coral',  hero:'personal',   selfId:'u5', hardScoped: true, defaultView:'sv-mine-all' },

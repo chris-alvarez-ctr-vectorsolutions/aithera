@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confidence Check — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- Shared lesson shell (frame, tokens, chat-msg styles) -->
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+
+    <!-- ====================================================================
+         Page-scoped styles. Everything unique to this experiment lives here:
+         the persistent "AI coach" orb + its docked panel, the chat surface
+         reparented into the panel, the confidence-slider content type that
+         lives in the main content area, and the step-cleared overlay. The
+         shared frame (header / footer / chat bubbles) comes from lesson.css.
+
+         The coach (orb + panel) is lifted from "Video Reflection B"; the only
+         genuinely new piece is the .conf confidence slider.
+         ==================================================================== -->
+    <style>
+      /* ---- intro "coach is talking" placeholder ------------------------- */
+      .conf-wait {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+        color: var(--ink-soft);
+      }
+      .conf-wait[hidden] { display: none; }
+      .conf-wait-orb {
+        width: 54px; height: 54px;
+        display: grid; place-items: center;
+        border-radius: 999px;
+        color: #fff; font-size: 22px;
+        background: radial-gradient(circle at 32% 28%, #2dd4bf, #0d9488 55%, #4f46e5 130%);
+        box-shadow: 0 8px 22px -6px rgba(13,148,136,.55), 0 0 26px -2px rgba(79,70,229,.4);
+        animation: breathe 4s ease-in-out infinite;
+      }
+      .conf-wait-text { margin: 0; font-size: 15px; }
+      /* the shared typing dots are left-aligned in a chat; center them here */
+      .conf-wait .chat-typing { align-self: center; }
+
+      /* ---- confidence slider content type ------------------------------- */
+      .conf {
+        width: 100%;
+        max-width: 640px;
+        display: flex;
+        flex-direction: column;
+      }
+      .conf[hidden] { display: none; }
+      /* rise-in when the coach reveals it */
+      .conf.in { animation: conf-rise .5s cubic-bezier(.2,.7,.2,1) both; }
+      @keyframes conf-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+      .conf-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 16px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+      .conf-eyebrow i { color: var(--accent); font-size: 12px; }
+
+      .conf-title {
+        margin: 0 0 10px;
+        font-size: clamp(26px, 4vw, 38px);
+        font-weight: 700;
+        letter-spacing: -.01em;
+        line-height: 1.15;
+        color: var(--ink);
+      }
+      .conf-q {
+        margin: 0 0 36px;
+        max-width: 52ch;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--ink-soft);
+      }
+
+      /* Live readout — the big word the slider currently maps to. */
+      .conf-readout {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin: 0 0 18px;
+      }
+      .conf-pct {
+        font-size: clamp(44px, 9vw, 64px);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -.02em;
+        color: var(--accent-strong);
+        font-variant-numeric: tabular-nums;
+        transition: color .2s ease;
+      }
+      .conf-pct-unit {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--accent-strong);
+        margin-left: -8px;
+      }
+      .conf-word {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--ink);
+        transition: color .2s ease;
+      }
+
+      /* The slider itself — a native range, painted with the accent fill. */
+      .conf-slider { width: 100%; }
+      .conf-range {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--line);   /* JS paints an accent fill over this */
+        cursor: pointer;
+        outline: none;
+      }
+      .conf-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 4px solid #fff;
+        box-shadow: var(--shadow-md), 0 0 0 1px var(--line);
+        cursor: grab;
+        transition: transform .12s ease;
+      }
+      .conf-range::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.08); }
+      .conf-range::-moz-range-thumb {
+        width: 30px; height: 30px;
+        border: 4px solid #fff;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: var(--shadow-md);
+        cursor: grab;
+      }
+      .conf-range::-moz-range-progress { background: var(--accent); height: 10px; border-radius: 999px; }
+      .conf-range:focus-visible::-webkit-slider-thumb { box-shadow: var(--shadow-md), 0 0 0 4px var(--accent-soft); }
+      .conf-range:focus-visible::-moz-range-thumb { box-shadow: var(--shadow-md), 0 0 0 4px var(--accent-soft); }
+
+      /* Tick labels under the rail. */
+      .conf-scale {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-faint);
+      }
+      .conf-scale span { flex: 1 1 0; text-align: center; }
+      .conf-scale span:first-child { text-align: left; }
+      .conf-scale span:last-child { text-align: right; }
+
+      /* Commit row. */
+      .conf-actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 34px;
+      }
+      .conf-share::part(label) { font-size: 16px; }
+      .conf-shared-note {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent-strong);
+      }
+      .conf-shared-note i { font-size: 13px; }
+
+      /* Once shared, the slider locks to the committed value (read-only). */
+      .conf.is-committed .conf-range { pointer-events: none; opacity: .85; }
+      .conf.is-committed .conf-share { display: none; }
+      .conf.is-committed .conf-shared-note { display: inline-flex; }
+
+      /* ---- the AI coach orb --------------------------------------------- */
+      .orb-btn {
+        position: fixed;
+        right: 24px;
+        bottom: calc(var(--footer-h) + 24px);
+        z-index: 28;
+        width: 56px; height: 56px;
+        border: 0; padding: 0; cursor: pointer;
+        background: transparent;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .3s ease, opacity .3s ease;
+      }
+      .orb-btn[hidden] { display: none; }
+      .orb-btn.is-hidden { transform: scale(.75); opacity: 0; pointer-events: none; }
+      .orb-core {
+        position: relative;
+        width: 56px; height: 56px;
+        border-radius: 999px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 22px;
+        background: radial-gradient(circle at 32% 28%, #99f6e4 0%, #2dd4bf 26%, #0d9488 54%, #4f46e5 120%);
+        box-shadow:
+          inset 0 1px 2px rgba(255,255,255,.55),
+          inset 0 -8px 14px rgba(49,46,129,.45),
+          0 6px 18px -4px rgba(13,148,136,.55),
+          0 0 30px -2px rgba(79,70,229,.45);
+        overflow: hidden;
+      }
+      .orb-core::after {
+        content: ""; position: absolute; inset: 0; border-radius: 999px;
+        background: radial-gradient(circle at 70% 80%, rgba(99,102,241,.55), transparent 60%);
+        mix-blend-mode: screen;
+      }
+      .orb-core i { position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
+      .orb-calm { animation: breathe 5.5s ease-in-out infinite; filter: saturate(.9) brightness(.96); }
+      .orb-live { animation: breathe 3.4s ease-in-out infinite; }
+      @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+      .orb-ring {
+        position: absolute; inset: -6px; border-radius: 999px;
+        box-shadow: 0 0 0 2px rgba(45,212,191,.55);
+        animation: ring 2s ease-out infinite;
+      }
+      .orb-ring[hidden] { display: none; }
+      @keyframes ring {
+        0%   { transform: scale(.85); opacity: .9; }
+        100% { transform: scale(1.5); opacity: 0; }
+      }
+      .orb-dot {
+        position: absolute; right: -2px; top: -2px;
+        width: 14px; height: 14px;
+        border-radius: 999px;
+        border: 2px solid #fff;
+        background: #f43f5e;
+      }
+      .orb-dot[hidden] { display: none; }
+      .orb-flash { animation: orbflash .6s ease; }
+      @keyframes orbflash {
+        0%,100% { transform: scale(1); }
+        25% { transform: scale(1.15) rotate(-4deg); }
+        60% { transform: scale(1.08) rotate(4deg); }
+      }
+      /* the small sparkle mark reused in the chat header + cleared overlay */
+      .orb-mark {
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 999px;
+        color: #fff;
+        background: radial-gradient(circle at 32% 28%, #2dd4bf, #0d9488 55%, #4f46e5 130%);
+        box-shadow: 0 2px 8px -1px rgba(13,148,136,.5);
+      }
+
+      /* ---- docked coach panel ------------------------------------------- */
+      .dock-panel {
+        position: fixed;
+        z-index: 29;
+        top: calc(var(--header-h) + 16px);
+        right: 24px;
+        bottom: calc(var(--footer-h) + 16px);
+        width: 380px;
+        transform-origin: bottom right;
+        transition: transform .3s cubic-bezier(.2,.8,.2,1), opacity .3s ease;
+      }
+      .dock-panel.is-closed {
+        transform: scale(.9) translateY(16px);
+        opacity: 0;
+        pointer-events: none;
+      }
+      @media (max-width: 560px) {
+        .dock-panel { left: 16px; right: 16px; width: auto; }
+      }
+
+      /* ---- chat surface (reparented into the panel) --------------------- */
+      .chat-surface {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--line);
+      }
+      .cs-head {
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .cs-head-id { display: flex; align-items: center; gap: 10px; }
+      .cs-title { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+      .cs-note  { font-size: 12px; color: var(--ink-faint); line-height: 1.2; }
+      .cs-min {
+        appearance: none; border: 0; background: transparent; cursor: pointer;
+        width: 32px; height: 32px; border-radius: 999px;
+        color: var(--ink-faint); font-size: 16px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .cs-min:hover { background: var(--canvas); color: var(--ink-soft); }
+      .cs-thread {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 14px;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      .cs-foot { flex-shrink: 0; padding: 12px; border-top: 1px solid var(--line); }
+      .cs-composer { display: flex; align-items: flex-end; gap: 8px; }
+      .cs-composer textarea {
+        flex: 1;
+        resize: none;
+        min-height: 44px; max-height: 112px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 11px 14px;
+        font: inherit; font-size: 14px; color: var(--ink);
+        outline: none;
+      }
+      .cs-composer textarea:focus { border-color: var(--accent); }
+      .cs-composer textarea:disabled { background: var(--canvas); opacity: .7; }
+      .cs-send {
+        flex-shrink: 0;
+        width: 44px; height: 44px;
+        border: 0; border-radius: 999px;
+        background: var(--accent-strong); color: #fff;   /* strong for 4.5:1 with white */
+        font-size: 16px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: filter .15s ease;
+      }
+      .cs-send:hover:not(:disabled) { filter: brightness(1.12); }
+      .cs-send:disabled { opacity: .4; cursor: default; }
+
+      /* a quiet hint shown in the foot while the answer is the slider, not chat */
+      .cs-hint {
+        display: flex; align-items: center; gap: 10px;
+        padding: 4px 6px;
+        font-size: 13px; line-height: 1.4;
+        color: var(--ink-soft);
+      }
+      .cs-hint i { color: var(--accent); font-size: 14px; }
+
+      /* primary CTA inside the chat foot (e.g. "Rate my confidence") */
+      .cs-cta {
+        width: 100%;
+        display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+        appearance: none; border: 0; cursor: pointer;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: var(--accent-strong); color: #fff;   /* strong for 4.5:1 with white */
+        font: inherit; font-size: 15px; font-weight: 600;
+        transition: filter .15s ease, transform .1s ease;
+      }
+      .cs-cta:hover { filter: brightness(1.12); }
+      .cs-cta:active { transform: scale(.98); }
+      .cs-cta i { font-size: 14px; }
+
+      /* The learner's shared confidence, dropped into the thread as their turn
+         — deliberately NOT a chat bubble. It's a framed data card on the
+         learner's (right) side, so it reads as "they submitted this value" and
+         the coach's next bubble is clearly responding to it. */
+      .cs-rating {
+        align-self: flex-end;
+        max-width: 90%;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        padding: 12px 14px;
+        border: 1.5px solid var(--accent);
+        border-radius: 16px;
+        border-bottom-right-radius: 4px;   /* echoes the user-bubble tail */
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+      }
+      .cs-rating-cap {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: .06em; text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      .cs-rating-main { display: flex; align-items: baseline; gap: 10px; }
+      .cs-rating-pct {
+        font-size: 30px; font-weight: 800; line-height: 1;
+        color: var(--accent-strong);
+        font-variant-numeric: tabular-nums;
+      }
+      .cs-rating-pct span { font-size: 16px; font-weight: 800; margin-left: 1px; }
+      .cs-rating-word { font-size: 14px; font-weight: 600; color: var(--ink); }
+      .cs-rating-meter {
+        height: 6px; border-radius: 999px; background: var(--line); overflow: hidden;
+      }
+      .cs-rating-meter > span {
+        display: block; height: 100%; border-radius: 999px; background: var(--accent);
+      }
+
+      /* completion state */
+      .cs-done {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+      }
+      .cs-done-label {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 14px; font-weight: 600; color: var(--accent-strong);
+      }
+      .cs-done-cta {
+        appearance: none; border: 0; cursor: pointer;
+        border-radius: 10px;
+        padding: 8px 14px;
+        background: var(--accent-strong); color: #fff;   /* strong for 4.5:1 with white */
+        font: inherit; font-size: 14px; font-weight: 600;
+        transition: filter .15s ease;
+      }
+      .cs-done-cta:hover { filter: brightness(1.12); }
+
+      /* ---- locked-continue tooltip in the footer ------------------------ */
+      .nav-tip { position: relative; display: inline-flex; }
+      .nav-tip .tip {
+        position: absolute;
+        bottom: calc(100% + 8px); right: 0;
+        white-space: nowrap;
+        background: #1e293b; color: #fff;
+        font-size: 12px; font-weight: 600;
+        padding: 6px 10px; border-radius: 8px;
+        box-shadow: var(--shadow-md);
+        opacity: 0; pointer-events: none;
+        transition: opacity .15s ease;
+      }
+      .nav-tip:hover .tip.locked,
+      .nav-tip:focus-within .tip.locked { opacity: 1; }
+
+      /* ---- step-cleared overlay ----------------------------------------- */
+      .step-cleared {
+        position: fixed; inset: 0;
+        z-index: 60;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center;
+        gap: 6px;
+        padding: 24px;
+        background: var(--surface);
+      }
+      .step-cleared[hidden] { display: none; }
+      .step-cleared .mark { width: 56px; height: 56px; font-size: 26px; margin-bottom: 12px; }
+      .step-cleared h2 { margin: 0; font-size: 22px; color: var(--ink); }
+      .step-cleared p { margin: 4px 0 0; max-width: 40ch; font-size: 14px; color: var(--ink-soft); }
+      .step-cleared .restart {
+        appearance: none; cursor: pointer;
+        margin-top: 22px;
+        border: 1px solid var(--line); border-radius: 10px;
+        background: var(--surface); color: var(--ink-soft);
+        font: inherit; font-size: 14px; font-weight: 600;
+        padding: 9px 16px;
+      }
+      .step-cleared .restart:hover { background: var(--canvas); color: var(--ink); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .orb-calm, .orb-live, .orb-ring, .orb-flash, .conf-wait-orb, .conf.in {
+          animation: none !important;
+        }
+        * { transition-duration: .01ms !important; }
+      }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Hazard Communication</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Putting It Into Practice</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 8 of 9</span>
+            <vaadin-progress-bar value="0.88" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <!-- Intro placeholder: shown while the coach delivers the prompt -->
+            <div class="conf-wait" id="confWait">
+                <span class="conf-wait-orb"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                <p class="conf-wait-text">Your AI coach is introducing this step…</p>
+                <div class="chat-typing"><span></span><span></span><span></span></div>
+            </div>
+
+            <!-- Content type: Confidence slider (revealed after the prompt) -->
+            <section class="conf" id="confCard" aria-labelledby="confTitle" hidden>
+                <p class="conf-eyebrow"><i class="fa-solid fa-gauge-high"></i> Confidence check</p>
+                <h1 class="conf-title" id="confTitle">How confident do you feel?</h1>
+                <p class="conf-q">
+                    Rate your confidence in your ability to describe what you just learned about
+                    hazard communication to someone else.
+                </p>
+
+                <div class="conf-readout" aria-hidden="true">
+                    <span class="conf-pct" id="confPct">50</span><span class="conf-pct-unit">%</span>
+                    <span class="conf-word" id="confWord">Somewhat confident</span>
+                </div>
+
+                <div class="conf-slider">
+                    <input class="conf-range" type="range" id="confRange"
+                        min="0" max="100" step="1" value="50"
+                        aria-label="Your confidence"
+                        aria-valuetext="50 percent — somewhat confident">
+                    <div class="conf-scale" aria-hidden="true">
+                        <span>Not at all</span>
+                        <span>A little</span>
+                        <span>Somewhat</span>
+                        <span>Fairly</span>
+                        <span>Very</span>
+                    </div>
+                </div>
+
+                <div class="conf-actions">
+                    <vaadin-button theme="primary" class="conf-share" id="shareBtn" disabled>
+                        Share with coach
+                    </vaadin-button>
+                    <span class="conf-shared-note">
+                        <i class="fa-solid fa-circle-check"></i> Shared with your coach
+                    </span>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions">
+            Your coach is introducing this step…
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <span class="nav-tip" id="navTip">
+                <span class="tip locked" id="continueTip">Finish with your coach to continue</span>
+                <vaadin-button theme="primary" id="continueBtn" aria-describedby="continueTip" disabled>Continue</vaadin-button>
+            </span>
+        </div>
+    </footer>
+
+    <!-- ===== Persistent coach orb ========================================= -->
+    <button class="orb-btn is-hidden" id="orb" type="button" aria-label="Open AI coach">
+        <span class="orb-ring" id="orbRing" hidden></span>
+        <span class="orb-core orb-calm" id="orbCore"><i class="fa-solid fa-wand-magic-sparkles" id="orbIcon"></i></span>
+        <span class="orb-dot" id="orbDot" hidden></span>
+    </button>
+
+    <!-- Mount point for the docked coach panel (non-modal by design, so it's
+         a labelled region rather than a dialog; inert while closed) -->
+    <div class="dock-panel is-closed" id="dockPanel" role="region" aria-label="AI Coach" inert></div>
+
+    <!-- ===== Step-cleared overlay ========================================= -->
+    <div class="step-cleared" id="stepCleared" hidden role="dialog" aria-modal="true" aria-labelledby="stepClearedTitle">
+        <span class="orb-mark mark"><i class="fa-solid fa-check"></i></span>
+        <h2 id="stepClearedTitle" tabindex="-1">Step 8 cleared</h2>
+        <p>In the live course, the final step would load here. This is the end of the prototype.</p>
+        <button class="restart" id="restartBtn" type="button"><i class="fa-solid fa-rotate-right"></i> Restart demo</button>
+    </div>
+
+    <!-- A11y live region -->
+    <span aria-live="polite" class="sr-only" id="liveRegion"
+          style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></span>
+
+    <script src="js/lesson.js?v=5"></script>
+    <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+    <script>
+    /* ========================================================================
+       Confidence Check — a hybrid "interaction + coach" wrap-up.
+
+       This was originally a pure chatbot. The problem with a chatbot for a
+       quick confidence read is friction: typing a number, waiting on replies.
+       So we split the turn into two channels:
+
+         1. The COACH (the glowing orb + docked panel, lifted from Video
+            Reflection B) shows up FIRST and delivers the prompt.
+         2. The SLIDER lives in the main content area — the learner answers the
+            confidence question with one drag, not a sentence.
+         3. The coach RE-APPEARS to continue the conversation: it reacts to the
+            number, then asks the two open follow-ups (training format + the one
+            thing they'd want a coworker to know).
+
+       Flow:  intro  →  rate (slider)  →  discuss (chat)  →  done
+       ====================================================================== */
+
+    /* ------------------------------------------------------------------ AI */
+    /* Static hosting can't hold an API key, so this runs in a self-contained
+       DEMO mode by default: a scripted coach that mirrors the real flow. To
+       talk to real Claude, point WORKER_URL at a proxy Worker that injects the
+       key and forwards to the Anthropic Messages API. The demo and live paths
+       share one contract: each coach turn returns { reply, done }. */
+    const WORKER_URL = '';                         // e.g. 'https://coach-proxy.<you>.workers.dev'
+    const COACH_MODEL = 'claude-sonnet-4-6';
+    const IS_LIVE = Boolean(WORKER_URL);
+
+    /* The two open questions the coach works through after the slider, taken
+       verbatim from the stakeholder's chatbot script. */
+    const Q_FORMAT =
+      "If you had to train a new coworker on hazard communication, what format would you use — a hands-on walkthrough, a quick conversation, something else?";
+    const Q_IMPORTANT =
+      "And what's the single most important thing you'd want them to walk away knowing?";
+
+    function buildSystemPrompt(pct, word) {
+      return `You are the "AI Coach" at the end of a workplace micro-course on hazard communication. The learner just rated their confidence in describing what they learned to someone else at ${pct}% ("${word}").
+
+Your job is to help them turn knowledge into something they could actually teach — warmly, not as a quiz.
+
+Voice:
+- Warm, grounded, peer-like — a sharp coworker, not a compliance manual.
+- 2-3 sentences max per reply. No bullet points, no jargon dump, no moralizing.
+- React to their actual confidence number first, then to what they say.
+
+Run exactly two follow-ups, in order:
+1. Ask: "${Q_FORMAT}"
+2. Then ask: "${Q_IMPORTANT}"
+After they answer the second one, give a short, genuine wrap-up that ties back to their confidence, and set done to true.
+
+Output format — CRITICAL:
+Respond with ONLY a JSON object, no markdown fences:
+{"reply": "<your message>", "done": <true or false>}`;
+    }
+
+    function parseCoach(raw) {
+      try {
+        const obj = JSON.parse(String(raw).replace(/```json|```/g, '').trim());
+        return { reply: obj.reply || "Tell me a little more about that.", done: Boolean(obj.done) };
+      } catch {
+        return { reply: raw || "Tell me a little more about that.", done: false };
+      }
+    }
+
+    async function liveCoach(messages, sys) {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: COACH_MODEL, max_tokens: 1000, system: sys, messages }),
+      });
+      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
+      const data = await res.json();
+      const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+      return parseCoach(raw);
+    }
+
+    /* --------------------------------------------------------------- App */
+    (function () {
+      'use strict';
+
+      // ----- confidence scale: percent → label --------------------------
+      const WORDS = [
+        { max: 19,  word: 'Not at all confident' },
+        { max: 39,  word: 'A little confident'   },
+        { max: 59,  word: 'Somewhat confident'   },
+        { max: 79,  word: 'Fairly confident'     },
+        { max: 100, word: 'Very confident'       },
+      ];
+      const wordFor = (pct) => WORDS.find((w) => pct <= w.max).word;
+      // bucket for tailoring the coach's reaction
+      const bucketFor = (pct) => (pct < 40 ? 'low' : pct < 70 ? 'mid' : 'high');
+
+      // ----- elements ---------------------------------------------------
+      const main        = document.getElementById('main');
+      const confWait    = document.getElementById('confWait');
+      const confCard    = document.getElementById('confCard');
+      const range       = document.getElementById('confRange');
+      const pctEl        = document.getElementById('confPct');
+      const wordEl       = document.getElementById('confWord');
+      const shareBtn    = document.getElementById('shareBtn');
+
+      const instructions= document.getElementById('instructions');
+      const continueBtn = document.getElementById('continueBtn');
+      const backBtn     = document.getElementById('backBtn');
+      const navTip      = document.getElementById('navTip');
+      const live        = document.getElementById('liveRegion');
+
+      const orb     = document.getElementById('orb');
+      const orbCore = document.getElementById('orbCore');
+      const orbIcon = document.getElementById('orbIcon');
+      const orbRing = document.getElementById('orbRing');
+      const orbDot  = document.getElementById('orbDot');
+
+      const dockPanel  = document.getElementById('dockPanel');
+      const stepCleared= document.getElementById('stepCleared');
+      const restartBtn = document.getElementById('restartBtn');
+
+      // Everything behind the step-cleared overlay, made inert while it's up.
+      const pageChrome = [
+        document.querySelector('.lesson-header'),
+        document.querySelector('.lesson-shell'),
+        document.querySelector('.lesson-footer'),
+        orb,
+        dockPanel,
+      ];
+
+      const reduceMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // ----- state ------------------------------------------------------
+      let phase       = 'intro';   // intro | rate | discuss | done
+      let awaitingRate= false;     // intro done — waiting on the learner to go rate
+      let touched     = false;     // learner moved the slider at least once
+      let confValue   = null;      // committed percent (null until shared)
+      let bucket      = 'mid';
+      let messages    = [];        // coach/learner turns shown in the panel
+      let loading     = false;
+      let open        = false;     // panel visible
+      let discussStep = 'format';  // format | important | done
+      let surfaceRefs = null;
+
+      // ====== the chat surface (single element, reparented into the panel) ==
+      const surface = document.createElement('div');
+      surface.className = 'chat-surface';
+
+      function buildSurface() {
+        surface.innerHTML =
+          '<div class="cs-head">' +
+            '<div class="cs-head-id">' +
+              '<span class="orb-mark" style="width:28px;height:28px;font-size:13px;">' +
+                '<i class="fa-solid fa-wand-magic-sparkles"></i></span>' +
+              '<div><div class="cs-title">AI Coach</div>' +
+              '<div class="cs-note">Wrapping up the lesson</div></div>' +
+            '</div>' +
+            '<button class="cs-min" id="csMin" type="button" aria-label="Minimize coach"><i class="fa-solid fa-chevron-down"></i></button>' +
+          '</div>' +
+          '<div class="cs-thread" id="csThread" aria-live="polite"></div>' +
+          '<div class="cs-foot" id="csFoot"></div>';
+
+        surfaceRefs = {
+          thread: surface.querySelector('#csThread'),
+          foot:   surface.querySelector('#csFoot'),
+          min:    surface.querySelector('#csMin'),
+        };
+        // Minimizing is learner-controlled: during the intro it doubles as
+        // "I'm ready to rate" so the chevron is never a dead-end; otherwise it
+        // just tucks the coach away.
+        surfaceRefs.min.addEventListener('click', () => {
+          if (phase === 'intro' && awaitingRate) goRate();
+          else closePanel();
+        });
+        renderThread();
+        renderFoot();
+      }
+
+      function renderThread() {
+        const t = surfaceRefs.thread;
+        t.replaceChildren();
+        messages.forEach((m) => {
+          // The shared confidence renders as a distinct framed card, not a bubble.
+          if (m.role === 'rating') {
+            const card = document.createElement('div');
+            card.className = 'cs-rating';
+            card.innerHTML =
+              '<span class="cs-rating-cap"><i class="fa-solid fa-gauge-high"></i> Your confidence</span>' +
+              '<div class="cs-rating-main">' +
+                '<span class="cs-rating-pct">' + m.pct + '<span>%</span></span>' +
+                '<span class="cs-rating-word">' + m.word + '</span>' +
+              '</div>' +
+              '<div class="cs-rating-meter"><span style="width:' + m.pct + '%"></span></div>';
+            t.appendChild(card);
+            return;
+          }
+          const b = document.createElement('div');
+          b.className = 'chat-msg ' + (m.role === 'user' ? 'user' : 'bot');
+          b.textContent = m.content;
+          t.appendChild(b);
+        });
+        if (loading) {
+          const typing = document.createElement('div');
+          typing.className = 'chat-typing';
+          typing.innerHTML = '<span></span><span></span><span></span>';
+          t.appendChild(typing);
+        }
+        t.scrollTop = t.scrollHeight;
+      }
+
+      function renderFoot() {
+        const f = surfaceRefs.foot;
+        f.replaceChildren();
+
+        // Done → completion affordance.
+        if (phase === 'done') {
+          const done = document.createElement('div');
+          done.className = 'cs-done';
+          done.innerHTML =
+            '<span class="cs-done-label"><i class="fa-solid fa-check"></i> All wrapped up</span>' +
+            '<button class="cs-done-cta" type="button">Continue →</button>';
+          done.querySelector('button').addEventListener('click', handleContinue);
+          f.appendChild(done);
+          return;
+        }
+
+        // Discuss → the free-text composer.
+        if (phase === 'discuss') {
+          const composer = document.createElement('div');
+          composer.className = 'cs-composer';
+          composer.innerHTML =
+            '<textarea rows="1" placeholder="Type your answer…" aria-label="Type your answer"></textarea>' +
+            '<button class="cs-send" type="button" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>';
+          const ta  = composer.querySelector('textarea');
+          const snd = composer.querySelector('.cs-send');
+          ta.disabled = loading;
+          snd.disabled = loading;
+          const sync = () => { snd.disabled = loading || !ta.value.trim(); };
+          ta.addEventListener('input', () => {
+            ta.style.height = 'auto';
+            ta.style.height = Math.min(ta.scrollHeight, 112) + 'px';
+            sync();
+          });
+          ta.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); learnerSend(ta.value); }
+          });
+          snd.addEventListener('click', () => learnerSend(ta.value));
+          sync();
+          f.appendChild(composer);
+          surfaceRefs.input = ta;
+          return;
+        }
+
+        // Intro, prompt delivered → the learner chooses when to go rate.
+        if (phase === 'intro' && awaitingRate) {
+          const cta = document.createElement('button');
+          cta.className = 'cs-cta';
+          cta.type = 'button';
+          cta.innerHTML = '<i class="fa-solid fa-gauge-high"></i> Rate my confidence';
+          cta.addEventListener('click', goRate);
+          f.appendChild(cta);
+          return;
+        }
+
+        // Otherwise → the answer is the slider, not the chat. Quiet hint.
+        const hint = document.createElement('div');
+        hint.className = 'cs-hint';
+        if (phase === 'rate') {
+          hint.innerHTML =
+            '<i class="fa-solid fa-arrow-left-long"></i>' +
+            '<span>Set your confidence on the slider, then “Share with coach.”</span>';
+        } else {
+          hint.innerHTML =
+            '<i class="fa-solid fa-wand-magic-sparkles"></i>' +
+            '<span>Read what your coach says — you’ll rate your confidence next.</span>';
+        }
+        f.appendChild(hint);
+      }
+
+      function focusInput() {
+        setTimeout(() => surfaceRefs && surfaceRefs.input && surfaceRefs.input.focus(), 220);
+      }
+
+      // ====== a coach turn (typing pause → bubble → optional callback) ====
+      function botSays(text, after) {
+        loading = true;
+        renderThread();
+        renderFoot();
+        const delay = reduceMotion ? 200 : 600 + Math.min(text.length * 11, 1100);
+        setTimeout(() => {
+          loading = false;
+          messages.push({ role: 'assistant', content: text });
+          renderThread();
+          renderFoot();
+          if (typeof after === 'function') after();
+          else if (phase === 'discuss') focusInput();
+        }, delay);
+      }
+
+      // ====== the slider ================================================
+      function paintRange() {
+        const pct = Number(range.value);
+        // accent fill up to the thumb, neutral track after it
+        range.style.background =
+          'linear-gradient(to right, var(--accent) 0%, var(--accent) ' + pct + '%, var(--line) ' + pct + '%, var(--line) 100%)';
+        const word = wordFor(pct);
+        pctEl.textContent = pct;
+        wordEl.textContent = word;
+        range.setAttribute('aria-valuetext', pct + ' percent — ' + word.toLowerCase());
+      }
+
+      range.addEventListener('input', () => {
+        if (!touched) {
+          touched = true;
+          shareBtn.disabled = false;
+          instructions.textContent = 'Happy with where it lands? Share it with your coach.';
+        }
+        paintRange();
+      });
+
+      // ====== commit the rating → bring the coach back ==================
+      function shareRating() {
+        if (phase !== 'rate' || !touched) return;
+        confValue = Number(range.value);
+        bucket = bucketFor(confValue);
+        confCard.classList.add('is-committed');
+        range.setAttribute('tabindex', '-1');
+
+        const word = wordFor(confValue);
+        // Drop the value into the thread as the learner's turn, so the coach's
+        // reply reads as a direct response to what they shared.
+        messages.push({ role: 'rating', pct: confValue, word: word });
+        if (live) live.textContent = 'You shared ' + confValue + ' percent — ' + word.toLowerCase() + '. Your coach is responding.';
+        openDiscussion();
+      }
+      shareBtn.addEventListener('click', shareRating);
+
+      // ====== discussion (the two open follow-ups) ======================
+      const ACK = {
+        low:  "Thanks for being straight about that — naming the gap is honestly half the work. The good news: putting it into your own words is exactly how that number climbs.",
+        mid:  "That's a fair, honest read — right about where most people sit the moment a course wraps. Let's make it more solid.",
+        high: "Love that. Let's put that confidence to work and make it real.",
+      };
+
+      function reflectFormat(text) {
+        const t = text.toLowerCase();
+        if (/(hands|walk\s?through|walkthrough|show|demonstrat|floor|shadow|practice|do it)/.test(t))
+          return "A hands-on walkthrough sticks — people remember what they did on the floor, not what they were told in a room.";
+        if (/(convers|talk|chat|one[- ]?on[- ]?one|verbal|ask|discuss)/.test(t))
+          return "A real conversation is underrated — it gives them room to ask the awkward question they'd never raise in a group.";
+        if (/(video|slide|present|powerpoint|deck|read)/.test(t))
+          return "Visuals can anchor it nicely, as long as you leave space for their questions afterward.";
+        if (/(checklist|document|sds|sheet|label|pictogram|guide|manual)/.test(t))
+          return "Smart — pointing them straight at the labels and the SDS is where the real answers live mid-shift.";
+        return "That's a solid call — the best format is the one that fits how your crew actually learns.";
+      }
+
+      function wrapUp() {
+        let lead = "That's the kind of thing that actually keeps someone safe — and the fact that you can put it in your own words is the real proof you've got this.";
+        if (bucket === 'low') lead = "See? You knew more than that slider gave you credit for — being able to say that out loud is exactly the point.";
+        return lead + " Nice work. You're good to wrap up.";
+      }
+
+      function openDiscussion() {
+        phase = 'discuss';
+        discussStep = 'format';
+        instructions.textContent = 'Answer your coach to wrap up — Continue unlocks when you’re done.';
+        if (!open) openHelper();
+        else { renderThread(); renderFoot(); }
+
+        // React to the number, then ask the first open question.
+        botSays(ACK[bucket], () => botSays(Q_FORMAT));
+      }
+
+      async function learnerSend(rawText) {
+        const text = (rawText || '').trim();
+        if (!text || loading || phase !== 'discuss') return;
+
+        messages.push({ role: 'user', content: text });
+        renderThread();
+        renderFoot();
+
+        // Live path: let the model run the two-question flow itself.
+        if (IS_LIVE) {
+          loading = true; renderThread(); renderFoot();
+          const sys = buildSystemPrompt(confValue, wordFor(confValue));
+          const apiMessages = messages
+            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .map((m) => ({ role: m.role, content: m.content }));
+          try {
+            const { reply, done } = await liveCoach(apiMessages, sys);
+            loading = false;
+            messages.push({ role: 'assistant', content: reply });
+            renderThread();
+            if (done) markDone(); else { renderFoot(); focusInput(); }
+          } catch (e) {
+            loading = false;
+            messages.push({ role: 'assistant', content: "My connection hiccuped — but what you shared counts. Let's wrap up." });
+            renderThread();
+            markDone();
+          }
+          return;
+        }
+
+        // Demo path: scripted two-step flow.
+        if (discussStep === 'format') {
+          discussStep = 'important';
+          botSays(reflectFormat(text), () => botSays(Q_IMPORTANT));
+        } else if (discussStep === 'important') {
+          discussStep = 'done';
+          botSays(wrapUp(), markDone);
+        }
+      }
+
+      function markDone() {
+        phase = 'done';
+        continueBtn.disabled = false;
+        navTip.querySelector('.tip').classList.remove('locked');
+        continueBtn.removeAttribute('aria-describedby');   // the lock hint no longer applies
+        instructions.textContent = 'Nicely done — select Continue to finish.';
+        if (live) live.textContent = "Reflection complete. You can now continue.";
+        refreshOrb();
+        renderFoot();
+      }
+
+      // ====== orb / panel ===============================================
+      function refreshOrb() {
+        const state = phase === 'done' ? 'done' : phase === 'intro' ? 'idle' : 'pending';
+        orbCore.classList.toggle('orb-calm', state === 'idle');
+        orbCore.classList.toggle('orb-live', state !== 'idle');
+        orbIcon.className = state === 'done' ? 'fa-solid fa-check' : 'fa-solid fa-wand-magic-sparkles';
+        orbRing.hidden = state !== 'pending';
+        orbDot.hidden  = state !== 'pending';
+        orb.classList.toggle('is-hidden', open);
+      }
+
+      function openHelper() {
+        open = true;
+        dockPanel.appendChild(surface);
+        buildSurface();
+        dockPanel.classList.remove('is-closed');
+        dockPanel.removeAttribute('inert');
+        refreshOrb();
+        if (phase === 'discuss') focusInput();
+      }
+
+      function closePanel() {
+        open = false;
+        dockPanel.classList.add('is-closed');
+        dockPanel.setAttribute('inert', '');   // unreachable while visually closed
+        refreshOrb();
+        orb.focus();                           // hand focus back to the orb button
+      }
+
+      function flashOrb() {
+        orb.classList.add('orb-flash');
+        setTimeout(() => orb.classList.remove('orb-flash'), 600);
+      }
+
+      orb.addEventListener('click', () => {
+        open ? closePanel() : openHelper();
+      });
+
+      // ESC collapses the panel (Continue stays gated until the chat is done)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && open) closePanel();
+      });
+
+      // tapping Continue while locked nudges back to the coach / slider
+      continueBtn.addEventListener('click', () => {
+        if (phase === 'done') { handleContinue(); return; }
+        if (phase === 'discuss') { if (!open) openHelper(); focusInput(); }
+        else { flashOrb(); }   // still rating
+      });
+      backBtn.addEventListener('click', () => { /* prototype: a real player would step back */ });
+
+      // ====== continue / cleared ========================================
+      function handleContinue() {
+        if (phase !== 'done') return;
+        stepCleared.hidden = false;
+        // The overlay is modal: everything behind it goes inert, and focus
+        // moves to its heading.
+        pageChrome.forEach((el) => el && el.setAttribute('inert', ''));
+        const title = document.getElementById('stepClearedTitle');
+        if (title) title.focus();
+      }
+
+      // ====== the opening beat: coach first, then reveal the slider ======
+      function runIntro() {
+        phase = 'intro';
+        openHelper();   // panel opens immediately — the coach leads
+        botSays(
+          "You've just completed a course on hazard communication — and that matters. But knowing the content is only part of it.",
+          () => botSays(
+            "The real impact comes when you can apply what you've learned to protect yourself and the people you work alongside. So before we wrap up, let's put this to work.",
+            () => botSays(
+              "How confident are you feeling in your ability to describe what you learned here to someone else?",
+              introReady
+            )
+          )
+        );
+      }
+
+      // Prompt delivered — hand control to the learner. The slider does NOT
+      // appear yet; the coach offers a "Rate my confidence" button and waits.
+      function introReady() {
+        awaitingRate = true;
+        instructions.textContent = 'When you’re ready, choose “Rate my confidence” to answer on the slider.';
+        renderFoot();
+        if (live) live.textContent = 'When you’re ready, choose to rate your confidence on the slider.';
+      }
+
+      // Learner-triggered transition: reveal the slider in the main view and
+      // step the coach aside (it returns on its own once the rating is shared).
+      function goRate() {
+        if (phase !== 'intro') return;
+        phase = 'rate';
+        awaitingRate = false;
+        confWait.hidden = true;
+        confCard.hidden = false;
+        confCard.classList.add('in');
+        paintRange();
+        instructions.textContent = 'Drag the slider to set how confident you feel.';
+        if (live) live.textContent = 'A confidence slider is now on the page. Set your level, then share it with your coach.';
+        closePanel();
+        range.focus();   // the slider is the next step — send focus there, not the orb
+        Lesson.scrollCue && Lesson.scrollCue.refresh();
+      }
+
+      // ====== reset =====================================================
+      function reset() {
+        phase = 'intro'; awaitingRate = false; touched = false; confValue = null; bucket = 'mid';
+        messages = []; loading = false; open = false; discussStep = 'format';
+
+        range.value = 50;
+        range.disabled = false;
+        range.removeAttribute('tabindex');
+        confCard.classList.remove('is-committed', 'in');
+        confCard.hidden = true;
+        confWait.hidden = false;
+        shareBtn.disabled = true;
+        paintRange();
+
+        pageChrome.forEach((el) => el && el.removeAttribute('inert'));
+        dockPanel.classList.add('is-closed');
+        dockPanel.setAttribute('inert', '');   // closed again until the coach opens it
+        dockPanel.replaceChildren();
+        stepCleared.hidden = true;
+
+        continueBtn.disabled = true;
+        navTip.querySelector('.tip').classList.add('locked');
+        continueBtn.setAttribute('aria-describedby', 'continueTip');
+        instructions.textContent = 'Your coach is introducing this step…';
+
+        refreshOrb();
+        setTimeout(runIntro, reduceMotion ? 100 : 500);
+      }
+      restartBtn.addEventListener('click', reset);
+
+      // ----- boot -----
+      paintRange();
+      refreshOrb();
+      setTimeout(runIntro, reduceMotion ? 150 : 650);
+    })();
+    </script>
+</body>
+</html>

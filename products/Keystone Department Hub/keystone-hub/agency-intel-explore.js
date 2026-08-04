@@ -146,7 +146,7 @@
       '<div style="display:flex;justify-content:flex-end;margin-top:10px">' +
       '<vaadin-button theme="primary" id="exRun"' + (state.query.trim() ? '' : ' disabled') + '>' +
       micon('auto_awesome', { size: 16 }) +
-      '<span style="margin-left:6px">Explore with Agency Intelligence</span></vaadin-button></div></div>' +
+      '<span class="kx-btn-label">Explore with Agency Intelligence</span></vaadin-button></div></div>' +
 
       '<div style="display:flex;align-items:center;gap:12px;margin:4px 0 16px">' +
       '<div style="flex:1;height:1px;background:var(--ink-100)"></div>' +
@@ -283,7 +283,7 @@
     return '<div style="max-width:780px;margin:0 auto;padding:8px 0 24px">' +
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">' +
       '<vaadin-button theme="secondary small" id="exReset">' + micon('arrow_back', { size: 15 }) +
-      '<span style="margin-left:4px">New exploration</span></vaadin-button>' +
+      '<span class="kx-btn-label">New exploration</span></vaadin-button>' +
       '<span style="display:inline-flex;align-items:center;gap:8px;min-width:0">' +
       micon(h.icon, { size: 20, fill: 1, color: 'var(--amber-600)' }) +
       '<span style="font-family:var(--font-display);font-weight:500;font-size:20px;color:var(--ink-900);' +
@@ -437,7 +437,7 @@
           if (send) {
             if (total() === 0) send.setAttribute('disabled', ''); else send.removeAttribute('disabled');
             send.innerHTML = micon('send', { size: 16 }) +
-              '<span style="margin-left:6px">' + (report.cadence === 'once' ? 'Send now' : 'Schedule') + '</span>';
+              '<span class="kx-btn-label">' + (report.cadence === 'once' ? 'Send now' : 'Schedule') + '</span>';
           }
         }
 

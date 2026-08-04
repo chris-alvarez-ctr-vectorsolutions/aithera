@@ -232,11 +232,11 @@
         attr(S.name || (editing ? editing.name : R.suggestName(S.rule))) + '">' +
         (editing
           ? '<vaadin-button theme="primary" id="auUpdateGroup">' + micon('check', { size: 16 }) +
-            '<span style="margin-left:6px">Save changes</span></vaadin-button>' +
+            '<span class="kx-btn-label">Save changes</span></vaadin-button>' +
             '<vaadin-button theme="secondary" id="auSaveGroup">' +
             '<span>Save as new</span></vaadin-button>'
           : '<vaadin-button theme="primary" id="auSaveGroup">' + micon('bookmark_add', { size: 16 }) +
-            '<span style="margin-left:6px">Save &amp; use</span></vaadin-button>') +
+            '<span class="kx-btn-label">Save &amp; use</span></vaadin-button>') +
         '</div>'
       : '';
 
@@ -325,10 +325,10 @@
         ? '<button class="au-link" data-au-step="audience">' + micon('arrow_back', { size: 14 }) +
           ' Back</button>' +
           '<vaadin-button theme="primary" id="auPublish">' + micon('campaign', { size: 16 }) +
-          '<span style="margin-left:6px">Publish</span></vaadin-button>'
+          '<span class="kx-btn-label">Publish</span></vaadin-button>'
         : '<button class="au-link" id="auCancel">Cancel</button>' +
           '<vaadin-button theme="primary" id="auNext"' + (n ? '' : ' disabled') + '>' +
-          '<span style="margin-right:6px">Review &amp; publish</span>' +
+          '<span class="kx-btn-label">Review &amp; publish</span>' +
           micon('arrow_forward', { size: 16 }) + '</vaadin-button>') +
       '</div>';
   }
