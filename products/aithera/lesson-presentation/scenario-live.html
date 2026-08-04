@@ -791,6 +791,60 @@
       @keyframes consequence-land { from { transform: translateY(10px) scale(1.04); } to { transform: none; } }
       @media (prefers-reduced-motion: reduce) { .scene-narration.consequence.enter { animation: none; } }
 
+      /* ---- CONVERSATION WINDOWS (multi-character scenes) ----------------
+         Only appear once a scene has spanned more than one counterpart. Earlier
+         conversations collapse into muted, expandable strips; the live one opens
+         beneath a "Now · <who>" divider. A single-conversation scene shows none
+         of this and is byte-identical to before. */
+      .convo-earlier {
+        border: 1px solid var(--s-line);
+        border-radius: 12px;
+        background: rgba(0,0,0,.16);
+        overflow: hidden;
+      }
+      .convo-earlier + .convo-earlier { margin-top: -6px; }
+      .convo-earlier-head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 13px;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+      }
+      .convo-earlier-head::-webkit-details-marker { display: none; }
+      .convo-earlier-head .ce-ic { color: var(--s-ink-faint); font-size: 12px; display: inline-flex; }
+      .convo-earlier-head .ce-title {
+        font-size: 11px; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--s-ink-soft); flex: 0 0 auto;
+      }
+      .convo-earlier-head .ce-meta {
+        font-size: 12.5px; color: var(--s-ink-faint);
+        flex: 1 1 auto; min-width: 0;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .convo-earlier-head .ce-chev { color: var(--s-ink-faint); font-size: 11px; transition: transform .2s ease; flex: 0 0 auto; }
+      .convo-earlier[open] .convo-earlier-head .ce-chev { transform: rotate(180deg); }
+      .convo-earlier-head:hover { background: rgba(255,255,255,.03); }
+      .convo-earlier-body {
+        padding: 12px 14px 14px;
+        display: flex; flex-direction: column; gap: 12px;
+        border-top: 1px solid var(--s-line);
+        opacity: .72;   /* archived — present but clearly settled */
+      }
+
+      /* "Now · <who>" — where the LIVE conversation begins, below the strips. */
+      .convo-now {
+        display: flex; align-items: center; gap: 9px;
+        margin: 6px 0 2px;
+        color: var(--s-you);
+        font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+      }
+      .convo-now .cn-dot {
+        flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%;
+        background: var(--s-you); box-shadow: 0 0 0 3px var(--s-you-soft);
+      }
+      .convo-now .cn-lbl { flex: 0 0 auto; }
+      .convo-now::after { content: ''; flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, var(--s-line), transparent); }
+
       /* Your scene line: caption + mic icon; amber "spoken" bubble; retry control */
       .you-scene { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
       .you-scene .cap {
@@ -1400,6 +1454,20 @@
             <i class="fa-solid fa-door-open"></i> Continue practicing <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
+        <!-- SCENE SWEEP look-again CTA: while the coach is nudging back to the
+             photo during the Observe beat (hazards still unspotted), the coach
+             sheet covers the scene — so the primary move is to GO LOOK, not to
+             type. This amber CTA drops the learner back onto the photo; a quiet
+             escape hands the composer back for those who'd rather tell the coach
+             they're done looking. -->
+        <div class="input-entry" id="inputLookAgain" hidden>
+          <button class="enter-cta enter-cta-bar" id="lookAgainCta">
+            <i class="fa-solid fa-magnifying-glass-location"></i> Look at the scene again <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+          <button class="keep-talking" id="lookAgainType">
+            <i class="fa-solid fa-comment"></i> Or answer your coach here
+          </button>
+        </div>
         <!-- Results CTA: shown once the closing recap has landed — the full
              strengths/growth-areas report opens in its own modal, not dumped
              into the chat thread. -->
@@ -1448,7 +1516,7 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=5"></script>
-    <script src="js/sim-player.js?v=2"></script>
+    <script src="js/sim-player.js?v=3"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1459,7 +1527,7 @@
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/mix-arc.js?v=5"></script>
+    <script src="js/scenario-types/mix-arc.js?v=6"></script>
     <!-- [Option B] the tier-ladder TYPES this one generic player routes to via
          ?type=. Two shapes:
            · NATIVE tier-ladder types own their own toRuntime + compile and play
@@ -1470,6 +1538,12 @@
     <script src="js/scenario-types/guided-arc.js?v=ob1"></script>
     <script src="js/scenario-types/branching-arc.js?v=3"></script>
     <script src="js/scenario-types/ensemble-arc.js?v=9"></script>
+    <script src="js/scenario-types/scene-sweep.js?v=9"></script>
+    <!-- [Option B] the OPT-IN perception layer: the photo/hotspot "spot the
+         hazard" Observe canvas + coverage rail. Mounts ONLY for a scenario with a
+         kind:'spot' phase (scene-sweep); the four conversational types never
+         install it. Loads after scene-sweep.js (which defines window.SceneSweepGeo). -->
+    <script src="js/sim-perception.js?v=1"></script>
 
     <script>
     /* =====================================================================
@@ -1536,8 +1610,15 @@
     };
     const REQ_TYPE = (window.AitheraStudio && window.AitheraStudio.get(REQ_ID))
       || TYPE_GLOBALS[REQ_ID] || BA_TYPE;
+    // A named CURATED EXAMPLE (?scenario=<id>) wins over both the published draft
+    // and the DEFAULT — a shared example link always shows THAT scenario, never
+    // whatever the viewer happens to have published in their local Studio store.
+    const REQ_SCEN = new URLSearchParams(location.search).get('scenario') || '';
+    const REQ_EXAMPLE = (REQ_SCEN && REQ_TYPE && REQ_TYPE.EXAMPLES && REQ_TYPE.EXAMPLES[REQ_SCEN]) || null;
     const REQ_PUB = REQ_TYPE && REQ_TYPE.store && REQ_TYPE.store.loadPublished();
-    const REQ_SRC = (REQ_PUB && REQ_PUB.scenario) ? REQ_PUB.scenario : (REQ_TYPE ? REQ_TYPE.DEFAULT : {});
+    const REQ_SRC = REQ_EXAMPLE ? REQ_EXAMPLE
+      : (REQ_PUB && REQ_PUB.scenario) ? REQ_PUB.scenario
+      : (REQ_TYPE ? REQ_TYPE.DEFAULT : {});
 
     // How the requested type PLAYS on the shared tier-ladder engine:
     //  · a NATIVE tier-ladder type (mix-arc, branching, ensemble, scene-sweep)
@@ -1639,6 +1720,10 @@
       debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
       returnLabel: null,        // custom label for the scene-return CTA (e.g. "Check in with Marshall")
       sceneTarget: null,        // who the learner is speaking to in the scene now (e.g. "Marshall") — drives the composer placeholder
+      // —— CONVERSATION WINDOWS (multi-character scenes; see beginConvo) ——
+      convoSeq: 0,              // id of the CURRENT scene conversation; bumps each time the counterpart changes
+      convoKey: null,           // raw counterpart of the current conversation (boundary detection)
+      convoLabel: null,         // display label of the current conversation (null for a self-narrated moment)
       // —— THE LADDER ENGINE (app-owned; the model classifies, the app routes) ——
       phaseIdx: -1,             // -1 = reflection warm-up; 0..N-1 = live phases[phaseIdx]; >=N = ladder complete (model closes)
       turnsInPhase: 0,          // learner turns spent in the CURRENT phase (vs. its maxTurns cap)
@@ -1648,16 +1733,50 @@
       reflectionProbed: false,  // [Option B] the warm-up has spent its ONE clarifying probe (see sim-player.js)
       scenePlaceholder: '',     // the live phase's authored composer placeholder
       entryLabel: '',           // the live phase's authored crossing CTA ("Step into the room")
+      // —— PERCEPTION (scene-sweep only; inert for the conversational types) ——
+      covered: new Set(),       // rubric hazard ids the learner has spotted (drives the coverage rail)
+      decoysChecked: new Set(), // decoy region ids the learner has tried (marked "safe")
+      marking: false,           // true while in the Observe canvas (tapping the photo)
+      markStarted: false,       // dismissed the briefing / made a first mark (bottom CTA appears)
+      briefUp: false,           // the "Start looking" briefing overlay is up
+      misses: 0,                // taps that hit nothing — a couple reveals the "stuck?" escape hatch
+      coachStarted: false,      // the coach conversation has begun (first cross to React)
+      reportedToCoach: new Set(), // hazard ids already summarized to the coach (re-cross only mentions new finds)
+      lookAgainDismissed: false, // learner chose to type instead of going back to the photo on a nudge
     };
     // Seed the declared session state with its authored initial values.
     (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
+
+    /* [Option B] PERCEPTION LAYER — mount the opt-in "spot the hazard" Observe
+       canvas ONLY for a scenario that has a kind:'spot' phase (scene-sweep). Every
+       other type leaves PERCEPTION null and takes none of the sweep branches, so
+       the conversational player is untouched. The module owns the photo/hotspot
+       canvas, the coverage rail, the a11y marking paths, and the Observe⇄React
+       crossings; it drives this page's turn engine via the thunks below. */
+    const _hasSpotPhase = (ACTIVE_SCENARIO.phases || []).some((p) => p && p.kind === 'spot');
+    const PERCEPTION = (_hasSpotPhase && window.SimPerception) ? window.SimPerception.install({
+      scenario: ACTIVE_SCENARIO, state, fillT,
+      el: (t, c, h) => el(t, c, h),
+      esc: (s) => esc(s),
+      announce: (m) => announce(m),
+      getCoachPanelBody: () => coachPanelBody,
+      getComposer: () => composer,
+      send: () => send(),
+      deliverOpening: () => deliverOpening(),
+      render: () => render(),
+    }) : null;
+    // Every sweep branch below is guarded on IS_SWEEP, which is TRUE only when the
+    // perception layer actually installed — so PERCEPTION is never dereferenced null.
+    const IS_SWEEP = !!PERCEPTION;
 
     /* [Option B] The tier-ladder ENGINE now lives in js/sim-player.js — the one
        shared engine every type runs on. It closes over this page's live
        scenario/state/fillT; the DOM reveal (deliverTurn/render/coachNode) stays
        here. entryBeatsFor + closePhase are engine-internal; the page drives
        arcStateBlock (the per-turn state line), runArcEngine, and applyDeliver. */
-    const _LADDER = window.SimPlayer.makeLadder({ scenario: ACTIVE_SCENARIO, state, fillT });
+    const _LADDER = window.SimPlayer.makeLadder({ scenario: ACTIVE_SCENARIO, state, fillT,
+      // scene-sweep injects its per-turn COVERAGE line for the spot phase; null otherwise.
+      coverageBlock: PERCEPTION ? PERCEPTION.coverageBlock : null });
     const arcStateBlock = _LADDER.arcStateBlock;
     const runArcEngine  = _LADDER.runArcEngine;
     const applyDeliver  = _LADDER.applyDeliver;
@@ -1671,6 +1790,45 @@
       const out = [];
       for (let i = msgs.length - 1; i >= 0 && worldOf(msgs[i]) === world; i--) out.unshift(msgs[i]);
       return out;
+    }
+
+    /* ---- CONVERSATION WINDOWS (multi-character scenes) -------------------
+       A ladder can move the learner between DIFFERENT counterparts (talk to
+       Ms. Reyes → coaching → talk to Bianca). Each counterpart gets its OWN
+       scene window: when the person changes, a new conversation opens and the
+       prior one collapses. Every scene message is stamped with the live
+       conversation's id (`convo`) + display label (`convoLabel`); the view
+       (sceneCardAll) segments on those. Same person across a coaching beat stays
+       ONE conversation. This is a VIEW model only — the transcript sent to the
+       model (getTurn) is never windowed, so cross-phase memory is intact. */
+
+    // The counterpart of the scene phase the learner is currently entering/in.
+    function scenePhaseCounterpart() {
+      const phases = ACTIVE_SCENARIO.phases || [];
+      const p = phases[state.phaseIdx];
+      return (p && p.world === 'scene') ? (p.counterpart || '') : '';
+    }
+
+    // Open a conversation for `counterpartRaw`. Bumps the id only when the person
+    // actually changes, so consecutive same-person scenes read as one thread.
+    // 'Narrator'/'' are self-narrated moments — a window, but with no "· who" label.
+    function beginConvo(counterpartRaw) {
+      const raw = (counterpartRaw == null ? '' : String(counterpartRaw)).trim();
+      if (state.convoSeq === 0 || raw !== state.convoKey) {
+        state.convoSeq++;
+        state.convoKey = raw;
+        state.convoLabel = (raw && raw !== 'Narrator') ? fillT(raw) : null;
+      }
+    }
+
+    // Stamp a scene message with the live conversation (no-op for coaching / if
+    // already stamped, so a re-render or retry never re-labels a settled line).
+    function stampScene(m) {
+      if (m && worldOf(m) === 'scene' && m.convo == null) {
+        m.convo = state.convoSeq;
+        m.convoLabel = state.convoLabel;
+      }
+      return m;
     }
 
     /* =====================================================================
@@ -1698,13 +1856,13 @@
     const TIER_SET = new Set(
       (ACTIVE_SCENARIO.phases || []).flatMap((p) => (p.calibration || [])
         .map((t) => String(t.tier || '').trim().toUpperCase()).filter(Boolean)));
-    const TURN_PARSER = SimCore.makeTurnParser({
+    const TURN_PARSER = SimCore.makeTurnParser(Object.assign({
       name: true,
       sceneHints: true,
       deliver: (id) => (ACTIVE_SCENARIO.phases || []).some((p) => p.id === id),
       action: true,                  // "continue" | "teach" | "redirect" — the app owns routing
       tier: (t) => { t = String(t || '').trim().toUpperCase(); return TIER_SET.has(t) ? t : null; },
-    });
+    }, PERCEPTION ? { spotted: PERCEPTION.spottedValidator } : {}));   // scene-sweep: which hazards the learner named
 
     /* The per-turn [SYSTEM STATE] line: the app is the source of truth for
        WHICH phase is live, how many learner turns it has consumed vs. its cap,
@@ -1756,6 +1914,9 @@
     const inputIcon     = document.getElementById('inputIcon');
     const inputHint     = document.getElementById('inputHint');
     const liveRegion    = document.getElementById('liveRegion');
+    const inputLookAgain= document.getElementById('inputLookAgain');   // scene-sweep only
+    const lookAgainCta  = document.getElementById('lookAgainCta');
+    const lookAgainType = document.getElementById('lookAgainType');
     const inputResults  = document.getElementById('inputResults');
     const resultsCtaBtn = document.getElementById('resultsCtaBtn');
     // (the results modal's elements are owned by the shared debrief —
@@ -1933,15 +2094,17 @@
       wrap.appendChild(el('div', 'bubble', esc(m.text)));
       return wrap;
     }
-    function charNode(m, isConsequence) {
+    function charNode(m, isConsequence, defaultName) {
       // narration-only line (no dialogue) → quiet centered scene-setting text.
       // The outcome narration that lands right after the learner acts is the
       // CONSEQUENCE tier (larger, spotlit) — flagged by the caller.
       if (m.kind === 'narration') return el('div', 'scene-narration' + (isConsequence ? ' consequence' : '') + ec(m), narrationHTML(m));
       const wrap = el('div', 'char-line' + ec(m));
       // Per-message speaker (m.name) so a second in-scene character (Marshall)
-      // is labeled correctly; falls back to the scenario's default character.
-      const speaker = m.name || SCENARIO.character;
+      // is labeled correctly; falls back to THIS conversation's counterpart
+      // (so an unnamed line in Bianca's window reads "Bianca", not the default),
+      // then to the scenario's default character.
+      const speaker = m.name || defaultName || SCENARIO.character;
       wrap.appendChild(el('div', 'char-avatar', esc(speaker.charAt(0))));
       const body = el('div', 'char-body');
       const head = el('div', 'char-head');
@@ -2003,22 +2166,82 @@
     // its TRUE index so "Try a different approach" truncates to the right place.
     function sceneCardAll(msgs, interactive) {
       const card = el('div', 'stage-card');
-      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
-      // Track the previous scene speaker so the FIRST narration after a learner
-      // action renders as the emphasized CONSEQUENCE tier (the outcome of what
-      // they just did) — ambient scene-setting narration stays quiet.
-      let prevSceneSpeaker = null;
+
+      // Segment scene messages into per-counterpart CONVERSATIONS — contiguous
+      // runs sharing a `convo` id (see beginConvo/stampScene). The latest is the
+      // LIVE window; any earlier ones collapse. Messages keep their TRUE index so
+      // "Try a different approach" still truncates to the right place.
+      const groups = [];
       msgs.forEach((m, idx) => {
         if (worldOf(m) !== 'scene') return;
+        const id = m.convo || 0;
+        const tail = groups[groups.length - 1];
+        const g = (tail && tail.id === id) ? tail : (groups.push({ id, label: m.convoLabel || null, items: [] }), groups[groups.length - 1]);
+        g.items.push({ m, idx });
+      });
+
+      if (!groups.length) {
+        card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+        return card;
+      }
+
+      // ONE conversation (every scene-sweep / branching / mix / guided run, and
+      // the ensemble until a second person appears): render exactly as before —
+      // no windowing chrome at all.
+      const live = groups[groups.length - 1];
+      if (groups.length === 1) {
+        card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+        renderSceneLines(card, live.items, interactive, live.label);
+        return card;
+      }
+
+      // MULTIPLE conversations: earlier ones collapse (read-only), the current one
+      // opens fresh beneath a "Now · <who>" divider.
+      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+      groups.slice(0, -1).forEach((g) => card.appendChild(collapsedConvoNode(g)));
+      const who = live.label;
+      card.appendChild(el('div', 'convo-now',
+        `<span class="cn-dot"></span><span class="cn-lbl">Now${who ? ' · ' + esc(who) : ''}</span>`));
+      renderSceneLines(card, live.items, interactive, live.label);
+      return card;
+    }
+
+    // Render a conversation's scene lines into `container`. Tracks the previous
+    // scene speaker so the FIRST narration after a learner action renders as the
+    // emphasized CONSEQUENCE tier (the outcome of what they did) — ambient
+    // scene-setting narration stays quiet. `defaultName` labels unnamed character
+    // lines with this window's counterpart.
+    function renderSceneLines(container, items, interactive, defaultName) {
+      let prevSceneSpeaker = null;
+      items.forEach(({ m, idx }) => {
         if (m.speaker === 'character') {
           const isConsequence = m.kind === 'narration' && prevSceneSpeaker === 'you';
-          card.appendChild(charNode(m, isConsequence));
+          container.appendChild(charNode(m, isConsequence, defaultName));
         } else if (m.speaker === 'you') {
-          appendYouBeats(card, m, idx, interactive);
+          appendYouBeats(container, m, idx, interactive);
         }
         prevSceneSpeaker = m.speaker;
       });
-      return card;
+    }
+
+    // A finished conversation, collapsed to a compact expandable strip. Read-only
+    // (interactive:false → no retry) — a record of what happened with that person,
+    // not a place to act.
+    function collapsedConvoNode(g) {
+      const who = g.label;
+      const turns = g.items.filter((x) => x.m.speaker === 'you').length;
+      const d = el('details', 'convo-earlier');
+      const sum = el('summary', 'convo-earlier-head');
+      sum.innerHTML =
+        `<span class="ce-ic"><i class="fa-solid fa-clock-rotate-left"></i></span>
+         <span class="ce-title">Earlier${who ? ' · ' + esc(who) : ''}</span>
+         <span class="ce-meta">${who ? 'your conversation with ' + esc(who) : 'a moment you narrated'}${turns ? ` · ${turns} ${turns === 1 ? 'turn' : 'turns'}` : ''}</span>
+         <span class="ce-chev"><i class="fa-solid fa-chevron-down"></i></span>`;
+      d.appendChild(sum);
+      const body = el('div', 'convo-earlier-body');
+      renderSceneLines(body, g.items, false, who);
+      d.appendChild(body);
+      return d;
     }
 
     /* ---- the resources card, presented AS a coach message (same avatar +
@@ -2204,6 +2427,7 @@
       app.dataset.entered = String(hasEnteredScene);
       app.classList.toggle('coach-up', coachUp);
       app.classList.toggle('trap', trap);
+      app.classList.toggle('sweep', IS_SWEEP);   // scene-sweep: persistent photo + coverage rail
 
       // Withheld through the establishing card and the cold-open video — there's
       // no real Learn/Practice choice yet. Revealed once the coach actually begins.
@@ -2213,29 +2437,44 @@
       modeIndicator.setAttribute('aria-hidden', String(!state.started));
       modeIndicator.inert = !state.started;
 
-      /* —— Mode indicator: Learn | Practice toggle (raises/lowers the sheet) —— */
+      /* —— Mode indicator: the two-world toggle. Sweep relabels it OBSERVE (the
+         tap-to-mark photo) | REACT (the coach), and keeps both live once the
+         experience has started so the learner can swap at will. Other scenarios
+         keep Learn | Practice (raises/lowers the coach sheet). —— */
       const busy = state.transitioning || state.sending || state.delivering;
-      // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
-      const coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
-      // "Practice" lights up once the coach has invited entry, even before stepping in
-      const sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
-      // hover tooltips clarify what tapping the inactive segment does (only meaningful
-      // when it's enabled and not already the active mode)
-      const learnTip = (mode !== 'coaching' && !coachDisabled)
-        ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
-      const sceneTip = (mode !== 'scene' && !sceneDisabled)
-        ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
+      let coachDisabled, sceneDisabled, learnTip, sceneTip, coachSeg, sceneSeg;
+      if (IS_SWEEP) {
+        coachSeg = { label: 'React', icon: 'fa-comments' };
+        sceneSeg = { label: 'Observe', icon: 'fa-magnifying-glass-location' };
+        // both live once started; only busy (a reveal in flight) locks them
+        coachDisabled = mode !== 'coaching' && (busy || !state.started);
+        sceneDisabled = mode !== 'scene' && (busy || !state.started);
+        learnTip = (mode !== 'coaching' && !coachDisabled)
+          ? (state.coachStarted ? 'Back to your coach' : 'Talk it through with your coach') : '';
+        sceneTip = (mode !== 'scene' && !sceneDisabled) ? 'Look at the scene again' : '';
+      } else {
+        coachSeg = { label: 'Learn', icon: 'fa-chalkboard-user' };
+        sceneSeg = { label: 'Practice', icon: 'fa-door-open' };
+        // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
+        coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
+        // "Practice" lights up once the coach has invited entry, even before stepping in
+        sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
+        learnTip = (mode !== 'coaching' && !coachDisabled)
+          ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
+        sceneTip = (mode !== 'scene' && !sceneDisabled)
+          ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
+      }
       modeIndicator.innerHTML =
-        `<div class="mode-toggle" role="group" aria-label="Learn or practice mode">
+        `<div class="mode-toggle" role="group" aria-label="${IS_SWEEP ? 'Observe or react mode' : 'Learn or practice mode'}">
            <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
                    ${learnTip ? `data-tip="${learnTip}"` : ''}
                    aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
-             <i class="fa-solid fa-chalkboard-user"></i> Learn
+             <i class="fa-solid ${coachSeg.icon}"></i> ${coachSeg.label}
            </button>
            <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
                    ${sceneTip ? `data-tip="${sceneTip}"` : ''}
                    aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
-             <i class="fa-solid fa-door-open"></i> Practice
+             <i class="fa-solid ${sceneSeg.icon}"></i> ${sceneSeg.label}
            </button>
          </div>`;
 
@@ -2257,12 +2496,20 @@
       // other reasons (the coach sheet rising) must not tear down a playing card.
       const videoAlreadyMounted = state.videoPlaying && stageInner.querySelector('.scene-video');
       const audioAlreadyMounted = state.audioIntroPlaying && stageInner.querySelector('.sc-wrap');
-      if (!videoAlreadyMounted && !audioAlreadyMounted) {
+      // Scene Sweep: the photo is a PERSISTENT panel — mount it once (so the image
+      // never reloads/flickers on re-render) and only refresh the coverage HUD
+      // after. It shows the moment the reading intro is done (state.started) and
+      // stays up through every beat and the close.
+      const sweepShouldMount = IS_SWEEP && state.started && PERCEPTION.sceneImg && !state.audioIntroPlaying;
+      const sweepAlreadyMounted = sweepShouldMount && stageInner.querySelector('.sweep-scene');
+      if (!videoAlreadyMounted && !audioAlreadyMounted && !sweepAlreadyMounted) {
         stageInner.innerHTML = '';
         if (state.videoPlaying) {
           stageInner.appendChild(videoNode());
         } else if (state.audioIntroPlaying) {
           mountAudioIntro(stageInner);
+        } else if (sweepShouldMount) {
+          stageInner.appendChild(PERCEPTION.sceneNode());
         } else if (hasEnteredScene) {
           // Retry controls render whenever the scene is live (not complete / mid-reveal),
           // REGARDLESS of mode — the stage is inert while the coach sheet is up, so they
@@ -2281,10 +2528,17 @@
           stageInner.appendChild(est);
         }
       }
+      // Scene Sweep: refresh the Observe HUD (progress pill + bottom CTA) every
+      // render while the full-bleed photo is mounted; the photo itself is untouched.
+      if (IS_SWEEP && stageInner.querySelector('.sweep-scene')) { PERCEPTION.updateHud(); PERCEPTION.reposition(); }
 
       /* —— AI Coach sheet — up whenever we're in Learn mode (prep AND debriefs) —— */
       coachPanel.toggleAttribute('inert', !coachUp);
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
+      // Scene Sweep: keep the coverage chip rail pinned to the top of the coach
+      // sheet in React mode (removed otherwise). Runs before the body reconcile so
+      // the rail stays the first child.
+      if (IS_SWEEP) PERCEPTION.updateRail();
       if (coachUp) {
         // Incremental — preserves scroll (see reconcileCoachBody). The closing
         // recap shows here like any other coach line; loading beats live in the
@@ -2319,6 +2573,13 @@
       // The coach has replied and is ready to send the learner back into the
       // scene, but waits for this tap rather than auto-transitioning.
       const showReturn    = state.awaitingReturn && !state.delivering;
+      // SCENE SWEEP: the coach is nudging back to the photo (still in the Observe
+      // beat, hazards left to find) but the sheet covers it — offer the way back
+      // as the PRIMARY action, right under the nudge, unless they've opted to type.
+      const showLookAgain = IS_SWEEP && state.coachStarted && mode === 'coaching'
+        && !complete && !state.delivering && !state.sending && !state.analyzing
+        && !state.awaitingDebrief && !state.awaitingResults && !state.awaitingReturn
+        && state.phaseIdx === PERCEPTION.spotPhaseIndex && PERCEPTION.unspottedCount() > 0 && !state.lookAgainDismissed;
       // Once the recap lands, this replaces the composer just like every other
       // CTA here — tapping it is what opens the results modal (never auto-shown).
       const showResults   = state.awaitingResults && !state.resultsModalOpen;
@@ -2334,10 +2595,11 @@
       inputIntroContinue.hidden = !showIntroContinue;
       inputDebrief.hidden   = !showDebrief;
       inputReturn.hidden    = !showReturn;
+      inputLookAgain.hidden = !showLookAgain;
       inputResults.hidden   = !showResults;
       inputContinue.hidden  = !showContinue;
       inputDone.hidden      = !showDone;
-      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showIntroContinue || showDebrief || showReturn || showResults || showContinue || showDone;
+      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showIntroContinue || showDebrief || showReturn || showLookAgain || showResults || showContinue || showDone;
       if (showAnalyzing) {
         inputAnalyzing.lastChild.textContent = state.closingStepperActive
           ? DEBRIEF.closingLabel()
@@ -2454,6 +2716,7 @@
         m._enter = true;
         if (!state.hasEnteredScene) state.hasEnteredScene = true;
         followStage = true;
+        stampScene(m);            // tag with the live conversation (per-counterpart window)
         state.messages.push(m);
         render();
         await wait(reducedMotion() ? 140 : 700);      // settle so it reads before the next beat
@@ -2693,6 +2956,11 @@
       // title card. audioIntroPlaying is cleared for good in enterScene(), when
       // the real scene finally takes the stage.
       if (audioIntroHandle) audioIntroHandle.stop();
+      // SCENE SWEEP is the exception: it hands STRAIGHT to the full-bleed Observe
+      // canvas (mounted only when !audioIntroPlaying), not to a coach sheet over
+      // the frozen context — so clear it now rather than in enterScene() (which
+      // scene-sweep never reaches: there is no character scene to step into).
+      if (IS_SWEEP) state.audioIntroPlaying = false;
       CONTEXT.done({ modality: AUDIO_INTRO_MODALITY });   // → startSession(record)
     }
 
@@ -2824,9 +3092,11 @@
           ladder: { ...state.ladder }, vars: { ...state.vars }, lastTier: state.lastTier,
           scenePlaceholder: state.scenePlaceholder, entryLabel: state.entryLabel,
           sceneTarget: state.sceneTarget,
+          convoSeq: state.convoSeq, convoKey: state.convoKey, convoLabel: state.convoLabel,
         };
         if (SCENE_SAYDO) youMsg._pending = true;
         else youMsg._display = [{ kind: 'dialogue', text }];
+        stampScene(youMsg);       // the learner's line joins the live conversation window
         state.messages.push(youMsg);
         followStage = true;   // new scene content — follow it down
       } else {
@@ -2879,6 +3149,11 @@
         if (!composer.disabled && !inputMain.hidden) composer.focus();
         return;
       }
+
+      // SCENE SWEEP: merge the model's credited catches (turn.spotted) into the
+      // coverage set BEFORE the ladder routes, so the rail and the next
+      // [SYSTEM STATE] coverage line reflect them.
+      if (PERCEPTION && Array.isArray(turn.spotted)) PERCEPTION.creditSpotted(turn.spotted);
 
       // LOCKED (grey) beats: the model only writes the dynamic feedback, then
       // asks us to show the next app-owned beat via turn.deliver. We append that
@@ -2981,8 +3256,14 @@
       // a scene line just drew its reaction, OR on the FINAL turn — so a
       // completion delivered in coaching (Beat C ends with a coach recap, not a
       // scene beat) still routes through the closing build-up + results.
-      const intoDebrief = (i < items.length) && state.hasEnteredScene
-        && (state.mode === 'scene' || state.complete);
+      // SCENE SWEEP never flips hasEnteredScene (there is no character scene to
+      // step into), so the normal hasEnteredScene route would never reach the
+      // guaranteed close. Route its final coach recap through the closing flow on
+      // state.complete directly — guarded on IS_SWEEP so the conversational types
+      // keep their exact behavior.
+      const intoDebrief = (i < items.length) && (
+        (IS_SWEEP && state.complete)
+        || (state.hasEnteredScene && (state.mode === 'scene' || state.complete)));
       if (intoDebrief) {
         hideTyping();                                // the reply has arrived — drop the "…" before the Analyzing beat
                                                      // (a coaching-only close has no leadScene/revealScene to clear it, so it would otherwise hang)
@@ -3058,6 +3339,9 @@
       state.returnLabel = null;
       state.mode = p.mode; state.inputTarget = p.inputTarget;
       state.sceneTarget = p.sceneTarget || null;   // who (if anyone) the learner now faces
+      // A different counterpart opens a NEW conversation window (the prior one
+      // collapses); returning to the SAME person just continues that window.
+      beginConvo(scenePhaseCounterpart());
       followStage = true;
       announce(p.sceneTarget ? `Back in with ${p.sceneTarget}.` : 'Back in the scene.');
       // Paint the NEW moment in the scene pane — the next phase's locked entry
@@ -3107,7 +3391,7 @@
         state.awaitingReturn = true;
       } else if (scenePart.length) {
         // No return context armed but scene beats arrived — never drop them.
-        scenePart.forEach((m) => { m._enter = true; state.messages.push(m); });
+        scenePart.forEach((m) => { m._enter = true; stampScene(m); state.messages.push(m); });
       }
       announce('Stepped out to your AI coach.');
       // Reveal the debrief one bubble at a time (typing beat between each), the
@@ -3152,6 +3436,7 @@
       state.audioIntroPlaying = false;   // likewise the reading/audio context backdrop — the real scene takes over now
       if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
       state.mode = 'scene'; state.inputTarget = 'character';
+      beginConvo(scenePhaseCounterpart());   // open the FIRST conversation window
       state.delivering = true;
       announce('You step into the moment.');
       render();   // coach sheet lowers; the (empty) live scene is revealed beneath it
@@ -3206,6 +3491,7 @@
         state.ladder = { ...a.ladder }; state.vars = { ...a.vars }; state.lastTier = a.lastTier;
         state.scenePlaceholder = a.scenePlaceholder; state.entryLabel = a.entryLabel;
         state.sceneTarget = a.sceneTarget;
+        if ('convoSeq' in a) { state.convoSeq = a.convoSeq; state.convoKey = a.convoKey; state.convoLabel = a.convoLabel; }
       }
       state.messages = state.messages.slice(0, absIndex);
       state.complete = false;
@@ -3239,6 +3525,7 @@
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
         awaitingReturn: false, pendingReturn: null,
         debriefReturn: null, returnLabel: null, sceneTarget: null,
+        convoSeq: 0, convoKey: null, convoLabel: null,   // reset the conversation windows
         // reset the app-owned ladder engine
         phaseIdx: -1, turnsInPhase: 0, ladder: {}, vars: {}, lastTier: null, reflectionProbed: false,
         scenePlaceholder: '', entryLabel: '',
@@ -3262,6 +3549,10 @@
         appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
       });
+      // SCENE SWEEP diverges here: rather than raising the coach with a reflection
+      // prompt, the learner first OBSERVES — a full-bleed photo they sweep for
+      // hazards. The coach comes in later (React), on the learner's own crossing.
+      if (IS_SWEEP) { PERCEPTION.enterMarking(); return; }
       state.started = true;
       state.mode = 'coaching'; state.inputTarget = 'coach';
       announce('Bringing in your AI coach.');
@@ -3345,6 +3636,14 @@
     });
     // Debrief bar: open the queued coach debrief when the learner is ready.
     debriefCtaBtn.addEventListener('click', openDebrief);
+    // SCENE SWEEP "look again" bar: the CTA drops back onto the photo; the escape
+    // hands the composer back for a learner who'd rather tell the coach they're done.
+    if (lookAgainCta) lookAgainCta.addEventListener('click', () => { if (PERCEPTION) PERCEPTION.enterObserve(); });
+    if (lookAgainType) lookAgainType.addEventListener('click', () => {
+      state.lookAgainDismissed = true;
+      render();
+      composer.focus();
+    });
     // Return bar: cross back into the scene on the learner's own command.
     returnCtaBtn.addEventListener('click', returnToScene);
     // Results bar: opens the shared debrief's results modal (never auto-shown).
@@ -3388,6 +3687,13 @@
       const seg = e.target.closest('.seg');
       if (!seg || seg.disabled) return;
       const which = seg.dataset.seg;
+      // SCENE SWEEP: the toggle swaps Observe (the photo) ⇄ React (the coach).
+      if (IS_SWEEP) {
+        if (which === state.mode) return;
+        if (which === 'scene') PERCEPTION.enterObserve();     // → look at the scene again
+        else PERCEPTION.crossToReact('toggle');               // → the coach (credits new marks)
+        return;
+      }
       if (which === 'coaching' && !state.started) { CONTEXT.done({ modality: 'none' }); return; }  // begin (skips the intro)
       if (which === state.mode) return;               // already active
       if (which === 'coaching') {                     // → the coach layer

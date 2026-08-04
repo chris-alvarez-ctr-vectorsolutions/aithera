@@ -475,7 +475,7 @@ ${CRAFT_COMMON}`;
             { key: 'segmentsList', kind: 'lines', required: true, minRows: 4, label: 'The footage — one segment per line, in viewing order',
               helper: 'What\'s on screen in each segment. No clips yet? The page shows placeholder frames until you add URLs.' },
             { key: 'videoUrls', kind: 'lines', minRows: 2, noSeed: true, label: 'Video URLs in the same order (optional)',
-              helper: 'e.g. ../assets/videos/my-clip.mp4 — leave blank lines for segments without footage yet.' },
+              helper: 'e.g. ../../../assets/videos/my-clip.mp4 — leave blank lines for segments without footage yet.' },
             { key: 'expertEye', kind: 'area', required: true, minRows: 4, label: 'What should a trained eye catch — and what does a weak read miss?',
               helper: 'This is what the coach quietly probes against.' },
             { key: 'synthesisAsk', kind: 'area', required: true, minRows: 2, label: 'The final ask — what should the learner walk through at the end?',

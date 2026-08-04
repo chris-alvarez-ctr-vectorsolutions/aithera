@@ -102,6 +102,8 @@ For the complete list with props and examples, see `CORE-CONTEXT.md`
 
 > **Two files are named `index.html` — don't confuse them.** The one at the **feature root** is the loader (copied verbatim from `base-template/index.html`, never edited). The one at **`verN/index.html`** is the actual mock you design in. They are always one folder apart.
 
+> **🚫 A third `index.html` is off-limits: the one at the REPO ROOT.** `/index.html` is the GitHub Pages **landing page** for the whole site (<https://vectorlearning.github.io/ux-mockups/>) — it lists every product and links to each dashboard. It is never a mock, never a loader, and never where design work goes. A mock once got written there and the live site served that single prototype to everyone until someone noticed. Three guards now block it: a Claude Code `PreToolUse` hook, the `scripts/git-hooks/pre-commit` hook, and a GitHub Actions job that auto-restores the file on push. All three key off the `GUARD:PAGES-LANDING-PAGE` marker comment at the top of the file — **keep that comment.** To change the landing page on purpose, see `scripts/git-hooks/README.md`: `touch .claude/.allow-landing-edit` to unlock the write, and commit with `LANDING=1 git commit …`.
+
 **Scaffold a new feature like this** (feature folder = the ticket/ask name; ask if not given):
 
 ```

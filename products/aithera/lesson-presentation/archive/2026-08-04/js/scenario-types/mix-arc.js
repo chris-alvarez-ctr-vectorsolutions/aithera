@@ -839,7 +839,7 @@ ${closer}`);
             'The clip the learner watches, then reacts to. The player SHOWS it on screen as a card right before the coach asks — a real <b>video</b> if you give a src, otherwise the <b>described moment</b> from the caption. Write the caption as the moment the learner sees. The affective beat validates the gut reaction before analysis.'));
           body.append(rowsBlock(`beats.${i}.media.segments`, (sc, k, onDelS) => rowCard(`Segment ${k + 1}`, onDelS,
             tf(`beats.${i}.media.segments.${k}.label`, 'Segment label', { placeholder: 'Stand-up, replayed' }),
-            tf(`beats.${i}.media.segments.${k}.src`, 'Video src (optional — leave blank for a described clip)', { placeholder: '../assets/videos/clip.mp4' }),
+            tf(`beats.${i}.media.segments.${k}.src`, 'Video src (optional — leave blank for a described clip)', { placeholder: '../../../assets/videos/clip.mp4' }),
             tf(`beats.${i}.media.segments.${k}.caption`, 'The moment, described — shown to the learner on screen (and what the coach reacts to)', { area: true, minRows: 3 }),
           ), 'Add segment', () => ({ src: '', label: '', caption: '' })));
           const aff = document.createElement('vaadin-checkbox');

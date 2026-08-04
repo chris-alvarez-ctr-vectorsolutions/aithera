@@ -1,0 +1,72 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────────────
+# Guard 2 of 3: git pre-commit hook.
+#
+# Refuses to commit a change to the repo-root index.html — the GitHub Pages
+# landing page — unless the commit is explicitly ABOUT the landing page.
+# Catches clobbers that never went through an editor: cp, shell redirects,
+# scripts, other agents.
+#
+# Intentional landing-page commit:
+#     LANDING=1 git commit -m "Landing page: ..."
+#
+# Install (per clone — git hooks are not shared automatically):
+#     git config core.hooksPath scripts/git-hooks
+#
+# See scripts/git-hooks/README.md.
+# ─────────────────────────────────────────────────────────────────────────────
+
+set -u
+
+MARKER='GUARD:PAGES-LANDING-PAGE'
+
+# Is the root index.html part of this commit at all?
+if ! git diff --cached --name-only | grep -qx 'index.html'; then
+  exit 0
+fi
+
+# The staged content must still carry the guard marker. Losing it is the exact
+# signature of a clobber (a mock written over the landing page).
+if ! git show ":index.html" 2>/dev/null | grep -q "$MARKER"; then
+  cat >&2 <<EOF
+
+  ✋ COMMIT BLOCKED — the root index.html lost its landing-page marker.
+
+  index.html at the repo root is the GitHub Pages landing page:
+      https://vectorlearning.github.io/ux-mockups/
+
+  The staged version no longer contains "$MARKER",
+  which means something overwrote it — almost certainly a mock written to the
+  wrong path. Mocks belong at products/<Product>/<feature>/verN/index.html.
+
+  To discard the clobber and restore the landing page:
+      git restore --staged --worktree index.html
+
+  If you really are rewriting the landing page, keep the GUARD marker comment
+  at the top of the file, then commit with:
+      LANDING=1 git commit ...
+
+EOF
+  exit 1
+fi
+
+# Marker intact, but a landing-page change still needs explicit intent.
+if [ "${LANDING:-}" != "1" ]; then
+  cat >&2 <<EOF
+
+  ✋ COMMIT BLOCKED — index.html (the GitHub Pages landing page) is staged.
+
+  This file is protected because it is the site index for every product
+  dashboard, not a mock. If this change is a side effect of other work,
+  unstage it:
+      git restore --staged index.html
+
+  If you ARE intentionally updating the landing page, say so explicitly:
+      LANDING=1 git commit -m "Landing page: ..."
+
+EOF
+  exit 1
+fi
+
+echo "  ✓ Landing-page change authorised via LANDING=1 (marker intact)." >&2
+exit 0

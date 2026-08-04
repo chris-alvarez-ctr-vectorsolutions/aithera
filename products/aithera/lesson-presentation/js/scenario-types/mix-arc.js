@@ -58,6 +58,24 @@
 - If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
   };
 
+  /* The locked THREAT-CONTENT FLOOR — ported VERBATIM from branching-arc.js (its
+     source of truth). branching-arc compiles it into EVERY scenario because that
+     type is inherently escalation-shaped; a composed Mix & Match scenario opts in
+     per scenario via the `threatContent` flag, so any escalation/violence example
+     (e.g. the WPV "Reading the Warning Signs" example) gets the SAME locked floor.
+     Compiled only when threatContent is set. Keep in sync with branching-arc. */
+  const THREAT_SECTION = {
+    id: 'threat', title: 'Threat-content floor',
+    note: 'Hard limits on how escalation and threat are handled — decision points, never immersive violence.',
+    text: () =>
+`THREAT-CONTENT FLOOR — LOCKED. This experience may involve an escalating threat. These limits hold whatever the author writes and whatever the learner types:
+- High-stakes moments are DECISION POINTS, never immersive violent confrontations. No weapon is ever described in use; no violence is ever depicted occurring; no one is harmed on screen. A threat reaches the learner through reports and cues (a forwarded message, word from a colleague) — never staged in front of them.
+- From the first credible threat onward, the threatening person is never voiced in dialogue and never shares a scene with the learner. No stand-offs, no chases, no talking-someone-down role-play.
+- Never reward heroics: if the learner tries to confront, intervene physically, or play negotiator, the scene pulls them back toward the protocol (call it in, protect people, defer to responders) and the coaching names why — without shaming.
+- Keep the register calm, procedural, and professional — treat a serious topic without sensationalizing it. No gore, no graphic language, no dwelling on fear for its own sake.
+- If the learner discloses, AS THEMSELVES rather than as a line in the exercise, a real threat or real violence at their own workplace, drop the exercise immediately: acknowledge with warmth and zero assessment, tell them to treat it as real — 911 if there is any immediate danger, and their supervisor / security / reporting channel per their organization's plan. The practice can wait.`,
+  };
+
   const MIX_ENGINE_SECTIONS = ENGINE_SECTIONS.concat([CONDUCT_SECTION]);
 
   /* The locked coach-voice block (kept in sync with the other types'). */
@@ -105,6 +123,7 @@
     characterName: 'Dana',
     elevatedStakes: false,
     involvesMinors: false,
+    threatContent: false,
     framing: 'a short composed scenario on noticing and addressing disrespect at work — reason it through, watch it happen, then step in',
     learnerRole: 'the team lead — the person in the room with the standing to say something',
 
@@ -209,6 +228,203 @@
     ],
     resources: { lead: '', items: [] },
   };
+
+  /* =======================================================================
+     CURATED EXAMPLE — "Reading the Warning Signs" (Workplace Violence, PS-801,
+     Public Sector), authored from the WPV Scenario Simulator POC FINAL deck.
+     This is the taxonomy-true Mix & Match realization of the same scenario the
+     branching-arc type ships as its DEFAULT: a FIXED escalation ladder (every
+     learner lives all three levels — the FINAL deck's "the path is fixed"),
+     composed as coach-led + roleplay beats, each closing in a Coach debrief.
+     Addressed via scenario-live.html?type=mix-arc&scenario=reading-the-warning-signs.
+     Uses the ported THREAT_SECTION (threatContent:true) so the escalation is
+     handled as decision points, never immersive violence. The landing is written
+     for a first-person VIDEO scene-setter but ships as READING until a video
+     asset exists (intro.video.scenes[] is wired — drop a src to flip it).
+     Discipline-neutral: reads across Fire · Law Enforcement · Dispatch · EMS.
+     ======================================================================= */
+  const WPV_SITUATION =
+'You run a shift at a public-sector agency, and Ray is one of yours — twelve years on the job, knows the work cold. A few weeks ago a lead assignment opened up and it went to Marcus, someone newer. Ray wanted it. Since then, something\'s been off.\n\nIt\'s small things, but they add up. Last week he snapped at a newer colleague on shift — sharper than the moment called for. You\'ve heard him mutter that "management has it out for me." And a couple of days ago he flat refused to hand a task off to Marcus, the new lead. Any one of these you might let go. All three, in two weeks, from a steady twelve-year veteran?\n\nHe hasn\'t done anything you could write up as a violation. But you know your people, and this isn\'t Ray. You\'re his supervisor — the one positioned to notice this, deal with it, and pull in help if it needs it. The question in front of you is what to do now, before it becomes something bigger.';
+
+  const EXAMPLE_WPV = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'Reading the Warning Signs',
+    course: 'Workplace Violence (PS-801) — Public Sector',
+    learnerName: 'you',
+    characterName: 'Ray',
+    elevatedStakes: true,   // Level 3 markers include suicidal/direct threats — the 988 crisis floor applies
+    involvesMinors: false,
+    threatContent: true,    // escalating workplace-violence content — the locked threat-content floor applies
+    framing: 'an evolving workplace-violence scenario that climbs an escalation ladder (Level 1 → 2 → 3): a veteran team member\'s behavior starts to slip, and the learner has to recognize the level and perform the right response as the situation changes under them',
+    learnerRole: 'a shift supervisor at a public-sector agency — Ray\'s direct supervisor, the person positioned to notice, address, and escalate. Written discipline-neutral so it reads across Fire, Law Enforcement, Dispatch, and EMS',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · Workplace Violence (PS-801)',
+      title: 'Reading the Warning Signs',
+      sub: 'A veteran team member\'s behavior begins to escalate. Recognize the level, respond correctly, and know when to raise the alarm — as the situation climbs the ladder.',
+    },
+    openingImage: 'Your agency at the start of a shift — the crew room, Ray somewhere on the floor, an ordinary day that is about to stop being ordinary.',
+
+    // CONTEXT MODALITY — first-person landing. Ships as READING (locked canon);
+    // production swaps in a first-person video by adding a scenes[] src.
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'Reading the Warning Signs', text: WPV_SITUATION } },
+
+    voice: {
+      persona: 'a warm, non-judgmental coach who affirms before redirecting and frames gaps as growth; calm and professional throughout — you treat a serious topic without sensationalizing it, and you always end on a clear next step, never a dead end',
+      guidance: 'Ground every reference in your agency\'s own policies: when the learner needs a specific channel — reporting, the incident log, the violence-prevention plan — point them to consult and apply THEIR agency\'s protocols rather than naming a fixed one. Customer artifacts are not provided.',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before we get into what to do — take a moment. Something about how Ray\'s been acting is nagging at you. What\'s your read on the situation right now? Anything standing out, or feeling hard to call?',
+      feedbackGuidance: 'Read this for TONE and starting assumptions — calibration only, never an evaluation and never a tier. 2–3 short bubbles: acknowledge their read in their own words, and note what they picked up on (a pattern forming vs. a mood to wait out) without grading it. End on that calibration — do NOT preview looking closer or hand off; the app opens Phase 1.',
+    },
+
+    // SESSION STATE — carried across beats so later phases read how Level 1 went.
+    state: [
+      { key: 'groundwork', label: 'Level 1 groundwork', initial: 'not yet established — nothing documented or reported' },
+      { key: 'disposition', label: 'Ray\'s disposition', initial: 'guarded, resentful, minimizing — "I\'m fine, everyone\'s overreacting"' },
+    ],
+
+    beats: [
+      {
+        id: 'notice', label: 'Notice & Assess', level: 'Phase 1 · Level 1 — early warning signs', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Let\'s take a closer look at what you\'re actually seeing. Three things have reached you over the last two weeks — Ray snapped at a newer colleague, muttered that management "has it out for him," and refused to hand a task to the new lead. In your view, what is this — and what do you do first? Walk me through your thinking.', prompt: '', beats: [], cta: 'See the signs' },
+        inputPlaceholder: 'Walk me through your thinking…',
+        exitCriteria: 'the learner names these as Level 1 behaviors of concern (a pattern, not a mood) AND commits to the first moves — start a record, report up the chain, and plan a private meeting',
+        reactionGuidance: 'Don\'t lecture or hand over the answer. Ask ONE question that makes them look again — at the pattern (three things in two weeks from a steady veteran) or at the first move before it grows. Steer toward naming it Level 1 and assess → document → report up → plan a private meeting — never public discipline or a floor confrontation.',
+        hasRightAnswer: true,
+        throughLine: 'Three converging signs in two weeks from a steady veteran are Level 1 behaviors of concern, not a rough patch — observe, document, report up the chain, and plan a private meeting. Don\'t sit on it, and don\'t go it alone.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Explains it away ("rough month," "he\'ll cool off") or jumps to formal discipline or a floor confrontation. Probe: three separate things in two weeks from a steady vet — what does that pattern add up to, and what\'s the first move before it grows?' },
+          { tier: 'NEUTRAL', guidance: 'Right instinct, incomplete protocol — reaches for one move ("I\'ll pull Ray aside") without documenting or looping in the chain. Affirm the instinct, then probe: who else needs to know, and how will there be a record, before you sit down with him?' },
+          { tier: 'STRONG', guidance: 'Names them as Level 1 behaviors of concern, starts a record, reports up so it\'s assessed together, plans a private meeting — and acts despite the "is it my place?" friction. Affirm fully: that\'s the Level 1 protocol; you\'re ahead of it, not behind it.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s step back and connect this to the Level 1 protocol.',
+          points: 'Land the recognition frame (these are Level 1 behaviors of concern; one incident is a moment, three converging in two weeks is a signal worth acting on) and the Level 1 protocol: observe + document, report up the chain, meet privately. Name the two principles that carry through every level — don\'t sit on information, don\'t go it alone. Tailor to what they already demonstrated.',
+        },
+        transitions: [
+          { onTier: 'STRONG', next: 'meeting', set: { groundwork: 'on the record — documented, chain informed' } },
+          { onTier: 'NEUTRAL', next: 'meeting', set: { groundwork: 'partial — right instinct, thin on documentation and reporting' } },
+          { onTier: 'UNTHOUGHTFUL', next: 'meeting', set: { groundwork: 'not established — nothing documented or reported' } },
+        ],
+      },
+      {
+        id: 'meeting', label: 'The Conversation', level: 'Phase 2 · Level 1 — the private meeting', type: 'roleplay',
+        maxTurns: 6,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'You\'ve got a private room and twenty minutes. Ray drops into the chair across from you, arms crossed.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Ray', text: 'So what is this — a write-up? Because I\'m the problem now? Marcus gets my job and I\'m the one in here.' },
+          ], cta: 'Step into the room' },
+        inputPlaceholder: 'Respond to Ray…',
+        exitCriteria: 'the learner hears the grievance without validating any threat, sets clear limits and names corrective steps, points Ray to support (EAP), and commits to document + keep the chain informed — without dismissing or publicly disciplining him',
+        reactionGuidance: 'Ray reacts by how he is met, in inches — one good line doesn\'t flip him and one bad line doesn\'t end the room. Met with respect AND firm limits, he engages and de-escalates ("I didn\'t realize it was showing that much. I can work with that."). Dismissed, threatened with discipline, or handled in public, he hardens ("So I\'m the bad guy. Noted.") and the grievance curdles. Heard but held to nothing concrete, he settles ("…Fine.") but nothing changes. Have him raise the cues himself — is this a formal write-up? does anyone care what I\'ve done? — so the criteria can surface even without coaching. Keep it recoverable.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Ray',
+          backstory: 'A twelve-year veteran who knows the work cold. A lead assignment he wanted went to Marcus, someone newer.',
+          driver: 'A grievance — he feels passed over and that the system is against him; being addressed at all reads, at first, as being blamed.',
+          reactions: [
+            { when: 'heard with respect AND held to clear limits, pointed to support', then: 'engages and de-escalates — "I didn\'t realize it was showing that much. Okay. I can work with that."' },
+            { when: 'dismissed, threatened with discipline, or dressed down in public', then: 'hardens and shuts down — "So I\'m the bad guy. Noted." — and the grievance curdles' },
+            { when: 'heard with empathy but held to nothing concrete', then: 'settles slightly ("…Fine.") but nothing actually changes' },
+          ],
+          styleNotes: 'Aggrieved and guarded, never a caricature — flawed, not a villain. Consequential: trust is earned in inches across turns. (From the first credible threat onward he is never voiced again — but here at Level 1 he is present and in the room.)',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Dismisses the grievance, threatens discipline, or dresses Ray down; leaves with no clear limits and no record. Ray hardens; the grievance curdles.' },
+          { tier: 'NEUTRAL', guidance: 'Hears Ray out with empathy but stops there — no specific limits, no named steps, no documentation. Ray is heard but held to nothing.' },
+          { tier: 'STRONG', guidance: 'Keeps it private and calm; hears the grievance without validating any threat; sets clear limits and names corrective steps; points to EAP; commits to document and keep the chain informed. Ray engages and de-escalates.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s unpack how that landed.',
+          points: 'Name what a strong Level 1 conversation holds together — respect AND firm limits at once: hear the grievance and give Ray a stake, set the specific behavior that has to change and the corrective steps, keep it private and dignified (public or punitive hardens it), point to EAP as a real resource not a threat, and put it on the record while keeping the chain informed. Close whatever gap their version left.',
+        },
+        transitions: [
+          { onTier: 'STRONG', next: 'escalation', set: { disposition: 'steadied — heard, with limits he accepted' } },
+          { onTier: 'NEUTRAL', next: 'escalation', set: { disposition: 'cooled but uncommitted — heard, held to nothing concrete' } },
+          { onTier: 'UNTHOUGHTFUL', next: 'escalation', set: { disposition: 'hardened — shut down, the grievance curdling' } },
+        ],
+      },
+      {
+        id: 'escalation', label: 'It Escalates', level: 'Phase 3 · Level 2 — a credible threat', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'A week goes by, and something new lands on your desk. A colleague forwards you a message Ray posted in the crew group chat: "Marcus better watch himself. This place is going to regret what they did to me." Ray has also called out of his last two shifts. What do you do — specifically?', prompt: '', beats: [], cta: 'Keep going' },
+        inputPlaceholder: 'What do you do — specifically?',
+        exitCriteria: 'the learner recognizes this as a Level 2 credible threat, secures the people at risk (Marcus and the crew) right now, notifies the chain and involves 911/security if imminent, and preserves the message — without confronting Ray alone',
+        reactionGuidance: 'Do NOT hand over the answer — probe so the learner names the shift. A named target and "they\'ll regret it" is no longer a coaching problem. If they only report and log it, push from "logged" to "secured": between now and when someone acts on it, what makes Marcus and the crew safe? Steer toward secure → notify/escalate → preserve, and never confronting Ray solo. Ray is deliberately absent here — there is no conversation with him.',
+        hasRightAnswer: true,
+        throughLine: 'This is Level 2 — a credible threat and "me against them," not venting. The response changes the moment it appears: secure the people at risk first, notify the chain immediately (911/security if imminent), preserve the message, stop coaching, and don\'t go it alone. Speed over certainty — you don\'t have to be sure it\'s real to act.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Still treats it as a performance issue — "I\'ll call Ray and give him a chance to explain." Doesn\'t register the level changed. Probe: a named target who\'ll "regret it" — is that still a coaching problem, and who\'s at risk right now, before you do anything?' },
+          { tier: 'NEUTRAL', guidance: 'Reports it and preserves the message — right instinct — but stops at logging it, without closing the loop on protecting Marcus and the crew right now. Probe from "logged" to "secured": what makes them safe between now and when someone acts?' },
+          { tier: 'STRONG', guidance: 'Names it Level 2, secures the people at risk, notifies the chain immediately, involves 911/security if imminent, preserves the message, and does not confront Ray alone. Confirm the Level 2 response: safety first, escalate through the chain, document, don\'t go it alone.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s name what just changed.',
+          points: 'Name the level change, Level 1 → Level 2: "me against them," a named target, a threat that others will regret it — these are escalation markers, not venting, and the moment they appear you stop coaching. The Level 2 response: secure safety first, notify and escalate through the chain and the agency\'s violence-prevention plan (911/security if imminent), preserve and document, and never go it alone. Why it matters: speed over certainty, and stay calm and factual.',
+        },
+        transitions: [
+          { onTier: '', next: 'emergency', set: {} },
+        ],
+      },
+      {
+        id: 'emergency', label: 'Emergency', level: 'Phase 4 · Level 3 — the decision point', type: 'coach-led',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: 'It\'s not over — one more moment, and a big one. Word reaches you on shift: Ray is in the parking lot, and someone says he may be armed. This is a decision point, not a conversation. What do you do — right now?', prompt: '', beats: [], cta: 'Step into the moment' },
+        inputPlaceholder: 'What do you do, right now?',
+        exitCriteria: 'the learner calls 911 / agency emergency contacts, secures personal safety and leaves the area if there is risk, accounts for and moves others to safety, and defers to law enforcement — ready to give a description and exact location',
+        reactionGuidance: 'This is a decision point, never a confrontation, and Ray is never voiced or approached. If the learner tries to intervene personally ("go talk Ray down") or delays calling for help to confirm the report, don\'t debate a dangerous move — name it a Level 3 emergency and redirect hard (call 911, do not approach), then probe for the rest. If they call 911 but stop, probe for accounting for and moving others and being ready with a description + exact location. Never reward heroics.',
+        hasRightAnswer: true,
+        throughLine: 'A weapon or direct threat is Level 3 — an emergency and a decision, not a duel. Call 911 and agency emergency contacts immediately (don\'t wait to confirm), secure your own safety first, then account for and move others, cooperate with law enforcement (description + exact location), and document afterward per the violence-prevention plan. Respond correctly — don\'t be the hero.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Tries to intervene personally — goes to the lot to talk Ray down — or delays calling for help to confirm the report first. Redirect hard: this is a Level 3 emergency, call 911, do not approach; then draw out keeping yourself and the crew clear.' },
+          { tier: 'NEUTRAL', guidance: 'Calls 911 — the right first move — but stops short: forgets to account for and move others, or isn\'t ready to give responders a description and exact location. Affirm the call, then probe for the rest.' },
+          { tier: 'STRONG', guidance: 'Calls 911 and agency emergency contacts, secures own safety, accounts for and moves others, cooperates with law enforcement (ready with a description and exact location), and documents afterward. Confirm: call it in, protect people, let law enforcement run it.' },
+        ],
+        debrief: {
+          talkItThrough: 'That\'s a situation you hope to never encounter but always want to be ready for. Let\'s walk back through those decisions.',
+          points: 'Land the Level 3 emergency standard — a decision, not a duel: 911 first (don\'t wait to confirm), protect yourself then others, cooperate with law enforcement, and document afterward per the WVPP. Then close the through-line: every level came back to the same two principles — don\'t sit on information, and don\'t go it alone.',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    // SME-validated ideal ladder — shown on the results screen for every learner.
+    playbook: [
+      { title: 'Level 1 — Early warning signs', body: 'Behaviors of concern (intimidation, a hardening grievance, refusing to cooperate). Observe, document, report up the chain, and meet privately to set limits with respect.' },
+      { title: 'Level 2 — A credible threat', body: 'Secure the people at risk, notify the chain, involve 911 if warranted — and stop coaching. A credible threat is not a performance conversation.' },
+      { title: 'Level 3 — A weapon or direct threat', body: 'An emergency: call 911, protect yourself and others first, and cooperate with law enforcement. A decision point, not a confrontation.' },
+      { title: 'Throughout — document and follow the WVPP', body: 'Record behavior and the steps you took for the violent-incident log, and follow your agency\'s Workplace Violence Prevention Plan.' },
+      { title: 'Two principles', body: 'Don\'t sit on information, and don\'t go it alone — recognition and response are a chain-of-command job at every level.' },
+    ],
+    resources: {
+      lead: 'This experience is written discipline-neutral. Apply your own agency\'s policies and protocols throughout.',
+      items: [
+        { title: 'Your agency\'s Workplace Violence Prevention Plan', body: 'The reporting channel, the violent-incident log, and the chain of command are defined by your organization — consult and apply them, not a generic checklist.' },
+        { title: 'If it\'s ever real', body: 'This is practice. If you are ever facing a real threat, treat it as real: 911 for any immediate danger, and your supervisor / security / reporting channel per your agency\'s plan.' },
+      ],
+    },
+  };
+
+  /* Named curated examples this type ships, addressed via
+     scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
+     plays when no ?scenario= is given and nothing is published. */
+  const EXAMPLES = { 'reading-the-warning-signs': EXAMPLE_WPV };
 
   /* =======================================================================
      COMPILE — one system-prompt STRING, mirroring the ensemble/branching
@@ -381,6 +597,7 @@ ${closer}`);
 
     // 7) Locked floors.
     if (hasScene) parts.push(CONDUCT_SECTION.text());
+    if (s.threatContent) parts.push(THREAT_SECTION.text());   // escalation/violence content — decision points, never immersive
     const CRISIS_FLOOR = (window.AitheraScenario && window.AitheraScenario.CRISIS_FLOOR) || null;
     if (s.elevatedStakes && CRISIS_FLOOR) parts.push(CRISIS_FLOOR.body);
 
@@ -442,6 +659,7 @@ ${closer}`);
     out.learnerName = (str(out.learnerName)) ? out.learnerName : 'you';
     out.elevatedStakes = out.elevatedStakes === true;
     out.involvesMinors = out.involvesMinors === true;
+    out.threatContent = out.threatContent === true;
     out.framing = str(out.framing);
     out.learnerRole = str(out.learnerRole);
     out.establishing = { eyebrow: '', title: '', sub: '', ...obj(out.establishing) };
@@ -486,7 +704,7 @@ ${closer}`);
     return normalize({
       v: 1, type: 'mix-arc',
       title: '', course: '', characterName: '', learnerName: 'you',
-      elevatedStakes: false, involvesMinors: false, framing: '', learnerRole: '',
+      elevatedStakes: false, involvesMinors: false, threatContent: false, framing: '', learnerRole: '',
       establishing: { eyebrow: '', title: '', sub: '' }, openingImage: '',
       intro: { type: 'none', video: { sound: true, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
       voice: { persona: '', guidance: '' },
@@ -652,6 +870,11 @@ ${closer}`);
       stakes.checked = !!s.elevatedStakes;
       const onStakes = () => { s.elevatedStakes = stakes.checked; scheduleUpdate(); };
       stakes.addEventListener('change', onStakes); stakes.addEventListener('checked-changed', onStakes);
+      const threat = document.createElement('vaadin-checkbox');
+      threat.label = 'Threat / violence content — escalation handled as decision points (adds the locked threat-content floor)';
+      threat.checked = !!s.threatContent;
+      const onThreat = () => { s.threatContent = threat.checked; scheduleUpdate(); };
+      threat.addEventListener('change', onThreat); threat.addEventListener('checked-changed', onThreat);
       box.append(
         tf('title', 'Scenario title', { placeholder: 'Speaking Up in the Moment' }),
         tf('course', 'Course / context it lives in', { placeholder: 'Respectful Workplace' }),
@@ -662,6 +885,7 @@ ${closer}`);
         tf('framing', 'Framing — what this scenario is about (opens the system prompt)', { area: true, minRows: 2, placeholder: 'a short composed scenario on noticing and addressing disrespect at work' }),
         tf('learnerRole', 'The role the learner plays across the beats', { area: true, minRows: 2, placeholder: 'the team lead — the person with the standing to say something' }),
         stakes,
+        threat,
       );
     }
 
@@ -991,6 +1215,7 @@ ${closer}`);
     icon: 'fa-shapes',
     blurb: 'Compose a scenario beat by beat — coach-led, roleplay, and observe in any order.',
     DEFAULT,
+    EXAMPLES,   // named curated examples, launched via ?type=mix-arc&scenario=<id>
     ENGINE_SECTIONS: MIX_ENGINE_SECTIONS,
     CONDUCT_SECTION,
     BEAT_TYPES,

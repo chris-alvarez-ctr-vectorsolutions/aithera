@@ -1,0 +1,93 @@
+name: Protect the Pages landing page
+
+# Guard 3 of 3: the safety net that works for EVERYONE, including pushes from
+# GitHub Desktop or a clone with no local hooks installed.
+#
+# The repo-root index.html is the GitHub Pages landing page:
+# https://vectorlearning.github.io/ux-mockups/. It was once silently replaced by
+# a Pathways mock written to the wrong path, and the live site served that mock
+# until someone happened to notice.
+#
+# On every push that touches index.html this job checks for the file's identity
+# marker ("GUARD:PAGES-LANDING-PAGE"). If the marker is gone, the file is not the
+# landing page any more — it was clobbered — so the job restores the last good
+# version and commits the restore. The clobbering commit stays in history, so
+# nothing is lost: whoever wrote it can move that content to its intended path.
+#
+# An intentional landing-page rewrite passes this check as long as it keeps the
+# GUARD marker comment at the top of the file.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - '.github/workflows/protect-landing-page.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: protect-landing-page-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history so we can find the last good version)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify the landing page, restore it if clobbered
+        run: |
+          set -euo pipefail
+          MARKER='GUARD:PAGES-LANDING-PAGE'
+
+          if grep -q "$MARKER" index.html; then
+            echo "✓ index.html carries the landing-page marker."
+
+            # Secondary sanity check: the landing page is data-driven off
+            # products.json. Losing that reference means it no longer lists the
+            # products, even if the marker survived.
+            if ! grep -q 'products.json' index.html; then
+              echo "::error title=Landing page looks broken::index.html keeps the GUARD marker but no longer references products.json, so it cannot list any products. Check the last commit to index.html."
+              exit 1
+            fi
+            echo "✓ index.html still loads products.json."
+            exit 0
+          fi
+
+          echo "::error title=Landing page was clobbered::The repo-root index.html lost its \"$MARKER\" marker — something overwrote the GitHub Pages landing page. Restoring the last good version."
+
+          # Walk index.html's history for the newest version that had the marker.
+          good=''
+          for sha in $(git log --format=%H -- index.html); do
+            if git show "$sha:index.html" 2>/dev/null | grep -q "$MARKER"; then
+              good="$sha"
+              break
+            fi
+          done
+
+          if [ -z "$good" ]; then
+            echo "::error title=No good version found::Could not find any commit whose index.html carried the marker. Restore the landing page by hand."
+            exit 1
+          fi
+
+          echo "Restoring index.html from $good"
+          git checkout "$good" -- index.html
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # [skip ci] so the restore commit does not re-trigger this workflow.
+          git commit -m "Restore the Pages landing page (clobbered by ${GITHUB_SHA:0:7}) [skip ci]" \
+                     -m "The repo-root index.html is the GitHub Pages landing page. Commit ${GITHUB_SHA:0:7} replaced it with something that lost the $MARKER marker, so the live site stopped listing the product dashboards. Restored from $good." \
+                     -- index.html
+          git push
+
+          # Fail the run anyway: whoever pushed the clobber needs to see it and
+          # move their content to products/<Product>/<feature>/verN/index.html.
+          echo "::error title=Landing page restored::index.html was restored from $good and pushed. If you meant to add a mock, write it to products/<Product>/<feature>/verN/index.html instead. If you meant to edit the landing page, keep the GUARD marker comment at the top of the file."
+          exit 1

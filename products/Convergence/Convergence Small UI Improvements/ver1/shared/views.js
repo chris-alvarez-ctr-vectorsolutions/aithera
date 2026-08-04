@@ -131,7 +131,7 @@ function rowHTML(a) {
     <span class="col-num col-dur">${esc(a.dur || '')}</span>
     <span class="col-num col-spent ${a.spent ? '' : 'col-empty'}">${esc(a.spent || '-')}</span>
     <span class="col-num col-due ${overdue ? 'is-overdue' : (a.due ? '' : 'col-empty')}">${esc(a.due || '-')}</span>
-    <span class="col-actions"><span class="row-acts">${a.attachment ? attachBtn('act', a.id, a.name) : ''}${detailsBtn('act', a.id, a.name)}</span></span>
+    <span class="col-actions"><span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span></span>
   </div>`;
 }
 
@@ -154,7 +154,7 @@ function cardHTML(a) {
       </p>
     </div>
     <div class="tcard-foot">
-      <span class="row-acts">${a.attachment ? attachBtn('act', a.id, a.name) : ''}${detailsBtn('act', a.id, a.name)}</span>
+      <span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span>
       ${actionBtn(a)}
     </div>
   </article>`;
@@ -185,6 +185,35 @@ function renderFilterPanel() {
 /* ===========================================================================
    AREA 5 - CATALOG
    ======================================================================== */
+/* Up to three stacked notices above the plan. One construction, severity
+   variants from the status tokens; each is dismissible for the session. */
+const TP_BANNERS = [
+  { id:'sched', kind:'warn', icon:'fa-calendar-day', action:'View classes',
+    html:'<span class="pill pill-attn no-dot">Needs scheduling</span><span class="banner-text"><strong>2 classes</strong> need a session selected before they can be scheduled.</span>' },
+  { id:'overdue', kind:'err', icon:'fa-triangle-exclamation', action:'Show overdue',
+    html:'<span class="banner-text"><strong>5 activities</strong> are overdue. Overdue items pause qualification progress until they are completed.</span>' },
+  { id:'rule', kind:'info', icon:'fa-circle-info',
+    html:'<span class="banner-text">LOTO Requirement: complete <strong>any 2</strong> of its activities to satisfy the requirement.</span>' },
+];
+function renderBanners() {
+  const host = $('#tpBanners');
+  if (!host) return;
+  host.innerHTML = TP_BANNERS.filter(b => !state.dismissedBanners.has(b.id)).map(b => `
+    <div class="banner ${b.kind}" role="status">
+      <i class="fa-solid ${b.icon}" aria-hidden="true"></i>
+      ${b.html}
+      <span class="grow"></span>
+      ${b.action ? `<vaadin-button theme="tertiary" class="btn-compact">${b.action}</vaadin-button>` : ''}
+      <button class="icon-btn banner-x" data-dismiss="${b.id}" aria-label="Dismiss notice"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    </div>`).join('');
+  host.querySelectorAll('[data-dismiss]').forEach(x => x.addEventListener('click', () => {
+    state.dismissedBanners.add(x.dataset.dismiss);
+    renderBanners();
+    const nxt = host.querySelector('.banner-x');   // keep keyboard focus in the stack
+    if (nxt) nxt.focus(); else $('#filterToggle').focus();
+  }));
+}
+
 function catalogCat() {
   return CATALOG_CATS.find(c => c.id === state.catalogCat) || CATALOG_CATS[0];
 }
@@ -319,25 +348,25 @@ function renderWizard() {
       <div class="wz-form">
         <div class="wz-field">
           <label class="wz-label" for="wzName">Display name<span class="req">*</span></label>
-          <vaadin-text-field theme="outlined" id="wzName" placeholder="For example, Lockout Tagout Quiz"
+          <vaadin-text-field theme="outlined" id="wzName" accessible-name="Display name, required" placeholder="For example, Lockout Tagout Quiz"
             style="width:100%" value="${esc(state.wizard.displayName)}"></vaadin-text-field>
         </div>
         <div class="wz-field">
           <label class="wz-label" for="wzDesc">Description</label>
-          <vaadin-text-area theme="outlined" id="wzDesc" placeholder="What learners will do in this activity"
+          <vaadin-text-area theme="outlined" id="wzDesc" accessible-name="Description" placeholder="What learners will do in this activity"
             style="width:100%"></vaadin-text-area>
           <span class="wz-hint">Shown to learners in the catalog and on the activity card.</span>
         </div>
         <div class="wz-field">
           <label class="wz-label" for="wzDur">Activity duration<span class="req">*</span></label>
           <div class="wz-inline">
-            <vaadin-number-field theme="outlined" id="wzDur" value="15" min="1" style="width:120px"></vaadin-number-field>
+            <vaadin-number-field theme="outlined" id="wzDur" accessible-name="Activity duration in minutes, required" value="15" min="1" style="width:120px"></vaadin-number-field>
             <span class="unit">minutes</span>
           </div>
         </div>
         <div class="wz-field">
           <label class="wz-label" for="wzPublic">Make public</label>
-          <vaadin-combo-box theme="outlined" id="wzPublic" style="width:180px"></vaadin-combo-box>
+          <vaadin-combo-box theme="outlined" id="wzPublic" accessible-name="Make public" style="width:180px"></vaadin-combo-box>
           <span class="wz-hint">Public activities appear in the catalog for every location below the save location.</span>
         </div>
       </div>`;
@@ -694,19 +723,27 @@ function renderDetails() {
    through its cards; Home/End jump. "View all" opens the existing table
    filtered to that category. Additive - the table stays intact.
    ======================================================================== */
+/* One card component: the catalog card is the small Training Plan card
+   (same structure, sizing, thumbnail ratio, badges, XS shadow), with the
+   info action leftmost in the action row. */
 function ccardHTML(c) {
   const t = TYPES[c.type];
   const labels = [c.assigned ? 'assigned' : '', c.elective ? 'elective' : ''].filter(Boolean).join(', ');
-  return `<article class="ccard" role="listitem" tabindex="-1"
+  return `<article class="tcard ccard" role="listitem" tabindex="-1"
        aria-label="${esc(c.name)}${labels ? ', ' + labels : ''}">
-    <div class="thumb ccard-thumb ${t.thumb}">
-      <i class="fa-solid ${t.icon}"></i>
-      ${c.assigned ? '<span class="pill pill-assigned no-dot ccard-badge">Assigned</span>' : ''}
+    <div class="thumb tcard-thumb ${t.thumb}">
+      <i class="fa-solid ${t.icon}" aria-hidden="true"></i>
+      ${c.assigned ? '<span class="tcard-badge"><span class="pill pill-assigned no-dot">Assigned</span></span>' : ''}
       ${c.elective ? '<span class="etag" title="Elective">E</span>' : ''}
     </div>
-    <div class="ccard-body">
-      <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}"></i></span>
-      <span class="ccard-title" title="${esc(c.name)}">${esc(c.name)}</span>
+    <div class="tcard-body">
+      <h3 class="tcard-title">
+        <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}" aria-hidden="true"></i></span>
+        <span title="${esc(c.name)}">${esc(c.name)}</span>
+      </h3>
+    </div>
+    <div class="tcard-foot">
+      <span class="row-acts"><button class="icon-btn" title="View details: ${esc(c.name)}" aria-label="View details: ${esc(c.name)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button></span>
     </div>
   </article>`;
 }
@@ -716,17 +753,17 @@ function renderCatalogCards() {
   root.innerHTML = CATALOG_CATS.map(cat => `<section class="cat-cat">
     <header class="cat-row-head">
       <h2 class="cat-row-title">${esc(cat.name)} (${cat.count || cat.items.length})</h2>
-      <button class="link-btn js-viewall" data-cat="${cat.id}" aria-label="View all in ${esc(cat.name)}">
-        View all <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </header>
-    <div class="cat-strip-row">
-      <button class="cat-nav prev" aria-label="Scroll ${esc(cat.name)} backward" disabled><i class="fa-solid fa-chevron-left"></i></button>
-      <div class="cat-strip" role="list" tabindex="0" data-cat="${cat.id}"
-           aria-label="${esc(cat.name)}, ${cat.count || cat.items.length} items, use the left and right arrow keys to browse">
-        ${cat.items.map(ccardHTML).join('')}
+      <div class="cat-head-actions">
+        <button class="link-btn js-viewall" data-cat="${cat.id}" aria-label="View all in ${esc(cat.name)}">
+          View all <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <button class="cat-nav prev" aria-label="Scroll ${esc(cat.name)} backward" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+        <button class="cat-nav next" aria-label="Scroll ${esc(cat.name)} forward"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
       </div>
-      <button class="cat-nav next" aria-label="Scroll ${esc(cat.name)} forward"><i class="fa-solid fa-chevron-right"></i></button>
+    </header>
+    <div class="cat-strip" role="list" tabindex="0" data-cat="${cat.id}"
+         aria-label="${esc(cat.name)}, ${cat.count || cat.items.length} items, use the left and right arrow keys to browse">
+      ${cat.items.map(ccardHTML).join('')}
     </div>
   </section>`).join('');
 
@@ -738,7 +775,7 @@ function renderCatalogCards() {
   // Arrow paging: the strip never shows a horizontal scrollbar; the flanking
   // buttons page it by roughly one viewport (disabled at either end) and the
   // arrow keys walk card to card.
-  root.querySelectorAll('.cat-strip-row').forEach(rowEl => {
+  root.querySelectorAll('.cat-cat').forEach(rowEl => {
     const strip = rowEl.querySelector('.cat-strip');
     const prev = rowEl.querySelector('.cat-nav.prev');
     const next = rowEl.querySelector('.cat-nav.next');

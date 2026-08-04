@@ -1,9 +1,37 @@
-# Scene Sweep → Universal Player — deferred, with a concrete plan
+# Scene Sweep → Universal Player — DONE (built to this plan)
 
-**Status:** Scene Sweep is intentionally **left on its bespoke page** (`scene-sweep-live.html`)
-in the Option B player convergence. Branching Arc and Ensemble Arc are migrated onto
-the shared player (`scenario-live.html?type=…`, driven by `js/sim-player.js`); Scene
-Sweep is not. This document is the recommendation for finishing the job later.
+**Status: ✅ MIGRATED.** Scene Sweep now plays on the converged player at
+`scenario-live.html?type=scene-sweep`, exactly along the architecture this document
+laid out. All five scenario types (mix-arc, guided-arc, branching, ensemble,
+scene-sweep) run on the one shared player; the perception subsystem is the opt-in
+`js/sim-perception.js` module, mounted only for a `kind:'spot'` phase.
+
+**What shipped (matches the plan below):**
+- `js/sim-perception.js` — the perception layer (photo/hotspot Observe canvas +
+  coverage rail + full a11y marking paths + the Observe⇄React crossings), extracted
+  verbatim and installed only when a `kind:'spot'` phase exists. Self-injects its CSS.
+- `js/sim-player.js` — one guarded addition: `ctx.coverageBlock` in `arcStateBlock`
+  (the spot COVERAGE line). No hook → empty, so the four conversational types are
+  byte-identical.
+- `scene-sweep.toRuntime()` — normalizes the flat `kind:'spot'`/`'act'` phases into the
+  engine's `{entry:{…}}` shape (the plan's preferred reconcile: adapt in the type, keep
+  the engine single-shaped). Card `href` + `previewUrl` flipped; bespoke page frozen.
+- `scenario-live.html` — loads the two modules; every sweep branch is guarded on
+  `IS_SWEEP` (true only when the perception layer installed).
+
+**Verified live** at `scenario-live.html?type=scene-sweep`: reading intro → Observe
+canvas mounts → mark hazards (pointer + keyboard/SVG-region + free-text) → pins land on
+the SceneSweepGeo centroids → cross to the coach → the coach credits the catches and
+**nudges toward the missed hazard by zone, not name** (proving the `coverageBlock` hook
+feeds the model the remaining zones) → coverage rail in the sheet → "Look at the scene
+again" bar. Runtime model **byte-identical to the frozen archive** on every behavioral
+essential (hazards, coverage, phase ids/kinds/maxTurns/transitions, scene, playbook,
+decoys). The four conversational types re-verified: `IS_SWEEP=false`, no console errors,
+prompts unchanged.
+
+_The rest of this document is the original plan, kept as the build record._
+
+---
 
 _Author: Option B convergence pass, 2026-08-04. Grounded in a full read of
 `scene-sweep-live.html` (4359 lines), `js/scenario-types/scene-sweep.js` (1464 lines),

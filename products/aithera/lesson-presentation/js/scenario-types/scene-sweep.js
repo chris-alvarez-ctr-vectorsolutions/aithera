@@ -654,6 +654,31 @@ FOR THIS MODULE:
   }
 
   /* =======================================================================
+     toRuntime — the scene-sweep RUNTIME MODEL for the converged player
+     (js/sim-player.js drives it via scenario-live.html?type=scene-sweep, with the
+     perception layer js/sim-perception.js mounting the photo/hotspot Observe
+     canvas). Extracted from fromPublishedSceneSweep() in scene-sweep-live.html,
+     PLUS the one shape reconcile the shared engine needs: Scene Sweep authors its
+     phases FLAT (signpost/prompt at the top level, kind:'spot'/'act'), while the
+     shared entryBeatsFor reads phase.entry.{signpost,prompt}. So normalize each
+     flat phase into the {entry:{…}} shape here — the engine stays single-shaped;
+     the type adapts. hazards/decoys/coverage/scene stay on the scenario object,
+     read straight off ACTIVE_SCENARIO by the perception layer. NOT a mix-arc
+     round-trip: the spot/coverage subsystem has no mix-arc equivalent.
+     ======================================================================= */
+  function toRuntime(raw) {
+    const g = normalize(raw);
+    const phases = arr(g.phases).map((p) => Object.assign({}, p, {
+      entry: { bridge: '', bridgesByTier: {}, signpost: p.signpost || '', prompt: p.prompt || '', beats: [], cta: '' },
+    }));
+    return Object.assign({}, g, {
+      phases,
+      opening: [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map((t) => fill(t, g)),
+      sceneLineCaption: 'You',
+    });
+  }
+
+  /* =======================================================================
      SHARED HOTSPOT GEOMETRY — used by BOTH the live page (tap-to-mark) and
      the Studio editor (place-the-hotspot), so the "place it" and "tap it"
      math can never drift. All coords are normalized 0–1 against the DRAWN
@@ -1446,7 +1471,12 @@ FOR THIS MODULE:
     compile,
     fill,
     highlightStrings,
-    previewUrl: () => 'scene-sweep-live.html',
+    toRuntime,
+    // [Option B] the converged universal player (js/sim-player.js) + the opt-in
+    // perception layer (js/sim-perception.js). Was the bespoke scene-sweep-live.html;
+    // migrated onto the shared runtime with its OWN toRuntime + compile. The bespoke
+    // page is frozen in archive/2026-08-04/.
+    previewUrl: () => 'scenario-live.html?type=scene-sweep',
     sections,
     renderFields,
     lints,

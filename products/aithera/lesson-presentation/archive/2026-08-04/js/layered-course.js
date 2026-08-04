@@ -428,7 +428,7 @@
       coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
       content: videoContent({ eyebrow: 'Watch', heading: 'Introduction',
         sub: 'First, let’s introduce you to the basics of sexual harassment, how to respond, and why this lesson matters.',
-        src: '../assets/videos/marshall-preroll.mp4' }),
+        src: '../../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
     { id: 'scene', n: 3, mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
@@ -445,7 +445,7 @@
       coach: { say: 'Press play for the last clip — I’ve got one quick true-or-false question for you when it wraps.' },
       content: videoContent({ eyebrow: 'Watch', heading: 'Wrapping up',
         sub: 'Let’s close the loop and look at a real case example.',
-        src: '../assets/videos/marshall-postscenario.mp4' }),
+        src: '../../../assets/videos/marshall-postscenario.mp4' }),
       init: closingInit },
 
     { id: 'results', n: 6, mode: 'sidebar', lesson: 'Your Results',

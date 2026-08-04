@@ -212,6 +212,23 @@
   .wiz-typecard .tg { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 2px; line-height: 1.45; }
   .wiz-typecard .ck { margin-left: auto; color: var(--accent); font-size: 14px; align-self: center; }
 
+  /* Templates / Custom toggle (step 0) — segmented pill over the card grid */
+  .wiz-typetabs {
+    display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px;
+    border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line);
+  }
+  .wiz-typetab {
+    display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 18px;
+    border: 0; border-radius: 9px; background: transparent; color: var(--ink-soft);
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .wiz-typetab .fa-solid { font-size: 12px; }
+  .wiz-typetab:hover:not(.is-on) { color: var(--ink); }
+  .wiz-typetab.is-on { background: var(--bg); color: var(--accent); box-shadow: 0 1px 2px rgba(10, 14, 24, .16); }
+  /* Custom tab: the single compose-your-own option, shown full width */
+  .wiz-customcard { width: 100%; max-width: 680px; margin-top: 16px; }
+
   /* basic/advanced mode picker (step 0) */
   .wiz-modes { margin-top: 22px; max-width: 680px; }
   .wiz-modes .wiz-chip { flex: 1 1 240px; }
@@ -339,6 +356,19 @@
     loadChosen((ctx.type && ctx.type.wizard) ? ctx.type : registry.find((t) => t && t.wizard));
     const persistIntake = () => { try { localStorage.setItem(intakeKey, JSON.stringify(intake)); } catch (e) { /* full/blocked storage is fine */ } };
 
+    /* Step 0 groups the interaction types under a Templates / Custom toggle:
+       Templates = the ready-made shapes; Custom = the Mix & Match beat-composer
+       (the only compose-your-own type). Kept in sync with `chosen`. If no
+       custom composer is registered we fall back to the flat grid of all types. */
+    const CUSTOM_TYPE_ID = 'mix-arc';
+    const customType = registry.find((t) => t && t.id === CUSTOM_TYPE_ID && t.wizard) || null;
+    const templateTypes = registry.filter((t) => t && t.id !== CUSTOM_TYPE_ID);
+    let typeTab = (customType && chosen.id === CUSTOM_TYPE_ID) ? 'custom' : 'templates';
+    // The last TEMPLATE the author picked — flipping Custom→Templates restores
+    // their shape instead of resetting to the first card.
+    let lastTemplate = (chosen.id !== CUSTOM_TYPE_ID) ? chosen
+                     : (templateTypes.find((t) => t && t.wizard) || null);
+
     /* Every spec field the outline call may draft — the description input,
        source material and anything flagged noSeed (e.g. video URLs) are
        never fabricated by the model. */
@@ -418,14 +448,65 @@
           <span class="n">${i < stepIdx ? '<i class="fa-solid fa-check"></i>' : i + 1}</span> ${esc(s.title)}</span>`).join('');
     }
 
-    /* ---- step 0: the type chooser ---- */
+    /* ---- step 0: the type chooser -------------------------------------------
+       A Templates / Custom toggle organizes the interaction types so the list
+       reads as one decision instead of a wall of cards: Templates holds the
+       ready-made shapes; Custom is the Mix & Match beat-composer. Flipping to
+       Custom lands straight in its interview — one fewer click, since it's the
+       only compose-your-own option. With no custom composer registered we fall
+       back to the flat grid of every type. */
     function renderTypeStep() {
       const body = $w('#wizBody');
       body.innerHTML = `<h2 class="wiz-step-title">What are you building?</h2>
-        <p class="wiz-step-sub">Pick the core interaction. You can switch between types without losing progress.</p>`;
+        <p class="wiz-step-sub">${esc(customType
+          ? 'Start from a ready-made shape, or compose your own beat by beat. Switch anytime — nothing’s lost.'
+          : 'Pick the core interaction. You can switch between types without losing progress.')}</p>`;
+
+      // No dedicated custom composer → the original flat grid of every type.
+      if (!customType || !templateTypes.length) { renderTypeGrid(body, registry); renderModePicker(body); return; }
+
+      /* Templates / Custom segmented toggle */
+      const tabs = document.createElement('div');
+      tabs.className = 'wiz-typetabs';
+      tabs.setAttribute('role', 'tablist');
+      [{ id: 'templates', ic: 'fa-swatchbook', label: 'Templates' },
+       { id: 'custom', ic: esc(customType.icon || 'fa-shapes'), label: 'Custom' }]
+      .forEach((td) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wiz-typetab' + (typeTab === td.id ? ' is-on' : '');
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', typeTab === td.id ? 'true' : 'false');
+        b.innerHTML = `<i class="fa-solid ${td.ic}"></i> ${esc(td.label)}`;
+        b.addEventListener('click', () => selectTypeTab(td.id));
+        tabs.appendChild(b);
+      });
+      body.appendChild(tabs);
+
+      if (typeTab === 'custom') {
+        // The single compose-your-own option, already selected — clicking it (or
+        // the footer's Next) continues into the interview.
+        if (chosen.id !== customType.id) loadChosen(customType);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'wiz-typecard wiz-customcard is-on';
+        card.innerHTML = `<span class="ic"><i class="fa-solid ${esc(customType.icon || 'fa-shapes')}"></i></span>
+          <span class="tx"><span class="nm">${esc(customType.label)}</span>
+          <span class="tg">${esc((customType.wizard && (customType.wizard.tagline || customType.wizard.intro)) || customType.blurb || '')}</span></span>
+          <span class="ck"><i class="fa-solid fa-circle-check"></i></span>`;
+        card.addEventListener('click', () => { stepIdx = 1; renderAll(); });
+        body.appendChild(card);
+      } else {
+        renderTypeGrid(body, templateTypes);
+      }
+      renderModePicker(body);
+    }
+
+    /* the grid of type cards — Templates panel and the no-custom fallback */
+    function renderTypeGrid(body, list) {
       const grid = document.createElement('div');
       grid.className = 'wiz-types';
-      registry.forEach((t) => {
+      list.forEach((t) => {
         if (!t) return;
         const has = !!t.wizard;
         const card = document.createElement('button');
@@ -438,14 +519,17 @@
           ${t.id === chosen.id ? '<span class="ck"><i class="fa-solid fa-circle-check"></i></span>' : ''}`;
         if (has) card.addEventListener('click', () => {
           if (t.id !== chosen.id) loadChosen(t);
+          lastTemplate = t;
           renderAll();
         });
         grid.appendChild(card);
       });
       body.appendChild(grid);
+    }
 
-      /* Basic / Advanced — how much of the interview the designer answers
-         themselves. Remembered with the rest of this type's intake. */
+    /* Basic / Advanced — how much of the interview the designer answers
+       themselves. Remembered with the rest of this type's intake. */
+    function renderModePicker(body) {
       const modes = document.createElement('div');
       modes.className = 'wiz-chips wiz-modes';
       modes.innerHTML = '<span class="wiz-chips-label">How do you want to start?</span>';
@@ -469,6 +553,23 @@
       });
       modes.appendChild(mrow);
       body.appendChild(modes);
+    }
+
+    /* the Templates / Custom toggle — a PURE view switch over step 0. It never
+       navigates on its own (that made the same control behave two ways — panel
+       on render, jump on tap — and re-toggling would leap a page). Forward is
+       always the footer's Next, or clicking the option itself. Custom is still
+       the shortest path: its one card is pre-selected, so Next alone reaches the
+       interview — one click, fewer than the Templates pick-then-Next. Both keep
+       `chosen` in sync: Custom == the Mix & Match composer; Templates restores
+       the author's last shape. */
+    function selectTypeTab(id) {
+      if (id === typeTab) return;
+      typeTab = id;
+      const next = (id === 'custom') ? customType
+        : ((lastTemplate && lastTemplate.wizard) ? lastTemplate : templateTypes.find((t) => t && t.wizard));
+      if (next && chosen.id !== next.id) loadChosen(next);
+      renderAll();   // stays on step 0 — the toggle only swaps the panel
     }
 
     /* ---- field renderers ---- */
