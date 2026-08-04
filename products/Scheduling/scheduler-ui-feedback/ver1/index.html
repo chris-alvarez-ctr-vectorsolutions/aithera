@@ -202,6 +202,12 @@
     /* number chip — pill like every other qualifier, regardless of label length */
     .pq-num   { background: #dfe3e8; color: #33404c; }
     .pq-label { background: #d13b30; color: #fff; }
+    /* trailing-label group — labels sit TIGHT together (practically no gap, per
+       review feedback) and render as rounded rectangles like the legacy UI */
+    .pq-group { display: inline-flex; align-items: center; gap: 2px; }
+    .pq-group .pq { border-radius: 3px; }
+    .pq-ord { background: #dfe3e8; color: #33404c; font-style: italic; font-weight: 700; }
+    .pq-oc  { background: #f2d024; color: #1e3a5f; font-weight: 700; }
     /* status dot at end of name */
     .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
     .pdot.green  { background: #22c55e; }
@@ -388,7 +394,7 @@
         rows: [
           { badges: ['capt','x:emt'], name: 'Kara Chandler', label: 'OT', bar: 'green' },
           { badges: ['eng','x:emt'],  name: 'Ebony Blakesley', bar: 'green' },
-          { badges: ['x:ff','x:emt'], name: 'Zoe Alma' },
+          { badges: ['x:ff','x:emt'], name: 'Zoe Alma', labels: [ { t: '2nd', c: 'ord' }, { t: 'O/C - AO', c: 'oc' } ] },
           { badges: ['x:ff','x:emt'], name: 'Rocco Delgado', dot: 'green' },
         ], slots: [ { qb: 'FF' } ] },
       { name: 'Rescue 1', count: '3/3', met: true, east: true, time: '7am - 7pm (12 hrs)',
@@ -549,15 +555,19 @@
 
   function rowHTML(r) {
     const tags = (r.badges || []).map(badgeHTML).join('');
-    const num   = r.num   ? `<span class="pq pq-num">${r.num}</span>` : '';
-    const label = r.label ? `<span class="pq pq-label">${r.label}</span>` : '';
+    // all trailing labels (number badge, red label, extra labels) render as ONE
+    // tight group after the name — practically no gap between labels
+    const chips = [
+      r.num   ? `<span class="pq pq-num">${r.num}</span>` : '',
+      r.label ? `<span class="pq pq-label">${r.label}</span>` : '',
+      ...(r.labels || []).map(l => `<span class="pq pq-${l.c}">${l.t}</span>`),
+    ].filter(Boolean).join('');
+    const group = chips ? `<span class="pq-group">${chips}</span>` : '';
     const dot   = r.dot   ? `<span class="pdot ${r.dot}"></span>` : '';
     const bar   = r.bar   ? ` bar-${r.bar}` : '';
-    // num/label chips sit on the NAME line (after the name); the row wraps so
-    // they drop to the next line only when the name itself fills the width
     return `<div class="prow${bar}">
       <div class="pq-tags">${tags}</div>
-      <div class="pname-row"><span class="pname">${r.name}</span>${num}${label}${dot}</div>
+      <div class="pname-row"><span class="pname">${r.name}</span>${group}${dot}</div>
     </div>`;
   }
 

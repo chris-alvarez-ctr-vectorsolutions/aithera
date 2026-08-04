@@ -168,13 +168,17 @@
     .acard-sub { display: flex; align-items: center; justify-content: space-between; padding: 0 7px 3px; }
     .east-chip { display: inline-block; background: #2f7fd1; color: #fff; font-size: 10px; font-weight: 600; padding: 0 6px; border-radius: 3px; letter-spacing: .2px; }
     .acard-time { font-size: 12px; color: #6b7785; padding: 0 7px 4px; }
-    .acard-body { padding: 0 5px 5px; display: flex; flex-direction: column; gap: 4px; }
+    /* top padding gives the FIRST row's hanging tags clearance; later rows sit
+       2px apart so each row's tags overlap the shift above (legacy-UI look) */
+    .acard-body { padding: 12px 5px 5px; display: flex; flex-direction: column; gap: 2px; }
 
-    /* person row (assigned) — dark chip, qualifier tags stacked above the name */
-    .prow { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: #3f4a52; border-radius: 4px; padding: 2px 7px 4px; font-size: 12px; color: #fff; font-weight: 600; cursor: default; position: relative; border-left: 4px solid transparent; box-shadow: 0 1px 2px rgba(0,0,0,.25); margin-top: 9px; }
+    /* person row (assigned) — dark chip, qualifier tags HANG over the row's top
+       edge at the LEFT, overlapping the shift above (legacy-UI positioning) so
+       rows pack with no reserved blank band between them */
+    .prow { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: #3f4a52; border-radius: 4px; padding: 2px 7px 4px; font-size: 12px; color: #fff; font-weight: 600; cursor: default; position: relative; border-left: 4px solid transparent; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
     .prow.bar-green { border-left-color: #4caf50; }
     .prow.bar-red   { border-left-color: #e53935; }
-    .pq-tags { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; margin-top: -11px; position: relative; z-index: 1; }
+    .pq-tags { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; margin-top: -11px; margin-left: -5px; position: relative; z-index: 1; }
     .pq-tags:empty { display: none; }
     /* name line — num/label chips follow the name and wrap below it only when
        the name is long; the status dot keeps hugging the right edge */
@@ -182,8 +186,9 @@
     .prow .pname { font-size: 14px; font-weight: 600; line-height: 1.25; }
     .pname-row .pdot { margin-left: auto; }
 
-    /* qualifier badge — fully round pill, optional leading credential ✕ circle */
-    .pq { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; padding: 1px 5px; border-radius: 999px; line-height: 1.35; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+    /* qualifier badge — rounded RECTANGLE (legacy-UI chip shape, per review
+       feedback), optional leading credential ✕ circle */
+    .pq { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; padding: 1px 5px; border-radius: 3px; line-height: 1.35; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
     .pq-capt  { background: #1a1a1a; color: #fff; }
     .pq-eng   { background: #2e7d32; color: #fff; }
     .pq-lt    { background: #1a1a1a; color: #fff; }
@@ -199,9 +204,14 @@
     .ci { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; background: #DC2626; border: 1px solid rgba(255,255,255,.65); }
     .ci i { font-size: 6px; color: #fff; font-weight: 900; }
     /* misc inline chips on a row */
-    /* number chip — pill like every other qualifier, regardless of label length */
+    /* number chip — same chip treatment as every other qualifier */
     .pq-num   { background: #dfe3e8; color: #33404c; }
     .pq-label { background: #d13b30; color: #fff; }
+    /* trailing-label group — labels sit TIGHT together (practically no gap, per
+       review feedback) and render as rounded rectangles like the legacy UI */
+    .pq-group { display: inline-flex; align-items: center; gap: 2px; }
+    .pq-ord { background: #dfe3e8; color: #33404c; font-style: italic; font-weight: 700; }
+    .pq-oc  { background: #f2d024; color: #1e3a5f; font-weight: 700; }
     /* status dot at end of name */
     .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
     .pdot.green  { background: #22c55e; }
@@ -388,7 +398,7 @@
         rows: [
           { badges: ['capt','x:emt'], name: 'Kara Chandler', label: 'OT', bar: 'green' },
           { badges: ['eng','x:emt'],  name: 'Ebony Blakesley', bar: 'green' },
-          { badges: ['x:ff','x:emt'], name: 'Zoe Alma' },
+          { badges: ['x:ff','x:emt'], name: 'Zoe Alma', labels: [ { t: '2nd', c: 'ord' }, { t: 'O/C - AO', c: 'oc' } ] },
           { badges: ['x:ff','x:emt'], name: 'Rocco Delgado', dot: 'green' },
         ], slots: [ { qb: 'FF' } ] },
       { name: 'Rescue 1', count: '3/3', met: true, east: true, time: '7am - 7pm (12 hrs)',
@@ -549,15 +559,19 @@
 
   function rowHTML(r) {
     const tags = (r.badges || []).map(badgeHTML).join('');
-    const num   = r.num   ? `<span class="pq pq-num">${r.num}</span>` : '';
-    const label = r.label ? `<span class="pq pq-label">${r.label}</span>` : '';
+    // all trailing labels (number badge, red label, extra labels) render as ONE
+    // tight group after the name — practically no gap between labels
+    const chips = [
+      r.num   ? `<span class="pq pq-num">${r.num}</span>` : '',
+      r.label ? `<span class="pq pq-label">${r.label}</span>` : '',
+      ...(r.labels || []).map(l => `<span class="pq pq-${l.c}">${l.t}</span>`),
+    ].filter(Boolean).join('');
+    const group = chips ? `<span class="pq-group">${chips}</span>` : '';
     const dot   = r.dot   ? `<span class="pdot ${r.dot}"></span>` : '';
     const bar   = r.bar   ? ` bar-${r.bar}` : '';
-    // num/label chips sit on the NAME line (after the name); the row wraps so
-    // they drop to the next line only when the name itself fills the width
     return `<div class="prow${bar}">
       <div class="pq-tags">${tags}</div>
-      <div class="pname-row"><span class="pname">${r.name}</span>${num}${label}${dot}</div>
+      <div class="pname-row"><span class="pname">${r.name}</span>${group}${dot}</div>
     </div>`;
   }
 
