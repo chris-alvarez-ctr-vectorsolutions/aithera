@@ -977,7 +977,7 @@ ${closer}`);
     compile,
     fill,
     highlightStrings,
-    previewUrl: () => 'mix-arc-live.html',
+    previewUrl: () => 'scenario-live.html?type=mix-arc',   // [Option B] the converged generic player (stable URL; survives the sim-player extraction)
     sections,
     renderFields,
     lints,
