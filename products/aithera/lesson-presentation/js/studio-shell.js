@@ -350,6 +350,7 @@
   function buildForm() {
     const form = $('#form');
     form.innerHTML = '';
+    if (typeof clearAside === 'function') clearAside();   // drop any pinned aside from the last phase
     ensureCtx();
     const p = PHASES[activePhase];
 
@@ -726,17 +727,58 @@
   /* ---- inspector tabs ----------------------------------------------------
      A type with no playtest (playtest:null) drops the Playtest tab + body, so
      the body list is built from whatever survives. */
+  // Tab <-> body mapping is DATA-DRIVEN (each vaadin-tab's data-body names its
+  // body id), so tabs can be added/removed — the Playtest tab, or a type's
+  // pinned "aside" panel (setAside below) — without any index math.
+  const inspTabs = () => Array.from($('#inspectorTabs').querySelectorAll('vaadin-tab'));
+  const INSP_BODIES = ['tabAside', 'tabPrompt', 'tabLints', 'tabPlaytest', 'tabSplit'];
+  function activateInspBody(bodyId) {
+    INSP_BODIES.forEach((id) => { const el = $('#' + id); if (el) el.classList.toggle('is-active', id === bodyId); });
+  }
+  function selectInspTab(tab) {
+    const i = inspTabs().indexOf(tab);
+    if (i >= 0) { $('#inspectorTabs').selected = i; activateInspBody(tab.dataset.body); }
+  }
   if (!type.playtest) {
-    const tabs = $('#inspectorTabs').querySelectorAll('vaadin-tab');
-    if (tabs[2]) tabs[2].remove();
+    const pt = inspTabs().find((t) => t.dataset.body === 'tabPlaytest');
+    if (pt) pt.remove();
     const ptBody = $('#tabPlaytest');
     if (ptBody) ptBody.remove();
   }
   $('#inspectorTabs').addEventListener('selected-changed', (e) => {
-    const i = e.detail.value;
-    [$('#tabPrompt'), $('#tabLints'), $('#tabPlaytest'), $('#tabSplit')].filter(Boolean)
-      .forEach((el, j) => el.classList.toggle('is-active', i === j));
+    const tab = inspTabs()[e.detail.value];
+    if (tab) activateInspBody(tab.dataset.body);
   });
+
+  /* ---- pinned inspector "aside" (type-agnostic) --------------------------
+     A type can pin a node into the inspector for the CURRENT phase via
+     studioApi.setAside(node, {title, icon}) — e.g. Scene Sweep pins its photo
+     canvas beside the hazard cards so drawing and editing sit side-by-side. The
+     shell owns the tab lifecycle; the type just hands over a DOM node. Cleared
+     at the top of every buildForm(), so it only lives on the phase that set it. */
+  let asideTab = null, asideBody = null;
+  function clearAside() {
+    const wasActive = asideBody && asideBody.classList.contains('is-active');
+    if (asideBody) { asideBody.remove(); asideBody = null; }
+    if (asideTab) { asideTab.remove(); asideTab = null; }
+    if (wasActive) { const first = inspTabs()[0]; if (first) selectInspTab(first); }
+  }
+  function setAside(node, opts) {
+    clearAside();
+    opts = opts || {};
+    const tabsEl = $('#inspectorTabs');
+    asideTab = document.createElement('vaadin-tab');
+    asideTab.dataset.body = 'tabAside';
+    asideTab.innerHTML = `<i class="fa-solid ${esc(opts.icon || 'fa-image')}" style="margin-right:7px"></i> ${esc(opts.title || 'Preview')}`;
+    tabsEl.insertBefore(asideTab, tabsEl.firstElementChild);
+    asideBody = document.createElement('div');
+    asideBody.className = 'tabbody is-aside';
+    asideBody.id = 'tabAside';
+    asideBody.appendChild(node);
+    tabsEl.parentNode.insertBefore(asideBody, tabsEl.nextSibling);
+    selectInspTab(asideTab);
+  }
+  studioApi.setAside = setAside;
 
   /* ---- top bar actions ----------------------------------------------------- */
   $('#publishBtn').addEventListener('click', () => {

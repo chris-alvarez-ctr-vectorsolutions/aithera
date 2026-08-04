@@ -822,6 +822,13 @@ FOR THIS MODULE:
       .ss-clr { border:1px solid var(--line,#d7dce6); background:#fff; color:#b42318; border-radius:8px; width:30px; height:30px; cursor:pointer; }
       .ss-unplaced { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#b54708; }
       @media (prefers-reduced-motion: reduce) { .ss-vtx, .ss-shape { transition:none; } }
+      /* pinned-in-inspector layout: the image + canvas ride in the aside tab,
+         the cards ride in the center form — edited side-by-side. */
+      .ss-aside { display:flex; flex-direction:column; gap:10px; }
+      .ss-aside .ss-canvas { margin:0; }
+      .ss-aside .ss-stage { max-height:none; aspect-ratio:3/2; }
+      .tabbody.is-aside.is-active { display:flex; flex-direction:column; padding:12px 12px 14px; }
+      .ss-center .ss-coverage { margin-top:2px; }
     `;
     document.head.appendChild(s);
   }
@@ -857,8 +864,11 @@ FOR THIS MODULE:
   /* ---- the photo + hazards + hotspots editor (the one net-new surface) --- */
   function buildSceneSection(H, numField) {
     const { tf, rowCard, esc, getScenario, scheduleUpdate } = H;
-    const wrap = document.createElement('div');
-    wrap.className = 'fields';
+    // Built as TWO nodes that share this one closure (so the draw state is one):
+    //   center — the hazard/decoy cards + coverage + scene text (the editor form)
+    //   aside  — the photo + the vector-overlay canvas (pinned in the inspector)
+    // `center` is also the liveness anchor for the self-cleaning listeners.
+    let center = null;
     const s = getScenario();
     if (!s.scene || typeof s.scene !== 'object') s.scene = { src: '', alt: '', canonDescription: '' };
     if (!Array.isArray(s.hazards)) s.hazards = [];
@@ -1084,7 +1094,7 @@ FOR THIS MODULE:
 
     // Keyboard while drawing (self-cleans once this section leaves the DOM).
     function onKey(e) {
-      if (!wrap.isConnected) { document.removeEventListener('keydown', onKey); return; }
+      if (center && !center.isConnected) { document.removeEventListener('keydown', onKey); return; }
       if (!draw) return;
       if (e.key === 'Escape') { e.preventDefault(); cancelDraw(); }
       else if (e.key === 'Enter') { e.preventDefault(); if (draw.mode === 'poly') commitDraw(); }
@@ -1240,13 +1250,19 @@ FOR THIS MODULE:
         helper: 'Describe the scene AND every hazard in words. The model reasons over this text, not the image.' }),
     );
 
-    wrap.append(imgPanel, canvas, covPanel, listWrap, sceneText);
+    // ASIDE — the image + its vector canvas (upload lives with the image it acts on).
+    const aside = document.createElement('div'); aside.className = 'ss-aside';
+    aside.append(imgPanel, canvas);
+    // CENTER — the cards the author fills while watching the pinned image.
+    center = document.createElement('div'); center.className = 'fields ss-center';
+    center.append(covPanel, listWrap, sceneText);
+
     paintImage(); paintStage(); paintCoverage(); paintList();
 
     // keep shapes aligned when the drawn photo rect moves (self-cleans on detach)
-    const onResize = () => { if (!wrap.isConnected) { removeEventListener('resize', onResize); return; } renderShapes(); };
+    const onResize = () => { if (center && !center.isConnected) { removeEventListener('resize', onResize); return; } renderShapes(); };
     addEventListener('resize', onResize);
-    return wrap;
+    return { center, aside };
   }
 
   /* ---- form: field renderers -------------------------------------------- */
@@ -1299,7 +1315,14 @@ FOR THIS MODULE:
       );
     }
 
-    if (sec.id === 'scene') box.append(buildSceneSection(H, numField));
+    if (sec.id === 'scene') {
+      const parts = buildSceneSection(H, numField);
+      box.append(parts.center);
+      // Pin the photo canvas in the inspector (side-by-side with the cards) when
+      // the shell supports it; otherwise fall back to inline (old single-column).
+      if (typeof H.setAside === 'function') H.setAside(parts.aside, { title: 'Scene image', icon: 'fa-image' });
+      else box.insertBefore(parts.aside, box.firstChild);
+    }
 
     if (sec.id === 'beats') {
       box.append(rowsBlock('phases', (p, i, onDel) => rowCard(
