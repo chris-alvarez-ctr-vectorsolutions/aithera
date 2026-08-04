@@ -249,24 +249,76 @@
     renderLints();
   }
 
-  /* ---- the Interaction phase's core-interaction chooser ------------------ */
+  /* ---- the Interaction phase's core-interaction chooser ------------------
+     A Templates / Custom toggle organizes the interaction types — the same
+     split as the "Start from scratch" wizard, so the two chooser surfaces read
+     identically: Templates holds the ready-made shapes; Custom is the Mix &
+     Match beat-composer. The toggle is a PURE view switch; picking a card is
+     what actually changes the interaction (an explicit, confirmed reload). */
+  const CUSTOM_TYPE_ID = 'mix-arc';
+
   function buildModeChooser() {
     const wrap = document.createElement('div');
     wrap.className = 'mode-choose';
     wrap.innerHTML = '<p class="mc-head">Choose the core interaction</p>';
-    const grid = document.createElement('div');
-    grid.className = 'mode-grid';
-    window.AitheraStudio.list().forEach((t) => {
+
+    const all = window.AitheraStudio.list();
+    const customType = all.find((t) => t && t.id === CUSTOM_TYPE_ID) || null;
+    const templateTypes = all.filter((t) => t && t.id !== CUSTOM_TYPE_ID);
+
+    // A card that switches the editor to a given interaction type.
+    const cardFor = (t, extraClass) => {
       const card = document.createElement('button');
-      card.className = 'mode-card' + (t.id === type.id ? ' is-active' : '');
+      card.className = 'mode-card' + (t.id === type.id ? ' is-active' : '') + (extraClass ? ' ' + extraClass : '');
       card.innerHTML =
         `<span class="mci"><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i></span>` +
         `<span class="mcb"><span class="mcn">${esc(t.label)}</span><span class="mcd">${esc(t.blurb || '')}</span></span>` +
         (t.id === type.id ? '<span class="mck"><i class="fa-solid fa-circle-check"></i></span>' : '');
       card.addEventListener('click', () => chooseMode(t.id));
-      grid.appendChild(card);
-    });
-    wrap.appendChild(grid);
+      return card;
+    };
+
+    // No dedicated custom composer registered → the original flat grid of all.
+    if (!customType || !templateTypes.length) {
+      const grid = document.createElement('div');
+      grid.className = 'mode-grid';
+      all.forEach((t) => grid.appendChild(cardFor(t)));
+      wrap.appendChild(grid);
+      return wrap;
+    }
+
+    const inner = document.createElement('div');
+    let tab = (type.id === CUSTOM_TYPE_ID) ? 'custom' : 'templates';
+    const render = () => {
+      inner.innerHTML = '';
+      const tabs = document.createElement('div');
+      tabs.className = 'mode-tabs';
+      tabs.setAttribute('role', 'tablist');
+      [{ id: 'templates', ic: 'fa-swatchbook', label: 'Templates' },
+       { id: 'custom', ic: customType.icon || 'fa-shapes', label: 'Custom' }]
+      .forEach((td) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'mode-tab' + (tab === td.id ? ' is-on' : '');
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', tab === td.id ? 'true' : 'false');
+        b.innerHTML = `<i class="fa-solid ${esc(td.ic)}"></i> ${esc(td.label)}`;
+        b.addEventListener('click', () => { if (tab !== td.id) { tab = td.id; render(); } });
+        tabs.appendChild(b);
+      });
+      inner.appendChild(tabs);
+
+      if (tab === 'custom') {
+        inner.appendChild(cardFor(customType, 'mode-card-full'));
+      } else {
+        const grid = document.createElement('div');
+        grid.className = 'mode-grid';
+        templateTypes.forEach((t) => grid.appendChild(cardFor(t)));
+        inner.appendChild(grid);
+      }
+    };
+    render();
+    wrap.appendChild(inner);
     return wrap;
   }
 
