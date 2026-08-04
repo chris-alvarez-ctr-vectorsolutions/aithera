@@ -48,8 +48,9 @@
     alt: str((D.scene || {}).alt),
     opening: str(((D.intro || {}).audio || {}).text),
     hazards: JSON.stringify((D.hazards || []).slice(0, 2).map((h) => ({
-      id: h.id, short: h.short, zone: h.zone, full: h.full, synonyms: h.synonyms, source: h.source, fix: h.fix, prevent: h.prevent,
+      id: h.id, short: h.short, alt: h.alt, zone: h.zone, full: h.full, synonyms: h.synonyms, source: h.source, fix: h.fix, prevent: h.prevent,
     })), null, 1),
+    decoys: JSON.stringify((D.decoys || []).slice(0, 2).map((d) => ({ alt: d.alt, note: d.note })), null, 1),
     observe: JSON.stringify((D.phases || []).find((p) => p.kind === 'spot') || {}, null, 1),
     playbook: JSON.stringify((D.playbook || []).slice(0, 2), null, 1),
   };
@@ -123,6 +124,7 @@ ${str(ik.sceneDescription).trim() || '(unspecified)'}`;
       d.learnerName = 'you';
       d.scene = { src: '', alt: '', canonDescription: '' };
       d.hazards = [];
+      d.decoys = [];
       d.phases = [];
       d.playbook = [];
       d.resources = { lead: '', items: [] };
@@ -189,33 +191,38 @@ CRAFT EXEMPLARS (the shipped gold-standard build — match craft and density, NO
             return { maxTokens: 2000,
               system: SYS + `
 
-YOUR TASK — the OBSERVABLE-HAZARD RUBRIC: the ONLY hazards in the scene and the ONLY ones the coach credits. Return this exact JSON shape:
+YOUR TASK — the OBSERVABLE-HAZARD RUBRIC plus a few SAFE DECOYS. The hazards are the ONLY things the coach credits; the decoys are safe objects that make the accessible list/keyboard/free-text paths a real "which are unsafe?" judgment (not a walk down the answers). Return this exact JSON shape:
 {
- "hazards": [ {"id": "short lowercase slug, unique (e.g. 'jug','ppe','sds','label')", "short": "3-6 word label — names the pin and the coverage chip", "zone": "WHERE it sits in the scene — the coach nudges toward this without naming the hazard", "full": "what it is and why it's a hazard, 1-2 sentences — what the coach grounds to", "synonyms": "comma-separated plain-language phrasings that earn credit, in any words", "source": "a citation like 'RVCT-479 P017' if one grounds it, else empty string", "fix": "the RIGHT-NOW corrective action (the Diagnose & Remediate beat)", "prevent": "the systemic change that keeps it from returning (feeds the close)"} ]
+ "hazards": [ {"id": "short lowercase slug, unique (e.g. 'jug','ppe','sds','label')", "short": "3-6 word label — names the pin and the coverage chip", "alt": "NEUTRAL one-line description of what's VISIBLY there — state the visual facts (a blank jug, bare hands) but NEVER the verdict that it's a hazard; this is the screen-reader name + the on-screen reference", "zone": "WHERE it sits in the scene — the coach nudges toward this without naming the hazard", "full": "what it is and why it's a hazard, 1-2 sentences — what the coach grounds to", "synonyms": "comma-separated plain-language phrasings that earn credit, in any words", "source": "a citation like 'RVCT-479 P017' if one grounds it, else empty string", "fix": "the RIGHT-NOW corrective action (the Diagnose & Remediate beat)", "prevent": "the systemic change that keeps it from returning (feeds the close)"} ],
+ "decoys": [ {"alt": "NEUTRAL description of a SAFE / neutral object also in the scene (a properly-labeled container, a fire extinguisher in place, machined parts on the bench)", "note": "the friendly 'that one's actually fine' line shown if a learner marks it — say plainly why it's safe"} ]
 }
 ${authored.length ? `The designer named ${authored.length} hazards — keep their ORDER and MEANING; expand each into a full rubric row grounded in the scene.` : 'The designer named NO hazards — derive them from the scene description and source material. 3-6 observable hazards a trained eye should catch.'}
-Every hazard must be OBSERVABLE in the scene canon and have a distinct zone. HARD LENGTH BUDGET — stay under 1600 tokens: strings tight; synonyms 4-8 phrases.
+Every hazard must be OBSERVABLE in the scene canon and have a distinct zone. Add 2-4 decoys that PLAUSIBLY sit in this scene and are genuinely safe (grounded in the canon — do not invent objects that aren't there). HARD LENGTH BUDGET — stay under 1700 tokens: strings tight; synonyms 4-8 phrases; decoys 2-4.
 
-CRAFT EXEMPLAR (shipped build — first 2 of 4; match craft, NOT topic):\n${EX.hazards}`,
-              user: `THE SCENE CANON (ground every hazard's zone in this):\n${str(f.sceneCanon) || sceneBlock(ik)}\n\n${authored.length ? 'THE DESIGNER\'S HAZARDS (one per line, keep order):\n' + authored.map((t, i) => `${i + 1}. ${t}`).join('\n') + '\n\n' : ''}RIGHT-NOW FIXES the designer noted: ${ik.remediateFocus || '(propose per hazard — stop-work, PPE, quarantine, pull a current sheet, relabel)'}\nSYSTEMIC FIXES the designer noted: ${ik.preventFocus || '(propose per hazard — standards, review cadences, scheduled checks)'}\n\n${sourceBlock(ik, 4000)}\n\nWrite the hazards JSON now.` };
+CRAFT EXEMPLARS (shipped build — match craft, NOT topic):\nHAZARDS (first 2 of 4):\n${EX.hazards}\nDECOYS (first 2):\n${EX.decoys}`,
+              user: `THE SCENE CANON (ground every hazard's zone AND every decoy in this):\n${str(f.sceneCanon) || sceneBlock(ik)}\n\n${authored.length ? 'THE DESIGNER\'S HAZARDS (one per line, keep order):\n' + authored.map((t, i) => `${i + 1}. ${t}`).join('\n') + '\n\n' : ''}RIGHT-NOW FIXES the designer noted: ${ik.remediateFocus || '(propose per hazard — stop-work, PPE, quarantine, pull a current sheet, relabel)'}\nSYSTEMIC FIXES the designer noted: ${ik.preventFocus || '(propose per hazard — standards, review cadences, scheduled checks)'}\n\n${sourceBlock(ik, 4000)}\n\nWrite the hazards + decoys JSON now.` };
           },
           apply(json, draft) {
             const seen = {};
-            const slug = (s) => { let id = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'hazard'; while (seen[id]) id += 'x'; seen[id] = 1; return id; };
+            const slug = (s, pfx) => { let id = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || (pfx || 'hazard'); while (seen[id]) id += 'x'; seen[id] = 1; return id; };
             draft.hazards = Array.isArray(json.hazards) ? json.hazards.map((h) => {
               h = h || {};
               return {
-                id: slug(h.id || h.short),
-                short: str(h.short), zone: str(h.zone), full: str(h.full),
+                id: slug(h.id || h.short, 'hazard'),
+                short: str(h.short), alt: str(h.alt), zone: str(h.zone), full: str(h.full),
                 synonyms: str(h.synonyms), source: str(h.source),
                 fix: str(h.fix), prevent: str(h.prevent),
-                spot: null,   // placed by hand in the editor's photo canvas
+                spot: null,   // outlined by hand in the editor's photo canvas
               };
+            }) : [];
+            draft.decoys = Array.isArray(json.decoys) ? json.decoys.map((d, i) => {
+              d = d || {};
+              return { id: slug(d.alt || ('decoy' + (i + 1)), 'decoy'), alt: str(d.alt), note: str(d.note), spot: null };
             }) : [];
             const n = draft.hazards.length;
             draft.coverage = { total: n, required: Math.max(1, n - 1) };
           },
-          doneNote(json) { return `${(json.hazards || []).length} hazards — place their hotspots in the editor`; } },
+          doneNote(json) { return `${(json.hazards || []).length} hazards, ${((json.decoys || []).length)} decoys — outline them in the editor`; } },
 
         /* 3) BEATS — the aligned 2-beat shape. Structure is hard-coded (Observe →
               Diagnose & Remediate); the model writes only the copy. */
@@ -296,6 +303,6 @@ CRAFT EXEMPLAR (shipped build — first 2 of 5; match craft, NOT topic):\n${EX.p
       ];
     },
 
-    landNote() { return 'Scene Sweep drafted — now upload the work-area photo and click to place each hazard’s hotspot in the editor, then run the guardrails.'; },
+    landNote() { return 'Scene Sweep drafted — now upload the work-area photo and outline each hazard AND each decoy on it in the editor (the outlines are what learners tap, key, and list), then run the guardrails.'; },
   };
 })();

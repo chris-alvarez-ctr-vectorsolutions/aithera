@@ -5,8 +5,8 @@
    everything that looks wrong. An AI coach credits each catch against a fixed
    OBSERVABLE-HAZARD RUBRIC, tracks COVERAGE (spotted N of M), nudges spatially
    toward the misses ("look again near the bench, and the drum beside it"), and
-   then loops the scene through three beats — Observe → Remediate → Prevent —
-   before the guaranteed SME close. This is the schema behind the HazCom
+   then works the scene through two beats — Observe (spot) → Diagnose &
+   Remediate (fix it now) — before the guaranteed SME close. This is the schema behind the HazCom
    "Spot the Hazard" build (RVCT-479), run by scene-sweep-live.html.
 
    HOW IT DIFFERS FROM the other coach-only types:
@@ -89,7 +89,7 @@
   /* =======================================================================
      THE DEFAULT SCENARIO — "Spot the Hazard" (Hazard Communication GHS,
      RVCT-479), authored from the HazCom POC deck: one illustrated finishing
-     bench with four observable hazards, worked Observe → Remediate → Prevent,
+     bench with four observable hazards, worked Observe → Diagnose & Remediate,
      with the SME 10-topic + protective-measures close held as-is.
      ======================================================================= */
   const OPENING_SITUATION = 'You’ve just finished your hazard communication training — and now you’re standing at the finishing bench on the floor, where product gets wiped down, touched up, and boxed.\n\nA coworker is working right next to you. There’s a chemical drum to your right, a jug and some parts on the bench, the usual clutter of a shift in progress.\n\nNothing’s on fire. Everybody’s just working. But you finished that training for a reason — take a slow look around, and see what your eye catches.';
@@ -115,7 +115,7 @@
     // `canonDescription` is what the MODEL grounds to (it never sees the image).
     scene: {
       src: 'assets/hazcom-scene.jpg',
-      alt: 'A finishing area on a shop floor. On the metal bench in front of you, to the left, a half-full clear plastic jug with no label sits beside a row of metal parts. Your coworker stands at the bench in a short-sleeve shirt, wiping a part with a rag, bare-handed — no gloves, no eye protection. To your right stands a chemical drum: a Safety Data Sheet is taped to it, and the drum’s own hazard label is torn and peeling.',
+      alt: 'A finishing area on a shop floor. On the metal bench in front of you, to the left, a half-full clear plastic jug with no label sits beside a row of metal parts. Your coworker stands at the bench in a short-sleeve shirt, wiping a part with a rag, bare-handed — no gloves and no eye protection. To your right stands a chemical drum: a Safety Data Sheet taped to it is dated decades ago, and the drum’s own hazard label is torn and peeling, so its pictogram and signal word can’t be read.',
       canonDescription: 'A finishing area on a shop floor, where product gets wiped down and boxed. A metal workbench sits in front of you: on it, to the left, a half-full clear plastic jug with no label — nothing written on it — beside a row of metal parts. Your coworker stands at the bench in a short-sleeve shirt, wiping a part with a rag, bare-handed — no gloves and no eye protection. To your right stands a chemical drum. Taped to the drum is a Safety Data Sheet whose printed date is years out of date, and the drum’s own hazard label is torn and peeling, so the pictogram and signal word can’t be read. Nothing is actively on fire or spilling — the hazards are the everyday, easy-to-walk-past kind.',
     },
 
@@ -149,7 +149,8 @@
     hazards: [
       {
         id: 'jug', short: 'Unlabeled secondary container', zone: 'on the bench in front of you, to the left',
-        spot: { x: 0.21, y: 0.55, r: 0.14 },
+        alt: 'A half-full clear plastic jug with a carry handle at the left end of the bench; its sides are blank — nothing written on it.',
+        spot: { points: [[0.243, 0.372], [0.283, 0.372], [0.300, 0.408], [0.322, 0.470], [0.322, 0.598], [0.300, 0.636], [0.212, 0.636], [0.203, 0.470], [0.222, 0.405]] },
         full: 'A jug decanted from a drum with nothing written on it — a secondary container that must be labeled. You can’t tell what chemical is in it.',
         synonyms: 'unlabeled jug, unmarked container, no label, blank label, unknown liquid, what’s in the jug, mystery bottle',
         source: 'RVCT-479 P017',
@@ -158,7 +159,8 @@
       },
       {
         id: 'ppe', short: 'No PPE in use', zone: 'your coworker at the bench, wiping a part with his bare hands',
-        spot: { x: 0.54, y: 0.52, r: 0.15 },
+        alt: 'A coworker leaning over the bench, wiping a metal part with a rag using his bare hands — no gloves, short sleeves.',
+        spot: { points: [[0.475, 0.470], [0.560, 0.450], [0.635, 0.475], [0.640, 0.535], [0.585, 0.575], [0.505, 0.560], [0.470, 0.515]] },
         full: 'A coworker handling chemical bare-handed — no gloves and no goggles the task and the label call for.',
         synonyms: 'no gloves, bare hands, no goggles, no eye protection, no PPE, not wearing protection, unprotected',
         source: 'RVCT-479 P015/P016',
@@ -167,7 +169,8 @@
       },
       {
         id: 'sds', short: 'Out-of-date SDS', zone: 'the Safety Data Sheet taped to the drum on your right',
-        spot: { x: 0.89, y: 0.70, r: 0.14 },
+        alt: 'A printed “Safety Data Sheet” taped to the front of the drum on the right; the sheet’s printed date reads from years ago.',
+        spot: { points: [[0.720, 0.600], [0.855, 0.598], [0.982, 0.615], [0.980, 0.900], [0.850, 0.910], [0.723, 0.895]] },
         full: 'The safety data sheet on hand is years out of date — a current SDS is required whenever the hazard information changes.',
         synonyms: 'old SDS, outdated safety data sheet, expired sheet, SDS from years ago, old MSDS, decades-old sheet',
         source: 'RVCT-479 P010',
@@ -176,12 +179,37 @@
       },
       {
         id: 'label', short: 'Unreadable drum label', zone: 'the drum on your right — its own label, torn and peeling near the top',
-        spot: { x: 0.84, y: 0.33, r: 0.13 },
+        alt: 'Near the top of the drum on the right, a paper label torn and peeling away — its printing and symbols no longer readable.',
+        spot: { points: [[0.715, 0.180], [0.820, 0.165], [0.930, 0.190], [0.985, 0.250], [0.980, 0.360], [0.930, 0.445], [0.820, 0.455], [0.730, 0.410], [0.705, 0.300]] },
         full: 'A drum whose label is torn and peeling — you can’t read the pictogram or signal word to identify the hazard.',
         synonyms: 'torn label, faded label, smudged label, peeling label, can’t read the drum, unreadable label, ripped label',
         source: 'RVCT-479 P005/P006',
         fix: 'Get a legible, GHS-compliant label on the drum so anyone can identify the hazard at a glance.',
         prevent: 'A label-legibility standard: torn or faded labels get replaced so every container stays identifiable.',
+      },
+    ],
+
+    // DECOY REGIONS — safe/neutral objects in the same scene. They count for
+    // NOTHING; marking one just teaches "that's actually fine." They exist so the
+    // keyboard / list / free-text paths are a real "which of these are unsafe?"
+    // judgment (not a Tab→Enter walk down the answers), and so a pointer tap on a
+    // safe object gets a teaching beat instead of a blank "nothing there." Each
+    // `alt` states visual facts only; the verdict is the learner's to reach.
+    decoys: [
+      {
+        id: 'parts', alt: 'A row of machined metal parts laid out across the middle of the bench, ready to be finished.',
+        note: 'Those are just the parts being worked — the job itself. Nothing unsafe about the parts sitting there.',
+        spot: { points: [[0.340, 0.560], [0.460, 0.545], [0.600, 0.565], [0.610, 0.610], [0.470, 0.628], [0.350, 0.612]] },
+      },
+      {
+        id: 'bollard', alt: 'A bright yellow safety post standing on the floor in the background, to the left.',
+        note: 'That’s a safety bollard doing its job — protecting equipment and people from traffic. Good to see, not a hazard.',
+        spot: { points: [[0.148, 0.318], [0.174, 0.322], [0.181, 0.602], [0.139, 0.602], [0.137, 0.360]] },
+      },
+      {
+        id: 'equipment', alt: 'Other workstations and shop equipment further back on the floor, behind the bench.',
+        note: 'That’s the rest of the shop in the background — not part of the bench you’re inspecting right now.',
+        spot: { points: [[0.210, 0.305], [0.330, 0.315], [0.335, 0.420], [0.208, 0.430]] },
       },
     ],
 
@@ -194,8 +222,8 @@
         label: 'Observe',
         level: 'Beat 1 · spot the hazards',
         maxTurns: 2,
-        signpost: 'Alright — let’s walk the area properly. Take your time.',
-        prompt: 'Take a slow look around the finishing bench. Walk me through everything that looks wrong or unsafe to you — name as many as you can spot.',
+        signpost: 'Let’s take a closer look and walk the area properly. Take your time.',
+        prompt: 'Walk me through everything that looks wrong or unsafe to you — name as many as you can spot.',
         exitCriteria: 'the learner has named the majority of the observable hazards (the coverage target below) — or has had one look-again nudge',
         calibration: [
           { tier: 'UNTHOUGHTFUL', guidance: 'spots 0–1, or only names "it’s messy / chemicals are out" — vague, treats it as housekeeping rather than a HazCom problem. Credit any real catch, then cue a LOCATION without giving it away ("look again right on the bench — the jug, and that sheet — and the person working next to you"). Do not name the hazards.' },
@@ -211,11 +239,11 @@
       {
         id: 'remediate',
         kind: 'act',
-        label: 'Remediate',
+        label: 'Diagnose & Remediate',
         level: 'Beat 2 · fix it now',
         maxTurns: 2,
-        signpost: 'Now let’s do something about it. Back to the bench.',
-        prompt: 'For each hazard you flagged — what would you do right now, in the moment, before anyone keeps working? Be specific.',
+        signpost: 'Now let’s do something about it. Back to the scene.',
+        prompt: 'For each hazard, what would you do right now, in the moment, before anyone keeps working? Be specific.',
         exitCriteria: 'the learner gives immediate, correct corrective action spanning stop-work / PPE and making the chemical identifiable (a current SDS, a legible label) — or has had one follow-up',
         calibration: [
           { tier: 'UNTHOUGHTFUL', guidance: 'defers — "clean it up later," "tell a supervisor," "put a note on it." Press the immediacy: the coworker is decanting bare-handed this second — what happens before he keeps going? Redirect to stop-work + PPE first.' },
@@ -223,28 +251,8 @@
           { tier: 'STRONG', guidance: 'stops unsafe work and gets PPE on; quarantines/identifies the unknown jug; pulls a current SDS; gets a legible label on the drum — all before work resumes. Validate and name the layers at work: PPE and safe handling are protective measures IN ACTION, not recitation.' },
         ],
         debrief: {
-          talkItThrough: 'Let’s pull the right-now moves together.',
-          points: 'The immediate corrective actions, mapped to the protective-measures layers: STOP the unsafe work before another exposure and get the right PPE on; CONTAIN the unknown — quarantine the unlabeled jug until it’s identified, and pull a CURRENT SDS (the out-of-date one can’t be trusted for handling or first aid); and MAKE IT LEGIBLE — a GHS-compliant label on the drum so anyone can identify the hazard at a glance. This is PPE and safe handling applied, not recited.',
-        },
-        transitions: [{ onTier: '', next: 'prevent', set: {} }],
-      },
-      {
-        id: 'prevent',
-        kind: 'prevent',
-        label: 'Prevent',
-        level: 'Beat 3 · make it stick',
-        maxTurns: 2,
-        signpost: 'One more pass — this time, think bigger than today.',
-        prompt: 'Fixing it once is good. What would keep these hazards from showing up again next week — what has to change about how this place runs?',
-        exitCriteria: 'the learner names systemic / work-practice fixes (a labeling standard, an SDS review cadence, PPE checks, a label-legibility standard) for at least two of the hazards — or has had one follow-up',
-        calibration: [
-          { tier: 'UNTHOUGHTFUL', guidance: 'behavior exhortation only — "people should be more careful," "remind everyone." Nothing that survives a busy shift or a new hire. Redirect to systems: what makes this not depend on someone remembering — a rule, a schedule, a stocked supply?' },
-          { tier: 'NEUTRAL', guidance: 'names one durable fix (a labeling rule, or an SDS review cadence) but stops short of the broader program (PPE checks, label-legibility standard). Credit the system, then widen the lens and tie it to the written program.' },
-          { tier: 'STRONG', guidance: 'secondary-container labeling program; current, accessible SDSs with a review cadence; scheduled PPE checks; a label-legibility standard — tied to the written HazCom program and training. Validate and connect it to the employer’s written program: the work practices and administrative controls that keep the fix in place.' },
-        ],
-        debrief: {
-          talkItThrough: 'Let’s name what makes it stick.',
-          points: 'The systemic fixes — the work-practices layer of protective measures, built into the employer’s written HazCom program: a secondary-container LABELING standard so an unknown jug never sits on a bench again; an SDS REVIEW CADENCE that keeps sheets current and accessible; scheduled PPE CHECKS so the right gear is stocked and worn; and a LABEL-LEGIBILITY standard so torn or faded labels get replaced. Careful walks out the door with whoever’s careful — systems don’t.',
+          talkItThrough: 'Let’s go over what to do right now.',
+          points: 'The immediate corrective actions, mapped to the protective-measures layers: STOP the unsafe work before another exposure and get the right PPE on; CONTAIN the unknown — quarantine the unlabeled jug until it’s identified, and pull a CURRENT SDS (the out-of-date one can’t be trusted for handling or first aid); and MAKE IT LEGIBLE — a GHS-compliant label on the drum so anyone can identify the hazard at a glance. This is PPE and safe handling applied, not recited. Note the durable angle briefly — a quick record of the outdated SDS or the relabeled drum keeps the fix from quietly slipping back — but the systemic program is the close’s job, not this beat’s.',
         },
         transitions: [],
       },
@@ -266,7 +274,7 @@
         body: 'Work practices reduce risk at the source; emergency procedures define spill/exposure response and who to notify; PPE specifies what to wear, when, and how. A space that covers only PPE leaves workers without the full picture.',
         source: 'RVCT-479 protective measures' },
       { title: 'What a complete HazCom program covers',
-        body: 'Ten elements: the HazCom Standard; the written program & how to access it; chemical locations; physical & health hazards; how to detect a release; employee protective measures; employer protective measures (work practices, emergency procedures, PPE); label explanation; SDS access; and who to contact.',
+        body: 'Ten elements: the HazCom Standard; the written program & how to access it; chemical locations; physical & health hazards; how to detect a release; employee protective measures; employer protective measures (work practices, emergency procedures, PPE); label explanation; SDS access; and who to contact. Understanding these ten isn’t just meeting a requirement — it’s what lets you recognize hazards, respond appropriately, and stay safe on the job.',
         source: 'RVCT-479 slide 43' },
     ],
 
@@ -299,6 +307,7 @@
     const scene = obj(s.scene);
     const phases = arr(s.phases).filter((p) => p && p.id);
     const hazards = arr(s.hazards).filter((h) => h && h.id);
+    const decoys = arr(s.decoys).filter((d) => d && d.id && (String(d.alt || '').trim() || String(d.note || '').trim()));
     const cov = obj(s.coverage);
     const total = Number.isFinite(cov.total) && cov.total > 0 ? cov.total : hazards.length;
     const required = Number.isFinite(cov.required) && cov.required > 0 ? Math.min(cov.required, total) : Math.max(1, total - 1);
@@ -311,7 +320,7 @@
 
 You are ${voice.persona ? fill(voice.persona, s) : 'a knowledgeable, plain-spoken safety trainer — authority and genuine concern, never a quiz machine'}.${voice.guidance ? ' ' + fill(voice.guidance, s) : ''}
 
-THE SHAPE — the learner looks at ONE illustrated work area (they can see it the whole time; you cannot) and works it through three beats: OBSERVE (spot what’s wrong), REMEDIATE (fix it right now), and PREVENT (keep it from coming back). Each beat is Practice then Learn: the learner works it themselves first, then you land the standard. There is no character and no role-play — it is just you and the learner, looking at the scene together.
+THE SHAPE — the learner looks at ONE illustrated work area (they can see it the whole time; you cannot) and works it through two beats: OBSERVE (spot what’s wrong) and DIAGNOSE & REMEDIATE (fix it right now, before anyone keeps working). Each beat is Practice then Learn: the learner works it themselves first, then you land the standard. There is no character and no role-play — it is just you and the learner, looking at the scene together.
 
 PERCEPTION-GRADING — your core job in the Observe beat is to CREDIT what the learner actually spots against the fixed rubric below, track how many of the ${total} hazards they’ve named, and nudge them toward the misses by pointing WHERE to look — never naming what’s there. Credit generously in any phrasing; never credit or invent a hazard outside the rubric.
 
@@ -349,13 +358,25 @@ FOR THIS MODULE:
       parts.push('THE OBSERVABLE-HAZARD RUBRIC — the ONLY hazards in the scene and the ONLY ones you credit. For each: its id, what it is, WHERE it is (use the zone for spatial nudges), and phrasings to accept:\n\n' +
         hazards.map((h) => {
           const lines = [`[${h.id}] ${fill(h.short, s)} — ${fill(h.zone, s)}`];
+          if (String(h.alt || '').trim()) lines.push(`  · Visible as (what's on screen): ${fill(h.alt, s)}`);
           if (String(h.full || '').trim()) lines.push(`  · What: ${fill(h.full, s)}`);
           if (String(h.synonyms || '').trim()) lines.push(`  · Credit phrasings like: ${fill(h.synonyms, s)}`);
-          if (String(h.fix || '').trim()) lines.push(`  · Right-now fix (Remediate beat): ${fill(h.fix, s)}`);
-          if (String(h.prevent || '').trim()) lines.push(`  · Systemic fix (Prevent beat): ${fill(h.prevent, s)}`);
+          if (String(h.fix || '').trim()) lines.push(`  · Right-now fix (Diagnose & Remediate beat): ${fill(h.fix, s)}`);
           return lines.join('\n');
         }).join('\n\n') +
         `\n\nCOVERAGE TARGET (Observe): the learner should name at least ${required} of the ${total} before the beat closes; the app enforces a turn cap with one look-again nudge, then closes regardless.`);
+    }
+
+    // 4b) SAFE OBJECTS (decoys) — present on screen but NOT hazards. The learner
+    // can mark these too; the coach must not credit them, and should be ready to
+    // say "that one's fine" if asked. Never turn a safe object into a new hazard.
+    if (decoys.length) {
+      parts.push('ALSO IN THE SCENE — SAFE OBJECTS the learner can see (and may point at). These are NOT hazards: never credit them as catches, never add them to "spotted", and never invent a hazard to match. If the learner raises one, acknowledge it and say plainly it’s fine, then steer back:\n\n' +
+        decoys.map((d) => {
+          const lines = [`[${d.id}] ${fill(d.alt, s)}`];
+          if (String(d.note || '').trim()) lines.push(`  · Why it's fine: ${fill(d.note, s)}`);
+          return lines.join('\n');
+        }).join('\n\n'));
     }
 
     // 5) Locked beats verbatim.
@@ -438,7 +459,7 @@ FOR THIS MODULE:
     const pb = arr(s.playbook).filter((p) => p && String(p.title || '').trim());
     if (pb.length) {
       parts.push(
-`AFTER COMPLETION the learner is automatically shown the expert close (the ${pb.length} SME-validated components — the observable red flags, the fixes, and what a complete HazCom program covers) and a resources list — the PAGE guarantees this. Your closing bubbles stay short and personal; do NOT recite the components or list resources yourself.`);
+`AFTER COMPLETION the learner is automatically shown the expert close (the ${pb.length} SME-validated components — the observable red flags, the fixes, and what a complete HazCom program covers) and a resources list — the PAGE guarantees this. Your closing bubbles stay short and personal — briefly RECAP 2-3 specific things THIS learner spotted and did, in their own words; do NOT recite the components or list resources yourself.`);
     }
 
     return parts.join('\n\n');
@@ -453,7 +474,8 @@ FOR THIS MODULE:
     push((obj(s.voice)).persona); push((obj(s.voice)).guidance);
     push((obj(s.reflection)).prompt); push((obj(s.reflection)).feedbackGuidance);
     push(obj(s.scene).canonDescription); push(obj(s.scene).alt);
-    arr(s.hazards).forEach((h) => { if (h) { push(h.short); push(h.full); push(h.synonyms); push(h.zone); push(h.fix); push(h.prevent); } });
+    arr(s.hazards).forEach((h) => { if (h) { push(h.short); push(h.alt); push(h.full); push(h.synonyms); push(h.zone); push(h.fix); push(h.prevent); } });
+    arr(s.decoys).forEach((d) => { if (d) { push(d.alt); push(d.note); } });
     arr(s.phases).forEach((p) => {
       if (!p) return;
       push(p.signpost); push(p.prompt); push(p.exitCriteria);
@@ -468,25 +490,68 @@ FOR THIS MODULE:
 
   /* ---- normalize / validate / merge / blank — SPREAD-FIRST -------------- */
   const TIER = (t) => { t = obj(t); return { ...t, tier: typeof t.tier === 'string' ? t.tier : '', guidance: typeof t.guidance === 'string' ? t.guidance : '' }; };
+
+  /* A HOTSPOT on the scene photo — normalized 0–1. Either a CIRCLE {x,y,r}
+     (legacy) or a POLYGON {points:[[x,y],…]} (≥3 verts, the outline tool). null
+     when unplaced. Shared by hazards AND decoys so every region uses the exact
+     geometry the live page taps. Backward-compatible: an old {x,y,r} stays a
+     circle; nothing to migrate. */
+  const clamp01 = (n) => { n = +n; return Number.isFinite(n) ? (n < 0 ? 0 : n > 1 ? 1 : n) : 0; };
+  const normSpot = (sp) => {
+    if (!sp || typeof sp !== 'object') return null;
+    if (Array.isArray(sp.points)) {
+      const pts = sp.points
+        .filter((p) => Array.isArray(p) && p.length >= 2)
+        .map((p) => [clamp01(p[0]), clamp01(p[1])]);
+      return pts.length >= 3 ? { points: pts } : null;
+    }
+    if (sp.x != null || sp.y != null || sp.r != null) {
+      return { x: clamp01(sp.x), y: clamp01(sp.y), r: (+sp.r > 0 ? Math.min(0.5, +sp.r) : 0.12) };
+    }
+    return null;
+  };
+
   const HAZ = (h) => {
     h = obj(h);
     return {
       ...h,
       id: (typeof h.id === 'string' && h.id.trim()) ? h.id.trim() : '',
       short: typeof h.short === 'string' ? h.short : '',
+      // NEUTRAL visual description of what's here — NOT why it's a hazard. Triple
+      // duty: the screen-reader name for the focusable region, the accessible
+      // list/free-text scene, and the "what was shown on screen" reference fed to
+      // the LLM. Authored separately from `full`/`zone` (which are hazard-framed).
+      alt: typeof h.alt === 'string' ? h.alt : '',
       full: typeof h.full === 'string' ? h.full : '',
       zone: typeof h.zone === 'string' ? h.zone : '',
       synonyms: typeof h.synonyms === 'string' ? h.synonyms : '',
       source: typeof h.source === 'string' ? h.source : '',
       fix: typeof h.fix === 'string' ? h.fix : '',
       prevent: typeof h.prevent === 'string' ? h.prevent : '',
-      // Tap-hotspot on the scene photo (normalized 0–1 coords + radius) — powers
-      // the Observe/marking canvas hit-test. null when unplaced.
-      spot: (h.spot && typeof h.spot === 'object')
-        ? { x: +h.spot.x || 0, y: +h.spot.y || 0, r: (+h.spot.r > 0 ? +h.spot.r : 0.12) }
-        : null,
+      // Tap-hotspot on the scene photo — circle {x,y,r} or polygon {points}.
+      // null when unplaced. Powers the Observe/marking canvas hit-test.
+      spot: normSpot(h.spot),
     };
   };
+
+  /* A DECOY region — a safe/neutral object the learner can also mark. It is
+     credited to NOTHING; marking it just teaches "that one's actually fine."
+     Decoys make the keyboard / list / free-text paths a genuine "which of these
+     are unsafe?" discrimination task instead of a Tab→Enter giveaway (and give
+     the pointer version a richer miss than a blank "nothing there"). Kept in a
+     SEPARATE decoys[] so coverage / spotted / HAZARD_IDS / the coach rail — all
+     keyed off hazards[] — stay exactly as they were. */
+  const REGION = (d) => {
+    d = obj(d);
+    return {
+      ...d,
+      id: (typeof d.id === 'string' && d.id.trim()) ? d.id.trim() : '',
+      alt: typeof d.alt === 'string' ? d.alt : '',     // neutral description (SR name)
+      note: typeof d.note === 'string' ? d.note : '',  // the "that's actually fine" feedback
+      spot: normSpot(d.spot),
+    };
+  };
+
   function normPhase(p) {
     p = obj(p);
     return {
@@ -527,6 +592,15 @@ FOR THIS MODULE:
     out.voice = { persona: '', guidance: '', ...obj(out.voice) };
     out.reflection = { prompt: '', feedbackGuidance: '', ...obj(out.reflection) };
     out.hazards = arr(out.hazards).map(HAZ);
+    // Unique, non-empty ids across hazards AND decoys — the live region layer
+    // unions them and keys marks/pins by id, so a collision would cross-wire two
+    // regions. (The shipped default + the wizard already emit unique ids, so this
+    // is a no-op there; it only guards hand-authored / imported drafts.)
+    const idseen = {};
+    const uniqId = (want, fallback) => { let id = String(want || fallback || '').trim() || fallback; while (idseen[id]) id += 'x'; idseen[id] = 1; return id; };
+    out.hazards.forEach((h, i) => { h.id = uniqId(h.id, 'hazard' + (i + 1)); });
+    out.decoys = arr(out.decoys).map(REGION);
+    out.decoys.forEach((d, i) => { d.id = uniqId(d.id, 'decoy' + (i + 1)); });
     const cov = obj(out.coverage);
     const total = Number.isFinite(cov.total) && cov.total > 0 ? cov.total : out.hazards.length;
     out.coverage = { total, required: Number.isFinite(cov.required) && cov.required > 0 ? Math.min(cov.required, total) : Math.max(1, total - 1) };
@@ -558,7 +632,8 @@ FOR THIS MODULE:
       intro: { type: 'reading', audio: { eyebrow: '', title: '', text: '' } },
       voice: { persona: '', guidance: '' },
       reflection: { prompt: '', feedbackGuidance: '' },
-      hazards: [{ id: 'hazard1', short: '', full: '', zone: '', synonyms: '', fix: '', prevent: '' }],
+      hazards: [{ id: 'hazard1', short: '', alt: '', full: '', zone: '', synonyms: '', fix: '', prevent: '' }],
+      decoys: [],
       coverage: { required: 1, total: 1 },
       phases: [{ id: 'observe', kind: 'spot', label: '', level: '', maxTurns: 2, signpost: '', prompt: '', exitCriteria: '', calibration: [], debrief: { talkItThrough: '', points: '' }, transitions: [] }],
       playbook: [], resources: { lead: '', items: [] },
@@ -610,14 +685,55 @@ FOR THIS MODULE:
       const dr = GEO.drawRect(img); if (!dr) return null;
       return { left: dr.left + nx * dr.width, top: dr.top + ny * dr.height };
     },
-    // Nearest hazard whose hotspot contains (nx,ny); skips ids already in `taken`.
-    hitTest(hazards, nx, ny, taken) {
+    // Pixel vertices (within the img element) for a polygon's normalized points.
+    polyPixels(img, points) {
+      const dr = GEO.drawRect(img); if (!dr) return null;
+      return (points || []).map((p) => ({ left: dr.left + p[0] * dr.width, top: dr.top + p[1] * dr.height }));
+    },
+    // Centroid of a spot (normalized) — circle center, or a polygon's area-centroid
+    // (falls back to the vertex mean for a degenerate/zero-area poly). Anchors the
+    // numbered badge, the coverage rail, and the spatial nudge. null when unplaced.
+    centroid(spot) {
+      if (!spot) return null;
+      if (Array.isArray(spot.points)) {
+        const p = spot.points; let a = 0, cx = 0, cy = 0;
+        for (let i = 0, n = p.length; i < n; i++) {
+          const x0 = p[i][0], y0 = p[i][1], x1 = p[(i + 1) % n][0], y1 = p[(i + 1) % n][1];
+          const cross = x0 * y1 - x1 * y0;
+          a += cross; cx += (x0 + x1) * cross; cy += (y0 + y1) * cross;
+        }
+        if (Math.abs(a) > 1e-9) { a *= 0.5; return { x: cx / (6 * a), y: cy / (6 * a) }; }
+        const m = p.reduce((s, q) => ({ x: s.x + q[0], y: s.y + q[1] }), { x: 0, y: 0 });
+        return { x: m.x / p.length, y: m.y / p.length };
+      }
+      return { x: +spot.x || 0, y: +spot.y || 0 };
+    },
+    // Point-in-polygon (ray casting), normalized coords.
+    inPoly(pts, nx, ny) {
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+        if (((yi > ny) !== (yj > ny)) && (nx < (xj - xi) * (ny - yi) / ((yj - yi) || 1e-12) + xi)) inside = !inside;
+      }
+      return inside;
+    },
+    // Nearest region whose hotspot contains (nx,ny); skips ids already in `taken`.
+    // Handles circle {x,y,r} AND polygon {points}. `regions` may be hazards alone
+    // or the hazards+decoys union — same signature the live page + editor call.
+    hitTest(regions, nx, ny, taken) {
       let best = null;
-      (hazards || []).forEach((h) => {
+      (regions || []).forEach((h) => {
         if (!h || !h.spot) return;
         if (taken && taken.has && taken.has(h.id)) return;
-        const d = Math.hypot(nx - h.spot.x, ny - h.spot.y);
-        if (d <= (h.spot.r || 0.12) && (!best || d < best.d)) best = { h, d };
+        const sp = h.spot;
+        if (Array.isArray(sp.points)) {
+          if (!GEO.inPoly(sp.points, nx, ny)) return;
+          const c = GEO.centroid(sp), d = Math.hypot(nx - c.x, ny - c.y);
+          if (!best || d < best.d) best = { h, d };
+        } else {
+          const d = Math.hypot(nx - sp.x, ny - sp.y);
+          if (d <= (sp.r || 0.12) && (!best || d < best.d)) best = { h, d };
+        }
       });
       return best ? best.h : null;
     },
@@ -663,28 +779,49 @@ FOR THIS MODULE:
       .ss-rm { color:#b42318; border-color:#f0c6c0; }
       .ss-canvas { margin:4px 0 12px; }
       .ss-empty { display:flex; align-items:center; justify-content:center; gap:10px; height:180px; border:1px dashed var(--line,#d7dce6); border-radius:12px; color:#67718a; font-size:14px; background:#f7f9fc; }
-      .ss-status { font-size:12.5px; font-weight:600; color:#5a6379; margin-bottom:8px; }
-      .ss-stage.is-arming ~ .ss-status, .ss-stage.is-arming { }
+      .ss-status { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12.5px; font-weight:600; color:#5a6379; margin-bottom:8px; min-height:24px; }
+      .ss-status .ss-drawhelp { font-weight:500; color:#8a5a00; }
+      .ss-status .ss-drawbtn { margin-left:auto; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line,#d7dce6); background:#fff; color:#1a2030; border-radius:7px; padding:5px 10px; font:inherit; font-weight:600; font-size:12px; cursor:pointer; }
       .ss-stage { position:relative; width:100%; aspect-ratio:3/2; max-height:52vh; background:#0b0d12; border-radius:12px; overflow:hidden; border:1px solid var(--line,#d7dce6); }
       .ss-stage.is-arming { cursor:crosshair; outline:2px solid #f1b34a; }
       .ss-photo { width:100%; height:100%; object-fit:contain; display:block; -webkit-user-select:none; user-select:none; }
+      /* the vector overlay — polygons + circles for every region */
+      .ss-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+      .ss-shape { fill:rgba(46,196,182,.16); stroke:#2ec4b6; stroke-width:2.5px; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+      .ss-shape.decoy { fill:rgba(120,130,150,.14); stroke:#8b93a7; stroke-dasharray:6 4; }
+      .ss-shape.active { stroke-width:3.5px; fill-opacity:.26; }
+      .ss-shape.draft { fill:rgba(241,179,74,.16); stroke:#f1b34a; stroke-dasharray:4 3; }
+      .ss-draftline { fill:none; stroke:#f1b34a; stroke-width:2px; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; }
+      /* HTML overlay: numbered badges + vertex drag handles */
       .ss-pins { position:absolute; inset:0; pointer-events:none; }
-      .ss-pin { position:absolute; transform:translate(-50%,-50%); border:3px solid #2ec4b6; border-radius:50%; background:rgba(46,196,182,.12); box-shadow:0 0 0 3px rgba(46,196,182,.22); display:grid; place-items:center; }
-      .ss-pin.is-armed { border-color:#f1b34a; background:rgba(241,179,74,.14); box-shadow:0 0 0 3px rgba(241,179,74,.3); }
-      .ss-pinnum { min-width:22px; height:22px; padding:0 5px; border-radius:11px; background:#2ec4b6; color:#04312c; font-weight:800; font-size:12px; display:grid; place-items:center; }
-      .ss-pin.is-armed .ss-pinnum { background:#f1b34a; color:#2a1d08; }
+      .ss-badge { position:absolute; transform:translate(-50%,-50%); min-width:22px; height:22px; padding:0 5px; border-radius:11px; background:#2ec4b6; color:#04312c; font-weight:800; font-size:12px; display:grid; place-items:center; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+      .ss-badge.decoy { background:#8b93a7; color:#141821; }
+      .ss-badge.active { outline:2px solid #fff; }
+      .ss-vtx { position:absolute; width:15px; height:15px; transform:translate(-50%,-50%); border-radius:50%; background:#fff; border:2px solid #2ec4b6; box-shadow:0 1px 3px rgba(0,0,0,.4); cursor:grab; pointer-events:auto; touch-action:none; }
+      .ss-vtx:active { cursor:grabbing; }
+      .ss-vtx.decoy { border-color:#8b93a7; }
+      .ss-vtx.draft { border-color:#f1b34a; background:#fff7e8; }
+      .ss-vtx.first { width:19px; height:19px; border-color:#f1b34a; background:#f1b34a; box-shadow:0 0 0 3px rgba(241,179,74,.35); }
       .ss-coverage { display:flex; flex-direction:column; gap:8px; margin:2px 0 14px; }
       .ss-cov-lbl { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#67718a; }
       .ss-cov-row { display:flex; gap:12px; }
       .ss-cov-row vaadin-number-field { flex:1; }
+      .ss-listhead { font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#67718a; margin:16px 0 2px; display:flex; align-items:center; gap:8px; }
+      .ss-listhead.decoys { color:#7a8296; }
+      .ss-listsub { font-size:12.5px; color:#6b7488; margin:-2px 0 8px; line-height:1.45; max-width:64ch; }
       .ss-hazlist { display:flex; flex-direction:column; gap:12px; }
-      .ss-hotspot { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line,#e3e7f0); }
+      .ss-hazlist .rowcard.is-decoy { border-left:3px solid #b6bdca; }
+      .ss-hotspot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line,#e3e7f0); }
       .ss-place { display:inline-flex; align-items:center; gap:7px; border:1px solid #4b63e6; background:#eef1fe; color:#3a4fce; border-radius:8px; padding:7px 12px; font:inherit; font-weight:600; font-size:12.5px; cursor:pointer; }
       .ss-place.is-armed { border-color:#f1b34a; background:#fff4e0; color:#8a5a00; }
-      .ss-coord { font-size:12px; color:#5a6379; font-variant-numeric:tabular-nums; }
-      .ss-size { flex:1 1 120px; max-width:180px; accent-color:#2ec4b6; }
+      .ss-mini { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line,#d7dce6); background:#fff; color:#3a4353; border-radius:8px; padding:7px 10px; font:inherit; font-weight:600; font-size:12px; cursor:pointer; }
+      .ss-mini.is-armed { border-color:#f1b34a; background:#fff4e0; color:#8a5a00; }
+      .ss-shapekind { font-size:11.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#2a8f84; }
+      .ss-shapekind.circle { color:#5a6379; }
+      .ss-size { flex:1 1 110px; max-width:170px; accent-color:#2ec4b6; }
       .ss-clr { border:1px solid var(--line,#d7dce6); background:#fff; color:#b42318; border-radius:8px; width:30px; height:30px; cursor:pointer; }
       .ss-unplaced { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#b54708; }
+      @media (prefers-reduced-motion: reduce) { .ss-vtx, .ss-shape { transition:none; } }
     `;
     document.head.appendChild(s);
   }
@@ -698,9 +835,9 @@ FOR THIS MODULE:
       lead: 'The first-person reading that drops the learner on the floor before they look around.' },
 
     { id: 'scene', group: 'interaction', stage: 'ENGAGE', icon: 'fa-image', title: 'Photo & hazards',
-      lead: 'The work-area photo the learner sweeps, the hazards they tap to mark, and where each hotspot sits on the photo.',
+      lead: 'The work-area photo the learner sweeps, the hazards (and decoys) they mark, and the outline of each on the photo.',
       bridgeTitle: 'From your old craft: a spot-the-hazard still',
-      bridge: 'Upload the photo, list every observable hazard, then click the photo to drop each hazard’s tap-target. <b>short</b> labels the pin + the coverage chip; <b>zone</b> is where the coach nudges; <b>full / synonyms / fix / prevent</b> feed the coaching. The coach never sees the image — it’s grounded to your text.' },
+      bridge: 'Upload the photo, list every observable hazard, then <b>outline each one</b> on the photo with the polygon tool. Add a few <b>decoys</b> — safe objects — so marking is a real judgment call and works for keyboard / screen-reader learners too. <b>short</b> labels the pin + coverage chip; the neutral <b>alt</b> names the region for accessible learners and feeds the coach the on-screen reference; <b>zone</b> is where the coach nudges; <b>full / synonyms / fix / prevent</b> feed the coaching. The coach never sees the image — it’s grounded to your text.' },
 
     { id: 'beats', group: 'interaction', stage: 'COACH', icon: 'fa-layer-group', title: 'The coaching beats',
       lead: 'After the sweep, the coach works the scene through Observe → Remediate → Prevent.',
@@ -725,9 +862,16 @@ FOR THIS MODULE:
     const s = getScenario();
     if (!s.scene || typeof s.scene !== 'object') s.scene = { src: '', alt: '', canonDescription: '' };
     if (!Array.isArray(s.hazards)) s.hazards = [];
+    if (!Array.isArray(s.decoys)) s.decoys = [];
     if (!s.coverage || typeof s.coverage !== 'object') s.coverage = { required: 1, total: s.hazards.length || 1 };
 
-    let armed = -1;   // index of the hazard currently being placed (-1 = none)
+    // Interaction state, referencing regions by { list:'hazards'|'decoys', i }.
+    //   draw   — an outline being drawn now: { list, i, mode:'poly'|'circle', pts:[[x,y]…] }
+    //   active — the region whose vertices show as drag handles (for fine-tuning)
+    let draw = null;
+    let active = null;
+    const region = (ref) => ref && s[ref.list] && s[ref.list][ref.i];
+    const sameRef = (a, b) => !!(a && b && a.list === b.list && a.i === b.i);
 
     const imgPanel = document.createElement('div'); imgPanel.className = 'ss-imgpanel';
     const canvas   = document.createElement('div'); canvas.className = 'ss-canvas';
@@ -736,7 +880,7 @@ FOR THIS MODULE:
 
     const hasImg = () => !!String(s.scene.src || '').trim();
 
-    function setImage(src) { s.scene.src = src || ''; scheduleUpdate(); paintImage(); paintCanvas(); }
+    function setImage(src) { s.scene.src = src || ''; scheduleUpdate(); paintImage(); paintStage(); }
 
     function paintImage() {
       imgPanel.innerHTML = '';
@@ -759,49 +903,194 @@ FOR THIS MODULE:
       imgPanel.append(up);
       const path = tf('scene.src', 'or paste an image path / URL', {
         helper: 'A repo path (assets/…) or an https URL. Upload embeds the photo in the scenario; a path keeps it external (smaller, but you must commit the file).' });
-      path.addEventListener('change', () => { paintImage(); paintCanvas(); });
+      path.addEventListener('change', () => { paintImage(); paintStage(); });
       imgPanel.append(path);
     }
 
-    function positionPins(img, pins) {
-      pins.innerHTML = '';
-      const dr = GEO.drawRect(img); if (!dr) return;
-      s.hazards.forEach((h, i) => {
-        if (!h.spot) return;
-        const px = GEO.toPixels(img, h.spot.x, h.spot.y); if (!px) return;
-        const pin = document.createElement('div');
-        pin.className = 'ss-pin' + (i === armed ? ' is-armed' : '');
-        pin.style.left = px.left + 'px'; pin.style.top = px.top + 'px';
-        const dia = Math.max(26, 2 * (h.spot.r || 0.13) * dr.width);
-        pin.style.width = dia + 'px'; pin.style.height = dia + 'px';
-        pin.innerHTML = `<span class="ss-pinnum">${i + 1}</span>`;
-        pins.append(pin);
+    // ---- the stage: photo + SVG shape overlay + badges/handles ----
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    let stageImg = null, stageSvg = null, stagePins = null, stageStatus = null;
+
+    function labelFor(ref) {
+      const r = region(ref); if (!r) return ref.list === 'decoys' ? 'this decoy' : 'this hazard';
+      const t = ref.list === 'decoys' ? (r.alt || 'this decoy') : (r.short || 'this hazard');
+      return String(t).length > 40 ? String(t).slice(0, 40) + '…' : t;
+    }
+
+    function renderStatus() {
+      if (!stageStatus) return;
+      stageStatus.innerHTML = '';
+      const txt = document.createElement('span');
+      if (draw && draw.mode === 'poly') {
+        txt.innerHTML = `<i class="fa-solid fa-draw-polygon"></i> Outlining <b>${esc(labelFor(draw))}</b> — `;
+        const help = document.createElement('span'); help.className = 'ss-drawhelp';
+        help.textContent = draw.pts.length < 3
+          ? `click around the object (${draw.pts.length} point${draw.pts.length === 1 ? '' : 's'}; need 3+).`
+          : 'click to add points; click the amber dot or press Enter to close. Backspace undoes, Esc cancels.';
+        stageStatus.append(txt, help);
+        const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ss-drawbtn';
+        cancel.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel'; cancel.addEventListener('click', cancelDraw);
+        stageStatus.append(cancel);
+        if (draw.pts.length >= 3) {
+          const done = document.createElement('button'); done.type = 'button'; done.className = 'ss-drawbtn';
+          done.innerHTML = '<i class="fa-solid fa-check"></i> Close outline'; done.addEventListener('click', commitDraw);
+          stageStatus.append(done);
+        }
+      } else if (draw && draw.mode === 'circle') {
+        txt.innerHTML = `<i class="fa-solid fa-circle-dot"></i> Placing a circle for <b>${esc(labelFor(draw))}</b> — click the spot. Esc cancels.`;
+        stageStatus.append(txt);
+        const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ss-drawbtn';
+        cancel.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel'; cancel.addEventListener('click', cancelDraw);
+        stageStatus.append(cancel);
+      } else {
+        txt.innerHTML = 'Outline each hazard <b>and each decoy</b> on the photo — use <b>Outline on photo</b> beside a region below, then drag its dots to fine-tune. Learners tap, key, or list these to mark them.';
+        stageStatus.append(txt);
+      }
+    }
+
+    function paintStage() {
+      canvas.innerHTML = '';
+      stageImg = stageSvg = stagePins = stageStatus = null;
+      if (!hasImg()) { canvas.innerHTML = '<div class="ss-empty"><i class="fa-solid fa-draw-polygon"></i> Upload a photo to outline hazards and decoys on it.</div>'; return; }
+      const status = document.createElement('div'); status.className = 'ss-status';
+      const stage = document.createElement('div'); stage.className = 'ss-stage' + (draw ? ' is-arming' : '');
+      const img = document.createElement('img'); img.className = 'ss-photo'; img.src = s.scene.src; img.alt = ''; img.draggable = false;
+      const svg = document.createElementNS(SVGNS, 'svg'); svg.setAttribute('class', 'ss-svg');
+      const pins = document.createElement('div'); pins.className = 'ss-pins';
+      stage.append(img, svg, pins);
+      stageImg = img; stageSvg = svg; stagePins = pins; stageStatus = status;
+      img.addEventListener('load', renderShapes);
+      stage.addEventListener('click', onStageClick);
+      stage.addEventListener('dblclick', (e) => { e.preventDefault(); if (draw && draw.mode === 'poly') commitDraw(); });
+      canvas.append(status, stage);
+      renderStatus();
+      requestAnimationFrame(renderShapes);   // covers a cached image (load may not fire)
+    }
+
+    // Draw every region's shape (polygon or circle) + its badge, and — for the
+    // active region or the in-progress draft — the draggable vertex handles.
+    function renderShapes() {
+      if (!stageImg || !stageSvg || !stagePins) return;
+      const dr = GEO.drawRect(stageImg); if (!dr) return;
+      stageSvg.innerHTML = '';
+      stagePins.innerHTML = '';
+
+      const drawRegion = (list, r, i) => {
+        if (!r || !r.spot) return;
+        const isDecoy = list === 'decoys';
+        const activeHere = !draw && sameRef(active, { list, i });
+        const cls = 'ss-shape' + (isDecoy ? ' decoy' : '') + (activeHere ? ' active' : '');
+        if (Array.isArray(r.spot.points)) {
+          const px = GEO.polyPixels(stageImg, r.spot.points); if (!px) return;
+          const poly = document.createElementNS(SVGNS, 'polygon');
+          poly.setAttribute('points', px.map((p) => `${p.left.toFixed(1)},${p.top.toFixed(1)}`).join(' '));
+          poly.setAttribute('class', cls);
+          stageSvg.append(poly);
+          if (activeHere) r.spot.points.forEach((pt, vi) => {
+            const vpx = GEO.toPixels(stageImg, pt[0], pt[1]);
+            const v = document.createElement('div'); v.className = 'ss-vtx' + (isDecoy ? ' decoy' : '');
+            v.style.left = vpx.left + 'px'; v.style.top = vpx.top + 'px';
+            attachVertexDrag(v, { list, i }, vi);
+            stagePins.append(v);
+          });
+        } else {
+          const cpx = GEO.toPixels(stageImg, r.spot.x, r.spot.y);
+          const circ = document.createElementNS(SVGNS, 'circle');
+          circ.setAttribute('cx', cpx.left); circ.setAttribute('cy', cpx.top);
+          circ.setAttribute('r', Math.max(6, (r.spot.r || 0.12) * dr.width));
+          circ.setAttribute('class', cls);
+          stageSvg.append(circ);
+        }
+        const c = GEO.centroid(r.spot), cpx = GEO.toPixels(stageImg, c.x, c.y);
+        const badge = document.createElement('div');
+        badge.className = 'ss-badge' + (isDecoy ? ' decoy' : '') + (activeHere ? ' active' : '');
+        badge.style.left = cpx.left + 'px'; badge.style.top = cpx.top + 'px';
+        badge.textContent = isDecoy ? String.fromCharCode(65 + i) : String(i + 1);
+        stagePins.append(badge);
+      };
+
+      s.hazards.forEach((r, i) => drawRegion('hazards', r, i));
+      s.decoys.forEach((r, i) => drawRegion('decoys', r, i));
+
+      // the in-progress polygon being drawn
+      if (draw && draw.mode === 'poly' && draw.pts.length) {
+        const px = draw.pts.map((p) => GEO.toPixels(stageImg, p[0], p[1]));
+        if (px.length >= 2) {
+          const pl = document.createElementNS(SVGNS, 'polyline');
+          pl.setAttribute('points', px.map((p) => `${p.left.toFixed(1)},${p.top.toFixed(1)}`).join(' '));
+          pl.setAttribute('class', 'ss-draftline');
+          stageSvg.append(pl);
+        }
+        px.forEach((p, vi) => {
+          const closeable = vi === 0 && draw.pts.length >= 3;
+          const v = document.createElement('div'); v.className = 'ss-vtx draft' + (closeable ? ' first' : '');
+          v.style.left = p.left + 'px'; v.style.top = p.top + 'px';
+          v.style.pointerEvents = closeable ? 'auto' : 'none';
+          if (closeable) { v.title = 'Click to close the outline'; v.addEventListener('click', (e) => { e.stopPropagation(); commitDraw(); }); }
+          stagePins.append(v);
+        });
+      }
+    }
+
+    function attachVertexDrag(handle, ref, vi) {
+      handle.addEventListener('pointerdown', (e) => {
+        const r = region(ref); if (!r || !r.spot || !Array.isArray(r.spot.points)) return;
+        e.preventDefault(); e.stopPropagation();
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        const move = (ev) => {
+          const n = GEO.toNormalized(stageImg, ev.clientX, ev.clientY); if (!n) return;
+          r.spot.points[vi] = [+n.x.toFixed(4), +n.y.toFixed(4)];
+          renderShapes();
+        };
+        const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); scheduleUpdate(); };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', up);
       });
     }
 
-    function paintCanvas() {
-      canvas.innerHTML = '';
-      if (!hasImg()) { canvas.innerHTML = '<div class="ss-empty"><i class="fa-solid fa-image"></i> Upload a photo to place hazard hotspots on it.</div>'; return; }
-      const status = document.createElement('div'); status.className = 'ss-status';
-      status.textContent = armed >= 0
-        ? `Click the photo to place: ${(s.hazards[armed] && (s.hazards[armed].short || 'hazard ' + (armed + 1)))}`
-        : 'Click “Place on photo” beside a hazard, then click the photo where a learner should tap.';
-      const stage = document.createElement('div'); stage.className = 'ss-stage' + (armed >= 0 ? ' is-arming' : '');
-      const img = document.createElement('img'); img.className = 'ss-photo'; img.src = s.scene.src; img.alt = '';
-      const pins = document.createElement('div'); pins.className = 'ss-pins';
-      stage.append(img, pins);
-      img.addEventListener('load', () => positionPins(img, pins));
-      stage.addEventListener('click', (e) => {
-        if (armed < 0) return;
-        const n = GEO.toNormalized(img, e.clientX, e.clientY); if (!n) return;
-        const h = s.hazards[armed];
-        h.spot = { x: +n.x.toFixed(4), y: +n.y.toFixed(4), r: (h.spot && h.spot.r) || 0.13 };
-        armed = -1;
-        scheduleUpdate(); paintCanvas(); paintList();
-      });
-      canvas.append(status, stage);
-      requestAnimationFrame(() => positionPins(img, pins));   // covers a cached image (load may not fire)
+    function onStageClick(e) {
+      if (!draw || !stageImg) return;
+      const n = GEO.toNormalized(stageImg, e.clientX, e.clientY); if (!n) return;
+      const r = region(draw); if (!r) { cancelDraw(); return; }
+      if (draw.mode === 'circle') {
+        r.spot = { x: +n.x.toFixed(4), y: +n.y.toFixed(4), r: (r.spot && r.spot.r > 0 ? r.spot.r : 0.13) };
+        active = { list: draw.list, i: draw.i }; draw = null;
+        scheduleUpdate(); paintStage(); paintList();
+        return;
+      }
+      // polygon: click near the first point (with 3+) closes it
+      if (draw.pts.length >= 3) {
+        const fp = GEO.toPixels(stageImg, draw.pts[0][0], draw.pts[0][1]);
+        const cp = GEO.toPixels(stageImg, n.x, n.y);
+        if (fp && cp && Math.hypot(fp.left - cp.left, fp.top - cp.top) <= 12) { commitDraw(); return; }
+      }
+      draw.pts.push([+n.x.toFixed(4), +n.y.toFixed(4)]);
+      renderShapes(); renderStatus();
     }
+
+    function armDraw(list, i, mode) {
+      if (!hasImg()) { alert('Upload a photo first, then outline regions on it.'); return; }
+      draw = { list, i, mode, pts: [] }; active = { list, i };
+      paintStage(); paintList();
+      canvas.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    function commitDraw() {
+      if (!draw || draw.mode !== 'poly' || draw.pts.length < 3) return;
+      const r = region(draw); if (r) r.spot = { points: draw.pts.slice() };
+      active = { list: draw.list, i: draw.i }; draw = null;
+      scheduleUpdate(); paintStage(); paintList();
+    }
+    function cancelDraw() { draw = null; paintStage(); paintList(); }
+
+    // Keyboard while drawing (self-cleans once this section leaves the DOM).
+    function onKey(e) {
+      if (!wrap.isConnected) { document.removeEventListener('keydown', onKey); return; }
+      if (!draw) return;
+      if (e.key === 'Escape') { e.preventDefault(); cancelDraw(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (draw.mode === 'poly') commitDraw(); }
+      else if (e.key === 'Backspace' && draw.mode === 'poly' && draw.pts.length) { e.preventDefault(); draw.pts.pop(); renderShapes(); renderStatus(); }
+    }
+    document.addEventListener('keydown', onKey);
 
     function paintCoverage() {
       covPanel.innerHTML = '';
@@ -813,80 +1102,150 @@ FOR THIS MODULE:
       covPanel.append(lbl, row);
     }
 
+    // The outline controls shared by hazard + decoy cards — the polygon tool,
+    // the circle fallback, the shape readout, adjust/clear.
+    function outlineControls(list, r, i) {
+      const ref = { list, i };
+      const isDecoy = list === 'decoys';
+      const drawingHere = draw && sameRef(draw, ref);
+      const hs = document.createElement('div'); hs.className = 'ss-hotspot';
+
+      const outBtn = document.createElement('button'); outBtn.type = 'button';
+      outBtn.className = 'ss-place' + (drawingHere && draw.mode === 'poly' ? ' is-armed' : '');
+      outBtn.innerHTML = `<i class="fa-solid fa-draw-polygon"></i> ${drawingHere && draw.mode === 'poly' ? 'Click the photo…' : (r.spot ? 'Redraw outline' : 'Outline on photo')}`;
+      outBtn.addEventListener('click', () => armDraw(list, i, 'poly'));
+      hs.append(outBtn);
+
+      const circBtn = document.createElement('button'); circBtn.type = 'button';
+      circBtn.className = 'ss-mini' + (drawingHere && draw.mode === 'circle' ? ' is-armed' : '');
+      circBtn.title = 'Place a simple circle instead of an outline';
+      circBtn.innerHTML = `<i class="fa-solid fa-circle-dot"></i> Circle`;
+      circBtn.addEventListener('click', () => armDraw(list, i, 'circle'));
+      hs.append(circBtn);
+
+      if (r.spot) {
+        const isPoly = Array.isArray(r.spot.points);
+        const kind = document.createElement('span'); kind.className = 'ss-shapekind' + (isPoly ? '' : ' circle');
+        kind.textContent = isPoly ? `polygon · ${r.spot.points.length} pts` : 'circle';
+        hs.append(kind);
+        if (isPoly) {
+          const adj = document.createElement('button'); adj.type = 'button';
+          const adjusting = !draw && sameRef(active, ref);
+          adj.className = 'ss-mini' + (adjusting ? ' is-armed' : '');
+          adj.innerHTML = `<i class="fa-solid fa-arrows-up-down-left-right"></i> ${adjusting ? 'Adjusting…' : 'Adjust points'}`;
+          adj.addEventListener('click', () => {
+            active = adjusting ? null : ref; draw = null;
+            paintStage(); paintList();
+            canvas.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          });
+          hs.append(adj);
+        } else {
+          const size = document.createElement('input'); size.type = 'range';
+          size.min = '0.05'; size.max = '0.28'; size.step = '0.01'; size.value = String(r.spot.r || 0.13);
+          size.className = 'ss-size'; size.title = 'Circle size';
+          size.addEventListener('input', () => { r.spot.r = +size.value; renderShapes(); });
+          size.addEventListener('change', scheduleUpdate);
+          hs.append(size);
+        }
+        const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ss-clr';
+        clr.title = 'Remove outline'; clr.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        clr.addEventListener('click', () => {
+          r.spot = null;
+          if (sameRef(active, ref)) active = null;
+          if (draw && sameRef(draw, ref)) draw = null;
+          scheduleUpdate(); paintStage(); paintList();
+        });
+        hs.append(clr);
+      } else {
+        const warn = document.createElement('span'); warn.className = 'ss-unplaced';
+        warn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> no outline yet — can’t be ${isDecoy ? 'shown' : 'marked'}`;
+        hs.append(warn);
+      }
+      return hs;
+    }
+
+    // Keep draw/active refs valid when a region is removed from a list.
+    function reindexAfterRemove(list, removed) {
+      const fix = (ref) => { if (!ref || ref.list !== list) return ref; if (ref.i === removed) return null; if (ref.i > removed) ref.i--; return ref; };
+      draw = fix(draw); active = fix(active);
+    }
+
     function hazardCard(h, i) {
       const onDel = () => {
-        s.hazards.splice(i, 1);
-        if (armed === i) armed = -1; else if (armed > i) armed--;
+        s.hazards.splice(i, 1); reindexAfterRemove('hazards', i);
         if (s.coverage.total > s.hazards.length) s.coverage.total = Math.max(1, s.hazards.length);
         if (s.coverage.required > s.coverage.total) s.coverage.required = s.coverage.total;
-        scheduleUpdate(); paintList(); paintCanvas(); paintCoverage();
+        scheduleUpdate(); paintList(); paintStage(); paintCoverage();
       };
       const card = rowCard(`Hazard ${i + 1}${h.short ? ' · ' + esc(h.short) : ''}`, onDel,
         tf(`hazards.${i}.short`, 'Short label (pin + coverage chip)', { placeholder: 'Unlabeled secondary container' }),
+        tf(`hazards.${i}.alt`, 'What’s visibly here (neutral) — screen-reader name & on-screen reference', { area: true, minRows: 2, placeholder: 'A clear plastic jug on the left of the bench, nothing written on it', helper: 'Describe what a person SEES, not that it’s a hazard. Names the region for keyboard / screen-reader learners and feeds the coach the on-screen reference.' }),
         tf(`hazards.${i}.zone`, 'Where it is — the coach nudges toward this', { area: true, minRows: 2, placeholder: 'on the bench in front of you, to the left' }),
         tf(`hazards.${i}.full`, 'What it is — the coach grounds to this', { area: true, minRows: 2 }),
-        tf(`hazards.${i}.synonyms`, 'Accepted phrasings', { area: true, minRows: 2, helper: 'Comma-separated ways a learner might name it.' }),
+        tf(`hazards.${i}.synonyms`, 'Accepted phrasings', { area: true, minRows: 2, helper: 'Comma-separated ways a learner might name it — also credits the accessible free-text sweep.' }),
         tf(`hazards.${i}.fix`, 'Right-now fix (Remediate beat)', { area: true, minRows: 2 }),
-        tf(`hazards.${i}.prevent`, 'Systemic fix (Prevent beat)', { area: true, minRows: 2 }),
+        tf(`hazards.${i}.prevent`, 'Systemic fix (feeds the close)', { area: true, minRows: 2 }),
       );
-      const hs = document.createElement('div'); hs.className = 'ss-hotspot';
-      const place = document.createElement('button'); place.type = 'button';
-      place.className = 'ss-place' + (i === armed ? ' is-armed' : '');
-      place.innerHTML = `<i class="fa-solid fa-crosshairs"></i> ${i === armed ? 'Click the photo…' : (h.spot ? 'Move on photo' : 'Place on photo')}`;
-      place.addEventListener('click', () => {
-        if (!hasImg()) { alert('Upload a photo first, then place hotspots on it.'); return; }
-        armed = (armed === i) ? -1 : i;
-        paintCanvas(); paintList();
-        canvas.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      });
-      hs.append(place);
-      if (h.spot) {
-        const read = document.createElement('span'); read.className = 'ss-coord';
-        read.textContent = `x ${(+h.spot.x).toFixed(2)} · y ${(+h.spot.y).toFixed(2)}`;
-        const size = document.createElement('input'); size.type = 'range';
-        size.min = '0.05'; size.max = '0.28'; size.step = '0.01'; size.value = String(h.spot.r || 0.13);
-        size.className = 'ss-size'; size.title = 'Hotspot size';
-        size.addEventListener('input', () => {
-          h.spot.r = +size.value;
-          const img = canvas.querySelector('.ss-photo'), pins = canvas.querySelector('.ss-pins');
-          if (img && pins) positionPins(img, pins);
-        });
-        size.addEventListener('change', scheduleUpdate);
-        const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ss-clr';
-        clr.title = 'Clear hotspot'; clr.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-        clr.addEventListener('click', () => { h.spot = null; if (armed === i) armed = -1; scheduleUpdate(); paintCanvas(); paintList(); });
-        hs.append(read, size, clr);
-      } else {
-        const warn = document.createElement('span'); warn.className = 'ss-unplaced';
-        warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> no hotspot yet — can’t be tapped';
-        hs.append(warn);
-      }
-      card.append(hs);
+      card.append(outlineControls('hazards', h, i));
+      return card;
+    }
+
+    function decoyCard(d, i) {
+      const onDel = () => { s.decoys.splice(i, 1); reindexAfterRemove('decoys', i); scheduleUpdate(); paintList(); paintStage(); };
+      const card = rowCard(`Decoy ${String.fromCharCode(65 + i)}${d.alt ? ' · ' + esc(String(d.alt).slice(0, 28)) : ''}`, onDel,
+        tf(`decoys.${i}.alt`, 'What’s visibly here (neutral)', { area: true, minRows: 2, placeholder: 'A yellow safety bollard on the floor in the background', helper: 'A safe / neutral object. Describe what’s seen — the learner has to judge that it’s NOT a hazard.' }),
+        tf(`decoys.${i}.note`, 'Why it’s actually fine (shown if a learner marks it)', { area: true, minRows: 2, placeholder: 'That’s a safety bollard doing its job — good to see, not a hazard.' }),
+      );
+      card.classList.add('is-decoy');
+      card.append(outlineControls('decoys', d, i));
       return card;
     }
 
     function paintList() {
       listWrap.innerHTML = '';
+
+      const hHead = document.createElement('div'); hHead.className = 'ss-listhead';
+      hHead.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Hazards — the observable red flags';
+      listWrap.append(hHead);
       s.hazards.forEach((h, i) => listWrap.append(hazardCard(h, i)));
-      const add = document.createElement('button'); add.type = 'button'; add.className = 'addrow';
-      add.innerHTML = '<i class="fa-solid fa-plus"></i> Add hazard';
-      add.addEventListener('click', () => {
-        s.hazards.push({ id: 'hazard' + (s.hazards.length + 1), short: '', full: '', zone: '', synonyms: '', source: '', fix: '', prevent: '', spot: null });
+      const addH = document.createElement('button'); addH.type = 'button'; addH.className = 'addrow';
+      addH.innerHTML = '<i class="fa-solid fa-plus"></i> Add hazard';
+      addH.addEventListener('click', () => {
+        s.hazards.push({ id: 'hazard' + (s.hazards.length + 1), short: '', alt: '', full: '', zone: '', synonyms: '', source: '', fix: '', prevent: '', spot: null });
         if (s.coverage.total < s.hazards.length) s.coverage.total = s.hazards.length;
-        scheduleUpdate(); paintList(); paintCanvas(); paintCoverage();
+        scheduleUpdate(); paintList(); paintStage(); paintCoverage();
       });
-      listWrap.append(add);
+      listWrap.append(addH);
+
+      const dHead = document.createElement('div'); dHead.className = 'ss-listhead decoys';
+      dHead.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Decoys — safe objects (recommended)';
+      const dSub = document.createElement('div'); dSub.className = 'ss-listsub';
+      dSub.textContent = 'Safe / neutral objects the learner can also mark. They make the keyboard, list, and free-text paths a real “which of these are unsafe?” test instead of a walk down the answers — and turn a pointer tap on something safe into a teaching moment instead of a blank miss.';
+      listWrap.append(dHead, dSub);
+      s.decoys.forEach((d, i) => listWrap.append(decoyCard(d, i)));
+      const addD = document.createElement('button'); addD.type = 'button'; addD.className = 'addrow';
+      addD.innerHTML = '<i class="fa-solid fa-plus"></i> Add decoy';
+      addD.addEventListener('click', () => {
+        s.decoys.push({ id: 'decoy' + (s.decoys.length + 1), alt: '', note: '', spot: null });
+        scheduleUpdate(); paintList(); paintStage();
+      });
+      listWrap.append(addD);
     }
 
     const sceneText = document.createElement('div'); sceneText.className = 'fields';
     sceneText.append(
-      tf('scene.alt', 'Photo alt text (accessibility)', { area: true, minRows: 2 }),
+      tf('scene.alt', 'Whole-photo alt text (accessibility fallback)', { area: true, minRows: 2,
+        helper: 'A one-paragraph description of the whole scene for a screen-reader learner. The per-region descriptions above carry the detail; this is the overview.' }),
       tf('scene.canonDescription', 'What the coach is grounded to — it never sees the photo', { area: true, minRows: 4,
         helper: 'Describe the scene AND every hazard in words. The model reasons over this text, not the image.' }),
     );
 
     wrap.append(imgPanel, canvas, covPanel, listWrap, sceneText);
-    paintImage(); paintCanvas(); paintCoverage(); paintList();
+    paintImage(); paintStage(); paintCoverage(); paintList();
+
+    // keep shapes aligned when the drawn photo rect moves (self-cleans on detach)
+    const onResize = () => { if (!wrap.isConnected) { removeEventListener('resize', onResize); return; } renderShapes(); };
+    addEventListener('resize', onResize);
     return wrap;
   }
 
@@ -1021,7 +1380,15 @@ FOR THIS MODULE:
       if (empty(h.short)) add('err', 'scene', `Hazard #${i + 1} has no short label.`, 'It labels the pin and the coverage chip.');
       if (empty(h.full)) add('warn', 'scene', `Hazard ${label} has no description.`, 'The coach grounds to this — without it, it can’t credit the catch.');
       if (empty(h.zone)) add('warn', 'scene', `Hazard ${label} has no zone.`, 'The coach nudges toward the zone without naming the hazard.');
-      if (!h.spot) add('err', 'scene', `Hazard ${label} has no hotspot on the photo.`, 'Without a placed hotspot the learner can’t tap to mark it — click “Place on photo”.');
+      if (empty(h.alt)) add('warn', 'scene', `Hazard ${label} has no neutral description.`, 'It’s the screen-reader name for the keyboard/list path and the on-screen reference fed to the coach. Describe what’s visible, not why it’s a hazard.');
+      if (!h.spot) add('err', 'scene', `Hazard ${label} has no outline on the photo.`, 'Without a placed hotspot the learner can’t tap or key to mark it — click “Outline on photo”.');
+    });
+
+    (s.decoys || []).forEach((d, i) => {
+      const label = d.alt ? `“${String(d.alt).slice(0, 32)}…”` : `#${i + 1}`;
+      if (empty(d.alt)) add('info', 'scene', `Decoy ${label} has no neutral description.`, 'It’s the region’s screen-reader/list name — without it the decoy can’t be presented.');
+      if (empty(d.note)) add('info', 'scene', `Decoy ${label} has no “why it’s fine” note.`, 'Shown when a learner marks it — the teaching moment that it’s safe.');
+      if (!d.spot) add('warn', 'scene', `Decoy ${label} has no outline on the photo.`, 'Without an outline the decoy can’t be tapped or keyed — outline it, or remove it.');
     });
 
     const cov = s.coverage || {};

@@ -364,7 +364,7 @@
 
       /* Observe mode: the composer is meaningless — the learner taps the scene,
          not types. Hide the footer; the canvas carries its own CTA. React mode
-         (coaching) shows the composer again for the fix/prevent beats. */
+         (coaching) shows the composer again for the Diagnose & Remediate beat. */
       .app.sweep[data-mode="scene"] .inputbar { display: none; }
 
       /* The Observe canvas is position:absolute over the whole stage, so it
@@ -412,16 +412,81 @@
       }
       @media (prefers-reduced-motion: reduce) { .sweep-pin, .sweep-pin-ring { animation: none; } }
 
+      /* Focusable region hit-shapes — one per hazard AND decoy. They carry the
+         accessible name (each region's neutral alt) and are keyboard-operable, so
+         mouse, keyboard, and screen-reader learners all mark the same way. Kept
+         INVISIBLE until focused or marked, so a sighted mouse user still has to
+         SPOT the hazard rather than see it outlined. */
+      .sweep-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+      .sweep-region { pointer-events: auto; cursor: crosshair; fill: rgba(0,0,0,.001); stroke: transparent; stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke; outline: none; transition: fill .18s var(--ease), stroke .18s var(--ease); }
+      .sweep-region:focus-visible { fill: rgba(74,222,190,.16); stroke: #fff; stroke-width: 3px; stroke-dasharray: 5 4; }
+      .sweep-region.got { fill: rgba(74,222,190,.20); stroke: #4adebe; }
+      .sweep-region.got:focus-visible { stroke: #fff; }
+      .sweep-region.decoy.checked { fill: rgba(255,255,255,.08); stroke: rgba(255,255,255,.6); stroke-dasharray: 6 4; }
+      .app.sweep:not([data-mode="scene"]) .sweep-svg { pointer-events: none; }
+      @media (prefers-reduced-motion: reduce) { .sweep-region { transition: none; } }
+
+      /* Accessible tools — a slim toggle (top-right) opening a panel that lists
+         every region and offers a free-text sweep. Always available (no
+         assistive-tech detection); the panel is the fully image-free path. */
+      .sweep-a11y-toggle {
+        position: absolute; top: 16px; right: 16px; z-index: 5;
+        width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+        display: grid; place-items: center; font-size: 17px; color: #fff;
+        background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,.16);
+      }
+      .sweep-a11y-toggle:hover { background: rgba(0,0,0,.72); }
+      .sweep-a11y-toggle[aria-expanded="true"] { background: #fff; color: #111; }
+      .sweep-a11y-panel {
+        position: absolute; top: 0; right: 0; bottom: 0; z-index: 7; width: min(360px, 88vw);
+        background: rgba(17,19,24,.97); backdrop-filter: blur(12px);
+        border-left: 1px solid rgba(255,255,255,.12); box-shadow: -12px 0 40px rgba(0,0,0,.5);
+        padding: 20px 18px; overflow-y: auto; color: #fff;
+        display: flex; flex-direction: column; gap: 14px;
+        animation: a11y-in .22s var(--ease) both;
+      }
+      @keyframes a11y-in { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .sweep-a11y-panel { animation: none; } }
+      .sweep-a11y-panel[hidden] { display: none; }
+      .sweep-a11y-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+      .sweep-a11y-head h3 { margin: 0; font-size: 15px; font-weight: 800; }
+      .sweep-a11y-head p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,.72); }
+      .sweep-a11y-close { flex: none; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: transparent; color: #fff; cursor: pointer; }
+      .sweep-a11y-sec-lbl { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+      .sweep-ft-row { display: flex; gap: 8px; }
+      .sweep-ft-input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 13.5px; }
+      .sweep-ft-input::placeholder { color: rgba(255,255,255,.5); }
+      .sweep-ft-btn, .sweep-region-btn { font: inherit; cursor: pointer; }
+      .sweep-ft-btn { flex: none; padding: 0 15px; border-radius: 9px; border: 0; background: #4adebe; color: #06231d; font-weight: 800; font-size: 13px; }
+      .sweep-ft-hint { font-size: 12px; color: rgba(255,255,255,.62); margin: 2px 0 0; line-height: 1.45; }
+      .sweep-region-list { display: flex; flex-direction: column; gap: 8px; }
+      .sweep-region-btn {
+        display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
+        padding: 11px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14);
+        background: rgba(255,255,255,.05); color: #fff; font-size: 13px; line-height: 1.4;
+      }
+      .sweep-region-btn:hover { background: rgba(255,255,255,.1); }
+      .sweep-region-btn:focus-visible { outline: 2px solid #4adebe; outline-offset: 2px; }
+      .sweep-region-btn .ic { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: rgba(255,255,255,.12); }
+      .sweep-region-btn[aria-pressed="true"] { border-color: #4adebe; background: color-mix(in srgb, #4adebe 20%, transparent); }
+      .sweep-region-btn[aria-pressed="true"] .ic { background: #4adebe; color: #06231d; }
+      .sweep-region-btn.is-checked { border-color: rgba(255,255,255,.4); opacity: .82; }
+
       /* miss toast */
       .sweep-toast {
         position: absolute; left: 50%; top: 76px; transform: translateX(-50%) translateY(-6px);
         z-index: 5; pointer-events: none; color: #fff;
-        background: rgba(0,0,0,.72); backdrop-filter: blur(8px);
+        max-width: min(86vw, 460px); text-align: center; line-height: 1.4;
+        background: rgba(0,0,0,.78); backdrop-filter: blur(8px);
         border: 1px solid rgba(255,255,255,.14);
-        padding: 8px 15px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+        padding: 9px 17px; border-radius: 16px; font-size: 12.5px; font-weight: 600;
         opacity: 0; transition: opacity .2s var(--ease), transform .2s var(--ease);
       }
       .sweep-toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+      /* the accessible tools UI belongs to Observe only */
+      .app.sweep:not([data-mode="scene"]) .sweep-a11y-toggle,
+      .app.sweep:not([data-mode="scene"]) .sweep-a11y-panel { display: none !important; }
 
       /* top-center progress pill */
       .sweep-progress {
@@ -1618,7 +1683,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=4"></script>
+    <script src="js/sim-core.js?v=5"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1628,7 +1693,7 @@
          DEFAULT — the WPV "Reading the Warning Signs" build — when nothing is
          published). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/scene-sweep.js?v=4"></script>
+    <script src="js/scenario-types/scene-sweep.js?v=7"></script>
 
     <script>
     /* =====================================================================
@@ -1685,6 +1750,27 @@
        the perception-grading state line. HAZARD_IDS gates the model's `spotted`. */
     const HAZARDS = Array.isArray(ACTIVE_SCENARIO.hazards) ? ACTIVE_SCENARIO.hazards : [];
     const HAZARD_IDS = new Set(HAZARDS.map((h) => h.id));
+    // DECOYS — safe/neutral regions the learner can also mark (credited to nothing).
+    // They make the keyboard / list / free-text paths a real "which are unsafe?"
+    // judgment instead of a walk down the answers. Only those with an outline show.
+    const DECOYS = (Array.isArray(ACTIVE_SCENARIO.decoys) ? ACTIVE_SCENARIO.decoys : []).filter((d) => d && d.spot);
+    // A stable, deterministic mix of hazards + decoys — so tab order and the list
+    // don't put every hazard first (which would leak the answers). Ordered by a
+    // hash of each id, not by which array it came from.
+    const idHash = (str) => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+    const byHash = (list) => list.slice().sort((a, b) => idHash(String(a.r.id)) - idHash(String(b.r.id)));
+    // Hash-shuffle each group, then WEAVE them so hazards and decoys always
+    // interleave — never "the first N tab stops are the answers."
+    const _H = byHash(HAZARDS.filter((h) => h && h.spot).map((h) => ({ r: h, isHazard: true })));
+    const _D = byHash(DECOYS.map((d) => ({ r: d, isHazard: false })));
+    const REGION_SEQ = [];
+    for (let i = 0, j = 0; i < _H.length || j < _D.length;) {
+      if (i < _H.length) REGION_SEQ.push(_H[i++]);
+      if (j < _D.length) REGION_SEQ.push(_D[j++]);
+    }
+    // Accessible name for each region = its NEUTRAL description (never the hazard
+    // answer). Fallback "Area N of M" if an author left the alt blank.
+    REGION_SEQ.forEach((e, i) => { e.label = String((e.r.alt || '').trim()) || ('Area ' + (i + 1) + ' of ' + REGION_SEQ.length); });
     const IS_SWEEP = true;   // this page is the Scene Sweep runner (persistent image + coverage rail)
     const SCENE_IMG = fillT((ACTIVE_SCENARIO.scene || {}).src || '');
     const SCENE_ALT = fillT((ACTIVE_SCENARIO.scene || {}).alt || 'The work area to inspect.');
@@ -1799,6 +1885,7 @@
       scenePlaceholder: '',     // the live phase's authored composer placeholder
       entryLabel: '',           // the live phase's authored crossing CTA ("Step into the room")
       covered: new Set(),       // scene sweep: rubric hazard ids the learner has spotted (drives the coverage rail)
+      decoysChecked: new Set(), // scene sweep: decoy region ids the learner has tried (marked as "safe")
       // —— SCENE SWEEP: the Observe (tap-to-mark) phase ——
       marking: false,           // true while the learner is in the Observe canvas (pre/return, tapping the photo)
       markStarted: false,       // they dismissed the briefing / made a first mark (bottom CTA appears)
@@ -1972,17 +2059,20 @@
        miss shows a "nothing there" toast. Once the coverage TARGET is met (or
        they say they're stuck), a CTA hands off to the coach — REACT mode —
        where the coach credits what they marked (state.covered already feeds the
-       [SYSTEM STATE] coverage line) and works Remediate → Prevent → close.
+       [SYSTEM STATE] coverage line) and works Diagnose & Remediate → close.
        The Observe|React toggle swaps between the two at will. */
 
     // A first-person phrase per hazard for the summary handed to the coach on
     // crossing (reads like the learner reporting, not a rubric dump).
+    // First-person phrasings for the "here's what I marked" hand-off to the coach.
+    // The shipped build names its four; any authored hazard falls back to its label.
     const MARK_PHRASE = {
       jug: 'the unlabeled jug on the bench',
       ppe: 'my coworker working with no gloves',
       sds: 'the out-of-date safety data sheet',
       label: 'the torn, unreadable label on the drum',
     };
+    const markPhrase = (h) => MARK_PHRASE[h.id] || ('the ' + String(h.short || h.alt || 'hazard').toLowerCase().replace(/\.$/, ''));
     const SWEEP_REQUIRED = (COVERAGE && COVERAGE.required) || Math.max(1, HAZARDS.length - 1);
     const SWEEP_TOTAL = (COVERAGE && COVERAGE.total) || HAZARDS.length;
     function listJoin(items) {
@@ -1993,13 +2083,18 @@
     }
 
     let sweepPhotoEl = null;
+    let sweepSvgEl = null;        // the region overlay <svg> (kept as a ref so it works pre-mount)
+    const sweepRegionEls = {};   // hazard/decoy id → { shape, entry }
     function sweepSceneNode() {
       const wrap = el('div', 'sweep-scene');
       wrap.innerHTML =
         `<div class="sweep-stage">
            <img class="sweep-photo" id="sweepPhoto" src="${esc(SCENE_IMG)}" alt="${esc(SCENE_ALT)}" draggable="false" />
            <div class="sweep-hits" id="sweepHits"></div>
+           <svg class="sweep-svg" id="sweepSvg"></svg>
            <div class="sweep-pins" id="sweepPins"></div>
+           <button class="sweep-a11y-toggle" id="sweepA11yToggle" type="button" aria-expanded="false" aria-controls="sweepA11yPanel" title="Other ways to mark — list the areas or type what you see"><i class="fa-solid fa-universal-access"></i></button>
+           <div class="sweep-a11y-panel" id="sweepA11yPanel" role="dialog" aria-label="Other ways to mark hazards" hidden></div>
            <div class="sweep-toast" id="sweepToast">Nothing unsafe there</div>
            <div class="sweep-progress" id="sweepProgress" aria-live="polite"></div>
            <div class="sweep-cta-wrap" id="sweepCtaWrap"></div>
@@ -2007,16 +2102,23 @@
              <div class="sweep-brief-card">
                <div class="sweep-brief-eyebrow">Spot the hazard</div>
                <h2 class="sweep-brief-title">Take a slow look around.</h2>
-               <p class="sweep-brief-sub">You just finished the training — now you’re on the floor. Tap anything that looks unsafe. Find at least ${SWEEP_REQUIRED}, then talk it through with your coach.</p>
+               <p class="sweep-brief-sub">You just finished the training — now you’re on the floor. Mark anything that looks unsafe: tap it, use Tab + Enter, or open the ♿ menu to list the areas or type what you see. Find at least ${SWEEP_REQUIRED}, then talk it through with your coach.</p>
                <button class="sweep-brief-btn" id="sweepBriefBtn"><i class="fa-solid fa-magnifying-glass"></i> Start looking</button>
              </div>
            </div>
          </div>`;
       sweepPhotoEl = wrap.querySelector('#sweepPhoto');
+      sweepSvgEl = wrap.querySelector('#sweepSvg');
       wrap.querySelector('#sweepHits').addEventListener('click', onSweepTap);
       wrap.querySelector('#sweepBriefBtn').addEventListener('click', dismissBrief);
-      // keep pins glued to their spots as the photo's drawn rect changes
+      wrap.querySelector('#sweepA11yToggle').addEventListener('click', () => toggleA11yPanel());
+      // keep pins + region shapes glued to the photo's drawn rect as it changes
       sweepPhotoEl.addEventListener('load', repositionPins);
+      buildSweepRegions();
+      // buildSweepRegions runs before this node is mounted (drawRect is null then),
+      // and a cached image may never fire 'load' — so lay the shapes out once the
+      // node is mounted and measured.
+      requestAnimationFrame(() => requestAnimationFrame(layoutSweepRegions));
       return wrap;
     }
 
@@ -2032,6 +2134,8 @@
     // hazard hotspots without guessing (mirrors immersive.html's authoring mode).
     const SWEEP_AUTHOR = new URLSearchParams(location.search).has('author');
 
+    // Pointer fallback on the bare photo (misses, and any region the SVG shapes
+    // didn't capture). The focusable SVG regions handle most pointer + all keyboard.
     function onSweepTap(e) {
       if (state.mode !== 'scene' || state.briefUp) return;
       const img = sweepPhotoEl; if (!img) return;
@@ -2039,18 +2143,91 @@
       if (!n) return;   // tap landed in the letterbox, not the picture
       if (SWEEP_AUTHOR) { console.log(`[author] x:${n.x.toFixed(3)}, y:${n.y.toFixed(3)}`); showSweepMiss('x ' + n.x.toFixed(2) + ', y ' + n.y.toFixed(2)); return; }
       const hit = SceneSweepGeo.hitTest(HAZARDS, n.x, n.y, state.covered);
-      if (hit) markHazard(hit);
-      else showSweepMiss();
+      if (hit) { markHazard(hit); return; }
+      const decoy = SceneSweepGeo.hitTest(DECOYS, n.x, n.y, null);
+      if (decoy) { checkDecoy(decoy); return; }
+      showSweepMiss();
     }
 
-    function markHazard(h) {
+    /* ---- the focusable region layer: one shape per hazard AND decoy. Same
+       target for mouse (click), keyboard (Tab + Enter/Space), and screen
+       readers (role=button + the region's neutral alt as its name). ---- */
+    function buildSweepRegions() {
+      const svg = sweepSvgEl || document.getElementById('sweepSvg'); if (!svg) return;
+      svg.innerHTML = '';
+      for (const k in sweepRegionEls) delete sweepRegionEls[k];
+      REGION_SEQ.forEach((entry) => {
+        const sp = entry.r.spot; const isPoly = Array.isArray(sp.points);
+        const shape = document.createElementNS('http://www.w3.org/2000/svg', isPoly ? 'polygon' : 'circle');
+        let cls = 'sweep-region' + (entry.isHazard ? '' : ' decoy');
+        if (entry.isHazard && state.covered.has(entry.r.id)) cls += ' got';
+        if (!entry.isHazard && state.decoysChecked && state.decoysChecked.has(entry.r.id)) cls += ' checked';
+        shape.setAttribute('class', cls);
+        shape.setAttribute('role', 'button');
+        shape.setAttribute('tabindex', '0');
+        shape.setAttribute('aria-label', entry.label);
+        if (entry.isHazard) shape.setAttribute('aria-pressed', state.covered.has(entry.r.id) ? 'true' : 'false');
+        const activate = (ev) => { ev.preventDefault(); ev.stopPropagation(); activateRegion(entry); };
+        shape.addEventListener('click', activate);
+        shape.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') activate(ev); });
+        svg.appendChild(shape);
+        sweepRegionEls[entry.r.id] = { shape, entry };
+      });
+      layoutSweepRegions();
+    }
+    // Update every shape's geometry to the current drawn-image rect; toggle
+    // keyboard/pointer reachability to match the live mode (Observe only).
+    function layoutSweepRegions() {
+      const dr = imgDrawRect(); if (!dr || !sweepPhotoEl) return;
+      const interactive = state.mode === 'scene' && !state.briefUp;
+      REGION_SEQ.forEach((entry) => {
+        const rec = sweepRegionEls[entry.r.id]; if (!rec) return;
+        const sp = entry.r.spot;
+        if (Array.isArray(sp.points)) {
+          const px = SceneSweepGeo.polyPixels(sweepPhotoEl, sp.points);
+          if (px) rec.shape.setAttribute('points', px.map((p) => `${p.left.toFixed(1)},${p.top.toFixed(1)}`).join(' '));
+        } else {
+          const c = SceneSweepGeo.toPixels(sweepPhotoEl, sp.x, sp.y);
+          if (c) { rec.shape.setAttribute('cx', c.left); rec.shape.setAttribute('cy', c.top); rec.shape.setAttribute('r', Math.max(8, (sp.r || 0.12) * dr.width)); }
+        }
+        rec.shape.setAttribute('tabindex', interactive ? '0' : '-1');
+      });
+    }
+    function activateRegion(entry) {
+      if (state.mode !== 'scene' || state.briefUp) return;
+      if (entry.isHazard) {
+        if (state.covered.has(entry.r.id)) { announce('Already marked ' + (entry.r.short || entry.label) + '.'); return; }
+        markHazard(entry.r);
+      } else {
+        checkDecoy(entry.r);
+      }
+    }
+    function updateRegionMarked(h) {
+      const rec = sweepRegionEls[h.id]; if (!rec) return;
+      rec.shape.classList.add('got'); rec.shape.setAttribute('aria-pressed', 'true');
+    }
+    function checkDecoy(d) {
+      if (!state.decoysChecked) state.decoysChecked = new Set();
+      const firstTime = !state.decoysChecked.has(d.id);
+      state.decoysChecked.add(d.id);
+      const rec = sweepRegionEls[d.id]; if (rec) rec.shape.classList.add('checked');
+      const msg = d.note || 'That one’s actually fine — not a hazard.';
+      flashToast(msg); announce(msg);
+      if (firstTime) refreshA11yList();
+    }
+
+    function markHazard(h, silent) {
       state.covered.add(h.id);
       state.markStarted = true;
       dropPin(h);
+      updateRegionMarked(h);
       updateObserveHud();
       updateCoachRail();
-      const n = HAZARDS.filter((x) => state.covered.has(x.id)).length;
-      announce('Marked ' + h.short + '. ' + n + ' of ' + SWEEP_TOTAL + ' found.');
+      refreshA11yList();
+      if (!silent) {
+        const n = HAZARDS.filter((x) => state.covered.has(x.id)).length;
+        announce('Marked ' + (h.short || 'it') + '. ' + n + ' of ' + SWEEP_TOTAL + ' found.');
+      }
     }
 
     function dropPin(h) {
@@ -2065,10 +2242,12 @@
     function positionPin(pin, h, dr) {
       dr = dr || imgDrawRect();
       if (!dr || !h.spot) return;
-      pin.style.left = (dr.left + h.spot.x * dr.width) + 'px';
-      pin.style.top  = (dr.top + h.spot.y * dr.height) + 'px';
+      const c = SceneSweepGeo.centroid(h.spot);   // circle center or polygon centroid
+      pin.style.left = (dr.left + c.x * dr.width) + 'px';
+      pin.style.top  = (dr.top + c.y * dr.height) + 'px';
     }
     function repositionPins() {
+      layoutSweepRegions();
       const pins = document.getElementById('sweepPins'); if (!pins) return;
       const dr = imgDrawRect(); if (!dr) return;
       Array.from(pins.children).forEach((pin) => {
@@ -2077,16 +2256,115 @@
       });
     }
 
+    /* ---- the accessible tools panel: an always-available, image-free path.
+       Lists every region (hazards + decoys, neutrally named + mixed order) and
+       offers a free-text sweep credited against the authored synonyms. ---- */
+    function toggleA11yPanel(force) {
+      const panel = document.getElementById('sweepA11yPanel');
+      const toggle = document.getElementById('sweepA11yToggle');
+      if (!panel || !toggle) return;
+      const open = force != null ? force : panel.hasAttribute('hidden');
+      if (open) {
+        buildA11yPanel();
+        panel.removeAttribute('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+        const inp = panel.querySelector('.sweep-ft-input'); if (inp) setTimeout(() => inp.focus(), 40);
+      } else {
+        panel.setAttribute('hidden', '');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+      }
+    }
+    function buildA11yPanel() {
+      const panel = document.getElementById('sweepA11yPanel'); if (!panel) return;
+      panel.innerHTML =
+        `<div class="sweep-a11y-head">
+           <div>
+             <h3>Mark what looks unsafe</h3>
+             <p>Type what you notice, or pick from the areas in the scene. (On the photo you can also press Tab to move between areas and Enter to mark one.)</p>
+           </div>
+           <button class="sweep-a11y-close" id="sweepA11yClose" type="button" aria-label="Close">✕</button>
+         </div>
+         <div>
+           <div class="sweep-a11y-sec-lbl">Describe what you see</div>
+           <form class="sweep-ft-row" id="sweepFtForm" style="margin-top:8px;">
+             <input class="sweep-ft-input" id="sweepFtInput" type="text" autocomplete="off" placeholder="e.g. the jug has no label, no gloves…" aria-label="Describe what looks unsafe" />
+             <button class="sweep-ft-btn" type="submit">Mark</button>
+           </form>
+           <p class="sweep-ft-hint">We’ll credit anything you name that matches a hazard.</p>
+         </div>
+         <div>
+           <div class="sweep-a11y-sec-lbl">Or pick an area in the scene</div>
+           <div class="sweep-region-list" id="sweepRegionList" style="margin-top:8px;"></div>
+         </div>`;
+      panel.querySelector('#sweepA11yClose').addEventListener('click', () => toggleA11yPanel(false));
+      panel.querySelector('#sweepFtForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = panel.querySelector('#sweepFtInput'); const v = (inp.value || '').trim();
+        if (v) { matchFreeTextSweep(v); inp.value = ''; inp.focus(); }
+      });
+      refreshA11yList();
+    }
+    function refreshA11yList() {
+      const list = document.getElementById('sweepRegionList'); if (!list) return;
+      list.innerHTML = '';
+      REGION_SEQ.forEach((entry) => {
+        const got = entry.isHazard && state.covered.has(entry.r.id);
+        const checked = !entry.isHazard && state.decoysChecked && state.decoysChecked.has(entry.r.id);
+        const btn = el('button', 'sweep-region-btn'); btn.type = 'button';
+        if (entry.isHazard) btn.setAttribute('aria-pressed', got ? 'true' : 'false');
+        if (checked) btn.classList.add('is-checked');
+        btn.innerHTML = `<span class="ic"><i class="fa-solid ${got ? 'fa-check' : (checked ? 'fa-shield-halved' : 'fa-magnifying-glass')}"></i></span><span>${esc(entry.label)}</span>`;
+        btn.addEventListener('click', () => activateRegion(entry));
+        list.appendChild(btn);
+      });
+    }
+    // Credit a typed sweep locally against each unspotted hazard's authored
+    // synonyms (+ its short label). A coverage aid; the coach is authoritative later.
+    function matchFreeTextSweep(text) {
+      const hay = ' ' + text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+      // words too common to be a distinctive signal on their own
+      const STOP = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'and', 'or', 'of', 'in', 'on', 'it', 'to', 'with', 'that', 'this', 'from', 'has', 'have', 'its', 'some']);
+      const newly = [];
+      HAZARDS.forEach((h) => {
+        if (state.covered.has(h.id)) return;
+        const phrases = String(h.synonyms || '').split(',').map((p) => p.trim().toLowerCase()).filter(Boolean);
+        if (h.short) phrases.push(String(h.short).toLowerCase());
+        const hit = phrases.some((p) => {
+          const norm = p.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (!norm) return false;
+          // fast path: the phrase appears verbatim
+          if (hay.indexOf(norm) !== -1) return true;
+          // order-independent: every distinctive word of the phrase appears (so
+          // "the drum label is torn" still credits the synonym "torn label")
+          const words = norm.split(' ').filter((w) => w.length >= 2 && !STOP.has(w));
+          return words.length >= 1 && words.every((w) => hay.indexOf(' ' + w + ' ') !== -1);
+        });
+        if (hit) newly.push(h);
+      });
+      if (!newly.length) {
+        flashToast('Nothing there matched a hazard yet — try naming what looks wrong.');
+        announce('Nothing matched yet. Try describing what looks unsafe.');
+        state.misses = (state.misses || 0) + 1; updateObserveHud();
+        return;
+      }
+      newly.forEach((h) => markHazard(h, true));
+      const n = HAZARDS.filter((x) => state.covered.has(x.id)).length;
+      announce('Marked ' + listJoin(newly.map((h) => (h.short || 'a hazard'))) + '. ' + n + ' of ' + SWEEP_TOTAL + ' found.');
+    }
+
     let sweepToastTimer = 0;
+    function flashToast(msg, ms) {
+      const t = document.getElementById('sweepToast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('on');
+      clearTimeout(sweepToastTimer);
+      sweepToastTimer = setTimeout(() => t.classList.remove('on'), ms || (String(msg).length > 34 ? 2400 : 1400));
+    }
     function showSweepMiss(msg) {
       if (!SWEEP_AUTHOR) state.misses = (state.misses || 0) + 1;
-      const t = document.getElementById('sweepToast');
-      if (t) {
-        t.textContent = msg || 'Nothing unsafe there';
-        t.classList.add('on');
-        clearTimeout(sweepToastTimer);
-        sweepToastTimer = setTimeout(() => t.classList.remove('on'), 1300);
-      }
+      flashToast(msg || 'Nothing unsafe there');
       updateObserveHud();   // a couple of misses reveals the "stuck?" escape hatch
     }
 
@@ -2094,6 +2372,7 @@
       state.briefUp = false;
       state.markStarted = true;
       const b = document.getElementById('sweepBrief'); if (b) b.classList.add('is-out');
+      layoutSweepRegions();   // regions become keyboard-reachable once the brief clears
       updateObserveHud();
     }
 
@@ -3350,11 +3629,12 @@
       // Count this learner turn against the LIVE phase's cap — but only when it
       // was spent IN that phase's world (a manual-timeout chat with the coach
       // never burns scene turns).
+      let counted = false;   // did THIS send spend a phase turn? (rolled back if the call fails)
       {
         const phases = ACTIVE_SCENARIO.phases || [];
         const p = (state.phaseIdx >= 0 && state.phaseIdx < phases.length) ? phases[state.phaseIdx] : null;
         const inPhaseWorld = p && !state.manualTimeout && ((p.world === 'scene') === (state.mode === 'scene'));
-        if (inPhaseWorld) state.turnsInPhase++;
+        if (inPhaseWorld) { state.turnsInPhase++; counted = true; }
       }
 
       state.sending = true;
@@ -3364,7 +3644,7 @@
       // move — both read the same raw text. Failures resolve to a graceful turn.
       const turnP = getTurn(state.messages).catch(() => {
         announce('Something hiccuped reaching the AI coach. Take a breath and try that again.');
-        return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+        return { __transportError: true, turn: [{ speaker: 'coach', kind: 'coaching', text:
           'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
       });
 
@@ -3376,6 +3656,20 @@
       showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');
 
       const turn = await turnP;
+
+      // TRANSPORT FAILURE — the Worker was unreachable even after retries. This is
+      // NOT a turn: hand the learner's turn back instead of burning it and force-
+      // advancing the ladder. Show the hiccup (keeps the transcript alternating so
+      // the retry is clean), roll back the counted turn, and re-open input.
+      if (turn && turn.__transportError) {
+        if (counted) state.turnsInPhase = Math.max(0, state.turnsInPhase - 1);
+        await deliverTurn(turn);
+        state.sending = false;
+        state.manualTimeout = false;
+        render();
+        if (!composer.disabled && !inputMain.hidden) composer.focus();
+        return;
+      }
 
       // COVERAGE — accumulate the hazards the model just credited into the
       // running set BEFORE the beat can advance, so the rail and the next state
@@ -3745,7 +4039,7 @@
         scenePlaceholder: '', entryLabel: '', covered: new Set(),
         // reset the Scene Sweep Observe phase
         marking: false, markStarted: false, briefUp: false, misses: 0,
-        coachStarted: false, reportedToCoach: new Set(), lookAgainDismissed: false,
+        coachStarted: false, reportedToCoach: new Set(), lookAgainDismissed: false, decoysChecked: new Set(),
       });
       (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
       app.classList.remove('was-trap');
@@ -3805,7 +4099,7 @@
       const fresh = HAZARDS.filter((h) => state.covered.has(h.id) && !state.reportedToCoach.has(h.id));
       fresh.forEach((h) => state.reportedToCoach.add(h.id));
       if (fresh.length) {
-        return 'I marked ' + listJoin(fresh.map((h) => MARK_PHRASE[h.id] || String(h.short || '').toLowerCase())) + '.';
+        return 'I marked ' + listJoin(fresh.map((h) => markPhrase(h))) + '.';
       }
       if (reason === 'stuck') return 'I’ve looked around, but I’m not sure what else is unsafe here.';
       return 'I’ve taken a look around the work area.';
@@ -3817,6 +4111,7 @@
     // NEW finds, or just returns to the thread if nothing new was marked.
     async function crossToReact(reason) {
       if (state.sending || state.delivering) return;
+      toggleA11yPanel(false);   // close the accessible tools when leaving Observe
       state.marking = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
       const fresh = HAZARDS.filter((h) => state.covered.has(h.id) && !state.reportedToCoach.has(h.id));
