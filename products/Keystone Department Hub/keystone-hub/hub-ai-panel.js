@@ -72,7 +72,9 @@
     added: []        // widget specs added to the grid from chat
   };
 
-  function isExpanded() { return state.thread.length > 0 || state.thinking; }
+  // A collapsed panel reports as not expanded, so the container returns to
+  // compact height with no extra bookkeeping in the hero.
+  function isExpanded() { return !state.collapsed && (state.thread.length > 0 || state.thinking); }
   function addedWidgets() { return state.added; }
 
   function mark(size) {
@@ -213,13 +215,27 @@
   }
 
   function html(cfg) {
+    if (state.collapsed) {
+      return '<button class="kx-ai-collapsed" id="kxAiExpand" ' +
+        'title="Open Agency Intelligence" aria-label="Open Agency Intelligence">' +
+        mark(24) + '<span class="vlabel">Agency Intelligence</span>' +
+        micon('chevron_right', { size: 16, color: 'var(--ink-400)', style: 'margin-top:auto' }) +
+        '</button>';
+    }
     var person = currentPerson;
     return '<div class="kx-aipanel" id="kxAiPanel">' +
       '<div class="kx-ai-head">' + mark(28) +
       '<div style="flex:1;min-width:0">' +
       '<div class="t">Agency Intelligence</div>' +
       '<div class="s">Ask about ' + esc((cfg && cfg.name) || 'your dashboard') + '</div>' +
-      '</div></div>' +
+      '</div>' +
+      (state.thread.length
+        ? '<button class="kx-ai-iconbtn" id="kxAiNew" title="New chat" aria-label="New chat">' +
+          micon('restart_alt', { size: 16 }) + '</button>'
+        : '') +
+      '<button class="kx-ai-iconbtn" id="kxAiCollapse" title="Collapse Agency Intelligence" ' +
+      'aria-label="Collapse Agency Intelligence">' + micon('chevron_left', { size: 17 }) +
+      '</button></div>' +
       (isExpanded() ? threadHtml() : chipsHtml(person)) +
       inputHtml(isExpanded()) +
       '</div>';
@@ -319,6 +335,25 @@
     var root = document.getElementById('root');
 
     root.addEventListener('click', function (e) {
+      if (e.target.closest('#kxAiCollapse')) {
+        state.collapsed = true;
+        window.KXHub.render();
+        return;
+      }
+      if (e.target.closest('#kxAiExpand')) {
+        state.collapsed = false;
+        window.KXHub.render();
+        return;
+      }
+      if (e.target.closest('#kxAiNew')) {
+        state.thread = [];
+        state.draft = '';
+        state.thinking = false;
+        // Widgets already added stay on the dashboard — clearing the chat is
+        // not undoing a publish.
+        window.KXHub.render();
+        return;
+      }
       var chip = e.target.closest('[data-kx-ai-chip]');
       if (chip) {
         var list = suggestionsFor(currentPerson);
