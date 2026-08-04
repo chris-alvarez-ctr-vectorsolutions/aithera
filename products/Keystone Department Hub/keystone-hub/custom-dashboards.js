@@ -1,7 +1,7 @@
 /* global window */
-// custom-dashboards.js — Catalog of metrics + viz types for the Copilot
+// custom-dashboards.js — Catalog of metrics + viz types for the Agency Intelligence
 // "Create a custom dashboard" wizard, plus storage helpers used by both the
-// Hub (copilot.jsx) and the standalone Copilot Dashboard page.
+// Hub (copilot.jsx) and the standalone Agency Intelligence Dashboard page.
 //
 // Plain ES5-ish JS, no JSX, no framework — so it can be loaded by both the
 // Babel-transpiled React surface and the vanilla dashboard page.
@@ -30,7 +30,7 @@
   ];
 
   // ---------- Correlation suggestions ----------
-  // One-click pairs the Copilot surfaces in the wizard so the user can jump
+  // One-click pairs the Agency Intelligence surfaces in the wizard so the user can jump
   // straight to a meaningful two-metric story without hunting through the
   // grid. Each entry references metric IDs from AVAILABLE_METRICS.
   const CORRELATION_SUGGESTIONS = [

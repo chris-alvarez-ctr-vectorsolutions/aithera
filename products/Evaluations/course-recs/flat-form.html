@@ -402,18 +402,6 @@
         }
         .topbar-share-pill[hidden] { display: none; }
         .topbar-share-pill i { font-size: 10px; }
-        /* Share status BAR — a full-width blue strip across the top of the header
-           card, bleeding to the card edges via negative margins (escaping the
-           card's 20/24 padding). Hidden until the form is shared. */
-        .form-header-statusbar {
-            display: flex; align-items: center; gap: 8px;
-            margin: -20px -24px 18px;          /* bleed to top + side edges */
-            padding: 8px 24px;
-            font-size: 12px; font-weight: 700;
-            background: var(--lumo-primary-color);
-            color: var(--lumo-base-color);
-        }
-        .form-header-statusbar[hidden] { display: none; }
         .topbar-sub {
             font-size: 11px;
             color: var(--text-muted);
@@ -427,6 +415,9 @@
         }
         .topbar-actions { display: flex; align-items: center; gap: 8px; }
         .topbar-actions vaadin-button { margin: 0; }
+        /* Compare's icon/label/caret spacing (replaces the old inline margins, so
+           the label+caret can be hidden cleanly at high zoom). */
+        #compareFormsBtn .topbar-btn-label { margin: 0 6px; }
 
         .actions-menu-wrap { position: relative; }
         .actions-menu {
@@ -466,11 +457,14 @@
             .topbar { flex-wrap: wrap; row-gap: 8px; }
             .topbar-divider { display: none; }
         }
+        /* NOTE: the responsive .form-timer overrides live AFTER the .form-timer
+           base rule (search "Narrow / high-zoom toolbar"), since that base rule is
+           defined much further down and would otherwise win on source order. */
 
         /* ─── Form header (record identity) ───
            Left-aligned title with a two-column field grid below (label-beside-
-           value pairs, sentence case), plus a Share control row. Sits at the top
-           of the form content. */
+           value pairs, sentence case). Sits at the top of the form content.
+           Shared status is not shown here — see .form-actions below. */
         /* Header container — matches the form-list card (same bg, border,
            radius, shadow) so it reads as a sibling of the form. */
         .form-header {
@@ -481,7 +475,6 @@
             box-shadow: var(--lumo-box-shadow-xs);
             padding: 20px 24px;
             margin-bottom: 16px;
-            overflow: hidden;   /* clip the full-bleed status bar to rounded top */
         }
         /* Title row — title left, edit affordance right. */
         .form-header-top {
@@ -543,6 +536,94 @@
         .form-header-value .copy-empty { font-weight: 400; }
         @media (max-width: 640px) {
             .form-header-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ─── Form action cluster ───
+           A control strip between the record header and the first form section:
+           bulk scoring actions, the privacy selection, and Share. Reads as a bar
+           of chrome rather than a card, so it's flatter/tighter than .form-header
+           and uses the page bg instead of the card bg. */
+        .form-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            background: var(--page-bg);
+            border: 1px solid var(--border-soft);
+            border-radius: 10px;
+        }
+        .form-actions-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .form-actions-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .form-actions-divider {
+            width: 1px;
+            align-self: stretch;
+            min-height: 24px;
+            background: var(--border-soft);
+        }
+        /* Share sits hard right; margin-left:auto survives flex-wrap. */
+        .form-actions-share { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; }
+        /* Segmented On/Off control. Plain buttons — vwc-toggle-button-group
+           selects additively outside a form context. */
+        .privacy-toggle {
+            display: inline-flex;
+            border: 1px solid var(--border-soft);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--lumo-base-color);
+        }
+        .privacy-opt {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px;
+            background: none; border: none; cursor: pointer;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+        }
+        .privacy-opt + .privacy-opt { border-left: 1px solid var(--border-soft); }
+        .privacy-opt i { font-size: 10px; }
+        .privacy-opt:hover:not(.active) { background: var(--page-bg); color: var(--text-strong); }
+        .privacy-opt.active { background: var(--brand); color: var(--lumo-base-color); }
+        .privacy-hint {
+            font-size: 11px; color: var(--text-muted); font-style: italic;
+            white-space: nowrap;
+        }
+        /* ── Post-share treatment ──
+           This replaced the old full-bleed blue banner on the header card. The
+           cluster keeps its normal neutral chrome — the solid blue "Shared" pill
+           (below) is the whole signal, which reads clearly without tinting the
+           entire strip. `.is-shared` stays on the container as a state hook. */
+        /* Privacy is locked once shared (the parties already have access). */
+        .privacy-toggle.is-locked { opacity: 0.55; }
+        .privacy-toggle.is-locked .privacy-opt { cursor: default; }
+        /* Solid pill — the cluster's primary "Shared" signal. */
+        .form-actions-shared-mark {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 5px 14px; border-radius: 999px;
+            background: var(--lumo-primary-color); color: var(--lumo-base-color);
+            font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+            white-space: nowrap;
+            box-shadow: var(--lumo-box-shadow-xs);
+        }
+        .form-actions-shared-mark i { font-size: 11px; }
+        /* Below the header's own breakpoint the cluster stacks: each group takes a
+           full row and Share drops to its own row (auto margin would strand it). */
+        @media (max-width: 860px) {
+            .form-actions-divider { display: none; }
+            .form-actions-share { margin-left: 0; }
+            .privacy-hint { display: none; }
         }
 
         /* ─── Flat form question list ───
@@ -1601,24 +1682,51 @@
             background: rgba(15, 23, 42, 0.4);   /* scrim (DS drawer omits it here) */
         }
         .video-review-host[hidden] { display: none; }
-        /* DS GAP: no width prop — set panel width on the drawer-container part.
-           Also pin it to the right edge since the DS drawer won't in overlay-only
-           use. min/max keep it sane; the native resize drag still overrides width. */
+        /* Width/resize: drive the DS drawer's OWN width tokens rather than
+           pinning ::part(drawer-container). This matters for resizing — the
+           component's drag handle sets an inline width on its internal
+           .drawer-column (not the container part), so any width we force on the
+           container would override the drag and the panel would never move.
+           Feeding --vwc-drawer-width/min/max instead lets the native drag win.
+           Offsets are zeroed because our host is already a fixed inset:0 layer
+           (the DS default reserves topnav height, which double-offsets here). */
+        #videoReviewDrawer {
+            --vwc-drawer-width: 480px;
+            --vwc-drawer-min-width: 360px;
+            --vwc-drawer-max-width: 96vw;
+            --vwc-drawer-offset-top: 0px;
+            --vwc-drawer-max-column-height: 100vh;
+            /* Widen the 8px grab strip so the resize edge is easy to hit. */
+            --vwc-drawer-resize-handle-size: 10px;
+        }
         #videoReviewDrawer::part(drawer-container) {
-            position: fixed; top: 0; right: 0; bottom: 0;
-            /* No min-width — max-width:96vw must win at narrow widths (reflow). */
-            width: 480px; max-width: 96vw;
             box-shadow: var(--lumo-box-shadow-xl);
             pointer-events: auto;
         }
-        /* Let scrim clicks pass through the full-width content-container to the
-           host (which closes on backdrop click); the panel re-enables events. */
-        #videoReviewDrawer, #videoReviewDrawer::part(content-container) { pointer-events: none; }
-        #videoReviewDrawer [slot="drawer-content"] { pointer-events: auto; }
+        /* The DS resize handle is an invisible div with no ::part, so the edge is
+           undiscoverable. Paint a visible grab affordance on the panel's left
+           edge to advertise it (the handle itself sits half-overhanging there). */
+        .video-review-panel::before {
+            content: '';
+            position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
+            background: var(--border-soft);
+            opacity: 0; transition: opacity 120ms ease;
+            pointer-events: none; z-index: 2;
+        }
+        .video-review-host:hover .video-review-panel::before { opacity: 1; }
+        /* Let scrim clicks pass through the empty full-width content-container to
+           the host (which closes on backdrop click). Only that part is inert —
+           the drawer host itself must stay interactive or the shadow-DOM resize
+           handle (which sits half-outside the panel's left edge) can't be
+           grabbed. drawer-container is a no-op for clicks anyway since the panel
+           fills it. */
+        #videoReviewDrawer::part(content-container) { pointer-events: none; }
         /* The panel content (in the drawer-content slot) is a flex column. */
         /* Size to viewport directly — the vwc-drawer host doesn't stretch slotted
-           content, so height:100% would collapse (body wouldn't flex-scroll). */
-        .video-review-panel { display: flex; flex-direction: column; height: 100vh; max-height: 100vh; background: var(--lumo-base-color); }
+           content, so height:100% would collapse (body wouldn't flex-scroll).
+           theme="no-padding" on the drawer drops its default 8px 16px so the
+           panel sits flush to the container edges (and the resize edge). */
+        .video-review-panel { position: relative; display: flex; flex-direction: column; height: 100vh; max-height: 100vh; background: var(--lumo-base-color); }
         .video-review-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 14px 16px; border-bottom: 1px solid var(--border-soft);
@@ -1654,11 +1762,10 @@
             background: linear-gradient(180deg, var(--lumo-base-color) 0%, rgba(255,255,255,0) 100%);
             pointer-events: none; z-index: 1;
         }
-        /* Upload action + source menu (initial state) */
+        /* Upload action + source menu (initial state). Bare — the button is the
+           whole affordance; no dashed dropzone container around it. */
         .q-video-uploader {
-            display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-            padding: 24px; border: 2px dashed var(--border-soft);
-            border-radius: 10px; background: var(--page-bg);
+            display: flex; flex-direction: column; align-items: flex-start;
         }
         .q-video-upload-wrap { position: relative; }
         .q-video-upload-btn {
@@ -1686,7 +1793,6 @@
         .q-video-upload-option i { font-size: 18px; color: var(--brand); width: 22px; margin-top: 2px; }
         .q-video-upload-option-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-strong); }
         .q-video-upload-option-sub { display: block; font-size: 12px; color: var(--text-muted); }
-        .q-video-upload-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
         /* ─── Attachment detail panel (right-side overlay drawer) ─── */
         /* Attachment edit drawer host — fixed full-viewport layer + scrim (see
@@ -1696,21 +1802,44 @@
             background: rgba(15, 23, 42, 0.4);
         }
         .attach-host[hidden] { display: none; }
-        /* Let scrim clicks pass through the drawer's internal containers to the
-           host; the panel itself re-enables events. */
-        #attachDrawer, #attachDrawer::part(content-container),
-        #attachDrawer::part(drawer-container) { pointer-events: none; }
-        /* DS GAP: the vwc-drawer host doesn't stretch slotted content to the
-           panel height, and it slots the content at a vertical offset — so
-           height:100%/100vh either collapsed or overflowed the viewport. Pin the
-           panel itself to the viewport edge so its header/actions stay fixed and
-           only .attach-panel-body scrolls. This makes the panel the visible
-           surface (shadow + width live here now, not on drawer-container). */
-        .attach-panel {
-            position: fixed; top: 0; right: 0; bottom: 0; z-index: 1;
-            width: 420px; max-width: 96vw;
-            display: flex; flex-direction: column; background: var(--lumo-base-color);
+        /* Let scrim clicks pass through the empty full-width content-container to
+           the host. The drawer host itself must stay interactive or the shadow-DOM
+           resize handle (half-overhanging the panel's left edge) can't be grabbed
+           — same fix as the video drawer. */
+        #attachDrawer::part(content-container) { pointer-events: none; }
+        /* Width/resize via the DS drawer's OWN tokens: its drag handle writes an
+           inline width on the internal .drawer-column, so forcing a width on the
+           panel/container part would out-specify the drag and resizing would do
+           nothing. Offsets are zeroed since the host is already a fixed inset:0
+           layer (the DS default reserves topnav height and would double up). */
+        #attachDrawer {
+            --vwc-drawer-width: 460px;
+            --vwc-drawer-min-width: 360px;
+            --vwc-drawer-max-width: 96vw;
+            --vwc-drawer-offset-top: 0px;
+            --vwc-drawer-max-column-height: 100vh;
+            --vwc-drawer-resize-handle-size: 10px;
+        }
+        #attachDrawer::part(drawer-container) {
             box-shadow: var(--lumo-box-shadow-xl);
+            pointer-events: auto;
+        }
+        /* The DS resize handle is invisible and has no ::part, so advertise the
+           grab edge with a hairline on hover (handle sits half-over this edge). */
+        .attach-panel::before {
+            content: '';
+            position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
+            background: var(--border-soft);
+            opacity: 0; transition: opacity 120ms ease;
+            pointer-events: none; z-index: 2;
+        }
+        .attach-host:hover .attach-panel::before { opacity: 1; }
+        /* Panel fills the drawer column (theme="no-padding" drops the DS padding
+           so the header/footer sit flush and only .attach-panel-body scrolls). */
+        .attach-panel {
+            position: relative;
+            height: 100vh; max-height: 100vh;
+            display: flex; flex-direction: column; background: var(--lumo-base-color);
             pointer-events: auto;
         }
         .attach-panel-head {
@@ -1728,15 +1857,127 @@
             color: var(--text-muted); font-size: 16px; padding: 6px; border-radius: 6px;
         }
         .attach-panel-close:hover { background: var(--page-bg); color: var(--text-strong); }
+        /* ── Multi-file pager ──
+           Shown only for a multi-file selection. Each file has its own details
+           panel; prev/next walk the set and the count reports position. */
+        .attach-pager {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 8px 18px;
+            background: var(--page-bg);
+            border-bottom: 1px solid var(--border-soft);
+            flex-shrink: 0;
+        }
+        .attach-pager[hidden] { display: none; }
+        .attach-pager-btn {
+            width: 28px; height: 28px; border-radius: 6px;
+            border: 1px solid var(--border-soft); background: var(--lumo-base-color);
+            color: var(--text-muted); cursor: pointer; font-size: 11px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .attach-pager-btn:hover:not(:disabled) { color: var(--brand); border-color: var(--brand); }
+        .attach-pager-btn:disabled { opacity: 0.4; cursor: default; }
+        .attach-pager-count {
+            font-size: 12px; font-weight: 700; color: var(--text-strong);
+            min-width: 92px; text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
         .attach-panel-body {
             flex: 1; min-height: 0; overflow-y: auto;
             padding: 18px; display: flex; flex-direction: column; gap: 16px;
         }
-        /* File identity strip */
+        /* ── Media preview stage ──
+           Mirrors the video review panel's player: a dark 16:9 stage holding the
+           rendered media. Images/video fill it; documents render a page thumbnail.
+           Unpreviewable types fall back to .attach-file-row (the placeholder card
+           styling that used to be the only treatment). */
+        .attach-preview-stage { flex-shrink: 0; }
+        .attach-preview-stage:empty { display: none; }
+        .attach-stage {
+            position: relative; width: 100%; aspect-ratio: 16 / 9;
+            background: #0f172a; border-radius: 10px; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .attach-stage img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        /* Source chip in the stage's top-left, matching the video panel. */
+        .attach-stage-tag {
+            position: absolute; top: 8px; left: 8px; z-index: 2;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 8px; border-radius: 999px;
+            background: rgba(15, 23, 42, 0.72); color: #fff;
+            font-size: 10px; font-weight: 700;
+        }
+        /* Simulated video: poster + center play button (non-functional preview). */
+        .attach-stage-play {
+            position: absolute; inset: 0; z-index: 1;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .attach-stage-play span {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: rgba(255,255,255,0.92); color: var(--brand);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 18px; padding-left: 3px;
+        }
+        /* Document preview: a light page rendered inside the dark stage. */
+        .attach-stage.is-doc { background: var(--page-bg); padding: 14px; }
+        .attach-stage-page {
+            width: 100%; height: 100%; overflow: hidden;
+            background: var(--lumo-base-color);
+            border: 1px solid var(--border-soft); border-radius: 6px;
+            box-shadow: var(--lumo-box-shadow-xs);
+            padding: 12px 14px;
+            display: flex; flex-direction: column; gap: 7px;
+        }
+        .attach-stage-page-h {
+            font-size: 11px; font-weight: 700; color: var(--text-strong);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .attach-stage-line { height: 5px; border-radius: 3px; background: var(--lumo-contrast-10pct); }
+        /* Per-file actions (rotate / download) — act on the file, not the form.
+           DS tertiary buttons; Download is pushed to the right edge. */
+        .attach-file-actions {
+            display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+            margin-top: -4px;   /* tertiary buttons carry their own padding */
+        }
+        .attach-file-actions vaadin-button { margin: 0; }
+        .attach-file-actions .attach-act-end { margin-left: auto; }
+        .attach-file-actions i[slot="prefix"] { font-size: 11px; }
+        /* Icon-only rotate buttons — size the glyph, since there's no label to
+           set the scale (theme="icon" handles the square target itself). */
+        #attachRotateLeftBtn i, #attachRotateRightBtn i { font-size: 14px; }
+        /* Rotation is applied to the rendered media only (not the fallback card),
+           and animates so the 90° steps read as a real rotate. */
+        .attach-stage img,
+        .attach-stage-page {
+            transition: transform 180ms ease;
+        }
+        /* Rotating a 16:9 image 90° would overflow its box, so scale it to fit
+           the stage's short axis while turned. */
+        .attach-stage[data-rot="90"] img,
+        .attach-stage[data-rot="270"] img {
+            transform: rotate(var(--rot, 0deg)) scale(0.5625);
+        }
+        .attach-stage[data-rot="0"] img,
+        .attach-stage[data-rot="180"] img,
+        .attach-stage[data-rot="0"] .attach-stage-page,
+        .attach-stage[data-rot="180"] .attach-stage-page {
+            transform: rotate(var(--rot, 0deg));
+        }
+        .attach-stage[data-rot="90"] .attach-stage-page,
+        .attach-stage[data-rot="270"] .attach-stage-page {
+            transform: rotate(var(--rot, 0deg)) scale(0.5625);
+        }
+        /* File identity strip — now the FALLBACK for unpreviewable file types. */
         .attach-file-row {
             display: flex; align-items: center; gap: 12px;
             background: var(--page-bg); border: 1px solid var(--border-soft);
             border-radius: 10px; padding: 12px;
+        }
+        .attach-file-row .attach-file-nopreview {
+            margin-left: auto; flex-shrink: 0;
+            font-size: 11px; color: var(--text-muted); font-style: italic;
+            white-space: nowrap;
         }
         .attach-file-thumb {
             width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
@@ -1780,10 +2021,18 @@
         .attach-add-tags-btn i[slot="prefix"] { font-size: 12px; }
         .attach-add-tags-btn i[slot="suffix"] { font-size: 11px; }
         .attach-panel-actions {
-            display: flex; justify-content: flex-end; gap: 8px;
+            display: flex; align-items: center; justify-content: flex-end; gap: 8px;
             padding: 14px 18px; border-top: 1px solid var(--border-soft);
             flex-shrink: 0;
         }
+        /* Reminder that the footer commits every selected file, not just the one
+           currently visible in the pager. */
+        .attach-actions-note {
+            margin-right: auto;
+            font-size: 11px; color: var(--text-muted);
+            max-width: 55%; line-height: 1.35;
+        }
+        .attach-actions-note[hidden] { display: none; }
 
         /* Attachment card actions (edit / preview / remove) — shown inline in the
            card; the whole card is no longer just name + remove. */
@@ -2183,12 +2432,6 @@
             color: var(--text-muted);
             font-size: 12px;
         }
-        .q-computed-formula {
-            font-size: 11px;
-            color: var(--text-muted);
-            font-style: italic;
-            margin-top: 6px;
-        }
 
         /* ── Computed Value (read-only value pulled from an external workflow) ── */
         .q-computed-value.is-score { font-size: 22px; }
@@ -2196,12 +2439,6 @@
             font-weight: 600; font-size: 14px;
             font-variant-numeric: normal;
         }
-        .q-computed-source {
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 11px; color: var(--text-muted);
-            margin-top: 8px;
-        }
-        .q-computed-source i { font-size: 11px; }
 
         /* ─── Script "question" — conversational note-taking log ───
            Replaces the legacy hidden T/S-first-letter indentation trick with a
@@ -2507,79 +2744,107 @@
         /* Sticky footer actions — horizontal padding matches the topbar gutter
            (24px) so the buttons hug the viewport edges as app chrome rather
            than aligning to the form's content column. */
-        /* ─── ⋯ menu: checkbox-style item (Enable timer) ─── */
-        .actions-menu-check .actions-menu-check-box {
-            margin-left: auto;
-            width: 16px; height: 16px; border-radius: 4px;
-            border: 1px solid var(--border-soft);
-            display: inline-flex; align-items: center; justify-content: center;
-            color: var(--lumo-base-color); font-size: 9px;
-        }
-        .actions-menu-check[aria-checked="true"] .actions-menu-check-box {
-            background: var(--brand); border-color: var(--brand);
-        }
-        .actions-menu-check:not([aria-checked="true"]) .actions-menu-check-box i { display: none; }
         .actions-menu-item:disabled { opacity: 0.4; cursor: default; }
         .actions-menu-item:disabled:hover { background: transparent; }
 
-        /* ─── Standalone draggable session-timer widget ───
-           A global stopwatch (distinct from the per-step timer question), shown
-           only when "Enable timer" is checked. Floats above the page and can be
-           dragged anywhere by its header. Distinct from the pinned topbar so it
-           stays wherever the user parks it, at any scroll position. */
-        .timer-widget {
-            position: fixed;
-            top: 120px; left: 24px;
-            z-index: 200;
-            width: 200px;
-            background: var(--lumo-base-color);
-            border: 1px solid var(--border-soft);
-            border-radius: 12px;
-            box-shadow: var(--lumo-box-shadow-l);
-            overflow: hidden;
-            user-select: none;
+        /* ─── Form-level session timer ───
+           A global stopwatch (distinct from the per-step timer question). Lives
+           in the center of the pinned topbar so it stays visible at all scroll
+           positions (the topbar itself is sticky). Absolutely centered within
+           the topbar regardless of the left/right zone widths. */
+        .form-timer {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex; align-items: center; gap: 10px;
         }
-        .timer-widget[hidden] { display: none; }
-        .timer-widget-head {
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 10px;
-            background: var(--page-bg);
-            border-bottom: 1px solid var(--border-soft);
-            cursor: grab;
+        .form-timer-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--text-muted); flex-shrink: 0;
         }
-        .timer-widget.dragging .timer-widget-head { cursor: grabbing; }
-        .timer-widget-grip { color: var(--text-muted); font-size: 11px; }
-        .timer-widget-label {
-            font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+        .form-timer.running .form-timer-dot {
+            background: #16a34a;
+            animation: form-timer-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes form-timer-pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
+            50% { opacity: 0.5; box-shadow: 0 0 0 5px rgba(22, 163, 74, 0); }
+        }
+        .form-timer-label {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
             text-transform: uppercase; color: var(--text-muted);
         }
-        .timer-widget-close {
-            margin-left: auto;
-            background: none; border: none; cursor: pointer;
-            color: var(--text-muted); font-size: 13px; padding: 2px 4px; border-radius: 5px;
-        }
-        .timer-widget-close:hover { color: var(--text-strong); background: var(--lumo-base-color); }
-        .timer-widget-body {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 10px; padding: 12px;
-        }
-        .timer-widget-readout {
+        .form-timer-readout {
             font-family: 'SF Mono', 'Courier New', monospace;
-            font-size: 22px; font-weight: 700;
+            font-size: 16px; font-weight: 700;
             font-variant-numeric: tabular-nums;
-            color: var(--text-strong); line-height: 1;
+            color: var(--text-strong);
+            line-height: 1;
         }
-        .timer-widget.running .timer-widget-readout { color: #16a34a; }
-        .timer-widget-controls { display: flex; gap: 4px; }
-        .timer-widget-btn {
-            width: 30px; height: 30px; border-radius: 50%;
-            border: none; background: var(--page-bg); cursor: pointer;
+        .form-timer-controls { display: flex; gap: 2px; margin-left: 2px; }
+        .form-timer-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: none; background: none; cursor: pointer;
             color: var(--text-muted); font-size: 12px;
             display: inline-flex; align-items: center; justify-content: center;
         }
-        .timer-widget-btn:hover { color: var(--text-strong); }
-        .timer-widget-btn.primary { background: var(--brand); color: var(--lumo-base-color); }
-        .timer-widget-btn.reset:disabled { opacity: 0.35; cursor: default; }
+        .form-timer-btn:hover { background: var(--page-bg); color: var(--text-strong); }
+        .form-timer-btn.primary { color: var(--brand); }
+
+        /* ─── Responsive toolbar ───
+           Placed AFTER the .form-timer base rules above so these overrides win on
+           source order (the base rule is far below the 900px query near the top).
+
+           Two independent steps:
+             1. ≤1140px — the absolutely-centered timer drops to its own row. The
+                timer's right edge reaches Cancel at exactly 1080px (measured), so
+                this breaks ~60px early for comfort. Nothing else changes: all four
+                actions keep their labels.
+             2. ≤720px  — Compare + Save collapse to icon-only buttons for high
+                zoom / small screens. The overflow ⋯ menu is untouched, and Cancel
+                stays (the timer is already on its own row by then). */
+        @media (max-width: 1140px) {
+            .topbar { flex-wrap: wrap; row-gap: 6px; }
+            /* Timer out of absolute centering and onto its own full-width row,
+               after the actions (order 3), centered within it. */
+            .form-timer {
+                position: static;
+                transform: none;
+                order: 3;
+                flex: 1 0 100%;
+                justify-content: center;
+                margin: 0;
+                padding-top: 2px;
+                border-top: 1px solid var(--border-soft);
+            }
+        }
+        @media (max-width: 720px) {
+            .topbar {
+                row-gap: 6px;
+                padding: 8px 12px;
+            }
+            /* Title row takes the full first line; actions sit beside it. */
+            .topbar-left { flex: 1 1 auto; min-width: 0; }
+            .topbar-title { font-size: 15px; }
+
+            .topbar-actions { flex-shrink: 0; gap: 4px; }
+            /* Collapse Compare + Save to icon-only: hide the label text and the
+               caret, keep the leading icon, and square up the target. The ⋯ menu
+               button is already icon-only, so it needs no change. */
+            #compareFormsBtn .topbar-btn-label,
+            #saveFormBtn .topbar-btn-label,
+            #compareFormsBtn .topbar-btn-caret { display: none; }
+            #compareFormsBtn, #saveFormBtn {
+                min-width: 40px; width: 40px;
+                padding: 0; justify-content: center;
+            }
+            #compareFormsBtn i, #saveFormBtn i { margin: 0 !important; }
+            /* Cancel stays at these widths — the timer is already on its own row
+               (≤1140px), so the actions row has the space for it. Keep it compact
+               so all four controls fit without horizontal scrolling. */
+            #cancelFormBtn { padding: 0 8px; }
+        }
 
         /* ─── Share dialog (content styles; shell is vaadin-dialog) ─── */
         .share-modal-body { padding: 4px 4px 8px; }
@@ -3071,11 +3336,6 @@
         }
         .cl-tab:hover { color: var(--text-strong); }
         .cl-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
-        .cl-tab-count {
-            font-size: 11px; font-weight: 700; background: var(--page-bg);
-            color: var(--text-muted); border-radius: 999px; padding: 1px 8px;
-        }
-        .cl-tab.active .cl-tab-count { background: var(--lumo-primary-color-10pct); color: var(--brand); }
 
         /* Panel flexes to fill the remaining fixed body height and scrolls
            internally, so tab content — however tall or short — never changes the
@@ -3484,7 +3744,9 @@
         /* Prototype helper widget */
         .proto-widget {
             position: fixed;
-            top: 60px; right: 16px;
+            /* Default parked bottom-right, clear of the header/action cluster.
+               Dragging switches it to explicit left/top (see the drag handler). */
+            bottom: 16px; right: 16px;
             z-index: 200;
             background: var(--notice-tint); border: 1px solid var(--notice);
             border-radius: 8px;
@@ -3569,16 +3831,36 @@
         </div>
     </div>
 
+    <!-- Center: form-level session timer — a global stopwatch (distinct from the
+         per-step timer question), absolutely centered in the sticky topbar so it
+         stays visible at any scroll position. -->
+    <div class="form-timer" id="formTimer">
+        <span class="form-timer-dot"></span>
+        <div>
+            <div class="form-timer-label">Session time</div>
+            <div class="form-timer-readout" id="formTimerReadout">00:00:00</div>
+        </div>
+        <div class="form-timer-controls">
+            <button type="button" class="form-timer-btn primary" id="formTimerToggle" aria-label="Start timer" title="Start">
+                <i class="fa-solid fa-play"></i>
+            </button>
+        </div>
+    </div>
+
     <div class="topbar-actions">
         <!-- Cancel: pre-creation escape hatch only. Hidden after the first edit
              (the form is then officially created; deletion moves to the ⋯ menu). -->
         <vaadin-button theme="tertiary" id="cancelFormBtn">Cancel</vaadin-button>
 
         <div class="actions-menu-wrap" id="compareMenuWrap">
-            <vaadin-button theme="secondary" id="compareFormsBtn" aria-haspopup="true" aria-expanded="false">
-                <i class="fa-solid fa-code-compare" style="margin-right:6px;"></i>
-                Compare Forms
-                <i class="fa-solid fa-caret-down" style="margin-left:6px;"></i>
+            <!-- Label + caret are wrapped so they can collapse to an icon-only
+                 button at high zoom / narrow widths (see the reflow media query).
+                 aria-label keeps the accessible name once the text is hidden. -->
+            <vaadin-button theme="secondary" id="compareFormsBtn" aria-haspopup="true" aria-expanded="false"
+                           aria-label="Compare Forms" title="Compare Forms">
+                <i class="fa-solid fa-code-compare"></i>
+                <span class="topbar-btn-label">Compare Forms</span>
+                <i class="fa-solid fa-caret-down topbar-btn-caret"></i>
             </vaadin-button>
             <vaadin-popover id="comparePopover" for="compareFormsBtn"></vaadin-popover>
             <template id="compareMenuTpl">
@@ -3616,16 +3898,12 @@
             </template>
         </div>
 
-        <!-- Save (secondary). This is a living document — there is no "submit";
-             it's shared with the included parties externally (Share, next). -->
-        <vaadin-button theme="secondary" id="saveFormBtn">
-            <i class="fa-solid fa-floppy-disk" slot="prefix"></i> Save
-        </vaadin-button>
-
-        <!-- Share (primary) — the form is "submitted" by sharing it with the
-             included parties. Irreversible; opens the share dialog. -->
-        <vaadin-button theme="primary" id="shareFormBtn">
-            <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share
+        <!-- Save is the page's permanent primary CTA. This is a living document —
+             there is no "submit"; Share (now in the form action cluster, below the
+             header) is what releases it to the included parties. -->
+        <vaadin-button theme="primary" id="saveFormBtn" aria-label="Save" title="Save">
+            <i class="fa-solid fa-floppy-disk" slot="prefix"></i>
+            <span class="topbar-btn-label">Save</span>
         </vaadin-button>
 
         <div class="actions-menu-wrap">
@@ -3633,8 +3911,8 @@
                 <i class="fa-solid fa-ellipsis"></i>
             </vaadin-button>
             <!-- vaadin-popover supplies the overlay/positioning/outside-click; the
-                 mixed item list (actions + checkbox-style Enable-timer + disabled
-                 Delete) is rendered from this template into the popover. -->
+                 item list (actions + disabled Delete) is rendered from this
+                 template into the popover. -->
             <vaadin-popover id="actionsPopover" for="actionsMenuBtn"></vaadin-popover>
             <template id="actionsMenuTpl">
                 <div class="actions-menu" role="menu">
@@ -3654,14 +3932,6 @@
                         <i class="fa-solid fa-clock-rotate-left"></i> Log
                     </button>
                     <div class="actions-menu-divider"></div>
-                    <!-- Enable timer: toggles the draggable timer widget. Stays
-                         open on click (data-no-close) so the checked state shows. -->
-                    <button class="actions-menu-item actions-menu-check" type="button" role="menuitemcheckbox" aria-checked="false" id="timerToggleItem" data-no-close="true">
-                        <i class="fa-solid fa-stopwatch"></i>
-                        <span>Enable timer</span>
-                        <span class="actions-menu-check-box"><i class="fa-solid fa-check"></i></span>
-                    </button>
-                    <div class="actions-menu-divider"></div>
                     <!-- Delete (friction against accidental deletes). Disabled
                          until the form is officially created (first edit). -->
                     <button class="actions-menu-item danger" type="button" role="menuitem" id="deleteFormItem" disabled>
@@ -3669,30 +3939,6 @@
                     </button>
                 </div>
             </template>
-        </div>
-    </div>
-</div>
-
-<!-- Standalone session timer — a floating, draggable widget shown only when
-     "Enable timer" is checked in the ⋯ menu. Drag by its header to reposition.
-     Placed before the scripts so its controls exist when the timer wires up. -->
-<div class="timer-widget" id="timerWidget" hidden>
-    <div class="timer-widget-head" id="timerWidgetHead">
-        <span class="timer-widget-grip"><i class="fa-solid fa-grip-vertical"></i></span>
-        <span class="timer-widget-label">Session time</span>
-        <button type="button" class="timer-widget-close" id="timerWidgetClose" aria-label="Disable timer" title="Disable timer">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
-    </div>
-    <div class="timer-widget-body">
-        <div class="timer-widget-readout" id="formTimerReadout">00:00:00</div>
-        <div class="timer-widget-controls">
-            <button type="button" class="timer-widget-btn primary" id="formTimerToggle" aria-label="Start timer" title="Start">
-                <i class="fa-solid fa-play"></i>
-            </button>
-            <button type="button" class="timer-widget-btn reset" id="formTimerReset" aria-label="Reset timer" title="Reset" disabled>
-                <i class="fa-solid fa-arrow-rotate-left"></i>
-            </button>
         </div>
     </div>
 </div>
@@ -3959,10 +4205,10 @@
         <!-- Tabs -->
         <div class="cl-tabs" role="tablist">
             <button type="button" class="cl-tab active" data-cl-tab="edits" role="tab">
-                <i class="fa-solid fa-pen"></i> Edits <span class="cl-tab-count" id="clEditsCount">0</span>
+                <i class="fa-solid fa-pen"></i> Edits
             </button>
             <button type="button" class="cl-tab" data-cl-tab="access" role="tab">
-                <i class="fa-solid fa-eye"></i> Access <span class="cl-tab-count" id="clAccessCount">0</span>
+                <i class="fa-solid fa-eye"></i> Access
             </button>
         </div>
 
@@ -3999,13 +4245,8 @@
             <!-- Placeholder form header — houses the form name + subject/evaluator
                  meta moved out of the pinned topbar. Layout TBD with the team. -->
             <div class="form-header" id="formHeader">
-                <!-- Share status bar — full-width blue strip across the top of the
-                     header card. Hidden until the form is shared, then revealed by
-                     setSharedState() on confirm. -->
-                <div class="form-header-statusbar shared" id="sharedStatus" aria-live="polite" hidden>
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span class="share-status-text">Shared</span>
-                </div>
+                <!-- Shared status is NOT shown here — it lives in the action
+                     cluster below (plus the sticky topbar pill). -->
                 <!-- Title row + edit affordance (top-right, no wired behavior). -->
                 <div class="form-header-top">
                     <h2 class="form-header-title">Teacher Observation</h2>
@@ -4062,6 +4303,49 @@
                         <span class="form-header-label">Vector Training user</span>
                         <span class="form-header-value">Yes</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- ─── Form action cluster ───
+                 Sits between the record header and the first form section: bulk
+                 scoring actions on the left, then the privacy selection, then
+                 Share on the right. Share lives here (not the topbar) so the
+                 topbar's Save stays the page's single primary CTA. -->
+            <div class="form-actions" id="formActions">
+                <div class="form-actions-group">
+                    <span class="form-actions-label">Bulk actions</span>
+                    <vaadin-button theme="secondary" id="passAllBtn">
+                        Pass all
+                    </vaadin-button>
+                    <vaadin-button theme="secondary" id="clearAllBtn">
+                        Clear all
+                    </vaadin-button>
+                </div>
+
+                <div class="form-actions-divider" aria-hidden="true"></div>
+
+                <!-- Privacy: On = visible only to the author until shared. Plain
+                     buttons rather than vwc-toggle-button-group, which behaves
+                     additively outside a form context. -->
+                <div class="form-actions-group">
+                    <span class="form-actions-label" id="privacyLabel">Privacy</span>
+                    <div class="privacy-toggle" role="radiogroup" aria-labelledby="privacyLabel">
+                        <button type="button" class="privacy-opt active" data-privacy="on" role="radio" aria-checked="true">
+                            <i class="fa-solid fa-lock"></i> On
+                        </button>
+                        <button type="button" class="privacy-opt" data-privacy="off" role="radio" aria-checked="false">
+                            <i class="fa-solid fa-lock-open"></i> Off
+                        </button>
+                    </div>
+                    <span class="privacy-hint" id="privacyHint">Visible only to you until shared</span>
+                </div>
+
+                <!-- Share — right-aligned, still irreversible and still gated by
+                     the confirmation modal, which flips the form to "Shared". -->
+                <div class="form-actions-share">
+                    <vaadin-button theme="secondary" id="shareFormBtn">
+                        <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share
+                    </vaadin-button>
                 </div>
             </div>
 
@@ -4134,12 +4418,15 @@
      overlay with the DS backdrop + built-in resize. The existing player/composer/
      annotation internals are hosted verbatim in the drawer-content slot. The host
      is a fixed inset:0 layer so the drawer sizes against the viewport.
-     NOTE (DS gap): vwc-drawer has no width prop — panel width is set via CSS on
-     ::part(drawer-container). Its built-in close (collapse-button) is hidden via
-     closable="false" so we keep our exact title-row + close layout. -->
+     NOTE (DS gap): vwc-drawer has no width prop — width comes from the
+     --vwc-drawer-width token (see CSS). Its built-in collapse arrow is removed by
+     setting drawer.closable = false in JS — the `closable` ATTRIBUTE cannot do it
+     (any string, including "false", coerces to boolean true) — so we keep our
+     exact title-row + × layout with no duplicate control. `resizable` gives the
+     native drag-to-resize on the panel's left edge. -->
 <div class="video-review-host" id="videoReviewHost" hidden>
-    <vwc-drawer id="videoReviewDrawer" position="end" overlay resizable closable="false"
-                accessible-name="Video review">
+    <vwc-drawer id="videoReviewDrawer" position="end" overlay resizable
+                theme="no-padding" accessible-name="Video review">
         <div slot="drawer-content" class="video-review-panel" id="videoReviewPanel">
             <div class="video-review-header">
                 <div class="video-review-title">
@@ -4215,7 +4502,8 @@
      anchor/scrim in overlay-only use) are compensated with the host scrim + a
      ::part width/anchor below; documented in DESIGN-SYSTEM-GAPS.md. -->
 <div class="attach-host" id="attachHost" hidden>
-    <vwc-drawer id="attachDrawer" position="end" overlay closable="false" accessible-name="Attachment details">
+    <vwc-drawer id="attachDrawer" position="end" overlay resizable
+                theme="no-padding" accessible-name="Attachment details">
         <div slot="drawer-content" class="attach-panel" role="dialog" aria-modal="true" aria-labelledby="attachPanelTitle">
         <div class="attach-panel-head">
             <span class="attach-panel-title" id="attachPanelTitle">
@@ -4225,14 +4513,38 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
+        <!-- Multi-file pager — only shown when more than one file was selected.
+             Each file keeps its own details; the footer commits them all at once. -->
+        <div class="attach-pager" id="attachPager" hidden>
+            <button type="button" class="attach-pager-btn" id="attachPrevBtn" aria-label="Previous file">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <span class="attach-pager-count" id="attachPagerCount" aria-live="polite">File 1 of 1</span>
+            <button type="button" class="attach-pager-btn" id="attachNextBtn" aria-label="Next file">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
         <div class="attach-panel-body">
-            <!-- File identity: source + icon + original filename -->
-            <div class="attach-file-row">
-                <span class="attach-file-thumb" id="attachFileThumb"><i class="fa-solid fa-file"></i></span>
-                <div class="attach-file-meta">
-                    <div class="attach-file-name" id="attachFileName">—</div>
-                    <div class="attach-file-source" id="attachFileSource">—</div>
-                </div>
+            <!-- Media preview of the file (image / video / doc page), mirroring the
+                 video review panel. Falls back to the placeholder identity card
+                 below for file types that can't be previewed. -->
+            <div class="attach-preview-stage" id="attachPreviewStage"></div>
+
+            <!-- Per-file actions that act on the file itself, not the form.
+                 Rotate sits under the preview (left) as icon-only buttons — DS
+                 tooltips carry the labels; Download is pushed right. -->
+            <div class="attach-file-actions">
+                <vaadin-button theme="icon tertiary" id="attachRotateLeftBtn" aria-label="Rotate left">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </vaadin-button>
+                <vaadin-tooltip for="attachRotateLeftBtn" text="Rotate left" position="top"></vaadin-tooltip>
+                <vaadin-button theme="icon tertiary" id="attachRotateRightBtn" aria-label="Rotate right">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </vaadin-button>
+                <vaadin-tooltip for="attachRotateRightBtn" text="Rotate right" position="top"></vaadin-tooltip>
+                <vaadin-button theme="tertiary" id="attachDownloadBtn" class="attach-act-end">
+                    <i class="fa-solid fa-download" slot="prefix"></i> Download
+                </vaadin-button>
             </div>
 
             <label class="attach-field">
@@ -4269,7 +4581,9 @@
                 <span class="attach-field-hint">Change this if the attachment belongs to a different question.</span>
             </label>
         </div>
+        <!-- Footer applies to ALL selected files, not just the visible one. -->
         <div class="attach-panel-actions">
+            <span class="attach-actions-note" id="attachActionsNote" hidden></span>
             <vaadin-button theme="tertiary" id="attachCancelBtn">Cancel</vaadin-button>
             <vaadin-button theme="primary" id="attachSubmitBtn">
                 <i class="fa-solid fa-check" slot="prefix"></i> Add to form
@@ -4936,14 +5250,14 @@ function actionBarHtml(extrasId) {
                             <i class="fa-solid fa-laptop"></i>
                             <span>
                                 <span class="q-video-upload-option-title">Upload from computer</span>
-                                <span class="q-video-upload-option-sub">Choose a file from this device</span>
+                                <span class="q-video-upload-option-sub">Select one or more files from this device</span>
                             </span>
                         </button>
                         <button type="button" class="q-video-upload-option q-attach-option" role="menuitem" data-source="google">
                             <i class="fa-brands fa-google-drive"></i>
                             <span>
-                                <span class="q-video-upload-option-title">Add Google Drive link</span>
-                                <span class="q-video-upload-option-sub">Paste a shared Google Drive URL</span>
+                                <span class="q-video-upload-option-title">Add from Google Drive</span>
+                                <span class="q-video-upload-option-sub">Select one or more shared files</span>
                             </span>
                         </button>
                     </div>
@@ -5189,8 +5503,7 @@ function renderFormList() {
         title: 'Computed',
         detailsHtml: `<p>System-derived value, read-only. Calculated from other form responses.</p>`,
         value: '3.42',
-        unit: 'avg rating',
-        formula: '= average of all Rating Scale responses'
+        unit: 'avg rating'
     });
 
     // Computed Value — read-only value sourced from a separate workflow outside
@@ -5203,8 +5516,7 @@ function renderFormList() {
         detailsHtml: `<p>Read-only value pulled in from a separate workflow outside this form. Displayed for visibility — not editable here.</p>`,
         valueType: 'score',
         value: '87',
-        unit: '/ 100',
-        source: 'Certification Scoring workflow'
+        unit: '/ 100'
     });
     // Text variant:
     items.push({
@@ -5214,8 +5526,7 @@ function renderFormList() {
         title: 'Computed Value (text)',
         detailsHtml: `<p>Same step type configured to display a text value instead of a numeric score.</p>`,
         valueType: 'text',
-        value: 'Meets Expectations',
-        source: 'Performance Review workflow'
+        value: 'Meets Expectations'
     });
 
     items.push({
@@ -5263,15 +5574,28 @@ function renderFormList() {
         });
     });
 
-    // Notes toggles
+    // Notes toggles. Scope the lookup to the clicked question — multiple rating
+    // questions reuse the same sample component (identical data-component-id), so
+    // a formList-wide querySelector would always toggle the FIRST question's box
+    // and the clicked one would show nothing.
     formList.querySelectorAll('.notes-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
-            const cid = btn.dataset.componentId;
-            const box = formList.querySelector(`.notes-box[data-component-id="${cid}"]`);
+            const scope = btn.closest('.q-rating') || formList;
+            const box = scope.querySelector('.notes-box');
+            if (!box) return;
             const isOpen = !box.hidden;
             box.hidden = isOpen;
             btn.classList.toggle('open', !isOpen);
             btn.querySelector('.notes-toggle-label').textContent = isOpen ? 'Add notes' : 'Hide notes';
+            // Vaadin fields measure zero-width if they upgrade while display:none,
+            // so nudge a resize once the box is actually visible.
+            if (!box.hidden) {
+                const ta = box.querySelector('vaadin-text-area');
+                requestAnimationFrame(() => {
+                    if (ta && typeof ta._onResize === 'function') ta._onResize();
+                    window.dispatchEvent(new Event('resize'));
+                });
+            }
         });
     });
 
@@ -5488,23 +5812,17 @@ function renderQuestion(item) {
                 ${escapeHtml(item.value || '—')}
                 ${item.unit ? `<span style="font-weight:400; color:var(--text-muted); font-size:12px;">${escapeHtml(item.unit)}</span>` : ''}
             </div>
-            ${item.formula ? `<div class="q-computed-formula">${escapeHtml(item.formula)}</div>` : ''}
         `);
     }
     if (item.type === 'computed-value') {
         // Value pulled in from a separate workflow outside this form — shown for
         // visibility only. `valueType` is 'score' (numeric) or 'text'.
         const isScore = (item.valueType || 'score') === 'score';
-        const source = item.source || 'External workflow';
         return wrapStandard(item, `
             <div class="q-computed-value ${isScore ? 'is-score' : 'is-text'}">
                 <i class="fa-solid ${isScore ? 'fa-gauge-high' : 'fa-file-lines'}"></i>
                 ${escapeHtml(item.value != null && item.value !== '' ? item.value : '—')}
                 ${isScore && item.unit ? `<span style="font-weight:400; color:var(--text-muted); font-size:12px;">${escapeHtml(item.unit)}</span>` : ''}
-            </div>
-            <div class="q-computed-source">
-                <i class="fa-solid fa-diagram-project"></i>
-                Pulled from ${escapeHtml(source)}
             </div>
         `);
     }
@@ -5589,8 +5907,8 @@ function renderQuestion(item) {
                     <!-- Left column: the upload workflow -->
                     <div class="q-video-col-upload">
                         <!-- Upload state: an "Add video" action that opens a small source menu.
-                             Both choices skip the real file browser (this is a prototype) and
-                             jump straight to the loaded/player state. -->
+                             Either choice loads the sample recording and moves to the
+                             attached/player state. -->
                         <div class="q-video-uploader">
                             <div class="q-video-upload-wrap">
                                 <button type="button" class="q-video-upload-btn" aria-haspopup="true" aria-expanded="false">
@@ -5615,7 +5933,6 @@ function renderQuestion(item) {
                                     </button>
                                 </div>
                             </div>
-                            <span class="q-video-upload-hint">No file needed in this prototype — either option loads a sample recording.</span>
                         </div>
 
                         <!-- Attached state: a small thumbnail-style attachment. Clicking it
@@ -6855,25 +7172,35 @@ function renderExtras(bar) {
     const extrasId = bar.dataset.extrasId;
     const state = ensureExtras(extrasId);
 
+    // Each action gets a DS vaadin-tooltip bound by id (the native `title`
+    // attribute is slow, unstyled, and the card's own title used to swallow the
+    // per-button ones). ids are namespaced per extras bar + attachment so the
+    // tooltips still bind correctly after a re-render.
     bar.querySelector('.q-attachments').innerHTML = state.attachments
         .map(id => attachmentsById[id]).filter(Boolean)
-        .map(a => `
-        <div class="q-attachment-card" title="${escapeHtml(a.name)} · ${escapeHtml(a.source)}">
+        .map(a => {
+            const base = `att-${extrasId}-${a.id}`;
+            const acts = [
+                { action: 'preview', icon: 'fa-eye',    cls: '',       tip: 'Preview',      aria: `Preview ${a.name}` },
+                { action: 'edit',    icon: 'fa-pen',    cls: '',       tip: 'Edit details', aria: `Edit ${a.name}` },
+                { action: 'remove',  icon: 'fa-xmark',  cls: ' remove', tip: 'Remove',      aria: `Remove ${a.name}` }
+            ];
+            return `
+        <div class="q-attachment-card">
             <span class="q-attachment-thumb"><i class="${attachmentIcon(a)}"></i></span>
             <span class="q-attachment-name">${escapeHtml(a.name)}</span>
             <span class="q-attachment-actions">
-                <button type="button" class="q-attachment-act" data-action="preview" data-att-id="${a.id}" aria-label="Preview ${escapeHtml(a.name)}" title="Preview">
-                    <i class="fa-solid fa-eye"></i>
+                ${acts.map(act => `
+                <button type="button" class="q-attachment-act${act.cls}" id="${base}-${act.action}"
+                        data-action="${act.action}" data-att-id="${a.id}" aria-label="${escapeHtml(act.aria)}">
+                    <i class="fa-solid ${act.icon}"></i>
                 </button>
-                <button type="button" class="q-attachment-act" data-action="edit" data-att-id="${a.id}" aria-label="Edit ${escapeHtml(a.name)}" title="Edit details">
-                    <i class="fa-solid fa-pen"></i>
-                </button>
-                <button type="button" class="q-attachment-act remove" data-action="remove" data-att-id="${a.id}" aria-label="Remove ${escapeHtml(a.name)}" title="Remove">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <vaadin-tooltip for="${base}-${act.action}" text="${escapeHtml(act.tip)}" position="top"></vaadin-tooltip>
+                `).join('')}
             </span>
         </div>
-    `).join('');
+    `;
+        }).join('');
 
     renderCustomTagChips(bar);
 }
@@ -7322,6 +7649,11 @@ const VideoPanel = (() => {
         noteClear = v.querySelector('.q-video-note-clear');
         vRoot = v;
 
+        // Remove the DS drawer's built-in collapse arrow so the header's × is the
+        // only close control. This MUST be the JS property — as an attribute,
+        // closable="false" coerces to boolean true and the arrow still renders.
+        drawer.closable = false;
+
         // Playback. The scrubber now lives inside the stage, so its clicks must
         // not bubble up to the stage's play-toggle handler.
         const scrubber = v.querySelector('.q-video-scrubber');
@@ -7357,7 +7689,14 @@ const VideoPanel = (() => {
         });
         // Backdrop click: DS GAP — the drawer's own scrim/overlay-click-close
         // isn't active in overlay-only use, so the host scrim handles it.
-        host.addEventListener('click', (e) => { if (e.target === host) close(); });
+        // A resize drag that starts on the drawer's edge handle and releases over
+        // the scrim would otherwise land here as a click and close the panel, so
+        // ignore any click whose drag began outside the scrim.
+        let pressedScrim = false;
+        host.addEventListener('pointerdown', (e) => { pressedScrim = (e.target === host); });
+        host.addEventListener('click', (e) => {
+            if (e.target === host && pressedScrim) close();
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !host.hidden) close();
         });
@@ -7441,7 +7780,10 @@ const VideoPanel = (() => {
         });
     }
 
-    // Resize is provided natively by vwc-drawer (resizable) — no custom resizer.
+    // Resize is native to vwc-drawer (resizable): drag the panel's left edge. The
+    // component writes an inline width on its internal .drawer-column, which is
+    // why our CSS feeds --vwc-drawer-width instead of forcing a width on
+    // ::part(drawer-container) — that would out-specify the drag.
 
     // startAt (optional): opening from a summary row seeks straight to that
     // annotation's timestamp (paused), so reviewers land on the moment.
@@ -7784,33 +8126,16 @@ document.getElementById('saveFormBtn').addEventListener('click', handleSaveDraft
 
 // ─── Actions (⋯) dropdown — vaadin-popover ───
 // The popover owns the overlay, positioning, and outside-click/Esc close. Its
-// content (the mixed item list) is cloned from #actionsMenuTpl into the renderer
-// and re-wired each open. Enable-timer stays open (data-no-close); Delete's
-// disabled state reflects formCreated.
+// content (the item list) is cloned from #actionsMenuTpl into the renderer and
+// re-wired each open. Delete's disabled state reflects formCreated.
 (() => {
     const pop = document.getElementById('actionsPopover');
     const tpl = document.getElementById('actionsMenuTpl');
-    const timerWidget = document.getElementById('timerWidget');
     if (!pop || !tpl) return;
-
-    function setTimerEnabled(on, itemEl) {
-        timerEnabled = on;
-        if (itemEl) itemEl.setAttribute('aria-checked', on ? 'true' : 'false');
-        if (timerWidget) timerWidget.hidden = !on;
-    }
-    // Widget's own × unchecks the state (the menu item re-reads it on next open).
-    const twClose = document.getElementById('timerWidgetClose');
-    if (twClose) twClose.addEventListener('click', () => setTimerEnabled(false, null));
 
     pop.renderer = (root) => {
         root.innerHTML = '';
         root.appendChild(tpl.content.cloneNode(true));
-
-        // Reflect persisted state each render.
-        const timerItem = root.querySelector('#timerToggleItem');
-        timerItem.setAttribute('aria-checked', timerEnabled ? 'true' : 'false');
-        timerItem.addEventListener('click', () =>
-            setTimerEnabled(timerItem.getAttribute('aria-checked') !== 'true', timerItem));
 
         const del = root.querySelector('#deleteFormItem');
         del.disabled = !formCreated;
@@ -7849,7 +8174,6 @@ document.getElementById('saveFormBtn').addEventListener('click', handleSaveDraft
 // becomes the way out. Delete's disabled state is applied when the popover
 // renders (it reads `formCreated`).
 let formCreated = false;
-let timerEnabled = false;
 function markFormCreated() {
     if (formCreated) return;
     formCreated = true;
@@ -7865,9 +8189,80 @@ function markFormCreated() {
         list.addEventListener(evt, markFormCreated, { once: false }));
 })();
 
+// ─── Form action cluster: Pass all / Clear all + privacy ───
+// Bulk scoring actions that operate on the whole form. "Pass all" sets every
+// scoreable question to its passing/highest value; "Clear all" wipes responses
+// back to unanswered (confirmed first, since it's destructive).
+(() => {
+    const cluster = document.getElementById('formActions');
+    if (!cluster) return;
+
+    // Set every scoreable question to its "pass" value: the top rubric level for
+    // rating scales, Pass for pass/fail groups.
+    function passAll() {
+        const list = document.getElementById('formList');
+        if (!list) return;
+        let n = 0;
+        list.querySelectorAll('.q-rating').forEach(q => {
+            const tiles = q.querySelectorAll('.rubric-tile');
+            if (!tiles.length) return;
+            const top = tiles.length - 1;   // highest level = passing
+            selectRating(tiles[top].dataset.componentId, top, q);
+            n++;
+        });
+        list.querySelectorAll('.q-passfail').forEach(group => {
+            group.querySelectorAll('.q-passfail-btn').forEach(b => b.classList.remove('selected'));
+            const pass = group.querySelector('.q-passfail-btn.pass');
+            if (pass) { pass.classList.add('selected'); n++; }
+        });
+        markFormCreated();
+        updateProgress();
+        showToast(n ? `Marked ${n} question${n === 1 ? '' : 's'} as passing.` : 'No scoreable questions to pass.');
+    }
+
+    // Clear every response. protoClearAll() already resets all response state and
+    // re-renders, which is exactly the product behavior here.
+    function clearAll() {
+        showValidationModal({
+            tone: 'warn',
+            title: 'Clear all responses?',
+            bodyHtml: '<p style="margin-bottom:0;">This clears every rating, note, and attachment on this form. This cannot be undone.</p>',
+            confirmLabel: 'Clear all',
+            cancelLabel: 'Keep responses',
+            onConfirm: () => {
+                protoClearAll();
+                showToast('All responses cleared.');
+            }
+        });
+    }
+
+    cluster.querySelector('#passAllBtn')?.addEventListener('click', passAll);
+    cluster.querySelector('#clearAllBtn')?.addEventListener('click', clearAll);
+
+    // Privacy On/Off — segmented radio behavior.
+    const hint = document.getElementById('privacyHint');
+    const HINTS = {
+        on: 'Visible only to you until shared',
+        off: 'Visible to anyone with form access'
+    };
+    cluster.querySelectorAll('.privacy-opt').forEach(opt => {
+        opt.addEventListener('click', () => {
+            if (opt.disabled || opt.classList.contains('active')) return;
+            cluster.querySelectorAll('.privacy-opt').forEach(o => {
+                const on = o === opt;
+                o.classList.toggle('active', on);
+                o.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+            if (hint) hint.textContent = HINTS[opt.dataset.privacy] || '';
+            markFormCreated();
+        });
+    });
+})();
+
 // ─── Share dialog (vaadin-dialog) ───
-// Sharing is irreversible (access can't be revoked). Opens from the header's
-// primary Share button; lists the pre-determined parties who gain access.
+// Sharing is irreversible (access can't be revoked). Opens from the Share button
+// in the form action cluster; lists the pre-determined parties who gain access.
+// The confirmation modal is what commits it (setSharedState).
 (() => {
     const dialog = document.getElementById('shareDialog');
     const openBtn = document.getElementById('shareFormBtn');
@@ -7897,15 +8292,30 @@ function markFormCreated() {
 
 // Transition the form to its shared (post-share) state: there is no "not shared"
 // state — the Shared status bar + topbar pill are hidden until now, then revealed
-// (full blue). Also remove the Share CTA (sharing is one-way) and promote Save to
-// primary. A toast confirms the (irreversible) share.
+// (full blue). Sharing is one-way, so the Share action is replaced by a static
+// "Shared" marker in the action cluster. Save stays the page's primary CTA
+// throughout (it never changes theme). A toast confirms the share.
 function setSharedState() {
-    document.getElementById('sharedStatus')?.removeAttribute('hidden');
     document.getElementById('topbarSharedStatus')?.removeAttribute('hidden');
-    const shareBtn = document.getElementById('shareFormBtn');
-    if (shareBtn) shareBtn.remove();
-    const saveBtn = document.getElementById('saveFormBtn');
-    if (saveBtn) saveBtn.setAttribute('theme', 'primary');
+
+    // The action cluster carries the shared signal now (no header banner): tint
+    // the whole strip and swap the Share button for a solid pill.
+    const cluster = document.getElementById('formActions');
+    if (cluster) cluster.classList.add('is-shared');
+    const shareWrap = document.querySelector('.form-actions-share');
+    if (shareWrap) {
+        shareWrap.innerHTML =
+            '<span class="form-actions-shared-mark" aria-live="polite">' +
+            '<i class="fa-solid fa-circle-check"></i> Shared</span>';
+    }
+    // Privacy is moot once shared — the parties already have access.
+    const privacy = cluster?.querySelector('.privacy-toggle');
+    if (privacy) {
+        privacy.querySelectorAll('.privacy-opt').forEach(b => { b.disabled = true; });
+        privacy.classList.add('is-locked');
+        const hint = document.getElementById('privacyHint');
+        if (hint) hint.textContent = 'Locked — the form has been shared';
+    }
     showToast('Evaluation shared with the evaluator, evaluee, and reviewer.');
 }
 
@@ -8748,10 +9158,6 @@ function setSharedState() {
             `<div class="cl-header-value">${escapeHtml(h.value)}</div></div>`
         ).join('');
 
-        // Tab counts.
-        root.querySelector('#clEditsCount').textContent = EDITS.length;
-        root.querySelector('#clAccessCount').textContent = ACCESS.length;
-
         // Edits panel.
         const editsPanel = root.querySelector('#clPanelEdits');
         editsPanel.innerHTML = EDITS.length
@@ -8799,49 +9205,6 @@ function setSharedState() {
         e.detail.value ? ModalScrollLock.push() : ModalScrollLock.pop();
     });
     window.openChangeLogDialog = () => { dialog.opened = true; };
-})();
-
-// ─── Draggable timer widget ───
-// Drag by the header to reposition anywhere on screen. Uses pointer events so it
-// works for mouse and touch; clamps within the viewport.
-(() => {
-    const widget = document.getElementById('timerWidget');
-    const handle = document.getElementById('timerWidgetHead');
-    if (!widget || !handle) return;
-    let dragging = false, startX = 0, startY = 0, baseLeft = 0, baseTop = 0;
-    handle.addEventListener('pointerdown', (e) => {
-        // Ignore drags that start on the close button.
-        if (e.target.closest('.timer-widget-close')) return;
-        dragging = true;
-        widget.classList.add('dragging');
-        const r = widget.getBoundingClientRect();
-        baseLeft = r.left; baseTop = r.top;
-        startX = e.clientX; startY = e.clientY;
-        // Switch to explicit left/top (drop any right/bottom anchoring).
-        widget.style.left = baseLeft + 'px';
-        widget.style.top = baseTop + 'px';
-        handle.setPointerCapture(e.pointerId);
-        e.preventDefault();
-    });
-    handle.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        const w = widget.getBoundingClientRect();
-        let left = baseLeft + (e.clientX - startX);
-        let top = baseTop + (e.clientY - startY);
-        // Clamp within the viewport.
-        left = Math.max(8, Math.min(left, window.innerWidth - w.width - 8));
-        top = Math.max(8, Math.min(top, window.innerHeight - w.height - 8));
-        widget.style.left = left + 'px';
-        widget.style.top = top + 'px';
-    });
-    const end = (e) => {
-        if (!dragging) return;
-        dragging = false;
-        widget.classList.remove('dragging');
-        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-    };
-    handle.addEventListener('pointerup', end);
-    handle.addEventListener('pointercancel', end);
 })();
 
 // ─── Shared split view ───
@@ -9052,15 +9415,33 @@ const AttachPanel = (() => {
     const nameEl = document.getElementById('attachName');
     const descEl = document.getElementById('attachDescription');
     const questionEl = document.getElementById('attachQuestion');
-    const thumbEl = document.getElementById('attachFileThumb');
-    const fileNameEl = document.getElementById('attachFileName');
-    const fileSourceEl = document.getElementById('attachFileSource');
     const titleEl = document.getElementById('attachPanelTitle');
     const submitBtn = document.getElementById('attachSubmitBtn');
-    // Editing/draft state for the currently-open attachment.
-    let draft = null;        // { id, name, description, tags, source, extrasId }
+    const stageEl = document.getElementById('attachPreviewStage');
+    const pagerEl = document.getElementById('attachPager');
+    const pagerCountEl = document.getElementById('attachPagerCount');
+    const prevBtn = document.getElementById('attachPrevBtn');
+    const nextBtn = document.getElementById('attachNextBtn');
+    const noteEl = document.getElementById('attachActionsNote');
+    const downloadBtn = document.getElementById('attachDownloadBtn');
+    const rotLeftBtn = document.getElementById('attachRotateLeftBtn');
+    const rotRightBtn = document.getElementById('attachRotateRightBtn');
+
+    // Remove the DS drawer's built-in collapse arrow so the header's × is the only
+    // close control. Must be the JS property — as an attribute, closable="false"
+    // coerces to boolean true and the arrow still renders.
+    drawer.closable = false;
+
+    // ── Multi-file state ──
+    // `drafts` holds one record per selected file, each with its OWN name /
+    // description / tags / target question. `idx` is the file the panel is
+    // currently showing. Editing an existing attachment is just a 1-length set.
+    // Nothing is committed until the footer's submit, which commits ALL of them.
+    let drafts = [];
+    let idx = 0;
     let isNew = false;
-    let selectedTags = [];   // working copy of tag selection
+    let selectedTags = [];   // working copy of the VISIBLE draft's tags
+    const draft = () => drafts[idx] || null;
 
     // ── Tag dropdown — vaadin-popover (search + checkable multi-select list) ──
     // Renders in a top-level overlay, so it sidesteps the drawer's transform.
@@ -9125,11 +9506,159 @@ const AttachPanel = (() => {
             `<option value="${q.extrasId}"${q.extrasId === current ? ' selected' : ''}>${escapeHtml(q.label)}</option>`).join('');
     }
 
-    function paintFile(source, name) {
-        thumbEl.innerHTML = `<i class="${attachmentIcon({ name, source })}"></i>`;
-        fileNameEl.textContent = name;
-        fileSourceEl.textContent = source;
+    // ── Media preview ──
+    // Renders the file as media where we can: images and video get a 16:9 stage
+    // (matching the video review panel), documents get a page thumbnail. Anything
+    // else — archives, spreadsheets, unknown/extensionless Drive files — falls
+    // back to the original placeholder identity card.
+    const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'];
+    const VIDEO_EXT = ['mp4', 'mov', 'webm', 'avi', 'm4v'];
+    const DOC_EXT = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'ppt', 'pptx'];
+
+    function previewKind(att) {
+        const ext = (att.name.split('.').pop() || '').toLowerCase();
+        const hasExt = /\.\w+$/.test(att.name);
+        if (IMAGE_EXT.includes(ext)) return 'image';
+        if (VIDEO_EXT.includes(ext)) return 'video';
+        if (DOC_EXT.includes(ext)) return 'doc';
+        // Google Drive files often have no extension — infer from the name.
+        if (att.source === 'Google Drive' && !hasExt) {
+            if (/photo|image|screenshot/i.test(att.name)) return 'image';
+            if (/video|recording|clip/i.test(att.name)) return 'video';
+            if (/doc|sheet|slide|report|plan|note/i.test(att.name)) return 'doc';
+        }
+        return 'none';   // no preview available for this type
     }
+
+    function previewHtml(att) {
+        const kind = previewKind(att);
+        const seed = encodeURIComponent(att.id);
+        const tag = `<span class="attach-stage-tag"><i class="${attachmentIcon(att)}"></i>${escapeHtml(att.source)}</span>`;
+
+        if (kind === 'image') {
+            return `<div class="attach-stage">${tag}
+                <img src="https://picsum.photos/seed/${seed}/960/540" alt="Preview of ${escapeHtml(att.name)}" />
+            </div>`;
+        }
+        if (kind === 'video') {
+            return `<div class="attach-stage">${tag}
+                <img src="https://picsum.photos/seed/${seed}/960/540" alt="Preview of ${escapeHtml(att.name)}" />
+                <span class="attach-stage-play"><span><i class="fa-solid fa-play"></i></span></span>
+            </div>`;
+        }
+        if (kind === 'doc') {
+            const widths = [96, 88, 74, 92, 66, 84, 90, 58];
+            const lines = widths.map(w =>
+                `<span class="attach-stage-line" style="width:${w}%"></span>`).join('');
+            return `<div class="attach-stage is-doc">
+                <div class="attach-stage-page">
+                    <span class="attach-stage-page-h">${escapeHtml(att.name)}</span>
+                    ${lines}
+                </div>
+            </div>`;
+        }
+        // Fallback: the original placeholder card styling.
+        return `<div class="attach-file-row">
+            <span class="attach-file-thumb"><i class="${attachmentIcon(att)}"></i></span>
+            <div class="attach-file-meta">
+                <div class="attach-file-name">${escapeHtml(att.name)}</div>
+                <div class="attach-file-source">${escapeHtml(att.source)}</div>
+            </div>
+            <span class="attach-file-nopreview">No preview available</span>
+        </div>`;
+    }
+
+    function paintFile(att) {
+        stageEl.innerHTML = previewHtml(att);
+        applyRotation(att);
+    }
+
+    // ── Rotation ──
+    // Per-file, stored on the draft (`rotation`, degrees) so it survives pager
+    // navigation and is committed with the record. Only meaningful for rendered
+    // media — the no-preview fallback card has nothing to turn, so the controls
+    // disable for those file types.
+    function applyRotation(att) {
+        const stage = stageEl.querySelector('.attach-stage');
+        const deg = ((att.rotation || 0) % 360 + 360) % 360;
+        if (stage) {
+            stage.dataset.rot = String(deg);
+            stage.style.setProperty('--rot', deg + 'deg');
+        }
+        const rotatable = !!stage;
+        if (rotLeftBtn) rotLeftBtn.disabled = !rotatable;
+        if (rotRightBtn) rotRightBtn.disabled = !rotatable;
+    }
+    function rotate(delta) {
+        const d = draft();
+        if (!d) return;
+        d.rotation = (((d.rotation || 0) + delta) % 360 + 360) % 360;
+        applyRotation(d);
+    }
+
+    // ── Pager ──
+    // Persist whatever's on screen into the current draft before navigating away,
+    // so each file keeps its own edits as the user walks the set.
+    function commitVisible() {
+        const d = draft();
+        if (!d) return;
+        d.name = (nameEl.value.trim() || d.name);
+        d.description = descEl.value.trim();
+        d.tags = [...selectedTags];
+        d.extrasId = questionEl.value || d.extrasId;
+    }
+    function paintPager() {
+        const multi = drafts.length > 1;
+        pagerEl.hidden = !multi;
+        if (multi) {
+            pagerCountEl.textContent = `File ${idx + 1} of ${drafts.length}`;
+            prevBtn.disabled = idx === 0;
+            nextBtn.disabled = idx === drafts.length - 1;
+        }
+        // Footer acts on the whole set — say so, and count it in the button.
+        if (isNew && multi) {
+            noteEl.hidden = false;
+            noteEl.textContent = `All ${drafts.length} files will be added when you submit.`;
+            submitBtn.innerHTML =
+                `<i class="fa-solid fa-check" slot="prefix"></i> Add ${drafts.length} files to form`;
+        } else {
+            noteEl.hidden = true;
+            submitBtn.innerHTML = isNew
+                ? '<i class="fa-solid fa-check" slot="prefix"></i> Add to form'
+                : '<i class="fa-solid fa-check" slot="prefix"></i> Save changes';
+        }
+    }
+    // Load draft #i's values into the form fields.
+    function paintDraft() {
+        const d = draft();
+        if (!d) return;
+        nameEl.value = d.name;
+        descEl.value = d.description || '';
+        selectedTags = [...(d.tags || [])];
+        paintFile(d);
+        fillQuestions(d.extrasId);
+        renderTagChips();
+        paintPager();
+    }
+    function go(delta) {
+        const next = idx + delta;
+        if (next < 0 || next >= drafts.length) return;
+        commitVisible();
+        idx = next;
+        paintDraft();
+        document.querySelector('.attach-panel-body')?.scrollTo({ top: 0 });
+    }
+    prevBtn.addEventListener('click', () => go(-1));
+    nextBtn.addEventListener('click', () => go(1));
+
+    rotLeftBtn.addEventListener('click', () => rotate(-90));
+    rotRightBtn.addEventListener('click', () => rotate(90));
+
+    // Per-file download — simulated (no real bytes in a prototype).
+    downloadBtn.addEventListener('click', () => {
+        const d = draft();
+        if (d) showToast(`Downloading “${d.name}”…`);
+    });
     // Now on the Vector DS drawer (vwc-drawer). Same overlay-mode gaps as the
     // video panel (no width prop / no self-anchor+scrim), compensated via the
     // host scrim + ::part CSS; documented in DESIGN-SYSTEM-GAPS.md.
@@ -9154,70 +9683,93 @@ const AttachPanel = (() => {
     // vwc-drawer emits open-changed with the boolean directly as e.detail.
     drawer.addEventListener('open-changed', (e) => {
         const isOpen = (typeof e.detail === 'boolean') ? e.detail : drawer.open;
-        if (!isOpen) { onClosed(); draft = null; }
+        if (!isOpen) { onClosed(); reset(); }
     });
+    function reset() { drafts = []; idx = 0; }
 
+    // ── Simulated file selection ──
+    // Stands in for the OS file picker / Google Drive picker, both of which are
+    // multi-select. Returns a varied set of file types so the preview treatments
+    // (image, video, doc, and the no-preview fallback) all show up.
+    // An IMAGE leads both pools so the panel always opens on a real media preview
+    // (the most representative example); the rest of the rotation still covers the
+    // video, document, and no-preview treatments.
+    const SAMPLE_UPLOADS = [
+        'classroom-photo.jpg', 'walkthrough-clip.mp4', 'lesson-plan.pdf',
+        'student-work.png', 'unit-map.docx', 'rubric-scores.xlsx',
+        'artifacts.zip', 'reflection-notes.txt'
+    ];
+    const SAMPLE_DRIVE = [
+        'Classroom photo (Sept)', 'Observation recording', 'Lesson Plan — Unit 3',
+        'Student work samples', 'PLC meeting notes', 'Data tracker'
+    ];
+    function pickFiles(source) {
+        const isGoogle = source === 'google';
+        const pool = isGoogle ? SAMPLE_DRIVE : SAMPLE_UPLOADS;
+        // A real picker returns whatever the user selected; simulate 1–4 files so
+        // both the single-file and multi-file flows are reachable from the menu.
+        // Always start at the image so file 1 shows a media preview.
+        const count = 1 + Math.floor(Math.random() * 4);
+        return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+    }
+
+    // Opens the panel on a fresh multi-file selection — one draft per file.
     function openNew(extrasId, source) {
         isNew = true;
-        const isGoogle = source === 'google';
-        const src = isGoogle ? 'Google Drive' : 'Uploaded';
-        const n = Object.keys(attachmentsById).length + 1;
-        const fileName = isGoogle ? `Shared document ${n}` : `evidence-${n}.pdf`;
-        draft = { id: 'att-' + Math.random().toString(36).slice(2), name: fileName, description: '', tags: [], source: src, extrasId };
-        titleEl.innerHTML = '<i class="fa-solid fa-paperclip"></i> Add attachment';
-        submitBtn.innerHTML = '<i class="fa-solid fa-check" slot="prefix"></i> Add to form';
-        nameEl.value = draft.name;
-        descEl.value = '';
-        selectedTags = [];
-        paintFile(src, fileName);
-        fillQuestions(extrasId);
-        renderTagChips();
+        const src = source === 'google' ? 'Google Drive' : 'Uploaded';
+        const files = pickFiles(source);
+        drafts = files.map(fileName => ({
+            id: 'att-' + Math.random().toString(36).slice(2),
+            name: fileName, description: '', tags: [], source: src, extrasId
+        }));
+        idx = 0;
+        const label = files.length > 1 ? `Add ${files.length} attachments` : 'Add attachment';
+        titleEl.innerHTML = `<i class="fa-solid fa-paperclip"></i> ${label}`;
+        paintDraft();
         show();
     }
+    // Editing an existing attachment is a single-draft set (pager stays hidden).
     function openEdit(attId) {
         const att = attachmentsById[attId];
         if (!att) return;
         isNew = false;
-        draft = att;
+        // Work on a copy so Cancel doesn't mutate the committed record.
+        drafts = [{ ...att, tags: [...(att.tags || [])] }];
+        idx = 0;
         titleEl.innerHTML = '<i class="fa-solid fa-paperclip"></i> Edit attachment';
-        submitBtn.innerHTML = '<i class="fa-solid fa-check" slot="prefix"></i> Save changes';
-        nameEl.value = att.name;
-        descEl.value = att.description || '';
-        selectedTags = [...(att.tags || [])];
-        paintFile(att.source, att.name);
-        fillQuestions(att.extrasId);
-        renderTagChips();
+        paintDraft();
         show();
     }
+    // Commits EVERY draft in the set (the footer is set-wide, not per-file).
     function submit() {
-        if (!draft) return;
-        const prevExtras = draft.extrasId;
-        const targetExtras = questionEl.value || draft.extrasId;
-        draft.name = (nameEl.value.trim() || draft.name);
-        draft.description = descEl.value.trim();
-        draft.tags = [...selectedTags];
-        draft.extrasId = targetExtras;
-
-        // Commit the record.
-        attachmentsById[draft.id] = draft;
-        if (isNew) {
-            const ex = ensureExtras(targetExtras);
-            if (!ex.attachments.includes(draft.id)) ex.attachments.push(draft.id);
-        } else if (prevExtras !== targetExtras) {
-            // Reassigned to a different question while editing.
-            reassignAttachment(draft.id, targetExtras);
-        }
-        // Re-render both possibly-affected questions.
-        [prevExtras, targetExtras].forEach(ex => {
+        if (!drafts.length) return;
+        commitVisible();   // fold in edits to the visible file first
+        const touched = new Set();
+        drafts.forEach(d => {
+            const prevExtras = attachmentsById[d.id] ? attachmentsById[d.id].extrasId : d.extrasId;
+            const targetExtras = d.extrasId;
+            attachmentsById[d.id] = d;
+            if (isNew) {
+                const ex = ensureExtras(targetExtras);
+                if (!ex.attachments.includes(d.id)) ex.attachments.push(d.id);
+            } else if (prevExtras !== targetExtras) {
+                reassignAttachment(d.id, targetExtras);   // reassigned while editing
+            }
+            touched.add(prevExtras); touched.add(targetExtras);
+        });
+        // Re-render every affected question so each file gets its own tile.
+        touched.forEach(ex => {
             const b = document.querySelector(`.q-actionbar[data-extras-id="${ex}"]`);
             if (b) renderExtras(b);
         });
+        const n = drafts.length;
+        if (isNew) showToast(n > 1 ? `${n} attachments added to the form.` : 'Attachment added to the form.');
         hide();
-        draft = null;
+        reset();
     }
 
-    document.getElementById('attachCancelBtn').addEventListener('click', () => { hide(); draft = null; });
-    document.getElementById('attachPanelClose').addEventListener('click', () => { hide(); draft = null; });
+    document.getElementById('attachCancelBtn').addEventListener('click', () => { hide(); reset(); });
+    document.getElementById('attachPanelClose').addEventListener('click', () => { hide(); reset(); });
     submitBtn.addEventListener('click', submit);
     // Backdrop click on the host scrim closes (DS drawer omits scrim-close in
     // overlay-only use); Esc too. onClosed()/draft reset run via open-changed.
@@ -9506,7 +10058,10 @@ document.getElementById('protoClearBtn').addEventListener('click', () => {
         const rect = panel.getBoundingClientRect();
         panel.style.left = rect.left + 'px';
         panel.style.top = rect.top + 'px';
+        // Drop BOTH default anchors — the widget parks bottom-right in CSS, so a
+        // leftover `bottom` would fight the dragged `top` and snap it back down.
         panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
         handle.setPointerCapture(e.pointerId);
@@ -9547,10 +10102,9 @@ setTimeout(syncStickyHeights, 500);
 // per-tick counter) so it stays accurate even if the tab is throttled. State is
 // kept in module scope so submit could read total elapsed time.
 const formTimer = (() => {
-    const el = document.getElementById('timerWidget');
+    const el = document.getElementById('formTimer');
     const readout = document.getElementById('formTimerReadout');
     const toggleBtn = document.getElementById('formTimerToggle');
-    const resetBtn = document.getElementById('formTimerReset');
     let running = false;
     let accumulatedMs = 0;   // time banked from prior run segments
     let segmentStart = 0;    // timestamp the current running segment began
@@ -9568,7 +10122,6 @@ const formTimer = (() => {
     }
     function paint() {
         readout.textContent = format(elapsedMs());
-        resetBtn.disabled = running || elapsedMs() === 0;
     }
     function start() {
         if (running) return;
@@ -9592,14 +10145,7 @@ const formTimer = (() => {
         toggleBtn.title = 'Resume';
         paint();
     }
-    function reset() {
-        if (running) return;
-        accumulatedMs = 0;
-        paint();
-    }
-
     toggleBtn.addEventListener('click', () => running ? pause() : start());
-    resetBtn.addEventListener('click', reset);
 
     return { elapsedMs, format, isRunning: () => running };
 })();

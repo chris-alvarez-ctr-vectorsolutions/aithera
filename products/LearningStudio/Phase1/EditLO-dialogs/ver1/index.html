@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Learning Object — Dialog States</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 Icons (Default Icon Library) -->
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
+    <style>
+        /* Blank reference canvas — the dialog is the only subject on the page */
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Open Sans', sans-serif;
+            background: #f4f6f8;
+        }
+
+        /* --- Dialog body layout ------------------------------------------- */
+        .dialog-body {
+            /* Comfortable reading width regardless of which notice is showing */
+            width: 440px;
+            max-width: 100%;
+        }
+
+        /* Reads as the label for the radio group, so it sits tight to it */
+        .dialog-prompt {
+            margin: 0 0 8px;
+            font-size: 14px;
+            line-height: 20px;
+            color: #1a1a1a;
+        }
+
+        /* Stacked radio group — options only; the notice lives outside it.
+           vaadin-radio-group's host reserves vertical space for its own label
+           part even when unused. We don't set a label (the prompt above acts
+           as one), so collapse that reserved space to sit tight under it. */
+        .apply-options {
+            padding-top: 0;
+        }
+
+        .apply-options::part(label) {
+            display: none;
+        }
+
+        /* The options themselves stack inside the group's shadow group-field */
+        .apply-options::part(group-field) {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding-top: 0;
+        }
+
+        /* --- Dynamically loaded notice message ---------------------------- */
+        /* Single notice area below the whole group; its text swaps with the
+           selected option, so the dialog height stays stable as you switch. */
+        .option-notice {
+            display: flex;
+            gap: 8px;
+            margin: 24px 0 0;
+            padding: 10px 12px;
+            border-radius: 4px;
+            border-left: 3px solid #f5a623;
+            background: #fdf6e7;
+            font-size: 13px;
+            line-height: 18px;
+            color: #4a3a12;
+        }
+
+        /* The stand-out consequence: own line, semibold */
+        .option-notice-emphasis {
+            display: block;
+            margin-top: 6px;
+            font-weight: 600;
+        }
+
+        .option-notice i {
+            flex: none;
+            margin-top: 2px;
+            color: #b8791a;
+        }
+
+        /* Plain body copy for dialogs without a radio group (State 2) */
+        .dialog-copy {
+            margin: 0;
+            font-size: 14px;
+            line-height: 20px;
+            color: #1a1a1a;
+        }
+
+        /* Closing line, set off from the block above it */
+        .dialog-copy-trailing {
+            margin-top: 16px;
+        }
+
+        /* --- Reference-sheet layout ---------------------------------------
+           Every dialog is open at once. Vaadin absolutely positions each
+           dialog panel ([part="overlay"], inside the overlay's shadow root)
+           at its own centered coordinates — so aligning the host does
+           nothing. Override the panel's position directly to stack them
+           vertically. Reference-document scaffolding, NOT product
+           positioning — strip this block at dev handoff.
+
+           Panels are position:fixed, so they can't stack in normal flow;
+           each gets an explicit top offset. The overlay host is allowed to
+           scroll so the stack stays reachable in a short viewport. */
+        vaadin-dialog-overlay[dialog-state] {
+            overflow: auto;
+        }
+
+        vaadin-dialog-overlay[dialog-state]::part(overlay) {
+            position: absolute;
+            left: 50%;
+            right: auto;
+            transform: translateX(-50%);
+            margin: 0;
+        }
+
+        vaadin-dialog-overlay[dialog-state="edit-lo"]::part(overlay) {
+            top: 40px;
+        }
+
+        vaadin-dialog-overlay[dialog-state="unlink-lo"]::part(overlay) {
+            top: 460px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =================================================================
+         STATE 1 — Edit Learning Object: choose how changes are applied.
+         Always-open dialog (no trigger, no close) for reference use.
+         Add further states as additional <vaadin-dialog> elements below.
+         ================================================================= -->
+    <vaadin-dialog
+        id="edit-lo-dialog"
+        header-title="Edit Learning Object"
+        modeless
+        no-close-on-esc
+        no-close-on-outside-click>
+    </vaadin-dialog>
+
+    <!-- =================================================================
+         STATE 2 — Unlink Learning Object: confirm breaking the source link.
+         Also always-open; offset from State 1 so both are visible at once.
+         ================================================================= -->
+    <vaadin-dialog
+        id="unlink-lo-dialog"
+        header-title="Unlink Learning Object"
+        modeless
+        no-close-on-esc
+        no-close-on-outside-click>
+    </vaadin-dialog>
+
+<script>
+    const editLoDialog = document.getElementById('edit-lo-dialog');
+
+    // Notice copy keyed by radio value — extend here when adding options.
+    // `emphasis` renders on its own line in semibold for the consequence that
+    // needs to stand out; omit it for options that don't need one.
+    const NOTICES = {
+        'this-instance': {
+            body: 'Removing the link to the source object will prevent automatic updates to this content in the future. This will also remove the finalized status of the content.',
+            emphasis: 'This link cannot be reconnected'
+        },
+        'all-instances': {
+            body: 'Change will be applied to all courses sharing this learning object. This will remove the finalized status of the content.'
+        }
+    };
+
+    editLoDialog.renderer = (root) => {
+        if (root.firstChild) return;
+
+        const body = document.createElement('div');
+        body.className = 'dialog-body';
+        // Set the governing width inline — the dialog renders into an overlay
+        // outside <body>, so don't rely on page-stylesheet cascade for layout.
+        body.style.width = '440px';
+        body.style.maxWidth = '100%';
+        body.innerHTML = `
+            <p class="dialog-prompt">Select how your changes should be applied:</p>
+
+            <vaadin-radio-group class="apply-options" theme="vertical">
+                <vaadin-radio-button value="this-instance" label="Edit only this instance"></vaadin-radio-button>
+                <vaadin-radio-button value="all-instances" label="Edit all shared instances"></vaadin-radio-button>
+            </vaadin-radio-group>
+
+            <!-- One notice area for the whole group; text swaps on selection -->
+            <div class="option-notice" role="status" aria-live="polite">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span class="option-notice-text"></span>
+            </div>
+        `;
+        root.appendChild(body);
+
+        const group = body.querySelector('vaadin-radio-group');
+        const noticeText = body.querySelector('.option-notice-text');
+
+        // Swap the shared notice's copy to match the selected option.
+        // Built as nodes (not innerHTML) so the copy above stays plain text.
+        const showNoticeFor = (value) => {
+            const notice = NOTICES[value];
+            noticeText.replaceChildren();
+            if (!notice) return;
+
+            noticeText.append(notice.body);
+
+            if (notice.emphasis) {
+                const strong = document.createElement('strong');
+                strong.className = 'option-notice-emphasis';
+                strong.textContent = notice.emphasis;
+                noticeText.appendChild(strong);
+            }
+        };
+
+        group.addEventListener('value-changed', (e) => showNoticeFor(e.detail.value));
+
+        // "Edit only this instance" is the default selection. Set it as a
+        // property once the group has upgraded and registered its children.
+        customElements.whenDefined('vaadin-radio-group').then(() => {
+            group.value = 'this-instance';
+            showNoticeFor('this-instance');
+        });
+    };
+
+    editLoDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancel = document.createElement('vaadin-button');
+        cancel.setAttribute('theme', 'secondary');
+        cancel.textContent = 'Cancel';
+
+        const apply = document.createElement('vaadin-button');
+        apply.setAttribute('theme', 'primary');
+        apply.textContent = 'Start Editing';
+
+        root.appendChild(cancel);
+        root.appendChild(apply);
+    };
+
+    /* =================================================================
+       STATE 2 — Unlink Learning Object
+       ================================================================= */
+    const unlinkLoDialog = document.getElementById('unlink-lo-dialog');
+
+    // Same body/emphasis shape as the notices above: the closing consequence
+    // sits on its own line in semibold. `trailing` is a plain-weight line
+    // separated from the block above it.
+    const UNLINK_COPY = {
+        body: 'Removing the link to the source object will prevent automatic updates to this content in the future. This will also remove the finalized status of the content.',
+        emphasis: 'This link cannot be reconnected',
+        trailing: 'Change to this learning object will only apply to this instance.'
+    };
+
+    unlinkLoDialog.renderer = (root) => {
+        if (root.firstChild) return;
+
+        const body = document.createElement('div');
+        body.className = 'dialog-body';
+        body.style.width = '440px';
+        body.style.maxWidth = '100%';
+
+        const copy = document.createElement('p');
+        copy.className = 'dialog-copy';
+        copy.append(UNLINK_COPY.body);
+
+        const strong = document.createElement('strong');
+        strong.className = 'option-notice-emphasis';
+        strong.textContent = UNLINK_COPY.emphasis;
+        copy.appendChild(strong);
+
+        body.appendChild(copy);
+
+        // Plain-weight closing line, separated from the block above
+        const trailing = document.createElement('p');
+        trailing.className = 'dialog-copy dialog-copy-trailing';
+        trailing.textContent = UNLINK_COPY.trailing;
+        body.appendChild(trailing);
+
+        root.appendChild(body);
+    };
+
+    unlinkLoDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancel = document.createElement('vaadin-button');
+        cancel.setAttribute('theme', 'secondary');
+        cancel.textContent = 'Cancel';
+
+        const unlink = document.createElement('vaadin-button');
+        unlink.setAttribute('theme', 'primary');
+        unlink.textContent = 'Unlink Object';
+
+        root.appendChild(cancel);
+        root.appendChild(unlink);
+    };
+
+    // Always present — opened on load and never closed.
+    // Wait for the dialog to upgrade before opening, then explicitly request a
+    // content update: the header/footer renderers self-trigger one, but the body
+    // renderer only runs via requestContentUpdate() once the overlay exists.
+    customElements.whenDefined('vaadin-dialog').then(() => {
+        editLoDialog.opened = true;
+        editLoDialog.requestContentUpdate();
+
+        unlinkLoDialog.opened = true;
+        unlinkLoDialog.requestContentUpdate();
+
+        // Tag each overlay so the reference-sheet CSS above can position them
+        // side by side. The overlay is created on open and lives outside <body>.
+        requestAnimationFrame(() => {
+            editLoDialog.$.overlay.setAttribute('dialog-state', 'edit-lo');
+            unlinkLoDialog.$.overlay.setAttribute('dialog-state', 'unlink-lo');
+
+            // Vaadin marks all but the topmost overlay aria-hidden, and
+            // re-applies it whenever the overlay stack changes. On a reference
+            // sheet every state should be readable, so keep clearing it.
+            [editLoDialog, unlinkLoDialog].forEach((dlg) => {
+                const ov = dlg.$.overlay;
+                const unhide = () => {
+                    if (ov.hasAttribute('aria-hidden')) ov.removeAttribute('aria-hidden');
+                    if (ov.hasAttribute('data-aria-hidden')) ov.removeAttribute('data-aria-hidden');
+                };
+                unhide();
+                new MutationObserver(unhide).observe(ov, {
+                    attributes: true,
+                    attributeFilter: ['aria-hidden', 'data-aria-hidden']
+                });
+            });
+        });
+    });
+</script>
+
+<!-- Design Toolbox — review tooling only, NOT part of the product design -->
+<script src="../../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
