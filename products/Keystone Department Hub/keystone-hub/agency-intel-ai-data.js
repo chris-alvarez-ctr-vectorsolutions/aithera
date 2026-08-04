@@ -172,8 +172,10 @@
         // no-data ask
         entry = { question: pick(NODATA_QUESTIONS), metricId: null, sources: [], outcome: 'nodata', returned: null, deniedSources: [] };
       } else {
-        // Battalion chiefs gravitate to scheduling questions they can't see —
-        // that's the seeded denial story.
+        // Battalion chiefs gravitate to scheduling questions. They hold every
+        // source, so these resolve as answered — the log's denials come from the
+        // roles that are genuinely short a source app (Training Officer: no
+        // Compliance & Inspections, no Scheduling; Engineer, Firefighter, etc.).
         let qd;
         if (person.titleId === 'battalion_chief' && rnd() < 0.3) {
           qd = pick(QUESTIONS.filter(function (x) { return (CP().metricSources(x.metricId) || []).indexOf('sched') !== -1; }));

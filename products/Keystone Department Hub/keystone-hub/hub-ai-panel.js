@@ -73,6 +73,14 @@
   // involved — would render the Chief's chat-added widgets on that role's
   // read-only dashboard and show them the Chief's conversation. A production
   // build must key both arrays by dashboard identity.
+  //
+  // The same applies to EVERY other piece of module state here: state.draft,
+  // state.thinking, state.collapsed and the currentPerson / currentOwned pair
+  // below are all one-per-page, not one-per-dashboard. And setContext() is
+  // called only from the granted branch of dashBody(), so currentPerson /
+  // currentOwned are never reset when an ungranted role renders — they keep
+  // whatever the last granted role left behind. Harmless today because nothing
+  // reads them without a panel on screen, and left as-is by explicit ruling.
   var state = {
     thread: [],      // { role:'user', text } | { role:'assistant', text, metricId, denied }
     draft: '',
@@ -85,6 +93,16 @@
   // compact height with no extra bookkeeping in the hero.
   function isExpanded() { return !state.collapsed && (state.thread.length > 0 || state.thinking); }
   function addedWidgets() { return state.added; }
+
+  // Whether the thread holds an answer that could become a widget. A refusal
+  // resolves to no metric, so a thread of nothing but refusals must not open the
+  // "Answers you add land here" placeholder — that row promises a landing zone
+  // for something the turn never produced.
+  function hasAddable() {
+    return state.thread.some(function (m) {
+      return m.role === 'assistant' && !!m.metricId;
+    });
+  }
 
   function mark(size) {
     size = size || 28;
@@ -107,8 +125,11 @@
      SUGGESTIONS
      ---------------------------------------------------------------------
      Filtered by the asker's entitlements. The system knows what it will
-     refuse, so it must not suggest it — the Chief lacks Scheduling, and a
-     hand-picked "overtime risk" chip would open the panel on a refusal.
+     refuse, so it must not suggest it — a hand-picked chip whose source app the
+     asker lacks would open the panel on a refusal. The filter is live rather
+     than hard-coded per role precisely because entitlements are data: the
+     Battalion Chief now holds all five sources, so all six chips qualify and the
+     slice(0, 3) decides; a Training Officer's pool shrinks to what they can see.
 
      Each entry's metricId MUST match what matchQuestion() in
      agency-intel-ai-data.js routes `q` to, or the filter lies. Verified:
@@ -199,8 +220,11 @@
       'Querying your apps…</span></div></div>';
   }
 
+  // role="log" + aria-live="polite" so an answer that arrives after the 620ms
+  // beat is announced. Polite, not assertive: the user asked for it, so it must
+  // not cut across whatever they are reading now.
   function threadHtml() {
-    return '<div class="kx-ai-thread" id="kxAiThread">' +
+    return '<div class="kx-ai-thread" id="kxAiThread" role="log" aria-live="polite">' +
       state.thread.map(turnHtml).join('') +
       (state.thinking ? thinkingHtml() : '') +
       '</div>';
@@ -269,17 +293,65 @@
     return 'Needs ' + names + ' — your account has no access. An administrator can grant it.';
   }
 
+  /* ---------------------------------------------------------------------
+     FOCUS ACROSS RENDERS
+     ---------------------------------------------------------------------
+     hub.js replaces #root.innerHTML on every render, so the textarea the user
+     was typing in is a DIFFERENT element afterwards and the caret is simply
+     gone — activeElement falls back to <body>. Without this, every follow-up
+     question costs a click, and typing while the dots animate loses the caret
+     the moment the answer lands.
+     --------------------------------------------------------------------- */
+
+  // Only reclaim focus if nobody else has taken it. Focus inside the panel is
+  // ours; focus on <body> is nobody's (usually our own previous render throwing
+  // the element away). Anything else — a task row, an open menu — keeps it.
+  function focusIsOurs() {
+    var a = document.activeElement;
+    if (!a || a === document.body) return true;
+    return !!(a.closest && a.closest('#kxAiPanel'));
+  }
+
+  // Render, then hand the caret back to the draft box at the same offsets.
+  // Silently does nothing when the panel is collapsed or absent — there is no
+  // textarea to focus then — and never scrolls the page to do it.
+  function renderKeepingCaret() {
+    var before = document.getElementById('kxAiDraft');
+    var selStart = before ? before.selectionStart : null;
+    var selEnd = before ? before.selectionEnd : null;
+    var ours = focusIsOurs();
+    window.KXHub.render();
+    if (!ours) return;
+    var after = document.getElementById('kxAiDraft');
+    if (!after) return;
+    after.focus({ preventScroll: true });
+    if (selStart != null) {
+      try { after.setSelectionRange(selStart, selEnd); } catch (e) { /* clamped by UA */ }
+    }
+  }
+
+  // Monotonic send id. The answer callback compares the epoch it captured against
+  // the current one and drops itself if they differ, so an in-flight beat can no
+  // longer land after "New chat" (which reset the thread, leaving an orphan answer
+  // with a live Add button and no question above it) or after a second send
+  // (which used to put two timers in flight and could answer out of order).
+  var sendEpoch = 0;
+
   function send() {
     var q = state.draft.trim();
     if (!q || state.thinking || !currentPerson) return;
+    sendEpoch += 1;
+    var epoch = sendEpoch;
     state.thread.push({ role: 'user', text: q });
     state.draft = '';
     state.thinking = true;
-    window.KXHub.render();
+    renderKeepingCaret();
 
     // A beat of latency so the thinking state is legible; this is a prototype,
     // there is no request behind it.
     window.setTimeout(function () {
+      // Superseded — New chat or a later send happened while this beat ran.
+      if (epoch !== sendEpoch) return;
       // Guard the call so a throw can never leave `thinking` stuck true —
       // that would freeze the panel on the animated dots forever, silently
       // swallowing every message afterward (send() bails out while thinking
@@ -304,7 +376,7 @@
           deniedNote: ''
         });
       }
-      window.KXHub.render();
+      renderKeepingCaret();
       scrollThread();
     }, 620);
   }
@@ -321,24 +393,76 @@
 
   var addSeq = 0;
 
-  // buildSpec() supplies label, number, delta, tone and the sparkline; pubWidget()
-  // renders it. This is wiring, not new machinery.
-  function addWidget(metricId, turnIdx) {
+  // The date range each metric should carry when it lands on the grid. A single
+  // hard-coded 'last_30' put a backward-looking label under a forward-looking
+  // count — an added "Credentials expiring" read "Last 30d" directly beneath the
+  // seeded "Credentials expiring · Next 30d". These match the ranges the seeded
+  // dashboards already use for the same metrics (hub-hero.js CHIEF_DASH/LT_DASH).
+  var METRIC_RANGE = {
+    // forward-looking: a countdown, not a history
+    credential_expirations: 'next_30',
+    open_shifts:            'next_14',
+    pto_pending:            'next_30',
+    trade_requests:         'next_14',
+    // progress against a stated requirement, measured from the period start
+    training_completion:    'qtd',
+    policy_acks:            'qtd',
+    ceu_progress:           'ytd',
+    // backward-looking
+    overdue_inspections:    'last_30',
+    apparatus_downtime:     'last_30',
+    tasks_by_app:           'last_30',
+    equipment_failures:     'last_90',
+    response_time:          'last_90',
+    incident_volume:        'last_90',
+    sick_leave:             'last_90',
+    ot_trend:               'last_12mo'
+  };
+
+  // The ONE place a chat-added widget's shape is decided. Everything visual —
+  // label, number, delta, tone, sparkline — is re-derived by pubWidget() from
+  // metricId via buildSpec(), so this carries only what it cannot: identity,
+  // width, range, source apps, and the fromChat flag that earns the widget its
+  // remove control. Returns null for a metric buildSpec() does not know.
+  function makeWidgetSpec(metricId, viz) {
     var CC = window.KEYSTONE_CUSTOM;
     var CP = window.AGENCY_INTEL;
-    var spec = CC.buildSpec(metricId, 'kpi');
-    if (!spec) return;
+    var spec = CC.buildSpec(metricId, viz);
+    if (!spec) return null;
     addSeq += 1;
-    state.added.push({
+    return {
       id: 'ai' + addSeq,
       metricId: metricId,
-      viz: 'kpi',
+      viz: viz,
+      // w:4 matches the seeded widgets, so an added one joins the existing row
+      // rather than announcing itself as a different class of thing.
       w: 4,
-      range: 'last_30',
-      source: CP.metricSources(metricId)
-    });
+      range: METRIC_RANGE[metricId] || 'last_30',
+      source: CP.metricSources(metricId),
+      title: spec.label,
+      fromChat: true
+    };
+  }
+
+  function addWidget(metricId, turnIdx) {
+    var w = makeWidgetSpec(metricId, 'kpi');
+    if (!w) return;
+    state.added.push(w);
     var turn = state.thread[turnIdx];
-    if (turn) turn.added = spec.label;
+    // Duplicates are allowed on purpose — asking twice is not an error, and the
+    // remove control is the way back out. addedId ties the confirmation to the
+    // widget so removing it restores this turn's Add button.
+    if (turn) { turn.added = w.title; turn.addedId = w.id; }
+    renderKeepingCaret();
+  }
+
+  // Session-only, like everything else here: drop it from state.added, clear the
+  // confirmation on whichever turn put it there, re-render.
+  function removeWidget(id) {
+    state.added = state.added.filter(function (w) { return w.id !== id; });
+    state.thread.forEach(function (m) {
+      if (m.addedId === id) { m.added = null; m.addedId = null; }
+    });
     window.KXHub.render();
   }
 
@@ -363,6 +487,9 @@
         state.thread = [];
         state.draft = '';
         state.thinking = false;
+        // The button is live during the thinking beat, so cancel that beat too —
+        // otherwise the answer lands in the fresh thread a moment later.
+        sendEpoch += 1;
         // Widgets already added stay on the dashboard — clearing the chat is
         // not undoing a publish.
         window.KXHub.render();
@@ -381,6 +508,11 @@
                   Number(add.getAttribute('data-kx-ai-add-turn')));
         return;
       }
+      // The ✕ on a chat-added widget. The button is rendered by pubWidget() over
+      // in hub-hero.js, but the state it removes lives here, so the handler joins
+      // this listener set rather than opening a second one.
+      var rm = e.target.closest('[data-kx-ai-remove]');
+      if (rm) { removeWidget(rm.getAttribute('data-kx-ai-remove')); return; }
       if (e.target.closest('#kxAiSend')) { send(); return; }
     });
 
@@ -412,6 +544,7 @@
     setContext: setContext,
     html: html,
     isExpanded: isExpanded,
+    hasAddable: hasAddable,
     addedWidgets: addedWidgets,
     wire: wire
   };
