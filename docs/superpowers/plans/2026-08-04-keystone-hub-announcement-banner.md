@@ -90,7 +90,7 @@ Replace it with:
      ==================================================================== */
   #ts-announce {
     position: relative;
-    display: flex; align-items: center; gap: 28px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 20px 28px;
     padding: 26px 30px; margin-bottom: 20px;
     border-radius: 14px;
     background: linear-gradient(100deg, #08172b 0%, #0d3a72 55%, #0f5fbd 100%);
@@ -98,7 +98,7 @@ Replace it with:
   #ts-announce[hidden] { display: none; }
 
   /* ---- left column: eyebrow row, headline, body ---- */
-  .ts-announce-copy { flex: 1; min-width: 0; }
+  .ts-announce-copy { flex: 1 1 380px; min-width: 0; }
   .ts-announce-eyebrow {
     display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   }
@@ -116,7 +116,7 @@ Replace it with:
     text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
     background: #6ee7ad; color: #0a3b2a;
   }
-  .ts-announce-copy h3 {
+  .ts-announce-copy h2 {
     margin: 0 0 8px; font-size: 30px; line-height: 1.12; font-weight: 700;
     letter-spacing: -.01em; color: #fff;
   }
@@ -128,29 +128,50 @@ Replace it with:
 
   /* ---- right column: CTA + subline, then the dismiss square ---- */
   .ts-announce-actions {
-    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    display: flex; align-items: flex-start; gap: 14px;
+    flex: 0 0 auto; margin-left: auto;
   }
   .ts-announce-cta-wrap { display: flex; flex-direction: column; gap: 8px; }
-  .ts-announce-sub { font-size: 13px; color: #9dc6ec; text-align: center; }
+  .ts-announce-sub { font-size: 13px; color: #cfe3f8; text-align: center; }
 
   /* A white-on-dark button is NOT a stock Vector variant — the closest,
      theme="contrast primary", is dark-filled and would vanish on this
      background. Scoped inverse override; call it out at dev handoff.
-     Both the custom properties and the direct declarations are set: outer
-     author styles win over the component's own :host rules, and the custom
-     props cover the same ground through the documented API. */
+
+     WHAT ACTUALLY CARRIES THE COLOUR: the direct `background` / `color`
+     declarations on the host element — outer author styles win over the
+     component's own :host rules. Do NOT drop them. The custom properties
+     beside them are Lumo's THEME-SPECIFIC names, which are the only ones a
+     themed button reads: --vaadin-button-primary-* for theme="primary",
+     --vaadin-button-tertiary-* for theme="tertiary". The generic
+     --vaadin-button-background / --vaadin-button-text-color names style
+     nothing on a themed button (verified in the browser) and are not used
+     here. --vaadin-button-border-radius is generic and does work. */
   #ts-announce-cta {
     --vaadin-button-border-radius: 10px;
-    --vaadin-button-background: #fff;
-    --vaadin-button-text-color: #0d2a4d;
+    --vaadin-button-primary-background: #fff;
+    --vaadin-button-primary-text-color: #0d2a4d;
     background: #fff; color: #0d2a4d; font-weight: 700;
   }
   #ts-announce-dismiss {
     --vaadin-button-border-radius: 8px;
-    --vaadin-button-background: rgba(255,255,255,.12);
-    --vaadin-button-text-color: #fff;
+    --vaadin-button-tertiary-background: rgba(255,255,255,.12);
+    --vaadin-button-tertiary-text-color: #fff;
     width: 36px; min-width: 36px; height: 36px; padding: 0;
+    /* Lumo gives every vaadin-button a --lumo-space-xs vertical margin, so
+       the CTA's box already starts 3.5px down; +2px on top of that same
+       value centres this 36px square on the 40px CTA beside it. */
+    margin-top: calc(var(--lumo-space-xs, .25rem) + 2px);
     background: rgba(255,255,255,.12); color: #fff;
+  }
+
+  /* Keyboard focus. Lumo's own ring is Vector blue and this page's global
+     :focus-visible outline is a link blue — both measure ~1:1 against the
+     navy ground, so focus is effectively invisible here. A white ring held
+     2px off the button reads against the navy on both of its edges,
+     including around the white CTA. (WCAG 2.4.7 / 1.4.11) */
+  #ts-announce vaadin-button:focus-visible {
+    outline: 3px solid #fff; outline-offset: 2px; box-shadow: none;
   }
 
   /* ---- narrow: action column stacks under the copy, ✕ pins top-right ---- */
@@ -159,8 +180,14 @@ Replace it with:
       flex-direction: column; align-items: stretch;
       gap: 20px; padding: 24px 22px 26px;
     }
-    .ts-announce-copy h3 { font-size: 24px; padding-right: 44px; }
-    .ts-announce-actions { flex-direction: column; align-items: stretch; }
+    /* The wrap basis above is a main-axis size; in this column layout that
+       axis is vertical, so it must go back to auto or the copy would
+       reserve 380px of dead height. */
+    .ts-announce-copy { flex-basis: auto; }
+    .ts-announce-copy h2 { font-size: 24px; padding-right: 44px; }
+    .ts-announce-actions {
+      flex-direction: column; align-items: stretch; margin-left: 0;
+    }
     .ts-announce-cta-wrap { width: 100%; }
     #ts-announce-cta { width: 100%; }
     #ts-announce-dismiss { position: absolute; top: 14px; right: 14px; }
@@ -212,7 +239,7 @@ Replace it with:
               <span class="ts-announce-kicker">New in Keystone</span>
               <span class="ts-announce-live">Live</span>
             </div>
-            <h3>Stop hunting for what&rsquo;s due.</h3>
+            <h2>Stop hunting for what&rsquo;s due.</h2>
             <p>
               The <strong>Department Hub</strong> gathers every open task across your Vector
               applications, prioritized in one place — with department readiness at a glance.
@@ -247,13 +274,13 @@ Run via `mcp__playwright__browser_evaluate` with this function:
   const cs = getComputedStyle(b);
   const cta = document.getElementById('ts-announce-cta');
   const dis = document.getElementById('ts-announce-dismiss');
-  const h3 = b.querySelector('h3');
+  const h2 = b.querySelector('h2');
   const fails = [];
 
   if (!/linear-gradient/.test(cs.backgroundImage)) fails.push('gradient missing: ' + cs.backgroundImage);
   if (cs.borderRadius !== '14px') fails.push('radius = ' + cs.borderRadius);
-  if (getComputedStyle(h3).color !== 'rgb(255, 255, 255)') fails.push('headline not white: ' + getComputedStyle(h3).color);
-  if (h3.textContent.trim() !== 'Stop hunting for what’s due.') fails.push('headline copy = ' + JSON.stringify(h3.textContent.trim()));
+  if (getComputedStyle(h2).color !== 'rgb(255, 255, 255)') fails.push('headline not white: ' + getComputedStyle(h2).color);
+  if (h2.textContent.trim() !== 'Stop hunting for what’s due.') fails.push('headline copy = ' + JSON.stringify(h2.textContent.trim()));
   if (!b.querySelector('p strong')) fails.push('body is missing the bold "Department Hub"');
 
   // CTA must actually render white-on-navy, not fall back to Vaadin's blue fill.
@@ -361,7 +388,7 @@ Replace it with:
      ==================================================================== */
   #ci-announce {
     position: relative;
-    display: flex; align-items: center; gap: 28px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 20px 28px;
     padding: 26px 30px; margin-bottom: 20px;
     border-radius: 14px;
     background: linear-gradient(100deg, #08172b 0%, #0d3a72 55%, #0f5fbd 100%);
@@ -369,7 +396,7 @@ Replace it with:
   #ci-announce[hidden] { display: none; }
 
   /* ---- left column: eyebrow row, headline, body ---- */
-  .ci-announce-copy { flex: 1; min-width: 0; }
+  .ci-announce-copy { flex: 1 1 380px; min-width: 0; }
   .ci-announce-eyebrow {
     display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   }
@@ -387,7 +414,7 @@ Replace it with:
     text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
     background: #6ee7ad; color: #0a3b2a;
   }
-  .ci-announce-copy h3 {
+  .ci-announce-copy h2 {
     margin: 0 0 8px; font-size: 30px; line-height: 1.12; font-weight: 700;
     letter-spacing: -.01em; color: #fff;
   }
@@ -399,29 +426,50 @@ Replace it with:
 
   /* ---- right column: CTA + subline, then the dismiss square ---- */
   .ci-announce-actions {
-    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    display: flex; align-items: flex-start; gap: 14px;
+    flex: 0 0 auto; margin-left: auto;
   }
   .ci-announce-cta-wrap { display: flex; flex-direction: column; gap: 8px; }
-  .ci-announce-sub { font-size: 13px; color: #9dc6ec; text-align: center; }
+  .ci-announce-sub { font-size: 13px; color: #cfe3f8; text-align: center; }
 
   /* A white-on-dark button is NOT a stock Vector variant — the closest,
      theme="contrast primary", is dark-filled and would vanish on this
      background. Scoped inverse override; call it out at dev handoff.
-     Both the custom properties and the direct declarations are set: outer
-     author styles win over the component's own :host rules, and the custom
-     props cover the same ground through the documented API. */
+
+     WHAT ACTUALLY CARRIES THE COLOUR: the direct `background` / `color`
+     declarations on the host element — outer author styles win over the
+     component's own :host rules. Do NOT drop them. The custom properties
+     beside them are Lumo's THEME-SPECIFIC names, which are the only ones a
+     themed button reads: --vaadin-button-primary-* for theme="primary",
+     --vaadin-button-tertiary-* for theme="tertiary". The generic
+     --vaadin-button-background / --vaadin-button-text-color names style
+     nothing on a themed button (verified in the browser) and are not used
+     here. --vaadin-button-border-radius is generic and does work. */
   #ci-announce-cta {
     --vaadin-button-border-radius: 10px;
-    --vaadin-button-background: #fff;
-    --vaadin-button-text-color: #0d2a4d;
+    --vaadin-button-primary-background: #fff;
+    --vaadin-button-primary-text-color: #0d2a4d;
     background: #fff; color: #0d2a4d; font-weight: 700;
   }
   #ci-announce-dismiss {
     --vaadin-button-border-radius: 8px;
-    --vaadin-button-background: rgba(255,255,255,.12);
-    --vaadin-button-text-color: #fff;
+    --vaadin-button-tertiary-background: rgba(255,255,255,.12);
+    --vaadin-button-tertiary-text-color: #fff;
     width: 36px; min-width: 36px; height: 36px; padding: 0;
+    /* Lumo gives every vaadin-button a --lumo-space-xs vertical margin, so
+       the CTA's box already starts 3.5px down; +2px on top of that same
+       value centres this 36px square on the 40px CTA beside it. */
+    margin-top: calc(var(--lumo-space-xs, .25rem) + 2px);
     background: rgba(255,255,255,.12); color: #fff;
+  }
+
+  /* Keyboard focus. Lumo's own ring is Vector blue and this page's global
+     :focus-visible outline is a link blue — both measure ~1:1 against the
+     navy ground, so focus is effectively invisible here. A white ring held
+     2px off the button reads against the navy on both of its edges,
+     including around the white CTA. (WCAG 2.4.7 / 1.4.11) */
+  #ci-announce vaadin-button:focus-visible {
+    outline: 3px solid #fff; outline-offset: 2px; box-shadow: none;
   }
 
   /* ---- narrow: action column stacks under the copy, ✕ pins top-right ---- */
@@ -430,8 +478,14 @@ Replace it with:
       flex-direction: column; align-items: stretch;
       gap: 20px; padding: 24px 22px 26px;
     }
-    .ci-announce-copy h3 { font-size: 24px; padding-right: 44px; }
-    .ci-announce-actions { flex-direction: column; align-items: stretch; }
+    /* The wrap basis above is a main-axis size; in this column layout that
+       axis is vertical, so it must go back to auto or the copy would
+       reserve 380px of dead height. */
+    .ci-announce-copy { flex-basis: auto; }
+    .ci-announce-copy h2 { font-size: 24px; padding-right: 44px; }
+    .ci-announce-actions {
+      flex-direction: column; align-items: stretch; margin-left: 0;
+    }
     .ci-announce-cta-wrap { width: 100%; }
     #ci-announce-cta { width: 100%; }
     #ci-announce-dismiss { position: absolute; top: 14px; right: 14px; }
@@ -480,7 +534,7 @@ Replace it with:
               <span class="ci-announce-kicker">New in Keystone</span>
               <span class="ci-announce-live">Live</span>
             </div>
-            <h3>Stop hunting for what&rsquo;s due.</h3>
+            <h2>Stop hunting for what&rsquo;s due.</h2>
             <p>
               The <strong>Department Hub</strong> gathers every open task across your Vector
               applications, prioritized in one place — with department readiness at a glance.
@@ -513,13 +567,13 @@ Replace it with:
   const cs = getComputedStyle(b);
   const cta = document.getElementById('ci-announce-cta');
   const dis = document.getElementById('ci-announce-dismiss');
-  const h3 = b.querySelector('h3');
+  const h2 = b.querySelector('h2');
   const fails = [];
 
   if (!/linear-gradient/.test(cs.backgroundImage)) fails.push('gradient missing: ' + cs.backgroundImage);
   if (cs.borderRadius !== '14px') fails.push('radius = ' + cs.borderRadius);
-  if (getComputedStyle(h3).color !== 'rgb(255, 255, 255)') fails.push('headline not white: ' + getComputedStyle(h3).color);
-  if (h3.textContent.trim() !== 'Stop hunting for what’s due.') fails.push('headline copy = ' + JSON.stringify(h3.textContent.trim()));
+  if (getComputedStyle(h2).color !== 'rgb(255, 255, 255)') fails.push('headline not white: ' + getComputedStyle(h2).color);
+  if (h2.textContent.trim() !== 'Stop hunting for what’s due.') fails.push('headline copy = ' + JSON.stringify(h2.textContent.trim()));
   if (!b.querySelector('p strong')) fails.push('body is missing the bold "Department Hub"');
 
   const ctaBg = getComputedStyle(cta).backgroundColor;
@@ -624,7 +678,7 @@ Replace it with:
      ==================================================================== */
   #sch-announce {
     position: relative;
-    display: flex; align-items: center; gap: 28px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 20px 28px;
     padding: 26px 30px; margin-bottom: 20px;
     border-radius: 14px;
     background: linear-gradient(100deg, #08172b 0%, #0d3a72 55%, #0f5fbd 100%);
@@ -632,7 +686,7 @@ Replace it with:
   #sch-announce[hidden] { display: none; }
 
   /* ---- left column: eyebrow row, headline, body ---- */
-  .sch-announce-copy { flex: 1; min-width: 0; }
+  .sch-announce-copy { flex: 1 1 380px; min-width: 0; }
   .sch-announce-eyebrow {
     display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   }
@@ -650,7 +704,7 @@ Replace it with:
     text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
     background: #6ee7ad; color: #0a3b2a;
   }
-  .sch-announce-copy h3 {
+  .sch-announce-copy h2 {
     margin: 0 0 8px; font-size: 30px; line-height: 1.12; font-weight: 700;
     letter-spacing: -.01em; color: #fff;
   }
@@ -662,29 +716,50 @@ Replace it with:
 
   /* ---- right column: CTA + subline, then the dismiss square ---- */
   .sch-announce-actions {
-    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    display: flex; align-items: flex-start; gap: 14px;
+    flex: 0 0 auto; margin-left: auto;
   }
   .sch-announce-cta-wrap { display: flex; flex-direction: column; gap: 8px; }
-  .sch-announce-sub { font-size: 13px; color: #9dc6ec; text-align: center; }
+  .sch-announce-sub { font-size: 13px; color: #cfe3f8; text-align: center; }
 
   /* A white-on-dark button is NOT a stock Vector variant — the closest,
      theme="contrast primary", is dark-filled and would vanish on this
      background. Scoped inverse override; call it out at dev handoff.
-     Both the custom properties and the direct declarations are set: outer
-     author styles win over the component's own :host rules, and the custom
-     props cover the same ground through the documented API. */
+
+     WHAT ACTUALLY CARRIES THE COLOUR: the direct `background` / `color`
+     declarations on the host element — outer author styles win over the
+     component's own :host rules. Do NOT drop them. The custom properties
+     beside them are Lumo's THEME-SPECIFIC names, which are the only ones a
+     themed button reads: --vaadin-button-primary-* for theme="primary",
+     --vaadin-button-tertiary-* for theme="tertiary". The generic
+     --vaadin-button-background / --vaadin-button-text-color names style
+     nothing on a themed button (verified in the browser) and are not used
+     here. --vaadin-button-border-radius is generic and does work. */
   #sch-announce-cta {
     --vaadin-button-border-radius: 10px;
-    --vaadin-button-background: #fff;
-    --vaadin-button-text-color: #0d2a4d;
+    --vaadin-button-primary-background: #fff;
+    --vaadin-button-primary-text-color: #0d2a4d;
     background: #fff; color: #0d2a4d; font-weight: 700;
   }
   #sch-announce-dismiss {
     --vaadin-button-border-radius: 8px;
-    --vaadin-button-background: rgba(255,255,255,.12);
-    --vaadin-button-text-color: #fff;
+    --vaadin-button-tertiary-background: rgba(255,255,255,.12);
+    --vaadin-button-tertiary-text-color: #fff;
     width: 36px; min-width: 36px; height: 36px; padding: 0;
+    /* Lumo gives every vaadin-button a --lumo-space-xs vertical margin, so
+       the CTA's box already starts 3.5px down; +2px on top of that same
+       value centres this 36px square on the 40px CTA beside it. */
+    margin-top: calc(var(--lumo-space-xs, .25rem) + 2px);
     background: rgba(255,255,255,.12); color: #fff;
+  }
+
+  /* Keyboard focus. Lumo's own ring is Vector blue and this page's global
+     :focus-visible outline is a link blue — both measure ~1:1 against the
+     navy ground, so focus is effectively invisible here. A white ring held
+     2px off the button reads against the navy on both of its edges,
+     including around the white CTA. (WCAG 2.4.7 / 1.4.11) */
+  #sch-announce vaadin-button:focus-visible {
+    outline: 3px solid #fff; outline-offset: 2px; box-shadow: none;
   }
 
   /* ---- narrow: action column stacks under the copy, ✕ pins top-right ---- */
@@ -693,8 +768,14 @@ Replace it with:
       flex-direction: column; align-items: stretch;
       gap: 20px; padding: 24px 22px 26px;
     }
-    .sch-announce-copy h3 { font-size: 24px; padding-right: 44px; }
-    .sch-announce-actions { flex-direction: column; align-items: stretch; }
+    /* The wrap basis above is a main-axis size; in this column layout that
+       axis is vertical, so it must go back to auto or the copy would
+       reserve 380px of dead height. */
+    .sch-announce-copy { flex-basis: auto; }
+    .sch-announce-copy h2 { font-size: 24px; padding-right: 44px; }
+    .sch-announce-actions {
+      flex-direction: column; align-items: stretch; margin-left: 0;
+    }
     .sch-announce-cta-wrap { width: 100%; }
     #sch-announce-cta { width: 100%; }
     #sch-announce-dismiss { position: absolute; top: 14px; right: 14px; }
@@ -743,7 +824,7 @@ Replace it with:
               <span class="sch-announce-kicker">New in Keystone</span>
               <span class="sch-announce-live">Live</span>
             </div>
-            <h3>Stop hunting for what&rsquo;s due.</h3>
+            <h2>Stop hunting for what&rsquo;s due.</h2>
             <p>
               The <strong>Department Hub</strong> gathers every open task across your Vector
               applications, prioritized in one place — with department readiness at a glance.
@@ -776,13 +857,13 @@ Replace it with:
   const cs = getComputedStyle(b);
   const cta = document.getElementById('sch-announce-cta');
   const dis = document.getElementById('sch-announce-dismiss');
-  const h3 = b.querySelector('h3');
+  const h2 = b.querySelector('h2');
   const fails = [];
 
   if (!/linear-gradient/.test(cs.backgroundImage)) fails.push('gradient missing: ' + cs.backgroundImage);
   if (cs.borderRadius !== '14px') fails.push('radius = ' + cs.borderRadius);
-  if (getComputedStyle(h3).color !== 'rgb(255, 255, 255)') fails.push('headline not white: ' + getComputedStyle(h3).color);
-  if (h3.textContent.trim() !== 'Stop hunting for what’s due.') fails.push('headline copy = ' + JSON.stringify(h3.textContent.trim()));
+  if (getComputedStyle(h2).color !== 'rgb(255, 255, 255)') fails.push('headline not white: ' + getComputedStyle(h2).color);
+  if (h2.textContent.trim() !== 'Stop hunting for what’s due.') fails.push('headline copy = ' + JSON.stringify(h2.textContent.trim()));
   if (!b.querySelector('p strong')) fails.push('body is missing the bold "Department Hub"');
 
   const ctaBg = getComputedStyle(cta).backgroundColor;
@@ -872,7 +953,13 @@ Expected: the first grep finds nothing (`exit: 1`). The second prints `2` for ea
 - [ ] **Step 3: Run the contrast check**
 
 The background is a gradient, so each text colour is checked against the gradient colour at its
-own horizontal position. Run:
+own horizontal position. **The background in each pair below is the gradient evaluated at that
+element's own rightmost extent** — the darkest-on-the-left / brightest-on-the-right ground the
+element's text actually crosses — not a hand-picked gradient stop. Evaluating a pair at the
+element's left edge or at a convenient stop is what let the subline ship at 3.86:1: its text run
+spans 70.3%→92.5% of the banner width, where the ground reaches `#0f58af`, not the `#0e468b`
+found at the 70% point. To re-derive a ground after any layout change, measure the element's
+text run with a `Range` and evaluate the `100deg` gradient at its right edge. Run:
 
 ```bash
 python3 - <<'PY'
@@ -890,27 +977,31 @@ def ratio(a, b):
     hi, lo = max(la, lb), min(la, lb)
     return (hi + 0.05) / (lo + 0.05)
 
+# fg on the gradient colour at that element's own rightmost extent, measured
+# at 1400px viewport width. The focus ring's floor is 3.0 (WCAG 1.4.11 is a
+# non-text requirement); everything else is body/large text at 4.5.
 pairs = [
-    ('headline',      '#ffffff', '#0d3a72', 4.5),
+    ('headline',      '#ffffff', '#0c3261', 4.5),
     ('body',          '#bcd8f5', '#0d3a72', 4.5),
-    ('eyebrow',       '#77b6f2', '#08172b', 4.5),
+    ('eyebrow',       '#77b6f2', '#0a2344', 4.5),
     ('LIVE pill text','#0a3b2a', '#6ee7ad', 4.5),
-    ('subline',       '#9dc6ec', '#0e468b', 4.5),
+    ('subline',       '#cfe3f8', '#0f58af', 4.5),
     ('CTA label',     '#0d2a4d', '#ffffff', 4.5),
+    ('focus ring',    '#ffffff', '#0f58af', 3.0),
 ]
 bad = 0
 for name, fg, bg, floor in pairs:
     r = ratio(fg, bg)
     ok = r >= floor
     bad += not ok
-    print(f'{"ok  " if ok else "FAIL"} {name:15} {fg} on {bg}  {r:.2f}:1')
+    print(f'{"ok  " if ok else "FAIL"} {name:15} {fg} on {bg}  {r:.2f}:1  (floor {floor})')
 print('ALL PASS' if not bad else f'{bad} FAILING')
 PY
 ```
 
-Expected: `ALL PASS`, with ratios near 11.3 / 7.7 / 8.4 / 8.2 / 5.2 / 14.4 respectively. If a colour
-was altered during Tasks 1–3 and now fails, lighten the offending text colour rather than darkening
-the gradient — the gradient is the approved design.
+Expected: `ALL PASS`, with ratios near 12.8 / 7.7 / 7.3 / 8.2 / 5.3 / 14.4 / 6.9 respectively. If a
+colour was altered during Tasks 1–3 and now fails, lighten the offending text colour rather than
+darkening the gradient — the gradient is the approved design.
 
 - [ ] **Step 4: Update the three `modified` dates in `products.json`**
 
@@ -957,5 +1048,9 @@ git commit -m "Keystone embeds: refresh dashboard dates for the new banner"
 Not part of this plan's work — record these for whoever runs the dev-handoff process later:
 
 - The white-on-dark CTA is **not** a stock Vector button variant. `theme="contrast primary"` is dark-filled and unusable on this background, so the banner ships a scoped inverse override. This is a design-system gap worth raising, not something dev should reinvent per app.
+- **The override's colour comes from the direct `background` / `color` declarations on the host element — do not strip them.** A themed `vaadin-button` reads only Lumo's *theme-specific* custom properties: `--vaadin-button-primary-background` / `--vaadin-button-primary-text-color` for `theme="primary"`, and `--vaadin-button-tertiary-background` / `--vaadin-button-tertiary-text-color` for `theme="tertiary"`. The **generic** `--vaadin-button-background` and `--vaadin-button-text-color` names are inert on a themed button (verified with probe buttons in the browser: setting them leaves the button Vector-blue). `--vaadin-button-border-radius` is the exception — it is generic and does apply.
+- **Keyboard focus needs the banner's scoped white ring.** Lumo's own focus ring resolves to `rgba(2,113,206,.76)` and these host pages set a global `:focus-visible { outline: 2px solid <link blue> }` — both ~1.4:1 against the navy, i.e. effectively invisible. The banner ships `#<prefix>-announce vaadin-button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: none; }`. Keep an equivalent in production; a white ring measures 6.9:1 against the brightest ground the banner reaches.
+- **The banner wraps on available width, not viewport width.** `flex-wrap: wrap` plus a `380px` copy basis makes the action column drop to its own right-aligned row as soon as the *content column* gets tight; the `@media (max-width: 900px)` block is only the true-narrow phone case. Because the phone case flips the container to `column`, it must reset `flex-basis: auto` on the copy (a main-axis basis becomes a *height* there) and `margin-left: 0` on the action block (a cross-axis auto margin defeats `align-items: stretch`, so the CTA would not go full-width). Both resets are load-bearing.
 - The CTA's 10px radius deliberately departs from the `--vaadin-button-border-radius: 999px` pill these mocks apply everywhere else. It matches the approved design.
+- The banner headline is an `h2`. In Target Solutions it is the document's first heading and there is no `h1` on the recreated homepage — dev should slot the real page's `h1` above it rather than promote the banner.
 - Dismissal is session-only by design (no storage), so demos always reset on reload. Real product behaviour — whether dismissal should persist per user — is an open product question, not a design omission.
