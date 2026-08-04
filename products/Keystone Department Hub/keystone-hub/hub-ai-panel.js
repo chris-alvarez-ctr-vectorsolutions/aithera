@@ -64,6 +64,15 @@
      same way.
      ===================================================================== */
 
+  // NOT SCOPED PER DASHBOARD — deliberate, and a real limitation to carry into
+  // any implementation. state.thread and state.added are page-global, while
+  // dashBody() concatenates addedWidgets() onto whichever dashboard variant is
+  // currently rendering. Today nothing exposes it: the Chief is the only role
+  // that is both granted an assistant and the owner of their dashboard. But
+  // granting a non-owning role — a pure seedGrants() data change, no code
+  // involved — would render the Chief's chat-added widgets on that role's
+  // read-only dashboard and show them the Chief's conversation. A production
+  // build must key both arrays by dashboard identity.
   var state = {
     thread: [],      // { role:'user', text } | { role:'assistant', text, metricId, denied }
     draft: '',
@@ -169,7 +178,7 @@
         : '') +
       (msg.added
         ? '<div class="kx-ai-added">' + micon('check_circle', { size: 14, fill: 1 }) +
-          'Added to ' + esc(msg.added) + '</div>'
+          'Added ' + esc(msg.added) + ' to the dashboard</div>'
         : '') +
       '</div></div>';
   }
@@ -219,7 +228,7 @@
       return '<button class="kx-ai-collapsed" id="kxAiExpand" ' +
         'title="Open Agency Intelligence" aria-label="Open Agency Intelligence">' +
         mark(24) + '<span class="vlabel">Agency Intelligence</span>' +
-        micon('chevron_right', { size: 16, color: 'var(--ink-400)', style: 'margin-top:auto' }) +
+        micon('chevron_right', { size: 16, color: 'var(--ink-400)', cls: 'kx-ai-collapsed-chev' }) +
         '</button>';
     }
     var person = currentPerson;
