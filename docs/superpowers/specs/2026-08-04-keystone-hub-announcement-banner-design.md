@@ -40,7 +40,7 @@ background: linear-gradient(100deg, #08172b 0%, #0d3a72 55%, #0f5fbd 100%);
 | Element | Spec |
 |---|---|
 | Mark | 34×34 tile, `border-radius: 8px`, `var(--lumo-primary-color, #0271ce)`, white `fa-fire-flame-curved` |
-| Eyebrow | `NEW IN KEYSTONE` — 12px, bold, `letter-spacing: .09em`, uppercase, `#77b6f2` |
+| Eyebrow | `NEW IN VECTOR SOLUTIONS` — 12px, bold, `letter-spacing: .09em`, uppercase, `#77b6f2`. Authored as `New in Vector Solutions`; the caps come from `text-transform` |
 | LIVE pill | Fill `#6ee7ad`, text `#0a3b2a`, 11px bold uppercase, `border-radius: 999px`; sits beside the eyebrow |
 | Headline | "Stop hunting for what's due." — `#fff`, bold, 30px, `line-height: 1.12`. Marked up as an **`h2`**: it is the visually dominant heading on the page and must not sit a level below the section titles beneath it (in Target Solutions it is also the document's first heading) |
 | Body | "The **Department Hub** gathers every open task across your Vector applications, prioritized in one place — with department readiness at a glance." 15px, `#bcd8f5`; "Department Hub" bold `#fff` |

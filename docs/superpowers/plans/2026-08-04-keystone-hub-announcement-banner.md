@@ -19,7 +19,7 @@
 - **Do not delete the `*-new-pill` CSS rule.** It is also used by a nav badge elsewhere in each file (`ts-` line ~541, `ci-` line ~450, `sch-` line ~604). Only its use *inside the banner* goes away.
 - **Do not touch the `vaadin-button { --vaadin-button-border-radius: 999px; }` rule** that follows the banner CSS block in each file. The banner's own buttons override the radius locally.
 - **Preserve these element IDs exactly:** `<prefix>-announce`, `<prefix>-announce-cta`, `<prefix>-announce-dismiss`. Existing JS at the bottom of each file binds to them (`window.tsSetView('hub')` / `window.ciSetView('hub')` / `window.schSetView('hub')` for the CTA; `banner.hidden = true` for dismiss).
-- **Copy, verbatim:** eyebrow `New in Keystone` (uppercased by CSS), pill `Live` (uppercased by CSS), headline `Stop hunting for what's due.`, body `The <strong>Department Hub</strong> gathers every open task across your Vector applications, prioritized in one place — with department readiness at a glance.`, CTA `View the Department Hub`, subline `Or find it any time in the left navigation`. Use a real em dash (—), not `--`.
+- **Copy, verbatim:** eyebrow `New in Vector Solutions` (uppercased by CSS), pill `Live` (uppercased by CSS), headline `Stop hunting for what's due.`, body `The <strong>Department Hub</strong> gathers every open task across your Vector applications, prioritized in one place — with department readiness at a glance.`, CTA `View the Department Hub`, subline `Or find it any time in the left navigation`. Use a real em dash (—), not `--`.
 - **Silent icon failure is a known trap here.** A Font Awesome class not in the loaded set renders as a zero-width invisible glyph with no console error. The assertion script in every task checks for this; an empty result is required.
 - **Commit after each task.** One commit per file.
 
@@ -236,7 +236,7 @@ Replace it with:
               <span class="ts-announce-mark">
                 <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>
               </span>
-              <span class="ts-announce-kicker">New in Keystone</span>
+              <span class="ts-announce-kicker">New in Vector Solutions</span>
               <span class="ts-announce-live">Live</span>
             </div>
             <h2>Stop hunting for what&rsquo;s due.</h2>
@@ -306,7 +306,7 @@ Expected: `PASS`. If it returns a list, fix the reported items and re-run before
 
 - [ ] **Step 5: Screenshot desktop and compare to the approved design**
 
-`mcp__playwright__browser_take_screenshot` (viewport, not full page). Compare against the approved screenshot: dark navy→blue gradient left to right, flame on a blue tile, `NEW IN KEYSTONE` + green `LIVE`, large white headline, white CTA with the subline beneath it, translucent ✕ at the far right. Fix any visible mismatch before continuing.
+`mcp__playwright__browser_take_screenshot` (viewport, not full page). Compare against the approved screenshot: dark navy→blue gradient left to right, flame on a blue tile, `NEW IN VECTOR SOLUTIONS` + green `LIVE`, large white headline, white CTA with the subline beneath it, translucent ✕ at the far right. Fix any visible mismatch before continuing.
 
 - [ ] **Step 6: Verify the interactions still work**
 
@@ -531,7 +531,7 @@ Replace it with:
               <span class="ci-announce-mark">
                 <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>
               </span>
-              <span class="ci-announce-kicker">New in Keystone</span>
+              <span class="ci-announce-kicker">New in Vector Solutions</span>
               <span class="ci-announce-live">Live</span>
             </div>
             <h2>Stop hunting for what&rsquo;s due.</h2>
@@ -821,7 +821,7 @@ Replace it with:
               <span class="sch-announce-mark">
                 <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>
               </span>
-              <span class="sch-announce-kicker">New in Keystone</span>
+              <span class="sch-announce-kicker">New in Vector Solutions</span>
               <span class="sch-announce-live">Live</span>
             </div>
             <h2>Stop hunting for what&rsquo;s due.</h2>
