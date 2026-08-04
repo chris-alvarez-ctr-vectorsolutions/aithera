@@ -791,6 +791,60 @@
       @keyframes consequence-land { from { transform: translateY(10px) scale(1.04); } to { transform: none; } }
       @media (prefers-reduced-motion: reduce) { .scene-narration.consequence.enter { animation: none; } }
 
+      /* ---- CONVERSATION WINDOWS (multi-character scenes) ----------------
+         Only appear once a scene has spanned more than one counterpart. Earlier
+         conversations collapse into muted, expandable strips; the live one opens
+         beneath a "Now · <who>" divider. A single-conversation scene shows none
+         of this and is byte-identical to before. */
+      .convo-earlier {
+        border: 1px solid var(--s-line);
+        border-radius: 12px;
+        background: rgba(0,0,0,.16);
+        overflow: hidden;
+      }
+      .convo-earlier + .convo-earlier { margin-top: -6px; }
+      .convo-earlier-head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 13px;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+      }
+      .convo-earlier-head::-webkit-details-marker { display: none; }
+      .convo-earlier-head .ce-ic { color: var(--s-ink-faint); font-size: 12px; display: inline-flex; }
+      .convo-earlier-head .ce-title {
+        font-size: 11px; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--s-ink-soft); flex: 0 0 auto;
+      }
+      .convo-earlier-head .ce-meta {
+        font-size: 12.5px; color: var(--s-ink-faint);
+        flex: 1 1 auto; min-width: 0;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .convo-earlier-head .ce-chev { color: var(--s-ink-faint); font-size: 11px; transition: transform .2s ease; flex: 0 0 auto; }
+      .convo-earlier[open] .convo-earlier-head .ce-chev { transform: rotate(180deg); }
+      .convo-earlier-head:hover { background: rgba(255,255,255,.03); }
+      .convo-earlier-body {
+        padding: 12px 14px 14px;
+        display: flex; flex-direction: column; gap: 12px;
+        border-top: 1px solid var(--s-line);
+        opacity: .72;   /* archived — present but clearly settled */
+      }
+
+      /* "Now · <who>" — where the LIVE conversation begins, below the strips. */
+      .convo-now {
+        display: flex; align-items: center; gap: 9px;
+        margin: 6px 0 2px;
+        color: var(--s-you);
+        font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+      }
+      .convo-now .cn-dot {
+        flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%;
+        background: var(--s-you); box-shadow: 0 0 0 3px var(--s-you-soft);
+      }
+      .convo-now .cn-lbl { flex: 0 0 auto; }
+      .convo-now::after { content: ''; flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, var(--s-line), transparent); }
+
       /* Your scene line: caption + mic icon; amber "spoken" bubble; retry control */
       .you-scene { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
       .you-scene .cap {
@@ -1659,6 +1713,10 @@
       debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
       returnLabel: null,        // custom label for the scene-return CTA (e.g. "Check in with Marshall")
       sceneTarget: null,        // who the learner is speaking to in the scene now (e.g. "Marshall") — drives the composer placeholder
+      // —— CONVERSATION WINDOWS (multi-character scenes; see beginConvo) ——
+      convoSeq: 0,              // id of the CURRENT scene conversation; bumps each time the counterpart changes
+      convoKey: null,           // raw counterpart of the current conversation (boundary detection)
+      convoLabel: null,         // display label of the current conversation (null for a self-narrated moment)
       // —— THE LADDER ENGINE (app-owned; the model classifies, the app routes) ——
       phaseIdx: -1,             // -1 = reflection warm-up; 0..N-1 = live phases[phaseIdx]; >=N = ladder complete (model closes)
       turnsInPhase: 0,          // learner turns spent in the CURRENT phase (vs. its maxTurns cap)
@@ -1725,6 +1783,45 @@
       const out = [];
       for (let i = msgs.length - 1; i >= 0 && worldOf(msgs[i]) === world; i--) out.unshift(msgs[i]);
       return out;
+    }
+
+    /* ---- CONVERSATION WINDOWS (multi-character scenes) -------------------
+       A ladder can move the learner between DIFFERENT counterparts (talk to
+       Ms. Reyes → coaching → talk to Bianca). Each counterpart gets its OWN
+       scene window: when the person changes, a new conversation opens and the
+       prior one collapses. Every scene message is stamped with the live
+       conversation's id (`convo`) + display label (`convoLabel`); the view
+       (sceneCardAll) segments on those. Same person across a coaching beat stays
+       ONE conversation. This is a VIEW model only — the transcript sent to the
+       model (getTurn) is never windowed, so cross-phase memory is intact. */
+
+    // The counterpart of the scene phase the learner is currently entering/in.
+    function scenePhaseCounterpart() {
+      const phases = ACTIVE_SCENARIO.phases || [];
+      const p = phases[state.phaseIdx];
+      return (p && p.world === 'scene') ? (p.counterpart || '') : '';
+    }
+
+    // Open a conversation for `counterpartRaw`. Bumps the id only when the person
+    // actually changes, so consecutive same-person scenes read as one thread.
+    // 'Narrator'/'' are self-narrated moments — a window, but with no "· who" label.
+    function beginConvo(counterpartRaw) {
+      const raw = (counterpartRaw == null ? '' : String(counterpartRaw)).trim();
+      if (state.convoSeq === 0 || raw !== state.convoKey) {
+        state.convoSeq++;
+        state.convoKey = raw;
+        state.convoLabel = (raw && raw !== 'Narrator') ? fillT(raw) : null;
+      }
+    }
+
+    // Stamp a scene message with the live conversation (no-op for coaching / if
+    // already stamped, so a re-render or retry never re-labels a settled line).
+    function stampScene(m) {
+      if (m && worldOf(m) === 'scene' && m.convo == null) {
+        m.convo = state.convoSeq;
+        m.convoLabel = state.convoLabel;
+      }
+      return m;
     }
 
     /* =====================================================================
@@ -1990,15 +2087,17 @@
       wrap.appendChild(el('div', 'bubble', esc(m.text)));
       return wrap;
     }
-    function charNode(m, isConsequence) {
+    function charNode(m, isConsequence, defaultName) {
       // narration-only line (no dialogue) → quiet centered scene-setting text.
       // The outcome narration that lands right after the learner acts is the
       // CONSEQUENCE tier (larger, spotlit) — flagged by the caller.
       if (m.kind === 'narration') return el('div', 'scene-narration' + (isConsequence ? ' consequence' : '') + ec(m), narrationHTML(m));
       const wrap = el('div', 'char-line' + ec(m));
       // Per-message speaker (m.name) so a second in-scene character (Marshall)
-      // is labeled correctly; falls back to the scenario's default character.
-      const speaker = m.name || SCENARIO.character;
+      // is labeled correctly; falls back to THIS conversation's counterpart
+      // (so an unnamed line in Bianca's window reads "Bianca", not the default),
+      // then to the scenario's default character.
+      const speaker = m.name || defaultName || SCENARIO.character;
       wrap.appendChild(el('div', 'char-avatar', esc(speaker.charAt(0))));
       const body = el('div', 'char-body');
       const head = el('div', 'char-head');
@@ -2060,22 +2159,82 @@
     // its TRUE index so "Try a different approach" truncates to the right place.
     function sceneCardAll(msgs, interactive) {
       const card = el('div', 'stage-card');
-      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
-      // Track the previous scene speaker so the FIRST narration after a learner
-      // action renders as the emphasized CONSEQUENCE tier (the outcome of what
-      // they just did) — ambient scene-setting narration stays quiet.
-      let prevSceneSpeaker = null;
+
+      // Segment scene messages into per-counterpart CONVERSATIONS — contiguous
+      // runs sharing a `convo` id (see beginConvo/stampScene). The latest is the
+      // LIVE window; any earlier ones collapse. Messages keep their TRUE index so
+      // "Try a different approach" still truncates to the right place.
+      const groups = [];
       msgs.forEach((m, idx) => {
         if (worldOf(m) !== 'scene') return;
+        const id = m.convo || 0;
+        const tail = groups[groups.length - 1];
+        const g = (tail && tail.id === id) ? tail : (groups.push({ id, label: m.convoLabel || null, items: [] }), groups[groups.length - 1]);
+        g.items.push({ m, idx });
+      });
+
+      if (!groups.length) {
+        card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+        return card;
+      }
+
+      // ONE conversation (every scene-sweep / branching / mix / guided run, and
+      // the ensemble until a second person appears): render exactly as before —
+      // no windowing chrome at all.
+      const live = groups[groups.length - 1];
+      if (groups.length === 1) {
+        card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+        renderSceneLines(card, live.items, interactive, live.label);
+        return card;
+      }
+
+      // MULTIPLE conversations: earlier ones collapse (read-only), the current one
+      // opens fresh beneath a "Now · <who>" divider.
+      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+      groups.slice(0, -1).forEach((g) => card.appendChild(collapsedConvoNode(g)));
+      const who = live.label;
+      card.appendChild(el('div', 'convo-now',
+        `<span class="cn-dot"></span><span class="cn-lbl">Now${who ? ' · ' + esc(who) : ''}</span>`));
+      renderSceneLines(card, live.items, interactive, live.label);
+      return card;
+    }
+
+    // Render a conversation's scene lines into `container`. Tracks the previous
+    // scene speaker so the FIRST narration after a learner action renders as the
+    // emphasized CONSEQUENCE tier (the outcome of what they did) — ambient
+    // scene-setting narration stays quiet. `defaultName` labels unnamed character
+    // lines with this window's counterpart.
+    function renderSceneLines(container, items, interactive, defaultName) {
+      let prevSceneSpeaker = null;
+      items.forEach(({ m, idx }) => {
         if (m.speaker === 'character') {
           const isConsequence = m.kind === 'narration' && prevSceneSpeaker === 'you';
-          card.appendChild(charNode(m, isConsequence));
+          container.appendChild(charNode(m, isConsequence, defaultName));
         } else if (m.speaker === 'you') {
-          appendYouBeats(card, m, idx, interactive);
+          appendYouBeats(container, m, idx, interactive);
         }
         prevSceneSpeaker = m.speaker;
       });
-      return card;
+    }
+
+    // A finished conversation, collapsed to a compact expandable strip. Read-only
+    // (interactive:false → no retry) — a record of what happened with that person,
+    // not a place to act.
+    function collapsedConvoNode(g) {
+      const who = g.label;
+      const turns = g.items.filter((x) => x.m.speaker === 'you').length;
+      const d = el('details', 'convo-earlier');
+      const sum = el('summary', 'convo-earlier-head');
+      sum.innerHTML =
+        `<span class="ce-ic"><i class="fa-solid fa-clock-rotate-left"></i></span>
+         <span class="ce-title">Earlier${who ? ' · ' + esc(who) : ''}</span>
+         <span class="ce-meta">${who ? 'your conversation with ' + esc(who) : 'a moment you narrated'}${turns ? ` · ${turns} ${turns === 1 ? 'turn' : 'turns'}` : ''}</span>
+         <span class="ce-chev"><i class="fa-solid fa-chevron-down"></i></span>`;
+      d.appendChild(sum);
+      const body = el('div', 'convo-earlier-body');
+      renderSceneLines(body, g.items, false, who);
+      d.appendChild(body);
+      return d;
     }
 
     /* ---- the resources card, presented AS a coach message (same avatar +
@@ -2550,6 +2709,7 @@
         m._enter = true;
         if (!state.hasEnteredScene) state.hasEnteredScene = true;
         followStage = true;
+        stampScene(m);            // tag with the live conversation (per-counterpart window)
         state.messages.push(m);
         render();
         await wait(reducedMotion() ? 140 : 700);      // settle so it reads before the next beat
@@ -2925,9 +3085,11 @@
           ladder: { ...state.ladder }, vars: { ...state.vars }, lastTier: state.lastTier,
           scenePlaceholder: state.scenePlaceholder, entryLabel: state.entryLabel,
           sceneTarget: state.sceneTarget,
+          convoSeq: state.convoSeq, convoKey: state.convoKey, convoLabel: state.convoLabel,
         };
         if (SCENE_SAYDO) youMsg._pending = true;
         else youMsg._display = [{ kind: 'dialogue', text }];
+        stampScene(youMsg);       // the learner's line joins the live conversation window
         state.messages.push(youMsg);
         followStage = true;   // new scene content — follow it down
       } else {
@@ -3170,6 +3332,9 @@
       state.returnLabel = null;
       state.mode = p.mode; state.inputTarget = p.inputTarget;
       state.sceneTarget = p.sceneTarget || null;   // who (if anyone) the learner now faces
+      // A different counterpart opens a NEW conversation window (the prior one
+      // collapses); returning to the SAME person just continues that window.
+      beginConvo(scenePhaseCounterpart());
       followStage = true;
       announce(p.sceneTarget ? `Back in with ${p.sceneTarget}.` : 'Back in the scene.');
       // Paint the NEW moment in the scene pane — the next phase's locked entry
@@ -3219,7 +3384,7 @@
         state.awaitingReturn = true;
       } else if (scenePart.length) {
         // No return context armed but scene beats arrived — never drop them.
-        scenePart.forEach((m) => { m._enter = true; state.messages.push(m); });
+        scenePart.forEach((m) => { m._enter = true; stampScene(m); state.messages.push(m); });
       }
       announce('Stepped out to your AI coach.');
       // Reveal the debrief one bubble at a time (typing beat between each), the
@@ -3264,6 +3429,7 @@
       state.audioIntroPlaying = false;   // likewise the reading/audio context backdrop — the real scene takes over now
       if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
       state.mode = 'scene'; state.inputTarget = 'character';
+      beginConvo(scenePhaseCounterpart());   // open the FIRST conversation window
       state.delivering = true;
       announce('You step into the moment.');
       render();   // coach sheet lowers; the (empty) live scene is revealed beneath it
@@ -3318,6 +3484,7 @@
         state.ladder = { ...a.ladder }; state.vars = { ...a.vars }; state.lastTier = a.lastTier;
         state.scenePlaceholder = a.scenePlaceholder; state.entryLabel = a.entryLabel;
         state.sceneTarget = a.sceneTarget;
+        if ('convoSeq' in a) { state.convoSeq = a.convoSeq; state.convoKey = a.convoKey; state.convoLabel = a.convoLabel; }
       }
       state.messages = state.messages.slice(0, absIndex);
       state.complete = false;
@@ -3351,6 +3518,7 @@
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
         awaitingReturn: false, pendingReturn: null,
         debriefReturn: null, returnLabel: null, sceneTarget: null,
+        convoSeq: 0, convoKey: null, convoLabel: null,   // reset the conversation windows
         // reset the app-owned ladder engine
         phaseIdx: -1, turnsInPhase: 0, ladder: {}, vars: {}, lastTier: null, reflectionProbed: false,
         scenePlaceholder: '', entryLabel: '',
