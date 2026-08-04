@@ -501,6 +501,30 @@ ${closer}`);
     return normalize({ ...base, ...obj(draft) });
   }
 
+  /* =======================================================================
+     toRuntime — the mix-arc RUNTIME MODEL: map the authored beats onto the
+     tier-ladder `phases[]` the shared player (js/sim-player.js) drives. A beat
+     IS a phase; its `type` picks the ladder `world`; a roleplay beat's
+     character becomes the scene counterpart. Because every curated recipe funnels
+     through toMixArc() into a mix-arc scenario, this is THE runtime mapping the
+     converged player uses for all types (scenario-live.html). Pairs with
+     compile(): the type owns both its prompt AND its runtime shape.
+     ======================================================================= */
+  function toRuntime(rawScenario) {
+    const g = normalize(rawScenario);
+    const worldForType = (t) => (t === 'roleplay' ? 'scene' : 'coaching');
+    const phases = arr(g.beats).map((b) => Object.assign({}, b, {
+      world: worldForType(b.type),
+      counterpart: b.type === 'roleplay' ? (obj(b.character).name || '') : '',
+      entry: Object.assign({ bridgesByTier: {} }, b.entry),
+    }));
+    return Object.assign({}, g, {
+      phases,
+      opening: [obj(g.reflection).prompt].filter((t) => String(t || '').trim()).map((t) => fill(t, g)),
+      sceneLineCaption: 'You',
+    });
+  }
+
   /* ---- highlightStrings — every authored string, for prompt highlighting -- */
   function highlightStrings(s) {
     s = normalize(s);
@@ -975,6 +999,7 @@ ${closer}`);
     blank,
     merge,
     compile,
+    toRuntime,
     fill,
     highlightStrings,
     previewUrl: () => 'scenario-live.html?type=mix-arc',   // [Option B] the converged generic player (stable URL; survives the sim-player extraction)

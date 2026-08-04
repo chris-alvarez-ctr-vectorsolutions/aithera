@@ -1459,7 +1459,7 @@
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/mix-arc.js?v=4"></script>
+    <script src="js/scenario-types/mix-arc.js?v=5"></script>
     <!-- [Option B spike] curated recipe types this generic player can route to.
          A non-mix type exposes toMixArc(); mix-arc plays natively. -->
     <script src="js/scenario-types/guided-arc.js?v=ob1"></script>
@@ -1506,21 +1506,9 @@
     // beat's character becomes the scene counterpart). An observe beat runs in
     // the coaching world — the learner reacts to the clip described in its
     // signpost/prompt (a literal video card is a v1.1 enhancement).
-    const worldForType = (t) => (t === 'roleplay' ? 'scene' : 'coaching');
-    function fromPublishedBranchingArc(raw) {
-      const g = BA_TYPE.normalize(raw);
-      const fillT = (t) => BA_TYPE.fill(t, g);
-      const phases = (g.beats || []).map((b) => Object.assign({}, b, {
-        world: worldForType(b.type),
-        counterpart: b.type === 'roleplay' ? ((b.character || {}).name || '') : '',
-        entry: Object.assign({ bridgesByTier: {} }, b.entry),
-      }));
-      return Object.assign({}, g, {
-        phases,
-        opening: [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map(fillT),
-        sceneLineCaption: 'You',
-      });
-    }
+    /* beats→phases runtime mapping — moved to mix-arc.js as type.toRuntime().
+       Every type funnels through toMixArc() into a mix-arc scenario, so the
+       mix-arc runtime mapping is THE mapping the converged player uses. */
     /* [Option B spike] ONE generic player, ?type=<id>-routed — the runtime
        sibling of studio-shell.js. The runner below IS the tier-ladder engine
        (byte-identical across mix / branching / ensemble; scene-sweep wraps it).
@@ -1538,7 +1526,7 @@
     const BA_SOURCE = (REQ_TYPE && typeof REQ_TYPE.toMixArc === 'function')
       ? REQ_TYPE.toMixArc(REQ_SRC)
       : BA_TYPE.normalize(REQ_SRC);
-    const ACTIVE_SCENARIO = fromPublishedBranchingArc(BA_SOURCE);
+    const ACTIVE_SCENARIO = BA_TYPE.toRuntime(BA_SOURCE);
     const fillT = (t) => BA_TYPE.fill(t, ACTIVE_SCENARIO);
     // Scene phases always split the learner's input into DO (narration) + SAY (bubble).
     const SCENE_SAYDO = true;
