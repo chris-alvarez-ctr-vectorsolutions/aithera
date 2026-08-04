@@ -1460,9 +1460,15 @@
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=1"></script>
     <script src="js/scenario-types/mix-arc.js?v=5"></script>
-    <!-- [Option B spike] curated recipe types this generic player can route to.
-         A non-mix type exposes toMixArc(); mix-arc plays natively. -->
+    <!-- [Option B] the tier-ladder TYPES this one generic player routes to via
+         ?type=. Two shapes:
+           · NATIVE tier-ladder types own their own toRuntime + compile and play
+             directly on the shared engine (mix-arc, branching-arc; ensemble +
+             scene-sweep follow). No lossy funnel.
+           · a RECIPE type (guided-arc) expresses itself as a mix-arc scenario via
+             toMixArc(), then plays natively AS mix-arc. -->
     <script src="js/scenario-types/guided-arc.js?v=ob1"></script>
+    <script src="js/scenario-types/branching-arc.js?v=3"></script>
 
     <script>
     /* =====================================================================
@@ -1518,16 +1524,33 @@
        runtime model; only the SOURCE changes per requested type. Zero per-type
        branches in the runner — exactly like the authoring shell. */
     const REQ_ID = new URLSearchParams(location.search).get('type') || 'mix-arc';
-    const REQ_TYPE = (window.AitheraStudio && window.AitheraStudio.get(REQ_ID)) || BA_TYPE;
+    // Resolve the requested type. Authorable types come from the Studio registry;
+    // a LIVE-ONLY type (branching-arc — its Studio editor is stage 2, so it is
+    // deliberately NOT registered) resolves via its window global instead. mix-arc
+    // is the default when nothing matches.
+    const TYPE_GLOBALS = {
+      'branching-arc': window.AitheraBranchingArc,
+      'ensemble-arc': window.AitheraEnsembleArc,
+      'scene-sweep': window.AitheraSceneSweep,
+    };
+    const REQ_TYPE = (window.AitheraStudio && window.AitheraStudio.get(REQ_ID))
+      || TYPE_GLOBALS[REQ_ID] || BA_TYPE;
     const REQ_PUB = REQ_TYPE && REQ_TYPE.store && REQ_TYPE.store.loadPublished();
     const REQ_SRC = (REQ_PUB && REQ_PUB.scenario) ? REQ_PUB.scenario : (REQ_TYPE ? REQ_TYPE.DEFAULT : {});
-    // Map the requested type into the mix-arc runtime model. mix-arc needs no
-    // mapping (its scenario IS the model); a recipe supplies toMixArc().
-    const BA_SOURCE = (REQ_TYPE && typeof REQ_TYPE.toMixArc === 'function')
-      ? REQ_TYPE.toMixArc(REQ_SRC)
-      : BA_TYPE.normalize(REQ_SRC);
-    const ACTIVE_SCENARIO = BA_TYPE.toRuntime(BA_SOURCE);
-    const fillT = (t) => BA_TYPE.fill(t, ACTIVE_SCENARIO);
+
+    // How the requested type PLAYS on the shared tier-ladder engine:
+    //  · a NATIVE tier-ladder type (mix-arc, branching, ensemble, scene-sweep)
+    //    owns its OWN toRuntime + compile — it maps and prompts itself, no funnel.
+    //  · a RECIPE type (guided-arc) has no ladder of its own: it expresses itself
+    //    as a mix-arc scenario via toMixArc(), then plays natively AS mix-arc —
+    //    mix-arc.toRuntime + mix-arc.compile on that SAME source. Reserving the
+    //    lossy round-trip for recipes keeps the richer types (branching's tier
+    //    transitions, ensemble's cast, scene-sweep's perception) intact.
+    const IS_RECIPE = REQ_TYPE && typeof REQ_TYPE.toMixArc === 'function';
+    const PLAY_TYPE = IS_RECIPE ? BA_TYPE : (REQ_TYPE || BA_TYPE);
+    const PLAY_SRC  = IS_RECIPE ? REQ_TYPE.toMixArc(REQ_SRC) : REQ_SRC;
+    const ACTIVE_SCENARIO = PLAY_TYPE.toRuntime(PLAY_SRC);
+    const fillT = (t) => PLAY_TYPE.fill(t, ACTIVE_SCENARIO);
     // Scene phases always split the learner's input into DO (narration) + SAY (bubble).
     const SCENE_SAYDO = true;
 
@@ -1572,7 +1595,7 @@
        break-room outcomes, the legal/empathy calibration, and the guaranteed
        nine-component close all live there.
        ===================================================================== */
-    let SYSTEM_PROMPT = BA_TYPE ? BA_TYPE.compile(BA_TYPE.normalize(BA_SOURCE)) : '';   // let: the Section-1 coupler may append context addenda
+    let SYSTEM_PROMPT = PLAY_TYPE ? PLAY_TYPE.compile(PLAY_TYPE.normalize(PLAY_SRC)) : '';   // let: the Section-1 coupler may append context addenda
 
     /* ---- STATE -------------------------------------------------------- */
     /* The coach's opening beat is SEEDED (not model-generated) so every
