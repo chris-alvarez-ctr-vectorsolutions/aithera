@@ -1,23 +1,23 @@
 /* global window */
-// copilot-ai-data.js — data + logic for Homepage AI (Vectoria) access
+// agency-intel-ai-data.js — data + logic for Homepage AI (Agency Intelligence) access
 // management and its audit log.
 //
-//   • seedGrants()  — who currently has Vectoria on their homepage
+//   • seedGrants()  — who currently has Agency Intelligence on their homepage
 //   • seedLog()     — ~10 days of realistic Q&A activity, incl. declined asks
 //   • coveredPeople(grants) — resolve grants → named people (with "via")
 //   • personEntitlements(person, overrides) — title entitlements + admin fixes
 //   • homepageRespond(question, person) — the homepage-flavored answer engine
-//     (text only — no canvas on the homepage; charts live in Copilot)
+//     (text only — no canvas on the homepage; charts live in Agency Intelligence)
 //
 // Plain JS (no JSX) so it loads before the Babel layer.
 
 (function () {
   const K = window.KEYSTONE;
-  const CP = function () { return window.COPILOT; }; // loaded just before this file
+  const CP = function () { return window.AGENCY_INTEL; }; // loaded just before this file
 
   // ---------- Question corpus ----------
   // Each entry: phrasing variants + the metric it resolves to. Sources come
-  // from COPILOT.METRIC_SOURCE, so access checks stay consistent with the
+  // from AGENCY_INTEL.METRIC_SOURCE, so access checks stay consistent with the
   // dashboard reconciliation logic.
   const QUESTIONS = [
     { metricId: 'training_completion',    q: ['What’s our training completion this quarter?', 'Which stations are behind on training?', 'Show my crew’s training compliance'], ret: { label: 'Training completion — QTD, by station', rows: 6 } },
@@ -37,7 +37,7 @@
     { metricId: 'tasks_by_app',           q: ['What’s open across all our apps?', 'Where is most of our open work?'], ret: { label: 'Open work — by source app', rows: 5 } },
   ];
 
-  // Recognised-but-no-data asks (mirrors COPILOT.NO_DATA territory).
+  // Recognised-but-no-data asks (mirrors AGENCY_INTEL.NO_DATA territory).
   const NODATA_QUESTIONS = [
     'What’s the hydrant flow rate on Route 9?',
     'What’s our fuel spend this quarter?',
@@ -213,7 +213,7 @@
     const t = String(q || '').toLowerCase();
     const has = function (re) { return re.test(t); };
     if (has(/hydrant|water flow|fuel|budget|dollar|spend|weather|social media/)) return { kind: 'nodata' };
-    if (has(/\b(joke|poem|sing|who are you|your name|hello|hi there|hey vectoria)\b/)) return { kind: 'cant' };
+    if (has(/\b(joke|poem|sing|who are you|your name|hello|hi there|hey agency)\b/)) return { kind: 'cant' };
     if (has(/credential|cert|expir|renew/) && !has(/inspection/)) return { kind: 'metric', metricId: 'credential_expirations' };
     if (has(/overtime|\bot\b/)) return { kind: 'metric', metricId: 'ot_trend' };
     if (has(/open shift|understaff|coverage|vacan|shifts/)) return { kind: 'metric', metricId: 'open_shifts' };
@@ -242,7 +242,7 @@
     const base = { ts: now.toISOString(), personId: person.id, question: question, channel: 'preview' };
 
     if (m.kind === 'cant') {
-      return { text: 'I’m Vectoria — I answer questions from your department’s connected Vector apps, so I can’t help with that. Try training, credentials, scheduling, or apparatus.', entry: null };
+      return { text: 'I’m Agency Intelligence — I answer questions from your department’s connected Vector apps, so I can’t help with that. Try training, credentials, scheduling, or apparatus.', entry: null };
     }
     if (m.kind === 'nodata') {
       return {
@@ -288,7 +288,7 @@
     return { rel: rel, time: time, full: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + time };
   }
 
-  window.COPILOT_AI = {
+  window.AGENCY_INTEL_AI = {
     QUESTIONS: QUESTIONS,
     ANSWERS: ANSWERS,
     seedGrants: seedGrants,

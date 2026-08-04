@@ -1,15 +1,15 @@
 /* global window */
-// copilot-page-data.js — data + logic specific to the AI Reporting Copilot page.
+// agency-intel-page-data.js — data + logic specific to the Agency Intelligence page.
 //
 // Builds on window.KEYSTONE (sources, people, stations) and
 // window.KEYSTONE_CUSTOM (metric catalog + viz specs). Adds:
 //   • metric → source-app mapping (drives access reconciliation)
 //   • job titles + per-title data entitlements (the assignment audience model)
 //   • named individuals (people with a resolved job title)
-//   • seeded dashboards for the populated Copilot home
-//   • Vectoria — a small plain-language response engine that turns a prompt into
+//   • seeded dashboards for the populated Agency Intelligence home
+//   • Agency Intelligence — a small plain-language response engine that turns a prompt into
 //     either text, an inline choice, a widget spec, or a "no data / can't
-//     answer" outcome. The principle: Vectoria only ever returns *text* for the
+//     answer" outcome. The principle: Agency Intelligence only ever returns *text* for the
 //     chat; widgets are produced as specs the canvas renders.
 //
 // Plain JS (no JSX) so it loads before the Babel layer.
@@ -114,6 +114,18 @@
     (audience.individuals || []).forEach(function (id) {
       const ind = INDIVIDUALS.find(function (x) { return x.id === id; });
       if (ind) targets.push({ kind: 'individual', id: id, label: ind.name, entitlements: ind.entitlements });
+    });
+    // AI groups resolve to people through the roster module. Each matched
+    // person is a target in their own right, so a group whose members lack
+    // a source raises the same gap a named individual would.
+    (audience.groups || []).forEach(function (id) {
+      const RS = window.AGENCY_INTEL_ROSTER;
+      const g = RS && RS.groupById(id);
+      if (!g) return;
+      RS.evaluate(g).people.forEach(function (p) {
+        targets.push({ kind: 'group', id: p.id, label: p.name + ' (' + g.name + ')',
+          entitlements: p.entitlements });
+      });
     });
 
     const gaps = [];
@@ -235,7 +247,7 @@
     };
   }
 
-  // ---------- Vectoria's report cover summary ----------
+  // ---------- Agency Intelligence's report cover summary ----------
   // Reads every metric on the dashboard and writes the lead paragraph plus the
   // at-a-glance rows that head a delivered report.
   function reportSummary(dash) {
@@ -253,7 +265,7 @@
     }).filter(Boolean).sort(function (a, b) { return (rank[a.tone] == null ? 2 : rank[a.tone]) - (rank[b.tone] == null ? 2 : rank[b.tone]); });
     const watch = rows.filter(function (r) { return r.tone === 'bad' || r.tone === 'warn'; });
     let lead;
-    if (!rows.length) lead = 'This report covers the widgets on “' + (dash.name || 'this dashboard') + '”. Add a metric widget and Vectoria will summarize the period here.';
+    if (!rows.length) lead = 'This report covers the widgets on “' + (dash.name || 'this dashboard') + '”. Add a metric widget and Agency Intelligence will summarize the period here.';
     else if (watch.length) lead = watch.length + ' of ' + rows.length + ' tracked measures moved the wrong way this period. ' + watch[0].label + ' is the one to watch — currently ' + watch[0].num + (watch[0].delta ? ' (' + watch[0].delta + ')' : '') + '. The rest are holding.';
     else lead = 'All ' + rows.length + ' tracked measures are steady or improving this period. Nothing on this report needs escalation.';
     return { lead: lead, rows: rows };
@@ -452,8 +464,10 @@
         owner: 'You',
         createdAt: '2026-04-29',
         updatedAt: '2026-05-05',
-        status: 'private',
-        assignedTo: null,
+        // Published to an AI group (a live rule) rather than fixed titles —
+        // so the dashboards table shows that state on first load.
+        status: 'published',
+        assignedTo: { titles: [], individuals: [], groups: ['grp_airport_c'] },
         widgets: [
           W({ metricId: 'apparatus_downtime', viz: 'kpi', w: 3, dateRange: 'last_30' }),
           W({ metricId: 'equipment_failures', viz: 'kpi', w: 3, dateRange: 'last_30' }),
@@ -654,7 +668,7 @@
     { id: 'idea_ceu',      icon: 'school',        prompt: 'Show CEU progress by station',                            make: function () { return W({ metricId: 'ceu_progress', viz: 'bar', w: 6 }); } },
   ];
 
-  // ---------- Vectoria — plain-language response engine ----------
+  // ---------- Agency Intelligence — plain-language response engine ----------
   // Returns one of:
   //   { kind:'widget',  text, widget }              → text reply + 1 canvas widget
   //   { kind:'choice',  text, choices:[{label,send}]} → text reply + inline buttons
@@ -688,7 +702,7 @@
 
   // Recognised-but-no-data topics, and out-of-scope topics.
   const NO_DATA = /hydrant|water flow|fuel (price|cost)|budget|dollar|email|nozzle pressure|tornado|weather|social media/;
-  const CANT = /\b(joke|poem|sing|who are you|your name|love|meaning of life|hello|hi there|hey vectoria)\b/;
+  const CANT = /\b(joke|poem|sing|who are you|your name|love|meaning of life|hello|hi there|hey agency)\b/;
 
   function vText(metricId) {
     const phrases = {
@@ -711,7 +725,7 @@
     return phrases[metricId] || 'Here is what I found, on the canvas.';
   }
 
-  function vectoriaRespond(prompt, ctx) {
+  function agencyIntelRespond(prompt, ctx) {
     ctx = ctx || {};
     const q = lc(prompt);
 
@@ -739,7 +753,7 @@
     }
 
     if (CANT.test(q)) {
-      return { kind: 'cant', text: "I'm Vectoria — I build reports from your connected Vector apps, so I can't help with that. Try asking about training, inspections, scheduling, credentials, or apparatus." };
+      return { kind: 'cant', text: "I'm Agency Intelligence — I build reports from your connected Vector apps, so I can't help with that. Try asking about training, inspections, scheduling, credentials, or apparatus." };
     }
     if (NO_DATA.test(q)) {
       const spec = W({ metricId: 'tasks_by_app', viz: 'kpi', w: 4 });
@@ -774,7 +788,7 @@
     return { kind: 'widget', text: "Here's a cross-app read on your open work. Ask me to narrow it — by app, by station, or over time.", widget: spec };
   }
 
-  window.COPILOT = {
+  window.AGENCY_INTEL = {
     METRIC_SOURCE: METRIC_SOURCE,
     metricSources: metricSources,
     widgetSources: widgetSources,
@@ -810,6 +824,6 @@
     widgetIcon: widgetIcon,
     summaryText: summaryText,
     widgetToTable: widgetToTable,
-    vectoriaRespond: vectoriaRespond,
+    agencyIntelRespond: agencyIntelRespond,
   };
 })();

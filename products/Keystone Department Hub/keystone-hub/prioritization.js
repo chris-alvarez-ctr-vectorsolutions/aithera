@@ -544,8 +544,8 @@
 
     var tabs = flags.futureOn
       ? '<vaadin-tabs class="pf-preview-tabs" id="pfPreviewTabs" selected="' + (previewTab === 'types' ? 0 : 1) + '">' +
-        '<vaadin-tab>' + micon('category', { size: 16 }) + '<span style="margin-left:6px">Task types</span></vaadin-tab>' +
-        '<vaadin-tab>' + micon('format_list_bulleted', { size: 16 }) + '<span style="margin-left:6px">Individual tasks</span></vaadin-tab>' +
+        '<vaadin-tab>' + micon('category', { size: 16 }) + '<span class="kx-btn-label">Task types</span></vaadin-tab>' +
+        '<vaadin-tab>' + micon('format_list_bulleted', { size: 16 }) + '<span class="kx-btn-label">Individual tasks</span></vaadin-tab>' +
         '</vaadin-tabs>'
       : '';
 
@@ -567,13 +567,13 @@
       : savedAt
         ? micon('check_circle', { size: 16, color: 'var(--teal-400)' }) + 'Saved ' +
           savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : micon('history', { size: 16 }) + 'Last edited by Chief Reyes · 12 days ago';
+        : micon('history', { size: 16 }) + 'Last edited by Chief Smith · 12 days ago';
 
     return '<div class="pf-toolbar"><div class="pf-toolbar-inner">' +
       '<div class="pf-status' + (dirty ? ' dirty' : '') + '" id="pfStatus">' + status + '</div>' +
       '<vaadin-button theme="secondary" id="pfReset">Reset to defaults</vaadin-button>' +
       '<vaadin-button theme="primary" id="pfSave"' + (!dirty || !isValid() ? ' disabled' : '') + '>' +
-      micon('save', { size: 16 }) + '<span style="margin-left:6px">Save changes</span></vaadin-button>' +
+      micon('save', { size: 16 }) + '<span class="kx-btn-label">Save changes</span></vaadin-button>' +
       '</div></div>';
   }
 
@@ -666,7 +666,7 @@
         : savedAt
           ? micon('check_circle', { size: 16, color: 'var(--teal-400)' }) + 'Saved ' +
             savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : micon('history', { size: 16 }) + 'Last edited by Chief Reyes · 12 days ago';
+          : micon('history', { size: 16 }) + 'Last edited by Chief Smith · 12 days ago';
     }
     var save = document.getElementById('pfSave');
     if (save) {

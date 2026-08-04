@@ -1,15 +1,15 @@
-/* global window, document, KEYSTONE, KX, KXCharts, KXCanvas, COPILOT, COPILOT_AI */
+/* global window, document, KEYSTONE, KX, KXCharts, KXCanvas, AGENCY_INTEL, AGENCY_INTEL_AI */
 /* ========================================================================
-   copilot-page.js — the AI Reporting Copilot page. Vanilla JS.
+   agency-intel-page.js — the Agency Intelligence page. Vanilla JS.
    ------------------------------------------------------------------------
    Two views:
      · home  — Dashboards tab (management table / card grid) + AI access tab
-     · build — two-pane canvas + Vectoria (the docked, text-only chat)
+     · build — two-pane canvas + Agency Intelligence (the docked, text-only chat)
 
-   All the data and decision logic lives in copilot-page-data.js
-   (window.COPILOT) and copilot-ai-data.js (window.COPILOT_AI), ported
+   All the data and decision logic lives in agency-intel-page-data.js
+   (window.AGENCY_INTEL) and agency-intel-ai-data.js (window.AGENCY_INTEL_AI), ported
    verbatim from the prototype: status derivation, delivery metadata, access
-   reconciliation, and Vectoria's response engine.
+   reconciliation, and Agency Intelligence's response engine.
 
    Principle from the PRD: the chat stays a clean TEXT conversation. Every
    visual output lands on the canvas, never in the chat.
@@ -20,8 +20,8 @@
 
   var K = window.KEYSTONE;
   var CC = window.KEYSTONE_CUSTOM;
-  var CP = window.COPILOT;
-  var AI = window.COPILOT_AI;
+  var CP = window.AGENCY_INTEL;
+  var AI = window.AGENCY_INTEL_AI;
   var esc = KX.esc, micon = KX.micon;
 
   var TODAY = CP.APP_TODAY || '2026-05-07';
@@ -34,6 +34,20 @@
   /* =====================================================================
      STATE
      ===================================================================== */
+
+  // Builder state, reset every time the builder opens. `tab` is the
+  // Simple/Advanced pill; `mode` is which Advanced option is drilled into
+  // (null = showing the option list).
+  function freshBuilder() {
+    return {
+      tab: 'simple', mode: null,
+      metric: null, viz: null, range: CP.DEFAULT_RANGE, include: [],
+      a: null, b: null, corrViz: 'scatter',
+      ideas: [],
+      tableIds: [], tableHeading: '',
+      textHeading: '', textBody: ''
+    };
+  }
 
   var state = {
     view: 'home',
@@ -48,7 +62,7 @@
     filter: 'all',
     page: 1,
     viewMode: (function () {
-      try { return localStorage.getItem('kx-copilot-dash-view') || 'table'; } catch (e) { return 'table'; }
+      try { return localStorage.getItem('kx-agency-intel-dash-view') || 'table'; } catch (e) { return 'table'; }
     })(),
 
     // Build view
@@ -59,9 +73,10 @@
     mode: 'edit',            // edit | preview | report
     selectedId: null,
     editingName: false,
+    exportMenu: false,
     lastSavedAt: Date.now() - 7 * 60 * 1000,
     saving: false,
-    builder: { tab: 'simple', metric: null, viz: null, range: CP.DEFAULT_RANGE, include: [], a: null, b: null, corrViz: 'scatter', ideas: [] },
+    builder: freshBuilder(),
 
     // AI access
     aiGrants: DEFAULTS.aiState === 'empty' ? { titles: [], individuals: [] } : AI.seedGrants(),
@@ -94,9 +109,9 @@
      SHARED BITS
      ===================================================================== */
 
-  function vectoriaMark(size) {
+  function agencyIntelMark(size) {
     size = size || 30;
-    return '<span class="vectoria-mark" style="width:' + size + 'px;height:' + size + 'px">' +
+    return '<span class="agency-intel-mark" style="width:' + size + 'px;height:' + size + 'px">' +
       micon('auto_awesome', { size: Math.round(size * 0.56), fill: 1 }) + '</span>';
   }
 
@@ -129,10 +144,14 @@
     return set;
   }
 
-  // Estimated headcount: assigned job-title memberships + named individuals.
+  // Headcount across job titles + named individuals + AI groups. Resolved
+  // through the roster and de-duplicated by person: titles report counts
+  // while groups resolve to people, so summing the two would double-count
+  // anyone who is both (a Captain who is also in the HazMat group).
   function reachOf(d) {
     var a = d.assignedTo;
     if (!a) return 0;
+    if (window.AGENCY_INTEL_ROSTER) return AGENCY_INTEL_ROSTER.audienceCount(a);
     var n = (a.individuals || []).length;
     (a.titles || []).forEach(function (id) {
       var t = CP.titleById(id);
@@ -176,15 +195,26 @@
     var a = d.assignedTo;
     var titles = (a && a.titles) || [];
     var inds = (a && a.individuals) || [];
-    if (!titles.length && !inds.length) return '<span style="font-size:13px;color:var(--ink-300)">—</span>';
+    var groups = (a && a.groups) || [];
+    if (!titles.length && !inds.length && !groups.length) {
+      return '<span style="font-size:13px;color:var(--ink-300)">—</span>';
+    }
+    var RS = window.AGENCY_INTEL_ROSTER;
     var tip = titles.map(function (id) {
       var t = CP.titleById(id);
       return t ? t.label + ' (' + t.count + ' ppl)' : id;
-    }).concat(inds.map(function (id) {
+    }).concat(groups.map(function (id) {
+      var g = RS && RS.groupById(id);
+      return g ? g.name + ' (live rule)' : id;
+    })).concat(inds.map(function (id) {
       var p = CP.INDIVIDUALS.find(function (x) { return x.id === id; });
-      return p ? p.name : id;
+      return p ? p.name : ((RS && RS.personById(id)) || {}).name || id;
     })).join(', ');
     return '<span style="display:inline-flex;align-items:center;gap:6px" title="' + KX.attr(tip) + '">' +
+      (groups.length ? '<span class="cp-aud-title" style="background:var(--amber-50);' +
+        'border-color:var(--amber-400);color:var(--amber-700)">' +
+        micon('auto_awesome', { size: 12, fill: 1 }) + ' ' + groups.length +
+        ' group' + (groups.length === 1 ? '' : 's') + '</span>' : '') +
       (titles.length ? '<span class="cp-aud-title">' + micon('badge', { size: 12, fill: 1 }) + ' ' +
         titles.length + ' title' + (titles.length === 1 ? '' : 's') + '</span>' : '') +
       (inds.length ? '<span class="cp-aud-ind">' + micon('person', { size: 12 }) + ' ' + inds.length + '</span>' : '') +
@@ -308,12 +338,12 @@
 
   function dashboardsTab() {
     if (!state.dashboards.length) {
-      return '<div class="cp-first-run">' + vectoriaMark(64) +
+      return '<div class="cp-first-run">' + agencyIntelMark(64) +
         '<h2>Build your first dashboard</h2>' +
-        '<p>Ask Vectoria a question in plain language and pin the answer. Your dashboards refresh ' +
+        '<p>Ask Agency Intelligence a question in plain language and pin the answer. Your dashboards refresh ' +
         'automatically and live here, ready to publish to your team.</p>' +
         '<vaadin-button theme="primary large" id="cpNewDash">' + micon('add', { size: 18 }) +
-        '<span style="margin-left:6px">Create your first dashboard</span></vaadin-button></div>';
+        '<span class="kx-btn-label">Create your first dashboard</span></vaadin-button></div>';
     }
 
     var list = filteredDashboards();
@@ -431,7 +461,7 @@
         (meta && meta.grantedAt ? ' · granted ' + esc(fmtDate(meta.grantedAt)) : '') + '</div></div>' +
         entitlementDots(ents) +
         '<vaadin-button theme="icon tertiary small" data-ai-revoke-title="' + KX.attr(id) + '" ' +
-        'aria-label="Revoke access" title="Revoke Vectoria access">' + micon('close', { size: 16 }) + '</vaadin-button>' +
+        'aria-label="Revoke access" title="Revoke Agency Intelligence access">' + micon('close', { size: 16 }) + '</vaadin-button>' +
         '</div>';
     }).join('') +
     inds.map(function (entry) {
@@ -450,17 +480,17 @@
         (meta && meta.grantedAt ? ' · granted ' + esc(fmtDate(meta.grantedAt)) : '') + '</div></div>' +
         entitlementDots(ents) +
         '<vaadin-button theme="icon tertiary small" data-ai-revoke-ind="' + KX.attr(id) + '" ' +
-        'aria-label="Revoke access" title="Revoke Vectoria access">' + micon('close', { size: 16 }) + '</vaadin-button>' +
+        'aria-label="Revoke access" title="Revoke Agency Intelligence access">' + micon('close', { size: 16 }) + '</vaadin-button>' +
         '</div>';
     }).join('');
 
     var grantsPanel = '<div class="cp-panel">' +
       '<div class="cp-panel-head" style="display:flex;align-items:flex-start;gap:12px">' +
-      '<div style="flex:1"><h3>Homepage Vectoria</h3>' +
-      '<p>Who gets an assistant on their homepage. Vectoria can only answer from the apps a ' +
+      '<div style="flex:1"><h3>Homepage Agency Intelligence</h3>' +
+      '<p>Who gets an assistant on their homepage. Agency Intelligence can only answer from the apps a ' +
       'person is already entitled to — the dots show each grant\'s reach.</p></div>' +
       '<vaadin-button theme="secondary small" id="cpAiGrant">' + micon('add', { size: 16 }) +
-      '<span style="margin-left:4px">Grant</span></vaadin-button></div>' +
+      '<span class="kx-btn-label">Grant</span></vaadin-button></div>' +
       '<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--surface-2);' +
       'border-bottom:1px solid var(--ink-100)">' +
       '<span style="font-size:12px;color:var(--ink-600)"><b style="font-family:var(--font-numeric);font-size:15px">' +
@@ -471,7 +501,7 @@
       SRC_ORDER.map(function (k) { return K.SOURCES[k].short; }).join(' · ') + '</span></div>' +
       (grantRows ||
         '<div style="padding:36px 20px;text-align:center">' + micon('person_off', { size: 28, color: 'var(--ink-300)' }) +
-        '<div style="font-size:13.5px;font-weight:600;margin-top:8px;color:var(--ink-700)">No one has Vectoria yet</div>' +
+        '<div style="font-size:13.5px;font-weight:600;margin-top:8px;color:var(--ink-700)">No one has Agency Intelligence yet</div>' +
         '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">Grant a job title or an individual to start.</div></div>') +
       '</div>';
 
@@ -498,7 +528,7 @@
     var logPanel = '<div class="cp-panel">' +
       '<div class="cp-panel-head" style="display:flex;align-items:flex-start;gap:12px">' +
       '<div style="flex:1"><h3>Audit log</h3>' +
-      '<p>Every question Vectoria answered on a homepage, and every one it declined. ' +
+      '<p>Every question Agency Intelligence answered on a homepage, and every one it declined. ' +
       'Declined asks are the signal for what people need but can\'t reach.</p></div>' +
       (declined
         ? '<span class="cp-outcome" style="background:var(--lumo-error-color-10pct);color:var(--lumo-error-text-color)">' +
@@ -510,7 +540,7 @@
         '<div style="padding:36px 20px;text-align:center">' + micon('history', { size: 28, color: 'var(--ink-300)' }) +
         '<div style="font-size:13.5px;font-weight:600;margin-top:8px;color:var(--ink-700)">Nothing asked yet</div>' +
         '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">' +
-        'Questions appear here as soon as someone with access uses Vectoria.</div></div>') +
+        'Questions appear here as soon as someone with access uses Agency Intelligence.</div></div>') +
       '</div></div>';
 
     return '<div class="cp-ai-grid">' + grantsPanel + logPanel + '</div>';
@@ -527,10 +557,10 @@
     var tab = (state.homeTab === 'explore' && !isAdmin) ? 'dashboards' : state.homeTab;
 
     var subtitle = tab === 'ai'
-      ? 'Control who gets a Vectoria assistant on their homepage, and audit every question it answers.'
+      ? 'Control who gets an Agency Intelligence assistant on their homepage, and audit every question it answers.'
       : tab === 'explore'
-        ? 'Explore your data with Vectoria — follow any thread. Exploration doesn\'t have to become a dashboard.'
-        : 'Dashboards you\'ve built with Vectoria. Open one to edit with AI, publish it live to a role, ' +
+        ? 'Explore your data with Agency Intelligence — follow any thread. Exploration doesn\'t have to become a dashboard.'
+        : 'Dashboards you\'ve built with Agency Intelligence. Open one to edit with AI, publish it live to a role, ' +
           'or schedule it out as a report — same widgets, your choice of destination.';
 
     var TABS = [{ id: 'dashboards', label: 'Dashboards', icon: 'space_dashboard' }]
@@ -539,15 +569,15 @@
 
     return '<div class="cp-page">' +
       '<div class="cp-page-head"><div style="flex:1;min-width:0">' +
-      '<div style="display:flex;align-items:center;gap:10px">' + vectoriaMark(34) + '<h1>Copilot</h1></div>' +
+      '<div style="display:flex;align-items:center;gap:10px">' + agencyIntelMark(34) + '<h1>Agency Intelligence</h1></div>' +
       '<p>' + esc(subtitle) + '</p></div>' +
       (tab === 'dashboards' && state.dashboards.length
         ? '<vaadin-button theme="primary" id="cpNewDash">' + micon('add', { size: 18 }) +
-          '<span style="margin-left:6px">New dashboard</span></vaadin-button>'
+          '<span class="kx-btn-label">New dashboard</span></vaadin-button>'
         : '') +
       '</div>' +
 
-      '<div class="cp-tabs" role="tablist" aria-label="Copilot sections">' +
+      '<div class="cp-tabs" role="tablist" aria-label="Agency Intelligence sections">' +
       TABS.map(function (t) {
         var on = tab === t.id;
         return '<button class="cp-tab' + (on ? ' is-on' : '') + '" data-cp-tab="' + t.id +
@@ -564,22 +594,22 @@
   }
 
   /* =====================================================================
-     BUILD VIEW — VECTORIA PANEL
+     BUILD VIEW — AGENCY INTELLIGENCE PANEL
      ===================================================================== */
 
-  function vectoriaBubble(text) {
+  function agencyIntelBubble(text) {
     return String(text).split('**').map(function (p, i) {
       return i % 2 ? '<strong style="color:var(--ink-900)">' + esc(p) + '</strong>' : esc(p);
     }).join('');
   }
 
-  function vectoriaTurn(msg, idx) {
+  function agencyIntelTurn(msg, idx) {
     if (msg.role === 'user') {
       return '<div class="cpv-user"><div class="bubble">' + esc(msg.text) + '</div></div>';
     }
-    return '<div class="cpv-ai">' + vectoriaMark(26) +
+    return '<div class="cpv-ai">' + agencyIntelMark(26) +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">' +
-      '<div class="bubble">' + vectoriaBubble(msg.text) + '</div>' +
+      '<div class="bubble">' + agencyIntelBubble(msg.text) + '</div>' +
       (msg.added
         ? '<div class="cpv-added">' + micon('add_chart', { size: 14, fill: 1 }) +
           ' Added “' + esc(msg.added) + '” to the canvas</div>'
@@ -593,27 +623,27 @@
       '</div></div>';
   }
 
-  function vectoriaPanel() {
+  function agencyIntelPanel() {
     if (state.collapsed) {
-      return '<button class="cpv-collapsed" id="cpvExpand" title="Open Vectoria">' +
-        vectoriaMark(32) + '<span class="vlabel">Vectoria</span>' +
+      return '<button class="cpv-collapsed" id="cpvExpand" title="Open Agency Intelligence">' +
+        agencyIntelMark(32) + '<span class="vlabel">Agency Intelligence</span>' +
         micon('chevron_left', { size: 18, color: 'var(--ink-400)', style: 'margin-top:auto' }) + '</button>';
     }
     var ready = state.draft.trim() && !state.thinking;
     return '<div class="cpv-panel">' +
-      '<div class="cpv-head">' + vectoriaMark(30) +
+      '<div class="cpv-head">' + agencyIntelMark(30) +
       '<div style="flex:1;min-width:0">' +
-      '<div style="font-weight:700;font-size:15px;color:var(--ink-900);line-height:1.1">Vectoria</div>' +
+      '<div style="font-weight:700;font-size:15px;color:var(--ink-900);line-height:1.1">Agency Intelligence</div>' +
       '<div style="font-size:11.5px;color:var(--ink-500)">Building “this dashboard” with you</div></div>' +
       '<vaadin-button theme="icon tertiary small" id="cpvNewChat" title="New chat" aria-label="New chat">' +
       micon('restart_alt', { size: 17 }) + '</vaadin-button>' +
-      '<vaadin-button theme="icon tertiary small" id="cpvCollapse" title="Collapse Vectoria" ' +
-      'aria-label="Collapse Vectoria">' + micon('chevron_right', { size: 18 }) + '</vaadin-button></div>' +
+      '<vaadin-button theme="icon tertiary small" id="cpvCollapse" title="Collapse Agency Intelligence" ' +
+      'aria-label="Collapse Agency Intelligence">' + micon('chevron_right', { size: 18 }) + '</vaadin-button></div>' +
 
       '<div class="cpv-thread" id="cpvThread">' +
-      state.thread.map(vectoriaTurn).join('') +
+      state.thread.map(agencyIntelTurn).join('') +
       (state.thinking
-        ? '<div class="cpv-ai" style="align-items:center">' + vectoriaMark(26) +
+        ? '<div class="cpv-ai" style="align-items:center">' + agencyIntelMark(26) +
           '<div style="display:inline-flex;align-items:center;gap:6px;padding:9px 13px;background:var(--surface-2);' +
           'border:1px solid var(--ink-100);border-radius:14px 14px 14px 4px">' +
           '<span class="cpv-dot"></span><span class="cpv-dot" style="animation-delay:140ms"></span>' +
@@ -624,16 +654,16 @@
       '</div>' +
 
       '<div class="cpv-input-wrap"><div class="cpv-input">' +
-      '<textarea id="cpvDraft" rows="3" placeholder="Ask Vectoria — e.g. show overtime risk for the next 30 days">' +
+      '<textarea id="cpvDraft" rows="3" placeholder="Ask Agency Intelligence — e.g. show overtime risk for the next 30 days">' +
       esc(state.draft) + '</textarea>' +
       '<button class="cp-send' + (ready ? ' is-ready' : '') + '" id="cpvSend" title="Send" aria-label="Send"' +
-      (ready ? '' : ' disabled') + ' style="width:32px;height:32px;border-radius:9px;border:none;flex-shrink:0;' +
+      (ready ? '' : ' disabled') + ' style="width:32px;height:32px;border-radius:var(--radius-pill);border:none;flex-shrink:0;' +
       'display:inline-flex;align-items:center;justify-content:center;background:' +
       (ready ? 'var(--ink-900)' : 'var(--ink-200)') + ';color:' + (ready ? 'white' : 'var(--ink-500)') + ';cursor:' +
       (ready ? 'pointer' : 'default') + '">' + micon('arrow_upward', { size: 18, weight: 500 }) + '</button>' +
       '</div>' +
       '<div style="font-size:10px;color:var(--ink-400);margin-top:6px;padding-left:4px">' +
-      'Charts render on the canvas, never in chat. Vectoria can be wrong — verify before acting.</div>' +
+      'Charts render on the canvas, never in chat. Agency Intelligence can be wrong — verify before acting.</div>' +
       '</div></div>';
   }
 
@@ -745,7 +775,7 @@
           (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
           '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
           '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
-          '<span style="margin-left:6px">Add to dashboard</span></vaadin-button>' +
+          '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
           '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>'
       ) + '</div></div>';
   }
@@ -809,7 +839,7 @@
           }).join('') + '</div>' +
           (preview ? widgetPreviewHtml(preview) : '') +
           '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBAddCorr">' +
-          micon('add', { size: 16 }) + '<span style="margin-left:6px">Add correlation</span></vaadin-button></div>' +
+          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add correlation</span></vaadin-button></div>' +
           '</div>'
         : '') +
       '<input type="hidden" id="cpCorrCompat" value="' + KX.attr(compatible.join(',')) + '">' +
@@ -822,7 +852,7 @@
     return '<div>' +
       '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Start from an idea</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
-      'Pick as many as you want — Vectoria builds them all onto the canvas at once.</div>' +
+      'Pick as many as you want — Agency Intelligence builds them all onto the canvas at once.</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
       ideas.map(function (idea) {
         var on = state.builder.ideas.indexOf(idea.id) !== -1;
@@ -838,38 +868,156 @@
       }).join('') + '</div>' +
       (state.builder.ideas.length
         ? '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBGenerate">' +
-          micon('auto_awesome', { size: 16 }) + '<span style="margin-left:6px">Build ' +
+          micon('auto_awesome', { size: 16 }) + '<span class="kx-btn-label">Build ' +
           state.builder.ideas.length + ' widget' + (state.builder.ideas.length === 1 ? '' : 's') +
           '</span></vaadin-button></div>'
         : '') +
       '</div>';
   }
 
-  function widgetBuilderHtml() {
-    var TABS = [
-      { id: 'simple', label: 'Simple', icon: 'looks_one' },
-      { id: 'correlate', label: 'Correlate', icon: 'scatter_plot' },
-      { id: 'ideas', label: 'Ideas', icon: 'auto_awesome' }
-    ];
+  // ---- ADVANCED · summary table: several metrics, one compact table ----
+  // The block that lets a dashboard read as a report instead of a wall of charts.
+  function metricsTableBuilderHtml() {
     var b = state.builder;
-    return '<div class="cp-builder">' +
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">' +
-      vectoriaMark(30) +
-      '<div style="flex:1;min-width:0">' +
-      '<div style="font-family:var(--font-display);font-weight:500;font-size:21px;color:var(--ink-900)">' +
-      'Put your first answer on the canvas</div>' +
-      '<div style="font-size:12.5px;color:var(--ink-500);margin-top:2px">' +
-      'Build a widget here, or just ask Vectoria on the right.</div></div>' +
-      '<div class="cp-builder-modes">' +
+    var cats = [];
+    var byCat = {};
+    CC.AVAILABLE_METRICS.forEach(function (m) {
+      if (!byCat[m.category]) { byCat[m.category] = []; cats.push(m.category); }
+      byCat[m.category].push(m);
+    });
+    var preview = b.tableIds.length
+      ? { id: 'preview', kind: 'metrics_table', viz: 'metrics_table', metricIds: b.tableIds,
+          heading: b.tableHeading || 'Summary table', state: 'live' }
+      : null;
+
+    return '<div>' +
+      '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Summary table</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
+      'Pick the measures that belong in one at-a-glance table. Each becomes a row with its current value, ' +
+      'its change and a plain status word.</div>' +
+      '<input class="cp-b-field" id="cpBTableHeading" style="margin-bottom:12px" ' +
+      'placeholder="Table heading — e.g. Readiness at a glance" value="' + KX.attr(b.tableHeading) + '">' +
+      '<div style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px">' +
+      cats.map(function (cat) {
+        return '<div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;' +
+          'color:var(--ink-400);margin-bottom:6px">' + esc(cat) + '</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+          byCat[cat].map(function (m) {
+            var on = b.tableIds.indexOf(m.id) !== -1;
+            return '<button class="cp-cat-chip' + (on ? ' is-on' : '') + '" data-b-tmetric="' + KX.attr(m.id) + '">' +
+              micon(on ? 'check' : m.icon, { size: 13, fill: on ? 0 : 1 }) + ' ' + esc(m.label) + '</button>';
+          }).join('') + '</div></div>';
+      }).join('') + '</div>' +
+      (preview
+        ? '<div style="margin-top:16px">' + widgetPreviewHtml(preview) +
+          '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBAddTable">' +
+          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add summary table</span></vaadin-button></div>' +
+          '</div>'
+        : '') +
+      '</div>';
+  }
+
+  // ---- ADVANCED · written commentary ----
+  function textBlockBuilderHtml() {
+    var b = state.builder;
+    var ready = !!(b.textHeading.trim() || b.textBody.trim());
+    return '<div>' +
+      '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Written commentary</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
+      'Your own words alongside the numbers — what happened, why it matters, what you\'re asking for. ' +
+      'This is what turns a dashboard into a report someone reads.</div>' +
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+      '<input class="cp-b-field" id="cpBTextHeading" style="font-size:14px;font-weight:600" ' +
+      'placeholder="Section heading — e.g. What we\'re asking the council for" value="' +
+      KX.attr(b.textHeading) + '">' +
+      '<textarea class="cp-b-field" id="cpBTextBody" rows="6" placeholder="Write the commentary…">' +
+      esc(b.textBody) + '</textarea></div>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
+      '<vaadin-button theme="primary" id="cpBAddText"' + (ready ? '' : ' disabled') + '>' +
+      micon('add', { size: 16 }) + '<span class="kx-btn-label">Add text block</span></vaadin-button>' +
+      '<span style="font-size:12px;color:var(--ink-500)">You can keep editing it right on the canvas.</span></div>' +
+      '</div>';
+  }
+
+  // ---- ADVANCED · open-ended chooser: correlate, table, commentary, ideas,
+  //      or hand the whole thing to Agency Intelligence in the chat dock.
+  function advancedBuilderHtml() {
+    var b = state.builder;
+    var OPTIONS = [
+      { id: 'correlate', icon: 'scatter_plot', title: 'Correlate metrics',
+        desc: 'Plot two metrics against each other to see how they relate, with a trend line.' },
+      { id: 'table', icon: 'table_chart', title: 'Summary table',
+        desc: 'Several measures in one compact table — value, change and status per row.' },
+      { id: 'text', icon: 'notes', title: 'Written commentary',
+        desc: 'A heading and prose block, so the numbers arrive with your read on them.' },
+      { id: 'ideas', icon: 'auto_awesome', title: 'Start from an idea',
+        desc: 'Pick from ready-made questions Agency Intelligence can chart in one click.' },
+      { id: 'ask', icon: 'forum', title: 'Describe it to Agency Intelligence',
+        desc: 'Ask in your own words and let Agency Intelligence build it on the canvas.' }
+    ];
+
+    if (!b.mode) {
+      return '<div class="cp-adv-list">' +
+        OPTIONS.map(function (o) {
+          return '<button class="cp-adv-opt" data-b-mode="' + o.id + '">' +
+            '<span class="ico">' + micon(o.icon, { size: 20, fill: 1 }) + '</span>' +
+            '<span class="txt"><span class="t">' + esc(o.title) + '</span>' +
+            '<span class="d">' + esc(o.desc) + '</span></span>' +
+            '<span class="chev">' + micon('chevron_right', { size: 20 }) + '</span></button>';
+        }).join('') + '</div>';
+    }
+
+    return '<div><button class="cp-adv-back" data-b-mode-back="1">' +
+      micon('arrow_back', { size: 14 }) + ' All options</button>' +
+      (b.mode === 'correlate' ? correlationBuilderHtml()
+        : b.mode === 'table' ? metricsTableBuilderHtml()
+        : b.mode === 'text' ? textBlockBuilderHtml()
+        : ideasBuilderHtml()) +
+      '</div>';
+  }
+
+  // "Describe it to Agency Intelligence" / "just ask" — hand the job to the
+  // chat dock instead of a form. Closes the Add-widget dialog if it's open and
+  // expands the dock, so the caret always lands somewhere visible.
+  function focusChat() {
+    Array.prototype.forEach.call(document.querySelectorAll('vaadin-dialog'), function (d) {
+      if (d.opened) d.opened = false;
+    });
+    if (state.collapsed) { state.collapsed = false; render(); }
+    setTimeout(function () {
+      var ta = document.getElementById('cpvDraft');
+      if (ta) { ta.focus(); ta.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    }, 60);
+  }
+
+  // Shell with Simple / Advanced tabs. `modal` drops the big header and the
+  // "just ask" footer — those belong to the empty state, not the dialog.
+  function widgetBuilderHtml(modal) {
+    var b = state.builder;
+    var TABS = [
+      { id: 'simple', label: 'Simple', icon: 'tune' },
+      { id: 'advanced', label: 'Advanced', icon: 'insights' }
+    ];
+    var subtitle = b.tab === 'simple'
+      ? 'Pick one metric and choose how to show it.'
+      : 'Correlate metrics, build a summary table, write commentary, or ask Agency Intelligence.';
+
+    return '<div class="cp-builder' + (modal ? ' is-modal' : '') + '">' +
+      (modal ? '' : '<div class="cp-builder-head">' + agencyIntelMark(52) +
+        '<h2>Let’s build your first widget</h2></div>') +
+      '<div class="cp-builder-tabs"><div class="cp-builder-modes">' +
       TABS.map(function (t) {
-        return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:5px;' +
-          'padding:6px 11px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;' +
+        return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
+          'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
           'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
           (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
           (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +
-          micon(t.icon, { size: 14 }) + ' ' + esc(t.label) + '</button>';
-      }).join('') + '</div></div>' +
-      (b.tab === 'simple' ? simpleBuilderHtml() : b.tab === 'correlate' ? correlationBuilderHtml() : ideasBuilderHtml()) +
+          micon(t.icon, { size: 15 }) + ' ' + esc(t.label) + '</button>';
+      }).join('') + '</div>' +
+      '<div class="cp-builder-sub">' + esc(subtitle) + '</div></div>' +
+      (b.tab === 'simple' ? simpleBuilderHtml() : advancedBuilderHtml()) +
+      (modal ? '' : '<div class="cp-builder-foot">or <button id="cpBAskFocus">' +
+        'just ask Agency Intelligence →</button></div>') +
       '</div>';
   }
 
@@ -897,8 +1045,8 @@
 
     var bar = '<div class="cp-build-bar">' +
       (!locked
-        ? '<vaadin-button theme="secondary small" id="cpBack" title="Back to Copilot">' +
-          micon('arrow_back', { size: 15 }) + '<span style="margin-left:4px">Copilot</span></vaadin-button>' +
+        ? '<vaadin-button theme="secondary small" id="cpBack" title="Back to Agency Intelligence">' +
+          micon('arrow_back', { size: 15 }) + '<span class="kx-btn-label">Agency Intelligence</span></vaadin-button>' +
           '<span class="cp-dash-icon">' + micon(d.icon || 'dashboard', { size: 18, fill: 1 }) + '</span>'
         : '<span style="font-family:var(--font-display);font-weight:500;font-size:13px;letter-spacing:0.4px;' +
           'text-transform:uppercase;color:var(--ink-400)">Preview</span>') +
@@ -922,14 +1070,15 @@
           (delivery
             ? '<vaadin-button theme="secondary small" id="cpEditSchedule" title="Edit the report schedule">' +
               micon(delivery.paused ? 'pause_circle' : 'schedule_send', { size: 14, fill: 1 }) +
-              '<span style="margin-left:4px">' + esc(CP.cadenceMeta(delivery.cadence).short + ' ' +
+              '<span class="kx-btn-label">' + esc(CP.cadenceMeta(delivery.cadence).short + ' ' +
               CP.formatMeta(delivery.format).short) + '</span></vaadin-button>'
             : '') +
+          exportControl() +
           (published
             ? '<vaadin-button theme="secondary" id="cpPublish">' + micon('group', { size: 16 }) +
-              '<span style="margin-left:4px">Manage delivery</span></vaadin-button>'
+              '<span class="kx-btn-label">Manage delivery</span></vaadin-button>'
             : '<vaadin-button theme="primary" id="cpPublish">' + micon('campaign', { size: 16 }) +
-              '<span style="margin-left:4px">Publish</span></vaadin-button>')
+              '<span class="kx-btn-label">Publish</span></vaadin-button>')
         : '') +
       '<div class="cp-modes">' +
       [['edit', 'Edit', 'edit'], ['preview', 'Preview', 'visibility']].map(function (o) {
@@ -969,15 +1118,51 @@
       }).join('') + '</div>' +
       (!locked
         ? '<div style="margin-top:14px"><vaadin-button theme="secondary" id="cpAddWidget">' +
-          micon('add', { size: 16 }) + '<span style="margin-left:4px">Add widget</span></vaadin-button></div>'
+          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add widget</span></vaadin-button></div>'
         : '');
     }
 
     return '<div class="cp-build">' + bar + previewBanner +
       '<div class="cp-panes' + (DEFAULTS.chatDock === 'left' ? ' dock-left' : '') + '">' +
       '<div class="cp-canvas">' + canvas + '</div>' +
-      (locked ? '' : vectoriaPanel()) +
+      (locked ? '' : agencyIntelPanel()) +
       '</div></div>';
+  }
+
+  // Export the whole dashboard — PDF (print) or CSV. Sits beside Publish.
+  function exportControl() {
+    return '<div style="position:relative">' +
+      '<vaadin-button theme="secondary" id="cpExport" title="Export this dashboard">' +
+      micon('download', { size: 16 }) + '<span class="kx-btn-label">Export</span>' +
+      micon('expand_more', { size: 14 }) + '</vaadin-button>' +
+      (state.exportMenu
+        ? '<div class="kx-menu kx-menu--right" style="width:230px">' +
+          '<button class="kx-menu-row" data-cp-export="pdf">' +
+          micon('picture_as_pdf', { size: 16 }) +
+          '<span class="label">Export as PDF</span></button>' +
+          '<button class="kx-menu-row" data-cp-export="csv">' +
+          micon('table_view', { size: 16 }) +
+          '<span class="label">Export as CSV</span></button>' +
+          '</div>'
+        : '') + '</div>';
+  }
+
+  // A single widget printed on its own page — same framing as the report
+  // so a widget PDF and a dashboard PDF look like the same document.
+  function widgetDocHtml(d, w) {
+    return '<div style="background:var(--surface-1);padding:32px;max-width:840px;margin:0 auto">' +
+      '<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:18px;margin-bottom:22px;' +
+      'border-bottom:2px solid var(--ink-900)">' +
+      '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:500;font-size:24px;' +
+      'color:var(--ink-900);letter-spacing:-0.4px">' + esc(CP.widgetTitle(w)) + '</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
+      esc(d.name) + ' · Keystone · ' + esc(fmtDate(TODAY)) + '</div></div>' +
+      agencyIntelMark(34) + '</div>' +
+      '<div class="cp-grid">' + KXCanvas.widgetCard(Object.assign({}, w, { w: 12 }), { editable: false }) +
+      '</div>' +
+      '<div style="margin-top:26px;padding-top:14px;border-top:1px solid var(--ink-100);font-size:11.5px;' +
+      'color:var(--ink-400)">Generated by Keystone Agency Intelligence · data as of ' +
+      esc(fmtDate(TODAY)) + '</div></div>';
   }
 
   // The delivered document: the same widgets, laid out as a report page.
@@ -993,18 +1178,19 @@
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
       'Keystone · ' + esc(fmtDate(TODAY)) +
       (del ? ' · ' + esc(CP.cadenceMeta(del.cadence).label + ' ' + CP.formatMeta(del.format).label) : '') +
-      '</div></div>' + vectoriaMark(34) + '</div>' +
-      (summary
+      '</div></div>' + agencyIntelMark(34) + '</div>' +
+      // reportSummary() returns { lead, rows } — `lead` is the prose.
+      (summary && summary.lead
         ? '<div style="font-size:13px;color:var(--ink-700);line-height:1.6;margin-bottom:24px;padding:14px 16px;' +
           'background:var(--surface-2);border-radius:10px;border-left:3px solid var(--amber-400)">' +
-          esc(summary) + '</div>'
+          esc(summary.lead) + '</div>'
         : '') +
       '<div class="cp-grid">' + (d.widgets || []).map(function (w) {
         return KXCanvas.widgetCard(w, { editable: false });
       }).join('') + '</div>' +
       '<div style="margin-top:26px;padding-top:14px;border-top:1px solid var(--ink-100);font-size:11.5px;' +
       'color:var(--ink-400);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
-      '<span>Generated by Keystone Copilot · data as of ' + esc(fmtDate(TODAY)) + '</span>' +
+      '<span>Generated by Keystone Agency Intelligence · data as of ' + esc(fmtDate(TODAY)) + '</span>' +
       '<span>' + (del ? esc('Delivered ' + CP.cadenceMeta(del.cadence).label.toLowerCase()) : 'Not scheduled') +
       '</span></div></div>';
   }
@@ -1013,125 +1199,32 @@
      PUBLISH / ASSIGN DIALOG
      ===================================================================== */
 
-  function openAssignDialog(d, startTab) {
-    var sel = {
-      titles: ((d.assignedTo && d.assignedTo.titles) || []).slice(),
-      individuals: ((d.assignedTo && d.assignedTo.individuals) || []).slice(),
-      // NB: CADENCES / REPORT_FORMATS key on `id`, not `value`.
-      cadence: (CP.deliveryOf(d) || {}).cadence || CP.CADENCES[0].id,
-      format: (CP.deliveryOf(d) || {}).format || CP.REPORT_FORMATS[0].id,
-      schedule: !!CP.deliveryOf(d)
-    };
-
-    function titleRows() {
-      return CP.JOB_TITLES.map(function (t) {
-        var on = sel.titles.indexOf(t.id) !== -1;
-        // Access reconciliation: does this audience hold every source the
-        // dashboard's widgets read from?
-        var rec = CP.reconcileAccess ? CP.reconcileAccess(d, { titles: [t.id], individuals: [] }) : null;
-        var missing = rec && rec.missing ? rec.missing : [];
-        return '<label style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;' +
-          'cursor:pointer;border:1px solid ' + (on ? 'var(--teal-400)' : 'var(--ink-100)') + ';background:' +
-          (on ? 'var(--teal-50)' : 'var(--surface-1)') + '">' +
-          '<vaadin-checkbox data-as-title="' + KX.attr(t.id) + '"' + (on ? ' checked' : '') + '></vaadin-checkbox>' +
-          '<span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">' +
-          esc(t.label) + '</span>' +
-          '<span style="font-size:11.5px;color:var(--ink-500)">' + t.count + ' people' +
-          (missing.length
-            ? ' · <span style="color:var(--amber-700)">missing ' +
-              esc(missing.map(function (s) { return K.SOURCES[s] ? K.SOURCES[s].short : s; }).join(', ')) + '</span>'
-            : '') + '</span></span>' +
-          entitlementDots(AI.titleEntitlements ? AI.titleEntitlements(t.id) : []) + '</label>';
-      }).join('');
-    }
-
-    KX.openDialog({
-      title: 'Publish “' + d.name + '”',
-      subtitle: 'Same widgets — choose where they land. A homepage audience gets it live; a schedule delivers it.',
-      icon: 'campaign',
-      accent: 'var(--teal-400)',
-      width: '620px',
-      note: 'Publishing to a homepage releases those people from any other live dashboard.',
-      body:
-        '<div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;' +
-        'color:var(--ink-500);margin-bottom:8px">Live on their homepage</div>' +
-        '<div style="display:flex;flex-direction:column;gap:6px">' + titleRows() + '</div>' +
-        '<div style="margin-top:18px;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;' +
-        'color:var(--ink-500);margin-bottom:8px">Or deliver it as a report</div>' +
-        '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;' +
-        'border:1px solid var(--ink-100);background:var(--surface-2);cursor:pointer">' +
-        '<vaadin-checkbox id="asSchedule"' + (sel.schedule ? ' checked' : '') + '></vaadin-checkbox>' +
-        '<span style="flex:1"><span style="display:block;font-weight:600;font-size:13px">Schedule delivery</span>' +
-        '<span style="font-size:11px;color:var(--ink-500)">Sends on a cadence to the audience above.</span></span>' +
-        '</label>' +
-        '<div id="asSchedOpts" style="display:' + (sel.schedule ? 'grid' : 'none') +
-        ';grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">' +
-        '<vaadin-select theme="outlined" id="asCadence" label="Cadence" style="width:100%"></vaadin-select>' +
-        '<vaadin-select theme="outlined" id="asFormat" label="Format" style="width:100%"></vaadin-select>' +
-        '</div>' +
-        '<div id="asSummary" style="margin-top:14px;font-size:12px;color:var(--ink-600);line-height:1.5"></div>',
-      onMount: function (body) {
-        var cad = body.querySelector('#asCadence');
-        cad.items = CP.CADENCES.map(function (c) { return { label: c.label, value: c.id }; });
-        cad.value = sel.cadence;
-        var fmt = body.querySelector('#asFormat');
-        fmt.items = CP.REPORT_FORMATS.map(function (f) { return { label: f.label, value: f.id }; });
-        fmt.value = sel.format;
-
-        function refresh() {
-          var reach = 0;
-          sel.titles.forEach(function (id) {
-            var t = CP.titleById(id);
-            if (t) reach += t.count || 0;
-          });
-          reach += sel.individuals.length;
-          var el = body.querySelector('#asSummary');
-          el.innerHTML = reach
-            ? 'Reaches <b>' + reach + '</b> people' +
-              (sel.schedule ? ' · delivered ' + esc(CP.cadenceMeta(sel.cadence).label.toLowerCase()) +
-                ' as ' + esc(CP.formatMeta(sel.format).label) : ' · live on their homepage')
-            : 'No audience selected — this stays private to you.';
-        }
-        refresh();
-
-        body.addEventListener('change', function (e) {
-          var t = e.target.closest('vaadin-checkbox[data-as-title]');
-          if (t) {
-            var id = t.getAttribute('data-as-title');
-            var i = sel.titles.indexOf(id);
-            if (t.checked && i === -1) sel.titles.push(id);
-            if (!t.checked && i !== -1) sel.titles.splice(i, 1);
-            var wrap = t.closest('label');
-            wrap.style.borderColor = t.checked ? 'var(--teal-400)' : 'var(--ink-100)';
-            wrap.style.background = t.checked ? 'var(--teal-50)' : 'var(--surface-1)';
-            refresh();
-          }
-          if (e.target.id === 'asSchedule') {
-            sel.schedule = !!e.target.checked;
-            body.querySelector('#asSchedOpts').style.display = sel.schedule ? 'grid' : 'none';
-            refresh();
-          }
-        });
-        cad.addEventListener('value-changed', function (e) { sel.cadence = e.detail.value; refresh(); });
-        fmt.addEventListener('value-changed', function (e) { sel.format = e.detail.value; refresh(); });
+  // The audience picker (job titles / named individuals / AI groups) lives
+  // in agency-intel-audience.js — this is just the hand-off.
+  function openAssignDialog(d) {
+    AGENCY_INTEL_AUDIENCE.open({
+      dashboard: d,
+      // How many OTHER dashboards ride on this group — editing a live rule
+      // changes their audience too, so the dialog warns before saving.
+      groupUsage: function (gid) {
+        return state.dashboards.filter(function (x) {
+          return x.id !== d.id && x.assignedTo &&
+            (x.assignedTo.groups || []).indexOf(gid) !== -1;
+        }).length;
       },
-      actions: [
-        { label: 'Cancel', theme: 'tertiary' },
-        { label: 'Publish', theme: 'primary', icon: 'campaign', onClick: function () {
-          var live = sel.titles.length || sel.individuals.length;
-          var audience = live ? { titles: sel.titles, individuals: sel.individuals } : null;
-          var delivery = sel.schedule ? { cadence: sel.cadence, format: sel.format, paused: false } : null;
-          assignDash(state.activeId, audience, delivery);
-          KX.pushToast({
-            title: live ? 'Dashboard published' : delivery ? 'Report scheduled' : 'Set to private',
-            body: live
-              ? 'Live for ' + sel.titles.length + ' job title' + (sel.titles.length === 1 ? '' : 's') + '.'
-              : delivery ? CP.cadenceMeta(sel.cadence).label + ' · ' + CP.formatMeta(sel.format).label
+      onPublish: function (out) {
+        assignDash(d.id, out.audience, out.delivery);
+        var live = !!out.audience;
+        KX.pushToast({
+          title: live ? 'Dashboard published' : out.delivery ? 'Report scheduled' : 'Set to private',
+          body: live
+            ? 'Live for ' + out.reach + ' ' + (out.reach === 1 ? 'person' : 'people') + '.'
+            : out.delivery
+              ? CP.cadenceMeta(out.delivery.cadence).label + ' · ' + CP.formatMeta(out.delivery.format).label
               : 'Only you can see this now.',
-            icon: 'campaign', tone: 'success'
-          });
-        } }
-      ]
+          icon: 'campaign', tone: 'success'
+        });
+      }
     });
   }
 
@@ -1140,7 +1233,8 @@
   function assignDash(id, audience, delivery) {
     state.dashboards = state.dashboards.map(function (d) {
       if (d.id === id) {
-        var live = !!(audience && ((audience.titles || []).length || (audience.individuals || []).length));
+        var live = !!(audience && ((audience.titles || []).length ||
+          (audience.individuals || []).length || (audience.groups || []).length));
         return Object.assign({}, d, {
           assignedTo: live ? audience : null,
           delivery: delivery || null,
@@ -1151,9 +1245,10 @@
       if (!d.assignedTo || !audience) return d;
       var titles = (d.assignedTo.titles || []).filter(function (t) { return (audience.titles || []).indexOf(t) === -1; });
       var inds = (d.assignedTo.individuals || []).filter(function (i) { return (audience.individuals || []).indexOf(i) === -1; });
-      var still = titles.length || inds.length;
+      var groups = (d.assignedTo.groups || []).filter(function (g) { return (audience.groups || []).indexOf(g) === -1; });
+      var still = titles.length || inds.length || groups.length;
       return Object.assign({}, d, {
-        assignedTo: still ? { titles: titles, individuals: inds } : null,
+        assignedTo: still ? { titles: titles, individuals: inds, groups: groups } : null,
         status: still ? d.status : 'private'
       });
     });
@@ -1172,12 +1267,12 @@
     }, 720);
   }
 
-  function pushVectoria(msg) {
-    state.thread.push(Object.assign({ role: 'vectoria' }, msg));
+  function pushAgencyIntel(msg) {
+    state.thread.push(Object.assign({ role: 'agency-intel' }, msg));
     render();
   }
 
-  function vectoriaSend(textArg) {
+  function agencyIntelSend(textArg) {
     var text = (typeof textArg === 'string' ? textArg : state.draft).trim();
     if (!text || state.thinking) return;
     state.thread.push({ role: 'user', text: text });
@@ -1188,28 +1283,28 @@
     setTimeout(function () {
       var d = active();
       var widgets = (d && d.widgets) || [];
-      var resp = CP.vectoriaRespond(text, { hasWidgets: widgets.length > 0 });
+      var resp = CP.agencyIntelRespond(text, { hasWidgets: widgets.length > 0 });
       state.thinking = false;
 
       if (resp.kind === 'refine') {
         var targetId = state.selectedId || (widgets.length ? widgets[widgets.length - 1].id : null);
-        if (!targetId) { pushVectoria({ text: 'Add a widget first, then I can change it.' }); return; }
+        if (!targetId) { pushAgencyIntel({ text: 'Add a widget first, then I can change it.' }); return; }
         setWidgets(function (ws) {
           return ws.map(function (w) {
             return w.id === targetId ? Object.assign({}, w, resp.patch, { state: 'refreshing' }) : w;
           });
         });
         resolveWidgetSoon(targetId, 'live');
-        pushVectoria({ text: resp.text });
+        pushAgencyIntel({ text: resp.text });
       } else if (resp.kind === 'widget' || resp.kind === 'nodata') {
         var w = Object.assign({}, resp.widget, { state: resp.kind === 'nodata' ? 'nodata' : 'loading' });
         setWidgets(function (ws) { return ws.concat([w]); });
         if (resp.kind === 'widget') resolveWidgetSoon(w.id, 'live');
-        pushVectoria({ text: resp.text, added: resp.kind === 'widget' ? CP.widgetTitle(w) : null });
+        pushAgencyIntel({ text: resp.text, added: resp.kind === 'widget' ? CP.widgetTitle(w) : null });
       } else if (resp.kind === 'choice') {
-        pushVectoria({ text: resp.text, choices: resp.choices });
+        pushAgencyIntel({ text: resp.text, choices: resp.choices });
       } else {
-        pushVectoria({ text: resp.text });
+        pushAgencyIntel({ text: resp.text });
       }
     }, 850 + Math.random() * 500);
   }
@@ -1219,7 +1314,7 @@
     setWidgets(function (ws) { return ws.concat([w]); });
     var title = CP.widgetTitle(w);
     state.thread.push({ role: 'user', text: 'Add ' + title });
-    state.thread.push({ role: 'vectoria', text: 'Added “' + title + '”. Want to tweak it, or add another?' });
+    state.thread.push({ role: 'agency-intel', text: 'Added “' + title + '”. Want to tweak it, or add another?' });
     resolveWidgetSoon(w.id, 'live');
     render();
   }
@@ -1230,7 +1325,7 @@
     setWidgets(function (ws) { return ws.concat(made); });
     state.thread.push({ role: 'user', text: 'Build: ' + ideas.map(function (i) { return i.prompt; }).join('; ') });
     state.thread.push({
-      role: 'vectoria',
+      role: 'agency-intel',
       text: 'Generating ' + made.length + ' widget' + (made.length === 1 ? '' : 's') +
         ' now — they\'ll land on the canvas as each query resolves.'
     });
@@ -1252,7 +1347,7 @@
     state.selectedId = null;
     var d = active();
     state.thread = [{
-      role: 'vectoria',
+      role: 'agency-intel',
       text: (d.widgets || []).length
         ? 'Editing “' + d.name + '”. Tell me what to add, or ask me to change any widget.'
         : 'Ask me anything across your apps and I\'ll put the answer on the canvas. ' +
@@ -1269,7 +1364,7 @@
       widgets: widgets || [], status: 'draft', assignedTo: null, delivery: null,
       owner: 'You', createdAt: TODAY, updatedAt: TODAY
     }].concat(state.dashboards);
-    state.builder = { tab: 'simple', metric: null, viz: null, range: CP.DEFAULT_RANGE, include: [], a: null, b: null, corrViz: 'scatter', ideas: [] };
+    state.builder = freshBuilder();
     openDash(id);
   }
 
@@ -1294,7 +1389,7 @@
     // The "Add widget" builder lives in a dialog overlay outside #root, so it
     // needs its own re-render pass whenever builder state changes.
     var host = document.getElementById('cpAddWidgetHost');
-    if (host && host.isConnected) host.innerHTML = widgetBuilderHtml();
+    if (host && host.isConnected) host.innerHTML = widgetBuilderHtml(true);
 
     hydrate();
   }
@@ -1409,7 +1504,7 @@
       var vm = e.target.closest('[data-cp-view]');
       if (vm) {
         state.viewMode = vm.getAttribute('data-cp-view');
-        try { localStorage.setItem('kx-copilot-dash-view', state.viewMode); } catch (err) {}
+        try { localStorage.setItem('kx-agency-intel-dash-view', state.viewMode); } catch (err) {}
         render();
         return;
       }
@@ -1426,7 +1521,7 @@
         state.aiGrants = Object.assign({}, state.aiGrants, {
           titles: state.aiGrants.titles.filter(function (x) { return grantId(x) !== tid; })
         });
-        KX.pushToast({ title: 'Access revoked', body: 'Vectoria removed from that job title\'s homepage.', icon: 'block' });
+        KX.pushToast({ title: 'Access revoked', body: 'Agency Intelligence removed from that job title\'s homepage.', icon: 'block' });
         render();
         return;
       }
@@ -1471,18 +1566,58 @@
         openAssignDialog(active());
         return;
       }
+
+      /* ---- export ---- */
+      if (e.target.closest('#cpExport')) {
+        state.exportMenu = !state.exportMenu;
+        KXCanvas.setOpenMenu(null);        // only one menu open at a time
+        render();
+        return;
+      }
+      var xp = e.target.closest('[data-cp-export]');
+      if (xp) {
+        var kind = xp.getAttribute('data-cp-export');
+        var dash = active();
+        state.exportMenu = false;
+        render();
+        if (!dash) return;
+        if (kind === 'csv') {
+          AGENCY_INTEL_EXPORT.csv(dash.name, AGENCY_INTEL_EXPORT.tablesForDashboard(dash));
+        } else {
+          AGENCY_INTEL_EXPORT.print(reportPreviewHtml(dash));
+        }
+        return;
+      }
+      var wpdf = e.target.closest('[data-w-pdf]');
+      if (wpdf) {
+        var pid = wpdf.getAttribute('data-w-pdf');
+        var pw = (active().widgets || []).find(function (x) { return x.id === pid; });
+        KXCanvas.setOpenMenu(null);
+        render();
+        if (pw) AGENCY_INTEL_EXPORT.print(widgetDocHtml(active(), pw));
+        return;
+      }
+      var wcsv = e.target.closest('[data-w-csv]');
+      if (wcsv) {
+        var cid = wcsv.getAttribute('data-w-csv');
+        var cw = (active().widgets || []).find(function (x) { return x.id === cid; });
+        KXCanvas.setOpenMenu(null);
+        render();
+        if (cw) AGENCY_INTEL_EXPORT.csv(CP.widgetTitle(cw), AGENCY_INTEL_EXPORT.tablesForWidget(cw));
+        return;
+      }
       if (e.target.closest('#cpAddWidget')) {
         // Reuse the builder in a dialog once the canvas already has widgets.
         openAddWidgetDialog();
         return;
       }
 
-      /* ---- Vectoria ---- */
-      if (e.target.closest('#cpvSend')) { vectoriaSend(); return; }
+      /* ---- Agency Intelligence ---- */
+      if (e.target.closest('#cpvSend')) { agencyIntelSend(); return; }
       if (e.target.closest('#cpvCollapse')) { state.collapsed = true; render(); return; }
       if (e.target.closest('#cpvExpand')) { state.collapsed = false; render(); return; }
       if (e.target.closest('#cpvNewChat')) {
-        state.thread = [{ role: 'vectoria', text: 'Fresh start. What should we look at?' }];
+        state.thread = [{ role: 'agency-intel', text: 'Fresh start. What should we look at?' }];
         render();
         return;
       }
@@ -1490,7 +1625,7 @@
       if (ch) {
         var msg = state.thread[+ch.getAttribute('data-cpv-choice')];
         var c = msg && msg.choices && msg.choices[+ch.getAttribute('data-cpv-choice-i')];
-        if (c) vectoriaSend(c.send);
+        if (c) agencyIntelSend(c.send);
         return;
       }
 
@@ -1499,6 +1634,7 @@
       if (wm) {
         var wid = wm.getAttribute('data-w-menu');
         KXCanvas.setOpenMenu(KXCanvas.getOpenMenu() === wid ? null : wid);
+        state.exportMenu = false;          // only one menu open at a time
         render();
         return;
       }
@@ -1509,7 +1645,7 @@
         state.selectedId = aid;
         KXCanvas.setOpenMenu(null);
         state.collapsed = false;
-        pushVectoria({
+        pushAgencyIntel({
           text: 'What should I change about “' + CP.widgetTitle(aw) + '”? ' +
             'Try “make it a bar chart”, “by station”, or “last 90 days”.'
         });
@@ -1563,7 +1699,23 @@
 
       /* ---- builder ---- */
       var bt = e.target.closest('[data-b-tab]');
-      if (bt) { state.builder.tab = bt.getAttribute('data-b-tab'); render(); return; }
+      if (bt) {
+        state.builder.tab = bt.getAttribute('data-b-tab');
+        state.builder.mode = null;          // Advanced always opens on its option list
+        render();
+        return;
+      }
+      // Advanced: drill into an option, or hand off to the chat dock.
+      var bmo = e.target.closest('[data-b-mode]');
+      if (bmo) {
+        var mode = bmo.getAttribute('data-b-mode');
+        if (mode === 'ask') { focusChat(); return; }
+        state.builder.mode = mode;
+        render();
+        return;
+      }
+      if (e.target.closest('[data-b-mode-back]')) { state.builder.mode = null; render(); return; }
+      if (e.target.closest('#cpBAskFocus')) { focusChat(); return; }
       var bm = e.target.closest('[data-b-metric]');
       if (bm) {
         var mid = bm.getAttribute('data-b-metric');
@@ -1614,6 +1766,33 @@
         addWidget({ metricIds: [state.builder.a, state.builder.b], viz: state.builder.corrViz });
         return;
       }
+      // Summary-table builder: toggle a measure, then add the table.
+      var btm = e.target.closest('[data-b-tmetric]');
+      if (btm) {
+        var tmid = btm.getAttribute('data-b-tmetric');
+        var tix = state.builder.tableIds.indexOf(tmid);
+        if (tix === -1) state.builder.tableIds.push(tmid); else state.builder.tableIds.splice(tix, 1);
+        render();
+        return;
+      }
+      if (e.target.closest('#cpBAddTable')) {
+        addWidget({
+          kind: 'metrics_table', viz: 'metrics_table',
+          metricIds: state.builder.tableIds.slice(),
+          heading: state.builder.tableHeading.trim() || 'Summary table'
+        });
+        return;
+      }
+      if (e.target.closest('#cpBAddText')) {
+        if (!state.builder.textHeading.trim() && !state.builder.textBody.trim()) return;
+        addWidget({
+          kind: 'text', viz: 'text', w: 12,
+          heading: state.builder.textHeading.trim(),
+          body: state.builder.textBody.trim()
+        });
+        return;
+      }
+
       var bi2 = e.target.closest('[data-b-idea]');
       if (bi2) {
         var iid2 = bi2.getAttribute('data-b-idea');
@@ -1635,6 +1814,24 @@
 
     /* ---- search + chat input ---- */
     root.addEventListener('input', function (e) {
+      // Builder text fields update state WITHOUT a re-render, so the caret
+      // stays put. Anything that depends on them is patched in place below.
+      if (e.target.id === 'cpBTableHeading') {
+        state.builder.tableHeading = e.target.value;
+        var pv = document.querySelector('.cp-builder .cpw-title');
+        if (pv) pv.textContent = state.builder.tableHeading.trim() || 'Summary table';
+        return;
+      }
+      if (e.target.id === 'cpBTextHeading' || e.target.id === 'cpBTextBody') {
+        if (e.target.id === 'cpBTextHeading') state.builder.textHeading = e.target.value;
+        else state.builder.textBody = e.target.value;
+        var addText = document.getElementById('cpBAddText');
+        if (addText) {
+          if (state.builder.textHeading.trim() || state.builder.textBody.trim()) addText.removeAttribute('disabled');
+          else addText.setAttribute('disabled', '');
+        }
+        return;
+      }
       if (e.target.id === 'cpvDraft') {
         state.draft = e.target.value;
         var btn = document.getElementById('cpvSend');
@@ -1649,6 +1846,24 @@
     });
 
     root.addEventListener('value-changed', function (e) {
+      // Commentary widgets are edited in place on the canvas. Write straight
+      // into the active dashboard rather than going through patchActive() —
+      // that re-renders, which would drop the caret on every keystroke.
+      var tw = e.target.closest && e.target.closest('[data-text-widget]');
+      if (tw) {
+        var twid = tw.getAttribute('data-text-widget');
+        var val = e.detail.value || '';
+        var dash = active();
+        if (dash) {
+          dash.widgets = dash.widgets.map(function (w) {
+            return w.id === twid ? Object.assign({}, w, { body: val }) : w;
+          });
+          dash.updatedAt = TODAY;
+          state.lastSavedAt = Date.now();
+          renderSavedChip();
+        }
+        return;
+      }
       if (e.target.id === 'cpSearch') {
         state.query = e.detail.value || '';
         state.page = 1;
@@ -1662,7 +1877,7 @@
     root.addEventListener('keydown', function (e) {
       if (e.target.id === 'cpvDraft' && e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        vectoriaSend();
+        agencyIntelSend();
       }
       var row = e.target.closest && e.target.closest('[data-open-dash]');
       if (row && e.key === 'Enter') openDash(row.getAttribute('data-open-dash'));
@@ -1682,8 +1897,16 @@
     // Close widget menus / range popovers on an outside click.
     document.addEventListener('mousedown', function (e) {
       var changed = false;
-      if (KXCanvas.getOpenMenu() && !e.target.closest('.kx-menu') && !e.target.closest('[data-w-menu]')) {
+      // NB: never re-render on mousedown over a menu trigger. Doing so
+      // replaces the element between mousedown and click, and the click is
+      // swallowed — the button appears dead. Each trigger closes the other
+      // menu in its own click handler instead.
+      var onTrigger = e.target.closest('[data-w-menu]') || e.target.closest('#cpExport');
+      if (KXCanvas.getOpenMenu() && !e.target.closest('.kx-menu') && !onTrigger) {
         KXCanvas.setOpenMenu(null); changed = true;
+      }
+      if (state.exportMenu && !e.target.closest('.kx-menu') && !onTrigger) {
+        state.exportMenu = false; changed = true;
       }
       if (KXCanvas.getOpenRange() && !e.target.closest('.kx-menu') && !e.target.closest('[data-range-open]')) {
         KXCanvas.setOpenRange(null); changed = true;
@@ -1694,18 +1917,20 @@
 
   // "Add widget" once the canvas is populated — the same builder, in a dialog.
   function openAddWidgetDialog() {
-    state.builder = { tab: 'simple', metric: null, viz: null, range: CP.DEFAULT_RANGE, include: [], a: null, b: null, corrViz: 'scatter', ideas: [] };
+    state.builder = freshBuilder();
     KX.openDialog({
       title: 'Add a widget',
-      subtitle: 'Chart one metric, correlate two, or start from an idea.',
+      subtitle: 'Chart one metric, or go Advanced — correlate, tabulate, write, or ask.',
       icon: 'add_chart',
       accent: 'var(--amber-500)',
       width: '860px',
-      body: '<div id="cpAddWidgetHost">' + widgetBuilderHtml() + '</div>',
+      body: '<div id="cpAddWidgetHost">' + widgetBuilderHtml(true) + '</div>',
       onMount: function (body, dlg) {
         // The builder's own Add buttons close the dialog once a widget lands.
         body.addEventListener('click', function (e) {
-          if (e.target.closest('#cpBAdd') || e.target.closest('#cpBAddCorr') || e.target.closest('#cpBGenerate')) {
+          if (e.target.closest('#cpBAdd') || e.target.closest('#cpBAddCorr') ||
+              e.target.closest('#cpBGenerate') || e.target.closest('#cpBAddTable') ||
+              e.target.closest('#cpBAddText')) {
             setTimeout(function () { dlg.opened = false; }, 0);
           }
         });
@@ -1717,14 +1942,14 @@
      BOOT
      ===================================================================== */
 
-  // Deep links, so the Hub's Copilot card hand-off keeps working.
+  // Deep links, so the Hub's Agency Intelligence card hand-off keeps working.
   (function deepLink() {
     var p = new URLSearchParams(location.search);
     if (p.get('tab') === 'ai') { state.homeTab = 'ai'; return; }
     if (p.get('new')) { newDash(); return; }
     var did = p.get('dashboard') || p.get('custom');
     if (did) {
-      // A dashboard published from the Hub's Copilot card lives in the shared
+      // A dashboard published from the Hub's Agency Intelligence card lives in the shared
       // custom-dashboards store; adapt it into this page's shape.
       var existing = state.dashboards.find(function (d) { return d.id === did; });
       if (existing) { openDash(did); return; }
@@ -1752,7 +1977,7 @@
   });
   KX.onFlagsChange(function () { render(); });
 
-  window.KXCopilotPage = {
+  window.KXAgencyIntelPage = {
     state: state,
     render: render,
     // Used by the Data Explorer's "Pin to dashboard": an exploration becomes a
