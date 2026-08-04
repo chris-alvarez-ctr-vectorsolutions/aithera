@@ -51,6 +51,13 @@ present (a mock that includes `feedback-widget.js` directly, without
 `toolbox.js`), the comment widget falls back to its original floating bubble and
 the flow map to its own standalone pill — so those mocks are unaffected.
 
+**Version order (versioned-loader mocks):** the feature-root loader
+(`base-template/index.html`) sorts the entries of `versions.json` **ascending —
+V1, V2, V2.x, V10…** — regardless of how the manifest is ordered, and **always
+opens V1 (the lowest version) by default**. The dock's version buttons appear in
+that same order. To land a reviewer on a later version, share a `?v=<id>` deep
+link (e.g. `?v=ver2`); manifest order alone can't change the default.
+
 ---
 
 ## Flow Map

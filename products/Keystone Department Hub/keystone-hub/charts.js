@@ -393,6 +393,114 @@
       }).join('') + '</svg>';
   }
 
+  // Pearson r over the plotted points — the scatter's headline sentence
+  // states the relationship in words so the chart isn't the only read.
+  // Ported from agency-intel-canvas.js's vizScatter helpers.
+  function pearson(points) {
+    var n = points.length;
+    if (n < 3) return 0;
+    var sx = 0, sy = 0;
+    points.forEach(function (p) { sx += p.x; sy += p.y; });
+    var mx = sx / n, my = sy / n;
+    var num = 0, dx = 0, dy = 0;
+    points.forEach(function (p) {
+      num += (p.x - mx) * (p.y - my);
+      dx += (p.x - mx) * (p.x - mx);
+      dy += (p.y - my) * (p.y - my);
+    });
+    var den = Math.sqrt(dx * dy);
+    return den ? num / den : 0;
+  }
+
+  function scatterSentence(r, xLabel, yLabel) {
+    var mag = Math.abs(r);
+    var strength = mag >= 0.7 ? 'strong' : mag >= 0.4 ? 'moderate' : mag >= 0.2 ? 'weak' : 'no meaningful';
+    var dir = r > 0 ? 'positive' : 'negative';
+    if (strength === 'no meaningful') {
+      return 'No meaningful relationship between ' + xLabel + ' and ' + yLabel + ' in this data.';
+    }
+    return 'A ' + strength + ' ' + dir + ' relationship: as ' + xLabel +
+      (r > 0 ? ' rises, ' : ' rises, ') + yLabel + (r > 0 ? ' tends to rise too.' : ' tends to fall.');
+  }
+
+  // Correlation scatter + least-squares trend line, published-dashboard scale.
+  // Ported from agency-intel-canvas.js's vizScatter so the Agency Intelligence
+  // Dashboard page and the hub's published-dashboard widgets draw correlations
+  // identically. viewBox-driven sizing (width="100%") lets it scale inside
+  // whatever grid-column span the widget spec gives it, rather than assuming
+  // a fixed 380px widget.
+  //
+  // The <svg> deliberately sets NO height attribute. It used to carry
+  // height="210" to match the viewBox, which meant that in any container
+  // narrower than 380px the default preserveAspectRatio scaled the whole
+  // drawing down to fit the width while the box stayed 210px tall — a vertical
+  // letterbox plus shrunken text (at a 235px container: scale 0.62, so the
+  // 8.5px station labels rendered at ~5.3px). With height omitted the SVG's
+  // intrinsic viewBox ratio sets the height, so the box always fits the drawing
+  // exactly and there is never a letterbox in either axis. The scale still
+  // tracks the container width, so a caller that needs the labels at full size
+  // has to give this chart enough width — see index.html's ≤1070px rule, which
+  // hands the hub's scatter the whole grid row once the grid goes two-across.
+  function pdScatter(spec) {
+    var pts = spec.points || [];
+    if (pts.length < 3) {
+      return '<div style="padding:20px 0;text-align:center;color:var(--ink-400);font-size:12px">' +
+        'Not enough shared data points to plot a correlation.</div>';
+    }
+    var W = 380, H = 210, P = 40;
+    var xs = pts.map(function (p) { return p.x; });
+    var ys = pts.map(function (p) { return p.y; });
+    var xLo = Math.min.apply(null, xs), xHi = Math.max.apply(null, xs);
+    var yLo = Math.min.apply(null, ys), yHi = Math.max.apply(null, ys);
+    var padX = (xHi - xLo) * 0.12 || 1, padY = (yHi - yLo) * 0.12 || 1;
+    xLo -= padX; xHi += padX; yLo -= padY; yHi += padY;
+    var sx = function (v) { return P + (W - P - 12) * ((v - xLo) / (xHi - xLo)); };
+    var sy = function (v) { return (H - P) - (H - P - 14) * ((v - yLo) / (yHi - yLo)); };
+
+    var r = pearson(pts);
+    // Least-squares trend line across the plotted range.
+    var n = pts.length;
+    var mx = xs.reduce(function (a, b) { return a + b; }, 0) / n;
+    var my = ys.reduce(function (a, b) { return a + b; }, 0) / n;
+    var num = 0, den = 0;
+    pts.forEach(function (p) { num += (p.x - mx) * (p.y - my); den += (p.x - mx) * (p.x - mx); });
+    var slope = den ? num / den : 0;
+    var intercept = my - slope * mx;
+    var trend = '<line x1="' + sx(xLo) + '" y1="' + sy(slope * xLo + intercept) + '" x2="' + sx(xHi) +
+      '" y2="' + sy(slope * xHi + intercept) + '" stroke="var(--amber-400)" stroke-width="1.5" ' +
+      'stroke-dasharray="5 3" opacity="0.9"/>';
+
+    var grid = [0, 0.5, 1].map(function (t) {
+      var y = (H - P) - (H - P - 14) * t;
+      var v = Math.round(yLo + (yHi - yLo) * t);
+      return '<line x1="' + P + '" x2="' + (W - 12) + '" y1="' + y + '" y2="' + y +
+        '" stroke="var(--ink-100)" stroke-width="1"/>' +
+        '<text x="' + (P - 6) + '" y="' + (y + 3) + '" font-size="9" fill="var(--ink-400)" text-anchor="end">' + v + '</text>';
+    }).join('');
+
+    return '<div>' +
+      '<div style="font-size:12.5px;color:var(--ink-700);line-height:1.5;margin-bottom:10px">' +
+      esc(scatterSentence(r, spec.xLabel, spec.yLabel)) +
+      ' <span style="font-family:var(--font-mono);color:var(--ink-500)">r = ' + r.toFixed(2) + '</span></div>' +
+      // No height attribute, and height:auto, so the viewBox ratio sets the box
+      // height and the drawing never letterboxes. See the note on this function.
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="display:block;height:auto">' +
+      grid + trend +
+      pts.map(function (p) {
+        return '<circle cx="' + sx(p.x) + '" cy="' + sy(p.y) + '" r="5" fill="var(--teal-300)" ' +
+          'stroke="var(--teal-500)" stroke-width="1.5"><title>' + esc(p.label) + ': ' +
+          esc(spec.xLabel) + ' ' + p.x + ', ' + esc(spec.yLabel) + ' ' + p.y + '</title></circle>' +
+          '<text x="' + sx(p.x) + '" y="' + (sy(p.y) - 9) + '" font-size="8.5" fill="var(--ink-500)" ' +
+          'text-anchor="middle">' + esc(p.label) + '</text>';
+      }).join('') +
+      '<text x="' + (W / 2) + '" y="' + (H - 4) + '" font-size="9.5" fill="var(--ink-500)" text-anchor="middle">' +
+      esc(spec.xLabel) + (spec.xUnit ? ' (' + esc(spec.xUnit) + ')' : '') + '</text>' +
+      '<text x="10" y="' + (H / 2) + '" font-size="9.5" fill="var(--ink-500)" text-anchor="middle" ' +
+      'transform="rotate(-90 10 ' + (H / 2) + ')">' + esc(spec.yLabel) +
+      (spec.yUnit ? ' (' + esc(spec.yUnit) + ')' : '') + '</text>' +
+      '</svg></div>';
+  }
+
   function pdBar(data) {
     var max = Math.max.apply(null, data.map(function (d) { return d.value; })) || 1;
     return '<div style="display:flex;flex-direction:column;gap:8px;width:100%">' +
@@ -409,6 +517,14 @@
       }).join('') + '</div>';
   }
 
+  // ⚠ FRAGILE COUPLING — index.html keys two `!important` overrides off the
+  // LITERAL inline `style` strings emitted below (`div[style*="gap:18px"]` for
+  // the arc-to-legend gap and `div[style*="gap:8px;font-size:12px"]` for the
+  // within-row swatch/label/percentage gap), which is how the hub's donut legend
+  // fits its widest row inside a w:4 widget. Editing those two style strings —
+  // even reordering the declarations inside them — silently breaks the hub's
+  // donut legend with no error anywhere. If you must change them, grep
+  // index.html for `style*=` first and update the selectors in the same commit.
   function pdDonut(data, center) {
     var total = data.reduce(function (a, b) { return a + b.value; }, 0) || 1;
     var R = 50, SW = 14, C = 2 * Math.PI * R;
@@ -488,7 +604,7 @@
     miniBarPair: miniBarPair, miniLineDual: miniLineDual, miniDonut: miniDonut,
     inlineChart: inlineChart, chartLegend: chartLegend,
     inlineLine: inlineLine, inlineBarPair: inlineBarPair, inlineStack: inlineStack, inlineHBar: inlineHBar,
-    pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdTable: pdTable, pdSpark: pdSpark,
+    pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdScatter: pdScatter, pdTable: pdTable, pdSpark: pdSpark,
     downloadCSV: downloadCSV, TONE_FG: TONE_FG
   };
 })();

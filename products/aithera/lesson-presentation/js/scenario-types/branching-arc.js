@@ -715,6 +715,25 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     return normalize(out);
   }
 
+  /* =======================================================================
+     toRuntime — the branching-arc RUNTIME MODEL for the converged player
+     (js/sim-player.js drives it via scenario-live.html?type=branching-arc). A
+     Branching Arc scenario is authored AS `phases[]` already, so the runtime is
+     just normalize() plus the two fields the shared player reads: the reflection
+     warm-up `opening` and the scene-line caption. Extracted VERBATIM from
+     fromPublishedBranchingArc() in branching-arc-live.html so the arc plays
+     byte-for-byte the same through the shared engine as through its old bespoke
+     page. NOT a mix-arc round-trip: the branching type owns its OWN runtime and
+     prompt (compile) — no lossy funnel through toMixArc.
+     ======================================================================= */
+  function toRuntime(raw) {
+    const g = normalize(raw);
+    return Object.assign({}, g, {
+      opening: [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map((t) => fill(t, g)),
+      sceneLineCaption: 'You',
+    });
+  }
+
   /* ---- the type object ---------------------------------------------------- */
   const TYPE = {
     id: 'branching-arc',
@@ -731,7 +750,12 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     compile,
     fill,
     highlightStrings,
-    previewUrl: () => 'branching-arc-live.html',
+    toRuntime,
+    // [Option B] the converged universal player (js/sim-player.js). Was the
+    // bespoke branching-arc-live.html; migrated onto the shared runtime with its
+    // OWN toRuntime + compile (no toMixArc round-trip). branching-arc-live.html
+    // is frozen in archive/2026-08-04/.
+    previewUrl: () => 'scenario-live.html?type=branching-arc',
     // NOTE: no studio editor surface (sections / renderFields / lints /
     // playtest). Branching Arc is authored by hand in DEFAULT and run by its
     // live page — it is intentionally NOT registered into the studio, so it

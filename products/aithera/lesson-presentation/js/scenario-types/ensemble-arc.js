@@ -758,6 +758,31 @@ ${groundLines.join('\n')}`);
   }
 
   /* =======================================================================
+     toRuntime — the ensemble-arc RUNTIME MODEL for the converged player
+     (js/sim-player.js drives it via scenario-live.html?type=ensemble-arc). Like
+     Branching Arc, an Ensemble scenario is authored AS `phases[]` already (the
+     multi-character ladder), so the runtime is normalize() plus the two fields
+     the shared player reads. The one wrinkle: the reflection warm-up is
+     authored-OPTIONAL — the Bullying default ships reflection OFF, so `opening`
+     is EMPTY and the player boots STRAIGHT into Phase 1 (Ms. Reyes) via
+     deliverFirstPhase(). Extracted VERBATIM from fromPublishedEnsembleArc() in
+     ensemble-arc-live.html. NOT a mix-arc round-trip: the ensemble type owns its
+     OWN runtime + prompt (cast[], earned disclosures, cross-phase state[], the
+     minor-safeguarding floor) — none of which survive a funnel through toMixArc.
+     ======================================================================= */
+  function toRuntime(raw) {
+    const g = normalize(raw);
+    return Object.assign({}, g, {
+      // Present the warm-up ONLY when it's enabled AND has a prompt; otherwise
+      // leave opening empty so the boot opens straight on Phase 1.
+      opening: ((g.reflection || {}).enabled !== false)
+        ? [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map((t) => fill(t, g))
+        : [],
+      sceneLineCaption: 'You',
+    });
+  }
+
+  /* =======================================================================
      LINTS — same shape as every other type ({severity, section, msg, why});
      `section` matches a section id so the shell can jump the author to it.
      ======================================================================= */
@@ -1238,7 +1263,12 @@ ${groundLines.join('\n')}`);
     compile,
     fill,
     highlightStrings,
-    previewUrl: () => 'ensemble-arc-live.html',
+    toRuntime,
+    // [Option B] the converged universal player (js/sim-player.js). Was the
+    // bespoke ensemble-arc-live.html; migrated onto the shared runtime with its
+    // OWN toRuntime + compile (no toMixArc round-trip). ensemble-arc-live.html is
+    // frozen in archive/2026-08-04/.
+    previewUrl: () => 'scenario-live.html?type=ensemble-arc',
     sections,
     renderFields,
     lints,

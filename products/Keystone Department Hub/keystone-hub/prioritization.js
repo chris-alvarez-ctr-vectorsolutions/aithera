@@ -834,12 +834,19 @@
       refreshDerived();
     });
 
-    /* ---- Unit toggles (hrs / days) — converts the stored value ---- */
-    root.addEventListener('selection-change', function (e) {
-      var g = e.target;
-      if (!g.matches || !g.matches('[data-unit-path]')) return;
+    /* ---- Unit toggles (hrs / days) — converts the stored value ----
+       Delegated on `click`, not on the group's `selection-change`: that event
+       is dispatched with bubbles:false / composed:false, so it never reaches a
+       delegated listener here on #root and the toggle reads as dead. The
+       component's managed <input> lives in the light DOM, so one click event
+       bubbles out per press (mouse and keyboard alike). Same fix as the hub's
+       status buckets — see hub.js. */
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('[data-unit-path] vwc-toggle-button');
+      if (!btn) return;
+      var g = btn.closest('[data-unit-path]');
       var path = g.getAttribute('data-unit-path');
-      var unit = e.detail;
+      var unit = btn.getAttribute('value');
       var cur = getByPath(path);
       if (!cur || unit === cur.unit) return;
       var hrs = toHours(cur);

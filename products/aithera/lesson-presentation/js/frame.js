@@ -125,6 +125,7 @@
         '</div>' +
         '<hr class="vt-sheet-divider">' +
         links +
+        buildSkip() +
         '<hr class="vt-sheet-divider">' +
         '<div class="vt-sheet-link" style="cursor:default">' +
           '<i class="fa-solid fa-code-branch fa-fw" aria-hidden="true"></i>' +
@@ -135,8 +136,60 @@
     );
   }
 
+  // --- "Skip to…" nested group (REVIEW / DEV AID — not a product feature) -----
+  // Rendered ONLY when the page declares jump points via window.SIM_SKIP:
+  //   window.SIM_SKIP = { label:'Skip to',
+  //     targets: [ { id, label, icon, go: fn }, … ] };
+  // It lets the dev team land on any screen of a simulation (practice,
+  // reflection, summary) without playing through it. Because it lives entirely
+  // here and behind that one flag, a production build drops it by simply not
+  // shipping toolbox/SIM_SKIP — nothing else to strip.
+  function buildSkip() {
+    var S = window.SIM_SKIP;
+    if (!S || !S.targets || !S.targets.length) return '';
+    var items = S.targets.map(function (t, i) {
+      return (
+        '<button type="button" class="vt-sheet-link vt-skip-item" role="menuitem" ' +
+          'data-vt-skip="' + i + '">' +
+          '<i class="fa-solid ' + esc(t.icon || 'fa-play') + ' fa-fw" aria-hidden="true"></i>' +
+          '<span>' + esc(t.label) + '</span>' +
+        '</button>'
+      );
+    }).join('');
+    return (
+      '<hr class="vt-sheet-divider">' +
+      '<button type="button" class="vt-sheet-link vt-skip-toggle" id="vtSkipToggle" ' +
+        'aria-expanded="false" aria-controls="vtSkipList">' +
+        '<i class="fa-solid fa-forward-step fa-fw" aria-hidden="true"></i>' +
+        '<span>' + esc(S.label || 'Skip to') + '</span>' +
+        '<i class="fa-solid fa-chevron-right vt-skip-caret" aria-hidden="true"></i>' +
+      '</button>' +
+      '<div class="vt-skip-list" id="vtSkipList" role="group" ' +
+        'aria-label="Skip to a stage of the simulation" hidden>' + items + '</div>'
+    );
+  }
+
+  // Styles for the skip group are injected here (once) rather than in
+  // frame.css, so the whole review aid is self-contained in this file.
+  function injectSkipCss() {
+    if (document.getElementById('vt-skip-css')) return;
+    var css =
+      '.vt-skip-caret{margin-left:auto;font-size:12px;color:var(--ink-faint,#717a85);' +
+        'transition:transform .15s ease;}' +
+      '.vt-skip-toggle[aria-expanded="true"] .vt-skip-caret{transform:rotate(90deg);}' +
+      '.vt-skip-list{display:flex;flex-direction:column;}' +
+      '.vt-skip-list[hidden]{display:none;}' +
+      '.vt-skip-item{padding-left:30px;}' +
+      '.vt-skip-item .fa-fw{font-size:13px;}';
+    var st = document.createElement('style');
+    st.id = 'vt-skip-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
   function build() {
     var cfg = readConfig();
+    if (window.SIM_SKIP) injectSkipCss();
 
     var frame = document.createElement('div');
     frame.className = 'vt-frame';
@@ -229,6 +282,29 @@
     frame.querySelector('#vtLang').addEventListener('click', function () {
       console.log('Frame: language selector');
     });
+    // Skip-to nested group: the toggle expands the list in place (chevron
+    // rotates); each item jumps the page to that stage, then closes the sheet.
+    var skipToggle = sheet.querySelector('#vtSkipToggle');
+    var skipList   = sheet.querySelector('#vtSkipList');
+    if (skipToggle && skipList) {
+      skipToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = skipList.hasAttribute('hidden');
+        if (open) skipList.removeAttribute('hidden');
+        else skipList.setAttribute('hidden', '');
+        skipToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      skipList.querySelectorAll('[data-vt-skip]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var i = parseInt(btn.getAttribute('data-vt-skip'), 10);
+          var target = (window.SIM_SKIP && window.SIM_SKIP.targets[i]) || null;
+          closeSheet();
+          if (target && typeof target.go === 'function') target.go();
+        });
+      });
+    }
+
     var trouble = sheet.querySelector('[data-vt-troubleshoot]');
     if (trouble) {
       trouble.addEventListener('click', function (e) {

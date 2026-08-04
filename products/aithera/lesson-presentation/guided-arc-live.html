@@ -21,7 +21,7 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <!-- Course-delivery frame (production Vector Training chrome) -->
-    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <link rel="stylesheet" href="css/frame.css?v=5" />
     <style>
       /* Frame integration for this full-viewport app shell:
          the frame is embedded as the first flex child of .app (see the
@@ -1451,7 +1451,7 @@
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
-    <script src="js/sim-coach-sheet.js?v=3"></script>
+    <script src="js/sim-coach-sheet.js?v=4"></script>
     <!-- Writer Studio engine + the Guided Arc type: this page RUNS whatever
          guided-arc scenario the Studio published (falls back to the type's
          DEFAULT — the Marshall reference build — when nothing is published). -->
@@ -3396,6 +3396,60 @@
     });
     document.getElementById('restartBtn').addEventListener('click', restart);
 
+    /* ─────────────────────────────────────────────────────────────────────
+       DEV / REVIEW ONLY — "Skip to…" jump points (surfaced in the frame ⋯ menu
+       by js/frame.js, which reads window.SIM_SKIP). Lets the dev team land on
+       any screen of the simulation without playing through it. Each jump resets
+       to a clean baseline (restart) and then drives the SAME transitions the
+       learner would, so what's shown is the real screen, not a fake.
+       NOT part of the product — a production build simply doesn't ship frame.js
+       /window.SIM_SKIP. Nothing else to strip.
+       ───────────────────────────────────────────────────────────────────── */
+    (function () {
+      function sceneBeat() {
+        // The runner's own opening-image safety net (see the enterScene path).
+        try {
+          return `You step in. ${AitheraScenario.fill(ACTIVE_SCENARIO.openingImage, ACTIVE_SCENARIO)}.`;
+        } catch (e) { return 'You step into the scene.'; }
+      }
+      const JUMPS = {
+        reflection() {                       // opening coach warm-up
+          restart();
+          startSession(null);                // skip the context intro → deliver the opening
+        },
+        practice() {                         // the live roleplay scene
+          restart();
+          state.started = true;
+          state.pendingScene = [{ speaker: 'character', kind: 'narration', text: sceneBeat() }];
+          state.awaitingEntry = true;
+          enterScene();                      // real reveal → the scene paints in
+        },
+        recap() {                            // post-practice coach recap + "Analyzing…"
+          restart();
+          state.started = true;
+          state.complete = true;
+          DEBRIEF.openClosing([{ speaker: 'coach', kind: 'coaching',
+            text: `That's the end of the scenario — let's look back at how it went.` }]);
+        },
+        summary() {                          // straight into the results modal
+          restart();
+          state.started = true;
+          state.complete = true;
+          state.awaitingResults = true;
+          DEBRIEF.openResults();
+        },
+      };
+      window.SIM_SKIP = {
+        label: 'Skip to',
+        targets: [
+          { id: 'reflection', label: 'Opening reflection', icon: 'fa-lightbulb',       go: JUMPS.reflection },
+          { id: 'practice',   label: 'Main practice',       icon: 'fa-comments',        go: JUMPS.practice },
+          { id: 'recap',      label: 'Closing recap',       icon: 'fa-clipboard-check', go: JUMPS.recap },
+          { id: 'summary',    label: 'Final summary',       icon: 'fa-flag-checkered',  go: JUMPS.summary },
+        ],
+      };
+    })();
+
     // Opening beat: anchor on the practice base ("Kendra's room") with an "Enter
     // scenario" prompt. The cold-open video and the coach sheet both stay down
     // until the learner chooses to begin.
@@ -3410,7 +3464,7 @@
       // Embed into the app shell; course/lesson auto-derive from #scenarioName.
       window.LESSON_FRAME = { mount: '#app' };
     </script>
-    <script src="js/frame.js?v=3"></script>
+    <script src="js/frame.js?v=4"></script>
     <script>
       // Relocate the app's Restart control onto the frame's actions slot so it
       // rides the frame instead of a second bar. Moving the node preserves its

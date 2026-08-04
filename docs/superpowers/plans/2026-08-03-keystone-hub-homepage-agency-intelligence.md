@@ -1830,9 +1830,13 @@ added — clearing a conversation is not undoing a publish."
 
 ## Task 6: Dedupe the shared mark, update `products.json`, final sweep
 
-**Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/agency-intelligence-dashboard.html:44-49`
-- Modify: `products.json:702-707`
+**Files** — five, because this task also absorbs four cleanups deferred by
+earlier reviews (see Step 2b):
+- Modify: `products/Keystone Department Hub/keystone-hub/agency-intelligence-dashboard.html:44-49` (delete the duplicated `.agency-intel-mark` rule)
+- Modify: `products.json:702-707` (refresh `desc` and `modified`)
+- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (delete the dead `.kx-pubwidget-head .rng` rule)
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js` (confirmation copy, shared-state comment, chevron class)
+- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (chevron positioning per orientation)
 
 **Interfaces:**
 - Consumes: `.agency-intel-mark` now defined in `styles.css` (Task 2).
@@ -1865,6 +1869,83 @@ browser_evaluate → () => {
 Expected: `present: true`, `hasGradient: true`, `width` greater than `0`. A
 `width` of `0` or a missing gradient means `styles.css` is not reached from this
 page — restore the inline block if so.
+
+- [ ] **Step 2b: Carried-forward cleanups from Tasks 2c, 4 and 5**
+
+Four small items that earlier reviews raised and deferred to this task. Each is
+independently verifiable; none is optional.
+
+**(a) Remove the dead `.rng` rule.** Task 2c moved the range control out of the
+widget header into `.kx-pubwidget-foot`, so no markup emits a `.rng` span inside
+the head any more. In `<HUB>/index.html`, delete the now-unreachable
+`.kx-pubwidget-head .rng` rule. Confirm with `grep -rn '"rng"\|\.rng' ` over
+`<HUB>/` that nothing else references it before deleting.
+
+**(b) Fix the confirmation copy.** In `<HUB>/hub-ai-panel.js`, `turnHtml()`
+currently renders `'Added to ' + esc(msg.added)`, which reads as though the
+widget was added *to* a thing called "Training completion". It was added *as* a
+widget. Change the string to:
+
+```js
+          'Added ' + esc(msg.added) + ' to the dashboard'
+```
+
+Keep `esc()` exactly where it is.
+
+**(c) Document the shared-state limitation.** The human partner ruled that
+`state.added` / `state.thread` stay page-global rather than being scoped per
+dashboard, and that the limitation be recorded for developers. Add this comment
+immediately above the `var state = {` declaration in `<HUB>/hub-ai-panel.js`,
+keeping whatever text already documents the state shape:
+
+```js
+  // NOT SCOPED PER DASHBOARD — deliberate, and a real limitation to carry into
+  // any implementation. state.thread and state.added are page-global, while
+  // dashBody() concatenates addedWidgets() onto whichever dashboard variant is
+  // currently rendering. Today nothing exposes it: the Chief is the only role
+  // that is both granted an assistant and the owner of their dashboard. But
+  // granting a non-owning role — a pure seedGrants() data change, no code
+  // involved — would render the Chief's chat-added widgets on that role's
+  // read-only dashboard and show them the Chief's conversation. A production
+  // build must key both arrays by dashboard identity.
+```
+
+**(d) Fix the collapsed strip's chevron at narrow widths.** `.kx-ai-collapsed`
+flips to `flex-direction: row` at ≤980px, but the chevron carries an inline
+`margin-top: auto` set unconditionally in JS, which in row mode acts on the cross
+axis and can bottom-align it. Move that positioning out of JS and into the CSS
+that knows the orientation.
+
+In `<HUB>/hub-ai-panel.js`, drop the inline style from the collapsed strip's
+chevron — i.e. change `micon('chevron_right', { size: 16, color: 'var(--ink-400)', style: 'margin-top:auto' })`
+so it no longer passes `style`, and give the icon a class the CSS can target
+instead (`{ size: 16, color: 'var(--ink-400)', cls: 'kx-ai-collapsed-chev' }` —
+`micon` already supports `cls`).
+
+In `<HUB>/styles.css`, push it to the trailing edge per orientation:
+
+```css
+.kx-ai-collapsed .kx-ai-collapsed-chev { margin-top: auto; }
+@media (max-width: 980px) {
+  .kx-ai-collapsed .kx-ai-collapsed-chev { margin-top: 0; margin-left: auto; }
+}
+```
+
+Verify at **900x900** that the collapsed strip renders as a horizontal bar with
+the chevron beside the label rather than below it, and paste the measurement:
+
+```
+browser_evaluate → () => {
+  const s = document.querySelector('.kx-ai-collapsed');
+  const c = s && s.querySelector('.kx-ai-collapsed-chev');
+  if (!s || !c) return { error: 'strip or chevron missing' };
+  const sr = s.getBoundingClientRect(), cr = c.getBoundingClientRect();
+  return { stripIsHorizontal: sr.width > sr.height,
+           chevronVerticallyCentred: Math.abs((cr.top + cr.height/2) - (sr.top + sr.height/2)) < 10 };
+}
+```
+
+Expected: both `true`.
 
 - [ ] **Step 3: Update `products.json`**
 
@@ -1942,6 +2023,383 @@ git commit -m "Keystone: one definition of the Agency Intelligence mark, refresh
 
 The mark now lives in the shared styles.css, so the Agency Intelligence
 page drops its inline copy."
+```
+
+---
+
+## Task 7: Real chart types on the Chief's dashboard
+
+**Why (designer request, 2026-08-04).** The Chief's dashboard renders three
+`viz: 'kpi'` widgets. Only one of the six chart types the Agency Intelligence
+builder actually offers is represented, so the dashboard doesn't look like
+something built with that tool. The designer asked for a **scatter + trend**, a
+**bar chart**, and a **donut**, and supplied screenshots of the first two from the
+builder itself.
+
+**Measured cost, accepted by the designer:** real charts are taller than KPI
+tiles (scatter ~190px of plot plus its sentence, a 5-station bar ~112px, a donut
+126px, versus ~150px for a KPI). The container grows from **293px to roughly
+430px**, so the compact dashboard is taller than Tasks 2/2b/2c achieved. That
+trade was made explicitly.
+
+**Decisions already made — implement, don't revisit:**
+- Widths: **scatter `w: 6`, bar `w: 3`, donut `w: 3`** — one row; the scatter is
+  the only one that genuinely needs width.
+- Donut metric: **`tasks_by_app`** (TargetSolutions 54, Check It 38, Scheduling
+  24, Guardian 17, EV+ 10) — the product's premise in one chart.
+- The Battalion Chief **gains `sched`** entitlement. `tasks_by_app` spans all five
+  source apps, so the donut requires it; and the designer separately chose this
+  over repointing the old Scheduling widget.
+
+**Files:**
+- Modify: `products/Keystone Department Hub/keystone-hub/charts.js` (new `pdScatter`)
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`pubWidget` scatter branch; `CHIEF_DASH`)
+- Modify: `products/Keystone Department Hub/keystone-hub/agency-intel-page-data.js` (Chief's entitlements + the comment that contradicts them)
+
+**Interfaces:** `CC.buildCorrelationSpec(metricIds, 'scatter')` already returns
+`{ metricIds, viz, xLabel, yLabel, xUnit, yUnit, points:[{label,x,y}], kind }` —
+verified to yield 5 shared stations for `['overdue_inspections','response_time']`.
+`CC.buildSpec(metricId, 'bar'|'donut')` already feeds `KXCharts.pdBar`/`pdDonut`,
+both of which `pubWidget` already handles.
+
+- [ ] **Step 1: Port a scatter renderer into the hub's chart library**
+
+`KXCharts` has no scatter. Port `vizScatter` from
+`agency-intel-canvas.js:123-175` into `<HUB>/charts.js` as `pdScatter(spec)`,
+together with its two helpers `pearson(points)` (`:96-110`) and
+`scatterSentence(r, xLabel, yLabel)` (`:112-120`). Add `pdScatter` to the
+`window.KXCharts` export.
+
+Port faithfully — the source is correct and already matches the designer's
+screenshot (headline sentence, `r = 0.22`, dashed amber trend line, labelled
+teal points, rotated y-axis label). Three adaptations:
+
+1. `charts.js` has its own `esc`; use it. Replace `noDataState()` (which lives on
+   the other page) with a simple inline fallback for `points.length < 3`.
+2. Keep the SVG `viewBox`-driven sizing (`width="100%"`) so it scales inside a
+   `w: 6` widget rather than assuming 380px.
+3. The source uses `var(--font-mono)` for the `r = …` value. **Confirm that token
+   exists in `<HUB>/styles.css`** before relying on it; if it doesn't, use the
+   numeric font token the hub already uses (`--font-numeric`) and say which you
+   picked in your report.
+
+- [ ] **Step 2: Teach `pubWidget` to render a scatter**
+
+In `<HUB>/hub-hero.js`, `pubWidget()` branches on `kind = w.kind || w.viz` across
+`kpi`/`line`/`bar`/`donut`/`progress`/`table`. Add a `scatter` branch. Unlike the
+others it reads **`w.metricIds`** (two metrics), not `w.metricId`:
+
+```js
+    } else if (kind === 'scatter') {
+      // Correlation widgets carry TWO metrics. buildCorrelationSpec aligns them
+      // on their shared station labels and returns the plotted points; a null
+      // means fewer than three stations overlap, so there is nothing to plot.
+      var sc = w.metricIds ? CC.buildCorrelationSpec(w.metricIds, 'scatter') : null;
+      icon = icon || 'scatter_plot';
+      title = title || (sc ? sc.xLabel + ' × ' + sc.yLabel : '');
+      body = sc ? KXCharts.pdScatter(sc) : '';
+```
+
+Place it alongside the existing branches, matching their style. Do not disturb
+how `narrow` is computed — at `w: 6` the scatter is **not** narrow, so it keeps
+its header source chips, which is what the designer's screenshot shows (CI + GT).
+
+- [ ] **Step 3: Rebuild `CHIEF_DASH`**
+
+Replace the three KPI widgets at `hub-hero.js:442-446` with:
+
+```js
+    widgets: [
+      { id: 'ch1', metricIds: ['overdue_inspections', 'response_time'], viz: 'scatter', w: 6,
+        range: 'last_30', source: ['ci', 'gt'] },
+      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
+      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 3, range: 'last_30',
+        source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
+    ]
+```
+
+Leave `ch1`'s `title` unset so it derives `"Overdue inspections × Avg response
+time"` from the spec, matching the screenshot. Update the block comment above
+`CHIEF_DASH` (`hub-hero.js:432-438`), which currently justifies "three w:4 KPI
+widgets in a single row keep the card at ~250px" — that reasoning no longer
+holds; record the new composition and the accepted height.
+
+- [ ] **Step 4: Grant the Chief Scheduling**
+
+In `<HUB>/agency-intel-page-data.js:59`, add `'sched'` to `battalion_chief`'s
+`entitlements`. The comment at `:56-57` says the Chief "deliberately lacks
+Scheduling — that's the PRD's access-reconciliation example"; that is now false.
+Rewrite it to state the Chief holds all five sources, that the reconciliation
+example therefore lives with roles that still lack sources (the Training Officer
+lacks `ci` and `sched`), and that the donut on the Chief's dashboard needs the
+full set.
+
+**Touch nothing else in that file.**
+
+**Two knock-ons to verify, not assume:**
+- `seedLog()` in `agency-intel-ai-data.js` deliberately steers battalion chiefs
+  toward scheduling questions "they can't see." Those now resolve as `answered`.
+  Open the Agency Intelligence page's **AI access tab** and report the actual
+  "to review" count. Denials should remain from the Training Officer. If it is
+  zero, say so plainly — do not invent data to fix it.
+- The Chief can now be refused nothing on the hub. Confirm that asking
+  *"Which shifts are open next week?"* as the Chief now **answers**.
+
+- [ ] **Step 5: Verify the charts render and the row holds**
+
+```
+browser_navigate → http://127.0.0.1:8765/products/Keystone%20Department%20Hub/keystone-hub/index.html
+```
+
+```
+browser_evaluate → () => {
+  const w = [...document.querySelectorAll('.kx-pubwidget')];
+  return {
+    count: w.length,
+    titles: w.map(e => e.querySelector('.title').textContent),
+    spans: w.map(e => getComputedStyle(e).gridColumn),
+    rows: new Set(w.map(e => Math.round(e.getBoundingClientRect().top))).size,
+    widths: w.map(e => Math.round(e.getBoundingClientRect().width)),
+    scatterPoints: document.querySelectorAll('.kx-pubwidget svg circle[r="5"]').length,
+    trendLine: !!document.querySelector('.kx-pubwidget svg line[stroke-dasharray]'),
+    donutArcs: document.querySelectorAll('.kx-pubwidget svg circle[stroke-dasharray]').length,
+    barRows: document.querySelectorAll('.kx-pubwidget .kx-pubprogress, .kx-pubwidget [style*="border-radius:5px"]').length,
+    headerChips: [...document.querySelectorAll('.kx-pubsrcs .kx-srcchip, .kx-pubsrcs *')].map(e => e.textContent).filter(Boolean),
+    dashHeight: Math.round(document.querySelector('.kx-pubdash').getBoundingClientRect().height),
+    anyTitleClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1)
+  };
+}
+```
+
+Required: `count: 3`, `rows: 1`, the scatter spanning 6 and the other two 3,
+**`scatterPoints: 5`**, `trendLine: true`, `donutArcs: 5`, `anyTitleClipped: false`,
+and the first title reading `"Overdue inspections × Avg response time"`. Report
+`dashHeight` — expected around 430px; if it exceeds ~480px say so.
+
+- [ ] **Step 6: Re-verify what earlier tasks fought for, and report the numbers**
+
+These are regression guards, not new requirements:
+
+- **Granted vs ungranted compact height** must still match (was 293 vs 293; both
+  will now be larger, but the delta must stay ≤12 — the Firefighter renders
+  `FF_DASH`, so if its widgets are unchanged the two will legitimately differ.
+  **Measure and report both; if they now differ, say so and explain why rather
+  than changing `FF_DASH`.**)
+- **No title clips** at 1400px, 1200px and 900px.
+- **The panel stays bounded** — `.kx-pubdash` must not climb with turn count.
+- **The whole panel flow still works**: compact → chip → answer → add widget →
+  collapse → expand → New chat.
+- The added KPI widget still renders correctly alongside the new chart types.
+
+Also **look at the compact state and describe it**: the panel is
+`align-self: stretch`, so a ~430px row leaves it taller than its content needs.
+Say whether that reads as deliberate space or as an empty gap — the designer will
+want to know.
+
+```
+browser_console_messages
+```
+
+Expected: no `error` entries (a favicon 404 is pre-existing).
+
+- [ ] **Step 7: Commit**
+
+```bash
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
+git add "products/Keystone Department Hub/keystone-hub/charts.js" \
+        "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone Department Hub/keystone-hub/agency-intel-page-data.js"
+git commit -m "Keystone: the Chief's dashboard uses the charts the builder offers
+
+Three big-number tiles showed one of the six chart types Agency
+Intelligence can actually build, so the dashboard didn't look like its
+own tool made it. Now a scatter + trend (overdue inspections against
+response time, with the Pearson sentence), a bar chart by station, and a
+donut of open work across all five source apps.
+
+pdScatter is ported from the builder's own renderer so the two surfaces
+draw correlations identically. The Chief gains Scheduling access — the
+donut spans all five apps, and the access-reconciliation example moves to
+the Training Officer, who still lacks Check It and Scheduling.
+
+Costs height: the container grows from 293px to ~430px, accepted
+deliberately in exchange for real charts."
+```
+
+---
+
+## Task 8: Fit the charts, and fill the panel
+
+**Why.** Task 7 shipped the three chart types, and the designer reviewed the
+result. The charts themselves are right — the scatter matches the builder's
+output including its sentence and `r` value, and the header now shows all five
+source chips. Three fitting problems came out of it, all measured:
+
+1. **The donut's legend is clipped** at `w: 3` (215px) — "TargetSolu…", "Check It"
+   wrapped mid-name, percentages cut off. It needs ~276px (126px arc + ~150px
+   legend).
+2. **The third suggestion chip is cut off** ("R…"). The chip row is a
+   non-wrapping horizontal scroll at 320px; functional, but it reads as broken.
+3. **The compact panel has ~165px of dead space** between chips and input, because
+   the widget row is now 464px tall while the panel's content needs ~160px.
+
+Task 7 also regressed **title clipping at 1200px and 900px**, because the wrap
+breakpoints from Tasks 2b/2c were calibrated for three uniform `w: 4` widgets. With
+mixed spans the narrowest widget hits its legible floor sooner.
+
+**Designer decisions — implement, don't revisit:**
+- Widths become **scatter `w: 5`, bar `w: 3`, donut `w: 4`**. Measured at 1400px:
+  376px / 221px / 299px. The scatter lands almost exactly on the 380px its
+  renderer was designed for, and the donut's legend fits.
+- The freed panel space gets the **suggestion chips, stacked vertically** — which
+  fixes the clipped chip and the dead gap together.
+
+**Files:**
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`CHIEF_DASH` spans)
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js` (`chipsHtml`)
+- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (chip layout)
+- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (wrap threshold)
+
+- [ ] **Step 1: Rebalance the spans**
+
+In `<HUB>/hub-hero.js`, `CHIEF_DASH`: scatter `w: 6` → **`w: 5`**, donut
+`w: 3` → **`w: 4`**. The bar stays `w: 3`. Update the block comment above
+`CHIEF_DASH` to record why each width is what it is — the scatter matching its
+renderer's design width, the donut needing room for its legend, the bar being the
+compact one.
+
+- [ ] **Step 2: Stack the chips in the compact panel**
+
+In `<HUB>/hub-ai-panel.js`, `chipsHtml(person)` currently emits a
+non-wrapping scrollable row. Change it to a vertical stack introduced by a quiet
+label, so the full prompt labels are readable:
+
+```js
+  function chipsHtml(person) {
+    var list = suggestionsFor(person);
+    if (!list.length) return '';
+    // Stacked, not a scrolling row: the compact panel is as tall as the widget
+    // row beside it, so there is vertical room to spare and none horizontally —
+    // a 320px row clipped the third chip.
+    return '<div class="kx-ai-chips">' +
+      '<div class="kx-ai-chips-label">Try asking</div>' +
+      list.map(function (s, i) {
+        return '<button class="kx-ai-chip" data-kx-ai-chip="' + i + '" ' +
+          'title="' + KX.attr(s.q) + '">' + esc(s.label) + '</button>';
+      }).join('') + '</div>';
+  }
+```
+
+The handler reads `data-kx-ai-chip` by index and is unchanged.
+
+In `<HUB>/styles.css`, replace the `.kx-ai-chips` rules (currently
+`flex-wrap: nowrap; overflow-x: auto` with hidden scrollbars) so the stack reads
+as a column, and give `.kx-ai-chip` full width with left-aligned text. Add the
+`.kx-ai-chips-label` rule — small, uppercase-ish, `--ink-400`, consistent with the
+other section labels in this file. Keep the chip's existing hover treatment.
+
+Do not change the expanded state: it renders `threadHtml()` instead of chips.
+
+- [ ] **Step 3: Re-measure the wrap threshold for mixed spans**
+
+The `span 6` breakpoint in `<HUB>/index.html` was measured at 1070px against
+three uniform `w: 4` widgets. With a `w: 3` widget present the floor is hit
+sooner, which is why titles clip at 1200px.
+
+**Measure it, don't compute it** — the same discipline Task 2c established. With
+the real page, step the viewport down and find the widest width at which any
+`.kx-pubwidget .title` first clips:
+
+```
+browser_evaluate → () => ({
+  vw: window.innerWidth,
+  widths: [...document.querySelectorAll('.kx-pubwidget')].map(e => Math.round(e.getBoundingClientRect().width)),
+  anyClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1)
+})
+```
+
+Probe 1400, 1350, 1300, 1250, 1200, 1150, 1100 and report each result. Raise the
+`span 6` threshold to the next 10px above the first clipping width, and update
+that rule's comment with the new measurement, replacing the stale 1070px figure
+and its reasoning. Leave the `1 / -1` rule and the pre-existing 860px rule alone
+unless your measurements show they also clip — say so if they do.
+
+- [ ] **Step 4: Verify**
+
+```
+browser_evaluate → () => {
+  const w = [...document.querySelectorAll('.kx-pubwidget')];
+  const chips = [...document.querySelectorAll('.kx-ai-chip')];
+  const panel = document.querySelector('.kx-aipanel');
+  const input = document.querySelector('.kx-ai-input-wrap');
+  const lastChip = chips[chips.length - 1];
+  return {
+    widths: w.map(e => Math.round(e.getBoundingClientRect().width)),
+    rows: new Set(w.map(e => Math.round(e.getBoundingClientRect().top))).size,
+    anyTitleClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1),
+    chipCount: chips.length,
+    chipLabels: chips.map(c => c.textContent),
+    anyChipClipped: chips.some(c => c.scrollWidth > c.clientWidth + 1),
+    gapBelowChips: lastChip && input
+      ? Math.round(input.getBoundingClientRect().top - lastChip.getBoundingClientRect().bottom)
+      : null,
+    donutLegendClipped: (function () {
+      var d = w.find(function (e) { return /Tasks by source app/.test(e.textContent); });
+      if (!d) return 'donut not found';
+      return [...d.querySelectorAll('span, div')].some(function (e) {
+        return e.scrollWidth > e.clientWidth + 1;
+      });
+    })(),
+    dashHeight: Math.round(document.querySelector('.kx-pubdash').getBoundingClientRect().height)
+  };
+}
+```
+
+Required: `widths` about `[376, 221, 299]`, `rows: 1`, `anyTitleClipped: false`,
+`chipCount: 3` with all three labels readable and `anyChipClipped: false`,
+`donutLegendClipped: false`, and `gapBelowChips` **under 60** (it was ~165). Report
+the actual numbers.
+
+Then repeat `anyTitleClipped` at **1300, 1200, 1100, 900** and require `false` at
+every one.
+
+- [ ] **Step 5: Screenshot, and confirm nothing else moved**
+
+Screenshot the dashboard and describe it: do the three charts read clearly at their
+new widths, is the donut legend whole, does the stacked chip column look
+deliberate?
+
+Then one regression pass — compact → click the third chip (the one that used to be
+cut off) → answer → add widget → collapse → expand → New chat — asserting at each
+step. Confirm the expanded state still shows the thread and not the chips, and that
+`.kx-pubdash` height doesn't climb with turn count.
+
+```
+browser_console_messages
+```
+
+Expected: no `error` entries (favicon 404 is pre-existing).
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
+git add "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js" \
+        "products/Keystone Department Hub/keystone-hub/styles.css" \
+        "products/Keystone Department Hub/keystone-hub/index.html"
+git commit -m "Keystone: give each chart the width it needs, and fill the panel
+
+The three charts shared spans that suited none of them: the donut's legend
+was clipped at 215px, and the scatter had 450px for a renderer designed at
+380px. Now 5/3/4 — scatter 376px, bar 221px, donut 299px.
+
+The suggestion chips move from a horizontal scroll row, which cut off the
+third chip, into the vertical space the taller widget row freed up. One
+change fixes the clipped chip and a 165px dead gap.
+
+Wrap threshold re-measured: the old 1070px figure was calibrated for three
+uniform w:4 widgets, so a w:3 widget was clipping its title well above it."
 ```
 
 ---

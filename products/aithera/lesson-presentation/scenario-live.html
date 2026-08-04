@@ -21,7 +21,7 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <!-- Course-delivery frame (production Vector Training chrome) -->
-    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <link rel="stylesheet" href="css/frame.css?v=5" />
     <style>
       /* Frame integration for this full-viewport app shell:
          the frame is embedded as the first flex child of .app (see the
@@ -1448,21 +1448,28 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=5"></script>
-    <script src="js/sim-player.js?v=1"></script>
+    <script src="js/sim-player.js?v=2"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
-    <script src="js/sim-coach-sheet.js?v=3"></script>
+    <script src="js/sim-coach-sheet.js?v=4"></script>
     <!-- Writer Studio engine + the Mix & Match type: this page RUNS whatever
          mix-arc scenario the Studio published (falls back to the type's DEFAULT
          — the composed "Speaking Up in the Moment" build — when nothing is
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/mix-arc.js?v=4"></script>
-    <!-- [Option B spike] curated recipe types this generic player can route to.
-         A non-mix type exposes toMixArc(); mix-arc plays natively. -->
+    <script src="js/scenario-types/mix-arc.js?v=5"></script>
+    <!-- [Option B] the tier-ladder TYPES this one generic player routes to via
+         ?type=. Two shapes:
+           · NATIVE tier-ladder types own their own toRuntime + compile and play
+             directly on the shared engine (mix-arc, branching-arc; ensemble +
+             scene-sweep follow). No lossy funnel.
+           · a RECIPE type (guided-arc) expresses itself as a mix-arc scenario via
+             toMixArc(), then plays natively AS mix-arc. -->
     <script src="js/scenario-types/guided-arc.js?v=ob1"></script>
+    <script src="js/scenario-types/branching-arc.js?v=3"></script>
+    <script src="js/scenario-types/ensemble-arc.js?v=9"></script>
 
     <script>
     /* =====================================================================
@@ -1506,21 +1513,9 @@
     // beat's character becomes the scene counterpart). An observe beat runs in
     // the coaching world — the learner reacts to the clip described in its
     // signpost/prompt (a literal video card is a v1.1 enhancement).
-    const worldForType = (t) => (t === 'roleplay' ? 'scene' : 'coaching');
-    function fromPublishedBranchingArc(raw) {
-      const g = BA_TYPE.normalize(raw);
-      const fillT = (t) => BA_TYPE.fill(t, g);
-      const phases = (g.beats || []).map((b) => Object.assign({}, b, {
-        world: worldForType(b.type),
-        counterpart: b.type === 'roleplay' ? ((b.character || {}).name || '') : '',
-        entry: Object.assign({ bridgesByTier: {} }, b.entry),
-      }));
-      return Object.assign({}, g, {
-        phases,
-        opening: [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map(fillT),
-        sceneLineCaption: 'You',
-      });
-    }
+    /* beats→phases runtime mapping — moved to mix-arc.js as type.toRuntime().
+       Every type funnels through toMixArc() into a mix-arc scenario, so the
+       mix-arc runtime mapping is THE mapping the converged player uses. */
     /* [Option B spike] ONE generic player, ?type=<id>-routed — the runtime
        sibling of studio-shell.js. The runner below IS the tier-ladder engine
        (byte-identical across mix / branching / ensemble; scene-sweep wraps it).
@@ -1530,16 +1525,33 @@
        runtime model; only the SOURCE changes per requested type. Zero per-type
        branches in the runner — exactly like the authoring shell. */
     const REQ_ID = new URLSearchParams(location.search).get('type') || 'mix-arc';
-    const REQ_TYPE = (window.AitheraStudio && window.AitheraStudio.get(REQ_ID)) || BA_TYPE;
+    // Resolve the requested type. Authorable types come from the Studio registry;
+    // a LIVE-ONLY type (branching-arc — its Studio editor is stage 2, so it is
+    // deliberately NOT registered) resolves via its window global instead. mix-arc
+    // is the default when nothing matches.
+    const TYPE_GLOBALS = {
+      'branching-arc': window.AitheraBranchingArc,
+      'ensemble-arc': window.AitheraEnsembleArc,
+      'scene-sweep': window.AitheraSceneSweep,
+    };
+    const REQ_TYPE = (window.AitheraStudio && window.AitheraStudio.get(REQ_ID))
+      || TYPE_GLOBALS[REQ_ID] || BA_TYPE;
     const REQ_PUB = REQ_TYPE && REQ_TYPE.store && REQ_TYPE.store.loadPublished();
     const REQ_SRC = (REQ_PUB && REQ_PUB.scenario) ? REQ_PUB.scenario : (REQ_TYPE ? REQ_TYPE.DEFAULT : {});
-    // Map the requested type into the mix-arc runtime model. mix-arc needs no
-    // mapping (its scenario IS the model); a recipe supplies toMixArc().
-    const BA_SOURCE = (REQ_TYPE && typeof REQ_TYPE.toMixArc === 'function')
-      ? REQ_TYPE.toMixArc(REQ_SRC)
-      : BA_TYPE.normalize(REQ_SRC);
-    const ACTIVE_SCENARIO = fromPublishedBranchingArc(BA_SOURCE);
-    const fillT = (t) => BA_TYPE.fill(t, ACTIVE_SCENARIO);
+
+    // How the requested type PLAYS on the shared tier-ladder engine:
+    //  · a NATIVE tier-ladder type (mix-arc, branching, ensemble, scene-sweep)
+    //    owns its OWN toRuntime + compile — it maps and prompts itself, no funnel.
+    //  · a RECIPE type (guided-arc) has no ladder of its own: it expresses itself
+    //    as a mix-arc scenario via toMixArc(), then plays natively AS mix-arc —
+    //    mix-arc.toRuntime + mix-arc.compile on that SAME source. Reserving the
+    //    lossy round-trip for recipes keeps the richer types (branching's tier
+    //    transitions, ensemble's cast, scene-sweep's perception) intact.
+    const IS_RECIPE = REQ_TYPE && typeof REQ_TYPE.toMixArc === 'function';
+    const PLAY_TYPE = IS_RECIPE ? BA_TYPE : (REQ_TYPE || BA_TYPE);
+    const PLAY_SRC  = IS_RECIPE ? REQ_TYPE.toMixArc(REQ_SRC) : REQ_SRC;
+    const ACTIVE_SCENARIO = PLAY_TYPE.toRuntime(PLAY_SRC);
+    const fillT = (t) => PLAY_TYPE.fill(t, ACTIVE_SCENARIO);
     // Scene phases always split the learner's input into DO (narration) + SAY (bubble).
     const SCENE_SAYDO = true;
 
@@ -1584,7 +1596,7 @@
        break-room outcomes, the legal/empathy calibration, and the guaranteed
        nine-component close all live there.
        ===================================================================== */
-    let SYSTEM_PROMPT = BA_TYPE ? BA_TYPE.compile(BA_TYPE.normalize(BA_SOURCE)) : '';   // let: the Section-1 coupler may append context addenda
+    let SYSTEM_PROMPT = PLAY_TYPE ? PLAY_TYPE.compile(PLAY_TYPE.normalize(PLAY_SRC)) : '';   // let: the Section-1 coupler may append context addenda
 
     /* ---- STATE -------------------------------------------------------- */
     /* The coach's opening beat is SEEDED (not model-generated) so every
@@ -1633,6 +1645,7 @@
       ladder: {},               // phase id → the tier the model reported when it closed that phase
       vars: {},                 // session-state variables (seeded from ACTIVE_SCENARIO.state below)
       lastTier: null,           // the most recently recorded tier — picks the next entry's bridge variant
+      reflectionProbed: false,  // [Option B] the warm-up has spent its ONE clarifying probe (see sim-player.js)
       scenePlaceholder: '',     // the live phase's authored composer placeholder
       entryLabel: '',           // the live phase's authored crossing CTA ("Step into the room")
     };
@@ -1648,6 +1661,7 @@
     const arcStateBlock = _LADDER.arcStateBlock;
     const runArcEngine  = _LADDER.runArcEngine;
     const applyDeliver  = _LADDER.applyDeliver;
+    const closePhase    = _LADDER.closePhase;   // used by the no-warm-up boot (deliverFirstPhase)
 
     /* ---- helpers: classify + group ------------------------------------ */
     const worldOf = (m) => (m.kind === 'coaching' || m.kind === 'clip' ? 'coaching' : 'scene');
@@ -3226,7 +3240,7 @@
         awaitingReturn: false, pendingReturn: null,
         debriefReturn: null, returnLabel: null, sceneTarget: null,
         // reset the app-owned ladder engine
-        phaseIdx: -1, turnsInPhase: 0, ladder: {}, vars: {}, lastTier: null,
+        phaseIdx: -1, turnsInPhase: 0, ladder: {}, vars: {}, lastTier: null, reflectionProbed: false,
         scenePlaceholder: '', entryLabel: '',
       });
       (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
@@ -3252,7 +3266,26 @@
       state.mode = 'coaching'; state.inputTarget = 'coach';
       announce('Bringing in your AI coach.');
       render();                 // the sheet rises (empty) over the scene anchor
-      await deliverOpening();   // each opening line types into the sheet, one by one
+      if (ACTIVE_SCENARIO.opening.length) {
+        await deliverOpening();      // the reflection warm-up: its lines type in, one by one
+      } else {
+        await deliverFirstPhase();   // no warm-up authored (e.g. ensemble's Bullying arc) → open straight on Phase 1
+      }
+    }
+
+    // No reflection warm-up: after the intro, open straight on the first phase.
+    // Reuses the EXACT post-reflection path — closePhase(null) cues phase 0 and
+    // sets phaseIdx, applyDeliver appends its locked entry (+ the scene handshake
+    // for a scene phase), deliverTurn presents it — carrying any context-seed
+    // opening bubbles first. This avoids stranding the learner at phaseIdx=-1 on
+    // an empty coach sheet when there's no gut-read to give. Ported from
+    // ensemble-arc-live.html for the no-warm-up types.
+    async function deliverFirstPhase() {
+      const t = { turn: [...(state.pendingOpening || [])] };
+      state.pendingOpening = null;
+      closePhase(null, t);      // → t.deliver = phases[0].id, state.phaseIdx = 0
+      applyDeliver(t);          // appends phase 0's entry beats (+ scene handshake)
+      await deliverTurn(t);
     }
 
     // Reveal the coach's opening prep message-by-message (typing beat between each),
@@ -3367,6 +3400,60 @@
     });
     document.getElementById('restartBtn').addEventListener('click', restart);
 
+    /* ─────────────────────────────────────────────────────────────────────
+       DEV / REVIEW ONLY — "Skip to…" jump points (surfaced in the frame ⋯ menu
+       by js/frame.js, which reads window.SIM_SKIP). Lets the dev team land on
+       any screen of the simulation without playing through it. Each jump resets
+       to a clean baseline (restart) and then drives the SAME transitions the
+       learner would, so what's shown is the real screen, not a fake.
+       NOT part of the product — a production build simply doesn't ship frame.js
+       /window.SIM_SKIP. Nothing else to strip.
+       ───────────────────────────────────────────────────────────────────── */
+    (function () {
+      function sceneBeat() {
+        // The runner's own opening-image safety net (see the enterScene path).
+        try {
+          return `You step in. ${AitheraScenario.fill(ACTIVE_SCENARIO.openingImage, ACTIVE_SCENARIO)}.`;
+        } catch (e) { return 'You step into the scene.'; }
+      }
+      const JUMPS = {
+        reflection() {                       // opening coach warm-up
+          restart();
+          startSession(null);                // skip the context intro → deliver the opening
+        },
+        practice() {                         // the live roleplay scene
+          restart();
+          state.started = true;
+          state.pendingScene = [{ speaker: 'character', kind: 'narration', text: sceneBeat() }];
+          state.awaitingEntry = true;
+          enterScene();                      // real reveal → the scene paints in
+        },
+        recap() {                            // post-practice coach recap + "Analyzing…"
+          restart();
+          state.started = true;
+          state.complete = true;
+          DEBRIEF.openClosing([{ speaker: 'coach', kind: 'coaching',
+            text: `That's the end of the scenario — let's look back at how it went.` }]);
+        },
+        summary() {                          // straight into the results modal
+          restart();
+          state.started = true;
+          state.complete = true;
+          state.awaitingResults = true;
+          DEBRIEF.openResults();
+        },
+      };
+      window.SIM_SKIP = {
+        label: 'Skip to',
+        targets: [
+          { id: 'reflection', label: 'Opening reflection', icon: 'fa-lightbulb',       go: JUMPS.reflection },
+          { id: 'practice',   label: 'Main practice',       icon: 'fa-comments',        go: JUMPS.practice },
+          { id: 'recap',      label: 'Closing recap',       icon: 'fa-clipboard-check', go: JUMPS.recap },
+          { id: 'summary',    label: 'Final summary',       icon: 'fa-flag-checkered',  go: JUMPS.summary },
+        ],
+      };
+    })();
+
     // Opening beat: anchor on the practice base ("Kendra's room") with an "Enter
     // scenario" prompt. The cold-open video and the coach sheet both stay down
     // until the learner chooses to begin.
@@ -3381,7 +3468,7 @@
       // Embed into the app shell; course/lesson auto-derive from #scenarioName.
       window.LESSON_FRAME = { mount: '#app' };
     </script>
-    <script src="js/frame.js?v=3"></script>
+    <script src="js/frame.js?v=4"></script>
     <script>
       // Relocate the app's Restart control onto the frame's actions slot so it
       // rides the frame instead of a second bar. Moving the node preserves its
