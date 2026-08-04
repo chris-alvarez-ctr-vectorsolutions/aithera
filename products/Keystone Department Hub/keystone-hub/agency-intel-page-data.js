@@ -53,10 +53,17 @@
 
   // ---------- Job titles + entitlements ----------
   // entitlements = the set of source apps that role can see data from.
-  // Battalion Chief deliberately lacks Scheduling — that's the PRD's
-  // access-reconciliation example ("don't have access to Scheduling shift data").
+  // The Battalion Chief holds all five sources. That is deliberate: the Chief's
+  // home dashboard displays a Scheduling-sourced "Open shifts" widget, so an
+  // assistant sitting beside it that refused Scheduling questions would
+  // contradict the surface it lives on.
+  // The PRD's access-reconciliation example ("don't have access to Scheduling
+  // shift data") consequently lives with the roles that still lack sources —
+  // the Training Officer has no Compliance & Inspections or Scheduling, the
+  // Engineer no Training or Guardian Tracking, the Firefighter no Scheduling.
+  // The seeded audit log's declined asks come from those roles.
   const JOB_TITLES = [
-    { id: 'battalion_chief',  label: 'Battalion Chief',  count: 4,  entitlements: ['ts', 'ci', 'gt', 'ev'] },
+    { id: 'battalion_chief',  label: 'Battalion Chief',  count: 4,  entitlements: ['ts', 'ci', 'sched', 'gt', 'ev'] },
     { id: 'captain',          label: 'Captain',          count: 9,  entitlements: ['ts', 'ci', 'sched', 'gt', 'ev'] },
     { id: 'lieutenant',       label: 'Lieutenant',       count: 14, entitlements: ['ts', 'ci', 'sched', 'gt'] },
     { id: 'training_officer', label: 'Training Officer', count: 3,  entitlements: ['ts', 'ev', 'gt'] },

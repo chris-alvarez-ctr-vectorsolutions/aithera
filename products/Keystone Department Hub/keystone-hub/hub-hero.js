@@ -429,20 +429,29 @@
   };
 
   // The Chief's own dashboard, built in Agency Intelligence and dropped on their home
-  // hero. One row of three KPIs — deliberately one metric per source app, so the
-  // "one surface over five products" premise reads at a glance. Each maps to a task
-  // type already in the table below, so clicking through stays coherent.
+  // hero. Three of the six chart types the Agency Intelligence builder actually
+  // offers — a scatter + trend, a bar chart, and a donut — so the card reads as
+  // something built with that tool instead of three interchangeable big numbers.
   //
-  // Height is the governing constraint: three w:4 KPI widgets in a single row keep
-  // the card at ~250px, which is what keeps the top of the task list above the fold.
-  // Trend comes free from pdKpi's built-in 26px sparkline — no second row of charts.
+  // Height is no longer the governing constraint the way it was for the old
+  // three-KPI row (~250px): a scatter + sentence, a 5-station bar, and a donut run
+  // taller than KPI tiles, so this card lands around ~430px instead. That trade —
+  // real charts over a fold-hugging height — was made explicitly by the designer.
+  //
+  // Widths: scatter is the only widget that genuinely needs the room, so it takes
+  // w:6; bar and donut split the remaining w:6 at w:3 apiece, keeping one row.
+  // ch3's donut needs all five source apps (tasks_by_app spans ts/ci/sched/gt/ev),
+  // which is also why the Chief's entitlements now include Scheduling — see the
+  // comment in agency-intel-page-data.js.
   var CHIEF_DASH = {
     name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
     owned: true, ownerShort: 'you',
     widgets: [
-      { id: 'ch1', metricId: 'open_shifts',            viz: 'kpi', w: 4, range: 'next_14', source: ['sched'], title: 'Open shifts' },
-      { id: 'ch2', metricId: 'credential_expirations', viz: 'kpi', w: 4, range: 'next_30', source: ['ts'],    title: 'Credentials expiring' },
-      { id: 'ch3', metricId: 'overdue_inspections',    viz: 'kpi', w: 4, range: 'last_30', source: ['ci'],    title: 'Overdue inspections' }
+      { id: 'ch1', metricIds: ['overdue_inspections', 'response_time'], viz: 'scatter', w: 6,
+        range: 'last_30', source: ['ci', 'gt'] },
+      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
+      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 3, range: 'last_30',
+        source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
     ]
   };
 
@@ -549,8 +558,18 @@
       title = title || (bs ? bs.label : '');
       body = KXCharts.pdBar(w.data || (bs ? bs.data : []));
     } else if (kind === 'donut') {
-      icon = icon || 'donut_large';
-      body = KXCharts.pdDonut(w.donut, w.center);
+      var ds = w.metricId ? CC.buildSpec(w.metricId, 'donut') : null;
+      icon = icon || (ds ? ds.icon : 'donut_large');
+      title = title || (ds ? ds.label : '');
+      body = KXCharts.pdDonut(w.donut || (ds ? ds.data : []), w.center);
+    } else if (kind === 'scatter') {
+      // Correlation widgets carry TWO metrics. buildCorrelationSpec aligns them
+      // on their shared station labels and returns the plotted points; a null
+      // means fewer than three stations overlap, so there is nothing to plot.
+      var sc = w.metricIds ? CC.buildCorrelationSpec(w.metricIds, 'scatter') : null;
+      icon = icon || 'scatter_plot';
+      title = title || (sc ? sc.xLabel + ' × ' + sc.yLabel : '');
+      body = sc ? KXCharts.pdScatter(sc) : '';
     } else if (kind === 'progress') {
       // A KPI with a slim completion bar instead of a sparkline. Used where the
       // number is progress against a fixed requirement rather than a trend — it
@@ -583,6 +602,16 @@
     var narrow = (w.w || 6) <= 4;
     var srcs = narrow ? '' : (w.source || []).map(function (s) { return KX.srcChip(s); }).join('');
 
+    // Only widgets the assistant put here get a remove control. The dashboard's
+    // own widgets are its content — there is nothing to take back, and an ✕ on
+    // them would read as "delete from the published dashboard", which a viewer
+    // cannot do. Duplicates from chat are allowed, so this is the way back out.
+    var rm = w.fromChat
+      ? '<button class="kx-pubwidget-rm" data-kx-ai-remove="' + KX.attr(w.id) + '" ' +
+        'title="Remove this widget" aria-label="Remove the ' + KX.attr(title) + ' widget">' +
+        micon('close', { size: 15 }) + '</button>'
+      : '';
+
     // The range control sits BELOW the value, not beside the title. It used to
     // share the header row, where it took ~105px and forced every title into an
     // ellipsis once the Agency Intelligence panel claimed 320px of the body.
@@ -593,6 +622,7 @@
       '<div class="kx-pubwidget-head">' + iconChip +
       '<span class="title">' + esc(title) + '</span>' +
       (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +
+      rm +
       '</div>' +
       '<div style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
       '<div class="kx-pubwidget-foot">' + pdRangeControl(w, ownerLabel, narrow) + '</div>' +
@@ -668,18 +698,30 @@
   // The dashboard body. Without a grant this is exactly the grid that shipped
   // before — no wrapper, no panel, no height change. The ungranted case is a
   // real no-op, not a hidden element.
+  // The chat-added widgets for this variant. publishedDashboard() needs them for
+  // the header's source-chip union and dashBody() needs them for the grid; two
+  // derivations from different inputs is exactly how a widget added from a new
+  // source app ended up with no chip in the header.
+  function addedFor(variant) {
+    var AI = window.KXAIPanel;
+    return (AI && AI.hasAccess(VARIANT_ROLE[variant])) ? AI.addedWidgets() : [];
+  }
+
   function dashBody(cfg, variant) {
     var AI = window.KXAIPanel;
     var granted = AI && AI.hasAccess(VARIANT_ROLE[variant]);
     if (granted) AI.setContext(VARIANT_ROLE[variant], cfg);
 
-    var added = granted ? AI.addedWidgets() : [];
+    var added = addedFor(variant);
     var cells = cfg.widgets.concat(added)
       .map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('');
 
     // Expanded with nothing added yet: name the empty row rather than leave a
-    // hole. It is the landing zone for "Add as a widget".
-    if (granted && AI.isExpanded() && !added.length && cfg.owned) {
+    // hole. It is the landing zone for "Add as a widget" — so it only opens once
+    // the thread actually holds an addable answer. A refusal resolves to no
+    // metric, and promising a landing zone for something that turn can never
+    // produce is worse than not growing the container at all.
+    if (granted && AI.isExpanded() && AI.hasAddable() && !added.length && cfg.owned) {
       cells += '<div class="kx-ai-drop" style="grid-column:span 12">' +
         micon('add_chart', { size: 26, fill: 1 }) +
         '<span>Answers you add land here</span></div>';
@@ -696,8 +738,13 @@
     var cfg = variant === 'chief' ? CHIEF_DASH
             : variant === 'firefighter' ? FF_DASH
             : LT_DASH;
+    // Chips describe what this card is actually showing, so the union spans the
+    // chat-added widgets too — add a Scheduling answer to a dashboard with no
+    // Scheduling widget and the header must gain a Sched chip.
     var union = {};
-    cfg.widgets.forEach(function (w) { (w.source || []).forEach(function (s) { union[s] = true; }); });
+    cfg.widgets.concat(addedFor(variant)).forEach(function (w) {
+      (w.source || []).forEach(function (s) { union[s] = true; });
+    });
 
     // The Chief builds their own, so the badge and footer say so — which is what
     // earns them the "Agency Intelligence" affordance. Everyone else is a consumer.
