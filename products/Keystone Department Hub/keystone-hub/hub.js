@@ -426,7 +426,9 @@
 
     return '<div class="kx-filterbar">' +
       '<div class="kx-filterbar-row">' +
-      '<span class="kx-count">' + count + ' <span>task' + (count === 1 ? '' : 's') + '</span></span>' +
+      // The count is the task list's title — the only label between the hero and
+      // the table — so it is an h2, the rung below the greeting's h1.
+      '<h2 class="kx-count">' + count + ' <span>task' + (count === 1 ? '' : 's') + '</span></h2>' +
       myTasks + buckets +
       '<button class="kx-pill kx-btn-elev kx-desktop-only' + (state.filterOpen ? ' is-on' : '') + '" id="kxFilterToggle" ' +
       'aria-expanded="' + state.filterOpen + '">' + micon('tune', { size: 14 }) + 'Filter' +

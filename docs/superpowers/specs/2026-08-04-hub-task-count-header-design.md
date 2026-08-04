@@ -68,7 +68,8 @@ Rationale for each value:
   when filtered was considered and rejected as extra copy in a deliberately economical spot.
 - The filter row keeps its `flex-wrap`, so on narrow screens the header wraps onto its own line —
   the right outcome there, and no separate mobile size is needed.
-- The pills shift right by roughly 40px on desktop, into space that is currently empty.
+- The pills shift right by 60px on desktop (measured: "My tasks" moves from x=114 to x=174), into
+  space that is currently empty.
 - The table does not move down.
 
 ## Verification
