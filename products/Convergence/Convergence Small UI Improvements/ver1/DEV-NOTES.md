@@ -43,6 +43,8 @@
 - Round 2: badge semantics come from the system tokens: info blue = in progress + new, warn amber = needs scheduling + retiring, idle gray = incomplete, err red = overdue, ok green = complete + assigned. No ad hoc colours; badge text sits on the 12px small-label floor.
 - Round 2: classes that need a session carry the amber "Needs scheduling" badge (row, card and detail hero) instead of the legacy flashing yellow corner, and the banner carries the same badge on the same warn tokens. Class actions are Details / Select a session, never Launch.
 - Round 2: the accordion's collapsed-state set records USER TOGGLES (XOR with the default), otherwise default-collapsed groups can never be expanded.
+- Round 4: up to THREE stacked banners above the plan, one construction (icon, text, optional action, dismiss X), severity from the status tokens (warn / err / info). Stack gap 12, margin below 16, all from the scale. Dismissal is per session in the prototype; persistence is server-side. After dismissing, keyboard focus moves to the next banner's dismiss control.
+- Round 4: the circle-info details action is ALWAYS the leftmost icon in an action row; the paperclip follows it. Applies to list rows, both card sizes and catalog cards.
 
 ## t-filter - Filter panel open (Area 3)
 - The funnel that opens the panel lives INSIDE the panel header, top-left, NOT in the page-header actions. The panel is always a column in the layout: closed it is a 58px rail holding just the funnel, open it is the full 244px panel with the funnel in exactly the same position. Do not move the funnel back to the right-hand page actions; the control and the surface it controls have to read as one column.
@@ -58,6 +60,7 @@
 ## t-cards-s - Compact cards (Area 4)
 - Same card component as the large size. The ONLY difference is the grid track size: `--card-min: 168px; --card-max: 208px`, plus slightly tighter body padding and a 13px title.
 - Thumbnail ratio, badge placement, radius, shadow and controls must not change between densities.
+- Round 4 worked example: the 12-activity requirement (RV - HSEML - Site Hazards) demonstrates the responsive grid. Measured: large cards 4 / 3 / 2 per row and small cards 5 / 4 / 2 per row at 1600 / 1180 / 820px, 16px gutters at every size. Auto-fill min-max tracks derive the count from the width; do not hardcode column counts.
 - Round 2: cards carry the design-system XS shadow (`--e-xs`) as their ONLY elevation: no border. Type icons are centred with grid place-items + line-height 1 and one normalised size per thumbnail size.
 
 ## t-cards-l - Large cards (Area 4)
@@ -156,5 +159,14 @@
 - Keyboard: each strip is a roving-focus list (role list / listitem). Focus the strip, then left/right arrows move card to card, Home/End jump, with the shared focus ring visible on the focused card and an aria-label that explains the keys.
 - Round 3: strips DO NOT horizontally scroll by hand. Flanking 36px circular arrow buttons page each row by about one viewport (smooth scroll, disabled at either end); the keyboard arrows still walk card to card. No visible scrollbar.
 - Round 3: card titles show two full lines (2-line clamp with a matching min-height) instead of one truncated line.
+- Round 4: each category is its own grouped module (white surface, hairline border, 12px radius, --e-1, 20px padding) per the Top picks reference; the circular prev/next arrows sit TOP-RIGHT in the category header beside View all.
+- Round 4: catalog cards ARE the small Training Plan card (.tcard): same structure, sizing, thumbnail ratio, badges and XS shadow, plus the E tag and Assigned badge, and an action row whose info button is leftmost. There is no separate catalog card style.
 - View all sets the category and opens the table view; deep link the views with ?view=cards or ?view=table on catalog.html.
 - Category data is illustrative (the reference's Driver Safety / Emergency Procedures / First Aid / Qualifications rows); the existing seven Safety items are unchanged and remain the Safety category.
+
+## Accessibility (round 4 audit)
+- Contrast: all text and badge pairings measure at or above 4.5:1. Fixed by moving --c-faint to --c-meta: side-nav section headers, filter-panel titles, the empty-ring None figure, attachment file sizes. --c-faint is reserved for placeholders, disabled states and decorative glyphs.
+- Focus: the shared ring covers every control; drill-in detail rows add a visible inset ring on :focus-visible; carousel strips and cards keep their explicit ring.
+- Names and roles: aria-labels on all icon-only buttons (top-nav trio, nav collapse, banner dismiss, carousel arrows, card info); aria-current=page on the active tab; strips are labelled role=list with the arrow-key hint in the label; Vaadin fields in the wizard need accessible-name because an external label's for= cannot reach the shadow-DOM input.
+- Focus order follows DOM = visual order; per category: View all, prev, next, strip, cards.
+- Needs logic (flagged): server-side banner dismissal persistence, live banner counts, Show overdue / View classes actions.

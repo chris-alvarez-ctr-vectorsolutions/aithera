@@ -20,6 +20,7 @@ const state = {
   trainingView: 'list',      // list | dense | large
   catalogView: 'cards',      // cards (category carousels) | table
   catalogCat: 'safety',      // category shown by the table view
+  dismissedBanners: new Set(),   // banner ids dismissed this session
   filterOpen: false,
   navOpen: new Set(['training']),
   navActive: 'dashboard',
@@ -268,8 +269,11 @@ function go(route, arg) {
   state.route = route;
   const r = ROUTES[route];
 
-  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.route === r.tab
-    || (r.tab === 'admin' && t.dataset.route === 'admin')));
+  $$('.tab').forEach(t => {
+    const active = t.dataset.route === r.tab || (r.tab === 'admin' && t.dataset.route === 'admin');
+    t.classList.toggle('active', active);
+    if (active) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+  });
   $('#sidenav').hidden = !r.sidenav;
   /* Each route sets how wide the nav starts. Home shows the icon rail (the
      legacy page shows only the menu affordance); admin pages show it open.
@@ -284,7 +288,7 @@ function go(route, arg) {
   renderNav($('#navSearch').value);
   renderCrumbs();
 
-  if (route === 'training') setTrainingView(typeof arg === 'string' ? arg : state.trainingView);
+  if (route === 'training') { setTrainingView(typeof arg === 'string' ? arg : state.trainingView); renderBanners(); }
   if (route === 'catalog')  setCatalogView(typeof arg === 'string' ? arg : state.catalogView);
   if (route === 'wizard' && typeof arg === 'number') { state.wizard.step = arg; renderWizard(); }
   $('#app').classList.remove('nav-open');
@@ -315,6 +319,7 @@ function setNavCollapsed(collapsed) {
   const btn = $('#navCollapse');
   btn.setAttribute('aria-expanded', String(!collapsed));
   btn.title = collapsed ? 'Expand navigation' : 'Collapse navigation';
+  btn.setAttribute('aria-label', btn.title);
 }
 
 function collapseDemo() {

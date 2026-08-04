@@ -46,9 +46,9 @@
     </nav>
 
     <div class="nav-icons">
-      <button class="icon-btn" title="Language"><i class="fa-solid fa-globe"></i></button>
-      <button class="icon-btn" title="My account"><i class="fa-solid fa-user"></i></button>
-      <button class="icon-btn" title="Sign out"><i class="fa-solid fa-right-from-bracket"></i></button>
+      <button class="icon-btn" title="Language" aria-label="Language"><i class="fa-solid fa-globe" aria-hidden="true"></i></button>
+      <button class="icon-btn" title="My account" aria-label="My account"><i class="fa-solid fa-user" aria-hidden="true"></i></button>
+      <button class="icon-btn" title="Sign out" aria-label="Sign out"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></button>
     </div>
   </header>
 
@@ -57,7 +57,7 @@
     <!-- ======================= AREA 1 - SIDE NAV ======================= -->
     <aside class="sidenav" id="sidenav" aria-label="Administration">
       <div class="sn-head">
-        <button class="icon-btn" id="navCollapse" title="Collapse navigation" aria-expanded="true"><i class="fa-solid fa-bars"></i></button>
+        <button class="icon-btn" id="navCollapse" title="Collapse navigation" aria-label="Collapse navigation" aria-expanded="true"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
         <div class="sn-search">
           <i class="fa-solid fa-magnifying-glass"></i>
           <input type="text" id="navSearch" placeholder="Search navigation" aria-label="Search navigation">
@@ -306,14 +306,9 @@
           </aside>
 
           <div class="view-scroll" id="trainingScroll">
-            <!-- Session-selection notice: an inline notice with a real action,
-                 not the legacy full-width blue bar whose whole surface was the link. -->
-            <div class="banner" role="status">
-              <span class="pill pill-attn no-dot">Needs scheduling</span>
-              <span class="banner-text"><strong>2 classes</strong> need a session selected before they can be scheduled.</span>
-              <span class="grow"></span>
-              <vaadin-button theme="tertiary" class="btn-compact">View classes</vaadin-button>
-            </div>
+            <!-- Up to three stacked, dismissible notices. Rendered by
+                 renderBanners() in views.js; variants share one construction. -->
+            <div class="banner-stack" id="tpBanners"></div>
             <div class="panel tp" id="tp"></div>
           </div>
         </section>

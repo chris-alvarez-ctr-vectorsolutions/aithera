@@ -371,6 +371,63 @@ All eight items are applied on top of the round-1 work, in the same `ver1/shared
 Activities, Driving Safety) could never be expanded; the toggle set now records user
 toggles instead of forcing closed.
 
+## Round 4: accessibility audit, banners, card consistency, catalog containers
+
+**Accessibility audit (WCAG AA).** Measured programmatically in the browser:
+
+- Contrast: every badge, banner, header, meta and link pairing now measures at or above
+  4.5:1 (badges 5.4 to 7.0, banners 5.2+, meta text 4.97, primary links 4.93). Four spots
+  failed and were fixed by moving `--c-faint` label text to `--c-meta`: side-nav section
+  headers, filter-panel group titles, the empty-ring "None" figure, and attachment file
+  sizes. `--c-faint` remains only on placeholders, disabled states and decorative glyphs.
+- Keyboard focus: the shared focus ring covers every control; the carousel strips and cards
+  keep their explicit ring; drill-in detail rows gained a visible inset ring on
+  focus-visible (hover fill alone was invisible to keyboard users).
+- Names, roles, labels: icon-only top-nav buttons (language, account, sign out), the nav
+  collapse button and banner dismiss buttons all carry aria-labels; the active top-nav tab
+  announces `aria-current="page"`; carousel strips are labelled lists whose label explains
+  the arrow keys; the wizard's Vaadin fields carry `accessible-name` (their external
+  visual labels cannot reach the shadow-DOM input, so the name must be set on the field:
+  the label-input association is otherwise broken for screen readers). A whole-page sweep
+  finds zero unnamed interactive elements.
+- Focus order: DOM order is visual order everywhere; per category the order is View all,
+  previous, next, then the strip and its cards.
+- Flagged for logic (not CSS): banner dismissal is per session only (persistence is
+  server-side); the banner counts and Show overdue / View classes actions need wiring;
+  moving keyboard focus after dismissal is handled in the prototype (focus goes to the
+  next banner's dismiss control) and should be kept in the real build.
+
+**Training Plan banners: up to three, stacked, dismissible.** One banner construction
+(icon, text, optional action button, dismiss X), severity from the status tokens: warn =
+needs scheduling, err = overdue, info = completion-rule reminder. Stack gap and padding on
+the spacing scale (12 inside the stack, 16 below); every banner uses the same 34px
+icon-button dismiss with an aria-label. Demo shows all three at once.
+
+**Info icon leftmost.** The circle-info action is the first icon in every action row:
+training list rows, both training card sizes, and catalog cards (which now carry the same
+action row). The paperclip follows it when attachments exist.
+
+**Responsive card grid, worked example.** A 12-activity requirement (RV - HSEML - Site
+Hazards) demonstrates the reflow. Measured columns, from the auto-fill grid on the
+180/224px (small) and 256/312px (large) tracks with 16px gutters:
+
+| Viewport | Large cards | Small cards |
+|---|---|---|
+| 1600px | 4 per row | 5 per row |
+| 1180px | 3 per row | 4 per row |
+| 820px | 2 per row | 2 per row |
+
+Auto-fill tracks between a min and max mean the count falls out of the available width at
+every size, gutters stay 16px, and partial rows keep card size instead of stretching.
+
+**Catalog card view adjustments.** Each category now sits in its own grouped module, per
+the Top picks container reference supplied in review: white surface, hairline border, 12px
+radius, `--e-1`, 20px padding, with the circular prev/next arrows top-right in the header
+beside View all. Catalog cards ARE the small Training Plan card component now: same
+structure, sizing, 16:9 thumbnail, badges and XS shadow, plus the E tag and the solid green
+Assigned badge, with the info action leftmost in the card foot. No separate catalog card
+style remains.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest
