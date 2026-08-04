@@ -77,9 +77,15 @@
       const used = state.turnsInPhase;
       const ladder = phases.filter((x) => state.ladder[x.id])
         .map((x) => (x.label || x.id) + ' = ' + state.ladder[x.id]).join(', ');
+      // OPTIONAL per-phase addendum — the perception (scene-sweep) layer injects
+      // its COVERAGE line for a kind:'spot' phase here (js/sim-perception.js
+      // passes ctx.coverageBlock). No hook → empty, so the conversational types
+      // are byte-identical.
+      const coverage = (typeof ctx.coverageBlock === 'function') ? (ctx.coverageBlock(p) || '') : '';
       return '\n\n[SYSTEM STATE — Phase ' + (state.phaseIdx + 1) + '/' + phases.length + ': ' + (p.label || p.id)
         + ' (' + (p.world === 'scene' ? 'SCENE' + (p.counterpart ? ' · ' + p.counterpart : '') : 'COACHING') + ').'
         + ' Learner turns used: ' + used + '/' + cap + '.'
+        + coverage
         + (ladder ? ' THE LADDER so far: ' + ladder + '.' : '')
         + (vars ? ' Session state — ' + vars + '.' : '')
         + (used >= cap
