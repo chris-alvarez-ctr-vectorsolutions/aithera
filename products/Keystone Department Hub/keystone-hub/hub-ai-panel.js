@@ -144,10 +144,15 @@
   function chipsHtml(person) {
     var list = suggestionsFor(person);
     if (!list.length) return '';
-    return '<div class="kx-ai-chips">' + list.map(function (s, i) {
-      return '<button class="kx-ai-chip" data-kx-ai-chip="' + i + '" ' +
-        'title="' + KX.attr(s.q) + '">' + esc(s.label) + '</button>';
-    }).join('') + '</div>';
+    // Stacked, not a scrolling row: the compact panel is as tall as the widget
+    // row beside it, so there is vertical room to spare and none horizontally —
+    // a 320px row clipped the third chip.
+    return '<div class="kx-ai-chips">' +
+      '<div class="kx-ai-chips-label">Try asking</div>' +
+      list.map(function (s, i) {
+        return '<button class="kx-ai-chip" data-kx-ai-chip="' + i + '" ' +
+          'title="' + KX.attr(s.q) + '">' + esc(s.label) + '</button>';
+      }).join('') + '</div>';
   }
 
   // Bold spans in the seeded answers arrive as **markdown**.

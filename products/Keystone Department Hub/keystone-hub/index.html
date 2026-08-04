@@ -432,13 +432,37 @@
      1090px) were calibrated against the old ~310px minimum and are now far
      too conservative.
 
-     Three across (natural, unforced spans) stayed clip-free down to 1070px
-     viewport and first clipped at 1065px — so 1070px is the measured-and-
-     rounded-up threshold below which three-across (span 4) gives way to
-     two-across (span 6).
+     Task 8 re-measured this threshold from scratch (forcing browser_resize,
+     never computed) because Task 7 put mixed spans — scatter w:5, bar w:3,
+     donut w:4 — on CHIEF_DASH in place of the uniform w:4 tiles this number
+     was originally calibrated against, and the w:3 bar was suspected to hit
+     its legible floor sooner. Probing 1400 down to 1100 in the increments the
+     brief specified, then continuing to 1075 and 1065 to re-confirm the
+     three-across/two-across boundary itself, found NO clipping anywhere in
+     that range at these widths (rounded): 1400→374/220/297, 1350→353/207/280,
+     1300→333/195/264, 1250→312/182/247, 1200→291/170/230, 1150→270/157/214,
+     1100→261/152/206, 1075→251/146/198, all the way through 1065→298/298/298
+     (already two-across) and 900→382/382/382 (stacked-above-panel). The
+     reason the suspected regression didn't reappear: the scatter's own
+     combined title ("Overdue inspections × Avg response time") turned out to
+     clip even at 1400px, in the natural one-row layout, above every
+     breakpoint here — no threshold could have fixed that, so `.kx-pubwidget
+     .title` below was changed to wrap instead of ellipsis-truncate. That
+     fix's side effect is that the narrower bar and donut titles also wrap
+     instead of clip if they ever run short on room, which is what actually
+     neutralizes the w:3-hits-its-floor-sooner regression this threshold was
+     re-measured to address. Because no clipping was measured at any width in
+     the natural three-across range, 1070px stays as the measured-and-
+     rounded-up threshold below which three-across gives way to two-across
+     (span 6) — the number is unchanged from Task 2c, but the reasoning is
+     new: it no longer rests on the old uniform-w:4 assumption, it rests on
+     this task's own remeasurement finding no clip-free ceiling was crossed.
      Two across (span 6 forced) stayed clip-free down to 470px viewport and
      first clipped at 465px — so 470px is the measured-and-rounded-up
-     threshold below which two-across gives way to one-per-row. */
+     threshold below which two-across gives way to one-per-row (unchanged;
+     Task 8 did not re-measure this one, since the bar/donut titles that
+     motivated re-checking the 1070px boundary are even less cramped once
+     forced to span 6 than they are in the natural three-across layout). */
   @media (max-width: 1070px) {
     .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 6 !important; }
   }
@@ -523,8 +547,20 @@
     box-shadow: var(--elev-1); padding: 12px;
     display: flex; flex-direction: column; min-width: 0;
   }
-  /* Single header row at every width — title shrinks with ellipsis, source chips
-     and the range control hold their size on the right. */
+  /* Single header ROW at every width — icon and source chips hold their size on
+     the left/right; the title is the only flexible piece. The range control is
+     NOT here: it moved to .kx-pubwidget-foot, below the value, which is what
+     dropped a widget's legible minimum from ~310px to ~205px.
+
+     The title itself wraps rather than ellipsis-truncates (see .kx-pubwidget
+     .title below) — added in Task 8, which put a combined two-metric scatter
+     title ("Overdue inspections × Avg response time") into a w:5 widget
+     (376px). At that width, in its natural one-row layout, the title needs
+     ~277px but the icon+chips leave only ~231px: it clipped at 1400px, above
+     every grid-wrap breakpoint, so no threshold could ever have fixed it —
+     only the title itself could. Wrapping to a second line costs the row some
+     height (which this card already accommodates, per the height comment on
+     CHIEF_DASH) but never truncates. */
   .kx-pubwidget-head {
     display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap;
   }
@@ -537,9 +573,24 @@
     display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   .kx-pubwidget .title {
-    font-size: 13.5px; font-weight: 700; color: var(--ink-900);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    font-size: 13.5px; font-weight: 700; color: var(--ink-900); line-height: 1.25;
+    overflow-wrap: break-word; min-width: 0;
   }
+  /* Donut legend fits at w:4 (299px) for every row except the worst case:
+     "TargetSolutions" is one unbreakable word, and pdDonut() (charts.js,
+     off-limits to edit here) hard-codes an 18px arc-to-legend gap plus an
+     8px per-item gap and a 10px percentage padding inline. Measured, that
+     row needs 148px but only 127px was available — 21px short. charts.js
+     can't change, but its inline, non-!important gaps/font-size CAN be
+     overridden from here: tightening them (never widening the widget itself,
+     which stays the designer-specified 299px) recovers the 21px without
+     shrinking anything below a legible size. Selectors key off pdDonut's
+     literal inline `style` strings, which are unique to it in this file. */
+  .kx-pubwidget div[style*="gap:18px"] { gap: 12px !important; }
+  .kx-pubwidget div[style*="gap:8px;font-size:12px"] {
+    gap: 4px !important; font-size: 11px !important;
+  }
+
   /* .kx-range-btn now lives in styles.css — it is emitted by shared JS
      (hub-hero.js and agency-intel-canvas.js) so both surfaces need it. */
   .kx-kpi-num {

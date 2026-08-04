@@ -438,8 +438,12 @@
   // taller than KPI tiles, so this card lands around ~430px instead. That trade —
   // real charts over a fold-hugging height — was made explicitly by the designer.
   //
-  // Widths: scatter is the only widget that genuinely needs the room, so it takes
-  // w:6; bar and donut split the remaining w:6 at w:3 apiece, keeping one row.
+  // Widths: none of the three shares the old uniform w:3 split evenly. Scatter
+  // takes w:5, which at the dashboard's 1400px measures 376px — almost exactly
+  // the 380px its renderer was designed for. Donut takes w:4 (299px) because its
+  // legend needs room for five source-app names plus percentages; at w:3 (215px)
+  // names wrapped mid-word and percentages were cut off. Bar stays w:3 (221px) —
+  // it is the compact one, five station bars read fine at that width.
   // ch3's donut needs all five source apps (tasks_by_app spans ts/ci/sched/gt/ev),
   // which is also why the Chief's entitlements now include Scheduling — see the
   // comment in agency-intel-page-data.js.
@@ -447,10 +451,10 @@
     name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
     owned: true, ownerShort: 'you',
     widgets: [
-      { id: 'ch1', metricIds: ['overdue_inspections', 'response_time'], viz: 'scatter', w: 6,
+      { id: 'ch1', metricIds: ['overdue_inspections', 'response_time'], viz: 'scatter', w: 5,
         range: 'last_30', source: ['ci', 'gt'] },
       { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
-      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 3, range: 'last_30',
+      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 4, range: 'last_30',
         source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
     ]
   };
