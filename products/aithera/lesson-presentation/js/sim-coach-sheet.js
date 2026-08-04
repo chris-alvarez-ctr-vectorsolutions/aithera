@@ -66,6 +66,10 @@
     let floor = 0;      // reserved height — the sheet never shrinks below this
     let raf   = 0;      // in-flight rise, so a fresh one can cancel it
     let scrollRAF = 0;  // in-flight scroll glide, so a fresh one can re-target it
+    let lastScrollTop = 0;  // the scroll position WE last drove the body to — the
+                            // truth glideToBottom eases from, immune to the browser
+                            // clamping scrollTop down during the typing→message swap
+                            // (see glideToBottom's "un-clamp").
 
     // RESERVE — how much empty space the sheet is allowed to HOLD above its
     // current content. This is what bridges the beat where the typing dots are
@@ -103,7 +107,7 @@
       // First paint or reduced-motion: settle the newest bubble at the bottom
       // instantly — there's no rise to animate, and reduced-motion wants no
       // scroll animation either.
-      if (from == null || reducedMotion()) { body.scrollTop = body.scrollHeight; panel.style.transition = ''; return false; }
+      if (from == null || reducedMotion()) { body.scrollTop = body.scrollHeight; lastScrollTop = body.scrollTop; panel.style.transition = ''; return false; }
       // No growth — the floor held the height steady (dots removed, short line),
       // or we're maxed out. Don't animate and don't pin the scroll here; return
       // false so follow() can GLIDE the thread down smoothly instead. Pinning
@@ -115,6 +119,7 @@
       // bottom, then ease the WHOLE sheet (header + thread) up from a dropped
       // start.
       body.scrollTop = body.scrollHeight;
+      lastScrollTop = body.scrollTop;
       const delta = target - from;                 // how much taller we grew = how far to rise
       const dur = 300;
       const ease = (t) => 1 - Math.pow(1 - t, 3);  // easeOutCubic — quick, settles soft
@@ -141,14 +146,29 @@
        `scrollTop =` pin (which the typing dots used to do) instantly CANCELS an
        in-progress native smooth scroll and jumps, and that glide→jump→glide
        alternation is what read as janky once the thread started scrolling.
-       Reduced-motion / backgrounded tabs settle instantly instead. */
-    function glideToBottom() {
+       Reduced-motion / backgrounded tabs settle instantly instead.
+
+       UN-CLAMP (the maxed-out swap jump): a coach line arrives as typing dots that
+       are removed a beat BEFORE their message lands. While maxed and scrolling,
+       removing the dots shrinks the body's scrollHeight, and the forced reflow in
+       the page's render() — which reads scrollHeight to add the message — happens
+       while the dots are gone and the message isn't in the DOM yet. The browser
+       clamps scrollTop DOWN to that smaller range (measured: 400→351, one bubble).
+       Then this glide would capture the clamped-low value as its start and ease
+       back UP — the thread visibly DROPS a bubble's height, then rises: the "jumpy"
+       swap the sheet showed only once it stopped growing and began scrolling.
+       Before reading `start`, restore scrollTop to the position we actually drove
+       to (lastScrollTop), capped at the new bottom — so the glide eases from where
+       the thread VISUALLY sat, not the clamp. Gated on `restore` (a follow/pin
+       delivery beat) so it never fights a learner who scrolled up to re-read. */
+    function glideToBottom(restore) {
       if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0; }
       const bottom = () => body.scrollHeight - body.clientHeight;
-      if (reducedMotion() || document.visibilityState !== 'visible') { body.scrollTop = bottom(); return; }
-      const start = body.scrollTop;
       const target = bottom();
-      if (Math.abs(target - start) < 1) { body.scrollTop = target; return; }  // already there
+      if (restore && body.scrollTop < lastScrollTop) body.scrollTop = Math.min(lastScrollTop, target);
+      if (reducedMotion() || document.visibilityState !== 'visible') { body.scrollTop = target; lastScrollTop = body.scrollTop; return; }
+      const start = body.scrollTop;
+      if (Math.abs(target - start) < 1) { body.scrollTop = target; lastScrollTop = body.scrollTop; return; }  // already there
       const dur = 320;
       const ease = (t) => 1 - Math.pow(1 - t, 3);   // easeOutCubic — matches the rise
       let t0 = null;
@@ -156,8 +176,9 @@
         if (t0 == null) t0 = ts;
         const p = Math.min(1, (ts - t0) / dur);
         body.scrollTop = start + (target - start) * ease(p);
+        lastScrollTop = body.scrollTop;
         if (p < 1) { scrollRAF = requestAnimationFrame(step); }
-        else { scrollRAF = 0; body.scrollTop = bottom(); }   // settle on the true bottom
+        else { scrollRAF = 0; body.scrollTop = bottom(); lastScrollTop = body.scrollTop; }   // settle on the true bottom
       };
       scrollRAF = requestAnimationFrame(step);
     }
@@ -170,7 +191,7 @@
     function follow(state) {
       state = state || {};
       const grew = rise();
-      if (!grew && (state.nearBottom || state.delivering)) glideToBottom();
+      if (!grew && (state.nearBottom || state.delivering)) glideToBottom(true);
       return grew;
     }
 
@@ -179,13 +200,13 @@
        otherwise glide the scroll — the SAME continuous ease as follow(), so the
        dots and the bubble that replaces them move as one motion, never a jump. */
     function pin() {
-      if (!rise()) glideToBottom();
+      if (!rise()) glideToBottom(true);
     }
 
     /* Forget the last painted height and stop any in-flight glide — call when the
        sheet lowers, so the next time it rises it treats that as a first paint
        (instant, no stray tween). */
-    function reset() { lastH = null; releaseFloor(); if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0; } }
+    function reset() { lastH = null; lastScrollTop = 0; releaseFloor(); if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0; } }
 
     return { rise, follow, pin, reset };
   }
