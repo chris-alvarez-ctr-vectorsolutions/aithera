@@ -1866,6 +1866,83 @@ Expected: `present: true`, `hasGradient: true`, `width` greater than `0`. A
 `width` of `0` or a missing gradient means `styles.css` is not reached from this
 page — restore the inline block if so.
 
+- [ ] **Step 2b: Carried-forward cleanups from Tasks 2c, 4 and 5**
+
+Four small items that earlier reviews raised and deferred to this task. Each is
+independently verifiable; none is optional.
+
+**(a) Remove the dead `.rng` rule.** Task 2c moved the range control out of the
+widget header into `.kx-pubwidget-foot`, so no markup emits a `.rng` span inside
+the head any more. In `<HUB>/index.html`, delete the now-unreachable
+`.kx-pubwidget-head .rng` rule. Confirm with `grep -rn '"rng"\|\.rng' ` over
+`<HUB>/` that nothing else references it before deleting.
+
+**(b) Fix the confirmation copy.** In `<HUB>/hub-ai-panel.js`, `turnHtml()`
+currently renders `'Added to ' + esc(msg.added)`, which reads as though the
+widget was added *to* a thing called "Training completion". It was added *as* a
+widget. Change the string to:
+
+```js
+          'Added ' + esc(msg.added) + ' to the dashboard'
+```
+
+Keep `esc()` exactly where it is.
+
+**(c) Document the shared-state limitation.** The human partner ruled that
+`state.added` / `state.thread` stay page-global rather than being scoped per
+dashboard, and that the limitation be recorded for developers. Add this comment
+immediately above the `var state = {` declaration in `<HUB>/hub-ai-panel.js`,
+keeping whatever text already documents the state shape:
+
+```js
+  // NOT SCOPED PER DASHBOARD — deliberate, and a real limitation to carry into
+  // any implementation. state.thread and state.added are page-global, while
+  // dashBody() concatenates addedWidgets() onto whichever dashboard variant is
+  // currently rendering. Today nothing exposes it: the Chief is the only role
+  // that is both granted an assistant and the owner of their dashboard. But
+  // granting a non-owning role — a pure seedGrants() data change, no code
+  // involved — would render the Chief's chat-added widgets on that role's
+  // read-only dashboard and show them the Chief's conversation. A production
+  // build must key both arrays by dashboard identity.
+```
+
+**(d) Fix the collapsed strip's chevron at narrow widths.** `.kx-ai-collapsed`
+flips to `flex-direction: row` at ≤980px, but the chevron carries an inline
+`margin-top: auto` set unconditionally in JS, which in row mode acts on the cross
+axis and can bottom-align it. Move that positioning out of JS and into the CSS
+that knows the orientation.
+
+In `<HUB>/hub-ai-panel.js`, drop the inline style from the collapsed strip's
+chevron — i.e. change `micon('chevron_right', { size: 16, color: 'var(--ink-400)', style: 'margin-top:auto' })`
+so it no longer passes `style`, and give the icon a class the CSS can target
+instead (`{ size: 16, color: 'var(--ink-400)', cls: 'kx-ai-collapsed-chev' }` —
+`micon` already supports `cls`).
+
+In `<HUB>/styles.css`, push it to the trailing edge per orientation:
+
+```css
+.kx-ai-collapsed .kx-ai-collapsed-chev { margin-top: auto; }
+@media (max-width: 980px) {
+  .kx-ai-collapsed .kx-ai-collapsed-chev { margin-top: 0; margin-left: auto; }
+}
+```
+
+Verify at **900x900** that the collapsed strip renders as a horizontal bar with
+the chevron beside the label rather than below it, and paste the measurement:
+
+```
+browser_evaluate → () => {
+  const s = document.querySelector('.kx-ai-collapsed');
+  const c = s && s.querySelector('.kx-ai-collapsed-chev');
+  if (!s || !c) return { error: 'strip or chevron missing' };
+  const sr = s.getBoundingClientRect(), cr = c.getBoundingClientRect();
+  return { stripIsHorizontal: sr.width > sr.height,
+           chevronVerticallyCentred: Math.abs((cr.top + cr.height/2) - (sr.top + sr.height/2)) < 10 };
+}
+```
+
+Expected: both `true`.
+
 - [ ] **Step 3: Update `products.json`**
 
 Replace the Department Hub item (currently `products.json:702-707`) with:
