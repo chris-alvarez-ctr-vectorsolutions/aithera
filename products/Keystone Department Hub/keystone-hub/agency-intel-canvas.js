@@ -1,6 +1,6 @@
 /* global window, document, KEYSTONE, KX, KXCharts */
 /* ========================================================================
-   copilot-canvas.js — dashboard-canvas widget rendering for the Copilot page.
+   agency-intel-canvas.js — dashboard-canvas widget rendering for the Agency Intelligence page.
    ------------------------------------------------------------------------
    Ported from copilot-widgets.jsx. A "widget" is a spec the canvas renders:
 
@@ -276,8 +276,8 @@
 
   // Narrative summary of a single metric — the "explain it to me" block.
   function vizSummary(metricId) {
-    var text = window.COPILOT.summaryText
-      ? window.COPILOT.summaryText(metricId)
+    var text = window.AGENCY_INTEL.summaryText
+      ? window.AGENCY_INTEL.summaryText(metricId)
       : 'No summary available for this metric.';
     return '<div style="font-size:13px;color:var(--ink-700);line-height:1.6">' +
       String(text).split('**').map(function (p, i) {
@@ -287,11 +287,15 @@
 
   // Editable prose block — the only widget the owner types into directly.
   function vizText(widget, editable) {
-    var body = widget.text || '';
+    // `body` is the canonical key — it's what the seed data, the report/CSV
+    // export and the builder all write. (`text` is tolerated as a fallback.)
+    var body = widget.body || widget.text || '';
     if (editable) {
+      // The value goes on the attribute, not in the light DOM — vaadin-text-area
+      // reads `value`, so slotted text content would render as an empty field.
       return '<vaadin-text-area theme="outlined" class="cpw-text" data-text-widget="' + KX.attr(widget.id) +
         '" style="width:100%" placeholder="Add context, a caveat, or the ask — this block travels with the report."' +
-        '>' + esc(body) + '</vaadin-text-area>';
+        ' value="' + KX.attr(body) + '"></vaadin-text-area>';
     }
     return body
       ? '<div style="font-size:13px;color:var(--ink-700);line-height:1.6;white-space:pre-wrap">' + esc(body) + '</div>'
@@ -311,7 +315,7 @@
   }
 
   function accessRequiredState(widget) {
-    var srcs = window.COPILOT.widgetSources(widget)
+    var srcs = window.AGENCY_INTEL.widgetSources(widget)
       .map(function (s) { return K.SOURCES[s] ? K.SOURCES[s].name : null; }).filter(Boolean);
     return '<div style="padding:22px 14px;text-align:center;background:var(--surface-2);border-radius:10px;' +
       'border:1px dashed var(--ink-200)">' +
@@ -330,7 +334,7 @@
       '<div style="font-size:13.5px;font-weight:700;color:var(--ink-800);margin-top:8px">' +
       esc(title || 'No data for this query') + '</div>' +
       '<div style="font-size:12px;color:var(--ink-500);margin-top:3px;line-height:1.5;max-width:320px;margin-inline:auto">' +
-      esc(body || 'Vectoria understood the question, but no connected app carries this data yet. ' +
+      esc(body || 'Agency Intelligence understood the question, but no connected app carries this data yet. ' +
         'Connect a source and it\'ll populate automatically.') + '</div></div>';
   }
 
@@ -404,7 +408,7 @@
   var localRange = {};
 
   function dateRangeControl(widget, canSave) {
-    var saved = widget.dateRange || window.COPILOT.DEFAULT_RANGE;
+    var saved = widget.dateRange || window.AGENCY_INTEL.DEFAULT_RANGE;
     var local = localRange[widget.id];
     var dirty = local != null && local !== saved;
     var current = dirty ? local : saved;
@@ -416,7 +420,7 @@
         : 'Change date range (exploring — only the owner can save the default)') + '">' +
       micon('calendar_today', { size: 13 }) +
       '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-      esc(window.COPILOT.rangeLabel(current)) + '</span>' +
+      esc(window.AGENCY_INTEL.rangeLabel(current)) + '</span>' +
       (dirty ? '<span title="Unsaved — exploring" style="width:5px;height:5px;border-radius:99px;' +
         'background:var(--amber-500);flex-shrink:0"></span>' : '') +
       micon('expand_more', { size: 14 }) + '</button>' +
@@ -425,7 +429,7 @@
         'font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
       (openRange === widget.id
         ? '<div class="kx-menu kx-menu--left" style="width:200px;top:calc(100% + 4px)">' +
-          window.COPILOT.DATE_RANGES.map(function (r) {
+          window.AGENCY_INTEL.DATE_RANGES.map(function (r) {
             return '<button class="kx-menu-row" data-range-set="' + KX.attr(widget.id) + '" data-range-val="' +
               KX.attr(r.value) + '">' +
               micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
@@ -458,16 +462,16 @@
   function widgetCard(widget, o) {
     o = o || {};
     var editable = !!o.editable;
-    var title = window.COPILOT.widgetTitle(widget);
-    var icon = window.COPILOT.widgetIcon(widget);
-    var srcs = window.COPILOT.widgetSources(widget).map(function (s) { return KX.srcChip(s); }).join('');
-    var supportsRange = window.COPILOT.widgetSupportsRange(widget);
+    var title = window.AGENCY_INTEL.widgetTitle(widget);
+    var icon = window.AGENCY_INTEL.widgetIcon(widget);
+    var srcs = window.AGENCY_INTEL.widgetSources(widget).map(function (s) { return KX.srcChip(s); }).join('');
+    var supportsRange = window.AGENCY_INTEL.widgetSupportsRange(widget);
     var selected = o.selected;
 
     var menu = openMenu === widget.id
       ? '<div class="kx-menu kx-menu--right" style="width:210px">' +
         '<button class="kx-menu-row" data-w-ask="' + KX.attr(widget.id) + '">' +
-        micon('auto_awesome', { size: 16 }) + '<span class="label">Ask Vectoria to change…</span></button>' +
+        micon('auto_awesome', { size: 16 }) + '<span class="label">Ask Agency Intelligence to change…</span></button>' +
         '<div class="kx-menu-label">Width</div>' +
         SIZE_OPTIONS.map(function (s) {
           return '<button class="kx-menu-row" data-w-size="' + KX.attr(widget.id) + '" data-w-size-val="' + s.w + '">' +
@@ -475,6 +479,12 @@
             '<span class="label">' + s.label + '</span>' +
             ((widget.w || 6) === s.w ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
         }).join('') +
+        '<div class="kx-menu-divider"></div>' +
+        '<div class="kx-menu-label">Export</div>' +
+        '<button class="kx-menu-row" data-w-pdf="' + KX.attr(widget.id) + '">' +
+        micon('picture_as_pdf', { size: 16 }) + '<span class="label">Export as PDF</span></button>' +
+        '<button class="kx-menu-row" data-w-csv="' + KX.attr(widget.id) + '">' +
+        micon('table_view', { size: 16 }) + '<span class="label">Export as CSV</span></button>' +
         '<div class="kx-menu-divider"></div>' +
         '<button class="kx-menu-row" data-w-remove="' + KX.attr(widget.id) + '" style="color:var(--coral-500)">' +
         micon('delete', { size: 16 }) + '<span class="label">Remove widget</span></button>' +

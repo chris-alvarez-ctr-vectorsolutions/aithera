@@ -1,7 +1,7 @@
 /* global window, document */
 /* ========================================================================
-   charts.js — SVG/CSS chart renderers shared by the Hub's Copilot card, the
-   published-dashboard heroes, and the Copilot Dashboard page.
+   charts.js — SVG/CSS chart renderers shared by the Hub's Agency Intelligence card, the
+   published-dashboard heroes, and the Agency Intelligence Dashboard page.
    ------------------------------------------------------------------------
    Ported from copilot.jsx (inline charts + mini viz) and
    published-dashboard.jsx (widget-scale viz). Everything returns an HTML
@@ -9,7 +9,7 @@
 
    Three scales:
      · mini*   — widget-tile scale (~150×50), used in the widgets rail
-     · inline* — chat-bubble scale (~360×150), used in Copilot answers
+     · inline* — chat-bubble scale (~360×150), used in Agency Intelligence answers
      · pd*     — published-dashboard scale (~380×148)
    ======================================================================== */
 
@@ -191,7 +191,7 @@
   }
 
   /* =====================================================================
-     INLINE SCALE — Copilot chat answers
+     INLINE SCALE — Agency Intelligence chat answers
      ===================================================================== */
 
   function chartLegend(legend) {
@@ -471,7 +471,7 @@
     var a = document.createElement('a');
     var slug = String(prompt).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40).replace(/^-|-$/g, '');
     a.href = url;
-    a.download = 'copilot-' + (slug || 'export') + '.csv';
+    a.download = 'agency-intel-' + (slug || 'export') + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -136,6 +136,10 @@
   --radius:    10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  /* Buttons and other capsule controls are fully rounded. Any value past half
+     the control's height clamps to a perfect pill, so one token fits every
+     button size. */
+  --radius-pill: 999px;
 
   /* Elevation — Material Design 3 (https://m3.material.io/styles/elevation).
      Shadow uses the brand's deep-ink hue at M3's opacity so it harmonises
@@ -232,9 +236,34 @@ html {
 
 /* Vector components are display:block by default in a few cases; keep the
    inline rhythm the prototype's flex rows assume. */
-vaadin-button { flex-shrink: 0; }
-/* Icon-only Vector buttons: the prototype's are square-ish, not pill. */
+/* Buttons are pill-shaped. The design system now allows full corner rounding,
+   so every Vector button rides --radius-pill instead of the old 4px default.
+   This is the single lever for DS buttons across all three Keystone surfaces. */
+vaadin-button { flex-shrink: 0; --vaadin-button-border-radius: var(--radius-pill); }
+/* Icon-only Vector buttons: square footprint, so full rounding = a circle,
+   which is the pill system's companion shape for icon actions. */
 vaadin-button[theme~="icon"] { --lumo-button-size: 36px; }
+
+/* ---- Icon + label inside a Vector button or tab ----
+   Vaadin lays button content out as an inline line box, not a flex row, so an
+   icon aligns on the text BASELINE. Material Symbols glyphs fill their em box
+   and sit directly on that baseline, which parks a 16px icon ~2.5px above a
+   14px label's cap-height centre — visible as the icon riding high. The
+   negative vertical-align drops each icon onto the text's optical centre.
+   Derived, not eyeballed: the icon's centre sits at baseline − size/2, the
+   label's cap centre at baseline − 0.71·fontSize/2, so the correction is
+   (0.71·labelSize − iconSize)/2, which lands between -0.14em and -0.19em
+   across the icon/label size pairs used here. Excludes icon-only buttons,
+   where the icon is the whole line box and is already centred. */
+vaadin-button:not([theme~="icon"]) .material-symbols-outlined,
+vaadin-tab .material-symbols-outlined {
+  vertical-align: -0.175em;
+}
+/* Label spacing is adjacency-driven, so one class covers a leading icon, a
+   trailing icon (chevron), or both. Replaces the old inline 4px nudge — and
+   the trailing chevrons that had no gap at all and touched their label. */
+.material-symbols-outlined + .kx-btn-label { margin-left: 7px; }
+.kx-btn-label + .material-symbols-outlined { margin-left: 6px; }
 /* Vector form controls sit in tight grids here — kill the default top label
    padding when a control is used bare (no label attribute). */
 vaadin-text-field:not([label]),
@@ -255,6 +284,20 @@ vaadin-dialog-overlay::part(content) { padding: 0; }
 vaadin-dialog-overlay::part(footer) { background: var(--surface-2); border-top: 1px solid var(--ink-100); }
 /* Toggle-button groups stand in for the prototype's segmented controls. */
 vwc-toggle-button-group { --vwc-toggle-button-group-gap: 0; }
+/* Pill the group's outer corners — segments sit flush, so only the first and
+   last get rounded, keeping the group reading as one control. The Vector theme
+   ships these same selectors at 4px; the doubled pseudo-class raises
+   specificity just enough to win without !important. */
+vwc-toggle-button-group vwc-toggle-button:first-child:first-child::part(button) {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+vwc-toggle-button-group vwc-toggle-button:last-child:last-child::part(button) {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+}
+/* A lone segment is a plain pill. */
+vwc-toggle-button-group vwc-toggle-button:only-child:only-child::part(button) {
+  border-radius: var(--radius-pill);
+}
 
 /* ------------------------------------------------------------------------
    BASE
@@ -303,7 +346,11 @@ body::before {
    ------------------------------------------------------------------------ */
 .kx-app { min-height: 100vh; display: flex; flex-direction: column; }
 .kx-shell { flex: 1; display: flex; align-items: stretch; min-width: 0; }
-.kx-main { flex: 1; min-width: 0; max-width: 1200px; margin: 0 auto; padding: 0 32px; width: 100%; }
+/* No width cap: the dashboard and the task list below it both flex to fill the
+   available space. A fixed 1200px cap starved the dashboard body once the
+   Agency Intelligence panel took 320px of it — three KPI widgets fell to 234px
+   and every title ellipsized. */
+.kx-main { flex: 1; min-width: 0; margin: 0 auto; padding: 0 32px; width: 100%; }
 .kx-main--wide { max-width: 1520px; }
 .kx-content { padding: 24px 0 96px; min-width: 0; }
 .kx-mobile-only { display: none !important; }
@@ -399,10 +446,23 @@ body::before {
 .kx-btn-elev { transition: box-shadow 0.15s ease, transform 0.15s ease; }
 .kx-btn-elev:hover { box-shadow: var(--elev-2) !important; }
 
+/* ---- Widget date-range button ----
+   Emitted by shared JS (hub-hero.js, agency-intel-canvas.js), so it belongs
+   here rather than in one page's style block — it used to render unstyled on
+   Agency Intelligence because only index.html carried the rules. */
+.kx-range-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+  border: 1px solid transparent; background: transparent; color: var(--ink-500);
+  cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 600;
+}
+.kx-range-btn:hover { background: var(--surface-3); }
+.kx-range-btn.is-dirty { border-color: var(--amber-300); background: var(--amber-50); color: var(--amber-700); }
+
 /* ---- Pill button (the prototype's filter/sort/density controls) ---- */
 .kx-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border-radius: 999px;
+  padding: 7px 12px; border-radius: var(--radius-pill);
   background: var(--surface-1); color: var(--ink-800);
   border: 1px solid var(--ink-200);
   font-size: 16px; font-weight: 400; cursor: pointer;
@@ -590,3 +650,72 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* =====================================================================
+   HOMEPAGE AGENCY INTELLIGENCE PANEL
+   ---------------------------------------------------------------------
+   Ported from the build view's .cpv-* dock (376px there, 320px here) so
+   the panel reads as the same component the user met in Agency
+   Intelligence. In the build view it docks right; on the dashboard it
+   docks left. That difference is intentional.
+   ===================================================================== */
+
+.agency-intel-mark {
+  border-radius: 9px; flex-shrink: 0; color: white;
+  background: linear-gradient(135deg, var(--amber-400) 0%, var(--coral-400) 100%);
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.16);
+}
+
+.kx-aipanel {
+  width: 320px; flex-shrink: 0; align-self: stretch;
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--surface-1); border: 1px solid var(--ink-100);
+  border-radius: 14px; box-shadow: var(--elev-1); overflow: hidden;
+}
+@media (max-width: 980px) { .kx-aipanel { width: 100%; } }
+
+.kx-ai-head {
+  display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+  border-bottom: 1px solid var(--ink-100);
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+}
+.kx-ai-head .t { font-weight: 700; font-size: 14px; color: var(--ink-900); line-height: 1.15; }
+.kx-ai-head .s {
+  font-size: 11px; color: var(--ink-500); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Suggestion chips — one non-wrapping scrollable row, so the compact panel
+   fits inside the widget row's height at any label length. */
+.kx-ai-chips {
+  display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto;
+  padding: 10px 12px; scrollbar-width: none;
+}
+.kx-ai-chips::-webkit-scrollbar { display: none; }
+.kx-ai-chip {
+  flex-shrink: 0; padding: 5px 11px; border-radius: var(--radius-pill);
+  border: 1px solid var(--ink-200); background: var(--surface-1);
+  color: var(--ink-800); font-size: 11.5px; font-weight: 600;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.kx-ai-chip:hover { border-color: var(--amber-400); background: var(--amber-50); }
+
+.kx-ai-input-wrap { border-top: 1px solid var(--ink-100); padding: 10px; background: var(--surface-2); margin-top: auto; }
+.kx-ai-input {
+  display: flex; align-items: flex-end; gap: 8px; background: var(--surface-1);
+  border: 1px solid var(--ink-200); border-radius: 12px; padding: 6px 7px 6px 12px;
+}
+.kx-ai-input:focus-within { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+.kx-ai-input textarea {
+  flex: 1; resize: none; border: none; outline: none; background: transparent;
+  font-family: inherit; font-size: 12.5px; color: var(--ink-900);
+  padding: 4px 0; min-height: 20px; max-height: 120px; line-height: 1.4;
+}
+.kx-ai-send {
+  width: 30px; height: 30px; border-radius: var(--radius-pill); border: none;
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--ink-200); color: var(--ink-500); cursor: default;
+}
+.kx-ai-send.is-ready { background: var(--ink-900); color: white; cursor: pointer; }
+.kx-ai-legal { font-size: 10px; color: var(--ink-400); margin-top: 6px; padding-left: 4px; line-height: 1.4; }
