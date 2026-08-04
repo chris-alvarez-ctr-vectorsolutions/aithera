@@ -128,7 +128,7 @@
       type: 'video',
       video: {
         sound: true,   // the clip is narrated — don't mute it, and skip captions
-        scenes: [ { src: '../assets/videos/marshall.mp4?v=1', caption: '' } ],
+        scenes: [ { src: '../../../assets/videos/marshall.mp4?v=1', caption: '' } ],
       },
       // Kept so switching modality later is one field; the narrated-audio player
       // would read this. (OPENING_SITUATION also grounds the coach — see prompt.)

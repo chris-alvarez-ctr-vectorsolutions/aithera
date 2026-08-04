@@ -138,7 +138,7 @@
       type: 'video',
       video: {
         sound: true,   // the clip is narrated — don't mute it, and skip captions
-        scenes: [ { src: '../assets/videos/marshall.mp4?v=1', caption: '' } ],
+        scenes: [ { src: '../../../assets/videos/marshall.mp4?v=1', caption: '' } ],
       },
       audio: {
         eyebrow: 'The situation · listen or read along',
@@ -155,7 +155,7 @@
        coach reappears over the frozen frame with the OBSERVE_PROMPT (Learn mode). */
     incident: {
       sound: true,
-      scenes: [ { src: '../assets/videos/marshall_breakroom.mp4?v=2', caption: '' } ],
+      scenes: [ { src: '../../../assets/videos/marshall_breakroom.mp4?v=2', caption: '' } ],
     },
   };
 
