@@ -92,9 +92,18 @@
             <vaadin-button theme="secondary" class="btn-compact"><i class="fa-solid fa-rotate-right" style="margin-right:6px"></i>Refresh</vaadin-button>
             <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
           </div>
+          <!-- Details drill-in -->
+          <div class="action-group" data-for="details">
+            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="secondary" class="btn-compact" id="detailsClose"><i class="fa-solid fa-xmark" style="margin-right:6px"></i>Close</vaadin-button>
+          </div>
           <!-- Catalog -->
           <div class="action-group" data-for="catalog">
             <div class="searchbox"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search the catalog" aria-label="Search the catalog"></div>
+            <div class="segmented" id="catViewToggle" role="group" aria-label="Catalog view">
+              <button data-cview="cards" aria-pressed="true" title="Category cards"><i class="fa-solid fa-grip"></i></button>
+              <button data-cview="table" aria-pressed="false" title="Table view"><i class="fa-solid fa-list"></i></button>
+            </div>
             <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
             <vaadin-button theme="secondary" class="btn-compact"><i class="fa-solid fa-xmark" style="margin-right:6px"></i>Close</vaadin-button>
           </div>
@@ -297,14 +306,32 @@
           </aside>
 
           <div class="view-scroll" id="trainingScroll">
+            <!-- Session-selection notice: an inline notice with a real action,
+                 not the legacy full-width blue bar whose whole surface was the link. -->
+            <div class="banner" role="status">
+              <span class="pill pill-attn no-dot">Needs scheduling</span>
+              <span class="banner-text"><strong>2 classes</strong> need a session selected before they can be scheduled.</span>
+              <span class="grow"></span>
+              <vaadin-button theme="tertiary" class="btn-compact">View classes</vaadin-button>
+            </div>
             <div class="panel tp" id="tp"></div>
+          </div>
+        </section>
+
+        <!-- ========= AREA 3 DETAILS - activity / requirement / qualification ========= -->
+        <section class="view" id="view-details">
+          <div class="view-scroll">
+            <div class="details" id="detailsRoot"></div>
           </div>
         </section>
 
         <!-- ================== AREA 5 - CATALOG ================== -->
         <section class="view" id="view-catalog">
           <div class="view-scroll">
-            <div class="panel">
+            <!-- Round 2: the category-carousel card view is additive; the table
+                 stays intact and View all opens it filtered to the category. -->
+            <div id="catCards" class="cat-cats" hidden></div>
+            <div class="panel" id="catTableWrap" hidden>
               <table class="cat-table" id="catTable"></table>
             </div>
           </div>
@@ -314,13 +341,14 @@
         <section class="view" id="view-wizard">
           <div class="view-scroll wz-scroll">
             <div class="panel wz-card">
+              <!-- Same stepper construction as the Assign Training Wizard -->
               <div class="wz-steps">
-                <vwc-stepper id="wzStepper" static>
-                  <vwc-stepper-step slot="step" id="s1">Add content</vwc-stepper-step>
-                  <vwc-stepper-step slot="step" id="s2">Content type</vwc-stepper-step>
-                  <vwc-stepper-step slot="step" id="s3">Save location</vwc-stepper-step>
-                  <vwc-stepper-step slot="step" id="s4">Properties</vwc-stepper-step>
-                </vwc-stepper>
+                <div class="stepper" id="wzStepper">
+                  <div class="step"><div class="step-row"><div class="step-line left"></div><div class="step-circle">1</div><div class="step-line right"></div></div><div class="step-label">Add content</div></div>
+                  <div class="step"><div class="step-row"><div class="step-line left"></div><div class="step-circle">2</div><div class="step-line right"></div></div><div class="step-label">Content type</div></div>
+                  <div class="step"><div class="step-row"><div class="step-line left"></div><div class="step-circle">3</div><div class="step-line right"></div></div><div class="step-label">Save location</div></div>
+                  <div class="step"><div class="step-row"><div class="step-line left"></div><div class="step-circle">4</div><div class="step-line right"></div></div><div class="step-label">Properties</div></div>
+                </div>
               </div>
               <div class="wz-body" id="wzBody"></div>
               <div class="wz-foot" id="wzFoot"></div>
