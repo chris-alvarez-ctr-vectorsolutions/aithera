@@ -1328,6 +1328,87 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     return { reset: ptReset, refreshTarget: renderPlaytestTarget };
   }
 
+  /* =======================================================================
+     toMixArc — express this Guided Arc scenario as a Mix & Match composition
+     (the Option-B convergence). Each coached Learn phase becomes a COACH-LED
+     beat (a right-answer phase keeps hasRightAnswer + throughLine); the terminal
+     live scene becomes a ROLEPLAY beat; reflection / playbook / resources /
+     intro / voice / establishing carry across 1:1 (the two schemas share their
+     whole top level). This lets the curated recipe load as a pre-filled mix-arc
+     TEMPLATE and play on the ONE shared tier-ladder runtime
+     (scenario-live.html?type=guided-arc) instead of a bespoke live page.
+     Additive: nothing that consumes Guided Arc today calls this.
+     ======================================================================= */
+  function toMixArc(gRaw) {
+    const MA = window.AitheraMixArc;
+    const g = normalize(clone(gRaw));
+    const beats = [];
+    arr(g.phases).forEach((p, i) => {
+      beats.push({
+        id: p.id || ('phase' + (i + 1)),
+        label: p.label || ('Phase ' + (i + 1)),
+        level: 'Beat ' + (beats.length + 1) + ' · coaching',
+        type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: p.signpost || '', prompt: p.prompt || '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'Your answer…',
+        exitCriteria: p.throughLine ? ('the learner reasons toward: ' + p.throughLine) : (p.prompt || 'the learner commits to a real answer'),
+        reactionGuidance: [p.probeExample, p.endNote].filter(Boolean).join(' '),
+        hasRightAnswer: p.hasRightAnswer === true,
+        throughLine: p.throughLine || '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: arr(p.calibration).map((t) => ({ tier: t.tier, guidance: t.guidance })),
+        debrief: { talkItThrough: p.talkItThrough || '', points: p.throughLine || ('Land the point of ' + (p.label || 'this phase')) },
+        transitions: [{ onTier: '', next: '', set: {} }],
+      });
+    });
+    const sc = (g.scene && typeof g.scene === 'object') ? g.scene : null;
+    if (sc) {
+      const primary = arr(sc.characters)[0] || g.characterName || 'the character';
+      const outcomeFor = (tier) => arr(sc.outcomes).find((o) => o && o.tier === tier);
+      beats.push({
+        id: 'scene', label: 'Step in', level: 'Beat ' + (beats.length + 1) + ' · practice', type: 'roleplay',
+        maxTurns: sc.actionCount || 2,
+        entry: {
+          bridge: '', signpost: sc.pivot || '', prompt: '',
+          beats: arr(sc.setup).map((b) => ({ speaker: 'character', kind: b.kind === 'dialogue' ? 'dialogue' : 'narration', name: b.name || '', text: b.text || '' })),
+          cta: 'Step into the scene',
+        },
+        inputPlaceholder: sc.inputPlaceholder || 'What do you do or say?',
+        exitCriteria: 'the learner sends a clear in-the-moment signal that names or redirects the behavior without escalating, and holds the line if ' + primary + ' pushes back',
+        reactionGuidance: [sc.escalationGuidance, sc.beat2Guidance].filter(Boolean).join(' '),
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: primary, backstory: '', driver: '',
+          reactions: arr(sc.actionCalibration).map((t) => { const o = outcomeFor(t.tier); return { when: t.tier + (t.guidance ? ' — ' + t.guidance : ''), then: (o && o.narration) || '' }; }).filter((r) => r.then),
+          styleNotes: sc.escalationGuidance || '',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: arr(sc.actionCalibration).map((t) => ({ tier: t.tier, guidance: t.guidance })),
+        debrief: { talkItThrough: obj(sc.debrief).talkItThrough || '', points: obj(sc.debrief).points || '' },
+        transitions: [{ onTier: '', next: '', set: {} }],
+      });
+    }
+    const mix = {
+      v: 1, type: 'mix-arc',
+      title: g.title || '', course: g.course || '',
+      learnerName: g.learnerName || 'you', characterName: g.characterName || '',
+      elevatedStakes: g.elevatedStakes === true, involvesMinors: false,
+      framing: g.framing || '', learnerRole: g.learnerRole || '',
+      establishing: Object.assign({ eyebrow: '', title: '', sub: '' }, obj(g.establishing)),
+      openingImage: g.openingImage || '',
+      intro: clone(g.intro || { type: 'none' }),
+      voice: { persona: obj(g.voice).persona || '', guidance: obj(g.voice).guidance || '' },
+      reflection: { enabled: !!(obj(g.reflection).prompt), prompt: obj(g.reflection).prompt || '', feedbackGuidance: obj(g.reflection).feedbackGuidance || '' },
+      state: [],
+      beats,
+      playbook: arr(g.playbook).map((p) => ({ title: p.title || '', body: p.body || '' })),
+      resources: { lead: obj(g.resources).lead || '', items: arr(obj(g.resources).items).map((r) => ({ title: r.title || '', body: r.body || '' })) },
+    };
+    return MA ? MA.normalize(mix) : mix;
+  }
+
   /* ---- the type object -------------------------------------------------- */
   const guidedArcType = {
     id: 'guided-arc',
@@ -1347,6 +1428,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     renderFields,
     lints,
     highlightStrings,
+    toMixArc,
     previewUrl: () => 'guided-arc-live.html',
     playtest: { presets: PT_PRESETS, build: buildPlaytest },
     store: S.makeStore(S.makeKeys('guided-arc'), { isValid, normalize }),
