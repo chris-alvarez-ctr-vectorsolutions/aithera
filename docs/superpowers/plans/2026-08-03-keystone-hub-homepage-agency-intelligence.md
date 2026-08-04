@@ -2228,6 +2228,182 @@ deliberately in exchange for real charts."
 
 ---
 
+## Task 8: Fit the charts, and fill the panel
+
+**Why.** Task 7 shipped the three chart types, and the designer reviewed the
+result. The charts themselves are right — the scatter matches the builder's
+output including its sentence and `r` value, and the header now shows all five
+source chips. Three fitting problems came out of it, all measured:
+
+1. **The donut's legend is clipped** at `w: 3` (215px) — "TargetSolu…", "Check It"
+   wrapped mid-name, percentages cut off. It needs ~276px (126px arc + ~150px
+   legend).
+2. **The third suggestion chip is cut off** ("R…"). The chip row is a
+   non-wrapping horizontal scroll at 320px; functional, but it reads as broken.
+3. **The compact panel has ~165px of dead space** between chips and input, because
+   the widget row is now 464px tall while the panel's content needs ~160px.
+
+Task 7 also regressed **title clipping at 1200px and 900px**, because the wrap
+breakpoints from Tasks 2b/2c were calibrated for three uniform `w: 4` widgets. With
+mixed spans the narrowest widget hits its legible floor sooner.
+
+**Designer decisions — implement, don't revisit:**
+- Widths become **scatter `w: 5`, bar `w: 3`, donut `w: 4`**. Measured at 1400px:
+  376px / 221px / 299px. The scatter lands almost exactly on the 380px its
+  renderer was designed for, and the donut's legend fits.
+- The freed panel space gets the **suggestion chips, stacked vertically** — which
+  fixes the clipped chip and the dead gap together.
+
+**Files:**
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`CHIEF_DASH` spans)
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js` (`chipsHtml`)
+- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (chip layout)
+- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (wrap threshold)
+
+- [ ] **Step 1: Rebalance the spans**
+
+In `<HUB>/hub-hero.js`, `CHIEF_DASH`: scatter `w: 6` → **`w: 5`**, donut
+`w: 3` → **`w: 4`**. The bar stays `w: 3`. Update the block comment above
+`CHIEF_DASH` to record why each width is what it is — the scatter matching its
+renderer's design width, the donut needing room for its legend, the bar being the
+compact one.
+
+- [ ] **Step 2: Stack the chips in the compact panel**
+
+In `<HUB>/hub-ai-panel.js`, `chipsHtml(person)` currently emits a
+non-wrapping scrollable row. Change it to a vertical stack introduced by a quiet
+label, so the full prompt labels are readable:
+
+```js
+  function chipsHtml(person) {
+    var list = suggestionsFor(person);
+    if (!list.length) return '';
+    // Stacked, not a scrolling row: the compact panel is as tall as the widget
+    // row beside it, so there is vertical room to spare and none horizontally —
+    // a 320px row clipped the third chip.
+    return '<div class="kx-ai-chips">' +
+      '<div class="kx-ai-chips-label">Try asking</div>' +
+      list.map(function (s, i) {
+        return '<button class="kx-ai-chip" data-kx-ai-chip="' + i + '" ' +
+          'title="' + KX.attr(s.q) + '">' + esc(s.label) + '</button>';
+      }).join('') + '</div>';
+  }
+```
+
+The handler reads `data-kx-ai-chip` by index and is unchanged.
+
+In `<HUB>/styles.css`, replace the `.kx-ai-chips` rules (currently
+`flex-wrap: nowrap; overflow-x: auto` with hidden scrollbars) so the stack reads
+as a column, and give `.kx-ai-chip` full width with left-aligned text. Add the
+`.kx-ai-chips-label` rule — small, uppercase-ish, `--ink-400`, consistent with the
+other section labels in this file. Keep the chip's existing hover treatment.
+
+Do not change the expanded state: it renders `threadHtml()` instead of chips.
+
+- [ ] **Step 3: Re-measure the wrap threshold for mixed spans**
+
+The `span 6` breakpoint in `<HUB>/index.html` was measured at 1070px against
+three uniform `w: 4` widgets. With a `w: 3` widget present the floor is hit
+sooner, which is why titles clip at 1200px.
+
+**Measure it, don't compute it** — the same discipline Task 2c established. With
+the real page, step the viewport down and find the widest width at which any
+`.kx-pubwidget .title` first clips:
+
+```
+browser_evaluate → () => ({
+  vw: window.innerWidth,
+  widths: [...document.querySelectorAll('.kx-pubwidget')].map(e => Math.round(e.getBoundingClientRect().width)),
+  anyClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1)
+})
+```
+
+Probe 1400, 1350, 1300, 1250, 1200, 1150, 1100 and report each result. Raise the
+`span 6` threshold to the next 10px above the first clipping width, and update
+that rule's comment with the new measurement, replacing the stale 1070px figure
+and its reasoning. Leave the `1 / -1` rule and the pre-existing 860px rule alone
+unless your measurements show they also clip — say so if they do.
+
+- [ ] **Step 4: Verify**
+
+```
+browser_evaluate → () => {
+  const w = [...document.querySelectorAll('.kx-pubwidget')];
+  const chips = [...document.querySelectorAll('.kx-ai-chip')];
+  const panel = document.querySelector('.kx-aipanel');
+  const input = document.querySelector('.kx-ai-input-wrap');
+  const lastChip = chips[chips.length - 1];
+  return {
+    widths: w.map(e => Math.round(e.getBoundingClientRect().width)),
+    rows: new Set(w.map(e => Math.round(e.getBoundingClientRect().top))).size,
+    anyTitleClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1),
+    chipCount: chips.length,
+    chipLabels: chips.map(c => c.textContent),
+    anyChipClipped: chips.some(c => c.scrollWidth > c.clientWidth + 1),
+    gapBelowChips: lastChip && input
+      ? Math.round(input.getBoundingClientRect().top - lastChip.getBoundingClientRect().bottom)
+      : null,
+    donutLegendClipped: (function () {
+      var d = w.find(function (e) { return /Tasks by source app/.test(e.textContent); });
+      if (!d) return 'donut not found';
+      return [...d.querySelectorAll('span, div')].some(function (e) {
+        return e.scrollWidth > e.clientWidth + 1;
+      });
+    })(),
+    dashHeight: Math.round(document.querySelector('.kx-pubdash').getBoundingClientRect().height)
+  };
+}
+```
+
+Required: `widths` about `[376, 221, 299]`, `rows: 1`, `anyTitleClipped: false`,
+`chipCount: 3` with all three labels readable and `anyChipClipped: false`,
+`donutLegendClipped: false`, and `gapBelowChips` **under 60** (it was ~165). Report
+the actual numbers.
+
+Then repeat `anyTitleClipped` at **1300, 1200, 1100, 900** and require `false` at
+every one.
+
+- [ ] **Step 5: Screenshot, and confirm nothing else moved**
+
+Screenshot the dashboard and describe it: do the three charts read clearly at their
+new widths, is the donut legend whole, does the stacked chip column look
+deliberate?
+
+Then one regression pass — compact → click the third chip (the one that used to be
+cut off) → answer → add widget → collapse → expand → New chat — asserting at each
+step. Confirm the expanded state still shows the thread and not the chips, and that
+`.kx-pubdash` height doesn't climb with turn count.
+
+```
+browser_console_messages
+```
+
+Expected: no `error` entries (favicon 404 is pre-existing).
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
+git add "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js" \
+        "products/Keystone Department Hub/keystone-hub/styles.css" \
+        "products/Keystone Department Hub/keystone-hub/index.html"
+git commit -m "Keystone: give each chart the width it needs, and fill the panel
+
+The three charts shared spans that suited none of them: the donut's legend
+was clipped at 215px, and the scatter had 450px for a renderer designed at
+380px. Now 5/3/4 — scatter 376px, bar 221px, donut 299px.
+
+The suggestion chips move from a horizontal scroll row, which cut off the
+third chip, into the vertical space the taller widget row freed up. One
+change fixes the clipped chip and a 165px dead gap.
+
+Wrap threshold re-measured: the old 1070px figure was calibrated for three
+uniform w:4 widgets, so a w:3 widget was clipping its title well above it."
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
