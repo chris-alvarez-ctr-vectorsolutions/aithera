@@ -98,6 +98,16 @@
 
       if (state.phaseIdx < 0) {               // reflection warm-up
         if (turn.action === 'redirect') { turn.deliver = null; return; }
+        // If the coach's turn ends on a QUESTION — a probe on a thin or
+        // overconfident gut-read — STAY so the learner can answer it, ONCE,
+        // instead of advancing over it and stacking Phase 1's hand-off
+        // underneath (which reads as "the coach asked, then didn't wait").
+        // Mirrors the working-phase dangling-probe guard; the one-probe cap
+        // means the warm-up can't stall or loop.
+        const cb = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
+        const last = cb[cb.length - 1];
+        const dangling = !!last && /\?\s*$/.test(String(last.text).trim());
+        if (dangling && !state.reflectionProbed) { state.reflectionProbed = true; turn.deliver = null; return; }
         closePhase(null, turn);                // calibration done → open Phase 1
         return;
       }
