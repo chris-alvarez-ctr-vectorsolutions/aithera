@@ -2027,6 +2027,207 @@ page drops its inline copy."
 
 ---
 
+## Task 7: Real chart types on the Chief's dashboard
+
+**Why (designer request, 2026-08-04).** The Chief's dashboard renders three
+`viz: 'kpi'` widgets. Only one of the six chart types the Agency Intelligence
+builder actually offers is represented, so the dashboard doesn't look like
+something built with that tool. The designer asked for a **scatter + trend**, a
+**bar chart**, and a **donut**, and supplied screenshots of the first two from the
+builder itself.
+
+**Measured cost, accepted by the designer:** real charts are taller than KPI
+tiles (scatter ~190px of plot plus its sentence, a 5-station bar ~112px, a donut
+126px, versus ~150px for a KPI). The container grows from **293px to roughly
+430px**, so the compact dashboard is taller than Tasks 2/2b/2c achieved. That
+trade was made explicitly.
+
+**Decisions already made — implement, don't revisit:**
+- Widths: **scatter `w: 6`, bar `w: 3`, donut `w: 3`** — one row; the scatter is
+  the only one that genuinely needs width.
+- Donut metric: **`tasks_by_app`** (TargetSolutions 54, Check It 38, Scheduling
+  24, Guardian 17, EV+ 10) — the product's premise in one chart.
+- The Battalion Chief **gains `sched`** entitlement. `tasks_by_app` spans all five
+  source apps, so the donut requires it; and the designer separately chose this
+  over repointing the old Scheduling widget.
+
+**Files:**
+- Modify: `products/Keystone Department Hub/keystone-hub/charts.js` (new `pdScatter`)
+- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`pubWidget` scatter branch; `CHIEF_DASH`)
+- Modify: `products/Keystone Department Hub/keystone-hub/agency-intel-page-data.js` (Chief's entitlements + the comment that contradicts them)
+
+**Interfaces:** `CC.buildCorrelationSpec(metricIds, 'scatter')` already returns
+`{ metricIds, viz, xLabel, yLabel, xUnit, yUnit, points:[{label,x,y}], kind }` —
+verified to yield 5 shared stations for `['overdue_inspections','response_time']`.
+`CC.buildSpec(metricId, 'bar'|'donut')` already feeds `KXCharts.pdBar`/`pdDonut`,
+both of which `pubWidget` already handles.
+
+- [ ] **Step 1: Port a scatter renderer into the hub's chart library**
+
+`KXCharts` has no scatter. Port `vizScatter` from
+`agency-intel-canvas.js:123-175` into `<HUB>/charts.js` as `pdScatter(spec)`,
+together with its two helpers `pearson(points)` (`:96-110`) and
+`scatterSentence(r, xLabel, yLabel)` (`:112-120`). Add `pdScatter` to the
+`window.KXCharts` export.
+
+Port faithfully — the source is correct and already matches the designer's
+screenshot (headline sentence, `r = 0.22`, dashed amber trend line, labelled
+teal points, rotated y-axis label). Three adaptations:
+
+1. `charts.js` has its own `esc`; use it. Replace `noDataState()` (which lives on
+   the other page) with a simple inline fallback for `points.length < 3`.
+2. Keep the SVG `viewBox`-driven sizing (`width="100%"`) so it scales inside a
+   `w: 6` widget rather than assuming 380px.
+3. The source uses `var(--font-mono)` for the `r = …` value. **Confirm that token
+   exists in `<HUB>/styles.css`** before relying on it; if it doesn't, use the
+   numeric font token the hub already uses (`--font-numeric`) and say which you
+   picked in your report.
+
+- [ ] **Step 2: Teach `pubWidget` to render a scatter**
+
+In `<HUB>/hub-hero.js`, `pubWidget()` branches on `kind = w.kind || w.viz` across
+`kpi`/`line`/`bar`/`donut`/`progress`/`table`. Add a `scatter` branch. Unlike the
+others it reads **`w.metricIds`** (two metrics), not `w.metricId`:
+
+```js
+    } else if (kind === 'scatter') {
+      // Correlation widgets carry TWO metrics. buildCorrelationSpec aligns them
+      // on their shared station labels and returns the plotted points; a null
+      // means fewer than three stations overlap, so there is nothing to plot.
+      var sc = w.metricIds ? CC.buildCorrelationSpec(w.metricIds, 'scatter') : null;
+      icon = icon || 'scatter_plot';
+      title = title || (sc ? sc.xLabel + ' × ' + sc.yLabel : '');
+      body = sc ? KXCharts.pdScatter(sc) : '';
+```
+
+Place it alongside the existing branches, matching their style. Do not disturb
+how `narrow` is computed — at `w: 6` the scatter is **not** narrow, so it keeps
+its header source chips, which is what the designer's screenshot shows (CI + GT).
+
+- [ ] **Step 3: Rebuild `CHIEF_DASH`**
+
+Replace the three KPI widgets at `hub-hero.js:442-446` with:
+
+```js
+    widgets: [
+      { id: 'ch1', metricIds: ['overdue_inspections', 'response_time'], viz: 'scatter', w: 6,
+        range: 'last_30', source: ['ci', 'gt'] },
+      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
+      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 3, range: 'last_30',
+        source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
+    ]
+```
+
+Leave `ch1`'s `title` unset so it derives `"Overdue inspections × Avg response
+time"` from the spec, matching the screenshot. Update the block comment above
+`CHIEF_DASH` (`hub-hero.js:432-438`), which currently justifies "three w:4 KPI
+widgets in a single row keep the card at ~250px" — that reasoning no longer
+holds; record the new composition and the accepted height.
+
+- [ ] **Step 4: Grant the Chief Scheduling**
+
+In `<HUB>/agency-intel-page-data.js:59`, add `'sched'` to `battalion_chief`'s
+`entitlements`. The comment at `:56-57` says the Chief "deliberately lacks
+Scheduling — that's the PRD's access-reconciliation example"; that is now false.
+Rewrite it to state the Chief holds all five sources, that the reconciliation
+example therefore lives with roles that still lack sources (the Training Officer
+lacks `ci` and `sched`), and that the donut on the Chief's dashboard needs the
+full set.
+
+**Touch nothing else in that file.**
+
+**Two knock-ons to verify, not assume:**
+- `seedLog()` in `agency-intel-ai-data.js` deliberately steers battalion chiefs
+  toward scheduling questions "they can't see." Those now resolve as `answered`.
+  Open the Agency Intelligence page's **AI access tab** and report the actual
+  "to review" count. Denials should remain from the Training Officer. If it is
+  zero, say so plainly — do not invent data to fix it.
+- The Chief can now be refused nothing on the hub. Confirm that asking
+  *"Which shifts are open next week?"* as the Chief now **answers**.
+
+- [ ] **Step 5: Verify the charts render and the row holds**
+
+```
+browser_navigate → http://127.0.0.1:8765/products/Keystone%20Department%20Hub/keystone-hub/index.html
+```
+
+```
+browser_evaluate → () => {
+  const w = [...document.querySelectorAll('.kx-pubwidget')];
+  return {
+    count: w.length,
+    titles: w.map(e => e.querySelector('.title').textContent),
+    spans: w.map(e => getComputedStyle(e).gridColumn),
+    rows: new Set(w.map(e => Math.round(e.getBoundingClientRect().top))).size,
+    widths: w.map(e => Math.round(e.getBoundingClientRect().width)),
+    scatterPoints: document.querySelectorAll('.kx-pubwidget svg circle[r="5"]').length,
+    trendLine: !!document.querySelector('.kx-pubwidget svg line[stroke-dasharray]'),
+    donutArcs: document.querySelectorAll('.kx-pubwidget svg circle[stroke-dasharray]').length,
+    barRows: document.querySelectorAll('.kx-pubwidget .kx-pubprogress, .kx-pubwidget [style*="border-radius:5px"]').length,
+    headerChips: [...document.querySelectorAll('.kx-pubsrcs .kx-srcchip, .kx-pubsrcs *')].map(e => e.textContent).filter(Boolean),
+    dashHeight: Math.round(document.querySelector('.kx-pubdash').getBoundingClientRect().height),
+    anyTitleClipped: [...document.querySelectorAll('.kx-pubwidget .title')].some(e => e.scrollWidth > e.clientWidth + 1)
+  };
+}
+```
+
+Required: `count: 3`, `rows: 1`, the scatter spanning 6 and the other two 3,
+**`scatterPoints: 5`**, `trendLine: true`, `donutArcs: 5`, `anyTitleClipped: false`,
+and the first title reading `"Overdue inspections × Avg response time"`. Report
+`dashHeight` — expected around 430px; if it exceeds ~480px say so.
+
+- [ ] **Step 6: Re-verify what earlier tasks fought for, and report the numbers**
+
+These are regression guards, not new requirements:
+
+- **Granted vs ungranted compact height** must still match (was 293 vs 293; both
+  will now be larger, but the delta must stay ≤12 — the Firefighter renders
+  `FF_DASH`, so if its widgets are unchanged the two will legitimately differ.
+  **Measure and report both; if they now differ, say so and explain why rather
+  than changing `FF_DASH`.**)
+- **No title clips** at 1400px, 1200px and 900px.
+- **The panel stays bounded** — `.kx-pubdash` must not climb with turn count.
+- **The whole panel flow still works**: compact → chip → answer → add widget →
+  collapse → expand → New chat.
+- The added KPI widget still renders correctly alongside the new chart types.
+
+Also **look at the compact state and describe it**: the panel is
+`align-self: stretch`, so a ~430px row leaves it taller than its content needs.
+Say whether that reads as deliberate space or as an empty gap — the designer will
+want to know.
+
+```
+browser_console_messages
+```
+
+Expected: no `error` entries (a favicon 404 is pre-existing).
+
+- [ ] **Step 7: Commit**
+
+```bash
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
+git add "products/Keystone Department Hub/keystone-hub/charts.js" \
+        "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone Department Hub/keystone-hub/agency-intel-page-data.js"
+git commit -m "Keystone: the Chief's dashboard uses the charts the builder offers
+
+Three big-number tiles showed one of the six chart types Agency
+Intelligence can actually build, so the dashboard didn't look like its
+own tool made it. Now a scatter + trend (overdue inspections against
+response time, with the Pearson sentence), a bar chart by station, and a
+donut of open work across all five source apps.
+
+pdScatter is ported from the builder's own renderer so the two surfaces
+draw correlations identically. The Chief gains Scheduling access — the
+donut spans all five apps, and the access-reconciliation example moves to
+the Training Officer, who still lacks Check It and Scheduling.
+
+Costs height: the container grows from 293px to ~430px, accepted
+deliberately in exchange for real charts."
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
