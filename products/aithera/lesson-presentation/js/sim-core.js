@@ -359,20 +359,38 @@
   /* ---- THE MODEL CALL --------------------------------------------------- */
   // One-shot call through the proxy Worker. Every generated moment in every
   // section goes through here — turn cycles, live grading, closing feedback.
+  // Transient failures — a dropped connection, a cold Worker, a 429/5xx — are
+  // retried with a short backoff BEFORE the error ever reaches the page. This is
+  // what keeps a flaky moment from surfacing as a "hiccup" (and, on the ladder
+  // pages, from silently burning a turn). Deterministic 4xx (bad request, model
+  // not allowed) fail fast — retrying can't fix them. Backoff steps = attempts.
+  const RETRY_BACKOFF = [400, 900];   // → up to 3 attempts total
   async function callModel({ workerUrl, model, maxTokens, system, messages }) {
-    const res = await fetch(workerUrl || WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: model || MODELS.DIALOGUE,
-        max_tokens: maxTokens || 1200,
-        system,
-        messages,
-      }),
+    const url = workerUrl || WORKER_URL;
+    const payload = JSON.stringify({
+      model: model || MODELS.DIALOGUE,
+      max_tokens: maxTokens || 1200,
+      system,
+      messages,
     });
-    if (!res.ok) throw new Error('Worker HTTP ' + res.status);
-    const data = await res.json();
-    return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+    let lastErr = null;
+    for (let attempt = 0; attempt <= RETRY_BACKOFF.length; attempt++) {
+      if (attempt > 0) await wait(RETRY_BACKOFF[attempt - 1]);
+      let res;
+      try {
+        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+      } catch (e) {
+        lastErr = e;                       // network / CORS / abort — transient, retry
+        continue;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+      }
+      lastErr = new Error('Worker HTTP ' + res.status);
+      if (res.status !== 429 && res.status < 500) break;   // deterministic 4xx — don't retry
+    }
+    throw lastErr || new Error('Worker call failed');
   }
 
   /* ---- THE TURN ENGINE --------------------------------------------------- */

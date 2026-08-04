@@ -65,7 +65,8 @@ compose their prompts.
 | 8 | `studio-v2-guided-arc.js` | guided-arc's V2 re-presentation (Learn/Practice rail) **and** its wizard spec. |
 | 9 | `studio-v2-wizards.js` | wizard specs for action-practice, teach-back, observe-react. |
 | 10 | `studio-v2-ensemble-wizard.js` | the ensemble wizard spec (its own module — the richest schema). |
-| 11 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
+| 11 | `studio-v2-scene-sweep-wizard.js` | the scene-sweep wizard spec (its own module — a visual scene + perception rubric; photo/hotspots stay a manual editor step). |
+| 12 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
 
 `writer-studio.html` (V1) is **retired** — a thin redirect to
 `writer-studio-v2.html` that preserves `?type=` / `?wizard=` deep-links. V2 is a
@@ -219,9 +220,11 @@ Task = { id, label, detail?,
 ```
 
 The spec is **implied, not enforced** — there is no validator; a malformed spec
-fails at runtime inside the generation loop. `scene-sweep` and `branching-arc`
-have **no** wizard; the engine renders their chooser card disabled ("Guided
-setup isn't ready for this type yet").
+fails at runtime inside the generation loop. `branching-arc` has **no** wizard
+(it is live-only, not in the studio registry); the engine renders the chooser
+card disabled ("Guided setup isn't ready for this type yet") for any registered
+type that lacks a `wizard`. `scene-sweep`'s wizard leaves the photo and hotspots
+unset — those are placed by hand in the editor (the wizard can't see pixels).
 
 ### 5a. Attachment: reach-in patching
 
@@ -307,5 +310,5 @@ you.
 ---
 
 _Last mapped: 2026-07-31. Six authorable types (action-practice, guided-arc,
-observe-react, teach-back, scene-sweep, ensemble-arc) + branching-arc (live-only,
-hand-authored)._
+observe-react, teach-back, scene-sweep, ensemble-arc), all six now
+wizard-enabled (start-from-scratch), + branching-arc (live-only, hand-authored)._
