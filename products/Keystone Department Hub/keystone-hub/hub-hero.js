@@ -670,12 +670,23 @@
   // real no-op, not a hidden element.
   function dashBody(cfg, variant) {
     var AI = window.KXAIPanel;
-    var grid = '<div class="kx-pubgrid">' +
-      cfg.widgets.map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('') +
-      '</div>';
+    var granted = AI && AI.hasAccess(VARIANT_ROLE[variant]);
+    if (granted) AI.setContext(VARIANT_ROLE[variant], cfg);
 
-    if (!AI || !AI.hasAccess(VARIANT_ROLE[variant])) return grid;
-    AI.setRole(VARIANT_ROLE[variant]);
+    var added = granted ? AI.addedWidgets() : [];
+    var cells = cfg.widgets.concat(added)
+      .map(function (w) { return pubWidget(w, cfg.ownerShort); }).join('');
+
+    // Expanded with nothing added yet: name the empty row rather than leave a
+    // hole. It is the landing zone for "Add as a widget".
+    if (granted && AI.isExpanded() && !added.length && cfg.owned) {
+      cells += '<div class="kx-ai-drop" style="grid-column:span 12">' +
+        micon('add_chart', { size: 26, fill: 1 }) +
+        '<span>Answers you add land here</span></div>';
+    }
+
+    var grid = '<div class="kx-pubgrid">' + cells + '</div>';
+    if (!granted) return grid;
 
     return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
       AI.html(cfg) + grid + '</div>';

@@ -84,7 +84,13 @@
   // Set every render from the variant the hero is drawing, so respond() and the
   // suggestion filter always use the right asker.
   var currentPerson = null;
-  function setRole(roleId) { currentPerson = personFor(roleId); }
+  // Only the dashboard's owner may change it. A read-only published dashboard
+  // ("only Training can edit") must never offer an edit affordance.
+  var currentOwned = false;
+  function setContext(roleId, cfg) {
+    currentPerson = personFor(roleId);
+    currentOwned = !!(cfg && cfg.owned);
+  }
 
   /* =====================================================================
      SUGGESTIONS
@@ -142,16 +148,26 @@
     }).join('');
   }
 
-  function turnHtml(msg) {
+  function turnHtml(msg, idx) {
     if (msg.role === 'user') {
       return '<div class="kx-ai-user"><div class="bubble">' + esc(msg.text) + '</div></div>';
     }
+    var canAdd = msg.metricId && currentOwned && !msg.added;
     return '<div class="kx-ai-turn">' + mark(24) +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">' +
       '<div class="bubble">' + bubbleText(msg.text) + '</div>' +
       (msg.denied
         ? '<div class="kx-ai-denied">' + micon('block', { size: 13, fill: 1 }) +
           '<span>' + esc(msg.deniedNote || 'Outside your data permissions.') + '</span></div>'
+        : '') +
+      (canAdd
+        ? '<button class="kx-ai-add" data-kx-ai-add="' + KX.attr(msg.metricId) + '" ' +
+          'data-kx-ai-add-turn="' + idx + '">' +
+          micon('add_chart', { size: 14, fill: 1 }) + 'Add as a widget</button>'
+        : '') +
+      (msg.added
+        ? '<div class="kx-ai-added">' + micon('check_circle', { size: 14, fill: 1 }) +
+          'Added to ' + esc(msg.added) + '</div>'
         : '') +
       '</div></div>';
   }
@@ -273,6 +289,29 @@
      re-renders never stack handlers.
      ===================================================================== */
 
+  var addSeq = 0;
+
+  // buildSpec() supplies label, number, delta, tone and the sparkline; pubWidget()
+  // renders it. This is wiring, not new machinery.
+  function addWidget(metricId, turnIdx) {
+    var CC = window.KEYSTONE_CUSTOM;
+    var CP = window.AGENCY_INTEL;
+    var spec = CC.buildSpec(metricId, 'kpi');
+    if (!spec) return;
+    addSeq += 1;
+    state.added.push({
+      id: 'ai' + addSeq,
+      metricId: metricId,
+      viz: 'kpi',
+      w: 4,
+      range: 'last_30',
+      source: CP.metricSources(metricId)
+    });
+    var turn = state.thread[turnIdx];
+    if (turn) turn.added = spec.label;
+    window.KXHub.render();
+  }
+
   var wired = false;
   function wire() {
     if (wired) return;
@@ -285,6 +324,12 @@
         var list = suggestionsFor(currentPerson);
         var s = list[Number(chip.getAttribute('data-kx-ai-chip'))];
         if (s) { state.draft = s.q; send(); }
+        return;
+      }
+      var add = e.target.closest('[data-kx-ai-add]');
+      if (add) {
+        addWidget(add.getAttribute('data-kx-ai-add'),
+                  Number(add.getAttribute('data-kx-ai-add-turn')));
         return;
       }
       if (e.target.closest('#kxAiSend')) { send(); return; }
@@ -315,7 +360,7 @@
   window.KXAIPanel = {
     hasAccess: hasAccess,
     personFor: personFor,
-    setRole: setRole,
+    setContext: setContext,
     html: html,
     isExpanded: isExpanded,
     addedWidgets: addedWidgets,
