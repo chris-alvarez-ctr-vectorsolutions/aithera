@@ -188,16 +188,16 @@
       // Each scene: a video URL + the caption read over it. Videos are plain
       // repo assets served by GitHub Pages — put the file in
       // products/aithera/assets/videos/ and reference it here, either
-      // relative to the experiment pages ('../assets/videos/my-clip.mp4')
+      // relative to the experiment pages ('../../../assets/videos/my-clip.mp4')
       // or as the full Pages URL. Any count of scenes works.
       video: {
         scenes: [
-          { src: '../assets/videos/scene_1.mp4', caption: '{{character}} is your roommate — one of your closest friends and you both attend CU Boulder. She lost her grandmother, the woman who raised her, last fall and hasn\'t been the same since.' },
-          { src: '../assets/videos/scene_2.mp4', caption: 'She\'s quiet, often alone...' },
-          { src: '../assets/videos/scene_3.mp4', caption: 'You\'ve also noticed that she\'s barely coming to class. Her desk is empty most days.' },
-          { src: '../assets/videos/scene_4.mp4', caption: 'Back in your dorm, you\'ve seen more and more bottles piling up on the floor.' },
-          { src: '../assets/videos/scene_5.mp4', caption: 'And yesterday you found pills in her drawer you didn\'t recognize.' },
-          { src: '../assets/videos/scene_6.mp4', caption: 'You know what could happen if she keeps mixing pills with alcohol. But you might be one of the only people she\'s close enough with to say something.' },
+          { src: '../../../assets/videos/scene_1.mp4', caption: '{{character}} is your roommate — one of your closest friends and you both attend CU Boulder. She lost her grandmother, the woman who raised her, last fall and hasn\'t been the same since.' },
+          { src: '../../../assets/videos/scene_2.mp4', caption: 'She\'s quiet, often alone...' },
+          { src: '../../../assets/videos/scene_3.mp4', caption: 'You\'ve also noticed that she\'s barely coming to class. Her desk is empty most days.' },
+          { src: '../../../assets/videos/scene_4.mp4', caption: 'Back in your dorm, you\'ve seen more and more bottles piling up on the floor.' },
+          { src: '../../../assets/videos/scene_5.mp4', caption: 'And yesterday you found pills in her drawer you didn\'t recognize.' },
+          { src: '../../../assets/videos/scene_6.mp4', caption: 'You know what could happen if she keeps mixing pills with alcohol. But you might be one of the only people she\'s close enough with to say something.' },
         ],
       },
 
@@ -470,7 +470,7 @@
         : DEFAULT_SCENARIO.intro.video.scenes.map((sc) => sc.caption);
       out.intro = clone(DEFAULT_SCENARIO.intro);
       out.intro.video.scenes = caps.map((caption, i) => ({
-        src: `../assets/videos/scene_${i + 1}.mp4`, caption,
+        src: `../../../assets/videos/scene_${i + 1}.mp4`, caption,
       }));
     } else {
       if (!['video', 'story', 'none', 'audio', 'reading'].includes(out.intro.type)) out.intro.type = 'video';
@@ -725,7 +725,7 @@
       scenes.forEach((sc, i) => {
         if (empty(sc.src)) add('warn', 'opening', `Scene ${i + 1} has a caption but no video URL.`, 'It will be skipped. Paste the clip\'s URL — see the note above the scenes for how uploads work.');
         else if (!/^(https?:\/\/|\.{0,2}\/)/.test(sc.src.trim()) || /\s/.test(sc.src.trim()))
-          add('warn', 'opening', `Scene ${i + 1}'s video URL doesn't look like a path or URL.`, 'Use a relative path like ../assets/videos/my-clip.mp4 or a full https:// URL.');
+          add('warn', 'opening', `Scene ${i + 1}'s video URL doesn't look like a path or URL.`, 'Use a relative path like ../../../assets/videos/my-clip.mp4 or a full https:// URL.');
         else if (!/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sc.src.trim()))
           add('info', 'opening', `Scene ${i + 1}'s URL doesn't end in a video extension.`, 'Direct file URLs (.mp4/.webm) work; page links (YouTube, SharePoint) won\'t.');
         if (empty(sc.caption)) add('warn', 'opening', `Scene ${i + 1} has no caption.`, 'That clip will play silently.');
@@ -1048,10 +1048,10 @@
 
         if (t === 'video') {
           introBody.appendChild(guidance('Adding your own footage', 'fa-film',
-            'Videos are plain files served by the site. Put the clip in <code>products/aithera/assets/videos/</code> in the repo (or send it to Chris to add), then paste its URL here — relative like <code>../assets/videos/my-clip.mp4</code>, or the full page URL. Any number of scenes works; they play back-to-back as one continuous cold open.'));
+            'Videos are plain files served by the site. Put the clip in <code>products/aithera/assets/videos/</code> in the repo (or send it to Chris to add), then paste its URL here — relative like <code>../../../assets/videos/my-clip.mp4</code>, or the full page URL. Any number of scenes works; they play back-to-back as one continuous cold open.'));
           introBody.appendChild(rowsBlock('intro.video.scenes', (sc, i, onDel) => rowCard(
             `Scene ${i + 1}`, onDel,
-            tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../assets/videos/scene_1.mp4' }),
+            tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../../../assets/videos/scene_1.mp4' }),
             tf(`intro.video.scenes.${i}.caption`, 'Caption narration', { area: true, minRows: 2,
               helper: i === 0 ? 'Read over the footage — around two short sentences per clip fits comfortably.' : undefined }),
           ), 'Add scene', () => ({ src: '', caption: '' })));

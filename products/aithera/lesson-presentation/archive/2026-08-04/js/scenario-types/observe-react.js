@@ -80,13 +80,13 @@
     // coach (and accessibility) in what's on screen; `caption` is read over
     // the clip. Segment 1 is the cold open.
     segments: [
-      { src: '../assets/videos/hazmat_tankerScene.mp4',
+      { src: '../../../assets/videos/hazmat_tankerScene.mp4',
         label: 'Segment 1: drone overview of the overturned tanker on I-65, with traffic still moving on both sides',
         caption: 'A tanker\'s gone over on I-65. Look at the traffic — still moving on both sides, just feet from the tank. On the barrel: a red diamond — 1993, Class 3.' },
-      { src: '../assets/videos/hazmat_firstPerson.mp4',
+      { src: '../../../assets/videos/hazmat_firstPerson.mp4',
         label: 'Segment 2: helmet-cam footage from the first firefighter in, walking up close to the leaking tank',
         caption: 'Now ride along with the first crew in. This is his helmet cam. That\'s as close as it looks — close enough to touch it.' },
-      { src: '../assets/videos/hazmat_scene_3.mp4',
+      { src: '../../../assets/videos/hazmat_scene_3.mp4',
         label: 'Segment 3: the same scene run correctly — traffic diverted and crews staged upwind at distance',
         caption: 'Now picture the same scene, run right. Traffic stopped and turned around a half-mile back. Crews staged upwind, uphill, behind the rigs. The ERG open on the dash, HazMat rolling, and nobody inside 150 feet.' },
     ],
@@ -404,7 +404,7 @@
       if (empty(sc.label)) add('info', 'segments', `Segment #${i + 1} has no accessible label.`, 'The label grounds both accessibility and the coach in what\'s on screen.');
       if (empty(sc.src)) add('warn', 'segments', `Segment #${i + 1} has no video URL.`, 'The page falls back to a placeholder frame + the caption. Paste the clip\'s URL for real footage.');
       else if (!/^(https?:\/\/|\.{0,2}\/)/.test(sc.src.trim()) || /\s/.test(sc.src.trim()))
-        add('warn', 'segments', `Segment #${i + 1}'s video URL doesn't look like a path or URL.`, 'Use a relative path like ../assets/videos/my-clip.mp4 or a full https:// URL.');
+        add('warn', 'segments', `Segment #${i + 1}'s video URL doesn't look like a path or URL.`, 'Use a relative path like ../../../assets/videos/my-clip.mp4 or a full https:// URL.');
       else if (!/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sc.src.trim()))
         add('info', 'segments', `Segment #${i + 1}'s URL doesn't end in a video extension.`, 'Direct file URLs (.mp4/.webm) work; page links (YouTube, SharePoint) won\'t.');
     });
@@ -538,7 +538,7 @@
     if (sec.id === 'segments') {
       box.append(rowsBlock('segments', (sc, i, onDel) => rowCard(
         `Segment ${i + 1}`, onDel,
-        tf(`segments.${i}.src`, 'Video URL', { placeholder: '../assets/videos/hazmat_tankerScene.mp4' }),
+        tf(`segments.${i}.src`, 'Video URL', { placeholder: '../../../assets/videos/hazmat_tankerScene.mp4' }),
         tf(`segments.${i}.label`, 'Accessible label (what the clip shows)', { area: true, minRows: 2,
           helper: 'A plain description of the footage, used for accessibility and to ground the coach in what\'s on screen.' }),
         tf(`segments.${i}.caption`, 'Caption (read over the clip)', { area: true, minRows: 2,
