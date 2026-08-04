@@ -154,7 +154,11 @@
       bar:   [{ label: 'TS',         value: 54 }, { label: 'Check It',   value: 38 }, { label: 'Scheduling', value: 24 }, { label: 'Guardian',   value: 17 }, { label: 'EV+',        value: 10 }],
       line:  [{ x: 'Mon', y: 132 }, { x: 'Tue', y: 138 }, { x: 'Wed', y: 144 }, { x: 'Thu', y: 141 }, { x: 'Fri', y: 143 }],
       stack: { legend: ['Open', 'Closed today'], rows: [{ label: 'TS', a: 54, b: 22 }, { label: 'Check It', a: 38, b: 9 }, { label: 'Scheduling', a: 24, b: 12 }, { label: 'Guardian', a: 17, b: 4 }, { label: 'EV+', a: 10, b: 3 }] },
-      donut: [{ label: 'TargetSolutions', value: 54, color: '#a855f7' }, { label: 'Check It',     value: 38, color: '#0ea5e9' }, { label: 'Scheduling',   value: 24, color: '#f59e0b' }, { label: 'Guardian',     value: 17, color: '#10b981' }, { label: 'EV+',          value: 10, color: '#ef4444' }],
+      // These five slices ARE the five source apps, in SOURCES order, so they use
+      // the per-source tokens (styles.css) rather than the raw hex they used to
+      // carry — the same tokens that color the source chips beside them wherever
+      // this donut renders. Every other donut in this file was already tokenised.
+      donut: [{ label: 'TargetSolutions', value: 54, color: 'var(--src-ts)' }, { label: 'Check It',     value: 38, color: 'var(--src-ci)' }, { label: 'Scheduling',   value: 24, color: 'var(--src-sched)' }, { label: 'Guardian',     value: 17, color: 'var(--src-gt)' }, { label: 'EV+',          value: 10, color: 'var(--src-ev)' }],
       table: { cols: ['Source', 'Open', 'Closed (7d)', 'Median age'], rows: [['TargetSolutions', '54', '142', '2.3 d'], ['Check It', '38', '95', '4.1 d'], ['Scheduling', '24', '76', '1.6 d'], ['Guardian', '17', '24', '3.0 d'], ['EV+', '10', '38', '1.9 d']] },
       unit:  'tasks',
     },

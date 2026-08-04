@@ -429,6 +429,18 @@
   // identically. viewBox-driven sizing (width="100%") lets it scale inside
   // whatever grid-column span the widget spec gives it, rather than assuming
   // a fixed 380px widget.
+  //
+  // The <svg> deliberately sets NO height attribute. It used to carry
+  // height="210" to match the viewBox, which meant that in any container
+  // narrower than 380px the default preserveAspectRatio scaled the whole
+  // drawing down to fit the width while the box stayed 210px tall — a vertical
+  // letterbox plus shrunken text (at a 235px container: scale 0.62, so the
+  // 8.5px station labels rendered at ~5.3px). With height omitted the SVG's
+  // intrinsic viewBox ratio sets the height, so the box always fits the drawing
+  // exactly and there is never a letterbox in either axis. The scale still
+  // tracks the container width, so a caller that needs the labels at full size
+  // has to give this chart enough width — see index.html's ≤1070px rule, which
+  // hands the hub's scatter the whole grid row once the grid goes two-across.
   function pdScatter(spec) {
     var pts = spec.points || [];
     if (pts.length < 3) {
@@ -470,7 +482,9 @@
       '<div style="font-size:12.5px;color:var(--ink-700);line-height:1.5;margin-bottom:10px">' +
       esc(scatterSentence(r, spec.xLabel, spec.yLabel)) +
       ' <span style="font-family:var(--font-mono);color:var(--ink-500)">r = ' + r.toFixed(2) + '</span></div>' +
-      '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" style="display:block">' +
+      // No height attribute, and height:auto, so the viewBox ratio sets the box
+      // height and the drawing never letterboxes. See the note on this function.
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="display:block;height:auto">' +
       grid + trend +
       pts.map(function (p) {
         return '<circle cx="' + sx(p.x) + '" cy="' + sy(p.y) + '" r="5" fill="var(--teal-300)" ' +
@@ -503,6 +517,14 @@
       }).join('') + '</div>';
   }
 
+  // ⚠ FRAGILE COUPLING — index.html keys two `!important` overrides off the
+  // LITERAL inline `style` strings emitted below (`div[style*="gap:18px"]` for
+  // the arc-to-legend gap and `div[style*="gap:8px;font-size:12px"]` for the
+  // within-row swatch/label/percentage gap), which is how the hub's donut legend
+  // fits its widest row inside a w:4 widget. Editing those two style strings —
+  // even reordering the declarations inside them — silently breaks the hub's
+  // donut legend with no error anywhere. If you must change them, grep
+  // index.html for `style*=` first and update the selectors in the same commit.
   function pdDonut(data, center) {
     var total = data.reduce(function (a, b) { return a + b.value; }, 0) || 1;
     var R = 50, SW = 14, C = 2 * Math.PI * R;

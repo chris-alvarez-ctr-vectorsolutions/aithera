@@ -74,9 +74,13 @@
   // read-only dashboard and show them the Chief's conversation. A production
   // build must key both arrays by dashboard identity.
   //
-  // The same applies to EVERY other piece of module state here: state.draft,
-  // state.thinking, state.collapsed and the currentPerson / currentOwned pair
-  // below are all one-per-page, not one-per-dashboard. And setContext() is
+  // The same applies to every other piece of module state in this file. The full
+  // list: state.draft, state.thinking, state.collapsed, the currentPerson /
+  // currentOwned pair below, sendEpoch (the monotonic send id, near send()) and
+  // addSeq (the widget-id counter, near makeWidgetSpec) are all one-per-page, not
+  // one-per-dashboard. If you add module state here, add it to this list too.
+  //
+  // And setContext() is
   // called only from the granted branch of dashBody(), so currentPerson /
   // currentOwned are never reset when an ungranted role renders — they keep
   // whatever the last granted role left behind. Harmless today because nothing
@@ -332,9 +336,22 @@
 
   // Monotonic send id. The answer callback compares the epoch it captured against
   // the current one and drops itself if they differ, so an in-flight beat can no
-  // longer land after "New chat" (which reset the thread, leaving an orphan answer
-  // with a live Add button and no question above it) or after a second send
-  // (which used to put two timers in flight and could answer out of order).
+  // longer land after the thread it belonged to is gone.
+  //
+  // The ONE path that gets there: "New chat" while the dots are still animating.
+  // It clears state.thread and state.thinking, and the timer then fired into an
+  // empty thread — an orphan answer with a live Add button and no question above
+  // it. Clearing state.thinking is also what re-opens send()'s own guard, so a
+  // message typed straight after New chat could start a SECOND timer while the
+  // first was still pending, and the two could land out of order.
+  //
+  // Note what this is NOT for: a plain second send cannot reach a second timer.
+  // send() returns early while state.thinking is true, and the Send button is
+  // disabled for the same reason, so there is only ever one timer in flight
+  // unless something clears thinking mid-beat. New chat is the only thing that
+  // does. (An earlier version of this comment credited the guard with fixing the
+  // plain-double-send case; that case was already impossible. The guard is right,
+  // the reason was wrong.)
   var sendEpoch = 0;
 
   function send() {
@@ -458,12 +475,24 @@
 
   // Session-only, like everything else here: drop it from state.added, clear the
   // confirmation on whichever turn put it there, re-render.
+  //
+  // FOCUS, and why this does NOT just call renderKeepingCaret(). The ✕ that
+  // triggers this lives in the widget GRID, outside #kxAiPanel, so at click time
+  // focusIsOurs() sees an element that is neither <body> nor inside the panel and
+  // returns false — renderKeepingCaret() would render and then deliberately
+  // decline to reclaim the caret, and once render() has thrown the ✕ away focus
+  // falls to <body>, which is the bug. So move focus explicitly instead. The
+  // draft box is the right landing spot: it is where the conversation continues,
+  // and the Add button this removal just restored is sitting in the thread right
+  // above it. Guarded because a collapsed or absent panel has no draft box.
   function removeWidget(id) {
     state.added = state.added.filter(function (w) { return w.id !== id; });
     state.thread.forEach(function (m) {
       if (m.addedId === id) { m.added = null; m.addedId = null; }
     });
     window.KXHub.render();
+    var draft = document.getElementById('kxAiDraft');
+    if (draft) draft.focus({ preventScroll: true });
   }
 
   var wired = false;

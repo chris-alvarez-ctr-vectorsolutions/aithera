@@ -441,39 +441,83 @@
      1090px) were calibrated against the old ~310px minimum and are now far
      too conservative.
 
-     Task 8 re-measured this threshold from scratch (forcing browser_resize,
-     never computed) because Task 7 put mixed spans — scatter w:5, bar w:3,
-     donut w:4 — on CHIEF_DASH in place of the uniform w:4 tiles this number
-     was originally calibrated against, and the w:3 bar was suspected to hit
-     its legible floor sooner. Probing 1400 down to 1100 in the increments the
-     brief specified, then continuing to 1075 and 1065 to re-confirm the
-     three-across/two-across boundary itself, found NO clipping anywhere in
-     that range at these widths (rounded): 1400→374/220/297, 1350→353/207/280,
-     1300→333/195/264, 1250→312/182/247, 1200→291/170/230, 1150→270/157/214,
-     1100→261/152/206, 1075→251/146/198, all the way through 1065→298/298/298
-     (already two-across) and 900→382/382/382 (stacked-above-panel). The
-     reason the suspected regression didn't reappear: the scatter's own
-     combined title ("Overdue inspections × Avg response time") turned out to
-     clip even at 1400px, in the natural one-row layout, above every
-     breakpoint here — no threshold could have fixed that, so `.kx-pubwidget
-     .title` below was changed to wrap instead of ellipsis-truncate. That
-     fix's side effect is that the narrower bar and donut titles also wrap
-     instead of clip if they ever run short on room, which is what actually
-     neutralizes the w:3-hits-its-floor-sooner regression this threshold was
-     re-measured to address. Because no clipping was measured at any width in
-     the natural three-across range, 1070px stays as the measured-and-
-     rounded-up threshold below which three-across gives way to two-across
-     (span 6) — the number is unchanged from Task 2c, but the reasoning is
-     new: it no longer rests on the old uniform-w:4 assumption, it rests on
-     this task's own remeasurement finding no clip-free ceiling was crossed.
-     Two across (span 6 forced) stayed clip-free down to 470px viewport and
-     first clipped at 465px — so 470px is the measured-and-rounded-up
-     threshold below which two-across gives way to one-per-row (unchanged;
-     Task 8 did not re-measure this one, since the bar/donut titles that
-     motivated re-checking the 1070px boundary are even less cramped once
-     forced to span 6 than they are in the natural three-across layout). */
+     WHAT THE FAILURE MODE ACTUALLY IS, and how these numbers were got.
+     Everything Tasks 2b/2c/8 measured here used `scrollWidth > clientWidth`
+     to detect a clipped title. That test was valid while `.kx-pubwidget
+     .title` ellipsis-truncated; Task 8 changed it to wrap (see the rule
+     below), and from that moment the test could never return true for any
+     width — a wrapping box has no horizontal overflow to detect. Every "no
+     clipping anywhere in that range" claim this comment used to make was
+     therefore vacuously true and justified nothing. It has been deleted
+     rather than softened.
+
+     The real failure mode after the wrap change is VERTICAL: a title that
+     runs out of room grows a line, then another, and once the box is narrower
+     than the longest word `overflow-wrap: break-word` starts breaking words
+     mid-word. So the guard is title height against line-height:
+
+       tooTall = t.getBoundingClientRect().height
+                 > 2 * parseFloat(getComputedStyle(t).lineHeight) + 1
+
+     Two lines is the accepted budget (the card's height ceiling is built
+     around it); three is the regression. This guard CAN fail, and does — the
+     numbers below are the widths where it fires.
+
+     MEASURED, shipped layout (scatter span 5 / bar span 3 / donut span 4
+     above 1070px; browser_resize stepped, never computed), reported as
+     viewport → widget boxes → title lines → guard:
+       1400 → 374/220/297 → 1L/1L/1L → pass    (.kx-pubdash 446px)
+       1300 → 333/195/264 → 1L/2L/1L → pass    (436px)
+       1200 → 291/170/230 → 2L/2L/1L → pass    (436px)
+       1150 → 270/157/214 → 2L/2L/1L → pass    (436px)
+       1100 → 261/152/206 → 2L/2L/1L → pass    (436px)
+       1071 → 249/145/197 → 2L/2L/1L → pass    (narrowest three-across)
+       1070 → 613/301/301 → 1L/1L/1L → pass    (two-across; scatter full row)
+        900 → 775/382/382 → 1L/1L/1L → pass
+     The guard passes at every width from 1400 down to 360. The two things
+     that bought that headroom, both landed in the same wave as this comment:
+     CHIEF_DASH's ch1 now carries an explicit short title ("Inspections ×
+     response time") instead of deriving the 38-character "Overdue
+     inspections × Avg response time" from its two metric specs — the derived
+     one was 3 lines at 1100px and pushed the card to 509px — and the scatter
+     takes the whole grid row below 1070px (see the rule right below).
+
+     IS 1070px STILL THE RIGHT THRESHOLD? Yes, and here is the number that
+     shows it rather than an assertion. Shrinking the scatter widget's box
+     directly at a fixed 1400px viewport, its title holds 2 lines down to a
+     240px box and first goes to 3 lines at 238px. Then, holding the natural
+     5/3/4 spans below 1070px (overriding this media query from the console)
+     and stepping the viewport down: 1071→249px/2L, 1060→244px/2L,
+     1050→240px/2L, 1048→239px/2L, 1046→238px/3L — the guard first FIRES at a
+     1046px viewport. The shipped threshold of 1070px therefore has ~24px of
+     viewport margin over the width where three-across genuinely breaks. It
+     is correct, and it is tight — 1046 is close enough that any future change
+     lengthening this title, or adding anything to the widget head, must
+     re-run this probe rather than assume the margin is still there.
+
+     The mid-word-break mode, for the record: at a 220px box the 3-word title
+     renders 4 lines and at 180px it renders 6, so below ~230px words are
+     being broken mid-word, not merely wrapped. Nothing in the shipped layout
+     gets there — the narrowest box any title sees is 145px (the bar's, at
+     1071px), and the bar's title is a single short word pair that holds 2
+     lines.
+
+     Two across (span 6) below 1070px: the bar and donut are the only widgets
+     that take span 6 there (the scatter takes the whole row), and forcing
+     span 6 and stepping down, neither exceeds 2 lines anywhere from 1070px to
+     440px — bar 2L at 465px, donut 2L at 440px, guard never fires. So 470px
+     stays as the threshold below which two-across gives way to one-per-row;
+     it is now known to be conservative rather than merely inherited. */
   @media (max-width: 1070px) {
     .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 6 !important; }
+    /* ...except the correlation scatter, which takes the whole row. pdScatter
+       draws into a 380x210 viewBox at width:100%, so its scale is exactly
+       (container width / 380): a span-6 widget in this band is ~272px wide,
+       which is scale 0.72 and renders the 8.5px station labels at ~6px —
+       unreadable. Full width in the two-across band restores scale >= 1. Same
+       specificity (0,3,0) as the rule above, so it wins on source order alone;
+       keep it after that rule. */
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget--scatter { grid-column: 1 / -1 !important; }
   }
   /* One across. Measurement shows two-across no longer has a dead zone
      anywhere between here and 1070px — neither docked-beside-the-panel
@@ -564,12 +608,18 @@
      The title itself wraps rather than ellipsis-truncates (see .kx-pubwidget
      .title below) — added in Task 8, which put a combined two-metric scatter
      title ("Overdue inspections × Avg response time") into a w:5 widget
-     (376px). At that width, in its natural one-row layout, the title needs
-     ~277px but the icon+chips leave only ~231px: it clipped at 1400px, above
+     (376px). At that width, in its natural one-row layout, the title needed
+     ~277px but the icon+chips left only ~231px: it clipped at 1400px, above
      every grid-wrap breakpoint, so no threshold could ever have fixed it —
-     only the title itself could. Wrapping to a second line costs the row some
-     height (which this card already accommodates, per the height comment on
-     CHIEF_DASH) but never truncates. */
+     only the title itself could. Wrapping never truncates, but it does cost
+     height, and the fix wave after Task 8 found the cost was real: that same
+     derived title ran to 3 lines at 1100px and took the card to 509px, past
+     its ~480px ceiling. So ch1 now carries an explicit short title
+     ("Inspections × response time") and the derived-title case no longer
+     occurs on this dashboard. Wrapping stays, as the safety net for any
+     title that does run long — it is now the net rather than the mechanism.
+     Note that the guard for this is VERTICAL, not horizontal: see the
+     widget-wrapping comment above for the working guard and its numbers. */
   .kx-pubwidget-head {
     display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap;
   }
@@ -597,15 +647,25 @@
     overflow-wrap: break-word; min-width: 0;
   }
   /* Donut legend fits at w:4 (299px) for every row except the worst case:
-     "TargetSolutions" is one unbreakable word, and pdDonut() (charts.js,
-     off-limits to edit here) hard-codes an 18px arc-to-legend gap plus an
-     8px per-item gap and a 10px percentage padding inline. Measured, that
-     row needs 148px but only 127px was available — 21px short. charts.js
-     can't change, but its inline, non-!important gaps/font-size CAN be
-     overridden from here: tightening them (never widening the widget itself,
-     which stays the designer-specified 299px) recovers the 21px without
-     shrinking anything below a legible size. Selectors key off pdDonut's
-     literal inline `style` strings, which are unique to it in this file. */
+     "TargetSolutions" is one unbreakable word, and pdDonut() (charts.js)
+     hard-codes two gaps inline that squeeze it — an 18px gap between the arc
+     and the legend column, and, WITHIN each legend row, an 8px gap between
+     swatch, label and percentage plus a 10px left-padding on the
+     percentage. (The gap being tightened below is that within-row 8px one.
+     pdDonut's BETWEEN-row gap is a separate `gap:9px` on the legend column
+     and is deliberately left alone — row spacing was never the problem.)
+     Measured, that worst row needs 148px but only 127px was available — 21px
+     short. Those inline values are not !important, so they CAN be overridden
+     from here: tightening them (never widening the widget itself, which stays
+     the designer-specified 299px) recovers the 21px without shrinking anything
+     below a legible size.
+
+     ⚠ These selectors key off pdDonut's LITERAL inline `style` strings. That
+     is a real coupling, not a stylistic choice — edit those strings in
+     charts.js, even just reordering declarations inside them, and the legend
+     silently reverts with no error. charts.js carries a matching warning
+     above pdDonut. The durable fix is real class names on pdDonut's markup;
+     that is a bigger change than this wave took on. */
   .kx-pubwidget div[style*="gap:18px"] { gap: 12px !important; }
   .kx-pubwidget div[style*="gap:8px;font-size:12px"] {
     gap: 4px !important; font-size: 11px !important;

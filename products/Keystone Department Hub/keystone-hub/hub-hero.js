@@ -447,12 +447,23 @@
   // ch3's donut needs all five source apps (tasks_by_app spans ts/ci/sched/gt/ev),
   // which is also why the Chief's entitlements now include Scheduling — see the
   // comment in agency-intel-page-data.js.
+  //
+  // ch1 carries an EXPLICIT short title. Every other widget here leaves `title`
+  // unset and lets pubWidget derive it from the metric spec's own label, which is
+  // what a widget built in the Agency Intelligence builder would show. For a
+  // correlation that derivation is `xLabel + ' × ' + yLabel` — "Overdue
+  // inspections × Avg response time", 38 characters — and since .kx-pubwidget
+  // .title now wraps rather than truncates, that ran to two lines at 1400px and
+  // three lines at 1100px, pushing the whole card from 473px to 509px and
+  // through its ~480px accepted ceiling. A hand-written title that fits one line
+  // from 1100px up is the cheapest fix and reads better besides; it is the only
+  // title on this dashboard that is not derived, and that is on purpose.
   var CHIEF_DASH = {
     name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
     owned: true, ownerShort: 'you',
     widgets: [
       { id: 'ch1', metricIds: ['overdue_inspections', 'response_time'], viz: 'scatter', w: 5,
-        range: 'last_30', source: ['ci', 'gt'] },
+        range: 'last_30', source: ['ci', 'gt'], title: 'Inspections × response time' },
       { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
       { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 4, range: 'last_30',
         source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
@@ -622,7 +633,12 @@
     // Giving the title its own row drops a widget's legible minimum from ~310px
     // to ~205px, which is what lets three widgets stay on one row at ordinary
     // laptop widths instead of wrapping to two.
-    return '<div class="kx-pubwidget" style="grid-column:span ' + (w.w || 6) + '">' +
+    // A kind modifier class on the wrapper. Only the scatter needs one today:
+    // index.html's ≤1070px rule gives .kx-pubwidget--scatter the whole grid row
+    // so the correlation drawing keeps its designed scale once the grid drops to
+    // two-across. Emitted for every kind so the hook is uniform, not special-cased.
+    return '<div class="kx-pubwidget kx-pubwidget--' + KX.attr(kind) + '" ' +
+      'style="grid-column:span ' + (w.w || 6) + '">' +
       '<div class="kx-pubwidget-head">' + iconChip +
       '<span class="title">' + esc(title) + '</span>' +
       (srcs ? '<span class="srcs">' + srcs + '</span>' : '') +

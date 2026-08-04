@@ -54,14 +54,28 @@
   // ---------- Job titles + entitlements ----------
   // entitlements = the set of source apps that role can see data from.
   // The Battalion Chief holds all five sources. That is deliberate: the Chief's
-  // home dashboard displays a Scheduling-sourced "Open shifts" widget, so an
-  // assistant sitting beside it that refused Scheduling questions would
-  // contradict the surface it lives on.
+  // home dashboard ends in a tasks_by_app donut whose five slices ARE the five
+  // source apps (ts/ci/sched/gt/ev — see the comment on CHIEF_DASH in
+  // hub-hero.js), so an assistant sitting beside it that refused Scheduling
+  // questions would contradict the surface it lives on.
   // The PRD's access-reconciliation example ("don't have access to Scheduling
-  // shift data") consequently lives with the roles that still lack sources —
-  // the Training Officer has no Compliance & Inspections or Scheduling, the
-  // Engineer no Training or Guardian Tracking, the Firefighter no Scheduling.
-  // The seeded audit log's declined asks come from those roles.
+  // shift data") consequently lives with the six roles below that hold fewer
+  // than all five sources. Exhaustively, what each one is missing:
+  //   · Captain            — nothing; holds all five, like the Chief
+  //   · Lieutenant         — EV+
+  //   · Training Officer   — Check It, Scheduling
+  //   · Fleet Manager      — TargetSolutions, EV+
+  //   · Engineer           — TargetSolutions, Guardian, EV+
+  //   · Paramedic          — Scheduling, Guardian
+  //   · Firefighter        — Scheduling, Guardian
+  // The seeded audit log's declined asks come from those roles. seedLog() uses a
+  // fixed RNG seed, so the split is stable and countable: of its 74 entries, 7
+  // are denials — 5 the Training Officer's (4 for Scheduling, 1 for Check It)
+  // and 2 the Lieutenant's (both for EV+). No other role happens to draw a
+  // question it lacks a source for. (An earlier version of this comment listed
+  // only three roles, omitted the Lieutenant entirely, and under-counted what
+  // the Engineer and Firefighter were missing; the list above is derived from
+  // the JOB_TITLES entries immediately below, so keep the two in sync.)
   const JOB_TITLES = [
     { id: 'battalion_chief',  label: 'Battalion Chief',  count: 4,  entitlements: ['ts', 'ci', 'sched', 'gt', 'ev'] },
     { id: 'captain',          label: 'Captain',          count: 9,  entitlements: ['ts', 'ci', 'sched', 'gt', 'ev'] },
