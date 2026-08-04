@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scenario Simulator — One Player, Many Pedagogies</title>
+<title>Scenario Simulator — The Universal Player</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -122,12 +122,12 @@
     </g><circle r="14" fill="#1B2A4A"/></g>
   </svg>
   <div class="wrap">
-    <div class="eyebrow">Scenario Simulator · Option B · Design + Spike</div>
-    <h1>One player, many pedagogies</h1>
-    <p class="lede">The authoring side is already universal — <strong>one shell drives every scenario type with zero per-type branches.</strong> The player side is not: the same &ldquo;ladder runner&rdquo; is copy-pasted across seven live pages in three engine generations. This is the plan to give the runtime the same single-shell shape the studio already has — <strong>and a working spike that proves the two hardest claims before any broad migration.</strong></p>
+    <div class="eyebrow">Scenario Simulator · The Universal Player · Shipped</div>
+    <h1>One engine, many pedagogies</h1>
+    <p class="lede">The authoring side was always a single shell. The runtime is now too: one <code>?type=</code>-routed player — <strong>scenario-live.html over one extracted engine, <code>js/sim-player.js</code></strong> — drives four of the five scenario types with no per-type branches. The engine is <strong>prescriptive about the shape of a run and flexible about what fills it</strong>. The parts that must stay consistent and safe are fixed by the engine; the parts a pedagogy defines are supplied by the type.</p>
     <div class="meta-row">
       <span><b>Audience</b> — Engineering + Product</span>
-      <span><b>Status</b> — Spike complete · awaiting sign-off to migrate</span>
+      <span><b>Status</b> — Shipped to main · 4 / 5 types converged · scene-sweep deferred</span>
       <span><b>Prepared</b> — August 2026</span>
     </div>
   </div>
@@ -137,79 +137,117 @@
 
   <div class="verdict">
     <div class="vcard good">
-      <div class="vlbl">Proven end-to-end · (a)</div>
-      <h3>Guided Arc runs on an extracted, <code>?type=</code>-routed player</h3>
-      <p>A new generic <code>scenario-live.html?type=guided-arc</code> boots the Marshall scenario on the shared tier-ladder runner and plays it live — reflection, verbatim hand-offs, calibration, advancement — with zero console errors and no bespoke page.</p>
+      <div class="vlbl">Converged · shipped to main</div>
+      <h3>One page, one engine, four types</h3>
+      <p>mix-arc, guided-arc, branching-arc and ensemble-arc all play on <code>scenario-live.html?type=&lt;id&gt;</code> over the extracted <code>SimPlayer</code> engine. Each was A/B&rsquo;d <b>byte-identical</b> against the frozen archive before its flip; the bespoke per-type pages are frozen, and the learner launches the converged player.</p>
     </div>
     <div class="vcard good">
-      <div class="vlbl">Proven end-to-end · (b)</div>
-      <h3>A curated recipe becomes a Mix &amp; Match composition</h3>
-      <p><code>guided-arc.toMixArc()</code> turns the Marshall recipe into a valid 3-beat mix-arc scenario (0 errors, 0 warnings) that <code>compile()</code>s to a ~4.8k-token prompt and plays faithfully on the one shared runtime.</p>
+      <div class="vlbl">The one design idea</div>
+      <h3>A prescriptive spine, flexible fillings</h3>
+      <p>The engine fixes the skeleton of a run — warm-up &rarr; tier ladder &rarr; graded close, app-owned advancement, locked hand-offs, a strict turn contract, compiled-in safety floors — and lets each type vary only the fillings. This split lets one runtime serve every pedagogy without a per-type branch.</p>
     </div>
   </div>
 
+  <p style="margin-top:20px;font-size:13.5px;color:#5A6376">New to the vocabulary? <b>type</b>, <b>scenario</b>, <b>beat</b>, <b>phase</b>, <b>tier</b>, <b>native</b> and <b>recipe</b> are defined in the <a href="#glossary">glossary</a>.</p>
+
   <!-- 1 -->
-  <section id="problem">
-    <div class="sec-head"><span class="sec-num">1</span><h2>The asymmetry we&rsquo;re fixing</h2></div>
-    <p class="sec-intro">Two layers, two very different shapes. The authoring layer is the model to copy; the player layer is the debt to pay down.</p>
+  <section id="landed">
+    <div class="sec-head"><span class="sec-num">1</span><h2>Where it landed</h2></div>
+    <p class="sec-intro">The runtime now has the same shape the studio always had: a type-agnostic shell. You extend it by adding a type module; the player itself does not change.</p>
 
-    <h3>Authoring is already a single shell</h3>
-    <p><code>js/studio-shell.js</code> is fully type-agnostic — grep it for <code>type.id ===</code> and you get <b>zero</b> hits. It resolves a type from <code>?type=</code>, then talks only to the type&rsquo;s public surface (<code>DEFAULT / normalize / sections / renderFields / compile / lints / previewUrl / playtest / wizard</code>). Adding a pedagogy is adding a type module + an include line; the shell never changes. That is exactly the property we want on the runtime side.</p>
-
-    <h3>The player is four engines held together by copy-paste</h3>
-    <p>The learner-facing &ldquo;ladder runner&rdquo; (<code>runArcEngine</code>, <code>closePhase</code>, <code>applyDeliver</code>, <code>deliverTurn</code>, <code>entryBeatsFor</code>) is duplicated across seven live pages of 2.8k–4.3k lines each. It splits into <b>three engine generations</b> — but they are far closer than their line-counts suggest:</p>
+    <p><code>js/studio-shell.js</code> was always type-agnostic — grep it for <code>type.id ===</code> and you get zero hits. The runtime lagged: the learner-facing &ldquo;ladder runner&rdquo; (<code>runArcEngine</code> / <code>closePhase</code> / <code>applyDeliver</code> / <code>arcStateBlock</code> / <code>entryBeatsFor</code>) was copy-pasted across live pages in three engine generations. The four tier-ladder pages ran a <b>byte-identical</b> copy of that runner, so extracting it was a move rather than a rewrite. It now lives in one file, <code>js/sim-player.js</code>.</p>
 
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Live page</th><th>Engine generation</th><th>Advancement</th><th>Relationship to the reference runner</th></tr></thead>
+        <thead><tr><th>Piece</th><th>Where it lives today</th></tr></thead>
         <tbody>
-          <tr><td class="rowhead">mix-arc-live</td><td><b>Tier-ladder</b> (reference)</td><td>app-owned; model reports <code>tier</code>; authored <code>transitions[]</code></td><td>The general case &mdash; superset (adds the observe-clip path)</td></tr>
-          <tr><td class="rowhead">branching-arc-live</td><td>Tier-ladder</td><td>same</td><td><span class="tag tag-share">byte-identical</span> runner; = mix minus the observe path</td></tr>
-          <tr><td class="rowhead">ensemble-arc-live</td><td>Tier-ladder</td><td>same</td><td><span class="tag tag-share">byte-identical</span> runner; +<code>deliverFirstPhase()</code>, cast names ride the existing <code>m.name</code></td></tr>
-          <tr><td class="rowhead">scene-sweep-live</td><td>Tier-ladder + perception</td><td>same, + <code>spotted</code></td><td>Same core <span class="tag tag-share">byte-identical</span>, <b>wrapped</b> in a coverage/hit-test layer</td></tr>
-          <tr><td class="rowhead">guided-arc-live</td><td><b>Probe / locked-map</b> (one gen back)</td><td>model owns <code>deliver</code>; one-probe cap; <b>no</b> <code>tier</code></td><td><code>deliverTurn</code> byte-identical; different <i>engine head</i> (<code>runPhaseEngine</code>)</td></tr>
-          <tr><td class="rowhead">marshall-live · v2</td><td><b>No engine</b> (oldest)</td><td>model owns <code>deliver</code> end-to-end; pre-<code>revealScene</code></td><td>Legacy; shares only the data contract. <b>Retire</b>, don&rsquo;t migrate</td></tr>
+          <tr><td class="rowhead">The player</td><td>One page — <code>scenario-live.html</code>, routed by <code>?type=&lt;id&gt;</code></td></tr>
+          <tr><td class="rowhead">The engine</td><td>One module — <code>js/sim-player.js</code> (<code>SimPlayer.makeLadder</code>), extracted verbatim from the byte-identical copies; DOM-free</td></tr>
+          <tr><td class="rowhead">Converged types</td><td><code>mix-arc</code> · <code>guided-arc</code> · <code>branching-arc</code> · <code>ensemble-arc</code> — all launch the converged player</td></tr>
+          <tr><td class="rowhead">Deferred</td><td><code>scene-sweep</code> — still on its bespoke page; needs the perception module (§9)</td></tr>
+          <tr><td class="rowhead">Retired</td><td><code>marshall-live</code> / <code>-v2</code> — legacy, superseded by the guided-arc <i>type</i> (its <code>DEFAULT</code> is the Marshall scenario)</td></tr>
+          <tr><td class="rowhead">Baseline</td><td>every flip A/B&rsquo;d <span class="tag tag-share">byte-identical</span> vs <code>archive/2026-08-04/</code> before the next</td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="callout"><b>The load-bearing finding.</b> The four tier-ladder pages share a <b>byte-identical</b> <code>runArcEngine</code> / <code>closePhase</code> / <code>applyDeliver</code> / <code>deliverTurn</code> / <code>arcStateBlock</code>. The runner is already <i>one module</i> — it has just never been extracted into a file. Guided Arc is one generation behind it; the <code>marshall-live</code> pages are two behind and are legacy content already superseded by the <b>guided-arc type</b> (whose <code>DEFAULT</code> literally <i>is</i> &ldquo;Bystander Intervention: The Marshall Scenario&rdquo;). So &ldquo;Marshall&rdquo; as a migration target means the guided-arc <i>type</i>, not the <code>marshall-live</code> <i>page</i>.</p></div>
-
-    <p>The coach-bubble renderer <code>coachNode</code> tells the same story: it appears across <b>16 pages</b> in three render styles, but the emitted DOM and class vocabulary (<code>coach-msg / coach-avatar / coach-body / coach-bubble</code>, grouping <code>grp-first / grp-last</code>, prompt-lift <code>is-prompt / just-asked</code>) are <b>identical</b>. Six ladder pages already use the good &ldquo;reconcile&rdquo; strategy (scroll-preserving, WeakMap-cached); nine use an older full-rebuild; teach-back is a one-off. The component is uniform; only the update strategy differs.</p>
+    <p>Both launch points now reach the converged player. The four types&rsquo; learner launch runs <code>scenario-live.html?type=&lt;id&gt;</code>, and each type&rsquo;s Studio &ldquo;Play&rdquo; preview (<code>previewUrl()</code>) points at the same URL.</p>
   </section>
 
   <!-- 2 -->
-  <section id="thesis">
-    <div class="sec-head"><span class="sec-num">2</span><h2>The idea: mix-arc <em>is</em> the general case</h2></div>
-    <p class="sec-intro">Every curated pedagogy is a special case of the composed-beat model. That is not an analogy — it is a schema fact, and it is what lets one runtime serve them all.</p>
+  <section id="shape">
+    <div class="sec-head"><span class="sec-num">2</span><h2>A prescriptive spine, flexible fillings</h2></div>
+    <p class="sec-intro">The engine fixes the parts of a run that must be identical for every learner, and leaves the parts a pedagogy defines to the type. Each concern below sits on one side or the other of that line.</p>
 
-    <p>A Mix &amp; Match scenario is an <b>ordered list of beats</b>, each carrying one interaction kind (<code>coach-led</code> / <code>roleplay</code> / <code>observe</code>) and its own turn cap. The tier-ladder runner already indexes <code>scenario.phases[]</code> by a per-step <code>world</code> — so a beat <i>is</i> a phase. Guided Arc decomposes into that model cleanly:</p>
-
-    <div class="flow">
-Guided Arc <span class="arr">&rarr;</span> Mix &amp; Match, beat for beat:<br>
-&nbsp;&nbsp;reflection (warm-up)&nbsp;&nbsp;&nbsp;&nbsp;<span class="arr">&rarr;</span> reflection (kept 1:1 — non-evaluated)<br>
-&nbsp;&nbsp;phase &ldquo;The Law&rdquo; (right answer) <span class="arr">&rarr;</span> <b>coach-led</b> beat + <code>hasRightAnswer</code> + <code>throughLine</code><br>
-&nbsp;&nbsp;phase &ldquo;The Person&rdquo; (open) <span class="arr">&rarr;</span> <b>coach-led</b> beat<br>
-&nbsp;&nbsp;the live break-room scene&nbsp;&nbsp;<span class="arr">&rarr;</span> <b>roleplay</b> beat (counterpart: Jake)<br>
-&nbsp;&nbsp;SME playbook + resources&nbsp;&nbsp;<span class="arr">&rarr;</span> playbook + resources (kept 1:1)
+    <div class="opts">
+      <div class="opt a">
+        <div class="k">Prescriptive — the spine</div>
+        <h3>The engine owns the run</h3>
+        <p>The app decides advancement; the model does not. Whatever the pedagogy, every scenario runs the same skeleton: a non-graded reflection warm-up, a tier ladder of phases, and a graded close with a report. Hand-offs between phases are <b>locked, app-authored text</b> — the model is given them but cannot rewrite them. A per-turn <code>[SYSTEM STATE]</code> line tells the model which phase is live and its turn budget. Turns come back as strict JSON. Safety floors are compiled in and cannot be authored away.</p>
+      </div>
+      <div class="opt b">
+        <div class="k">Flexible — the fillings</div>
+        <h3>The type owns the content</h3>
+        <p>Everything a pedagogy legitimately differs on. How many phases; each in which <b>world</b> (coaching vs live scene); with what <b>tier</b> bands and which authored <b>transition</b> each tier fires. Whether a scene has one counterpart or a whole cast. Whether the cold open is a video, a narrated audio brief, or a reading. The coach&rsquo;s voice. What the playbook and resources say. A type declares all of this as <b>data</b> and the engine renders it — adding a pedagogy never edits the player.</p>
+      </div>
     </div>
-
-    <p>The two schemas already share their <b>entire top level</b> — <code>title, course, framing, learnerRole, establishing, openingImage, intro, voice, reflection, playbook, resources</code> are the same field names. Only <code>phases</code>+<code>scene</code> (guided-arc) vs <code>beats</code> (mix-arc) differ. So the design is:</p>
-
-    <ul>
-      <li><b>One extracted player-shell</b> — a runtime sibling of <code>studio-shell.js</code> — that boots any type from <code>?type=</code> and drives the tier-ladder runner with <b>zero per-type branches</b>.</li>
-      <li><b>A runtime contract</b> each type exposes: <code>type.toMixArc(scenario)</code> (a.k.a. <code>toRuntime</code>) that maps the type&rsquo;s own schema into the tier-ladder model. mix-arc is the identity; a recipe supplies the mapping. The shell then runs the same <code>compile()</code> + runner path for everyone.</li>
-      <li><b>One <code>coachNode</code></b> shared component (the reconcile strategy) + the grouping/prompt-lift passes, driven by the union message contract.</li>
-    </ul>
-
-    <div class="callout ok"><b>Why this is safe.</b> It is purely <b>additive</b>. The extracted shell is a <i>new</i> page (<code>scenario-live.html</code>) and a <i>new</i> module; the existing per-type live pages keep working untouched. A type joins the shared runtime only when its <code>previewUrl()</code> is flipped to <code>scenario-live.html?type=&lt;id&gt;</code> — one line, one type at a time, each flip proven before the next. The frozen archive (<code>archive/2026-08-04/</code> + tag <code>archive/pre-option-b-2026-08-04</code>) is the before-picture for every A/B check.</div>
   </section>
 
   <!-- 3 -->
-  <section id="contract">
-    <div class="sec-head"><span class="sec-num">3</span><h2>The runtime contract</h2></div>
-    <p class="sec-intro">What the extracted shell reads, so a type can satisfy it without the shell knowing which pedagogy it is running. This is the runtime analogue of the authoring contract in <code>README.writer-studio.md</code>.</p>
+  <section id="spine">
+    <div class="sec-head"><span class="sec-num">3</span><h2>The prescriptive spine, in detail</h2></div>
+    <p class="sec-intro">What every scenario gets, regardless of type. This is the runtime counterpart to the authoring contract in <code>README.writer-studio.md</code>; these elements are fixed for every type.</p>
 
+    <ul>
+      <li><b>App-owned advancement.</b> The model only <i>classifies</i> (reports a <code>tier</code>) and <i>voices</i> (writes the bubbles). The app decides stay-vs-advance from <code>action</code> / <code>tier</code> / the turn cap and routes. <code>runArcEngine</code> + <code>closePhase</code> are the sole authority — the model never advances itself.</li>
+      <li><b>The run spine.</b> <code>phaseIdx = -1</code> is the reflection warm-up (calibrate only, <b>no tier</b>, one clarifying probe max) &rarr; <code>phases[0…N-1]</code>, each a world + a <code>maxTurns</code> cap + a recorded tier &rarr; <code>phaseIdx &ge; N</code> is completion, where the model <b>must</b> set <code>complete:true</code> with a <code>report</code>.</li>
+      <li><b>Locked entry beats.</b> <code>closePhase</code> cues <code>turn.deliver</code>; <code>applyDeliver</code> appends the app&rsquo;s own bridge / signpost / scene-open, picks the bridge variant the recorded tier calls for, and strips any copy the model reproduced so each hand-off appears once.</li>
+      <li><b>The <code>[SYSTEM STATE]</code> line.</b> <code>arcStateBlock</code> injects, every turn, which phase is live (<code>N/total</code>, world, counterpart), turns used vs cap, the ladder so far, and the session-state vars. At the cap, the state line requires the model to teach and report.</li>
+      <li><b>The strict turn contract.</b> JSON only: <code>turn[]</code> (<code>speaker</code> coach&nbsp;|&nbsp;you&nbsp;|&nbsp;character &times; <code>kind</code> coaching&nbsp;|&nbsp;dialogue&nbsp;|&nbsp;narration&nbsp;|&nbsp;clip) + <code>action</code> (continue&nbsp;|&nbsp;teach&nbsp;|&nbsp;redirect) + <code>tier</code> + <code>deliver</code> + <code>complete</code> + <code>report</code> + <code>mode</code> + <code>inputTarget</code>. The client renders from <code>speaker</code>+<code>kind</code>, not from the text content.</li>
+      <li><b>Tiers &amp; transitions.</b> A phase closes on a model-reported tier; the app records it, then applies the phase&rsquo;s authored <code>transitions[]</code> — session-state writes, which phase is next, and which bridge variant opens it.</li>
+      <li><b>One canonical phase shape.</b> <code>{ id, label, world:'coaching'|'scene', maxTurns, counterpart, calibration[].tier, transitions[], entry{…}, debrief.talkItThrough }</code>. Every type&rsquo;s <code>toRuntime</code> emits this shape. Because the shape is single, the engine needs no per-type branch.</li>
+      <li><b>Say / do split.</b> A scene turn splits the learner&rsquo;s input into a <b>DO</b> (narration) and a <b>SAY</b> (bubble) — one scene grammar across every roleplay type.</li>
+      <li><b>Compiled-in safety floors.</b> A character-conduct floor sits in every scenario; branching adds a threat-content floor, ensemble a minor-safeguarding floor. They are written into the prompt at <code>compile()</code>, over and above any authored guidance, and an author cannot disable them.</li>
+    </ul>
+
+    <div class="callout">The model classifies and voices; the app routes. Every decision that must be consistent across learners — when to advance, what a hand-off says, when to grade, when to stop — belongs to the app.</div>
+  </section>
+
+  <!-- 3 -->
+  <section id="surface">
+    <div class="sec-head"><span class="sec-num">4</span><h2>The flexible surface: two ways a type plugs in</h2></div>
+    <p class="sec-intro">A type reaches the shared engine one of exactly two ways. The resolver picks which with a single truthy check, then never branches on the type again.</p>
+
+    <div class="opts">
+      <div class="opt a">
+        <div class="k">Shape 1 · native</div>
+        <h3>Owns its own <code>toRuntime</code> + <code>compile</code></h3>
+        <p><b>mix-arc, branching-arc, ensemble-arc, scene-sweep.</b> A native type maps its own schema into the canonical phase shape (<code>toRuntime</code>) and writes its own system prompt (<code>compile</code>), with its own floors and guardrails. It plays directly, with no intermediate conversion.</p>
+      </div>
+      <div class="opt b">
+        <div class="k">Shape 2 · recipe</div>
+        <h3>Expresses itself via <code>toMixArc()</code></h3>
+        <p><b>guided-arc.</b> A recipe has no ladder of its own. It exposes <code>toMixArc()</code>, which restates it as a mix-arc composition, and then plays as mix-arc — mix-arc&rsquo;s <code>toRuntime</code> + <code>compile</code> on that source. This conversion applies only to recipes.</p>
+      </div>
+    </div>
+
+    <p>mix-arc is the general case: a Mix &amp; Match scenario is an ordered list of <b>beats</b> (<code>coach-led</code> / <code>roleplay</code> / <code>observe</code>), and a beat <i>is</i> a phase. So every other pedagogy expresses itself as either a native map onto that shape or a recipe that restates itself in it. The resolver is the whole seam:</p>
+
+    <div class="flow">
+<b>REQ</b> = <code>?type=</code> <span class="arr">||</span> mix-arc<br>
+<b>REQ_TYPE</b> = Studio.get(REQ) <span class="arr">||</span> TYPE_GLOBALS[REQ] <span class="arr">||</span> mix-arc<br>
+<b>IS_RECIPE</b> = typeof REQ_TYPE.<b>toMixArc</b> === 'function'<br>
+<b>PLAY_TYPE</b> = IS_RECIPE ? mix-arc <span class="arr">:</span> REQ_TYPE<br>
+<b>PLAY_SRC</b>&nbsp; = IS_RECIPE ? REQ_TYPE.<b>toMixArc</b>(src) <span class="arr">:</span> src<br>
+<b>ACTIVE_SCENARIO</b> = PLAY_TYPE.<b>toRuntime</b>(PLAY_SRC)<br>
+<b>SYSTEM_PROMPT</b>&nbsp; = PLAY_TYPE.<b>compile</b>(PLAY_TYPE.normalize(PLAY_SRC))<br>
+&nbsp;&nbsp;<span class="arr">&rarr;</span> SimPlayer.<b>makeLadder</b>({ scenario, state, fillT }) &mdash; the one shared engine
+    </div>
+
+    <div class="callout ok"><b>No per-type branches below the resolver.</b> Authorable types resolve from the Studio registry (<code>AitheraStudio.get</code>); live-only types (branching, ensemble, scene-sweep — their Studio editors are stage 2) resolve via a <code>window</code> global. The runner never references a type name — grep it and you find none, the same as <code>studio-shell.js</code>.</div>
+
+    <h3>The runtime contract each type satisfies</h3>
+    <p>What the shell reads, so a type can plug in without the shell knowing which pedagogy it is:</p>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Surface</th><th>What the runner consumes</th></tr></thead>
@@ -217,71 +255,81 @@ Guided Arc <span class="arr">&rarr;</span> Mix &amp; Match, beat for beat:<br>
           <tr><td class="rowhead">Scenario</td><td><code>phases[]</code>, <code>state[]</code> (session vars), <code>intro{type,video,audio}</code>, <code>establishing</code>, <code>openingImage</code>, <code>title</code>, <code>course</code>, <code>learnerName</code>, <code>characterName</code>, <code>playbook</code>, <code>resources</code>, <code>elevatedStakes</code></td></tr>
           <tr><td class="rowhead">Phase / beat</td><td><code>id</code>, <code>label</code>, <code>world</code> (<code>scene</code>|<code>coaching</code>), <code>maxTurns</code>, <code>counterpart</code>, <code>calibration[].tier</code>, <code>transitions[]{onTier,set,next}</code>, <code>debrief.talkItThrough</code>, <code>inputPlaceholder</code>, <code>entry{cta,bridge,bridgesByTier,signpost,prompt,beats[]}</code>; observe adds <code>type</code>+<code>media.segments[]</code></td></tr>
           <tr><td class="rowhead">Model turn</td><td><code>turn[]</code>, <code>action</code> (<code>continue</code>|<code>teach</code>|<code>redirect</code>), <code>tier</code>, <code>deliver</code>, <code>complete</code>, <code>report</code>, <code>mode</code>, <code>inputTarget</code>; scene-sweep adds <code>spotted</code></td></tr>
-          <tr><td class="rowhead">Type object</td><td><code>compile()</code>, <code>normalize()</code>, <code>fill()</code>, <code>DEFAULT</code>, <code>store.loadPublished()</code>, and <b>new:</b> <code>toMixArc()</code></td></tr>
-          <tr><td class="rowhead">Shared modules</td><td><code>SimCore</code> (turn parser/engine/history/callModel), <code>SimContext</code>, <code>SimCoachSheet</code>, <code>SimChatHistory</code>, <code>SceneContext</code>, <code>SimDebrief</code> &mdash; already extracted; the orchestration around them is what is not</td></tr>
+          <tr><td class="rowhead">Type object</td><td><code>DEFAULT</code>, <code>normalize()</code>, <code>fill()</code>, <code>compile()</code>, <code>store.loadPublished()</code>, <code>previewUrl()</code>, and the plug-in seam: <code>toRuntime()</code> (native) or <code>toMixArc()</code> (recipe)</td></tr>
+          <tr><td class="rowhead">Shared modules</td><td><code>SimPlayer</code> (the tier-ladder engine) + <code>SimCore</code> (turn parser / callModel / history), <code>SimContext</code>, <code>SimCoachSheet</code>, <code>SimChatHistory</code>, <code>SceneContext</code>, <code>SimDebrief</code> &mdash; all extracted; the page owns only the DOM reveal</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Everything in rows 1&ndash;3 is what <code>toMixArc()</code> has to produce. Because mix-arc&rsquo;s own <code>normalize()</code> already emits this shape, a recipe&rsquo;s <code>toMixArc()</code> only has to translate <i>its</i> field names into beats — which is a pure data transform with no runtime coupling.</p>
+    <p><code>toRuntime()</code> must produce rows 1&ndash;2. Because mix-arc&rsquo;s own <code>normalize()</code> already emits this shape, a recipe&rsquo;s <code>toMixArc()</code> only has to translate <i>its</i> field names into beats — a pure data transform with no runtime coupling.</p>
   </section>
 
   <!-- 4 -->
-  <section id="spike">
-    <div class="sec-head"><span class="sec-num">4</span><h2>The spike — what was built and proven</h2></div>
-    <p class="sec-intro">Two new artifacts, both additive, that de-risk the whole track before any page is migrated.</p>
+  <section id="ingredients">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Ingredients it renders natively</h2></div>
+    <p class="sec-intro">The vocabulary a type composes from. Each is data a type declares, and the engine already knows how to run it.</p>
 
-    <h3>Artifact 1 &mdash; <code>guided-arc.toMixArc()</code></h3>
-    <p>A ~60-line method added to <code>js/scenario-types/guided-arc.js</code> (additive; nothing that consumes Guided Arc today calls it). It maps each Learn phase to a <code>coach-led</code> beat, the terminal scene to a <code>roleplay</code> beat, and carries reflection / playbook / resources / intro / voice across 1:1:</p>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Guided Arc</th><th>&rarr; Mix &amp; Match beat</th><th>Fidelity</th></tr></thead>
+        <thead><tr><th>Ingredient</th><th>What it is</th><th>Native</th></tr></thead>
         <tbody>
-          <tr><td><code>phase.signpost / .prompt</code></td><td><code>beat.entry.signpost / .prompt</code> (verbatim locked hand-off)</td><td><span class="tag tag-share">exact</span></td></tr>
-          <tr><td><code>phase.hasRightAnswer / .throughLine</code></td><td><code>beat.hasRightAnswer / .throughLine</code></td><td><span class="tag tag-share">exact</span></td></tr>
-          <tr><td><code>phase.talkItThrough / .calibration[]</code></td><td><code>beat.debrief.talkItThrough / .calibration[]</code></td><td><span class="tag tag-share">exact</span></td></tr>
-          <tr><td><code>scene.setup[] / .pivot</code></td><td><code>beat.entry.beats[] / .signpost</code></td><td><span class="tag tag-share">exact</span></td></tr>
-          <tr><td><code>scene.actionCalibration + outcomes</code></td><td><code>beat.calibration + character.reactions</code></td><td><span class="tag tag-amber">folded</span> per-tier outcome narration → reaction</td></tr>
-          <tr><td><code>scene.characters[] (Jake, Marshall)</code></td><td><code>beat.character</code> (single: Jake)</td><td><span class="tag tag-amber">v1 limit</span> one counterpart; multi-cast is Ensemble</td></tr>
+          <tr><td class="rowhead">Reflection warm-up</td><td>A non-graded gut-check before the ladder; one clarifying probe, then it opens Phase&nbsp;1. Opt-in per type.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Coach-led beat</td><td>A <code>coaching</code>-world phase: the learner reasons, the coach calibrates, then teaches on close.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Roleplay / scene beat</td><td>A <code>scene</code>-world phase opposite a counterpart, with the say/do split and a locked scene-open.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Observe / clip beat</td><td>A coaching-world phase that presents a locked <code>clip</code> card — a real <code>&lt;video&gt;</code> or a described moment — the learner reacts to.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Tier ladder + bridge variants</td><td>Per-phase tier bands; the recorded tier selects the next hand-off&rsquo;s <code>bridgesByTier</code> variant and fires its <code>transitions[]</code>.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Session-state vars</td><td><code>scenario.state[]</code> the model reads in the state line and transitions write across phases.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Intro modality</td><td>Cold open as <b>video</b>, narrated <b>audio</b>, or a <b>reading</b> (via <code>SceneContext</code>) — then the coach rises with the reflection.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Playbook + resources</td><td>The SME close and resource list, guaranteed at the end of every run.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Multi-character cast</td><td>2+ characters in one scene, each with its own driver / reactions / style; the runtime voices whoever reacts via <code>m.name</code>.</td><td><span class="tag tag-share">native</span> · ensemble</td></tr>
+          <tr><td class="rowhead">Earned / progressive disclosure</td><td>Each character reveals only what the learner earns — a compiled <code>disclosures[]</code> ledger per character.</td><td><span class="tag tag-share">native</span> · ensemble</td></tr>
+          <tr><td class="rowhead">No-warm-up boot</td><td>Skip the reflection and open straight on Phase&nbsp;0 (<code>deliverFirstPhase</code>, reusing the engine&rsquo;s <code>closePhase</code>).</td><td><span class="tag tag-share">native</span> · ensemble</td></tr>
+          <tr><td class="rowhead">Safety floors</td><td>Conduct (all) + threat-content (branching) + minor-safeguarding (ensemble), compiled in, non-optional.</td><td><span class="tag tag-share">native</span></td></tr>
+          <tr><td class="rowhead">Fresh-panel conversation</td><td>A new scene opens a clean panel while the model keeps the entire transcript (one <code>state.messages</code>, two projections).</td><td><span class="tag tag-amber">spike</span> · folds in next</td></tr>
+          <tr><td class="rowhead">Perception / spot-the-hazard</td><td>Tap hazards on a photo; coverage grading feeds the coach conversation. Spatial rather than conversational.</td><td><span class="tag tag-copy">deferred</span> · needs <code>sim-perception.js</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="types">
+    <div class="sec-head"><span class="sec-num">6</span><h2>The five types on the model</h2></div>
+    <p class="sec-intro">Each type is a different mix of the same ingredients. The third column notes the ingredient each one contributed and confirmed the shared engine could run without a fork.</p>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Type</th><th>Plugs in as</th><th>What it proved the shared engine holds</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="rowhead">mix-arc</td><td><b>native</b></td><td>The general case — beats (coach-led / roleplay / observe) <i>are</i> phases; every other pedagogy maps onto this.</td><td><span class="tag tag-share">converged · default</span></td></tr>
+          <tr><td class="rowhead">guided-arc</td><td><b>recipe</b> (<code>toMixArc</code>)</td><td>A curated Learn&nbsp;&harr;&nbsp;Practice recipe collapses to a 3-beat composition and plays with <b>no bespoke page</b>.</td><td><span class="tag tag-share">converged</span></td></tr>
+          <tr><td class="rowhead">branching-arc</td><td><b>native</b></td><td>App-routed tier <b>transitions</b> + a locked <b>threat-content floor</b> survive intact — no round-trip.</td><td><span class="tag tag-share">converged</span></td></tr>
+          <tr><td class="rowhead">ensemble-arc</td><td><b>native</b></td><td><b>Multi-character cast + earned disclosure + minor floor + no-warm-up boot</b>, all as data on the same engine.</td><td><span class="tag tag-share">converged</span></td></tr>
+          <tr><td class="rowhead">scene-sweep</td><td><b>native</b> (pending)</td><td><b>Perception grading</b> (tap-the-hazard) — the one ingredient with no conversational equivalent.</td><td><span class="tag tag-copy">deferred · §9</span></td></tr>
         </tbody>
       </table>
     </div>
 
-    <h3>Artifact 2 &mdash; <code>scenario-live.html?type=&lt;id&gt;</code></h3>
-    <p>The extracted generic player. It is the reference tier-ladder runner with the type-resolution seam rewired to <code>?type=</code> (three lines) plus the recipe type module loaded. The runner itself is unchanged — it drives whatever the resolved type&rsquo;s <code>toMixArc()</code> hands it:</p>
-    <div class="flow">
-<b>REQ</b> = <code>?type=</code> <span class="arr">||</span> mix-arc<br>
-<b>src</b> = REQ.store.loadPublished() <span class="arr">||</span> REQ.DEFAULT<br>
-<b>BA_SOURCE</b> = REQ.toMixArc ? REQ.<b>toMixArc</b>(src) <span class="arr">:</span> mixArc.normalize(src)<br>
-<b>SYSTEM_PROMPT</b> = mixArc.compile(BA_SOURCE)&nbsp;&nbsp;<span class="arr">&rarr;</span> the one shared runner (unchanged)
-    </div>
-
-    <h3>What was observed (live model, worker on an allow-listed origin)</h3>
-    <ul>
-      <li><b>(a)</b> <code>scenario-live.html?type=guided-arc</code> booted the Marshall scenario from Guided Arc&rsquo;s <i>own</i> <code>DEFAULT</code> (no manual publishing): establishing card &rarr; video intro &rarr; <b>verbatim</b> reflection prompt &rarr; a live model calibration turn (&ldquo;You clocked the two things that matter most&hellip;&rdquo;) &rarr; auto-advance &rarr; <b>verbatim</b> Beat&nbsp;1 hand-off. Zero console errors.</li>
-      <li><b>(b)</b> <code>toMixArc(GuidedArc.DEFAULT)</code> &rarr; <code>isValid: true</code>, 3 beats, <b>0 error / 0 warning</b> lints; <code>compile()</code> = 19,277 chars (~4,819 tokens). The same composition played through to Beat&nbsp;1 on the runtime, with the reflection graded as non-evaluated calibration exactly as authored.</li>
-      <li><b>Genericity</b> — the <i>same</i> page at <code>?type=mix-arc</code> renders mix-arc&rsquo;s own default (&ldquo;Speaking Up in the Moment&rdquo;), a different scenario. One page, no per-type branches.</li>
-    </ul>
-    <div class="callout"><b>Honest note on &ldquo;no regression.&rdquo;</b> Running Guided Arc through the tier engine is a deliberate <i>upgrade</i>: it gains explicit calibration <b>tiers</b> and a <code>maxTurns</code> cap in place of the older one-probe heuristic. The learner-visible pedagogy (verbatim locked beats, calibration-only reflection, right-answer coaching, debrief opener) is preserved. Two fidelity items to decide before flipping Guided Arc&rsquo;s <code>previewUrl</code>: the single-counterpart roleplay limit (fine for Marshall — Jake is the sole counterpart; Ensemble covers true multi-cast) and folding per-tier scene <i>outcome narration</i> into reaction guidance.</div>
+    <div class="callout"><b>Native vs recipe.</b> guided-arc uses <code>toMixArc</code> because it has no ladder of its own. branching, ensemble and scene-sweep each carry extras a conversion would flatten — tier transitions, a cast, a perception layer — so they own <code>toRuntime</code> + <code>compile</code> and play directly. Each A/B against the frozen archive came out <b>byte-identical</b>.</div>
   </section>
 
   <!-- 5 -->
   <section id="recipes">
-    <div class="sec-head"><span class="sec-num">5</span><h2>Recipes as templates over one runtime</h2></div>
-    <p class="sec-intro">The same mapping that plays a recipe on the shared runtime also lets a curated recipe open as a pre-filled Mix &amp; Match composition an author can then edit.</p>
-    <p>&ldquo;Start from the Marshall shape&rdquo; runs <code>toMixArc()</code> and drops the result into the Mix &amp; Match editor: a 4-part composition (reflection + two coach-led beats + one roleplay beat) with the SME playbook attached, fully editable. Curated recipes stay the fast on-ramp; free-form composition stays the ceiling; both are the same scenario object over the same player. This is the P1 bet in the release-readiness brief, now with its enabling transform built and proven.</p>
+    <div class="sec-head"><span class="sec-num">7</span><h2>Recipes double as editable templates</h2></div>
+    <p class="sec-intro">The same <code>toMixArc()</code> that plays a recipe on the shared runtime also lets a curated recipe open as a pre-filled Mix &amp; Match composition an author can then edit.</p>
+    <p>&ldquo;Start from the Marshall shape&rdquo; runs <code>toMixArc()</code> and drops the result into the Mix &amp; Match editor: a composition (reflection + two coach-led beats + one roleplay beat) with the SME playbook attached, fully editable. Curated recipes are the fast on-ramp; free-form composition is the ceiling. Both produce the same scenario object and run on the same player, so a recipe and a hand-composed scenario are identical at runtime.</p>
   </section>
 
   <!-- 6 -->
   <section id="conversations">
-    <div class="sec-head"><span class="sec-num">6</span><h2>The conversation model &mdash; multi-cast &amp; fresh panels</h2></div>
-    <p class="sec-intro">The composed-beat model extends cleanly to two things real scenarios need: <b>more than one live character in a scene</b>, and <b>several distinct conversations across a run</b> &mdash; each with its own surface, one shared memory.</p>
+    <div class="sec-head"><span class="sec-num">8</span><h2>Multi-cast conversations &amp; fresh panels</h2></div>
+    <p class="sec-intro">The composed-beat model extends cleanly to two things real scenarios need: <b>more than one live character in a scene</b> (shipped in ensemble), and <b>several distinct conversations across a run</b>, each with its own surface but one shared memory (proven in a spike, folds in next).</p>
 
-    <p>A scenario groups its beats into <b>conversations</b>. A coaching conversation is the one persistent guide; a <b>character conversation</b> is a scene whose beat now carries a small <code>cast[]</code> (2+ characters, reusing ensemble&rsquo;s per-character model &mdash; driver, reactions, style). The learner acts &ldquo;at the room&rdquo; and the model voices whoever reacts &mdash; the runtime already renders multiple named speakers via <code>m.name</code>, so this is mostly a schema addition. A new character conversation opens a <b>fresh panel</b>; the model keeps the entire transcript.</p>
+    <p>A scenario groups its beats into <b>conversations</b>. A coaching conversation is the one persistent guide; a <b>character conversation</b> is a scene whose beat carries a small <code>cast[]</code> (2+ characters, reusing ensemble&rsquo;s per-character model &mdash; driver, reactions, style). The learner acts &ldquo;at the room&rdquo; and the model voices whoever reacts &mdash; the runtime already renders multiple named speakers via <code>m.name</code>, so this is mostly a schema addition. A new character conversation opens a <b>fresh panel</b>; the model keeps the entire transcript.</p>
 
-    <div class="callout ok"><b>Why the &ldquo;fresh panel, shared memory&rdquo; ask is cheap.</b> There is exactly one source of truth &mdash; a single <code>state.messages</code> array &mdash; and the visible surfaces and the model&rsquo;s memory are already <b>independent projections</b> of it. The coach panel already self-resets each stretch (it renders only the trailing run) while memory keeps growing; only the scene stage renders <i>every</i> scene bubble. So the entire runtime add is: a <b>conversation tag</b> on messages + a <b>filter on the scene stage</b> (the <code>convStart</code> filter) so it starts fresh like the coach panel already does &mdash; plus a one-line <code>[SYSTEM STATE]</code> cue telling the model &ldquo;new conversation with X; you remember the rest.&rdquo; Memory is never rebuilt: <code>getTurn</code> sends the whole array every turn.</p></div>
+    <div class="callout ok"><b>Why fresh panels are cheap to add.</b> There is exactly one source of truth &mdash; a single <code>state.messages</code> array &mdash; and the visible surfaces and the model&rsquo;s memory are already <b>independent projections</b> of it. The coach panel already self-resets each stretch (it renders only the trailing run) while memory keeps growing; only the scene stage renders <i>every</i> scene bubble. So the entire runtime add is: a <b>conversation tag</b> on messages + a <b>filter on the scene stage</b> (the <code>convStart</code> filter) so it starts fresh like the coach panel already does &mdash; plus a one-line <code>[SYSTEM STATE]</code> cue telling the model &ldquo;new conversation with X; you remember the rest.&rdquo; Memory is never rebuilt: <code>getTurn</code> sends the whole array every turn.</p></div>
 
     <h3>Proven in a spike (<code>scenario-multiconv-spike.html</code>)</h3>
-    <p>An end-to-end demo on the real <code>SimCore</code> turn engine: Conversation 1 is a two-character scene (Alex + Sam arguing; the learner mediates &mdash; both react as distinct people). After a couple of moves it hands off to Conversation 2 &mdash; a 1:1 with Sam that opens in a <b>fresh panel</b> (the argument is off-screen). Sam then references the earlier scene unprompted (<i>&ldquo;having that play out in front of everyone&hellip;&rdquo;</i>, <i>&ldquo;I appreciate you stepping in&hellip;&rdquo;</i>) &mdash; the banner confirms 13 prior messages carried in memory that the panel never shows. Fresh surface, continuous mind.</p>
+    <p>An end-to-end demo on the real <code>SimCore</code> turn engine: Conversation 1 is a two-character scene (Alex + Sam arguing; the learner mediates &mdash; both react as distinct people). After a couple of moves it hands off to Conversation 2 &mdash; a 1:1 with Sam that opens in a <b>fresh panel</b> (the argument is off-screen). Sam then references the earlier scene unprompted (<i>&ldquo;having that play out in front of everyone&hellip;&rdquo;</i>, <i>&ldquo;I appreciate you stepping in&hellip;&rdquo;</i>) &mdash; the banner confirms 13 prior messages carried in memory that the panel never shows.</p>
 
     <div class="tbl-scroll">
       <table>
@@ -297,65 +345,93 @@ Guided Arc <span class="arr">&rarr;</span> Mix &amp; Match, beat for beat:<br>
   </section>
 
   <!-- 7 -->
-  <section id="plan">
-    <div class="sec-head"><span class="sec-num">7</span><h2>Migration plan &mdash; additive, sign-off-gated</h2></div>
-    <p class="sec-intro">Nothing here is a big-bang. Each step keeps all eight shipped types working, and each type joins the shared runtime only when its own flip is proven.</p>
+  <section id="perception">
+    <div class="sec-head"><span class="sec-num">9</span><h2>The one non-native ingredient: perception</h2></div>
+    <p class="sec-intro">Four types converged cheaply because they are the same conversational interaction the shared player already renders. Scene Sweep is the exception: one half of it is conversational and already shared, the other half is not.</p>
 
-    <div class="prio p0">
-      <div class="prio-head"><span class="prio-badge">P0</span><h3>Sign-off on direction (this document)</h3></div>
-      <div class="prio-body"><ul>
-        <li>Confirm the target: <b>converge on the tier-ladder engine</b>; retire <code>marshall-live</code> / <code>-v2</code> in favor of the guided-arc type on the shared runtime.</li>
-        <li>Confirm the two fidelity calls (single-counterpart roleplay; outcome-narration folding) are acceptable for Guided Arc, or scope Ensemble-style multi-cast into the runtime contract first.</li>
-      </ul></div>
+    <p>Scene Sweep&rsquo;s conversational half — the Observe / Remediate coach beats — is the shared player already. Its perception half — tapping the hazards on a photo — is ~575 net-new lines the conversational player has no concept of, plus two structural reconciles to the shared engine that all four shipped types depend on. Landing it in the same pass would risk regressing a player four types now ride, so it is scoped as a follow-on.</p>
+
+    <p>Perception cannot be an ordinary ingredient because <code>sim-player.js</code> is <b>DOM-free</b> — the runtime sibling of <code>studio-shell.js</code>, operating only on <code>{ scenario, state, fillT }</code>. Perception is DOM-aware (a photo, a tap surface, focusable regions, a coverage rail), so it gets its own mountable module rather than living in the engine:</p>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>File</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td class="rowhead">js/sim-perception.js <span class="tag tag-amber">new</span></td><td><code>SimPerception.mount({ host, scenario, state, fillT, onCross })</code> — the sweep stage + keyboard/region + free-text a11y paths + coverage rail, driving <code>state.covered</code>. <b>DOM-aware</b> sibling of <code>sim-player.js</code>; reuses the already-shared <code>SceneSweepGeo</code>.</td></tr>
+          <tr><td class="rowhead">js/sim-player.js</td><td>Extend, guarded on <code>kind==='spot'</code>: a coverage state-block line. The other four types have no spot phase, so they emit nothing new.</td></tr>
+          <tr><td class="rowhead">scene-sweep.js</td><td>Add <code>toRuntime()</code> that normalizes its flat phases into the engine&rsquo;s canonical <code>{entry:{…}}</code> shape (keeps the phase shape single); flip <code>previewUrl</code>.</td></tr>
+          <tr><td class="rowhead">scenario-live.html</td><td>When the runtime has a <code>kind:'spot'</code> phase, mount <code>SimPerception</code> and route its <code>onCross</code> into the existing <code>crossToReact</code> / <code>deliverFirstPhase</code> path. Everything else is the shared conversational player.</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <div class="prio p1">
-      <div class="prio-head"><span class="prio-badge">P1</span><h3>Extract the shared runtime, migrate the ladder family</h3></div>
-      <div class="prio-body"><ul>
-        <li><b>Lift the byte-identical runner</b> into <code>js/sim-player.js</code> + a shared page scaffold (the ~40 DOM ids are already identical across pages). Because the four tier-ladder runners are byte-identical, this is a lift-and-share, not a rewrite.</li>
-        <li><b>Extract <code>coachNode</code></b> (reconcile strategy) + grouping/prompt-lift into a shared component; the DOM and classes are already uniform across 16 pages.</li>
-        <li><b>Migrate onto <code>scenario-live.html?type=</code></b> one type at a time by flipping <code>previewUrl()</code>, A/B against the frozen archive before the next. <b>Done:</b> mix-arc (native) · guided-arc (recipe via <code>toMixArc</code>) · <b>branching</b> (own <code>toRuntime</code> + native prompt with its threat floor — no round-trip) · <b>ensemble</b> (own <code>toRuntime</code> + <code>deliverFirstPhase</code> no-warm-up boot; cast + earned disclosure + minor floor intact). Each A/B came out byte-identical to the archive. <b>Deferred: scene-sweep</b> — the perception half (photo/hotspot sweep + a11y region layer + coverage rail) is a ~575-line net-new surface plus two shared-engine reconciles, not a simple flag; extract it as an opt-in <code>js/sim-perception.js</code> module. Full plan: <code>SCENE-SWEEP-CONVERGENCE-PLAN.md</code>.</li>
-        <li><b>Ship recipes-as-templates</b> — the &ldquo;Start from the &lt;recipe&gt; shape&rdquo; entry point over <code>toMixArc()</code>.</li>
-      </ul></div>
-    </div>
-
-    <div class="prio p2">
-      <div class="prio-head"><span class="prio-badge">P2</span><h3>Polish — shared list helper</h3></div>
-      <div class="prio-body"><ul>
-        <li>Promote mix-arc&rsquo;s collapsible/reorderable beat editor into a <code>studioApi.collapsibleList()</code> sibling of <code>rowsBlock</code>, then adopt it in the other list-heavy types (ensemble cast, scene-sweep hazards, guided-arc turns).</li>
-      </ul></div>
-    </div>
+    <div class="callout"><b>The rule this keeps.</b> A type adapts to the engine in its <code>toRuntime</code> (normalizing flat phases into the canonical shape); the engine does not add a per-type branch to accommodate it. DOM-aware code lives in its own mountable module, not in the DOM-free engine. Full staging, each step A/B&rsquo;d vs the frozen archive, is in <code>SCENE-SWEEP-CONVERGENCE-PLAN.md</code>.</div>
   </section>
 
   <!-- 8 -->
-  <section id="risks">
-    <div class="sec-head"><span class="sec-num">8</span><h2>Risks &amp; how they&rsquo;re contained</h2></div>
+  <section id="stays-converged">
+    <div class="sec-head"><span class="sec-num">10</span><h2>How it stays converged</h2></div>
+    <p class="sec-intro">Four mechanics keep the single engine from re-forking over time.</p>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Risk</th><th>Containment</th></tr></thead>
+        <thead><tr><th>Pressure</th><th>Containment</th></tr></thead>
         <tbody>
-          <tr><td>A migrated page regresses vs. its old behavior</td><td>Additive flips + the frozen <code>archive/2026-08-04/</code> A/B baseline; one type per flip, proven before the next</td></tr>
-          <tr><td>Perception (scene-sweep) / multi-cast (ensemble) don&rsquo;t fit the mix-arc v1 model</td><td>They already ride the same byte-identical core; carry their extras as runtime <b>feature flags</b> (<code>spotted</code>, <code>deliverFirstPhase</code>), not forks. Multi-cast roleplay is the one open contract question for P0</td></tr>
-          <tr><td>Shared JS/CSS edits serve stale to other live pages</td><td>Bump each file&rsquo;s <code>?v=</code> everywhere it loads + the service-worker version, per the repo&rsquo;s cache-bust rule</td></tr>
-          <tr><td>Cost of extracting a 330-line runner + page scaffold</td><td>Bounded: the runner is already one module in four copies; the work is moving it, not designing it</td></tr>
+          <tr><td>A type&rsquo;s extras don&rsquo;t fit the canonical phase shape</td><td>They ride the same engine as data or flags (<code>spotted</code>, <code>deliverFirstPhase</code>, <code>cast[]</code>) rather than a fork. Native types own <code>toRuntime</code>+<code>compile</code>, so their extras are not flattened; only recipes take the conversion.</td></tr>
+          <tr><td>A change regresses a converged type</td><td>Every flip is additive and A/B&rsquo;d <span class="tag tag-share">byte-identical</span> vs the frozen <code>archive/2026-08-04/</code> (tag <code>archive/pre-option-b-2026-08-04</code>), one type at a time, proven before the next.</td></tr>
+          <tr><td>The engine grows a per-type branch</td><td>The phase shape is single and canonical — a type adapts in <code>toRuntime</code>, never in the engine. <code>sim-player.js</code> stays <b>DOM-free</b>; anything DOM-aware (perception) goes in its own mountable module.</td></tr>
+          <tr><td>Shared JS/CSS serves stale to other live pages</td><td>Bump each file&rsquo;s <code>?v=</code> everywhere it loads + the service-worker version, per the repo&rsquo;s cache-bust rule.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <div class="rec">
-    <div class="k">Recommendation</div>
-    <p>The thesis holds and the two hardest claims are proven live: <b>a curated recipe converts cleanly to a Mix &amp; Match composition, and Guided Arc runs on one extracted, <code>?type=</code>-routed player with no bespoke page.</b> Both artifacts are additive and every shipped type still works.</p>
-    <p>Requesting sign-off on <b>P0</b> — the target engine and the two fidelity calls — to proceed to <b>P1</b> (extract <code>sim-player.js</code> + shared <code>coachNode</code>, then migrate the ladder family type-by-type behind <code>previewUrl</code>). Try the spike at <code>scenario-live.html?type=guided-arc</code> and <code>?type=mix-arc</code>.</p>
+    <div class="k">Where it stands</div>
+    <p>The runtime now mirrors the studio: one shell, type-agnostic, extended by adding a type module rather than editing the player. Four of the five types are converged and shipped, each proven byte-identical to the bespoke page it replaced.</p>
+    <p>The flexibility is bounded on purpose. A <b>prescriptive spine</b> — app-owned advancement, locked hand-offs, a strict turn contract, compiled-in safety floors — keeps every learner&rsquo;s run consistent and safe. <b>Flexible fillings</b> — worlds, tiers, transitions, cast, intro modality, voice, playbook — are left to the type.</p>
+    <p><b>Next:</b> converge scene-sweep via the opt-in <code>js/sim-perception.js</code> module, then fold the fresh-panel conversation model into the shared player. <b>Try it:</b> <code>scenario-live.html?type=mix-arc</code> · <code>?type=guided-arc</code> · <code>?type=branching-arc</code> · <code>?type=ensemble-arc</code>.</p>
   </div>
+
+  <!-- Glossary (reference; unnumbered) -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">G</span><h2>Glossary</h2></div>
+    <p class="sec-intro">These terms recur throughout and are easy to run together. Grouped by what they describe rather than alphabetized, so the pairs that blur — beat/phase, type/scenario, native/recipe — sit next to each other.</p>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="rowhead">Type</td><td>A scenario <i>pedagogy</i> — mix-arc, guided-arc, branching-arc, ensemble-arc, scene-sweep. In code, a module exposing <code>DEFAULT / normalize / compile / toRuntime</code> (and, for a recipe, <code>toMixArc</code>). Selected at runtime by <code>?type=</code>.</td></tr>
+          <tr><td class="rowhead">Scenario</td><td>One authored <i>instance</i> of a type — the Marshall scenario is a guided-arc scenario. The type is the template; the scenario is the filled-in content.</td></tr>
+          <tr><td class="rowhead">Phase</td><td>One step of a run in the engine&rsquo;s canonical shape. It lives in a <b>world</b>, has a turn cap, and closes with a <b>tier</b>. The engine indexes <code>scenario.phases[]</code>.</td></tr>
+          <tr><td class="rowhead">Beat</td><td>The <i>authoring</i> word for a phase, used in mix-arc: one unit of the composition carrying one interaction kind (coach-led / roleplay / observe). A beat becomes a phase at runtime — <b>beat and phase are the same thing on the authoring and runtime sides.</b></td></tr>
+          <tr><td class="rowhead">World</td><td>Whether a phase runs as <code>coaching</code> (the learner talks with the coach) or <code>scene</code> (the learner acts opposite a character).</td></tr>
+          <tr><td class="rowhead">Ladder</td><td>The ordered sequence of phases the learner climbs. The &ldquo;tier-ladder engine&rdquo; is the shared runner (<code>SimPlayer</code>) that drives it.</td></tr>
+          <tr><td class="rowhead">Tier</td><td>The calibration band the model reports when a phase closes — how well the learner handled it. A tier fires the phase&rsquo;s transitions and selects the next hand-off&rsquo;s bridge.</td></tr>
+          <tr><td class="rowhead">Transition</td><td>An authored rule on a phase: on a given tier, write session state and route to a named next phase.</td></tr>
+          <tr><td class="rowhead">Hand-off / entry beats</td><td>The locked, app-authored lines that open a phase — bridge + signpost + prompt, or a scene open. The model is given them but cannot rewrite them.</td></tr>
+          <tr><td class="rowhead">Reflection warm-up</td><td>The non-graded gut-check before the ladder (<code>phaseIdx = -1</code>): calibrate only, no tier.</td></tr>
+          <tr><td class="rowhead">Native (type)</td><td>A type that owns its own <code>toRuntime</code> + <code>compile</code> and plays directly on the engine.</td></tr>
+          <tr><td class="rowhead">Recipe (type)</td><td>A type with no ladder of its own that restates itself as a mix-arc composition via <code>toMixArc()</code>, then plays as mix-arc. guided-arc is the one recipe today.</td></tr>
+          <tr><td class="rowhead"><code>toRuntime()</code></td><td>A type method that maps its own schema into the engine&rsquo;s canonical phase shape.</td></tr>
+          <tr><td class="rowhead"><code>toMixArc()</code></td><td>A recipe&rsquo;s method that restates its scenario as a mix-arc composition.</td></tr>
+          <tr><td class="rowhead"><code>compile()</code></td><td>A type method that produces the system-prompt string sent to the model.</td></tr>
+          <tr><td class="rowhead">Floor</td><td>A locked safety block compiled into every scenario — conduct (all types), threat (branching), minor-safeguarding (ensemble). An author cannot disable it.</td></tr>
+          <tr><td class="rowhead">Conversation</td><td>A distinct stretch of dialogue with its own panel — the persistent coach, or a character scene. Separate panels, one shared memory.</td></tr>
+          <tr><td class="rowhead">The engine</td><td><code>js/sim-player.js</code> (<code>SimPlayer</code>) — the DOM-free tier-ladder core shared by every type.</td></tr>
+          <tr><td class="rowhead">The player</td><td><code>scenario-live.html</code> — the one page that renders any type, selected by <code>?type=</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
 </main>
 
 <footer>
   <div class="frow">
-    <span><b>Scenario Simulator</b> — Option B player convergence</span>
+    <span><b>Scenario Simulator</b> — the universal player</span>
     <span>Companion to build-spec · interaction-layer · type-crosswalk · release-readiness</span>
-    <span><b>Spike</b> — scenario-live.html + guided-arc.toMixArc()</span>
+    <span><b>Runtime</b> — scenario-live.html + js/sim-player.js</span>
   </div>
 </footer>
 
