@@ -18,6 +18,8 @@ const PAGE_FILES = {
 const state = {
   route: PAGE.route || 'guide',   // guide | training | catalog | wizard
   trainingView: 'list',      // list | dense | large
+  catalogView: 'cards',      // cards (category carousels) | table
+  catalogCat: 'safety',      // category shown by the table view
   filterOpen: false,
   navOpen: new Set(['training']),
   navActive: 'dashboard',
@@ -199,18 +201,56 @@ const ROUTES = {
   home:     { tab:'home',       title:'Dashboard',                crumbs:['Home'],                               sidenav:true,  actions:'home', navCollapsed:true },
   guide:    { tab:'admin',      title:'Administration dashboard', crumbs:['Administration'],                     sidenav:true,  actions:'guide' },
   training: { tab:'training',   title:'My training',              crumbs:['Training'],                           sidenav:false, actions:'training' },
-  catalog:  { tab:'catalog',    title:'Safety',                   crumbs:['Catalog'],                            sidenav:false, actions:'catalog', count:7 },
+  catalog:  { tab:'catalog',    title:'Catalog',                  crumbs:['Catalog'],                            sidenav:false, actions:'catalog' },
   wizard:   { tab:'admin',      title:'Content Wizard',           crumbs:['Administration','Training Import And Creation'], sidenav:true, actions:'wizard' },
+  /* Drill-in from My training. virtual: it is a sub-page of the training
+     route, so on a standalone page it never navigates to a sibling file. */
+  details:  { tab:'training',   title:'Details',                  crumbs:['Training'],                           sidenav:false, actions:'details', virtual:true },
 };
 
 function renderCrumbs() {
   const r = ROUTES[state.route];
   const loc = LOC_MAP[state.location].node.text;
+  const sep = '<i class="fa-solid fa-chevron-right"></i>';
+  if (state.route === 'details' && state.details) {
+    const hit = tpIndex()[state.details.kind][state.details.id];
+    const trail = [loc, 'Training'].map(p => `<a href="#" onclick="return false">${esc(p)}</a>`);
+    trail.push(`<a href="#" class="crumb-up" data-up="list">My training</a>`);
+    if (hit) {
+      if (state.details.kind !== 'qual' && hit.qual)
+        trail.push(`<a href="#" class="crumb-up" data-up="qual:${hit.qual.id}" title="${esc(hit.qual.name)}">${esc(hit.qual.name)}</a>`);
+      if (state.details.kind === 'act' && hit.req)
+        trail.push(`<a href="#" class="crumb-up" data-up="req:${hit.req.id}" title="${esc(hit.req.name)}">${esc(hit.req.name)}</a>`);
+    }
+    $('#crumbs').innerHTML = trail.join(sep);
+    $('#pageTitle').textContent = detailsTitle();
+    $$('#crumbs .crumb-up').forEach(a => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (a.dataset.up === 'list') { closeDetails(); return; }
+      const [k, i] = a.dataset.up.split(':');
+      showDetails(k, i);
+    }));
+    return;
+  }
   const parts = [loc, ...r.crumbs];
   $('#crumbs').innerHTML = parts
     .map(p => `<a href="#" onclick="return false">${esc(p)}</a>`)
-    .join('<i class="fa-solid fa-chevron-right"></i>');
-  $('#pageTitle').textContent = r.count ? `${r.title} (${r.count})` : r.title;
+    .join(sep);
+  $('#pageTitle').textContent = state.route === 'catalog' ? catalogTitle()
+    : r.count ? `${r.title} (${r.count})` : r.title;
+}
+
+/* Open one of the Area 3 detail pages (activity / requirement / qual). */
+function showDetails(kind, id) {
+  state.details = { kind, id };
+  renderDetails();
+  go('details');
+  const scroll = $('#view-details .view-scroll');
+  if (scroll) scroll.scrollTop = 0;
+}
+function closeDetails() {
+  state.details = null;
+  go('training', state.trainingView);
 }
 
 function go(route, arg) {
@@ -218,9 +258,9 @@ function go(route, arg) {
   if (route === 'admin') route = 'wizard';
 
   // On a standalone page, leaving this route means opening the sibling file.
-  if (PAGE.standalone && route !== PAGE.route) {
+  if (PAGE.standalone && route !== PAGE.route && !(ROUTES[route] && ROUTES[route].virtual)) {
     let href = PAGE_FILES[route] || PAGE_FILES.guide;
-    if (route === 'training' && typeof arg === 'string') href += '?view=' + arg;
+    if ((route === 'training' || route === 'catalog') && typeof arg === 'string') href += '?view=' + arg;
     location.href = href;
     return;
   }
@@ -245,8 +285,20 @@ function go(route, arg) {
   renderCrumbs();
 
   if (route === 'training') setTrainingView(typeof arg === 'string' ? arg : state.trainingView);
+  if (route === 'catalog')  setCatalogView(typeof arg === 'string' ? arg : state.catalogView);
   if (route === 'wizard' && typeof arg === 'number') { state.wizard.step = arg; renderWizard(); }
   $('#app').classList.remove('nav-open');
+}
+
+/* Swap the catalog between the category carousels and the table. */
+function setCatalogView(v) {
+  state.catalogView = v;
+  $$('#catViewToggle button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.cview === v)));
+  $('#catCards').hidden = v !== 'cards';
+  $('#catTableWrap').hidden = v !== 'table';
+  if (v === 'table') renderCatalog(); else renderCatalogCards();
+  renderCrumbs();
 }
 
 /* The filter panel is always in the layout; this opens and closes it. */
@@ -276,8 +328,9 @@ function boot() {
   renderNav();
   renderHome();
   renderFilterPanel();
-  renderCatalog();
   renderWizard();
+  $$('#catViewToggle button').forEach(b =>
+    b.addEventListener('click', () => setCatalogView(b.dataset.cview)));
   setTrainingView('list');
 
   // Location picker
@@ -312,8 +365,17 @@ function boot() {
 
   setFilters(false);
 
-  const startView = new URLSearchParams(location.search).get('view');
-  go(state.route, startView || undefined);
+  $('#detailsClose').addEventListener('click', closeDetails);
+
+  const params = new URLSearchParams(location.search);
+  go(state.route, params.get('view') || undefined);
+
+  // Deep link straight into a detail page: ?details=qual:q-nhs / req:r-loto / act:a4
+  const dl = params.get('details');
+  if (dl && dl.includes(':')) {
+    const [k, i] = dl.split(':');
+    if (tpIndex()[k] && tpIndex()[k][i]) showDetails(k, i);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -336,7 +398,11 @@ function applyFlowState(id, opts) {
       break;
     case 't-cards-s':  go('training', 'dense'); break;
     case 't-cards-l':  go('training', 'large'); break;
-    case 'catalog':    go('catalog'); break;
+    case 'd-qual':     go('training', 'list'); showDetails('qual', 'q-nhs'); break;
+    case 'd-req':      go('training', 'list'); showDetails('req', 'r-loto'); break;
+    case 'd-act':      go('training', 'list'); showDetails('act', 'a5'); break;  // LOTO Tasklist Affected Employees
+    case 'catalog':    state.catalogCat = 'safety'; go('catalog', 'table'); break;
+    case 'cat-cards':  go('catalog', 'cards'); break;
     case 'wz1':        go('wizard', 1); break;
     case 'wz2':        state.wizard.method = 'create'; state.wizard.type = 'quiz'; go('wizard', 2); break;
     case 'wz3':        state.wizard.method = 'create'; state.wizard.type = 'quiz'; go('wizard', 3); break;

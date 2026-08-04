@@ -147,7 +147,7 @@ products/<Product>/<feature>/
 
 1. Copy the version folder you're branching from, e.g. `cp -r ver1 ver2`. The file inside is already `index.html`, so there's nothing to rename — you now have `ver2/index.html`.
 2. Add an entry to `versions.json`: `{ "id": "ver2", "label": "V2", "path": "ver2/index.html" }`.
-3. That's it — the loader **automatically shows the floating version-switcher pill** the moment there are 2+ versions. It's a dark **bottom-center** pill matching the Design Toolbox dock; when the loaded version runs the toolbox, the loader **merges the version buttons into that same dock** so they share one pill. It swaps versions in place via one iframe, deep-links each with `?v=<id>`, and needs no code changes. Order the manifest however you like; the first entry is what opens by default (put the newest first if you want it to open on the latest).
+3. That's it — the loader **automatically shows the floating version-switcher pill** the moment there are 2+ versions. It's a dark **bottom-center** pill matching the Design Toolbox dock; when the loaded version runs the toolbox, the loader **merges the version buttons into that same dock** so they share one pill. It swaps versions in place via one iframe, deep-links each with `?v=<id>`, and needs no code changes. **Version order is fixed: the loader sorts versions ascending (V1, V2, V2.x, V10…) no matter how the manifest is ordered, and always opens V1 (the lowest) by default.** Use a `?v=<id>` deep link to share a later version directly.
 
 Sub-versions use a dotted folder, e.g. `ver2.x/index.html` with `{ "id": "ver2x", "label": "V2.x", "path": "ver2.x/index.html" }`.
 

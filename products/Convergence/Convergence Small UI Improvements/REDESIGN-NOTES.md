@@ -80,11 +80,11 @@ All of these live in the `:root` block at the top of `shared/styles.css`, sectio
 |---|---|
 | Action colour | `--c-primary` `#0271ce`, `--c-primary-hover`, `--c-primary-press`, `--c-primary-soft` (selected fill), `--c-primary-faint` (hover fill), `--c-primary-line` |
 | Neutrals | 4 text levels (`--c-ink` `--c-body` `--c-meta` `--c-faint`), 2 line levels (`--c-line` `--c-line-soft`), 4 surfaces (`--c-surface` `--c-surface-alt` `--c-surface-alt2` `--c-canvas`) |
-| Status semantics | `warn` (in progress), `idle` (incomplete), `err` (overdue), `ok` (complete), `info` (new): each with a `-bg` `-line` `-ink` `-dot` set so pills, dots and badges can never drift apart |
-| Type scale | `--t-page` 20 / `--t-section` 14 / `--t-row` 13.5 / `--t-body` 13 / `--t-meta` 12.5 / `--t-micro` 11.5 |
+| Status semantics | Round 2 mapping: `info` blue = in progress, new · `warn` amber = needs scheduling, retiring · `idle` gray = incomplete · `err` red = overdue · `ok` green = complete, assigned. Each set carries `-bg` `-line` `-ink` `-dot` so pills, dots and badges never drift apart |
+| Type scale | Round 2, with a 16px body floor: `--t-page` 22 / `--t-section` 18 / `--t-row` and `--t-body` 16 / `--t-meta` 14 / `--t-micro` 12 (badge text, captions, table meta only) |
 | Spacing | 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 |
 | Radius | 4 · 6 · 8 · 12 · pill |
-| Elevation | `--e-1` row/card, `--e-2` hover, `--e-3` overlay |
+| Elevation | `--e-xs` (the design-system XS shadow, the only elevation on cards), `--e-1` row, `--e-2` hover, `--e-3` overlay |
 | Focus | one `--focus-ring`, used by every interactive element |
 
 **Shared primitives built from those tokens:** `.pill` (status), `.meter` (progress),
@@ -113,7 +113,7 @@ modernisation the brief asks for. Two Vector components are also used structural
 | ~54px rows with inconsistent vertical padding | One 40px row height for parents, 34px for children |
 | Two unrelated active treatments (bright blue Dashboard vs dark navy expanded parent) | **One selection language at every depth**: 3px blue left rail + `--c-primary-soft` fill + blue label. Expansion is communicated only by the caret and the child group; a parent holding the selected child gets a quieter "trail" state (darker label, blue icon, no fill) so it is never confused with the selection itself |
 | Heavy, inconsistently sized icons | One 15px Font Awesome icon in a fixed 20px column, aligned to the label baseline |
-| Carets pinned far right, disconnected from labels | Caret sits immediately after the label text |
+| Carets pinned far right, disconnected from labels | Round 3 (designer direction): carets are right-aligned in the row, and labels wrap to two lines instead of truncating |
 | Levels told apart only by dividers | Section headers (11.5/600, `--c-faint`), parent rows, and children indented 22px behind a 1px guide line |
 | Dark gray search band | Bordered `--c-surface-alt` input with the shared focus ring |
 | Collapse button jumped from the right edge of the nav to the centre of the icon rail | The button is the first thing in the nav header, so it holds **exactly the same x and y in both states** (left 12px, centred on 29px). The collapsed rail is 58px so the button also lines up with the row icons below it |
@@ -176,6 +176,32 @@ its position between states, so the two collapsible columns behave identically.
 Launch stays in its existing left-hand position (moving it would be a DOM change the brief
 rules out) but is now a compact primary button at a fixed size on every row. The row-level
 details action is a tertiary icon button in the Actions column.
+
+## Area 3 additions: banner, row actions and the detail pages
+
+*Before: the legacy My Training banner and the Activity / Requirement / Qualification Details
+screenshots supplied by the designer.*
+
+| Before | After |
+|---|---|
+| Full-width bright blue bar, "Click here to view classes you need to select a session for.", the whole bar being the link | The shared inline notice on the info tokens above the plan: icon, "**2 classes** need a session selected before they can be scheduled.", and a real **View classes** action |
+| Details opened from a chat-bubble icon that read as commenting | A **circle-info** icon button titled "View details: <name>"; rows with attachments show a second **paperclip** button beside it |
+| Three near-identical Details pages: gray placeholder image, bare duration line, "No Description Provided", a flat activity list you could not click | **One drill-in surface** with the level stated by a kind chip. The hero says what the item contains (counts, summed total duration, progress); contents are rows that open their own details; parents are working links, so you can move qualification → requirement → activity and back |
+| Launch only on the details page itself | Launch stays on every activity row at every level, so drilling down never costs the primary action |
+| "No records to display" as a full-width alarm-red row | Past completions is a table when populated and the shared neutral empty state when not |
+| Attachments only as a paperclip in the list | An Attachments section on the activity page: file icon, name, size, Download |
+
+Going back up is always one click: a **Back to <parent>** control above every panel (structural,
+so a requirement returns to its qualification and an activity to its requirement regardless of how
+the page was reached), plus the full hierarchy in the page-header breadcrumb with every ancestor
+clickable, plus the "Part of" links in the hero.
+
+The pages live inside the training route (Close and the "My training" crumb return to the list)
+and deep-link with `?details=qual:q-nhs`, `?details=req:r-loto` or `?details=act:a4` on
+[ver1/training-plan.html](ver1/training-plan.html).
+
+**Confirm before build:** the legacy completions table has Expire Date and Ignore Date columns,
+dropped here as empty in every screenshot; and the banner count needs the real query behind it.
 
 ## Area 4: Training plan card view
 
@@ -289,6 +315,61 @@ an empty third, which cannot demonstrate the ring treatment. Optional training k
 empty state so the corrected treatment is visible next to two populated rings; All training is
 modelled as mandatory plus individually assigned activities, which is how the training plan data
 in this prototype is structured. **Confirm the real figures and the news excerpts before building.**
+
+## Round 2 refinements
+
+The follow-up brief is [BRIEF-ROUND2.md](BRIEF-ROUND2.md); the carousel reference is
+[08-catalog-card-carousel-reference.png](before-screenshots/08-catalog-card-carousel-reference.png).
+All eight items are applied on top of the round-1 work, in the same `ver1/shared/` files.
+
+1. **Needs Scheduling badge.** The flashing yellow corner is replaced by a labelled amber
+   `.pill-attn` badge on class rows (list), class cards, and the detail hero. The top banner
+   expresses the same meaning: warn-amber surface carrying the same badge, with a real View
+   classes action. Class actions read Details / Select a session, since an unscheduled class
+   cannot be launched.
+2. **Badge audit.** In progress is now the design-system blue (info tokens). Full mapping:
+   info blue = in progress + new, warn amber = needs scheduling + retiring, idle gray =
+   incomplete, err red = overdue, ok green = complete + assigned (solid, per the reference).
+   The elective E corner tag keeps its top-right placement on the ink neutral: the legacy
+   maroon is off-system. Identical in list, cards, catalog and detail pages.
+3. **Card icons centred.** Thumbnails use grid `place-items: center` with `line-height: 1`
+   and one normalised icon size per thumbnail size, so every card icon lands identically.
+4. **XS shadow, no outline.** Cards drop their border; `--e-xs` is the only elevation, on
+   both densities and the catalog cards, radius unchanged.
+5. **`[BEYOND CSS]` Due-date spread.** Demo data only: dues added across upcoming, due soon
+   and overdue on LOTO, PPE and class activities, so the Due column and card chips are
+   populated in every state.
+6. **`[BEYOND CSS]` Catalog category carousels.** An additive card view (default) beside the
+   intact table: stacked category rows, horizontally scrolling strips of cards with the E tag
+   and Assigned badge, roving-focus keyboard support (left/right arrows, Home/End, visible
+   focus ring, list/listitem roles and labels), and View all opening the existing table
+   filtered to that category with the category name and count as the page title. The
+   segmented control in the page header switches views; `?view=cards|table` deep-links.
+7. **Typography floor.** Body 16px minimum, small labels 12px minimum, via the shared type
+   tokens (see the table above), so it holds across the side nav, both Training Plan views,
+   both Catalog views, the wizard and the top nav. Hierarchy: 22/600 page title, 18/600
+   section, 16/500-600 item label, 14 secondary, 12 badges and captions.
+8. **Spacing audit.** Side-nav rows to 44px (children 38px) with the indent moved onto the
+   scale (24px) and the wider 268px column; the filter panel to 256px with 40px rows; the
+   page header to 72px; the plan grid, details grid and card tracks re-sized for the larger
+   type. All from the existing 4px scale, no new one-off values.
+
+### Round 3 designer iterations
+
+- Home: the progress and upcoming-training cards share one height (both stretch to the grid
+  row, footers pinned), and the ring caption is two lines with the remainder bolded:
+  "11 of 18 done" over "**7 to go**".
+- Content Wizard: the stepper is now the Assign Training Wizard's construction (numbered
+  circles, connector lines, labels beneath; blue active, green complete) on the shared tokens.
+- Catalog carousels: no hand scrolling: flanking circular arrow buttons page each row
+  (disabled at the ends), keyboard arrows still walk cards, and titles show two full lines.
+- Training cards: thumbnail icons centred with grid `place-content` (exact on both axes).
+- Side nav: labels wrap to two lines instead of truncating, and the expand carets are
+  right-aligned in the row.
+
+**Fixed along the way:** default-collapsed accordion groups (Individually Assigned
+Activities, Driving Safety) could never be expanded; the toggle set now records user
+toggles instead of forcing closed.
 
 ## OUT OF SCOPE - needs functionality or logic
 

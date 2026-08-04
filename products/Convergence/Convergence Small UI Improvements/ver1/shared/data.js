@@ -70,12 +70,15 @@ const TYPES = {
   doc:      { icon:'fa-file-lines',  thumb:'t-doc',      label:'Document' },
   cbt:      { icon:'fa-display',     thumb:'t-cbt',      label:'Course' },
   quiz:     { icon:'fa-circle-question', thumb:'t-quiz', label:'Quiz' },
+  class:    { icon:'fa-calendar-days',   thumb:'t-class', label:'Class' },
+  qual:     { icon:'fa-graduation-cap',  thumb:'t-qual',  label:'Qualification' },
 };
 const STATUS = {
   inprogress: { cls:'pill-progress',   label:'In progress' },
   incomplete: { cls:'pill-incomplete', label:'Incomplete' },
   overdue:    { cls:'pill-overdue',    label:'Overdue' },
   complete:   { cls:'pill-complete',   label:'Complete' },
+  needssched: { cls:'pill-attn',       label:'Needs scheduling' },
 };
 
 const TRAINING = {
@@ -83,11 +86,12 @@ const TRAINING = {
   progress: { done:0, total:5, unit:'qualifications' },
   quals: [
     { id:'q-indiv', name:'Individually Assigned Activities', open:false,
-      progress:{ done:2, total:3, unit:'activities' }, reqs:[
+      progress:{ done:2, total:4, unit:'activities' }, reqs:[
       { id:'r-indiv', name:'Assigned directly to you', open:true, acts:[
         { name:'Hazard Communication Refresher', type:'cbt', status:'complete', dur:'20 mins', spent:'20 mins', due:'' },
         { name:'Emergency Action Plan Review', type:'doc', status:'complete', dur:'10 mins', spent:'11 mins', due:'' },
         { name:'Annual Policy Signature', type:'doc', status:'incomplete', dur:'5 mins', spent:'', due:'12-31-2026' },
+        { name:'Monthly Safety Meeting 2026', type:'class', status:'needssched', dur:'1 hr', spent:'', due:'09-10-2026' },
       ]},
     ]},
     { id:'q-nhs', name:'New Hire Safety Qualification', open:true,
@@ -96,14 +100,14 @@ const TRAINING = {
         progress:{ done:0, total:2, unit:'activities' },
         notice:'Complete any 2 of the activities below.', acts:[
         { name:'LOTO Tasklist Affected Employees', type:'tasklist', status:'inprogress', dur:'15 mins', spent:'4 mins', due:'' },
-        { name:'LOTO Tasklist Authorized Employees', type:'tasklist', status:'incomplete', dur:'15 mins', spent:'', due:'' },
-        { name:'02 Phil Knight Lockout-Tagout Video', type:'video', status:'incomplete', dur:'5 mins', spent:'', due:'' },
+        { name:'LOTO Tasklist Authorized Employees', type:'tasklist', status:'incomplete', dur:'15 mins', spent:'', due:'08-21-2026' },
+        { name:'02 Phil Knight Lockout-Tagout Video', type:'video', status:'incomplete', dur:'5 mins', spent:'', due:'08-21-2026' },
       ]},
       { id:'r-ppe', name:'PPE Requirement', open:true,
         progress:{ done:0, total:3, unit:'activities' }, acts:[
-        { name:'01 Phil Knight Personal Protective Equipment Policy', type:'doc', status:'incomplete', dur:'30 mins', spent:'', due:'' },
-        { name:'03 Phil Knight PPE CBT', type:'cbt', status:'incomplete', dur:'15 mins', spent:'', due:'' },
-        { name:'PPE Quiz', type:'quiz', status:'incomplete', dur:'10 mins', spent:'', due:'' },
+        { name:'01 Phil Knight Personal Protective Equipment Policy', type:'doc', status:'incomplete', dur:'30 mins', spent:'', due:'09-15-2026' },
+        { name:'03 Phil Knight PPE CBT', type:'cbt', status:'incomplete', dur:'15 mins', spent:'', due:'09-15-2026' },
+        { name:'PPE Quiz', type:'quiz', status:'incomplete', dur:'10 mins', spent:'', due:'09-15-2026' },
       ]},
     ]},
     { id:'q-hse', name:'RV - HSE Microlearning', open:true,
@@ -119,6 +123,7 @@ const TRAINING = {
         progress:{ done:0, total:6, unit:'activities' }, acts:[
         { name:'Microlearning Course - Defensive Driving Basics', type:'cbt', status:'incomplete', dur:'7 mins', spent:'', due:'06-30-2026' },
         { name:'Microlearning Course - Distracted Driving', type:'cbt', status:'incomplete', dur:'6 mins', spent:'', due:'06-30-2026' },
+        { name:'Angie Davenport Plant Safety Class', type:'class', status:'needssched', dur:'1 hr', spent:'', due:'10-01-2026' },
       ]},
     ]},
   ],
@@ -142,6 +147,51 @@ const CATALOG = [
   { name:'OSHA 30 Hour Construction Program (CS-OSHA30-NFb)', code:'CS-OSHA30-NFb', type:'video', isNew:false, author:'Vector Solutions', mobile:true, price:'Free elective', dur:'30 hrs', status:'Enrolled' },
   { name:'OSHA Electrical General Requirements', code:'CS-OSHA-ELEC', type:'video', isNew:false, author:'Vector Solutions', mobile:true,  price:'Free elective', dur:'31 mins', status:'Available' },
 ];
+
+/* --- Area 5 round 2: catalog categories for the card view ---------------
+   The existing table items stay intact as the Safety category; the new
+   categories mirror the carousel reference. elective marks the E corner
+   tag; assigned marks the solid green badge. count overrides the visible
+   card count where a category is larger than the sample. */
+const CAT_ROW = (name, type) => ({ name, code:'', type, isNew:false, author:'Vector Solutions',
+  mobile:true, price:'Free elective', dur:'20 mins', status:'Available', elective:true });
+const CATALOG_CATS = [
+  { id:'safety', name:'Safety - SM', items: CATALOG },
+  { id:'driver', name:'Driver Safety - SM', items: [
+    CAT_ROW('Alert Driving', 'video'),
+    CAT_ROW('Dangers of Distracted Driving', 'video'),
+    CAT_ROW('DOT Entry Level Driver Training', 'cbt'),
+    CAT_ROW('Driving Hazard Recognition', 'video'),
+    CAT_ROW('Driving Large Vehicles', 'video'),
+    CAT_ROW('Winter Driving Safety', 'cbt'),
+  ]},
+  { id:'emergency', name:'Emergency Procedures - SM', items: [
+    CAT_ROW('Emergency Action Plans', 'cbt'),
+    CAT_ROW('Emergency Power Testing', 'video'),
+    CAT_ROW('Emergency Procedures for Heavy Equipment', 'video'),
+    CAT_ROW('Power Plant Boilers: Emergency Response', 'cbt'),
+    CAT_ROW('Process Safety Management', 'cbt'),
+    CAT_ROW('Severe Weather Response', 'video'),
+  ]},
+  { id:'firstaid', name:'First Aid - SM', items: [
+    CAT_ROW('First Aid - Alcohol and Drug Emergencies', 'video'),
+    CAT_ROW('First Aid - Animal and Insect Bites', 'video'),
+    CAT_ROW('First Aid - Bleeding Emergencies', 'video'),
+    CAT_ROW('First Aid - Initial Steps', 'video'),
+    CAT_ROW('First Aid - Poisoning', 'video'),
+    CAT_ROW('First Aid - Burns', 'video'),
+  ]},
+  { id:'quals', name:'Qualifications - SM', count: 30, items: [
+    Object.assign(CAT_ROW('8 HR Hazwoper Training', 'qual'), { dur:'8 hrs 55 mins', assigned:true }),
+    Object.assign(CAT_ROW('Account Director - Fall Protection', 'qual'), { dur:'2 hrs' }),
+    Object.assign(CAT_ROW('Advanced Test', 'qual'), { dur:'45 mins' }),
+    Object.assign(CAT_ROW('Andy Test Qualification', 'qual'), { dur:'1 hr 20 mins' }),
+    Object.assign(CAT_ROW('Angie Davenport New Hire', 'qual'), { dur:'3 hrs', assigned:true }),
+    Object.assign(CAT_ROW('Confined Space Entry Team', 'qual'), { dur:'4 hrs 10 mins' }),
+  ]},
+];
+// The existing Safety items carry the elective marker too (all are electives).
+CATALOG.forEach(c => { c.elective = true; });
 
 /* --- Area 6: wizard ---------------------------------------------------- */
 const WZ_METHODS = [
@@ -190,3 +240,46 @@ const HOME = {
       excerpt:'Incident cost, time recovered and audit preparation are the three inputs most teams already have to hand.' },
   ],
 };
+
+/* --- Detail-page enrichment (Area 3 drill-in) ---------------------------
+   Stable ids for every activity (a1, a2, ... in document order) so detail
+   pages can be deep-linked (?details=act:a4) and driven from the flow map,
+   plus the descriptions, attachments and completion history the detail
+   pages show. Kept separate from the plan structure above so the accordion
+   data stays easy to scan. */
+(function () {
+  let n = 0;
+  TRAINING.quals.forEach(q => q.reqs.forEach(r => r.acts.forEach(a => { a.id = 'a' + (++n); })));
+
+  const set = (name, extra) =>
+    TRAINING.quals.forEach(q => q.reqs.forEach(r => r.acts.forEach(a => {
+      if (a.name === name) Object.assign(a, extra);
+    })));
+
+  TRAINING.quals.find(q => q.id === 'q-indiv').desc =
+    'Activities assigned directly to you, outside any qualification. Each one stands alone: completing it does not roll up into a requirement.';
+  TRAINING.quals.find(q => q.id === 'q-nhs').desc =
+    'The safety training every new hire completes in their first 90 days. Both requirements below must be met before site access is unsupervised.';
+  TRAINING.quals.find(q => q.id === 'q-hse').desc =
+    'Short-form HSE microlearning, refreshed on a rolling schedule. Each requirement covers one hazard area with a handful of five-to-ten minute courses.';
+
+  const req = (id) => { let hit; TRAINING.quals.forEach(q => q.reqs.forEach(r => { if (r.id === id) hit = r; })); return hit; };
+  req('r-loto').desc = 'Lockout tagout awareness for everyone working near controlled equipment. Complete any two of the activities; the tasklists are role-specific.';
+  req('r-ppe').desc = 'Selection, use and care of personal protective equipment. The policy document, the course and the quiz must all be completed.';
+  req('r-cranes').desc = 'Inspection and safe-loading basics for overhead cranes and rigging.';
+
+  set('LOTO Tasklist Affected Employees', {
+    desc: 'A supervisor-verified checklist for employees who work in areas where machines are locked out, but who do not perform the lockout themselves. Covers recognising lockout devices, the restricted actions during service, and who to contact before restarting.',
+    attachment: { name: 'LOTO-Procedure-Checklist.pdf', size: '240 KB' },
+  });
+  set('Hazard Communication Refresher', {
+    desc: 'Annual refresher on the hazard communication standard: labels, safety data sheets and your right to know.',
+    completions: [{ date: '05-14-2026', version: '2.1', spent: '22 mins', score: '92%' }],
+  });
+  set('Emergency Action Plan Review', {
+    completions: [{ date: '04-02-2026', version: '1.4', spent: '11 mins', score: 'Pass' }],
+  });
+  set('Annual Policy Signature', {
+    attachment: { name: '2026-Policy-Handbook.pdf', size: '1.2 MB' },
+  });
+})();
