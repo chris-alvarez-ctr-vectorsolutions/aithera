@@ -39,15 +39,18 @@ background: linear-gradient(100deg, #08172b 0%, #0d3a72 55%, #0f5fbd 100%);
 
 | Element | Spec |
 |---|---|
-| Mark | 40×40 tile, `border-radius: 8px`, `var(--lumo-primary-color, #0271ce)`, white `fa-fire-flame-curved` |
+| Mark | 34×34 tile, `border-radius: 8px`, `var(--lumo-primary-color, #0271ce)`, white `fa-fire-flame-curved` |
 | Eyebrow | `NEW IN KEYSTONE` — 12px, bold, `letter-spacing: .09em`, uppercase, `#77b6f2` |
 | LIVE pill | Fill `#6ee7ad`, text `#0a3b2a`, 11px bold uppercase, `border-radius: 999px`; sits beside the eyebrow |
-| Headline | "Stop hunting for what's due." — `#fff`, bold, 32px, `line-height: 1.12` |
+| Headline | "Stop hunting for what's due." — `#fff`, bold, 30px, `line-height: 1.12` |
 | Body | "The **Department Hub** gathers every open task across your Vector applications, prioritized in one place — with department readiness at a glance." 15px, `#bcd8f5`; "Department Hub" bold `#fff` |
 
 **Right column — action.** White CTA "View the Department Hub" with bold `#0d2a4d` label; beneath
-it, right-aligned 13px `#9dc6ec` subline "Or find it any time in the left navigation". To the
-CTA's right, a 40px square of `rgba(255,255,255,.12)`, `border-radius: 8px`, holding a white ✕.
+it, centred 13px `#9dc6ec` subline "Or find it any time in the left navigation". To the CTA's
+right, a 36px square of `rgba(255,255,255,.12)`, `border-radius: 8px`, holding a white ✕.
+
+All sizes above are measured off the approved screenshot read as a 2× capture (2380px original ≈
+a 1190px-wide banner in CSS pixels), which puts the banner at ~180px tall.
 
 **Two deliberate deviations from these mocks' current conventions**, both taken from the
 approved screenshot:
@@ -82,10 +85,21 @@ below the fold of the banner.
 - Keeps `<section role="region" aria-label="New feature announcement">`.
 - ✕ keeps its `aria-label="Dismiss announcement"`; the flame tile and the ✕ glyph are
   `aria-hidden="true"` (the button label carries the meaning).
-- Contrast: white headline and white CTA label on the navy gradient clear WCAG AA comfortably.
-  The light-blue eyebrow, body, and subline are checked against the *lightest* point of the
-  gradient (the right edge, `#0f5fbd`), which is the worst case for those elements — the subline
-  in particular sits over that end of the gradient.
+- Contrast: because the background is a gradient, each text element is checked against the
+  gradient colour **at its own horizontal position**, not against a single global value. Measured
+  ratios, all WCAG AA passes:
+
+  | Element | On | Ratio |
+  |---|---|---|
+  | Headline `#fff` | `#0d3a72` | 11.3 |
+  | Body `#bcd8f5` | `#0d3a72` | 7.7 |
+  | Eyebrow `#77b6f2` | `#08172b` (left edge) | 8.4 |
+  | LIVE pill text `#0a3b2a` | `#6ee7ad` | 8.2 |
+  | Subline `#9dc6ec` | `#0e468b` (~70% across, the brightest ground any text sits on) | 5.2 |
+  | CTA label `#0d2a4d` | `#fff` | 14.4 |
+
+  Nothing sits over the gradient's brightest end stop (`#0f5fbd`) — the CTA's own white fill
+  covers that region.
 
 ## Files touched
 
