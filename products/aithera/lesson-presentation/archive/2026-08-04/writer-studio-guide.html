@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writer Studio — the Authoring Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F8F4EA;
+    --cream-deep:#F1EADA;
+    --navy:#1B2A4A;
+    --navy-ink:#141F38;
+    --amber:#E8A33D;
+    --amber-deep:#C9861F;
+    --rule:#D8D0BE;
+    --authored:#D9D5CA;
+    --authored-edge:#B8B2A2;
+    --generated:#F6BFDE;
+    --generated-deep:#C9578F;
+    --locked:#C7D0E4;
+    --locked-deep:#5A6C97;
+    /* mode accents — carried over from the Interaction Layer doc so the set reads as one */
+    --m-roleplay:#8E7DC6;   --m-roleplay-band:#F0EDF9;   --m-roleplay-edge:#A99BD6;
+    --m-arc:#3E9E90;        --m-arc-band:#E3F5F2;        --m-arc-edge:#7FC9BE;
+    --m-observe:#C9861F;    --m-observe-band:#FBF3DC;    --m-observe-edge:#E0C167;
+    --m-teach:#C9578F;      --m-teach-band:#FBEAF3;      --m-teach-edge:#E39CC1;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    background:var(--cream);
+    color:var(--navy-ink);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.6;
+  }
+  a{color:var(--navy);text-decoration-color:var(--amber)}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 32px}
+
+  /* ---------- header ---------- */
+  header{border-bottom:3px solid var(--navy);padding:56px 0 40px;position:relative;overflow:hidden}
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--amber-deep);margin-bottom:14px;font-weight:500;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:700;font-size:clamp(34px,5vw,52px);
+    line-height:1.05;letter-spacing:-.01em;color:var(--navy);max-width:16ch;
+  }
+  .lede{max-width:64ch;margin-top:20px;font-size:16.5px;color:#3A4358}
+  .lede strong{color:var(--navy)}
+  .starburst{position:absolute;right:-40px;top:20px;width:220px;height:220px;opacity:.9;pointer-events:none}
+  @media(max-width:760px){.starburst{width:130px;height:130px;right:-30px;top:10px;opacity:.55}}
+  .meta-row{display:flex;gap:28px;flex-wrap:wrap;margin-top:28px;font-family:var(--mono);font-size:12px;color:#5A6376}
+  .meta-row b{color:var(--navy);font-weight:500}
+  .companion{margin-top:18px;font-size:13.5px;color:#5A6376;font-family:var(--mono);
+    background:var(--cream-deep);border:1px solid var(--rule);border-radius:8px;padding:10px 14px;display:inline-block}
+  .companion b{color:var(--navy);font-weight:500}
+  .companion a{color:var(--navy)}
+
+  /* ---------- section scaffolding ---------- */
+  section{padding:52px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+  .sec-num{
+    font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--cream);
+    background:var(--navy);width:34px;height:34px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;flex:none;transform:translateY(4px);
+  }
+  h2{font-family:'Fraunces',serif;font-size:clamp(24px,3.2vw,32px);font-weight:600;color:var(--navy);line-height:1.15}
+  .sec-intro{max-width:72ch;margin:14px 0 26px;color:#3A4358}
+  h3{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--navy);margin:30px 0 8px}
+  p{max-width:74ch}
+  code{font-family:var(--mono);font-size:.86em;background:var(--cream-deep);padding:1px 5px;border-radius:4px;color:var(--navy)}
+
+  /* ---------- the shift (before/after) ---------- */
+  .shift{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;
+    border:1px solid var(--rule);border-radius:14px;overflow:hidden;background:#fff;
+    box-shadow:0 2px 10px rgba(27,42,74,.05);margin:26px 0 10px}
+  .shift .cell{padding:22px 24px}
+  .shift .cell.was{background:var(--cream-deep)}
+  .shift .arrow{display:flex;align-items:center;justify-content:center;padding:0 8px;
+    color:var(--amber-deep);font-size:22px;background:var(--cream-deep);border-right:1px solid var(--rule);font-family:var(--mono)}
+  .shift .lab{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.1em;
+    text-transform:uppercase;color:#7A8296;margin-bottom:9px}
+  .shift .cell.now .lab{color:var(--amber-deep)}
+  .shift .big{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--navy);margin:0 0 6px;line-height:1.25}
+  .shift .sm{font-size:13.5px;color:#3A4358;margin:0;line-height:1.55}
+  @media(max-width:640px){.shift{grid-template-columns:1fr}
+    .shift .arrow{border-right:0;border-bottom:1px solid var(--rule);padding:8px;transform:rotate(90deg)}}
+
+  /* ---------- callouts ---------- */
+  .note{border-left:4px solid var(--amber);border-radius:0 8px 8px 0;background:var(--cream-deep);
+    padding:14px 18px;margin:20px 0 4px;font-size:13.5px;color:#3A4358;max-width:74ch}
+  .note b{color:var(--navy)}
+  .note.locked{border-color:var(--locked-deep);background:#EEF1F8}
+  .note.locked b{color:var(--locked-deep)}
+
+  /* ---------- workspace map ---------- */
+  .ws{display:grid;grid-template-columns:210px 1fr 300px;gap:0;border:1px solid var(--rule);
+    border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(27,42,74,.05);margin:8px 0 6px}
+  @media(max-width:820px){.ws{grid-template-columns:1fr}}
+  .ws-topbar{grid-column:1/-1;background:var(--navy);color:var(--cream);padding:12px 18px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px}
+  .ws-topbar .brand{font-family:'Fraunces',serif;font-weight:700;font-size:15px}
+  .ws-topbar .tb{font-family:var(--mono);font-size:10.5px;background:rgba(255,255,255,.1);
+    border-radius:99px;padding:3px 10px;color:#D7DEEE}
+  .ws-topbar .tb.amber{background:var(--amber);color:var(--navy-ink);font-weight:500}
+  .ws-topbar .spacer{flex:1}
+  .ws-col{padding:18px 18px 20px}
+  .ws-nav{background:var(--cream-deep);border-right:1px solid var(--rule)}
+  .ws-insp{background:#FBFAF6;border-left:1px solid var(--rule)}
+  .ws-col .ct{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+    color:#7A8296;font-weight:500;margin-bottom:12px}
+  .ws-step{display:flex;gap:9px;align-items:baseline;margin:0 0 12px;font-size:13px}
+  .ws-step .k{font-family:var(--mono);font-size:10px;color:var(--cream);background:var(--navy);
+    width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;transform:translateY(2px)}
+  .ws-step b{color:var(--navy);display:block;font-weight:600}
+  .ws-step span{color:#5A6376;font-size:12px;display:block;line-height:1.4}
+  .ws-form-note{font-size:13px;color:#3A4358;line-height:1.6}
+  .ws-form-note b{color:var(--navy)}
+  .ws-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .ws-tabs .t{font-family:var(--mono);font-size:10.5px;padding:4px 10px;border-radius:99px;
+    border:1px solid var(--rule);color:#5A6376;background:#fff}
+  .ws-tabs .t.on{background:var(--navy);color:var(--cream);border-color:var(--navy)}
+  .ws-insp p{font-size:12.5px;color:#5A6376;margin:0 0 9px;line-height:1.5}
+  .ws-insp p b{color:var(--navy)}
+  .ws-cap{font-size:12.5px;color:#5A6376;margin-top:12px;max-width:none}
+  .ws-cap b{color:var(--navy)}
+
+  /* ---------- spine strip ---------- */
+  .spine{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:24px 0 8px;
+    border:1px solid var(--rule);border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(27,42,74,.05)}
+  @media(max-width:820px){.spine{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.spine{grid-template-columns:1fr}}
+  .sp{padding:18px 18px 20px;border-right:1px solid var(--rule);position:relative}
+  .sp:last-child{border-right:0}
+  .sp.mid{background:#FEFBF3}
+  .sp .n{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--amber-deep);line-height:1;margin-bottom:8px}
+  .sp h4{font-family:'Fraunces',serif;font-size:16px;color:var(--navy);margin:0 0 6px}
+  .sp p{font-size:12.5px;color:#3A4358;margin:0;line-height:1.5;max-width:none}
+  .sp .badge{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+    background:var(--cream-deep);border:1px solid var(--rule);color:#5A6376;border-radius:99px;padding:2px 7px;margin-top:9px}
+  .sp.mid .badge{background:var(--amber);border-color:var(--amber);color:var(--navy-ink);font-weight:500}
+
+  /* ---------- phase cards ---------- */
+  .phase{border:1px solid var(--rule);border-radius:14px;background:#fff;margin:26px 0;overflow:hidden;
+    box-shadow:0 2px 10px rgba(27,42,74,.05)}
+  .phase-head{padding:20px 26px 16px;display:flex;gap:14px;align-items:flex-start;border-bottom:1px solid var(--rule)}
+  .phase-head .anno{font-family:'Fraunces',serif;font-weight:700;font-size:15px;color:var(--cream);background:var(--navy);
+    width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;transform:translateY(2px)}
+  .phase-head h3{margin:0;font-size:20px}
+  .phase-sub{font-size:13.5px;color:#4A5568;margin-top:3px;max-width:66ch}
+  .phase-body{padding:22px 26px 26px}
+
+  /* field group listing (studio sub-sections) */
+  .fg{border-top:1px dashed var(--rule);padding:15px 0 3px}
+  .fg:first-child{border-top:0;padding-top:2px}
+  .fg .fh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+  .fg h4{font-family:'Fraunces',serif;font-size:15.5px;color:var(--navy);margin:0}
+  .fg p{font-size:13.5px;color:#3A4358;margin:0;max-width:none}
+  .ptag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;padding:2px 8px;border-radius:99px;font-weight:500;white-space:nowrap}
+  .pt-react{background:#EFEAF7;color:#6B5BA6}
+  .pt-coach{background:#E7ECF6;color:#3A4A6B}
+  .pt-gate{background:#FBEDF4;color:#9E3D6E}
+  .pt-exit{background:#E3F5F2;color:#2E7367}
+  .pt-enter{background:#FBF3DC;color:#8A6D2E}
+  .pt-take{background:#EAF5EF;color:#2E6B5C}
+  .oldcraft{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;
+    color:#8A6D2E;background:#F7EFDE;border:1px solid #E6D6AE;border-radius:99px;padding:3px 10px;margin-top:2px}
+  .oldcraft::before{content:'⇐';font-size:11px}
+
+  /* ---------- modes (2x2) ---------- */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0 8px}
+  @media(max-width:720px){.modes{grid-template-columns:1fr}}
+  .mode{border:1px solid var(--rule);border-radius:14px;background:#fff;overflow:hidden;
+    box-shadow:0 2px 10px rgba(27,42,74,.05);display:flex;flex-direction:column;border-top:4px solid var(--tint)}
+  .mode.rc{--tint:var(--m-roleplay);--band:var(--m-roleplay-band)}
+  .mode.ga{--tint:var(--m-arc);--band:var(--m-arc-band)}
+  .mode.or{--tint:var(--m-observe);--band:var(--m-observe-band)}
+  .mode.tb{--tint:var(--m-teach);--band:var(--m-teach-band)}
+  .mode .top{padding:18px 22px 14px}
+  .mode .kind{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--tint);background:var(--band);border-radius:99px;padding:4px 11px;margin-bottom:11px;font-weight:500}
+  .mode h3{font-size:19px;margin:0 0 7px}
+  .mode .what{font-size:13.5px;color:#3A4358;margin:0}
+  .mode .reshape{padding:12px 22px;background:var(--band);font-size:12.5px;color:#2A3348;border-top:1px solid var(--rule)}
+  .mode .reshape b{color:var(--navy)}
+  .mode .shape{padding:11px 22px 16px;font-family:var(--mono);font-size:11px;color:#5A6376;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .mode .shape .st{background:var(--band);color:var(--tint);border-radius:99px;padding:2px 8px;font-weight:500}
+  .mode .shape .aw{color:#9AA0B0}
+  .mode .eg{padding:0 22px 16px;font-size:12px;color:#6B7280}
+
+  /* ---------- tables ---------- */
+  .tbl-scroll{overflow-x:auto;margin:22px 0 8px;border-radius:12px;border:1px solid var(--rule)}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:13px;min-width:640px}
+  th{background:var(--navy);color:var(--cream);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;font-weight:500;text-align:left;padding:11px 15px;vertical-align:bottom}
+  td{padding:11px 15px;border-top:1px solid var(--rule);vertical-align:top;color:#2A3348;line-height:1.5}
+  td b{color:var(--navy)}
+  tr.group td{background:var(--cream-deep);font-family:'Fraunces',serif;font-weight:600;color:var(--navy);font-size:14px}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:99px;font-weight:500;white-space:nowrap}
+  .tag-auto{background:var(--amber);color:var(--navy-ink)}
+  .tag-lock{background:var(--locked);color:var(--locked-deep);border:1px solid var(--locked-deep)}
+  .tag-gen{background:var(--generated);color:#7A2352}
+
+  /* ---------- inspector tab detail ---------- */
+  .insp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:24px 0 8px}
+  @media(max-width:760px){.insp-grid{grid-template-columns:1fr}}
+  .it{border:1px solid var(--rule);border-radius:12px;background:#fff;padding:18px 20px 20px;box-shadow:0 2px 10px rgba(27,42,74,.05)}
+  .it .ico{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-deep);font-weight:500;margin-bottom:8px}
+  .it h4{font-family:'Fraunces',serif;font-size:16px;color:var(--navy);margin:0 0 7px}
+  .it p{font-size:13px;color:#3A4358;margin:0 0 8px;max-width:none}
+  .it .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .it .chips span{font-family:var(--mono);font-size:10px;background:var(--cream-deep);border:1px solid var(--rule);
+    color:#5A6376;border-radius:99px;padding:2px 8px}
+
+  /* ---------- locked list ---------- */
+  .lock-box{background:#EEF1F8;border:1px solid #C7D0E4;border-radius:12px;padding:18px 22px;margin:18px 0}
+  .lock-box h4{font-family:'Fraunces',serif;font-size:16px;color:var(--locked-deep);margin-bottom:6px}
+  .lock-box ul{list-style:none;margin:8px 0 0;padding:0}
+  .lock-box li{position:relative;padding-left:26px;margin:12px 0;font-size:13.5px;color:#2A3348}
+  .lock-box li b{color:var(--navy)}
+  .lock-box li::before{content:'\1F512';position:absolute;left:0;top:1px;font-size:12px;opacity:.7}
+
+  /* ---------- lifecycle flow ---------- */
+  .flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:24px 0 8px}
+  .fstep{flex:1;min-width:150px;border:1px solid var(--rule);border-radius:12px;background:#fff;padding:15px 16px 16px;
+    box-shadow:0 2px 10px rgba(27,42,74,.05);position:relative}
+  .fstep .n{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--amber-deep);margin-bottom:7px;display:block}
+  .fstep b{font-family:'Fraunces',serif;font-size:15px;color:var(--navy);display:block;margin-bottom:4px}
+  .fstep p{font-size:12.5px;color:#3A4358;margin:0;max-width:none;line-height:1.5}
+
+  footer{border-top:3px solid var(--navy);margin-top:56px;padding:26px 0 48px;
+    font-family:var(--mono);font-size:12px;color:#5A6376}
+  footer .frow{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1080px;margin:0 auto;padding:0 32px}
+  footer b{color:var(--navy);font-weight:500}
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="starburst" viewBox="0 0 200 200" aria-hidden="true">
+    <g transform="translate(100,100)">
+      <g fill="none" stroke="#E8A33D" stroke-width="2.5">
+        <line x1="0" y1="-88" x2="0" y2="-46"/><line x1="0" y1="88" x2="0" y2="46"/>
+        <line x1="-88" y1="0" x2="-46" y2="0"/><line x1="88" y1="0" x2="46" y2="0"/>
+        <line x1="-62" y1="-62" x2="-33" y2="-33"/><line x1="62" y1="62" x2="33" y2="33"/>
+        <line x1="-62" y1="62" x2="-33" y2="33"/><line x1="62" y1="-62" x2="33" y2="-33"/>
+      </g>
+      <circle r="14" fill="#1B2A4A"/>
+    </g>
+  </svg>
+  <div class="wrap">
+    <div class="eyebrow">Scenario Simulator · Part 3 — The Authoring Tool</div>
+    <h1>Inside Writer Studio</h1>
+    <p class="lede">The first two documents describe the <strong>system</strong> — the end-to-end flow and the interaction modes. This one describes the <strong>tool an author uses to produce a scenario for that system</strong>. Writer Studio turns plain-language fields into the compiled prompts, guardrails, and published scenario the learner page runs — never raw prompt text, and never anything that can break the runtime. This is a walkthrough of how it actually works today.</p>
+    <div class="companion">Companion to the <a href="scenario-simulator-build-spec.html"><b>Build &amp; Authoring Specification</b></a> and <a href="scenario-simulator-interaction-layer.html"><b>The Interaction Layer</b></a>.</div>
+    <div class="meta-row">
+      <span><b>Status</b> — For design + product</span>
+      <span><b>Authors</b> — Roleplay · Guided Arc · Observe/React · Teach-Back</span>
+      <span><b>Runs on</b> — the same schema, worker &amp; contract as the live pages</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 1. THE SHIFT ============ -->
+<section id="shift">
+  <div class="sec-head"><span class="sec-num">1</span><h2>What the tool is for</h2></div>
+  <p class="sec-intro">Writer Studio exists because authoring an AI conversation is a different act than authoring a multiple-choice item. In an MCQ you spell out every path a learner can take. In a scenario you can’t — the learner types anything and the model improvises. The author’s job moves from <b>scripting every answer</b> to <b>setting the structure the model performs inside</b>. The studio is where that structure gets written, in plain-language fields, and compiled into the artifacts the system defines.</p>
+
+  <div class="shift">
+    <div class="cell was">
+      <p class="lab">The old craft</p>
+      <p class="big">One stem, one right answer, three distractors</p>
+      <p class="sm">You control every option a learner can pick. Nothing happens that you didn’t type.</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="cell now">
+      <p class="lab">Authoring here</p>
+      <p class="big">A situation, an answer key, and guardrails</p>
+      <p class="sm">You describe what “good” looks like and what must happen. The model plays it out live — differently for every learner, inside the frame you set.</p>
+    </div>
+  </div>
+  <div class="note"><b>The craft carries over — the studio names the mapping as you go.</b> Distractors become “what a weak answer looks like.” Per-answer feedback becomes a believable character reaction. SME teaching points become the guaranteed playbook. Each field group carries a small <span class="oldcraft" style="margin:0">from your old craft</span> label pointing back to the MCQ equivalent, so the move from one craft to the other is explicit, not implied.</div>
+</section>
+
+<!-- ============ 2. THE WORKSPACE ============ -->
+<section id="workspace">
+  <div class="sec-head"><span class="sec-num">2</span><h2>The workspace</h2></div>
+  <p class="sec-intro">One screen, three panes, and a top bar. The <b>left rail</b> is the authoring spine — the same shape a learner walks through. The <b>center</b> is the form for whatever section you’re in. The <b>right</b> is the Inspector — a live, honest view of what your fields become. Nothing here is a separate export step: what you type on the left is compiled on the right as you type.</p>
+
+  <div class="ws" aria-label="Writer Studio layout: top bar, left spine nav, center form, right inspector">
+    <div class="ws-topbar">
+      <span class="brand">Writer Studio</span>
+      <span class="tb">Scenario Simulator · Roleplay</span>
+      <span class="tb">✓ Draft saved</span>
+      <span class="spacer"></span>
+      <span class="tb">Library ▾</span>
+      <span class="tb">Start fresh</span>
+      <span class="tb">Reset to shipped</span>
+      <span class="tb">Import / Export JSON</span>
+      <span class="tb">Learner preview</span>
+      <span class="tb amber">Publish to prototype</span>
+    </div>
+    <div class="ws-col ws-nav">
+      <div class="ct">The spine (left rail)</div>
+      <div class="ws-step"><span class="k">0</span><div><b>Start</b><span>Core interaction + basics</span></div></div>
+      <div class="ws-step"><span class="k">1</span><div><b>Scenario Context</b><span>How the scene is set</span></div></div>
+      <div class="ws-step"><span class="k">2</span><div><b>Interaction</b><span>The core loop</span></div></div>
+      <div class="ws-step"><span class="k">3</span><div><b>Debrief &amp; Close</b><span>Results &amp; takeaways</span></div></div>
+    </div>
+    <div class="ws-col">
+      <div class="ct">The form (center)</div>
+      <p class="ws-form-note">Plain-language fields grouped by section, filled top to bottom. Each group is tagged with the <b>loop phase</b> it drives (ENTER · REACT · COACH · GATE · EXIT) and, where it applies, its <b>old-craft equivalent</b>. Completed groups get a ✓ in the rail. <code>{{learner}}</code> and <code>{{character}}</code> tokens fill names everywhere at once.</p>
+    </div>
+    <div class="ws-col ws-insp">
+      <div class="ct">The Inspector (right)</div>
+      <div class="ws-tabs"><span class="t on">Compiled prompt</span><span class="t">Guardrails</span><span class="t">Playtest</span></div>
+      <p><b>Compiled prompt</b> — the full instructions your fields produce, with char + token counts.</p>
+      <p><b>Guardrails</b> — a live lint that flags gaps before publish.</p>
+      <p><b>Playtest</b> — run the current draft against the live model, right here.</p>
+    </div>
+  </div>
+  <p class="ws-cap"><b>Publish state is always visible.</b> A banner reads “Not published — the learner prototype is running the shipped scenario,” with <b>Learner preview</b> (open the live page) and <b>Publish to prototype</b> (push this draft to it) beside it. Drafts autosave; <b>Reset to shipped</b> reverts to the last shipped scenario, <b>Start fresh</b> gives a blank canvas for the current mode.</p>
+</section>
+
+<!-- ============ 3. THE SPINE ============ -->
+<section id="spine">
+  <div class="sec-head"><span class="sec-num">3</span><h2>The authoring spine, section by section</h2></div>
+  <p class="sec-intro">The rail has one step ahead of the flow — <b>Start</b>, where you choose the mode and set the basics — then the three-section spine the learner actually walks: <b>Scenario Context → Interaction → Debrief &amp; Close</b>. Context and Debrief work the same across every mode; only the <b>Interaction</b> section is reshaped by the mode you pick.</p>
+
+  <div class="spine">
+    <div class="sp"><div class="n">0</div><h4>Start</h4><p>Pick the core interaction, then the basics: title, course context, who the learner plays, the character, pacing.</p><span class="badge">mode + basics</span></div>
+    <div class="sp"><div class="n">①</div><h4>Scenario Context</h4><p>How the scene is set before the loop — the intro modality, or inherited from the previous learning object.</p><span class="badge">ENTER</span></div>
+    <div class="sp mid"><div class="n">②</div><h4>Interaction</h4><p>The live loop. The one section the <em>mode</em> reshapes — and where the difficulty lives.</p><span class="badge">the loop</span></div>
+    <div class="sp"><div class="n">③</div><h4>Debrief &amp; Close</h4><p>Evaluation, the guaranteed playbook, resources, reference material, and the locked engine.</p><span class="badge">EXIT</span></div>
+  </div>
+
+  <!-- START -->
+  <div class="phase">
+    <div class="phase-head"><span class="anno">0</span><div><h3>Start — what are you building?</h3><p class="phase-sub">The first decision shapes every field that follows. You choose one of four <b>core interactions</b> (the mode), then fill the basics.</p></div></div>
+    <div class="phase-body">
+      <div class="fg">
+        <div class="fh"><h4>Choose the core interaction</h4></div>
+        <p>Four cards: <b>Roleplay</b>, <b>Guided Arc</b>, <b>Observe / React</b>, <b>Teach-Back</b>. This is the only choice that changes Section ②; the studio then asks for exactly what that shape needs (§4).</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Basics</h4></div>
+        <p>Scenario title (shown in the learner’s top bar), <b>course context</b> (grounds the model’s register), who the <b>learner plays</b>, the <b>character</b> they talk to, spoken scene lines (target pacing), and practice length.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>How is the context set?</h4> <span class="ptag pt-enter">ENTER</span></div>
+        <p>A source decision that ties the scenario into a course: <b>set it in this scenario</b> (pick an intro in the next step) or <b>use the previous learning object</b> — inherit the context and hand off from whatever ran right before. This is what lets a scenario sit inside the course-delivery frame rather than always cold-opening itself.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTEXT -->
+  <div class="phase">
+    <div class="phase-head"><span class="anno">1</span><div><h3>Scenario Context</h3><p class="phase-sub">How the scene is set before the interaction begins. One chosen intro modality, delivered by the shared context player — the same field the system spec calls <code>intro.type</code>.</p></div></div>
+    <div class="phase-body">
+      <div class="fg">
+        <div class="fh"><h4>Intro &amp; opening</h4> <span class="ptag pt-enter">ENTER</span></div>
+        <p>Pick one of five: <b>video cold open</b>, <b>narrated audio</b> (listen or read), <b>reading — text only</b>, a <b>written story the learner highlights</b>, or <b>no intro — straight in</b>. The chosen modality reveals only its own fields (e.g. video adds per-scene URL + caption). The coach’s opening reflection rides on top of it — surfaced in-context, never a pass/fail gate.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERACTION -->
+  <div class="phase">
+    <div class="phase-head"><span class="anno">2</span><div><h3>Interaction — the core loop</h3><p class="phase-sub"><code>ENTER → (ENGAGE · REACT · COACH) ×N ↺ GATE → EXIT</code>. Shown here in Roleplay; the field groups below are the studio’s Roleplay form, each tagged with the loop phase it drives. Other modes present a different set (§4).</p></div></div>
+    <div class="phase-body">
+      <div class="fg">
+        <div class="fh"><h4>Character card</h4> <span class="ptag pt-react">REACT</span></div>
+        <span class="oldcraft">replaces per-answer feedback</span>
+        <p style="margin-top:6px">The one artifact that drives every character reply: <b>the situation</b> (who they are, what happened, what’s true now — ending with who they are underneath), a <b>when → then reaction map</b>, and <b>style rules</b> the model must never cross.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Assessment dimensions</h4> <span class="ptag pt-coach">COACH</span></div>
+        <span class="oldcraft">right answers &amp; distractors</span>
+        <p style="margin-top:6px">2–4 things each line is <b>silently</b> scored on — name, what strong looks like, what weak looks like (your distractors). They steer the character and aim the coach at the weakest dimension. Never shown to the learner as a rubric.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Misconceptions</h4> <span class="ptag pt-coach">COACH</span></div>
+        <p>Wrong beliefs to surface and disprove: the scene plays the consequence, the coach names it.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Coach voice</h4> <span class="ptag pt-coach">COACH</span></div>
+        <p>Who the coach is (a stance, not a script) and how it works — length, techniques, example questions. It probes and reflects; it never grades out loud.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>The gate</h4> <span class="ptag pt-gate">GATE</span></div>
+        <span class="oldcraft">the passing criterion</span>
+        <p style="margin-top:6px"><b>Hard or soft</b> is the author’s choice. Hard blocks until the required move happens; soft nudges, then advances. You set the requirement, what does <em>not</em> count (the loophole), the skill sequence, a first (open) and second (concrete) nudge, and the <b>minimum acceptable answer after two nudges</b> — the floor the engine will honestly accept so a learner is never trapped.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Completion &amp; handoff</h4> <span class="ptag pt-exit">EXIT</span></div>
+        <p>What ends the loop (usually: passed the gate plus one more observable move) and an example line of the resolution sounding believable. The results ride this final turn into the debrief.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEBRIEF -->
+  <div class="phase">
+    <div class="phase-head"><span class="anno">3</span><div><h3>Debrief &amp; Close</h3><p class="phase-sub">Results, the guaranteed takeaways, reference material, and the read-only engine. This is the most guardrail-dense section — and where the studio surfaces what’s locked.</p></div></div>
+    <div class="phase-body">
+      <div class="fg">
+        <div class="fh"><h4>How results are scored</h4> <span class="ptag pt-exit">EXIT</span></div>
+        <p>A <b>separate evaluation engine</b> — not the in-scene coach — scores the session against your assessment dimensions and returns up to <b>3 strengths and 2 growth areas</b>, each quoting the learner’s own words. Keeping evaluation separate from coaching is what keeps the verdict consistent across every mode.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Playbook</h4> <span class="ptag pt-take">TAKEAWAYS</span></div>
+        <span class="oldcraft">your SME-validated teaching points</span>
+        <p style="margin-top:6px">Guaranteed takeaways every learner leaves with — identical for all, never AI-generated. Each is a “move” plus why it works, landing better with a short quoted example than with theory.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Resources &amp; the crisis floor</h4> <span class="ptag pt-take">TAKEAWAYS</span></div>
+        <p>Real, world-specific places the character could go (campus counseling, an EAP, a safety officer). Flagging a scenario <b>elevated stakes</b> automatically appends a locked crisis floor — e.g. the 988 Suicide &amp; Crisis Lifeline — that the author can’t remove.</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>Reference material</h4> <span class="ptag pt-coach">GROUNDING</span></div>
+        <p>Paste policy or standard excerpts the model must treat as <b>authoritative</b> — where they conflict with its own knowledge, the pasted text wins. Attaching references compiles in a grounding rule (see §6).</p>
+      </div>
+      <div class="fg">
+        <div class="fh"><h4>System guardrails</h4> <span class="ptag pt-gate" style="background:#EEF1F8;color:#5A6C97">LOCKED</span></div>
+        <p>The engine that makes a scenario safe to hand to a model — <b>read-only</b>, but readable in full: output contract, off-script input, learner safety, and reference-grounding rules, each with a “read the exact locked text.” You can see everything the runtime enforces; you can’t edit it (§6).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. MODES ============ -->
+<section id="modes">
+  <div class="sec-head"><span class="sec-num">4</span><h2>The mode reshapes Section ②</h2></div>
+  <p class="sec-intro">Picking a mode in Start swaps the Interaction form for that mode’s field set — Context and Debrief are unchanged. Below is what each mode asks you to author; the <a href="scenario-simulator-interaction-layer.html">Interaction Layer</a> doc has the full schema and prompt breakdown for each.</p>
+
+  <div class="modes">
+    <article class="mode rc">
+      <div class="top"><span class="kind">Roleplay · action-practice</span><h3>Rehearse a hard conversation</h3><p class="what">The learner speaks to a model-voiced character one line at a time while the coach reads each exchange and nudges. Scoring is silent — the conversation is the point.</p></div>
+      <div class="reshape"><b>Section ② asks for:</b> a character card, silent dimensions, misconceptions, coach voice, a gate, and a completion line.</div>
+      <div class="shape"><span class="st">ENGAGE</span><span class="aw">→</span><span class="st">REACT</span><span class="aw">→</span><span class="st">COACH</span><span class="aw">→</span><span class="st">GATE</span></div>
+      <p class="eg">Example: intervening for a friend (Kendra).</p>
+    </article>
+
+    <article class="mode ga">
+      <div class="top"><span class="kind">Guided Arc · guided-arc</span><h3>A phased coaching arc — Practice, then Learn</h3><p class="what">A non-graded reflection warms the learner up, then <b>1..N Practice→Learn phases</b> alternate: in Practice the coach withholds teaching to a single Socratic probe, then steps back to Learn — opening with an author-pinned <b>verbatim “talk it through” line</b> — and lands the point. Each phase can carry a <b>right answer</b> (graded, with a through-line every learner must hear) or stay open. It can end in an optional <b>live “action console” scene</b> where the learner decides <em>what to do</em> — borrowing Roleplay’s in-character finish — before a guaranteed close.</p></div>
+      <div class="reshape"><b>Section ② asks for:</b> a reflection warm-up, an ordered list of <b>Practice→Learn phases</b> (add / remove / reorder), each with a <b>locked verbatim signpost</b> into it and an optional right-answer through-line; then an optional <b>live scene</b> (say/do split + consequence tiers) and a guaranteed playbook + resources close.</div>
+      <div class="shape"><span class="st">REFLECT</span><span class="aw">→</span><span class="st">PRACTICE</span><span class="aw">⇄</span><span class="st">LEARN</span><span class="aw">→</span><span class="st">SCENE</span><span class="aw">→</span><span class="st">CLOSE</span></div>
+      <p class="eg">Example / reference build: bystander intervention (Marshall — the type’s default).</p>
+    </article>
+
+    <article class="mode or">
+      <div class="top"><span class="kind">Observe / React · observe-react</span><h3>Review footage, one beat at a time</h3><p class="what">The learner reviews footage in segments and the coach probes what they saw — asking first, then validating or correcting, ending on a synthesis. No role-play.</p></div>
+      <div class="reshape"><b>Section ② asks for:</b> a <b>media segment spine</b>, scripted openers, dimensions, and an opening question.</div>
+      <div class="shape"><span class="st">ENGAGE</span><span class="aw">→</span><span class="st">REACT</span><span class="aw">→</span><span class="st">GATE</span><span class="aw">→</span><span class="st">EXIT</span></div>
+      <p class="eg">Example: hazmat scene size-up (I-65 tanker).</p>
+    </article>
+
+    <article class="mode tb">
+      <div class="top"><span class="kind">Teach-Back · teach-back</span><h3>Explain it back from memory</h3><p class="what">The learner teaches required topics in their own words while a live grader tracks coverage. Here the score <em>is</em> the point.</p></div>
+      <div class="reshape"><b>Section ② asks for:</b> a <b>topic list</b> (with synonyms), calibration, grading rules, and a close. Compiles to <b>three</b> prompts.</div>
+      <div class="shape"><span class="st">ENTER</span><span class="aw">→</span><span class="st">ENGAGE</span><span class="aw">→</span><span class="st">REACT</span><span class="aw">→</span><span class="st">RESULTS</span></div>
+      <p class="eg">Example: applying HazCom (Teach Me).</p>
+    </article>
+  </div>
+  <div class="note">New modes are added by <b>registering a new scenario type</b> against the same contract — not by improvising per scenario. The studio shell reads only a mode’s public surface and holds no knowledge of any specific pedagogy, so authors’ workflow is identical whichever mode they pick.</div>
+</section>
+
+<!-- ============ 5. INSPECTOR ============ -->
+<section id="inspector">
+  <div class="sec-head"><span class="sec-num">5</span><h2>The Inspector — no black box</h2></div>
+  <p class="sec-intro">The right pane is the studio’s honesty guarantee. It shows exactly what your fields become, checks them, and lets you run them — three tabs, always in sync with the current draft.</p>
+
+  <div class="insp-grid">
+    <div class="it">
+      <div class="ico">Tab 1</div>
+      <h4>Compiled prompt</h4>
+      <p>The full system prompt your fields produce — the situation, output contract, scenario, dimensions and gate, all assembled. A <b>char and token count</b> sits at the top; <b>Copy</b> lifts the whole thing. Dynamic (authored) text reads against the locked engine sections so you always see which is which.</p>
+      <div class="chips"><span>~2,150 tokens</span><span>Copy</span><span>dynamic vs locked</span></div>
+    </div>
+    <div class="it">
+      <div class="ico">Tab 2</div>
+      <h4>Guardrails</h4>
+      <p>A live lint — a spellcheck for scenarios. It flags gaps as you type: <b>warnings</b> are advice, <b>blocking issues</b> stop a broken publish. The tab shows a running count, and the header reads <b>“All checks pass — publish when the playtest holds up”</b> when you’re clear.</p>
+      <div class="chips"><span>warnings</span><span>blocking</span><span>✓ all pass</span></div>
+    </div>
+    <div class="it">
+      <div class="ico">Tab 3</div>
+      <h4>Playtest</h4>
+      <p>Run the <b>current draft</b> against the live model without publishing — the same Cloudflare Worker proxy the learner page uses. One-click <b>stress tests</b> load canned adversarial inputs to probe the guardrails fast.</p>
+      <div class="chips"><span>🧨 Troll it</span><span>🕵️ Break character</span><span>🫂 Vague warmth</span><span>⚡ Confrontation</span><span>✅ Names real help</span></div>
+    </div>
+  </div>
+  <div class="note"><b>Models, made explicit.</b> The Playtest names the model it runs — conversation and evaluation use <code>claude-opus-4-8</code>; Teach-Back’s fast coverage grading uses <code>claude-haiku-4-5</code>. Same proxy, same message shape as production, so a playtest that holds up is a real signal.</div>
+</section>
+
+<!-- ============ 6. LOCKED ============ -->
+<section id="locked">
+  <div class="sec-head"><span class="sec-num">6</span><h2>What’s locked, and why</h2></div>
+  <p class="sec-intro">The boundary between authoring and runtime is the whole point of the tool: an author writes a scenario’s <b>content</b> in plain language and cannot touch the pieces that keep it safe and parseable. Those pieces are visible in the Debrief section — readable, never editable.</p>
+
+  <div class="lock-box">
+    <h4>The read-only engine sections</h4>
+    <ul>
+      <li><b>Output contract.</b> The strict JSON shape every model turn must return. The page can render nothing else, so this can’t be loosened.</li>
+      <li><b>Off-script input.</b> How trolling, gibberish, and jailbreak attempts are absorbed without shaming the learner.</li>
+      <li><b>Learner safety.</b> The highest-priority rule: a learner disclosing their own crisis suspends the exercise and surfaces real help — it supersedes everything the author wrote.</li>
+      <li><b>Reference grounding.</b> Compiled in whenever reference material is attached: pasted documents are treated as facts to build on, never as instructions that can override the rules above.</li>
+    </ul>
+  </div>
+  <div class="note locked"><b>Prompt count is the platform’s call, not the author’s.</b> Most modes compile to one prompt; Teach-Back splits into three (calibrate · grade · close). Authors never manage this — the studio compiles the extra prompts and wires them, and can surface them for reference. The elevated-stakes crisis floor is locked the same way: opt in, and the safety line is appended for you.</div>
+</section>
+
+<!-- ============ 7. LIFECYCLE ============ -->
+<section id="lifecycle">
+  <div class="sec-head"><span class="sec-num">7</span><h2>From draft to learner</h2></div>
+  <p class="sec-intro">The path a scenario takes through the studio. Draft, published, and shipped are distinct states — the learner page reads the <b>published</b> slot, and publishing is a deliberate act, never an autosave side effect.</p>
+
+  <div class="flow">
+    <div class="fstep"><span class="n">01</span><b>Pick a mode</b><p>Choose the Section-② shape by the skill you’re assessing.</p></div>
+    <div class="fstep"><span class="n">02</span><b>Fill the spine</b><p>Start → Context → Interaction → Debrief, in plain language, ✓ per group.</p></div>
+    <div class="fstep"><span class="n">03</span><b>Clear the guardrails</b><p>Work the lint down until nothing is blocking.</p></div>
+    <div class="fstep"><span class="n">04</span><b>Playtest</b><p>Run the draft against the live model; hit the stress tests.</p></div>
+    <div class="fstep"><span class="n">05</span><b>Publish &amp; preview</b><p>Push to the prototype, open Learner preview, come back to adjust.</p></div>
+  </div>
+
+  <div class="tbl-scroll">
+    <table style="min-width:600px">
+      <thead><tr><th style="width:24%">State / action</th><th>What it means</th><th style="width:18%">Where it lives</th></tr></thead>
+      <tbody>
+        <tr><td><b>Draft (autosave)</b></td><td>Your in-progress work — saved continuously as you type</td><td><span class="tag tag-auto">local draft</span></td></tr>
+        <tr><td><b>Library</b></td><td>Named versions you save and reload; same-browser</td><td><span class="tag tag-auto">library</span></td></tr>
+        <tr><td><b>Export / Import JSON</b></td><td>Hand a scenario to a colleague, or bring one in</td><td><span class="tag tag-auto">file</span></td></tr>
+        <tr><td><b>Publish to prototype</b></td><td>Push the current draft to the slot the learner page reads</td><td><span class="tag tag-gen">published</span></td></tr>
+        <tr><td><b>Learner preview</b></td><td>Open the live page running the published scenario</td><td><span class="tag tag-gen">published</span></td></tr>
+        <tr><td><b>Reset to shipped</b></td><td>Revert the draft to the last shipped scenario</td><td><span class="tag tag-lock">shipped</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>One habit worth forming early:</b> in the conversation modes, write names as <code>{{learner}}</code> and <code>{{character}}</code> rather than typing them out — change a name once and it updates everywhere, in the fields and in the compiled prompt. When in doubt about what your guidance becomes, read the Compiled Prompt: it’s the honest picture.</div>
+</section>
+
+</main>
+
+<footer>
+  <div class="frow">
+    <span><b>Scenario Simulator — Part 3 · The Authoring Tool</b> · Inside Writer Studio</span>
+    <span>Draft · July 2026</span>
+  </div>
+</footer>
+
+</body>
+</html>

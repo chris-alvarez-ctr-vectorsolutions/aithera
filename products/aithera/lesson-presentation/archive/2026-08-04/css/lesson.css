@@ -1,0 +1,1965 @@
+/* ============================================================================
+   lesson.css — shared shell for Lesson Presentation experiments.
+
+   Layout is a fixed header + fixed footer with a scrollable content area
+   between them. Individual lesson "content types" (Terms to Remember,
+   and future types) drop their markup into <main class="lesson-body">.
+
+   Sections:
+     1. Tokens & base
+     2. Lesson shell (header / body / footer)
+     3. Terms to Remember content type
+     4. Ask-about-this chat panel (slide-in side panel)
+     5. Quick Question content type
+     6. Modal (clarifier / more-info popover)
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   1. Tokens & base
+   ------------------------------------------------------------------------- */
+:root {
+  --accent:        #0f9e8e;   /* teal — matches the section accent on the index */
+  --accent-strong: #0c7d70;
+  --accent-soft:   #e6f6f4;
+
+  --ink:        #1f2937;
+  --ink-soft:   #5d6672;   /* ≥4.5:1 on white (was #6b7280, borderline on canvas) */
+  --ink-faint:  #717a85;   /* ≥4.5:1 on white (was #9ca3af ≈ 2.6:1 — failed 1.4.3) */
+  --ink-faint-ui: #9ca3af; /* decorative/non-text uses only (dots, borders) */
+  --line:       #e5e7eb;
+  --surface:    #ffffff;
+  --canvas:     #f4f6f8;
+
+  --header-h: 64px;
+  --footer-h: 76px;
+  --chat-w:   400px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .10);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, .10), 0 2px 4px rgba(16, 24, 40, .06);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, .16);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Open Sans', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------------
+   2. Lesson shell
+   ------------------------------------------------------------------------- */
+.lesson-shell {
+  min-height: 100%;
+  /* Reserve space for the fixed header/footer. Shifts left when chat opens. */
+  padding: var(--header-h) 0 var(--footer-h);
+  transition: padding-right .32s cubic-bezier(.4, 0, .2, 1);
+}
+.lesson-shell.chat-open {
+  padding-right: var(--chat-w);
+}
+
+/* --- Header ------------------------------------------------------------- */
+.lesson-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-h);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  transition: right .32s cubic-bezier(.4, 0, .2, 1);
+}
+.lesson-shell.chat-open ~ .lesson-header,
+.chat-open .lesson-header { right: var(--chat-w); }
+
+.lesson-crumb {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  min-width: 0;
+}
+.lesson-crumb .crumb-course { color: var(--ink-soft); }
+.lesson-crumb .crumb-sep    { color: var(--ink-faint); }
+.lesson-crumb .crumb-lesson {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lesson-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.lesson-progress .progress-label {
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.lesson-progress vaadin-progress-bar {
+  width: 180px;
+}
+.lesson-progress vaadin-progress-bar::part(value) {
+  background-color: var(--accent);
+}
+
+/* --- Body --------------------------------------------------------------- */
+.lesson-body {
+  min-height: calc(100vh - var(--header-h) - var(--footer-h));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* "safe" keeps content top-aligned (not clipped) if it ever outgrows the
+     viewport; overflow-y is the scroll fallback for very short screens. */
+  justify-content: safe center;
+  overflow-y: auto;
+  padding: clamp(20px, 5vh, 48px) 28px;
+}
+
+/* --- Footer ------------------------------------------------------------- */
+.lesson-footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--footer-h);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 28px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  transition: right .32s cubic-bezier(.4, 0, .2, 1);
+}
+.chat-open .lesson-footer { right: var(--chat-w); }
+
+.lesson-instructions {
+  margin: 0;                 /* it's a <p>; the footer owns vertical spacing */
+  font-size: 13px;
+  color: var(--ink-soft);
+  max-width: 52ch;
+}
+
+/* Scroll cue — appears when the lesson body has more content below the fold.
+   Floats just above the footer, centered on the content area. */
+.lesson-scroll-cue {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--footer-h) + 14px);
+  transform: translateX(-50%) translateY(6px);
+  z-index: 25;                /* above scrolling content, below header/footer (30) */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-md);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease, left .32s cubic-bezier(.4, 0, .2, 1);
+}
+.lesson-scroll-cue.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.lesson-scroll-cue:hover { color: var(--ink); border-color: var(--accent); }
+.lesson-scroll-cue i {
+  font-size: 12px;
+  color: var(--accent);
+  animation: scroll-bob 1.4s ease-in-out infinite;
+}
+@keyframes scroll-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(3px); }
+}
+/* Keep it centered on the content area when the chat panel pushes it aside. */
+.chat-open .lesson-scroll-cue { left: calc(50% - var(--chat-w) / 2); }
+@media (max-width: 720px) {
+  .chat-open .lesson-scroll-cue { left: 50%; }
+}
+.lesson-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   3. Terms to Remember
+   ------------------------------------------------------------------------- */
+.terms-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 28px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.terms-eyebrow i { color: var(--accent); font-size: 12px; }
+
+/* Flip card -------------------------------------------------------------- */
+.term-card {
+  position: relative;
+  width: min(440px, 100%);   /* fits the content area, incl. when chat shifts it */
+  height: clamp(248px, 44vh, 320px);   /* shrinks on short viewports */
+  perspective: 1600px;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+}
+.term-card:focus-visible { outline: none; }
+.term-card:focus-visible .term-face {
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--accent-soft), 0 0 0 4px var(--accent);
+}
+
+.term-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform .6s cubic-bezier(.4, .15, .2, 1);
+  transform-style: preserve-3d;
+}
+.term-card.flipped .term-card-inner { transform: rotateY(180deg); }
+
+.term-face {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow .2s ease;
+}
+.term-card:hover .term-face { box-shadow: var(--shadow-lg); }
+
+/* Front: the word */
+.term-front .term-word {
+  font-size: clamp(40px, 7vw, 64px);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* Back: the definition */
+.term-back {
+  transform: rotateY(180deg);
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  background: linear-gradient(180deg, #ffffff, var(--accent-soft));
+  border: 1px solid var(--accent-soft);
+}
+.term-back .term-back-word {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-strong);
+  margin: 0 0 10px;
+}
+.term-back .term-back-def {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0;
+}
+.term-back .term-back-tag {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* Flip helper affordance (corner curl arrow + helper text) */
+.term-flip-hint {
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-faint);
+  transition: opacity .3s ease;
+}
+.term-flip-hint i { font-size: 12px; }
+.term-card.flipped ~ .term-flip-hint { opacity: 0; pointer-events: none; }
+
+/* Ask-about-this button — appears after the flip */
+.term-ask-row {
+  margin-top: 22px;
+  height: 40px;            /* reserve space so the layout doesn't jump on reveal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.term-ask-btn {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+}
+.term-ask-btn.revealed {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.term-ask-btn i { margin-right: 8px; }
+
+/* Make the tertiary button read as a clear, tappable CTA pill */
+.term-ask-btn::part(label) { text-decoration: none !important; }
+.term-ask-btn {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.term-ask-btn:hover { background: #d4efeb; }
+
+/* ---------------------------------------------------------------------------
+   4. Ask-about-this chat panel (slide-in side panel)
+   ------------------------------------------------------------------------- */
+.lesson-chat {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: var(--chat-w);
+  max-width: 92vw;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(100%);
+  transition: transform .32s cubic-bezier(.4, 0, .2, 1);
+}
+.lesson-chat.open { transform: none; }
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.chat-avatar {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  font-size: 15px;
+}
+.chat-head-text { min-width: 0; line-height: 1.3; }
+.chat-head-text .chat-title { font-weight: 700; font-size: 15px; }
+.chat-head-text .chat-sub   { font-size: 12px; color: var(--ink-soft); }
+.chat-close {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 16px;
+}
+.chat-close:hover { background: var(--canvas); color: var(--ink); }
+
+.chat-thread {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chat-msg {
+  max-width: 84%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.chat-msg.bot {
+  align-self: flex-start;
+  background: var(--canvas);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--accent-strong);   /* white text needs ≥4.5:1 (accent is ~3.2:1) */
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+/* Typing indicator */
+.chat-typing {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--canvas);
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+}
+.chat-typing span {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  animation: chat-bounce 1.2s infinite ease-in-out;
+}
+.chat-typing span:nth-child(2) { animation-delay: .15s; }
+.chat-typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes chat-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30%           { transform: translateY(-5px); opacity: 1; }
+}
+
+/* Suggestion chips */
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.chat-chip {
+  border: 1px solid var(--accent-soft);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.chat-chip:hover { background: #d4efeb; border-color: #b9e4dd; }
+
+/* Composer */
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.chat-composer textarea {
+  flex: 1 1 auto;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  max-height: 120px;
+  outline: none;
+}
+.chat-composer textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);   /* visible focus, not just a hue shift */
+}
+.chat-send {
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-strong);   /* white icon needs ≥4.5:1 */
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background .15s ease;
+}
+.chat-send:hover { background: #0a675c; }
+.chat-send:disabled { background: var(--ink-faint); cursor: default; }
+
+/* ---------------------------------------------------------------------------
+   Responsive — chat goes full-bleed on narrow screens, shell stops shifting
+   ------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  :root { --chat-w: 100vw; }
+  .lesson-chat { max-width: 100vw; }
+  .lesson-shell.chat-open { padding-right: 0; }
+  .chat-open .lesson-header,
+  .chat-open .lesson-footer { right: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   5. Quick Question content type
+   ------------------------------------------------------------------------- */
+.qq {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Reuses the eyebrow treatment from Terms to Remember */
+.qq-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.qq-eyebrow i { color: var(--accent); font-size: 12px; }
+
+/* The question is a short heading — centering a title (not body prose) is fine */
+.qq-question {
+  margin: 0 0 14px;
+  max-width: 22ch;
+  font-size: clamp(26px, 4.4vw, 40px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -.01em;
+  text-align: center;
+  color: var(--ink);
+}
+
+/* Clarifier — a quiet "more info" button under the question */
+.qq-clarifier {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.qq-clarifier:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+.qq-clarifier i { font-size: 12px; }
+
+/* Options — large blocky single-select buttons.
+   Count-aware layout: 2 sit side-by-side, 3 in a row, and 4 snap to a tidy
+   2×2 (capping the width forces the wrap) instead of an unbalanced 3 + 1. */
+.qq-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+.qq-options:has(.qq-option:nth-child(4)) {
+  max-width: 600px;   /* two columns max → 4 options become 2×2 */
+  margin-inline: auto;
+}
+.qq-option {
+  position: relative;
+  flex: 1 1 200px;
+  max-width: 280px;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 20px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+  text-align: center;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, background .15s ease;
+}
+.qq-option:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.qq-option:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--accent-soft);
+}
+.qq-option[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-md);
+}
+
+/* Optional icon above the label */
+.qq-option-icon {
+  font-size: 26px;
+  color: var(--ink-faint);
+  transition: color .15s ease;
+}
+.qq-option[aria-checked="true"] .qq-option-icon { color: var(--accent-strong); }
+
+.qq-option-label {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Selected check badge, top-right corner */
+.qq-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: #fff;
+  font-size: 11px;
+  transition: background .15s ease, border-color .15s ease;
+}
+.qq-check i { opacity: 0; transition: opacity .15s ease; }
+.qq-option[aria-checked="true"] .qq-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.qq-option[aria-checked="true"] .qq-check i { opacity: 1; }
+
+/* ---------------------------------------------------------------------------
+   6. Modal (clarifier / more-info popover)
+   ------------------------------------------------------------------------- */
+.lesson-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(16, 24, 40, .45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+.lesson-modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.lesson-modal {
+  width: 100%;
+  max-width: 460px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(8px) scale(.98);
+  transition: transform .2s cubic-bezier(.4, 0, .2, 1);
+}
+.lesson-modal-backdrop.open .lesson-modal { transform: none; }
+
+.lesson-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 20px 0;
+}
+.lesson-modal-icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 16px;
+}
+.lesson-modal-title {
+  flex: 1 1 auto;
+  margin: 6px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.lesson-modal-close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 15px;
+  cursor: pointer;
+}
+.lesson-modal-close:hover { background: var(--canvas); color: var(--ink); }
+
+.lesson-modal-body {
+  padding: 12px 20px 4px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+  text-align: left;
+}
+.lesson-modal-body p { margin: 0 0 12px; }
+.lesson-modal-body p:last-child { margin-bottom: 0; }
+
+.lesson-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 20px 20px;
+}
+
+/* ---------------------------------------------------------------------------
+   7. Short-viewport compression
+
+   The lesson shell targets a minimum slide of ~820×565. On short screens we
+   tighten spacing and scale type/cards down so the densest content type
+   (a Quick Question with up to 4 options, or a flip card) still fits between
+   the fixed header and footer without scrolling.
+   ------------------------------------------------------------------------- */
+@media (max-height: 620px) {
+  .lesson-body { padding-top: 16px; padding-bottom: 16px; }
+
+  /* Estimate Peak BAC */
+  .bac-title  { font-size: clamp(24px, 3.4vw, 30px); margin-bottom: 6px; }
+  .bac-intro  { margin-bottom: 6px; }
+  .bac-prompt { margin-bottom: 18px; }
+  .bac-level      { padding: 10px 0; }
+  .bac-level-desc { font-size: 13px; }
+
+  /* Terms to Remember */
+  .terms-eyebrow { margin-bottom: 14px; }
+  .term-card { height: clamp(210px, 46vh, 260px); }
+  .term-front .term-word { font-size: clamp(32px, 6vw, 52px); }
+  .term-face { padding: 22px; }
+  .term-back .term-back-def { font-size: 15px; line-height: 1.5; }
+  .term-flip-hint { margin-top: 12px; }
+  .term-ask-row { margin-top: 12px; height: 36px; }
+
+  /* Quick Question */
+  .qq-eyebrow { margin-bottom: 10px; }
+  .qq-question { font-size: clamp(22px, 3.4vw, 30px); margin-bottom: 8px; }
+  .qq-clarifier { margin-bottom: 18px; }
+  .qq-options { gap: 12px; }
+  .qq-option { min-height: 100px; padding: 16px; gap: 8px; }
+  .qq-option-icon { font-size: 22px; }
+  .qq-option-label { font-size: 16px; }
+  .qq-check { top: 8px; right: 8px; }
+}
+
+/* ---------------------------------------------------------------------------
+   8. Estimate Peak BAC — vertical slider content type
+
+   A vertical rail with four discrete stops (mild → severe). Each stop is a
+   clickable level row whose dot sits on the rail; a draggable thumb glides
+   along the rail and snaps to the nearest stop. The rail / fill / thumb are
+   positioned in JS from the measured dot centers, so the rows can have
+   different heights (descriptions vary) and the geometry still lines up.
+   ------------------------------------------------------------------------- */
+.bac {
+  width: 100%;
+  max-width: 720px;
+}
+
+.bac-title {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.bac-intro {
+  margin: 0 0 6px;
+  max-width: 60ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.bac-prompt {
+  margin: 0 0 28px;
+  max-width: 60ch;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+/* Scale = relative box that hosts the absolutely-positioned rail/fill/thumb
+   plus the in-flow column of level rows. */
+.bac-scale {
+  position: relative;
+  width: 100%;
+}
+
+/* The vertical rail and its progress fill (top/height set in JS). */
+.bac-rail {
+  position: absolute;
+  left: 17px;                 /* dot center (34px column / 2) − 1px half-width */
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line);
+  z-index: 0;
+}
+.bac-fill {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%;
+  height: 0;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: top .18s cubic-bezier(.4, 0, .2, 1),
+              height .18s cubic-bezier(.4, 0, .2, 1);
+}
+.bac-scale.is-dragging .bac-fill { transition: none; }
+
+/* Draggable thumb — hidden until the learner commits a first selection. */
+.bac-thumb {
+  position: absolute;
+  left: 18px;                 /* dot center */
+  top: 0;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%) scale(.6);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  cursor: grab;
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--accent-soft);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: top .18s cubic-bezier(.4, 0, .2, 1),
+              opacity .2s ease, transform .2s ease;
+}
+.bac-thumb.is-visible { opacity: 1; transform: translate(-50%, -50%); pointer-events: auto; }
+.bac-thumb:focus-visible { outline: none; box-shadow: var(--shadow-md), 0 0 0 4px var(--accent); }
+.bac-thumb:active,
+.bac-scale.is-dragging .bac-thumb { cursor: grabbing; transition: opacity .2s ease, transform .2s ease; }
+
+/* Level rows — the in-flow column. */
+.bac-levels {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+.bac-level {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: start;
+  gap: 16px;
+  padding: 14px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+.bac-level:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+.bac-level:focus-visible .bac-level-title { color: var(--accent-strong); }
+
+/* The dot sits on the rail. It enlarges / fills as it becomes the active stop. */
+.bac-dot {
+  justify-self: center;
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: 0 0 0 4px var(--surface);   /* mask the rail behind the dot */
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.bac-level:hover .bac-dot { border-color: var(--accent); }
+.bac-level.is-reached .bac-dot { border-color: var(--accent); }
+.bac-level.is-active  .bac-dot { background: var(--accent); border-color: var(--accent); transform: scale(1.1); }
+
+.bac-level-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  transition: color .15s ease;
+}
+.bac-level.is-active .bac-level-title { color: var(--accent-strong); }
+.bac-range {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--canvas);
+}
+.bac-level.is-active .bac-range { color: var(--accent-strong); background: var(--accent-soft); }
+.bac-level-desc {
+  display: block;
+  margin-top: 4px;
+  max-width: 52ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------------------
+   9. Interstitial — full-screen "we're using your input" beat
+
+   Sits above the lesson shell (no header/footer/nav). Reveals with a gentle
+   rise; the estimated value counts up into the framed display.
+   ------------------------------------------------------------------------- */
+.interstitial {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 28px;
+  background: radial-gradient(120% 90% at 50% 0%, var(--accent-soft) 0%, var(--canvas) 55%, var(--canvas) 100%);
+}
+.interstitial.is-active { display: flex; }
+
+/* Staged rise-in for the inner content */
+.interstitial-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 540px;
+  opacity: 0;
+  transform: translateY(14px);
+}
+.interstitial.is-active .interstitial-inner {
+  animation: bac-rise .55s cubic-bezier(.2, .7, .2, 1) forwards;
+}
+@keyframes bac-rise {
+  to { opacity: 1; transform: none; }
+}
+
+.interstitial-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 36px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.interstitial-eyebrow::before,
+.interstitial-eyebrow::after {
+  content: "";
+  width: 34px;
+  height: 1px;
+  background: var(--ink-faint);
+}
+
+.interstitial-lead {
+  margin: 0 0 22px;
+  font-size: clamp(22px, 3.4vw, 30px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+/* Framed value display */
+.interstitial-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0 0 22px;
+  padding: 22px 56px;
+  border: 2px solid var(--accent);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: clamp(56px, 12vw, 92px);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+.interstitial-level {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.interstitial-note {
+  margin: 0 0 40px;
+  max-width: 40ch;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.interstitial-cta { min-width: 220px; }
+.interstitial-cta::part(label) { font-size: 16px; }
+
+@media (max-height: 620px) {
+  .interstitial-eyebrow { margin-bottom: 18px; }
+  .interstitial-lead { margin-bottom: 14px; }
+  .interstitial-value { padding: 14px 40px; margin-bottom: 14px; }
+  .interstitial-note { margin-bottom: 22px; }
+}
+
+/* ---------------------------------------------------------------------------
+   10. Calculate exact BAC — live calculator content type
+
+   The result is the hero: a big, color-coded number and a meter that maps to
+   the same four effect zones from step 1. The learner's earlier estimate is
+   ghosted onto the same meter, so the connection (and the effect of every
+   input change) is immediate. Inputs are intentionally few and pre-filled so
+   there is always a live value to play with.
+   ------------------------------------------------------------------------- */
+.calc {
+  width: 100%;
+  max-width: 940px;
+}
+.calc[hidden] { display: none; }
+
+.calc-title {
+  margin: 0 0 6px;
+  font-size: clamp(26px, 3.6vw, 36px);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.calc-sub {
+  margin: 0 0 28px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* Two columns: inputs on the left, the result on the right. */
+.calc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 36px;
+  align-items: start;
+}
+
+/* --- Inputs ------------------------------------------------------------- */
+.calc-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.calc-field { display: flex; flex-direction: column; gap: 10px; }
+.calc-field-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.calc-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.calc-output {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+.calc-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+
+/* Native range inputs, themed with the accent. */
+.calc-range {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Sex: a two-option segmented toggle. */
+.calc-toggle {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  width: fit-content;
+}
+.calc-toggle button {
+  border: 0;
+  background: none;
+  border-radius: 999px;
+  padding: 8px 22px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.calc-toggle button.is-on {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Drinks: a stepper. */
+.calc-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+.calc-step-btn {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent-strong);
+  font-size: 17px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+}
+.calc-step-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.calc-step-btn:active { transform: scale(.94); }
+.calc-step-btn:disabled { opacity: .4; cursor: default; }
+.calc-step-value {
+  min-width: 2ch;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* --- Result (the hero) -------------------------------------------------- */
+.calc-result {
+  /* --zone-color is set per zone in JS */
+  --zone-color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 28px 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.calc-result-cap {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.calc-bac {
+  font-size: clamp(60px, 13vw, 92px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.02em;
+  color: var(--zone-color);
+  font-variant-numeric: tabular-nums;
+  transition: color .2s ease;
+}
+.calc-bac.pop { animation: calc-pop .25s ease; }
+@keyframes calc-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.calc-zone {
+  margin-top: 6px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--zone-color);
+  background: color-mix(in srgb, var(--zone-color) 12%, #fff);
+  transition: color .2s ease, background .2s ease;
+}
+
+/* Meter — color bands mirror the four effect zones (0 → .35+). */
+.calc-meter { width: 100%; margin-top: 26px; }
+.calc-meter-track {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    var(--z-some) 0%,   var(--z-some) 11%,
+    var(--z-mod) 11%,   var(--z-mod) 29%,
+    var(--z-adv) 29%,   var(--z-adv) 57%,
+    var(--z-sev) 57%,   var(--z-sev) 100%);
+}
+/* The live calculated value — a knob that slides along the track. */
+.calc-marker {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid var(--zone-color);
+  box-shadow: var(--shadow-md);
+  transition: left .25s cubic-bezier(.4, 0, .2, 1), border-color .2s ease;
+  z-index: 2;
+}
+/* The learner's step-1 estimate — a faint ghost tick. */
+.calc-estimate {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  left: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--ink-soft);
+  border-radius: 2px;
+  opacity: .65;
+  z-index: 1;
+}
+.calc-estimate::after {
+  content: "guess";
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.calc-meter-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-compare {
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.calc-compare b { color: var(--ink); }
+
+/* Zone palette (shared by meter + result) */
+.calc {
+  --z-some: #15a34a;   /* green   — Some effects */
+  --z-mod:  #d99e00;   /* amber   — Moderate */
+  --z-adv:  #ea7a17;   /* orange  — Advanced */
+  --z-sev:  #dc2626;   /* red     — Severe */
+}
+
+/* Stack on narrow screens — result first so the hero stays visible. */
+@media (max-width: 760px) {
+  .calc-grid { grid-template-columns: 1fr; gap: 24px; }
+  .calc-result { order: -1; }
+}
+@media (max-height: 620px) {
+  .calc-sub { margin-bottom: 16px; }
+  .calc-inputs { gap: 16px; }
+  .calc-result { padding: 18px; }
+  .calc-meter { margin-top: 16px; }
+}
+
+/* ---------------------------------------------------------------------------
+   11. Peer Results — live comparison content type
+
+   Two screens in one document. Screen 1 collects a couple of inputs (a
+   segmented choice + a slider). Screen 2 "loads" the peer data (a brief
+   spinner sells the live-query feel), then reveals a distribution curve of
+   all responses with a marker dropped onto the learner's spot, a percentile
+   verdict, and the peer average. Everything is driven by a SCENARIO config
+   object in the page, so the same screens can host other live-results
+   questions by editing data rather than markup.
+   ------------------------------------------------------------------------- */
+.peer {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+}
+.peer[hidden] { display: none; }   /* the display:flex above would defeat [hidden] otherwise */
+
+/* Reuses the eyebrow treatment from the other content types */
+.peer-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.peer-eyebrow i { color: var(--accent); font-size: 12px; }
+
+.peer-title {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.12;
+  color: var(--ink);
+}
+.peer-sub {
+  margin: 0 0 32px;
+  max-width: 54ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* --- Inputs ------------------------------------------------------------- */
+.peer-fields { display: flex; flex-direction: column; gap: 28px; }
+.peer-field  { display: flex; flex-direction: column; gap: 12px; }
+.peer-field-label { font-size: 15px; font-weight: 700; color: var(--ink); }
+
+/* Segmented choice — large, tappable radio blocks (e.g. Male / Female). */
+.peer-seg { display: flex; gap: 12px; }
+.peer-seg button {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 16px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, color .15s ease;
+}
+.peer-seg button:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+.peer-seg button:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--accent-soft);
+}
+.peer-seg-radio {
+  flex: 0 0 auto;
+  width: 20px; height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--ink-faint);
+  transition: border-color .15s ease;
+}
+.peer-seg button[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.peer-seg button[aria-checked="true"] .peer-seg-radio { border-color: var(--accent); }
+.peer-seg button[aria-checked="true"] .peer-seg-radio::after {
+  content: "";
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Slider — drinks consumed (or any 0→max count). */
+.peer-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.peer-slider-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+.peer-range {
+  width: 100%;
+  margin: 4px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.peer-range-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.peer-compare {
+  margin-top: 36px;
+  align-self: flex-start;
+}
+.peer-compare::part(label) { font-size: 16px; }
+
+/* --- Results screen ----------------------------------------------------- */
+.peer-results { width: 100%; max-width: 680px; }
+.peer-results[hidden] { display: none; }
+
+/* Loading beat — sells the "querying live responses" feel. */
+.peer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 64px 0;
+  text-align: center;
+}
+.peer-loading i { font-size: 34px; color: var(--accent); }
+.peer-loading p { margin: 0; font-size: 15px; color: var(--ink-soft); }
+.peer-loading[hidden] { display: none; }
+
+/* The revealed result fades/rises in once data has "loaded". */
+.peer-result { opacity: 0; }
+.peer-result.in { opacity: 1; transition: opacity .5s ease; }
+
+.peer-respondents {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: center;
+}
+.peer-respondents .peer-count {
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.peer-chart { width: 100%; height: auto; display: block; margin: 6px 0; overflow: visible; }
+
+/* Distribution curve */
+.peer-curve-area { fill: url(#peerGrad); opacity: 0; }
+.peer-result.in .peer-curve-area { opacity: 1; transition: opacity .9s ease .15s; }
+.peer-curve-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.peer-axis-label {
+  fill: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+/* "You are here" marker — drops onto the curve on reveal. */
+.peer-marker { opacity: 0; transform: translateY(-14px); }
+.peer-result.in .peer-marker {
+  opacity: 1;
+  transform: none;
+  transition: opacity .45s ease .55s, transform .55s cubic-bezier(.2, .7, .2, 1) .55s;
+}
+.peer-marker-line { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 3 4; }
+.peer-marker-dot { fill: #fff; stroke: var(--accent-strong); stroke-width: 4; }
+.peer-marker-pill { fill: var(--accent-strong); }
+.peer-marker-text {
+  fill: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  text-anchor: middle;
+}
+
+.peer-verdict {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.peer-verdict b { color: var(--accent-strong); }
+
+.peer-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 22px;
+}
+.peer-stat {
+  flex: 0 1 200px;
+  text-align: center;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.peer-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.peer-stat-value {
+  margin-top: 6px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.peer-stat.is-you {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.peer-stat.is-you .peer-stat-value { color: var(--accent-strong); }
+
+.peer-source {
+  margin-top: 24px;
+  padding: 14px 16px;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.peer-retry {
+  margin-top: 20px;
+  text-align: center;
+}
+.peer-retry button {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.peer-retry button:hover { background: var(--accent-soft); }
+.peer-retry button i { margin-right: 6px; }
+
+/* Short-viewport compression for Peer Results */
+@media (max-height: 620px) {
+  .peer-eyebrow { margin-bottom: 10px; }
+  .peer-title { font-size: clamp(24px, 3.4vw, 32px); margin-bottom: 6px; }
+  .peer-sub { font-size: 14px; margin-bottom: 16px; }
+  .peer-fields { gap: 16px; }
+  .peer-seg button { padding: 14px; }
+  .peer-compare { margin-top: 20px; }
+  .peer-loading { padding: 36px 0; }
+  .peer-stat { padding: 12px 16px; }
+  .peer-stat-value { font-size: 26px; }
+  .peer-source { margin-top: 16px; }
+}
+
+/* ---------------------------------------------------------------------------
+   7. AI Discussion content type — "video just finished, now chat about it"
+
+   Two screens inside one lesson body, swapped via [hidden]:
+     a. Video screen   — a faux player whose clip has finished playing.
+     b. Discussion      — the AI chat IS the main content (not a side panel).
+   Reuses the .chat-msg / .chat-typing bubble styles from section 4.
+   ------------------------------------------------------------------------- */
+
+/* The two screens share the centered column; the active one fills the body. */
+.disc-screen {
+  width: 100%;
+  max-width: 760px;
+  flex: 1 1 auto;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;                 /* lets the chat thread own the scroll */
+}
+.disc-screen[hidden] { display: none; }
+
+/* Eyebrow shared by both screens (matches the other content types) */
+.disc-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.disc-eyebrow i { color: var(--accent); font-size: 12px; }
+
+/* --- a. Video screen ---------------------------------------------------- */
+.video-screen { justify-content: center; gap: 22px; }
+
+.video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0b1220;
+  box-shadow: var(--shadow-lg);
+  /* "Poster" — a soft scene-like gradient standing in for a real still */
+  background-image:
+    radial-gradient(120% 90% at 75% 15%, rgba(15,158,142,.42), transparent 55%),
+    radial-gradient(120% 90% at 15% 90%, rgba(124,58,237,.38), transparent 55%),
+    linear-gradient(160deg, #111827, #0b1220);
+}
+
+/* Dim veil so the finished-overlay controls read clearly over the poster */
+.video-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 22, .35);
+}
+
+.video-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;                    /* above the dim veil */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #fff;
+  text-align: center;
+  /* extra bottom room so the centered content never collides with the
+     scrubber when the 16:9 frame gets short on narrow screens */
+  padding: 24px 24px 60px;
+}
+.video-done-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  backdrop-filter: blur(4px);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.video-done-pill i { color: #6ee7d8; }
+
+.video-replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border: 1px solid rgba(255, 255, 255, .55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .10);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.video-replay:hover { background: rgba(255, 255, 255, .22); border-color: #fff; }
+
+.video-title {
+  margin: 0;
+  font-size: clamp(18px, 2.6vw, 24px);
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+/* Faux scrubber pinned to the bottom of the frame — sits at 100% (finished) */
+.video-scrubber {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(to top, rgba(8, 12, 22, .7), transparent);
+  color: rgba(255, 255, 255, .9);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.video-scrubber i { font-size: 13px; }
+.video-track {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .25);
+  overflow: hidden;
+}
+.video-track span {
+  display: block;
+  width: 100%;                   /* finished */
+  height: 100%;
+  background: var(--accent);
+}
+
+.video-caption {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* --- b. Discussion (chat as main content) ------------------------------- */
+.discussion { gap: 0; }
+
+/* The shared shell normally lets the document scroll (body has min-height and
+   grows). For the discussion we lock the body to the viewport so the chat
+   *thread* owns the scroll — keeping the prompt and composer in view. */
+body.disc-mode .lesson-body {
+  height: calc(100vh - var(--header-h) - var(--footer-h));
+  min-height: 0;
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+.disc-prompt {
+  margin: 0 0 6px;
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+.disc-lead {
+  margin: 0 0 18px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Bot bubbles default to --canvas, which is also this screen's background —
+   so on a white card they'd vanish. Lift them to a surface bubble with a
+   border (and match the typing indicator) for contrast against the canvas. */
+.disc-thread .chat-msg.bot,
+.disc-thread .chat-typing {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The scrolling conversation. Reuses .chat-msg / .chat-typing bubbles. */
+.disc-thread {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 4px 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* Composer — the hero input for this content type (bigger than the panel's) */
+.disc-composer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px 0 2px;
+}
+.disc-composer textarea {
+  flex: 1 1 auto;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px 16px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+  max-height: 140px;
+  background: var(--surface);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.disc-composer textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.disc-composer textarea:disabled { background: var(--canvas); color: var(--ink-faint); }
+.disc-send {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-strong);   /* white icon needs ≥4.5:1 */
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background .15s ease;
+}
+.disc-send:hover { background: #0a675c; }
+.disc-send:disabled { background: var(--ink-faint); cursor: default; }
+
+/* The wrap-up "you're done" affordance the AI surfaces at the end */
+.disc-done {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+.disc-done i { font-size: 12px; }
+
+/* Short-viewport + phone tuning for the discussion screen */
+@media (max-width: 600px) {
+  .disc-prompt { font-size: 19px; }
+  .disc-composer textarea { font-size: 16px; }   /* avoids iOS zoom-on-focus */
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile frame — compact shared header/footer for phone-width screens
+
+   The fixed header and footer wrap every experiment. On narrow screens the
+   breadcrumb and the per-step instructions are too long for one row, so:
+     - the header drops the course crumb (keeps the lesson title) and slims
+       the progress meter, staying on a single row at --header-h;
+     - the footer stacks its helper text above full-width Back/Next buttons,
+       and the footer reserve (--footer-h) grows to match the taller layout.
+   ------------------------------------------------------------------------- */
+@media (max-width: 600px) {
+  :root { --footer-h: 118px; }
+
+  /* Header: one compact row */
+  .lesson-header { padding: 0 16px; gap: 12px; }
+  .lesson-crumb { flex: 1 1 auto; gap: 6px; font-size: 13px; }
+  .lesson-crumb .crumb-course,
+  .lesson-crumb .crumb-sep { display: none; }      /* keep just the lesson title */
+  .lesson-crumb .crumb-lesson { min-width: 0; }
+  .lesson-progress { gap: 8px; }
+  .lesson-progress .progress-label { font-size: 11px; }
+  .lesson-progress vaadin-progress-bar { width: 56px; }
+
+  /* Footer: helper text stacked above full-width nav */
+  .lesson-footer {
+    height: var(--footer-h);
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .lesson-instructions {
+    max-width: none;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.4;
+    /* a long instruction can never push the buttons off-screen */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .lesson-nav { gap: 10px; }
+  .lesson-nav vaadin-button { flex: 1 1 0; }        /* equal, easy-to-tap targets */
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — global guard (WCAG 2.3.3)
+
+   Collapses every animation/transition to a single instant frame. Individual
+   experiments with their own inline reduced-motion handling still work; this
+   covers the shared shell (scroll-bob, chat-bounce, flips, pops, reveals)
+   and any experiment that ships none of its own.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

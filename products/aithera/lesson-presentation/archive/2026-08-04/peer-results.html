@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peer Results — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+
+    <style>
+        /* Visually hidden but still read by screen readers (live status). */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Rethinking Your Drinking</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">How You Compare</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 5 of 8</span>
+            <vaadin-progress-bar value="0.625" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <!-- Screen 1: inputs ------------------------------------------- -->
+            <section class="peer" id="inputScreen" aria-labelledby="peerTitle">
+                <p class="peer-eyebrow" id="peerEyebrow"><i class="fa-solid fa-users"></i> Peer results</p>
+                <h1 class="peer-title" id="peerTitle">How do you compare?</h1>
+                <p class="peer-sub" id="peerSub"></p>
+
+                <div class="peer-fields" id="peerFields">
+                    <!-- Segmented choice + slider are built from SCENARIO in JS -->
+                </div>
+
+                <vaadin-button theme="primary" class="peer-compare" id="compareBtn">Compare</vaadin-button>
+            </section>
+
+            <!-- Screen 2: results ------------------------------------------ -->
+            <section class="peer-results" id="resultScreen" hidden>
+
+                <!-- Loading beat -->
+                <div class="peer-loading" id="peerLoading">
+                    <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
+                    <p id="peerLoadingText">Gathering responses…</p>
+                </div>
+
+                <!-- Revealed result -->
+                <div class="peer-result" id="peerResult">
+                    <p class="peer-respondents">
+                        More than <span class="peer-count" id="peerCount">0</span>&nbsp;<span id="peerCohort"></span> responded
+                    </p>
+
+                    <div id="peerChartWrap"><!-- SVG injected here --></div>
+
+                    <p class="peer-verdict" id="peerVerdict" tabindex="-1"></p>
+
+                    <div class="peer-stats">
+                        <div class="peer-stat is-you">
+                            <div class="peer-stat-label">You said</div>
+                            <div class="peer-stat-value" id="peerYouVal">0</div>
+                        </div>
+                        <div class="peer-stat">
+                            <div class="peer-stat-label" id="peerAvgLabel">Peer average</div>
+                            <div class="peer-stat-value" id="peerAvgVal">0</div>
+                        </div>
+                    </div>
+
+                    <p class="peer-source" id="peerSource"></p>
+
+                    <div class="peer-retry">
+                        <button type="button" id="retryBtn"><i class="fa-solid fa-rotate-left"></i>Try different answers</button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Screen-reader status: receives ONE message once results are revealed -->
+    <div class="sr-only" id="peerStatus" role="status" aria-live="polite"></div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions" aria-live="polite">Answer below, then compare your results with your peers.</p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="nextBtn" disabled>Next</vaadin-button>
+        </div>
+    </footer>
+
+    <script src="js/lesson.js?v=5"></script>
+    <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+    <script>
+    // =========================================================================
+    // SCENARIO — the only thing you edit to repurpose this content type.
+    //
+    // Drop in a different question, group split, copy, and per-group response
+    // distributions, and the same two screens (collect → live results) work
+    // unchanged. The distribution is an array of response counts indexed by the
+    // value (0..max); the average and the learner's percentile are computed
+    // from it, so the headline number always matches the curve.
+    // =========================================================================
+    const SCENARIO = {
+        eyebrow: 'Peer results',
+        eyebrowIcon: 'fa-users',
+        title: 'How do you compare?',
+        sub: 'Answer honestly — your responses are private. We’ll show you how they stack up against everyone else who took this survey.',
+        cohort: 'Belmont Ridge students',
+        loadingText: 'Gathering responses from your peers…',
+        source: 'Source: 2021–2022 AlcoholEdu for College Student Survey of 500,000+ U.S. college students. Results reflect physiological variables tied to sex assigned at birth and are not related to other personal identities.',
+
+        // First input: a segmented single choice. The chosen key selects which
+        // group's distribution the learner is compared against.
+        group: {
+            label: 'Sex assigned at birth',
+            options: [
+                { key: 'male',   label: 'Male',   icon: 'fa-mars'  },
+                { key: 'female', label: 'Female', icon: 'fa-venus' },
+            ],
+            default: 'male',
+        },
+
+        // Second input: a 0..max slider.
+        measure: {
+            label: 'Drinks consumed in the last two weeks',
+            unit: 'drinks',
+            min: 0,
+            max: 20,
+            default: 6,
+            maxLabel: '20+',          // shown when the slider is pinned at max
+            averageLabel: 'Peer average',
+        },
+
+        // Per-group response counts, indexed 0..max (index 20 = "20+").
+        // Right-skewed: most respondents report few drinks, with a long tail.
+        distributions: {
+            male:   [230, 180, 165, 130, 95, 70, 50, 35, 25, 18, 14, 10, 8, 6, 5, 4, 3, 3, 2, 2, 5],
+            female: [300, 210, 150, 95, 60, 40, 25, 16, 11, 8, 6, 4, 3, 3, 2, 2, 1, 1, 1, 1, 2],
+        },
+
+        // Plain-language group nouns for the verdict line.
+        groupNoun: { male: 'male students', female: 'female students' },
+    };
+
+    // =========================================================================
+    // Build Screen 1 inputs from SCENARIO
+    // =========================================================================
+    document.getElementById('peerEyebrow').innerHTML =
+        '<i class="fa-solid ' + SCENARIO.eyebrowIcon + '"></i> ' + SCENARIO.eyebrow;
+    document.getElementById('peerTitle').textContent = SCENARIO.title;
+    document.getElementById('peerSub').textContent   = SCENARIO.sub;
+    document.getElementById('peerCohort').textContent = SCENARIO.cohort;
+    document.getElementById('peerSource').textContent = SCENARIO.source;
+    document.getElementById('peerAvgLabel').textContent = SCENARIO.measure.averageLabel;
+
+    const fields = document.getElementById('peerFields');
+
+    // Segmented group choice
+    let groupKey = SCENARIO.group.default;
+    const segField = document.createElement('div');
+    segField.className = 'peer-field';
+    segField.innerHTML = '<span class="peer-field-label">' + SCENARIO.group.label + '</span>';
+    const seg = document.createElement('div');
+    seg.className = 'peer-seg';
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', SCENARIO.group.label);
+    SCENARIO.group.options.forEach((opt) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.dataset.key = opt.key;
+        b.setAttribute('aria-checked', String(opt.key === groupKey));
+        b.innerHTML =
+            '<span class="peer-seg-radio"></span>' +
+            '<i class="fa-solid ' + opt.icon + '"></i>' +
+            '<span>' + opt.label + '</span>';
+        b.addEventListener('click', () => {
+            groupKey = opt.key;
+            seg.querySelectorAll('button').forEach((x) =>
+                x.setAttribute('aria-checked', String(x === b)));
+        });
+        seg.appendChild(b);
+    });
+    segField.appendChild(seg);
+    fields.appendChild(segField);
+
+    // Roving tabindex + arrow-key selection for the role="radio" buttons.
+    window.Lesson?.radiogroup?.(seg);
+
+    // Slider measure
+    const m = SCENARIO.measure;
+    let measureVal = m.default;
+    const sliderField = document.createElement('div');
+    sliderField.className = 'peer-field';
+    const fmt = (v) => (v >= m.max && m.maxLabel ? m.maxLabel : String(v));
+    // Spoken value for the slider — reflects the "20+" cap and the unit.
+    const spokenVal = (v) => (v >= m.max && m.maxLabel
+        ? m.max + ' or more ' + m.unit
+        : v + ' ' + m.unit);
+    sliderField.innerHTML =
+        '<div class="peer-slider-head">' +
+            '<span class="peer-field-label">' + m.label + '</span>' +
+            '<span class="peer-slider-value" id="sliderVal">' + fmt(measureVal) + '</span>' +
+        '</div>' +
+        '<input class="peer-range" type="range" id="measureRange" ' +
+            'min="' + m.min + '" max="' + m.max + '" step="1" value="' + measureVal + '" ' +
+            'aria-label="' + m.label + '" aria-valuetext="' + spokenVal(measureVal) + '">' +
+        '<div class="peer-range-scale">' +
+            '<span>' + m.min + '</span><span>' + Math.round(m.max / 2) + '</span>' +
+            '<span>' + (m.maxLabel || m.max) + '</span>' +
+        '</div>';
+    fields.appendChild(sliderField);
+
+    const range     = document.getElementById('measureRange');
+    const sliderVal = document.getElementById('sliderVal');
+    range.addEventListener('input', () => {
+        measureVal = Number(range.value);
+        sliderVal.textContent = fmt(measureVal);
+        range.setAttribute('aria-valuetext', spokenVal(measureVal));
+    });
+
+    // =========================================================================
+    // Screen controller — inputs · results
+    // =========================================================================
+    const inputScreen  = document.getElementById('inputScreen');
+    const resultScreen = document.getElementById('resultScreen');
+    const peerLoading  = document.getElementById('peerLoading');
+    const peerResult   = document.getElementById('peerResult');
+    const compareBtn   = document.getElementById('compareBtn');
+    const backBtn      = document.getElementById('backBtn');
+    const nextBtn      = document.getElementById('nextBtn');
+    const instructions = document.getElementById('instructions');
+
+    document.getElementById('peerLoadingText').textContent = SCENARIO.loadingText;
+
+    let screen = 'inputs';
+
+    function showInputs() {
+        screen = 'inputs';
+        inputScreen.hidden  = false;
+        resultScreen.hidden = true;
+        peerResult.classList.remove('in');
+        document.getElementById('peerStatus').textContent = '';   // reset so a retry re-announces
+        instructions.textContent = 'Make your selections, then select Compare to see how you stack up.';
+        nextBtn.disabled = true;
+        window.Lesson?.scrollCue?.refresh();
+    }
+
+    function showResults() {
+        screen = 'results';
+        inputScreen.hidden  = true;
+        resultScreen.hidden = false;
+        peerLoading.hidden  = false;
+        peerResult.classList.remove('in');
+        instructions.textContent = 'Querying live peer responses…';
+
+        // Brief "loading" beat, then render + reveal — sells the live feel.
+        window.setTimeout(() => {
+            peerLoading.hidden = true;
+            renderResults();
+            // next frame so the .in transition runs from the hidden state
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                peerResult.classList.add('in');
+            }));
+            instructions.textContent = 'Here’s how your answer compares. Continue when ready.';
+            nextBtn.disabled = false;
+            window.Lesson?.scrollCue?.refresh();
+
+            // Move focus to the verdict so screen readers land on the result,
+            // then announce ONE final status message after the count-ups end
+            // (the live numbers themselves are not in a live region).
+            const verdict = document.getElementById('peerVerdict');
+            verdict.focus();
+            window.setTimeout(() => {
+                document.getElementById('peerStatus').textContent = verdict.textContent;
+            }, 1100);
+        }, 1100);
+    }
+
+    compareBtn.addEventListener('click', showResults);
+    document.getElementById('retryBtn').addEventListener('click', showInputs);
+
+    backBtn.addEventListener('click', () => {
+        if (screen === 'results') showInputs();
+        else console.log('Back → previous step (not built)');
+    });
+    nextBtn.addEventListener('click', () => {
+        if (nextBtn.disabled) return;
+        console.log('Next → step 6 (not built)', { group: groupKey, value: measureVal });
+    });
+
+    // =========================================================================
+    // Stats from the distribution
+    // =========================================================================
+    function statsFor(dist, value) {
+        const total = dist.reduce((a, b) => a + b, 0);
+        let weighted = 0, below = 0;
+        dist.forEach((count, x) => {
+            weighted += x * count;
+            if (x < value) below += count;
+        });
+        return {
+            total,
+            mean: weighted / total,
+            pctBelow: Math.round((below / total) * 100),
+        };
+    }
+
+    // Smooth path through points (quadratic segments via midpoints).
+    function smoothPath(pts) {
+        if (!pts.length) return '';
+        let d = 'M ' + pts[0].x + ' ' + pts[0].y;
+        for (let i = 0; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            d += ' Q ' + pts[i].x + ' ' + pts[i].y + ' ' + mx + ' ' + my;
+        }
+        const last = pts[pts.length - 1];
+        d += ' L ' + last.x + ' ' + last.y;
+        return d;
+    }
+
+    // Count a number up into an element (integers, or fixed decimals).
+    function countUp(elm, target, decimals, suffix) {
+        const start = performance.now();
+        const dur = 900;
+        suffix = suffix || '';
+        // Reduced motion: skip the tween and land on the final number.
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            elm.textContent = (decimals ? target.toFixed(decimals) : Math.round(target)) + suffix;
+            return;
+        }
+        function frame(now) {
+            const t = Math.min(1, (now - start) / dur);
+            const eased = 1 - Math.pow(1 - t, 3);
+            const v = target * eased;
+            elm.textContent = (decimals ? v.toFixed(decimals) : Math.round(v)) + suffix;
+            if (t < 1) requestAnimationFrame(frame);
+            else elm.textContent = (decimals ? target.toFixed(decimals) : Math.round(target)) + suffix;
+        }
+        requestAnimationFrame(frame);
+    }
+
+    // =========================================================================
+    // Build the distribution chart + verdict for the current answer
+    // =========================================================================
+    const SVGNS = 'http://www.w3.org/2000/svg';
+
+    function renderResults() {
+        const dist  = SCENARIO.distributions[groupKey];
+        const s     = statsFor(dist, measureVal);
+        const noun  = SCENARIO.groupNoun[groupKey] || SCENARIO.cohort;
+        const maxX  = SCENARIO.measure.max;
+        const valLabel = (measureVal >= maxX && SCENARIO.measure.maxLabel)
+            ? SCENARIO.measure.maxLabel : String(measureVal);
+
+        // --- chart geometry ---
+        const W = 640, H = 240, padL = 12, padR = 12, padT = 28, padB = 30;
+        const plotW = W - padL - padR;
+        const plotH = H - padT - padB;
+        const baseY = padT + plotH;
+        const maxCount = Math.max.apply(null, dist);
+
+        const xAt = (x) => padL + (x / maxX) * plotW;
+        const yAt = (count) => padT + (1 - count / maxCount) * plotH;
+
+        const pts = dist.map((count, x) => ({ x: xAt(x), y: yAt(count) }));
+        const lineD = smoothPath(pts);
+        const areaD = lineD + ' L ' + xAt(maxX) + ' ' + baseY + ' L ' + xAt(0) + ' ' + baseY + ' Z';
+
+        const markerX = xAt(Math.min(measureVal, maxX));
+
+        // Axis ticks at 0, mid, max
+        const ticks = [0, Math.round(maxX / 2), maxX];
+
+        const svg = document.createElementNS(SVGNS, 'svg');
+        svg.setAttribute('class', 'peer-chart');
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+        svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label',
+            'Distribution of responses from ' + noun + '. You said ' + valLabel +
+            ', higher than ' + s.pctBelow + ' percent of respondents.');
+
+        svg.innerHTML =
+            '<defs>' +
+              '<linearGradient id="peerGrad" x1="0" y1="0" x2="0" y2="1">' +
+                '<stop offset="0%" stop-color="var(--accent)" stop-opacity="0.30"/>' +
+                '<stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>' +
+              '</linearGradient>' +
+            '</defs>' +
+            '<path class="peer-curve-area" d="' + areaD + '"/>' +
+            '<path class="peer-curve-line" d="' + lineD + '"/>' +
+            // baseline
+            '<line x1="' + padL + '" y1="' + baseY + '" x2="' + (W - padR) + '" y2="' + baseY +
+                '" stroke="var(--line)" stroke-width="1"/>' +
+            // axis tick labels
+            ticks.map((t) => {
+                const lab = (t >= maxX && SCENARIO.measure.maxLabel) ? SCENARIO.measure.maxLabel : t;
+                const anchor = t === 0 ? 'start' : (t >= maxX ? 'end' : 'middle');
+                return '<text class="peer-axis-label" x="' + xAt(t) + '" y="' + (baseY + 18) +
+                    '" text-anchor="' + anchor + '">' + lab + '</text>';
+            }).join('') +
+            // "you are here" marker
+            '<g class="peer-marker">' +
+              '<line class="peer-marker-line" x1="' + markerX + '" y1="' + padT +
+                  '" x2="' + markerX + '" y2="' + baseY + '"/>' +
+              '<circle class="peer-marker-dot" cx="' + markerX + '" cy="' + baseY + '" r="6"/>' +
+              (function () {
+                  // pill label, clamped so it never spills past the chart edge
+                  const pillW = 92, pillH = 26;
+                  let px = markerX - pillW / 2;
+                  px = Math.max(padL, Math.min(px, W - padR - pillW));
+                  const cx = px + pillW / 2;
+                  return '<rect class="peer-marker-pill" x="' + px + '" y="' + (padT - 8) +
+                          '" width="' + pillW + '" height="' + pillH + '" rx="13"/>' +
+                      '<text class="peer-marker-text" x="' + cx + '" y="' + (padT - 8 + 17) +
+                          '">YOU · ' + valLabel + '</text>';
+              })() +
+            '</g>';
+
+        const wrap = document.getElementById('peerChartWrap');
+        wrap.replaceChildren(svg);
+
+        // --- verdict + stats ---
+        const verdict = document.getElementById('peerVerdict');
+        if (s.pctBelow >= 50) {
+            verdict.innerHTML = 'You drink more than <b>' + s.pctBelow + '%</b> of ' + noun + ' who responded.';
+        } else if (measureVal === 0) {
+            verdict.innerHTML = 'You reported <b>no drinks</b> — fewer than most ' + noun + ' who responded.';
+        } else {
+            verdict.innerHTML = 'You drink less than most ' + noun + ' — only <b>' + s.pctBelow + '%</b> reported fewer.';
+        }
+
+        // Respondent count "loads" live, with a little jitter so it feels fresh.
+        const liveTotal = s.total + Math.floor(Math.random() * 40);
+        const countEl = document.getElementById('peerCount');
+        const youEl   = document.getElementById('peerYouVal');
+        const avgEl   = document.getElementById('peerAvgVal');
+
+        countEl.textContent = '0';
+        youEl.textContent   = '0';
+        avgEl.textContent   = '0';
+
+        // Kick the count-ups off once the reveal has begun.
+        window.setTimeout(() => {
+            countUp(countEl, liveTotal, 0);
+            youEl.textContent = valLabel;          // may be "20+", so set directly
+            countUp(avgEl, s.mean, 1);
+        }, 120);
+    }
+
+    // Start on the inputs screen.
+    showInputs();
+    </script>
+</body>
+</html>

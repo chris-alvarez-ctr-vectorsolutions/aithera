@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Hazmat Scene Size-Up — Observe / React Coach</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <style>
+      /* Frame integration for this full-viewport app shell: the frame is embedded
+         as the first flex child of .app (see the window.LESSON_FRAME config near
+         the end of the page), so the app's own top bar would just duplicate it —
+         hide it and let its Restart button ride the frame's actions slot. The
+         fixed .scrim must also start BELOW the frame so it dims only the stage. */
+      .topbar { display: none !important; }
+      .app .scrim { inset: var(--header-h) 0 0 0; }
+    </style>
+
+
+    <!-- ====================================================================
+         HAZMAT SCENE SIZE-UP — a different flavor of the conversation-practice
+         module (see action-practice.html / direct-practice.html): same
+         two-world shape, same bottom-sheet coach, but the roleplay "scene" is
+         replaced end to end by a full-screen video the learner OBSERVES, and
+         the toggle is relabeled Observe | React instead of Learn | Practice.
+
+           REACT (coaching)  — a calm, clean, theme-aware "studio." You talk
+                       WITH the AI coach about what you saw and what you'd do
+                       next. Cool indigo.
+           OBSERVE (scene)   — a warm, dark "stage" that plays the scene video
+                       full-screen on first watch, then holds its last frame
+                       as a reviewable backdrop. Always dark (in light *and*
+                       dark theme). Warm amber.
+
+         There is no character to roleplay with — the learner never types
+         "to" anyone but the coach, so the whole inputTarget/character-avatar
+         machinery from the conversation-practice module is gone. The scene
+         is told in THREE segments (see OBSERVE_SCENES below), and the
+         experience alternates in CHAPTERS: watch a segment full-screen →
+         the coach probes what it showed → the coach closes the chapter and
+         sends the learner back to watch the next segment → repeat. Unseen
+         footage always plays as an unskippable full-viewport takeover;
+         once watched, Observe holds a small reviewable replay of the last
+         segment any time the learner taps back to it.
+
+         Self-contained vanilla JS render-by-state (no framework, no build,
+         no storage). Runs in DEMO mode by default (scripted engine); point
+         WORKER_URL at a proxy Worker to talk to live Claude. Theming via CSS
+         variables.
+         ==================================================================== */ -->
+    <style>
+      /* ===================================================================
+         1. TOKENS  — coaching world is theme-aware; scene world is always a
+            dark "stage" so the two modes never look alike.
+         =================================================================== */
+      :root {
+        color-scheme: light dark;
+
+        /* —— Coaching world (light theme defaults) —— */
+        --c-bg:          #f5f7fb;
+        --c-surface:     #ffffff;
+        --c-surface-2:   #eef1f7;
+        --c-ink:         #1a2030;
+        --c-ink-soft:    #5a6379;
+        --c-ink-faint:   #646e82;   /* darkened for 4.5:1 on white / --c-bg */
+        --c-line:        #e3e7f0;
+        --c-accent:      #4b63e6;   /* indigo — the coach */
+        --c-accent-strong:#3a4fce;
+        --c-accent-soft: #eef1fe;
+        --c-on-accent:   #ffffff;
+
+        /* —— Scene world (constant across themes: a lit set in a dark room) —— */
+        --s-ink:         #f3ede5;
+        --s-ink-soft:    #c3b6a8;
+        --s-ink-faint:   #998c7f;   /* lightened for 4.5:1 on the dark stage */
+        --s-surface:     #211a16;   /* stage panel */
+        --s-surface-2:   #2c241e;
+        --s-line:        #43372e;
+        --s-you:         #f1b34a;   /* the "step into Observe" world — warm amber */
+        --s-you-soft:    rgba(241,179,74,.16);
+        --s-you-ink:     #2a1d08;   /* readable ink on the amber bubble */
+
+        /* The scene's atmospheric paint — shared by the live stage AND the
+           video overlay so the video dissolves seamlessly into it. */
+        --scene-paint:
+          radial-gradient(120% 80% at 80% 0%, rgba(241,179,74,.10), transparent 60%),
+          radial-gradient(120% 90% at 10% 100%, rgba(199,155,255,.10), transparent 55%),
+          linear-gradient(170deg, #1a1410 0%, #120d0a 100%);
+
+        --radius:   16px;
+        --radius-sm:10px;
+        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --ease: cubic-bezier(.4, 0, .2, 1);
+
+        --topbar-h: 52px;
+        --input-h:  84px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --c-bg:          #0c0f17;
+          --c-surface:     #161b27;
+          --c-surface-2:   #1e2433;
+          --c-ink:         #e9ecf4;
+          --c-ink-soft:    #9aa3b8;
+          --c-ink-faint:   #7d8699;   /* lightened for 4.5:1 on dark surfaces */
+          --c-line:        #29303f;
+          --c-accent:      #8092ff;
+          --c-accent-strong:#9aa8ff;
+          --c-accent-soft: #1b2236;
+          --c-on-accent:   #0c0f17;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+          --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;        /* the stage / panels own their own scroll */
+      }
+      button { font-family: inherit; }
+
+      /* Visually-hidden but screen-reader available (the aria-live region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+
+      /* ===================================================================
+         2. APP SHELL
+         =================================================================== */
+      .app {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* —— Top bar (slim, so the experience stays immersive) —— */
+      .topbar {
+        flex: 0 0 auto;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        background: var(--c-surface);
+        border-bottom: 1px solid var(--c-line);
+        z-index: 60;
+      }
+      .topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex: 0 0 auto;
+      }
+      .topbar .brand .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--c-ink);
+        font-size: 13.5px;
+        font-weight: 700;
+        letter-spacing: .01em;
+        white-space: nowrap;
+      }
+      .topbar .brand .badge i { color: var(--c-accent); font-size: 13px; }
+      .topbar .scenario {
+        font-size: 13px;
+        color: var(--c-ink-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      .topbar .scenario::before {
+        content: "";
+        display: inline-block;
+        width: 1px;
+        height: 15px;
+        margin-right: 12px;
+        background: var(--c-line);
+        vertical-align: -2px;
+      }
+      .topbar .spacer { flex: 1 1 auto; }
+      .topbar .tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 9px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .topbar .tb-btn:hover { border-color: var(--c-accent); color: var(--c-ink); }
+      .topbar .tb-btn i { font-size: 12px; }
+      @media (max-width: 560px) {
+        .topbar .scenario { display: none; }
+        .topbar .tb-btn .label { display: none; }
+        .topbar .tb-btn { padding: 0 10px; }
+      }
+      /* While the cold-open video owns the full viewport, it renders ABOVE
+         the topbar (see §7) — Restart still needs an escape hatch, so it
+         floats free of the (now-covered) topbar rather than disappearing. */
+      .app[data-video-full="true"] #restartBtn {
+        position: fixed;
+        top: 10px; right: 12px;
+        z-index: 80;
+        background: rgba(0,0,0,.55);
+        border-color: rgba(255,255,255,.28);
+        color: #fff;
+      }
+
+      /* —— The viewport that holds the mode indicator + the live stage —— */
+      .viewport {
+        flex: 1 1 auto;
+        position: relative;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===================================================================
+         3. MODE INDICATOR  — persistent; the single source of "where am I"
+         =================================================================== */
+      .mode-indicator {
+        flex: 0 0 auto;
+        position: relative;
+        z-index: 56;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 9px 16px;
+        font-size: 12px;
+        background: var(--c-bg);
+        border-bottom: 1px solid var(--c-line);
+        color: var(--c-ink-soft);
+        max-height: 64px;
+        overflow: hidden;
+        transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease),
+                    max-height .45s var(--ease), opacity .4s var(--ease), padding .45s var(--ease),
+                    transform .45s var(--ease);
+      }
+      /* Withheld until the learner is past the establishing card / cold-open
+         video — the Observe|React choice isn't meaningful before then. */
+      .mode-indicator.is-hidden {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom-color: transparent;
+        transform: translateY(-10px);
+        pointer-events: none;
+      }
+
+      /* Segmented "React | Observe" toggle — both shown, one active,
+         tap the inactive one to switch states. */
+      .mode-toggle {
+        display: inline-flex;
+        padding: 3px;
+        gap: 3px;
+        border-radius: 999px;
+        background: var(--c-surface-2);
+        border: 1px solid var(--c-line);
+      }
+      .seg {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 13px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        cursor: pointer;
+        transition: background .18s var(--ease), color .18s var(--ease), opacity .18s var(--ease);
+      }
+      .seg i { font-size: 11px; }
+      .seg:hover:not(.active):not([disabled]) { color: var(--c-ink); background: var(--c-surface); }
+      .seg.active { background: var(--c-accent); color: var(--c-on-accent); box-shadow: var(--shadow-sm); cursor: default; }
+      .seg[disabled] { opacity: .38; cursor: default; }
+      .seg:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--c-accent-soft); }
+
+      /* scene look — warm, on the dark stage chrome */
+      .app[data-mode="scene"] .mode-indicator {
+        background: #15100c;
+        border-bottom-color: #2c2118;
+        color: var(--s-ink-soft);
+      }
+      .app[data-mode="scene"] .mode-toggle { background: #221a13; border-color: #3a2f28; }
+      .app[data-mode="scene"] .seg { color: var(--s-ink-soft); }
+      .app[data-mode="scene"] .seg:hover:not(.active):not([disabled]) { color: var(--s-ink); background: rgba(255,255,255,.06); }
+      .app[data-mode="scene"] .seg.active { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-mode="scene"] .seg:focus-visible { box-shadow: 0 0 0 3px var(--s-you-soft); }
+
+      /* ===================================================================
+         4. THE STAGE  — the live "current beat" canvas
+         =================================================================== */
+      .stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        position: relative;
+        transition: filter .2s var(--ease), opacity .2s var(--ease);
+      }
+      .stage-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 18px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 100%;
+      }
+      .stage.is-frozen {
+        filter: blur(2.5px);
+        pointer-events: none;
+        user-select: none;
+      }
+      .stage { background: var(--scene-paint); }
+
+      /* —— Establishing card — shown before the learner has watched the
+         scene at all. —— */
+      .establishing {
+        margin: auto;
+        max-width: 460px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 24px 24px;
+      }
+      .est-eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--s-ink-faint);
+      }
+      .est-title {
+        margin: 0;
+        font-size: clamp(22px, 4.2vw, 30px);
+        font-weight: 700;
+        letter-spacing: -.01em;
+        color: var(--s-ink);
+      }
+      .est-sub {
+        margin: 0;
+        max-width: 38ch;
+        text-align: left;
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--s-ink-soft);
+      }
+
+      /* Amber CTA — previews the Observe world it leads into */
+      .enter-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(241,179,74,.26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .enter-cta:hover { filter: brightness(1.05); }
+      .enter-cta:active { transform: scale(.98); }
+      .enter-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(241,179,74,.26), 0 0 0 3px var(--s-you-soft); }
+      .enter-cta .arrow { transition: transform .15s var(--ease); }
+      .enter-cta:hover .arrow { transform: translateX(3px); }
+
+      /* ===================================================================
+         5. OBSERVE VIDEO  — plays full-viewport on first watch (see §7 for
+            the fullscreen rule); afterward it sits contained in the stage as
+            a reviewable, replayable backdrop. One or two clips play back to
+            back with a hard cut and no progress/counter, so it reads as one
+            continuous scene either way.
+         =================================================================== */
+      .scene-video {
+        position: relative;
+        margin: auto;
+        width: 100%;
+        max-width: 560px;
+        aspect-ratio: 16 / 9;
+        border-radius: var(--radius);
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+        transition: border-radius .2s var(--ease);
+      }
+      .intro-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+      }
+      .intro-video.is-active { opacity: 1; }
+      .scene-video::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,.65) 100%);
+        pointer-events: none;
+      }
+      .intro-caption-wrap {
+        position: absolute;
+        left: 0; right: 0; bottom: 28px;
+        display: flex;
+        justify-content: center;
+        padding: 0 24px;
+        z-index: 1;
+      }
+      .intro-caption {
+        margin: 0;
+        max-width: 560px;
+        text-align: center;
+        font-size: clamp(15px, 2.4vw, 18px);
+        line-height: 1.45;
+        font-weight: 600;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0,0,0,.6);
+        background: rgba(0,0,0,.7);   /* ≥4.5:1 behind the white caption text */
+        border-radius: 10px;
+        padding: 9px 16px;
+        opacity: 0;
+        transition: opacity .35s var(--ease);
+      }
+      .intro-caption.is-visible { opacity: 1; }
+      .intro-playpause {
+        position: absolute;
+        left: 12px; top: 12px;
+        z-index: 1;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        background: rgba(0,0,0,.5);
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .intro-playpause:hover { background: rgba(0,0,0,.7); }
+      .intro-playpause:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.4); }
+      .intro-begin {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,.7);   /* ≥4.5:1 behind the white "Tap to begin" text */
+        border: 0;
+        color: #fff;
+        font: inherit;
+        font-size: 17px;
+        font-weight: 700;
+        gap: 10px;
+        cursor: pointer;
+      }
+      .intro-begin i { font-size: 28px; }
+      .intro-begin[hidden] { display: none; }
+      .intro-loading {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        transition: opacity .3s var(--ease);
+      }
+      .intro-loading.is-out { opacity: 0; pointer-events: none; }
+      .intro-loading .dots { display: inline-flex; gap: 6px; }
+      .intro-loading .dots span {
+        width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.85);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .intro-loading .dots span:nth-child(2) { animation-delay: .15s; }
+      .intro-loading .dots span:nth-child(3) { animation-delay: .3s; }
+
+      /* "Replay scene" — shown once the clip(s) have finished and the learner
+         is reviewing (not mid-playback). The one control Observe offers
+         after the first watch. */
+      .observe-replay {
+        position: absolute;
+        left: 50%; top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 20px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(0,0,0,.55);
+        color: #fff;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .observe-replay:hover { background: rgba(0,0,0,.72); }
+      .observe-replay[hidden] { display: none; }
+
+      /* ===================================================================
+         6. MESSAGES — coaching world (the ONLY world with messages — Observe
+            is the video, nothing else)
+         =================================================================== */
+      .coach-msg { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .coach-avatar {
+        flex: 0 0 auto;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
+        color: #fff;
+        font-size: 14px;
+        box-shadow: var(--shadow-sm);
+      }
+      .coach-body { min-width: 0; }
+      .coach-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 3px 0 5px;
+      }
+      .coach-bubble {
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--c-ink);
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
+      }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
+
+      .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-coach .cap {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-coach .bubble {
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* ===================================================================
+         7. THE AI COACH LAYER  — one consistent bottom sheet that rises over
+            the practice base (which stays visible, dimmed, above it). The
+            Observe/React toggle just raises/lowers it.
+         =================================================================== */
+      .scrim {
+        position: fixed;
+        inset: var(--topbar-h) 0 0 0;
+        z-index: 40;
+        background: rgba(8, 7, 5, .55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s var(--ease);
+      }
+      .app.coach-up .scrim { opacity: 1; pointer-events: auto; }
+
+      .coach-panel {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: var(--input-h);
+        z-index: 50;
+        height: auto;
+        max-height: 56vh;
+        max-width: 860px;
+        margin: 0 auto;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-bottom: 0;
+        border-radius: var(--radius) var(--radius) 0 0;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateY(120%);
+        transition: transform .24s var(--ease);
+      }
+      .app.coach-up .coach-panel { transform: none; }
+      @media (max-height: 620px) { .coach-panel { max-height: 62vh; } }
+
+      .coach-panel-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px 12px;
+        border-bottom: 1px solid var(--c-line);
+      }
+      .coach-panel-head .ttl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-accent-strong);
+      }
+      .coach-panel-head .spacer { flex: 1 1 auto; }
+      .coach-panel-resume {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 999px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .coach-panel-resume:hover { border-color: var(--s-you); color: var(--c-ink); }
+      .coach-panel-resume i { font-size: 11px; }
+      .coach-panel-resume[hidden] { display: none; }
+
+      .coach-panel-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 16px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* ===================================================================
+         8. INPUT BAR  — always addressed to the coach; Observe has no
+            composer at all (see render()'s inputbar.hidden rule).
+         =================================================================== */
+      .inputbar {
+        position: relative;
+        z-index: 55;
+        flex: 0 0 auto;
+        min-height: 104px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: var(--c-surface);
+        border-top: 1px solid var(--c-line);
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        transition: background .2s var(--ease), border-color .2s var(--ease);
+      }
+      .inputbar[hidden] { display: none; }
+      /* In Observe (scene review) the bar stays visible to hold the "Back to
+         AI Coach" return — wear the scene's dark chrome (same palette as the
+         mode indicator's scene look) so it belongs to the stage, not the studio. */
+      .app[data-mode="scene"] .inputbar {
+        background: #15100c;
+        border-top-color: #2c2118;
+      }
+      .input-row {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+      }
+      .input-shell {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        border: 1.5px solid var(--c-line);
+        border-radius: 14px;
+        background: var(--c-bg);
+        padding: 4px 6px 4px 14px;
+        transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+      }
+      .input-shell:focus-within {
+        border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px var(--c-accent-soft);
+      }
+      .input-shell .lead-icon {
+        flex: 0 0 auto;
+        align-self: center;
+        color: var(--c-ink-faint);
+        font-size: 14px;
+        margin-bottom: 1px;
+      }
+      .inputbar textarea {
+        flex: 1 1 auto;
+        resize: none;
+        border: 0;
+        background: transparent;
+        outline: none;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.45;
+        color: var(--c-ink);
+        max-height: 120px;
+        padding: 9px 0;
+      }
+      .inputbar textarea::placeholder { color: var(--c-ink-faint); }
+      .send-btn {
+        flex: 0 0 auto;
+        width: 40px;
+        align-self: stretch;
+        min-height: 40px;
+        border: 0;
+        border-radius: 11px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font-size: 15px;
+        cursor: pointer;
+        transition: background .15s var(--ease), transform .1s var(--ease);
+      }
+      .send-btn:hover { background: var(--c-accent-strong); }
+      .send-btn:active { transform: scale(.95); }
+      .send-btn:disabled { opacity: .45; cursor: default; }
+
+      .input-main[hidden], .input-entry[hidden], .input-done[hidden] { display: none; }
+
+      .input-foot {
+        max-width: 720px;
+        margin: 8px auto 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11.5px;
+        color: var(--c-ink-faint);
+      }
+      .input-foot .hint { flex: 1 1 auto; }
+
+      .seg[data-tip] { position: relative; }
+      .seg[data-tip]:hover::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        padding: 5px 9px;
+        border-radius: 7px;
+        background: var(--c-ink);
+        color: var(--c-surface);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: .01em;
+        box-shadow: var(--shadow-md);
+        pointer-events: none;
+        z-index: 70;
+      }
+
+      .input-entry {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+      }
+      .enter-cta-bar { width: auto; }
+
+      .typing {
+        align-self: flex-start;
+        display: inline-flex;
+        gap: 5px;
+        padding: 13px 15px;
+        border-radius: 14px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        box-shadow: var(--shadow-sm);
+      }
+      .typing span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--c-ink-faint);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .typing span:nth-child(2) { animation-delay: .15s; }
+      .typing span:nth-child(3) { animation-delay: .3s; }
+      @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+
+      .coach-msg.enter, .you-coach.enter { animation: msg-enter .34s var(--ease) both; }
+      @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
+      .input-analyzing {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-analyzing[hidden] { display: none; }
+      .input-analyzing .dots { display: inline-flex; gap: 4px; }
+      .input-analyzing .dots span {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .input-analyzing .dots span:nth-child(2) { animation-delay: .15s; }
+      .input-analyzing .dots span:nth-child(3) { animation-delay: .3s; }
+
+      .input-done {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-done i { color: #16a34a; }
+
+      .debrief-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(75, 99, 230, .26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .debrief-cta:hover { filter: brightness(1.06); }
+      .debrief-cta:active { transform: scale(.98); }
+      .debrief-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(75,99,230,.26), 0 0 0 3px var(--c-accent-soft); }
+      .debrief-cta .arrow { transition: transform .15s var(--ease); }
+      .debrief-cta:hover .arrow { transform: translateX(3px); }
+
+      /* ===================================================================
+         9. COMPLETION / CHECKLIST  (shown at the end, as a coach message —
+             see checklistNode() — not a separate boxed widget)
+         =================================================================== */
+      /* The debrief presentation — checklist bubble, closing stepper, report
+         sections, results modal — is styled by the SHARED Section-3 module
+         (js/sim-debrief.js injects one canonical stylesheet) so the close
+         renders identically on every simulator page. Theme colors still
+         resolve from this page's CSS variables above. */
+
+      /* ===================================================================
+         10. OBSERVE FULLSCREEN  — on first watch only (see render()'s
+             data-video-full rule), the video takes over the ENTIRE viewport,
+             above the topbar and mode indicator, so it reads as a true
+             full-screen scene rather than a video embedded in a chat. Once
+             finished it drops back to a small contained, replayable card.
+         =================================================================== */
+      .app[data-video-full="true"] .scene-video {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        aspect-ratio: auto;
+        border-radius: 0;
+        box-shadow: none;
+        z-index: 65;
+      }
+
+      /* ===================================================================
+         11. REDUCED MOTION  — instant cross-fade, no scale, static dim
+         =================================================================== */
+      @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+        .stage.is-frozen { filter: brightness(.7); }
+      }
+    </style>
+</head>
+<body>
+    <div class="app" id="app" data-mode="coaching">
+
+      <!-- Top bar ------------------------------------------------------- -->
+      <header class="topbar">
+        <span class="brand">
+          <span class="badge"><i class="fa-solid fa-triangle-exclamation"></i> Scene Analysis</span>
+        </span>
+        <span class="scenario" id="scenarioName">Hazmat Scene Size-Up: I-65 Tanker Rollover</span>
+        <span class="spacer"></span>
+        <button class="tb-btn" id="restartBtn" aria-label="Restart practice">
+          <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+        </button>
+      </header>
+
+      <!-- Viewport: mode indicator + live stage ------------------------- -->
+      <main class="viewport">
+        <h1 class="sr-only">Practice: I-65 tanker rollover size-up</h1>
+        <div class="mode-indicator is-hidden" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
+        <section class="stage" id="stage" aria-label="Scene and coaching">
+          <div class="stage-inner" id="stageInner"><!-- built by JS --></div>
+        </section>
+      </main>
+
+      <!-- AI Coach layer: scrim dims the scene peek; the sheet rises over it -->
+      <div class="scrim" id="scrim"></div>
+      <aside class="coach-panel" id="coachPanel" role="region" aria-label="AI Coach" aria-hidden="true" inert>
+        <div class="coach-panel-head">
+          <span class="ttl"><i class="fa-solid fa-chalkboard-user"></i> AI Coach</span>
+          <span class="spacer"></span>
+          <button class="coach-panel-resume" id="resumeBtn" hidden>
+            Review the scene <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
+      </aside>
+
+      <!-- Input bar ----------------------------------------------------- -->
+      <footer class="inputbar">
+        <!-- Start state: before anything begins we ANCHOR on the scene, coach
+             sheet down, composer hidden. The learner chooses when to watch. -->
+        <div class="input-entry" id="inputStart">
+          <button class="enter-cta" id="startCtaBtn">
+            <i class="fa-solid fa-video"></i> Watch the scene <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Normal composer -->
+        <div class="input-main" id="inputMain">
+          <div class="input-row">
+            <div class="input-shell">
+              <i class="fa-solid fa-comment lead-icon" aria-hidden="true"></i>
+              <textarea id="composer" rows="1" placeholder="Type your response…"
+                        aria-label="Your message"></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+          <div class="input-foot">
+            <span class="hint" id="inputHint">Enter to send · Shift+Enter for a new line</span>
+          </div>
+        </div>
+        <!-- Cold-open video: the bar stays present (not empty) while it plays -->
+        <div class="input-analyzing" id="inputWatching" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Watching the scene…
+        </div>
+        <!-- Chapter break: the coach has closed a chapter — the scene has more
+             to show before the conversation continues. Amber, previewing the
+             Observe world it flips back into. -->
+        <div class="input-entry" id="inputObserve" hidden>
+          <button class="enter-cta enter-cta-bar" id="observeNextBtn">
+            <i class="fa-solid fa-video"></i> Watch what happens next <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Reviewing the scene: the way back to the conversation lives here
+             (not just in the top toggle). Indigo, previewing the coach world
+             it returns to — the stage's center button keeps scene actions
+             (replay / watch next), so the two directions never share a spot. -->
+        <div class="input-entry" id="inputReturn" hidden>
+          <button class="debrief-cta" id="returnCoachBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> Back to AI Coach <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Recap CTA: the coach is ready to build your results, opened only
+             when the learner chooses. -->
+        <div class="input-entry" id="inputRecap" hidden>
+          <button class="debrief-cta" id="recapCtaBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Closing loader: the "Analyzing… Determining…" beats cycle HERE
+             (where "View full results" lands), not stacked over the chat. -->
+        <div class="input-analyzing" id="inputAnalyzing" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Analyzing…
+        </div>
+        <!-- Results CTA: shown once the closing recap has landed. -->
+        <div class="input-entry" id="inputResults" hidden>
+          <button class="debrief-cta" id="resultsCtaBtn">
+            <i class="fa-solid fa-chart-simple"></i> View full results <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Continue: the practice's actual last step. -->
+        <div class="input-entry" id="inputContinue" hidden>
+          <button class="debrief-cta" id="continueCtaBtn">
+            Continue <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Settled state after Continue. -->
+        <div class="input-done" id="inputDone" hidden>
+          <i class="fa-solid fa-circle-check"></i> Practice complete
+        </div>
+      </footer>
+
+      <!-- Polite live region for mode-change announcements -------------- -->
+      <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    </div>
+
+    <!-- Results modal — a sibling of .app -->
+    <div class="results-modal" id="resultsModal" hidden role="dialog" aria-modal="true" aria-label="Your results">
+      <div class="results-modal-card" tabindex="-1">
+        <div class="results-modal-head">
+          <span class="results-modal-eyebrow">Your results</span>
+          <div class="results-modal-dots" id="resultsDots"><span></span><span></span></div>
+        </div>
+        <div class="results-modal-body" id="resultsModalBody"><!-- built by JS --></div>
+        <div class="results-modal-foot" id="resultsModalFoot"><!-- built by JS --></div>
+      </div>
+    </div>
+
+    <!-- Shared simulator framework — one implementation under every mode:
+         sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
+         sim-context  the Section-1 → Section-2 coupler (ContextRecord)
+         sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
+    <script src="js/sim-core.js?v=5"></script>
+    <script src="js/sim-context.js?v=1"></script>
+    <script src="js/sim-debrief.js?v=5"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
+    <script src="js/sim-coach-sheet.js?v=3"></script>
+
+    <!-- Writer Studio bridge — lets "Publish to prototype" round-trip:
+         studio-engine + the Observe/React type register into window.AitheraStudio
+         (observe-react.js also needs window.AitheraScenario from scenario.js).
+         When nothing is published the inline scenario below is used unchanged. -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario.js?v=13"></script>
+    <script src="js/scenario-types/observe-react.js?v=5"></script>
+
+    <script>
+    /* =====================================================================
+       HAZMAT SCENE SIZE-UP — engine + render-by-state (vanilla, no framework)
+
+       MESSAGE SCHEMA (what the model returns, JSON only):
+         { turn: [ { speaker:'coach'|'you', kind:'coaching', text:string } ] }
+
+       Everything is coaching-world — there's no character to roleplay with,
+       so (unlike the conversation-practice module this is a sibling of)
+       there's no 'scene'/'dialogue' kind and no inputTarget to track.
+       ===================================================================== */
+
+    /* ---- LIVE vs DEMO ------------------------------------------------- */
+    /* NOW LIVE on the shared plumbing (js/sim-core.js): the same proxy
+       Worker, dialogue model and JSON repair/retry cycle as every other
+       simulator page. The scripted five-beat responder below remains the
+       no-network fallback (set live:false on the engine to force it). */
+
+    /* =====================================================================
+       WRITER STUDIO BRIDGE — "Publish to prototype" round-trip.
+       If an Observe/React scenario has been published from Writer Studio
+       (a localStorage slot), adapt it into this page's inline data shapes.
+       When nothing is published — the public default — PUBLISHED stays null
+       and every inline value below is used, behaviorally unchanged.
+       ===================================================================== */
+    function fromPublishedObserveReact(s) {
+      const compile = window.AitheraStudio.get('observe-react').compile;
+      // SEGMENT_OPENERS is keyed by the 0-based index of the segment JUST
+      // watched. A studio opener's `segment` is 1-based "on return from
+      // segment N", so the page key is N-1 (segment 1 is the cold open, whose
+      // return is the opening question — it has no opener).
+      const openers = {};
+      (s.openers || []).forEach((o) => {
+        const n = Number(o && o.segment);
+        const line = String((o && o.line) || '').trim();
+        if (n >= 2 && line) openers[n - 1] = [{ speaker: 'coach', kind: 'coaching', text: line }];
+      });
+      const dims = (s.dimensions || []).filter((d) => d && (d.name || d.strong || d.weak));
+      const resItems = (((s.resources || {}).items) || [])
+        .filter((r) => r && (r.title || r.body))
+        .map((r) => ({ icon: 'fa-circle-info', title: r.title || '', body: r.body || '' }));
+      return {
+        title: s.title || 'Observe / React',
+        // Pre-entry establishing card — authored content; a pre-field publish
+        // gets a neutral shape (the card then falls back to the title alone).
+        establishing: { eyebrow: 'Scene size-up', title: '', sub: '', ...((s.establishing && typeof s.establishing === 'object') ? s.establishing : {}) },
+        system: compile(s),                                   // → SYSTEM_PROMPT
+        scenes: (s.segments || [])                            // → OBSERVE_SCENES
+          .filter((sc) => sc && (sc.src || sc.caption || sc.label))
+          .map((sc) => ({ src: sc.src || '', label: sc.label || '', text: sc.caption || '' })),
+        openers,                                              // → SEGMENT_OPENERS
+        opening: s.openingQuestion || '',                     // → initialMessages()
+        // Section-3 close: resources → CHECKLIST; the rubric's two poles →
+        // the static strengths/growth pages; playbook → the playbook page.
+        checklist: { lead: (s.resources || {}).lead || '', items: resItems },
+        strengths: dims.map((d) => ({ icon: 'fa-star', title: d.name || '', body: d.strong || '' })),
+        growth: dims.map((d) => ({ icon: 'fa-seedling', title: d.name || '', body: d.weak || '' })),
+        playbook: (s.playbook || []).filter((p) => p && (p.title || p.body))
+          .map((p) => ({ title: p.title || '', body: p.body || '' })),
+      };
+    }
+    let PUBLISHED = null;
+    try {
+      const t = window.AitheraStudio && AitheraStudio.get && AitheraStudio.get('observe-react');
+      const pub = t && t.store && t.store.loadPublished();
+      if (pub && pub.scenario) PUBLISHED = fromPublishedObserveReact(pub.scenario);
+    } catch (e) { PUBLISHED = null; }   // any failure → inline fallback
+
+    const SCENARIO = {
+      title: PUBLISHED ? PUBLISHED.title : 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
+    };
+    // Reflect a published scenario in the chrome — the top bar, the tab and
+    // the screen-reader heading all carried the shipped demo's name before.
+    if (PUBLISHED) {
+      const nameEl = document.getElementById('scenarioName');
+      if (nameEl) nameEl.textContent = SCENARIO.title;
+      const srH1 = document.querySelector('h1.sr-only');
+      if (srH1) srH1.textContent = 'Practice: ' + SCENARIO.title;
+      document.title = SCENARIO.title + ' — Observe / React Coach';
+    }
+
+    /* The Observe scene — told in THREE segments, each its own clip, each
+       followed by a React (coaching) chapter before the next one plays. The
+       scene keeps developing between chapters, so heading back to Observe is
+       never a rewatch — it's new footage. Until real footage lands at these
+       src paths, a missing file quietly falls back to a placeholder frame +
+       these captions, timed to read like the scene itself (see
+       waitForVideoEnd). */
+    /* THE FRAMING — the learner isn't running this scene; they're READING
+       footage of a scene that was NOT run by the book, and the coach mines
+       it as a "what not to do": live traffic never cleared in segment 1, a
+       firefighter close enough to touch the tank in segment 2. Segment 3
+       (no footage yet) narrates the compliant version for contrast. */
+    const OBSERVE_SCENES_INLINE = [
+      // Captions are paced to ~10s clips — the video's own end is what hands
+      // control back, so keep each segment's text readable inside its runtime,
+      // and write it to what's actually ON SCREEN in that clip.
+      // Segment 1 — drone overview: the tanker across I-65, and traffic STILL
+      // MOVING on both sides of it. Deliberately non-compliant.
+      { src: '../assets/videos/hazmat_tankerScene.mp4',
+        label: 'Segment 1: drone overview of the overturned tanker on I-65, with traffic still moving on both sides',
+        text: `A tanker's gone over on I-65. Look at the traffic — still moving on both sides, just feet from the tank. On the barrel: a red diamond — 1993, Class 3.` },
+      // Segment 2 — helmet cam from the first crew in: he walks right up to
+      // the leaking tank. The discomfort IS the lesson — the coach asks how
+      // it felt in the next chapter.
+      { src: '../assets/videos/hazmat_firstPerson.mp4',
+        label: 'Segment 2: helmet-cam footage from the first firefighter in, walking up close to the leaking tank',
+        text: `Now ride along with the first crew in. This is his helmet cam. That's as close as it looks — close enough to touch it.` },
+      // Segment 3 — no footage yet (placeholder frame + timer-paced captions):
+      // the same scene, run the way it should have been.
+      { src: '../assets/videos/hazmat_scene_3.mp4',
+        label: 'Segment 3: the same scene run correctly — traffic diverted and crews staged upwind at distance',
+        text: `Now picture the same scene, run right. Traffic stopped and turned around a half-mile back. Crews staged upwind, uphill, behind the rigs. The ERG open on the dash, HazMat rolling, and nobody inside 150 feet.` },
+    ];
+
+    /* The coach's opener after each RETURN to Observe (segments 2 and 3) —
+       reacting to what just played, then probing the next beat. Indexed by
+       the segment that was just watched. */
+    const SEGMENT_OPENERS_INLINE = {
+      1: [
+        { speaker: 'coach', kind: 'coaching', text:
+`Sit with that one for a second before we analyze anything. How did that video make you feel — was that distance reasonable?` },
+      ],
+      2: [
+        { speaker: 'coach', kind: 'coaching', text:
+`That's the version that keeps everyone breathing. So bring it home: tomorrow this call drops and YOU'RE first on scene. Walk me through your first moves.` },
+      ],
+    };
+
+    // Prefer the published scenario's footage/openers; else the inline ones.
+    const OBSERVE_SCENES  = PUBLISHED ? PUBLISHED.scenes  : OBSERVE_SCENES_INLINE;
+    const SEGMENT_OPENERS = PUBLISHED ? PUBLISHED.openers : SEGMENT_OPENERS_INLINE;
+
+    const SYSTEM_PROMPT_INLINE = `You run an AI scene-analysis coaching module for hazmat first-responder training, built as a "what not to do" study. The learner ("you") is REVIEWING footage of a real scene that was NOT run by the book, in three video segments: (1) a drone overview of an overturned cargo tanker across I-65 — placard red diamond, UN 1993, Class 3 Flammable Liquid — with live traffic STILL MOVING on both sides of the wreck, just feet away (the compliance failure the learner should spot), (2) helmet-cam footage of the first firefighter in, walking right up to the leaking tank — close enough to touch it, in structural gear, not on air (the discomfort this footage produces is itself the lesson), (3) a narrated version of the same scene run correctly (traffic stopped and diverted, crews staged upwind at distance, HazMat rolling). Between segments, an AI COACH probes the learner one beat at a time and never gives a verdict up front — ask, then validate/correct after they answer.
+
+Return ONLY JSON: {"turn":[{"speaker":"coach"|"you","kind":"coaching","text":"..."}],"observeNext":true|false,"complete":true|false}
+observeNext and complete are TOP-LEVEL fields of the response object — never fields on turn[] items. Include BOTH on EVERY response (false when not applicable). observeNext:true belongs on exactly the response whose final coach message sends the learner to the next segment — never close a chapter in words without setting it, and never set it mid-beat.
+
+Chapter structure — set observeNext:true on the turn that CLOSES a chapter, which tells the player to send the learner to the next segment (never do this mid-beat):
+- After segment 1: probe (a) what was on the placard / what hazard class it implies, then (b) "what's wrong with this scene?" — the learner should spot the uncleared traffic inside any reasonable isolation distance (ERG Guide 128: at least 150 feet initial isolation; first job is closing the road both directions). Then close the chapter: send them to ride along with the first crew in, telling them to pay attention to how it FEELS.
+- After segment 2: FIRST ask how the footage made them feel and whether that distance was reasonable — validate discomfort as trained instinct, never dismiss it; if they say it felt fine, gently press them to look again at how close he is. THEN probe what the firefighter should be doing differently (fall back to the ERG isolation line, read the placard through binoculars, nobody near the product without chemical protection and air). Then close the chapter: offer to show the version that should have happened.
+- After segment 3: synthesis — "tomorrow you're first on scene: walk me through your first moves." Look for positioning (upwind/uphill/distance), closing the road, the ERG, and notifications (HazMat team, law enforcement, incident command). If an answer is thin, nudge for the missing pieces — AT MOST TWICE — then validate what they have and move on. The scenario is complete only when this lands: on that final validating turn, set "complete": true (and observeNext false). Never set complete before the synthesis beat.
+
+Keep each coach message to 2-4 sentences. Never shame the crew in the footage — frame it as "this is how scenes actually go wrong, and your job is to notice." Never introduce a character or roleplay — this is always a two-person conversation between the learner and the coach about what they observed.`;
+
+    // SYSTEM_PROMPT stays `let` — the Section-1 coupler appends addenda to it.
+    let SYSTEM_PROMPT = PUBLISHED ? PUBLISHED.system : SYSTEM_PROMPT_INLINE;
+
+    /* ---- STATE -------------------------------------------------------- */
+    const OPENING_TEXT = PUBLISHED ? PUBLISHED.opening :
+`What you just watched is how this scene actually unfolded — and parts of it should bother you. We'll get to that. First, the basics: what did you see on the tank's placard?`;
+    const initialMessages = () => ([
+      { speaker: 'coach', kind: 'coaching', text: OPENING_TEXT },
+    ]);
+
+    const state = {
+      mode: 'coaching',          // 'coaching' (React) | 'scene' (Observe)
+      started: false,            // true once segment 1 has finished playing
+      messages: [],
+      pendingOpening: initialMessages(),
+      sending: false,
+      delivering: false,
+      complete: false,
+      step: 0,                   // which of the five coaching beats we're on
+      stepNudges: 0,             // nudges given at the current beat without a passing answer
+      watched: 0,                // how many segments have fully played (0–3)
+      awaitingObserve: false,    // the coach has closed a chapter; waiting on "watch what happens next"
+      videoPlaying: false,       // true from the first watch onward — the video stays mounted
+      videoLive: false,          // true only while a clip is actively playing (watch or replay)
+      videoFirstRun: false,      // true while an UNSEEN segment plays — that's what goes full-screen
+      closingStepperActive: false,
+      awaitingResults: false,
+      resultsModalOpen: false,
+      resultsPage: 0,
+      resultsViewed: false,
+      continued: false,
+    };
+
+    /* =====================================================================
+       DEMO ENGINE — a scripted responder that mirrors the real loop. Five
+       beats across three chapters, each beat gently gated (a soft nudge or
+       two, never a hard deadlock) so a learner who's genuinely stuck can
+       still move forward. A turn with observeNext:true closes the chapter —
+       the UI then offers "Watch what happens next" instead of the composer.
+
+       The beats follow the "what not to do" framing:
+         0  placard ID (opening question)
+         1  what's WRONG with this scene? (the uncleared traffic)
+         2  how did the helmet cam make you FEEL? (affective gate)
+         3  what should he be doing differently?
+         4  synthesis — YOUR first moves tomorrow
+       ===================================================================== */
+    // What's wrong: any mention of the traffic / missing isolation counts.
+    const WRONG_RE  = /\b(traffic|cars?|vehicles?|civilians?|public|lanes?|not? (closed|cleared|blocked|shut)|still (moving|open|driving|flowing)|no (perimeter|isolation|closure|barrier|control)|isolat\w*|perimeter|evacuat\w*|clear\w*|close (the|that|it)|shut\w*( it| the)? ?down|too close|exposure|driving (by|past)|open road)\b/i;
+    // How it felt: any expression of discomfort, or naming the distance wrong.
+    const FEEL_RE   = /\b(uncomfortable|uneasy|nervous|anxious|scared|afraid|terrif\w*|unsafe|not safe|too close|way too close|wrong|danger\w*|risky|reckless|stupid|crazy|insane|sketchy|yikes|worried|tense|freak\w*|no\b|not (reasonable|ok|okay|good|right|comfortable|appropriate)|shouldn'?t|bad)\b/i;
+    // What he should do: distance, the ERG, or protection all count.
+    const SHOULD_RE = /\b(back (up|off|away)|pull back|fall back|withdraw|retreat|distance|150|50 ?m\w*|feet|erg|guide\w*|orange|isolat\w*|perimeter|scba|ppe|suit|level ?[ab]|air ?pack|binocular\w*|upwind|uphill|stay (back|away)|not approach|move away|get (back|away))\b/i;
+    // Your first moves: positioning, isolation, the ERG, or notifications.
+    const MOVES_RE  = /\b(hazmat( team| unit)?|notify|dispatch|call\w*|request|mutual aid|police|law enforcement|road closure|close (the|down)|shut\w* down|incident command|\bic\b|command(er)?|isolat\w*|perimeter|evacuat\w*|upwind|uphill|stage|staging|distance|stay back|erg|guide\w*|placard|binocular\w*|size.?up|360)\b/i;
+
+    function scriptedTurn(lastText) {
+      const text = String(lastText || '').toLowerCase();
+      const step = state.step;
+
+      /* —— Chapter 1 (after the drone overview): placard → what's wrong —— */
+      if (step === 0) {
+        state.step = 1; state.stepNudges = 0;
+        return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Good — red diamond, 1993, Class 3: flammable liquid, and a whole tanker of it. That number is your key into the Emergency Response Guidebook. Now hold that drone shot in your head — the tank on its side, and everything around it. What's wrong with this scene?` }] };
+      }
+      if (step === 1) {
+        if (!WRONG_RE.test(text) && state.stepNudges < 2) {
+          state.stepNudges++;
+          return { turn: [{ speaker: 'coach', kind: 'coaching', text: state.stepNudges === 1
+            ? `Look at the lanes on either side of that tanker. Who's still out there?`
+            : `The traffic. It's still moving on both sides — passenger cars rolling past a flammable-liquid tanker at arm's length, windows down. Say what should have happened to that road.` }] };
+        }
+        state.step = 2; state.stepNudges = 0;
+        return { observeNext: true, turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Exactly — that's the part that should jump out. ERG Guide 128 calls for at least 150 feet of initial isolation in every direction, and those cars are inside it. The first job on arrival isn't the tank at all — it's shutting that road down, both directions. Now let's ride along with the first crew in. Watch — and pay attention to how it feels.` }] };
+      }
+
+      /* —— Chapter 2 (after the helmet cam): how it felt → the correction —— */
+      if (step === 2) {
+        if (!FEEL_RE.test(text) && state.stepNudges < 2) {
+          state.stepNudges++;
+          return { turn: [{ speaker: 'coach', kind: 'coaching', text: state.stepNudges === 1
+            ? `There's no wrong answer here — but look again at where he's standing. Close enough to touch a tank he can't confirm the contents of. Does that sit right with you?`
+            : `If your gut says "too close," trust it. That's not fear — that's your training trying to get your attention. Say it plainly: was that distance reasonable?` }] };
+        }
+        state.step = 3; state.stepNudges = 0;
+        return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Good — that discomfort is exactly the instinct this job runs on. Don't talk yourself out of it. He's in structural gear, not on air, close enough to touch an unconfirmed Class 3. So turn the feeling into instructions: what should he be doing differently?` }] };
+      }
+      if (step === 3) {
+        if (!SHOULD_RE.test(text) && state.stepNudges < 2) {
+          state.stepNudges++;
+          return { turn: [{ speaker: 'coach', kind: 'coaching', text: state.stepNudges === 1
+            ? `Start with distance. Where should he be standing, and what gets him the real number instead of a guess?`
+            : `Pull back to the ERG's initial isolation line — at least 150 feet — and read the placard from there with binoculars. Nobody near that tank without chemical protection and air. Say the version you'd radio to him.` }] };
+        }
+        state.step = 4; state.stepNudges = 0;
+        return { observeNext: true, turn: [{ speaker: 'coach', kind: 'coaching', text:
+`That's the correction: distance first, the ERG for the number, and nobody near the product without protection. You've now seen how this scene actually went. Let me show you the version that should have happened.` }] };
+      }
+
+      /* —— Chapter 3 (after the compliant version): your first moves —— */
+      if (!MOVES_RE.test(text) && state.stepNudges < 2) {
+        state.stepNudges++;
+        return { turn: [{ speaker: 'coach', kind: 'coaching', text: state.stepNudges === 1
+          ? `Think sequence — what do you do before you ever leave the rig?`
+          : `Placard through the windshield or binoculars. Stage upwind, uphill, at distance. Shut the road down both ways. Open the ERG for your isolation line. And get HazMat, law enforcement, and command rolling. Give me your version.` }] };
+      }
+      state.complete = true;
+      return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+`That's the read. You pulled the placard before anything else, you spotted the traffic problem the crew on scene never fixed, your gut flagged the approach that was too close — and then you ran the scene the way it should have been run.
+
+Nothing about that tank got safer today. The difference is you'd have kept everyone out of its way. Reading a scene honestly — including what the people in it got wrong — is the whole skill.` }] };
+    }
+
+    /* ---- LIVE path ---------------------------------------------------- */
+    /* ---- LIVE path — the shared turn engine (js/sim-core.js) ---------- */
+    /* This page speaks the OBSERVE/REACT contract: coaching-only turn[] +
+       observeNext (clamped so a live model can never point at footage that
+       doesn't exist) + a final complete flag. JSON repair, strict parse →
+       retry-once → safe fallback, and the JSON-history serializer are the
+       ONE shared implementation every simulator page uses. */
+    const TURN_PARSER = SimCore.makeTurnParser({
+      emotionalState: false,
+      modeTarget: false,               // no scene/dialogue world — coach only
+      report: false,                   // the debrief here is authored, not generated
+      observeNext: (b) => b && state.watched < OBSERVE_SCENES.length,
+      fallbackText: `Let's stay with that for a second — what makes you say that?`,
+    });
+    function lastLearner(msgs) {
+      for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].speaker === 'you') return msgs[i];
+      return null;
+    }
+    const TURN_ENGINE = SimCore.makeTurnEngine({
+      system: () => SYSTEM_PROMPT,   // a fn so Section-1 coupler addenda are honored
+      maxTokens: 1000,               // observe/react coach turns are short (2–4 sentences)
+      parser: TURN_PARSER,
+      history: SimCore.turnHistory({ emotionalState: false }),
+      // The scripted five-beat responder keys off the learner's LAST line.
+      scripted: (msgs) => scriptedTurn((lastLearner(msgs) || { text: '' }).text),
+    });
+    const getTurn = TURN_ENGINE.getTurn;
+
+    /* =====================================================================
+       DOM REFS + tiny element helper
+       ===================================================================== */
+    const app            = document.getElementById('app');
+    const modeIndicator  = document.getElementById('modeIndicator');
+    const stage          = document.getElementById('stage');
+    const stageInner     = document.getElementById('stageInner');
+    const scrim          = document.getElementById('scrim');
+    const coachPanel     = document.getElementById('coachPanel');
+    const coachPanelBody = document.getElementById('coachPanelBody');
+    const resumeBtn      = document.getElementById('resumeBtn');
+    const inputbar       = document.querySelector('.inputbar');
+    const composer       = document.getElementById('composer');
+    const sendBtn        = document.getElementById('sendBtn');
+    const inputMain      = document.getElementById('inputMain');
+    const inputWatching  = document.getElementById('inputWatching');
+    const inputObserve   = document.getElementById('inputObserve');
+    const inputReturn    = document.getElementById('inputReturn');
+    const returnCoachBtn = document.getElementById('returnCoachBtn');
+    const observeNextBtn = document.getElementById('observeNextBtn');
+    const inputStart     = document.getElementById('inputStart');
+    const startCtaBtn    = document.getElementById('startCtaBtn');
+    const inputRecap     = document.getElementById('inputRecap');
+    const recapCtaBtn    = document.getElementById('recapCtaBtn');
+    const inputHint      = document.getElementById('inputHint');
+    const liveRegion     = document.getElementById('liveRegion');
+    const inputResults   = document.getElementById('inputResults');
+    const resultsCtaBtn  = document.getElementById('resultsCtaBtn');
+    const inputAnalyzing = document.getElementById('inputAnalyzing');
+    // (the results modal's elements are owned by the shared debrief —
+    //  SimDebrief.ensureModal() adopts the markup above)
+    const inputContinue  = document.getElementById('inputContinue');
+    const continueCtaBtn = document.getElementById('continueCtaBtn');
+    const inputDone       = document.getElementById('inputDone');
+
+    function el(tag, cls, html) {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (html != null) n.innerHTML = html;
+      return n;
+    }
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+    // A small inline placeholder frame — shown as the video's poster until
+    // real footage replaces OBSERVE_SCENES' src paths, and left showing for
+    // the caption's whole duration if a clip 404s (see waitForVideoEnd).
+    function placeholderPoster(label) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1a1410"/><stop offset="100%" stop-color="#2c2118"/>
+        </linearGradient></defs>
+        <rect width="960" height="540" fill="url(#g)"/>
+        <g opacity="0.14">${Array.from({ length: 16 }).map((_, i) =>
+          `<rect x="${i * 130 - 260}" y="-60" width="55" height="760" transform="rotate(24 480 270)" fill="#f1b34a"/>`).join('')}</g>
+        <text x="480" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#f1b34a" font-weight="700" letter-spacing="3">OBSERVE</text>
+        <text x="480" y="288" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#c3b6a8">${esc(label)}</text>
+      </svg>`;
+      return 'data:image/svg+xml;base64,' + btoa(svg);
+    }
+
+    // Built ONCE per video mount and never re-rendered mid-playback — see the
+    // videoAlreadyMounted guard in render(). Every clip gets its own
+    // <video preload="auto"> so they all buffer up front.
+    function videoNode() {
+      const wrap = el('div', 'scene-video');
+      const videos = OBSERVE_SCENES.map((s, i) =>
+        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto"
+                poster="${placeholderPoster('Part ' + (i + 1) + ' of ' + OBSERVE_SCENES.length)}"
+                src="${esc(s.src)}" aria-label="${esc(s.label)}"></video>`
+      ).join('');
+      wrap.innerHTML = videos +
+        `<div class="intro-caption-wrap"><p class="intro-caption" id="introCaption" aria-live="polite"></p></div>
+         <button class="intro-playpause" id="introPlayPauseBtn" aria-label="Pause">
+           <i class="fa-solid fa-pause"></i>
+         </button>
+         <button class="intro-begin" id="introBeginBtn" hidden>
+           <i class="fa-solid fa-circle-play"></i> Tap to begin
+         </button>
+         <div class="intro-loading" id="introLoading"><span class="dots"><span></span><span></span><span></span></span></div>
+         <button class="observe-replay" id="observeReplayBtn" hidden>
+           <i class="fa-solid fa-arrows-rotate"></i> Replay scene
+         </button>`;
+      return wrap;
+    }
+
+    // Attached exactly once per mount (the video node persists across
+    // renders), so a replay never stacks a second click handler.
+    function wireVideoControls() {
+      const sceneVideo = document.querySelector('.scene-video');
+      if (!sceneVideo) return;
+      const introPlayPause = document.getElementById('introPlayPauseBtn');
+      const replayBtn = document.getElementById('observeReplayBtn');
+      introPlayPause.addEventListener('click', () => {
+        const active = sceneVideo.querySelector('.intro-video.is-active');
+        if (!active) return;
+        if (active.paused) active.play(); else active.pause();
+        introPlayPause.innerHTML = active.paused ? '<i class="fa-solid fa-play"></i>' : '<i class="fa-solid fa-pause"></i>';
+        introPlayPause.setAttribute('aria-label', active.paused ? 'Play' : 'Pause');
+      });
+      // During a chapter break this same center control ADVANCES the scene;
+      // otherwise it replays the last segment watched.
+      replayBtn.addEventListener('click', () => {
+        if (state.awaitingObserve) watchNextSegment();
+        else replayVideo();
+      });
+    }
+
+    /* ---- message node builders ----------------------------------------- */
+    const ec = (m) => (m && m._enter ? ' enter' : '');
+    function coachNode(m) {
+      const wrap = el('div', 'coach-msg' + ec(m));
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      body.appendChild(el('div', 'coach-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youCoachNode(m) {
+      const wrap = el('div', 'you-coach' + ec(m));
+      wrap.appendChild(el('div', 'cap', 'You'));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      return wrap;
+    }
+
+    /* ---- the closing checklist, presented AS a coach message — built by
+       the SHARED Section-3 debrief (js/sim-debrief.js). Hazmat's takeaways
+       are field references, so each carries its own icon. ---- */
+    const CHECKLIST_INLINE = {
+      lead: `Reading the scene safely is the first job on any hazmat call — here's what to keep within reach for the next one:`,
+      items: [
+        { icon: 'fa-book', title: 'The Emergency Response Guidebook (ERG)', body: `Your fastest path from a placard number to a real isolation distance and initial response guide.` },
+        { icon: 'fa-triangle-exclamation', title: 'Placard & UN number reference', body: `Hazard classes 1–9 at a glance, for when you can't get close enough to read small print.` },
+        { icon: 'fa-phone-volume', title: 'Your regional HazMat team', body: `Call early — they'd rather roll and stand down than arrive to a scene that's already gotten worse.` },
+      ],
+    };
+    const CHECKLIST = PUBLISHED ? PUBLISHED.checklist : CHECKLIST_INLINE;
+    const checklistNode = () => SimDebrief.resourcesNode({
+      lead: CHECKLIST.lead,
+      items: CHECKLIST.items,
+      crisisFloor: null,   // field-safety scenario — no personal-crisis floor
+    });
+
+    /* ---- the closing summary: stepper + strengths/growth report ------- */
+    const CLOSING_STEPS = ['Analyzing your size-up…', 'Determining strengths…', 'Determining growth areas…'];
+    const CLOSING_STRENGTHS_INLINE = [
+      { icon: 'fa-eye', title: 'You read the placard first', body: `1993, Class 3 — you pulled the one data point that unlocks everything else before anything distracted you.` },
+      { icon: 'fa-car', title: 'You spotted the non-compliant scene', body: `The live traffic inside the isolation zone jumped out at you — the thing the crew on scene never fixed.` },
+      { icon: 'fa-heart-pulse', title: 'You trusted the discomfort', body: `The helmet-cam footage felt wrong to you, and you turned that feeling into concrete corrections instead of talking yourself out of it.` },
+      { icon: 'fa-list-check', title: 'You knew what right looks like', body: `Staging, distance, the road closure, the calls — your version of the scene had the pieces in the right order.` },
+    ];
+    const CLOSING_GROWTH_INLINE = [
+      { icon: 'fa-book', title: 'Put numbers on your instincts', body: `"Too close" is the right instinct — Guide 128's 150-foot initial isolation is the number that backs it up. Get to the ERG the moment you have a UN number.` },
+      { icon: 'fa-phone', title: `Call for help before you're asked`, body: `HazMat, law enforcement, command — those calls happen in parallel with your size-up, not after it.` },
+    ];
+    // Published: the rubric's two poles become the static strengths/growth.
+    const CLOSING_STRENGTHS = PUBLISHED ? PUBLISHED.strengths : CLOSING_STRENGTHS_INLINE;
+    const CLOSING_GROWTH    = PUBLISHED ? PUBLISHED.growth    : CLOSING_GROWTH_INLINE;
+
+    /* The debrief itself is the SHARED Section-3 flow (js/sim-debrief.js).
+       Hazmat's results are AUTHORED (source:'static') — the fallback lists
+       above are always shown; no model call generates them. Two pages,
+       no playbook page (the checklist coach-message is the takeaway). */
+    const DEBRIEF_PAGES = SimDebrief.reportPages({
+      report: () => null,                        // static debrief — always the authored lists
+      fallbackStrengths: CLOSING_STRENGTHS,
+      fallbackGrowth: CLOSING_GROWTH,
+      // Inline: no playbook page (the checklist coach-message is the takeaway).
+      // Published: the authored playbook compile() promises renders as a page.
+      playbook: PUBLISHED ? PUBLISHED.playbook : [],
+    });
+    const DEBRIEF = SimDebrief.makeFlow({
+      state,
+      appEl: app,
+      refs: SimDebrief.ensureModal(),            // adopts the #resultsModal markup above
+      steps: CLOSING_STEPS,                      // "Analyzing your size-up…" — mode-worded, same 3-beat shape
+      pages: DEBRIEF_PAGES,
+      results: { source: 'static' },
+      resourcesIntro: `Nice work. Here's what to keep within reach for the next call like this one.`,
+      seq: { guard: () => { const my = ++deliverSeq; return () => my !== deliverSeq; } },
+      ui: {
+        render, announce, showTyping, hideTyping,
+        stepperContainer: () => coachPanelBody,
+        pushMessage: (m) => { m._enter = true; state.messages.push(m); },
+        pushCoachLine: (text) => state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text }),
+        focusFallback: () => { if (!inputContinue.hidden) continueCtaBtn.focus(); },
+      },
+    });
+
+    /* =====================================================================
+       RENDER  — paint everything from state
+       ===================================================================== */
+    function render() {
+      const { mode, messages, complete } = state;
+      const prevStageScroll = stage.scrollTop;
+      const coachUp = mode === 'coaching' && state.started;
+      const trap = coachUp;
+
+      app.dataset.mode = mode;
+      // Only an UNSEEN segment takes over the viewport — replays stay contained.
+      app.dataset.videoFull = String(state.videoLive && state.videoFirstRun);
+      app.classList.toggle('coach-up', coachUp);
+      app.classList.toggle('trap', trap);
+
+      modeIndicator.classList.toggle('is-hidden', !state.started);
+
+      const busy = state.sending || state.delivering || state.closingStepperActive || state.resultsModalOpen || state.videoLive;
+      const coachDisabled = mode !== 'coaching' && busy;
+      const sceneDisabled = mode !== 'scene' && busy;
+      const reactTip   = (mode !== 'coaching' && !coachDisabled) ? 'Talk with your AI coach' : '';
+      const observeTip = (mode !== 'scene' && !sceneDisabled)
+        ? (state.awaitingObserve ? 'Watch what happens next' : 'Review the scene') : '';
+      modeIndicator.innerHTML =
+        `<div class="mode-toggle" role="group" aria-label="Observe or react mode">
+           <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
+                   ${reactTip ? `data-tip="${reactTip}"` : ''}
+                   aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-comments"></i> React
+           </button>
+           <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
+                   ${observeTip ? `data-tip="${observeTip}"` : ''}
+                   aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-video"></i> Observe
+           </button>
+         </div>`;
+
+      stage.classList.toggle('is-frozen', coachUp);
+      stage.toggleAttribute('inert', coachUp);
+      stage.setAttribute('aria-hidden', coachUp ? 'true' : 'false');
+
+      const videoAlreadyMounted = state.videoPlaying && stageInner.querySelector('.scene-video');
+      if (!videoAlreadyMounted) {
+        stageInner.innerHTML = '';
+        if (state.videoPlaying) {
+          stageInner.appendChild(videoNode());
+          wireVideoControls();
+        } else {
+          const est = el('div', 'establishing');
+          // Authored content when published (scenario.establishing); the
+          // shipped demo keeps its inline copy when nothing is published.
+          const EST = PUBLISHED ? PUBLISHED.establishing : {
+            eyebrow: 'Scene size-up',
+            title: 'I-65 Tanker Rollover',
+            sub: 'A tanker went over on the interstate — and the scene you\'re about to watch was not run by the book. Watch how it really unfolded, then tell your AI coach what you saw: what was right, what wasn\'t, and what you\'d do differently.',
+          };
+          est.innerHTML =
+            `<div class="est-eyebrow">${esc(EST.eyebrow || 'Scene size-up')}</div>
+             <h2 class="est-title">${esc(EST.title || SCENARIO.title)}</h2>
+             ${EST.sub ? `<p class="est-sub">${esc(EST.sub)}</p>` : ''}`;
+          stageInner.appendChild(est);
+        }
+      }
+      if (state.videoPlaying) {
+        const replayBtn = document.getElementById('observeReplayBtn');
+        if (replayBtn) {
+          replayBtn.hidden = state.videoLive;
+          replayBtn.innerHTML = state.awaitingObserve
+            ? '<i class="fa-solid fa-video"></i> Watch what happens next'
+            : '<i class="fa-solid fa-arrows-rotate"></i> Replay scene';
+        }
+      }
+
+      coachPanel.toggleAttribute('inert', !coachUp);
+      coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
+      if (coachUp) {
+        coachPanelBody.innerHTML = '';
+        {
+          // The recap stays visible here; the loading beats run in the CTA
+          // slot below (see showClosing), not stacked over the conversation.
+          // Lift the live question + group the coach run (name on first, avatar on last).
+          const _last = messages[messages.length - 1];
+          const _askMsg = (_last && _last.speaker === 'coach' && /\?/.test(String(_last.text || '')) && !complete) ? _last : null;
+          messages.forEach((m, i) => {
+            const node = m.speaker === 'you' ? youCoachNode(m) : coachNode(m);
+            if (m.speaker === 'coach') {
+              const prev = messages[i - 1], next = messages[i + 1];
+              if (!prev || prev.speaker !== 'coach') node.classList.add('grp-first');
+              if (!next || next.speaker !== 'coach') node.classList.add('grp-last');
+              if (m === _askMsg) { node.classList.add('is-prompt'); if (m._enter) node.classList.add('just-asked'); }
+            }
+            coachPanelBody.appendChild(node);
+          });
+          if (complete && !state.delivering && state.resultsViewed) coachPanelBody.appendChild(checklistNode());
+          composer.placeholder = coachPanelBody.querySelector('.coach-msg.is-prompt') ? 'Type your answer…' : 'Type your response…';
+        }
+      }
+      resumeBtn.hidden = !coachUp;
+
+      // The bar disappears only while a clip is actually PLAYING in Observe
+      // (full-screen watch or contained replay). Reviewing the still frame
+      // keeps it, holding the "Back to AI Coach" return — otherwise the top
+      // toggle is the only way back to the conversation (a dead end).
+      inputbar.hidden = state.started && mode === 'scene' && state.videoLive;
+
+      const showStart    = !state.started && !state.videoLive;
+      const showWatching = state.videoLive && !state.started;
+      // Reviewing the scene: the footer carries the way back to the coach.
+      const showReturn   = state.started && mode === 'scene' && !state.videoLive;
+      // Chapter break: the coach has closed a chapter — the composer steps
+      // aside for the "Watch what happens next" CTA until the segment plays.
+      const showObserveNext = state.awaitingObserve && !state.videoLive && !state.delivering && !showReturn;
+      const showRecap    = complete && !state.delivering && !state.closingStepperActive && !state.awaitingResults && !state.resultsViewed && !showReturn;
+      const showResultsCta = state.awaitingResults && !state.resultsModalOpen && !showReturn;
+      // The closing "Analyzing… Determining…" beats cycle in the CTA slot
+      // (where "View full results" lands), replacing the composer meanwhile.
+      const showClosing  = state.closingStepperActive;
+      const showContinue = complete && state.resultsViewed && !state.delivering && !state.continued && !showReturn;
+      const showDone      = state.continued && !showReturn;
+      inputStart.hidden    = !showStart;
+      inputWatching.hidden = !showWatching;
+      inputReturn.hidden   = !showReturn;
+      inputObserve.hidden  = !showObserveNext;
+      inputRecap.hidden    = !showRecap;
+      inputAnalyzing.hidden = !showClosing;
+      inputResults.hidden  = !showResultsCta;
+      inputContinue.hidden = !showContinue;
+      inputDone.hidden      = !showDone;
+      if (showClosing) inputAnalyzing.lastChild.textContent = DEBRIEF.closingLabel();
+      inputMain.hidden = showStart || showWatching || showReturn || showObserveNext || showRecap || showClosing || showResultsCta || showContinue || showDone;
+
+      composer.disabled = complete || state.sending || state.delivering || state.awaitingObserve || !state.started;
+      sendBtn.disabled = composer.disabled || !composer.value.trim();
+      inputHint.textContent = complete
+        ? 'Size-up complete — press Restart to run it again.'
+        : 'Enter to send · Shift+Enter for a new line';
+
+      /* Results modal — painted by the shared debrief (one renderer for
+         every simulator page, so pages/dots/nav labels never drift). */
+      DEBRIEF.render();
+
+      coachPanel.style.bottom = inputbar.hidden ? '0px' : inputbar.offsetHeight + 'px';
+
+      messages.forEach((m) => { if (m._enter) m._enter = false; });
+
+      manageFocus(trap);
+      requestAnimationFrame(() => {
+        if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
+        else { stage.scrollTop = prevStageScroll; }
+      });
+      // Coach thread: the shared coach-sheet module eases the sheet up as it
+      // grows, or glides the body's scroll to the new bottom once it's maxed out
+      // (instant fallback when motion is reduced or the tab is backgrounded).
+      if (coachUp) coachSheet.follow({ nearBottom: true, delivering: state.delivering });
+      else coachSheet.reset();
+    }
+    let followStage = false;
+
+    /* Coach-sheet rise + follow-scroll motion — shared in js/sim-coach-sheet.js.
+       coachSheet.follow({nearBottom,delivering}) from render(); .pin() for the
+       typing dots; .reset() when the sheet lowers. */
+    const coachSheet = SimCoachSheet.create({ app, panel: coachPanel, body: coachPanelBody });
+
+    /* ---- typing indicator (always in the coach sheet — Observe never types) */
+    function showTyping() {
+      hideTyping();
+      const node = el('div', 'typing', '<span></span><span></span><span></span>');
+      node.id = 'typingNode';
+      coachPanelBody.appendChild(node);
+      coachSheet.pin();
+    }
+    function hideTyping() {
+      const t = document.getElementById('typingNode');
+      if (t) t.remove();
+    }
+
+    /* =====================================================================
+       FOCUS MANAGEMENT  — trap focus in the coaching layer while it's up
+       ===================================================================== */
+    let lastSceneFocus = null;
+    function focusables() {
+      const sel = 'button, [href], textarea, input, select, [tabindex]:not([tabindex="-1"])';
+      return [
+        ...modeIndicator.querySelectorAll(sel),
+        ...coachPanel.querySelectorAll(sel),
+        ...document.querySelectorAll('.inputbar ' + sel),
+      ].filter((n) => !n.disabled && n.offsetParent !== null);
+    }
+    function manageFocus(trap) {
+      if (trap && !app.classList.contains('was-trap')) {
+        app.classList.add('was-trap');
+        lastSceneFocus = document.activeElement;
+        setTimeout(() => { (composer.disabled ? resumeBtn : composer).focus(); }, 30);
+      } else if (!trap && app.classList.contains('was-trap')) {
+        app.classList.remove('was-trap');
+        setTimeout(() => { if (!composer.disabled) composer.focus(); }, 30);
+      }
+    }
+    document.addEventListener('keydown', (e) => {
+      // The results dialog takes precedence: Escape closes IT, never the
+      // mode switch underneath, while it's up.
+      if (state.resultsModalOpen) {
+        // Aligned with every simulator page: Escape closes via the shared
+        // debrief (coach introduces the checklist), one linear way through.
+        if (e.key === 'Escape') { e.preventDefault(); DEBRIEF.closeResults(); }
+        return;
+      }
+      const trap = app.classList.contains('trap');
+      if (!trap) return;
+      if (e.key === 'Escape') { e.preventDefault(); state.mode = 'scene'; render(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+
+    function announce(msg) { liveRegion.textContent = ''; setTimeout(() => { liveRegion.textContent = msg; }, 30); }
+
+    /* =====================================================================
+       OBSERVE VIDEO — the locked, no-skip cold open on first watch; a
+       replayable clip thereafter. Captions are chunked sentence-sized so
+       they read like real captions.
+       ===================================================================== */
+    let introSeq = 0;
+
+    function splitCaptionChunks(text) {
+      const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+      const chunks = [];
+      sentences.forEach((s) => {
+        s = s.trim();
+        if (!s) return;
+        if (s.length <= 100) { chunks.push(s); return; }
+        const mid = s.indexOf(',');
+        if (mid > 10 && mid < s.length - 10) {
+          chunks.push(s.slice(0, mid + 1).trim());
+          chunks.push(s.slice(mid + 1).trim());
+        } else {
+          chunks.push(s);
+        }
+      });
+      return chunks;
+    }
+    const captionMs = (chunk) => Math.max(1700, Math.min(5200, chunk.split(/\s+/).length * 330));
+
+    async function showCaption(captionEl, text, mySeq) {
+      captionEl.classList.remove('is-visible');
+      await wait(reducedMotion() ? 0 : 160);
+      if (mySeq !== introSeq) return;
+      captionEl.textContent = text;
+      captionEl.classList.add('is-visible');
+    }
+    async function runCaptions(captionEl, chunks, mySeq) {
+      for (const chunk of chunks) {
+        if (mySeq !== introSeq) return;
+        await showCaption(captionEl, chunk, mySeq);
+        if (mySeq !== introSeq) return;
+        await wait(reducedMotion() ? 1400 : captionMs(chunk));
+      }
+    }
+
+    // Resolves on real playback end immediately. On a load error (e.g. the
+    // placeholder src hasn't been replaced with real footage yet), waits out
+    // the caption's own reading time instead of cutting straight to black —
+    // so the demo still plays at a sensible pace with no footage in place.
+    function waitForVideoEnd(videoEl, mySeq, fallbackMs) {
+      return new Promise((resolve) => {
+        // Already-failed asset (its error event fired back at mount time, so
+        // no listener would ever hear it) → pace by the captions instead.
+        if (videoEl.error) { setTimeout(resolve, fallbackMs); return; }
+        const onEnd = () => { cleanup(); resolve(); };
+        const onError = () => { cleanup(); setTimeout(resolve, fallbackMs); };
+        function cleanup() { videoEl.removeEventListener('ended', onEnd); videoEl.removeEventListener('error', onError); }
+        videoEl.addEventListener('ended', onEnd, { once: true });
+        videoEl.addEventListener('error', onError, { once: true });
+        setTimeout(() => { if (mySeq === introSeq) resolve(); }, Math.max(12000, fallbackMs + 3000));
+      });
+    }
+    function waitForTap(btn) {
+      return new Promise((resolve) => {
+        btn.hidden = false;
+        btn.addEventListener('click', () => { btn.hidden = true; resolve(); }, { once: true });
+      });
+    }
+    function preloadVideos(videos) {
+      return Promise.all(videos.map((v) => new Promise((resolve) => {
+        // Ready enough OR already failed (its error event fired at mount
+        // time, before we were listening) — either way, nothing to wait on.
+        if (v.readyState >= 3 || v.error || v.networkState === 3) return resolve();
+        let t;
+        const done = () => { clearTimeout(t); v.removeEventListener('canplaythrough', done); v.removeEventListener('error', done); resolve(); };
+        v.addEventListener('canplaythrough', done, { once: true });
+        v.addEventListener('error', done, { once: true });
+        t = setTimeout(done, 9000);
+      })));
+    }
+
+    // Plays the next UNSEEN segment full-screen. Used for the very first
+    // watch AND every "Watch what happens next" chapter break.
+    function watchNextSegment() {
+      if (state.videoLive || state.sending || state.delivering) return;
+      if (state.watched >= OBSERVE_SCENES.length) return;   // nothing left unseen
+      const mySeq = ++introSeq;
+      state.videoPlaying = true;
+      state.videoLive = true;
+      state.videoFirstRun = true;      // unseen footage → full-viewport takeover
+      state.awaitingObserve = false;
+      state.mode = 'scene';
+      announce('Watching the scene.');
+      render();
+      runSegment(mySeq, state.watched);
+    }
+    // "Replay scene" — re-runs the LAST segment watched, contained in the
+    // stage (never full-screen, never re-triggering the coach flow).
+    function replayVideo() {
+      if (state.videoLive || state.sending || state.delivering) return;
+      if (state.watched === 0) return;
+      const mySeq = ++introSeq;
+      state.videoLive = true;
+      state.videoFirstRun = false;
+      render();
+      runSegment(mySeq, state.watched - 1);
+    }
+    async function finishSegment(segIdx) {
+      await wait(reducedMotion() ? 0 : 250);
+      state.videoLive = false;
+      const wasNew = state.videoFirstRun;
+      state.videoFirstRun = false;
+      if (!wasNew) { render(); return; }         // a replay just settles back to the still frame
+      state.watched = segIdx + 1;
+      // segment 1 chains into the coach — via the Section-1 coupler
+      if (!state.started) { CONTEXT.done({ modality: 'video' }); return; }
+      // Segments 2 and 3: the coach sheet rises again and reacts to the new footage.
+      state.mode = 'coaching';
+      announce('Back with your AI coach.');
+      render();
+      await deliverSegmentOpener(segIdx);
+    }
+
+    // Plays ONE segment's clip (with its captions), then hands off to
+    // finishSegment. All clips stay mounted and buffering from first mount.
+    async function runSegment(mySeq, segIdx) {
+      const sceneVideo = document.querySelector('.scene-video');
+      if (!sceneVideo) return;
+      const videos = [...sceneVideo.querySelectorAll('.intro-video')];
+      const v = videos[segIdx];
+      if (!v) return;
+      const introCaption  = document.getElementById('introCaption');
+      const introBeginBtn = document.getElementById('introBeginBtn');
+      const introLoading  = document.getElementById('introLoading');
+
+      // Show THIS segment's frame (and drop the previous segment's caption)
+      // immediately — the preload gate below must never hold a stale frame
+      // from the last chapter on screen.
+      introCaption.classList.remove('is-visible');
+      videos.forEach((other, j) => other.classList.toggle('is-active', j === segIdx));
+
+      await preloadVideos([v]);
+      if (mySeq !== introSeq) return;
+      introLoading.classList.add('is-out');
+      await wait(reducedMotion() ? 0 : 260);
+      if (mySeq !== introSeq) return;
+
+      const scene = OBSERVE_SCENES[segIdx];
+      const chunks = splitCaptionChunks(scene.text);
+      const fallbackMs = chunks.reduce((sum, c) => sum + (reducedMotion() ? 1400 : captionMs(c)), 0);
+      try { v.currentTime = 0; } catch (e) { /* nothing to rewind on a failed asset */ }
+      try {
+        await v.play();
+      } catch (err) {
+        if (err && err.name === 'NotAllowedError') {
+          await waitForTap(introBeginBtn);
+          if (mySeq !== introSeq) return;
+          try { await v.play(); } catch (e2) { /* asset itself is the problem — the fallback timing below still carries it */ }
+        }
+      }
+      if (mySeq !== introSeq) return;
+      runCaptions(introCaption, chunks, mySeq);
+      await waitForVideoEnd(v, mySeq, fallbackMs);
+      if (mySeq !== introSeq) return;
+      finishSegment(segIdx);
+    }
+
+    // Reveal the coach's reaction to segments 2/3 message-by-message, then
+    // hand the composer back for the next React chapter.
+    async function deliverSegmentOpener(segIdx) {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      const opener = SEGMENT_OPENERS[segIdx] || [];
+      state.delivering = true;
+      render();
+      for (const m of opener) {
+        hideTyping();
+        showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+        if (dead()) return;
+        state.messages.push({ ...m, _enter: true });
+        render();
+        await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();
+      if (!composer.disabled) composer.focus();
+    }
+
+    /* =====================================================================
+       ACTIONS
+       ===================================================================== */
+    async function send() {
+      const text = composer.value.trim();
+      if (!text || state.sending || state.complete) return;
+
+      state.messages.push({ speaker: 'you', kind: 'coaching', text, _enter: true });
+      composer.value = '';
+      autoGrow();
+
+      state.sending = true;
+      render();
+      await wait(reducedMotion() ? 80 : 700);   // a beat before the reply begins — a real response doesn't start the instant you hit send
+      showTyping();
+
+      let turn;
+      try { turn = await getTurn(state.messages); }
+      catch (err) {
+        turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }] };
+      }
+
+      await deliverTurn(turn);
+
+      state.sending = false;
+      render();
+      if (!composer.disabled && !inputMain.hidden) composer.focus();
+    }
+
+    // Shared pacing (js/sim-core.js) — one rhythm across every simulator page.
+    const { wait, reducedMotion, thinkingTime } = SimCore;
+
+    let deliverSeq = 0;
+
+    async function deliverTurn(turn) {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.delivering = true;
+      render();
+      for (const m of turn.turn) {
+        hideTyping();
+        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
+      }
+      // Chapter break: the coach closed this chapter — the composer steps
+      // aside for "Watch what happens next" (the learner flips on their own
+      // command; the video never auto-plays over the coach's send-off).
+      if (turn.observeNext && state.watched < OBSERVE_SCENES.length) {
+        state.awaitingObserve = true;
+        announce('The scene has more to show. Watch what happens next when you’re ready.');
+      }
+      // LIVE completion: the model flags the final synthesis turn (the
+      // scripted demo engine sets state.complete itself). Surfaces the
+      // "See your results" CTA — the shared Section-3 debrief takes it from there.
+      if (turn.complete) state.complete = true;
+      state.delivering = false;
+      render();
+    }
+
+    // "See your results" — the SHARED Section-3 debrief takes over: the
+    // "Analyzing…" stepper, the paged results modal, the checklist hand-back
+    // and the exit are one implementation across every simulator page.
+    function revealResults() {
+      if (!state.complete || state.delivering || state.closingStepperActive) return;
+      DEBRIEF.openClosing([]);
+    }
+
+    function restart() {
+      deliverSeq++;
+      hideTyping();
+      introSeq++;
+      CONTEXT.reset();   // re-arm the Section-1 coupler for a fresh run
+      Object.assign(state, {
+        mode: 'coaching', started: false, messages: [], pendingOpening: initialMessages(),
+        sending: false, delivering: false, complete: false, step: 0, stepNudges: 0,
+        watched: 0, awaitingObserve: false,
+        videoPlaying: false, videoLive: false, videoFirstRun: false, closingStepperActive: false,
+        awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
+      });
+      app.classList.remove('was-trap');
+      followStage = true;
+      announce('Practice restarted.');
+      render();
+    }
+
+    // "Bring in the AI Coach" — the video IS the transition; the opening prep
+    // types in one line at a time, as if the coach is talking.
+    async function startSession(context) {
+      if (state.started || state.sending || state.delivering) return;
+      // Section 1 → Section 2, standardized: the cold-open segment arrives
+      // here as ONE normalized ContextRecord (js/sim-context.js) — the same
+      // coupler every simulator page flows through.
+      SimContext.apply(context, {
+        appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
+        seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
+      });
+      state.started = true;
+      state.mode = 'coaching';
+      announce('Bringing in your AI coach.');
+      render();
+      await deliverOpening();
+    }
+    async function deliverOpening() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      const opening = state.pendingOpening || [];
+      state.pendingOpening = null;
+      state.delivering = true;
+      render();
+      for (let i = 0; i < opening.length; i++) {
+        const m = opening[i];
+        const prev = i > 0 ? opening[i - 1] : null;
+        hideTyping();
+        showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();
+      if (!composer.disabled) composer.focus();
+    }
+
+    /* =====================================================================
+       WIRING
+       ===================================================================== */
+    function autoGrow() {
+      composer.style.height = 'auto';
+      composer.style.height = Math.min(composer.scrollHeight, 120) + 'px';
+    }
+    composer.addEventListener('input', () => { autoGrow(); sendBtn.disabled = state.sending || state.complete || !composer.value.trim(); });
+    composer.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    sendBtn.addEventListener('click', send);
+    // Lowers the sheet to Observe — the panel header's own escape hatch.
+    resumeBtn.addEventListener('click', () => { state.mode = 'scene'; render(); });
+    scrim.addEventListener('click', () => { state.mode = 'scene'; render(); });
+
+    recapCtaBtn.addEventListener('click', revealResults);
+    // Results modal: opened, paged and closed by the shared debrief
+    // (modal-footer nav is delegated INSIDE makeFlow).
+    resultsCtaBtn.addEventListener('click', DEBRIEF.openResults);
+    continueCtaBtn.addEventListener('click', DEBRIEF.finish);
+
+    // "Full conversation" — the SHARED coach-sheet expander
+    // (js/sim-chat-history.js): a pill in the panel head grows the sheet to
+    // nearly full screen height and overlays the complete transcript —
+    // earlier coaching exchanges AND the scene context — in one consistent
+    // treatment; "Latest only" (or Escape, or the sheet lowering) collapses
+    // it back to the focused view every page opens with.
+    SimChatHistory.attach({
+      panel: coachPanel,
+      body: coachPanelBody,
+      messages: () => state.messages,
+      announce,
+    });
+
+    // Start bar: the Section-1 coupler — hazmat's context is its FIRST video
+    // segment, played by this page's own segment player; finishing it hands
+    // Section 2 a normalized ContextRecord via startSession(record).
+    const CONTEXT = SimContext.create({
+      modalities: {
+        video: { available: true, enter: watchNextSegment },
+      },
+      onDone: startSession,
+    });
+    startCtaBtn.addEventListener('click', CONTEXT.begin);
+    // Chapter break: flip back to Observe and play the next segment.
+    observeNextBtn.addEventListener('click', watchNextSegment);
+    // Reviewing the scene: back to the conversation on the learner's command
+    // (mirrors the React toggle segment, but lives where every other "way
+    // forward" does — the input bar).
+    returnCoachBtn.addEventListener('click', () => {
+      if (state.videoLive) return;
+      state.mode = 'coaching';
+      announce('Back with your AI coach.');
+      render();
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    });
+
+    // The mode toggle: tap the inactive segment to switch (delegated, since
+    // the toggle is rebuilt on every render). Disabled segments don't fire.
+    // During a chapter break, tapping Observe ADVANCES the scene — same as
+    // the input bar's CTA — rather than just reviewing the last frame.
+    modeIndicator.addEventListener('click', (e) => {
+      const seg = e.target.closest('.seg');
+      if (!seg || seg.disabled) return;
+      const which = seg.dataset.seg;
+      if (which === state.mode) return;
+      if (which === 'scene' && state.awaitingObserve) { watchNextSegment(); return; }
+      state.mode = which;
+      announce(which === 'scene' ? 'Reviewing the scene.' : 'Back with your AI coach.');
+      render();
+      if (which === 'coaching') setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    });
+    document.getElementById('restartBtn').addEventListener('click', restart);
+
+    // Opening beat: anchor on the establishing card with a "Watch the scene"
+    // prompt. The video and the coach sheet both stay down until the
+    // learner chooses to begin.
+    render();
+    </script>
+    <!-- ===== Course-delivery frame ===================================== -->
+    <script>
+      // Embed into the app shell; course/lesson auto-derive from #scenarioName.
+      window.LESSON_FRAME = { mount: '#app' };
+    </script>
+    <script src="js/frame.js?v=3"></script>
+    <script>
+      // Relocate the app's Restart control onto the frame's actions slot; moving
+      // the node preserves its click handler (attached above by element id).
+      (function () {
+        function relocate() {
+          var slot = document.querySelector('.vt-frame .vt-actions');
+          var btn  = document.getElementById('restartBtn');
+          if (slot && btn) slot.appendChild(btn);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+        else relocate();
+      })();
+    </script>
+</body>
+</html>
