@@ -1395,20 +1395,27 @@
       }
     });
 
-    /* -- status buckets -- */
-    root.addEventListener('selection-change', function (e) {
-      if (e.target.id !== 'kxBuckets') return;
-      var next = e.detail || [];
-      var prev = (!state.filter.statuses || !state.filter.statuses.length)
-        ? ['all']
-        : STATUS_BUCKETS.filter(function (b) {
-            return b.statuses && b.statuses.some(function (s) { return state.filter.statuses.indexOf(s) !== -1; });
-          }).map(function (b) { return b.id; });
-      // Translate the group's set-based selection into a bucket toggle.
-      var added = next.filter(function (id) { return prev.indexOf(id) === -1; });
-      var removed = prev.filter(function (id) { return next.indexOf(id) === -1; });
-      var changed = added.length ? added[0] : removed[0];
-      if (changed) toggleBucket(changed);
+    /* -- status buckets --
+       Delegated on `click`, NOT on the group's `selection-change`: that event
+       is dispatched with bubbles:false / composed:false, so it never reaches a
+       listener up here on #root — the buckets would light up from the
+       component's own internal toggle while app state (and the task list)
+       never moved, leaving several segments stuck on at once.
+
+       Listening directly on the group isn't the answer either: assigning
+       `.selected` in syncBucketGroup also emits selection-change (twice, as
+       the group reconciles button by button), which would feed straight back
+       into a render loop.
+
+       The click works because vwc-toggle-button keeps its managed <input> in
+       the light DOM — exactly one click event bubbles out per press, mouse or
+       keyboard, and carries the button we need. App state stays the single
+       source of truth; syncBucketGroup re-derives the group's selection after
+       the render, discarding the component's transient flip. */
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('.kx-buckets vwc-toggle-button');
+      if (!btn) return;
+      toggleBucket(btn.getAttribute('value'));
     });
 
     /* -- filter checkboxes -- */
