@@ -421,10 +421,150 @@
     },
   };
 
+  /* =======================================================================
+     CURATED EXAMPLE — "The Kendra Situation" (AlcoholEdu for College,
+     JEDU-01015), authored from the shipped action-practice Kendra scenario
+     (js/scenario.js DEFAULT_SCENARIO) re-expressed in the FINAL Mix & Match
+     3-phase shape from the Interaction Type Mapping: an unscored reflection
+     (with the grief + alcohol/pill conditional probe) → a live roleplay with
+     Kendra → a post-scene coach-led "connect her to real help" beat. A peer
+     intervention: notice → reach out → listen → connect (never fix). Wellbeing-
+     adjacent, so elevatedStakes:true adds the 988 crisis floor.
+     ======================================================================= */
+  const KENDRA_SITUATION =
+'Kendra\'s your roommate, and she\'s nineteen. Her grandmother — Nona, the one who raised her after her mom died when Kendra was fourteen — passed last fall, right in the middle of midterms. Since then she hasn\'t been herself.\n\nIt started small and hasn\'t stopped. She\'s drinking alone most nights — not parties, just quiet, in her room. One bottle on her desk on a Tuesday, three by Thursday. She\'s barely leaving; her seat in your 9 a.m. lecture has been empty for a week, and a letter from the dean about academic probation is sitting on her desk. And a few days ago, looking for a charger, you found prescription pills in her nightstand drawer, tucked behind a stack of old birthday cards — not the way they\'re meant to be taken, sitting right next to the drinking.\n\nIt\'s 4 p.m. The blinds are down and Kendra\'s under the covers, bottles on the nightstand. She hasn\'t let anyone into this room in two weeks — but she let you in tonight. You\'re about to check on her.';
+
+  const EXAMPLE_KENDRA = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'The Kendra Situation',
+    course: 'AlcoholEdu for College (JEDU-01015)',
+    learnerName: 'Jay',
+    characterName: 'Kendra',
+    elevatedStakes: true,   // grief + alcohol/pill risk — the 988 crisis floor applies
+    involvesMinors: false,  // Kendra is 19
+    threatContent: false,
+    framing: 'a peer-intervention scenario: a college student checking on a close friend who has been drinking alone since a loss, with prescription pills in the mix — the skill is notice → reach out → listen → connect, never fixing it yourself',
+    learnerRole: 'Jayda ("Jay") — Kendra\'s roommate and closest friend, and right now the one person she\'ll still let into the room',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · AlcoholEdu for College',
+      title: 'The Kendra Situation',
+      sub: 'Your roommate has been drinking alone since she lost her Nona. Tonight she let you in — and what you do next is about connection, not fixing.',
+    },
+    openingImage: 'Kendra\'s dorm room at 4 p.m. — blinds down, bottles on the nightstand, Kendra under the covers.',
+
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'The Kendra Situation', text: KENDRA_SITUATION } },
+
+    voice: {
+      persona: 'a warm, curious, non-judgmental peer coach — not an instructor with the one right answer; you affirm before redirecting and frame gaps as growth',
+      guidance: 'Before a line, surface intent ("what do you want that line to do?"); after a line, reflect on how Kendra took it. Offer a retry when a line lands poorly. This is wellbeing-adjacent — keep it caring and grounded, never clinical.',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before you go in — take a second. What\'s your read on what\'s going on with Kendra, and what\'s worrying you most right now?',
+      feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles that acknowledge their read in their own words. CONDITIONAL PROBE: check whether they named BOTH (a) the grief root cause (losing Nona) AND (b) the safety risk of the drinking + the prescription pills together. If they named both, affirm and move on — do NOT force a question. If EITHER is missing, fold in ONE natural probe (at most once, never loop, never block), e.g. "Something shifted for her around when she lost her Nona — and there are pills in that drawer, sitting right next to the drinking. What do you make of those two together?" End on calibration; the app opens the scene.',
+    },
+
+    state: [
+      { key: 'openness', label: 'Kendra\'s openness', initial: 'guarded — deflecting ("I\'m fine, just tired"), hasn\'t let anyone in for two weeks' },
+    ],
+
+    beats: [
+      {
+        id: 'the-room', label: 'In the Room', level: 'Part 3 · the conversation', type: 'roleplay',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'The room\'s dark, blinds down. Kendra\'s curled under a blanket, phone face-down beside her. She doesn\'t look up when you come in.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Kendra', text: 'I\'m fine, Jay. Just tired.' },
+          ], cta: 'Sit down with her' },
+        inputPlaceholder: 'What do you say to Kendra…',
+        exitCriteria: 'the learner leads with care (not confrontation or ultimatums), names the grief/loss rather than only the drinking, and moves toward a concrete SHARED next step — without trying to be her counselor',
+        reactionGuidance: 'Kendra reacts by how she is met, in inches. Confronted, judged, or handed an ultimatum → she shuts down and pulls away (flat, guarded). Met warm but vague ("I\'m here for you") → a tender moment that changes nothing. Met with warmth AND the grief named AND a small shared step → something cracks open, but only in steps: wary first, relenting when the step is small and shared. She never capitulates in one line, never does a therapy monologue. Her signature resistance is the fear of being handed off and judged — "I\'m not going to be somebody\'s case file, Jay." — surface it so the learner has to make the next step shared, not a referral-and-done.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Kendra',
+          backstory: 'Nineteen. Her grandmother Nona — who raised her after her mom died when she was fourteen — passed last fall during midterms. Since then she\'s been drinking alone most nights and barely leaving her room; there\'s a dean\'s letter about probation, and prescription pills in her drawer she isn\'t taking as directed.',
+          driver: 'Grief, not a character flaw. She craves real connection, not judgment — and she\'s terrified of being turned into a problem to be managed and handed off.',
+          reactions: [
+            { when: 'confronted, judged, or given an ultimatum ("you\'ll get kicked out")', then: 'shuts down and pulls away — flat, guarded, turns toward the wall' },
+            { when: 'met warm but vague ("I\'m here for you"), no concrete step', then: 'a tender moment that changes nothing — "I know you are." — and the situation holds' },
+            { when: 'met with warmth, the grief named, and a small SHARED next step', then: 'something cracks open in steps — wary first, then relenting: "…Okay. If you come with me. Just to talk to someone. Once."' },
+            { when: 'pushed toward help in a way that feels like being handed off', then: 'resists with the fear underneath — "I\'m not going to be somebody\'s case file, Jay."' },
+          ],
+          styleNotes: 'Short, real dialogue — never therapy-speak, never a theatrical meltdown, never capitulates in one line. Narration 1–2 plain sentences.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'CONFRONTS', guidance: 'Leads with blame, ultimatums, or future consequences; treats the drinking as the problem to fix. Kendra shuts down — care before confrontation, shame closes the window before the conversation starts.' },
+          { tier: 'VAGUE', guidance: 'Warm and kind but general — "I\'m here for you" — without naming the grief or bringing a concrete step. A tender moment that changes nothing; name the loss and bring something specific.' },
+          { tier: 'CONNECTS', guidance: 'Leads with care, names the grief (Nona) explicitly, observes without labeling ("I\'ve noticed…"), and moves toward a concrete, shared step. Kendra starts to crack open. Affirm — this is the move.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s slow that down — walk me through what you were going for with her there.',
+          points: 'Land what reaches someone here: lead with care, not confrontation (ultimatums and shame close the window); name the grief out loud (it builds connection instead of defensiveness); observe, don\'t label ("I\'ve noticed" opens what "you\'re…" slams shut). Tailor to what they actually did, and set up that the next move is connecting her to real help without becoming her therapist.',
+        },
+        transitions: [
+          { onTier: 'CONNECTS', next: 'connect', set: { openness: 'cracking open — wary but letting you in' } },
+          { onTier: 'VAGUE', next: 'connect', set: { openness: 'softened but static — heard, nothing concrete yet' } },
+          { onTier: 'CONFRONTS', next: 'connect', set: { openness: 'pulled back — shut down, needs re-earning' } },
+        ],
+      },
+      {
+        id: 'connect', label: 'Connect Her to Help', level: 'Part 3 · after the scene', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Step back out with me for a second. Staying and listening is huge — but it\'s not the whole job. Who could you connect Kendra to, and what\'s your part in it?', prompt: '', beats: [], cta: 'Talk it through' },
+        inputPlaceholder: 'Who, and what\'s your part…',
+        exitCriteria: 'the learner names real, trained help (campus counseling, an RA or trusted advisor, 988) AND frames their own part as connection + going WITH her — not fixing the grief or being her counselor, and not just private sympathy',
+        reactionGuidance: 'Do NOT hand over the answer at first — if they stay in "I\'ll just keep being there for her," probe once toward naming a real person or place. If still stuck, model it (name one — counseling center, RA, 988) and move on; never deadlock. Reinforce that offering to GO WITH her removes the biggest barrier, and defuse the "case file" fear by naming that connecting her to help isn\'t stepping back, it\'s adding support.',
+        hasRightAnswer: true,
+        throughLine: 'The learner\'s part is connection and referral, not fixing — notice → reach out → listen → connect. A warm heart-to-heart alone isn\'t success: bring a concrete next step (a name, a place, hours), offer to go WITH her, and know the physical stakes — alcohol plus prescription medication can be life-threatening, which makes this urgent, not just concerning.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'STAYS-VAGUE', guidance: 'Stops at emotional support — "I\'ll keep checking on her." Probe toward naming a real person or place; if still stuck, model one and move.' },
+          { tier: 'REFERS-COLD', guidance: 'Names help but hands it off — "she should go to counseling" — without offering to go with her or defusing the fear of being managed. Pull toward shared, not handed-off.' },
+          { tier: 'CONNECTS', guidance: 'Names real trained help (counseling / RA / 988) AND offers to go with her, framed as adding support not stepping back. Confirm: that\'s the whole skill — you didn\'t carry it alone, and you didn\'t ask her to either.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s pull the whole thing together.',
+          points: 'Close the loop on the helper\'s role: bring a concrete next step and offer to go with her (that removes the biggest barrier — facing it alone); don\'t try to solve the grief (your role is connection and referral, not counselor); and know the physical stakes (alcohol + prescription meds can be life-threatening — that\'s what makes it urgent). Name that framing help as "adding support," not handing her off, is what defuses the "case file" fear.',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    playbook: [
+      { title: 'Lead with care, not confrontation', body: 'Ultimatums and shame close the window before the conversation starts. Warmth is what keeps someone in the room.' },
+      { title: 'Name the grief explicitly', body: 'When loss is the root cause, saying it out loud creates connection instead of defensiveness.' },
+      { title: 'Observe, don\'t label', body: '"I\'ve noticed…" opens doors that "you\'re…" slams shut.' },
+      { title: 'Bring a concrete next step', body: '"I\'m here for you" leaves them without a move. Come with something specific — health-center hours, a counselor\'s name.' },
+      { title: 'Offer to go with them', body: '"I\'ll go with you" removes the biggest barrier: facing it alone.' },
+      { title: 'Don\'t try to solve the grief', body: 'Your part is connection and referral — not being their counselor.' },
+      { title: 'Know the physical stakes', body: 'Alcohol plus prescription medication can be life-threatening. That makes this urgent, not just concerning.' },
+    ],
+    resources: {
+      lead: 'Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here\'s where Kendra could turn.',
+      items: [
+        { title: 'Campus counseling center', body: 'Free and confidential. If she\'ll let you, walk over together.' },
+        { title: 'Your RA or a trusted advisor', body: 'Trained to connect students to support without it being a punishment.' },
+        { title: '988 Suicide & Crisis Lifeline', body: 'Call or text 988 any time it feels like too much — for her, or for you.' },
+      ],
+    },
+  };
+
   /* Named curated examples this type ships, addressed via
      scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
      plays when no ?scenario= is given and nothing is published. */
-  const EXAMPLES = { 'reading-the-warning-signs': EXAMPLE_WPV };
+  const EXAMPLES = {
+    'reading-the-warning-signs': EXAMPLE_WPV,
+    'the-kendra-situation': EXAMPLE_KENDRA,
+  };
 
   /* =======================================================================
      COMPILE — one system-prompt STRING, mirroring the ensemble/branching
