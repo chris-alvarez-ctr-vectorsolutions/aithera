@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario Simulator — The JSON Contract &amp; Engine Read-Model</title>
+<style>
+  :root {
+    --paper:      #f3f6f4;
+    --panel:      #eef2f0;
+    --panel-2:    #e6ece9;
+    --ink:        #12181b;
+    --ink-2:      #43514f;
+    --ink-3:      #6c7a76;
+    --line:       #d3ddd9;
+    --line-2:     #b3c1bc;
+    --accent:     #0b8f78;
+    --accent-ink: #06614f;
+    --accent-soft:#d9efe9;
+    --warn:       #9a5f18;
+    --warn-soft:  #f3e8d6;
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+
+    --measure: 66ch;
+    --wrap: 940px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0d1315;
+      --panel:      #141d20;
+      --panel-2:    #182326;
+      --ink:        #e7ece9;
+      --ink-2:      #a8b7b2;
+      --ink-3:      #7a8a85;
+      --line:       #253230;
+      --line-2:     #35443f;
+      --accent:     #4adebe;
+      --accent-ink: #8ef0da;
+      --accent-soft:#123029;
+      --warn:       #e2ad64;
+      --warn-soft:  #2b2312;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#f3f6f4; --panel:#eef2f0; --panel-2:#e6ece9;
+    --ink:#12181b; --ink-2:#43514f; --ink-3:#6c7a76;
+    --line:#d3ddd9; --line-2:#b3c1bc;
+    --accent:#0b8f78; --accent-ink:#06614f; --accent-soft:#d9efe9;
+    --warn:#9a5f18; --warn-soft:#f3e8d6;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1315; --panel:#141d20; --panel-2:#182326;
+    --ink:#e7ece9; --ink-2:#a8b7b2; --ink-3:#7a8a85;
+    --line:#253230; --line-2:#35443f;
+    --accent:#4adebe; --accent-ink:#8ef0da; --accent-soft:#123029;
+    --warn:#e2ad64; --warn-soft:#2b2312;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.62;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: clamp(28px, 5vw, 72px) clamp(20px, 5vw, 56px) 96px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-ink); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 700;
+    font-size: clamp(30px, 5.4vw, 50px); line-height: 1.06;
+    letter-spacing: -.012em; text-wrap: balance; margin: 0 0 22px; max-width: 22ch;
+  }
+  h1 em { font-style: italic; color: var(--accent-ink); }
+  .lede { font-size: clamp(17px, 2.1vw, 20px); color: var(--ink-2); max-width: 62ch; margin: 0 0 26px; }
+  .meta {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-3);
+    letter-spacing: .01em; padding-top: 20px; border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+  .meta b { color: var(--accent-ink); font-weight: 600; }
+
+  section { margin-top: clamp(48px, 7vw, 82px); }
+
+  h2 {
+    font-family: var(--sans); font-weight: 700; font-size: clamp(21px, 2.8vw, 27px);
+    letter-spacing: -.01em; line-height: 1.2; margin: 0 0 6px; text-wrap: balance;
+  }
+  .sec-kicker {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent-ink); display: block; margin-bottom: 10px;
+  }
+  p { max-width: var(--measure); margin: 0 0 16px; }
+  strong { font-weight: 650; }
+  code, .k {
+    font-family: var(--mono); font-size: .86em; background: var(--panel-2);
+    color: var(--accent-ink); padding: .08em .38em; border-radius: 4px;
+    border: 1px solid var(--line); white-space: nowrap;
+  }
+
+  /* ---- callouts ---------------------------------------------------------- */
+  .callout {
+    border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
+    background: var(--panel); border-radius: 0 10px 10px 0; padding: 18px 22px; margin: 22px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout h3 {
+    margin: 0 0 8px; font-size: 15px; font-family: var(--mono); letter-spacing: .02em;
+    color: var(--accent-ink); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .callout.warn h3 { color: var(--warn); }
+  .callout p { margin: 0; max-width: 64ch; color: var(--ink-2); }
+  .callout p + p { margin-top: 10px; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--paper); background: var(--warn); padding: 2px 7px; border-radius: 999px;
+  }
+  .callout:not(.warn) .tag { background: var(--accent); }
+
+  /* ---- panels & code shapes ---------------------------------------------- */
+  .panel {
+    margin: 34px 0 8px; padding: 26px clamp(16px, 3vw, 30px);
+    border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel);
+  }
+  .panel h3 {
+    font-family: var(--sans); font-weight: 700; font-size: clamp(18px, 2.4vw, 22px);
+    letter-spacing: -.01em; margin: 4px 0 8px; text-wrap: balance;
+  }
+  .panel-lead { font-size: 16px; color: var(--ink); max-width: 64ch; margin: 0 0 18px; }
+  .panel-lead b { color: var(--accent-ink); font-weight: 650; }
+
+  .shape-scroll { overflow-x: auto; margin: 0 0 18px; }
+  pre.shape {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.72; margin: 0;
+    padding: 16px 18px; min-width: 520px; white-space: pre; tab-size: 2;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; color: var(--ink);
+  }
+  pre.shape .cmt { color: var(--ink-3); }
+  pre.shape .hi  { color: var(--accent-ink); }
+  pre.shape .add { color: var(--warn); }
+  .code-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 8px;
+  }
+
+  ul.gains { margin: 0 0 18px; padding-left: 0; list-style: none; display: grid; gap: 13px; max-width: var(--measure); }
+  ul.gains li { padding-left: 28px; position: relative; color: var(--ink-2); }
+  ul.gains li::before {
+    content: ""; position: absolute; left: 3px; top: .55em; width: 9px; height: 9px;
+    border-radius: 2px; background: var(--accent); transform: rotate(45deg);
+  }
+  ul.gains li b { color: var(--ink); font-weight: 650; }
+
+  /* ---- tables ------------------------------------------------------------ */
+  .table-scroll { overflow-x: auto; margin: 24px 0 6px; }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 14.5px; }
+  caption { text-align: left; font-family: var(--mono); font-size: 11.5px; letter-spacing:.14em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 12px; }
+  th, td { text-align: left; padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; border-bottom: 1px solid var(--line-2); }
+  td:first-child { font-weight: 600; color: var(--ink); }
+  td code { white-space: nowrap; }
+  td .sub { display:block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; font-family: var(--mono); margin-top:3px; }
+  .yes { color: var(--accent-ink); font-family: var(--mono); font-size: 13px; }
+  .no  { color: var(--ink-3);      font-family: var(--mono); font-size: 13px; }
+
+  /* ---- verdict card ------------------------------------------------------ */
+  .verdict-card {
+    margin-top: 40px; padding: 26px clamp(18px,3vw,30px);
+    border: 1px solid var(--line-2); border-radius: 14px;
+    background: linear-gradient(180deg, var(--panel), var(--paper));
+  }
+  .verdict-card h2 { margin-bottom: 14px; }
+  .verdict-card ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 14px; max-width: var(--measure); }
+  .verdict-card li { padding-left: 30px; position: relative; color: var(--ink-2); }
+  .verdict-card li::before {
+    content: ""; position: absolute; left: 4px; top: .55em; width: 9px; height: 9px;
+    border-radius: 2px; background: var(--accent); transform: rotate(45deg);
+  }
+  .verdict-card li.watch::before { background: var(--warn); }
+  .verdict-card li b { color: var(--ink); }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .k, code { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Aithera · Scenario Simulator · Data &amp; engine contract</p>
+    <h1>One JSON skeleton. Five types. <em>One engine</em> that reads a dozen fields.</h1>
+    <p class="lede">This is the data model and engine read-contract behind the working scenario simulator — proven across five runtime types (part of a seven interaction-type family) in a shipped prototype. It's offered so the production engine and its JSON can build on what already works, not as a spec to adopt wholesale. Take the parts that earn their place; diverge with cause.</p>
+    <div class="meta">
+      <span><b>Reference build</b> scenario-live.html · js/sim-player.js</span>
+      <span><b>Engine core</b> ~220 lines, DOM-free</span>
+      <span><b>Verified across</b> mix · branching · ensemble · scene-sweep · guided</span>
+      <span><b>Status</b> proven reference — not a mandate</span>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">The headline</span>
+    <h2>It's the same structure everywhere, with additive fields — not five different structures</h2>
+    <p>The most important thing to know before designing anything: every scenario type — no matter how different it looks to a learner — compiles down to <strong>one runtime shape</strong>: a scenario object carrying a <span class="k">phases[]</span> ladder. The player engine (<span class="k">js/sim-player.js</span>) only knows how to drive that one shape. So the differences between types are "extra objects hanging off the same skeleton" and "the same slots filled differently" — never a different backbone.</p>
+    <p>That constraint is the whole design. It's why adding the seventh interaction type didn't fork the engine, and it's the single idea most worth carrying into a fresh build: <strong>pick one runtime shape the engine drives, and make every authoring format normalize into it.</strong></p>
+
+    <div class="callout">
+      <h3>Two JSON layers — don't conflate them <span class="tag">read first</span></h3>
+      <p><b>Authored source</b> is what a human edits and what the tool <em>exports</em> — it differs per type (mix-arc authors <span class="k">beats[]</span>; branching/ensemble/scene-sweep author <span class="k">phases[]</span> directly). <b>Runtime</b> is what the engine drives — the normalized <span class="k">phases[]</span> ladder below, produced by <span class="k">type.toRuntime(source)</span>. The export you'll receive is the <em>authored source</em>; the runtime is derived from it at load. §6 covers exactly how.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§1 · The shape</span>
+    <h2>The one runtime shape the engine drives</h2>
+    <p>Verified by dumping <span class="k">toRuntime(DEFAULT)</span> for all five types. Every runtime object shares the same common core plus exactly <strong>three engine-added keys</strong> (<span class="k">phases</span>, <span class="k">opening</span>, <span class="k">sceneLineCaption</span>). The additive blocks at the bottom appear only on the types that need them.</p>
+
+    <div class="panel">
+      <p class="code-label">Runtime scenario object — annotated</p>
+      <div class="shape-scroll"><pre class="shape">{
+  <span class="cmt">// ── common core · every type, carried from the authored source ──</span>
+  title, course, learnerName, characterName,
+  framing, learnerRole, establishing,
+  intro:      { type: <span class="hi">'reading'|'audio'|'video'</span>, audio:{…}, video:{…} },
+  voice:      { persona, guidance },
+  reflection: { prompt, feedbackGuidance, enabled },   <span class="cmt">// the warm-up</span>
+  playbook:   [ … ],   resources: [ … ],
+
+  <span class="cmt">// ── added by toRuntime() · every type ──────────────────────────</span>
+  <span class="hi">phases</span>:  [ /* the ladder — see §2 */ ],
+  <span class="hi">opening</span>: [ "…reflection warm-up bubble(s)…" ],  <span class="cmt">// may be [] (boots into phase 1)</span>
+  <span class="hi">sceneLineCaption</span>: "You",
+
+  <span class="cmt">// ── additive · only the types that need it ─────────────────────</span>
+  <span class="add">state</span>?:    [ { key, label, initial } ],            <span class="cmt">// mix · branching · ensemble · guided</span>
+  <span class="add">cast</span>?:     [ { name, baseline, driver, reactions[], … } ], <span class="cmt">// branching · ensemble</span>
+  <span class="add">canon</span>?:    { … },                                  <span class="cmt">// branching · ensemble (continuity facts)</span>
+  <span class="add">coverage</span>?: { required, total },                   <span class="cmt">// scene-sweep only</span>
+  <span class="add">hazards</span>?:  [ … ],  <span class="add">decoys</span>?: [ … ],  <span class="add">scene</span>?: { … }  <span class="cmt">// scene-sweep only</span>
+}</pre></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§2 · The phase</span>
+    <h2>The phase skeleton — the unit the ladder steps through</h2>
+    <p>A phase is one rung of the ladder. There are three <em>authored</em> phase flavors, but they collapse to one skeleton the engine reads. The engine cares about a small subset (§3); the rest of a phase feeds the prompt compiler (§4).</p>
+
+    <div class="panel">
+      <p class="code-label">Phase object — the engine-relevant fields</p>
+      <div class="shape-scroll"><pre class="shape">{
+  id: "meeting",
+  world: <span class="hi">"coaching" | "scene"</span>,        <span class="cmt">// scene → learner faces a character; coaching → learner faces the coach</span>
+  counterpart: "Ray" | "" | "Narrator",  <span class="cmt">// who the learner faces in a scene</span>
+  maxTurns: 6,                            <span class="cmt">// turn cap — the APP owns advancement, not the model</span>
+
+  entry: {                               <span class="cmt">// the LOCKED, app-authored open of the phase</span>
+    bridge: "", bridgesByTier: { STRONG:"…", NEUTRAL:"…" },  <span class="cmt">// prior tier picks the opener</span>
+    signpost: "…", prompt: "…",
+    beats: [ { speaker, kind, text, name? } ],  <span class="cmt">// scripted scene open</span>
+    cta: "Step into the room"
+  },
+
+  calibration: [ { tier: "STRONG", guidance: "…" } ],  <span class="cmt">// tier vocabulary (→ prompt)</span>
+  debrief: { talkItThrough: "…", points: "…" },        <span class="cmt">// talkItThrough = the verbatim teach-opener</span>
+
+  transitions: [                          <span class="cmt">// tier-routed next rung + state writes</span>
+    { onTier: "STRONG", next: "escalation", set: { disposition: "steadied…" } }
+  ]
+}</pre></div>
+      <p style="max-width:64ch;color:var(--ink-2);margin:16px 0 0;font-size:14.5px">Two authored variants ride this same skeleton: a <b>rich beat phase</b> (mix-arc &amp; guided) also carries <span class="k">type</span>, <span class="k">character</span>, <span class="k">media.segments[]</span>, <span class="k">hasRightAnswer</span>, <span class="k">throughLine</span>; a <b>perception phase</b> (scene-sweep) carries <span class="k">kind:"spot"|"act"|"prevent"</span> and flat <span class="k">signpost</span>/<span class="k">prompt</span> that <span class="k">toRuntime</span> folds into <span class="k">entry</span>. The engine ignores the extras — they're prompt fuel.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§3 · The contract</span>
+    <h2>What the engine actually reads — the whole contract fits on one screen</h2>
+    <p>This is the tightest, most transferable part. The entire ladder engine reads only the fields below. Everything else in the JSON is either the model's job (prompt) or a render surface's job (§7). If your engine honors this contract, any of these scenarios plays.</p>
+
+    <div class="table-scroll">
+      <table>
+        <caption>The sim-player.js read-contract</caption>
+        <thead><tr><th>Field</th><th>Read by</th><th>What it decides</th></tr></thead>
+        <tbody>
+          <tr><td><code>scenario.phases[]</code></td><td>whole engine</td><td>The ladder. The app indexes it by <code>state.phaseIdx</code> — the app, not the model, is the source of truth for which rung is live.</td></tr>
+          <tr><td><code>phase.maxTurns</code></td><td>runArcEngine</td><td>The turn cap. At the cap the app forces the model to resolve and report — it can't run long.</td></tr>
+          <tr><td><code>phase.world</code></td><td>applyDeliver</td><td><code>"scene"</code> flips the input target to the character and enters scene mode; else coaching.</td></tr>
+          <tr><td><code>phase.entry.*</code></td><td>entryBeatsFor</td><td>The locked opener. <code>bridgesByTier[prevTier]</code> selects the bridge; then signpost, prompt, scripted beats.</td></tr>
+          <tr><td><code>phase.media.segments[]</code></td><td>entryBeatsFor</td><td>Locked stimulus cards — a clip (video src) or a forwarded message — shown before the coach speaks.</td></tr>
+          <tr><td><code>phase.transitions[]</code><span class="sub">{ onTier, next, set }</span></td><td>closePhase</td><td>On phase close, the recorded tier picks a transition → the next phase id, and writes session <code>state</code>.</td></tr>
+          <tr><td><code>phase.debrief.talkItThrough</code></td><td>runArcEngine</td><td>The verbatim teach-opener. When the model's turn starts with it, the app knows the phase is closing.</td></tr>
+          <tr><td><code>phase.counterpart</code></td><td>applyDeliver</td><td>Names the character the learner faces (a non-<code>"Narrator"</code> scene counterpart).</td></tr>
+          <tr><td><code>scenario.state[]</code><span class="sub">{ key, label, initial }</span></td><td>arcStateBlock</td><td>Session variables surfaced on the per-turn <code>[SYSTEM STATE]</code> line and written by transitions.</td></tr>
+          <tr><td><code>phase.kind</code> + <code>ctx.outcomeBlock</code></td><td>arcStateBlock <span class="sub">(optional hook)</span></td><td>The one extensibility seam: a custom render surface (scene-sweep) opts in on <code>kind</code>. No hook → nothing runs, so conversational types stay byte-identical.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h3>The load-bearing idea: the app owns advancement, the model owns voice</h3>
+      <p>The model never decides which phase is next or when to move on. It returns a turn (dialogue + an <span class="k">action</span>/<span class="k">tier</span>); the app reads the cap, records the tier, applies <span class="k">transitions[]</span>, and appends the next locked entry. This is what keeps a live-LLM scenario on rails without scripting every branch — and it's the reason the same ~220-line engine drives a coaching chat, a role-play, a multi-character ensemble, and a spot-the-hazard canvas.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§4 · Two outputs</span>
+    <h2>Every type emits two things: data (JSON) and a prompt (string)</h2>
+    <p>A common trap when building an engine is to treat "the scenario" as one blob. Here it's deliberately two:</p>
+    <ul class="gains">
+      <li><b><code>toRuntime(source)</code> → a JSON object</b> — the <span class="k">phases[]</span> ladder the engine mechanically drives (§1–§3). Structured, diffable, small.</li>
+      <li><b><code>compile(source)</code> → a system-prompt string</b> — the model's instructions: the arc, the character models, the guardrails, the JSON turn contract. This is where each type's <em>personality</em> actually lives.</li>
+    </ul>
+    <p>Most of the per-type divergence is in the <strong>prompt</strong>, not the data. The JSON structures look more alike than the types behave. Concretely, the compiled prompt sizes we measured:</p>
+
+    <div class="table-scroll">
+      <table>
+        <caption>compile() output — always a string, never JSON</caption>
+        <thead><tr><th>Type</th><th>Prompt size</th><th>What bloats it (beyond the shared engine rules)</th></tr></thead>
+        <tbody>
+          <tr><td>mix-arc</td><td><code>~18.1k chars</code></td><td>The neutral baseline — composed beats, one voice.</td></tr>
+          <tr><td>scene-sweep</td><td><code>~22.2k chars</code></td><td>The coverage contract, hazard rubric, look-again nudging.</td></tr>
+          <tr><td>guided-arc</td><td><code>~24.3k chars</code></td><td>Compiled via mix-arc after <code>toMixArc()</code> (§5).</td></tr>
+          <tr><td>branching-arc</td><td><code>~32.4k chars</code></td><td>Tier-contingent bridges, the cast model, the threat floor.</td></tr>
+          <tr><td>ensemble-arc</td><td><code>~37.9k chars</code></td><td>Multiple cast models, earned disclosures, the minor-safeguarding floor.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:14.5px;color:var(--ink-2)">Design takeaway: keep the data model boring and shared; let the prompt carry the variety. A field in the JSON should exist because the <em>engine</em> or a <em>surface</em> reads it — not because the model needs to be told something. Model instructions belong in the compiled prompt.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§5 · Native vs recipe</span>
+    <h2>Two ways a type reaches the engine — and why the split matters</h2>
+    <p>Not every type is a peer. Four are <strong>native</strong>: they own their <span class="k">toRuntime</span> + <span class="k">compile</span> and play directly on the shared engine (mix-arc, branching-arc, ensemble-arc, scene-sweep). One is a <strong>recipe</strong>: guided-arc has no ladder of its own — it expresses itself as a mix-arc scenario via <span class="k">toMixArc(source)</span>, then plays natively <em>as</em> mix-arc.</p>
+    <p>You can see the funnel in the data. Dumping guided-arc's runtime keys shows they're <em>mix-arc's</em> keys — it gained <span class="k">beats</span>, <span class="k">state</span>, <span class="k">threatContent</span>, <span class="k">involvesMinors</span> that its own authored source never had:</p>
+
+    <div class="panel">
+      <p class="code-label">The recipe funnel, observed</p>
+      <div class="shape-scroll"><pre class="shape"><span class="cmt">guided-arc AUTHORED keys:</span>  … phases, scene, contextSource, previousLO
+                          <span class="cmt">// no `beats`, no `state`, no ladder</span>
+        │
+        │  <span class="hi">toMixArc(source)</span>   <span class="cmt">// rewrite into a mix-arc scenario</span>
+        ▼
+<span class="cmt">guided-arc RUNTIME keys:</span>   … <span class="add">state, beats, threatContent, involvesMinors</span>, phases, opening, sceneLineCaption
+                          <span class="cmt">// now indistinguishable from a native mix-arc runtime</span></pre></div>
+    </div>
+    <p>Why keep the split instead of funneling everything through mix-arc? Because the funnel is <strong>lossy</strong>. Branching's tier-routed transitions, ensemble's cast + earned disclosures, and scene-sweep's whole perception subsystem have no mix-arc equivalent — a round-trip would flatten them. The rule that emerged: <em>reserve the recipe path for types that are genuinely a special case of another; let rich types own their runtime.</em> A production engine benefits from the same rule — one canonical runtime, but don't force every authoring model through a lossy adapter to reach it.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§6 · The migration seam</span>
+    <h2><code>normalize()</code> is a version firewall — and it's what the export goes through</h2>
+    <p>Every type has a <span class="k">normalize(source)</span> that fills defaults and <strong>forward-migrates older authored JSON</strong> on load — mix-arc's <span class="k">migrateV2</span>, guided-arc's <span class="k">beats→phases</span> lift. This is why an export from months ago still plays through today's engine: it's re-normalized on the way in. If you build a fresh engine, budget for this seam — it's what lets authored content outlive schema changes.</p>
+
+    <div class="callout warn">
+      <h3>How to read the export you'll receive <span class="tag">for the dev team</span></h3>
+      <p>The authoring tool's <b>Export</b> button serializes the normalized <b>authored source</b> — not the runtime, and not the compiled prompt. So:</p>
+      <p>• For <b>branching / ensemble / scene-sweep</b>, phases are authored directly → the export already looks almost exactly like the runtime (minus the three engine-added keys).<br>
+      • For <b>mix-arc</b>, the export carries <span class="k">beats[]</span>; the runtime <span class="k">phases[]</span> are derived by <span class="k">toRuntime</span>.<br>
+      • For <b>guided-arc</b>, the export is <span class="k">phases[]</span> + <span class="k">scene</span>; the runtime is a mix-arc object via <span class="k">toMixArc</span> (a larger transform).<br>
+      • The <b>system prompt is never in the export</b> — it's generated at play time by <span class="k">compile()</span>.</p>
+      <p>To see input→output for any scenario, run its source through <span class="k">type.toRuntime()</span> (and <span class="k">type.compile()</span> for the prompt). Both are pure functions on the exported object.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§7 · Real samples</span>
+    <h2>Authentic JSON — dumped from the running build, trimmed for length</h2>
+    <p>These are real, not illustrative — pulled from <span class="k">toRuntime(DEFAULT)</span> on the live page. Long strings are truncated with <span class="k">…</span>.</p>
+
+    <div class="panel">
+      <p class="code-label">A · branching-arc — a scene phase with tier-routed transitions + state writes</p>
+      <div class="shape-scroll"><pre class="shape">{
+  "id": "meeting", "label": "The Conversation",
+  "world": <span class="hi">"scene"</span>, "counterpart": <span class="hi">"Ray"</span>, "maxTurns": 6,
+  "entry": {
+    "signpost": "Now let's put you in the room with Ray. Step in whenever you're ready.",
+    "beats": [
+      { "speaker": "character", "kind": "narration", "text": "You've got a private room…" },
+      { "speaker": "character", "kind": "dialogue", "name": "Ray",
+        "text": "So what is this — a write-up? Because I'm the problem now?…" }
+    ],
+    "cta": "Step into the room"
+  },
+  "calibration": [ { "tier": "STRONG",  "guidance": "keeps it private and calm; hears the grievance…" },
+                   { "tier": "NEUTRAL", "guidance": "hears Ray out with empathy but stops there…" },
+                   { "tier": "UNTHOUGHTFUL", "guidance": "dismisses the grievance, threatens discipline…" } ],
+  "debrief": { "talkItThrough": "Let's unpack how that landed.", "points": "HOLD BOTH AT ONCE —…" },
+  "transitions": [
+    { "onTier": <span class="hi">"STRONG"</span>,       "next": "escalation", "set": { "disposition": "steadied — heard, with limits…" } },
+    { "onTier": <span class="hi">"NEUTRAL"</span>,      "next": "escalation", "set": { "disposition": "cooled but uncommitted…" } },
+    { "onTier": <span class="hi">"UNTHOUGHTFUL"</span>, "next": "escalation", "set": { "disposition": "hardened — shut down…" } }
+  ]
+}</pre></div>
+    </div>
+
+    <div class="panel">
+      <p class="code-label">B · ensemble-arc — a cast member with earned disclosures (the field mix-arc has no room for)</p>
+      <div class="shape-scroll"><pre class="shape">{
+  "name": "Ms. Reyes",
+  "baseline": "Anxious, protective, tired. Half-expecting to be brushed off…",
+  "driver":   "Fear for Sofia, sharpened by having been dismissed before…",
+  "reactions": [
+    { "when": "Believed and validated first, then asked with genuine care",
+      "then": "softens, shares more, becomes a partner…" },
+    { "when": "Doubted, interrogated for proof, or told it might be 'just drama'",
+      "then": "distrust hardens; she cites the earlier inaction, discloses less…" }
+  ],
+  <span class="add">"disclosures"</span>: [
+    { "fact": "the past inaction — the ignored email, the counselor voicemail…",
+      "earnedBy": "she raises these when she feels doubted or hears procedure over care…" },
+    { "fact": "the documentary evidence — the group chat, the screenshots…",
+      "earnedBy": "she offers this once she feels believed AND the learner asks, with care…" }
+  ]
+}</pre></div>
+    </div>
+
+    <div class="panel">
+      <p class="code-label">C · scene-sweep — a hazard with normalized 0–1 polygon geometry + the coverage target</p>
+      <div class="shape-scroll"><pre class="shape"><span class="cmt">// scenario.coverage — how many of the observable hazards count as "enough"</span>
+"coverage": { "total": 4, "required": 3 },
+
+<span class="cmt">// one scenario.hazards[] entry — the SVG-free hotspot lives in `spot.points`</span>
+{
+  "id": "jug", "short": "Unlabeled secondary container",
+  "zone": "on the bench in front of you, to the left",
+  <span class="add">"spot"</span>: { "points": [ [0.243,0.372],[0.283,0.372],[0.3,0.408],[0.322,0.47],[0.322,0.598],… ] },
+  "synonyms": "unlabeled jug, unmarked container, no label, unknown liquid…",
+  "fix":     "Stop and quarantine the jug — set it aside, don't use or move an unknown…",
+  "prevent": "A secondary-container labeling standard: every container decanted from a drum…",
+  "source":  "RVCT-479 P017"
+}
+<span class="cmt">// scenario.decoys[] mirror the shape (id, alt, note, spot.points) — plausible-but-safe items</span></pre></div>
+    </div>
+
+    <div class="panel">
+      <p class="code-label">D · mix-arc — a rich "beat" phase carries a character + media the lean ladder phases omit</p>
+      <div class="shape-scroll"><pre class="shape">{
+  "id": "name-it", "label": "Name what happened", "type": <span class="hi">"coach-led"</span>,
+  "world": "coaching", "counterpart": "", "maxTurns": 2,
+  "entry": { "signpost": "First, let's get precise. Dana talked over Priya twice…", "cta": "Think it through" },
+  "hasRightAnswer": true,
+  "throughLine": "Interrupting someone twice and re-voicing their idea as your own is a respect problem…",
+  <span class="cmt">// on a roleplay beat, `character` is populated; on an observe beat, `media.segments[]` is:</span>
+  "character": { "name": "Dana", "driver": "wants to be seen as the one who drives good outcomes…",
+                 "reactions": [ { "when": "named specifically and fairly", "then": "briefly defensive, then hears it" } ] },
+  "media": { "segments": [ { "label": "Stand-up, replayed", "caption": "Priya starts walking through her design; Dana cuts in twice…" } ],
+             "affectiveBeat": true },
+  "transitions": [ { "onTier": "", "next": "watch-it", "set": {} } ]
+}</pre></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <div class="verdict-card">
+      <h2>Lessons worth carrying into the production engine</h2>
+      <p style="color:var(--ink-2)">Independent of our exact field names, these are the design decisions that made one engine hold seven interaction types. Offered as starting points, not requirements.</p>
+      <ul>
+        <li><b>One canonical runtime shape.</b> A scenario is a <code>phases[]</code> ladder. Every authoring format normalizes into it; the engine knows only it.</li>
+        <li><b>The app owns advancement; the model owns voice.</b> Turn caps, tier recording, transitions, and the next locked entry are app logic. The model returns dialogue + a tier — it never drives control flow.</li>
+        <li><b>Separate data from prompt.</b> <code>toRuntime</code> → JSON the engine drives; <code>compile</code> → a prompt string the model reads. A field earns a place in the JSON only if the engine or a surface reads it.</li>
+        <li><b>Tier-routed transitions are the branching primitive.</b> <code>transitions[{ onTier, next, set }]</code> covers "record how it went, write state, pick the next rung" — enough for real divergence or deliberate convergence.</li>
+        <li><b>One optional surface hook, not per-type engine branches.</b> A phase opts a custom renderer in via <code>kind</code> + a self-guarding hook (scene-sweep's perception canvas). No hook, no surface code runs — conversational types stay untouched.</li>
+        <li class="watch"><b>Budget for a normalize/migration seam from day one.</b> It's what lets authored content survive schema change — and what makes an old export still play. Retrofitting it later is painful.</li>
+        <li class="watch"><b>Reserve the "recipe" adapter for genuine special-cases.</b> Funneling a rich type through another's model is lossy; let branching/ensemble/scene-sweep own their runtime.</li>
+      </ul>
+    </div>
+
+    <p style="margin-top:34px;color:var(--ink-3);font-size:14px;max-width:64ch">Companion docs: <a href="scenario-simulator-convergence-onepager.html">One Engine, Typed Plugins</a> (the architecture story) · <a href="scenario-simulator-player-convergence.html">Player convergence</a> · <a href="scenario-simulator-type-crosswalk.html">Type crosswalk</a> · <a href="scenario-simulator-build-spec.html">Build &amp; authoring spec</a>. Reference engine: <code>js/sim-player.js</code>. Reference player: <code>scenario-live.html</code>.</p>
+  </section>
+
+</div>
+</body>
+</html>
