@@ -1258,9 +1258,9 @@
     const nav = byId('folderNav');
     const favFeatures = favFeatureMocks();
     const hasFolders = folders.size > 0;
-    // The rail now hosts feature Favorites too, so it appears even for products
-    // with NO nested folders — as long as at least one feature is favorited.
-    if (!hasFolders && !favFeatures.length) { nav.hidden = true; nav.innerHTML = ''; return; }
+    // The rail is ALWAYS present: with no favorites yet it shows a quiet
+    // placeholder instead of disappearing, so the layout doesn't jump the
+    // first time a designer stars a mock or a folder group appears.
 
     // Reset a stale folder selection (e.g. the folder disappeared from products.json).
     if (hasFolders && state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
@@ -1274,18 +1274,24 @@
 
     // ── Favorites bookmarks (starred FEATURES) — cross-folder quick links that
     //    jump straight to a card. Rendered above the folder tree, and present
-    //    even when the product is flat (no folders below).
+    //    even when the product is flat (no folders below). With nothing starred
+    //    yet, a short grey hint holds the section's place instead.
+    const favLabel = document.createElement('div');
+    favLabel.className = 'fnav-label';
+    favLabel.textContent = 'Favorites';
+    nav.appendChild(favLabel);
     if (favFeatures.length) {
-      const favLabel = document.createElement('div');
-      favLabel.className = 'fnav-label';
-      favLabel.textContent = 'Favorites';
-      nav.appendChild(favLabel);
       favFeatures.forEach(m => nav.appendChild(favBookmarkRow(m)));
-      if (hasFolders) {
-        const d = document.createElement('div');
-        d.className = 'fnav-divider';
-        nav.appendChild(d);
-      }
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'fnav-empty';
+      hint.innerHTML = '<i class="fa-regular fa-star" aria-hidden="true"></i> Favorite a design and it’ll show up here.';
+      nav.appendChild(hint);
+    }
+    if (hasFolders) {
+      const d = document.createElement('div');
+      d.className = 'fnav-divider';
+      nav.appendChild(d);
     }
 
     // A flat product (no folders) has nothing more to draw — the Favorites list
@@ -2394,6 +2400,13 @@
       }
       .folder-nav[hidden] { display: none; }
       .folder-nav[data-searching="true"] { opacity: 0.45; }
+      /* empty-favorites placeholder — quiet grey hint that holds the section's
+         place so the rail doesn't jump when the first star lands */
+      .fnav-empty {
+        font-size: 12px; color: var(--text-muted); padding: 2px 12px 8px;
+        line-height: 1.45;
+      }
+      .fnav-empty i { margin-right: 4px; opacity: 0.7; }
       .fnav-label {
         font-family: var(--display); font-size: 11px; font-weight: 700;
         text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-muted);
