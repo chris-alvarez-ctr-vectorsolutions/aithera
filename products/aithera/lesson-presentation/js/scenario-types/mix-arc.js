@@ -558,12 +558,171 @@
     },
   };
 
+  /* =======================================================================
+     CURATED EXAMPLE — "The Marshall Scenario" (Harassment Prevention for
+     Employees, JCOM-40198), authored from the shipped guided-arc Marshall
+     scenario (js/scenario-types/guided-arc.js DEFAULT) re-expressed in the
+     FINAL Mix & Match 4-phase shape from the Interaction Type Mapping: an
+     unscored reflection → a coach-led "does this qualify?" (Title VII) → a
+     coach-led "what is Marshall experiencing?" (empathy) → a live bystander
+     roleplay with Jake in the break room. Kept as-is on the existing premise
+     (Marshall, a man, harassed via feminizing gender-stereotype conduct) — this
+     is "Marshall as Mix & Match," NOT the alternate "team mom / Renee" premise.
+     ======================================================================= */
+  const MARSHALL_SITUATION =
+'You\'ve worked alongside Marshall for about eight months — an administrative assistant who\'s organized, a good communicator, serious about the job. Lately, he\'s not himself.\n\nIt started with Ethan, a project manager, greeting him in the hallway with "Hey Marsha!" — and, a couple of times, asking if Marshall "had a skirt on under that desk." Marshall let it go; he figured some joking might come with the job. Then Jake, a junior engineer hired just after him, started asking "if the coffee was made" every time he passed Marshall\'s desk, and calling the role a "cozy lady job." Occasional became almost daily.\n\nIn the team group chat there are sexist memes — and two altered images: Marshall\'s face on a woman in a frilly princess dress, and his face on a lingerie model\'s body, captioned "Marsha\'s true calling." A few days ago those images ended up on public social media — shareable, commentable, out there.\n\nMarshall\'s gotten quieter. He keeps his head down and doesn\'t linger. You\'re not sure what to call any of it, or what your role is.';
+
+  const EXAMPLE_MARSHALL = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'The Marshall Scenario',
+    course: 'Harassment Prevention for Employees (JCOM-40198)',
+    learnerName: 'you',
+    characterName: 'Jake',
+    elevatedStakes: false,   // harassment — no 988 crisis floor by default
+    involvesMinors: false,
+    threatContent: false,
+    framing: 'a scenario-based learning experience on workplace sex-based harassment and bystander intervention: you\'ve witnessed conduct aimed at a colleague, Marshall, over several months, and you decide what your role in it is',
+    learnerRole: 'a CO-WORKER who has witnessed incidents involving a colleague named Marshall — an administrative assistant, eight months into the job. You are a bystanding peer, not the target and not a supervisor',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · Harassment Prevention (JCOM-40198)',
+      title: 'A colleague named Marshall',
+      sub: 'You\'ve watched it build for eight months. Today you decide what your role in it is.',
+    },
+    openingImage: 'The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.',
+
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'A colleague named Marshall', text: MARSHALL_SITUATION } },
+
+    voice: {
+      persona: 'a warm, non-judgmental coach who affirms before redirecting and frames gaps as growth — calm and plain, never preachy',
+      guidance: 'If the learner discloses, as themselves rather than as a line in the exercise, that they\'re being harassed at their own workplace, step out of the exercise: acknowledge with warmth and zero assessment, and point them to HR, their organization\'s harassment policy, and the EEOC (eeoc.gov).',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before we get into it — gut read. Everything you\'ve seen with Marshall: what\'s your first instinct about what it is, and whether it\'s your business?',
+      feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles: acknowledge their read in their own words, and gently note any misconception (e.g. "nothing sexual is happening," "it\'s just banter") without correcting it fully yet. Do NOT preview the next phase; the app opens Phase 1.',
+    },
+
+    state: [],
+
+    beats: [
+      {
+        id: 'the-law', label: 'Does This Qualify as Harassment?', level: 'Phase 1 · the law', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Let\'s start with the question you\'re circling. Take all of it — the "Marsha" and "cozy lady job" comments, the altered images now out in public. In your view, does this qualify as harassment? Make the call, and tell me why.', prompt: '', beats: [], cta: 'Make the call' },
+        inputPlaceholder: 'Does this qualify — and why…',
+        exitCriteria: 'the learner recognizes this as sex-based harassment under Title VII — gender-stereotype conduct counts even without an explicit sexual advance or a job threat — and concludes it should be reported',
+        reactionGuidance: 'Don\'t lecture. If they treat harassment as only explicit sexual acts or quid pro quo, or float his dress or "he expected some joking" as mitigating, probe ONCE toward the gender-stereotype angle and the hostile-work-environment standard (e.g. "Not every form of sexual harassment involves asking for sex — a lot of it is comments aimed at someone for their gender. Does that change how you\'d answer?"). Steer toward: Title VII covers this, intent doesn\'t decide it, and it should be reported.',
+        hasRightAnswer: true,
+        throughLine: 'Title VII covers gender-stereotype conduct as sex-based harassment — no explicit sexual advance and no quid-pro-quo exchange required, and same-sex harassment is fully covered. The test is impact and context, not whether it was "meant as a joke." The public images make reporting urgent.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Conflates harassment with explicit sexual acts / quid pro quo, floats dress or "expected some joking" as mitigating, or calls it "just teasing." Rebut the framing — anticipating mistreatment doesn\'t make it legal and presentation is not consent — and explain the two types (quid pro quo vs. hostile work environment).' },
+          { tier: 'NEUTRAL', guidance: 'Senses it\'s wrong and targeted but is stuck on quid pro quo. Affirm the gender-targeting read, then distinguish quid pro quo from hostile work environment — pervasive gender-based conduct that makes the workplace intimidating qualifies, no exchange required.' },
+          { tier: 'STRONG', guidance: 'Names gender stereotyping, applies the hostile-work-environment standard, notes it needn\'t be explicitly sexual. Validate, add that same-sex harassment is fully covered, and flag the public images as a major escalation that makes reporting urgent.' },
+        ],
+        debrief: {
+          talkItThrough: 'This question does have a right and a wrong answer, so let\'s step back and make the law on it clear.',
+          points: 'Land the legal frame: gender-stereotype conduct IS sex-based harassment under Title VII (no explicit advance or quid pro quo needed); the hostile-work-environment standard (pervasive gender-based conduct that makes the workplace intimidating — and it affects everyone watching, not just the target); same-sex is fully covered; intent doesn\'t determine harassment (impact and context do). And Marshall should report — to HR, documented, with specifics — soon; the public images make it urgent.',
+        },
+        transitions: [
+          { onTier: '', next: 'the-person', set: {} },
+        ],
+      },
+      {
+        id: 'the-person', label: 'What Is Marshall Experiencing?', level: 'Phase 2 · the person', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Set the law aside for a second and think about Marshall as a person. What do you think this situation is doing to him — professionally and personally? And how could it affect others in your workplace?', prompt: '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'What is this doing to him…',
+        exitCriteria: 'the learner reads the human cost with some depth — the toll on Marshall (professional credibility eight months in; the personal weight of the now-public images) and the team effect (unchallenged conduct resets what feels normal for everyone watching)',
+        reactionGuidance: 'If they brush it off ("he\'ll be fine," "it\'s just jokes"), probe ONCE toward the cost of "staying professional" every day, or whether it really rolls off after the images went public. Extend a real answer toward the two dimensions — his career window (eight months in, still building credibility) and the team (silence resets the norm) — and END on the bystander bridge: this is exactly where a bystander matters.',
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'THIN', guidance: 'Brushes it off or stays on the surface — "he seems fine," "it\'s just jokes." Introduce the cost: sustained harassment links to anxiety, performance decline, loss of motivation. Ask what it costs Marshall to keep "staying professional" every day.' },
+          { tier: 'REAL', guidance: 'Reads the toll with some depth. Extend toward the two dimensions — the career window (eight months in, a credibility-building time) and the team (unchallenged conduct resets what everyone treats as normal). Affirm, then pivot to the bystander bridge.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s pause and pull this together.',
+          points: 'The cumulative weight is real — sustained harassment causes documented psychological and career harm, and "just jokes" is never an accurate frame. Two dimensions: what it costs Marshall (credibility, plus the personal weight of public images), and what it does to the team (silence teaches everyone what\'s tolerated). End on the bridge — this is exactly where a bystander matters.',
+        },
+        transitions: [
+          { onTier: '', next: 'bystander', set: {} },
+        ],
+      },
+      {
+        id: 'bystander', label: 'Bystander Intervention', level: 'Phase 3 · the break room', type: 'roleplay',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'The break room. Marshall is getting coffee. Jake walks in, pours himself a cup, and says — loud enough for the whole room:' },
+            { speaker: 'character', kind: 'dialogue', name: 'Jake', text: 'Hey, did you make this? Guess that\'s what you\'re here for — living your best Marsha life.' },
+            { speaker: 'character', kind: 'narration', name: '', text: 'He grins and looks around as you walk in and catch the whole thing.' },
+          ], cta: 'Step into the scene' },
+        inputPlaceholder: 'What do you do — say or do something…',
+        exitCriteria: 'the learner sends a clear in-the-moment signal — direct ("not cool, Jake") or indirect (a redirect) — that doesn\'t let the remark stand, holds the line if Jake pushes back, and refuses to let him weaponize Marshall',
+        reactionGuidance: 'Jake performs for the room and frames it all as "just a joke." Silent or laughing along → the moment passes, the room half-laughs, and Marshall clocks that no one said anything. A vague redirect half-lands and Jake loops back. A clear signal lands — his grin tightens and he pushes back or doubles down, often weaponizing Marshall ("Whoa, relax — it was a joke. Right, Marshall? Tell them you\'re not offended."), and the room turns to see what you\'ll do. Reward holding the line without escalating and refusing to let Jake use Marshall; don\'t let the learner off with only private sympathy and no public signal. Silence is never neutral — name that in the debrief.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Jake',
+          backstory: 'A junior engineer hired just after Marshall; the more persistent, escalating harasser, who performs his "jokes" for the room.',
+          driver: 'He wants the laugh and the room\'s buy-in, and frames everything as "just a joke" so any pushback looks like overreacting — being told he stepped over a line reads, at first, as being called the bad guy.',
+          reactions: [
+            { when: 'met with a clear signal, direct or indirect', then: 'grin tightens; he pushes back or doubles down — often weaponizing Marshall ("relax, it was a joke — right, Marshall?") — and the room watches to see what you do' },
+            { when: 'met with silence or a laugh-along', then: 'keeps going; the room half-laughs and the moment passes — and Marshall clocks that no one said anything' },
+            { when: 'met with a vague, non-committal redirect', then: 'breezes past it and loops back to the joke; the signal stays muddy' },
+          ],
+          styleNotes: 'Loud, performing for the room, grinning — not a cartoon villain, a guy who genuinely thinks it\'s all in good fun. Spoken lines are dialogue beats; stage directions stay in separate narration beats.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Looks away, stays silent, laughs along, or "not my place." Silence isn\'t neutral — to Jake it reads as permission, to Marshall as no one seeing it.' },
+          { tier: 'NEUTRAL', guidance: 'A look or a vague redirect — no clear signal. It half-lands and Jake breezes past; name what a clearer signal would have done.' },
+          { tier: 'STRONG', guidance: 'A direct ("that\'s not cool, Jake") or indirect ("hey Jake, what\'s the update on Henderson?") signal in the moment that doesn\'t let it stand; holds the line and won\'t let Jake weaponize Marshall. Affirm — a witness stepping in resets what the room treats as normal.' },
+        ],
+        debrief: {
+          talkItThrough: 'Moments like that are worth unpacking. Let\'s look at the choice you made and what it signaled — to Marshall and to Jake.',
+          points: 'Land it: silence or uncertainty reads as permission to Jake and as no-one-seeing to Marshall; a witness stepping in resets what the team treats as normal. The three moves to carry: pick an action in the moment (a direct call or an indirect redirect — both work, direct isn\'t the only option), offer support (check in with Marshall privately after), and consider escalating (a witness can report to HR, documented — check your organization\'s policy).',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    playbook: [
+      { title: 'Know what actually qualifies', body: 'Gender-stereotype-based conduct is sex-based harassment under Title VII — even without explicit sexual advances or a quid pro quo exchange.' },
+      { title: 'Apply the hostile-work-environment standard', body: 'Pervasive, gender-based conduct that makes the workplace intimidating qualifies — and it affects everyone in that environment, not only the target.' },
+      { title: 'Same-sex harassment is fully covered', body: 'Title VII protections apply regardless of the genders of the harasser and the target.' },
+      { title: 'Intent doesn\'t determine harassment', body: 'The test is impact and context — not whether the harasser meant it as a joke.' },
+      { title: 'The cumulative weight is real', body: 'Sustained harassment causes documented psychological and career harm and reshapes the team\'s sense of what\'s normal. "Just jokes" is never an accurate frame.' },
+      { title: 'Marshall should report — soon', body: 'To HR, documented, with specific incidents, dates, and witnesses. The public images make it urgent.' },
+      { title: 'Pick an action in the moment', body: 'A direct signal ("that\'s not cool") or an indirect redirect changes the dynamic. Direct confrontation is one option — not the only one.' },
+      { title: 'Offer support', body: 'Check in with the targeted person privately after the moment passes — it tells them they aren\'t invisible.' },
+      { title: 'Consider escalating', body: 'Review your organization\'s harassment policy — bystanders can often report independently of what the target decides to do.' },
+    ],
+    resources: {
+      lead: 'Whenever you witness or experience conduct like this, here\'s where to turn.',
+      items: [
+        { title: 'Your HR team', body: 'Report with specific dates, what was said, and who was present. You can raise it as a witness.' },
+        { title: 'Your organization\'s harassment policy', body: 'Read it before a moment like this — it may define what employees who witness conduct are expected to do.' },
+        { title: 'The EEOC', body: 'The federal agency that enforces Title VII — eeoc.gov.' },
+      ],
+    },
+  };
+
   /* Named curated examples this type ships, addressed via
      scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
      plays when no ?scenario= is given and nothing is published. */
   const EXAMPLES = {
     'reading-the-warning-signs': EXAMPLE_WPV,
     'the-kendra-situation': EXAMPLE_KENDRA,
+    'the-marshall-scenario': EXAMPLE_MARSHALL,
   };
 
   /* =======================================================================
