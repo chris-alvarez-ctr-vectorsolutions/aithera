@@ -1535,7 +1535,12 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=6"></script>
-    <script src="js/sim-player.js?v=4"></script>
+    <script src="js/sim-player.js?v=5"></script>
+    <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
+         calls polymorphically for custom-interaction surfaces (scene-sweep,
+         teach-back). Loads before any surface module so they can register on load.
+         No surface registered for a phase → no surface code runs, by construction. -->
+    <script src="js/sim-surfaces.js?v=1"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1559,10 +1564,11 @@
     <script src="js/scenario-types/ensemble-arc.js?v=10"></script>
     <script src="js/scenario-types/scene-sweep.js?v=10"></script>
     <!-- [Option B] the OPT-IN perception layer: the photo/hotspot "spot the
-         hazard" Observe canvas + coverage rail. Mounts ONLY for a scenario with a
-         kind:'spot' phase (scene-sweep); the four conversational types never
-         install it. Loads after scene-sweep.js (which defines window.SceneSweepGeo). -->
-    <script src="js/sim-perception.js?v=2"></script>
+         hazard" Observe canvas + coverage rail. Registers itself as the 'spot'
+         SURFACE (js/sim-surfaces.js). Mounts ONLY for a scenario with a kind:'spot'
+         phase (scene-sweep); the four conversational types never install it. Loads
+         after scene-sweep.js (window.SceneSweepGeo) and sim-surfaces.js. -->
+    <script src="js/sim-perception.js?v=3"></script>
 
     <script>
     /* =====================================================================
@@ -1752,7 +1758,7 @@
       reflectionProbed: false,  // [Option B] the warm-up has spent its ONE clarifying probe (see sim-player.js)
       scenePlaceholder: '',     // the live phase's authored composer placeholder
       entryLabel: '',           // the live phase's authored crossing CTA ("Step into the room")
-      // —— PERCEPTION (scene-sweep only; inert for the conversational types) ——
+      // —— scene-sweep SURFACE state (read/written by js/sim-perception.js; inert for the conversational types) ——
       covered: new Set(),       // rubric hazard ids the learner has spotted (drives the coverage rail)
       decoysChecked: new Set(), // decoy region ids the learner has tried (marked "safe")
       marking: false,           // true while in the Observe canvas (tapping the photo)
@@ -1767,14 +1773,14 @@
     // Seed the declared session state with its authored initial values.
     (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
 
-    /* [Option B] PERCEPTION LAYER — mount the opt-in "spot the hazard" Observe
-       canvas ONLY for a scenario that has a kind:'spot' phase (scene-sweep). Every
-       other type leaves PERCEPTION null and takes none of the sweep branches, so
-       the conversational player is untouched. The module owns the photo/hotspot
-       canvas, the coverage rail, the a11y marking paths, and the Observe⇄React
-       crossings; it drives this page's turn engine via the thunks below. */
-    const _hasSpotPhase = (ACTIVE_SCENARIO.phases || []).some((p) => p && p.kind === 'spot');
-    const PERCEPTION = (_hasSpotPhase && window.SimPerception) ? window.SimPerception.install({
+    /* [Option B] RENDER SURFACE — resolve the ONE custom-interaction surface this
+       scenario needs from the registry (js/sim-surfaces.js), keyed by phase.kind:
+       scene-sweep for a kind:'spot' phase, teach-back for kind:'teach', null for
+       the conversational types. The page calls this uniform interface
+       polymorphically below — a new surface is additive (register it, drop in its
+       module), with no player edits. When SURFACE is null NO surface code runs, by
+       construction, so the conversational player is untouched. */
+    const SURFACE = window.SimSurfaces ? window.SimSurfaces.install({
       scenario: ACTIVE_SCENARIO, state, fillT,
       el: (t, c, h) => el(t, c, h),
       esc: (s) => esc(s),
@@ -1785,9 +1791,6 @@
       deliverOpening: () => deliverOpening(),
       render: () => render(),
     }) : null;
-    // Every sweep branch below is guarded on IS_SWEEP, which is TRUE only when the
-    // perception layer actually installed — so PERCEPTION is never dereferenced null.
-    const IS_SWEEP = !!PERCEPTION;
 
     /* [Option B] The tier-ladder ENGINE now lives in js/sim-player.js — the one
        shared engine every type runs on. It closes over this page's live
@@ -1795,8 +1798,9 @@
        here. entryBeatsFor + closePhase are engine-internal; the page drives
        arcStateBlock (the per-turn state line), runArcEngine, and applyDeliver. */
     const _LADDER = window.SimPlayer.makeLadder({ scenario: ACTIVE_SCENARIO, state, fillT,
-      // scene-sweep injects its per-turn COVERAGE line for the spot phase; null otherwise.
-      coverageBlock: PERCEPTION ? PERCEPTION.coverageBlock : null });
+      // the active surface folds its per-phase OUTCOME line into [SYSTEM STATE]
+      // (scene-sweep's COVERAGE, teach-back's N-of-10); null for the conversational types.
+      outcomeBlock: SURFACE ? SURFACE.outcomeBlock : null });
     const arcStateBlock = _LADDER.arcStateBlock;
     const runArcEngine  = _LADDER.runArcEngine;
     const applyDeliver  = _LADDER.applyDeliver;
@@ -1882,7 +1886,7 @@
       deliver: (id) => (ACTIVE_SCENARIO.phases || []).some((p) => p.id === id),
       action: true,                  // "continue" | "teach" | "redirect" — the app owns routing
       tier: (t) => { t = String(t || '').trim().toUpperCase(); return TIER_SET.has(t) ? t : null; },
-    }, PERCEPTION ? { spotted: PERCEPTION.spottedValidator } : {}));   // scene-sweep: which hazards the learner named
+    }, (SURFACE && SURFACE.turnFields) || {}));   // a surface may add fields (scene-sweep: `spotted` — which hazards the learner named)
 
     /* The per-turn [SYSTEM STATE] line: the app is the source of truth for
        WHICH phase is live, how many learner turns it has consumed vs. its cap,
@@ -2503,7 +2507,7 @@
       app.dataset.entered = String(hasEnteredScene);
       app.classList.toggle('coach-up', coachUp);
       app.classList.toggle('trap', trap);
-      app.classList.toggle('sweep', IS_SWEEP);   // scene-sweep: persistent photo + coverage rail
+      if (SURFACE && SURFACE.appClass) app.classList.add(SURFACE.appClass);   // a surface may claim a CSS hook on .app (scene-sweep: 'sweep' → persistent photo + coverage rail)
 
       // Withheld through the establishing card and the cold-open video — there's
       // no real Learn/Practice choice yet. Revealed once the coach actually begins.
@@ -2519,15 +2523,15 @@
          keep Learn | Practice (raises/lowers the coach sheet). —— */
       const busy = state.transitioning || state.sending || state.delivering;
       let coachDisabled, sceneDisabled, learnTip, sceneTip, coachSeg, sceneSeg;
-      if (IS_SWEEP) {
-        coachSeg = { label: 'React', icon: 'fa-comments' };
-        sceneSeg = { label: 'Observe', icon: 'fa-magnifying-glass-location' };
-        // both live once started; only busy (a reveal in flight) locks them
-        coachDisabled = mode !== 'coaching' && (busy || !state.started);
-        sceneDisabled = mode !== 'scene' && (busy || !state.started);
-        learnTip = (mode !== 'coaching' && !coachDisabled)
-          ? (state.coachStarted ? 'Back to your coach' : 'Talk it through with your coach') : '';
-        sceneTip = (mode !== 'scene' && !sceneDisabled) ? 'Look at the scene again' : '';
+      // A surface may relabel/redefine the two-world toggle (scene-sweep → Observe |
+      // React); the conversational types keep the default Learn | Practice.
+      const mtSpec = (SURFACE && SURFACE.modeToggle) ? SURFACE.modeToggle(state, busy, mode) : null;
+      const toggleAria = mtSpec ? mtSpec.ariaLabel : 'Learn or practice mode';
+      if (mtSpec) {
+        coachSeg = { label: mtSpec.coach.label, icon: mtSpec.coach.icon };
+        sceneSeg = { label: mtSpec.scene.label, icon: mtSpec.scene.icon };
+        coachDisabled = mtSpec.coach.disabled; sceneDisabled = mtSpec.scene.disabled;
+        learnTip = mtSpec.coach.tip; sceneTip = mtSpec.scene.tip;
       } else {
         coachSeg = { label: 'Learn', icon: 'fa-chalkboard-user' };
         sceneSeg = { label: 'Practice', icon: 'fa-door-open' };
@@ -2541,7 +2545,7 @@
           ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
       }
       modeIndicator.innerHTML =
-        `<div class="mode-toggle" role="group" aria-label="${IS_SWEEP ? 'Observe or react mode' : 'Learn or practice mode'}">
+        `<div class="mode-toggle" role="group" aria-label="${toggleAria}">
            <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
                    ${learnTip ? `data-tip="${learnTip}"` : ''}
                    aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
@@ -2576,16 +2580,16 @@
       // never reloads/flickers on re-render) and only refresh the coverage HUD
       // after. It shows the moment the reading intro is done (state.started) and
       // stays up through every beat and the close.
-      const sweepShouldMount = IS_SWEEP && state.started && PERCEPTION.sceneImg && !state.audioIntroPlaying;
-      const sweepAlreadyMounted = sweepShouldMount && stageInner.querySelector('.sweep-scene');
-      if (!videoAlreadyMounted && !audioAlreadyMounted && !sweepAlreadyMounted) {
+      const surfaceShouldMount = !!(SURFACE && SURFACE.shouldMount && SURFACE.shouldMount());
+      const surfaceAlreadyMounted = surfaceShouldMount && SURFACE.mountSelector && stageInner.querySelector(SURFACE.mountSelector);
+      if (!videoAlreadyMounted && !audioAlreadyMounted && !surfaceAlreadyMounted) {
         stageInner.innerHTML = '';
         if (state.videoPlaying) {
           stageInner.appendChild(videoNode());
         } else if (state.audioIntroPlaying) {
           mountAudioIntro(stageInner);
-        } else if (sweepShouldMount) {
-          stageInner.appendChild(PERCEPTION.sceneNode());
+        } else if (surfaceShouldMount) {
+          stageInner.appendChild(SURFACE.stageNode());
         } else if (hasEnteredScene) {
           // Retry controls render whenever the scene is live (not complete / mid-reveal),
           // REGARDLESS of mode — the stage is inert while the coach sheet is up, so they
@@ -2606,7 +2610,7 @@
       }
       // Scene Sweep: refresh the Observe HUD (progress pill + bottom CTA) every
       // render while the full-bleed photo is mounted; the photo itself is untouched.
-      if (IS_SWEEP && stageInner.querySelector('.sweep-scene')) { PERCEPTION.updateHud(); PERCEPTION.reposition(); }
+      if (SURFACE && SURFACE.mountSelector && SURFACE.onStageRender && stageInner.querySelector(SURFACE.mountSelector)) SURFACE.onStageRender();
 
       /* —— AI Coach sheet — up whenever we're in Learn mode (prep AND debriefs) —— */
       coachPanel.toggleAttribute('inert', !coachUp);
@@ -2614,7 +2618,7 @@
       // Scene Sweep: keep the coverage chip rail pinned to the top of the coach
       // sheet in React mode (removed otherwise). Runs before the body reconcile so
       // the rail stays the first child.
-      if (IS_SWEEP) PERCEPTION.updateRail();
+      if (SURFACE && SURFACE.onCoachRender) SURFACE.onCoachRender();
       if (coachUp) {
         // Incremental — preserves scroll (see reconcileCoachBody). The closing
         // recap shows here like any other coach line; loading beats live in the
@@ -2652,10 +2656,7 @@
       // SCENE SWEEP: the coach is nudging back to the photo (still in the Observe
       // beat, hazards left to find) but the sheet covers it — offer the way back
       // as the PRIMARY action, right under the nudge, unless they've opted to type.
-      const showLookAgain = IS_SWEEP && state.coachStarted && mode === 'coaching'
-        && !complete && !state.delivering && !state.sending && !state.analyzing
-        && !state.awaitingDebrief && !state.awaitingResults && !state.awaitingReturn
-        && state.phaseIdx === PERCEPTION.spotPhaseIndex && PERCEPTION.unspottedCount() > 0 && !state.lookAgainDismissed;
+      const showLookAgain = !!(SURFACE && SURFACE.cta && SURFACE.cta.lookAgain && SURFACE.cta.lookAgain(state));
       // Once the recap lands, this replaces the composer just like every other
       // CTA here — tapping it is what opens the results modal (never auto-shown).
       const showResults   = state.awaitingResults && !state.resultsModalOpen;
@@ -3032,11 +3033,12 @@
       // title card. audioIntroPlaying is cleared for good in enterScene(), when
       // the real scene finally takes the stage.
       if (audioIntroHandle) audioIntroHandle.stop();
-      // SCENE SWEEP is the exception: it hands STRAIGHT to the full-bleed Observe
-      // canvas (mounted only when !audioIntroPlaying), not to a coach sheet over
-      // the frozen context — so clear it now rather than in enterScene() (which
-      // scene-sweep never reaches: there is no character scene to step into).
-      if (IS_SWEEP) state.audioIntroPlaying = false;
+      // A FULL-BLEED surface (scene-sweep) is the exception: it hands STRAIGHT to
+      // its own stage (mounted only when !audioIntroPlaying), not to a coach sheet
+      // over the frozen context — so clear it now rather than in enterScene()
+      // (which such a surface never reaches: there is no character scene to step
+      // into). A coach-bookended surface (teach-back) keeps the frozen backdrop.
+      if (SURFACE && SURFACE.mountsFullBleed) state.audioIntroPlaying = false;
       CONTEXT.done({ modality: AUDIO_INTRO_MODALITY });   // → startSession(record)
     }
 
@@ -3235,10 +3237,10 @@
         return;
       }
 
-      // SCENE SWEEP: merge the model's credited catches (turn.spotted) into the
-      // coverage set BEFORE the ladder routes, so the rail and the next
-      // [SYSTEM STATE] coverage line reflect them.
-      if (PERCEPTION && Array.isArray(turn.spotted)) PERCEPTION.creditSpotted(turn.spotted);
+      // A surface merges the model's per-turn payload into its own state BEFORE the
+      // ladder routes, so its rail and the next [SYSTEM STATE] outcome line reflect
+      // it (scene-sweep: credit turn.spotted into coverage).
+      if (SURFACE && SURFACE.onTurn) SURFACE.onTurn(turn);
 
       // LOCKED (grey) beats: the model only writes the dynamic feedback, then
       // asks us to show the next app-owned beat via turn.deliver. We append that
@@ -3352,15 +3354,15 @@
       // SCENE SWEEP never flips hasEnteredScene (there is no character scene to
       // step into), so the normal hasEnteredScene route would never reach the
       // guaranteed close. Route its final coach recap through the closing flow on
-      // state.complete directly — guarded on IS_SWEEP so the conversational types
-      // keep their exact behavior.
+      // state.complete directly — guarded on the surface's noCharacterScene flag so
+      // the conversational types keep their exact behavior.
       // A coach-led FINAL beat is a conversation, not a scene you step out of — so
       // land the coach's closing reply INLINE (closing the loop on the learner's
       // last answer) BEFORE offering results, instead of deferring the whole recap
       // behind the CTA. Only when the completion is delivered in coaching with no
       // scene reaction in this turn; scene-ending completions keep the deferred
       // "step out → debrief" crescendo below. Sweep has its own guaranteed close.
-      const coachLedClose = state.complete && !IS_SWEEP
+      const coachLedClose = state.complete && !(SURFACE && SURFACE.noCharacterScene)
         && state.mode === 'coaching' && leadScene.length === 0 && (i < items.length);
       if (coachLedClose) {
         let prevC = (i > 0 && items[i - 1]) ? (items[i - 1].text || '') : '';
@@ -3391,7 +3393,7 @@
       }
 
       const intoDebrief = (i < items.length) && (
-        (IS_SWEEP && state.complete)
+        ((SURFACE && SURFACE.noCharacterScene) && state.complete)
         || (state.hasEnteredScene && (state.mode === 'scene' || state.complete)));
       if (intoDebrief) {
         hideTyping();                                // the reply has arrived — drop the "…" before the Analyzing beat
@@ -3678,10 +3680,11 @@
         appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
       });
-      // SCENE SWEEP diverges here: rather than raising the coach with a reflection
-      // prompt, the learner first OBSERVES — a full-bleed photo they sweep for
-      // hazards. The coach comes in later (React), on the learner's own crossing.
-      if (IS_SWEEP) { PERCEPTION.enterMarking(); return; }
+      // A surface may DIVERGE startSession: rather than raising the coach with a
+      // reflection prompt, it enters its own world first (scene-sweep → OBSERVE the
+      // photo; teach-back → the calibration framing). onStart returns truthy when
+      // it took over.
+      if (SURFACE && SURFACE.onStart && SURFACE.onStart()) return;
       state.started = true;
       state.mode = 'coaching'; state.inputTarget = 'coach';
       announce('Bringing in your AI coach.');
@@ -3767,7 +3770,7 @@
     debriefCtaBtn.addEventListener('click', openDebrief);
     // SCENE SWEEP "look again" bar: the CTA drops back onto the photo; the escape
     // hands the composer back for a learner who'd rather tell the coach they're done.
-    if (lookAgainCta) lookAgainCta.addEventListener('click', () => { if (PERCEPTION) PERCEPTION.enterObserve(); });
+    if (lookAgainCta) lookAgainCta.addEventListener('click', () => { if (SURFACE && SURFACE.cta && SURFACE.cta.onLookAgain) SURFACE.cta.onLookAgain(); });
     if (lookAgainType) lookAgainType.addEventListener('click', () => {
       state.lookAgainDismissed = true;
       render();
@@ -3816,13 +3819,9 @@
       const seg = e.target.closest('.seg');
       if (!seg || seg.disabled) return;
       const which = seg.dataset.seg;
-      // SCENE SWEEP: the toggle swaps Observe (the photo) ⇄ React (the coach).
-      if (IS_SWEEP) {
-        if (which === state.mode) return;
-        if (which === 'scene') PERCEPTION.enterObserve();     // → look at the scene again
-        else PERCEPTION.crossToReact('toggle');               // → the coach (credits new marks)
-        return;
-      }
+      // A surface may own the toggle (scene-sweep swaps Observe ⇄ React); onToggle
+      // returns truthy when it handled the tap.
+      if (SURFACE && SURFACE.onToggle && SURFACE.onToggle(which)) return;
       if (which === 'coaching' && !state.started) { CONTEXT.done({ modality: 'none' }); return; }  // begin (skips the intro)
       if (which === state.mode) return;               // already active
       if (which === 'coaching') {                     // → the coach layer
