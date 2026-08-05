@@ -131,72 +131,25 @@ Sub-versions use a dotted folder, e.g. `ver2.x/index.html` with `{ "id": "ver2x"
 
 **Paths inside a version file:** because every version file sits at `products/<Product>/<feature>/verN/index.html` (four levels below the repo root), any repo-root asset it references resolves at `../../../../` — e.g. the Design Toolbox include is `<script src="../../../../designtoolbox/toolbox.js"></script>`. Required Core/Themes/font/icon resources are already in `base-template/version.html`'s header (absolute CDN URLs).
 
-## Dev Handoff Process
+## Dev Handoff / Wrap-Up
 
-**This is the standardized process for every dev handoff — it is the same for every designer and every mock.** When a designer says any of *"this is ready for dev,"* *"ready for handoff,"* *"it's dev-handoff time,"* *"hand this off,"* or similar, run these steps in order. Do not improvise a different flow per request.
+When a designer says the mock is done — *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill. It owns the whole completion phase: PRD reconciliation (gaps in both directions + edge cases missing from both), conditional `audit-mock-vwc` confirmation, the `mock-definition.md` build brief, the flow map's `DEV-NOTES.md`, and the `dev_handoff.html` build. Do not improvise a handoff flow here — the skill is the single source of truth for those steps.
 
-The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev handoff build") for the toolbox/dashboard details referenced below.
-
-### Step 0 — Pick the version FIRST (before anything else)
-
-Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then — if there is **more than one** — **stop and ask the designer which version to hand off** (name them by their `label`, e.g. "V1 or V2?"). We almost always launch only one, so the handoff should not carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
-
-- If they keep **one** version, build the handoff from that version's file.
-- If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
-- Never guess which version to keep or what to call them.
-
-### Step 1 — Component assessment
-
-Run the **`assess-mock-components`** skill on the **chosen version's file** (`verN/index.html`) — not the feature-root loader `index.html`, which has no design in it. This audits every element against the Vector Web Components library (correct `vaadin-*` / `vwc-*` usage, `theme="outlined"` on inputs, button variants) and confirms theme-token usage. It produces `component-assessment.md` and never edits the mock.
-
-### Step 2 — Write the dev notes (`DEV-NOTES.md`)
-
-Author or refresh **`DEV-NOTES.md`** next to the mock (the flow map reads it — see the toolbox README's "Dev notes file format"). For **every node/screen** in the flow map, write the developer annotations: what each element is, **the VWC/Vaadin component it maps to** (fold in the Step 1 findings), states, edge cases, and — critically — **every place a change was made on the page that a developer needs to build.**
-
-- **Annotations live ONLY inside the flow map's dev notes — never as added elements on the page.** The design stays clean and uncluttered; developers drill into the flow map to see every detail per screen, while still seeing the full picture (the whole flow) in one place.
-- Include the **"do not ship the toolbox" warning** from Step 4 in `DEV-NOTES.md` too.
-
-### Step 3 — Duplicate the HTML into a dev-handoff build
-
-Copy the **chosen version's file** (`verN/index.html`) to **`dev_handoff.html`** at the **feature root** — next to the loader `index.html`, NOT inside the `verN/` folder. That placement is required: `scripts/build-dashboards.js` only detects a dev build named `dev_handoff.html` (or a custom name set via `meta.json`) sitting beside the feature's `index.html`. Produce one per kept version, named per Step 0 (e.g. `dev_handoff_alpha.html`).
-
-Because the copy moves **up one folder** (from `verN/` to the feature root), **fix any repo-root-relative paths by removing one `../`** — most importantly the toolbox include changes from `../../../../designtoolbox/toolbox.js` to `../../../designtoolbox/toolbox.js`. Then, in the copy, **before the `toolbox.js` include**, add:
-
-```html
-<script>window.TOOLBOX = { comments: false };</script>
-```
-
-This **hides the entire comment feature** (the pin-and-comment widget *and* the flow map's 💬 comment-count chips) while **keeping the flow map on** so developers still get the screens, live thumbnails, and dev-note annotations. Keep the mock's `applyFlowState` / `bootFromHash` so the flow map and thumbnails work. **Do not hand-rewrite the design** — the dev build is a copy of the chosen version, only with comments off.
-
-### Step 4 — The toolbox dock is NOT part of the product
-
-The bottom-center **toolbox pill** and its **🗺 Flow Map button are review/handoff tooling only — they are not part of the actual product design.** State this prominently in `DEV-NOTES.md` (and anywhere a developer will look): **developers must NOT ship the `toolbox.js` include, the dock pill, or the flow map button** — strip that one `<script src=".../toolbox.js">` line for production.
-
-### Step 5 — Dashboard (automatic)
-
-No manual dashboard edit is needed. On push, `scripts/build-dashboards.js` detects `dev_handoff.html` and flips the product-dashboard card to **Ready for Dev**: the card's **status pill updates to "Ready for Dev"**, the **Dev Page + Dev HTML (GitHub) links render first** with a **"View Dev Build"** primary button, and the **original design links collapse into a "Designer file" drawer**. (For a non-default filename like `dev_handoff_alpha.html`, set `devHandoff: "dev_handoff_alpha.html"` in the mock's `meta.json` entry.)
-
-The dev-handoff file **drives the "Ready for Dev" status pill** — so at handoff either leave the mock's `status` unset in `meta.json` (the file alone flips it) or set `"status": "ready-for-dev"` explicitly. Don't leave a stale `status` like `"in-progress"` pinned, or the pill won't update to Ready for Dev.
-
-### Step 6 — Commit and share
-
-Commit the new files, then give the designer the dev build's **GitHub Pages URL** (the "Dev Page" link).
-
-### Style Guidelines
+## Style Guidelines
 
 Use the themes CONTEXT.md for the version in use (see CDN lookup pattern above) as the reference for design tokens and theming. Always quote token values from the fetched file — never recall them from memory.
 
-#### Colors (Styleguide/Colors)
+### Colors (Styleguide/Colors)
 - Use semantic color tokens from Vector theme rather than specific color hex values
 - Token values live in the themes CONTEXT.md for the version in use — fetch it to look up exact values
 - Follow accessibility guidelines for contrast ratios
 
-#### Typography (Styleguide/Typography)
+### Typography (Styleguide/Typography)
 - Use Vector's typography scale for consistency
 - Font families, sizes, and weights are defined in theme
 - Follow heading hierarchy (h1-h6)
 
-#### Icons
+### Icons
 
 **Default Icon Library: Font Awesome 6**
 
@@ -228,7 +181,7 @@ This project uses **Font Awesome 6 Free** as the default icon library. Font Awes
 - **Font Awesome** (recommended): Use for standard UI icons (user, home, search, settings, etc.)
 - **vwc-icon**: Use when required by Vector component slots or for custom SVG graphics
 
-#### Elevations (Styleguide/Elevations)
+### Elevations (Styleguide/Elevations)
 - Use predefined shadow levels for depth
 - Consistent elevation creates visual hierarchy
 
