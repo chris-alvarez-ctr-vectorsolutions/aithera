@@ -600,6 +600,11 @@
       toolbarHtml() +
       '</div>';
 
+    // Re-created Vector components don't get the theme stylesheet on their own in
+    // Safari — see KX.reapplyTheme. Without this the unit toggle groups lose their
+    // padding and borders after the first re-render.
+    KX.reapplyTheme();
+
     wireElements();
     startFloatingPreview();
   }

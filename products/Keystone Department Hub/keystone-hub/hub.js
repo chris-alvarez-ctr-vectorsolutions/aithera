@@ -859,6 +859,12 @@
       taskTable(filtered) +
       '</main></div></div></div>';
 
+    // Every Vector component in the view was just re-created, and in Safari a
+    // component built after page load never receives the theme stylesheet on its
+    // own — see KX.reapplyTheme. Without this the status segments lose their
+    // padding and borders on the first click.
+    KX.reapplyTheme();
+
     // The Agency Intelligence chat card used to mount inside the retired coverage
     // hero's right column. The hub now links out to it from the published
     // dashboard's header instead — no in-page mount, no height cost.
