@@ -26,3 +26,40 @@ When building any AI-powered or "smart" recommendation surface in Pathways proto
 - Functional behavior (data-driven triggers, dismissibility, replacement on dismiss, etc.) is unaffected — only the branding/styling is restricted.
 
 This rule applies to every AI feature added to Pathways prototypes from this point forward, unless the user explicitly says otherwise.
+
+## Review comments (Design Toolbox) — every prototype must be commentable
+
+Every Pathways prototype carries the Design Toolbox so reviewers can drop pins, comments, and threads on it. The widget is documented in `designtoolbox/FEEDBACK-WIDGET.md`; the shared bottom-center dock and flow map are in `designtoolbox/README.md`. One line before `</body>` turns it on:
+
+```html
+<script src="../../../../designtoolbox/toolbox.js"></script>
+```
+
+- **The path is depth-relative.** Count the folders between the file and the repo root: `products/Pathways/<mock>.html` uses `../../`, `products/Pathways/<feature>/index.html` uses `../../../`, and a versioned design at `products/Pathways/<feature>/verN/index.html` uses `../../../../`. A wrong depth is a silent 404: no console error you'll notice, just no comment widget.
+- **New mocks get it for free.** `base-template/version.html` now ships the include, so anything scaffolded from the template is commentable the moment it exists. Only hand-written or older files need it added.
+- **Do NOT add it to**: the feature-root loader `index.html` (copied verbatim from `base-template/index.html`; it merges the loaded version's dock by itself), generated `dashboard/` pages, shared partials, or redirect stubs.
+- **Never hand-roll commenting into a mock**, and don't leave annotation callouts on the page. Reviewer detail belongs in pins; developer detail belongs in `DEV-NOTES.md`.
+- **Opt-outs** (set `window.TOOLBOX` before the include): `{ comments: false }` = flow map only, which is what dev-handoff builds use; `{ flowMap: false }` = comment widget only, for sibling sub-pages when one hub page owns the flow map. `?toolbox=off` suppresses both for a clean screenshot.
+- **Leave comments on the GitHub Pages URL.** Pins are keyed to the canonical Pages URL and stored in Cloudflare KV so everyone sees the same thread. Off Pages (localhost, preview server, `file://`) the widget stays dormant by design, so share the Pages link when you want feedback.
+
+## Dev-ready snapshots (dated duplicate)
+
+When a Pathways mock is marked ready for dev ("ready for dev", "ready for handoff", "hand this off"), run the standard dev-handoff process in the root `CLAUDE.md`, then **also save a dated duplicate** of the dev build beside it. The dated copies are the record of exactly what a developer was given on a given day.
+
+```
+products/Pathways/<feature>/
+  index.html                     the version loader
+  dev_handoff.html               live dev build (drives the "Ready for Dev" pill)
+  dev_handoff_2026-08-04.html    dated snapshot of what was handed off that day
+  ver1/index.html                the design
+```
+
+Rules:
+
+- **Name the copy `dev_handoff_YYYY-MM-DD.html`**, using the date the mock was marked ready (today's date at handoff time), not the mock's last-edit date.
+- Create it **after** `dev_handoff.html` is finalized, as a plain byte copy so both files share the same comments-off toolbox config and the same relative paths: `cp dev_handoff.html dev_handoff_2026-08-04.html`.
+- **`dev_handoff.html` must keep that exact name.** `scripts/build-dashboards.js` looks for it by name to flip the dashboard card to "Ready for Dev". The dated file is archive only: the dashboard never links it, so it can never steal the card's dev link.
+- With per-version dev builds (Step 0's alpha/beta case), keep the date last: `dev_handoff_alpha_YYYY-MM-DD.html`, `dev_handoff_beta_YYYY-MM-DD.html`. One dated copy per kept version.
+- **Re-handing off later:** leave every earlier dated file in place, refresh `dev_handoff.html` from the chosen version, and add a new dated copy. Never overwrite or delete a previous snapshot; the accumulated set is the handoff history.
+- In `DEV-NOTES.md`, add a `Handed off YYYY-MM-DD → dev_handoff_YYYY-MM-DD.html` line (newest first) so a developer can tell which build they were pointed at.
+- Commit the dated copy along with the rest of the handoff files in Step 6.

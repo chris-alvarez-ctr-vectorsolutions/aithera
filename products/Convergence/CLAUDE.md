@@ -70,3 +70,44 @@ When building any AI-powered or "smart" recommendation surface in Convergence pr
 - Functional behavior (data-driven triggers, dismissibility, replacement on dismiss, etc.) is unaffected — only the branding/styling is restricted.
 
 This rule applies to every AI feature added to Convergence prototypes from this point forward, unless the user explicitly says otherwise.
+
+## Review comments (Design Toolbox) — every prototype must be commentable
+
+Every Convergence prototype carries the Design Toolbox so reviewers can drop pins, comments, and threads on it. The widget is documented in `designtoolbox/FEEDBACK-WIDGET.md`; the shared bottom-center dock and flow map are in `designtoolbox/README.md`. One line before `</body>` turns it on:
+
+```html
+<script src="../../../designtoolbox/toolbox.js"></script>
+```
+
+- **The path is depth-relative.** Count the folders between the file and the repo root: `products/Convergence/<mock>.html` uses `../../`, `products/Convergence/<feature>/<page>.html` uses `../../../`, a versioned design at `products/Convergence/<feature>/verN/index.html` uses `../../../../`, and a nested page such as `Report Redesigns/Report Redesign/V1/<page>.html` uses `../../../../../`. A wrong depth is a silent 404: no console error you'll notice, just no comment widget.
+- **New mocks get it for free.** `base-template/version.html` now ships the include, so anything scaffolded from the template is commentable the moment it exists. Only hand-written or older files need it added.
+- **Put it last, after the shared chrome.** On a chrome-based page the order is `chrome.js`, then the page logic, then the toolbox include, immediately before `</body>` — the chrome relocates page content, so the toolbox should mount after that has happened.
+- **Do NOT add it to**: the feature-root loader `index.html` (copied verbatim from `base-template/index.html`; it merges the loaded version's dock by itself), generated `dashboard/` pages, shared partials (`Convergence Small UI Improvements/ver1/shared/head.html`), redirect stubs (`Qualification-Builder/index.html`), or the legacy `_shell/` pages.
+- **Never hand-roll commenting into a mock**, and don't leave annotation callouts on the page. Reviewer detail belongs in pins; developer detail belongs in `DEV-NOTES.md`.
+- **Opt-outs** (set `window.TOOLBOX` before the include): `{ comments: false }` = flow map only, which is what dev-handoff builds use; `{ flowMap: false }` = comment widget only, which is how the `Convergence Small UI Improvements` sibling pages are set up since `index.html` owns the flow map. `?toolbox=off` suppresses both for a clean screenshot.
+- **Leave comments on the GitHub Pages URL.** Pins are keyed to the canonical Pages URL and stored in Cloudflare KV so everyone sees the same thread. Off Pages (localhost, preview server, `file://`) the widget stays dormant by design, so share the Pages link when you want feedback.
+
+## Dev-ready snapshots (dated duplicate)
+
+When a Convergence prototype is marked ready for dev ("ready for dev", "ready for handoff", "hand this off"), run the standard dev-handoff process in the root `CLAUDE.md`, then **also save a dated duplicate** of the dev build beside it. The dated copies are the record of exactly what a developer was given on a given day.
+
+```
+products/Convergence/<feature>/
+  index.html                     the version loader
+  dev_handoff.html               live dev build (drives the "Ready for Dev" pill)
+  dev_handoff_2026-08-04.html    dated snapshot of what was handed off that day
+  ver1/index.html                the design
+```
+
+Rules:
+
+- **Name the copy `dev_handoff_YYYY-MM-DD.html`**, using the date the prototype was marked ready (today's date at handoff time), not its last-edit date.
+- Create it **after** `dev_handoff.html` is finalized, as a plain byte copy so both files share the same comments-off toolbox config and the same relative paths: `cp dev_handoff.html dev_handoff_2026-08-04.html`.
+- **`dev_handoff.html` must keep that exact name.** `scripts/build-dashboards.js` looks for it by name to flip the dashboard card to "Ready for Dev". The dated file is archive only: the dashboard never links it, so it can never steal the card's dev link.
+- With per-version dev builds (Step 0's alpha/beta case), keep the date last: `dev_handoff_alpha_YYYY-MM-DD.html`, `dev_handoff_beta_YYYY-MM-DD.html`. One dated copy per kept version.
+- **Re-handing off later:** leave every earlier dated file in place, refresh `dev_handoff.html` from the chosen version, and add a new dated copy. Never overwrite or delete a previous snapshot; the accumulated set is the handoff history.
+- In `DEV-NOTES.md`, add a `Handed off YYYY-MM-DD → dev_handoff_YYYY-MM-DD.html` line (newest first) so a developer can tell which build they were pointed at.
+- Commit the dated copy along with the rest of the handoff files in Step 6.
+- **Convergence-specific path check:** the dev build sits one folder above the design, so the shared-chrome includes shift with it. Verify `_shell/chrome.css` / `_shell/chrome.js` (and any AG Grid CDN or toolbox include) still resolve from the copy's location before handing it off.
+
+**Standalone-file prototypes** (the older Convergence layout, e.g. `Qualification-Builder/Manage-Qualifications.html`, where the mock is a single `.html` rather than a versioned feature folder): the dashboard's automatic dev detection only fires for folder-style mocks, so name the pair after the source file in the same folder — `Manage-Qualifications_dev_handoff.html` plus `Manage-Qualifications_dev_handoff_YYYY-MM-DD.html` — and set `"status": "ready-for-dev"` explicitly on that item in `products.json` so the card's pill still updates.
