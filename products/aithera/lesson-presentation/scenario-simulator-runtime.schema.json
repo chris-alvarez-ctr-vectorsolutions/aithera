@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vectorlearning.github.io/ux-mockups/products/aithera/lesson-presentation/scenario-simulator-runtime.schema.json",
+  "title": "Scenario Simulator — Runtime Contract",
+  "description": "The one runtime shape the shared ladder engine (js/sim-player.js) drives. Every scenario type normalizes into this shape via type.toRuntime(source). This schema is the SUPERSET: the common core is required; additive blocks (cast, state, canon, coverage/hazards/decoys/scene) appear only on the types that need them. Companion reference: scenario-simulator-json-contract.html. NOTE: this describes the RUNTIME object, not the authored source the Studio exports and not the compiled system-prompt string (type.compile → string). Fields the engine actually reads carry x-engine-reads:true — everything else is prompt fuel or render-surface data.",
+  "x-source-of-truth": "Verified against toRuntime(DEFAULT) dumps for mix-arc, branching-arc, ensemble-arc, scene-sweep, and guided-arc (recipe → mix-arc) on 2026-08-05.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["phases", "opening", "sceneLineCaption"],
+  "properties": {
+    "title":         { "type": "string", "description": "Scenario name — shown in the learner top bar and results screen." },
+    "course":        { "type": "string", "description": "The training/course this scenario lives inside (register cue for the prompt)." },
+    "learnerName":   { "type": "string" },
+    "characterName": { "type": "string", "description": "The first/primary counterpart label. Per-phase counterpart overrides it. Absent on scene-sweep." },
+    "framing":       { "type": "string", "description": "One-line premise; opens the compiled system prompt." },
+    "learnerRole":   { "type": "string", "description": "Who the learner plays across every phase." },
+    "establishing": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Cold-open framing block shown before the scenario begins.",
+      "properties": {
+        "eyebrow": { "type": "string" },
+        "title":   { "type": "string" },
+        "sub":     { "type": "string" }
+      }
+    },
+    "openingImage":  { "type": "string" },
+    "intro":         { "$ref": "#/$defs/Intro" },
+    "voice":         { "$ref": "#/$defs/Voice" },
+    "reflection":    { "$ref": "#/$defs/Reflection" },
+    "playbook":      { "type": "array", "description": "Optional reference points surfaced to the learner/coach.", "items": { "type": "object", "additionalProperties": true } },
+    "resources": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional reference-material block.",
+      "properties": {
+        "lead":  { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+      }
+    },
+
+    "phases": {
+      "type": "array",
+      "x-engine-reads": true,
+      "description": "THE LADDER. The app indexes this by state.phaseIdx and is the sole source of truth for which rung is live. Produced by toRuntime(): branching/ensemble/scene-sweep author phases[] directly; mix-arc (and guided-arc via toMixArc) derive them from beats[].",
+      "items": { "$ref": "#/$defs/Phase" },
+      "minItems": 1
+    },
+    "opening": {
+      "type": "array",
+      "x-engine-reads": true,
+      "description": "Seeded reflection warm-up bubble(s). MAY be empty ([]) — when reflection is off (e.g. ensemble Bullying default) the player boots straight into phase 1.",
+      "items": { "type": "string" }
+    },
+    "sceneLineCaption": {
+      "type": "string",
+      "description": "Byline for the learner's own scene lines. Always 'You' in current builds.",
+      "default": "You"
+    },
+
+    "state": {
+      "type": "array",
+      "x-engine-reads": true,
+      "description": "ADDITIVE (mix · branching · ensemble · guided). Session variables surfaced on the per-turn [SYSTEM STATE] line and written by phase transitions[].set.",
+      "items": { "$ref": "#/$defs/StateVar" }
+    },
+    "cast": {
+      "type": "array",
+      "description": "ADDITIVE (branching · ensemble). Character behavior models. One entry for branching; many for ensemble (each phase names its own counterpart). Read by compile() into the prompt — NOT by the engine.",
+      "items": { "$ref": "#/$defs/CastMember" }
+    },
+    "canon": {
+      "type": "array",
+      "description": "ADDITIVE (branching · ensemble). Continuity facts the prompt must keep consistent across phases.",
+      "items": { "type": "string" }
+    },
+    "coverage": {
+      "$ref": "#/$defs/Coverage",
+      "description": "ADDITIVE (scene-sweep only)."
+    },
+    "hazards": {
+      "type": "array",
+      "description": "ADDITIVE (scene-sweep only). The real observable hazards, with hotspot geometry and fix/prevent follow-ups.",
+      "items": { "$ref": "#/$defs/Hazard" }
+    },
+    "decoys": {
+      "type": "array",
+      "description": "ADDITIVE (scene-sweep only). Plausible-but-safe items, separate from hazards so coverage/spotted never counts them.",
+      "items": { "$ref": "#/$defs/Decoy" }
+    },
+    "scene": {
+      "$ref": "#/$defs/Scene",
+      "description": "ADDITIVE (scene-sweep only). The observed image + its authored descriptions."
+    }
+  },
+
+  "$defs": {
+    "Phase": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "One rung of the ladder. Three authored flavors collapse here: a lean ladder phase (branching/ensemble), a rich beat phase (mix/guided — adds type/character/media/hasRightAnswer/throughLine), and a perception phase (scene-sweep — uses kind + flat signpost/prompt that toRuntime folds into entry).",
+      "required": ["id", "maxTurns", "entry"],
+      "properties": {
+        "id":    { "type": "string", "x-engine-reads": true, "description": "Unique phase id. transitions[].next references it; the app cues delivery by it." },
+        "label": { "type": "string" },
+        "level": { "type": "string", "description": "Human progress label, e.g. 'Level 1 · early warning signs'." },
+        "world": {
+          "type": "string",
+          "x-engine-reads": true,
+          "enum": ["coaching", "scene"],
+          "description": "Interaction mode. 'scene' flips the learner's input to the character and enters scene mode; 'coaching' faces the coach. Present on mix/branching/ensemble/guided phases; scene-sweep uses `kind` instead."
+        },
+        "kind": {
+          "type": "string",
+          "x-engine-reads": true,
+          "enum": ["spot", "act", "prevent"],
+          "description": "scene-sweep only. Selects the optional render surface via ctx.outcomeBlock/coverageBlock (self-guarding hook). A 'spot' phase mounts the perception canvas; no hook → no surface code runs."
+        },
+        "counterpart": {
+          "type": "string",
+          "x-engine-reads": true,
+          "description": "Who the learner faces in a scene. A name (e.g. 'Ray'), '' for coaching, or 'Narrator' for a narrated scene with no speaking counterpart."
+        },
+        "maxTurns": {
+          "type": "integer",
+          "x-engine-reads": true,
+          "minimum": 1,
+          "description": "Learner-turn cap for the phase. At the cap the app forces the model to resolve and report a tier — the phase cannot run long. The app owns advancement, not the model."
+        },
+        "entry": {
+          "$ref": "#/$defs/Entry",
+          "x-engine-reads": true,
+          "description": "The LOCKED, app-authored open of the phase, appended by applyDeliver()."
+        },
+        "inputPlaceholder": { "type": "string", "x-engine-reads": true, "description": "Placeholder for the learner's input box in this phase." },
+        "exitCriteria":     { "type": "string", "description": "What 'done' means; drives the coach's probing and the tier it reports. Prompt-only." },
+        "reactionGuidance": { "type": "string", "description": "How the counterpart/coach should react. Prompt-only." },
+        "calibration": {
+          "type": "array",
+          "description": "Tier vocabulary the model may report for this phase. Read by compile() into the prompt; the reported tier drives transitions[].",
+          "items": { "$ref": "#/$defs/CalibrationTier" }
+        },
+        "debrief": { "$ref": "#/$defs/Debrief" },
+        "transitions": {
+          "type": "array",
+          "x-engine-reads": true,
+          "description": "On phase close, the recorded tier selects a transition → the next phase and any session-state writes.",
+          "items": { "$ref": "#/$defs/Transition" }
+        },
+
+        "type": {
+          "type": "string",
+          "enum": ["coach-led", "roleplay", "observe"],
+          "description": "mix-arc/guided authoring type; toRuntime derives `world` from it (roleplay → scene, else coaching)."
+        },
+        "character":      { "$ref": "#/$defs/Character", "description": "mix-arc roleplay beat: the counterpart model. Prompt-only." },
+        "media":          { "$ref": "#/$defs/Media", "description": "mix-arc observe beat: stimulus clip(s)/message(s)." },
+        "hasRightAnswer": { "type": "boolean", "description": "mix/guided coaching beat: whether there is a correct read to land." },
+        "throughLine":    { "type": "string", "description": "mix/guided: the point the coach must land." },
+        "signpost":       { "type": "string", "description": "scene-sweep authored field; toRuntime copies it into entry.signpost." },
+        "prompt":         { "type": "string", "description": "scene-sweep authored field; toRuntime copies it into entry.prompt." }
+      }
+    },
+
+    "Entry": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The locked opener of a phase. entryBeatsFor() reads these in order: tier-selected bridge, signpost, stimulus cards (from phase.media), prompt, scripted beats.",
+      "properties": {
+        "bridge": { "type": "string", "x-engine-reads": true, "description": "Fallback opener when no per-tier bridge matches." },
+        "bridgesByTier": {
+          "type": "object",
+          "x-engine-reads": true,
+          "additionalProperties": { "type": "string" },
+          "description": "Map of prior-phase tier → the bridge line that opens this phase. bridgesByTier[prevTier] wins over `bridge`."
+        },
+        "signpost": { "type": "string", "x-engine-reads": true, "description": "The coach's framing line for the phase." },
+        "prompt":   { "type": "string", "x-engine-reads": true, "description": "The task/question posed to the learner (coaching phases)." },
+        "beats": {
+          "type": "array",
+          "x-engine-reads": true,
+          "description": "Scripted scene open — narration + dialogue delivered verbatim when a scene phase begins.",
+          "items": { "$ref": "#/$defs/Beat" }
+        },
+        "cta": { "type": "string", "x-engine-reads": true, "description": "Button label to enter/advance the phase, e.g. 'Step into the room'." }
+      }
+    },
+
+    "Beat": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "One scripted line. Rendered purely by speaker + kind — never by inspecting text.",
+      "required": ["speaker", "kind", "text"],
+      "properties": {
+        "speaker": { "type": "string", "enum": ["coach", "character", "you"] },
+        "kind":    { "type": "string", "enum": ["coaching", "dialogue", "narration", "clip", "message"] },
+        "text":    { "type": "string" },
+        "name":    { "type": "string", "description": "Speaking character's name (dialogue beats)." }
+      }
+    },
+
+    "Transition": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A tier-routed edge out of a phase. closePhase() picks the transition whose onTier matches the recorded tier (or the first onTier-less transition as default), writes `set` into session state, and routes to `next`.",
+      "properties": {
+        "onTier": { "type": "string", "x-engine-reads": true, "description": "Tier this edge fires on. '' = the default/fallback edge." },
+        "next":   { "type": "string", "x-engine-reads": true, "description": "Target phase id. Blank/omitted = the next phase in order; a target that resolves out of range terminates the ladder." },
+        "set": {
+          "type": "object",
+          "x-engine-reads": true,
+          "additionalProperties": { "type": "string" },
+          "description": "Session-state writes applied on close: { stateVarKey: newValue }. Only keys already declared in scenario.state are written."
+        }
+      }
+    },
+
+    "CalibrationTier": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "tier":     { "type": "string", "description": "Tier label the model may report, e.g. 'STRONG', 'NEUTRAL', 'UNTHOUGHTFUL'." },
+        "guidance": { "type": "string", "description": "How the coach should read and respond to this tier." }
+      }
+    },
+
+    "Debrief": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "talkItThrough": {
+          "type": "string",
+          "x-engine-reads": true,
+          "description": "The VERBATIM teach-opener. When the model's turn begins with this line, runArcEngine() knows the phase is closing (teachOpener detection)."
+        },
+        "points": { "type": "string", "description": "The debrief content the coach lands. Prompt-only." }
+      }
+    },
+
+    "Character": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A single counterpart behavior model (mix-arc roleplay beat). Prompt-only.",
+      "properties": {
+        "name":       { "type": "string" },
+        "backstory":  { "type": "string" },
+        "driver":     { "type": "string" },
+        "reactions":  { "type": "array", "items": { "$ref": "#/$defs/Reaction" } },
+        "styleNotes": { "type": "string" }
+      }
+    },
+
+    "CastMember": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A first-class character model (branching = one; ensemble = many). Prompt-only. Ensemble adds disclosures[] (earned reveals).",
+      "required": ["name"],
+      "properties": {
+        "name":        { "type": "string" },
+        "baseline":    { "type": "string", "description": "Default demeanor before the learner acts." },
+        "driver":      { "type": "string", "description": "What actually motivates this character." },
+        "reactions":   { "type": "array", "items": { "$ref": "#/$defs/Reaction" } },
+        "styleNotes":  { "type": "string" },
+        "disclosures": {
+          "type": "array",
+          "description": "ensemble only. Facts the character reveals only when the learner earns them.",
+          "items": { "$ref": "#/$defs/Disclosure" }
+        }
+      }
+    },
+
+    "Reaction": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A when/then behavior rule for a character.",
+      "properties": {
+        "when": { "type": "string" },
+        "then": { "type": "string" }
+      }
+    },
+
+    "Disclosure": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "An earned reveal (ensemble).",
+      "properties": {
+        "fact":     { "type": "string", "description": "What the character can reveal." },
+        "earnedBy": { "type": "string", "description": "The learner behavior that unlocks it." }
+      }
+    },
+
+    "Media": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Observe-beat stimulus (mix-arc). Its segments become locked stimulus cards in entryBeatsFor().",
+      "properties": {
+        "segments":        { "type": "array", "items": { "$ref": "#/$defs/MediaSegment" } },
+        "affectiveBeat":   { "type": "boolean" },
+        "openingReaction": { "type": "string" }
+      }
+    },
+
+    "MediaSegment": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "One stimulus card. x-engine-reads: entryBeatsFor() renders a clip card (video src) or a message card (kind:'message').",
+      "x-engine-reads": true,
+      "properties": {
+        "src":     { "type": "string", "description": "Video source. Empty → the described moment is shown as a caption card instead." },
+        "label":   { "type": "string" },
+        "caption": { "type": "string" },
+        "kind":    { "type": "string", "description": "'message' → renders as a forwarded-message card; otherwise a clip card." },
+        "from":    { "type": "string", "description": "Sender, for message cards." }
+      }
+    },
+
+    "StateVar": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A declared session variable. Its live value is surfaced on the [SYSTEM STATE] line and written by transitions[].set.",
+      "required": ["key"],
+      "properties": {
+        "key":     { "type": "string", "x-engine-reads": true, "description": "Identifier written by transitions and read on the state line." },
+        "label":   { "type": "string", "description": "Human label shown on the state line." },
+        "initial": { "type": "string", "description": "Starting value." }
+      }
+    },
+
+    "Coverage": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "scene-sweep coverage target: how many observable hazards count as 'enough'.",
+      "required": ["total", "required"],
+      "properties": {
+        "total":    { "type": "integer", "minimum": 1, "description": "Count of real hazards in the scene." },
+        "required": { "type": "integer", "minimum": 1, "description": "How many must be spotted to pass the Observe beat." }
+      }
+    },
+
+    "Hazard": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A real observable hazard (scene-sweep).",
+      "required": ["id"],
+      "properties": {
+        "id":       { "type": "string" },
+        "short":    { "type": "string", "description": "Short label for the coverage rail." },
+        "zone":     { "type": "string", "description": "Where it is, in plain language, for coach nudges." },
+        "alt":      { "type": "string", "description": "Accessible description." },
+        "spot":     { "$ref": "#/$defs/Spot" },
+        "full":     { "type": "string", "description": "Full explanation of why it's a hazard." },
+        "synonyms": { "type": "string", "description": "Comma-separated learner phrasings that count as spotting it." },
+        "fix":      { "type": "string", "description": "Immediate remediation." },
+        "prevent":  { "type": "string", "description": "Systemic prevention." },
+        "source":   { "type": "string", "description": "Provenance / citation, e.g. a course object id." }
+      }
+    },
+
+    "Decoy": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A plausible-but-safe item (scene-sweep). Never counts toward coverage.",
+      "required": ["id"],
+      "properties": {
+        "id":   { "type": "string" },
+        "alt":  { "type": "string" },
+        "note": { "type": "string", "description": "Why it's actually fine — the coach's response if the learner flags it." },
+        "spot": { "$ref": "#/$defs/Spot" }
+      }
+    },
+
+    "Spot": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Hotspot geometry. Points are a polygon in normalized 0–1 coords against the DRAWN image (object-fit: contain, letterbox-aware). Shared by the live tap-to-mark and the Studio place-the-hotspot editor (window.SceneSweepGeo).",
+      "properties": {
+        "points": {
+          "type": "array",
+          "description": "Polygon vertices as [x, y] pairs, each in [0,1].",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+
+    "Scene": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The observed image (scene-sweep).",
+      "properties": {
+        "src":             { "type": "string", "description": "Image path." },
+        "alt":             { "type": "string" },
+        "canonDescription":{ "type": "string", "description": "Authoritative description the coach grounds on." }
+      }
+    },
+
+    "Intro": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Cold-open context modality.",
+      "properties": {
+        "type":  { "type": "string", "enum": ["reading", "audio", "video"], "description": "How the opening context is delivered." },
+        "audio": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "eyebrow": { "type": "string" },
+            "title":   { "type": "string" },
+            "text":    { "type": "string", "description": "The narration/read-along script AND the coach's picture of the setup." }
+          }
+        },
+        "video": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "sound":  { "type": "boolean", "description": "Whether the cold-open clip plays with its own audio (vs muted + captions)." },
+            "scenes": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+          }
+        }
+      }
+    },
+
+    "Reflection": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The opening warm-up. When enabled with a prompt, its text becomes scenario.opening; the model calibrates (no tier) before phase 1.",
+      "properties": {
+        "prompt":           { "type": "string" },
+        "feedbackGuidance": { "type": "string" },
+        "enabled":          { "type": "boolean", "description": "false → no warm-up; scenario.opening is [] and the player boots into phase 1." }
+      }
+    },
+
+    "Voice": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The coach/narrator voice. Prompt-only.",
+      "properties": {
+        "persona":  { "type": "string" },
+        "guidance": { "type": "string" }
+      }
+    }
+  }
+}
