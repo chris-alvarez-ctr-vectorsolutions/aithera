@@ -715,6 +715,124 @@
     },
   };
 
+  /* ---------------------------------------------------------------------
+     EXAMPLE — Hazmat Scene Size-Up: the I-65 Tanker Rollover. The former
+     observe-react ("Scene Analysis") experience re-authored as composed
+     beats so it runs on the universal engine and is Studio-authorable. Three
+     OBSERVE beats — two real clips (drone overview, helmet-cam too-close) and
+     one described "corrected scene" (segment 3 has no shipped video, and its
+     caption reads as narration) — each followed by the coach probing the
+     read, closing on the same SME-validated size-up. threatContent stays
+     false: this is procedure, not violence. --------------------------------- */
+  const EXAMPLE_HAZMAT = {
+    v: 1, type: 'mix-arc',
+    title: 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
+    course: 'Hazardous Materials Response — a composed scene size-up',
+    learnerName: 'you', characterName: '',
+    elevatedStakes: false, involvesMinors: false, threatContent: false,
+    framing: 'a composed scene size-up: a tanker rollover on the interstate that was NOT run by the book. The learner reviews the footage — a badly-run response, then the corrected version — and reasons through what a sound hazmat size-up actually requires.',
+    learnerRole: 'the first-arriving responder sizing up a hazmat scene',
+    establishing: {
+      eyebrow: 'Scene size-up', title: 'I-65 Tanker Rollover',
+      sub: "A tanker went over on the interstate — and the scene you're about to watch was not run by the book. Watch how it really unfolded, then tell your AI coach what you saw: what was right, what wasn't, and what you'd do differently.",
+    },
+    openingImage: '',
+    // No separate context modality — the first clip IS the cold open (Beat 1's
+    // observe card), so intro is none and there is no un-graded reflection.
+    intro: { type: 'none', video: { sound: true, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
+    voice: { persona: 'a calm, experienced hazmat officer — direct and grounded, never preachy; talks like someone who has actually run these calls', guidance: '' },
+    reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
+    state: [],
+    beats: [
+      {
+        id: 'size-up', label: 'Size Up the Scene', level: 'Beat 1 · what do you see', type: 'observe', maxTurns: 3,
+        entry: { bridge: '', signpost: '',
+          prompt: "What you just watched is how this scene actually unfolded — and parts of it should bother you. We'll get to that. First, the basics: what did you see on the tank's placard?",
+          beats: [], cta: '' },
+        inputPlaceholder: 'What did you see…',
+        exitCriteria: "the learner reads the placard first — UN 1993, Class 3 flammable liquid — and/or flags that traffic was never cleared from around the tank (isolation was never established)",
+        reactionGuidance: "probe toward two reads: the placard (UN 1993 / Class 3) as the key that opens the ERG, and the traffic still moving feet from the tank. Don't hand them either — draw it out one beat at a time.",
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [
+          { src: '../assets/videos/hazmat_tankerScene.mp4',
+            label: 'Drone overview — overturned tanker on I-65, traffic still moving on both sides',
+            caption: "A tanker's gone over on I-65. Look at the traffic — still moving on both sides, just feet from the tank. On the barrel: a red diamond — 1993, Class 3." } ],
+          affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'names neither the placard nor the uncleared traffic — approaches or guesses at the product' },
+          { tier: 'PARTIAL', guidance: 'catches one — the placard OR the traffic — but not both' },
+          { tier: 'SOUND', guidance: 'reads the placard to open the ERG AND flags that the road was never shut down' } ],
+        debrief: {
+          talkItThrough: "Here's what the footage shows: UN 1993, Class 3 flammable liquid — that number is the key to the ERG — and traffic never cleared, feet from the tank.",
+          points: 'the learner leaves knowing the placard is the first read, and that isolation should have started before anything else' },
+        transitions: [ { onTier: '', next: 'too-close', set: {} } ],
+      },
+      {
+        id: 'too-close', label: 'How Close Is Too Close', level: 'Beat 2 · positioning', type: 'observe', maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'What are you thinking…',
+        exitCriteria: "the learner recognizes the first-in crew is far too close — walking up to a leaking flammable tank in structural gear, not on air — and can say where they SHOULD be (upwind, uphill, back, reading the placard from distance)",
+        reactionGuidance: "validate the discomfort first — 'too close' is trained instinct, not fear — then draw out WHY it's wrong (no protection, no air, inside the isolation line) and what right looks like (staged back at distance).",
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [
+          { src: '../assets/videos/hazmat_firstPerson.mp4',
+            label: 'Helmet-cam — the first firefighter in, walking up close to the leaking tank',
+            caption: "Now ride along with the first crew in. This is his helmet cam. That's as close as it looks — close enough to touch it." } ],
+          affectiveBeat: true,
+          openingReaction: "Sit with that one for a second before we analyze anything. How did that video make you feel — was that distance reasonable?" },
+        calibration: [
+          { tier: 'MISSED', guidance: 'thinks the approach was fine or necessary' },
+          { tier: 'PARTIAL', guidance: "senses it was too close but can't say where they should be instead" },
+          { tier: 'SOUND', guidance: 'names the approach as unsafe AND places themselves back — upwind, uphill, at distance, reading the placard from there' } ],
+        debrief: {
+          talkItThrough: "That distance wasn't heroic — it was a near miss. Upwind, uphill, back behind the rigs, placard read through binoculars: that's where the first-in belongs.",
+          points: "the learner leaves trusting the 'too close' instinct and knowing the staging rule" },
+        transitions: [ { onTier: '', next: 'first-moves', set: {} } ],
+      },
+      {
+        id: 'first-moves', label: 'Your First Moves', level: 'Beat 3 · bring it home', type: 'observe', maxTurns: 3,
+        entry: { bridge: '',
+          signpost: "That's the version that keeps everyone breathing. So bring it home: tomorrow this call drops and you're first on scene. Walk me through your first moves.",
+          prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Walk me through your first moves…',
+        exitCriteria: "the learner gives their OWN first-arriving moves: position at distance (upwind/uphill/back), close the road in both directions, read the placard / open the ERG for the isolation line, and get HazMat + law enforcement + incident command rolling. After two nudges, accept a partial that names at least positioning and one other move.",
+        reactionGuidance: "this is the synthesis — draw out the sequence: position before you leave the rig, isolate both directions, ERG for the distance, notifications in parallel. Nudge toward sequence, then toward concrete steps, then accept a solid partial.",
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [
+          { src: '',
+            label: 'The same scene, run right — traffic diverted, crews staged upwind at distance',
+            caption: "Now picture the same scene, run right. Traffic stopped and turned around a half-mile back. Crews staged upwind, uphill, behind the rigs. The ERG open on the dash, HazMat rolling, and nobody inside 150 feet." } ],
+          affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'THIN', guidance: 'jumps toward the tank or names only one move' },
+          { tier: 'PARTIAL', guidance: 'names positioning and one other move (isolation, ERG, or notifications)' },
+          { tier: 'COMPLETE', guidance: 'positions at distance, closes the road both ways, opens the ERG, AND rolls HazMat / law enforcement / incident command in parallel' } ],
+        debrief: {
+          talkItThrough: "That's a size-up: you never left the rig unprotected, you owned the perimeter, and you got help rolling before you needed it.",
+          points: 'the learner leaves with their own repeatable first-five-minutes for a hazmat scene' },
+        transitions: [ { onTier: '', next: '', set: {} } ],
+      },
+    ],
+    playbook: [
+      { title: 'Read the placard first', body: "The UN number and hazard class — here, 1993 / Class 3 flammable liquid — is the one data point that unlocks the ERG and everything after it. Pull it before anything else pulls your attention." },
+      { title: 'Isolate before you approach', body: "ERG Guide 128 calls for at least 150 feet of initial isolation in every direction. The first job on arrival isn't the tank — it's shutting the road down in both directions." },
+      { title: 'Trust the discomfort', body: "\"Too close\" isn't fear — it's your training trying to get your attention. When an approach feels wrong, fall back to the isolation line and read the placard from there with binoculars." },
+      { title: 'Stage upwind, uphill, and back', body: "Position crews upwind, uphill, and behind the rigs at distance. Nobody goes near the product without chemical protection and air." },
+      { title: 'Make the calls in parallel', body: "HazMat, law enforcement, and incident command roll while you size up — not after. They'd rather stand down than arrive to a scene that's already gotten worse." },
+    ],
+    resources: {
+      lead: "Reading the scene safely is the first job on any hazmat call — here's what to keep within reach for the next one:",
+      items: [
+        { title: 'The Emergency Response Guidebook (ERG)', body: 'Your fastest path from a placard number to a real isolation distance and initial response guide.' },
+        { title: 'Placard & UN number reference', body: "Hazard classes 1–9 at a glance, for when you can't get close enough to read small print." },
+        { title: 'Your regional HazMat team', body: "Call early — they'd rather roll and stand down than arrive to a scene that's already gotten worse." },
+      ],
+    },
+  };
+
   /* Named curated examples this type ships, addressed via
      scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
      plays when no ?scenario= is given and nothing is published. */
@@ -722,6 +840,7 @@
     'reading-the-warning-signs': EXAMPLE_WPV,
     'the-kendra-situation': EXAMPLE_KENDRA,
     'the-marshall-scenario': EXAMPLE_MARSHALL,
+    'hazmat-scene-size-up': EXAMPLE_HAZMAT,
   };
 
   /* =======================================================================
