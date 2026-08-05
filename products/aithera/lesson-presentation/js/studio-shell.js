@@ -30,6 +30,12 @@
   function mergeScenario(draft) { return type.merge(draft); }
 
   let scenario = (() => {
+    // ?example=<id> opens a curated example (e.g. the WPV FINAL "reading-the-warning-signs")
+    // straight into the editor. Non-destructive: it becomes the working draft but
+    // doesn't touch the saved draft until the author explicitly saves.
+    const exId = new URLSearchParams(location.search).get('example');
+    const ex = exId && type.EXAMPLES && type.EXAMPLES[exId];
+    if (ex) return type.normalize(clone(ex));
     try { return mergeScenario(JSON.parse(localStorage.getItem(type.store.keys.draft))); }
     catch (e) { return type.normalize(clone(type.DEFAULT)); }
   })();

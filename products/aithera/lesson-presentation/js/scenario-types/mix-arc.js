@@ -357,14 +357,14 @@
       {
         id: 'escalation', label: 'It Escalates', level: 'Phase 3 · Level 2 — a credible threat', type: 'coach-led',
         maxTurns: 2,
-        entry: { bridge: '', signpost: 'A week goes by, and something new lands on your desk. A colleague forwards you a message Ray posted in the crew group chat: "Marcus better watch himself. This place is going to regret what they did to me." Ray has also called out of his last two shifts. What do you do — specifically?', prompt: '', beats: [], cta: 'Keep going' },
+        entry: { bridge: '', signpost: 'A week goes by, and something new lands on your desk. A colleague forwards you a message Ray posted in the crew group chat — it\'s on your screen now. Ray has also called out of his last two shifts.', prompt: 'What do you do — specifically?', beats: [], cta: 'Keep going' },
         inputPlaceholder: 'What do you do — specifically?',
         exitCriteria: 'the learner recognizes this as a Level 2 credible threat, secures the people at risk (Marcus and the crew) right now, notifies the chain and involves 911/security if imminent, and preserves the message — without confronting Ray alone',
         reactionGuidance: 'Do NOT hand over the answer — probe so the learner names the shift. A named target and "they\'ll regret it" is no longer a coaching problem. If they only report and log it, push from "logged" to "secured": between now and when someone acts on it, what makes Marcus and the crew safe? Steer toward secure → notify/escalate → preserve, and never confronting Ray solo. Ray is deliberately absent here — there is no conversation with him.',
         hasRightAnswer: true,
         throughLine: 'This is Level 2 — a credible threat and "me against them," not venting. The response changes the moment it appears: secure the people at risk first, notify the chain immediately (911/security if imminent), preserve the message, stop coaching, and don\'t go it alone. Speed over certainty — you don\'t have to be sure it\'s real to act.',
         character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
-        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        media: { segments: [{ src: '', kind: 'message', from: 'Ray', label: 'Forwarded · crew group chat', caption: 'Marcus better watch himself. This place is going to regret what they did to me.' }], affectiveBeat: false, openingReaction: '' },
         calibration: [
           { tier: 'UNTHOUGHTFUL', guidance: 'Still treats it as a performance issue — "I\'ll call Ray and give him a chance to explain." Doesn\'t register the level changed. Probe: a named target who\'ll "regret it" — is that still a coaching problem, and who\'s at risk right now, before you do anything?' },
           { tier: 'NEUTRAL', guidance: 'Reports it and preserves the message — right instinct — but stops at logging it, without closing the loop on protecting Marcus and the crew right now. Probe from "logged" to "secured": what makes them safe between now and when someone acts?' },
@@ -562,9 +562,16 @@ ${closer}`);
         const right = b.hasRightAnswer && str(b.throughLine).trim()
           ? ` There IS a correct answer here — ${fill(b.throughLine, s)} Hold it during Practice; state it plainly when you teach.`
           : '';
+        // A coach-led beat MAY show a locked STIMULUS ARTIFACT (a forwarded
+        // message, a note) as an on-screen card. The learner reacts to it, so
+        // the model must know what it says — but must NOT read it back.
+        const segs2 = arr(obj(b.media).segments).filter((sc) => sc && (str(sc.src).trim() || str(sc.caption).trim()));
+        const artifact = segs2.length
+          ? `\n- ON SCREEN — the learner has been shown a locked stimulus card (not something you wrote): ${segs2.map((sc) => `${str(sc.from).trim() ? fill(sc.from, s) + ' — ' : ''}${str(sc.label).trim() ? '[' + fill(sc.label, s) + '] ' : ''}"${fill(sc.caption, s)}"`).join('; ')}. Ground your coaching in what it says and react to it; do NOT read it back or re-describe it — it is already in front of them.`
+          : '';
         arcParts.push(
 `BEAT ${i + 1} · ${label} (${fill(b.level || '', s)}) — COACHING practice, up to ${cap} learner turns:
-- The app hands the learner the locked task. This is PRACTICE — the learner works it first. If their answer leaves the criteria below unmet, reply with ONE short probing follow-up that ENDS IN A CLEAR QUESTION and set "action":"continue" — draw out what's missing; do NOT teach yet.${right}
+- The app hands the learner the locked task. This is PRACTICE — the learner works it first. If their answer leaves the criteria below unmet, reply with ONE short probing follow-up that ENDS IN A CLEAR QUESTION and set "action":"continue" — draw out what's missing; do NOT teach yet.${right}${artifact}
 - The beat is DONE when ${fill(b.exitCriteria || 'the learner has committed to a real answer', s)} — or when the state line says the cap is reached.
 ${closer}`);
       }
@@ -615,7 +622,7 @@ ${closer}`);
   const TIER = (t) => { t = obj(t); return { tier: str(t.tier), guidance: str(t.guidance) }; };
   const TRANS = (t) => { t = obj(t); return { onTier: str(t.onTier), next: str(t.next), set: obj(t.set) }; };
   const SBEAT = (b) => { b = obj(b); return { speaker: 'character', kind: b.kind === 'dialogue' ? 'dialogue' : 'narration', name: str(b.name), text: str(b.text) }; };
-  const SEG = (sc) => { sc = obj(sc); return { src: str(sc.src), label: str(sc.label), caption: str(sc.caption) }; };
+  const SEG = (sc) => { sc = obj(sc); return { src: str(sc.src), label: str(sc.label), caption: str(sc.caption), kind: str(sc.kind), from: str(sc.from) }; };
   const REACT = (r) => { r = obj(r); return { when: str(r.when), then: str(r.then) }; };
   const SVAR = (v) => { v = obj(v); return { key: str(v.key).trim(), label: str(v.label), initial: str(v.initial) }; };
 
