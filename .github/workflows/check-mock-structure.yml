@@ -49,15 +49,11 @@ jobs:
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
             BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
           fi
-          echo "GUARD_BASE=$BASE" >> "$GITHUB_ENV"
           bash scripts/check-mock-structure.sh --range "$BASE" "${{ github.sha }}"
           echo "✓ All new mock pages are versioned and carry the comment toolbox."
 
-      - name: Check dashboard/loader links resolve (new breakage only)
-        # Every products.json rel and versions.json path must point at a real
-        # file — a mock that moved (e.g. into ver1/) without its catalog entry
-        # updating renders as a dead card link on the live dashboard.
-        # Grandfathered against the push's before-sha: links that were ALREADY
-        # dead before this push only warn, so old drift can't red-X unrelated
-        # pushes — only the push that introduces a dead link fails.
-        run: node scripts/check-catalog-links.js --grandfather "$GUARD_BASE"
+      # NOTE: dead-link checking no longer runs (or fails) here. Renamed mock
+      # files are relinked AUTOMATICALLY by the dashboards workflow
+      # (scripts/relink-catalog.js riding the meta.json bot commit), and the
+      # local pre-commit hook still catches hand-typed dead links before they
+      # are committed. This job only guards NEW mock structure.

@@ -26,10 +26,11 @@
    red-X everyone else's pushes. The push that INTRODUCES a dead link still
    fails, which is the signal to fix products.json in the same change.
 
-   Runs from the pre-commit hook (Guard A, with check-mock-structure.sh,
-   grandfathered against HEAD) and in CI (check-mock-structure.yml,
-   grandfathered against the push's before-sha). Bypass, if you truly must
-   commit a dangling link: SKIP_MOCK_GUARD=1 git commit ...
+   Runs from the pre-commit hook only (Guard A, with check-mock-structure.sh,
+   grandfathered against HEAD) — it no longer runs or fails in CI. In CI,
+   renamed files are relinked automatically instead (scripts/relink-catalog.js
+   in the dashboards workflow). Bypass, if you truly must commit a dangling
+   link: SKIP_MOCK_GUARD=1 git commit ...
 
    Usage:  node scripts/check-catalog-links.js [--grandfather <git-ref>]
    ========================================================================= */

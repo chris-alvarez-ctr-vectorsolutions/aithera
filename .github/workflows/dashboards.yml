@@ -13,6 +13,7 @@ on:
       - 'products.json'
       - 'scripts/build-dashboards.js'
       - 'scripts/build-updated-stamps.js'
+      - 'scripts/relink-catalog.js'
       - 'designtoolbox/dashboard.js'
       - '.github/workflows/dashboards.yml'
   workflow_dispatch: {}
@@ -38,6 +39,22 @@ jobs:
         with:
           node-version: 20
 
+      - name: Follow renames in the catalog (self-healing dashboard links)
+        # If this push renamed/moved a mock file, rewrite the products.json rel
+        # / versions.json path that pointed at it so the dashboard card never
+        # goes dead. The change rides the same silent bot commit below.
+        run: |
+          set -euo pipefail
+          BASE='${{ github.event.before }}'
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || echo '')
+          fi
+          if [ -n "$BASE" ]; then
+            node scripts/relink-catalog.js "$BASE" "${{ github.sha }}"
+          else
+            echo "no usable base ref — skipping relink."
+          fi
+
       - name: Regenerate dashboard meta.json
         run: node scripts/build-dashboards.js
 
@@ -46,14 +63,17 @@ jobs:
 
       - name: Commit if anything changed
         run: |
-          git add products/*/dashboard/meta.json products/aithera/lesson-presentation/updated.json
+          # meta.json + updated stamps from the build steps, plus any
+          # products.json / versions.json rewrites from the relink step.
+          git add products.json
+          git add -A products/
           if git diff --cached --quiet; then
             echo "No dashboard changes to commit."
           else
             git config user.name  "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             # [skip ci] prevents this commit from re-triggering the workflow.
-            git commit -m "chore(dashboards): regenerate meta.json [skip ci]"
+            git commit -m "chore(dashboards): regenerate meta.json + relink renamed mocks [skip ci]"
             # main moves fast here (designers push in bursts, and this job takes
             # minutes on the full-history checkout) — a plain push loses the race
             # and fails the run. Rebase the bot commit onto whatever landed in
