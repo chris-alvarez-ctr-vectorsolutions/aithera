@@ -29,12 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for the changelog)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
@@ -54,5 +54,15 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             # [skip ci] prevents this commit from re-triggering the workflow.
             git commit -m "chore(dashboards): regenerate meta.json [skip ci]"
-            git push
+            # main moves fast here (designers push in bursts, and this job takes
+            # minutes on the full-history checkout) — a plain push loses the race
+            # and fails the run. Rebase the bot commit onto whatever landed in
+            # the meantime and retry instead of failing.
+            for attempt in 1 2 3 4 5; do
+              if git push; then exit 0; fi
+              echo "push rejected (main moved during the run) — rebasing and retrying ($attempt/5)…"
+              git pull --rebase
+            done
+            echo "::error::Could not push dashboard regeneration after 5 rebase retries."
+            exit 1
           fi
