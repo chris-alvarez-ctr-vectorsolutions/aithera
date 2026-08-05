@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Completions by Time — SafeLMS report mock</title>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      /* No vwc-topnav in a bare mock — pin the filter drawer to the top. */
+      vrf-report-view {
+        --vwc-topnav-height: 0px;
+        --vrf-report-grid-max-height: calc(100vh - 250px);
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- The <vrf-report-view> element is CREATED IN JS at the bottom of this
+         file (not hard-coded here) so its mock service is attached before it
+         enters the DOM — see the note there. -->
+    <div id="report-root"></div>
+
+    <!--
+      ────────────────────────────────────────────────────────────────────────
+      CDN BUNDLES  (all four are classic IIFE scripts — keep them in THIS
+      order, no `type="module"`, no `async`). They MUST live at the END OF
+      <body>: core.iife.js touches document.body at load time and breaks
+      silently if loaded from <head>.
+
+      Pinned versions (Vector dev CDN):
+        themes      1.5.0
+        core        1.19.0
+        report-view 1.2.3  (+ its dx-light-theme)
+      ────────────────────────────────────────────────────────────────────────
+    -->
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-reporting-framework/report-view/v1.2.3/report-view.iife.js"></script>
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-reporting-framework/report-view/v1.2.3/dx-light-theme.js"></script>
+
+    <script>
+      // ══════════════════════════════════════════════════════════════════════
+      // MOCK: "Completions by Time" (SafeLMS Reports)
+      // Everything rendered is metadata returned by the mock service below.
+      // Only documented report-view config keys are used (report-view v1.2.3).
+      // ══════════════════════════════════════════════════════════════════════
+
+      const DATASET_ID = 'safelms-completions-by-time';
+
+      // --- Dataset schema: captions, data types, filter/sort permissions -----
+      const schemaColumn = (name, caption, dataType = 'string') => ({
+        name,
+        caption,
+        displayName: caption,
+        dataType,
+        nullable: true,
+        allowFiltering: true,
+        allowSorting: true
+      });
+
+      const DATASET = {
+        datasetId: DATASET_ID,
+        version: 'v1.0.0',
+        displayName: 'Completions by Time',
+        description: 'Course completions within a selected time period.',
+        glueDatabase: 'mock',
+        glueTable: 'mock',
+        partitionKey: 'tenant_id',
+        allowedApplications: [],
+        schema: {
+          columns: [
+            schemaColumn('external_unique_id', 'External Unique ID'),
+            schemaColumn('username', 'Username'),
+            schemaColumn('first_name', 'First Name'),
+            schemaColumn('last_name', 'Last Name'),
+            schemaColumn('positions', 'Positions'),
+            schemaColumn('locations', 'Locations'),
+            schemaColumn('library', 'Library'),
+            schemaColumn('course', 'Course'),
+            schemaColumn('course_version', 'Version'),
+            schemaColumn('complete_date', 'Complete Date', 'datetime'),
+            schemaColumn('user_status', 'User Status')
+          ]
+        },
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        dataLastUpdated: new Date().toISOString()
+      };
+
+      // --- Layout: filter tray + the completions grid -------------------------
+      const LAYOUT = {
+        layoutId: 'completions-by-time-layout',
+        version: 'v1.0.0',
+        caption: 'Completions by Time',
+        description: 'Completions by Time report layout.',
+        allowedApplications: [],
+        filterTray: {
+          filters: [
+            {
+              id: 'date_range',
+              type: 'date-range',
+              column: 'complete_date',
+              columnName: 'complete_date',
+              label: null,
+              optionsSource: null,
+              placeholder: null,
+              defaultValue: null,
+              dependsOn: null,
+              start: {
+                type: 'date',
+                id: 'range_start',
+                label: 'Start',
+                column: null,
+                defaultValue: { _helper: 'start-of-month' }
+              },
+              end: {
+                type: 'date',
+                id: 'range_end',
+                label: 'End',
+                column: null,
+                defaultValue: { _helper: 'today' }
+              }
+            },
+            { type: 'divider' },
+            {
+              id: 'library',
+              type: 'multi-combobox',
+              column: 'library',
+              label: 'Library',
+              optionsSource: 'distinct',
+              placeholder: 'All Libraries'
+            },
+            {
+              id: 'course',
+              type: 'multi-combobox',
+              column: 'course',
+              label: 'Course',
+              optionsSource: 'distinct',
+              placeholder: 'All Courses'
+            },
+            {
+              id: 'user_status',
+              type: 'select',
+              column: 'user_status',
+              label: 'User Status',
+              items: ['Active', 'Inactive'],
+              defaultValue: 'Active',
+              placeholder: 'All'
+            }
+          ]
+        },
+        visuals: [
+          {
+            id: 'completions_grid',
+            title: 'Completions',
+            type: 'datagrid',
+            headerDefinition: {
+              title: 'Completions',
+              badges: [
+                { type: 'date-range', startId: 'range_start', endId: 'range_end' }
+              ]
+            },
+            columns: [
+              {
+                dataField: 'external_unique_id',
+                caption: 'External Unique ID',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 150
+              },
+              {
+                dataField: 'username',
+                caption: 'Username',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 180,
+                fixed: true,
+                fixedPosition: 'sticky'
+              },
+              {
+                dataField: 'first_name',
+                caption: 'First Name',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 110
+              },
+              {
+                dataField: 'last_name',
+                caption: 'Last Name',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 110
+              },
+              {
+                dataField: 'positions',
+                caption: 'Positions',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 140
+              },
+              {
+                dataField: 'locations',
+                caption: 'Locations',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 180
+              },
+              {
+                dataField: 'library',
+                caption: 'Library',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 160
+              },
+              {
+                dataField: 'course',
+                caption: 'Course',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 200
+              },
+              {
+                dataField: 'course_version',
+                caption: 'Version',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 110
+              },
+              {
+                dataField: 'complete_date',
+                caption: 'Complete Date',
+                dataType: 'datetime',
+                format: 'shortDateShortTime',
+                visible: true,
+                minWidth: 160
+              },
+              {
+                // Ships hidden so the column chooser / filter can still use it.
+                dataField: 'user_status',
+                caption: 'User Status',
+                dataType: 'string',
+                format: '',
+                visible: false,
+                minWidth: 110
+              }
+            ],
+            defaultSort: { field: 'complete_date', direction: 'desc' },
+            paging: { pageSize: 25 },
+            allowExport: true
+          }
+        ],
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z'
+      };
+
+      const REPORT = {
+        reportId: 'completions-by-time',
+        name: 'Completions by Time',
+        datasetId: DATASET_ID,
+        version: 'v1.0.0',
+        layoutId: 'completions-by-time-layout',
+        layoutVersion: 'v1.0.0',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        allowedApplications: []
+      };
+
+      // --- Row data ------------------------------------------------------------
+      // A small roster (modeled on the Sample School District demo data) cycled
+      // into 227 rows. Completion dates are generated RELATIVE TO TODAY and kept
+      // inside the current month so every row lands inside the filter tray's
+      // default start-of-month → today range.
+      const PEOPLE = [
+        { username: 'rharkins', first: 'Rich', last: 'Harkins', ext: '',
+          positions: 'Positions; Driver; Food Services; rharkins; Custodian',
+          locations: 'rharkins;Sample School District;Elementary Schools;Test', status: 'Active' },
+        { username: 'deborah.kim', first: 'Deborah', last: 'Kim', ext: 'EMP-1042',
+          positions: 'Positions', locations: 'Sample School District', status: 'Active' },
+        { username: 'Tabueg', first: 'Christine', last: 'Abueg', ext: '',
+          positions: 'Positions', locations: 'Sample School District', status: 'Active' },
+        { username: 'Liz.MillerLee@vectorsolutions.com', first: 'Liz', last: 'Miller Lee', ext: 'EMP-2210',
+          positions: 'Positions', locations: 'Sample School District', status: 'Active' },
+        { username: 'louie.chamber', first: 'Louie', last: 'Chamber', ext: '',
+          positions: 'Positions', locations: 'Sample School District', status: 'Active' },
+        { username: 'marin.otto', first: 'Marin', last: 'Otto', ext: 'EMP-3305',
+          positions: 'Positions; Administrator', locations: 'Sample School District;District Office', status: 'Active' },
+        { username: 'joel.schulbach', first: 'Joel', last: 'Schulbach', ext: '',
+          positions: 'Positions; Maintenance', locations: 'Sample School District;High Schools', status: 'Active' },
+        { username: 'pat.reyes', first: 'Pat', last: 'Reyes', ext: '',
+          positions: 'Positions; Food Services', locations: 'Sample School District;Elementary Schools', status: 'Inactive' }
+      ];
+
+      const COURSES = [
+        { library: 'Vector Training, K-12 Edition', course: 'Winter Driving', version: 'Full Course' },
+        { library: 'Test Library 2', course: 'Acceptance DB Check', version: 'Custom' },
+        { library: 'Vector Training, K-12 Edition', course: 'Lab Safety Series: Fundamentals', version: 'Full Course' },
+        { library: 'Vector Training, K-12 Edition', course: 'Defensive Driving', version: 'Full Course' },
+        { library: 'Test Library 2', course: 'Leadership and Career Readiness Survey (Grades 6-8)', version: 'Post-Course Survey' },
+        { library: 'Test Library 2', course: 'Leadership and Career Readiness Survey (Grades 6-8)', version: 'Pre-Course Survey' },
+        { library: 'Vector Training, K-12 Edition', course: 'Bloodborne Pathogens Awareness', version: 'Full Course' },
+        { library: 'Vector Training, K-12 Edition', course: 'Slips, Trips and Falls', version: 'Full Course' }
+      ];
+
+      const TOTAL_ROWS = 227;
+      const pad = (n) => String(n).padStart(2, '0');
+
+      // Deterministic pseudo-shuffle so the data looks varied but is stable
+      // across reloads (nice for screenshots and comment pins).
+      const ROWS = Array.from({ length: TOTAL_ROWS }, (_, i) => {
+        const person = PEOPLE[(i * 5 + Math.floor(i / 9)) % PEOPLE.length];
+        const course = COURSES[(i * 3 + Math.floor(i / 7)) % COURSES.length];
+
+        // Spread completions across day 1 of this month .. today.
+        const now = new Date();
+        const day = 1 + ((i * 11) % now.getDate());
+        const hour = (i * 7) % 24;
+        const minute = (i * 13) % 60;
+        const second = (i * 17) % 60;
+        const completeDate =
+          `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(day)}` +
+          `T${pad(hour)}:${pad(minute)}:${pad(second)}`;
+
+        return {
+          id: i + 1,
+          external_unique_id: person.ext,
+          username: person.username,
+          first_name: person.first,
+          last_name: person.last,
+          positions: person.positions,
+          locations: person.locations,
+          library: course.library,
+          course: course.course,
+          course_version: course.version,
+          complete_date: completeDate,
+          user_status: person.status
+        };
+      });
+
+      // ══════════════════════════════════════════════════════════════════════
+      // WHERE-CLAUSE EVALUATION
+      // Filters arrive as a DevExtreme-style nested array, e.g.
+      //   [['complete_date','>=','2026-08-01'],'and',['user_status','=','Active']]
+      // Evaluated per row so the panel filters + grid filter row actually work.
+      // ══════════════════════════════════════════════════════════════════════
+      const DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
+
+      function compare(rowValue, op, filterValue) {
+        let a = rowValue == null ? '' : rowValue;
+        let b = filterValue == null ? '' : filterValue;
+        // Date vs datetime: compare on the YYYY-MM-DD prefix so a row completed
+        // at 10:00 on the range's end day still matches `<= end`.
+        if (
+          typeof a === 'string' && typeof b === 'string' &&
+          DATE_PREFIX.test(a) && DATE_PREFIX.test(b)
+        ) {
+          a = a.slice(0, 10);
+          b = b.slice(0, 10);
+        }
+        const aStr = String(a).toLowerCase();
+        const bStr = String(b).toLowerCase();
+        switch (op) {
+          case '=': return aStr === bStr;
+          case '<>':
+          case '!=': return aStr !== bStr;
+          case '<': return a < b;
+          case '<=': return a <= b;
+          case '>': return a > b;
+          case '>=': return a >= b;
+          case 'in': return Array.isArray(b)
+            ? b.map((v) => String(v).toLowerCase()).includes(aStr)
+            : aStr === bStr;
+          case 'not in': return Array.isArray(b)
+            ? !b.map((v) => String(v).toLowerCase()).includes(aStr)
+            : aStr !== bStr;
+          case 'contains': return aStr.includes(bStr);
+          case 'notcontains': return !aStr.includes(bStr);
+          case 'startswith': return aStr.startsWith(bStr);
+          case 'endswith': return aStr.endsWith(bStr);
+          default: return true;
+        }
+      }
+
+      function matchesWhere(row, where) {
+        if (!Array.isArray(where) || where.length === 0) return true;
+        // Simple clause: [column, operator, value]
+        if (typeof where[0] === 'string' && where.length === 3 && !Array.isArray(where[0])) {
+          return compare(row[where[0]], where[1], where[2]);
+        }
+        // Group: entries joined by 'and' / 'or'
+        let result = null;
+        let joiner = 'and';
+        for (const entry of where) {
+          if (entry === 'and' || entry === 'or') {
+            joiner = entry;
+            continue;
+          }
+          const value = matchesWhere(row, entry);
+          if (result === null) result = value;
+          else result = joiner === 'and' ? (result && value) : (result || value);
+        }
+        return result === null ? true : result;
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // MOCK SERVICE  (implements IVectorReportViewService)
+      // ══════════════════════════════════════════════════════════════════════
+      class MockReportViewService {
+        async getReportBundle() {
+          return {
+            report: REPORT,
+            layout: LAYOUT,
+            dataset: DATASET,
+            dataLastUpdatedAt: new Date().toISOString()
+          };
+        }
+        async getReportMetadata() { return REPORT; }
+        async getLayoutMetadata() { return LAYOUT; }
+        async getDatasetMetadata() { return DATASET; }
+
+        // Options for the multi-combobox filters (optionsSource: 'distinct').
+        async getDistinctValues(_datasetId, column) {
+          const values = [...new Set(ROWS.map((r) => r[column]).filter(Boolean))];
+          return values.sort();
+        }
+
+        async queryDataset(_datasetId, query = {}, asCSV = false) {
+          if (asCSV) return this.export();
+
+          let rows = ROWS.filter((r) => matchesWhere(r, query.filter));
+
+          if (Array.isArray(query.sort) && query.sort.length) {
+            const { selector, desc } = query.sort[0];
+            rows = [...rows].sort((a, b) => {
+              const av = a[selector] == null ? '' : a[selector];
+              const bv = b[selector] == null ? '' : b[selector];
+              if (av < bv) return desc ? 1 : -1;
+              if (av > bv) return desc ? -1 : 1;
+              return 0;
+            });
+          }
+
+          const totalCount = rows.length;
+          const skip = query.skip || 0;
+          const take = query.take || totalCount;
+          return { data: rows.slice(skip, skip + take), totalCount, summary: {} };
+        }
+
+        // Toolbar Export → a CSV of the (mock) dataset.
+        async export(_reportId, query = {}) {
+          const rows = ROWS.filter((r) => matchesWhere(r, query.filter));
+          const fields = (query.select && query.select.length)
+            ? query.select
+            : DATASET.schema.columns.map((c) => c.name);
+          const escape = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+          const csv = [
+            fields.join(','),
+            ...rows.map((r) => fields.map((f) => escape(r[f])).join(','))
+          ].join('\n');
+          return {
+            blob: new Blob([csv], { type: 'text/csv' }),
+            filename: 'completions-by-time.csv'
+          };
+        }
+
+        // Saved-view methods — unused while `disableView` is set.
+        async listSavedViews() { return []; }
+        async getView() { throw new Error('not implemented'); }
+        async saveView(p) { return { ...p, viewId: 'mock', version: 1 }; }
+        async updateView(id, p) { return { ...p, viewId: id }; }
+        async deleteView() {}
+        async toggleFavorite() {}
+      }
+
+      // ── Build the element with its service ALREADY attached, then insert it ─
+      // The component starts its data task on its first Lit update; if the
+      // service property isn't set by then it errors and never retries. So the
+      // element is created in JS — never hard-coded in the HTML.
+      customElements.whenDefined('vrf-report-view').then(() => {
+        const el = document.createElement('vrf-report-view');
+        el.vectorReportViewService = new MockReportViewService();
+        el.disableView = true; // hides Save/Apply saved-view UI
+        el.reportId = 'completions-by-time';
+        document.getElementById('report-root').appendChild(el);
+      });
+    </script>
+
+    <!-- Design Toolbox (comments + flow map). Review/handoff tooling only —
+         NOT part of the product design; developers strip this line for
+         production. -->
+    <script src="../../../../designtoolbox/toolbox.js"></script>
+  </body>
+</html>
