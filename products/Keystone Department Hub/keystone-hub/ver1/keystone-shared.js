@@ -573,6 +573,43 @@
   }
 
   /* ---------------------------------------------------------------------
+     THEME RE-ADOPTION AFTER A RE-RENDER  (Safari)
+     ---------------------------------------------------------------------
+     Vector's theme lives in one ~39KB constructed stylesheet that the themes
+     bundle pushes onto document.adoptedStyleSheets. It has to be adopted INTO
+     each component's shadow root, because it carries element rules (notably
+     `vaadin-button { padding: … }`) and document-level element rules cannot
+     cross a shadow boundary — only custom properties inherit.
+
+     The library hands that sheet to a component two ways, both in the theme
+     mixin's connectedCallback: it copies any document sheet carrying an
+     `inheritable` flag, and it listens for `vwc#theme-added` to catch sheets
+     registered later.
+
+     The flag is a JS expando set with Object.defineProperty on the sheet.
+     WebKit does not preserve expandos across a round-trip through
+     document.adoptedStyleSheets — read the sheet back and the flag is gone —
+     so in Safari the copy route silently finds nothing, and the event fired
+     once at page load. Net effect: every Vector component created AFTER load
+     renders unthemed. Our views re-render by replacing root.innerHTML, so the
+     first click rebuilt the status segments with no padding and no borders —
+     a 419px control collapsing to ~223px.
+
+     Re-announcing the document's sheets after a render routes them through the
+     same listener each freshly connected component just installed. The
+     library's handler skips sheets a shadow root already has, so Chromium —
+     where the flag survives and the copy route works — no-ops on all of them.
+
+     Call this immediately after any full-view innerHTML render. */
+  function reapplyTheme() {
+    var sheets = document.adoptedStyleSheets;
+    if (!sheets || !sheets.length) return;
+    Array.prototype.slice.call(sheets).forEach(function (sheet) {
+      window.dispatchEvent(new CustomEvent('vwc#theme-added', { detail: sheet }));
+    });
+  }
+
+  /* ---------------------------------------------------------------------
      SMALL UTILITIES
      --------------------------------------------------------------------- */
 
@@ -615,6 +652,6 @@
     getFlags: getFlags, setFlag: setFlag, onFlagsChange: onFlagsChange,
     roleBadge: roleBadge, mountPrototypeFab: mountPrototypeFab,
     openDialog: openDialog, autoCloseMenus: autoCloseMenus,
-    setToggleGroup: setToggleGroup
+    setToggleGroup: setToggleGroup, reapplyTheme: reapplyTheme
   };
 })();

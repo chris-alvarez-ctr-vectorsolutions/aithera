@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keystone — Department Hub</title>
+
+<!--
+  Keystone — a role-adaptive task & readiness hub that unifies open work
+  across Vector's first-responder products (TargetSolutions, Check It,
+  Guardian Tracking, Scheduling, EV+). Designed standalone with its own
+  identity rather than dressed in the Vector LMS shell.
+
+  Four personas, one surface. The role switcher (in the prototype FAB, lower
+  right) swaps the hero, the default saved view, and the KPI emphasis:
+    1. Battalion Chief  → Coverage & exceptions
+    2. Training Officer → Compliance health      (v2, gated)
+    3. Lieutenant       → Crew view              (v2, gated)
+    4. Firefighter      → Personal queue (hard-scoped to their own tasks)
+
+  v1 ships the greeting header, a published dashboard for the Chief and the
+  Firefighter, and the task table. Both dashboards are deliberately one widget
+  row tall so the top of the task list clears the fold — which is the whole
+  reason they can be on by default. The Firefighter's is the safe-for-everyone
+  set: only their own record, nothing about anybody else.
+
+  The "Future functionality" flag in the FAB reveals the phase-2 surfaces: the
+  two gated roles and their heroes, saved-view management, the density switcher,
+  and reminder/reassign actions. The Battalion Pulse / readiness-facet hero is
+  RETIRED — the Chief's published dashboard replaced it.
+
+  Reskinned on Vector web components: the task list is a real table using
+  vwc-sortable-header, filters use vaadin-checkbox in popovers, the status
+  buckets are a vwc-toggle-button-group, modals are vaadin-dialog, and every
+  button is a vaadin-button.
+-->
+
+<link rel="stylesheet" href="styles.css">
+
+<!-- Vector Web Components — core + themes + Open Sans + Font Awesome -->
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+<style>
+  /* ====================================================================
+     GREETING HEADER
+     Slimmed to roughly half its former height. It used to be a two-column
+     editorial layout — oversized serif headline balanced by a right rail of
+     three big-number "vital sign" tiles. The published dashboard below is now
+     what we want the eye to land on, so the greeting gives back both the rail
+     and most of its type scale: one column, a smaller (still serif) headline,
+     and the day's counts compressed into a single inline stat line.
+
+     Budget: ~175px before, ~90px after. That reclaimed height is what keeps the
+     top of the task list above the fold once the dashboard is in place.
+     ==================================================================== */
+  .kx-hero {
+    background: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-1) 70%, transparent 100%);
+    padding-bottom: 6px;
+  }
+  .kx-hero-inner { padding: 16px 24px 6px; }
+  .kx-greeting { padding: 4px 0 12px; margin-bottom: 10px; min-width: 0; }
+  .kx-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .kx-eyebrow .pip { width: 6px; height: 6px; border-radius: 99px; }
+  .kx-eyebrow .txt {
+    font-size: 11px; color: var(--ink-500); font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase;
+  }
+  .kx-greeting h1 {
+    margin: 0; font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(20px, 2.1vw, 26px); line-height: 1.12; letter-spacing: -0.6px;
+    color: var(--ink-900); text-wrap: balance;
+  }
+  .kx-greeting h1 .num { font-variant-numeric: lining-nums tabular-nums; }
+  .kx-greeting h1 .muted { color: var(--ink-500); }
+  .kx-greeting-sub {
+    margin-top: 6px; font-size: 13px; color: var(--ink-600); line-height: 1.45;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .kx-greeting-scope { font-weight: 600; color: var(--ink-700); }
+
+  /* The day overview, inline — replaces the ~70px tile rail with a ~20px line.
+     These are task-queue counts, a different layer from the dashboard's
+     readiness metrics, so the two never say the same thing. */
+  .kx-vitalline { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .kx-vitalline__sep { color: var(--ink-300); }
+  .kx-vitalline__stat { display: inline-flex; align-items: baseline; gap: 5px; }
+  .kx-vitalline__stat .dot {
+    width: 6px; height: 6px; border-radius: 99px; align-self: center; flex-shrink: 0;
+  }
+  .kx-vitalline__stat .n {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 14px;
+    letter-spacing: -0.2px; font-variant-numeric: tabular-nums;
+  }
+  .kx-vitalline__stat .lbl { font-size: 12.5px; color: var(--ink-600); }
+
+  @media (max-width: 860px) {
+    .kx-hero-inner { padding: 14px 0 6px; }
+    .kx-greeting h1 { font-size: clamp(19px, 5vw, 24px); }
+  }
+
+  /* ====================================================================
+     FILTER BAR
+     ==================================================================== */
+  .kx-filterbar { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; }
+  .kx-filterbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* The count doubles as the task list's section header, so it is sized as one:
+     a step below the 26px greeting, a step above the 14–16px controls. It stays
+     inline on the control row on purpose — the 40px pills already set that row's
+     height, so the header costs nothing against the above-fold budget noted
+     above. The 20px indent lands the text at the table's first-column edge
+     (x=52), which also puts it within 4px of the greeting above. min-width holds
+     the pills still as the count changes width: tabular-nums equalises digit
+     widths, not digit counts, so "8 tasks" and "137 tasks" would otherwise
+     shunt the row sideways. */
+  .kx-count {
+    margin: 0;
+    font-size: 20px; font-weight: 600; line-height: 1.2; color: var(--ink-900);
+    padding-left: 20px; min-width: 132px;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .kx-count span { color: var(--ink-500); font-weight: 500; }
+
+  /* Status buckets — vwc-toggle-button-group standing in for the design's
+     segmented control. Tones are applied per button via data-tone. */
+  .kx-buckets { --vwc-toggle-button-height: 36px; }
+  .kx-buckets vwc-toggle-button { font-size: 15px; font-weight: 400; }
+  .kx-buckets vwc-toggle-button .bn {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 14px;
+    margin-left: 6px; font-variant-numeric: tabular-nums;
+  }
+
+  .kx-filter-panel {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 10px 12px; background: var(--surface-2);
+    border-radius: 12px; border: 1px solid var(--ink-100);
+  }
+  .kx-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .kx-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 4px 4px 9px; border-radius: 99px;
+    background: var(--ink-900); color: white; font-size: 14px; font-weight: 600;
+  }
+  .kx-chip .kind { color: var(--amber-200); }
+  .kx-chip button {
+    background: rgba(255,255,255,0.15); border: none; color: white;
+    width: 16px; height: 16px; border-radius: 99px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .kx-clear-all {
+    background: transparent; border: none; color: var(--ink-600);
+    font-size: 16px; font-weight: 400; padding: 6px 8px; cursor: pointer;
+    margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  }
+
+  /* ====================================================================
+     TASK TABLE
+     A real <table> so the column headers can be vwc-sortable-header (the
+     Vector component built for exactly this). Column widths come from
+     <colgroup> and match the prototype's grid track sizes.
+     ==================================================================== */
+  .kx-table-card {
+    background: var(--surface-1); border-radius: 16px;
+    border: 1px solid var(--ink-100); overflow: hidden; box-shadow: var(--elev-1);
+  }
+  table.kx-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  /* Task is the only <col> hub.js leaves width-less, so before this rule it
+     absorbed EVERY pixel the page gained once .kx-main lost its 1200px cap —
+     1024px at a 1700px viewport, against a longest task title of 426px, which
+     left a ~760px hole before the Assignee column. Constraining the column here
+     (rather than re-capping the page, which is deliberately uncapped) hands the
+     slack back to the fixed-width columns instead: a percentage column takes
+     exactly its share and the px columns grow proportionally to fill the rest.
+     46% keeps Task comfortably the widest column with no title ellipsised. */
+  table.kx-table colgroup col:nth-child(3) { width: 46%; }
+  table.kx-table thead th {
+    padding: 10px 5px; text-align: left;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--ink-500); background: var(--surface-2);
+    border-bottom: 1px solid var(--ink-100);
+  }
+  table.kx-table thead th:first-child { padding-left: 17px; }
+  table.kx-table thead th:last-child { padding-right: 14px; }
+  table.kx-table thead th.is-num { text-align: right; }
+  .kx-table vwc-sortable-header { font: inherit; color: inherit; letter-spacing: inherit; }
+  .kx-table vwc-sortable-header::part(button) {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--ink-500); padding: 0;
+  }
+  .kx-table th[aria-sort] vwc-sortable-header::part(button) { color: var(--ink-900); }
+
+  tr.kx-task-row { cursor: pointer; transition: background 0.15s; }
+  tr.kx-task-row > td {
+    padding: 14px 5px; vertical-align: middle;
+    border-bottom: 1px solid var(--ink-100);
+  }
+  tr.kx-task-row > td:first-child { padding-left: 14px; }
+  tr.kx-task-row > td:last-child { padding-right: 14px; text-align: right; }
+  .kx-table.is-compact tr.kx-task-row > td { padding-top: 8px; padding-bottom: 8px; }
+  tr.kx-task-row:hover > td { background: var(--surface-3); }
+  tr.kx-task-row.is-open > td { background: var(--surface-2); }
+  /* Status stripe on the leading edge — coral for late, amber for at-risk. */
+  tr.kx-task-row > td:first-child { border-left: 3px solid transparent; }
+  tr.kx-task-row.is-late > td:first-child { border-left-color: var(--coral-400); }
+  tr.kx-task-row.is-risk > td:first-child { border-left-color: var(--amber-400); }
+
+  .kx-chevron {
+    width: 28px; height: 28px; border-radius: var(--radius-pill); padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink-500); background: transparent; border: 1px solid transparent;
+    cursor: pointer; transition: transform 0.18s, background 0.15s, border-color 0.15s;
+  }
+  .kx-chevron:hover { background: var(--surface-1); border-color: var(--ink-200); }
+  tr.kx-task-row.is-open .kx-chevron { transform: rotate(90deg); }
+
+  .kx-task-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .kx-task-title {
+    font-weight: 400; font-size: 16px; color: var(--ink-900);
+    display: flex; align-items: center; gap: 6px; min-width: 0;
+  }
+  .kx-task-title > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .kx-task-type { font-size: 13px; color: var(--ink-500); margin-top: 1px; }
+  .kx-mandatory {
+    flex-shrink: 0; padding: 0 6px; background: var(--amber-100); color: var(--amber-700);
+    border-radius: 4px; font-weight: 700; font-size: 10px;
+  }
+  .kx-assignees { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .kx-assignees .nm {
+    font-size: 15px; font-weight: 400; color: var(--ink-900);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .kx-assignees .rk, .kx-assignees .st, .kx-assignees .more {
+    font-size: 10px; color: var(--ink-500);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .kx-assignees .more { font-weight: 600; }
+  .kx-assignees .none { font-size: 12px; color: var(--ink-500); font-style: italic; }
+
+  /* Expanded detail */
+  tr.kx-detail-row > td { padding: 0 14px 18px 60px; background: var(--surface-2); border-bottom: 1px solid var(--ink-100); }
+  .kx-detail {
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 12px;
+    overflow: hidden; display: grid; grid-template-columns: 1.4fr 1fr;
+    animation: kx-expand-in 0.25s ease-out;
+  }
+  .kx-detail-left { padding: 18px; }
+  .kx-detail-right { padding: 18px; background: var(--surface-2); border-left: 1px solid var(--ink-100); }
+  .kx-detail-eyebrow {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--ink-500); margin-bottom: 12px;
+  }
+  .kx-meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .kx-field-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-500); }
+  .kx-field-val { font-size: 13px; font-weight: 500; margin-top: 2px; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+  .kx-field-val.is-big { font-size: 16px; font-weight: 600; }
+  .kx-field-val.is-mono { font-family: var(--font-mono); }
+  .kx-assignee-card {
+    display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px;
+    background: var(--surface-1); border: 1px solid var(--ink-100);
+  }
+  .kx-info-note {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-600);
+    font-style: italic; background: var(--amber-50); padding: 10px 12px;
+    border-radius: 8px; border: 1px solid var(--amber-100);
+  }
+  .kx-activity { display: flex; flex-direction: column; position: relative; padding-left: 12px; }
+  .kx-activity::before { content: ""; position: absolute; left: 10px; top: 8px; bottom: 8px; width: 1px; background: var(--ink-200); }
+  .kx-activity-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; position: relative; }
+  .kx-activity-row .pip {
+    position: absolute; left: -7px; width: 12px; height: 12px; border-radius: 99px;
+    background: var(--surface-2); border: 2px solid var(--ink-300);
+  }
+  .kx-activity-row.is-bad .pip { border-color: var(--coral-400); }
+  .kx-activity-row .txt { margin-left: 12px; font-size: 12px; color: var(--ink-700); flex: 1; }
+  .kx-activity-row .when { font-size: 11px; color: var(--ink-500); font-variant-numeric: tabular-nums; }
+  .kx-checklist { display: flex; flex-wrap: wrap; gap: 3px; }
+  .kx-checklist span { width: 12px; height: 12px; border-radius: 3px; background: var(--ink-100); }
+  .kx-checklist span.is-done { background: var(--teal-400); }
+  .kx-progress-track { height: 10px; background: var(--ink-100); border-radius: 99px; overflow: hidden; }
+  .kx-progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal-400), var(--teal-300)); transition: width 0.6s; }
+
+  /* Mobile card surface — same data, restructured below the breakpoint */
+  .kx-mobile-cards { display: none; }
+  .kx-mcard { padding: 14px; border-bottom: 1px solid var(--ink-100); border-left: 3px solid transparent; cursor: pointer; }
+  .kx-mcard.is-late { border-left-color: var(--coral-400); }
+  .kx-mcard.is-risk { border-left-color: var(--amber-400); }
+  @media (max-width: 860px) {
+    .kx-table { display: none; }
+    .kx-mobile-cards { display: block; }
+    .kx-detail { grid-template-columns: 1fr; }
+    .kx-detail-right { border-left: none; border-top: 1px solid var(--ink-100); }
+  }
+
+  /* Empty states */
+  .kx-empty {
+    padding: 60px; text-align: center; background: var(--surface-1);
+    border-radius: 16px; border: 1px dashed var(--ink-200); margin-top: 16px;
+  }
+  .kx-empty .t { font-size: 16px; font-weight: 600; margin-top: 10px; }
+  .kx-empty .s { font-size: 13px; color: var(--ink-500); margin-top: 4px; }
+  .kx-allclear {
+    margin-top: 16px; border-radius: 16px; overflow: hidden;
+    background: var(--surface-1); border: 1px solid var(--ink-100); box-shadow: var(--elev-1);
+  }
+  .kx-allclear-inner {
+    position: relative; padding: 60px 32px 56px; text-align: center;
+    background: radial-gradient(130% 100% at 50% -20%, var(--teal-50) 0%, rgba(230,244,241,0) 60%);
+  }
+  .kx-allclear h2 {
+    margin: 26px 0 0; font-family: var(--font-display); font-size: 32px; font-weight: 600;
+    letter-spacing: -0.5px; color: var(--ink-900); line-height: 1.1;
+  }
+  .kx-allclear p { margin: 12px auto 0; max-width: 420px; font-size: 16px; color: var(--ink-600); line-height: 1.55; text-wrap: pretty; }
+  .kx-allclear .badge {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 22px;
+    padding: 8px 16px; border-radius: 999px; background: var(--teal-50);
+    border: 1px solid var(--teal-100); color: var(--teal-500); font-size: 14px; font-weight: 500;
+  }
+
+  /* ====================================================================
+     V2 HERO SURFACES (behind the Future-functionality flag)
+     ==================================================================== */
+  .kx-coverage-hero { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 16px; align-items: stretch; }
+  .kx-pulse-panel {
+    background: linear-gradient(160deg, #14201f 0%, #1f2d2c 50%, #2f3f3e 100%);
+    color: white; border-radius: 20px; padding: 24px;
+    position: relative; overflow: hidden; box-shadow: var(--elev-1);
+  }
+  .kx-pulse-glow {
+    position: absolute; top: -40px; width: 220px; height: 220px; border-radius: 50%;
+    pointer-events: none; transition: background 400ms;
+  }
+  .kx-pulse-eyebrow { font-size: 11px; color: var(--amber-200); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; }
+  .kx-pulse-verdict {
+    font-family: var(--font-display); font-weight: 600; font-size: 30px;
+    line-height: 1; letter-spacing: -0.8px; text-wrap: balance;
+  }
+  .kx-pulse-demand-lbl { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 2px; }
+  .kx-pulse-demand-n { font-family: var(--font-numeric); font-size: 28px; font-weight: 700; color: white; font-variant-numeric: tabular-nums; line-height: 1; }
+  .kx-pulse-blurb { font-size: 12px; color: rgba(255,255,255,0.65); margin-bottom: 14px; }
+  .kx-pulse-bar { position: relative; height: 32px; margin-bottom: 8px; }
+  .kx-pulse-track {
+    position: absolute; inset: 12px 0; border-radius: 99px; opacity: 0.85;
+    background: linear-gradient(90deg, #e8554a 0%, #e8a04a 22%, #cbd2da 44%, #bcc5ce 50%, #a9c8c4 56%, #6cb9a4 78%, #4f9a8a 100%);
+  }
+  .kx-pulse-center { position: absolute; left: 50%; top: 4px; bottom: 4px; width: 2px; margin-left: -1px; background: rgba(255,255,255,0.55); border-radius: 1px; }
+  .kx-pulse-ghost { position: absolute; top: 8px; bottom: 8px; width: 2px; background: rgba(255,255,255,0.32); border-radius: 1px; transition: left 600ms; }
+  .kx-pulse-needle {
+    position: absolute; top: 0; bottom: 0; width: 20px;
+    display: flex; flex-direction: column; align-items: center;
+    transition: left 600ms cubic-bezier(.2,.8,.2,1);
+  }
+  .kx-pulse-zones {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+  }
+  .kx-pulse-delta {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: rgba(255,255,255,0.6);
+  }
+  .kx-facets { margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.10); }
+  .kx-facet-row {
+    display: grid; grid-template-columns: 78px 1fr 30px 40px;
+    align-items: center; gap: 8px; padding: 7px 9px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px; color: white; text-align: left; cursor: pointer;
+    transition: background 120ms; font-family: inherit; width: 100%;
+  }
+  .kx-facet-row:hover { background: rgba(255,255,255,0.09); }
+  .kx-facet-row .nm { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.88); }
+  .kx-facet-row .nm .sw { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
+  .kx-facet-row .n { font-family: var(--font-numeric); font-weight: 700; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+  .kx-facet-row .d { font-size: 10px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; letter-spacing: 0.2px; }
+  .kx-facet-back {
+    background: rgba(255,255,255,0.08); border: none; width: 26px; height: 26px;
+    border-radius: var(--radius-pill); color: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .kx-facet-item {
+    display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px;
+    padding: 7px 9px; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 7px;
+    color: white; text-align: left; cursor: pointer; font-size: 11px;
+    font-family: inherit; width: 100%;
+  }
+  .kx-facet-cta {
+    width: 100%; padding: 9px 12px; background: var(--amber-400); color: var(--ink-900);
+    border: none; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.3px;
+    display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit;
+  }
+  @media (max-width: 860px) { .kx-coverage-hero { grid-template-columns: 1fr; } }
+
+  /* Compliance hero (Training Officer) */
+  .kx-compliance-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .kx-compliance-grid { grid-template-columns: 1fr; } }
+  .kx-cohort-card {
+    background: linear-gradient(160deg, var(--teal-500) 0%, var(--teal-600) 100%);
+    color: white; border-radius: 20px; padding: 22px;
+    position: relative; overflow: hidden; box-shadow: var(--elev-1);
+  }
+  .kx-panel { background: var(--surface-1); border-radius: 20px; padding: 22px; border: 1px solid var(--ink-100); }
+  .kx-expiry-row { display: flex; align-items: center; gap: 10px; }
+  .kx-expiry-row .d { width: 36px; font-size: 11px; font-weight: 700; color: var(--ink-600); font-family: var(--font-mono); }
+  .kx-expiry-bar { flex: 1; height: 22px; border-radius: 6px; overflow: hidden; position: relative; }
+  .kx-expiry-bar .fill { height: 100%; transition: width 0.6s; }
+  .kx-expiry-bar .cap {
+    position: absolute; inset: 0; display: flex; align-items: center; padding: 0 8px;
+    font-size: 11px; font-weight: 700; color: var(--ink-900);
+  }
+  .kx-action-card { border-radius: 16px; padding: 14px; flex: 1; }
+
+  /* ====================================================================
+     PUBLISHED DASHBOARD (Chief / Lieutenant / Firefighter heroes)
+     The Chief's and Firefighter's are single-row, three-widget cards sized to
+     land at ~250px so the task list top clears the fold. The header carries the
+     controls that used to live in the retired coverage hero's right-hand rail.
+     ==================================================================== */
+  .kx-pubdash { background: var(--surface-2); border: 1px solid var(--ink-100); border-radius: 20px; padding: 14px; }
+
+  /* Dashboard body: Agency Intelligence panel (left) + widget grid (right).
+     The grid keeps its own 12-column definition so every w:4 widget spec and
+     pubWidget() work untouched. */
+  .kx-pubbody { display: flex; gap: 12px; align-items: stretch; min-width: 0; }
+  .kx-pubbody > .kx-pubgrid { flex: 1; min-width: 0; }
+  /* Expanded: the container grows downward, but the widget row must NOT
+     stretch to fill it — rows keep natural height and stack from the top,
+     leaving the second row free for widgets added from chat. */
+  .kx-pubbody.is-expanded { min-height: 520px; }
+  .kx-pubbody.is-expanded > .kx-pubgrid { align-content: start; }
+  @media (max-width: 980px) {
+    .kx-pubbody { flex-direction: column; }
+    .kx-pubbody.is-expanded { min-height: 0; }
+  }
+
+  /* Widget wrapping. Spans are inline styles from pubWidget(), so these
+     overrides need !important — same technique as the 860px rule below.
+     Thresholds are viewport-based because the grid's own width depends on
+     whether the AI panel is docked beside it.
+
+     Task 2c moved the date-range control out of the widget-head row into its
+     own footer row (see pubWidget() in hub-hero.js), so a title no longer has
+     to share its row with a ~105px control. A widget's legible minimum
+     dropped from ~310px to ~205px, and BOTH thresholds below were re-measured
+     in-browser from scratch (forcing spans with browser_evaluate + stepping
+     browser_resize, never computed) because Task 2b's numbers (1450px /
+     1090px) were calibrated against the old ~310px minimum and are now far
+     too conservative.
+
+     WHAT THE FAILURE MODE ACTUALLY IS, and how these numbers were got.
+     Everything Tasks 2b/2c/8 measured here used `scrollWidth > clientWidth`
+     to detect a clipped title. That test was valid while `.kx-pubwidget
+     .title` ellipsis-truncated; Task 8 changed it to wrap (see the rule
+     below), and from that moment the test could never return true for any
+     width — a wrapping box has no horizontal overflow to detect. Every "no
+     clipping anywhere in that range" claim this comment used to make was
+     therefore vacuously true and justified nothing. It has been deleted
+     rather than softened.
+
+     The real failure mode after the wrap change is VERTICAL: a title that
+     runs out of room grows a line, then another, and once the box is narrower
+     than the longest word `overflow-wrap: break-word` starts breaking words
+     mid-word. So the guard is title height against line-height:
+
+       tooTall = t.getBoundingClientRect().height
+                 > 2 * parseFloat(getComputedStyle(t).lineHeight) + 1
+
+     Two lines is the accepted budget (the card's height ceiling is built
+     around it); three is the regression. This guard CAN fail, and does — the
+     numbers below are the widths where it fires.
+
+     MEASURED, shipped layout (scatter span 5 / bar span 3 / donut span 4
+     above 1070px; browser_resize stepped, never computed), reported as
+     viewport → widget boxes → title lines → guard:
+       1400 → 374/220/297 → 1L/1L/1L → pass    (.kx-pubdash 446px)
+       1300 → 333/195/264 → 1L/2L/1L → pass    (436px)
+       1200 → 291/170/230 → 2L/2L/1L → pass    (436px)
+       1150 → 270/157/214 → 2L/2L/1L → pass    (436px)
+       1100 → 261/152/206 → 2L/2L/1L → pass    (436px)
+       1071 → 249/145/197 → 2L/2L/1L → pass    (narrowest three-across)
+       1070 → 613/301/301 → 1L/1L/1L → pass    (two-across; scatter full row)
+        900 → 775/382/382 → 1L/1L/1L → pass
+     The guard passes at every width from 1400 down to 360. The two things
+     that bought that headroom, both landed in the same wave as this comment:
+     CHIEF_DASH's ch1 now carries an explicit short title ("Inspections ×
+     response time") instead of deriving the 38-character "Overdue
+     inspections × Avg response time" from its two metric specs — the derived
+     one was 3 lines at 1100px and pushed the card to 509px — and the scatter
+     takes the whole grid row below 1070px (see the rule right below).
+
+     IS 1070px STILL THE RIGHT THRESHOLD? Yes, and here is the number that
+     shows it rather than an assertion. Shrinking the scatter widget's box
+     directly at a fixed 1400px viewport, its title holds 2 lines down to a
+     240px box and first goes to 3 lines at 238px. Then, holding the natural
+     5/3/4 spans below 1070px (overriding this media query from the console)
+     and stepping the viewport down: 1071→249px/2L, 1060→244px/2L,
+     1050→240px/2L, 1048→239px/2L, 1046→238px/3L — the guard first FIRES at a
+     1046px viewport. The shipped threshold of 1070px therefore has ~24px of
+     viewport margin over the width where three-across genuinely breaks. It
+     is correct, and it is tight — 1046 is close enough that any future change
+     lengthening this title, or adding anything to the widget head, must
+     re-run this probe rather than assume the margin is still there.
+
+     The mid-word-break mode, for the record: at a 220px box the 3-word title
+     renders 4 lines and at 180px it renders 6, so below ~230px words are
+     being broken mid-word, not merely wrapped. Nothing in the shipped layout
+     gets there — the narrowest box any title sees is 145px (the bar's, at
+     1071px), and the bar's title is a single short word pair that holds 2
+     lines.
+
+     Two across (span 6) below 1070px: the bar and donut are the only widgets
+     that take span 6 there (the scatter takes the whole row), and forcing
+     span 6 and stepping down, neither exceeds 2 lines anywhere from 1070px to
+     440px — bar 2L at 465px, donut 2L at 440px, guard never fires. So 470px
+     stays as the threshold below which two-across gives way to one-per-row;
+     it is now known to be conservative rather than merely inherited. */
+  @media (max-width: 1070px) {
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: span 6 !important; }
+    /* ...except the correlation scatter, which takes the whole row. pdScatter
+       draws into a 380x210 viewBox at width:100%, so its scale is exactly
+       (container width / 380): a span-6 widget in this band is ~272px wide,
+       which is scale 0.72 and renders the 8.5px station labels at ~6px —
+       unreadable. Full width in the two-across band restores scale >= 1. Same
+       specificity (0,3,0) as the rule above, so it wins on source order alone;
+       keep it after that rule. */
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget--scatter { grid-column: 1 / -1 !important; }
+  }
+  /* One across. Measurement shows two-across no longer has a dead zone
+     anywhere between here and 1070px — neither docked-beside-the-panel
+     widths (e.g. 981px, widget 256px wide) nor stacked-above-the-panel
+     widths (e.g. 861px, widget 362px wide) come close to clipping. So unlike
+     Task 2b, which forced one-per-row all the way from 1090px down through
+     the pre-existing 860px rule as a blunt simplification, this reclaims
+     two-across density for the whole 470-1070px range and only drops to one-
+     per-row where measurement actually requires it (below 470px).
+
+     That reclaim works automatically, without touching the 860px rule below:
+     this selector, `.kx-pubbody .kx-pubgrid > .kx-pubwidget`, has specificity
+     (0,3,0) versus the 860px rule's `.kx-pubgrid > *` at (0,1,0), so this
+     rule always wins when both match, regardless of which comes first in the
+     file. In the 470-860px band both rules match (this one says span 6, the
+     860px rule says 1 / -1) and specificity — not source order — is why
+     span 6 is what actually renders. Below 470px this rule also says 1 / -1,
+     so the two rules agree again and there is no conflict. Caution for
+     future edits: because specificity decides here, not order, a future
+     breakpoint that wants a *different* value at ≤860px than this rule
+     provides would silently lose to this rule no matter where it's placed
+     in the file — it would need higher specificity, not just later
+     placement. */
+  @media (max-width: 470px) {
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget { grid-column: 1 / -1 !important; }
+  }
+
+  .kx-pubhead { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .kx-pubmark {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--amber-400), var(--coral-400));
+    color: white; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .kx-pubtitle {
+    font-family: var(--font-display); font-weight: 500; font-size: 19px;
+    color: var(--ink-900); letter-spacing: -0.3px;
+  }
+  .kx-pubmeta { font-size: 11.5px; color: var(--ink-500); margin-top: 2px; }
+  .kx-pubsrcs { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+  .kx-pubbadge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    background: var(--teal-50); color: var(--teal-600); border: 1px solid var(--teal-100);
+    font-size: 10.5px; font-weight: 700;
+  }
+  .kx-pubbadge.is-owned {
+    background: var(--amber-50); color: var(--amber-700); border-color: var(--amber-300);
+  }
+
+  /* Header control cluster — dashboard switcher + Agency Intelligence link. */
+  .kx-pubhead-ctl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+  .kx-pubhead-btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--radius-pill);
+    border: 1px solid var(--ink-200); background: var(--surface-1); color: var(--ink-700);
+    font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+    text-decoration: none; white-space: nowrap; transition: background 0.15s, border-color 0.15s;
+  }
+  .kx-pubhead-btn:hover { background: var(--surface-3); border-color: var(--ink-300); }
+  @media (max-width: 860px) {
+    .kx-pubhead-ctl { margin-left: 0; width: 100%; }
+    .kx-pubhead-btn .lbl { display: none; }
+  }
+
+  .kx-pubfoot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 10px; font-size: 11.5px; color: var(--ink-400); flex-wrap: wrap;
+  }
+
+  /* Completion bar for the 'progress' widget kind — progress against a fixed
+     requirement, never a score. Sized to match a KPI sparkline's footprint so a
+     mixed row of KPI + progress widgets stays visually level. */
+  .kx-pubprogress {
+    height: 7px; border-radius: 99px; background: var(--ink-100);
+    overflow: hidden; width: 100%;
+  }
+  .kx-pubprogress .fill { height: 100%; border-radius: 99px; transition: width 0.6s; }
+  .kx-pubgrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; align-items: stretch; }
+  @media (max-width: 860px) { .kx-pubgrid { gap: 10px; } .kx-pubgrid > * { grid-column: 1 / -1 !important; } }
+  .kx-pubwidget {
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 14px;
+    box-shadow: var(--elev-1); padding: 12px;
+    display: flex; flex-direction: column; min-width: 0;
+  }
+  /* Single header ROW at every width — icon and source chips hold their size on
+     the left/right; the title is the only flexible piece. The range control is
+     NOT here: it moved to .kx-pubwidget-foot, below the value, which is what
+     dropped a widget's legible minimum from ~310px to ~205px.
+
+     The title itself wraps rather than ellipsis-truncates (see .kx-pubwidget
+     .title below) — added in Task 8, which put a combined two-metric scatter
+     title ("Overdue inspections × Avg response time") into a w:5 widget
+     (376px). At that width, in its natural one-row layout, the title needed
+     ~277px but the icon+chips left only ~231px: it clipped at 1400px, above
+     every grid-wrap breakpoint, so no threshold could ever have fixed it —
+     only the title itself could. Wrapping never truncates, but it does cost
+     height, and the fix wave after Task 8 found the cost was real: that same
+     derived title ran to 3 lines at 1100px and took the card to 509px, past
+     its ~480px ceiling. So ch1 now carries an explicit short title
+     ("Inspections × response time") and the derived-title case no longer
+     occurs on this dashboard. Wrapping stays, as the safety net for any
+     title that does run long — it is now the net rather than the mechanism.
+     Note that the guard for this is VERTICAL, not horizontal: see the
+     widget-wrapping comment above for the working guard and its numbers. */
+  .kx-pubwidget-head {
+    display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap;
+  }
+  .kx-pubwidget-head .srcs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  /* Remove control — chat-added widgets only (pubWidget gates it on w.fromChat).
+     Quiet by default so it never competes with the KPI value it sits above. */
+  .kx-pubwidget-rm {
+    width: 22px; height: 22px; padding: 0; flex-shrink: 0; margin-left: auto;
+    border: none; background: transparent; color: var(--ink-400);
+    border-radius: 6px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .kx-pubwidget-rm:hover { background: var(--surface-3); color: var(--ink-800); }
+  .kx-pubwidget-rm:focus-visible { outline: 2px solid var(--amber-400); outline-offset: 1px; }
+  /* Range control's new home: its own compact row under the value, so the
+     title above it never has to share horizontal space with it. */
+  .kx-pubwidget-foot { display: flex; align-items: center; margin-top: 8px; min-width: 0; }
+  .kx-pubwidget .icon-chip {
+    width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .kx-pubwidget .title {
+    font-size: 13.5px; font-weight: 700; color: var(--ink-900); line-height: 1.25;
+    overflow-wrap: break-word; min-width: 0;
+  }
+  /* Donut legend fits at w:4 (299px) for every row except the worst case:
+     "TargetSolutions" is one unbreakable word, and pdDonut() (charts.js)
+     hard-codes two gaps inline that squeeze it — an 18px gap between the arc
+     and the legend column, and, WITHIN each legend row, an 8px gap between
+     swatch, label and percentage plus a 10px left-padding on the
+     percentage. (The gap being tightened below is that within-row 8px one.
+     pdDonut's BETWEEN-row gap is a separate `gap:9px` on the legend column
+     and is deliberately left alone — row spacing was never the problem.)
+     Measured, that worst row needs 148px but only 127px was available — 21px
+     short. Those inline values are not !important, so they CAN be overridden
+     from here: tightening them (never widening the widget itself, which stays
+     the designer-specified 299px) recovers the 21px without shrinking anything
+     below a legible size.
+
+     ⚠ These selectors key off pdDonut's LITERAL inline `style` strings. That
+     is a real coupling, not a stylistic choice — edit those strings in
+     charts.js, even just reordering declarations inside them, and the legend
+     silently reverts with no error. charts.js carries a matching warning
+     above pdDonut. The durable fix is real class names on pdDonut's markup;
+     that is a bigger change than this wave took on. */
+  .kx-pubwidget div[style*="gap:18px"] { gap: 12px !important; }
+  .kx-pubwidget div[style*="gap:8px;font-size:12px"] {
+    gap: 4px !important; font-size: 11px !important;
+  }
+
+  /* .kx-range-btn now lives in styles.css — it is emitted by shared JS
+     (hub-hero.js and agency-intel-canvas.js) so both surfaces need it. */
+  .kx-kpi-num {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 33px; line-height: 1;
+    letter-spacing: -1.5px; font-variant-numeric: tabular-nums;
+  }
+
+  /* ====================================================================
+     AGENCY_INTEL CARD (v2)
+     ==================================================================== */
+  .cp-card {
+    background: var(--surface-1); border-radius: 20px; border: 1px solid var(--ink-100);
+    box-shadow: var(--elev-1); display: flex; flex-direction: column;
+    min-height: 480px; overflow: hidden;
+  }
+  .cp-head {
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+    border-bottom: 1px solid var(--ink-100);
+    background: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
+  }
+  .cp-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--amber-400) 0%, var(--coral-400) 100%);
+    color: white; display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35); flex-shrink: 0;
+  }
+  .cp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 14px; }
+  .cp-turn-user { display: flex; justify-content: flex-end; }
+  .cp-turn-user .bubble {
+    max-width: 85%; padding: 8px 12px; border-radius: 14px 14px 4px 14px;
+    background: var(--ink-900); color: white; font-size: 13px; line-height: 1.4;
+  }
+  .cp-turn-ai { display: flex; gap: 10px; align-items: flex-start; }
+  .cp-turn-ai .badge {
+    width: 28px; height: 28px; border-radius: 8px; background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
+  }
+  .cp-turn-ai .bubble {
+    flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--ink-100);
+    border-radius: 14px 14px 14px 4px; padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .cp-turn-ai.is-receipt .badge { background: var(--teal-50); color: var(--teal-500); }
+  .cp-turn-ai.is-receipt .bubble { background: var(--teal-50); border-color: var(--teal-100); }
+  .cp-headline { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .cp-bodytext { font-size: 12.5px; color: var(--ink-700); line-height: 1.55; }
+  .cp-bodytext strong { color: var(--ink-900); }
+  .cp-chart { background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 10px; padding: 12px; }
+  .cp-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+  .cp-action {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; cursor: pointer; text-decoration: none;
+    border: 1px solid var(--ink-200); background: var(--surface-1); color: var(--ink-700);
+    font-family: inherit; transition: background 0.15s;
+  }
+  .cp-action:hover { background: var(--surface-3); }
+  .cp-action.is-primary { border-color: var(--ink-900); background: var(--ink-900); color: white; }
+  .cp-prompt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cp-prompt {
+    text-align: left; padding: 12px; background: var(--surface-2);
+    border: 1px solid var(--ink-100); border-radius: 12px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 6px; font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .cp-prompt:hover { background: var(--surface-3); border-color: var(--amber-300); }
+  .cp-prompt .chip {
+    width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cp-prompt .hint { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-500); }
+  .cp-prompt .title { font-size: 13px; font-weight: 500; color: var(--ink-800); line-height: 1.35; }
+  .cp-create {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    background: var(--surface-1); border: 1px solid var(--ink-200); border-radius: 10px;
+    cursor: pointer; text-align: left; font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .cp-create:hover { background: var(--surface-2); border-color: var(--amber-300); }
+  .cp-create .chip {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--amber-400), var(--coral-400));
+    color: white; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cp-input-wrap { border-top: 1px solid var(--ink-100); padding: 12px; background: var(--surface-2); }
+  .cp-input {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--surface-1); border: 1px solid var(--ink-200);
+    border-radius: 14px; padding: 8px 10px 8px 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .cp-input:focus-within { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+  .cp-input textarea {
+    flex: 1; resize: none; border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 13px; color: var(--ink-900);
+    padding: 6px 0; max-height: 96px; line-height: 1.4;
+  }
+  .cp-send {
+    /* Square footprint + full rounding = circular icon action, the pill
+       system's companion shape. */
+    width: 32px; height: 32px; border-radius: var(--radius-pill); border: none;
+    background: var(--ink-200); color: var(--ink-500);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background 0.15s; cursor: default;
+  }
+  .cp-send.is-ready { background: var(--ink-900); color: white; cursor: pointer; }
+  .cp-foot { font-size: 10px; color: var(--ink-400); margin-top: 6px; padding-left: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  .cp-thinking-dot { width: 6px; height: 6px; border-radius: 99px; background: var(--ink-500); animation: cp-dot 1s ease-in-out infinite; }
+  @keyframes cp-dot { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
+
+  /* Widgets + dashboards rails */
+  .cp-rail { background: var(--surface-1); border-radius: 14px; border: 1px solid var(--ink-100); box-shadow: var(--elev-1); padding: 10px 12px; }
+  .cp-rail-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .cp-rail-head .t { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-600); }
+  .cp-rail-head .n { font-size: 11px; color: var(--ink-400); font-weight: 500; }
+  .cp-tilegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .cp-dashgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .cp-widget-tile {
+    position: relative; background: var(--surface-2); border: 1px solid var(--ink-100);
+    border-radius: 10px; padding: 8px 10px 10px;
+    display: flex; flex-direction: column; gap: 6px; min-height: 118px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .cp-widget-tile:hover { background: var(--surface-3); border-color: var(--amber-300); }
+  .cp-widget-tile .del, .cp-dash-tile .del { opacity: 0; transition: opacity 0.12s; }
+  .cp-widget-tile:hover .del, .cp-dash-tile:hover .del { opacity: 1; }
+  .cp-add-tile {
+    background: transparent; border: 1px dashed var(--ink-200); border-radius: 10px;
+    padding: 8px 10px; min-height: 118px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    cursor: pointer; color: var(--ink-500); font-family: inherit;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .cp-add-tile:hover { background: var(--surface-2); border-color: var(--amber-300); color: var(--amber-700); }
+  .cp-dash-tile {
+    position: relative; display: flex; flex-direction: column; gap: 3px;
+    padding: 8px 10px; background: var(--surface-2);
+    border: 1px solid var(--ink-100); border-radius: 8px;
+    text-decoration: none; color: var(--ink-900);
+    transition: background 0.15s, border-color 0.15s, transform 0.08s;
+  }
+  .cp-dash-tile:hover { background: var(--surface-3); border-color: var(--amber-300); transform: translateY(-1px); }
+  .cp-tile-icon {
+    width: 18px; height: 18px; border-radius: 4px; color: white;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--amber-400), var(--coral-400));
+  }
+  .cp-tile-icon.is-metric { background: var(--amber-100); color: var(--amber-700); }
+  .cp-tile-del {
+    width: 18px; height: 18px; padding: 0; border-radius: var(--radius-pill); background: transparent;
+    border: none; cursor: pointer; color: var(--ink-500);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cp-tile-del:hover { background: var(--coral-50); color: var(--coral-500); }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<!-- Data layer (plain JS, runs first) -->
+<script src="data.js"></script>
+<script src="custom-dashboards.js"></script>
+
+<!-- Agency Intelligence grant model + homepage answer engine. Shared verbatim
+     with agency-intelligence-dashboard.html so the hub's access gate reads the
+     same grants the AI access tab manages. page-data derives INDIVIDUALS from
+     K.PEOPLE, so it must come after data.js. -->
+<script src="agency-intel-page-data.js"></script>
+<script src="agency-intel-ai-data.js"></script>
+
+<!-- Shared helpers, then chart renderers, then the page layers -->
+<script src="keystone-shared.js"></script>
+<script src="charts.js"></script>
+<script src="hub-hero.js"></script>
+<script src="hub-ai-panel.js"></script>
+<script src="hub.js"></script>
+
+<!-- Design Toolbox: review tooling (comment widget). NOT part of the product design —
+     developers must strip this include for production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+
+</body>
+</html>

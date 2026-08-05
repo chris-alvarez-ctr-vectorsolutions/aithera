@@ -1391,6 +1391,10 @@
     var host = document.getElementById('cpAddWidgetHost');
     if (host && host.isConnected) host.innerHTML = widgetBuilderHtml(true);
 
+    // Both passes above re-created Vector components, which in Safari come back
+    // unthemed unless the theme stylesheet is re-announced — see KX.reapplyTheme.
+    KX.reapplyTheme();
+
     hydrate();
   }
 
