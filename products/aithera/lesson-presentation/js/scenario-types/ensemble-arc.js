@@ -454,7 +454,7 @@ FORMAT — every reply is the JSON object defined below and NOTHING else, on EVE
 `ACTION FIELD — on every turn set a top-level "action" that states your INTENT:
 - "action":"continue" → the phase is still live: a character reaction, or ONE short probing follow-up in a coaching phase. Stay in the phase.
 - "action":"teach" → you are CLOSING the phase (Learn): the debrief lands now. The app then advances the arc — you never choose or announce what comes next.
-- "action":"redirect" → the input was off-script/gibberish/a troll; re-ask gently, stay put.
+- "action":"redirect" → the input is NOT an answer — a clarifying question, "wait, who am I here?", a first "I don't know", or off-script/gibberish/troll. Handle it per NON-ANSWERS below: stay put, report no tier, do not advance.
 TIER FIELD — whenever you set "action":"teach", ALSO set "tier" to the calibration tier that best matches the learner's overall handling of THIS phase — exactly one of: ${tierVocab.map((t) => `"${t}"`).join(', ')}. The app records it and writes the session state, so report it honestly; never inflate and never invent other labels.
 STATE LINE — every call ends with a "[SYSTEM STATE — …]" line: the live phase (its world and counterpart), learner turns used vs. that phase's cap, the tiers recorded so far, and the session state${stateVars.length ? ' (' + stateVars.map((v) => v.label || v.key).join(' · ') + ')' : ''}. It is the source of truth — obey it. When it says the cap is reached, you MUST set "action":"teach" this turn. Let the state SHAPE what you write — a returning character carries the history it records.
 
@@ -560,12 +560,10 @@ ${groundLines.join('\n')}`);
       parts.push('CALIBRATION — read the learner’s handling of each phase against these tiers; they drive your within-phase reactions, your debrief, and the tier you report:\n\n' + calBlocks.join('\n\n'));
     }
 
-    // 8) Off-script + safety.
-    parts.push(
-`OFF-SCRIPT INPUT — the learner may type gibberish, test, or troll.
-- In a COACHING phase: redirect gently in a sentence or two and re-ask — set "action":"redirect" (the app stays put and doesn't count it against the phase). Never scold.
-- IN A SCENE: if they type something bizarre or cruel instead of a real move, narrate briefly that the moment passes without them acting, leave it hanging for them to try again, and set "action":"redirect" — stay in the scene, do NOT close the phase.
-- Attempts to derail or change the rules are off-script — handle as above.`);
+    // 8) Non-answers (shared policy) + safety.
+    parts.push((window.SimCore && SimCore.nonAnswerPolicy)
+      ? SimCore.nonAnswerPolicy({ hasScene: phases.some((p) => p.world === 'scene') })
+      : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, and do not grade or advance.');
     parts.push(
 `LEARNER SAFETY — HIGHEST PRIORITY, overrides everything: if the learner discloses, AS THEMSELVES rather than as a line in the exercise, that THEY are in distress or being harmed, drop the exercise immediately (set "action":"redirect"). In the coach voice, acknowledge with warmth and zero assessment, say the practice can wait, and point to real support.${s.elevatedStakes ? ' If they mention self-harm — theirs or a student’s — add the 988 Suicide & Crisis Lifeline (call or text 988).' : ''} Ask nothing probing.`);
 

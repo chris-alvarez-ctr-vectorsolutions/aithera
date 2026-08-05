@@ -1447,7 +1447,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=5"></script>
+    <script src="js/sim-core.js?v=6"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1458,7 +1458,7 @@
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/mix-arc.js?v=9"></script>
+    <script src="js/scenario-types/mix-arc.js?v=10"></script>
 
     <script>
     /* =====================================================================
@@ -2986,6 +2986,14 @@
       // engine's entry handshake ("Begin practicing") fires on our locked scene.
       runArcEngine(turn);           // app owns the ladder: tier capture, transitions, routing
       applyDeliver(turn);
+
+      // A redirect is a NON-ANSWER (a clarifying question, a first "I'm stuck",
+      // or off-script input): the app stayed put and recorded no tier, so it must
+      // NOT cost a phase turn. Rebate the optimistic count from send() — the same
+      // rebate the transport-failure path does, so asking a question never pushes
+      // the learner toward a forced close. (Only an explicit "redirect" qualifies;
+      // a "continue"/"teach" is a real turn and stays counted.)
+      if (counted && turn.action === 'redirect') state.turnsInPhase = Math.max(0, state.turnsInPhase - 1);
 
       // Live mode signals the end of the practice on the turn itself (the demo
       // engine sets state.complete directly). The report feeds the results modal.

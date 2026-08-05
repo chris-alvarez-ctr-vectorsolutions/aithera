@@ -781,7 +781,7 @@ FORMAT — every reply is the JSON object defined below and NOTHING else, on EVE
 `ACTION FIELD — on every turn set a top-level "action" that states your INTENT:
 - "action":"continue" → the beat is still live: a character reaction, or ONE short probing follow-up in a coaching/observe beat. Stay in the beat.
 - "action":"teach" → you are CLOSING the beat (Learn): the debrief lands now. The app then advances — you never choose or announce what comes next.
-- "action":"redirect" → the input was off-script/gibberish/a troll; re-ask gently, stay put.
+- "action":"redirect" → the input is NOT an answer — a clarifying question, "wait, who am I here?", a first "I don't know", or off-script/gibberish/troll. Handle it per NON-ANSWERS below: stay put, report no tier, do not advance.
 TIER FIELD — whenever you set "action":"teach", ALSO set "tier" to the calibration tier that best matches the learner's handling of THIS beat${tierVocab.length ? ' — exactly one of: ' + tierVocab.map((t) => `"${t}"`).join(', ') : ''}. The app records it; report it honestly, never inflate, never invent other labels.
 STATE LINE — every call ends with a "[SYSTEM STATE — …]" line: the live beat (its world and any counterpart), learner turns used vs. this beat's cap, tiers recorded so far${stateVars.length ? ', and the session state (' + stateVars.map((v) => v.label || v.key).join(' · ') + ')' : ''}. It is the source of truth — obey it. When it says the cap is reached, you MUST set "action":"teach" this turn.
 
@@ -899,6 +899,12 @@ ${closer}`);
       return `BEAT ${i + 1} · ${fill(b.label || b.id, s)}:\n` + tiers.map((t) => `- ${String(t.tier).trim()}: ${fill(t.guidance, s)}`).join('\n');
     }).filter(Boolean);
     if (calBlocks.length) parts.push('CALIBRATION — read the learner\'s handling of each beat against these tiers; they drive your within-beat reactions, your debrief, and the tier you report:\n\n' + calBlocks.join('\n\n'));
+
+    // 6b) Non-answers (shared policy) — a question / "I don't know" / off-script
+    //     input is not an answer: redirect (free), never grade or advance on it.
+    parts.push((window.SimCore && SimCore.nonAnswerPolicy)
+      ? SimCore.nonAnswerPolicy({ hasScene })
+      : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, and do not grade or advance.');
 
     // 7) Locked floors.
     if (hasScene) parts.push(CONDUCT_SECTION.text());
