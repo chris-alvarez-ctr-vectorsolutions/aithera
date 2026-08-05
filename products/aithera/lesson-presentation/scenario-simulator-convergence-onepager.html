@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario Simulator — One Engine, Typed Plugins</title>
+<style>
+  :root {
+    /* neutrals biased slightly toward the teal accent — chosen, not defaulted */
+    --paper:      #f3f6f4;
+    --panel:      #eef2f0;
+    --panel-2:    #e6ece9;
+    --ink:        #12181b;
+    --ink-2:      #43514f;
+    --ink-3:      #6c7a76;
+    --line:       #d3ddd9;
+    --line-2:     #b3c1bc;
+    /* the one signal color — a deep, legible cousin of the scene-sweep pin (#4adebe) */
+    --accent:     #0b8f78;
+    --accent-ink: #06614f;
+    --accent-soft:#d9efe9;
+    /* semantic caveat / watch-item — NOT the accent */
+    --warn:       #9a5f18;
+    --warn-soft:  #f3e8d6;
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+
+    --measure: 66ch;
+    --wrap: 940px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0d1315;
+      --panel:      #141d20;
+      --panel-2:    #182326;
+      --ink:        #e7ece9;
+      --ink-2:      #a8b7b2;
+      --ink-3:      #7a8a85;
+      --line:       #253230;
+      --line-2:     #35443f;
+      --accent:     #4adebe;   /* the actual scene-sweep pin color — glows on dark */
+      --accent-ink: #8ef0da;
+      --accent-soft:#123029;
+      --warn:       #e2ad64;
+      --warn-soft:  #2b2312;
+    }
+  }
+  /* explicit theme override (harmless as a standalone page; honored if embedded) */
+  :root[data-theme="light"] {
+    --paper:#f3f6f4; --panel:#eef2f0; --panel-2:#e6ece9;
+    --ink:#12181b; --ink-2:#43514f; --ink-3:#6c7a76;
+    --line:#d3ddd9; --line-2:#b3c1bc;
+    --accent:#0b8f78; --accent-ink:#06614f; --accent-soft:#d9efe9;
+    --warn:#9a5f18; --warn-soft:#f3e8d6;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1315; --panel:#141d20; --panel-2:#182326;
+    --ink:#e7ece9; --ink-2:#a8b7b2; --ink-3:#7a8a85;
+    --line:#253230; --line-2:#35443f;
+    --accent:#4adebe; --accent-ink:#8ef0da; --accent-soft:#123029;
+    --warn:#e2ad64; --warn-soft:#2b2312;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap {
+    max-width: var(--wrap);
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 72px) clamp(20px, 5vw, 56px) 96px;
+  }
+
+  /* ---- typography roles -------------------------------------------------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: clamp(30px, 5.4vw, 50px);
+    line-height: 1.06;
+    letter-spacing: -.012em;
+    text-wrap: balance;
+    margin: 0 0 22px;
+    max-width: 20ch;
+  }
+  h1 em { font-style: italic; color: var(--accent-ink); }
+  .lede {
+    font-size: clamp(17px, 2.1vw, 20px);
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin: 0 0 26px;
+  }
+  .meta {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .01em;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+  .meta b { color: var(--accent-ink); font-weight: 600; }
+
+  section { margin-top: clamp(48px, 7vw, 82px); }
+
+  h2 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: clamp(21px, 2.8vw, 27px);
+    letter-spacing: -.01em;
+    line-height: 1.2;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .sec-kicker {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    display: block;
+    margin-bottom: 10px;
+  }
+  p { max-width: var(--measure); margin: 0 0 16px; }
+  strong { font-weight: 650; }
+  code, .k {
+    font-family: var(--mono);
+    font-size: .86em;
+    background: var(--panel-2);
+    color: var(--accent-ink);
+    padding: .08em .38em;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  /* ---- figures ----------------------------------------------------------- */
+  figure {
+    margin: 30px 0 8px;
+    padding: 22px clamp(14px, 3vw, 28px) 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .svg-scroll { overflow-x: auto; }
+  figure svg { display: block; width: 100%; height: auto; min-width: 660px; color: var(--ink-2); }
+  figcaption {
+    font-size: 14px;
+    color: var(--ink-2);
+    max-width: var(--measure);
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  figcaption b { color: var(--ink); font-weight: 650; }
+
+  /* ---- diagram theming: classes, NOT var() in presentation attributes ---- */
+  figure svg text { font-family: var(--mono); fill: var(--ink-2); }
+  .d-ink   { fill: var(--ink); }
+  .d-ink3  { fill: var(--ink-3); }
+  .d-acc   { fill: var(--accent-ink); }
+  .d-b     { fill: var(--panel);   stroke: var(--line-2); }
+  .d-b2    { fill: var(--panel-2); stroke: var(--line-2); }
+  .d-acbox { fill: var(--accent-soft); stroke: var(--accent); }
+  .d-acbox2{ fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+  .d-btab  { fill: var(--panel); stroke: var(--accent); }
+  .d-dash  { fill: none; stroke: var(--line-2); stroke-dasharray: 4 3; }
+  .d-acdash{ fill: none; stroke: var(--accent); stroke-dasharray: 5 4; }
+  .d-edge  { fill: none; stroke: var(--line-2); }
+  .d-acedge{ fill: none; stroke: var(--accent); }
+  .d-div   { stroke: var(--line); }
+  .d-arrow { fill: currentColor; }
+  .d-acarrow { fill: var(--accent); }
+
+  /* ---- callouts ---------------------------------------------------------- */
+  .callout {
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    margin: 22px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-family: var(--mono);
+    letter-spacing: .02em;
+    color: var(--accent-ink);
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .callout.warn h3 { color: var(--warn); }
+  .callout p { margin: 0; max-width: 62ch; color: var(--ink-2); }
+  .callout p + p { margin-top: 10px; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--paper); background: var(--warn);
+    padding: 2px 7px; border-radius: 999px;
+  }
+  .callout:not(.warn) .tag { background: var(--accent); }
+
+  /* ---- "what the registry buys" panel ------------------------------------ */
+  .panel {
+    margin: 34px 0 8px;
+    padding: 26px clamp(16px, 3vw, 30px);
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    background: var(--panel);
+  }
+  .panel h3 {
+    font-family: var(--sans); font-weight: 700;
+    font-size: clamp(19px, 2.4vw, 23px); letter-spacing: -.01em;
+    margin: 4px 0 8px; text-wrap: balance;
+  }
+  .panel-lead { font-size: 16.5px; color: var(--ink); max-width: 62ch; margin: 0 0 20px; }
+  .panel-lead b { color: var(--accent-ink); font-weight: 650; }
+
+  .shape-scroll { overflow-x: auto; margin: 0 0 22px; }
+  pre.shape {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+    margin: 0; padding: 16px 18px; min-width: 520px; white-space: pre;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; color: var(--ink);
+  }
+  pre.shape .cmt { color: var(--ink-3); }
+  pre.shape .hi  { color: var(--accent-ink); }
+
+  ul.gains {
+    margin: 0 0 18px; padding-left: 0; list-style: none;
+    display: grid; gap: 13px; max-width: var(--measure);
+  }
+  ul.gains li { padding-left: 28px; position: relative; color: var(--ink-2); }
+  ul.gains li::before {
+    content: ""; position: absolute; left: 3px; top: .55em;
+    width: 9px; height: 9px; border-radius: 2px; background: var(--accent);
+    transform: rotate(45deg);
+  }
+  ul.gains li b { color: var(--ink); font-weight: 650; }
+
+  .timing {
+    font-size: 14.5px; color: var(--ink-2); max-width: 62ch; margin: 0;
+    padding: 14px 16px; border-left: 3px solid var(--warn);
+    background: var(--warn-soft); border-radius: 0 8px 8px 0;
+  }
+  .timing b { color: var(--warn); font-weight: 650; }
+
+  /* ---- build table ------------------------------------------------------- */
+  .table-scroll { overflow-x: auto; margin: 24px 0 6px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14.5px; }
+  caption { text-align: left; font-family: var(--mono); font-size: 11.5px; letter-spacing:.14em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 12px; }
+  th, td { text-align: left; padding: 12px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; border-bottom: 1px solid var(--line-2); }
+  td:first-child { font-weight: 600; color: var(--ink); width: 30%; }
+  td .sub { display:block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; font-family: var(--mono); margin-top:3px; }
+  .verdict { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; white-space: nowrap; }
+  .verdict.ok  { color: var(--accent-ink); }
+  .verdict.mid { color: var(--ink-2); }
+  .verdict.no  { color: var(--warn); }
+
+  /* ---- bottom line ------------------------------------------------------- */
+  .verdict-card {
+    margin-top: 40px; padding: 26px clamp(18px,3vw,30px);
+    border: 1px solid var(--line-2); border-radius: 14px;
+    background: linear-gradient(180deg, var(--panel), var(--paper));
+  }
+  .verdict-card h2 { margin-bottom: 14px; }
+  .verdict-card ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 14px; max-width: var(--measure); }
+  .verdict-card li { padding-left: 30px; position: relative; color: var(--ink-2); }
+  .verdict-card li::before {
+    content: ""; position: absolute; left: 4px; top: .55em;
+    width: 9px; height: 9px; border-radius: 2px; background: var(--accent);
+    transform: rotate(45deg);
+  }
+  .verdict-card li.watch::before { background: var(--warn); }
+  .verdict-card li b { color: var(--ink); }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .k, code { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Aithera · Scenario Simulator · Architecture note</p>
+    <h1>One engine runs every type. The <em>type</em> is now the only thing that changes.</h1>
+    <p class="lede">Before the archive cut, each scenario type shipped its own player page — with its own copy of the engine inside. We froze that world and collapsed the players into one runtime. Here's the shape of the change, and what it costs to add the next interaction type.</p>
+    <div class="meta">
+      <span><b>Shipped</b> 2026-08-05 → vl/main</span>
+      <span><b>Refactor</b> "Option B" convergence</span>
+      <span><b>Guarantee</b> byte-identical A/B</span>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">The change</span>
+    <h2>Two moves: freeze the old world, then collapse the players</h2>
+    <p>First we captured a frozen, self-contained snapshot — <span class="k">archive/2026-08-04/</span> plus the git tag <span class="k">archive/pre-option-b-2026-08-04</span> — so every page demoed last week still renders its exact behavior and stays linkable forever.</p>
+    <p>Then the real change: one learner page, <span class="k">scenario-live.html</span>, routed by <span class="k">?type=</span>, sitting on one shared, DOM-free ladder engine, <span class="k">js/sim-player.js</span>. The engine was lifted <em>verbatim</em> out of the old per-type pages — so this was a re-wiring, not a rewrite, and the learner sees no difference.</p>
+
+    <figure>
+      <div class="svg-scroll">
+        <svg viewBox="0 0 960 500" role="img" aria-label="Before: Writer Studio authored a spec that targeted one bespoke player page per type, each carrying its own copy of the engine. After: type modules are plugins read two ways — by Writer Studio for authoring and by one scenario-live.html player running one shared sim-player.js engine, routed by the type query parameter.">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path class="d-arrow" d="M0,0 L9,4.5 L0,9 z"/></marker>
+            <marker id="arA" markerWidth="11" markerHeight="11" refX="8" refY="5" orient="auto"><path class="d-acarrow" d="M0,0 L11,5 L0,10 z"/></marker>
+          </defs>
+
+          <!-- ============ BEFORE ============ -->
+          <text x="30" y="34" class="d-ink" font-size="15" font-weight="700" letter-spacing="1">BEFORE</text>
+          <text x="30" y="53" class="d-ink3" font-size="11.5">a player page per type</text>
+
+          <!-- studio -->
+          <rect x="120" y="72" width="200" height="40" rx="8" class="d-b2"/>
+          <text x="220" y="97" text-anchor="middle" class="d-ink" font-size="12.5">Writer Studio</text>
+
+          <!-- spine bus + branch arrows -->
+          <polyline points="220,112 45,112 45,392" class="d-edge" stroke-width="1.5"/>
+          <line x1="45" y1="206" x2="70" y2="206" class="d-edge" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="45" y1="298" x2="70" y2="298" class="d-edge" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="45" y1="390" x2="70" y2="390" class="d-edge" stroke-width="1.5" marker-end="url(#ar)"/>
+          <text x="60" y="132" class="d-ink3" font-size="10.5">1 spec → 1 page</text>
+
+          <!-- page rows -->
+          <g font-size="12.5">
+            <rect x="74" y="172" width="336" height="68" rx="8" class="d-b"/>
+            <text x="92" y="200" class="d-ink">guided-arc-live.html</text>
+            <text x="92" y="221" class="d-ink3" font-size="10.5">guided arc</text>
+            <rect x="308" y="188" width="88" height="34" rx="6" class="d-dash"/>
+            <text x="352" y="209" text-anchor="middle" class="d-ink3" font-size="10.5">engine copy</text>
+
+            <rect x="74" y="264" width="336" height="68" rx="8" class="d-b"/>
+            <text x="92" y="292" class="d-ink">mix-arc-live.html</text>
+            <text x="92" y="313" class="d-ink3" font-size="10.5">mix &amp; match</text>
+            <rect x="308" y="280" width="88" height="34" rx="6" class="d-dash"/>
+            <text x="352" y="301" text-anchor="middle" class="d-ink3" font-size="10.5">engine copy</text>
+
+            <rect x="74" y="356" width="336" height="68" rx="8" class="d-b"/>
+            <text x="92" y="384" class="d-ink">scene-sweep-live.html</text>
+            <text x="92" y="405" class="d-ink3" font-size="10.5">spot the hazard</text>
+            <rect x="308" y="372" width="88" height="34" rx="6" class="d-dash"/>
+            <text x="352" y="393" text-anchor="middle" class="d-ink3" font-size="10.5">engine copy</text>
+          </g>
+          <text x="74" y="446" class="d-ink3" font-size="10.5">+ branching-arc-live · ensemble-arc-live</text>
+
+          <!-- ============ divider + collapse ============ -->
+          <line x1="474" y1="28" x2="474" y2="470" class="d-div" stroke-dasharray="3 5"/>
+          <text x="474" y="238" text-anchor="middle" class="d-acc" font-size="10" letter-spacing="1">CONVERGE</text>
+          <line x1="450" y1="250" x2="498" y2="250" class="d-acedge" stroke-width="2.4" marker-end="url(#arA)"/>
+
+          <!-- ============ AFTER ============ -->
+          <text x="512" y="34" class="d-ink" font-size="15" font-weight="700" letter-spacing="1">AFTER</text>
+          <text x="512" y="53" class="d-ink3" font-size="11.5">one engine, typed plugins</text>
+
+          <!-- plugin rail -->
+          <text x="512" y="92" class="d-acc" font-size="11.5">scenario-types/*.js  (plugins)</text>
+          <g font-size="11.5">
+            <rect x="512" y="104" width="150" height="30" rx="6" class="d-b2"/><text x="524" y="123" class="d-ink">guided-arc</text>
+            <rect x="512" y="142" width="150" height="30" rx="6" class="d-b2"/><text x="524" y="161" class="d-ink">mix-arc</text>
+            <rect x="512" y="180" width="150" height="30" rx="6" class="d-b2"/><text x="524" y="199" class="d-ink">branching</text>
+            <rect x="512" y="218" width="150" height="30" rx="6" class="d-b2"/><text x="524" y="237" class="d-ink">ensemble</text>
+            <rect x="512" y="256" width="150" height="30" rx="6" class="d-b2"/><text x="524" y="275" class="d-ink">scene-sweep</text>
+          </g>
+
+          <!-- merge bus -->
+          <line x1="662" y1="119" x2="690" y2="119" class="d-edge"/>
+          <line x1="662" y1="157" x2="690" y2="157" class="d-edge"/>
+          <line x1="662" y1="195" x2="690" y2="195" class="d-edge"/>
+          <line x1="662" y1="233" x2="690" y2="233" class="d-edge"/>
+          <line x1="662" y1="271" x2="690" y2="271" class="d-edge"/>
+          <polyline points="690,119 690,271" class="d-edge" stroke-width="1.5"/>
+
+          <!-- consumers -->
+          <line x1="690" y1="150" x2="762" y2="140" class="d-edge" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="690" y1="238" x2="762" y2="250" class="d-acedge" stroke-width="2" marker-end="url(#arA)"/>
+          <rect x="700" y="234" width="56" height="20" rx="10" class="d-acbox"/>
+          <text x="728" y="248" text-anchor="middle" class="d-acc" font-size="10.5">?type=</text>
+
+          <!-- studio target -->
+          <rect x="762" y="112" width="172" height="54" rx="8" class="d-b"/>
+          <text x="848" y="136" text-anchor="middle" class="d-ink" font-size="12">Writer Studio</text>
+          <text x="848" y="153" text-anchor="middle" class="d-ink3" font-size="10">author view</text>
+          <text x="848" y="185" text-anchor="middle" class="d-ink3" font-size="9.5">reads: sections · lints · wizard</text>
+
+          <!-- player target (the one accent element) -->
+          <rect x="762" y="220" width="172" height="72" rx="8" class="d-acbox2"/>
+          <text x="848" y="248" text-anchor="middle" class="d-ink" font-size="12">scenario-live.html</text>
+          <text x="848" y="270" text-anchor="middle" class="d-acc" font-size="10.5">sim-player.js · one engine</text>
+          <text x="848" y="312" text-anchor="middle" class="d-ink3" font-size="9.5">reads: toRuntime · compile · fill</text>
+        </svg>
+      </div>
+      <figcaption><b>The difference, drawn.</b> The old world duplicated the engine into every page and welded each scenario to a bespoke player. The new world has one player and one engine; a scenario <em>type</em> is a plugin read two ways — the <b>same file</b> the Studio authors is the file the player runs.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">The new unit</span>
+    <h2>A scenario "type" is now one module — authored and run from the same definition</h2>
+    <p>The unit of the system used to be the page. It's now the type module. Each <span class="k">js/scenario-types/*.js</span> exports one contract read from two directions: the player reads <span class="k">toRuntime</span> / <span class="k">compile</span> / <span class="k">fill</span>; the Studio reads <span class="k">sections</span> / <span class="k">lints</span> / <span class="k">wizard</span> / <span class="k">previewUrl</span>. And <span class="k">previewUrl</span> now points the Studio's preview button straight at <span class="k">scenario-live.html?type=&lt;id&gt;</span>.</p>
+    <p>So authoring and playback are two faces of one definition — they <strong>cannot drift</strong>. Five ladder-shaped types route through the single player (guided-arc rides in as a mix-arc "recipe" via <span class="k">toMixArc</span>); teach-back and the hazmat observe type keep their own pages by design, because they aren't ladder-shaped.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">Extensibility — the proof</span>
+    <h2>How a new interaction surface plugs in: scene-sweep is the worked example</h2>
+    <p>Your instinct is right — scene-sweep needed something the ladder had no concept of: a full-bleed, tappable photo. The important part is what it <em>didn't</em> do. It did not fork the engine. It plugged in along three seams:</p>
+
+    <figure>
+      <div class="svg-scroll">
+        <svg viewBox="0 0 960 410" role="img" aria-label="Three layers. The type module declares a spot phase and carries shared placement geometry. The page's surface layer mounts an opt-in perception module only for a spot phase. The DOM-free engine gained one guarded hook that the perception module feeds. Existing types take none of these branches and stay byte-identical.">
+          <defs>
+            <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path class="d-acarrow" d="M0,0 L9,4.5 L0,9 z"/></marker>
+          </defs>
+
+          <!-- LAYER: TYPE MODULE -->
+          <rect x="36" y="30" width="888" height="100" rx="10" class="d-b"/>
+          <text x="54" y="55" class="d-ink" font-size="12.5" font-weight="700">TYPE MODULE — <tspan class="d-acc">scenario-types/scene-sweep.js</tspan></text>
+          <g font-size="11">
+            <rect x="54" y="70" width="220" height="44" rx="7" class="d-b2"/><text x="70" y="90" class="d-ink">toRuntime · compile · fill</text><text x="70" y="106" class="d-ink3">how it runs</text>
+            <rect x="290" y="70" width="270" height="44" rx="7" class="d-b2"/><text x="306" y="90" class="d-ink">Studio: sections · lints · wizard</text><text x="306" y="106" class="d-ink3">how it's authored</text>
+            <rect x="576" y="70" width="332" height="44" rx="7" class="d-acbox"/><text x="592" y="90" class="d-ink">SceneSweepGeo — place-it / tap-it math</text><text x="592" y="106" class="d-acc">shared: author math == learner math</text>
+          </g>
+
+          <!-- LAYER: SURFACE -->
+          <rect x="36" y="160" width="888" height="100" rx="10" class="d-b"/>
+          <text x="54" y="185" class="d-ink" font-size="12.5" font-weight="700">SURFACE / RENDERER — <tspan class="d-ink3">in scenario-live.html</tspan></text>
+          <g font-size="11">
+            <rect x="54" y="200" width="300" height="44" rx="7" class="d-b2"/><text x="70" y="220" class="d-ink">conversational reveal</text><text x="70" y="236" class="d-ink3">built-in · every type</text>
+            <rect x="576" y="200" width="332" height="44" rx="7" class="d-acdash"/><text x="592" y="220" class="d-ink">sim-perception.js — photo · pins · a11y</text><text x="592" y="236" class="d-acc">opt-in · mounts only on kind:'spot'</text>
+          </g>
+
+          <!-- LAYER: ENGINE -->
+          <rect x="36" y="290" width="888" height="86" rx="10" class="d-acbox2"/>
+          <text x="54" y="326" class="d-ink" font-size="12.5" font-weight="700">ENGINE — <tspan class="d-acc">sim-player.js</tspan></text>
+          <text x="54" y="348" class="d-ink" font-size="11">DOM-free ladder logic · shared, unchanged, by every type</text>
+          <rect x="700" y="308" width="208" height="46" rx="7" class="d-btab"/><text x="716" y="328" class="d-ink" font-size="11">hook: coverageBlock()</text><text x="716" y="344" class="d-ink3" font-size="10">absent → '' → others untouched</text>
+
+          <!-- seam arrows -->
+          <line x1="742" y1="114" x2="742" y2="200" class="d-acedge" stroke-width="1.6" marker-end="url(#ar2)"/>
+          <text x="750" y="146" class="d-acc" font-size="10">declares kind:'spot'</text>
+          <text x="750" y="158" class="d-ink3" font-size="10">→ page mounts it</text>
+          <line x1="800" y1="244" x2="800" y2="308" class="d-acedge" stroke-width="1.6" marker-end="url(#ar2)"/>
+          <text x="808" y="278" class="d-acc" font-size="10">feeds per-turn coverage</text>
+        </svg>
+      </div>
+      <figcaption><b>The three seams.</b> (1) One guarded hook on the engine — <span class="k">coverageBlock</span> returns <span class="k">''</span> when absent, so the other four types stay byte-identical. (2) A self-contained opt-in module that owns the canvas and mounts only for a <span class="k">kind:'spot'</span> phase. (3) The place-it / tap-it math shared in the type module, so Studio and player can't drift. <b>The engine's grading loop was never touched.</b></figcaption>
+    </figure>
+
+    <p><strong>Is the engine agnostic to this? Yes — where it matters.</strong> The ladder logic is DOM-free; it grades turns and routes phases and knows nothing about photos, pins, or canvases. A new interaction surface never reaches into that loop. At most it adds one more guarded hook like <span class="k">coverageBlock</span>. The place a new modality actually <em>lands</em> is the renderer / host page — not the engine.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">The hard question</span>
+    <h2>If the content team wants a 3D scene or Google Maps embed</h2>
+    <p>Two separate questions hide in that ask: <em>does it fit the pedagogy</em>, and <em>what's the dev lift</em>. Take them in order.</p>
+
+    <div class="callout">
+      <h3><span class="tag">Fit test</span> Can the interaction reduce to a gradeable signal?</h3>
+      <p>The engine grades by scoring the learner's turn against a phase's exit-criteria into a tier. A custom surface fits when its interaction produces a signal you can score. <strong>Maps:</strong> "find the nearest exit," "plot the muster route" → a clicked place / dropped marker / drawn route <em>becomes the turn</em>. <strong>3D:</strong> "walk the floor, tag three lockout points" → selections become the turn. That's the exact shape scene-sweep already runs: marks → a <span class="k">spotted</span> list → judged. If the objective is free exploration with nothing to assess, it isn't a simulator interaction — don't force it onto this engine.</p>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <caption>Dev lift — what you'd actually build for a new surface</caption>
+        <thead><tr><th>Piece</th><th>What it is</th><th>Scope</th></tr></thead>
+        <tbody>
+          <tr><td>Surface module<span class="sub">like sim-perception.js</span></td><td>Owns the 3D/map canvas + its input events, scoped CSS, mounts on the new phase <span class="k">kind</span>.</td><td class="verdict ok">new file · contained</td></tr>
+          <tr><td>Shared geometry<span class="sub">like SceneSweepGeo</span></td><td>The one math both sides use, so author-placement equals learner-interaction.</td><td class="verdict ok">new file · contained</td></tr>
+          <tr><td>Type module<span class="sub">scenario-types/&lt;new&gt;.js</span></td><td><span class="k">toRuntime/compile/fill</span> + Studio <span class="k">sections/lints/wizard</span> + <span class="k">previewUrl</span>.</td><td class="verdict ok">new file · contained</td></tr>
+          <tr><td>Engine hook</td><td>Only if the surface must feed per-turn state to the judge (as coverage does).</td><td class="verdict mid">+1 guarded line · shared</td></tr>
+          <tr><td>Host-page seams<span class="sub">scenario-live.html</span></td><td>The mount call + the guarded render branches (scene-sweep has ~10).</td><td class="verdict no">edits shared host</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong>The authoring flow is nearly free.</strong> In Writer Studio it looks like every other type: the author fills the new type's phase sections and <em>places targets on the surface</em> — the map/3D equivalent of "drop the hotspot on the photo," using the same shared geometry — the wizard scaffolds a starting scenario, and "Learner preview" opens <span class="k">scenario-live.html?type=&lt;new&gt;</span>. That half is cheap precisely because the Studio is already type-agnostic.</p>
+
+    <div class="callout warn">
+      <h3><span class="tag">Caveat 1</span> External embeds vs. the prototype rule</h3>
+      <p>Google Maps needs a keyed SDK and a live network; a real 3D scene wants a library like three.js. Our prototype contract is the opposite: vanilla JS, no build step, no external libraries, must run from a double-clicked <span class="k">file://</span>. So a <em>prototype</em> can only <strong>simulate</strong> these — and note that "a static map tile with tappable overlays" is literally scene-sweep again. The genuine embed is a production dev-team lift the mock environment can't host. Worth setting that expectation with the content team up front.</p>
+    </div>
+
+    <div class="callout warn">
+      <h3><span class="tag">Caveat 2</span> The host page isn't a plugin bus yet</h3>
+      <p>Today <span class="k">scenario-live.html</span> hosts scene-sweep through ~10 hand-placed <span class="k">IS_SWEEP</span> branches, not a registry. One custom surface is fine. Before a <em>second</em>, promote that into a small surface registry keyed by phase <span class="k">kind</span> so the page stops accreting per-modality branches. It's the natural next refactor — the hooks are already named for it (<span class="k">sceneNode</span> / <span class="k">updateHud</span> / <span class="k">reposition</span> / <span class="k">enterMarking</span>) — it just hasn't been done.</p>
+    </div>
+
+    <div class="panel">
+      <span class="sec-kicker">Why bother</span>
+      <h3>What the surface registry would buy</h3>
+      <p class="panel-lead">It turns <b>"edit the player for every new surface"</b> into <b>"drop in a module and register it."</b></p>
+
+      <div class="shape-scroll">
+<pre class="shape"><span class="cmt">// today — the surface is named directly, guarded at ~10 call sites</span>
+if (IS_SWEEP) PERCEPTION.updateRail();
+if (IS_SWEEP) { PERCEPTION.enterMarking(); return; }
+
+<span class="hi">// after — the page calls one interface; new surfaces just register</span>
+const surface = Surfaces.forPhase(phase);   <span class="cmt">// by phase.kind; null = conversational</span>
+surface?.onRender(stageInner);
+Surfaces.register({ kind: 'map', install: SimMap.install });   <span class="cmt">// page unchanged</span></pre>
+      </div>
+
+      <ul class="gains">
+        <li><b>New surfaces become additive.</b> A new interaction type is one folder — type module + surface module + shared geometry — registered in two places, with <em>zero edits</em> to the shared player. That's the same property the authoring side already has via <span class="k">AitheraStudio.register</span>; this makes all three registries symmetric — author types, runtime types, render surfaces.</li>
+        <li><b>The contract becomes explicit.</b> "What a surface must provide" is implicit today — smeared across ~10 call sites and one ad-hoc <span class="k">install({…})</span> argument list. A registry forces it into a named, documentable interface.</li>
+        <li><b>"Others stay byte-identical" stops being vigilance.</b> Today that guarantee is held by hand — every branch guarded on <span class="k">IS_SWEEP</span>. A registry makes it structural: no surface registered for a phase → no surface code runs, by construction.</li>
+        <li><b>Smaller blast radius.</b> Each surface's logic sits behind a uniform boundary, so a change to one surface can't perturb another or the conversational path.</li>
+        <li><b>The real unlock — per-phase surfaces.</b> <span class="k">IS_SWEEP</span> is effectively whole-run today. Resolving the surface per phase by <span class="k">kind</span> lets one ladder mix a spot phase <em>and</em> a map phase — a new authoring capability, not just cleaner code.</li>
+      </ul>
+
+      <p class="timing"><b>Timing:</b> don't build it speculatively from scene-sweep alone — one example over-fits the abstraction. Extract the registry <em>while</em> building modality #2, factoring the interface from two concrete surfaces. It's also orthogonal to the <span class="k">file://</span> dependency wall — this cleans up the host page's internals, not what a surface may load.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <div class="verdict-card">
+    <h2>Bottom line</h2>
+    <ul>
+      <li><b>Sustainable for one family:</b> "the learner produces gradeable signals on a custom surface." scene-sweep proved the seam; the next surface is ~2–3 new self-contained files plus, at most, one tiny engine hook — and the authoring side is close to free.</li>
+      <li><b>The friction isn't the engine.</b> The ladder core is DOM-free and stays untouched. New modalities land in the renderer, not the grading loop.</li>
+      <li class="watch"><b>Two things to plan for before modality #2:</b> external-dependency embeds (Maps/3D) collide with the <span class="k">file://</span> prototype rule — prototypes can only simulate them; and the host page needs a real surface registry so it doesn't keep growing per-modality branches.</li>
+    </ul>
+  </div>
+
+</div>
+
+</body>
+</html>
