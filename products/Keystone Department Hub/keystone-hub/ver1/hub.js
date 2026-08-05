@@ -226,32 +226,38 @@
   }
 
   function countsOf(tasks) {
-    var c = { overdue: 0, at_risk: 0, due_soon: 0, on_track: 0, past_sla: 0, total: tasks.length, late_or_risk: 0, p0: 0 };
+    var c = { overdue: 0, at_risk: 0, due_soon: 0, on_track: 0, past_sla: 0, total: tasks.length, late_or_risk: 0 };
     tasks.forEach(function (t) {
       c[t.status] = (c[t.status] || 0) + 1;
       if (t.status === 'overdue' || t.status === 'past_sla' || t.status === 'at_risk') c.late_or_risk++;
-      if (t.priorityBand === 'P0') c.p0++;
     });
     return c;
   }
 
   var VITAL_TONES = {
-    bad:  { bg: 'var(--coral-50)', fg: 'var(--coral-500)', border: 'var(--coral-100)' },
-    warn: { bg: 'var(--amber-50)', fg: 'var(--amber-600)', border: 'var(--amber-100)' },
-    ink:  { bg: 'var(--surface-3)', fg: 'var(--ink-800)', border: 'var(--ink-100)' }
+    bad:  { fg: 'var(--coral-500)' },
+    warn: { fg: 'var(--amber-600)' },
+    ink:  { fg: 'var(--ink-800)' }
   };
 
-  // The day overview, inline. Replaces the old right-hand rail of three big-number
-  // tiles (~70px) with a single ~20px line, freeing the fold for the published
-  // dashboard. These are TASK-QUEUE counts — deliberately a different data layer
-  // from the dashboard's readiness metrics, so the two don't say the same thing.
+  // The day overview. Replaces the old right-hand rail of three big-number tiles
+  // (~70px) with a single line, freeing the fold for the published dashboard.
+  // These are TASK-QUEUE counts — deliberately a different data layer from the
+  // dashboard's readiness metrics, so the two don't say the same thing. The line
+  // sits in the greeting's RIGHT rail, on the headline's row, so it costs no
+  // vertical space at all and fills what was dead space at the top right.
+  //
+  // Each stat used to carry a filled tone dot as well as a tone-coloured number.
+  // Two dots per stat — the tone dot and the separator middot — read as competing
+  // punctuation, and the dot said nothing the number's colour wasn't already
+  // saying. So the tone dot is gone; the number keeps the colour, and the
+  // separator is the only dot on the line (set larger, see .kx-vitalline__sep).
   function vitalLine(tiles) {
     var shown = tiles.filter(function (t) { return t.n > 0; });
     if (!shown.length) return '';
     return '<span class="kx-vitalline">' + shown.map(function (t) {
       var c = VITAL_TONES[t.tone];
       return '<span class="kx-vitalline__stat" title="' + KX.attr(t.label) + '">' +
-        '<span class="dot" style="background:' + c.fg + '"></span>' +
         '<span class="n" style="color:' + c.fg + '">' + t.n + '</span>' +
         '<span class="lbl">' + esc(t.label.toLowerCase()) + '</span></span>';
     }).join('<span class="kx-vitalline__sep">·</span>') + '</span>';
@@ -270,10 +276,13 @@
       ? (r.hero === 'crew' ? 'need your crew' : r.hero === 'personal' ? 'need you' : 'need attention')
       : 'in flight';
 
+    // Coverage's third stat was a "P0 / P1" count. The P-band designations are
+    // retired, so it's the battalion's due-today count instead — the same third
+    // beat the crew hero uses, and a number the Chief can act on this shift.
     var tiles = r.hero === 'coverage' ? [
       { n: late, label: 'Late', tone: 'bad', icon: 'priority_high' },
       { n: c.at_risk, label: 'At risk', tone: 'warn', icon: 'warning' },
-      { n: c.p0, label: 'P0 / P1', tone: 'ink', icon: 'flag' }
+      { n: c.due_soon, label: 'Due today', tone: 'ink', icon: 'schedule' }
     ] : r.hero === 'compliance' ? [
       { n: late, label: 'Mandatory late', tone: 'bad', icon: 'priority_high' },
       { n: c.at_risk, label: 'Expiring < 30d', tone: 'warn', icon: 'event_busy' },
@@ -296,14 +305,19 @@
         headlineN + '</span> items ' + esc(headlineWord) + ' <span class="muted">today.</span>'
       : esc(greetingFor(r, c));
 
-    // Single column now — the published dashboard below is what we want the eye to
-    // land on, so the greeting gives back its right-hand rail and most of its height.
+    // Two columns, but not the old editorial rail: the LEFT column is the whole
+    // greeting (eyebrow + headline) and the RIGHT column is the scope + day counts
+    // pulled up onto the headline's row. That reclaims the ~26px the counts used to
+    // cost below the headline AND uses the empty top-right, which is what buys the
+    // headline its full 40px H1 without pushing the dashboard down.
     var stats = vitalLine(tiles);
     return '<div class="kx-greeting">' +
+      '<div class="kx-greeting-main">' +
       '<div class="kx-eyebrow"><span class="pip" style="background:' + pip + ';box-shadow:0 0 8px ' + glow + '"></span>' +
       '<span class="txt">' + esc(greetingTime(TODAY)) + ' · ' +
       esc(TODAY.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })) + '</span></div>' +
       '<h1>' + headline + '</h1>' +
+      '</div>' +
       '<div class="kx-greeting-sub">' +
       '<span class="kx-greeting-scope">' + esc(r.sub || '') + '</span>' +
       (stats ? '<span class="kx-vitalline__sep">·</span>' + stats : '') +
@@ -426,7 +440,9 @@
 
     return '<div class="kx-filterbar">' +
       '<div class="kx-filterbar-row">' +
-      '<span class="kx-count">' + count + ' <span>task' + (count === 1 ? '' : 's') + '</span></span>' +
+      // The count is the task list's title — the only label between the hero and
+      // the table — so it is an h2, the rung below the greeting's h1.
+      '<h2 class="kx-count">' + count + ' <span>task' + (count === 1 ? '' : 's') + '</span></h2>' +
       myTasks + buckets +
       '<button class="kx-pill kx-btn-elev kx-desktop-only' + (state.filterOpen ? ' is-on' : '') + '" id="kxFilterToggle" ' +
       'aria-expanded="' + state.filterOpen + '">' + micon('tune', { size: 14 }) + 'Filter' +
@@ -856,6 +872,12 @@
       filterBar(filtered) +
       taskTable(filtered) +
       '</main></div></div></div>';
+
+    // Every Vector component in the view was just re-created, and in Safari a
+    // component built after page load never receives the theme stylesheet on its
+    // own — see KX.reapplyTheme. Without this the status segments lose their
+    // padding and borders on the first click.
+    KX.reapplyTheme();
 
     // The Agency Intelligence chat card used to mount inside the retired coverage
     // hero's right column. The hub now links out to it from the published

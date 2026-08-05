@@ -569,7 +569,8 @@
 
     return '<div class="cp-page">' +
       '<div class="cp-page-head"><div style="flex:1;min-width:0">' +
-      '<div style="display:flex;align-items:center;gap:10px">' + agencyIntelMark(34) + '<h1>Agency Intelligence</h1></div>' +
+      // Mark scales with the page title, now a 40px H1.
+      '<div style="display:flex;align-items:center;gap:12px">' + agencyIntelMark(40) + '<h1>Agency Intelligence</h1></div>' +
       '<p>' + esc(subtitle) + '</p></div>' +
       (tab === 'dashboards' && state.dashboards.length
         ? '<vaadin-button theme="primary" id="cpNewDash">' + micon('add', { size: 18 }) +
@@ -1048,7 +1049,7 @@
         ? '<vaadin-button theme="secondary small" id="cpBack" title="Back to Agency Intelligence">' +
           micon('arrow_back', { size: 15 }) + '<span class="kx-btn-label">Agency Intelligence</span></vaadin-button>' +
           '<span class="cp-dash-icon">' + micon(d.icon || 'dashboard', { size: 18, fill: 1 }) + '</span>'
-        : '<span style="font-family:var(--font-display);font-weight:500;font-size:13px;letter-spacing:0.4px;' +
+        : '<span style="font-family:var(--font-display);font-weight:600;font-size:13px;letter-spacing:0.4px;' +
           'text-transform:uppercase;color:var(--ink-400)">Preview</span>') +
       (locked
         ? ''
@@ -1091,7 +1092,7 @@
     var previewBanner = locked
       ? '<div style="padding:4px 0 20px;margin-bottom:6px;border-bottom:1px solid var(--ink-100)">' +
         '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-        '<span style="font-family:var(--font-display);font-weight:500;font-size:26px;color:var(--ink-900);' +
+        '<span style="font-family:var(--font-display);font-weight:600;font-size:26px;color:var(--ink-900);' +
         'letter-spacing:-0.3px">' + esc(d.name) + '</span>' +
         (state.mode === 'preview'
           ? '<span class="cp-status" style="background:var(--teal-50);color:var(--teal-600);' +
@@ -1153,7 +1154,7 @@
     return '<div style="background:var(--surface-1);padding:32px;max-width:840px;margin:0 auto">' +
       '<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:18px;margin-bottom:22px;' +
       'border-bottom:2px solid var(--ink-900)">' +
-      '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:500;font-size:24px;' +
+      '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:600;font-size:24px;' +
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(CP.widgetTitle(w)) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
       esc(d.name) + ' · Keystone · ' + esc(fmtDate(TODAY)) + '</div></div>' +
@@ -1173,7 +1174,7 @@
       'box-shadow:var(--elev-1);padding:32px;max-width:840px;margin:0 auto">' +
       '<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:18px;margin-bottom:22px;' +
       'border-bottom:2px solid var(--ink-900)">' +
-      '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:500;font-size:28px;' +
+      '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:600;font-size:28px;' +
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(d.name) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
       'Keystone · ' + esc(fmtDate(TODAY)) +
@@ -1390,6 +1391,10 @@
     // needs its own re-render pass whenever builder state changes.
     var host = document.getElementById('cpAddWidgetHost');
     if (host && host.isConnected) host.innerHTML = widgetBuilderHtml(true);
+
+    // Both passes above re-created Vector components, which in Safari come back
+    // unthemed unless the theme stylesheet is re-announced — see KX.reapplyTheme.
+    KX.reapplyTheme();
 
     hydrate();
   }

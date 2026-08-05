@@ -339,9 +339,9 @@
 
     return '<div class="pf-card">' +
       cardHead('tune', 'teal', 'Task-type importance',
-        'Per-type baseline weight, set once for the whole department. A mandatory NFPA training is ' +
-        'fundamentally more important than a PTO confirmation — this is where you say so. Use the timing ' +
-        'button on any row to override its time-pressure curve and set its own SLA.') +
+        'Your Keystone task list shows every item assigned to you or in progress. Prioritization ' +
+        'settings let your department control how those items are ranked, so the things that are most ' +
+        'important to your department surface first.') +
       sections + '</div>';
   }
 
@@ -539,7 +539,7 @@
   function previewHtml() {
     var flags = KX.getFlags();
     var subText = previewTab === 'types'
-      ? 'How each task type would rank for a typical pending item. Tune importance and weights to see the order shift.'
+      ? 'Change importance and weights on the left to see the order shift.'
       : 'Representative individual tasks, re-scored with your current settings. The order updates as you tune.';
 
     var tabs = flags.futureOn
@@ -590,7 +590,8 @@
       '<div class="pf-main">' +
       '<div style="min-width:0">' +
       '<div class="pf-intro"><h1>Prioritization</h1>' +
-      '<p>Tune how Keystone ranks open work across TargetSolutions, CheckIt, Guardian, Scheduling, and EV+. ' +
+      '<p>Tune how Keystone ranks open work across TargetSolutions, Check It, Guardian Tracking, ' +
+      'Vector Scheduling, and Evaluations +. ' +
       'Settings apply department-wide and take effect immediately.</p></div>' +
       importanceCard() +
       advancedSection() +
@@ -599,6 +600,11 @@
       '</div></main></div></div>' +
       toolbarHtml() +
       '</div>';
+
+    // Re-created Vector components don't get the theme stylesheet on their own in
+    // Safari — see KX.reapplyTheme. Without this the unit toggle groups lose their
+    // padding and borders after the first re-render.
+    KX.reapplyTheme();
 
     wireElements();
     startFloatingPreview();
@@ -651,7 +657,7 @@
     var sub = document.getElementById('pfPreviewSub');
     if (sub) {
       sub.textContent = previewTab === 'types'
-        ? 'How each task type would rank for a typical pending item. Tune importance and weights to see the order shift.'
+        ? 'Change importance and weights on the left to see the order shift.'
         : 'Representative individual tasks, re-scored with your current settings. The order updates as you tune.';
     }
   }

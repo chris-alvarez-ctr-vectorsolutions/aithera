@@ -171,7 +171,7 @@
       type: 'video',
       video: {
         sound: true,
-        scenes: [ { src: '../assets/videos/marshall.mp4?v=1', caption: '' } ],
+        scenes: [ { src: '../../../assets/videos/marshall.mp4?v=1', caption: '' } ],
       },
       audio: {
         eyebrow: 'The situation · listen or read along',

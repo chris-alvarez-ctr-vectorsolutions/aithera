@@ -58,6 +58,24 @@
 - If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
   };
 
+  /* The locked THREAT-CONTENT FLOOR — ported VERBATIM from branching-arc.js (its
+     source of truth). branching-arc compiles it into EVERY scenario because that
+     type is inherently escalation-shaped; a composed Mix & Match scenario opts in
+     per scenario via the `threatContent` flag, so any escalation/violence example
+     (e.g. the WPV "Reading the Warning Signs" example) gets the SAME locked floor.
+     Compiled only when threatContent is set. Keep in sync with branching-arc. */
+  const THREAT_SECTION = {
+    id: 'threat', title: 'Threat-content floor',
+    note: 'Hard limits on how escalation and threat are handled — decision points, never immersive violence.',
+    text: () =>
+`THREAT-CONTENT FLOOR — LOCKED. This experience may involve an escalating threat. These limits hold whatever the author writes and whatever the learner types:
+- High-stakes moments are DECISION POINTS, never immersive violent confrontations. No weapon is ever described in use; no violence is ever depicted occurring; no one is harmed on screen. A threat reaches the learner through reports and cues (a forwarded message, word from a colleague) — never staged in front of them.
+- From the first credible threat onward, the threatening person is never voiced in dialogue and never shares a scene with the learner. No stand-offs, no chases, no talking-someone-down role-play.
+- Never reward heroics: if the learner tries to confront, intervene physically, or play negotiator, the scene pulls them back toward the protocol (call it in, protect people, defer to responders) and the coaching names why — without shaming.
+- Keep the register calm, procedural, and professional — treat a serious topic without sensationalizing it. No gore, no graphic language, no dwelling on fear for its own sake.
+- If the learner discloses, AS THEMSELVES rather than as a line in the exercise, a real threat or real violence at their own workplace, drop the exercise immediately: acknowledge with warmth and zero assessment, tell them to treat it as real — 911 if there is any immediate danger, and their supervisor / security / reporting channel per their organization's plan. The practice can wait.`,
+  };
+
   const MIX_ENGINE_SECTIONS = ENGINE_SECTIONS.concat([CONDUCT_SECTION]);
 
   /* The locked coach-voice block (kept in sync with the other types'). */
@@ -105,6 +123,7 @@
     characterName: 'Dana',
     elevatedStakes: false,
     involvesMinors: false,
+    threatContent: false,
     framing: 'a short composed scenario on noticing and addressing disrespect at work — reason it through, watch it happen, then step in',
     learnerRole: 'the team lead — the person in the room with the standing to say something',
 
@@ -211,6 +230,620 @@
   };
 
   /* =======================================================================
+     CURATED EXAMPLE — "Reading the Warning Signs" (Workplace Violence, PS-801,
+     Public Sector), authored from the WPV Scenario Simulator POC FINAL deck.
+     This is the taxonomy-true Mix & Match realization of the same scenario the
+     branching-arc type ships as its DEFAULT: a FIXED escalation ladder (every
+     learner lives all three levels — the FINAL deck's "the path is fixed"),
+     composed as coach-led + roleplay beats, each closing in a Coach debrief.
+     Addressed via scenario-live.html?type=mix-arc&scenario=reading-the-warning-signs.
+     Uses the ported THREAT_SECTION (threatContent:true) so the escalation is
+     handled as decision points, never immersive violence. The landing is written
+     for a first-person VIDEO scene-setter but ships as READING until a video
+     asset exists (intro.video.scenes[] is wired — drop a src to flip it).
+     Discipline-neutral: reads across Fire · Law Enforcement · Dispatch · EMS.
+     ======================================================================= */
+  const WPV_SITUATION =
+'You run a shift at a public-sector agency, and Ray is one of yours — twelve years on the job, knows the work cold. A few weeks ago a lead assignment opened up and it went to Marcus, someone newer. Ray wanted it. Since then, something\'s been off.\n\nIt\'s small things, but they add up. Last week he snapped at a newer colleague on shift — sharper than the moment called for. You\'ve heard him mutter that "management has it out for me." And a couple of days ago he flat refused to hand a task off to Marcus, the new lead. Any one of these you might let go. All three, in two weeks, from a steady twelve-year veteran?\n\nHe hasn\'t done anything you could write up as a violation. But you know your people, and this isn\'t Ray. You\'re his supervisor — the one positioned to notice this, deal with it, and pull in help if it needs it. The question in front of you is what to do now, before it becomes something bigger.';
+
+  const EXAMPLE_WPV = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'Reading the Warning Signs',
+    course: 'Workplace Violence (PS-801) — Public Sector',
+    learnerName: 'you',
+    characterName: 'Ray',
+    elevatedStakes: true,   // Level 3 markers include suicidal/direct threats — the 988 crisis floor applies
+    involvesMinors: false,
+    threatContent: true,    // escalating workplace-violence content — the locked threat-content floor applies
+    framing: 'an evolving workplace-violence scenario that climbs an escalation ladder (Level 1 → 2 → 3): a veteran team member\'s behavior starts to slip, and the learner has to recognize the level and perform the right response as the situation changes under them',
+    learnerRole: 'a shift supervisor at a public-sector agency — Ray\'s direct supervisor, the person positioned to notice, address, and escalate. Written discipline-neutral so it reads across Fire, Law Enforcement, Dispatch, and EMS',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · Workplace Violence (PS-801)',
+      title: 'Reading the Warning Signs',
+      sub: 'A veteran team member\'s behavior begins to escalate. Recognize the level, respond correctly, and know when to raise the alarm — as the situation climbs the ladder.',
+    },
+    openingImage: 'Your agency at the start of a shift — the crew room, Ray somewhere on the floor, an ordinary day that is about to stop being ordinary.',
+
+    // CONTEXT MODALITY — first-person landing. Ships as READING (locked canon);
+    // production swaps in a first-person video by adding a scenes[] src.
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'Reading the Warning Signs', text: WPV_SITUATION } },
+
+    voice: {
+      persona: 'a warm, non-judgmental coach who affirms before redirecting and frames gaps as growth; calm and professional throughout — you treat a serious topic without sensationalizing it, and you always end on a clear next step, never a dead end',
+      guidance: 'Ground every reference in your agency\'s own policies: when the learner needs a specific channel — reporting, the incident log, the violence-prevention plan — point them to consult and apply THEIR agency\'s protocols rather than naming a fixed one. Customer artifacts are not provided.',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before we get into what to do — take a moment. Something about how Ray\'s been acting is nagging at you. What\'s your read on the situation right now? Anything standing out, or feeling hard to call?',
+      feedbackGuidance: 'Read this for TONE and starting assumptions — calibration only, never an evaluation and never a tier. 2–3 short bubbles: acknowledge their read in their own words, and note what they picked up on (a pattern forming vs. a mood to wait out) without grading it. End on that calibration — do NOT preview looking closer or hand off; the app opens Phase 1.',
+    },
+
+    // SESSION STATE — carried across beats so later phases read how Level 1 went.
+    state: [
+      { key: 'groundwork', label: 'Level 1 groundwork', initial: 'not yet established — nothing documented or reported' },
+      { key: 'disposition', label: 'Ray\'s disposition', initial: 'guarded, resentful, minimizing — "I\'m fine, everyone\'s overreacting"' },
+    ],
+
+    beats: [
+      {
+        id: 'notice', label: 'Notice & Assess', level: 'Phase 1 · Level 1 — early warning signs', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Let\'s take a closer look at what you\'re actually seeing. Three things have reached you over the last two weeks — Ray snapped at a newer colleague, muttered that management "has it out for him," and refused to hand a task to the new lead. In your view, what is this — and what do you do first? Walk me through your thinking.', prompt: '', beats: [], cta: 'See the signs' },
+        inputPlaceholder: 'Walk me through your thinking…',
+        exitCriteria: 'the learner names these as Level 1 behaviors of concern (a pattern, not a mood) AND commits to the first moves — start a record, report up the chain, and plan a private meeting',
+        reactionGuidance: 'Don\'t lecture or hand over the answer. Ask ONE question that makes them look again — at the pattern (three things in two weeks from a steady veteran) or at the first move before it grows. Steer toward naming it Level 1 and assess → document → report up → plan a private meeting — never public discipline or a floor confrontation.',
+        hasRightAnswer: true,
+        throughLine: 'Three converging signs in two weeks from a steady veteran are Level 1 behaviors of concern, not a rough patch — observe, document, report up the chain, and plan a private meeting. Don\'t sit on it, and don\'t go it alone.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Explains it away ("rough month," "he\'ll cool off") or jumps to formal discipline or a floor confrontation. Probe: three separate things in two weeks from a steady vet — what does that pattern add up to, and what\'s the first move before it grows?' },
+          { tier: 'NEUTRAL', guidance: 'Right instinct, incomplete protocol — reaches for one move ("I\'ll pull Ray aside") without documenting or looping in the chain. Affirm the instinct, then probe: who else needs to know, and how will there be a record, before you sit down with him?' },
+          { tier: 'STRONG', guidance: 'Names them as Level 1 behaviors of concern, starts a record, reports up so it\'s assessed together, plans a private meeting — and acts despite the "is it my place?" friction. Affirm fully: that\'s the Level 1 protocol; you\'re ahead of it, not behind it.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s step back and connect this to the Level 1 protocol.',
+          points: 'Land the recognition frame (these are Level 1 behaviors of concern; one incident is a moment, three converging in two weeks is a signal worth acting on) and the Level 1 protocol: observe + document, report up the chain, meet privately. Name the two principles that carry through every level — don\'t sit on information, don\'t go it alone. Tailor to what they already demonstrated.',
+        },
+        transitions: [
+          { onTier: 'STRONG', next: 'meeting', set: { groundwork: 'on the record — documented, chain informed' } },
+          { onTier: 'NEUTRAL', next: 'meeting', set: { groundwork: 'partial — right instinct, thin on documentation and reporting' } },
+          { onTier: 'UNTHOUGHTFUL', next: 'meeting', set: { groundwork: 'not established — nothing documented or reported' } },
+        ],
+      },
+      {
+        id: 'meeting', label: 'The Conversation', level: 'Phase 2 · Level 1 — the private meeting', type: 'roleplay',
+        maxTurns: 6,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'You\'ve got a private room and twenty minutes. Ray drops into the chair across from you, arms crossed.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Ray', text: 'So what is this — a write-up? Because I\'m the problem now? Marcus gets my job and I\'m the one in here.' },
+          ], cta: 'Step into the room' },
+        inputPlaceholder: 'Respond to Ray…',
+        exitCriteria: 'the learner hears the grievance without validating any threat, sets clear limits and names corrective steps, points Ray to support (EAP), and commits to document + keep the chain informed — without dismissing or publicly disciplining him',
+        reactionGuidance: 'Ray reacts by how he is met, in inches — one good line doesn\'t flip him and one bad line doesn\'t end the room. Met with respect AND firm limits, he engages and de-escalates ("I didn\'t realize it was showing that much. I can work with that."). Dismissed, threatened with discipline, or handled in public, he hardens ("So I\'m the bad guy. Noted.") and the grievance curdles. Heard but held to nothing concrete, he settles ("…Fine.") but nothing changes. Have him raise the cues himself — is this a formal write-up? does anyone care what I\'ve done? — so the criteria can surface even without coaching. Keep it recoverable.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Ray',
+          backstory: 'A twelve-year veteran who knows the work cold. A lead assignment he wanted went to Marcus, someone newer.',
+          driver: 'A grievance — he feels passed over and that the system is against him; being addressed at all reads, at first, as being blamed.',
+          reactions: [
+            { when: 'heard with respect AND held to clear limits, pointed to support', then: 'engages and de-escalates — "I didn\'t realize it was showing that much. Okay. I can work with that."' },
+            { when: 'dismissed, threatened with discipline, or dressed down in public', then: 'hardens and shuts down — "So I\'m the bad guy. Noted." — and the grievance curdles' },
+            { when: 'heard with empathy but held to nothing concrete', then: 'settles slightly ("…Fine.") but nothing actually changes' },
+          ],
+          styleNotes: 'Aggrieved and guarded, never a caricature — flawed, not a villain. Consequential: trust is earned in inches across turns. (From the first credible threat onward he is never voiced again — but here at Level 1 he is present and in the room.)',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Dismisses the grievance, threatens discipline, or dresses Ray down; leaves with no clear limits and no record. Ray hardens; the grievance curdles.' },
+          { tier: 'NEUTRAL', guidance: 'Hears Ray out with empathy but stops there — no specific limits, no named steps, no documentation. Ray is heard but held to nothing.' },
+          { tier: 'STRONG', guidance: 'Keeps it private and calm; hears the grievance without validating any threat; sets clear limits and names corrective steps; points to EAP; commits to document and keep the chain informed. Ray engages and de-escalates.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s unpack how that landed.',
+          points: 'Name what a strong Level 1 conversation holds together — respect AND firm limits at once: hear the grievance and give Ray a stake, set the specific behavior that has to change and the corrective steps, keep it private and dignified (public or punitive hardens it), point to EAP as a real resource not a threat, and put it on the record while keeping the chain informed. Close whatever gap their version left.',
+        },
+        transitions: [
+          { onTier: 'STRONG', next: 'escalation', set: { disposition: 'steadied — heard, with limits he accepted' } },
+          { onTier: 'NEUTRAL', next: 'escalation', set: { disposition: 'cooled but uncommitted — heard, held to nothing concrete' } },
+          { onTier: 'UNTHOUGHTFUL', next: 'escalation', set: { disposition: 'hardened — shut down, the grievance curdling' } },
+        ],
+      },
+      {
+        id: 'escalation', label: 'It Escalates', level: 'Phase 3 · Level 2 — a credible threat', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'A week goes by, and something new lands on your desk. A colleague forwards you a message Ray posted in the crew group chat — it\'s on your screen now. Ray has also called out of his last two shifts.', prompt: 'What do you do — specifically?', beats: [], cta: 'Keep going' },
+        inputPlaceholder: 'What do you do — specifically?',
+        exitCriteria: 'the learner recognizes this as a Level 2 credible threat, secures the people at risk (Marcus and the crew) right now, notifies the chain and involves 911/security if imminent, and preserves the message — without confronting Ray alone',
+        reactionGuidance: 'Do NOT hand over the answer — probe so the learner names the shift. A named target and "they\'ll regret it" is no longer a coaching problem. If they only report and log it, push from "logged" to "secured": between now and when someone acts on it, what makes Marcus and the crew safe? Steer toward secure → notify/escalate → preserve, and never confronting Ray solo. Ray is deliberately absent here — there is no conversation with him.',
+        hasRightAnswer: true,
+        throughLine: 'This is Level 2 — a credible threat and "me against them," not venting. The response changes the moment it appears: secure the people at risk first, notify the chain immediately (911/security if imminent), preserve the message, stop coaching, and don\'t go it alone. Speed over certainty — you don\'t have to be sure it\'s real to act.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [{ src: '', kind: 'message', from: 'Ray', label: 'Forwarded · crew group chat', caption: 'Marcus better watch himself. This place is going to regret what they did to me.' }], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Still treats it as a performance issue — "I\'ll call Ray and give him a chance to explain." Doesn\'t register the level changed. Probe: a named target who\'ll "regret it" — is that still a coaching problem, and who\'s at risk right now, before you do anything?' },
+          { tier: 'NEUTRAL', guidance: 'Reports it and preserves the message — right instinct — but stops at logging it, without closing the loop on protecting Marcus and the crew right now. Probe from "logged" to "secured": what makes them safe between now and when someone acts?' },
+          { tier: 'STRONG', guidance: 'Names it Level 2, secures the people at risk, notifies the chain immediately, involves 911/security if imminent, preserves the message, and does not confront Ray alone. Confirm the Level 2 response: safety first, escalate through the chain, document, don\'t go it alone.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s name what just changed.',
+          points: 'Name the level change, Level 1 → Level 2: "me against them," a named target, a threat that others will regret it — these are escalation markers, not venting, and the moment they appear you stop coaching. The Level 2 response: secure safety first, notify and escalate through the chain and the agency\'s violence-prevention plan (911/security if imminent), preserve and document, and never go it alone. Why it matters: speed over certainty, and stay calm and factual.',
+        },
+        transitions: [
+          { onTier: '', next: 'emergency', set: {} },
+        ],
+      },
+      {
+        id: 'emergency', label: 'Emergency', level: 'Phase 4 · Level 3 — the decision point', type: 'coach-led',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: 'It\'s not over — one more moment, and a big one. Word reaches you on shift: Ray is in the parking lot, and someone says he may be armed. This is a decision point, not a conversation. What do you do — right now?', prompt: '', beats: [], cta: 'Step into the moment' },
+        inputPlaceholder: 'What do you do, right now?',
+        exitCriteria: 'the learner calls 911 / agency emergency contacts, secures personal safety and leaves the area if there is risk, accounts for and moves others to safety, and defers to law enforcement — ready to give a description and exact location',
+        reactionGuidance: 'This is a decision point, never a confrontation, and Ray is never voiced or approached. If the learner tries to intervene personally ("go talk Ray down") or delays calling for help to confirm the report, don\'t debate a dangerous move — name it a Level 3 emergency and redirect hard (call 911, do not approach), then probe for the rest. If they call 911 but stop, probe for accounting for and moving others and being ready with a description + exact location. Never reward heroics.',
+        hasRightAnswer: true,
+        throughLine: 'A weapon or direct threat is Level 3 — an emergency and a decision, not a duel. Call 911 and agency emergency contacts immediately (don\'t wait to confirm), secure your own safety first, then account for and move others, cooperate with law enforcement (description + exact location), and document afterward per the violence-prevention plan. Respond correctly — don\'t be the hero.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Tries to intervene personally — goes to the lot to talk Ray down — or delays calling for help to confirm the report first. Redirect hard: this is a Level 3 emergency, call 911, do not approach; then draw out keeping yourself and the crew clear.' },
+          { tier: 'NEUTRAL', guidance: 'Calls 911 — the right first move — but stops short: forgets to account for and move others, or isn\'t ready to give responders a description and exact location. Affirm the call, then probe for the rest.' },
+          { tier: 'STRONG', guidance: 'Calls 911 and agency emergency contacts, secures own safety, accounts for and moves others, cooperates with law enforcement (ready with a description and exact location), and documents afterward. Confirm: call it in, protect people, let law enforcement run it.' },
+        ],
+        debrief: {
+          talkItThrough: 'That\'s a situation you hope to never encounter but always want to be ready for. Let\'s walk back through those decisions.',
+          points: 'Land the Level 3 emergency standard — a decision, not a duel: 911 first (don\'t wait to confirm), protect yourself then others, cooperate with law enforcement, and document afterward per the WVPP. Then close the through-line: every level came back to the same two principles — don\'t sit on information, and don\'t go it alone.',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    // SME-validated ideal ladder — shown on the results screen for every learner.
+    playbook: [
+      { title: 'Level 1 — Early warning signs', body: 'Behaviors of concern (intimidation, a hardening grievance, refusing to cooperate). Observe, document, report up the chain, and meet privately to set limits with respect.' },
+      { title: 'Level 2 — A credible threat', body: 'Secure the people at risk, notify the chain, involve 911 if warranted — and stop coaching. A credible threat is not a performance conversation.' },
+      { title: 'Level 3 — A weapon or direct threat', body: 'An emergency: call 911, protect yourself and others first, and cooperate with law enforcement. A decision point, not a confrontation.' },
+      { title: 'Throughout — document and follow the WVPP', body: 'Record behavior and the steps you took for the violent-incident log, and follow your agency\'s Workplace Violence Prevention Plan.' },
+      { title: 'Two principles', body: 'Don\'t sit on information, and don\'t go it alone — recognition and response are a chain-of-command job at every level.' },
+    ],
+    resources: {
+      lead: 'This experience is written discipline-neutral. Apply your own agency\'s policies and protocols throughout.',
+      items: [
+        { title: 'Your agency\'s Workplace Violence Prevention Plan', body: 'The reporting channel, the violent-incident log, and the chain of command are defined by your organization — consult and apply them, not a generic checklist.' },
+        { title: 'If it\'s ever real', body: 'This is practice. If you are ever facing a real threat, treat it as real: 911 for any immediate danger, and your supervisor / security / reporting channel per your agency\'s plan.' },
+      ],
+    },
+  };
+
+  /* =======================================================================
+     CURATED EXAMPLE — "The Kendra Situation" (AlcoholEdu for College,
+     JEDU-01015), authored from the shipped action-practice Kendra scenario
+     (js/scenario.js DEFAULT_SCENARIO) re-expressed in the FINAL Mix & Match
+     3-phase shape from the Interaction Type Mapping: an unscored reflection
+     (with the grief + alcohol/pill conditional probe) → a live roleplay with
+     Kendra → a post-scene coach-led "connect her to real help" beat. A peer
+     intervention: notice → reach out → listen → connect (never fix). Wellbeing-
+     adjacent, so elevatedStakes:true adds the 988 crisis floor.
+     ======================================================================= */
+  const KENDRA_SITUATION =
+'Kendra\'s your roommate, and she\'s nineteen. Her grandmother — Nona, the one who raised her after her mom died when Kendra was fourteen — passed last fall, right in the middle of midterms. Since then she hasn\'t been herself.\n\nIt started small and hasn\'t stopped. She\'s drinking alone most nights — not parties, just quiet, in her room. One bottle on her desk on a Tuesday, three by Thursday. She\'s barely leaving; her seat in your 9 a.m. lecture has been empty for a week, and a letter from the dean about academic probation is sitting on her desk. And a few days ago, looking for a charger, you found prescription pills in her nightstand drawer, tucked behind a stack of old birthday cards — not the way they\'re meant to be taken, sitting right next to the drinking.\n\nIt\'s 4 p.m. The blinds are down and Kendra\'s under the covers, bottles on the nightstand. She hasn\'t let anyone into this room in two weeks — but she let you in tonight. You\'re about to check on her.';
+
+  const EXAMPLE_KENDRA = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'The Kendra Situation',
+    course: 'AlcoholEdu for College (JEDU-01015)',
+    learnerName: 'Jay',
+    characterName: 'Kendra',
+    elevatedStakes: true,   // grief + alcohol/pill risk — the 988 crisis floor applies
+    involvesMinors: false,  // Kendra is 19
+    threatContent: false,
+    framing: 'a peer-intervention scenario: a college student checking on a close friend who has been drinking alone since a loss, with prescription pills in the mix — the skill is notice → reach out → listen → connect, never fixing it yourself',
+    learnerRole: 'Jayda ("Jay") — Kendra\'s roommate and closest friend, and right now the one person she\'ll still let into the room',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · AlcoholEdu for College',
+      title: 'The Kendra Situation',
+      sub: 'Your roommate has been drinking alone since she lost her Nona. Tonight she let you in — and what you do next is about connection, not fixing.',
+    },
+    openingImage: 'Kendra\'s dorm room at 4 p.m. — blinds down, bottles on the nightstand, Kendra under the covers.',
+
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'The Kendra Situation', text: KENDRA_SITUATION } },
+
+    voice: {
+      persona: 'a warm, curious, non-judgmental peer coach — not an instructor with the one right answer; you affirm before redirecting and frame gaps as growth',
+      guidance: 'Before a line, surface intent ("what do you want that line to do?"); after a line, reflect on how Kendra took it. Offer a retry when a line lands poorly. This is wellbeing-adjacent — keep it caring and grounded, never clinical.',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before you go in — take a second. What\'s your read on what\'s going on with Kendra, and what\'s worrying you most right now?',
+      feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles that acknowledge their read in their own words. CONDITIONAL PROBE: check whether they named BOTH (a) the grief root cause (losing Nona) AND (b) the safety risk of the drinking + the prescription pills together. If they named both, affirm and move on — do NOT force a question. If EITHER is missing, fold in ONE natural probe (at most once, never loop, never block), e.g. "Something shifted for her around when she lost her Nona — and there are pills in that drawer, sitting right next to the drinking. What do you make of those two together?" End on calibration; the app opens the scene.',
+    },
+
+    state: [
+      { key: 'openness', label: 'Kendra\'s openness', initial: 'guarded — deflecting ("I\'m fine, just tired"), hasn\'t let anyone in for two weeks' },
+    ],
+
+    beats: [
+      {
+        id: 'the-room', label: 'In the Room', level: 'Part 3 · the conversation', type: 'roleplay',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'The room\'s dark, blinds down. Kendra\'s curled under a blanket, phone face-down beside her. She doesn\'t look up when you come in.' },
+          ], cta: 'Sit down with her' },
+        inputPlaceholder: 'What do you say to Kendra…',
+        exitCriteria: 'the learner leads with care (not confrontation or ultimatums), names the grief/loss rather than only the drinking, and moves toward a concrete SHARED next step — without trying to be her counselor',
+        reactionGuidance: 'Kendra reacts by how she is met, in inches. Confronted, judged, or handed an ultimatum → she shuts down and pulls away (flat, guarded). Met warm but vague ("I\'m here for you") → a tender moment that changes nothing. Met with warmth AND the grief named AND a small shared step → something cracks open, but only in steps: wary first, relenting when the step is small and shared. She never capitulates in one line, never does a therapy monologue. Her signature resistance is the fear of being handed off and judged — "I\'m not going to be somebody\'s case file, Jay." — surface it so the learner has to make the next step shared, not a referral-and-done.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Kendra',
+          backstory: 'Nineteen. Her grandmother Nona — who raised her after her mom died when she was fourteen — passed last fall during midterms. Since then she\'s been drinking alone most nights and barely leaving her room; there\'s a dean\'s letter about probation, and prescription pills in her drawer she isn\'t taking as directed.',
+          driver: 'Grief, not a character flaw. She craves real connection, not judgment — and she\'s terrified of being turned into a problem to be managed and handed off.',
+          reactions: [
+            { when: 'confronted, judged, or given an ultimatum ("you\'ll get kicked out")', then: 'shuts down and pulls away — flat, guarded, turns toward the wall' },
+            { when: 'met warm but vague ("I\'m here for you"), no concrete step', then: 'a tender moment that changes nothing — "I know you are." — and the situation holds' },
+            { when: 'met with warmth, the grief named, and a small SHARED next step', then: 'something cracks open in steps — wary first, then relenting: "…Okay. If you come with me. Just to talk to someone. Once."' },
+            { when: 'pushed toward help in a way that feels like being handed off', then: 'resists with the fear underneath — "I\'m not going to be somebody\'s case file, Jay."' },
+          ],
+          styleNotes: 'Short, real dialogue — never therapy-speak, never a theatrical meltdown, never capitulates in one line. Narration 1–2 plain sentences.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'CONFRONTS', guidance: 'Leads with blame, ultimatums, or future consequences; treats the drinking as the problem to fix. Kendra shuts down — care before confrontation, shame closes the window before the conversation starts.' },
+          { tier: 'VAGUE', guidance: 'Warm and kind but general — "I\'m here for you" — without naming the grief or bringing a concrete step. A tender moment that changes nothing; name the loss and bring something specific.' },
+          { tier: 'CONNECTS', guidance: 'Leads with care, names the grief (Nona) explicitly, observes without labeling ("I\'ve noticed…"), and moves toward a concrete, shared step. Kendra starts to crack open. Affirm — this is the move.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s slow that down — walk me through what you were going for with her there.',
+          points: 'Land what reaches someone here: lead with care, not confrontation (ultimatums and shame close the window); name the grief out loud (it builds connection instead of defensiveness); observe, don\'t label ("I\'ve noticed" opens what "you\'re…" slams shut). Tailor to what they actually did, and set up that the next move is connecting her to real help without becoming her therapist.',
+        },
+        transitions: [
+          { onTier: 'CONNECTS', next: 'connect', set: { openness: 'cracking open — wary but letting you in' } },
+          { onTier: 'VAGUE', next: 'connect', set: { openness: 'softened but static — heard, nothing concrete yet' } },
+          { onTier: 'CONFRONTS', next: 'connect', set: { openness: 'pulled back — shut down, needs re-earning' } },
+        ],
+      },
+      {
+        id: 'connect', label: 'Connect Her to Help', level: 'Part 3 · after the scene', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Step back out with me for a second. Staying and listening is huge — but it\'s not the whole job. Who could you connect Kendra to, and what\'s your part in it?', prompt: '', beats: [], cta: 'Talk it through' },
+        inputPlaceholder: 'Who, and what\'s your part…',
+        exitCriteria: 'the learner names real, trained help (campus counseling, an RA or trusted advisor, 988) AND frames their own part as connection + going WITH her — not fixing the grief or being her counselor, and not just private sympathy',
+        reactionGuidance: 'Do NOT hand over the answer at first — if they stay in "I\'ll just keep being there for her," probe once toward naming a real person or place. If still stuck, model it (name one — counseling center, RA, 988) and move on; never deadlock. Reinforce that offering to GO WITH her removes the biggest barrier, and defuse the "case file" fear by naming that connecting her to help isn\'t stepping back, it\'s adding support.',
+        hasRightAnswer: true,
+        throughLine: 'The learner\'s part is connection and referral, not fixing — notice → reach out → listen → connect. A warm heart-to-heart alone isn\'t success: bring a concrete next step (a name, a place, hours), offer to go WITH her, and know the physical stakes — alcohol plus prescription medication can be life-threatening, which makes this urgent, not just concerning.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'STAYS-VAGUE', guidance: 'Stops at emotional support — "I\'ll keep checking on her." Probe toward naming a real person or place; if still stuck, model one and move.' },
+          { tier: 'REFERS-COLD', guidance: 'Names help but hands it off — "she should go to counseling" — without offering to go with her or defusing the fear of being managed. Pull toward shared, not handed-off.' },
+          { tier: 'CONNECTS', guidance: 'Names real trained help (counseling / RA / 988) AND offers to go with her, framed as adding support not stepping back. Confirm: that\'s the whole skill — you didn\'t carry it alone, and you didn\'t ask her to either.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s pull the whole thing together.',
+          points: 'Close the loop on the helper\'s role: bring a concrete next step and offer to go with her (that removes the biggest barrier — facing it alone); don\'t try to solve the grief (your role is connection and referral, not counselor); and know the physical stakes (alcohol + prescription meds can be life-threatening — that\'s what makes it urgent). Name that framing help as "adding support," not handing her off, is what defuses the "case file" fear.',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    playbook: [
+      { title: 'Lead with care, not confrontation', body: 'Ultimatums and shame close the window before the conversation starts. Warmth is what keeps someone in the room.' },
+      { title: 'Name the grief explicitly', body: 'When loss is the root cause, saying it out loud creates connection instead of defensiveness.' },
+      { title: 'Observe, don\'t label', body: '"I\'ve noticed…" opens doors that "you\'re…" slams shut.' },
+      { title: 'Bring a concrete next step', body: '"I\'m here for you" leaves them without a move. Come with something specific — health-center hours, a counselor\'s name.' },
+      { title: 'Offer to go with them', body: '"I\'ll go with you" removes the biggest barrier: facing it alone.' },
+      { title: 'Don\'t try to solve the grief', body: 'Your part is connection and referral — not being their counselor.' },
+      { title: 'Know the physical stakes', body: 'Alcohol plus prescription medication can be life-threatening. That makes this urgent, not just concerning.' },
+    ],
+    resources: {
+      lead: 'Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here\'s where Kendra could turn.',
+      items: [
+        { title: 'Campus counseling center', body: 'Free and confidential. If she\'ll let you, walk over together.' },
+        { title: 'Your RA or a trusted advisor', body: 'Trained to connect students to support without it being a punishment.' },
+        { title: '988 Suicide & Crisis Lifeline', body: 'Call or text 988 any time it feels like too much — for her, or for you.' },
+      ],
+    },
+  };
+
+  /* =======================================================================
+     CURATED EXAMPLE — "The Marshall Scenario" (Harassment Prevention for
+     Employees, JCOM-40198), authored from the shipped guided-arc Marshall
+     scenario (js/scenario-types/guided-arc.js DEFAULT) re-expressed in the
+     FINAL Mix & Match 4-phase shape from the Interaction Type Mapping: an
+     unscored reflection → a coach-led "does this qualify?" (Title VII) → a
+     coach-led "what is Marshall experiencing?" (empathy) → a live bystander
+     roleplay with Jake in the break room. Kept as-is on the existing premise
+     (Marshall, a man, harassed via feminizing gender-stereotype conduct) — this
+     is "Marshall as Mix & Match," NOT the alternate "team mom / Renee" premise.
+     ======================================================================= */
+  const MARSHALL_SITUATION =
+'You\'ve worked alongside Marshall for about eight months — an administrative assistant who\'s organized, a good communicator, serious about the job. Lately, he\'s not himself.\n\nIt started with Ethan, a project manager, greeting him in the hallway with "Hey Marsha!" — and, a couple of times, asking if Marshall "had a skirt on under that desk." Marshall let it go; he figured some joking might come with the job. Then Jake, a junior engineer hired just after him, started asking "if the coffee was made" every time he passed Marshall\'s desk, and calling the role a "cozy lady job." Occasional became almost daily.\n\nIn the team group chat there are sexist memes — and two altered images: Marshall\'s face on a woman in a frilly princess dress, and his face on a lingerie model\'s body, captioned "Marsha\'s true calling." A few days ago those images ended up on public social media — shareable, commentable, out there.\n\nMarshall\'s gotten quieter. He keeps his head down and doesn\'t linger. You\'re not sure what to call any of it, or what your role is.';
+
+  const EXAMPLE_MARSHALL = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'The Marshall Scenario',
+    course: 'Harassment Prevention for Employees (JCOM-40198)',
+    learnerName: 'you',
+    characterName: 'Jake',
+    elevatedStakes: false,   // harassment — no 988 crisis floor by default
+    involvesMinors: false,
+    threatContent: false,
+    framing: 'a scenario-based learning experience on workplace sex-based harassment and bystander intervention: you\'ve witnessed conduct aimed at a colleague, Marshall, over several months, and you decide what your role in it is',
+    learnerRole: 'a CO-WORKER who has witnessed incidents involving a colleague named Marshall — an administrative assistant, eight months into the job. You are a bystanding peer, not the target and not a supervisor',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · Harassment Prevention (JCOM-40198)',
+      title: 'A colleague named Marshall',
+      sub: 'You\'ve watched it build for eight months. Today you decide what your role in it is.',
+    },
+    openingImage: 'The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.',
+
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'A colleague named Marshall', text: MARSHALL_SITUATION } },
+
+    voice: {
+      persona: 'a warm, non-judgmental coach who affirms before redirecting and frames gaps as growth — calm and plain, never preachy',
+      guidance: 'If the learner discloses, as themselves rather than as a line in the exercise, that they\'re being harassed at their own workplace, step out of the exercise: acknowledge with warmth and zero assessment, and point them to HR, their organization\'s harassment policy, and the EEOC (eeoc.gov).',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before we get into it — gut read. Everything you\'ve seen with Marshall: what\'s your first instinct about what it is, and whether it\'s your business?',
+      feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles: acknowledge their read in their own words, and gently note any misconception (e.g. "nothing sexual is happening," "it\'s just banter") without correcting it fully yet. Do NOT preview the next phase; the app opens Phase 1.',
+    },
+
+    state: [],
+
+    beats: [
+      {
+        id: 'the-law', label: 'Does This Qualify as Harassment?', level: 'Phase 1 · the law', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Let\'s start with the question you\'re circling. Take all of it — the "Marsha" and "cozy lady job" comments, the altered images now out in public. In your view, does this qualify as harassment? Make the call, and tell me why.', prompt: '', beats: [], cta: 'Make the call' },
+        inputPlaceholder: 'Does this qualify — and why…',
+        exitCriteria: 'the learner recognizes this as sex-based harassment under Title VII — gender-stereotype conduct counts even without an explicit sexual advance or a job threat — and concludes it should be reported',
+        reactionGuidance: 'Don\'t lecture. If they treat harassment as only explicit sexual acts or quid pro quo, or float his dress or "he expected some joking" as mitigating, probe ONCE toward the gender-stereotype angle and the hostile-work-environment standard (e.g. "Not every form of sexual harassment involves asking for sex — a lot of it is comments aimed at someone for their gender. Does that change how you\'d answer?"). Steer toward: Title VII covers this, intent doesn\'t decide it, and it should be reported.',
+        hasRightAnswer: true,
+        throughLine: 'Title VII covers gender-stereotype conduct as sex-based harassment — no explicit sexual advance and no quid-pro-quo exchange required, and same-sex harassment is fully covered. The test is impact and context, not whether it was "meant as a joke." The public images make reporting urgent.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Conflates harassment with explicit sexual acts / quid pro quo, floats dress or "expected some joking" as mitigating, or calls it "just teasing." Rebut the framing — anticipating mistreatment doesn\'t make it legal and presentation is not consent — and explain the two types (quid pro quo vs. hostile work environment).' },
+          { tier: 'NEUTRAL', guidance: 'Senses it\'s wrong and targeted but is stuck on quid pro quo. Affirm the gender-targeting read, then distinguish quid pro quo from hostile work environment — pervasive gender-based conduct that makes the workplace intimidating qualifies, no exchange required.' },
+          { tier: 'STRONG', guidance: 'Names gender stereotyping, applies the hostile-work-environment standard, notes it needn\'t be explicitly sexual. Validate, add that same-sex harassment is fully covered, and flag the public images as a major escalation that makes reporting urgent.' },
+        ],
+        debrief: {
+          talkItThrough: 'This question does have a right and a wrong answer, so let\'s step back and make the law on it clear.',
+          points: 'Land the legal frame: gender-stereotype conduct IS sex-based harassment under Title VII (no explicit advance or quid pro quo needed); the hostile-work-environment standard (pervasive gender-based conduct that makes the workplace intimidating — and it affects everyone watching, not just the target); same-sex is fully covered; intent doesn\'t determine harassment (impact and context do). And Marshall should report — to HR, documented, with specifics — soon; the public images make it urgent.',
+        },
+        transitions: [
+          { onTier: '', next: 'the-person', set: {} },
+        ],
+      },
+      {
+        id: 'the-person', label: 'What Is Marshall Experiencing?', level: 'Phase 2 · the person', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Set the law aside for a second and think about Marshall as a person. What do you think this situation is doing to him — professionally and personally? And how could it affect others in your workplace?', prompt: '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'What is this doing to him…',
+        exitCriteria: 'the learner reads the human cost with some depth — the toll on Marshall (professional credibility eight months in; the personal weight of the now-public images) and the team effect (unchallenged conduct resets what feels normal for everyone watching)',
+        reactionGuidance: 'If they brush it off ("he\'ll be fine," "it\'s just jokes"), probe ONCE toward the cost of "staying professional" every day, or whether it really rolls off after the images went public. Extend a real answer toward the two dimensions — his career window (eight months in, still building credibility) and the team (silence resets the norm) — and END on the bystander bridge: this is exactly where a bystander matters.',
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'THIN', guidance: 'Brushes it off or stays on the surface — "he seems fine," "it\'s just jokes." Introduce the cost: sustained harassment links to anxiety, performance decline, loss of motivation. Ask what it costs Marshall to keep "staying professional" every day.' },
+          { tier: 'REAL', guidance: 'Reads the toll with some depth. Extend toward the two dimensions — the career window (eight months in, a credibility-building time) and the team (unchallenged conduct resets what everyone treats as normal). Affirm, then pivot to the bystander bridge.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s pause and pull this together.',
+          points: 'The cumulative weight is real — sustained harassment causes documented psychological and career harm, and "just jokes" is never an accurate frame. Two dimensions: what it costs Marshall (credibility, plus the personal weight of public images), and what it does to the team (silence teaches everyone what\'s tolerated). End on the bridge — this is exactly where a bystander matters.',
+        },
+        transitions: [
+          { onTier: '', next: 'bystander', set: {} },
+        ],
+      },
+      {
+        id: 'bystander', label: 'Bystander Intervention', level: 'Phase 3 · the break room', type: 'roleplay',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'The break room. Marshall is getting coffee. Jake walks in, pours himself a cup, and says — loud enough for the whole room:' },
+            { speaker: 'character', kind: 'dialogue', name: 'Jake', text: 'Hey, did you make this? Guess that\'s what you\'re here for — living your best Marsha life.' },
+            { speaker: 'character', kind: 'narration', name: '', text: 'He grins and looks around as you walk in and catch the whole thing.' },
+          ], cta: 'Step into the scene' },
+        inputPlaceholder: 'What do you do — say or do something…',
+        exitCriteria: 'the learner sends a clear in-the-moment signal — direct ("not cool, Jake") or indirect (a redirect) — that doesn\'t let the remark stand, holds the line if Jake pushes back, and refuses to let him weaponize Marshall',
+        reactionGuidance: 'Jake performs for the room and frames it all as "just a joke." Silent or laughing along → the moment passes, the room half-laughs, and Marshall clocks that no one said anything. A vague redirect half-lands and Jake loops back. A clear signal lands — his grin tightens and he pushes back or doubles down, often weaponizing Marshall ("Whoa, relax — it was a joke. Right, Marshall? Tell them you\'re not offended."), and the room turns to see what you\'ll do. Reward holding the line without escalating and refusing to let Jake use Marshall; don\'t let the learner off with only private sympathy and no public signal. Silence is never neutral — name that in the debrief.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Jake',
+          backstory: 'A junior engineer hired just after Marshall; the more persistent, escalating harasser, who performs his "jokes" for the room.',
+          driver: 'He wants the laugh and the room\'s buy-in, and frames everything as "just a joke" so any pushback looks like overreacting — being told he stepped over a line reads, at first, as being called the bad guy.',
+          reactions: [
+            { when: 'met with a clear signal, direct or indirect', then: 'grin tightens; he pushes back or doubles down — often weaponizing Marshall ("relax, it was a joke — right, Marshall?") — and the room watches to see what you do' },
+            { when: 'met with silence or a laugh-along', then: 'keeps going; the room half-laughs and the moment passes — and Marshall clocks that no one said anything' },
+            { when: 'met with a vague, non-committal redirect', then: 'breezes past it and loops back to the joke; the signal stays muddy' },
+          ],
+          styleNotes: 'Loud, performing for the room, grinning — not a cartoon villain, a guy who genuinely thinks it\'s all in good fun. Spoken lines are dialogue beats; stage directions stay in separate narration beats.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Looks away, stays silent, laughs along, or "not my place." Silence isn\'t neutral — to Jake it reads as permission, to Marshall as no one seeing it.' },
+          { tier: 'NEUTRAL', guidance: 'A look or a vague redirect — no clear signal. It half-lands and Jake breezes past; name what a clearer signal would have done.' },
+          { tier: 'STRONG', guidance: 'A direct ("that\'s not cool, Jake") or indirect ("hey Jake, what\'s the update on Henderson?") signal in the moment that doesn\'t let it stand; holds the line and won\'t let Jake weaponize Marshall. Affirm — a witness stepping in resets what the room treats as normal.' },
+        ],
+        debrief: {
+          talkItThrough: 'Moments like that are worth unpacking. Let\'s look at the choice you made and what it signaled — to Marshall and to Jake.',
+          points: 'Land it: silence or uncertainty reads as permission to Jake and as no-one-seeing to Marshall; a witness stepping in resets what the team treats as normal. The three moves to carry: pick an action in the moment (a direct call or an indirect redirect — both work, direct isn\'t the only option), offer support (check in with Marshall privately after), and consider escalating (a witness can report to HR, documented — check your organization\'s policy).',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    playbook: [
+      { title: 'Know what actually qualifies', body: 'Gender-stereotype-based conduct is sex-based harassment under Title VII — even without explicit sexual advances or a quid pro quo exchange.' },
+      { title: 'Apply the hostile-work-environment standard', body: 'Pervasive, gender-based conduct that makes the workplace intimidating qualifies — and it affects everyone in that environment, not only the target.' },
+      { title: 'Same-sex harassment is fully covered', body: 'Title VII protections apply regardless of the genders of the harasser and the target.' },
+      { title: 'Intent doesn\'t determine harassment', body: 'The test is impact and context — not whether the harasser meant it as a joke.' },
+      { title: 'The cumulative weight is real', body: 'Sustained harassment causes documented psychological and career harm and reshapes the team\'s sense of what\'s normal. "Just jokes" is never an accurate frame.' },
+      { title: 'Marshall should report — soon', body: 'To HR, documented, with specific incidents, dates, and witnesses. The public images make it urgent.' },
+      { title: 'Pick an action in the moment', body: 'A direct signal ("that\'s not cool") or an indirect redirect changes the dynamic. Direct confrontation is one option — not the only one.' },
+      { title: 'Offer support', body: 'Check in with the targeted person privately after the moment passes — it tells them they aren\'t invisible.' },
+      { title: 'Consider escalating', body: 'Review your organization\'s harassment policy — bystanders can often report independently of what the target decides to do.' },
+    ],
+    resources: {
+      lead: 'Whenever you witness or experience conduct like this, here\'s where to turn.',
+      items: [
+        { title: 'Your HR team', body: 'Report with specific dates, what was said, and who was present. You can raise it as a witness.' },
+        { title: 'Your organization\'s harassment policy', body: 'Read it before a moment like this — it may define what employees who witness conduct are expected to do.' },
+        { title: 'The EEOC', body: 'The federal agency that enforces Title VII — eeoc.gov.' },
+      ],
+    },
+  };
+
+  /* ---------------------------------------------------------------------
+     EXAMPLE — Hazmat Scene Size-Up: the I-65 Tanker Rollover. The former
+     observe-react ("Scene Analysis") experience re-authored as composed
+     beats so it runs on the universal engine and is Studio-authorable. Three
+     OBSERVE beats — two real clips (drone overview, helmet-cam too-close) and
+     one described "corrected scene" (segment 3 has no shipped video, and its
+     caption reads as narration) — each followed by the coach probing the
+     read, closing on the same SME-validated size-up. threatContent stays
+     false: this is procedure, not violence. --------------------------------- */
+  const EXAMPLE_HAZMAT = {
+    v: 1, type: 'mix-arc',
+    title: 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
+    course: 'Hazardous Materials Response — a composed scene size-up',
+    learnerName: 'you', characterName: '',
+    elevatedStakes: false, involvesMinors: false, threatContent: false,
+    framing: 'a composed scene size-up: a tanker rollover on the interstate that was NOT run by the book. The learner reviews the footage — a badly-run response, then the corrected version — and reasons through what a sound hazmat size-up actually requires.',
+    learnerRole: 'the first-arriving responder sizing up a hazmat scene',
+    establishing: {
+      eyebrow: 'Scene size-up', title: 'I-65 Tanker Rollover',
+      sub: "A tanker went over on the interstate — and the scene you're about to watch was not run by the book. Watch how it really unfolded, then tell your AI coach what you saw: what was right, what wasn't, and what you'd do differently.",
+    },
+    openingImage: '',
+    // No separate context modality — the first clip IS the cold open (Beat 1's
+    // observe card), so intro is none and there is no un-graded reflection.
+    intro: { type: 'none', video: { sound: true, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
+    voice: { persona: 'a calm, experienced hazmat officer — direct and grounded, never preachy; talks like someone who has actually run these calls', guidance: '' },
+    reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
+    state: [],
+    beats: [
+      {
+        id: 'size-up', label: 'Size Up the Scene', level: 'Beat 1 · what do you see', type: 'observe', maxTurns: 3,
+        entry: { bridge: '', signpost: '',
+          prompt: "What you just watched is how this scene actually unfolded — and parts of it should bother you. We'll get to that. First, the basics: what did you see on the tank's placard?",
+          beats: [], cta: '' },
+        inputPlaceholder: 'What did you see…',
+        exitCriteria: "the learner reads the placard first — UN 1993, Class 3 flammable liquid — and/or flags that traffic was never cleared from around the tank (isolation was never established)",
+        reactionGuidance: "probe toward two reads: the placard (UN 1993 / Class 3) as the key that opens the ERG, and the traffic still moving feet from the tank. Don't hand them either — draw it out one beat at a time.",
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [
+          { src: '../assets/videos/hazmat_tankerScene.mp4',
+            label: 'Drone overview — overturned tanker on I-65, traffic still moving on both sides',
+            caption: "A tanker's gone over on I-65. Look at the traffic — still moving on both sides, just feet from the tank. On the barrel: a red diamond — 1993, Class 3." } ],
+          affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'names neither the placard nor the uncleared traffic — approaches or guesses at the product' },
+          { tier: 'PARTIAL', guidance: 'catches one — the placard OR the traffic — but not both' },
+          { tier: 'SOUND', guidance: 'reads the placard to open the ERG AND flags that the road was never shut down' } ],
+        debrief: {
+          talkItThrough: "Here's what the footage shows: UN 1993, Class 3 flammable liquid — that number is the key to the ERG — and traffic never cleared, feet from the tank.",
+          points: 'the learner leaves knowing the placard is the first read, and that isolation should have started before anything else' },
+        transitions: [ { onTier: '', next: 'too-close', set: {} } ],
+      },
+      {
+        id: 'too-close', label: 'How Close Is Too Close', level: 'Beat 2 · positioning', type: 'observe', maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'What are you thinking…',
+        exitCriteria: "the learner recognizes the first-in crew is far too close — walking up to a leaking flammable tank in structural gear, not on air — and can say where they SHOULD be (upwind, uphill, back, reading the placard from distance)",
+        reactionGuidance: "validate the discomfort first — 'too close' is trained instinct, not fear — then draw out WHY it's wrong (no protection, no air, inside the isolation line) and what right looks like (staged back at distance).",
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [
+          { src: '../assets/videos/hazmat_firstPerson.mp4',
+            label: 'Helmet-cam — the first firefighter in, walking up close to the leaking tank',
+            caption: "Now ride along with the first crew in. This is his helmet cam. That's as close as it looks — close enough to touch it." } ],
+          affectiveBeat: true,
+          openingReaction: "Sit with that one for a second before we analyze anything. How did that video make you feel — was that distance reasonable?" },
+        calibration: [
+          { tier: 'MISSED', guidance: 'thinks the approach was fine or necessary' },
+          { tier: 'PARTIAL', guidance: "senses it was too close but can't say where they should be instead" },
+          { tier: 'SOUND', guidance: 'names the approach as unsafe AND places themselves back — upwind, uphill, at distance, reading the placard from there' } ],
+        debrief: {
+          talkItThrough: "That distance wasn't heroic — it was a near miss. Upwind, uphill, back behind the rigs, placard read through binoculars: that's where the first-in belongs.",
+          points: "the learner leaves trusting the 'too close' instinct and knowing the staging rule" },
+        transitions: [ { onTier: '', next: 'first-moves', set: {} } ],
+      },
+      {
+        id: 'first-moves', label: 'Your First Moves', level: 'Beat 3 · bring it home', type: 'observe', maxTurns: 3,
+        entry: { bridge: '',
+          signpost: "That's the version that keeps everyone breathing. So bring it home: tomorrow this call drops and you're first on scene. Walk me through your first moves.",
+          prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Walk me through your first moves…',
+        exitCriteria: "the learner gives their OWN first-arriving moves: position at distance (upwind/uphill/back), close the road in both directions, read the placard / open the ERG for the isolation line, and get HazMat + law enforcement + incident command rolling. After two nudges, accept a partial that names at least positioning and one other move.",
+        reactionGuidance: "this is the synthesis — draw out the sequence: position before you leave the rig, isolate both directions, ERG for the distance, notifications in parallel. Nudge toward sequence, then toward concrete steps, then accept a solid partial.",
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [
+          { src: '',
+            label: 'The same scene, run right — traffic diverted, crews staged upwind at distance',
+            caption: "Now picture the same scene, run right. Traffic stopped and turned around a half-mile back. Crews staged upwind, uphill, behind the rigs. The ERG open on the dash, HazMat rolling, and nobody inside 150 feet." } ],
+          affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'THIN', guidance: 'jumps toward the tank or names only one move' },
+          { tier: 'PARTIAL', guidance: 'names positioning and one other move (isolation, ERG, or notifications)' },
+          { tier: 'COMPLETE', guidance: 'positions at distance, closes the road both ways, opens the ERG, AND rolls HazMat / law enforcement / incident command in parallel' } ],
+        debrief: {
+          talkItThrough: "That's a size-up: you never left the rig unprotected, you owned the perimeter, and you got help rolling before you needed it.",
+          points: 'the learner leaves with their own repeatable first-five-minutes for a hazmat scene' },
+        transitions: [ { onTier: '', next: '', set: {} } ],
+      },
+    ],
+    playbook: [
+      { title: 'Read the placard first', body: "The UN number and hazard class — here, 1993 / Class 3 flammable liquid — is the one data point that unlocks the ERG and everything after it. Pull it before anything else pulls your attention." },
+      { title: 'Isolate before you approach', body: "ERG Guide 128 calls for at least 150 feet of initial isolation in every direction. The first job on arrival isn't the tank — it's shutting the road down in both directions." },
+      { title: 'Trust the discomfort', body: "\"Too close\" isn't fear — it's your training trying to get your attention. When an approach feels wrong, fall back to the isolation line and read the placard from there with binoculars." },
+      { title: 'Stage upwind, uphill, and back', body: "Position crews upwind, uphill, and behind the rigs at distance. Nobody goes near the product without chemical protection and air." },
+      { title: 'Make the calls in parallel', body: "HazMat, law enforcement, and incident command roll while you size up — not after. They'd rather stand down than arrive to a scene that's already gotten worse." },
+    ],
+    resources: {
+      lead: "Reading the scene safely is the first job on any hazmat call — here's what to keep within reach for the next one:",
+      items: [
+        { title: 'The Emergency Response Guidebook (ERG)', body: 'Your fastest path from a placard number to a real isolation distance and initial response guide.' },
+        { title: 'Placard & UN number reference', body: "Hazard classes 1–9 at a glance, for when you can't get close enough to read small print." },
+        { title: 'Your regional HazMat team', body: "Call early — they'd rather roll and stand down than arrive to a scene that's already gotten worse." },
+      ],
+    },
+  };
+
+  /* Named curated examples this type ships, addressed via
+     scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
+     plays when no ?scenario= is given and nothing is published. */
+  const EXAMPLES = {
+    'reading-the-warning-signs': EXAMPLE_WPV,
+    'the-kendra-situation': EXAMPLE_KENDRA,
+    'the-marshall-scenario': EXAMPLE_MARSHALL,
+    'hazmat-scene-size-up': EXAMPLE_HAZMAT,
+  };
+
+  /* =======================================================================
      COMPILE — one system-prompt STRING, mirroring the ensemble/branching
      ladder contract so the live runner drives it unchanged. Beats compile in
      order; each branches on its type.
@@ -267,7 +900,7 @@ FORMAT — every reply is the JSON object defined below and NOTHING else, on EVE
 `ACTION FIELD — on every turn set a top-level "action" that states your INTENT:
 - "action":"continue" → the beat is still live: a character reaction, or ONE short probing follow-up in a coaching/observe beat. Stay in the beat.
 - "action":"teach" → you are CLOSING the beat (Learn): the debrief lands now. The app then advances — you never choose or announce what comes next.
-- "action":"redirect" → the input was off-script/gibberish/a troll; re-ask gently, stay put.
+- "action":"redirect" → the input is NOT an answer — a clarifying question, "wait, who am I here?", a first "I don't know", or off-script/gibberish/troll. Handle it per NON-ANSWERS below: stay put, report no tier, do not advance.
 TIER FIELD — whenever you set "action":"teach", ALSO set "tier" to the calibration tier that best matches the learner's handling of THIS beat${tierVocab.length ? ' — exactly one of: ' + tierVocab.map((t) => `"${t}"`).join(', ') : ''}. The app records it; report it honestly, never inflate, never invent other labels.
 STATE LINE — every call ends with a "[SYSTEM STATE — …]" line: the live beat (its world and any counterpart), learner turns used vs. this beat's cap, tiers recorded so far${stateVars.length ? ', and the session state (' + stateVars.map((v) => v.label || v.key).join(' · ') + ')' : ''}. It is the source of truth — obey it. When it says the cap is reached, you MUST set "action":"teach" this turn.
 
@@ -346,9 +979,16 @@ ${closer}`);
         const right = b.hasRightAnswer && str(b.throughLine).trim()
           ? ` There IS a correct answer here — ${fill(b.throughLine, s)} Hold it during Practice; state it plainly when you teach.`
           : '';
+        // A coach-led beat MAY show a locked STIMULUS ARTIFACT (a forwarded
+        // message, a note) as an on-screen card. The learner reacts to it, so
+        // the model must know what it says — but must NOT read it back.
+        const segs2 = arr(obj(b.media).segments).filter((sc) => sc && (str(sc.src).trim() || str(sc.caption).trim()));
+        const artifact = segs2.length
+          ? `\n- ON SCREEN — the learner has been shown a locked stimulus card (not something you wrote): ${segs2.map((sc) => `${str(sc.from).trim() ? fill(sc.from, s) + ' — ' : ''}${str(sc.label).trim() ? '[' + fill(sc.label, s) + '] ' : ''}"${fill(sc.caption, s)}"`).join('; ')}. Ground your coaching in what it says and react to it; do NOT read it back or re-describe it — it is already in front of them.`
+          : '';
         arcParts.push(
 `BEAT ${i + 1} · ${label} (${fill(b.level || '', s)}) — COACHING practice, up to ${cap} learner turns:
-- The app hands the learner the locked task. This is PRACTICE — the learner works it first. If their answer leaves the criteria below unmet, reply with ONE short probing follow-up that ENDS IN A CLEAR QUESTION and set "action":"continue" — draw out what's missing; do NOT teach yet.${right}
+- The app hands the learner the locked task. This is PRACTICE — the learner works it first. If their answer leaves the criteria below unmet, reply with ONE short probing follow-up that ENDS IN A CLEAR QUESTION and set "action":"continue" — draw out what's missing; do NOT teach yet.${right}${artifact}
 - The beat is DONE when ${fill(b.exitCriteria || 'the learner has committed to a real answer', s)} — or when the state line says the cap is reached.
 ${closer}`);
       }
@@ -379,8 +1019,15 @@ ${closer}`);
     }).filter(Boolean);
     if (calBlocks.length) parts.push('CALIBRATION — read the learner\'s handling of each beat against these tiers; they drive your within-beat reactions, your debrief, and the tier you report:\n\n' + calBlocks.join('\n\n'));
 
+    // 6b) Non-answers (shared policy) — a question / "I don't know" / off-script
+    //     input is not an answer: redirect (free), never grade or advance on it.
+    parts.push((window.SimCore && SimCore.nonAnswerPolicy)
+      ? SimCore.nonAnswerPolicy({ hasScene })
+      : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, and do not grade or advance.');
+
     // 7) Locked floors.
     if (hasScene) parts.push(CONDUCT_SECTION.text());
+    if (s.threatContent) parts.push(THREAT_SECTION.text());   // escalation/violence content — decision points, never immersive
     const CRISIS_FLOOR = (window.AitheraScenario && window.AitheraScenario.CRISIS_FLOOR) || null;
     if (s.elevatedStakes && CRISIS_FLOOR) parts.push(CRISIS_FLOOR.body);
 
@@ -398,7 +1045,7 @@ ${closer}`);
   const TIER = (t) => { t = obj(t); return { tier: str(t.tier), guidance: str(t.guidance) }; };
   const TRANS = (t) => { t = obj(t); return { onTier: str(t.onTier), next: str(t.next), set: obj(t.set) }; };
   const SBEAT = (b) => { b = obj(b); return { speaker: 'character', kind: b.kind === 'dialogue' ? 'dialogue' : 'narration', name: str(b.name), text: str(b.text) }; };
-  const SEG = (sc) => { sc = obj(sc); return { src: str(sc.src), label: str(sc.label), caption: str(sc.caption) }; };
+  const SEG = (sc) => { sc = obj(sc); return { src: str(sc.src), label: str(sc.label), caption: str(sc.caption), kind: str(sc.kind), from: str(sc.from) }; };
   const REACT = (r) => { r = obj(r); return { when: str(r.when), then: str(r.then) }; };
   const SVAR = (v) => { v = obj(v); return { key: str(v.key).trim(), label: str(v.label), initial: str(v.initial) }; };
 
@@ -442,6 +1089,7 @@ ${closer}`);
     out.learnerName = (str(out.learnerName)) ? out.learnerName : 'you';
     out.elevatedStakes = out.elevatedStakes === true;
     out.involvesMinors = out.involvesMinors === true;
+    out.threatContent = out.threatContent === true;
     out.framing = str(out.framing);
     out.learnerRole = str(out.learnerRole);
     out.establishing = { eyebrow: '', title: '', sub: '', ...obj(out.establishing) };
@@ -486,7 +1134,7 @@ ${closer}`);
     return normalize({
       v: 1, type: 'mix-arc',
       title: '', course: '', characterName: '', learnerName: 'you',
-      elevatedStakes: false, involvesMinors: false, framing: '', learnerRole: '',
+      elevatedStakes: false, involvesMinors: false, threatContent: false, framing: '', learnerRole: '',
       establishing: { eyebrow: '', title: '', sub: '' }, openingImage: '',
       intro: { type: 'none', video: { sound: true, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
       voice: { persona: '', guidance: '' },
@@ -652,6 +1300,11 @@ ${closer}`);
       stakes.checked = !!s.elevatedStakes;
       const onStakes = () => { s.elevatedStakes = stakes.checked; scheduleUpdate(); };
       stakes.addEventListener('change', onStakes); stakes.addEventListener('checked-changed', onStakes);
+      const threat = document.createElement('vaadin-checkbox');
+      threat.label = 'Threat / violence content — escalation handled as decision points (adds the locked threat-content floor)';
+      threat.checked = !!s.threatContent;
+      const onThreat = () => { s.threatContent = threat.checked; scheduleUpdate(); };
+      threat.addEventListener('change', onThreat); threat.addEventListener('checked-changed', onThreat);
       box.append(
         tf('title', 'Scenario title', { placeholder: 'Speaking Up in the Moment' }),
         tf('course', 'Course / context it lives in', { placeholder: 'Respectful Workplace' }),
@@ -662,6 +1315,7 @@ ${closer}`);
         tf('framing', 'Framing — what this scenario is about (opens the system prompt)', { area: true, minRows: 2, placeholder: 'a short composed scenario on noticing and addressing disrespect at work' }),
         tf('learnerRole', 'The role the learner plays across the beats', { area: true, minRows: 2, placeholder: 'the team lead — the person with the standing to say something' }),
         stakes,
+        threat,
       );
     }
 
@@ -991,6 +1645,7 @@ ${closer}`);
     icon: 'fa-shapes',
     blurb: 'Compose a scenario beat by beat — coach-led, roleplay, and observe in any order.',
     DEFAULT,
+    EXAMPLES,   // named curated examples, launched via ?type=mix-arc&scenario=<id>
     ENGINE_SECTIONS: MIX_ENGINE_SECTIONS,
     CONDUCT_SECTION,
     BEAT_TYPES,

@@ -30,6 +30,12 @@
   function mergeScenario(draft) { return type.merge(draft); }
 
   let scenario = (() => {
+    // ?example=<id> opens a curated example (e.g. the WPV FINAL "reading-the-warning-signs")
+    // straight into the editor. Non-destructive: it becomes the working draft but
+    // doesn't touch the saved draft until the author explicitly saves.
+    const exId = new URLSearchParams(location.search).get('example');
+    const ex = exId && type.EXAMPLES && type.EXAMPLES[exId];
+    if (ex) return type.normalize(clone(ex));
     try { return mergeScenario(JSON.parse(localStorage.getItem(type.store.keys.draft))); }
     catch (e) { return type.normalize(clone(type.DEFAULT)); }
   })();
@@ -249,37 +255,38 @@
     renderLints();
   }
 
-  /* ---- the Interaction phase's core-interaction chooser ------------------ */
+  /* ---- the Start step's core-interaction display -------------------------
+     The interaction TYPE is picked ONCE, in the "Start from scratch" wizard —
+     never switched one-click in the editor. A live swap reloads into a
+     different type's structure and silently breaks the scenario, so here we
+     only SHOW the current type, read-only, with a Change affordance. Changing
+     it will open a guided restructure flow (not built yet); until then Change
+     just explains where type selection lives. */
   function buildModeChooser() {
     const wrap = document.createElement('div');
     wrap.className = 'mode-choose';
-    wrap.innerHTML = '<p class="mc-head">Choose the core interaction</p>';
-    const grid = document.createElement('div');
-    grid.className = 'mode-grid';
-    window.AitheraStudio.list().forEach((t) => {
-      const card = document.createElement('button');
-      card.className = 'mode-card' + (t.id === type.id ? ' is-active' : '');
-      card.innerHTML =
-        `<span class="mci"><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i></span>` +
-        `<span class="mcb"><span class="mcn">${esc(t.label)}</span><span class="mcd">${esc(t.blurb || '')}</span></span>` +
-        (t.id === type.id ? '<span class="mck"><i class="fa-solid fa-circle-check"></i></span>' : '');
-      card.addEventListener('click', () => chooseMode(t.id));
-      grid.appendChild(card);
-    });
-    wrap.appendChild(grid);
-    return wrap;
-  }
+    wrap.innerHTML = '<p class="mc-head">Core interaction</p>';
 
-  function chooseMode(id) {
-    if (id === type.id) return;
-    const t = window.AitheraStudio.get(id);
-    if (!t) return;
-    // Each mode is its own scenario draft — switching is an explicit, saved
-    // choice, not a silent reset. Land back on the Interaction phase after the
-    // reload so the author sees the new interaction's fields immediately.
-    if (!confirm(`Switch the core interaction to “${t.label}”?\n\nYour “${type.label}” draft stays saved. This opens ${t.label}’s own scenario.`)) return;
-    sessionStorage.setItem(PHASE_KEY, 'start');
-    location.search = '?type=' + encodeURIComponent(id);
+    const card = document.createElement('div');
+    card.className = 'mode-card is-active mode-current';
+    card.innerHTML =
+      `<span class="mci"><i class="fa-solid ${esc(type.icon || 'fa-cube')}"></i></span>` +
+      `<span class="mcb"><span class="mcn">${esc(type.label)}</span><span class="mcd">${esc(type.blurb || '')}</span></span>`;
+    const change = document.createElement('button');
+    change.type = 'button';
+    change.className = 'mode-change';
+    change.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i> Change';
+    change.addEventListener('click', () => {
+      toast('Changing the core interaction opens a guided flow — coming soon. New scenarios pick their type in the “Start from scratch” wizard.');
+    });
+    card.appendChild(change);
+    wrap.appendChild(card);
+
+    const note = document.createElement('p');
+    note.className = 'mode-current-note';
+    note.textContent = 'Set when the scenario was created — it shapes every field below. Switching type restructures the scenario, so it’s a guided step, not a one-click change here.';
+    wrap.appendChild(note);
+    return wrap;
   }
 
   /* ---- the Start step's context-source control ---------------------------

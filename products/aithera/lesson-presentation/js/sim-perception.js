@@ -630,6 +630,13 @@
       const fresh = HAZARDS.filter((h) => state.covered.has(h.id) && !state.reportedToCoach.has(h.id));
       fresh.forEach((h) => state.reportedToCoach.add(h.id));
       if (fresh.length) {
+        // Hand the page the crisp hazard names so it renders the flagged items as
+        // an inline "You flagged" card instead of spoken text (see youMarksNode in
+        // scenario-live.html). The first-person sentence below still goes to the
+        // model, so the coach grades exactly as before.
+        state.pendingMarkCard = {
+          items: fresh.map((h) => fillT(h.short || h.alt || 'A hazard').replace(/\.$/, '')),
+        };
         return 'I marked ' + listJoin(fresh.map((h) => markPhrase(h))) + '.';
       }
       if (reason === 'stuck') return 'I’ve looked around, but I’m not sure what else is unsafe here.';
@@ -706,4 +713,79 @@
   }
 
   window.SimPerception = { install };
+})();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   REGISTER scene-sweep as a render SURFACE (window.SimSurfaces, surface #1).
+   A thin adapter mapping the perception module's NATIVE return object
+   (sceneNode / updateHud / coverageBlock / crossings …) onto the uniform
+   Surface interface the converged player calls polymorphically — see the
+   contract in js/sim-surfaces.js. No perception internals change; this only
+   renames/rewraps at the boundary. scene-sweep HANDS INTO the ladder (it drives
+   its own crossing into the coach phase), so it implements onStart/onTurn/mount/
+   toggle but NOT ownsInput.
+   ───────────────────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+  if (!window.SimSurfaces) return;   // registry must load first (it does)
+
+  window.SimSurfaces.register({
+    kind: 'spot',
+    install: function (ctx) {
+      const P = window.SimPerception.install(ctx);   // the native perception instance
+      if (!P) return null;
+      const state = ctx.state;
+      return {
+        kind: 'spot',
+        appClass: 'sweep',
+        noCharacterScene: true,                       // no character scene to step out of → close on complete
+        mountsFullBleed: true,                        // on start, replaces the intro backdrop with its own full-bleed stage
+                                                      // (so a reading/audio intro is cleared now, not deferred to enterScene)
+
+        // ── outcome-aware coach ──
+        turnFields: { spotted: P.spottedValidator },  // which model-named ids are real hazards
+        outcomeBlock: P.coverageBlock,                // per-turn COVERAGE line (self-guards on kind:'spot')
+        onTurn: (turn) => { if (Array.isArray(turn.spotted)) P.creditSpotted(turn.spotted); },
+
+        // ── lifecycle ──
+        onStart: () => { P.enterMarking(); return true; },   // OBSERVE first, not the coach
+
+        // ── stage mount / render ──
+        shouldMount: () => state.started && P.sceneImg && !state.audioIntroPlaying,
+        mountSelector: '.sweep-scene',
+        stageNode: () => P.sceneNode(),
+        onStageRender: () => { P.updateHud(); P.reposition(); },
+        onCoachRender: () => P.updateRail(),
+
+        // ── two-world toggle: Observe | React ──
+        modeToggle: (st, busy, mode) => {
+          const coachDisabled = mode !== 'coaching' && (busy || !st.started);
+          const sceneDisabled = mode !== 'scene' && (busy || !st.started);
+          return {
+            ariaLabel: 'Observe or react mode',
+            coach: { label: 'React', icon: 'fa-comments', disabled: coachDisabled,
+              tip: (mode !== 'coaching' && !coachDisabled)
+                ? (st.coachStarted ? 'Back to your coach' : 'Talk it through with your coach') : '' },
+            scene: { label: 'Observe', icon: 'fa-magnifying-glass-location', disabled: sceneDisabled,
+              tip: (mode !== 'scene' && !sceneDisabled) ? 'Look at the scene again' : '' },
+          };
+        },
+        onToggle: (which) => {
+          if (which === state.mode) return true;
+          if (which === 'scene') P.enterObserve();       // → look at the scene again
+          else P.crossToReact('toggle');                 // → the coach (credits new marks)
+          return true;
+        },
+
+        // ── surface-owned "look again" CTA (replaces the composer) ──
+        cta: {
+          lookAgain: (st) => st.coachStarted && st.mode === 'coaching'
+            && !st.complete && !st.delivering && !st.sending && !st.analyzing
+            && !st.awaitingDebrief && !st.awaitingResults && !st.awaitingReturn
+            && st.phaseIdx === P.spotPhaseIndex && P.unspottedCount() > 0 && !st.lookAgainDismissed,
+          onLookAgain: () => P.enterObserve(),
+        },
+      };
+    },
+  });
 })();

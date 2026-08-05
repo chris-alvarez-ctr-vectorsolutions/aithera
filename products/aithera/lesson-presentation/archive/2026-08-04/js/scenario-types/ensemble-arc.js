@@ -1006,10 +1006,10 @@ ${groundLines.join('\n')}`);
         const t = s.intro.type;
         if (t === 'video') {
           introBody.appendChild(guidance('Adding your own footage', 'fa-film',
-            'Put the clip in <code>products/aithera/assets/videos/</code> (or send it to Chris to add), then paste its URL — relative like <code>../assets/videos/my-clip.mp4</code>, or a full URL. If the clip has its own audio, leave the caption blank.'));
+            'Put the clip in <code>products/aithera/assets/videos/</code> (or send it to Chris to add), then paste its URL — relative like <code>../../../assets/videos/my-clip.mp4</code>, or a full URL. If the clip has its own audio, leave the caption blank.'));
           introBody.appendChild(rowsBlock('intro.video.scenes', (sc, i, onDel) => rowCard(
             `Scene ${i + 1}`, onDel,
-            tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../assets/videos/clip.mp4' }),
+            tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../../../assets/videos/clip.mp4' }),
             tf(`intro.video.scenes.${i}.caption`, 'Caption (leave blank if the clip is narrated)', { area: true, minRows: 2 }),
           ), 'Add scene', () => ({ src: '', caption: '' })));
         }

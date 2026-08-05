@@ -42,13 +42,16 @@
       if (String(e.signpost || '').trim()) beats.push({ speaker: 'coach', kind: 'coaching', text: fillT(e.signpost) });
       // OBSERVE beats PRESENT the clip the learner reacts to — a locked "clip"
       // card (a real <video> when a src is authored, otherwise the described
-      // moment). Shown right after the signpost so the coach never references a
-      // clip the learner can't see.
-      if (phase.type === 'observe') {
-        ((phase.media || {}).segments || [])
-          .filter((sc) => sc && (String(sc.src || '').trim() || String(sc.caption || '').trim()))
-          .forEach((sc) => beats.push({ speaker: 'coach', kind: 'clip', text: fillT(sc.caption || ''), src: String(sc.src || '').trim(), label: fillT(sc.label || '') }));
-      }
+      // moment). ANY beat may ALSO carry a locked STIMULUS ARTIFACT (a forwarded
+      // message, a note) rendered the same way (variant:'message' → message card).
+      // Shown right after the signpost so the coach never references something
+      // the learner can't see.
+      ((phase.media || {}).segments || [])
+        .filter((sc) => sc && (String(sc.src || '').trim() || String(sc.caption || '').trim()))
+        .forEach((sc) => beats.push({ speaker: 'coach', kind: 'clip',
+          variant: sc.kind === 'message' ? 'message' : 'clip',
+          text: fillT(sc.caption || ''), src: String(sc.src || '').trim(),
+          label: fillT(sc.label || ''), from: fillT(sc.from || '') }));
       if (String(e.prompt || '').trim()) beats.push({ speaker: 'coach', kind: 'coaching', text: fillT(e.prompt) });
       (e.beats || []).forEach((b) => {
         const m = { speaker: b.speaker || 'character', kind: b.kind || 'narration', text: fillT(b.text) };
@@ -77,11 +80,12 @@
       const used = state.turnsInPhase;
       const ladder = phases.filter((x) => state.ladder[x.id])
         .map((x) => (x.label || x.id) + ' = ' + state.ladder[x.id]).join(', ');
-      // OPTIONAL per-phase addendum — the perception (scene-sweep) layer injects
-      // its COVERAGE line for a kind:'spot' phase here (js/sim-perception.js
-      // passes ctx.coverageBlock). No hook → empty, so the conversational types
+      // OPTIONAL per-phase addendum — the active render SURFACE folds its OUTCOME
+      // line for the phase it owns in here (scene-sweep's COVERAGE, teach-back's
+      // N-of-10). The page passes ctx.outcomeBlock = SURFACE.outcomeBlock, which
+      // self-guards on phase.kind. No hook → empty, so the conversational types
       // are byte-identical.
-      const coverage = (typeof ctx.coverageBlock === 'function') ? (ctx.coverageBlock(p) || '') : '';
+      const coverage = (typeof ctx.outcomeBlock === 'function') ? (ctx.outcomeBlock(p) || '') : '';
       return '\n\n[SYSTEM STATE — Phase ' + (state.phaseIdx + 1) + '/' + phases.length + ': ' + (p.label || p.id)
         + ' (' + (p.world === 'scene' ? 'SCENE' + (p.counterpart ? ' · ' + p.counterpart : '') : 'COACHING') + ').'
         + ' Learner turns used: ' + used + '/' + cap + '.'
