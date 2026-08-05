@@ -424,6 +424,13 @@
   }
 
   // Correlation scatter + least-squares trend line, published-dashboard scale.
+  //
+  // This is the GENERIC correlation renderer — a two-metric scatter that leads
+  // with `r`, for any correlation built from the metric catalogue. The Chief's
+  // dashboard no longer uses it (its ch1 is now the overtime/injury widget, on
+  // pdOutlierScatter below, which suppresses `r` on the card face); this stays
+  // as the default for a correlation nobody has written a specific story for.
+  //
   // Ported from agency-intel-canvas.js's vizScatter so the Agency Intelligence
   // Dashboard page and the hub's published-dashboard widgets draw correlations
   // identically. viewBox-driven sizing (width="100%") lets it scale inside
@@ -499,6 +506,435 @@
       'transform="rotate(-90 10 ' + (H / 2) + ')">' + esc(spec.yLabel) +
       (spec.yUnit ? ' (' + esc(spec.yUnit) + ')' : '') + '</text>' +
       '</svg></div>';
+  }
+
+  /* =====================================================================
+     OUTLIER SCATTER — pdOutlierScatter
+     =====================================================================
+     A correlation chart whose MESSAGE is the outliers, not the slope.
+
+     Why this exists alongside pdScatter(). pdScatter answers "is there a
+     relationship?" and leads with `r`. That is the right chart for an analyst
+     and the wrong one for a chief or a budget director: `r = 0.61` is not a
+     decision, and on a home dashboard it invites exactly one of two errors —
+     dismissing a real problem because the number "isn't that high", or
+     reading a coefficient as causation. This renderer answers the question a
+     chief actually has ("which of my battalions is the problem, and what is
+     it costing me?") and files the statistics behind a disclosure for the
+     analytics and accreditation staff who do need them.
+
+     So, deliberately:
+       · NO `r` on the card face. r / n / p live in the <details> panel only.
+       · The headline is an outlier-and-gap sentence with a multiple, computed
+         from the plotted data so it can never drift from the chart.
+       · Median reference lines on both axes cut the field into quadrants;
+         only the upper-right one is labelled, because it is the only one with
+         an action attached to it.
+       · Only outliers are direct-labelled. At 40+ points labelling everything
+         is a hairball — the rest resolve on hover.
+       · The trendline stays (the slope is real) but is deliberately quiet:
+         1px --ink-400 long-dash, versus the 1.5px saturated --amber-400 that
+         pdScatter uses. It is context, not the finding.
+
+     Accessibility, and what each choice is actually for:
+       · Division is encoded by SHAPE as well as colour (circle / square /
+         triangle / diamond / inverted triangle), so the categorical read
+         survives any colour-vision deficiency and greyscale printing — this
+         card prints, via pdPrintDoc.
+       · Outliers carry a non-colour differentiator too: a heavier stroke
+         AND an outer ring, on top of their direct labels.
+       · Contrast, measured against the card background (--surface-1, #fff),
+         to WCAG 2.2 1.4.11 (3:1 non-text) and 1.4.3 (4.5:1 text):
+             marks    teal-400 #1f7a6b 4.8:1 · status-due #2563eb 5.2:1 ·
+                      amber-600 #b45309 4.8:1 · src-sched #7e22ce 7.6:1 ·
+                      ink-600 #4b5966 7.3:1                      all pass 3:1
+             ref/trend lines + axis rules  --ink-400 #8b949f      3.05:1 pass
+             quadrant label + tick text    --ink-500 #69747f      4.75:1 pass
+         --ink-300 (#b3bac4) is 1.96:1 and therefore NOT used for any line
+         that carries meaning here; the median lines and the trendline are
+         meaningful graphics, so they sit at --ink-400 and are separated from
+         each other by dash pattern rather than by weight alone.
+       · One colour is borrowed from a source-app token (--src-sched purple).
+         The palette has no other distinct fifth hue. The collision is
+         defused by the shape encoding and by the legend naming every series
+         "Division N", but if a true categorical ramp is ever added to
+         styles.css, DIVISION_SERIES below is the one place to repoint.
+
+     Sizing follows pdScatter exactly — a 380-wide viewBox at width:100% with
+     NO height attribute, so the box always fits the drawing and the scale
+     tracks the container. index.html's ≤1070px rule (which keys off the
+     .kx-pubwidget--scatter class, unchanged by this widget) still hands the
+     chart the whole grid row once the grid goes two-across.
+
+     spec: {
+       points: [{ label, x, y, size (1-3), group, outlier }],
+       groups: [{ id, label, color, shape }],
+       xLabel, yLabel, xUnit, yUnit, quadrantLabel, costNote, sizeNote
+     }
+     ===================================================================== */
+
+  // Five categorical series. Colour AND shape — never colour alone.
+  var DIVISION_SHAPES = ['circle', 'square', 'triangle', 'diamond', 'triangle-down'];
+
+  // An SVG mark of the given shape centred on (cx, cy) with nominal radius r.
+  function markShape(shape, cx, cy, r, fill, stroke, sw) {
+    var common = ' fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + sw +
+      '" stroke-linejoin="round"';
+    if (shape === 'square') {
+      var s = r * 1.72;
+      return '<rect x="' + (cx - s / 2).toFixed(1) + '" y="' + (cy - s / 2).toFixed(1) +
+        '" width="' + s.toFixed(1) + '" height="' + s.toFixed(1) + '" rx="0.8"' + common + '/>';
+    }
+    if (shape === 'triangle' || shape === 'triangle-down') {
+      var d = shape === 'triangle' ? -1 : 1;
+      var h = r * 1.9;
+      return '<polygon points="' +
+        cx.toFixed(1) + ',' + (cy + d * h * 0.55).toFixed(1) + ' ' +
+        (cx - h * 0.62).toFixed(1) + ',' + (cy - d * h * 0.42).toFixed(1) + ' ' +
+        (cx + h * 0.62).toFixed(1) + ',' + (cy - d * h * 0.42).toFixed(1) + '"' + common + '/>';
+    }
+    if (shape === 'diamond') {
+      var q = r * 1.28;
+      return '<polygon points="' +
+        cx.toFixed(1) + ',' + (cy - q).toFixed(1) + ' ' + (cx + q).toFixed(1) + ',' + cy.toFixed(1) + ' ' +
+        cx.toFixed(1) + ',' + (cy + q).toFixed(1) + ' ' + (cx - q).toFixed(1) + ',' + cy.toFixed(1) +
+        '"' + common + '/>';
+    }
+    return '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + r.toFixed(1) + '"' + common + '/>';
+  }
+
+  function medianOf(nums) {
+    var v = nums.slice().sort(function (a, b) { return a - b; });
+    var m = v.length >> 1;
+    return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+  }
+
+  // Two-tailed p for Pearson r via the t distribution, t = r√(n−2)/√(1−r²).
+  // Regularised incomplete beta (Lentz continued fraction) — the same standard
+  // routine a stats package uses, so the number in the detail panel is a real
+  // p-value rather than a decorative one. Only ever rendered as a threshold
+  // ("p < 0.001"), which is all a reviewer needs from a 45-point sample.
+  function gammaln(x) {
+    var c = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+             -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    var y = x, tmp = x + 5.5, ser = 1.000000000190015;
+    tmp -= (x + 0.5) * Math.log(tmp);
+    for (var j = 0; j < 6; j++) ser += c[j] / ++y;
+    return -tmp + Math.log(2.5066282746310005 * ser / x);
+  }
+  function betacf(a, b, x) {
+    var FPMIN = 1e-300, EPS = 3e-14;
+    var qab = a + b, qap = a + 1, qam = a - 1;
+    var c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d;
+    var h = d;
+    for (var m = 1; m <= 200; m++) {
+      var m2 = 2 * m;
+      var aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c;  if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c;  if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d;
+      var del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function betai(a, b, x) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    var bt = Math.exp(gammaln(a + b) - gammaln(a) - gammaln(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  function pValueFor(r, n) {
+    if (n < 3 || Math.abs(r) >= 1) return 0;
+    var t = Math.abs(r) * Math.sqrt(n - 2) / Math.sqrt(1 - r * r);
+    var df = n - 2;
+    return betai(df / 2, 0.5, df / (df + t * t));
+  }
+  function pText(p) {
+    if (p < 0.001) return 'p < 0.001';
+    if (p < 0.01) return 'p < 0.01';
+    if (p < 0.05) return 'p < 0.05';
+    return 'p = ' + p.toFixed(3);
+  }
+
+  function fmtInt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  function pdOutlierScatter(spec) {
+    var pts = (spec.points || []).slice();
+    if (pts.length < 3) {
+      return '<div style="padding:20px 0;text-align:center;color:var(--ink-400);font-size:12px">' +
+        'Not enough shared data points to plot a correlation.</div>';
+    }
+    var groups = spec.groups || [];
+    var groupById = {};
+    groups.forEach(function (g, i) {
+      g.shape = g.shape || DIVISION_SHAPES[i % DIVISION_SHAPES.length];
+      groupById[g.id] = g;
+    });
+
+    // --- geometry ------------------------------------------------------
+    // W matches pdScatter's 380 so the widget's measured scale behaviour and
+    // index.html's ≤1070px full-row rule carry over unchanged. H is taller
+    // (232 vs 210) to buy vertical room for the quadrant label band without
+    // squeezing the point field.
+    // plotL is 44, not pdScatter's 40, to fit a TWO-LINE rotated y-axis title.
+    // One line does not fit: "OSHA-recordable injuries per 100 FTE
+    // (annualized)" is ~48 characters, which at 9.5px is ~230px against a
+    // 186px plot height — the SVG root clips, and the axis silently loses its
+    // last word. Two rotated lines at x=10 and x=20 are ~115px each and clear
+    // the y tick labels, which anchor at plotL-5 and reach back to ~x28.
+    var W = 380, H = 232;
+    var plotL = 44, plotR = W - 12, plotT = 16, plotB = H - 30;
+    var xs = pts.map(function (p) { return p.x; });
+    var ys = pts.map(function (p) { return p.y; });
+    var xLo = Math.min.apply(null, xs), xHi = Math.max.apply(null, xs);
+    var yLo = Math.min.apply(null, ys), yHi = Math.max.apply(null, ys);
+    var padX = (xHi - xLo) * 0.1 || 1, padY = (yHi - yLo) * 0.1 || 1;
+    xLo -= padX; xHi += padX; yLo = Math.max(0, yLo - padY); yHi += padY;
+    var sx = function (v) { return plotL + (plotR - plotL) * ((v - xLo) / (xHi - xLo)); };
+    var sy = function (v) { return plotB - (plotB - plotT) * ((v - yLo) / (yHi - yLo)); };
+
+    // --- the statistics, all derived from the plotted points -----------
+    // Nothing below is hand-written into the copy: the multiple in the
+    // headline, the named battalions, and the r/n/p in the detail panel all
+    // come from `pts`, so editing the fixture can never leave the sentence
+    // asserting something the chart does not show.
+    var n = pts.length;
+    var r = pearson(pts);
+    var p = pValueFor(r, n);
+    var xMed = medianOf(xs), yMed = medianOf(ys);
+
+    var byX = pts.slice().sort(function (a, b) { return b.x - a.x; });
+    var qN = Math.max(1, Math.round(n / 4));
+    var topQ = byX.slice(0, qN);
+    var qMeanY = topQ.reduce(function (a, q) { return a + q.y; }, 0) / qN;
+    var multiple = yMed ? qMeanY / yMed : 0;
+
+    // "at comparable call volume" is a CLAIM, so it is checked rather than
+    // asserted: the top-OT quartile's median call volume against the
+    // department's. Both are surfaced in the detail panel so a reviewer can
+    // see the control rather than take it on faith.
+    var haveCalls = pts.every(function (q) { return typeof q.calls === 'number'; });
+    var callsQ = haveCalls ? medianOf(topQ.map(function (q) { return q.calls; })) : null;
+    var callsAll = haveCalls ? medianOf(pts.map(function (q) { return q.calls; })) : null;
+
+    var outliers = pts.filter(function (q) { return q.outlier; })
+      .sort(function (a, b) { return a.order - b.order || a.x - b.x; });
+    var outNames = outliers.map(function (q) { return q.short || q.label; });
+    var namesSentence = outNames.length > 1
+      ? outNames.slice(0, -1).join(', ') + ', and ' + outNames[outNames.length - 1]
+      : outNames[0];
+
+    // --- least-squares trend, deliberately quiet -----------------------
+    var mx = xs.reduce(function (a, b) { return a + b; }, 0) / n;
+    var my = ys.reduce(function (a, b) { return a + b; }, 0) / n;
+    var num = 0, den = 0;
+    pts.forEach(function (q) { num += (q.x - mx) * (q.y - my); den += (q.x - mx) * (q.x - mx); });
+    var slope = den ? num / den : 0;
+    var intercept = my - slope * mx;
+    var trend = '<line x1="' + sx(xLo).toFixed(1) + '" y1="' + sy(slope * xLo + intercept).toFixed(1) +
+      '" x2="' + sx(xHi).toFixed(1) + '" y2="' + sy(slope * xHi + intercept).toFixed(1) +
+      '" stroke="var(--ink-400)" stroke-width="1" stroke-dasharray="7 5" opacity="0.85"/>';
+
+    // --- axes ----------------------------------------------------------
+    var yTicks = [0, 0.5, 1].map(function (t) {
+      var yv = yLo + (yHi - yLo) * t, y = sy(yv);
+      return '<line x1="' + plotL + '" x2="' + plotR + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) +
+        '" stroke="var(--ink-100)" stroke-width="1"/>' +
+        '<text x="' + (plotL - 5) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="var(--ink-500)" ' +
+        'text-anchor="end">' + Math.round(yv) + '</text>';
+    }).join('');
+    var xTicks = [0, 0.5, 1].map(function (t) {
+      var xv = xLo + (xHi - xLo) * t, x = sx(xv);
+      return '<text x="' + x.toFixed(1) + '" y="' + (plotB + 12) + '" font-size="9" fill="var(--ink-500)" ' +
+        'text-anchor="' + (t === 0 ? 'start' : t === 1 ? 'end' : 'middle') + '">' + Math.round(xv) + '</text>';
+    }).join('');
+
+    // --- median reference lines + the ONE labelled quadrant -------------
+    // Four quadrants are drawn; only upper-right is named. The other three
+    // ("low OT, low injury" and the two mixed cells) have no action attached
+    // to them, and labelling them would turn a reference grid into a 2x2
+    // framework the data does not support.
+    var mxPx = sx(xMed), myPx = sy(yMed);
+    var medians =
+      '<line x1="' + mxPx.toFixed(1) + '" x2="' + mxPx.toFixed(1) + '" y1="' + plotT + '" y2="' + plotB +
+      '" stroke="var(--ink-400)" stroke-width="0.8" stroke-dasharray="2 3"/>' +
+      '<line x1="' + plotL + '" x2="' + plotR + '" y1="' + myPx.toFixed(1) + '" y2="' + myPx.toFixed(1) +
+      '" stroke="var(--ink-400)" stroke-width="0.8" stroke-dasharray="2 3"/>' +
+      '<text x="' + (mxPx + 5).toFixed(1) + '" y="' + (plotT + 1) + '" font-size="8.5" ' +
+      'fill="var(--ink-500)" font-weight="600">' + esc(spec.quadrantLabel || 'High OT, high injury') + '</text>';
+
+    // --- the point field ------------------------------------------------
+    // Radius by size step (1-3 = headcount tercile). Ordered so outliers
+    // paint last and are never occluded by the cloud.
+    var RADII = [3.1, 4.2, 5.3];
+    function markFor(q) {
+      var g = groupById[q.group] || { color: 'var(--ink-600)', shape: 'circle', label: '' };
+      var rad = RADII[Math.min(2, Math.max(0, (q.size || 1) - 1))];
+      var title = '<title>' + esc(q.label) + ' · ' + esc(g.label) + ' — ' +
+        esc(spec.xLabel) + ' ' + q.x + (spec.xUnit ? ' ' + esc(spec.xUnit) : '') + ' · ' +
+        esc(spec.yLabel) + ' ' + q.y + (spec.yUnit ? ' ' + esc(spec.yUnit) : '') +
+        (q.fte ? ' · ' + q.fte + ' uniformed FTE' : '') +
+        (q.calls ? ' · ' + fmtInt(q.calls) + ' responses/yr' : '') +
+        (q.outlier ? ' · flagged outlier' : '') + '</title>';
+      // Outliers: heavier stroke AND an outer ring — two non-colour cues, so
+      // the flag survives greyscale and colour-vision deficiency.
+      var ring = q.outlier
+        ? '<circle cx="' + sx(q.x).toFixed(1) + '" cy="' + sy(q.y).toFixed(1) + '" r="' + (rad + 3.6).toFixed(1) +
+          '" fill="none" stroke="var(--ink-700)" stroke-width="1.1"/>'
+        : '';
+      return '<g>' + title + ring +
+        markShape(g.shape, sx(q.x), sy(q.y), rad, g.color,
+          q.outlier ? 'var(--ink-800)' : 'var(--surface-1)', q.outlier ? 2 : 1) + '</g>';
+    }
+    var field = pts.filter(function (q) { return !q.outlier; }).map(markFor).join('') +
+      pts.filter(function (q) { return q.outlier; }).map(markFor).join('');
+
+    // Direct labels, outliers only. Anchored to the LEFT of each mark: every
+    // outlier sits against the right edge of the plot by definition (they are
+    // the high-OT extremes), so right-side labels would run off the viewBox.
+    //
+    // Outliers also cluster vertically — they are the top of the y range too —
+    // so the labels get a de-collision pass: walking top-down, any label
+    // closer than LABEL_MIN_GAP to the one above is pushed down. Without it,
+    // the two highest points here land 11px apart and their 8.5px labels
+    // touch. The leader offset keeps each label tied to its own mark.
+    var LABEL_MIN_GAP = 12;
+    var placed = [];
+    var outLabels = outliers.map(function (q) {
+      return { q: q, rad: RADII[Math.min(2, Math.max(0, (q.size || 1) - 1))], py: sy(q.y) };
+    }).sort(function (a, b) { return a.py - b.py; }).map(function (it) {
+      var ty = it.py + 3;
+      if (placed.length && ty - placed[placed.length - 1] < LABEL_MIN_GAP) {
+        ty = placed[placed.length - 1] + LABEL_MIN_GAP;
+      }
+      placed.push(ty);
+      var tx = sx(it.q.x) - it.rad - 6;
+      // A leader only when the label had to move off its mark's own line.
+      var leader = Math.abs(ty - (it.py + 3)) > 2
+        ? '<line x1="' + (tx + 2).toFixed(1) + '" y1="' + (ty - 3).toFixed(1) + '" x2="' +
+          (sx(it.q.x) - it.rad - 1).toFixed(1) + '" y2="' + it.py.toFixed(1) +
+          '" stroke="var(--ink-400)" stroke-width="0.7"/>'
+        : '';
+      return leader + '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) +
+        '" font-size="8.5" font-weight="700" fill="var(--ink-800)" text-anchor="end">' +
+        esc(it.q.label) + '</text>';
+    }).join('');
+
+    // Rotated y-axis title, wrapped to at most two lines on word boundaries so
+    // the full metric name survives. The plot is 186px tall and 9.5px glyphs
+    // average ~4.8px, so ~38 characters is the single-line budget; the label
+    // this widget uses is 48 and needs the second line.
+    var yFull = spec.yLabel + (spec.yUnit ? ' (' + spec.yUnit + ')' : '');
+    var yMid = (plotT + plotB) / 2;
+    var yLines;
+    if (yFull.length <= 38) {
+      yLines = [yFull];
+    } else {
+      var words = yFull.split(' ');
+      var a = '', b = '';
+      words.forEach(function (word) {
+        if ((a + ' ' + word).trim().length <= Math.ceil(yFull.length / 2)) a = (a + ' ' + word).trim();
+        else b = (b + ' ' + word).trim();
+      });
+      yLines = b ? [a, b] : [a];
+    }
+    var yAxisTitle = yLines.map(function (line, i) {
+      var x = yLines.length > 1 ? 10 + i * 9.5 : 10;
+      return '<text x="' + x + '" y="' + yMid + '" font-size="9.5" fill="var(--ink-500)" ' +
+        'text-anchor="middle" transform="rotate(-90 ' + x + ' ' + yMid + ')">' + esc(line) + '</text>';
+    }).join('');
+
+    // --- copy -----------------------------------------------------------
+    var headline =
+      '<div style="font-size:12.5px;color:var(--ink-700);line-height:1.5;margin-bottom:9px">' +
+      'Battalions in the highest overtime quartile average ' +
+      '<strong style="color:var(--ink-900);font-weight:700">' + multiple.toFixed(1) + '×</strong> ' +
+      'the injury rate of the department median at comparable call volume. ' +
+      'Battalions <strong style="color:var(--ink-900);font-weight:700">' + esc(namesSentence) + '</strong> ' +
+      'are the widest gaps.</div>';
+
+    var legend =
+      '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:9px;font-size:10.5px;color:var(--ink-600)">' +
+      groups.map(function (g) {
+        return '<span style="display:inline-flex;align-items:center;gap:5px">' +
+          '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="flex-shrink:0">' +
+          markShape(g.shape, 6, 6, 4.2, g.color, 'var(--surface-1)', 1) + '</svg>' +
+          esc(g.label) + '</span>';
+      }).join('') +
+      '<span style="display:inline-flex;align-items:center;gap:5px;color:var(--ink-500)">' +
+      '<svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true" style="flex-shrink:0">' +
+      markShape('circle', 4, 6, 2.6, 'var(--ink-300)', 'var(--surface-1)', 1) +
+      markShape('circle', 12, 6, 3.6, 'var(--ink-300)', 'var(--surface-1)', 1) +
+      markShape('circle', 21, 6, 4.6, 'var(--ink-300)', 'var(--surface-1)', 1) + '</svg>' +
+      esc(spec.sizeNote || 'Battalion headcount') + '</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px;color:var(--ink-500)">' +
+      '<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true" style="flex-shrink:0">' +
+      '<circle cx="7" cy="6" r="5.2" fill="none" stroke="var(--ink-700)" stroke-width="1.1"/>' +
+      markShape('circle', 7, 6, 2.6, 'var(--ink-500)', 'var(--ink-800)', 1.4) + '</svg>' +
+      'Flagged outlier</span></div>';
+
+    // Cost annotation. Sits in the card footer rather than in the upper-right
+    // quadrant: at this scale the quadrant already carries the quadrant label
+    // and three direct labels, and a fourth string in that corner made the
+    // densest part of the chart the busiest part of the card.
+    var cost = spec.costNote
+      ? '<div style="display:flex;gap:6px;align-items:flex-start;margin-top:9px;padding-top:8px;' +
+        'border-top:1px solid var(--ink-100);font-size:11.5px;color:var(--ink-600);line-height:1.45">' +
+        micon('savings', { size: 14, style: 'color:var(--ink-500);flex-shrink:0;margin-top:1px' }) +
+        '<span>' + esc(spec.costNote) + '</span></div>'
+      : '';
+
+    // The statistics, filed behind a disclosure. Analytics and accreditation
+    // staff go looking for these; chiefs and budget directors should not have
+    // to step over them to reach the finding.
+    // On PAPER the panel is open. Collapsing it is a screen affordance — the
+    // reader can expand it — but a printed PDF has no hover and no disclosure
+    // triangle, and this document is exactly what gets circulated to the
+    // analytics and accreditation staff who need r/n/p. Closed on paper would
+    // not be "filed away", it would be deleted.
+    var stats =
+      '<details' + (spec.expandStats ? ' open' : '') + ' style="margin-top:7px">' +
+      '<summary style="font-size:11px;color:var(--ink-500);cursor:pointer;list-style:none;' +
+      'display:inline-flex;align-items:center;gap:4px;font-weight:600">' +
+      micon('function', { size: 13 }) + 'Statistical detail</summary>' +
+      '<div style="margin-top:6px;font-size:11px;color:var(--ink-600);line-height:1.6;' +
+      'font-family:var(--font-mono)">' +
+      'Pearson r = ' + r.toFixed(2) + ' · n = ' + n + ' battalions · ' + pText(p) + ' (two-tailed)' +
+      (haveCalls
+        ? '<br>Call volume — top-OT quartile median ' + fmtInt(callsQ) +
+          ' vs. department median ' + fmtInt(callsAll) + ' responses/yr'
+        : '') +
+      // xUnit/yUnit are measurement WINDOWS ("rolling 90 days"), not units of
+      // the quantity, so they cannot be appended to a median — "173 rolling 90
+      // days" is nonsense. xShort/yShort carry the actual units for this line.
+      '<br>Axis medians: ' + Math.round(xMed) + ' ' + esc(spec.xShort || '') + ' · ' +
+      yMed.toFixed(1) + ' ' + esc(spec.yShort || '') +
+      '</div>' +
+      '<div style="margin-top:5px;font-size:10.5px;color:var(--ink-500);line-height:1.45">' +
+      'Correlation is department-wide and descriptive; it does not establish that overtime ' +
+      'caused these injuries. The finding is the outlier gap, not the slope.</div>' +
+      '</details>';
+
+    return '<div>' + headline +
+      // No height attribute, and height:auto, so the viewBox ratio sets the
+      // box height and the drawing never letterboxes. Same contract as
+      // pdScatter — see the long note on that function.
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="display:block;height:auto" ' +
+      'role="img" aria-label="' + esc(spec.yLabel + ' against ' + spec.xLabel + ' for ' + n +
+        ' battalions. Battalions in the highest overtime quartile average ' + multiple.toFixed(1) +
+        ' times the injury rate of the department median. Outliers: ' + namesSentence + '.') + '">' +
+      yTicks + xTicks + medians + trend + field + outLabels +
+      '<text x="' + ((plotL + plotR) / 2) + '" y="' + (H - 4) + '" font-size="9.5" fill="var(--ink-500)" ' +
+      'text-anchor="middle">' + esc(spec.xLabel) + (spec.xUnit ? ' (' + esc(spec.xUnit) + ')' : '') + '</text>' +
+      yAxisTitle +
+      '</svg>' + legend + cost + stats + '</div>';
   }
 
   function pdBar(data) {
@@ -604,7 +1040,8 @@
     miniBarPair: miniBarPair, miniLineDual: miniLineDual, miniDonut: miniDonut,
     inlineChart: inlineChart, chartLegend: chartLegend,
     inlineLine: inlineLine, inlineBarPair: inlineBarPair, inlineStack: inlineStack, inlineHBar: inlineHBar,
-    pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdScatter: pdScatter, pdTable: pdTable, pdSpark: pdSpark,
+    pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdScatter: pdScatter,
+    pdOutlierScatter: pdOutlierScatter, pdTable: pdTable, pdSpark: pdSpark,
     downloadCSV: downloadCSV, TONE_FG: TONE_FG
   };
 })();

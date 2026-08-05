@@ -480,7 +480,7 @@
           '26;color:' + accent + ';display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' +
           micon(o.icon, { size: 22, fill: 1 }) + '</span>' : '') +
         '<div style="flex:1;min-width:0">' +
-        '<div style="font-family:var(--font-display);font-weight:500;font-size:22px;letter-spacing:-0.4px;' +
+        '<div style="font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:-0.4px;' +
         'color:var(--ink-900);line-height:1.2">' + esc(o.title) + '</div>' +
         (o.subtitle ? '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">' + esc(o.subtitle) + '</div>' : '') +
         '</div>';

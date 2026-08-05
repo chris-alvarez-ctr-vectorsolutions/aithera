@@ -133,7 +133,7 @@
   function startHtml() {
     return '<div style="max-width:760px;margin:0 auto;padding:8px 0 20px">' +
       '<div style="text-align:center;margin-bottom:22px">' + aiMark(52) +
-      '<h2 style="font-family:var(--font-display);font-weight:500;font-size:27px;color:var(--ink-900);' +
+      '<h2 style="font-family:var(--font-display);font-weight:600;font-size:27px;color:var(--ink-900);' +
       'margin:14px 0 6px">Explore your data</h2>' +
       '<p style="font-size:14px;color:var(--ink-500);margin:0;line-height:1.55">' +
       'Ask Agency Intelligence anything across your connected apps. Follow a thread wherever it leads — ' +
@@ -286,7 +286,7 @@
       '<span class="kx-btn-label">New exploration</span></vaadin-button>' +
       '<span style="display:inline-flex;align-items:center;gap:8px;min-width:0">' +
       micon(h.icon, { size: 20, fill: 1, color: 'var(--amber-600)' }) +
-      '<span style="font-family:var(--font-display);font-weight:500;font-size:20px;color:var(--ink-900);' +
+      '<span style="font-family:var(--font-display);font-weight:600;font-size:20px;color:var(--ink-900);' +
       'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(title) + '</span></span></div>' +
 
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12.5px;color:var(--ink-500)">' +

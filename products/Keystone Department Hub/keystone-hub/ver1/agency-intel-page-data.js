@@ -367,11 +367,26 @@
     if (widget.metricIds && widget.metricIds.length >= 2) {
       if (widget.viz === 'pair') spec = CC.buildCorrelationSpec(widget.metricIds, 'pair') || CC.buildSpec(widget.metricIds[0], 'bar');
       else if (widget.viz === 'line') spec = CC.buildCorrelationSpec(widget.metricIds, 'line');
+      // A scatter is TWO metrics aligned on their shared categories, which only
+      // buildCorrelationSpec knows how to pair up. It used to fall to
+      // buildSpec(metricIds[0], 'scatter') — a viz that builder does not make —
+      // so every correlation widget exported "No exportable data", on this page
+      // and on the Hub's published dashboards alike.
+      else if (widget.viz === 'scatter') spec = CC.buildCorrelationSpec(widget.metricIds, 'scatter');
       else spec = CC.buildSpec(widget.metricIds[0], widget.viz);
     } else {
       spec = CC.buildSpec(widget.metricId, widget.viz);
     }
     if (!spec) return { title: title, columns: [], rows: [], note: 'No exportable data.' };
+
+    // One row per plotted point: the shared category and both measures. That is
+    // the correlation as data — the trend line is drawn from it, not stored.
+    if (spec.kind === 'scatter') {
+      const xu = spec.xUnit ? ' (' + spec.xUnit + ')' : '';
+      const yu = spec.yUnit ? ' (' + spec.yUnit + ')' : '';
+      return { title: title, columns: ['Category', spec.xLabel + xu, spec.yLabel + yu],
+        rows: (spec.points || []).map(function (p) { return [p.label, p.x, p.y]; }) };
+    }
 
     const unitSuffix = (spec.unit && spec.unit !== '%' && spec.unit !== '') ? ' (' + spec.unit + ')' : '';
 
