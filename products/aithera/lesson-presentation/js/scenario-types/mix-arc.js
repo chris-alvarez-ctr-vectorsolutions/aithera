@@ -479,7 +479,6 @@
         entry: { bridge: '', signpost: '', prompt: '',
           beats: [
             { speaker: 'character', kind: 'narration', name: '', text: 'The room\'s dark, blinds down. Kendra\'s curled under a blanket, phone face-down beside her. She doesn\'t look up when you come in.' },
-            { speaker: 'character', kind: 'dialogue', name: 'Kendra', text: 'I\'m fine, Jay. Just tired.' },
           ], cta: 'Sit down with her' },
         inputPlaceholder: 'What do you say to Kendra…',
         exitCriteria: 'the learner leads with care (not confrontation or ultimatums), names the grief/loss rather than only the drinking, and moves toward a concrete SHARED next step — without trying to be her counselor',
