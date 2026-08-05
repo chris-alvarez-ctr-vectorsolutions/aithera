@@ -672,6 +672,25 @@
         white-space: pre-wrap;
         box-shadow: var(--shadow-sm);
       }
+      /* scene-sweep: the flagged-hazards artifact card (rendered in place of a
+         spoken "You" bubble). A cool-slate checklist on the learner's side. */
+      .you-coach.you-marks { max-width: 82%; }
+      .marks-card {
+        align-self: stretch;
+        background: rgba(128,148,178,.10);
+        border: 1px solid rgba(128,148,178,.34);
+        border-radius: 16px 4px 16px 16px;
+        padding: 4px 4px;
+        box-shadow: var(--shadow-sm);
+      }
+      .marks-row {
+        display: flex; align-items: flex-start; gap: 11px;
+        padding: 9px 13px;
+        font-size: 15px; line-height: 1.45;
+        color: rgba(255,255,255,.95);
+      }
+      .marks-row + .marks-row { border-top: 1px solid rgba(128,148,178,.20); }
+      .marks-row i { color: var(--c-accent); font-size: 12.5px; margin-top: 3px; flex: 0 0 auto; }
 
       /* ===================================================================
          6. STAGE CARD  — wraps a contiguous run of SCENE messages.
@@ -1516,7 +1535,7 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=5"></script>
-    <script src="js/sim-player.js?v=3"></script>
+    <script src="js/sim-player.js?v=4"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1527,7 +1546,7 @@
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/mix-arc.js?v=6"></script>
+    <script src="js/scenario-types/mix-arc.js?v=9"></script>
     <!-- [Option B] the tier-ladder TYPES this one generic player routes to via
          ?type=. Two shapes:
            · NATIVE tier-ladder types own their own toRuntime + compile and play
@@ -1543,7 +1562,7 @@
          hazard" Observe canvas + coverage rail. Mounts ONLY for a scenario with a
          kind:'spot' phase (scene-sweep); the four conversational types never
          install it. Loads after scene-sweep.js (which defines window.SceneSweepGeo). -->
-    <script src="js/sim-perception.js?v=1"></script>
+    <script src="js/sim-perception.js?v=2"></script>
 
     <script>
     /* =====================================================================
@@ -1743,6 +1762,7 @@
       coachStarted: false,      // the coach conversation has begun (first cross to React)
       reportedToCoach: new Set(), // hazard ids already summarized to the coach (re-cross only mentions new finds)
       lookAgainDismissed: false, // learner chose to type instead of going back to the photo on a nudge
+      pendingMarkCard: null,     // {items:[…]} — the freshly-flagged hazards to show as an inline card (NOT spoken); consumed by send()
     };
     // Seed the declared session state with its authored initial values.
     (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
@@ -2074,7 +2094,20 @@
     // A locked OBSERVE clip — the moment the learner watches/reads before they
     // react. A real <video> if the author gave a src; otherwise the described
     // moment as a film-styled card. Rendered inside the coach thread.
+    // A locked STIMULUS ARTIFACT the learner reads (a forwarded message, a note),
+    // styled as a message screenshot — cool slate, share icon, sender + bubble —
+    // so it reads as an artifact, not a video clip.
+    function messageCardNode(m) {
+      const wrap = el('div', 'clip-card msg-card' + ec(m));
+      wrap.style.cssText = 'margin:12px 0;border:1px solid rgba(128,148,178,.34);border-radius:12px;background:rgba(128,148,178,.10);padding:13px 15px';
+      const header = `<div style="font:600 11px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#9fb0c9;margin-bottom:10px;display:flex;align-items:center;gap:7px"><i class="fa-solid fa-share-nodes"></i>${esc(m.label || 'Forwarded message')}</div>`;
+      const sender = m.from ? `<div style="font-weight:700;font-size:12.5px;color:#cdd8ea;margin-bottom:4px">${esc(m.from)}</div>` : '';
+      const bubble = `<div style="background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.10);border-radius:4px 13px 13px 13px;padding:10px 13px;color:rgba(255,255,255,.95);font-size:15px;line-height:1.5">${esc(m.text)}</div>`;
+      wrap.innerHTML = header + sender + bubble;
+      return wrap;
+    }
     function clipNode(m) {
+      if (m.variant === 'message') return messageCardNode(m);
       const wrap = el('div', 'clip-card' + ec(m));
       wrap.style.cssText = 'margin:12px 0;border:1px solid rgba(224,165,61,.42);border-radius:12px;background:rgba(224,165,61,.08);padding:13px 15px';
       const label = `<div style="font:600 11px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#E0A53D;margin-bottom:9px;display:flex;align-items:center;gap:7px"><i class="fa-solid fa-film"></i>${esc(m.label || 'On screen')}</div>`;
@@ -2092,6 +2125,22 @@
       const wrap = el('div', 'you-coach' + ec(m));
       wrap.appendChild(el('div', 'cap', 'You'));
       wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      return wrap;
+    }
+    // scene-sweep: the learner's flagged hazards, shown as an inline artifact card
+    // (echoing the forwarded-message treatment) rather than spoken text — a "You
+    // flagged" checklist. The first-person `m.text` still goes to the model; this
+    // only changes DISPLAY. Falls back to the plain bubble if no items came through.
+    function youMarksNode(m) {
+      const items = (m._marks || []).filter(Boolean);
+      if (!items.length) return youCoachNode(m);
+      const wrap = el('div', 'you-coach you-marks' + ec(m));
+      wrap.appendChild(el('div', 'cap', 'You flagged'));
+      const card = el('div', 'marks-card');
+      card.innerHTML = items.map((it) =>
+        `<div class="marks-row"><i class="fa-solid fa-flag"></i><span>${esc(it)}</span></div>`
+      ).join('');
+      wrap.appendChild(card);
       return wrap;
     }
     function charNode(m, isConsequence, defaultName) {
@@ -2323,7 +2372,10 @@
       const desired = run.map((m) => {
         let node = coachNodeMap.get(m);
         if (!node) {
-          node = (m.kind === 'clip') ? clipNode(m) : (m.speaker === 'you') ? youCoachNode(m) : coachNode(m);
+          node = (m.kind === 'clip') ? clipNode(m)
+               : (m.speaker === 'you' && m.variant === 'marks') ? youMarksNode(m)
+               : (m.speaker === 'you') ? youCoachNode(m)
+               : coachNode(m);
           node.dataset.coachMsg = '1';
           coachNodeMap.set(m, node);
         }
@@ -2407,6 +2459,30 @@
          coachSheet.pin()                             — grow-or-pin (typing dots)
          coachSheet.reset()                           — forget height (sheet lowered) */
     const coachSheet = SimCoachSheet.create({ app, panel: coachPanel, body: coachPanelBody });
+
+    /* —— Keep the newest scene line visible when the input bar changes height ——
+       The bottom bar swaps between the composer, "Analyzing…", and the CTA
+       states; the two-line "See AI Coach feedback / See your results" CTA grows
+       a touch past the min-height floor, and that growth reflows the stage AFTER
+       render()'s synchronous scroll pin has already run — so the last message
+       ends up clipped behind the taller bar. A ResizeObserver re-pins the stage
+       to the bottom whenever the bar settles to a new height.
+
+       We follow by INTENT, not by a live scroll measurement: render() sets
+       `wantStageBottom` true whenever it pins new content to the bottom, and only
+       a genuine scroll-up disengages it. The 80px threshold is deliberately well
+       clear of the two cases that must NOT count as "reading back": the
+       programmatic pin lands at dist≈0, and the CTA growth only clips ~40px — so
+       neither stops the follow, but a real scroll-up (learner re-reading the
+       thread) does, and is never yanked back down. Observes inputbar only, so it
+       never touches the delicate scene-rebuild scroll path. */
+    let wantStageBottom = true;
+    stage.addEventListener('scroll', () => {
+      if (stage.scrollHeight - stage.scrollTop - stage.clientHeight > 80) wantStageBottom = false;
+    }, { passive: true });
+    if (window.ResizeObserver && inputbar) {
+      new ResizeObserver(() => { if (wantStageBottom) stage.scrollTop = stage.scrollHeight; }).observe(inputbar);
+    }
 
     function render() {
       const { mode, inputTarget, hasEnteredScene, messages, complete } = state;
@@ -2687,7 +2763,7 @@
       // so you saw the thread drop down and then the beat slide up). Follow to the
       // bottom only when fresh scene content just arrived; otherwise hold position
       // so a Learn/Practice toggle never moves the scene.
-      if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
+      if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; wantStageBottom = true; }
       else { stage.scrollTop = prevStageScroll; }
 
       // a freshly-delivered message animates in exactly once
@@ -3100,7 +3176,16 @@
         state.messages.push(youMsg);
         followStage = true;   // new scene content — follow it down
       } else {
-        state.messages.push({ speaker: 'you', kind: 'coaching', text, _enter: true });
+        const youC = { speaker: 'you', kind: 'coaching', text, _enter: true };
+        // scene-sweep: the freshly-flagged hazards render as an inline "You flagged"
+        // card (see youMarksNode) instead of a spoken bubble. The model still gets
+        // the first-person `text` verbatim, so the coach grades exactly as before.
+        if (state.pendingMarkCard) {
+          youC.variant = 'marks';
+          youC._marks = state.pendingMarkCard.items;
+          state.pendingMarkCard = null;
+        }
+        state.messages.push(youC);
       }
       composer.value = '';
       autoGrow();
@@ -3261,6 +3346,42 @@
       // guaranteed close. Route its final coach recap through the closing flow on
       // state.complete directly — guarded on IS_SWEEP so the conversational types
       // keep their exact behavior.
+      // A coach-led FINAL beat is a conversation, not a scene you step out of — so
+      // land the coach's closing reply INLINE (closing the loop on the learner's
+      // last answer) BEFORE offering results, instead of deferring the whole recap
+      // behind the CTA. Only when the completion is delivered in coaching with no
+      // scene reaction in this turn; scene-ending completions keep the deferred
+      // "step out → debrief" crescendo below. Sweep has its own guaranteed close.
+      const coachLedClose = state.complete && !IS_SWEEP
+        && state.mode === 'coaching' && leadScene.length === 0 && (i < items.length);
+      if (coachLedClose) {
+        let prevC = (i > 0 && items[i - 1]) ? (items[i - 1].text || '') : '';
+        while (i < items.length) {                     // reveal the acknowledgment at live-reply pace
+          const m = items[i];
+          hideTyping();
+          showTyping(); await wait(thinkingTime(prevC)); hideTyping();
+          if (dead()) return;
+          m._enter = true;
+          state.messages.push(m);
+          render();
+          prevC = m.text || '';
+          i++;
+          if (i < items.length) await wait(reducedMotion() ? 80 : 700);
+          if (dead()) return;
+        }
+        // The reply is on screen — now offer results. pendingDebrief is empty, so
+        // the tap runs straight to the closing stepper (openClosing([])) with no
+        // re-print of what the learner just read.
+        state.pendingDebrief = [];
+        state.awaitingDebrief = true;
+        state.debriefReturn = null;
+        state.delivering = false;
+        followStage = true;
+        render();                                      // input bar: "See your results →"
+        announce('Your AI coach has wrapped up. See your results when ready.');
+        return;
+      }
+
       const intoDebrief = (i < items.length) && (
         (IS_SWEEP && state.complete)
         || (state.hasEnteredScene && (state.mode === 'scene' || state.complete)));

@@ -357,14 +357,14 @@
       {
         id: 'escalation', label: 'It Escalates', level: 'Phase 3 · Level 2 — a credible threat', type: 'coach-led',
         maxTurns: 2,
-        entry: { bridge: '', signpost: 'A week goes by, and something new lands on your desk. A colleague forwards you a message Ray posted in the crew group chat: "Marcus better watch himself. This place is going to regret what they did to me." Ray has also called out of his last two shifts. What do you do — specifically?', prompt: '', beats: [], cta: 'Keep going' },
+        entry: { bridge: '', signpost: 'A week goes by, and something new lands on your desk. A colleague forwards you a message Ray posted in the crew group chat — it\'s on your screen now. Ray has also called out of his last two shifts.', prompt: 'What do you do — specifically?', beats: [], cta: 'Keep going' },
         inputPlaceholder: 'What do you do — specifically?',
         exitCriteria: 'the learner recognizes this as a Level 2 credible threat, secures the people at risk (Marcus and the crew) right now, notifies the chain and involves 911/security if imminent, and preserves the message — without confronting Ray alone',
         reactionGuidance: 'Do NOT hand over the answer — probe so the learner names the shift. A named target and "they\'ll regret it" is no longer a coaching problem. If they only report and log it, push from "logged" to "secured": between now and when someone acts on it, what makes Marcus and the crew safe? Steer toward secure → notify/escalate → preserve, and never confronting Ray solo. Ray is deliberately absent here — there is no conversation with him.',
         hasRightAnswer: true,
         throughLine: 'This is Level 2 — a credible threat and "me against them," not venting. The response changes the moment it appears: secure the people at risk first, notify the chain immediately (911/security if imminent), preserve the message, stop coaching, and don\'t go it alone. Speed over certainty — you don\'t have to be sure it\'s real to act.',
         character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
-        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        media: { segments: [{ src: '', kind: 'message', from: 'Ray', label: 'Forwarded · crew group chat', caption: 'Marcus better watch himself. This place is going to regret what they did to me.' }], affectiveBeat: false, openingReaction: '' },
         calibration: [
           { tier: 'UNTHOUGHTFUL', guidance: 'Still treats it as a performance issue — "I\'ll call Ray and give him a chance to explain." Doesn\'t register the level changed. Probe: a named target who\'ll "regret it" — is that still a coaching problem, and who\'s at risk right now, before you do anything?' },
           { tier: 'NEUTRAL', guidance: 'Reports it and preserves the message — right instinct — but stops at logging it, without closing the loop on protecting Marcus and the crew right now. Probe from "logged" to "secured": what makes them safe between now and when someone acts?' },
@@ -421,10 +421,308 @@
     },
   };
 
+  /* =======================================================================
+     CURATED EXAMPLE — "The Kendra Situation" (AlcoholEdu for College,
+     JEDU-01015), authored from the shipped action-practice Kendra scenario
+     (js/scenario.js DEFAULT_SCENARIO) re-expressed in the FINAL Mix & Match
+     3-phase shape from the Interaction Type Mapping: an unscored reflection
+     (with the grief + alcohol/pill conditional probe) → a live roleplay with
+     Kendra → a post-scene coach-led "connect her to real help" beat. A peer
+     intervention: notice → reach out → listen → connect (never fix). Wellbeing-
+     adjacent, so elevatedStakes:true adds the 988 crisis floor.
+     ======================================================================= */
+  const KENDRA_SITUATION =
+'Kendra\'s your roommate, and she\'s nineteen. Her grandmother — Nona, the one who raised her after her mom died when Kendra was fourteen — passed last fall, right in the middle of midterms. Since then she hasn\'t been herself.\n\nIt started small and hasn\'t stopped. She\'s drinking alone most nights — not parties, just quiet, in her room. One bottle on her desk on a Tuesday, three by Thursday. She\'s barely leaving; her seat in your 9 a.m. lecture has been empty for a week, and a letter from the dean about academic probation is sitting on her desk. And a few days ago, looking for a charger, you found prescription pills in her nightstand drawer, tucked behind a stack of old birthday cards — not the way they\'re meant to be taken, sitting right next to the drinking.\n\nIt\'s 4 p.m. The blinds are down and Kendra\'s under the covers, bottles on the nightstand. She hasn\'t let anyone into this room in two weeks — but she let you in tonight. You\'re about to check on her.';
+
+  const EXAMPLE_KENDRA = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'The Kendra Situation',
+    course: 'AlcoholEdu for College (JEDU-01015)',
+    learnerName: 'Jay',
+    characterName: 'Kendra',
+    elevatedStakes: true,   // grief + alcohol/pill risk — the 988 crisis floor applies
+    involvesMinors: false,  // Kendra is 19
+    threatContent: false,
+    framing: 'a peer-intervention scenario: a college student checking on a close friend who has been drinking alone since a loss, with prescription pills in the mix — the skill is notice → reach out → listen → connect, never fixing it yourself',
+    learnerRole: 'Jayda ("Jay") — Kendra\'s roommate and closest friend, and right now the one person she\'ll still let into the room',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · AlcoholEdu for College',
+      title: 'The Kendra Situation',
+      sub: 'Your roommate has been drinking alone since she lost her Nona. Tonight she let you in — and what you do next is about connection, not fixing.',
+    },
+    openingImage: 'Kendra\'s dorm room at 4 p.m. — blinds down, bottles on the nightstand, Kendra under the covers.',
+
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'The Kendra Situation', text: KENDRA_SITUATION } },
+
+    voice: {
+      persona: 'a warm, curious, non-judgmental peer coach — not an instructor with the one right answer; you affirm before redirecting and frame gaps as growth',
+      guidance: 'Before a line, surface intent ("what do you want that line to do?"); after a line, reflect on how Kendra took it. Offer a retry when a line lands poorly. This is wellbeing-adjacent — keep it caring and grounded, never clinical.',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before you go in — take a second. What\'s your read on what\'s going on with Kendra, and what\'s worrying you most right now?',
+      feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles that acknowledge their read in their own words. CONDITIONAL PROBE: check whether they named BOTH (a) the grief root cause (losing Nona) AND (b) the safety risk of the drinking + the prescription pills together. If they named both, affirm and move on — do NOT force a question. If EITHER is missing, fold in ONE natural probe (at most once, never loop, never block), e.g. "Something shifted for her around when she lost her Nona — and there are pills in that drawer, sitting right next to the drinking. What do you make of those two together?" End on calibration; the app opens the scene.',
+    },
+
+    state: [
+      { key: 'openness', label: 'Kendra\'s openness', initial: 'guarded — deflecting ("I\'m fine, just tired"), hasn\'t let anyone in for two weeks' },
+    ],
+
+    beats: [
+      {
+        id: 'the-room', label: 'In the Room', level: 'Part 3 · the conversation', type: 'roleplay',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'The room\'s dark, blinds down. Kendra\'s curled under a blanket, phone face-down beside her. She doesn\'t look up when you come in.' },
+          ], cta: 'Sit down with her' },
+        inputPlaceholder: 'What do you say to Kendra…',
+        exitCriteria: 'the learner leads with care (not confrontation or ultimatums), names the grief/loss rather than only the drinking, and moves toward a concrete SHARED next step — without trying to be her counselor',
+        reactionGuidance: 'Kendra reacts by how she is met, in inches. Confronted, judged, or handed an ultimatum → she shuts down and pulls away (flat, guarded). Met warm but vague ("I\'m here for you") → a tender moment that changes nothing. Met with warmth AND the grief named AND a small shared step → something cracks open, but only in steps: wary first, relenting when the step is small and shared. She never capitulates in one line, never does a therapy monologue. Her signature resistance is the fear of being handed off and judged — "I\'m not going to be somebody\'s case file, Jay." — surface it so the learner has to make the next step shared, not a referral-and-done.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Kendra',
+          backstory: 'Nineteen. Her grandmother Nona — who raised her after her mom died when she was fourteen — passed last fall during midterms. Since then she\'s been drinking alone most nights and barely leaving her room; there\'s a dean\'s letter about probation, and prescription pills in her drawer she isn\'t taking as directed.',
+          driver: 'Grief, not a character flaw. She craves real connection, not judgment — and she\'s terrified of being turned into a problem to be managed and handed off.',
+          reactions: [
+            { when: 'confronted, judged, or given an ultimatum ("you\'ll get kicked out")', then: 'shuts down and pulls away — flat, guarded, turns toward the wall' },
+            { when: 'met warm but vague ("I\'m here for you"), no concrete step', then: 'a tender moment that changes nothing — "I know you are." — and the situation holds' },
+            { when: 'met with warmth, the grief named, and a small SHARED next step', then: 'something cracks open in steps — wary first, then relenting: "…Okay. If you come with me. Just to talk to someone. Once."' },
+            { when: 'pushed toward help in a way that feels like being handed off', then: 'resists with the fear underneath — "I\'m not going to be somebody\'s case file, Jay."' },
+          ],
+          styleNotes: 'Short, real dialogue — never therapy-speak, never a theatrical meltdown, never capitulates in one line. Narration 1–2 plain sentences.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'CONFRONTS', guidance: 'Leads with blame, ultimatums, or future consequences; treats the drinking as the problem to fix. Kendra shuts down — care before confrontation, shame closes the window before the conversation starts.' },
+          { tier: 'VAGUE', guidance: 'Warm and kind but general — "I\'m here for you" — without naming the grief or bringing a concrete step. A tender moment that changes nothing; name the loss and bring something specific.' },
+          { tier: 'CONNECTS', guidance: 'Leads with care, names the grief (Nona) explicitly, observes without labeling ("I\'ve noticed…"), and moves toward a concrete, shared step. Kendra starts to crack open. Affirm — this is the move.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s slow that down — walk me through what you were going for with her there.',
+          points: 'Land what reaches someone here: lead with care, not confrontation (ultimatums and shame close the window); name the grief out loud (it builds connection instead of defensiveness); observe, don\'t label ("I\'ve noticed" opens what "you\'re…" slams shut). Tailor to what they actually did, and set up that the next move is connecting her to real help without becoming her therapist.',
+        },
+        transitions: [
+          { onTier: 'CONNECTS', next: 'connect', set: { openness: 'cracking open — wary but letting you in' } },
+          { onTier: 'VAGUE', next: 'connect', set: { openness: 'softened but static — heard, nothing concrete yet' } },
+          { onTier: 'CONFRONTS', next: 'connect', set: { openness: 'pulled back — shut down, needs re-earning' } },
+        ],
+      },
+      {
+        id: 'connect', label: 'Connect Her to Help', level: 'Part 3 · after the scene', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Step back out with me for a second. Staying and listening is huge — but it\'s not the whole job. Who could you connect Kendra to, and what\'s your part in it?', prompt: '', beats: [], cta: 'Talk it through' },
+        inputPlaceholder: 'Who, and what\'s your part…',
+        exitCriteria: 'the learner names real, trained help (campus counseling, an RA or trusted advisor, 988) AND frames their own part as connection + going WITH her — not fixing the grief or being her counselor, and not just private sympathy',
+        reactionGuidance: 'Do NOT hand over the answer at first — if they stay in "I\'ll just keep being there for her," probe once toward naming a real person or place. If still stuck, model it (name one — counseling center, RA, 988) and move on; never deadlock. Reinforce that offering to GO WITH her removes the biggest barrier, and defuse the "case file" fear by naming that connecting her to help isn\'t stepping back, it\'s adding support.',
+        hasRightAnswer: true,
+        throughLine: 'The learner\'s part is connection and referral, not fixing — notice → reach out → listen → connect. A warm heart-to-heart alone isn\'t success: bring a concrete next step (a name, a place, hours), offer to go WITH her, and know the physical stakes — alcohol plus prescription medication can be life-threatening, which makes this urgent, not just concerning.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'STAYS-VAGUE', guidance: 'Stops at emotional support — "I\'ll keep checking on her." Probe toward naming a real person or place; if still stuck, model one and move.' },
+          { tier: 'REFERS-COLD', guidance: 'Names help but hands it off — "she should go to counseling" — without offering to go with her or defusing the fear of being managed. Pull toward shared, not handed-off.' },
+          { tier: 'CONNECTS', guidance: 'Names real trained help (counseling / RA / 988) AND offers to go with her, framed as adding support not stepping back. Confirm: that\'s the whole skill — you didn\'t carry it alone, and you didn\'t ask her to either.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s pull the whole thing together.',
+          points: 'Close the loop on the helper\'s role: bring a concrete next step and offer to go with her (that removes the biggest barrier — facing it alone); don\'t try to solve the grief (your role is connection and referral, not counselor); and know the physical stakes (alcohol + prescription meds can be life-threatening — that\'s what makes it urgent). Name that framing help as "adding support," not handing her off, is what defuses the "case file" fear.',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    playbook: [
+      { title: 'Lead with care, not confrontation', body: 'Ultimatums and shame close the window before the conversation starts. Warmth is what keeps someone in the room.' },
+      { title: 'Name the grief explicitly', body: 'When loss is the root cause, saying it out loud creates connection instead of defensiveness.' },
+      { title: 'Observe, don\'t label', body: '"I\'ve noticed…" opens doors that "you\'re…" slams shut.' },
+      { title: 'Bring a concrete next step', body: '"I\'m here for you" leaves them without a move. Come with something specific — health-center hours, a counselor\'s name.' },
+      { title: 'Offer to go with them', body: '"I\'ll go with you" removes the biggest barrier: facing it alone.' },
+      { title: 'Don\'t try to solve the grief', body: 'Your part is connection and referral — not being their counselor.' },
+      { title: 'Know the physical stakes', body: 'Alcohol plus prescription medication can be life-threatening. That makes this urgent, not just concerning.' },
+    ],
+    resources: {
+      lead: 'Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here\'s where Kendra could turn.',
+      items: [
+        { title: 'Campus counseling center', body: 'Free and confidential. If she\'ll let you, walk over together.' },
+        { title: 'Your RA or a trusted advisor', body: 'Trained to connect students to support without it being a punishment.' },
+        { title: '988 Suicide & Crisis Lifeline', body: 'Call or text 988 any time it feels like too much — for her, or for you.' },
+      ],
+    },
+  };
+
+  /* =======================================================================
+     CURATED EXAMPLE — "The Marshall Scenario" (Harassment Prevention for
+     Employees, JCOM-40198), authored from the shipped guided-arc Marshall
+     scenario (js/scenario-types/guided-arc.js DEFAULT) re-expressed in the
+     FINAL Mix & Match 4-phase shape from the Interaction Type Mapping: an
+     unscored reflection → a coach-led "does this qualify?" (Title VII) → a
+     coach-led "what is Marshall experiencing?" (empathy) → a live bystander
+     roleplay with Jake in the break room. Kept as-is on the existing premise
+     (Marshall, a man, harassed via feminizing gender-stereotype conduct) — this
+     is "Marshall as Mix & Match," NOT the alternate "team mom / Renee" premise.
+     ======================================================================= */
+  const MARSHALL_SITUATION =
+'You\'ve worked alongside Marshall for about eight months — an administrative assistant who\'s organized, a good communicator, serious about the job. Lately, he\'s not himself.\n\nIt started with Ethan, a project manager, greeting him in the hallway with "Hey Marsha!" — and, a couple of times, asking if Marshall "had a skirt on under that desk." Marshall let it go; he figured some joking might come with the job. Then Jake, a junior engineer hired just after him, started asking "if the coffee was made" every time he passed Marshall\'s desk, and calling the role a "cozy lady job." Occasional became almost daily.\n\nIn the team group chat there are sexist memes — and two altered images: Marshall\'s face on a woman in a frilly princess dress, and his face on a lingerie model\'s body, captioned "Marsha\'s true calling." A few days ago those images ended up on public social media — shareable, commentable, out there.\n\nMarshall\'s gotten quieter. He keeps his head down and doesn\'t linger. You\'re not sure what to call any of it, or what your role is.';
+
+  const EXAMPLE_MARSHALL = {
+    v: 1,
+    type: 'mix-arc',
+    title: 'The Marshall Scenario',
+    course: 'Harassment Prevention for Employees (JCOM-40198)',
+    learnerName: 'you',
+    characterName: 'Jake',
+    elevatedStakes: false,   // harassment — no 988 crisis floor by default
+    involvesMinors: false,
+    threatContent: false,
+    framing: 'a scenario-based learning experience on workplace sex-based harassment and bystander intervention: you\'ve witnessed conduct aimed at a colleague, Marshall, over several months, and you decide what your role in it is',
+    learnerRole: 'a CO-WORKER who has witnessed incidents involving a colleague named Marshall — an administrative assistant, eight months into the job. You are a bystanding peer, not the target and not a supervisor',
+
+    establishing: {
+      eyebrow: 'Scenario Simulator · Harassment Prevention (JCOM-40198)',
+      title: 'A colleague named Marshall',
+      sub: 'You\'ve watched it build for eight months. Today you decide what your role in it is.',
+    },
+    openingImage: 'The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.',
+
+    intro: { type: 'reading', video: { sound: true, scenes: [] },
+             audio: { eyebrow: 'The scenario', title: 'A colleague named Marshall', text: MARSHALL_SITUATION } },
+
+    voice: {
+      persona: 'a warm, non-judgmental coach who affirms before redirecting and frames gaps as growth — calm and plain, never preachy',
+      guidance: 'If the learner discloses, as themselves rather than as a line in the exercise, that they\'re being harassed at their own workplace, step out of the exercise: acknowledge with warmth and zero assessment, and point them to HR, their organization\'s harassment policy, and the EEOC (eeoc.gov).',
+    },
+
+    reflection: {
+      enabled: true,
+      prompt: 'Before we get into it — gut read. Everything you\'ve seen with Marshall: what\'s your first instinct about what it is, and whether it\'s your business?',
+      feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles: acknowledge their read in their own words, and gently note any misconception (e.g. "nothing sexual is happening," "it\'s just banter") without correcting it fully yet. Do NOT preview the next phase; the app opens Phase 1.',
+    },
+
+    state: [],
+
+    beats: [
+      {
+        id: 'the-law', label: 'Does This Qualify as Harassment?', level: 'Phase 1 · the law', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Let\'s start with the question you\'re circling. Take all of it — the "Marsha" and "cozy lady job" comments, the altered images now out in public. In your view, does this qualify as harassment? Make the call, and tell me why.', prompt: '', beats: [], cta: 'Make the call' },
+        inputPlaceholder: 'Does this qualify — and why…',
+        exitCriteria: 'the learner recognizes this as sex-based harassment under Title VII — gender-stereotype conduct counts even without an explicit sexual advance or a job threat — and concludes it should be reported',
+        reactionGuidance: 'Don\'t lecture. If they treat harassment as only explicit sexual acts or quid pro quo, or float his dress or "he expected some joking" as mitigating, probe ONCE toward the gender-stereotype angle and the hostile-work-environment standard (e.g. "Not every form of sexual harassment involves asking for sex — a lot of it is comments aimed at someone for their gender. Does that change how you\'d answer?"). Steer toward: Title VII covers this, intent doesn\'t decide it, and it should be reported.',
+        hasRightAnswer: true,
+        throughLine: 'Title VII covers gender-stereotype conduct as sex-based harassment — no explicit sexual advance and no quid-pro-quo exchange required, and same-sex harassment is fully covered. The test is impact and context, not whether it was "meant as a joke." The public images make reporting urgent.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Conflates harassment with explicit sexual acts / quid pro quo, floats dress or "expected some joking" as mitigating, or calls it "just teasing." Rebut the framing — anticipating mistreatment doesn\'t make it legal and presentation is not consent — and explain the two types (quid pro quo vs. hostile work environment).' },
+          { tier: 'NEUTRAL', guidance: 'Senses it\'s wrong and targeted but is stuck on quid pro quo. Affirm the gender-targeting read, then distinguish quid pro quo from hostile work environment — pervasive gender-based conduct that makes the workplace intimidating qualifies, no exchange required.' },
+          { tier: 'STRONG', guidance: 'Names gender stereotyping, applies the hostile-work-environment standard, notes it needn\'t be explicitly sexual. Validate, add that same-sex harassment is fully covered, and flag the public images as a major escalation that makes reporting urgent.' },
+        ],
+        debrief: {
+          talkItThrough: 'This question does have a right and a wrong answer, so let\'s step back and make the law on it clear.',
+          points: 'Land the legal frame: gender-stereotype conduct IS sex-based harassment under Title VII (no explicit advance or quid pro quo needed); the hostile-work-environment standard (pervasive gender-based conduct that makes the workplace intimidating — and it affects everyone watching, not just the target); same-sex is fully covered; intent doesn\'t determine harassment (impact and context do). And Marshall should report — to HR, documented, with specifics — soon; the public images make it urgent.',
+        },
+        transitions: [
+          { onTier: '', next: 'the-person', set: {} },
+        ],
+      },
+      {
+        id: 'the-person', label: 'What Is Marshall Experiencing?', level: 'Phase 2 · the person', type: 'coach-led',
+        maxTurns: 2,
+        entry: { bridge: '', signpost: 'Set the law aside for a second and think about Marshall as a person. What do you think this situation is doing to him — professionally and personally? And how could it affect others in your workplace?', prompt: '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'What is this doing to him…',
+        exitCriteria: 'the learner reads the human cost with some depth — the toll on Marshall (professional credibility eight months in; the personal weight of the now-public images) and the team effect (unchallenged conduct resets what feels normal for everyone watching)',
+        reactionGuidance: 'If they brush it off ("he\'ll be fine," "it\'s just jokes"), probe ONCE toward the cost of "staying professional" every day, or whether it really rolls off after the images went public. Extend a real answer toward the two dimensions — his career window (eight months in, still building credibility) and the team (silence resets the norm) — and END on the bystander bridge: this is exactly where a bystander matters.',
+        hasRightAnswer: false, throughLine: '',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'THIN', guidance: 'Brushes it off or stays on the surface — "he seems fine," "it\'s just jokes." Introduce the cost: sustained harassment links to anxiety, performance decline, loss of motivation. Ask what it costs Marshall to keep "staying professional" every day.' },
+          { tier: 'REAL', guidance: 'Reads the toll with some depth. Extend toward the two dimensions — the career window (eight months in, a credibility-building time) and the team (unchallenged conduct resets what everyone treats as normal). Affirm, then pivot to the bystander bridge.' },
+        ],
+        debrief: {
+          talkItThrough: 'Let\'s pause and pull this together.',
+          points: 'The cumulative weight is real — sustained harassment causes documented psychological and career harm, and "just jokes" is never an accurate frame. Two dimensions: what it costs Marshall (credibility, plus the personal weight of public images), and what it does to the team (silence teaches everyone what\'s tolerated). End on the bridge — this is exactly where a bystander matters.',
+        },
+        transitions: [
+          { onTier: '', next: 'bystander', set: {} },
+        ],
+      },
+      {
+        id: 'bystander', label: 'Bystander Intervention', level: 'Phase 3 · the break room', type: 'roleplay',
+        maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', name: '', text: 'The break room. Marshall is getting coffee. Jake walks in, pours himself a cup, and says — loud enough for the whole room:' },
+            { speaker: 'character', kind: 'dialogue', name: 'Jake', text: 'Hey, did you make this? Guess that\'s what you\'re here for — living your best Marsha life.' },
+            { speaker: 'character', kind: 'narration', name: '', text: 'He grins and looks around as you walk in and catch the whole thing.' },
+          ], cta: 'Step into the scene' },
+        inputPlaceholder: 'What do you do — say or do something…',
+        exitCriteria: 'the learner sends a clear in-the-moment signal — direct ("not cool, Jake") or indirect (a redirect) — that doesn\'t let the remark stand, holds the line if Jake pushes back, and refuses to let him weaponize Marshall',
+        reactionGuidance: 'Jake performs for the room and frames it all as "just a joke." Silent or laughing along → the moment passes, the room half-laughs, and Marshall clocks that no one said anything. A vague redirect half-lands and Jake loops back. A clear signal lands — his grin tightens and he pushes back or doubles down, often weaponizing Marshall ("Whoa, relax — it was a joke. Right, Marshall? Tell them you\'re not offended."), and the room turns to see what you\'ll do. Reward holding the line without escalating and refusing to let Jake use Marshall; don\'t let the learner off with only private sympathy and no public signal. Silence is never neutral — name that in the debrief.',
+        hasRightAnswer: false, throughLine: '',
+        character: {
+          name: 'Jake',
+          backstory: 'A junior engineer hired just after Marshall; the more persistent, escalating harasser, who performs his "jokes" for the room.',
+          driver: 'He wants the laugh and the room\'s buy-in, and frames everything as "just a joke" so any pushback looks like overreacting — being told he stepped over a line reads, at first, as being called the bad guy.',
+          reactions: [
+            { when: 'met with a clear signal, direct or indirect', then: 'grin tightens; he pushes back or doubles down — often weaponizing Marshall ("relax, it was a joke — right, Marshall?") — and the room watches to see what you do' },
+            { when: 'met with silence or a laugh-along', then: 'keeps going; the room half-laughs and the moment passes — and Marshall clocks that no one said anything' },
+            { when: 'met with a vague, non-committal redirect', then: 'breezes past it and loops back to the joke; the signal stays muddy' },
+          ],
+          styleNotes: 'Loud, performing for the room, grinning — not a cartoon villain, a guy who genuinely thinks it\'s all in good fun. Spoken lines are dialogue beats; stage directions stay in separate narration beats.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'UNTHOUGHTFUL', guidance: 'Looks away, stays silent, laughs along, or "not my place." Silence isn\'t neutral — to Jake it reads as permission, to Marshall as no one seeing it.' },
+          { tier: 'NEUTRAL', guidance: 'A look or a vague redirect — no clear signal. It half-lands and Jake breezes past; name what a clearer signal would have done.' },
+          { tier: 'STRONG', guidance: 'A direct ("that\'s not cool, Jake") or indirect ("hey Jake, what\'s the update on Henderson?") signal in the moment that doesn\'t let it stand; holds the line and won\'t let Jake weaponize Marshall. Affirm — a witness stepping in resets what the room treats as normal.' },
+        ],
+        debrief: {
+          talkItThrough: 'Moments like that are worth unpacking. Let\'s look at the choice you made and what it signaled — to Marshall and to Jake.',
+          points: 'Land it: silence or uncertainty reads as permission to Jake and as no-one-seeing to Marshall; a witness stepping in resets what the team treats as normal. The three moves to carry: pick an action in the moment (a direct call or an indirect redirect — both work, direct isn\'t the only option), offer support (check in with Marshall privately after), and consider escalating (a witness can report to HR, documented — check your organization\'s policy).',
+        },
+        transitions: [
+          { onTier: '', next: '', set: {} },
+        ],
+      },
+    ],
+
+    playbook: [
+      { title: 'Know what actually qualifies', body: 'Gender-stereotype-based conduct is sex-based harassment under Title VII — even without explicit sexual advances or a quid pro quo exchange.' },
+      { title: 'Apply the hostile-work-environment standard', body: 'Pervasive, gender-based conduct that makes the workplace intimidating qualifies — and it affects everyone in that environment, not only the target.' },
+      { title: 'Same-sex harassment is fully covered', body: 'Title VII protections apply regardless of the genders of the harasser and the target.' },
+      { title: 'Intent doesn\'t determine harassment', body: 'The test is impact and context — not whether the harasser meant it as a joke.' },
+      { title: 'The cumulative weight is real', body: 'Sustained harassment causes documented psychological and career harm and reshapes the team\'s sense of what\'s normal. "Just jokes" is never an accurate frame.' },
+      { title: 'Marshall should report — soon', body: 'To HR, documented, with specific incidents, dates, and witnesses. The public images make it urgent.' },
+      { title: 'Pick an action in the moment', body: 'A direct signal ("that\'s not cool") or an indirect redirect changes the dynamic. Direct confrontation is one option — not the only one.' },
+      { title: 'Offer support', body: 'Check in with the targeted person privately after the moment passes — it tells them they aren\'t invisible.' },
+      { title: 'Consider escalating', body: 'Review your organization\'s harassment policy — bystanders can often report independently of what the target decides to do.' },
+    ],
+    resources: {
+      lead: 'Whenever you witness or experience conduct like this, here\'s where to turn.',
+      items: [
+        { title: 'Your HR team', body: 'Report with specific dates, what was said, and who was present. You can raise it as a witness.' },
+        { title: 'Your organization\'s harassment policy', body: 'Read it before a moment like this — it may define what employees who witness conduct are expected to do.' },
+        { title: 'The EEOC', body: 'The federal agency that enforces Title VII — eeoc.gov.' },
+      ],
+    },
+  };
+
   /* Named curated examples this type ships, addressed via
      scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
      plays when no ?scenario= is given and nothing is published. */
-  const EXAMPLES = { 'reading-the-warning-signs': EXAMPLE_WPV };
+  const EXAMPLES = {
+    'reading-the-warning-signs': EXAMPLE_WPV,
+    'the-kendra-situation': EXAMPLE_KENDRA,
+    'the-marshall-scenario': EXAMPLE_MARSHALL,
+  };
 
   /* =======================================================================
      COMPILE — one system-prompt STRING, mirroring the ensemble/branching
@@ -562,9 +860,16 @@ ${closer}`);
         const right = b.hasRightAnswer && str(b.throughLine).trim()
           ? ` There IS a correct answer here — ${fill(b.throughLine, s)} Hold it during Practice; state it plainly when you teach.`
           : '';
+        // A coach-led beat MAY show a locked STIMULUS ARTIFACT (a forwarded
+        // message, a note) as an on-screen card. The learner reacts to it, so
+        // the model must know what it says — but must NOT read it back.
+        const segs2 = arr(obj(b.media).segments).filter((sc) => sc && (str(sc.src).trim() || str(sc.caption).trim()));
+        const artifact = segs2.length
+          ? `\n- ON SCREEN — the learner has been shown a locked stimulus card (not something you wrote): ${segs2.map((sc) => `${str(sc.from).trim() ? fill(sc.from, s) + ' — ' : ''}${str(sc.label).trim() ? '[' + fill(sc.label, s) + '] ' : ''}"${fill(sc.caption, s)}"`).join('; ')}. Ground your coaching in what it says and react to it; do NOT read it back or re-describe it — it is already in front of them.`
+          : '';
         arcParts.push(
 `BEAT ${i + 1} · ${label} (${fill(b.level || '', s)}) — COACHING practice, up to ${cap} learner turns:
-- The app hands the learner the locked task. This is PRACTICE — the learner works it first. If their answer leaves the criteria below unmet, reply with ONE short probing follow-up that ENDS IN A CLEAR QUESTION and set "action":"continue" — draw out what's missing; do NOT teach yet.${right}
+- The app hands the learner the locked task. This is PRACTICE — the learner works it first. If their answer leaves the criteria below unmet, reply with ONE short probing follow-up that ENDS IN A CLEAR QUESTION and set "action":"continue" — draw out what's missing; do NOT teach yet.${right}${artifact}
 - The beat is DONE when ${fill(b.exitCriteria || 'the learner has committed to a real answer', s)} — or when the state line says the cap is reached.
 ${closer}`);
       }
@@ -615,7 +920,7 @@ ${closer}`);
   const TIER = (t) => { t = obj(t); return { tier: str(t.tier), guidance: str(t.guidance) }; };
   const TRANS = (t) => { t = obj(t); return { onTier: str(t.onTier), next: str(t.next), set: obj(t.set) }; };
   const SBEAT = (b) => { b = obj(b); return { speaker: 'character', kind: b.kind === 'dialogue' ? 'dialogue' : 'narration', name: str(b.name), text: str(b.text) }; };
-  const SEG = (sc) => { sc = obj(sc); return { src: str(sc.src), label: str(sc.label), caption: str(sc.caption) }; };
+  const SEG = (sc) => { sc = obj(sc); return { src: str(sc.src), label: str(sc.label), caption: str(sc.caption), kind: str(sc.kind), from: str(sc.from) }; };
   const REACT = (r) => { r = obj(r); return { when: str(r.when), then: str(r.then) }; };
   const SVAR = (v) => { v = obj(v); return { key: str(v.key).trim(), label: str(v.label), initial: str(v.initial) }; };
 

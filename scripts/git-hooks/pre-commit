@@ -18,6 +18,25 @@
 
 set -u
 
+# ── Guard A: new mock pages must be versioned + carry the comment toolbox ────
+# (shared logic in scripts/check-mock-structure.sh; bypass: SKIP_MOCK_GUARD=1)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+if [ -x "$REPO_ROOT/scripts/check-mock-structure.sh" ]; then
+  "$REPO_ROOT/scripts/check-mock-structure.sh" --staged || exit 1
+fi
+
+# ── Guard A2: dashboard/loader links must resolve ────────────────────────────
+# Only when the commit touches the catalog or mock files: every products.json
+# rel and versions.json path must point at a real file, so a mock that moves
+# or renames can't leave a dead card link on the live dashboards.
+# (bypass together with Guard A: SKIP_MOCK_GUARD=1)
+if [ "${SKIP_MOCK_GUARD:-}" != "1" ] && [ -f "$REPO_ROOT/scripts/check-catalog-links.js" ]; then
+  if git diff --cached --name-only | grep -qE '^(products\.json$|products/)'; then
+    node "$REPO_ROOT/scripts/check-catalog-links.js" || exit 1
+  fi
+fi
+
+# ── Guard B: the GitHub Pages landing page ───────────────────────────────────
 MARKER='GUARD:PAGES-LANDING-PAGE'
 
 # Is the root index.html part of this commit at all?
