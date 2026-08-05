@@ -217,6 +217,39 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     return normalize(out);
   }
 
+  /* ---- runtime shape for the converged player --------------------------
+     Teach-Back rides scenario-live.html as a render SURFACE (js/sim-teachback.js
+     + js/sim-surfaces.js). The surface OWNS the whole loop — the framing
+     calibration chat, the tile board + live grader, and the N/10 close — so the
+     ladder here is a SINGLE kind:'teach' phase whose only jobs are to (a) install
+     the surface (resolved by phase.kind) and (b) let the close route through the
+     shared machinery (noCharacterScene → close on complete). The topics /
+     calibrate / grade / close data ride ON the scenario for the surface and the
+     three prompt builders to read (mirrors scene-sweep leaving hazards/scene on
+     the scenario). No warm-up opening — the surface's onStart drives framing. */
+  function toRuntime(raw) {
+    const g = normalize(raw);
+    return Object.assign({}, g, {
+      phases: [{
+        id: 'teach', kind: 'teach', label: 'Teach it back',
+        level: 'Knowledge check', world: 'coaching', maxTurns: 99,
+        entry: { bridge: '', bridgesByTier: {}, signpost: '', prompt: '', beats: [], cta: '' },
+        transitions: [], calibration: [], debrief: { points: [] },
+      }],
+      opening: [],                 // the surface's onStart drives framing, not a ladder warm-up
+      intro: { type: 'none' },     // the calibration chat IS the intro; the surface owns it
+      state: [],
+      establishing: {
+        eyebrow: 'Knowledge check',
+        title: g.title || 'Teach it back',
+        sub: g.subject
+          ? ('You just finished ' + g.subject + '. Now teach it back — in your own words.')
+          : 'Teach the key topics back in your own words.',
+      },
+      course: g.subject || '',
+    });
+  }
+
   /* ---- lints ------------------------------------------------------------ */
   function lints(s) {
     const L = [];
@@ -343,6 +376,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     DEFAULT,
     ENGINE_SECTIONS,
     fill: (t) => String(t == null ? '' : t),   // no placeholder substitution here
+    toRuntime,                                  // → the converged player's runtime scenario (kind:'teach' phase)
     normalize,
     isValid,
     merge,

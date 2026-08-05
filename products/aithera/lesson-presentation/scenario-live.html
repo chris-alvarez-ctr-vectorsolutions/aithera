@@ -1563,12 +1563,19 @@
     <script src="js/scenario-types/branching-arc.js?v=4"></script>
     <script src="js/scenario-types/ensemble-arc.js?v=10"></script>
     <script src="js/scenario-types/scene-sweep.js?v=10"></script>
+    <script src="js/scenario-types/teach-back.js?v=2"></script>
     <!-- [Option B] the OPT-IN perception layer: the photo/hotspot "spot the
          hazard" Observe canvas + coverage rail. Registers itself as the 'spot'
          SURFACE (js/sim-surfaces.js). Mounts ONLY for a scenario with a kind:'spot'
          phase (scene-sweep); the four conversational types never install it. Loads
          after scene-sweep.js (window.SceneSweepGeo) and sim-surfaces.js. -->
     <script src="js/sim-perception.js?v=3"></script>
+    <!-- [Option B] surface #2: teach-back (retrieval). Registers the 'teach' SURFACE
+         (js/sim-surfaces.js). Owns its whole loop — framing calibration chat, the
+         10-tile board + live grader, the N/10 close — via ownsInput/onInput; the
+         main turn engine never runs for it. Loads after sim-surfaces.js + the
+         teach-back TYPE (its prompt builders). -->
+    <script src="js/sim-teachback.js?v=1"></script>
 
     <script>
     /* =====================================================================
@@ -1703,6 +1710,10 @@
        nine-component close all live there.
        ===================================================================== */
     let SYSTEM_PROMPT = PLAY_TYPE ? PLAY_TYPE.compile(PLAY_TYPE.normalize(PLAY_SRC)) : '';   // let: the Section-1 coupler may append context addenda
+    // A type whose compile() returns a non-string (teach-back returns its 3-prompt
+    // LIST for the Studio) has no single base prompt — and its surface owns input
+    // (getTurn never runs), so an empty base is correct and inert.
+    if (typeof SYSTEM_PROMPT !== 'string') SYSTEM_PROMPT = '';
 
     /* ---- STATE -------------------------------------------------------- */
     /* The coach's opening beat is SEEDED (not model-generated) so every
@@ -2513,9 +2524,11 @@
       // no real Learn/Practice choice yet. Revealed once the coach actually begins.
       // aria-hidden + inert must track visibility, or the toggle stays invisible
       // to screen readers (while its buttons stay tabbable) for the whole session.
-      modeIndicator.classList.toggle('is-hidden', !state.started);
-      modeIndicator.setAttribute('aria-hidden', String(!state.started));
-      modeIndicator.inert = !state.started;
+      // A surface with a LINEAR flow (teach-back) hides the two-world toggle entirely.
+      const hideToggle = !state.started || !!(SURFACE && SURFACE.hideModeToggle);
+      modeIndicator.classList.toggle('is-hidden', hideToggle);
+      modeIndicator.setAttribute('aria-hidden', String(hideToggle));
+      modeIndicator.inert = hideToggle;
 
       /* —— Mode indicator: the two-world toggle. Sweep relabels it OBSERVE (the
          tap-to-mark photo) | REACT (the coach), and keeps both live once the
@@ -3154,6 +3167,19 @@
     async function send() {
       const text = composer.value.trim();
       if (!text || state.sending || state.complete || state.transitioning) return;
+
+      // A surface may OWN the active phase's input loop: the learner's words go to
+      // the surface (teach-back: its own live grader), NOT the main turn engine. The
+      // surface drives its own UI/state; the ladder runner never sees this input.
+      {
+        const _phases = ACTIVE_SCENARIO.phases || [];
+        const _p = (state.phaseIdx >= 0 && state.phaseIdx < _phases.length) ? _phases[state.phaseIdx] : null;
+        if (SURFACE && SURFACE.ownsInput && SURFACE.ownsInput(_p)) {
+          composer.value = ''; autoGrow();
+          SURFACE.onInput(text);
+          return;
+        }
+      }
 
       let youMsg = null;
       if (state.mode === 'scene') {
