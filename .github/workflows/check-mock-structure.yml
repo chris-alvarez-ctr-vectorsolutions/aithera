@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (with enough history to diff the push)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -49,11 +49,15 @@ jobs:
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
             BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
           fi
+          echo "GUARD_BASE=$BASE" >> "$GITHUB_ENV"
           bash scripts/check-mock-structure.sh --range "$BASE" "${{ github.sha }}"
           echo "✓ All new mock pages are versioned and carry the comment toolbox."
 
-      - name: Check dashboard/loader links all resolve
+      - name: Check dashboard/loader links resolve (new breakage only)
         # Every products.json rel and versions.json path must point at a real
         # file — a mock that moved (e.g. into ver1/) without its catalog entry
         # updating renders as a dead card link on the live dashboard.
-        run: node scripts/check-catalog-links.js
+        # Grandfathered against the push's before-sha: links that were ALREADY
+        # dead before this push only warn, so old drift can't red-X unrelated
+        # pushes — only the push that introduces a dead link fails.
+        run: node scripts/check-catalog-links.js --grandfather "$GUARD_BASE"

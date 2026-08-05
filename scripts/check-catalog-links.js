@@ -12,7 +12,7 @@
    is just dead. (This happened when the Keystone hub pages moved into
    ver1/: the Agency Intelligence card 404'd until products.json caught up.)
 
-   This guard fails when:
+   A link is BROKEN when:
      • a products.json `rel` doesn't resolve to a real file —
          rel "."           → products/<folder>/index.html
          rel "…/foo.html"  → products/<folder>/…/foo.html
@@ -20,25 +20,81 @@
      • any versions.json under products/ lists a `path` that doesn't exist
        in its feature folder.
 
-   Runs from the pre-commit hook (Guard A, with check-mock-structure.sh) and
-   in CI (.github/workflows/check-mock-structure.yml). Bypass, if you truly
-   must commit a dangling link: SKIP_MOCK_GUARD=1 git commit ...
+   GRANDFATHERING (--grandfather <ref>): only breakage that is NEW relative
+   to <ref> fails the check. Dead links that were already dead at <ref> are
+   reported as warnings and never block — so one person's stale rename can't
+   red-X everyone else's pushes. The push that INTRODUCES a dead link still
+   fails, which is the signal to fix products.json in the same change.
 
-   Usage:  node scripts/check-catalog-links.js
+   Runs from the pre-commit hook (Guard A, with check-mock-structure.sh,
+   grandfathered against HEAD) and in CI (check-mock-structure.yml,
+   grandfathered against the push's before-sha). Bypass, if you truly must
+   commit a dangling link: SKIP_MOCK_GUARD=1 git commit ...
+
+   Usage:  node scripts/check-catalog-links.js [--grandfather <git-ref>]
    ========================================================================= */
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const PRODUCTS_DIR = path.join(REPO_ROOT, 'products');
-
-const problems = [];
+const PRODUCTS_DIR = 'products';
 
 // ---------------------------------------------------------------------------
-// 1. products.json rel targets
+// Worlds — the same checks run against the live filesystem (the state being
+// committed/pushed) and, for grandfathering, against a past git ref.
+// ---------------------------------------------------------------------------
+
+function liveWorld() {
+  return {
+    exists: (rel) => fs.existsSync(path.join(REPO_ROOT, rel)),
+    readFile: (rel) => {
+      try { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
+      catch { return null; }
+    },
+    versionManifests: () => {
+      const out = [];
+      (function walk(rel) {
+        let entries;
+        try { entries = fs.readdirSync(path.join(REPO_ROOT, rel), { withFileTypes: true }); }
+        catch { return; }
+        for (const e of entries) {
+          const p = `${rel}/${e.name}`;
+          if (e.isDirectory()) walk(p);
+          else if (e.name === 'versions.json') out.push(p);
+        }
+      })(PRODUCTS_DIR);
+      return out;
+    },
+  };
+}
+
+function gitWorld(ref) {
+  const ls = execFileSync('git', ['ls-tree', '-r', '--name-only', ref], {
+    cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  const files = new Set(ls.split('\n').filter(Boolean));
+  return {
+    exists: (rel) => files.has(rel),
+    readFile: (rel) => {
+      if (!files.has(rel)) return null;
+      try {
+        return execFileSync('git', ['show', `${ref}:${rel}`], {
+          cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+        });
+      } catch { return null; }
+    },
+    versionManifests: () =>
+      [...files].filter((f) => f.startsWith(`${PRODUCTS_DIR}/`) && f.endsWith('/versions.json')),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The checks — return problems as { msg, target } where target is the
+// repo-relative missing path (the stable key used for grandfathering).
 // ---------------------------------------------------------------------------
 
 function flattenItems(items, out = []) {
@@ -49,68 +105,103 @@ function flattenItems(items, out = []) {
   return out;
 }
 
-let catalog;
-try {
-  catalog = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'products.json'), 'utf8'));
-} catch (e) {
-  console.error(`✗ Could not read products.json: ${e.message}`);
-  process.exit(1);
-}
+function collectProblems(world) {
+  const problems = [];
 
-for (const product of catalog.products || []) {
-  if (!product || !product.folder) continue;
-  const productDir = path.join(PRODUCTS_DIR, product.folder);
-  for (const it of flattenItems(product.items)) {
-    const rel = it.rel;
-    const target = rel === '.'
-      ? path.join(productDir, 'index.html')
-      : rel.endsWith('.html')
-        ? path.join(productDir, rel)
-        : path.join(productDir, rel, 'index.html');
-    if (!fs.existsSync(target)) {
-      problems.push(
-        `products.json → "${it.name || rel}" (product "${product.folder}"): ` +
-        `rel "${rel}" → missing ${path.relative(REPO_ROOT, target)}`
-      );
-    }
+  // 1. products.json rel targets
+  const rawCatalog = world.readFile('products.json');
+  if (rawCatalog == null) {
+    problems.push({ msg: 'products.json: file not found', target: 'products.json' });
+    return problems;
   }
-}
+  let catalog;
+  try { catalog = JSON.parse(rawCatalog); }
+  catch (e) {
+    problems.push({ msg: `products.json: unparseable JSON (${e.message})`, target: 'products.json:parse' });
+    return problems;
+  }
 
-// ---------------------------------------------------------------------------
-// 2. versions.json manifests — every version path must exist
-// ---------------------------------------------------------------------------
-
-function walkForManifests(dir) {
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-  for (const e of entries) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) walkForManifests(p);
-    else if (e.name === 'versions.json') {
-      let versions;
-      try { versions = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (err) {
-        problems.push(`${path.relative(REPO_ROOT, p)}: unparseable JSON (${err.message})`);
-        continue;
-      }
-      for (const v of Array.isArray(versions) ? versions : []) {
-        if (!v || !v.path) continue;
-        if (!fs.existsSync(path.join(dir, v.path))) {
-          problems.push(
-            `${path.relative(REPO_ROOT, p)}: version "${v.id || v.label}" ` +
-            `→ missing ${v.path}`
-          );
-        }
+  for (const product of catalog.products || []) {
+    if (!product || !product.folder) continue;
+    for (const it of flattenItems(product.items)) {
+      const rel = it.rel;
+      const target = rel === '.'
+        ? `${PRODUCTS_DIR}/${product.folder}/index.html`
+        : rel.endsWith('.html')
+          ? `${PRODUCTS_DIR}/${product.folder}/${rel}`
+          : `${PRODUCTS_DIR}/${product.folder}/${rel}/index.html`;
+      if (!world.exists(target)) {
+        problems.push({
+          msg: `products.json → "${it.name || rel}" (product "${product.folder}"): rel "${rel}" → missing ${target}`,
+          target,
+        });
       }
     }
   }
+
+  // 2. versions.json manifests — every version path must exist
+  for (const manifest of world.versionManifests()) {
+    const raw = world.readFile(manifest);
+    let versions;
+    try { versions = JSON.parse(raw); }
+    catch (err) {
+      problems.push({ msg: `${manifest}: unparseable JSON (${err.message})`, target: `${manifest}:parse` });
+      continue;
+    }
+    const dir = path.posix.dirname(manifest);
+    for (const v of Array.isArray(versions) ? versions : []) {
+      if (!v || !v.path) continue;
+      const target = `${dir}/${v.path}`;
+      if (!world.exists(target)) {
+        problems.push({ msg: `${manifest}: version "${v.id || v.label}" → missing ${v.path}`, target });
+      }
+    }
+  }
+
+  return problems;
 }
-walkForManifests(PRODUCTS_DIR);
 
 // ---------------------------------------------------------------------------
+// Run: check the live state; with --grandfather, demote pre-existing
+// breakage to warnings so only NEW breakage blocks.
+// ---------------------------------------------------------------------------
 
-if (problems.length) {
-  console.error('\n  ✋ BLOCKED — dashboard/loader link(s) point at files that don\'t exist:\n');
-  for (const p of problems) console.error(`  ✗ ${p}`);
+const args = process.argv.slice(2);
+let grandfatherRef = null;
+const gfIdx = args.indexOf('--grandfather');
+if (gfIdx !== -1) grandfatherRef = args[gfIdx + 1] || null;
+
+const problems = collectProblems(liveWorld());
+
+let grandfathered = new Set();
+if (grandfatherRef && problems.length) {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${grandfatherRef}^{commit}`], { cwd: REPO_ROOT });
+    grandfathered = new Set(collectProblems(gitWorld(grandfatherRef)).map((p) => p.target));
+  } catch {
+    console.error(`  ⚠ --grandfather ref "${grandfatherRef}" not found; treating all problems as new.`);
+  }
+}
+
+const fresh = problems.filter((p) => !grandfathered.has(p.target));
+const legacy = problems.filter((p) => grandfathered.has(p.target));
+
+if (legacy.length) {
+  console.error('\n  ⚠ pre-existing dead link(s) — grandfathered, NOT blocking this change');
+  console.error('    (they were already broken before it; fix products.json / versions.json when convenient):\n');
+  for (const p of legacy) {
+    console.error(`  ⚠ ${p.msg}`);
+    if (process.env.GITHUB_ACTIONS) console.log(`::warning::Pre-existing dead catalog link: ${p.msg}`);
+  }
+  console.error('');
+}
+
+if (fresh.length) {
+  console.error('\n  ✋ BLOCKED — this change introduces dashboard/loader link(s) that don\'t resolve:\n');
+  for (const p of fresh) {
+    console.error(`  ✗ ${p.msg}`);
+    if (process.env.GITHUB_ACTIONS) console.log(`::error::Dead catalog link introduced: ${p.msg}`);
+  }
   console.error(
     '\n  If you moved or renamed a mock, update its `rel` in products.json (and\n' +
     '  any versions.json path) in the SAME change — the dashboards and landing\n' +
@@ -120,4 +211,8 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log('✓ catalog links OK — every products.json rel and versions.json path resolves.');
+console.log(
+  legacy.length
+    ? `✓ no NEW dead links (${legacy.length} pre-existing grandfathered — see warnings above).`
+    : '✓ catalog links OK — every products.json rel and versions.json path resolves.'
+);
