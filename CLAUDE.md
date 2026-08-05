@@ -156,6 +156,8 @@ Sub-versions use a dotted folder, e.g. `ver2.x/index.html` with `{ "id": "ver2x"
 
 **Paths inside a version file:** because every version file sits at `products/<Product>/<feature>/verN/index.html` (four levels below the repo root), any repo-root asset it references resolves at `../../../../` — e.g. the Design Toolbox include is `<script src="../../../../designtoolbox/toolbox.js"></script>`. Required Core/Themes/font/icon resources are already in `base-template/version.html`'s header (absolute CDN URLs).
 
+**Moving, renaming, or restructuring a mock (including moving pages into `verN/`):** the dashboards and landing page render links straight from `products.json`, so **update every affected `rel` (and any `versions.json` path) in the SAME commit** — otherwise the card's link 404s on the live site while the card itself still renders. `scripts/check-catalog-links.js` enforces this (pre-commit Guard A2 + the check-mock-structure CI workflow): it fails on any `products.json` rel or `versions.json` path that doesn't resolve to a real file. Comments relink automatically in CI on renames (`.github/workflows/relink-comments.yml`). One thing no guard can fix: **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
+
 ## Dev Handoff Process
 
 **This is the standardized process for every dev handoff — it is the same for every designer and every mock.** When a designer says any of *"this is ready for dev,"* *"ready for handoff,"* *"it's dev-handoff time,"* *"hand this off,"* or similar, run these steps in order. Do not improvise a different flow per request.
