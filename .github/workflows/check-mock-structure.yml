@@ -1,0 +1,51 @@
+name: Check new mocks are versioned + have comments
+
+# Safety net for the mock-structure guard (scripts/check-mock-structure.sh):
+# works for EVERYONE, including pushes from GitHub Desktop or clones with no
+# local hooks installed.
+#
+# Every NEW mock page under products/ must be a versioned feature folder
+# (loader index.html + versions.json + verN/index.html) and must carry the
+# Design Toolbox include with comments ENABLED — for every product. Existing
+# flat mocks are grandfathered: only files ADDED by the push are checked.
+#
+# This job cannot restructure a mock for whoever pushed it, so on a violation
+# it fails the run with an annotation naming each offending file — the red X
+# on the commit is the signal to go add the versioning/toolbox.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'products/**'
+      - 'scripts/check-mock-structure.sh'
+      - '.github/workflows/check-mock-structure.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-mock-structure-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with enough history to diff the push)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check new mock pages for versioning + comment toolbox
+        run: |
+          set -euo pipefail
+          BASE='${{ github.event.before }}'
+          # First push / force push where the before-sha is unknown: fall back
+          # to the previous commit.
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
+          fi
+          bash scripts/check-mock-structure.sh --range "$BASE" "${{ github.sha }}"
+          echo "✓ All new mock pages are versioned and carry the comment toolbox."
