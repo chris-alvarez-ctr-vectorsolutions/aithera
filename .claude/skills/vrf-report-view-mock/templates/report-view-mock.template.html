@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Report Mock — vrf-report-view</title>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      /* No vwc-topnav in a bare mock — pin the filter drawer to the top. */
+      vrf-report-view {
+        --vwc-topnav-height: 0px;
+        --vrf-report-grid-max-height: calc(100vh - 250px);
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- The <vrf-report-view> element is CREATED IN JS at the bottom of this
+         file (not hard-coded here) so its service is attached before it enters
+         the DOM — see the note there. -->
+    <div id="report-root"></div>
+
+    <!--
+      ────────────────────────────────────────────────────────────────────────
+      CDN BUNDLES  (all four are classic IIFE scripts — keep them in THIS order,
+      no `type="module"`, no `async`. report-view co-exists with VWC: core +
+      themes MUST load or the vwc-*/vaadin-* elements won't render.)
+
+      These MUST live at the END OF <body>, not in <head>: core.iife.js does a
+      `document.body.appendChild(...)` at load time, so loading it from <head>
+      (where document.body is still null) throws mid-init and silently leaves
+      elements like <vwc-icon> unregistered.
+
+      Replace the three __*_VERSION__ placeholders. Find versions on the
+      storybook change-log pages:
+        report-view : …/@vector-reporting-framework/storybook/latest/index.html?path=/docs/packages-reportview-change-log--docs
+        core/themes : …/@vector-web-components/storybook/latest/index.html?path=/docs/packages-core-change-log--docs
+      Use the latest of each unless a designer needs a specific product version.
+      ────────────────────────────────────────────────────────────────────────
+    -->
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-web-components/themes/v__THEMES_VERSION__/styles.js"></script>
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-web-components/core/v__CORE_VERSION__/core.iife.js"></script>
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-reporting-framework/report-view/v__RV_VERSION__/report-view.iife.js"></script>
+    <script src="https://cdn.develop.vsp-nonprod.com/web-components/@vector-reporting-framework/report-view/v__RV_VERSION__/dx-light-theme.js"></script>
+
+    <script>
+      // ══════════════════════════════════════════════════════════════════════
+      // MOCK DATA
+      // The report is 100% metadata-driven. Read the report-view CONTEXT.md for
+      // the full set of supported filter/visual/column/renderer keys before
+      // changing anything here. Only use documented keys.
+      // ══════════════════════════════════════════════════════════════════════
+
+      const DATASET_ID = 'mock-ds';
+
+      // --- Dataset schema: captions, data types, filter/sort permissions ------
+      const schemaColumn = (name, caption, dataType = 'string') => ({
+        name,
+        caption,
+        displayName: caption,
+        dataType,
+        nullable: true,
+        allowFiltering: true,
+        allowSorting: true
+      });
+
+      const DATASET = {
+        datasetId: DATASET_ID,
+        version: 'v1.0.0',
+        displayName: 'Mock Dataset',
+        description: 'Hand-authored mock data.',
+        glueDatabase: 'mock',
+        glueTable: 'mock',
+        partitionKey: 'tenant_id',
+        allowedApplications: [],
+        schema: {
+          columns: [
+            schemaColumn('activity', 'Activity'),
+            schemaColumn('user', 'User'),
+            schemaColumn('status_text', 'Status'),
+            schemaColumn('assigned_enrolled', 'Assigned/Enrolled'),
+            schemaColumn('completion_date', 'Completion Date', 'date'),
+            schemaColumn('user_id', 'User ID')
+          ]
+        },
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        dataLastUpdated: new Date().toISOString()
+      };
+
+      // --- Layout: filter tray + visuals (chart + grid) -----------------------
+      const LAYOUT = {
+        layoutId: 'mock-layout',
+        version: 'v1.0.0',
+        caption: 'Mock Layout',
+        description: 'Mock report layout.',
+        allowedApplications: [],
+        filterTray: {
+          filters: [
+            {
+              id: 'date_range',
+              type: 'date-range',
+              column: 'completion_date',
+              columnName: 'completion_date',
+              label: null,
+              optionsSource: null,
+              placeholder: null,
+              defaultValue: null,
+              dependsOn: null,
+              start: {
+                type: 'date',
+                id: 'range_start',
+                label: 'Start',
+                column: null,
+                defaultValue: { _helper: 'start-of-month' }
+              },
+              end: {
+                type: 'date',
+                id: 'range_end',
+                label: 'End',
+                column: null,
+                defaultValue: { _helper: 'end-of-month' }
+              }
+            },
+            { type: 'divider' },
+            {
+              id: 'status_type',
+              type: 'multi-combobox',
+              column: 'status_text',
+              label: 'Status',
+              optionsSource: 'distinct',
+              placeholder: 'All Statuses'
+            }
+          ]
+        },
+        visuals: [
+          {
+            id: 'completion_chart',
+            title: 'Completion',
+            type: 'selector',
+            headerDefinition: {
+              title: 'Completion',
+              badges: [
+                { type: 'date-range', startId: 'range_start', endId: 'range_end' }
+              ]
+            },
+            children: [
+              {
+                id: 'pie_view',
+                type: 'pie',
+                default: true,
+                binding: {
+                  category: 'status_text',
+                  value: 'user_id',
+                  aggregation: 'count'
+                },
+                colorMap: {
+                  Completed: '#158444',
+                  Overdue: '#D83E38',
+                  'In Progress': '#0271CE',
+                  Incomplete: '#666666'
+                }
+              },
+              {
+                id: 'bar_view',
+                type: 'bar',
+                binding: {
+                  category: 'status_text',
+                  value: 'user_id',
+                  aggregation: 'count'
+                }
+              }
+            ]
+          },
+          {
+            id: 'main_grid',
+            title: 'Detailed Report',
+            type: 'datagrid',
+            headerDefinition: {
+              title: 'Detailed Report',
+              badges: [
+                { type: 'date-range', startId: 'range_start', endId: 'range_end' }
+              ]
+            },
+            columns: [
+              {
+                dataField: 'activity',
+                caption: 'Activity',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 200,
+                fixed: true,
+                fixedPosition: 'sticky'
+              },
+              {
+                dataField: 'user',
+                caption: 'User',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 150
+              },
+              {
+                dataField: 'status_text',
+                caption: 'Status',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 120,
+                renderer: {
+                  type: 'status',
+                  field: 'status_text',
+                  themeMap: {
+                    completed: 'success',
+                    'in progress': '',
+                    incomplete: 'contrast',
+                    overdue: 'error'
+                  },
+                  defaultTheme: 'contrast'
+                }
+              },
+              {
+                dataField: 'assigned_enrolled',
+                caption: 'Assigned/Enrolled',
+                dataType: 'string',
+                format: '',
+                visible: true,
+                minWidth: 140
+              },
+              {
+                dataField: 'completion_date',
+                caption: 'Completion Date',
+                dataType: 'date',
+                format: 'shortDate',
+                visible: true,
+                minWidth: 130
+              }
+            ],
+            defaultSort: { field: 'completion_date', direction: 'desc' },
+            paging: { pageSize: 25 },
+            allowExport: true
+          }
+        ],
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z'
+      };
+
+      const REPORT = {
+        reportId: 'mock-report',
+        name: 'Activity Exception Report (Mock)',
+        datasetId: DATASET_ID,
+        version: 'v1.0.0',
+        layoutId: 'mock-layout',
+        layoutVersion: 'v1.0.0',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        allowedApplications: []
+      };
+
+      // --- Row data -----------------------------------------------------------
+      const STATUSES = ['Completed', 'In Progress', 'Incomplete', 'Overdue'];
+      const ASSIGNED = ['Assigned', 'Enrolled', 'Enrolled (license)'];
+      const pick = (a) => a[Math.floor(Math.random() * a.length)];
+      const ROWS = Array.from({ length: 25 }, (_, i) => ({
+        id: i + 1,
+        user_id: `u-${i + 1}`,
+        activity: `Activity ${i + 1}`,
+        user: `User ${i + 1}`,
+        status_text: pick(STATUSES),
+        assigned_enrolled: pick(ASSIGNED),
+        completion_date: new Date(Date.now() - i * 86400000)
+          .toISOString()
+          .split('T')[0]
+      }));
+
+      // Aggregate counts per status for the chart (mock of a groupBy query).
+      const CHART_COUNTS = STATUSES.map((s) => ({
+        status_text: s,
+        count: ROWS.filter((r) => r.status_text === s).length
+      }));
+
+      // ══════════════════════════════════════════════════════════════════════
+      // MOCK SERVICE  (implements IVectorReportViewService)
+      // See the service CONTEXT.md for the full interface + response shapes.
+      // ══════════════════════════════════════════════════════════════════════
+      class MockReportViewService {
+        async getReportBundle() {
+          return { report: REPORT, layout: LAYOUT, dataset: DATASET };
+        }
+        async getReportMetadata() {
+          return REPORT;
+        }
+        async getLayoutMetadata() {
+          return LAYOUT;
+        }
+        async getDatasetMetadata() {
+          return DATASET;
+        }
+
+        // Options for filters declared with optionsSource: 'distinct'.
+        async getDistinctValues(_datasetId, column) {
+          if (column === 'status_text') return STATUSES;
+          return [];
+        }
+
+        // The single data entry point. Grids call it with paging/sort/filter;
+        // charts call it with groupBy + totalSummary; export sets asCSV=true.
+        async queryDataset(_datasetId, query = {}, asCSV = false) {
+          if (asCSV) {
+            return { blob: new Blob(['mock,csv\n']), filename: 'mock-export.csv' };
+          }
+
+          // Chart aggregation branch: return rows keyed `${value}_${aggregation}`.
+          if (query.groupBy && query.totalSummary && query.totalSummary.length) {
+            const { selector, summaryType } = query.totalSummary[0];
+            const key = `${selector}_${summaryType}`;
+            const data = CHART_COUNTS.map((c) => ({
+              [query.groupBy]: c.status_text,
+              [key]: c.count
+            }));
+            return { data, totalCount: data.length, summary: {} };
+          }
+
+          // Grid branch: return the (optionally paged) rows. A real mock can also
+          // honor query.filter / query.sort; here we return all rows.
+          return { data: ROWS, totalCount: ROWS.length, summary: {} };
+        }
+
+        // Saved-view methods — only needed when `disableview` is removed.
+        async listSavedViews() {
+          return [];
+        }
+        async getView() {
+          throw new Error('not implemented');
+        }
+        async saveView(p) {
+          return { ...p, viewId: 'mock', version: 1 };
+        }
+        async updateView(id, p) {
+          return { ...p, viewId: id };
+        }
+        async deleteView() {}
+        async toggleFavorite() {}
+      }
+
+      // ── Build the element with its service ALREADY attached, then insert it ─
+      // The component kicks off its data task on its FIRST Lit update. If
+      // `vectorReportViewService` isn't set by then it throws and renders
+      // "An unknown error occurred" — and the task does NOT re-run when the
+      // property lands later. So don't hard-code <vrf-report-view> in the HTML
+      // and assign the service afterwards (that's a race); create the element,
+      // set the property, and only then put it in the DOM.
+      customElements.whenDefined('vrf-report-view').then(() => {
+        const el = document.createElement('vrf-report-view');
+        el.vectorReportViewService = new MockReportViewService();
+        // `disableView` hides the Save/Apply saved-view UI so the mock service
+        // can skip saveView/listSavedViews/etc. Drop it (and implement those
+        // methods) to demo saved views.
+        el.disableView = true;
+        el.reportId = 'mock-report';
+        document.getElementById('report-root').appendChild(el);
+      });
+    </script>
+  </body>
+</html>
