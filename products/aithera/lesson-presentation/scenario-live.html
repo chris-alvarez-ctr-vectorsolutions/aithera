@@ -672,6 +672,25 @@
         white-space: pre-wrap;
         box-shadow: var(--shadow-sm);
       }
+      /* scene-sweep: the flagged-hazards artifact card (rendered in place of a
+         spoken "You" bubble). A cool-slate checklist on the learner's side. */
+      .you-coach.you-marks { max-width: 82%; }
+      .marks-card {
+        align-self: stretch;
+        background: rgba(128,148,178,.10);
+        border: 1px solid rgba(128,148,178,.34);
+        border-radius: 16px 4px 16px 16px;
+        padding: 4px 4px;
+        box-shadow: var(--shadow-sm);
+      }
+      .marks-row {
+        display: flex; align-items: flex-start; gap: 11px;
+        padding: 9px 13px;
+        font-size: 15px; line-height: 1.45;
+        color: rgba(255,255,255,.95);
+      }
+      .marks-row + .marks-row { border-top: 1px solid rgba(128,148,178,.20); }
+      .marks-row i { color: var(--c-accent); font-size: 12.5px; margin-top: 3px; flex: 0 0 auto; }
 
       /* ===================================================================
          6. STAGE CARD  — wraps a contiguous run of SCENE messages.
@@ -1543,7 +1562,7 @@
          hazard" Observe canvas + coverage rail. Mounts ONLY for a scenario with a
          kind:'spot' phase (scene-sweep); the four conversational types never
          install it. Loads after scene-sweep.js (which defines window.SceneSweepGeo). -->
-    <script src="js/sim-perception.js?v=1"></script>
+    <script src="js/sim-perception.js?v=2"></script>
 
     <script>
     /* =====================================================================
@@ -1743,6 +1762,7 @@
       coachStarted: false,      // the coach conversation has begun (first cross to React)
       reportedToCoach: new Set(), // hazard ids already summarized to the coach (re-cross only mentions new finds)
       lookAgainDismissed: false, // learner chose to type instead of going back to the photo on a nudge
+      pendingMarkCard: null,     // {items:[…]} — the freshly-flagged hazards to show as an inline card (NOT spoken); consumed by send()
     };
     // Seed the declared session state with its authored initial values.
     (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
@@ -2107,6 +2127,22 @@
       wrap.appendChild(el('div', 'bubble', esc(m.text)));
       return wrap;
     }
+    // scene-sweep: the learner's flagged hazards, shown as an inline artifact card
+    // (echoing the forwarded-message treatment) rather than spoken text — a "You
+    // flagged" checklist. The first-person `m.text` still goes to the model; this
+    // only changes DISPLAY. Falls back to the plain bubble if no items came through.
+    function youMarksNode(m) {
+      const items = (m._marks || []).filter(Boolean);
+      if (!items.length) return youCoachNode(m);
+      const wrap = el('div', 'you-coach you-marks' + ec(m));
+      wrap.appendChild(el('div', 'cap', 'You flagged'));
+      const card = el('div', 'marks-card');
+      card.innerHTML = items.map((it) =>
+        `<div class="marks-row"><i class="fa-solid fa-flag"></i><span>${esc(it)}</span></div>`
+      ).join('');
+      wrap.appendChild(card);
+      return wrap;
+    }
     function charNode(m, isConsequence, defaultName) {
       // narration-only line (no dialogue) → quiet centered scene-setting text.
       // The outcome narration that lands right after the learner acts is the
@@ -2336,7 +2372,10 @@
       const desired = run.map((m) => {
         let node = coachNodeMap.get(m);
         if (!node) {
-          node = (m.kind === 'clip') ? clipNode(m) : (m.speaker === 'you') ? youCoachNode(m) : coachNode(m);
+          node = (m.kind === 'clip') ? clipNode(m)
+               : (m.speaker === 'you' && m.variant === 'marks') ? youMarksNode(m)
+               : (m.speaker === 'you') ? youCoachNode(m)
+               : coachNode(m);
           node.dataset.coachMsg = '1';
           coachNodeMap.set(m, node);
         }
@@ -3137,7 +3176,16 @@
         state.messages.push(youMsg);
         followStage = true;   // new scene content — follow it down
       } else {
-        state.messages.push({ speaker: 'you', kind: 'coaching', text, _enter: true });
+        const youC = { speaker: 'you', kind: 'coaching', text, _enter: true };
+        // scene-sweep: the freshly-flagged hazards render as an inline "You flagged"
+        // card (see youMarksNode) instead of a spoken bubble. The model still gets
+        // the first-person `text` verbatim, so the coach grades exactly as before.
+        if (state.pendingMarkCard) {
+          youC.variant = 'marks';
+          youC._marks = state.pendingMarkCard.items;
+          state.pendingMarkCard = null;
+        }
+        state.messages.push(youC);
       }
       composer.value = '';
       autoGrow();

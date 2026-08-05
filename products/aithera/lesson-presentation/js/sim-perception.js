@@ -630,6 +630,13 @@
       const fresh = HAZARDS.filter((h) => state.covered.has(h.id) && !state.reportedToCoach.has(h.id));
       fresh.forEach((h) => state.reportedToCoach.add(h.id));
       if (fresh.length) {
+        // Hand the page the crisp hazard names so it renders the flagged items as
+        // an inline "You flagged" card instead of spoken text (see youMarksNode in
+        // scenario-live.html). The first-person sentence below still goes to the
+        // model, so the coach grades exactly as before.
+        state.pendingMarkCard = {
+          items: fresh.map((h) => fillT(h.short || h.alt || 'A hazard').replace(/\.$/, '')),
+        };
         return 'I marked ' + listJoin(fresh.map((h) => markPhrase(h))) + '.';
       }
       if (reason === 'stuck') return 'I’ve looked around, but I’m not sure what else is unsafe here.';
