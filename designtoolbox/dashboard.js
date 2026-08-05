@@ -498,9 +498,6 @@
     const jiraBaseNorm = jiraBase ? (jiraBase.endsWith('/') ? jiraBase : jiraBase + '/') : '';
 
     const productEnc = encodeURIComponent(PRODUCT);
-    // GitHub "commits for this path" base — used for the per-card "full history"
-    // link. Same repo/branch as the blob links, just the commits view.
-    const COMMITS_BASE = REPO_BASE.replace('/blob/main/', '/commits/main/');
 
     return Object.keys(meta.mocks).map(key => {
       const m = meta.mocks[key] || {};
@@ -561,9 +558,6 @@
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
-        // Full commit history for this prototype on GitHub (the "show more" target
-        // for the per-card log). Mirrors what the inline log counts.
-        historyUrl: `${COMMITS_BASE}/${isRoot ? `${productEnc}/index.html` : base}`,
         devHandoff,
         devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
         devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
@@ -1156,6 +1150,21 @@
     applyFiltersAndRender();
   });
 
+  // "View full log" — reveals the hidden tail of the card's inline log (every
+  // row is already rendered from meta.json, rows past LOG_SHOWN start hidden).
+  // Delegated so it survives re-renders, like the star handler above.
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.log-full-btn');
+    if (!btn) return;
+    e.preventDefault();
+    const log = btn.closest('.card-log');
+    if (!log) return;
+    const expanded = log.classList.toggle('log-expanded');
+    btn.innerHTML = expanded
+      ? 'Collapse log <i class="fa-solid fa-chevron-up"></i>'
+      : `View full log (${btn.dataset.more} more) <i class="fa-solid fa-chevron-down"></i>`;
+  });
+
   // Jump straight to a feature's card from a side-nav bookmark: put the card in
   // scope (its folder or Main), clear search + status filters so nothing hides
   // it, render, then scroll to it and flash a highlight.
@@ -1639,14 +1648,17 @@
           : `<span class="log-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> Updated ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
       : '';
 
-    const logRow = entry => `
-          <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}">
+    const logRow = (entry, extra) => `
+          <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}${extra ? ' log-item--extra' : ''}">
             <span class="log-date">${escapeHtml(formatDate(entry.date))}</span>
             <span class="log-summary">${escapeHtml(entry.summary || '')}</span>
           </li>`;
-    const shownRows = changes.slice(0, LOG_SHOWN).map(logRow).join('');
+    // ALL rows render up front; the tail past LOG_SHOWN is hidden until the
+    // "View full log" button reveals it — inline, in the card. (This button
+    // used to link to the GitHub commits view, but the repo is private, so the
+    // link 404'd for every designer without repo access.)
+    const shownRows = changes.map((entry, i) => logRow(entry, i >= LOG_SHOWN)).join('');
     const hiddenCount = Math.max(0, changes.length - LOG_SHOWN);
-    const fullLogLabel = hiddenCount ? `View full log (${hiddenCount} more)` : 'View full log';
 
     let logHtml;
     if (changes.length) {
@@ -1661,7 +1673,7 @@
         </summary>
         <ul class="log-list">${shownRows}
         </ul>
-        <a class="log-full-btn" href="${mock.historyUrl}" target="_blank" rel="noopener">${escapeHtml(fullLogLabel)} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        ${hiddenCount ? `<button type="button" class="log-full-btn" data-more="${hiddenCount}">View full log (${hiddenCount} more) <i class="fa-solid fa-chevron-down"></i></button>` : ''}
       </details>`;
     } else {
       // No git history for this mock — static header row, no expander.
@@ -2603,6 +2615,12 @@
       .log-updated--recent {
         padding: 3px 10px; border-radius: 999px; background: #f5f3ff; color: #6d28d9; font-weight: 700;
       }
+      /* Log rows past the first LOG_SHOWN stay hidden until "View full log"
+         expands them inline (no GitHub round-trip — the repo is private). */
+      .card-log .log-item--extra { display: none; }
+      .card-log.log-expanded .log-item--extra { display: grid; }
+      /* An expanded full log can be hundreds of rows — cap and scroll. */
+      .card-log.log-expanded .log-list { max-height: 340px; overflow-y: auto; }
       /* "View full log" button inside the expanded log. */
       .log-full-btn {
         display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;

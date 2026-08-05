@@ -118,6 +118,7 @@ products/<Product>/<feature>/
 2. Copy **`base-template/index.html`** (the loader) to the feature root as `index.html`. **Do not modify it** — it is identical across every feature; only `versions.json` differs.
 3. Create **`versions.json`** with the single `ver1` entry shown above.
 4. Create the **`ver1/`** folder and copy **`base-template/version.html`** (the blank Vector canvas) to `ver1/index.html`. **Do all design work here, not in the root loader `index.html`.**
+   - **Every new mock, in every product, gets the Design Toolbox with comments ENABLED — no exceptions.** `base-template/version.html` already carries the `designtoolbox/toolbox.js` include; keep it, and never add `window.TOOLBOX = { comments: false }` to a design file (that override belongs ONLY in `dev_handoff.html` builds). If a mock has multiple pages in its `verN/` folder, every page gets the same toolbox include. This applies to all products — not just SafeLMS/Scheduling.
 5. If no mock description is given, scaffold these files and then ask where to start with the design in `ver1/index.html`.
 6. **Always add the new prototype to `products.json`** (repo root) — the single curated source for BOTH the landing index and every product dashboard. Add an item under the correct product's `items`, pointing `rel` at the **feature folder** (the loader), relative to `products/<Product>/`:
 
