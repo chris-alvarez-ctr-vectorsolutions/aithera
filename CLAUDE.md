@@ -173,8 +173,12 @@ The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev
 
 ### Step 0 — Pick the version FIRST (before anything else)
 
-Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then — if there is **more than one** — **stop and ask the designer which version to hand off** (name them by their `label`, e.g. "V1 or V2?"). We almost always launch only one, so the handoff should not carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then:
 
+- **Exactly ONE version (or a legacy flat mock, which becomes `ver1`): do NOT ask — proceed silently with that version.** One version means the choice is already made; asking "which version?" when there's only one is noise. This is the common case — most mocks launch a single version — so the handoff should run start-to-finish without a version question.
+- **More than one version: STOP and ask** which to hand off (name them by their `label`, e.g. "V1 or V2?"), so the handoff doesn't carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+
+Details for the two cases:
 - If they keep **one** version, build the handoff from that version's file.
 - If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
 - Never guess which version to keep or what to call them.
