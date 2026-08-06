@@ -1559,21 +1559,29 @@
         .q-video-attachment[hidden] { display: none; }
 
         /* Thumbnail-style attachment shown in the step once a video is added.
-           Clicking it opens the global video review panel. */
+           A11Y: this tile is deliberately NOT clickable and carries no role or
+           tabindex. Actions live in sibling <button>s (.q-video-attachment-act),
+           exactly like .q-attachment-card. A clickable card wrapping nested
+           buttons is invalid ARIA — a button's accessible name is computed from
+           its contents, so nested controls get flattened into it — and it gives
+           keyboard users a single focus stop that hides the delete action. */
         .q-video-attachment {
             display: flex; align-items: center; gap: 14px;
             padding: 12px;
             border: 1px solid var(--border-soft);
             border-radius: 10px;
             background: var(--lumo-base-color);
-            cursor: pointer;
             max-width: 460px;
             transition: border-color 0.15s, box-shadow 0.15s;
         }
+        /* Hover is on the tile for affordance, but only the buttons are targets. */
         .q-video-attachment:hover {
             border-color: var(--brand);
             box-shadow: var(--lumo-box-shadow-s);
         }
+        /* The play badge echoes the primary action; the real target is the
+           adjacent Preview button, so keep it out of the a11y tree. */
+        .q-video-attachment .q-video-thumb { cursor: default; }
         .q-video-thumb {
             flex-shrink: 0;
             width: 96px; height: 60px; border-radius: 6px;
@@ -1591,11 +1599,23 @@
         .q-video-attachment-name i { color: var(--text-muted); font-size: 12px; }
         .q-video-attachment-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .q-video-attachment-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
-        .q-video-attachment-cta {
-            flex-shrink: 0;
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 13px; font-weight: 600; color: var(--brand);
+        /* Action group — mirrors .q-attachment-actions on the attachment cards
+           (same gutter + hairline divider, same 28px targets) so the video tile
+           and the file tiles read as one component family. */
+        .q-video-attachment-actions {
+            display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+            margin-left: 4px; padding-left: 6px;
+            border-left: 1px solid var(--border-soft);
         }
+        .q-video-attachment-act {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 13px; border-radius: 6px;
+            width: 28px; height: 28px; line-height: 1;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background 0.12s, color 0.12s;
+        }
+        .q-video-attachment-act:hover { color: var(--brand); background: var(--page-bg); }
+        .q-video-attachment-act.remove:hover { color: var(--lumo-error-color); }
 
         /* Full-width two-column layout below the video step title/description:
            left (40%) = upload workflow, right (60%) = stored annotations (scrolls). */
@@ -1693,11 +1713,30 @@
         #videoReviewDrawer {
             --vwc-drawer-width: 480px;
             --vwc-drawer-min-width: 360px;
-            --vwc-drawer-max-width: 96vw;
+            /* Desktop resize cap: the panel can never be dragged past HALF the
+               viewport, so the form stays readable alongside it. Below the
+               tablet breakpoint the panel becomes a full-screen takeover
+               instead (see the media query below), where 50% makes no sense. */
+            --vwc-drawer-max-width: 50vw;
             --vwc-drawer-offset-top: 0px;
             --vwc-drawer-max-column-height: 100vh;
             /* Widen the 8px grab strip so the resize edge is easy to hit. */
             --vwc-drawer-resize-handle-size: 10px;
+        }
+        /* Small screens: full-screen takeover. Pinning min AND max to 100vw is
+           what makes the drag inert here — the DS drag handle writes an inline
+           width on .drawer-column, but that element's own shadow styles clamp it
+           between --vwc-drawer-min-width and --vwc-drawer-max-width, so a
+           collapsed range leaves nothing to drag. (.drawer-column is NOT an
+           exposed ::part, so the tokens are the only lever.) */
+        @media (max-width: 760px) {
+            #videoReviewDrawer {
+                --vwc-drawer-width: 100vw;
+                --vwc-drawer-min-width: 100vw;
+                --vwc-drawer-max-width: 100vw;
+            }
+            /* Hide the now-pointless grab affordance on the left edge. */
+            .video-review-host:hover .video-review-panel::before { opacity: 0; }
         }
         #videoReviewDrawer::part(drawer-container) {
             box-shadow: var(--lumo-box-shadow-xl);
@@ -1793,6 +1832,23 @@
         .q-video-upload-option i { font-size: 18px; color: var(--brand); width: 22px; margin-top: 2px; }
         .q-video-upload-option-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-strong); }
         .q-video-upload-option-sub { display: block; font-size: 12px; color: var(--text-muted); }
+
+        /* Upload limits helper text. Shown next to the upload affordance (video
+           step) and inside the source menu (attachments) so the file-count and
+           size ceilings are known BEFORE the picker opens, not after a rejection. */
+        .q-upload-hint {
+            display: flex; align-items: flex-start; gap: 7px;
+            font-size: 12px; line-height: 1.5; color: var(--text-muted);
+            max-width: 420px;
+        }
+        .q-upload-hint i { color: var(--text-muted); font-size: 12px; margin-top: 3px; flex-shrink: 0; }
+        /* In-menu variant: sits under the two source options, divided off. */
+        .q-video-upload-menu .q-upload-hint {
+            margin-top: 4px; padding: 8px 12px 4px;
+            border-top: 1px solid var(--border-soft);
+        }
+        /* Standalone variant under the video step's "Add video" button. */
+        .q-video-uploader .q-upload-hint { margin-top: 10px; }
 
         /* ─── Attachment detail panel (right-side overlay drawer) ─── */
         /* Attachment edit drawer host — fixed full-viewport layer + scrim (see
@@ -5260,6 +5316,11 @@ function actionBarHtml(extrasId) {
                                 <span class="q-video-upload-option-sub">Select one or more shared files</span>
                             </span>
                         </button>
+                        <!-- Upload limits, surfaced before the picker opens -->
+                        <p class="q-upload-hint">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>You may select up to 10 files with maximal size up to 120 MBs. Video files can be up to 1,200 MBs.</span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -5933,13 +5994,21 @@ function renderQuestion(item) {
                                     </button>
                                 </div>
                             </div>
+                            <!-- Upload limits, surfaced before the picker opens -->
+                            <p class="q-upload-hint">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <span>You may select up to 10 files with maximal size up to 120 MBs. Video files can be up to 1,200 MBs.</span>
+                            </p>
                         </div>
 
-                        <!-- Attached state: a small thumbnail-style attachment. Clicking it
-                             (or its play badge) opens the global video review panel. The
-                             player + annotation UI live in that shared panel, not here. -->
-                        <div class="q-video-attachment" hidden role="button" tabindex="0" aria-label="Play video and add annotations">
-                            <div class="q-video-thumb">
+                        <!-- Attached state: a thumbnail-style tile standardized on the
+                             .q-attachment-card pattern — the tile itself is inert (no
+                             role/tabindex/click) and each action is its own <button>, so
+                             every target is a separate focus stop with its own label.
+                             "Play" opens the global review panel, where the player +
+                             annotation UI live. -->
+                        <div class="q-video-attachment" hidden>
+                            <div class="q-video-thumb" aria-hidden="true">
                                 <i class="fa-solid fa-play"></i>
                             </div>
                             <div class="q-video-attachment-meta">
@@ -5953,7 +6022,19 @@ function renderQuestion(item) {
                                     · <span class="q-video-attachment-notecount">0 notes</span>
                                 </div>
                             </div>
-                            <span class="q-video-attachment-cta">Open <i class="fa-solid fa-arrow-right-long"></i></span>
+                            <!-- Same shape/tooltip binding as the file attachment tiles -->
+                            <div class="q-video-attachment-actions">
+                                <button type="button" class="q-video-attachment-act" id="vidact-${escapeHtml(vid)}-preview"
+                                        data-action="preview" aria-label="Preview video and add annotations">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                                <vaadin-tooltip for="vidact-${escapeHtml(vid)}-preview" text="Preview" position="top"></vaadin-tooltip>
+                                <button type="button" class="q-video-attachment-act remove" id="vidact-${escapeHtml(vid)}-remove"
+                                        data-action="remove" aria-label="Remove video">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                                <vaadin-tooltip for="vidact-${escapeHtml(vid)}-remove" text="Remove" position="top"></vaadin-tooltip>
+                            </div>
                         </div>
                     </div>
 
@@ -7555,16 +7636,44 @@ function wireVideoStep(root) {
         });
     });
 
-    // ── Thumbnail click → open the global review panel bound to this step ──
+    // ── Tile actions (preview / remove) ──
+    // Delegated data-action dispatch, matching the attachment cards' handler. The
+    // tile is inert, so these are plain buttons: native Enter/Space activation,
+    // no stopPropagation, no keydown shim.
     const open = () => VideoPanel.open(root, videoId);
-    attachment.addEventListener('click', open);
-    attachment.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    attachment.addEventListener('click', (e) => {
+        const actBtn = e.target.closest('.q-video-attachment-act');
+        if (!actBtn) return;
+        if (actBtn.dataset.action === 'preview') { open(); return; }
+        if (actBtn.dataset.action === 'remove') {
+            // Confirm only when annotations would be lost — a bare video is cheap to redo.
+            const n = (videoNotes[videoId] || []).length;
+            if (n && !confirm(`Remove this video? Its ${n} timestamped annotation${n === 1 ? '' : 's'} will be deleted too.`)) return;
+            removeVideoAttachment(root, videoId);
+        }
     });
 
     // ── Annotations column: "Review in panel" opens the panel (rows seek there too). ──
     const summaryOpen = root.querySelector('.q-video-summary-open');
     if (summaryOpen) summaryOpen.addEventListener('click', open);
+}
+
+// Remove the video from a step: drop its annotations and return the step to the
+// upload state. If the global review panel is currently showing THIS video it is
+// closed first — otherwise it would be left playing a video the step no longer has.
+function removeVideoAttachment(root, videoId) {
+    VideoPanel.closeIfBound(videoId);
+    videoNotes[videoId] = [];
+    const attachment = root.querySelector('.q-video-attachment');
+    const uploader = root.querySelector('.q-video-uploader');
+    if (attachment) attachment.hidden = true;
+    if (uploader) uploader.hidden = false;
+    // Reset the source label so a re-upload doesn't inherit the old one.
+    if (videoMeta[videoId]) videoMeta[videoId].sourceLabel = 'Sample recording';
+    const src = root.querySelector('.q-video-source-label');
+    if (src) src.textContent = 'Sample recording';
+    // Re-render the count + annotations column (which hides itself when detached).
+    updateVideoAttachmentCount(root, videoId);
 }
 
 // Refresh the "N notes" label on a step's thumbnail attachment and re-render
@@ -7811,6 +7920,12 @@ const VideoPanel = (() => {
     // Programmatic close: drive the drawer; onClosed() does the teardown once it
     // reports closed (also covers the drawer's own backdrop/Esc close).
     function close() { if (drawer.open) drawer.open = false; else onClosed(); }
+    // Close only if the panel is currently bound to `id` — used when that video
+    // is deleted from its step, so the panel can't outlive its source.
+    function closeIfBound(id) {
+        if (wasOpen && videoId === id) close();
+        if (videoId === id) { stepRoot = null; videoId = null; }
+    }
     let wasOpen = false;
     function onClosed() {
         pause();
@@ -7818,7 +7933,7 @@ const VideoPanel = (() => {
         host.hidden = true;
     }
 
-    return { init, open, close };
+    return { init, open, closeIfBound, close };
 })();
 
 // Render the reviewable, timestamp-sorted note log inside the given root
