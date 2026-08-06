@@ -228,6 +228,41 @@
             background-image: linear-gradient(#f8f5ff, #f8f5ff);
             border-bottom-color: #e2d6fa;
         }
+        /* ── Read-only compare pane ──
+           The compared form is a reference snapshot: answers can't be changed and
+           text can't be edited, but the content MUST stay selectable and copyable
+           (you quote from it). The JS blocks mutating events in the capture phase
+           and marks the list `.is-readonly`; these rules remove the affordances
+           that would still SUGGEST editability — pointer cursors and hover lifts —
+           without ever touching `user-select`. */
+        .form-list.is-readonly .rubric-tile,
+        .form-list.is-readonly .q-choice,
+        .form-list.is-readonly button,
+        .form-list.is-readonly input,
+        .form-list.is-readonly select,
+        .form-list.is-readonly textarea,
+        .form-list.is-readonly label { cursor: default; }
+        /* Text cursor over the actual prose, so it advertises "selectable". */
+        .form-list.is-readonly .rubric-tile-body,
+        .form-list.is-readonly .rubric-tile-label,
+        .form-list.is-readonly .q-title,
+        .form-list.is-readonly .q-details { cursor: text; }
+        /* CRITICAL for copy: the rating tiles are <button>s, and browsers make
+           button text unselectable by default — that's exactly the rubric criteria
+           prose users need to copy. Force selection back on for the whole pane. */
+        .form-list.is-readonly,
+        .form-list.is-readonly * {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        /* Neutralize hover feedback on the rating tiles. */
+        .form-list.is-readonly .rubric-tile:hover {
+            border-color: var(--border-soft);
+            box-shadow: none;
+            transform: none;
+        }
+        /* A selected tile still needs to read as the recorded answer, so its
+           .selected styling is intentionally left intact. */
         .pane-header-badge {
             display: inline-flex;
             align-items: center;
@@ -1833,22 +1868,21 @@
         .q-video-upload-option-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-strong); }
         .q-video-upload-option-sub { display: block; font-size: 12px; color: var(--text-muted); }
 
-        /* Upload limits helper text. Shown next to the upload affordance (video
-           step) and inside the source menu (attachments) so the file-count and
-           size ceilings are known BEFORE the picker opens, not after a rejection. */
+        /* Upload limits helper text. Lives INSIDE the source menu — for both the
+           video step and the attachment action bar — so the file-count and size
+           ceilings are read at the moment a source is picked, not after a
+           rejection, and neither trigger carries permanent helper text. */
         .q-upload-hint {
             display: flex; align-items: flex-start; gap: 7px;
             font-size: 12px; line-height: 1.5; color: var(--text-muted);
             max-width: 420px;
         }
         .q-upload-hint i { color: var(--text-muted); font-size: 12px; margin-top: 3px; flex-shrink: 0; }
-        /* In-menu variant: sits under the two source options, divided off. */
+        /* Sits under the two source options, divided off from them. */
         .q-video-upload-menu .q-upload-hint {
             margin-top: 4px; padding: 8px 12px 4px;
             border-top: 1px solid var(--border-soft);
         }
-        /* Standalone variant under the video step's "Add video" button. */
-        .q-video-uploader .q-upload-hint { margin-top: 10px; }
 
         /* ─── Attachment detail panel (right-side overlay drawer) ─── */
         /* Attachment edit drawer host — fixed full-viewport layer + scrim (see
@@ -1871,10 +1905,27 @@
         #attachDrawer {
             --vwc-drawer-width: 460px;
             --vwc-drawer-min-width: 360px;
-            --vwc-drawer-max-width: 96vw;
+            /* Desktop resize cap: never past HALF the viewport, so the form stays
+               readable alongside the panel. Matches #videoReviewDrawer. The DS
+               clamps the drag against this token, so it caps dragging (not just
+               the initial width). Full-screen takeover below 760px — see the
+               media query after this block. */
+            --vwc-drawer-max-width: 50vw;
             --vwc-drawer-offset-top: 0px;
             --vwc-drawer-max-column-height: 100vh;
             --vwc-drawer-resize-handle-size: 10px;
+        }
+        /* Small screens: full-screen takeover. Collapsing min AND max to 100vw
+           leaves no clamp range, which is what makes the drag inert (.drawer-column
+           is not an exposed ::part, so these tokens are the only lever). */
+        @media (max-width: 760px) {
+            #attachDrawer {
+                --vwc-drawer-width: 100vw;
+                --vwc-drawer-min-width: 100vw;
+                --vwc-drawer-max-width: 100vw;
+            }
+            /* Hide the now-pointless grab affordance on the left edge. */
+            .attach-host:hover .attach-panel::before { opacity: 0; }
         }
         #attachDrawer::part(drawer-container) {
             box-shadow: var(--lumo-box-shadow-xl);
@@ -2025,22 +2076,31 @@
             transform: rotate(var(--rot, 0deg)) scale(0.5625);
         }
         /* File identity strip — now the FALLBACK for unpreviewable file types. */
+        /* No-preview placeholder tile. Unpreviewable types (spreadsheets, zips,
+           unknown extensions) get this instead of a rendered page: a centered
+           file-type icon over the filename + source. It deliberately occupies the
+           same stage footprint as the image/doc previews so the panel layout
+           doesn't jump between attachments as the user pages through them. */
         .attach-file-row {
-            display: flex; align-items: center; gap: 12px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px;
             background: var(--page-bg); border: 1px solid var(--border-soft);
-            border-radius: 10px; padding: 12px;
+            border-radius: 10px; padding: 28px 16px;
+            text-align: center; min-height: 190px;
         }
         .attach-file-row .attach-file-nopreview {
-            margin-left: auto; flex-shrink: 0;
+            flex-shrink: 0;
             font-size: 11px; color: var(--text-muted); font-style: italic;
             white-space: nowrap;
         }
+        /* Large placeholder glyph — the visual stand-in for the missing preview. */
         .attach-file-thumb {
-            width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+            width: 62px; height: 62px; border-radius: 12px; flex-shrink: 0;
             display: inline-flex; align-items: center; justify-content: center;
-            background: var(--lumo-base-color); color: var(--brand); font-size: 17px;
+            background: var(--lumo-base-color); color: var(--brand); font-size: 27px;
+            border: 1px solid var(--border-soft);
         }
-        .attach-file-meta { min-width: 0; }
+        .attach-file-meta { min-width: 0; max-width: 100%; }
         .attach-file-name {
             font-size: 14px; font-weight: 700; color: var(--text-strong);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -2470,30 +2530,33 @@
             gap: 8px;
         }
 
-        /* ── Computed (system-derived read-only value) ── */
+        /* ── Computed / Computed Value (read-only, system-derived) ──
+           ONE standard presentation shared by both computed step types: the bare
+           number in a dashed read-only card, no icon and no unit. The two steps
+           previously diverged (base 14px vs .is-score 22px) and read as different
+           components; they are deliberately identical now. */
         .q-computed-value {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 14px;
+            min-width: 96px;
+            padding: 12px 16px;
             background: var(--page-bg);
             border: 1px dashed var(--border-soft);
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--text-strong);
             font-variant-numeric: tabular-nums;
+            line-height: 1.2;
         }
-        .q-computed-value i {
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-
-        /* ── Computed Value (read-only value pulled from an external workflow) ── */
-        .q-computed-value.is-score { font-size: 22px; }
+        /* No .is-score rule: the score variant IS the base style. Only text
+           values need to differ.
+           Text values aren't numbers: normal figures, lighter weight, and free to
+           wrap since they can run long. */
         .q-computed-value.is-text {
             font-weight: 600; font-size: 14px;
             font-variant-numeric: normal;
+            min-width: 0;
         }
 
         /* ─── Script "question" — conversational note-taking log ───
@@ -2955,22 +3018,23 @@
         .copy-modal-body {
             padding: 4px 4px 8px;
             max-height: min(72vh, 660px); overflow-y: auto;
-            display: flex; flex-direction: column; gap: 14px;
+            display: flex; flex-direction: column; gap: 18px;
         }
-        /* Grouped sections — each an elevated card matching the form's cards
-           (same treatment as the Change Log / Quick Search clusters). */
-        .copy-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-soft); border-radius: 12px;
-            box-shadow: var(--lumo-box-shadow-s);
-            padding: 16px 18px;
-        }
+        /* Sections are separated by DS <vwc-divider> rules rather than each being
+           wrapped in its own bordered/elevated card. Three stacked cards inside an
+           already-bordered dialog read as nested panels; one flat surface with
+           hairline rules reads as a single form. The divider is the DS component —
+           1px, --vwc-divider-color (--lumo-contrast-10pct), role=presentation. */
+        .copy-section { min-width: 0; }
         /* Standard design-system section heading — normal case, header text
            color, body-relative size (no uppercase micro-label styling). */
-        .copy-card-title {
+        .copy-section-title {
             font-size: 16px; font-weight: 600; color: var(--text-strong);
             margin: 0 0 14px;
         }
+        /* The flex `gap` already spaces the divider from its neighbours; zero the
+           component's own box so it doesn't add a second, uneven gap. */
+        .copy-modal-body vwc-divider { margin: 0; flex-shrink: 0; }
         /* Read-only source summary — label-beside-value pairs (right-aligned
            labels), matching the Change Log header. */
         .copy-summary {
@@ -2993,16 +3057,21 @@
         .copy-badge-off { background: var(--page-bg); color: var(--text-muted); }
         .copy-badge-on { background: var(--lumo-success-color-10pct); color: #166534; }
 
-        /* Option rows — a label column + control column. */
-        .copy-options { display: flex; flex-direction: column; gap: 16px; }
+        /* Option rows — a label column + control column. `gap` is now the ONLY
+           thing separating rows (the old `.copy-row + .copy-row` rule added a
+           border plus 16px padding-top on top of this gap); raised from 16px so
+           removing that padding doesn't leave the rows cramped. */
+        .copy-options { display: flex; flex-direction: column; gap: 18px; }
         .copy-row {
             display: grid; grid-template-columns: 160px 1fr;
             align-items: center; gap: 12px;
         }
         .copy-row-label { font-size: 13px; color: var(--text-strong); font-weight: 600; }
         .copy-row-control { min-width: 0; }
-        /* Divider between rows inside a card, for visual separation. */
-        .copy-row + .copy-row { border-top: 1px solid var(--lumo-contrast-5pct); padding-top: 16px; }
+        /* No rules between individual input rows — dividers separate SECTIONS
+           only (the <vwc-divider>s in the dialog body). Ruling every row made the
+           body read as a dense table and competed with the section dividers, so
+           rows are spaced by .copy-options' `gap` alone. */
         /* "— none found —" empty states: quieter, right-aligned meta look so
            they don't compete with the interactive rows. */
         .copy-empty {
@@ -3055,6 +3124,12 @@
             transition: height 0.2s ease;
         }
         .qs-body--expanded { height: min(78vh, 760px); }
+        /* Opening the Forms accordion adds ~330px of picker. Grow the body to fit
+           it rather than letting it scroll inside the fixed filters-only height —
+           a dual-listbox trapped in a 420px scroller is unusable. Capped at the
+           viewport so the modal can't outgrow the screen. JS mirrors the
+           <details> open state onto .qs-body as .qs-body--forms-open. */
+        .qs-body--forms-open { height: min(88vh, 800px); }
         #qsGenerateBtn::part(label) { font-weight: 700; }
 
         /* Filter cluster — an elevated white card holding all 9 criteria plus
@@ -3103,6 +3178,110 @@
         }
         /* Computed date range hint sits in the reserved 3rd band. */
         .qs-date-hint { font-size: 11px; color: var(--text-muted); line-height: 16px; }
+
+        /* ─── Forms accordion (replaces the Forms combo box) ───
+           The Forms picker is a dual-listbox "add tool" that needs far more room
+           than one grid cell, so it spans the full cluster width on its own row
+           and collapses by default — the cluster keeps its tidy 2-row shape until
+           a user opens it. Uses a native <details> so open/close, keyboard
+           activation, and the disclosure semantics come for free (no ARIA to
+           hand-maintain, unlike a div+role=button). */
+        .qs-field-forms { grid-column: 1 / -1; display: block; }
+        .qs-forms-acc {
+            border: 1px solid var(--border-soft); border-radius: 8px;
+            background: var(--page-bg);
+        }
+        .qs-forms-acc[open] { background: var(--card-bg); }
+        /* Summary = the clickable header row. list-style:none + ::marker kills the
+           default triangle in every engine so our own chevron is the only glyph. */
+        .qs-forms-summary {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px 12px; cursor: pointer;
+            font-size: 12px; font-weight: 700; color: var(--text-strong);
+            list-style: none; border-radius: 8px;
+        }
+        .qs-forms-summary::-webkit-details-marker { display: none; }
+        .qs-forms-summary::marker { content: ''; }
+        .qs-forms-summary:hover { background: var(--lumo-contrast-5pct); }
+        .qs-forms-summary:focus-visible {
+            outline: 2px solid var(--brand); outline-offset: -2px;
+        }
+        /* Chevron rotates to point down when the accordion is open. */
+        .qs-forms-chev {
+            color: var(--text-muted); font-size: 11px;
+            transition: transform 0.15s ease;
+        }
+        .qs-forms-acc[open] .qs-forms-chev { transform: rotate(90deg); }
+        .qs-forms-panel { padding: 0 12px 12px; }
+
+        /* Form Groups filter — narrows the available list (left pane) only. */
+        .qs-forms-group-row { margin-bottom: 10px; max-width: 260px; }
+        .qs-forms-group-row vaadin-select { width: 100%; }
+
+        /* Dual-listbox: [available] [move buttons] [selected]. The middle column
+           is intrinsically sized so the two panes split the remaining space. */
+        .qs-dual {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            gap: 12px; align-items: stretch;
+        }
+        .qs-dual-col { display: flex; flex-direction: column; min-width: 0; }
+        .qs-dual-search { margin-bottom: 8px; }
+        .qs-dual-search vaadin-text-field { width: 100%; }
+        .qs-dual-title {
+            font-size: 12px; font-style: italic; color: var(--text-muted);
+            text-align: center; padding: 6px 8px;
+            background: var(--page-bg);
+            border: 1px solid var(--border-soft); border-bottom: none;
+            border-radius: 6px 6px 0 0;
+        }
+        /* The scrolling option list. Fixed height keeps the accordion (and so the
+           dialog) from growing as forms are moved between panes. */
+        .qs-dual-list {
+            height: 190px; overflow-y: auto;
+            border: 1px solid var(--border-soft); border-radius: 0 0 6px 6px;
+            background: var(--lumo-base-color);
+            padding: 4px; margin: 0; list-style: none;
+        }
+        .qs-dual-opt {
+            display: block; width: 100%; text-align: left;
+            background: none; border: none; font-family: inherit;
+            font-size: 13px; color: var(--text-strong);
+            padding: 5px 8px; border-radius: 4px; cursor: pointer;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .qs-dual-opt:hover { background: var(--page-bg); }
+        /* Multi-select highlight — mirrors a native listbox selection. */
+        .qs-dual-opt[aria-selected="true"] {
+            background: var(--lumo-primary-color-10pct); color: var(--brand);
+            font-weight: 600;
+        }
+        .qs-dual-opt:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+        .qs-dual-empty {
+            font-size: 12px; color: var(--text-muted); font-style: italic;
+            padding: 8px; text-align: center;
+        }
+        /* Move buttons — vertically centered between the two panes. */
+        .qs-dual-moves {
+            display: flex; flex-direction: column; justify-content: center; gap: 6px;
+            align-self: center;
+        }
+        .qs-dual-move {
+            width: 30px; height: 28px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--lumo-base-color);
+            border: 1px solid var(--border-soft); border-radius: 5px;
+            color: var(--text-muted); font-size: 11px; cursor: pointer;
+        }
+        .qs-dual-move:hover:not(:disabled) {
+            border-color: var(--brand); color: var(--brand); background: var(--page-bg);
+        }
+        .qs-dual-move:disabled { opacity: 0.4; cursor: default; }
+        /* Stack the panes when the modal gets narrow (WCAG 1.4.10 reflow). */
+        @media (max-width: 760px) {
+            .qs-dual { grid-template-columns: minmax(0, 1fr); }
+            .qs-dual-moves { flex-direction: row; justify-content: center; }
+        }
         /* Exclude self-authored — a checkbox; vertically center it in the
            control band (no label band, no hint band). */
         .qs-field-check {
@@ -3296,6 +3475,14 @@
             padding: 40px 20px; text-align: center; color: var(--text-muted);
         }
         .qs-empty i { font-size: 26px; display: block; margin-bottom: 10px; color: var(--lumo-contrast-20pct); }
+        /* Inline CTA in the "no forms selected" empty state — jumps to the picker. */
+        .qs-empty-cta {
+            display: block; margin: 12px auto 0;
+            background: none; border: none; cursor: pointer; font-family: inherit;
+            font-size: 13px; font-weight: 600; color: var(--brand);
+            padding: 4px 8px; border-radius: 6px;
+        }
+        .qs-empty-cta:hover { text-decoration: underline; background: var(--page-bg); }
         .qs-results-footnote { font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 8px; }
         /* Filter fields flex-wrap on their own; no width media query needed. */
 
@@ -4018,9 +4205,20 @@
      copied — plus an after-copy card. Empty states are quiet inline notes. -->
 <template id="copyDialogBody">
     <div class="copy-modal-body">
-        <!-- Card 1: read-only source-form summary -->
-        <section class="copy-card">
-            <h3 class="copy-card-title">Source Form</h3>
+        <!-- Notice FIRST: it qualifies the whole operation ("users are not
+             notified"), so it belongs before the settings it applies to — not
+             stranded at the bottom where it's read after the decisions are made
+             (and, in a scrolling dialog, potentially not read at all). -->
+        <div class="share-modal-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Users are not automatically notified of copied forms.</span>
+        </div>
+
+        <!-- Section 1: read-only source-form summary. Sections are separated by
+             DS <vwc-divider> rules instead of each being boxed in its own card —
+             one flat surface reads as a single form, not three nested panels. -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">Source Form</h3>
             <dl class="copy-summary">
                 <div class="copy-summary-item"><dt>Form</dt><dd>Question Types</dd></div>
                 <div class="copy-summary-item"><dt>Author</dt><dd>Austin Smith</dd></div>
@@ -4030,9 +4228,11 @@
             </dl>
         </section>
 
-        <!-- Card 2: settings for the new copy -->
-        <section class="copy-card">
-            <h3 class="copy-card-title">New Copy Settings</h3>
+        <vwc-divider></vwc-divider>
+
+        <!-- Section 2: settings for the new copy -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">New Copy Settings</h3>
             <div class="copy-options">
                 <div class="copy-row">
                     <label class="copy-row-label" for="copyEvaluee">Evaluee</label>
@@ -4061,9 +4261,11 @@
             </div>
         </section>
 
-        <!-- Card 3: what data comes across + the after-copy action -->
-        <section class="copy-card">
-            <h3 class="copy-card-title">What to Copy</h3>
+        <vwc-divider></vwc-divider>
+
+        <!-- Section 3: what data comes across + the after-copy action -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">What to Copy</h3>
             <div class="copy-options">
                 <div class="copy-row">
                     <span class="copy-row-label">Data</span>
@@ -4094,12 +4296,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- Warning — its own element outside the cards, above the footer. -->
-        <div class="share-modal-warning">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Users are not automatically notified of copied forms.</span>
-        </div>
     </div>
 </template>
 
@@ -4199,10 +4395,6 @@
                 <span class="qs-date-hint" id="qsDateHint">Aug 1, 2025 – Jul 31, 2026</span>
             </div>
             <div class="qs-field">
-                <span class="qs-field-label">Forms</span>
-                <vaadin-multi-select-combo-box theme="outlined" class="qs-combo" data-qs-select="forms"></vaadin-multi-select-combo-box>
-            </div>
-            <div class="qs-field">
                 <span class="qs-field-label">Tags</span>
                 <vaadin-multi-select-combo-box theme="outlined" class="qs-combo" data-qs-select="tags"></vaadin-multi-select-combo-box>
             </div>
@@ -4220,6 +4412,73 @@
             </div>
             <!-- Spacer — pushes Generate into the 5th (last) grid column. -->
             <div class="qs-field qs-field-spacer" aria-hidden="true"></div>
+
+            <!-- Forms picker — replaces the old Forms combo box. A dual-listbox
+                 "add tool" (available → selected) needs more room than one grid
+                 cell, so it spans the cluster and collapses by default. Native
+                 <details> supplies the disclosure semantics + keyboard handling. -->
+            <div class="qs-field qs-field-forms">
+                <details class="qs-forms-acc" id="qsFormsAcc">
+                    <summary class="qs-forms-summary">
+                        <i class="fa-solid fa-chevron-right qs-forms-chev" aria-hidden="true"></i>
+                        <span>Select Forms</span>
+                    </summary>
+                    <div class="qs-forms-panel">
+                        <!-- Form Groups — narrows the AVAILABLE list only. -->
+                        <div class="qs-forms-group-row">
+                            <vaadin-select theme="outlined" id="qsFormGroup" label="Form Groups"></vaadin-select>
+                        </div>
+
+                        <div class="qs-dual">
+                            <!-- Available -->
+                            <div class="qs-dual-col">
+                                <div class="qs-dual-search">
+                                    <vaadin-text-field theme="outlined" id="qsAvailSearch"
+                                        placeholder="Search by Name" aria-label="Search available forms">
+                                        <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                                    </vaadin-text-field>
+                                </div>
+                                <div class="qs-dual-title" id="qsAvailTitle">Forms (0)</div>
+                                <ul class="qs-dual-list" id="qsAvailList" role="listbox"
+                                    aria-multiselectable="true" aria-labelledby="qsAvailTitle"></ul>
+                            </div>
+
+                            <!-- Move controls -->
+                            <div class="qs-dual-moves">
+                                <button type="button" class="qs-dual-move" data-qs-move="add" id="qsMoveAdd"
+                                        aria-label="Add selected forms" title="Add selected">
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                                <button type="button" class="qs-dual-move" data-qs-move="add-all"
+                                        aria-label="Add all forms" title="Add all">
+                                    <i class="fa-solid fa-angles-right"></i>
+                                </button>
+                                <button type="button" class="qs-dual-move" data-qs-move="remove"
+                                        aria-label="Remove selected forms" title="Remove selected">
+                                    <i class="fa-solid fa-arrow-left"></i>
+                                </button>
+                                <button type="button" class="qs-dual-move" data-qs-move="remove-all"
+                                        aria-label="Remove all forms" title="Remove all">
+                                    <i class="fa-solid fa-angles-left"></i>
+                                </button>
+                            </div>
+
+                            <!-- Selected -->
+                            <div class="qs-dual-col">
+                                <div class="qs-dual-search">
+                                    <vaadin-text-field theme="outlined" id="qsSelSearch"
+                                        placeholder="Search by Name" aria-label="Search selected forms">
+                                        <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                                    </vaadin-text-field>
+                                </div>
+                                <div class="qs-dual-title" id="qsSelTitle">Selected Forms</div>
+                                <ul class="qs-dual-list" id="qsSelList" role="listbox"
+                                    aria-multiselectable="true" aria-labelledby="qsSelTitle"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
             <!-- Generate Report — inside the cluster, blue primary, last column. -->
             <div class="qs-field qs-field-generate">
                 <vaadin-button theme="primary" id="qsGenerateBtn">Generate Report</vaadin-button>
@@ -5563,8 +5822,8 @@ function renderFormList() {
         layout: 'under',
         title: 'Computed',
         detailsHtml: `<p>System-derived value, read-only. Calculated from other form responses.</p>`,
-        value: '3.42',
-        unit: 'avg rating'
+        // No unit/denominator — the computed number is the only value available.
+        value: '3.42'
     });
 
     // Computed Value — read-only value sourced from a separate workflow outside
@@ -5576,8 +5835,8 @@ function renderFormList() {
         title: 'Computed Value (numeric score)',
         detailsHtml: `<p>Read-only value pulled in from a separate workflow outside this form. Displayed for visibility — not editable here.</p>`,
         valueType: 'score',
-        value: '87',
-        unit: '/ 100'
+        // No unit/denominator — the computed number is the only value available.
+        value: '87'
     });
     // Text variant:
     items.push({
@@ -5867,24 +6126,20 @@ function renderQuestion(item) {
         `;
     }
     if (item.type === 'computed') {
+        // Just the number in the shared read-only card — no icon, no unit, no
+        // denominator. Identical presentation to the 'computed-value' score
+        // variant below so the two steps don't read as different components.
         return wrapStandard(item, `
-            <div class="q-computed-value">
-                <i class="fa-solid fa-calculator"></i>
-                ${escapeHtml(item.value || '—')}
-                ${item.unit ? `<span style="font-weight:400; color:var(--text-muted); font-size:12px;">${escapeHtml(item.unit)}</span>` : ''}
-            </div>
+            <div class="q-computed-value">${escapeHtml(item.value || '—')}</div>
         `);
     }
     if (item.type === 'computed-value') {
         // Value pulled in from a separate workflow outside this form — shown for
         // visibility only. `valueType` is 'score' (numeric) or 'text'.
         const isScore = (item.valueType || 'score') === 'score';
+        // Bare value in the shared read-only card — no icon, unit, or denominator.
         return wrapStandard(item, `
-            <div class="q-computed-value ${isScore ? 'is-score' : 'is-text'}">
-                <i class="fa-solid ${isScore ? 'fa-gauge-high' : 'fa-file-lines'}"></i>
-                ${escapeHtml(item.value != null && item.value !== '' ? item.value : '—')}
-                ${isScore && item.unit ? `<span style="font-weight:400; color:var(--text-muted); font-size:12px;">${escapeHtml(item.unit)}</span>` : ''}
-            </div>
+            <div class="q-computed-value ${isScore ? 'is-score' : 'is-text'}">${escapeHtml(item.value != null && item.value !== '' ? item.value : '—')}</div>
         `);
     }
     if (item.type === 'passfail') {
@@ -5992,13 +6247,13 @@ function renderQuestion(item) {
                                             <span class="q-video-upload-option-sub">Paste a shared Google Drive URL</span>
                                         </span>
                                     </button>
+                                    <!-- Upload limits, surfaced before the picker opens -->
+                                    <p class="q-upload-hint">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                        <span>You may select up to 10 files with maximal size up to 120 MBs. Video files can be up to 1,200 MBs.</span>
+                                    </p>
                                 </div>
                             </div>
-                            <!-- Upload limits, surfaced before the picker opens -->
-                            <p class="q-upload-hint">
-                                <i class="fa-solid fa-circle-info"></i>
-                                <span>You may select up to 10 files with maximal size up to 120 MBs. Video files can be up to 1,200 MBs.</span>
-                            </p>
                         </div>
 
                         <!-- Attached state: a thumbnail-style tile standardized on the
@@ -8537,11 +8792,22 @@ function setSharedState() {
         { label: 'All Time', value: 'allTime', hint: 'No date limit' }
     ];
     // Checklist-dropdown option sets. "value" doubles as the id for filtering.
+    // `group` backs the Form Groups filter in the Forms accordion (left pane only).
     const FORMS = [
-        { label: 'Performance Standards for Teacher Practice', value: 'perf-standards' },
-        { label: 'Mid-Year Review · 2025–26', value: 'mid-year' },
-        { label: 'End-of-Year Evaluation · 2024–25', value: 'eoy' },
-        { label: 'Walk-through Observation · Oct 2025', value: 'walkthrough' }
+        { label: 'Performance Standards for Teacher Practice', value: 'perf-standards', group: 'eval' },
+        { label: 'Mid-Year Review · 2025–26', value: 'mid-year', group: 'eval' },
+        { label: 'End-of-Year Evaluation · 2024–25', value: 'eoy', group: 'eval' },
+        { label: 'Walk-through Observation · Oct 2025', value: 'walkthrough', group: 'obs' },
+        { label: 'Instructional Rounds Observation', value: 'rounds', group: 'obs' },
+        { label: 'Peer Coaching Feedback', value: 'peer-coaching', group: 'coaching' },
+        { label: 'New Teacher Mentoring Check-in', value: 'mentoring', group: 'coaching' }
+    ];
+    // Form group options for the accordion's filter dropdown ("- All -" = no filter).
+    const FORM_GROUPS = [
+        { label: '- All -', value: 'all' },
+        { label: 'Evaluations', value: 'eval' },
+        { label: 'Observations', value: 'obs' },
+        { label: 'Coaching', value: 'coaching' }
     ];
     const TAGS = [
         { label: 'Domain 1: Planning', value: 'd1' },
@@ -8567,11 +8833,17 @@ function setSharedState() {
         { label: 'Date/Time', value: 'datetime' }
     ];
 
-    // Filter state — all multi-selects default to "all selected".
+    // Filter state — multi-selects default to "all selected".
+    // EXCEPT forms: the dual-listbox starts with everything in the left
+    // ("Forms") column — available for selection but NOT yet added to the report
+    // criteria — so `forms` starts EMPTY. selectedFormIds is a real query
+    // parameter (getUserdataByRubricIds), not an optional narrowing filter, so an
+    // empty selection means "no forms chosen yet" and the report asks for one
+    // rather than silently returning an empty table (see runReport).
     const state = {
         users: USERS.map(o => o.value),
         authors: AUTHORS.map(o => o.value),
-        forms: FORMS.map(o => o.value),
+        forms: [],
         tags: TAGS.map(o => o.value),
         elements: ELEMENTS.map(o => o.value),
         qtypes: QTYPES.map(o => o.value)
@@ -8672,6 +8944,166 @@ function setSharedState() {
         el.addEventListener('selected-items-changed', (e) => {
             state[kind] = (e.detail.value || []).map(o => o.value);
         });
+    }
+
+    // ── Forms dual-listbox picker (the accordion's "add tool") ──
+    // Replaces the Forms combo box. Left pane = available (not yet selected,
+    // narrowed by Form Group + its own search), right pane = selected. Both write
+    // to the SAME state.forms array the report already filters on, so matches()
+    // needs no changes. Highlight state is local (which rows the user has clicked);
+    // moving a form is what commits to state.
+    function wireFormsPicker(root) {
+        const acc = root.querySelector('#qsFormsAcc');
+        if (!acc) return;
+        const groupSel = root.querySelector('#qsFormGroup');
+        const availList = root.querySelector('#qsAvailList');
+        const selList = root.querySelector('#qsSelList');
+        const availTitle = root.querySelector('#qsAvailTitle');
+        const selTitle = root.querySelector('#qsSelTitle');
+        const availSearch = root.querySelector('#qsAvailSearch');
+        const selSearch = root.querySelector('#qsSelSearch');
+
+        // Rows the user has highlighted in each pane, pending a move. `const` is
+        // deliberate: the click handlers close over these Set objects, so they must
+        // only ever be mutated (add/delete/clear), never reassigned.
+        const markedAvail = new Set(), markedSel = new Set();
+
+        groupSel.items = FORM_GROUPS.map(g => ({ label: g.label, value: g.value }));
+        groupSel.value = 'all';
+
+        // The two panes are derived views of state.forms — never separate copies,
+        // so they can't drift out of sync.
+        const availableForms = () => FORMS.filter(f =>
+            !state.forms.includes(f.value) &&
+            (groupSel.value === 'all' || f.group === groupSel.value) &&
+            matchesSearch(f, availSearch.value));
+        const selectedForms = () => FORMS.filter(f =>
+            state.forms.includes(f.value) && matchesSearch(f, selSearch.value));
+
+        function matchesSearch(f, q) {
+            const term = (q || '').trim().toLowerCase();
+            return !term || f.label.toLowerCase().includes(term);
+        }
+
+        function paintList(list, forms, marked, emptyMsg) {
+            list.innerHTML = '';
+            if (!forms.length) {
+                const li = document.createElement('li');
+                li.className = 'qs-dual-empty';
+                li.textContent = emptyMsg;
+                list.appendChild(li);
+                return;
+            }
+            forms.forEach(f => {
+                const li = document.createElement('li');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'qs-dual-opt';
+                btn.textContent = f.label;
+                btn.dataset.value = f.value;
+                btn.setAttribute('role', 'option');
+                btn.setAttribute('aria-selected', marked.has(f.value) ? 'true' : 'false');
+                li.appendChild(btn);
+                list.appendChild(li);
+            });
+        }
+
+        // Drop marks whose row is no longer in `visible`, in place.
+        function pruneMarks(marked, visible) {
+            const ok = new Set(visible.map(f => f.value));
+            [...marked].forEach(v => { if (!ok.has(v)) marked.delete(v); });
+        }
+
+        function paint() {
+            const avail = availableForms(), sel = selectedForms();
+            // Drop highlights for rows no longer visible (filtered out or moved).
+            // MUTATE these Sets — never reassign them. The click handlers close over
+            // the Set objects, so replacing them here would leave those handlers
+            // writing to an orphaned Set and highlights would silently never apply.
+            pruneMarks(markedAvail, avail);
+            pruneMarks(markedSel, sel);
+            paintList(availList, avail, markedAvail, 'No forms available');
+            paintList(selList, sel, markedSel, 'No forms selected');
+            availTitle.textContent = `Forms (${avail.length})`;
+            selTitle.textContent = state.forms.length
+                ? `Selected Forms (${state.forms.length})` : 'Selected Forms';
+            // Disable moves that would be no-ops.
+            root.querySelector('[data-qs-move="add"]').disabled = markedAvail.size === 0;
+            root.querySelector('[data-qs-move="remove"]').disabled = markedSel.size === 0;
+            root.querySelector('[data-qs-move="add-all"]').disabled = avail.length === 0;
+            root.querySelector('[data-qs-move="remove-all"]').disabled = sel.length === 0;
+        }
+
+        // Add/remove helpers. addForms dedupes and keeps state.forms in FORMS order
+        // so the Selected pane never shows a form twice or in click order.
+        function addForms(values) {
+            const next = new Set([...state.forms, ...values]);
+            state.forms = FORMS.filter(f => next.has(f.value)).map(f => f.value);
+        }
+        function removeForms(values) {
+            const drop = new Set(values);
+            state.forms = state.forms.filter(v => !drop.has(v));
+        }
+
+        // Click toggles a row's highlight (multi-select, no modifier needed —
+        // matches how the legacy tool behaves and is far easier on touch).
+        function bindListToggle(list, marked) {
+            list.addEventListener('click', (e) => {
+                const opt = e.target.closest('.qs-dual-opt');
+                if (!opt) return;
+                const v = opt.dataset.value;
+                marked.has(v) ? marked.delete(v) : marked.add(v);
+                paint();
+            });
+            // Double-click moves that one row immediately — the usual shortcut in
+            // this pattern. dblclick fires AFTER two clicks, so the row's highlight
+            // has already toggled twice (net zero); clear anyway to be safe, since
+            // the row is about to leave this pane.
+            list.addEventListener('dblclick', (e) => {
+                const opt = e.target.closest('.qs-dual-opt');
+                if (!opt) return;
+                const v = opt.dataset.value;
+                marked.delete(v);
+                if (list === availList) addForms([v]); else removeForms([v]);
+                paint();
+            });
+        }
+        bindListToggle(availList, markedAvail);
+        bindListToggle(selList, markedSel);
+
+        root.querySelectorAll('[data-qs-move]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.qsMove;
+                if (mode === 'add') {
+                    addForms([...markedAvail]);
+                    markedAvail.clear();
+                } else if (mode === 'add-all') {
+                    // Only what's currently VISIBLE in the left pane, so the group
+                    // filter and search actually scope "add all".
+                    addForms(availableForms().map(f => f.value));
+                    markedAvail.clear();
+                } else if (mode === 'remove') {
+                    removeForms([...markedSel]);
+                    markedSel.clear();
+                } else if (mode === 'remove-all') {
+                    removeForms(selectedForms().map(f => f.value));
+                    markedSel.clear();
+                }
+                paint();
+            });
+        });
+
+        groupSel.addEventListener('value-changed', paint);
+        availSearch.addEventListener('input', paint);
+        selSearch.addEventListener('input', paint);
+
+        // Mirror the accordion's open state onto .qs-body so the dialog grows to
+        // fit the picker instead of scrolling it inside the filters-only height.
+        acc.addEventListener('toggle', () => {
+            root.querySelector('.qs-body')?.classList.toggle('qs-body--forms-open', acc.open);
+        });
+
+        paint();
     }
 
     // ── (legacy) checklist dropdown — retained for any non-combo select ──
@@ -8885,6 +9317,24 @@ function setSharedState() {
     function renderResults() {
         const host = bodyRoot.querySelector('#qsResults');
         host.hidden = false;
+
+        // No forms chosen yet: selectedFormIds is a required query parameter, so
+        // say so and offer a way into the picker instead of rendering a bare
+        // "no data" table the user can't diagnose.
+        if (!state.forms.length) {
+            host.innerHTML =
+                `<div class="qs-table-wrap"><div class="qs-empty">` +
+                `<i class="fa-solid fa-list-check"></i>` +
+                `Select at least one form to report on.` +
+                `<button type="button" class="qs-empty-cta" id="qsEmptyOpenForms">Choose forms</button>` +
+                `</div></div>`;
+            host.querySelector('#qsEmptyOpenForms').addEventListener('click', () => {
+                const acc = bodyRoot.querySelector('#qsFormsAcc');
+                if (acc) { acc.open = true; acc.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+            });
+            return;
+        }
+
         const rows = sortRows(ROWS.filter(matches));
 
         if (!rows.length) {
@@ -9035,7 +9485,8 @@ function setSharedState() {
         // DS multi-select combo boxes (fixed size + native chip overflow).
         wireCombo(root.querySelector('[data-qs-select="users"]'), 'users', USERS);
         wireCombo(root.querySelector('[data-qs-select="authors"]'), 'authors', AUTHORS);
-        wireCombo(root.querySelector('[data-qs-select="forms"]'), 'forms', FORMS);
+        // Forms is a dual-listbox accordion, not a combo box (see wireFormsPicker).
+        wireFormsPicker(root);
         wireCombo(root.querySelector('[data-qs-select="tags"]'), 'tags', TAGS);
         wireCombo(root.querySelector('[data-qs-select="elements"]'), 'elements', ELEMENTS);
         wireCombo(root.querySelector('[data-qs-select="qtypes"]'), 'qtypes', QTYPES);
@@ -9057,6 +9508,10 @@ function setSharedState() {
             ModalScrollLock.push();
             // Reopen collapsed (filters-only height); results are re-generated.
             bodyRoot?.querySelector('.qs-body')?.classList.remove('qs-body--expanded');
+            // Also collapse the Forms accordion so the dialog reopens at its
+            // tidy filters-only size (its `toggle` handler clears the height class).
+            const acc = bodyRoot?.querySelector('#qsFormsAcc');
+            if (acc) acc.open = false;
             const host = bodyRoot?.querySelector('#qsResults'); if (host) host.hidden = true;
             const ld = bodyRoot?.querySelector('#qsLoading'); if (ld) ld.hidden = true;
         } else {
@@ -9462,11 +9917,56 @@ const SplitView = (() => {
             t.classList.toggle('selected', sel);
             t.setAttribute('aria-checked', sel ? 'true' : 'false');
         });
-        // Disable interactions in the compare pane (it's reference-only).
-        compareFormList.querySelectorAll('button, input, textarea, vaadin-button, vaadin-text-field, vaadin-text-area, vaadin-date-picker, vaadin-time-picker, vaadin-date-time-picker, vaadin-number-field, select').forEach(el => {
-            el.setAttribute('disabled', '');
-            el.style.pointerEvents = 'none';
+        // ── Make the compared form READ-ONLY but still readable/copyable ──
+        // Requirement: text must stay selectable and copyable (it's reference
+        // material you quote from), but no answer may be changed and no text
+        // edited. Deliberately NOT using `inert` — inert would satisfy the
+        // "no edits" half while also killing text selection and hiding the whole
+        // subtree from screen readers, which defeats the point of a reference pane.
+        //
+        // Instead: intercept the interactions that MUTATE, and leave reading alone.
+
+        // 1. Value-bearing controls -> readonly. Keeps the text selectable and
+        //    copyable (unlike `disabled`, which also blanks it from the a11y tree
+        //    and greys it out) while refusing typed input.
+        compareFormList.querySelectorAll(
+            'input, textarea, select, vaadin-text-field, vaadin-text-area, ' +
+            'vaadin-number-field, vaadin-date-picker, vaadin-time-picker, ' +
+            'vaadin-date-time-picker, vaadin-combo-box, vaadin-select, ' +
+            'vaadin-multi-select-combo-box'
+        ).forEach(el => {
+            el.setAttribute('readonly', '');
+            // Checkboxes/radios ignore `readonly` — the only way to stop a toggle
+            // is to block the event (below); keep them focusable and readable.
+            if (el.type === 'checkbox' || el.type === 'radio') el.removeAttribute('readonly');
         });
+
+        // 2. Block mutating events at the container, in the CAPTURE phase, so they
+        //    never reach any control's own handler. This covers every widget type —
+        //    current and future — without an ever-growing selector list, which is
+        //    what made the old per-control `disabled` pass leak (it missed
+        //    vaadin-checkbox / vaadin-select / vwc-switch, links, role="button").
+        //    `pointerdown`/`mousedown` are intentionally NOT blocked: those start a
+        //    text selection drag, and swallowing them would break copy.
+        const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
+        ['click', 'keydown', 'keypress', 'input', 'change', 'beforeinput', 'paste', 'cut', 'drop']
+            .forEach(type => {
+                compareFormList.addEventListener(type, (e) => {
+                    // Let copy-oriented keys through: Ctrl/Cmd combos (C/A), and
+                    // pure navigation (arrows, Home/End, PageUp/Down) so the
+                    // keyboard can move through and select text.
+                    if (type === 'keydown' || type === 'keypress') {
+                        const nav = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
+                                     'Home','End','PageUp','PageDown','Tab','Shift'];
+                        if (e.ctrlKey || e.metaKey || nav.includes(e.key)) return;
+                    }
+                    swallow(e);
+                }, true);   // capture: intercept before the target's own listeners
+            });
+
+        // 3. Mark the pane so CSS can soften affordances (hover/cursor) without
+        //    touching `user-select` — see the `.form-list.is-readonly` rules.
+        compareFormList.classList.add('is-readonly');
     }
 
     // ── Drag-to-resize divider ──
@@ -9888,7 +10388,15 @@ const AttachPanel = (() => {
     submitBtn.addEventListener('click', submit);
     // Backdrop click on the host scrim closes (DS drawer omits scrim-close in
     // overlay-only use); Esc too. onClosed()/draft reset run via open-changed.
-    host.addEventListener('click', (e) => { if (e.target === host) hide(); });
+    // A resize drag that STARTS on the drawer's edge handle (which half-overhangs
+    // the panel's left edge) and releases over the scrim would otherwise land here
+    // as a click with target === host and close the panel mid-resize. So only
+    // close when the press ALSO began on the scrim. Same guard as the video panel.
+    let pressedScrim = false;
+    host.addEventListener('pointerdown', (e) => { pressedScrim = (e.target === host); });
+    host.addEventListener('click', (e) => {
+        if (e.target === host && pressedScrim) hide();
+    });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !host.hidden) hide(); });
 
     return { openNew, openEdit };
@@ -9905,13 +10413,39 @@ const AttachPreview = (() => {
     // given attachment always previews the same way.
     function fauxDoc(att) {
         const ext = (att.name.split('.').pop() || '').toLowerCase();
-        const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) ||
+        // Kept in step with previewKind()'s lists in the attachment edit panel so
+        // the two views never disagree about whether a file is previewable.
+        const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'];
+        const VIDEO_EXT = ['mp4', 'mov', 'webm', 'avi', 'm4v'];
+        const isImage = IMAGE_EXT.includes(ext) ||
             (att.source === 'Google Drive' && !/\.\w+$/.test(att.name) && /photo|image|screenshot/i.test(att.name));
         if (isImage) {
             const seed = encodeURIComponent(att.id);
             return `
                 <div class="attach-doc attach-doc-image">
                     <img src="https://picsum.photos/seed/${seed}/900/1200" alt="${escapeHtml(att.name)}" />
+                </div>`;
+        }
+        // Unpreviewable types (spreadsheets, archives, unknown extensions) get the
+        // same placeholder tile the edit panel uses. Without this they'd render as
+        // a faux "document page" of ruled text here while the edit panel says "no
+        // preview available" — two views contradicting each other on one file.
+        // ALLOWLIST, not a denylist: mirrors previewKind()'s DOC_EXT so anything
+        // unrecognized falls back here instead of inventing a fake page. A Google
+        // Drive file with no extension is still treated as a document, matching
+        // previewKind()'s name-based inference.
+        const DOC_EXT = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'ppt', 'pptx'];
+        const extensionless = att.source === 'Google Drive' && !/\.\w+$/.test(att.name);
+        const previewable = DOC_EXT.includes(ext) || VIDEO_EXT.includes(ext) || extensionless;
+        if (!previewable) {
+            return `
+                <div class="attach-file-row">
+                    <span class="attach-file-thumb"><i class="${attachmentIcon(att)}"></i></span>
+                    <div class="attach-file-meta">
+                        <div class="attach-file-name">${escapeHtml(att.name)}</div>
+                        <div class="attach-file-source">${escapeHtml(att.source)}</div>
+                    </div>
+                    <span class="attach-file-nopreview">No preview available</span>
                 </div>`;
         }
         // Document: a page with a header block and ruled body lines. Vary line
@@ -10017,9 +10551,13 @@ function seedExtrasExamples() {
         if (!state.tags.length) state.tags = ['Evidence', 'Follow-up', 'Coaching'];
         if (!state.attachments.length) {
             // Seed full attachment records into the registry, then reference by id.
+            // First sample is a SPREADSHEET on purpose: .xlsx has no renderable
+            // preview, so it exercises the no-preview placeholder tile (filename +
+            // source + file-type icon) that unpreviewable types fall back to.
             const samples = [
-                { id: id + '-a0', name: 'lesson-plan-and-reflection-notes.pdf', description: 'Unit plan with the post-lesson reflection appended.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
-                { id: id + '-a1', name: 'Observation notes', description: '', tags: [], source: 'Google Drive', extrasId: id }
+                { id: id + '-a0', name: 'student-growth-data.xlsx', description: 'Benchmark scores exported from the assessment platform.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
+                { id: id + '-a1', name: 'lesson-plan-and-reflection-notes.pdf', description: 'Unit plan with the post-lesson reflection appended.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
+                { id: id + '-a2', name: 'Observation notes', description: '', tags: [], source: 'Google Drive', extrasId: id }
             ];
             samples.forEach(a => { attachmentsById[a.id] = a; });
             state.attachments = samples.map(a => a.id);
