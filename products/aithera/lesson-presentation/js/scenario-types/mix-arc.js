@@ -292,7 +292,7 @@
       {
         id: 'notice', label: 'Notice & Assess', level: 'Phase 1 · Level 1 — early warning signs', type: 'coach-led',
         maxTurns: 2,
-        entry: { bridge: '', signpost: 'Let\'s take a closer look at what you\'re actually seeing. Three things have reached you over the last two weeks — Ray snapped at a newer colleague, muttered that management "has it out for him," and refused to hand a task to the new lead. In your view, what is this — and what do you do first? Walk me through your thinking.', prompt: '', beats: [], cta: 'See the signs' },
+        entry: { bridge: '', signpost: 'Let’s take a closer look at what you’re actually seeing here.', prompt: 'Three things have reached you over the last two weeks — Ray snapped at a newer colleague, muttered that management “has it out for him,” and refused to hand a task to the new lead. In your view, what is this — and what do you do first? Walk me through your thinking.', beats: [], cta: 'See the signs' },
         inputPlaceholder: 'Walk me through your thinking…',
         exitCriteria: 'the learner names these as Level 1 behaviors of concern (a pattern, not a mood) AND commits to the first moves — start a record, report up the chain, and plan a private meeting',
         reactionGuidance: 'Don\'t lecture or hand over the answer. Ask ONE question that makes them look again — at the pattern (three things in two weeks from a steady veteran) or at the first move before it grows. Steer toward naming it Level 1 and assess → document → report up → plan a private meeting — never public discipline or a floor confrontation.',
@@ -318,10 +318,10 @@
       {
         id: 'meeting', label: 'The Conversation', level: 'Phase 2 · Level 1 — the private meeting', type: 'roleplay',
         maxTurns: 6,
-        entry: { bridge: '', signpost: '', prompt: '',
+        entry: { bridge: '', signpost: 'Now let’s put you in the room with Ray. Step in whenever you’re ready.', prompt: '',
           beats: [
-            { speaker: 'character', kind: 'narration', name: '', text: 'You\'ve got a private room and twenty minutes. Ray drops into the chair across from you, arms crossed.' },
-            { speaker: 'character', kind: 'dialogue', name: 'Ray', text: 'So what is this — a write-up? Because I\'m the problem now? Marcus gets my job and I\'m the one in here.' },
+            { speaker: 'character', kind: 'narration', name: '', text: 'You’ve got a private room and twenty minutes. Ray drops into the chair across from you, arms crossed.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Ray', text: 'So what is this — a write-up? Because I’m the problem now? Marcus gets my job and I’m the one in here.' },
           ], cta: 'Step into the room' },
         inputPlaceholder: 'Respond to Ray…',
         exitCriteria: 'the learner hears the grievance without validating any threat, sets clear limits and names corrective steps, points Ray to support (EAP), and commits to document + keep the chain informed — without dismissing or publicly disciplining him',
@@ -381,7 +381,7 @@
       {
         id: 'emergency', label: 'Emergency', level: 'Phase 4 · Level 3 — the decision point', type: 'coach-led',
         maxTurns: 3,
-        entry: { bridge: '', signpost: 'It\'s not over — one more moment, and a big one. Word reaches you on shift: Ray is in the parking lot, and someone says he may be armed. This is a decision point, not a conversation. What do you do — right now?', prompt: '', beats: [], cta: 'Step into the moment' },
+        entry: { bridge: '', signpost: 'It’s not over. One more moment — step in when you’re ready.', prompt: 'Word reaches you on shift: Ray is in the parking lot, and someone says he may be armed. This is a decision point, not a conversation. What do you do — right now?', beats: [], cta: 'Step into the moment' },
         inputPlaceholder: 'What do you do, right now?',
         exitCriteria: 'the learner calls 911 / agency emergency contacts, secures personal safety and leaves the area if there is risk, accounts for and moves others to safety, and defers to law enforcement — ready to give a description and exact location',
         reactionGuidance: 'This is a decision point, never a confrontation, and Ray is never voiced or approached. If the learner tries to intervene personally ("go talk Ray down") or delays calling for help to confirm the report, don\'t debate a dangerous move — name it a Level 3 emergency and redirect hard (call 911, do not approach), then probe for the rest. If they call 911 but stop, probe for accounting for and moving others and being ready with a description + exact location. Never reward heroics.',
@@ -406,17 +406,19 @@
 
     // SME-validated ideal ladder — shown on the results screen for every learner.
     playbook: [
-      { title: 'Level 1 — Early warning signs', body: 'Behaviors of concern (intimidation, a hardening grievance, refusing to cooperate). Observe, document, report up the chain, and meet privately to set limits with respect.' },
-      { title: 'Level 2 — A credible threat', body: 'Secure the people at risk, notify the chain, involve 911 if warranted — and stop coaching. A credible threat is not a performance conversation.' },
-      { title: 'Level 3 — A weapon or direct threat', body: 'An emergency: call 911, protect yourself and others first, and cooperate with law enforcement. A decision point, not a confrontation.' },
-      { title: 'Throughout — document and follow the WVPP', body: 'Record behavior and the steps you took for the violent-incident log, and follow your agency\'s Workplace Violence Prevention Plan.' },
-      { title: 'Two principles', body: 'Don\'t sit on information, and don\'t go it alone — recognition and response are a chain-of-command job at every level.' },
+      { title: 'Level 1 — early warning signs', body: 'Intimidation, disrespect, a hardening grievance, refusing to cooperate: behaviors of concern. Observe, document, report up your chain, and meet privately to set limits with respect.' },
+      { title: 'Level 2 — a credible threat', body: 'The moment a credible threat appears, stop coaching. Secure the people at risk, notify the chain, involve 911/security if warranted, and preserve the evidence.' },
+      { title: 'Level 3 — a weapon or direct threat', body: 'It’s an emergency: call 911 and your agency’s emergency contacts, put personal safety first, account for others, and cooperate with law enforcement.' },
+      { title: 'Match the response to the level', body: 'Recognizing and responding to workplace violence is about reading which level you’re on — and changing your response the moment the level changes.' },
+      { title: 'Document throughout', body: 'Record behaviors, meetings, and steps taken in the violent-incident log, and follow your agency’s Workplace Violence Prevention Plan.' },
+      { title: 'Don’t sit on it — don’t go it alone', body: 'The incidents that go wrong are almost always the ones somebody kept to themselves. Report up, loop others in, and treat every level as a chain-of-command job, never a solo one.' },
     ],
     resources: {
-      lead: 'This experience is written discipline-neutral. Apply your own agency\'s policies and protocols throughout.',
+      lead: 'Whenever behavior at work starts reading like a level on this ladder, here’s where to turn.',
       items: [
-        { title: 'Your agency\'s Workplace Violence Prevention Plan', body: 'The reporting channel, the violent-incident log, and the chain of command are defined by your organization — consult and apply them, not a generic checklist.' },
-        { title: 'If it\'s ever real', body: 'This is practice. If you are ever facing a real threat, treat it as real: 911 for any immediate danger, and your supervisor / security / reporting channel per your agency\'s plan.' },
+        { title: 'Your chain of command & your agency’s WVPP', body: 'Report concerns up the chain and follow your agency’s Workplace Violence Prevention Plan — it defines the reporting channel, the incident log, and who assesses threats.' },
+        { title: 'Your Employee Assistance Program (EAP)', body: 'A real resource for an employee who’s struggling — offer it as support, not a threat. It’s also there for you after a hard incident.' },
+        { title: '911 and your agency’s emergency contacts', body: 'For a credible or imminent threat, call it in — you don’t have to be certain to act. Personal safety first; let law enforcement run it.' },
       ],
     },
   };
@@ -569,7 +571,7 @@
      is "Marshall as Mix & Match," NOT the alternate "team mom / Renee" premise.
      ======================================================================= */
   const MARSHALL_SITUATION =
-'You\'ve worked alongside Marshall for about eight months — an administrative assistant who\'s organized, a good communicator, serious about the job. Lately, he\'s not himself.\n\nIt started with Ethan, a project manager, greeting him in the hallway with "Hey Marsha!" — and, a couple of times, asking if Marshall "had a skirt on under that desk." Marshall let it go; he figured some joking might come with the job. Then Jake, a junior engineer hired just after him, started asking "if the coffee was made" every time he passed Marshall\'s desk, and calling the role a "cozy lady job." Occasional became almost daily.\n\nIn the team group chat there are sexist memes — and two altered images: Marshall\'s face on a woman in a frilly princess dress, and his face on a lingerie model\'s body, captioned "Marsha\'s true calling." A few days ago those images ended up on public social media — shareable, commentable, out there.\n\nMarshall\'s gotten quieter. He keeps his head down and doesn\'t linger. You\'re not sure what to call any of it, or what your role is.';
+'You’ve been working alongside Marshall for about eight months. He’s an administrative assistant — organized, a good communicator, clearly someone who takes his job seriously. But lately, he’s not himself.\n\nIt started with Ethan, the project manager. He’d greet Marshall with “Hey Marsha!” in the hallway. A couple of times he asked if Marshall had a skirt on “under that desk.” Marshall let it go. He thought some joking might come with the job — especially given the way he dresses. So he tried not to make it a thing.\n\nThen Jake started. A junior engineer, hired not long after Marshall. He’d ask if the coffee was made whenever he passed Marshall’s desk. He’d refer to Marshall’s role as a “cozy lady job.” What started as occasional became almost daily. The kind of remark that gets a few laughs and then everyone moves on — except Marshall doesn’t move on. He carries it.\n\nWhat Marshall didn’t know, not at first, was that there was a group chat. Someone eventually showed him: sexist memes, jokes. And two altered images — one with his face on a woman in a frilly princess dress, another with his face on a lingerie model’s body, captioned “Marsha’s true calling.”\n\nHe was going to try to let it go. Until those images ended up on public social media — shareable, commentable, out there.\n\nYou’ve seen most of the day-to-day. Marshall has gotten quieter — he keeps his head down, doesn’t linger. You’re not sure what to call any of it, or what your role is.';
 
   const EXAMPLE_MARSHALL = {
     v: 1,
@@ -601,7 +603,7 @@
 
     reflection: {
       enabled: true,
-      prompt: 'Before we get into it — gut read. Everything you\'ve seen with Marshall: what\'s your first instinct about what it is, and whether it\'s your business?',
+      prompt: 'Before we get into the specifics — take a moment. What’s your gut reaction to this behavior? Is anything about this situation standing out to you, or feeling unclear?',
       feedbackGuidance: 'Calibration only — never a grade or a tier. 2–3 short bubbles: acknowledge their read in their own words, and gently note any misconception (e.g. "nothing sexual is happening," "it\'s just banter") without correcting it fully yet. Do NOT preview the next phase; the app opens Phase 1.',
     },
 
@@ -611,7 +613,7 @@
       {
         id: 'the-law', label: 'Does This Qualify as Harassment?', level: 'Phase 1 · the law', type: 'coach-led',
         maxTurns: 2,
-        entry: { bridge: '', signpost: 'Let\'s start with the question you\'re circling. Take all of it — the "Marsha" and "cozy lady job" comments, the altered images now out in public. In your view, does this qualify as harassment? Make the call, and tell me why.', prompt: '', beats: [], cta: 'Make the call' },
+        entry: { bridge: '', signpost: 'Now let’s take a closer look at what’s actually happening here.', prompt: 'Based on what you know about workplace harassment — think through what Marshall is experiencing. In your view, does this qualify as sexual harassment? Walk through your reasoning.', beats: [], cta: 'Make the call' },
         inputPlaceholder: 'Does this qualify — and why…',
         exitCriteria: 'the learner recognizes this as sex-based harassment under Title VII — gender-stereotype conduct counts even without an explicit sexual advance or a job threat — and concludes it should be reported',
         reactionGuidance: 'Don\'t lecture. If they treat harassment as only explicit sexual acts or quid pro quo, or float his dress or "he expected some joking" as mitigating, probe ONCE toward the gender-stereotype angle and the hostile-work-environment standard (e.g. "Not every form of sexual harassment involves asking for sex — a lot of it is comments aimed at someone for their gender. Does that change how you\'d answer?"). Steer toward: Title VII covers this, intent doesn\'t decide it, and it should be reported.',
@@ -635,7 +637,7 @@
       {
         id: 'the-person', label: 'What Is Marshall Experiencing?', level: 'Phase 2 · the person', type: 'coach-led',
         maxTurns: 2,
-        entry: { bridge: '', signpost: 'Set the law aside for a second and think about Marshall as a person. What do you think this situation is doing to him — professionally and personally? And how could it affect others in your workplace?', prompt: '', beats: [], cta: 'Think it through' },
+        entry: { bridge: '', signpost: 'Now let’s set the law aside and make this human.', prompt: 'Think about Marshall as a person. What do you think this situation is doing to him — professionally and personally? And how could it affect others in your workplace?', beats: [], cta: 'Think it through' },
         inputPlaceholder: 'What is this doing to him…',
         exitCriteria: 'the learner reads the human cost with some depth — the toll on Marshall (professional credibility eight months in; the personal weight of the now-public images) and the team effect (unchallenged conduct resets what feels normal for everyone watching)',
         reactionGuidance: 'If they brush it off ("he\'ll be fine," "it\'s just jokes"), probe ONCE toward the cost of "staying professional" every day, or whether it really rolls off after the images went public. Extend a real answer toward the two dimensions — his career window (eight months in, still building credibility) and the team (silence resets the norm) — and END on the bystander bridge: this is exactly where a bystander matters.',
@@ -657,11 +659,11 @@
       {
         id: 'bystander', label: 'Bystander Intervention', level: 'Phase 3 · the break room', type: 'roleplay',
         maxTurns: 3,
-        entry: { bridge: '', signpost: '', prompt: '',
+        entry: { bridge: '', signpost: 'Alright, let’s put this into practice. You’ll be walking into the break room where Jake and Marshall are having an interaction. Step into the scene whenever you’re ready.', prompt: '',
           beats: [
-            { speaker: 'character', kind: 'narration', name: '', text: 'The break room. Marshall is getting coffee. Jake walks in, pours himself a cup, and says — loud enough for the whole room:' },
-            { speaker: 'character', kind: 'dialogue', name: 'Jake', text: 'Hey, did you make this? Guess that\'s what you\'re here for — living your best Marsha life.' },
-            { speaker: 'character', kind: 'narration', name: '', text: 'He grins and looks around as you walk in and catch the whole thing.' },
+            { speaker: 'character', kind: 'narration', name: '', text: 'Marshall is getting coffee. Jake walks in, pours himself a cup, and says — loud enough for the whole room:' },
+            { speaker: 'character', kind: 'dialogue', name: 'Jake', text: 'Hey, did you make this? Guess that’s what you’re here for — living your best Marsha life.' },
+            { speaker: 'character', kind: 'narration', name: '', text: 'He grins and looks around as you walk into the break room and witness the exchange. What do you do — specifically?' },
           ], cta: 'Step into the scene' },
         inputPlaceholder: 'What do you do — say or do something…',
         exitCriteria: 'the learner sends a clear in-the-moment signal — direct ("not cool, Jake") or indirect (a redirect) — that doesn\'t let the remark stand, holds the line if Jake pushes back, and refuses to let him weaponize Marshall',
@@ -696,21 +698,21 @@
 
     playbook: [
       { title: 'Know what actually qualifies', body: 'Gender-stereotype-based conduct is sex-based harassment under Title VII — even without explicit sexual advances or a quid pro quo exchange.' },
-      { title: 'Apply the hostile-work-environment standard', body: 'Pervasive, gender-based conduct that makes the workplace intimidating qualifies — and it affects everyone in that environment, not only the target.' },
-      { title: 'Same-sex harassment is fully covered', body: 'Title VII protections apply regardless of the genders of the harasser and the target.' },
-      { title: 'Intent doesn\'t determine harassment', body: 'The test is impact and context — not whether the harasser meant it as a joke.' },
-      { title: 'The cumulative weight is real', body: 'Sustained harassment causes documented psychological and career harm and reshapes the team\'s sense of what\'s normal. "Just jokes" is never an accurate frame.' },
-      { title: 'Marshall should report — soon', body: 'To HR, documented, with specific incidents, dates, and witnesses. The public images make it urgent.' },
-      { title: 'Pick an action in the moment', body: 'A direct signal ("that\'s not cool") or an indirect redirect changes the dynamic. Direct confrontation is one option — not the only one.' },
-      { title: 'Offer support', body: 'Check in with the targeted person privately after the moment passes — it tells them they aren\'t invisible.' },
-      { title: 'Consider escalating', body: 'Review your organization\'s harassment policy — bystanders can often report independently of what the target decides to do.' },
+      { title: 'Apply the hostile work environment standard', body: 'Pervasive, gender-based conduct that makes the workplace intimidating qualifies — and it affects everyone in that environment, not only the primary target.' },
+      { title: 'Same-sex harassment is fully covered', body: 'Title VII protections apply regardless of the gender relationship between the harasser and the target.' },
+      { title: 'Intent doesn’t determine harassment', body: 'The test is impact and context — not whether the harasser meant it as a joke.' },
+      { title: 'The cumulative weight is real', body: 'Sustained harassment causes documented psychological and career harm and reshapes the whole team’s sense of what’s normal. “Just jokes” is never an accurate frame.' },
+      { title: 'Marshall should report — immediately', body: 'To HR, documented, with specific incidents, dates, and witnesses. The public images make it urgent.' },
+      { title: 'Pick an action in the moment', body: 'A direct signal (“that’s not cool”) or an indirect redirect (“Hey Jake, what’s the update on Henderson?”) changes the dynamic. Direct confrontation is one option — not the only one. Others will support you.' },
+      { title: 'Offer support', body: 'Check in with the targeted person privately after the moment passes — it tells them they aren’t invisible.' },
+      { title: 'Consider escalating', body: 'Review your organization’s harassment policy — it may define specific obligations for employees who witness conduct like this. Bystanders can report independently of what Marshall decides to do.' },
     ],
     resources: {
-      lead: 'Whenever you witness or experience conduct like this, here\'s where to turn.',
+      lead: 'Whenever you witness or experience conduct like this, here’s where to turn.',
       items: [
-        { title: 'Your HR team', body: 'Report with specific dates, what was said, and who was present. You can raise it as a witness.' },
-        { title: 'Your organization\'s harassment policy', body: 'Read it before a moment like this — it may define what employees who witness conduct are expected to do.' },
-        { title: 'The EEOC', body: 'The federal agency that enforces Title VII — eeoc.gov.' },
+        { title: 'Your HR team', body: 'Report incidents to HR with specific dates, what was said, and who was present. You can raise a concern as a witness — you don’t have to wait for the person targeted to act first.' },
+        { title: 'Your organization’s harassment policy', body: 'It may define specific obligations for employees who witness harassment. Read it so you know what your role is before a moment like this happens.' },
+        { title: 'The EEOC', body: 'The U.S. Equal Employment Opportunity Commission enforces Title VII and explains your rights and how to file a charge at eeoc.gov.' },
       ],
     },
   };
