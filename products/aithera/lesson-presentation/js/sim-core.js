@@ -39,10 +39,16 @@
   const WORKER_URL = 'https://aithera-action-proxy.vector-aithera.workers.dev';
 
   // The two tiers every mode chooses from. DIALOGUE voices the coach and any
-  // character (quality); FAST is for high-frequency background judgments —
-  // teach-back's live tile grading turns around in ~1s on it.
+  // character (the live chat turns); FAST is for high-frequency background
+  // judgments — teach-back's live tile grading turns around in ~1s on it.
+  // NOTE (2026-08-06): DIALOGUE is on Haiku for the live chat turns — a
+  // deliberate cost/latency switch. The malformed-JSON reformat-retry below
+  // (strictParse / parseJson) covers Haiku's lower strict-JSON adherence. To
+  // revert the chat turns to Opus quality, set DIALOGUE back to
+  // 'claude-opus-4-8'. Authoring/playtest is unaffected — those paths hardcode
+  // their own Opus model (studio-wizard MODEL, scenario AP_PT_MODEL, guided PT_MODEL).
   const MODELS = {
-    DIALOGUE: 'claude-opus-4-8',
+    DIALOGUE: 'claude-haiku-4-5',
     FAST: 'claude-haiku-4-5',
   };
 
