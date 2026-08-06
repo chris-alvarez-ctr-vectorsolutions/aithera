@@ -1535,7 +1535,7 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=6"></script>
-    <script src="js/sim-player.js?v=5"></script>
+    <script src="js/sim-player.js?v=6"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
          calls polymorphically for custom-interaction surfaces (scene-sweep,
          teach-back). Loads before any surface module so they can register on load.
@@ -1816,6 +1816,17 @@
     const runArcEngine  = _LADDER.runArcEngine;
     const applyDeliver  = _LADDER.applyDeliver;
     const closePhase    = _LADDER.closePhase;   // used by the no-warm-up boot (deliverFirstPhase)
+
+    /* Load-time authoring check over the ladder graph (js/sim-player.js). The
+       engine trusts phases[]/transitions[] blindly at run time; this surfaces
+       the silent-failure authoring mistakes — a next→ pointing at no phase
+       (early termination), a dead onTier, an unreachable phase, a self-loop —
+       once, here, instead of mid-play. Dev aid only: it just logs. */
+    try {
+      const _lint = window.SimPlayer.lint(ACTIVE_SCENARIO);
+      _lint.errors.forEach((m) => console.error('[SimPlayer:lint] ' + m));
+      _lint.warnings.forEach((m) => console.warn('[SimPlayer:lint] ' + m));
+    } catch (e) { /* never let a lint bug block a run */ }
 
     /* ---- helpers: classify + group ------------------------------------ */
     const worldOf = (m) => (m.kind === 'coaching' || m.kind === 'clip' ? 'coaching' : 'scene');
