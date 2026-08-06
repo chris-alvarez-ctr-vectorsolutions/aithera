@@ -44,6 +44,24 @@ if [ "${SKIP_MOCK_GUARD:-}" != "1" ] && [ -f "$REPO_ROOT/scripts/check-catalog-l
   fi
 fi
 
+# ── Guard A3: dev handoffs must follow the standard process ──────────────────
+# New *dev_handoff*.html files must sit at a feature root with the toolbox
+# (flow map on, comments off) and DEV-NOTES.md beside them; products.json may
+# not hand-roll a handoff (a card pointing at a dev build, or a hand-pinned
+# ready-for-dev with no dev build behind it). Pre-guard/legacy handoffs are
+# grandfathered SILENTLY — older flat mocks are never flagged; they get folded
+# into a feature folder at their own handoff (CLAUDE.md → Step 0.5).
+# (bypass together with Guard A: SKIP_MOCK_GUARD=1)
+if [ "${SKIP_MOCK_GUARD:-}" != "1" ] && [ -f "$REPO_ROOT/scripts/check-dev-handoff.js" ]; then
+  if git diff --cached --name-only | grep -qE '^(products\.json$|products/)'; then
+    if command -v node >/dev/null 2>&1; then
+      node "$REPO_ROOT/scripts/check-dev-handoff.js" --grandfather HEAD || exit 1
+    else
+      echo "  ⚠ node not found; skipping dev-handoff check (CI will run it)." >&2
+    fi
+  fi
+fi
+
 # ── Guard B: the GitHub Pages landing page ───────────────────────────────────
 MARKER='GUARD:PAGES-LANDING-PAGE'
 

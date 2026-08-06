@@ -52,6 +52,19 @@ jobs:
           bash scripts/check-mock-structure.sh --range "$BASE" "${{ github.sha }}"
           echo "✓ All new mock pages are versioned and carry the comment toolbox."
 
+      - name: Check dev handoffs follow the standard process
+        run: |
+          set -euo pipefail
+          BASE='${{ github.event.before }}'
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
+          fi
+          # New dev_handoff builds must sit at a feature root with the toolbox
+          # (flow map on, comments off) + DEV-NOTES.md; products.json may not
+          # hand-roll a handoff. Legacy handoffs are grandfathered silently.
+          node scripts/check-dev-handoff.js --grandfather "$BASE"
+          echo "✓ Dev handoffs follow the standard process."
+
       # NOTE: dead-link checking no longer runs (or fails) here. Renamed mock
       # files are relinked AUTOMATICALLY by the dashboards workflow
       # (scripts/relink-catalog.js riding the meta.json bot commit), and the
