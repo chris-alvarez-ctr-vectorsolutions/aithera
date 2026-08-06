@@ -248,7 +248,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function fetchCommentCounts() {
     return fetch(WORKER_URL + '/pins?url=' + encodeURIComponent(canonicalPageUrl()))
       .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (pins) {
+      .then(function (data) {
+        // The worker wraps the list ({ pins: [...] }); accept a bare array too.
+        var pins = Array.isArray(data) ? data : (data && data.pins);
         if (!Array.isArray(pins)) return;
         // Attribute each pin to the single best node: the entry node of whichever
         // flow its captured state matches (state capture pinpoints the flow, not

@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.18.0';
+  const WIDGET_VERSION = '1.19.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -52,7 +52,11 @@
   // invisible, click-to-reveal bubble and hidden pins — so the comment UI
   // doesn't clutter in-progress preview environments. (Comparing origins reuses
   // the same canonical host the rest of the widget points at.)
-  const IS_GITHUB_PAGES = location.origin === new URL(PAGES_BASE).origin;
+  // ?cwtest=1 makes a local/preview page behave like Pages (pins visible without
+  // entering comment mode) so the widget can be exercised by automated tests and
+  // local harnesses that stub the backend. Harmless elsewhere: off-Pages the
+  // Worker's CORS still blocks real requests.
+  const IS_GITHUB_PAGES = location.origin === new URL(PAGES_BASE).origin || /[?&]cwtest=1/.test(location.search);
 
   // Dormant = invisible (ghost) bubble + pins hidden until someone clicks to
   // reveal. True when an admin has disabled comments, OR when we're not on the
@@ -208,6 +212,7 @@
 .cw-panel-thumb:hover { transform: scale(1.01); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
 .cw-panel-close { position: absolute; top: 8px; right: 10px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s var(--cw-ease); z-index: 1; }
+.cw-panel-stranded { font-size: 12px; line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px dashed #fcd34d; border-radius: 8px; padding: 6px 9px; margin: 4px 0 10px; }
 .cw-panel-close:hover { background: rgba(146,64,14,.1); transform: rotate(90deg); }
 
 /* Drag grip — a title-bar handle at the top of a floating surface (panel/popup).
@@ -478,6 +483,7 @@
     return cls.trim().split(/\s+/).filter(c => {
       if (!c) return false;
       if (c.startsWith('cw-')) return false;                // widget's own classes
+      if (STATE_CLASSES.has(c)) return false;                // state, not identity — never anchor to it
       if (c.length > 30) return false;                       // utility-class-soup
       if (/^css-[a-z0-9]{4,}$/i.test(c)) return false;       // CSS-in-JS hashes
       if (/^[a-z]+-\d+$/i.test(c)) return false;             // generated like btn-1
@@ -523,10 +529,37 @@
   // toggle-group members when a comment is created (captureViewState), store
   // them on the pin, and only pin the comment when the page is back in that
   // state (viewMatches). Mismatched comments go to the "other views" drawer,
-  // and clicking one restores the state (restoreViewState) before jumping to it.
+  // and clicking one restores the state (driveToViewState) before jumping to it.
 
   // Class / attribute markers that mean "this control is the selected one".
-  const ACTIVE_CLASSES = ['active', 'selected', 'current', 'is-active', 'is-selected', 'is-current', 'checked'];
+  const ACTIVE_CLASSES = ['active', 'selected', 'current', 'is-active', 'is-selected', 'is-current', 'checked', 'is-checked', 'is-on', 'on'];
+  // Superset of ACTIVE_CLASSES: every class token that describes transient STATE
+  // rather than the element's identity. These must never be baked into a saved
+  // CSS selector — a selector like `button.cp-tab.is-on` stops meaning "this tab"
+  // and starts meaning "whichever tab is active right now", so the pin would jump
+  // to a different element the moment the user toggles state (the tab-switch bug).
+  const STATE_CLASSES = new Set([
+    ...ACTIVE_CLASSES,
+    'open', 'is-open', 'opened', 'closed', 'is-closed',
+    'show', 'shown', 'showing', 'visible', 'is-visible', 'hidden', 'is-hidden',
+    'expanded', 'is-expanded', 'collapsed', 'is-collapsed',
+    'hover', 'is-hover', 'focus', 'focused', 'is-focused',
+    'disabled', 'is-disabled', 'loading', 'is-loading',
+    'dragging', 'is-dragging', 'highlight', 'highlighted',
+  ]);
+  // Strip state-class tokens out of a stored CSS selector (`.is-on`, `.active`, …)
+  // so it can be re-resolved by the element's IDENTITY alone. Legacy pins saved
+  // before selectors excluded state classes rely on this to keep resolving.
+  // Returns '' when stripping would leave an unusable selector.
+  const STATE_CLASS_RE = new RegExp('\\.(?:' + [...STATE_CLASSES].join('|') + ')(?![\\w-])', 'g');
+  function stripStateClasses(sel) {
+    if (!sel) return '';
+    const out = sel.replace(STATE_CLASS_RE, '');
+    if (out === sel) return '';                        // nothing stripped → no relaxed variant
+    if (/(^|[\s>+~])\s*(?=[\s>+~]|$)/.test(out.trim()) || !out.trim()) return ''; // a compound collapsed to nothing
+    try { document.querySelectorAll(out); } catch (_) { return ''; }              // invalid after stripping
+    return out;
+  }
   // querySelectorAll union that finds every currently-active control on the page.
   const ACTIVE_SELECTOR = ACTIVE_CLASSES.map(c => '.' + c).join(',') +
     ',[aria-selected="true"],[aria-current]:not([aria-current="false"]),[aria-pressed="true"]';
@@ -541,15 +574,14 @@
     return false;
   }
 
-  // Class tokens with the "active/selected" markers (and the widget's own
-  // classes) removed — the stable part that identifies the control regardless
-  // of whether it's currently selected.
+  // Class tokens with the state markers (and the widget's own classes) removed —
+  // the stable part that identifies the control regardless of its current state.
   function nonStateClasses(node) {
     let cls = node.className;
     if (cls && typeof cls.baseVal === 'string') cls = cls.baseVal; // SVG
     if (typeof cls !== 'string') return [];
     return cls.trim().split(/\s+/).filter(c =>
-      c && !c.startsWith('cw-') && !ACTIVE_CLASSES.includes(c));
+      c && !c.startsWith('cw-') && !STATE_CLASSES.has(c));
   }
 
   function controlText(node) {
@@ -675,13 +707,19 @@
   // Strip the leading `#`/`.` from a modalKey for display.
   function prettyModalKey(k) { return (k || '').replace(/^[#.]/, '').split('|')[0]; }
 
-  function captureViewState() {
+  // `excludeEl` is the element the comment is being pinned to (when known). A
+  // toggle control must never be captured into ITS OWN pin's view state: a
+  // comment left ON the active tab is about the tab button — which is visible in
+  // every tab state — so binding it to "this tab is active" would wrongly hide
+  // (or worse, re-anchor) the pin the moment the user switches tabs.
+  function captureViewState(excludeEl) {
     const out = [];
     const seen = new Set();
     let nodes = [];
     try { nodes = document.querySelectorAll(ACTIVE_SELECTOR); } catch (_) {}
     for (const node of nodes) {
       if (isWidgetEl(node) || !isActiveControl(node) || !isToggleGroupMember(node)) continue;
+      if (excludeEl && (node === excludeEl || node.contains(excludeEl) || excludeEl.contains(node))) continue;
       const anchor = stateAnchor(node);
       const k = anchor.sel + '|' + anchor.text;
       if (seen.has(k)) continue;
@@ -698,31 +736,64 @@
     return out;
   }
 
+  // Loose text equality for re-finding controls: exact match, or one side is a
+  // truncated/decorated form of the other (dynamic count badges, 80-char cap).
+  function looseTextEq(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    if (a.length >= 4 && b.length >= 4) return a.startsWith(b) || b.startsWith(a);
+    return false;
+  }
+
   // Re-find the control a descriptor points at. The selector may match several
-  // (e.g. all `.vs-btn`); the stored text picks the right one.
+  // (e.g. all `.vs-btn`); the stored text picks the right one. Legacy descriptors
+  // saved before state classes were excluded may carry them (`button.cp-tab.is-on`)
+  // — after a state change that selector matches a DIFFERENT control (whichever
+  // is active now), so any hit is verified against the stored text, and on a miss
+  // the selector is relaxed (state classes stripped) and re-tried. Returns null
+  // rather than guessing when the text can't be matched.
   function findStateControl(desc) {
     if (!desc || !desc.sel) return null;
-    let nodes;
+    const pick = (nodes) => {
+      const real = [...nodes].filter(n => !isWidgetEl(n));
+      if (!real.length) return null;
+      if (!desc.text) return real[0];
+      for (const n of real) if (controlText(n) === desc.text) return n;
+      for (const n of real) if (looseTextEq(controlText(n), desc.text)) return n;
+      return null;
+    };
+    let nodes = [];
     try { nodes = document.querySelectorAll(desc.sel); } catch (_) { return null; }
-    if (!nodes.length) return null;
-    if (nodes.length === 1) return nodes[0];
-    if (desc.text) {
-      for (const n of nodes) if (controlText(n) === desc.text) return n;
+    let hit = pick(nodes);
+    if (!hit) {
+      const relaxed = stripStateClasses(desc.sel);
+      if (relaxed) {
+        let rn = [];
+        try { rn = document.querySelectorAll(relaxed); } catch (_) {}
+        hit = pick(rn);
+      }
     }
-    return nodes[0];
+    return hit;
   }
 
   // Does the page's current interaction state match the one this comment was
   // left in? A comment with no captured state (legacy pins, or comments on
   // shared chrome that wasn't in any toggle group) always matches.
-  function viewMatches(pin) {
+  // `anchorEl` is the pin's own resolved element (when known): a captured control
+  // that IS the anchor (or wraps it / sits inside it) is skipped, because the
+  // anchor's own active-state must not decide the pin's visibility — legacy pins
+  // on tab buttons captured "this tab is active" about themselves, which would
+  // otherwise hide the pin whenever a different tab is selected.
+  function viewMatches(pin, anchorEl) {
     const vs = pin.viewState;
     if (!Array.isArray(vs) || !vs.length) return true;
     // Toggle controls (non-sentinel entries) must all be active.
     const controls = vs.filter(d => d.sel && d.sel[0] !== '@');
     const controlsOk = controls.every(desc => {
       const node = findStateControl(desc);
-      return node && isActiveControl(node);
+      if (!node) return false;
+      if (anchorEl && (node === anchorEl || node.contains(anchorEl) || anchorEl.contains(node))) return true;
+      return isActiveControl(node);
     });
     if (!controlsOk) return false;
     // If this pin recorded modal state, the open-modal set must match exactly
@@ -736,36 +807,113 @@
     return true;
   }
 
-  // Drive the mock back into a comment's state by clicking each captured
-  // control that isn't currently active. Clicking runs the mock's own handler
-  // (so the real switch happens — version var flips, table re-renders, etc.).
-  // A few passes let interdependent toggles settle (e.g. switch version, then
-  // re-pick the tab). Anchors with a real href are skipped to avoid navigation.
-  function restoreViewState(pin) {
-    const vs = pin.viewState;
-    if (!Array.isArray(vs) || !vs.length) return;
-    const controls = vs.filter(d => d.sel && d.sel[0] !== '@');
-    for (let pass = 0; pass < 3; pass++) {
-      let changed = false;
-      for (const desc of controls) {
-        const node = findStateControl(desc);
-        if (!node || isActiveControl(node)) continue;
-        if (node.tagName === 'A') {
-          const href = node.getAttribute('href') || '';
-          if (href && href !== '#' && !/^javascript:/i.test(href)) continue;
-        }
-        try { node.click(); changed = true; } catch (_) {}
-      }
-      if (!changed) break;
+  // True when clicking this element would leave the page (or the widget must
+  // never synthesize a click on it): a real hyperlink, a new-tab/download link,
+  // a form submit/reset control, or any review-tool chrome. Used to gate every
+  // programmatic click in state-restore and trail replay — those must drive the
+  // mock's in-page navigation only, never a real navigation or our own UI.
+  function isUnsafeToClick(node) {
+    if (!(node instanceof Element)) return true;
+    if (isToolboxEl(node)) return true;
+    if (node.tagName === 'A') {
+      const href = node.getAttribute('href') || '';
+      if (node.hasAttribute('download')) return true;
+      if ((node.getAttribute('target') || '') === '_blank') return true;
+      return !!href && href !== '#' && !/^javascript:/i.test(href);
     }
-    // Bring the modal layer into the captured state. We can reliably *close*
-    // modals that shouldn't be open (e.g. restore a "modal closed" scene);
-    // re-opening a modal needs the mock's own trigger, so that's best-effort.
-    if (vs.some(d => d.sel === MODAL_AWARE_SEL)) {
-      const want = new Set(vs.filter(d => d.sel === MODAL_OPEN_SEL).map(d => d.text));
-      for (const m of openModalEls()) {
-        if (!want.has(modalKey(m))) closeModalEl(m);
+    // Submit/reset buttons and inputs post or clear a form — a real page action,
+    // not the in-page screen switch replay is meant to reproduce.
+    const type = (node.getAttribute && (node.getAttribute('type') || '')).toLowerCase();
+    if ((node.tagName === 'BUTTON' || node.tagName === 'INPUT') && (type === 'submit' || type === 'reset') && node.form) return true;
+    return false;
+  }
+
+  // One restore pass: click every captured control that isn't currently active.
+  // Clicking runs the mock's own handler (so the real switch happens — version
+  // var flips, table re-renders, etc.). Returns how many clicks were issued.
+  function clickStateControls(pin) {
+    const vs = pin.viewState;
+    if (!Array.isArray(vs) || !vs.length) return 0;
+    let clicked = 0;
+    for (const desc of vs.filter(d => d.sel && d.sel[0] !== '@')) {
+      const node = findStateControl(desc);
+      if (!node || isActiveControl(node) || isUnsafeToClick(node)) continue;
+      try { node.click(); clicked++; } catch (_) {}
+    }
+    return clicked;
+  }
+
+  // Bring the modal layer into the captured state. We can reliably *close*
+  // modals that shouldn't be open (restore a "modal closed" scene); re-OPENING
+  // a modal needs the mock's own trigger — that's what the trail replay does.
+  function closeUnwantedModals(pin) {
+    const vs = pin.viewState;
+    if (!Array.isArray(vs) || !vs.some(d => d.sel === MODAL_AWARE_SEL)) return;
+    const want = new Set(vs.filter(d => d.sel === MODAL_OPEN_SEL).map(d => d.text));
+    for (const m of openModalEls()) {
+      if (!want.has(modalKey(m))) closeModalEl(m);
+    }
+  }
+
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  // Give the mock's own handlers time to re-render between our clicks.
+  async function settle(ms = 160) { await nextFrame(); await sleep(ms); await nextFrame(); }
+
+  // Drive the mock back into a comment's captured interaction state, in rounds:
+  // clicking one control often re-renders a region and only THEN exposes the
+  // next control (switch version → tab bar appears → pick the tab). Keep going
+  // until the state matches, there's nothing left to click, or rounds run out.
+  async function driveToViewState(pin) {
+    for (let round = 0; round < 5; round++) {
+      closeUnwantedModals(pin);
+      const anchor = findPinEl(pin);
+      if (anchor && viewMatches(pin, anchor)) return true;
+      if (!clickStateControls(pin)) break;
+      await settle();
+    }
+    closeUnwantedModals(pin);
+    const anchor = findPinEl(pin);
+    return !!anchor && viewMatches(pin, anchor);
+  }
+
+  // Re-find one recorded trail step's element: exact selector (text-verified
+  // when several match), then the state-relaxed selector. Lenient by design —
+  // replay is best-effort and the destination is verified afterwards.
+  function findTrailEl(step) {
+    if (!step || !step.s) return null;
+    const pick = (nodes) => {
+      const real = [...nodes].filter(n => !isToolboxEl(n));
+      if (!real.length) return null;
+      if (!step.t) return real[0];
+      for (const n of real) if (controlText(n) === step.t) return n;
+      for (const n of real) if (looseTextEq(controlText(n), step.t)) return n;
+      return real.length === 1 ? real[0] : null;
+    };
+    let nodes = [];
+    try { nodes = document.querySelectorAll(step.s); } catch (_) {}
+    let hit = pick(nodes);
+    if (!hit) {
+      const relaxed = stripStateClasses(step.s);
+      if (relaxed) {
+        let rn = [];
+        try { rn = document.querySelectorAll(relaxed); } catch (_) {}
+        hit = pick(rn);
       }
+    }
+    return hit;
+  }
+
+  // Re-walk the user's recorded click path from a fresh page load — the only
+  // generic way back into screens a mock builds on demand (innerHTML swaps,
+  // modals, wizard steps). Steps whose element can't be found are skipped
+  // (they may have been noise — a toast dismissal, a hover-menu click).
+  async function replayTrail(pin) {
+    for (const step of (pin.trail || [])) {
+      const node = findTrailEl(step);
+      if (!node || isUnsafeToClick(node)) continue;
+      try { node.click(); } catch (_) {}
+      await settle(120);
     }
   }
 
@@ -779,6 +927,78 @@
       parts.push(modals.length ? ('Modal: ' + modals.join(', ')) : 'No modal');
     }
     return parts.join(' · ');
+  }
+
+  // ----- Click trail (the comment navigator's path back) -----------------------
+  // Toggle-state restore (viewState) can only re-press controls that are still
+  // findable — it cannot re-open a modal, re-enter a wizard step, or reach a
+  // screen the mock builds on demand with innerHTML. For that, the widget keeps
+  // a rolling log of the user's REAL clicks since page load; each new comment
+  // stores a snapshot (pin.trail). "Go" can then reload the mock into its known
+  // landing state and re-walk that exact click path, arriving at the precise
+  // step the comment was left on. Replay is best-effort — missing steps are
+  // skipped and the destination is always verified before the pin is shown.
+  const TRAIL_MAX = 40;
+  const clickTrail = []; // {s: selector, t: control text} per real user click
+  // True while a "Go" navigation (state restore / trail replay) is running, so
+  // the trail recorder ignores the clicks WE synthesize and overlapping jumps
+  // are blocked (a single navigation owns the page until it finishes).
+  let navigating = false;
+  const TRAIL_INTERACTIVE = 'a,button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"],[role="checkbox"],[role="radio"],input,select,textarea,label,summary,[onclick],[tabindex]';
+
+  function recordTrailClick(e) {
+    if (!e.isTrusted) return;                 // programmatic clicks (state restore, replay)
+    if (state.pickMode || movePinId) return;  // widget interactions, not mock navigation
+    if (navigating) return;                   // clicks WE issue during a Go replay
+    let node = e.target;
+    if (!(node instanceof Element) || isToolboxEl(node)) return; // skip all review-tool chrome
+    node = node.closest(TRAIL_INTERACTIVE) || node;
+    if (isToolboxEl(node)) return;            // the closest() hop can still land on chrome
+    clickTrail.push({ s: cssPath(node), t: controlText(node) });
+    if (clickTrail.length > TRAIL_MAX) clickTrail.shift(); // oldest steps drop; replay stays best-effort
+  }
+
+  const currentTrail = () => clickTrail.slice();
+  const hasTrail = (pin) => Array.isArray(pin.trail) && pin.trail.length > 0;
+
+  // Pins whose full navigation (including the reload fallback) failed this
+  // session — listed honestly as "not found" instead of bouncing forever.
+  const NAV_FAILED_KEY = 'cw-nav-failed';
+  function navFailedMap() { try { return JSON.parse(sessionStorage.getItem(NAV_FAILED_KEY) || '{}') || {}; } catch (_) { return {}; } }
+  function navFailed(id) { return !!navFailedMap()[id]; }
+  function markNavFailed(id) { try { const m = navFailedMap(); m[id] = Date.now(); sessionStorage.setItem(NAV_FAILED_KEY, JSON.stringify(m)); } catch (_) {} }
+  function clearNavFailed(id) { try { const m = navFailedMap(); if (m[id]) { delete m[id]; sessionStorage.setItem(NAV_FAILED_KEY, JSON.stringify(m)); } } catch (_) {} }
+
+  // Cross-reload handoff for "Go": before reloading we stash the target pin id;
+  // after the fresh boot the widget picks it up and finishes the navigation.
+  // A reload is DESTRUCTIVE (it throws away the mock's in-memory state), so it
+  // is only ever offered behind an explicit, cancelable prompt — never fired
+  // silently and never from a low-intent skim (the Prev/Next stepper). The
+  // resume key is short-lived (12s) and cleared on cancel so it can't fire a
+  // surprise auto-navigation on some unrelated later reload.
+  const NAV_RESUME_KEY = 'cw-nav-resume';
+  const NAV_RESUME_TTL = 12000;
+  function clearNavResume() { try { sessionStorage.removeItem(NAV_RESUME_KEY); } catch (_) {} }
+  // Ask before reloading; resolves true only if the user confirms in time.
+  function confirmNavReload(pin) {
+    try { sessionStorage.setItem(NAV_RESUME_KEY, JSON.stringify({ id: pin.id, ts: Date.now() })); } catch (_) { return false; }
+    showToast('This comment lives deeper in the flow. Reload the mock to navigate to it?', 'neutral', {
+      undoLabel: 'Reload & go',
+      onUndo: () => { setTimeout(() => location.reload(), 60); },
+    });
+    // If the user lets the toast expire (or dismisses it) we do NOT reload, and
+    // the stashed resume key is dropped so nothing fires later.
+    setTimeout(() => { if (sessionStorage.getItem(NAV_RESUME_KEY)) clearNavResume(); }, 10500);
+    return true;
+  }
+  function pendingNavResume() {
+    try {
+      const raw = sessionStorage.getItem(NAV_RESUME_KEY);
+      if (!raw) return null;
+      sessionStorage.removeItem(NAV_RESUME_KEY);
+      const v = JSON.parse(raw);
+      return (v && v.id && (Date.now() - (v.ts || 0)) < NAV_RESUME_TTL) ? v : null;
+    } catch (_) { return null; }
   }
 
   // The mock's repo-relative file path. Prefer the pin's own annotation
@@ -1165,9 +1385,26 @@
     renderPins(); // hide pins again if comments are in the dormant (disabled) state
   }
 
+  // Selector union of the widget's OWN surfaces. `.cw-reveal-bar` is included so
+  // the "Jumped to this screen · Exit" bar (appended to document.body, outside
+  // .cw-root) is never treated as a mock element — a click on it must not be
+  // recorded into a trail, and a trail must never try to re-click it.
+  const WIDGET_SURFACE_SEL = '.cw-root,.cw-bubble,.cw-banner,.cw-popup,.cw-panel,.cw-admin-panel,.cw-toast,.cw-nav,.cw-hover-outline,.cw-lightbox,.cw-reveal-bar';
+  // Other Design Toolbox chrome that lives on the same page but isn't ours: the
+  // shared dock, the flow-map launcher + overlay, and a mock's own version pill.
+  // Clicks on these are review-tool navigation, not mock navigation — they must
+  // stay out of the click trail (and out of replay), or a "Go" could re-open the
+  // flow map, collapse the dock, or flip the design version mid-navigation.
+  const TOOLBOX_CHROME_SEL = '.tbx-dock,.tbx-handle,.tbx-collapse-btn,.fm-switcher,.fm-launch,.fm-devnotes,.fm-overlay,.version-switcher,#loader-version-group';
   function isWidgetEl(node) {
     if (!node || !node.closest) return false;
-    return !!(node.closest('.cw-root') || node.closest('.cw-bubble') || node.closest('.cw-banner') || node.closest('.cw-popup') || node.closest('.cw-panel') || node.closest('.cw-admin-panel') || node.closest('.cw-toast') || node.closest('.cw-nav') || node.closest('.cw-hover-outline') || node.closest('.cw-lightbox'));
+    return !!node.closest(WIDGET_SURFACE_SEL);
+  }
+  // True for the widget's own surfaces OR any other toolbox chrome — the guard
+  // the click trail and its replay use, so neither ever touches review tooling.
+  function isToolboxEl(node) {
+    if (!node || !node.closest) return false;
+    return !!(node.closest(WIDGET_SURFACE_SEL) || node.closest(TOOLBOX_CHROME_SEL));
   }
 
   // ----- Move pin (re-anchor an existing comment via the "Move pin" button) ---
@@ -1239,7 +1476,7 @@
     exitMovePinMode();
     if (!pin) return;
 
-    const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState };
+    const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState, trail: pin.trail };
     const r = target.getBoundingClientRect();
     const anchor = findSourceAnchor(target);
     pin.selector = cssPath(target);
@@ -1251,8 +1488,9 @@
     pin.relY = r.height ? clamp01((e.clientY - r.top) / r.height) : 0;
     pin.x = cx / window.innerWidth;
     pin.y = cy / window.innerHeight;
-    pin.viewState = captureViewState();
-    const patch = { url: pin.url, author: state.author || pin.author, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, x: pin.x, y: pin.y, viewState: pin.viewState };
+    pin.viewState = captureViewState(target);
+    pin.trail = currentTrail();
+    const patch = { url: pin.url, author: state.author || pin.author, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, x: pin.x, y: pin.y, viewState: pin.viewState, trail: pin.trail };
 
     const myDragGen = (pinDragGen.get(pin.id) || 0) + 1;
     pinDragGen.set(pin.id, myDragGen);
@@ -1310,13 +1548,15 @@
     const relX = rect.width ? clamp01((e.clientX - rect.left) / rect.width) : 0.5;
     const relY = rect.height ? clamp01((e.clientY - rect.top) / rect.height) : 0;
     // Snapshot the page's interaction state BEFORE leaving pick mode, so the
-    // comment binds to the version/tab/toggle the user is actually looking at.
-    const viewState = captureViewState();
+    // comment binds to the version/tab/toggle the user is actually looking at —
+    // and the click path that led here, so "Go" can navigate back to this step.
+    const viewState = captureViewState(target);
+    const trail = currentTrail();
     exitPickMode();
     showToast('Capturing screenshot…', 'neutral');
     const screenshot = await captureElement(target);
     if (state.activeToast) { state.activeToast.remove(); state.activeToast = null; }
-    openNewPinPopup({ x, y, relX, relY, selector, elementText, elementHtml, dataFile, dataLine, viewState, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
+    openNewPinPopup({ x, y, relX, relY, selector, elementText, elementHtml, dataFile, dataLine, viewState, trail, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
   }
 
   // ----- New pin popup --------------------------------------------------------
@@ -1356,6 +1596,7 @@
           x: ctx.x, y: ctx.y,
           relX: ctx.relX, relY: ctx.relY,
           viewState: ctx.viewState,
+          trail: ctx.trail,
           screenshot: ctx.screenshot,
           author, comment,
         });
@@ -1496,9 +1737,22 @@
 
     for (const pin of visiblePins()) {
       // Exact selector first, then a tag+text re-find for mocks that rebuilt the
-      // region (see findPinEl). Only genuinely-absent elements fall to "stranded".
+      // region (see findPinEl).
       const found = findPinEl(pin);
-      if (!found) { state.stranded.push(pin); continue; }
+      if (!found) {
+        // Missing from the DOM is NOT the same as removed from the design. Mocks
+        // that rebuild whole screens (innerHTML swaps, React mounts) only keep
+        // the CURRENT screen's elements in the DOM — so when this pin was left
+        // in a different interaction state (or its click trail says it lives
+        // deeper in a flow), it's "on another screen" and Go can navigate to it.
+        // Only a pin whose captured state matches the page right now — we're
+        // looking at its screen and it still isn't here — or whose navigation
+        // already failed this session is treated as genuinely removed.
+        const navigable = (!viewMatches(pin, null) || hasTrail(pin)) && !navFailed(pin.id);
+        if (navigable) state.offscreen.push(pin);
+        else state.stranded.push(pin);
+        continue;
+      }
       // Element exists but isn't being shown (it's on a hidden screen/view).
       // Divert to the "On other screens" drawer rather than dropping a dot at
       // the 0×0 box a display:none element reports (which would stack pins in
@@ -1508,7 +1762,7 @@
       // interaction state (other version/tab/toggle). Don't pin it on top of
       // the current state — divert it to the drawer, where clicking restores
       // its state and jumps to it.
-      if (!viewMatches(pin)) { state.offscreen.push(pin); continue; }
+      if (!viewMatches(pin, found)) { state.offscreen.push(pin); continue; }
       const dot = makePinDot(pin);
       positionDot(dot, pin, found);
       pinsLayer.appendChild(dot);
@@ -1572,10 +1826,6 @@
     reconnectPinObserver();
   }
 
-  function safeQuery(sel) {
-    try { return document.querySelector(sel); } catch (e) { return null; }
-  }
-
   // Parse the tag name from a stored opening tag like '<button class="…">'.
   function tagFromHtml(html) {
     const m = (html || '').match(/^<([a-zA-Z][\w-]*)/);
@@ -1610,8 +1860,10 @@
     // Captured CSS classes (from the stored opening tag) further disambiguate, so
     // a deep-flow "Save" button isn't re-anchored onto a different "Save" on the
     // current screen. Required only when the original had classes; the widget's
-    // own cw-* classes are ignored.
-    const wantClasses = classesFromHtml(pin.elementHtml);
+    // own cw-* classes are ignored, and so are state classes (`is-on`, `active`,
+    // …) — the element was captured WITH its then-current state, which it may no
+    // longer be in (a tab pinned while active must still re-find when inactive).
+    const wantClasses = classesFromHtml(pin.elementHtml).filter(c => !STATE_CLASSES.has(c));
     let nodes;
     try { nodes = document.querySelectorAll(tag || '*'); } catch (_) { return null; }
     let hit = null;
@@ -1628,32 +1880,45 @@
     return hit;
   }
 
-  // The element a pin is anchored to, on the page right now: exact selector
-  // first, then the tag+text re-find for mocks that rebuilt the node. Returns
-  // null only when the element truly isn't present (genuinely stranded). On a
-  // successful re-find we refresh the in-memory selector so every later lookup
-  // (scroll repositioning, navigation) uses the fresh node. Used everywhere the
-  // widget resolves a pin to its element, so re-anchoring stays consistent.
+  // Does this node's text match what was captured on the pin at placement?
+  // Compares both textContent (also works for hidden elements) and innerText
+  // (what capture used), whitespace-normalized. elementText was sliced to 200
+  // chars at capture, so a max-length capture matches by prefix. A pin with no
+  // captured text can't be text-verified — every node passes.
+  function pinTextMatches(pin, node) {
+    const want = (pin.elementText || '').replace(/\s+/g, ' ').trim();
+    if (!want) return true;
+    const truncated = (pin.elementText || '').length >= 200;
+    const ok = (t) => { t = (t || '').replace(/\s+/g, ' ').trim(); return t && (truncated ? t.startsWith(want) : t === want); };
+    if (ok(node.textContent)) return true;
+    try { return ok(node.innerText); } catch (_) { return false; }
+  }
+
+  // The element a pin is anchored to, on the page right now. Resolution order:
+  //   1. stored selector, TEXT-VERIFIED — a selector that captured a state class
+  //      (`button.cp-tab.is-on`) resolves to whichever element carries that state
+  //      NOW, so even a single match is only trusted when its text agrees;
+  //   2. the selector with state classes stripped, text-verified — re-finds the
+  //      element by identity after its state changed (legacy pins);
+  //   3. tag+text re-find for mocks that rebuilt the node (see refindByText);
+  //   4. the raw selector match, as a last resort — the element's text may simply
+  //      have been edited in the design since the pin was placed.
+  // Returns null only when the element truly isn't present. On a re-find via
+  // 2/3 we refresh the in-memory selector so every later lookup (scroll
+  // repositioning, navigation) uses the fresh node.
   function findPinEl(pin) {
-    let n = pin.selector ? safeQuery(pin.selector) : null;
-    // A non-unique stored selector (pins saved before selectors carried a
-    // disambiguating :nth-of-type) resolves to the FIRST match, which may be the
-    // wrong same-class sibling. When the selector matches several elements,
-    // prefer the one whose visible text matches what was captured at placement.
-    if (n && pin.selector && pin.elementText) {
-      let all = [];
-      try { all = [...document.querySelectorAll(pin.selector)]; } catch (_) {}
-      if (all.length > 1) {
-        const want = pin.elementText.replace(/\s+/g, ' ').trim();
-        const truncated = pin.elementText.length >= 200; // elementText sliced to 200 at capture
-        const better = all.find(elt => {
-          const t = (elt.innerText || elt.textContent || '').replace(/\s+/g, ' ').trim();
-          return truncated ? t.startsWith(want) : t === want;
-        });
-        if (better) n = better;
-      }
+    const queryAll = (sel) => {
+      try { return [...document.querySelectorAll(sel)].filter(x => !isWidgetEl(x)); } catch (_) { return []; }
+    };
+    const exact = pin.selector ? queryAll(pin.selector) : [];
+    let n = exact.find(x => pinTextMatches(pin, x)) || null;
+    if (!n && pin.selector && (pin.elementText || '').trim()) {
+      const relaxed = stripStateClasses(pin.selector);
+      if (relaxed) n = queryAll(relaxed).find(x => pinTextMatches(pin, x)) || null;
     }
-    if (!n) { n = refindByText(pin); if (n) pin.selector = cssPath(n); }
+    if (!n) n = refindByText(pin);
+    if (!n && exact.length) n = exact[0];
+    if (n && exact.indexOf(n) === -1) pin.selector = cssPath(n); // self-heal the in-memory selector
     return n;
   }
 
@@ -1814,7 +2079,7 @@
       const cy = (e && e.clientY != null) ? e.clientY : d.lastY;
       const target = topElementAt(cx, cy);
 
-      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState };
+      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState, trail: pin.trail };
       const patch = { url: pin.url, author: state.author || pin.author };
 
       // Re-anchor to whatever element we dropped on: new selector, element text,
@@ -1831,8 +2096,9 @@
         pin.dataLine = anchor ? anchor.line : '';
         pin.relX = r.width ? clamp01((cx - r.left) / r.width) : 0.5;
         pin.relY = r.height ? clamp01((cy - r.top) / r.height) : 0;
-        pin.viewState = captureViewState();
-        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState });
+        pin.viewState = captureViewState(target);
+        pin.trail = currentTrail();
+        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState, trail: pin.trail });
       }
       pin.x = cx / window.innerWidth;
       pin.y = (cy + window.scrollY) / window.innerHeight;
@@ -1998,28 +2264,37 @@
       ]));
     };
     section('On this screen', groups.onScreen);
-    section('On other screens', groups.elsewhere);
+    section('On other screens', groups.elsewhere, { elsewhere: true });
     section('Not found', groups.notFound, { notFound: true });
     return list;
   }
 
   function navItem(pin, opts = {}) {
     const stateLabel = viewStateLabel(pin);
+    const title = opts.notFound
+      ? 'Open this comment (its element wasn’t found anywhere — it may have been removed from the design)'
+      : opts.elsewhere
+        ? 'Go — switches the mock to this comment’s screen/state and opens it there'
+        : 'Jump to this comment';
     return el('div', {
       class: 'cw-nav-item' + (pin.id === navCurrentId ? ' cw-nav-item--current' : ''),
-      title: opts.notFound ? 'Open this comment (its element is gone from the page)' : 'Jump to this comment',
-      onclick: () => { navCurrentId = pin.id; jumpToPin(pin); renderHub(); },
+      title,
+      // Clicking a list item is an explicit "take me there" — it may offer a
+      // reload to reach a deep-flow step. (The Prev/Next stepper does not.)
+      onclick: () => { navCurrentId = pin.id; jumpToPin(pin, { allowReload: true }); renderHub(); },
     }, [
       el('div', { class: 'cw-nav-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]),
       el('div', { class: 'cw-nav-item-body' }, [
         el('div', { class: 'cw-nav-item-meta' }, [el('strong', {}, [pin.author]), ' · ' + rel(pin.timestamp)]),
         el('div', { class: 'cw-nav-item-text' }, [(pin.comment || '').slice(0, 120) || '(no text)']),
         opts.notFound
-          ? el('div', { class: 'cw-nav-item-ctx' }, ['⚠ Element no longer on this page'])
-          : (stateLabel ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ ' + stateLabel]) : null),
+          ? el('div', { class: 'cw-nav-item-ctx' }, ['⚠ Element removed — not found on any screen of this mock'])
+          : opts.elsewhere
+            ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ Not on this screen' + (stateLabel ? ' — on: ' + stateLabel : '') + ' · Go opens it'])
+            : (stateLabel ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ ' + stateLabel]) : null),
         (!opts.notFound && pin.elementText) ? el('div', { class: 'cw-nav-item-ctx' }, ['↳ ' + pin.elementText.slice(0, 60)]) : null,
       ]),
-      el('span', { class: 'cw-nav-go' }, ['Go →']),
+      el('span', { class: 'cw-nav-go' }, [opts.notFound ? 'Open →' : 'Go →']),
     ]);
   }
 
@@ -2036,13 +2311,17 @@
     idx = idx < 0 ? (dir > 0 ? 0 : all.length - 1) : (idx + dir + all.length) % all.length;
     const pin = all[idx];
     navCurrentId = pin.id;
-    jumpToPin(pin);
+    // The stepper is a low-intent skim — never let it reload the page out from
+    // under the reviewer. Deep-flow steps it can't reach in place just open the
+    // detached panel; the user can hit "Go" in the list for the full navigation.
+    jumpToPin(pin, { allowReload: false });
     renderHub(); // refresh the "k / N" readout + current-item highlight
   }
 
-  // Route a jump to the right mechanism based on the comment's bucket. All three
-  // paths are local DOM work — no network calls.
-  function jumpToPin(pin) {
+  // Route a jump to the right mechanism based on the comment's bucket. On-screen
+  // and "not found" are local DOM work; the off-screen path may drive the mock's
+  // own navigation (and, only when opts.allowReload, offer a reload).
+  function jumpToPin(pin, opts = {}) {
     const rp = renderedPins.find(r => r.pin.id === pin.id);
     if (rp) {                                    // on this screen → scroll, open, pulse
       const target = findPinEl(pin);
@@ -2051,7 +2330,7 @@
       pulseDot(rp.dot);
       return;
     }
-    if (state.offscreen.some(p => p.id === pin.id)) { revealPin(pin); return; } // reveal its screen + open
+    if (state.offscreen.some(p => p.id === pin.id)) { revealPin(pin, { allowReload: opts.allowReload }); return; }
     openPanel(pin, { stranded: true });          // not found → off-page panel
   }
 
@@ -2144,21 +2423,37 @@
     }
   }
 
-  function revealPin(pin) {
+  async function revealPin(pin, opts = {}) {
+    // One navigation owns the page at a time. A second jump (fast stepper taps,
+    // an impatient double-click) while a multi-second replay is mid-flight would
+    // interleave two click sequences and land nowhere — ignore it.
+    if (navigating) { showToast('Still navigating to the previous comment…', 'neutral'); return; }
+    navigating = true;
     closeNavList();
-    restoreReveal(); // drop any previous peek before starting a new one
+    hideRevealBar();   // clear any stale "Exit" bar from a previous peek
+    restoreReveal();   // drop any previous peek before starting a new one
+    try {
+      // Step 0 (only after our own reload): re-walk the recorded click path from
+      // the mock's fresh landing state — this is what reaches screens/modals that
+      // only exist after the user's own clicks built them.
+      if (opts.fromReload && hasTrail(pin)) await replayTrail(pin);
 
-    // Step 1: drive the mock back into this comment's interaction state by
-    // clicking its captured controls (version, tab, toggle). This runs the
-    // mock's own handlers, so the real switch happens. Then wait a frame for
-    // those handlers to repaint before we look for the element.
-    restoreViewState(pin);
+      // Step 1: drive the mock into this comment's interaction state by clicking
+      // its captured controls (version, tab, toggle) over a few settle-rounds.
+      await driveToViewState(pin);
 
-    requestAnimationFrame(() => {
       const target = findPinEl(pin);
       if (!target) {
+        // In-place navigation couldn't rebuild the element's screen. A reload
+        // can put the mock into its landing state so the trail replay can reach
+        // the step — but reloading is destructive, so only offer it (behind a
+        // confirm) when the user explicitly asked to go there, and never twice.
+        if (!opts.fromReload && opts.allowReload && confirmNavReload(pin)) return;
+        markNavFailed(pin.id);
         renderPins();
-        showToast('That element isn’t on this page anymore', 'error');
+        showToast(opts.allowReload
+          ? 'Couldn’t find that element anywhere in this mock — it may have been removed'
+          : 'That comment’s on another screen — use “Go” in the list to navigate to it', opts.allowReload ? 'error' : 'neutral');
         openPanel(pin, { stranded: true });
         return;
       }
@@ -2173,19 +2468,28 @@
 
       // Let layout settle, then re-render (the dot returns to the canvas),
       // scroll the element into view, open its panel, and offer a way back.
-      requestAnimationFrame(() => {
+      await settle(60);
+      renderPins();
+      if (isRendered(target) && viewMatches(pin, target)) {
+        clearNavFailed(pin.id);
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        openPanel(pin);
+        const rp = renderedPins.find(r => r.pin.id === pin.id);
+        if (rp) pulseDot(rp.dot);
+        if (revealUndo.length) showRevealBar(); // only offer "Exit" if we force-revealed a screen
+      } else {
+        // The element exists but we couldn't fully switch to its view. After our
+        // own reload attempt that's as far as we get — mark it failed so the next
+        // "Go" doesn't reload again forever; it moves to the honest "Not found"
+        // bucket instead.
+        if (opts.fromReload) markNavFailed(pin.id);
         renderPins();
-        if (isRendered(target) && viewMatches(pin)) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          openPanel(pin);
-          if (revealUndo.length) showRevealBar(); // only offer "Exit" if we force-revealed a screen
-        } else {
-          // Couldn't fully reach the comment's view — fall back to the off-page panel.
-          openPanel(pin, { stranded: true });
-          showToast('Couldn’t fully switch to that view — showing the comment here', 'neutral');
-        }
-      });
-    });
+        openPanel(pin, { stranded: true });
+        showToast('Couldn’t fully switch to that view — showing the comment here', 'neutral');
+      }
+    } finally {
+      navigating = false;
+    }
   }
 
   function showRevealBar() {
@@ -2220,7 +2524,7 @@
     closePanel();
     if (opts.editing) panelEditing = true;
     state.openPanelPinId = pin.id;
-    panel = renderPanel(pin);
+    panel = renderPanel(pin, opts);
     if (opts.keepPos) {
       // Re-render (edit / reply / done) of the same pin — stay where the user
       // left it rather than snapping back to the pin.
@@ -2242,9 +2546,14 @@
     bindOutsideClose(panel, () => closePanel());
   }
 
-  function renderPanel(pin) {
+  function renderPanel(pin, opts = {}) {
     const isEditing = panelEditing;
     const stripped = state.settings.visitorMode && !effectiveAdmin();
+    // Shown only when the panel opened detached from its element (stranded):
+    // say plainly why there's no pin on the canvas for it.
+    const strandedNote = opts.stranded
+      ? el('div', { class: 'cw-panel-stranded' }, ['⚠ The pinned element wasn’t found on any screen of this mock — it may have been removed since this comment was left.'])
+      : null;
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
     const sl = viewStateLabel(pin);
@@ -2342,10 +2651,10 @@
     // header (avatar / name / timestamp) is dropped too, on top of the
     // screenshot, Claude Code prompt, and Open-in-VS-Code button already left out.
     if (stripped) {
-      return el('div', { class: 'cw-panel cw-panel--mini' }, [gripHandle(), closeBtn, actions, body, thread]);
+      return el('div', { class: 'cw-panel cw-panel--mini' }, [gripHandle(), closeBtn, strandedNote, actions, body, thread]);
     }
 
-    return el('div', { class: 'cw-panel' }, [gripHandle(), closeBtn, head, actions, body, ...extras, thread]);
+    return el('div', { class: 'cw-panel' }, [gripHandle(), closeBtn, head, strandedNote, actions, body, ...extras, thread]);
   }
 
   function reopenPanel(pin, opts = {}) {
@@ -2450,7 +2759,26 @@
     window.addEventListener('resize', () => renderPins());
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
     window.addEventListener('scroll', () => repositionDots(), { passive: true });
+    // Late layout shifts are the norm on data-driven mocks: fonts/images finish
+    // loading, async data widens a column, a dashboard re-lays-out after its
+    // charts mount — all of which MOVE an already-anchored element without
+    // touching its DOM, so the pin observer never fires and a dot placed at the
+    // element's first-paint position is left stranded a few pixels (or a whole
+    // tab) away. Re-glue dots on `load` and whenever the document box resizes.
+    window.addEventListener('load', () => repositionDots());
+    if (typeof ResizeObserver !== 'undefined') {
+      let rAF = 0;
+      const ro = new ResizeObserver(() => {
+        if (rAF) return;
+        rAF = requestAnimationFrame(() => { rAF = 0; repositionDots(); });
+      });
+      try { ro.observe(document.documentElement); } catch (_) {}
+    }
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeNavList(); exitReveal(); } });
+    // Record the user's real clicks (capture phase, before any mock handler can
+    // stop propagation) — each new comment snapshots this trail so "Go" can
+    // navigate back to the exact step it was left on. Observation only.
+    document.addEventListener('click', recordTrailClick, true);
     loadComments();
   }
 
@@ -2471,6 +2799,18 @@
       // double-rendered. renderPins() pauses/resumes it around its own work.
       // startPinObserver() guards against double-starting, so a Retry is safe.
       startPinObserver();
+      // Finish a "Go" navigation that reloaded the page: from the mock's fresh
+      // landing state, replay the pin's click trail / restore its view state.
+      const resume = pendingNavResume();
+      if (resume) {
+        const pin = state.pins.find(p => p.id === resume.id);
+        if (pin) {
+          navCurrentId = pin.id;
+          showToast('Navigating to the comment…', 'neutral');
+          await settle(350); // give the mock's own boot render a moment
+          revealPin(pin, { fromReload: true });
+        }
+      }
     } catch (e) {
       console.warn('[cw] failed to load pins', e);
       // Surface the failure ONLY on the published Pages site, where the backend
