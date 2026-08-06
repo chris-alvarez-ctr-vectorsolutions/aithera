@@ -426,3 +426,33 @@ re-trigger itself.
 
 The generator output is exact: regenerate locally with
 `node scripts/build-dashboards.js` and commit the result, or let the push do it.
+
+### Renames self-heal — you never have to touch `products.json`
+
+A card's link comes from its `rel` in `products.json` (and, for a versioned
+feature, the `path` in `versions.json`). When a mock file is **renamed or
+moved**, those entries would point at the old path and the card would 404 —
+so the catalog **follows the rename automatically**, in two places, and a
+rename **never blocks a commit**:
+
+- **On commit** — the local pre-commit hook (Guard A2) runs
+  [`scripts/relink-catalog.js`](../scripts/relink-catalog.js)` --staged`: it
+  sees the staged rename, rewrites the `rel` / `versions.json` path to the new
+  location, and `git add`s the fix **into the commit you're making**. Then
+  [`scripts/check-catalog-links.js`](../scripts/check-catalog-links.js)`
+  --warn-only` prints — but never blocks on — any link a rename can't explain.
+  (Needs `node` locally; without it the hook skips and the push step below
+  still covers you.)
+- **On push** — the same `relink-catalog.js` runs in
+  [`dashboards.yml`](../.github/workflows/dashboards.yml) over the pushed range
+  and commits the fix on the silent `[skip ci]` bot commit. This covers pushes
+  from any machine — including GitHub Desktop with no hook / no `node`.
+
+> This is git/CI plumbing, **not** browser toolbox code — the drop-in
+> `toolbox.js` can't see git renames. It lives in the two scripts above; this
+> note just documents it where you'd look.
+
+**Two things it deliberately does NOT auto-fix** (a human must): a mock moved
+to a **different `products/<Product>/` folder** (cross-product move) — fix its
+`rel` by hand; and **URLs already shared** in Slack/Jira — they still 404 for
+whoever holds them, so re-share the new link after a move.
