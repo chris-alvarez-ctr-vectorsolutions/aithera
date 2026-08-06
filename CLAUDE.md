@@ -172,6 +172,17 @@ Feature folders are versioned: the design lives in separate **`verN/index.html`*
 - If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
 - Never guess which version to keep or what to call them.
 
+### Step 0.5 — Legacy flat mock? Fold it into a feature folder NOW (not before)
+
+Many older mocks predate the versioned-folder structure: they live as loose `.html` files directly in the product folder, often without the Design Toolbox. **Leave them alone while design iterates — never retrofit versioning/toolbox onto an old mock outside a handoff, and never flag them for it.** But the moment one is declared ready for dev, it gets the standard shape first, because the dashboard automation (Step 5) only detects a `dev_handoff.html` beside a feature's `index.html` — it can NEVER flip the card for a flat file, and hand-approximating it loses the flow map and the GitHub dev links (this is exactly how the EHS "Mobile App — Main" handoff went wrong in Jul 2026):
+
+1. Scaffold the feature folder exactly as for a new mock (see "For a NEW mock"): `products/<Product>/<feature>/` with the loader `index.html` (copied verbatim from `base-template/index.html`), a single-entry `versions.json`, and the design file **moved** to `ver1/index.html`.
+2. Add the Design Toolbox include to the design file (comments **enabled**), and fix any repo-root-relative asset paths for the new depth (`../../../../…`).
+3. Update the mock's `rel` in `products.json` in the **same commit** (Guard A2 enforces), and **re-share the new URL** — the old flat-file link 404s for anyone holding it.
+4. Continue with Steps 1–6 exactly as for any other mock. The `dev_handoff.html` goes at the new feature root — **never floating loose in the product folder**.
+
+**Never** add a separate dashboard card that points at a dev build, and **never** hand-pin `"status": "ready-for-dev"` on a flat-file mock — a handoff is a *state* of the existing mock's card, not a new card. `scripts/check-dev-handoff.js` (pre-commit Guard A3 + the check-mock-structure CI workflow) blocks all of this for NEW handoffs; handoffs that predate the guard are grandfathered silently.
+
 ### Step 1 — Component assessment
 
 Run the **`assess-mock-components`** skill on the **chosen version's file** (`verN/index.html`) — not the feature-root loader `index.html`, which has no design in it. This audits every element against the Vector Web Components library (correct `vaadin-*` / `vwc-*` usage, `theme="outlined"` on inputs, button variants) and confirms theme-token usage. It produces `component-assessment.md` and never edits the mock.

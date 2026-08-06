@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (with enough history to diff the push)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -52,8 +52,21 @@ jobs:
           bash scripts/check-mock-structure.sh --range "$BASE" "${{ github.sha }}"
           echo "✓ All new mock pages are versioned and carry the comment toolbox."
 
-      - name: Check dashboard/loader links all resolve
-        # Every products.json rel and versions.json path must point at a real
-        # file — a mock that moved (e.g. into ver1/) without its catalog entry
-        # updating renders as a dead card link on the live dashboard.
-        run: node scripts/check-catalog-links.js
+      - name: Check dev handoffs follow the standard process
+        run: |
+          set -euo pipefail
+          BASE='${{ github.event.before }}'
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
+          fi
+          # New dev_handoff builds must sit at a feature root with the toolbox
+          # (flow map on, comments off) + DEV-NOTES.md; products.json may not
+          # hand-roll a handoff. Legacy handoffs are grandfathered silently.
+          node scripts/check-dev-handoff.js --grandfather "$BASE"
+          echo "✓ Dev handoffs follow the standard process."
+
+      # NOTE: dead-link checking no longer runs (or fails) here. Renamed mock
+      # files are relinked AUTOMATICALLY by the dashboards workflow
+      # (scripts/relink-catalog.js riding the meta.json bot commit), and the
+      # local pre-commit hook still catches hand-typed dead links before they
+      # are committed. This job only guards NEW mock structure.

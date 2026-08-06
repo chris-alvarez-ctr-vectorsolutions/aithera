@@ -3724,11 +3724,12 @@
                 <i class="fa-solid fa-cloud-slash"></i>
                 <span>No connection.</span>
             </div>
-            <!-- Read-only banner (EHS-18527 item 5): previously-submitted records
-                 are only editable for attachments & signatures. -->
+            <!-- Read-only notice: shown only when editing is blocked because the device is
+                 offline and this record has no local copy. Previously uploaded records are
+                 fully editable now, so upload status never shows this banner. -->
             <div class="rv-readonly-banner" id="rv-ro-banner" style="display:none;">
                 <i class="fa-regular fa-circle-question"></i>
-                <span>This record has been previously uploaded. You may only add attachments, signatures, and corrective actions.</span>
+                <span>You're offline and this record isn't downloaded to this device, so it's read-only. Download it to edit.</span>
             </div>
 
             <!-- Details page = brief summary (item 2). Downloaded/submitted JSAs are
@@ -3888,7 +3889,7 @@
                  are only editable for attachments & signatures. -->
             <div class="rv-readonly-banner">
                 <i class="fa-regular fa-circle-question"></i>
-                <span>This record has been previously uploaded. You may only add attachments, signatures, and corrective actions.</span>
+                <span>You are offline and this record is not downloaded to this device, so it is read-only. You can still add attachments, signatures, and corrective actions.</span>
             </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -3948,7 +3949,7 @@
                  are only editable for attachments & signatures. -->
             <div class="rv-readonly-banner">
                 <i class="fa-regular fa-circle-question"></i>
-                <span>This record has been previously uploaded. You may only add attachments, signatures, and corrective actions.</span>
+                <span>You are offline and this record is not downloaded to this device, so it is read-only. You can still add attachments, signatures, and corrective actions.</span>
             </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -4049,7 +4050,7 @@
                  are only editable for attachments & signatures. -->
             <div class="rv-readonly-banner">
                 <i class="fa-regular fa-circle-question"></i>
-                <span>This record has been previously uploaded. You may only add attachments, signatures, and corrective actions.</span>
+                <span>You are offline and this record is not downloaded to this device, so it is read-only. You can still add attachments, signatures, and corrective actions.</span>
             </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -4130,7 +4131,7 @@
                  are only editable for attachments & signatures. -->
             <div class="rv-readonly-banner">
                 <i class="fa-regular fa-circle-question"></i>
-                <span>This record has been previously uploaded. You may only add attachments, signatures, and corrective actions.</span>
+                <span>You are offline and this record is not downloaded to this device, so it is read-only. You can still add attachments, signatures, and corrective actions.</span>
             </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -4199,7 +4200,7 @@
                  are only editable for attachments & signatures. -->
             <div class="rv-readonly-banner">
                 <i class="fa-regular fa-circle-question"></i>
-                <span>This record has been previously uploaded. You may only add attachments, signatures, and corrective actions.</span>
+                <span>You are offline and this record is not downloaded to this device, so it is read-only. You can still add attachments, signatures, and corrective actions.</span>
             </div>
             <div class="screen-body" style="background:#f9fafb;padding-bottom:32px;">
                 <div class="rv-card">
@@ -5902,7 +5903,7 @@
                 </div>
 
                 <div class="card-wrap" style="margin-top:8px;">
-                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa(this)" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -5974,7 +5975,7 @@
                 <span class="section-label">On this device (5)</span>
                 <div class="card-wrap" style="margin-top:8px;">
                     <!-- Downloaded + local edits → waiting to sync (tap to keep editing) -->
-                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa(this)" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -5986,7 +5987,7 @@
                             <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 4 fields edited on this device · 2:14 PM</div>
                         </div>
                     </div>
-                    <div class="record-card-row" onclick="openOfflineJsa()" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                    <div class="record-card-row" onclick="openOfflineJsa(this)" style="border-bottom:1px solid rgba(0,0,0,0.08);">
                         <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -9245,9 +9246,10 @@ function toggleBadgeLayout() {
     }
 }
 
-/* Rewrite the action row of every submitted record to reflect edit mode + the
-   download prerequisite. ON + downloaded → Edit; ON + not downloaded →
-   Download-to-edit; OFF → Copy ID (current scope). */
+/* Rewrite the action row of every uploaded record for edit mode. Editing no longer
+   has a download prerequisite — any record is editable. Downloading only matters
+   offline, and you cannot download while offline, so an undownloaded record is
+   Copy ID only there: ON + editable → Edit; otherwise → Copy ID. */
 function applyEditMode() {
     document.querySelectorAll('#screen-records .rec-card-wrap').forEach(wrap => {
         if (wrap.dataset.cardState !== 'submitted') return;
@@ -9256,11 +9258,8 @@ function applyEditMode() {
         if (!actionRow) return;
         const idEl = actionRow.querySelector('[data-id]');
         const id = idEl ? idEl.dataset.id : '';
-        const downloaded = !!wrap.querySelector('.badge-downloaded');
-        if (editModeEnabled && downloaded) {
+        if (editModeEnabled && !rcEditBlockedOffline(row)) {
             actionRow.innerHTML = `<button class="rec-btn-edit" data-action="edit-record" data-id="${id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>`;
-        } else if (editModeEnabled && !downloaded) {
-            actionRow.innerHTML = `<button class="rec-btn-dl" data-action="download-record" data-id="${id}"><i class="fa-solid fa-download"></i> Download to edit</button><button class="rec-btn-outline" data-action="copy-id" data-id="${id}">Copy ID</button>`;
         } else {
             actionRow.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${id}">Copy ID</button>`;
         }
@@ -9658,27 +9657,17 @@ function openRecordView(row) {
     const foot = row.querySelector('.record-foot-status');
     document.getElementById('rv-badges').innerHTML =
         (badges ? badges.innerHTML : '') + (foot ? foot.innerHTML : '');
-    /* Footer actions: Submit only while the record is not yet submitted
-       (item 2). The entry button routes by record status (EHS-18527 follow-up):
-       NOT completed -> "Edit Record" into the first step of the edit flow;
-       completed -> "View Record" into the read-only flow. Offline always forces
-       the read-only flow (downloads are read-only offline except signatures and
-       attachments). NOTE: status now decides this button; the edit-mode
-       facilitator toggle only governs card-tap routing on the records list. */
+    /* Secondary button: "Edit Record" into the editable stepper, or "View Record"
+       into the read-only flow when editing is blocked (offline + not downloaded).
+       The edit-mode facilitator toggle only governs card-tap routing on the list. */
     const canSubmit = rcIsPending(row);
     document.getElementById('rv-submit-btn').style.display = canSubmit ? '' : 'none';
-    const wrap = row.closest('.rec-card-wrap');
-    const completed = !!(wrap && wrap.dataset.formStatus === 'completed');
-    const offline = (typeof appOffline !== 'undefined' && appOffline);
-    /* Previously submitted (incl. edited-after-submit → pending) records are
-       read-only except attachments/signatures, so they open the read-only flow
-       ("View Record"), not the full editor (EHS-18527 items 5, 10). */
-    const prevSubmitted = !!(wrap && (wrap.dataset.cardState === 'submitted' || wrap.dataset.prevSubmitted === 'true'));
-    const canEdit = !completed && !offline && !prevSubmitted;
+    /* Editable unless we're offline and this record isn't downloaded (see rcViewEditMode) */
+    const editBlocked = rcEditBlockedOffline(row);
     const sec = document.getElementById('rv-secondary-btn');
-    sec.dataset.mode = canEdit ? 'edit' : 'view';
-    sec.textContent = canEdit ? 'Edit Record' : 'View Record';
-    document.getElementById('rv-ro-banner').style.display = prevSubmitted ? 'flex' : 'none';
+    sec.dataset.mode = editBlocked ? 'view' : 'edit';
+    sec.textContent = editBlocked ? 'View Record' : 'Edit Record';
+    document.getElementById('rv-ro-banner').style.display = editBlocked ? 'flex' : 'none';
     showScreen('record-view');
 }
 
@@ -9723,9 +9712,19 @@ function openRecordReadonly() {
    stay read-only, but attachments and signatures can be added/removed, and the
    Next/Back/breadcrumb navigation matches the online edit flow. `offline-editing`
    drives the banner + editable affordances (see gating CSS). */
-function openOfflineJsa() {
-    document.getElementById('app').classList.add('offline-editing');
-    showScreen('ro-basic');
+/* Is this offline record one that was already uploaded once? Read from the
+   matching card in the online Records list so both lists always agree. */
+/* The offline Records list only contains records downloaded to this device, so
+   everything in it is editable — upload status is irrelevant to editing now. */
+function openOfflineJsa(row) {
+    const app = document.getElementById('app');
+    app.classList.add('offline-editing');
+    const title = row && row.querySelector('.record-title');
+    const task = document.querySelector('#screen-jsa-basic input.form-input[type="text"]');
+    if (title && task) task.value = title.textContent.trim();
+    editingCard = row ? row.closest('.rec-card-wrap') : null;
+    app.classList.add('edit-session');
+    showScreen('jsa-basic');
 }
 function roLeaveFlow() {
     const app = document.getElementById('app');
@@ -9922,11 +9921,20 @@ function openEditRecord(row) {
 }
 
 /* Header back arrow / first-step Back — leave the edit without saving. */
+/* Clear the edit-session flags and report where the user should land: back to the
+   offline Records list when the edit happened offline, otherwise online Records. */
+function leaveEditSession() {
+    const app = document.getElementById('app');
+    const wasOffline = app.classList.contains('offline-editing');
+    app.classList.remove('offline-editing');
+    app.classList.remove('edit-session');
+    return wasOffline ? 'offline-records' : 'records';
+}
 function exitEditSession() {
     editingCard = null;
     const task = document.querySelector('#screen-jsa-basic input.form-input[type="text"]');
     if (task) task.value = '';
-    showScreen('records');
+    showScreen(leaveEditSession());
 }
 
 /* Global footer Save — keep changes, queue them for sync, return to Records. */
@@ -9944,8 +9952,9 @@ function saveEditSession() {
     editingCard = null;
     const task = document.querySelector('#screen-jsa-basic input.form-input[type="text"]');
     if (task) task.value = '';
-    showScreen('records');
-    showToast('Changes saved — will sync when online');
+    const dest = leaveEditSession();
+    showScreen(dest);
+    showToast(dest === 'offline-records' ? 'Changes saved on this device' : 'Changes saved — will sync when online');
 }
 
 /* Post-sync conflict notice → records list filtered to conflicts */
@@ -10740,12 +10749,20 @@ function rcSyncDownloadClone(wrap) {
    into the JSA workflow. "Edit" while the record is still editable, "View"
    once it is completed, previously uploaded, or the device is offline (those
    are read-only except attachments, signatures, and corrective actions). */
+/* Editing rule: every record the user has access to is editable — whether it was
+   previously uploaded (or completed) no longer matters. The ONE restriction is
+   connectivity: while offline, only records downloaded to this device can be
+   edited, because an undownloaded record has no local copy to open.
+   AMBIGUITY: "any record" is taken literally, so a Completed record is editable
+   too; if completed JSAs should stay view-only, gate on formStatus here. */
+function rcEditBlockedOffline(row) {
+    const offline = (typeof appOffline !== 'undefined' && appOffline);
+    if (!offline) return false;
+    const wrap = (row && row.closest('.rec-card-wrap')) || row;
+    return !(wrap && wrap.querySelector('.badge-downloaded'));
+}
 function rcViewEditMode(row) {
-    const wrap = row.closest('.rec-card-wrap');
-    const completed    = !!(wrap && wrap.dataset.formStatus === 'completed');
-    const prevUploaded = !!(wrap && (wrap.dataset.cardState === 'submitted' || wrap.dataset.prevSubmitted === 'true'));
-    const offline      = (typeof appOffline !== 'undefined' && appOffline);
-    return (!completed && !prevUploaded && !offline) ? 'edit' : 'view';
+    return rcEditBlockedOffline(row) ? 'view' : 'edit';
 }
 function rcEnsureViewEdit(row) {
     let ar = row.querySelector('.rec-action-row');
@@ -10857,5 +10874,8 @@ rcUpgradeCards();
 rcEnsureAllViewEdit();
 if (typeof refreshRecordsFab === 'function') refreshRecordsFab();
 </script>
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../designtoolbox/toolbox.js"></script>
 </body>
 </html>

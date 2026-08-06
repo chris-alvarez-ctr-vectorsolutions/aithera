@@ -241,4 +241,35 @@ for (const product of productList) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Cache-busting: stamp each dashboard's <script src=".../dashboard.js"> with a
+// content hash of the shared script. GitHub Pages caches JS for ~10 minutes,
+// so without this a just-deployed dashboard.js change keeps serving stale UI
+// to anyone who loaded a dashboard recently. The stamp only changes when
+// dashboard.js itself changes, so this is a no-op on most pushes.
+// ---------------------------------------------------------------------------
+
+const crypto = require('crypto');
+try {
+  const dashSrc = fs.readFileSync(path.join(REPO_ROOT, 'designtoolbox', 'dashboard.js'));
+  const stamp = crypto.createHash('sha256').update(dashSrc).digest('hex').slice(0, 8);
+  for (const product of productList) {
+    if (!product || !product.folder) continue;
+    const page = path.join(REPO_ROOT, 'products', product.folder, 'dashboard', 'index.html');
+    if (!fs.existsSync(page)) continue;
+    const before = fs.readFileSync(page, 'utf8');
+    const after = before.replace(
+      /(src="[^"]*designtoolbox\/dashboard\.js)(\?v=[0-9a-f]*)?"/g,
+      `$1?v=${stamp}"`
+    );
+    if (after !== before) {
+      fs.writeFileSync(page, after);
+      anyChanged = true;
+      console.log(`✓ updated  ${product.folder}: dashboard.js cache stamp → ${stamp}`);
+    }
+  }
+} catch (e) {
+  console.warn(`! cache stamp skipped: ${e.message}`);
+}
+
 if (!anyChanged) console.log('All dashboards already up to date.');
