@@ -438,8 +438,59 @@
       <li><b>One surface hook</b> — keyed on <code>kind</code>, it mounts a custom renderer (scene-sweep's perception canvas). Absent, the ladder runs unchanged.</li>
       <li><b><code>normalize()</code> forward-migrates authored JSON</b> — content survives schema change.</li>
     </ul>
+  </section>
 
-    <p class="footer-links">Companion docs: <a href="scenario-simulator-convergence-onepager.html">One Engine, Typed Plugins</a> · <a href="scenario-simulator-player-convergence.html">Player convergence</a> · <a href="scenario-simulator-type-crosswalk.html">Type crosswalk</a> · <a href="scenario-simulator-build-spec.html">Build &amp; authoring spec</a> · <a href="scenario-simulator-runtime.schema.json">Runtime JSON Schema</a>. Reference: <code>js/sim-player.js</code>, <code>scenario-live.html</code>.</p>
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§9 · Conformance</span>
+    <h2>Building an engine that matches this one</h2>
+    <p>This player (<code>scenario-live.html</code> + <code>js/sim-player.js</code>) and the Writer&nbsp;Studio that authors its JSON are the working reference for the production engine. Below is what a port must preserve, what this code already enforces for you, and what stays yours to build. The risky parts are the seams between the deterministic engine and the probabilistic model — tier scoring, prompt/runtime agreement, and phase-close signalling — so those get the most attention.</p>
+
+    <div class="callout">
+      <h3>Tiers have exactly one source of truth</h3>
+      <p>A phase's <code>calibration[].tier</code> values <em>are</em> the tier vocabulary. <code>compile()</code> derives the prompt's tier list from them, <code>transitions[].onTier</code> routes on them, and the engine validates the model-reported <span class="k">tier</span> against them at close — so the prompt and the runtime cannot disagree on the tier set by construction. <b>Never introduce a second, hardcoded tier list.</b> <code>SimPlayer.lint()</code> flags an <code>onTier</code> outside the vocabulary and a tier-routed phase that declares no <code>calibration[]</code>.</p>
+    </div>
+
+    <div class="callout">
+      <h3>The shape is discriminated — don't build a bag of optionals</h3>
+      <p>One <code>phases[]</code> ladder is shared, but a phase is EITHER a coaching/scene rung (<code>world</code>) or a scene-sweep perception rung (<code>kind</code>), and the additive top-level blocks are type-scoped (<code>state</code>; <code>cast</code>/<code>canon</code>; <code>coverage</code>/<code>hazards</code>/<code>decoys</code>/<code>scene</code>). The <a href="scenario-simulator-runtime.schema.json">runtime JSON Schema</a> now tags every such field with <span class="k">x-applies-to</span> and encodes the cross-type invariants as conditionals (a phase has world OR kind; a <code>kind:"spot"</code> scenario carries the perception blocks). In a typed language, promote this to a per-type discriminated union (<code>oneOf</code> on the discriminant) so invalid field combinations become <em>unrepresentable</em>, not merely catchable.</p>
+    </div>
+
+    <div class="callout">
+      <h3>Guardrails this engine already runs — port them</h3>
+      <ul>
+        <li><b>The app owns control flow.</b> Turn caps, tier recording, transitions, and the next locked entry are app logic; the model returns dialogue + <code>action</code> + <code>tier</code> and never navigates.</li>
+        <li><b>The reported tier is validated</b> against the phase vocabulary; an off-vocabulary label is recorded <code>(unreported)</code> and routed on the default edge, not acted on.</li>
+        <li><b>Only declared state keys are writable.</b> A <code>transitions[].set</code> write to an undeclared key is dropped (and warned); <code>lint()</code> catches it at load.</li>
+        <li><b>A <code>next</code> that resolves to no phase</b> terminates the ladder — almost always an authoring typo, so <code>lint()</code> reports it before a run and the engine warns at close.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <p class="code-label">Reproducibility &amp; conformance — <code>js/sim-snapshot.js</code></p>
+      <div class="shape-scroll"><pre class="shape"><span class="cmt">// The source is canonical; runtime + prompt are DERIVED at load, so a change to</span>
+<span class="cmt">// toRuntime()/compile()/normalize() alters what runs. Snapshot what a source</span>
+<span class="cmt">// compiles to under a given build — and prove two engines agree.</span>
+SimSnapshot.of(type, source) => {
+  "type": "branching-arc",
+  "sourceSchemaVersion": 1,
+  "compilerVersion": "2026-08-06.1",   <span class="cmt">// bump when toRuntime/compile SEMANTICS change</span>
+  "runtimeHash": "1a2b3c4d",           <span class="cmt">// FNV-1a over key-SORTED runtime → language-portable</span>
+  "promptHash":  "9f8e7d6c",
+  "promptChars": 30247,                <span class="cmt">// exact per-build prompt size</span>
+  "model": null, "modelSettings": null, "at": null
+}
+<span class="cmt">// Same source on both engines → equal hashes ⇒ they conform. Unequal ⇒ diff the</span>
+<span class="cmt">// runtime object / prompt string to find the divergence. scenario-live.html logs</span>
+<span class="cmt">// this record at boot: "[SimSnapshot] run conformance record".</span></pre></div>
+    </div>
+
+    <div class="callout">
+      <h3>Prompt assembly &amp; the cache seam</h3>
+      <p>Each turn the system prompt is <code>compile(source)</code> — <b>static for the whole run</b> — followed by the per-turn <code>[SYSTEM&nbsp;STATE]</code> line appended at its end (the only volatile part). Put the prompt-cache breakpoint at that boundary so the large static prefix is cached across turns, and <b>never resend scenario content in the message history</b> — the history carries only the conversation. Prompts run ~16–36k characters (§4); <code>SimSnapshot.promptChars</code> reports the exact current size per build.</p>
+    </div>
+
+    <p class="footer-links">Companion docs: <a href="scenario-simulator-convergence-onepager.html">One Engine, Typed Plugins</a> · <a href="scenario-simulator-player-convergence.html">Player convergence</a> · <a href="scenario-simulator-type-crosswalk.html">Type crosswalk</a> · <a href="scenario-simulator-build-spec.html">Build &amp; authoring spec</a> · <a href="scenario-simulator-runtime.schema.json">Runtime JSON Schema</a>. Reference: <code>js/sim-player.js</code>, <code>js/sim-snapshot.js</code>, <code>scenario-live.html</code>.</p>
   </section>
 
 </div>

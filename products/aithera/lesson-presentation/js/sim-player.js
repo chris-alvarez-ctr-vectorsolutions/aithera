@@ -52,6 +52,11 @@
     const idSet = new Set(phases.map((p) => p && p.id).filter(Boolean));
     const idxOf = {};
     phases.forEach((p, i) => { if (p && p.id) idxOf[p.id] = i; });
+    // Session-state keys DECLARED at the top level. A transition may only write
+    // these (closePhase drops any other key) — so an undeclared write is caught
+    // here at load time, not left as a silent run-time no-op.
+    const declaredState = new Set((Array.isArray(scenario.state) ? scenario.state : [])
+      .map((v) => v && v.key).filter(Boolean));
 
     // successors[i] = the phase indices phase i can advance to (mirrors closePhase)
     const successors = phases.map(() => new Set());
@@ -65,6 +70,11 @@
           warnings.push('phase "' + p.id + '": transition onTier "' + t.onTier
             + '" is not in its calibration vocabulary [' + vocab.join(', ') + '] — it can never fire.');
         }
+        if (t.set && typeof t.set === 'object') Object.keys(t.set).forEach((k) => {
+          if (!declaredState.has(k)) warnings.push('phase "' + p.id
+            + '": transition writes state key "' + k + '" not declared in scenario.state[] — it is ignored at run time.'
+            + (declaredState.size ? ' Declared: [' + [...declaredState].join(', ') + '].' : ' (scenario.state[] is empty.)'));
+        });
         if (t.next != null) {
           if (!idSet.has(t.next)) {
             errors.push('phase "' + p.id + '": transition next→"' + t.next
@@ -76,6 +86,12 @@
           if (!t.onTier) hasDefaultNext = true;
         }
       });
+      // Routes by tier but has no vocabulary to route by: the prompt's tier list
+      // (derived from calibration) is empty and no reported tier can be validated.
+      if (!vocab.length && trans.some((t) => t && t.onTier)) {
+        warnings.push('phase "' + p.id + '": routes by onTier but declares no calibration[] — '
+          + 'the compiled prompt\'s tier list is empty and no reported tier can be validated.');
+      }
       // The implicit fall-through to i+1 fires UNLESS a default (no-onTier)
       // transition with a next always overrides it.
       if (!hasDefaultNext) {
