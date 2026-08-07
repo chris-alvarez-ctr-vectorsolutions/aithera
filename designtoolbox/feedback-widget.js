@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.21.0';
+  const WIDGET_VERSION = '1.22.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -27,6 +27,11 @@
     author: localStorage.getItem('cw-author') || '',
     isAdmin: localStorage.getItem('cw-admin') === '1',
     settings: { visitorMode: false, commentsDisabled: false },
+    // Local, per-viewer "show comments" preference (remembered per browser),
+    // separate from the admin `commentsDisabled` setting. Comments are HIDDEN by
+    // default so a mock reads clean; the eye toggle in the nav hub reveals them.
+    // Absent or '1' → hidden; '0' → shown.
+    commentsHidden: localStorage.getItem('cw-comments-hidden') !== '0',
     pickMode: false,
     hoverEl: null,
     openPanelPinId: null,
@@ -206,7 +211,7 @@
 
 /* Panel (pin detail) — sticky-note overlay */
 .cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper, #fffdf6); border: 1px solid var(--cw-paper-edge, #fde9b0); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
-.cw-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-right: 34px; }
+.cw-panel-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
 .cw-panel-avatar { width: 30px; height: 30px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
 .cw-panel-meta { flex: 1; min-width: 0; }
 .cw-panel-meta strong { display: block; font-size: 13px; }
@@ -220,7 +225,11 @@
 /* Compact, low-emphasis management actions docked in the header row (Done / Edit
    / Delete) — deliberately quiet so the FEEDBACK is the panel's focus, and kept
    inline at the top so opening the panel never grows the page. */
-.cw-head-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
+.cw-head-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+/* Right-hand controls column in the panel header: the ✕ close sits on top and
+   the Done / Edit / Delete actions tuck in directly underneath it, pushed all
+   the way to the right so the author identity keeps the left of the row. */
+.cw-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; flex: none; }
 .cw-act { background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: #78716c; font: 600 12px/1 inherit; padding: 5px 7px; display: inline-flex; align-items: center; gap: 5px; transition: background .12s, color .12s, border-color .12s; }
 .cw-act:hover { background: rgba(120,113,108,.12); color: #44403c; }
 .cw-act:active { transform: scale(.96); }
@@ -228,7 +237,8 @@
 .cw-act--icon { width: 28px; height: 28px; padding: 0; justify-content: center; }
 /* Mark done keeps a visible border so it reads as the affirmative action, while
    Edit/Delete stay borderless icons — a gentle hierarchy that doesn't shout. */
-.cw-act--done { color: #047857; border-color: #a7f3d0; }
+.cw-act--done { color: #047857; border-color: #a7f3d0; font-size: 10px; padding: 4px 7px; }
+.cw-act--done .cw-fa { width: 10px; height: 10px; }
 .cw-act--done:hover { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
 .cw-act--done.cw-act--is-done { color: #92400e; border-color: #fcd34d; }
 .cw-act--done.cw-act--is-done:hover { background: #fffbeb; color: #78350f; }
@@ -254,7 +264,7 @@
 .cw-panel-thumb { margin: 8px 0; cursor: zoom-in; max-width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; overflow: hidden; transition: transform .15s var(--cw-ease), box-shadow .15s; }
 .cw-panel-thumb:hover { transform: scale(1.01); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
-.cw-panel-close { position: absolute; top: 8px; right: 10px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s var(--cw-ease); z-index: 1; }
+.cw-panel-close { flex: none; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s var(--cw-ease); z-index: 1; }
 .cw-panel-stranded { font-size: 12px; line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px dashed #fcd34d; border-radius: 8px; padding: 6px 9px; margin: 4px 0 10px; }
 .cw-panel-close:hover { background: rgba(146,64,14,.1); transform: rotate(90deg); }
 
@@ -328,6 +338,15 @@
 .cw-nav-grip { background: transparent; border: 0; color: rgba(255,255,255,.55); cursor: grab; touch-action: none; font-size: 15px; line-height: 1; padding: 7px 4px 7px 6px; flex-shrink: 0; border-radius: 999px; transition: color .15s, background .15s; }
 .cw-nav-grip:hover { color: #fff; background: rgba(255,255,255,.1); }
 .cw-nav-grip:active { cursor: grabbing; }
+/* Eye toggle — a circle-bordered button that shows/hides the comment pins for
+   this viewer (hidden by default). Leads the hub bar; when hidden, the hub is
+   just this eye. */
+.cw-nav-eye { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.55); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; transition: background .15s, border-color .15s, transform .1s; }
+.cw-nav-eye:hover { background: rgba(255,255,255,.22); border-color: #fff; transform: translateY(-1px); }
+.cw-nav-eye:active { transform: scale(.92); }
+.cw-nav-eye .cw-fa { width: 15px; height: 15px; }
+.cw-nav-eye--off { color: rgba(255,255,255,.85); border-color: rgba(255,255,255,.4); }
+.cw-nav--collapsed .cw-nav-bar { padding: 5px; }
 .cw-nav-count { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; background: transparent; border: 0; color: #fff; font: 600 13px/1 inherit; cursor: pointer; padding: 7px 8px; border-radius: 999px; transition: background .15s; }
 .cw-nav-count:hover { background: rgba(255,255,255,.1); }
 .cw-nav-glyph { font-size: 14px; line-height: 1; flex-shrink: 0; }
@@ -394,6 +413,8 @@
     'rotate-left': '<svg viewBox="0 0 512 512" aria-hidden="true"><path fill="currentColor" d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3-163.8-62.5-226.3 0L125.7 160z"/></svg>',
     pen: '<svg viewBox="0 0 512 512" aria-hidden="true"><path fill="currentColor" d="M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505.1s15.4 8.5 23.9 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z"/></svg>',
     trash: '<svg viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M135.2 17.7L128 32 32 32C14.3 32 0 46.3 0 64S14.3 96 32 96l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0-7.2-14.3C307.4 6.8 296.3 0 284.2 0L163.8 0c-12.1 0-23.2 6.8-28.6 17.7zM416 128L32 128 53.2 467c1.6 25.3 22.6 45 47.9 45l245.8 0c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg>',
+    eye: '<svg viewBox="0 0 576 512" aria-hidden="true"><path fill="currentColor" d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4 142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1 3.3-7.9 3.3-16.7 0-24.6-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64-7.1 0-13.9-1.2-20.3-3.3-5.5-1.8-11.9 1.6-11.7 7.4.3 6.9 1.3 13.8 3.2 20.7 13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1-5.8-.2-9.2 6.1-7.4 11.7 2.1 6.4 3.3 13.2 3.3 20.3z"/></svg>',
+    'eye-slash': '<svg viewBox="0 0 640 512" aria-hidden="true"><path fill="currentColor" d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4 3.3-7.9 3.3-16.7 0-24.6-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144 0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3-11.1-41.5-47.8-69.4-88.6-71.1-5.8-.2-9.2 6.1-7.4 11.7 2.1 6.4 3.3 13.2 3.3 20.3 0 .5 0 1.1 0 1.6l-91.1-71.2zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1-79.5 0-144-64.5-144-144 0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6 14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z"/></svg>',
   };
   function faIcon(name) {
     const s = document.createElement('span');
@@ -1739,20 +1760,37 @@
     });
   }
 
-  // Returns the pins this user is allowed to see right now.
-  // While dormant (comments disabled, or not on the published Pages site) pins
-  // stay hidden until someone clicks the (invisible) bubble to enter comment
-  // mode, which reveals them. Otherwise admins see everything and non-admins
-  // respect visitor mode.
-  function visiblePins() {
-    if (isDormant() && !state.pickMode) return [];
-    // Done = resolved: the pin disappears from the page (history is kept in the
-    // activity log, and the just-marked-done toast offers a 10s Undo).
+  // Every comment that COULD be shown right now — after dropping done/deleted and
+  // applying visitor-mode filtering, but IGNORING the dormant/local-hidden gates.
+  // The nav hub counts these so its eye can offer "Show N comments" even while
+  // the pins themselves are hidden.
+  // Done = resolved: the pin disappears from the page (history is kept in the
+  // activity log, and the just-marked-done toast offers a 10s Undo).
+  function eligiblePins() {
     let pins = state.pins.filter(p => !p.deleted && !p.done);
     if (state.settings.visitorMode && !effectiveAdmin()) {
       pins = pins.filter(p => p.author === state.author);
     }
     return pins;
+  }
+
+  // Returns the pins this user is allowed to see right now.
+  // Pins stay hidden — until pick mode reveals them — when EITHER the page is
+  // dormant (comments disabled, or not on the published Pages site) OR the viewer
+  // has comments locally hidden (the default; toggled by the nav hub's eye).
+  // Otherwise admins see everything and non-admins respect visitor mode.
+  function visiblePins() {
+    if (!state.pickMode && (isDormant() || state.commentsHidden)) return [];
+    return eligiblePins();
+  }
+
+  // Flip the local "show comments" preference (per-browser). Hiding also closes
+  // any open panel / list so nothing is left dangling over a now-clean design.
+  function toggleCommentsHidden() {
+    state.commentsHidden = !state.commentsHidden;
+    try { localStorage.setItem('cw-comments-hidden', state.commentsHidden ? '1' : '0'); } catch (_) {}
+    if (state.commentsHidden) { navOpen = false; if (typeof closePanel === 'function') closePanel(); }
+    renderPins();  // redraws dots (or clears them) and rebuilds the hub
   }
 
   // ----- Pin rendering --------------------------------------------------------
@@ -2225,9 +2263,38 @@
 
   function renderHub() {
     if (navEl) { navEl.remove(); navEl = null; }
+
+    // Count every comment that exists for this page (independent of whether the
+    // pins are currently drawn), so the eye can still say "Show N comments" while
+    // they're hidden. No comments at all — or a dormant page that isn't being
+    // actively reviewed — means no hub.
+    const eligibleTotal = eligiblePins().length;
+    if (!eligibleTotal || (isDormant() && !state.pickMode)) { navOpen = false; return; }
+
+    // The eye toggles LOCAL comment visibility for this viewer (remembered per
+    // browser; hidden by default so the design reads clean). In pick mode pins
+    // are always revealed, so the eye reads as "shown" then.
+    const hidden = state.commentsHidden && !state.pickMode;
+    const eyeBtn = el('button', {
+      type: 'button', class: 'cw-nav-eye' + (hidden ? ' cw-nav-eye--off' : ''),
+      title: hidden ? `Show ${eligibleTotal} comment${eligibleTotal === 1 ? '' : 's'}` : 'Hide comments',
+      'aria-label': hidden ? 'Show comments' : 'Hide comments',
+      'aria-pressed': hidden ? 'false' : 'true',
+      onclick: toggleCommentsHidden,
+    }, [faIcon(hidden ? 'eye-slash' : 'eye')]);
+
+    // Hidden → the hub collapses to just the eye, so nothing clutters the mock.
+    if (hidden) {
+      navEl = el('div', { class: 'cw-nav cw-nav--collapsed' }, [
+        el('div', { class: 'cw-nav-bar' }, [eyeBtn]),
+      ]);
+      document.body.appendChild(navEl);
+      applyNavPos();
+      return;
+    }
+
     const groups = computeNavGroups();
     const total = groups.all.length;
-    if (!total) { navOpen = false; return; }   // nothing to navigate → no hub at all
 
     const idx = groups.all.findIndex(p => p.id === navCurrentId);
     const pos = idx >= 0 ? `${idx + 1} / ${total}` : `– / ${total}`;
@@ -2244,6 +2311,7 @@
 
     const bar = el('div', { class: 'cw-nav-bar' }, [
       grip,
+      eyeBtn,
       el('button', {
         type: 'button', class: 'cw-nav-count',
         title: navOpen ? 'Hide comment list' : 'Show all comments on this page',
@@ -2602,7 +2670,7 @@
     // Shown only when the panel opened detached from its element (stranded):
     // say plainly why there's no pin on the canvas for it.
     const strandedNote = opts.stranded
-      ? el('div', { class: 'cw-panel-stranded' }, ['⚠ Couldn’t place this comment on the current screen. Its element may live deeper in a flow this comment can’t auto-open (older comments have no saved navigation path) — or it may have been removed. Use the selector in the Claude Code prompt below to find it.'])
+      ? el('div', { class: 'cw-panel-stranded' }, ['⚠ This comment’s element isn’t on the current screen — it may be deeper in a flow, or removed. Use the selector below to find it.'])
       : null;
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
@@ -2630,13 +2698,16 @@
       onclick: (e) => { e.stopPropagation(); onDelete(pin); },
     }, [faIcon('trash')]);
     const headActions = el('div', { class: 'cw-head-actions' }, [doneBtn, editBtn, deleteBtn]);
+    // The ✕ close and the quiet actions share one right-aligned column: close on
+    // top, Done / Edit / Delete tucked directly beneath it.
+    const headRight = el('div', { class: 'cw-head-right' }, [closeBtn, headActions]);
 
-    // Header row carries identity on the left and the quiet actions on the right.
-    // In stripped (visitor) mode there's no author identity, so the actions sit
-    // alone at the top-left.
+    // Header row carries identity on the left and the controls column on the
+    // right. In stripped (visitor) mode there's no author identity, so the
+    // controls column sits alone, still pushed to the right.
     const head = stripped
-      ? el('div', { class: 'cw-panel-head' }, [headActions])
-      : el('div', { class: 'cw-panel-head' }, [avatar, meta, headActions]);
+      ? el('div', { class: 'cw-panel-head' }, [headRight])
+      : el('div', { class: 'cw-panel-head' }, [avatar, meta, headRight]);
 
     // FEEDBACK — the hero. When editing, this slot becomes the editor.
     let feedback;
@@ -2704,7 +2775,7 @@
     // Order top→bottom: identity + quiet actions · (stranded note) · screenshot
     // (what) · FEEDBACK (why — the hero) · Claude Code (act on it) · replies.
     return el('div', { class: 'cw-panel' + (stripped ? ' cw-panel--mini' : '') }, [
-      gripHandle(), closeBtn, head, strandedNote, shot, feedbackLabel, feedback, claude, thread,
+      gripHandle(), head, strandedNote, shot, feedbackLabel, feedback, claude, thread,
     ]);
   }
 
