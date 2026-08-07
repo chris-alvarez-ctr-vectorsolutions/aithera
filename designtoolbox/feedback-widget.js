@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.22.0';
+  const WIDGET_VERSION = '1.24.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -27,11 +27,12 @@
     author: localStorage.getItem('cw-author') || '',
     isAdmin: localStorage.getItem('cw-admin') === '1',
     settings: { visitorMode: false, commentsDisabled: false },
-    // Local, per-viewer "show comments" preference (remembered per browser),
-    // separate from the admin `commentsDisabled` setting. Comments are HIDDEN by
-    // default so a mock reads clean; the eye toggle in the nav hub reveals them.
-    // Absent or '1' → hidden; '0' → shown.
-    commentsHidden: localStorage.getItem('cw-comments-hidden') !== '0',
+    // Local, per-viewer "show comments" state, separate from the admin
+    // `commentsDisabled` setting. Comments ALWAYS start hidden on every page load
+    // so a mock reads clean; revealing is session-only (in-memory) — this state
+    // re-inits to hidden on the next refresh. Deliberately NOT persisted, so a
+    // reveal on one page/mock never leaks to another or survives a reload.
+    commentsHidden: true,
     pickMode: false,
     hoverEl: null,
     openPanelPinId: null,
@@ -163,10 +164,13 @@
    "Click any element to leave feedback" prompt. */
 .cw-banner-text { white-space: nowrap; }
 .cw-banner-sep { width: 1px; align-self: stretch; margin: 3px 0; background: rgba(255,255,255,.2); flex: none; }
-.cw-banner-hide { white-space: nowrap; }
+.cw-banner-hide { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; padding: 6px; }
+.cw-banner-hide .cw-fa { width: 15px; height: 15px; }
 .cw-banner-hide.cw-banner-on { background: rgba(255,255,255,.32); }
 .cw-banner-link { color: #fff; font-size: 13px; font-weight: 600; text-decoration: underline; white-space: nowrap; }
 .cw-banner-link:hover { opacity: .85; }
+.cw-banner-link { display: inline-flex; align-items: center; gap: 4px; }
+.cw-banner-link .cw-fa { width: 11px; height: 11px; }
 .cw-banner-esc { padding: 5px 12px; }
 /* Docked: float just above the bottom-center toolbox dock instead of top-right, so the pick-mode hint reads as part of the flow switcher. */
 .cw-banner--docked { top: auto; right: auto; bottom: 66px; left: 50%; transform: translateX(-50%); }
@@ -266,6 +270,12 @@
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
 .cw-panel-close { flex: none; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s var(--cw-ease); z-index: 1; }
 .cw-panel-stranded { font-size: 12px; line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px dashed #fcd34d; border-radius: 8px; padding: 6px 9px; margin: 4px 0 10px; }
+.cw-panel-path { font-size: 12px; color: #475569; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 9px; margin: 4px 0 10px; }
+.cw-panel-path > summary { cursor: pointer; font-weight: 600; color: #334155; list-style: none; user-select: none; }
+.cw-panel-path > summary::-webkit-details-marker { display: none; }
+.cw-panel-path[open] > summary { margin-bottom: 6px; }
+.cw-path-steps { margin: 0; padding: 0 0 0 20px; display: flex; flex-direction: column; gap: 2px; }
+.cw-path-steps li { line-height: 1.4; }
 .cw-panel-close:hover { background: rgba(146,64,14,.1); transform: rotate(90deg); }
 
 /* Drag grip — a title-bar handle at the top of a floating surface (panel/popup).
@@ -415,6 +425,8 @@
     trash: '<svg viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M135.2 17.7L128 32 32 32C14.3 32 0 46.3 0 64S14.3 96 32 96l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0-7.2-14.3C307.4 6.8 296.3 0 284.2 0L163.8 0c-12.1 0-23.2 6.8-28.6 17.7zM416 128L32 128 53.2 467c1.6 25.3 22.6 45 47.9 45l245.8 0c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg>',
     eye: '<svg viewBox="0 0 576 512" aria-hidden="true"><path fill="currentColor" d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4 142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1 3.3-7.9 3.3-16.7 0-24.6-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64-7.1 0-13.9-1.2-20.3-3.3-5.5-1.8-11.9 1.6-11.7 7.4.3 6.9 1.3 13.8 3.2 20.7 13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1-5.8-.2-9.2 6.1-7.4 11.7 2.1 6.4 3.3 13.2 3.3 20.3z"/></svg>',
     'eye-slash': '<svg viewBox="0 0 640 512" aria-hidden="true"><path fill="currentColor" d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4 3.3-7.9 3.3-16.7 0-24.6-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144 0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3-11.1-41.5-47.8-69.4-88.6-71.1-5.8-.2-9.2 6.1-7.4 11.7 2.1 6.4 3.3 13.2 3.3 20.3 0 .5 0 1.1 0 1.6l-91.1-71.2zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1-79.5 0-144-64.5-144-144 0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6 14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z"/></svg>',
+    // Arrow-up-right (external / new-tab) — replaces the ↗ character on the log link.
+    'arrow-up-right': '<svg viewBox="0 0 384 512" aria-hidden="true"><path fill="currentColor" d="M328 96c13.3 0 24 10.7 24 24l0 240c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-182.1L73 409c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l231-231L88 144c-13.3 0-24-10.7-24-24s10.7-24 24-24l240 0z"/></svg>',
   };
   function faIcon(name) {
     const s = document.createElement('span');
@@ -731,6 +743,14 @@
   // skip overlay matching, so existing comments keep behaving exactly as before.
   const MODAL_AWARE_SEL = '@modal-aware';
   const MODAL_OPEN_SEL = '@modal';
+  // Flow-map binding: a comment left while a flow-map node is showing records
+  // that node id in a `@flow` view-state sentinel. Same `@`-prefixed shape as the
+  // modal sentinels, so every existing viewState consumer ignores it and the
+  // worker persists it untouched — no backend change needed. "Go" reads it to
+  // jump straight to the node via the host's applyFlowState (deterministic,
+  // unlike replaying the click trail). Purely additive: mocks without a flow map,
+  // and all pre-existing comments, never carry it and behave exactly as before.
+  const FLOW_SEL = '@flow';
   // Overlay surfaces that have an open/closed state. Vaadin dialogs/drawers and
   // native <dialog> expose role="dialog" on their open surface; .modal-backdrop
   // is the common hand-rolled-modal pattern in these mocks; vwc-drawer in
@@ -790,6 +810,41 @@
   // Strip the leading `#`/`.` from a modalKey for display.
   function prettyModalKey(k) { return (k || '').replace(/^[#.]/, '').split('|')[0]; }
 
+  // ----- Flow-map binding (all read-only, all guarded) -------------------------
+  // The mock's current flow-map node, if it HAS a flow map and we can tell which
+  // node is showing. Two read-only sources: the flow map records the node it last
+  // drove to (window.__toolboxFlowState — its own global, set in flow-map.js), and
+  // a `#fm=<node>` deep link in the URL. Returns '' when there's no flow map or no
+  // known node — in which case nothing flow-related is captured.
+  function currentFlowState() {
+    if (!(window.TOOLBOX_CONFIG && window.TOOLBOX_CONFIG.flowMap)) return '';
+    const rec = window.__toolboxFlowState;
+    if (rec && rec.state) return String(rec.state);
+    const m = (location.hash || '').match(/[#&]fm=([^&]+)/);
+    if (m) { try { return decodeURIComponent(m[1]); } catch (_) { return m[1]; } }
+    return '';
+  }
+  // Name of the host's state-driver fn (config-overridable, default applyFlowState).
+  function flowApplyName() {
+    const fm = window.TOOLBOX_CONFIG && window.TOOLBOX_CONFIG.flowMap;
+    return (fm && fm.applyState) || 'applyFlowState';
+  }
+  // The flow-map node a comment was bound to, read from its `@flow` sentinel
+  // (empty for comments that predate flow binding or weren't left on a node).
+  function flowStateOf(pin) {
+    if (!Array.isArray(pin.viewState)) return '';
+    const d = pin.viewState.find(x => x && x.sel === FLOW_SEL);
+    return d && d.text ? String(d.text) : '';
+  }
+  // Readable label for a flow node id, resolved against the flow map config when
+  // present; falls back to the raw id so it never renders blank.
+  function flowNodeLabel(stateId) {
+    const fm = window.TOOLBOX_CONFIG && window.TOOLBOX_CONFIG.flowMap;
+    const nodes = fm && Array.isArray(fm.nodes) ? fm.nodes : [];
+    const n = nodes.find(x => x && ((x.state || x.id) === stateId || x.id === stateId));
+    return (n && (n.label || n.title || n.id)) || stateId;
+  }
+
   // `excludeEl` is the element the comment is being pinned to (when known). A
   // toggle control must never be captured into ITS OWN pin's view state: a
   // comment left ON the active tab is about the tab button — which is visible in
@@ -808,8 +863,14 @@
       if (seen.has(k)) continue;
       seen.add(k);
       out.push(anchor);
-      if (out.length >= 14) break; // leave room for the modal sentinels below
+      if (out.length >= 13) break; // leave room for the flow + modal sentinels below
     }
+    // Fold in the current flow-map node (if any), so "Go" can jump straight to it
+    // via applyFlowState. Inert to every other viewState consumer (they skip
+    // '@'-prefixed entries). Pushed before the modal sentinels so it stays within
+    // the worker's 16-entry cap.
+    const flow = currentFlowState();
+    if (flow) out.push({ sel: FLOW_SEL, text: flow.slice(0, 80) });
     // Fold in modal open-state (see notes above).
     out.push({ sel: MODAL_AWARE_SEL, text: '' });
     for (const m of openModalEls()) {
@@ -992,12 +1053,17 @@
   // modals, wizard steps). Steps whose element can't be found are skipped
   // (they may have been noise — a toast dismissal, a hover-menu click).
   async function replayTrail(pin) {
-    for (const step of (pin.trail || [])) {
+    const trail = pin.trail || [];
+    let reached = 0, lastNode = null;
+    for (const step of trail) {
       const node = findTrailEl(step);
       if (!node || isUnsafeToClick(node)) continue;
-      try { node.click(); } catch (_) {}
+      try { node.click(); lastNode = node; reached++; } catch (_) {}
       await settle(120);
     }
+    // Report progress so a partial replay can leave the reviewer at the nearest
+    // reachable step instead of stranding them at nothing.
+    return { reached, total: trail.length, lastNode };
   }
 
   // Short human label for a comment's bound state, e.g. "Version 2 · Compliance".
@@ -1005,9 +1071,15 @@
     const vs = pin.viewState;
     if (!Array.isArray(vs) || !vs.length) return '';
     const parts = vs.filter(d => d.sel && d.sel[0] !== '@').map(d => d.text).filter(Boolean);
+    // Lead with the flow-map screen this comment sits on, when it's bound to one.
+    const flow = flowStateOf(pin);
+    if (flow) parts.unshift('Screen: ' + flowNodeLabel(flow));
     if (vs.some(d => d.sel === MODAL_AWARE_SEL)) {
+      // Only surface modal state when a modal was actually open. A bare
+      // "No modal" is noise in the header — suppress it (a comment left on a
+      // plain screen just shows its timestamp).
       const modals = vs.filter(d => d.sel === MODAL_OPEN_SEL).map(d => prettyModalKey(d.text));
-      parts.push(modals.length ? ('Modal: ' + modals.join(', ')) : 'No modal');
+      if (modals.length) parts.push('Modal: ' + modals.join(', '));
     }
     return parts.join(' · ');
   }
@@ -1050,7 +1122,22 @@
   // widget can't drive there — the reviewer must open that flow manually.
   function hasNavInfo(pin) {
     if (hasTrail(pin)) return true;
+    if (flowStateOf(pin)) return true;
     return Array.isArray(pin.viewState) && pin.viewState.some(d => d.sel && d.sel[0] !== '@');
+  }
+
+  // The recorded click trail, rendered as human-readable step labels (each
+  // control's visible text, in order). This is what turns the internal replay
+  // log into something a reviewer or a developer can read — e.g.
+  // "Analytics Overview" → "Manage delivery". Kept faithful (no de-duping) so a
+  // dev sees every click behavior; blank labels fall back to a placeholder.
+  function pathLabels(pin) {
+    if (!hasTrail(pin)) return [];
+    return pin.trail.map(step => {
+      const t = (step && step.t ? String(step.t) : '').replace(/\s+/g, ' ').trim();
+      if (!t) return '(unlabeled control)';
+      return t.length > 44 ? t.slice(0, 43) + '…' : t;
+    });
   }
 
   // Pins whose full navigation (including the reload fallback) failed this
@@ -1145,6 +1232,13 @@
     if (pin.dataLine) s += ` (near line ${pin.dataLine})`;
     if (pin.elementText) s += ` — visible text: "${pin.elementText.slice(0, 80)}"`;
     s += '.';
+    // The recorded click path to the element — so a developer sees every
+    // interaction needed to reach it (it often lives deeper in a flow).
+    const steps = pathLabels(pin);
+    if (steps.length) {
+      s += ` To reach it in the mock: ${steps.map((t, i) => `${i + 1}) ${t}`).join(' → ')}` +
+        ` (${steps.length} click${steps.length > 1 ? 's' : ''}).`;
+    }
     if (pin.comment) s += ` Feedback: "${pin.comment}"`;
     return s;
   }
@@ -1283,7 +1377,7 @@
     const logLink = el('a', {
       class: 'cw-banner-link', href: LOG_URL, target: '_blank', rel: 'noopener',
       title: 'Open the activity log in a new tab', onclick: () => becomeAdmin(),
-    }, ['🗒 Log ↗']);
+    }, ['Log ', faIcon('arrow-up-right')]);
 
     var bannerKids = [
       el('span', { class: 'cw-banner-text' }, ['Click any element to leave feedback']),
@@ -1304,9 +1398,14 @@
   function renderBannerHide() {
     if (!bannerHideBtn) return;
     const on = !!state.settings.commentsDisabled;
-    bannerHideBtn.textContent = on ? '✓ Comments hidden' : 'Hide comments';
+    // Icon toggle instead of a text label: eye = comments visible, eye-slash =
+    // hidden. The tooltip/aria-label still spell out the action.
+    bannerHideBtn.replaceChildren(faIcon(on ? 'eye-slash' : 'eye'));
     bannerHideBtn.classList.toggle('cw-banner-on', on);
     bannerHideBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const label = on ? 'Comments hidden for non-admins — click to show' : 'Hide comments for non-admins';
+    bannerHideBtn.setAttribute('aria-label', label);
+    bannerHideBtn.setAttribute('title', label);
   }
 
   // Save a comment setting (currently just commentsDisabled) with an optimistic
@@ -1784,11 +1883,12 @@
     return eligiblePins();
   }
 
-  // Flip the local "show comments" preference (per-browser). Hiding also closes
-  // any open panel / list so nothing is left dangling over a now-clean design.
+  // Flip the local "show comments" state. Session-only by design — NOT persisted,
+  // so a reveal lasts only until the next refresh, when the widget re-inits to
+  // hidden. Hiding also closes any open panel / list so nothing is left dangling
+  // over a now-clean design.
   function toggleCommentsHidden() {
     state.commentsHidden = !state.commentsHidden;
-    try { localStorage.setItem('cw-comments-hidden', state.commentsHidden ? '1' : '0'); } catch (_) {}
     if (state.commentsHidden) { navOpen = false; if (typeof closePanel === 'function') closePanel(); }
     renderPins();  // redraws dots (or clears them) and rebuilds the hub
   }
@@ -2542,10 +2642,25 @@
     hideRevealBar();   // clear any stale "Exit" bar from a previous peek
     restoreReveal();   // drop any previous peek before starting a new one
     try {
-      // Step 0 (only after our own reload): re-walk the recorded click path from
+      // Step 0a: if the comment is bound to a flow-map node and the host exposes
+      // its state driver, jump straight there — deterministic and reload-free.
+      // Fully guarded: no flow binding, no flow map, or a throwing driver all just
+      // fall through to the trail/viewState path below, so behavior is unchanged
+      // for every mock that isn't a flow-map mock.
+      const flow = flowStateOf(pin);
+      if (flow) {
+        const applyFn = window[flowApplyName()];
+        if (typeof applyFn === 'function') {
+          try { applyFn(flow); await settle(160); } catch (_) {}
+        }
+      }
+
+      // Step 0b (only after our own reload): re-walk the recorded click path from
       // the mock's fresh landing state — this is what reaches screens/modals that
-      // only exist after the user's own clicks built them.
-      if (opts.fromReload && hasTrail(pin)) await replayTrail(pin);
+      // only exist after the user's own clicks built them. Keep the progress so a
+      // partial replay can fall back to the nearest reachable step below.
+      let replay = null;
+      if (opts.fromReload && hasTrail(pin)) replay = await replayTrail(pin);
 
       // Step 1: drive the mock into this comment's interaction state by clicking
       // its captured controls (version, tab, toggle) over a few settle-rounds.
@@ -2559,7 +2674,15 @@
         // is destructive, so it's offered only behind a confirm, on explicit
         // Go, and never twice.
         if (canNav && !opts.fromReload && opts.allowReload && confirmNavReload(pin)) return;
-        if (canNav) {
+        if (replay && replay.reached > 0 && replay.lastNode && isRendered(replay.lastNode)) {
+          // The exact element wasn't found, but the trail replay got us partway.
+          // Land the reviewer at the NEAREST reachable step instead of nowhere,
+          // and say how far it got — the remaining clicks couldn't be resolved
+          // (the deeper screen may have changed, or the element was removed).
+          markNavFailed(pin.id);
+          try { replay.lastNode.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+          showToast(`Showed the nearest saved step (${replay.reached} of ${replay.total}) — couldn’t reach the element itself. Use the selector in the panel.`, 'neutral');
+        } else if (canNav) {
           // We had a path and still couldn't reach it — strong evidence it's
           // gone. Mark failed so it moves to the honest "Couldn't locate" bucket.
           markNavFailed(pin.id);
@@ -2672,6 +2795,16 @@
     const strandedNote = opts.stranded
       ? el('div', { class: 'cw-panel-stranded' }, ['⚠ This comment’s element isn’t on the current screen — it may be deeper in a flow, or removed. Use the selector below to find it.'])
       : null;
+    // Recorded click path — a collapsible list of the clicks that reach this
+    // element. Shows reviewers there's a deeper flow (even when auto-nav can't
+    // run) and gives devs the exact interaction sequence.
+    const pathSteps = pathLabels(pin);
+    const pathNote = pathSteps.length
+      ? el('details', { class: 'cw-panel-path' }, [
+          el('summary', {}, [`🧭 Path to this element · ${pathSteps.length} click${pathSteps.length > 1 ? 's' : ''}`]),
+          el('ol', { class: 'cw-path-steps' }, pathSteps.map(t => el('li', {}, [t]))),
+        ])
+      : null;
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
     const sl = viewStateLabel(pin);
@@ -2772,10 +2905,11 @@
         ])
       : null;
 
-    // Order top→bottom: identity + quiet actions · (stranded note) · screenshot
-    // (what) · FEEDBACK (why — the hero) · Claude Code (act on it) · replies.
+    // Order top→bottom: identity + quiet actions · (stranded note) · (path) ·
+    // screenshot (what) · FEEDBACK (why — the hero) · Claude Code (act on it) ·
+    // replies.
     return el('div', { class: 'cw-panel' + (stripped ? ' cw-panel--mini' : '') }, [
-      gripHandle(), head, strandedNote, shot, feedbackLabel, feedback, claude, thread,
+      gripHandle(), head, strandedNote, pathNote, shot, feedbackLabel, feedback, claude, thread,
     ]);
   }
 
