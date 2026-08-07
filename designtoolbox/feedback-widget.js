@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.25.1';
+  const WIDGET_VERSION = '1.26.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -222,7 +222,7 @@
 
 /* Panel (pin detail) — sticky-note overlay */
 .cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper, #fffdf6); border: 1px solid var(--cw-paper-edge, #fde9b0); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
-.cw-panel-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.cw-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .cw-panel-avatar { width: 30px; height: 30px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
 .cw-panel-meta { flex: 1; min-width: 0; }
 .cw-panel-meta strong { display: block; font-size: 13px; }
@@ -265,7 +265,11 @@
 
 /* The FEEDBACK — the whole point of a comment, so it's the visual hero: a tiny
    accent label above a highlighted card in the warm accent tint, larger type. */
-.cw-feedback-label { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--cw-accent-deep); margin: 0 0 5px; }
+.cw-feedback-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--cw-accent-deep); margin: 0 0 5px; }
+/* Timestamp relocated onto the FEEDBACK label row (right side) so the header row
+   can hold avatar + name + Done/Edit/Delete together. Reset the label's uppercase
+   bold styling for this quieter meta text. */
+.cw-feedback-time { font-weight: 500; letter-spacing: normal; text-transform: none; color: #6b7280; font-size: 11px; white-space: nowrap; }
 .cw-feedback { font-size: 15.5px; line-height: 1.5; font-weight: 500; color: #1f2937; background: #fffef8; border: 1px solid var(--cw-paper-edge); border-left: 3px solid var(--cw-accent); border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; }
 .cw-panel-claude { margin: 8px 0; padding: 10px; background: linear-gradient(140deg, #fafaf9, #f5f5f4); border: 1px solid #e7e5e4; border-radius: 10px; }
 .cw-claude-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -2658,6 +2662,12 @@
     // interleave two click sequences and land nowhere — ignore it.
     if (navigating) { showToast('Still navigating to the previous comment…', 'neutral'); return; }
     navigating = true;
+    // Navigating TO a specific comment always means the user wants to SEE it, so
+    // force comments shown. This is deliberate: after a "Go" that reloads the
+    // mock (deep-flow navigation), the fresh load would otherwise re-hide
+    // comments (hidden-by-default) and swallow the very comment being navigated
+    // to. Someone stepping the list wants the comment, not the clean default.
+    state.commentsHidden = false;
     closeNavList();
     hideRevealBar();   // clear any stale "Exit" bar from a previous peek
     restoreReveal();   // drop any previous peek before starting a new one
@@ -2828,9 +2838,10 @@
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
     const sl = viewStateLabel(pin);
+    // Name only on the header row — the timestamp (and any scene label) moves down
+    // to the FEEDBACK label row so avatar + name + Done/Edit/Delete share one line.
     const meta = el('div', { class: 'cw-panel-meta' }, [
       el('strong', {}, [pin.author]),
-      el('span', {}, [rel(pin.timestamp) + (sl ? ' · on ' + sl : '')]),
     ]);
 
     // Management actions — quiet and compact, docked in the header so they don't
@@ -2851,16 +2862,14 @@
       onclick: (e) => { e.stopPropagation(); onDelete(pin); },
     }, [faIcon('trash')]);
     const headActions = el('div', { class: 'cw-head-actions' }, [doneBtn, editBtn, deleteBtn]);
-    // The ✕ close and the quiet actions share one right-aligned column: close on
-    // top, Done / Edit / Delete tucked directly beneath it.
-    const headRight = el('div', { class: 'cw-head-right' }, [closeBtn, headActions]);
 
-    // Header row carries identity on the left and the controls column on the
-    // right. In stripped (visitor) mode there's no author identity, so the
-    // controls column sits alone, still pushed to the right.
+    // Single-line header: avatar + name on the left, then Done / Edit / Delete and
+    // the ✕ close all on the same row (the name's flex:1 pushes them right). In
+    // stripped (visitor) mode there's no author identity, so a flex spacer keeps
+    // the controls pushed to the right.
     const head = stripped
-      ? el('div', { class: 'cw-panel-head' }, [headRight])
-      : el('div', { class: 'cw-panel-head' }, [avatar, meta, headRight]);
+      ? el('div', { class: 'cw-panel-head' }, [el('div', { class: 'cw-panel-meta' }), headActions, closeBtn])
+      : el('div', { class: 'cw-panel-head' }, [avatar, meta, headActions, closeBtn]);
 
     // FEEDBACK — the hero. When editing, this slot becomes the editor.
     let feedback;
@@ -2887,7 +2896,10 @@
     } else {
       feedback = el('div', { class: 'cw-feedback' }, [pin.comment || '(no feedback text)']);
     }
-    const feedbackLabel = el('div', { class: 'cw-feedback-label' }, ['Feedback']);
+    const feedbackLabel = el('div', { class: 'cw-feedback-label' }, [
+      el('span', {}, ['Feedback']),
+      el('span', { class: 'cw-feedback-time' }, [rel(pin.timestamp) + (sl ? ' · on ' + sl : '')]),
+    ]);
 
     // Element screenshot, moved to the TOP so you see WHAT the comment is on
     // before reading it. (Not shown in stripped/visitor mode.)
@@ -3082,6 +3094,10 @@
         const pin = state.pins.find(p => p.id === resume.id);
         if (pin) {
           navCurrentId = pin.id;
+          // The reload just re-hid comments (hidden-by-default). The user was
+          // mid-navigation to THIS comment — keep them shown so it's visible the
+          // moment we arrive, not swallowed by the clean default.
+          state.commentsHidden = false;
           showToast('Navigating to the comment…', 'neutral');
           await settle(350); // give the mock's own boot render a moment
           revealPin(pin, { fromReload: true });
