@@ -4,11 +4,15 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.19.0';
+  const WIDGET_VERSION = '1.20.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
   window.__cwWidgetLoaded = WIDGET_VERSION;
+
+  // Reply threads are hidden for now to keep the panel focused on the feedback
+  // itself (flip to true — or set window.TOOLBOX.replies — to bring them back).
+  const REPLIES_ENABLED = (window.TOOLBOX && window.TOOLBOX.replies === true) || false;
 
   // ----- State ----------------------------------------------------------------
   const state = {
@@ -193,7 +197,7 @@
 
 /* Panel (pin detail) — sticky-note overlay */
 .cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper, #fffdf6); border: 1px solid var(--cw-paper-edge, #fde9b0); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
-.cw-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; padding-right: 32px; }
+.cw-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-right: 34px; }
 .cw-panel-avatar { width: 30px; height: 30px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
 .cw-panel-meta { flex: 1; min-width: 0; }
 .cw-panel-meta strong { display: block; font-size: 13px; }
@@ -203,6 +207,30 @@
    close button and keep the action row as the first thing the visitor sees. */
 .cw-panel--mini .cw-panel-actions { margin-top: 2px; padding-right: 30px; }
 .cw-panel-body { font-size: 13px; line-height: 1.55; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
+
+/* Compact, low-emphasis management actions docked in the header row (Done / Edit
+   / Delete) — deliberately quiet so the FEEDBACK is the panel's focus, and kept
+   inline at the top so opening the panel never grows the page. */
+.cw-head-actions { display: flex; align-items: center; gap: 3px; margin-left: auto; flex: none; }
+.cw-act { background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: #78716c; font: 600 12px/1 inherit; padding: 5px 7px; display: inline-flex; align-items: center; gap: 5px; transition: background .12s, color .12s; }
+.cw-act:hover { background: rgba(120,113,108,.12); color: #44403c; }
+.cw-act:active { transform: scale(.96); }
+.cw-act--icon { width: 28px; height: 28px; padding: 0; justify-content: center; font-size: 13px; }
+.cw-act--done { color: #047857; }
+.cw-act--done:hover { background: #ecfdf5; color: #065f46; }
+.cw-act--done.cw-act--is-done { color: #92400e; }
+.cw-act--danger:hover { background: #fef2f2; color: #b91c1c; }
+
+/* Element screenshot, pulled to the TOP of the panel so a reviewer sees WHAT the
+   comment is about before reading it. */
+.cw-panel-shot { margin: 0 0 12px; cursor: zoom-in; border-radius: 10px; border: 1px solid #e5e7eb; overflow: hidden; background: #fff; transition: transform .15s var(--cw-ease), box-shadow .15s; }
+.cw-panel-shot:hover { box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.cw-panel-shot img { display: block; max-width: 100%; max-height: 150px; margin: 0 auto; }
+
+/* The FEEDBACK — the whole point of a comment, so it's the visual hero: a tiny
+   accent label above a highlighted card in the warm accent tint, larger type. */
+.cw-feedback-label { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--cw-accent-deep); margin: 0 0 5px; }
+.cw-feedback { font-size: 15.5px; line-height: 1.5; font-weight: 500; color: #1f2937; background: #fffef8; border: 1px solid var(--cw-paper-edge); border-left: 3px solid var(--cw-accent); border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; }
 .cw-panel-claude { margin: 8px 0; padding: 10px; background: linear-gradient(140deg, #fafaf9, #f5f5f4); border: 1px solid #e7e5e4; border-radius: 10px; }
 .cw-claude-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .cw-claude-label { font-size: 11px; font-weight: 700; color: #57534e; letter-spacing: .02em; }
@@ -2265,14 +2293,14 @@
     };
     section('On this screen', groups.onScreen);
     section('On other screens', groups.elsewhere, { elsewhere: true });
-    section('Not found', groups.notFound, { notFound: true });
+    section('Couldn’t locate', groups.notFound, { notFound: true });
     return list;
   }
 
   function navItem(pin, opts = {}) {
     const stateLabel = viewStateLabel(pin);
     const title = opts.notFound
-      ? 'Open this comment (its element wasn’t found anywhere — it may have been removed from the design)'
+      ? 'Open this comment — its element isn’t on the current screen and couldn’t be auto-located (it may be deeper in a flow, or removed)'
       : opts.elsewhere
         ? 'Go — switches the mock to this comment’s screen/state and opens it there'
         : 'Jump to this comment';
@@ -2288,7 +2316,7 @@
         el('div', { class: 'cw-nav-item-meta' }, [el('strong', {}, [pin.author]), ' · ' + rel(pin.timestamp)]),
         el('div', { class: 'cw-nav-item-text' }, [(pin.comment || '').slice(0, 120) || '(no text)']),
         opts.notFound
-          ? el('div', { class: 'cw-nav-item-ctx' }, ['⚠ Element removed — not found on any screen of this mock'])
+          ? el('div', { class: 'cw-nav-item-ctx' }, ['⚠ Not on the current screen — couldn’t auto-locate (deeper in a flow, or removed)'])
           : opts.elsewhere
             ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ Not on this screen' + (stateLabel ? ' — on: ' + stateLabel : '') + ' · Go opens it'])
             : (stateLabel ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ ' + stateLabel]) : null),
@@ -2452,8 +2480,8 @@
         markNavFailed(pin.id);
         renderPins();
         showToast(opts.allowReload
-          ? 'Couldn’t find that element anywhere in this mock — it may have been removed'
-          : 'That comment’s on another screen — use “Go” in the list to navigate to it', opts.allowReload ? 'error' : 'neutral');
+          ? 'Couldn’t auto-navigate to that element — it may be deeper in a flow (or removed). See the selector in the panel.'
+          : 'That comment’s on another screen — use “Go” in the list to navigate to it', opts.allowReload ? 'neutral' : 'neutral');
         openPanel(pin, { stranded: true });
         return;
       }
@@ -2552,7 +2580,7 @@
     // Shown only when the panel opened detached from its element (stranded):
     // say plainly why there's no pin on the canvas for it.
     const strandedNote = opts.stranded
-      ? el('div', { class: 'cw-panel-stranded' }, ['⚠ The pinned element wasn’t found on any screen of this mock — it may have been removed since this comment was left.'])
+      ? el('div', { class: 'cw-panel-stranded' }, ['⚠ Couldn’t place this comment on the current screen. Its element may live deeper in a flow this comment can’t auto-open (older comments have no saved navigation path) — or it may have been removed. Use the selector in the Claude Code prompt below to find it.'])
       : null;
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
@@ -2561,33 +2589,35 @@
       el('strong', {}, [pin.author]),
       el('span', {}, [rel(pin.timestamp) + (sl ? ' · on ' + sl : '')]),
     ]);
-    const actionButtons = [
-      el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
-      el('button', {
-        class: 'cw-btn cw-btn--secondary cw-btn--small',
-        title: 'Edit the comment text.',
-        onclick: (e) => { e.stopPropagation(); reopenPanel(pin, { editing: true }); },
-      }, ['✎ Edit']),
-      el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
-    ];
-    // Open-in-VS-Code is an admin-only tool (visitors don't have the local
-    // repo), so it's left off the stripped/visitor panel.
-    if (pinFilePath(pin) && !stripped) {
-      actionButtons.push(el('button', {
-        class: 'cw-btn cw-btn--secondary cw-btn--small',
-        title: pin.dataLine
-          ? 'Opens this exact line in VS Code (vscode:// URL). First use prompts for your local repo root path.'
-          : 'Opens this mock file in VS Code (vscode:// URL). First use prompts for your local repo root path.',
-        onclick: (e) => { e.stopPropagation(); openInVSCode(pin); },
-      }, ['📂 Open in VS Code']));
-    }
-    // Visitors keep the Done / Edit / Delete actions (just not VS Code), so
-    // build the action row in both modes.
-    const actions = el('div', { class: 'cw-panel-actions' }, actionButtons);
 
-    const head = el('div', { class: 'cw-panel-head' }, [avatar, meta]);
+    // Management actions — quiet and compact, docked in the header so they don't
+    // add a tall row or compete with the feedback. Done reads as "Mark done";
+    // Edit and Delete collapse to icons. (Open-in-VS-Code was removed — it didn't
+    // work reliably from inside the panel.)
+    const doneBtn = el('button', {
+      class: 'cw-act cw-act--done' + (pin.done ? ' cw-act--is-done' : ''),
+      title: pin.done ? 'Reopen this comment' : 'Mark this comment done',
+      onclick: (e) => { e.stopPropagation(); onDone(pin); },
+    }, [pin.done ? '↺ Reopen' : '✓ Mark done']);
+    const editBtn = el('button', {
+      class: 'cw-act cw-act--icon', title: 'Edit the comment text', 'aria-label': 'Edit',
+      onclick: (e) => { e.stopPropagation(); reopenPanel(pin, { editing: true }); },
+    }, ['✎']);
+    const deleteBtn = el('button', {
+      class: 'cw-act cw-act--icon cw-act--danger', title: 'Delete this comment', 'aria-label': 'Delete',
+      onclick: (e) => { e.stopPropagation(); onDelete(pin); },
+    }, ['🗑']);
+    const headActions = el('div', { class: 'cw-head-actions' }, [doneBtn, editBtn, deleteBtn]);
 
-    let body;
+    // Header row carries identity on the left and the quiet actions on the right.
+    // In stripped (visitor) mode there's no author identity, so the actions sit
+    // alone at the top-left.
+    const head = stripped
+      ? el('div', { class: 'cw-panel-head' }, [headActions])
+      : el('div', { class: 'cw-panel-head' }, [avatar, meta, headActions]);
+
+    // FEEDBACK — the hero. When editing, this slot becomes the editor.
+    let feedback;
     if (isEditing) {
       const ta = el('textarea', { style: 'width:100%;min-height:80px;border:1px solid #d1d5db;border-radius:4px;padding:6px 8px;font:inherit;', placeholder: 'Edit comment… (⌘/Ctrl + Enter to save)' });
       ta.value = pin.comment || '';
@@ -2607,19 +2637,25 @@
       ta.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); doSave(); }
       });
-      body = el('div', { class: 'cw-panel-body' }, [ta, el('div', { class: 'cw-actions', style: 'margin-top:6px;' }, [cancel, save])]);
+      feedback = el('div', { class: 'cw-feedback' }, [ta, el('div', { class: 'cw-actions', style: 'margin-top:6px;' }, [cancel, save])]);
     } else {
-      body = el('div', { class: 'cw-panel-body' }, [pin.comment || '']);
+      feedback = el('div', { class: 'cw-feedback' }, [pin.comment || '(no feedback text)']);
     }
+    const feedbackLabel = el('div', { class: 'cw-feedback-label' }, ['Feedback']);
 
-    const extras = [];
-    // Ready-to-paste Claude Code prompt (file + selector + line + text + the
-    // feedback). Shown on every mock so you can hand the comment straight to
-    // Claude Code — especially useful on React mocks where the line number
-    // isn't reliable, but handy everywhere.
+    // Element screenshot, moved to the TOP so you see WHAT the comment is on
+    // before reading it. (Not shown in stripped/visitor mode.)
+    const shot = (pin.screenshot && !stripped)
+      ? el('div', { class: 'cw-panel-shot', title: 'Click to enlarge', onclick: () => openLightbox(pin.screenshot) }, [el('img', { src: pin.screenshot, alt: 'the element this comment is on' })])
+      : null;
+
+    // Ready-to-paste Claude Code prompt — the "take it to Claude Code" step,
+    // after the feedback. Also carries the CSS selector, which is how you locate
+    // the element for a stranded/deep-flow comment.
+    let claude = null;
     if (!stripped) {
       const prompt = claudePrompt(pin);
-      extras.push(el('div', { class: 'cw-panel-claude' }, [
+      claude = el('div', { class: 'cw-panel-claude' }, [
         el('div', { class: 'cw-claude-head' }, [
           el('span', { class: 'cw-claude-label' }, ['🤖 For Claude Code']),
           el('button', {
@@ -2629,32 +2665,25 @@
           }, ['📋 Copy']),
         ]),
         el('code', { class: 'cw-claude-text', title: prompt }, [prompt]),
-      ]));
-    }
-    if (pin.screenshot && !stripped) {
-      const thumb = el('div', { class: 'cw-panel-thumb', onclick: () => openLightbox(pin.screenshot) }, [
-        el('img', { src: pin.screenshot, alt: 'screenshot' })
       ]);
-      extras.push(thumb);
     }
-    const thread = el('div', { class: 'cw-thread' }, [
-      ...(pin.thread || []).map(r => el('div', { class: 'cw-reply' }, [
-        el('div', { class: 'cw-reply-head' }, [el('strong', {}, [r.author]), rel(r.timestamp)]),
-        el('div', { class: 'cw-reply-text' }, [r.text]),
-      ])),
-      buildReplyForm(pin),
+
+    // Reply thread — hidden for now (REPLIES_ENABLED) to keep the panel focused.
+    const thread = REPLIES_ENABLED
+      ? el('div', { class: 'cw-thread' }, [
+          ...(pin.thread || []).map(r => el('div', { class: 'cw-reply' }, [
+            el('div', { class: 'cw-reply-head' }, [el('strong', {}, [r.author]), rel(r.timestamp)]),
+            el('div', { class: 'cw-reply-text' }, [r.text]),
+          ])),
+          buildReplyForm(pin),
+        ])
+      : null;
+
+    // Order top→bottom: identity + quiet actions · (stranded note) · screenshot
+    // (what) · FEEDBACK (why — the hero) · Claude Code (act on it) · replies.
+    return el('div', { class: 'cw-panel' + (stripped ? ' cw-panel--mini' : '') }, [
+      gripHandle(), closeBtn, head, strandedNote, shot, feedbackLabel, feedback, claude, thread,
     ]);
-
-    // Stripped (visitor) mode: a minimal panel focused on the visitor's own
-    // actions — the Done / Edit / Delete buttons (and Save while editing), the
-    // comment text, and the reply thread (with its Reply button). The author
-    // header (avatar / name / timestamp) is dropped too, on top of the
-    // screenshot, Claude Code prompt, and Open-in-VS-Code button already left out.
-    if (stripped) {
-      return el('div', { class: 'cw-panel cw-panel--mini' }, [gripHandle(), closeBtn, strandedNote, actions, body, thread]);
-    }
-
-    return el('div', { class: 'cw-panel' }, [gripHandle(), closeBtn, head, strandedNote, actions, body, ...extras, thread]);
   }
 
   function reopenPanel(pin, opts = {}) {
