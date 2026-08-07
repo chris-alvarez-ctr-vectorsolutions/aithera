@@ -1427,6 +1427,7 @@
         : 'Ask me anything across your apps and I\'ll put the answer on the canvas. ' +
           'Pick a few starter ideas above, or just type below.'
     }];
+    advertiseFlow('build');
     window.scrollTo({ top: 0 });
     render();
   }
@@ -1445,9 +1446,31 @@
   function goHome() {
     state.view = 'home';
     state.activeId = null;
+    advertiseFlow('home');
     window.scrollTo({ top: 0 });
     render();
   }
+
+  /* =====================================================================
+     FLOW MAP (review tooling only — see agency-intelligence-dashboard.html's
+     TOOLBOX_CONFIG). Exposes the two named screens to the Design Toolbox so a
+     comment left on a screen binds to its node and "Go" can jump straight here
+     via window.applyFlowState. Purely additive: no product behavior changes.
+     ===================================================================== */
+  // Tell the toolbox which node is showing, so a comment created here captures a
+  // @flow binding. window.__toolboxFlowState is the toolbox's own channel (read
+  // by feedback-widget.js currentFlowState); setting it is inert to the mock.
+  function advertiseFlow(id) {
+    try { window.__toolboxFlowState = { state: id, version: '' }; } catch (e) {}
+  }
+  // The single hook the flow map / comment "Go" calls to reach a named screen.
+  window.applyFlowState = function (id) {
+    if (id === 'build') {
+      var d = active() || state.dashboards[0];
+      if (d) { openDash(d.id); return; }
+    }
+    goHome();
+  };
 
   /* =====================================================================
      RENDER
@@ -2110,6 +2133,9 @@
 
   // Deep links, so the Hub's Agency Intelligence card hand-off keeps working.
   (function deepLink() {
+    // Flow-map deep link / live thumbnail: #fm=<node> drives to that screen.
+    var fm = (location.hash || '').match(/[#&]fm=([^&]+)/);
+    if (fm) { try { window.applyFlowState(decodeURIComponent(fm[1])); } catch (e) {} return; }
     var p = new URLSearchParams(location.search);
     if (p.get('tab') === 'ai') { state.homeTab = 'ai'; return; }
     if (p.get('new')) { newDash(); return; }
