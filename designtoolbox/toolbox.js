@@ -52,9 +52,6 @@
     // loading an icon font (Font Awesome, etc.).
     var SVG_CHEV_DOWN = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg>';
     var SVG_CHEV_UP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10l4.5-4.5L12.5 10"/></svg>';
-    // Minimize glyph (a single bottom bar) for the collapse button, instead of a
-    // chevron — reads as "minimize this panel" rather than "scroll down".
-    var SVG_MINIMIZE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="11.5" x2="12" y2="11.5"/></svg>';
     var SVG_TOOLS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2.5" y1="5" x2="13.5" y2="5"/><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"/></svg>';
     // Six-dot grip for the drag handle that lets the team move the whole dock.
     var SVG_GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
@@ -150,7 +147,7 @@
       toggle.className = 'tbx-collapse-btn';
       toggle.title = 'Minimize design tools';
       toggle.setAttribute('aria-label', 'Minimize design tools');
-      toggle.innerHTML = SVG_MINIMIZE;
+      toggle.innerHTML = SVG_CHEV_DOWN;
       dock.__tbxToggle = toggle;
 
       function collapse() {

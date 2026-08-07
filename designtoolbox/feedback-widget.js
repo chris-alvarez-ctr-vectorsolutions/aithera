@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.25.0';
+  const WIDGET_VERSION = '1.25.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -166,8 +166,7 @@
    "Click any element to leave feedback" prompt. */
 .cw-banner-text { white-space: nowrap; }
 .cw-banner-sep { width: 1px; align-self: stretch; margin: 3px 0; background: rgba(255,255,255,.2); flex: none; }
-.cw-banner-hide { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; padding: 6px; }
-.cw-banner-hide .cw-fa { width: 15px; height: 15px; }
+.cw-banner-hide { white-space: nowrap; }
 .cw-banner-hide.cw-banner-on { background: rgba(255,255,255,.32); }
 .cw-banner-link { color: #fff; font-size: 13px; font-weight: 600; text-decoration: underline; white-space: nowrap; }
 .cw-banner-link:hover { opacity: .85; }
@@ -1410,14 +1409,11 @@
   function renderBannerHide() {
     if (!bannerHideBtn) return;
     const on = !!state.settings.commentsDisabled;
-    // Icon toggle instead of a text label: eye = comments visible, eye-slash =
-    // hidden. The tooltip/aria-label still spell out the action.
-    bannerHideBtn.replaceChildren(faIcon(on ? 'eye-slash' : 'eye'));
+    // Text label (no eye icon here — the only eyeball lives on the island's
+    // comment button). This is the admin "hide for everyone" control.
+    bannerHideBtn.textContent = on ? '✓ Comments hidden' : 'Hide comments';
     bannerHideBtn.classList.toggle('cw-banner-on', on);
     bannerHideBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    const label = on ? 'Comments hidden for non-admins — click to show' : 'Hide comments for non-admins';
-    bannerHideBtn.setAttribute('aria-label', label);
-    bannerHideBtn.setAttribute('title', label);
   }
 
   // Save a comment setting (currently just commentsDisabled) with an optimistic
@@ -1476,9 +1472,9 @@
       bubble.setAttribute('aria-label', 'Exit comment mode');
       if (bubbleLabel) bubbleLabel.textContent = 'Cancel';
     } else if (state.commentsHidden) {
-      // Comments hidden (the default): keep the familiar 💬 button fully enabled
-      // — it is NOT disabled/ghosted here — and clicking it reveals comments.
-      setBubbleGlyph('💬');
+      // Comments hidden (the default): the island's single eyeball. Fully enabled
+      // (never ghosted for hidden); clicking it reveals comments.
+      setBubbleGlyph('eye');
       bubble.title = 'Show comments';
       bubble.setAttribute('aria-label', 'Show comments');
       if (bubbleLabel) bubbleLabel.textContent = 'Comments';
