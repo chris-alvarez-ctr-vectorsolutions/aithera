@@ -514,6 +514,15 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       if (typeof setVer === 'function') { try { setVer(n.version); } catch (e) {} }
     }
     if (typeof apply === 'function') apply(n.state || n.id);
+    // Record the node we just drove to (our OWN global — we never wrap or touch
+    // the host's applyFlowState). The comment widget reads this to bind a new
+    // comment to its flow node, so "Go" can later jump straight back here.
+    try {
+      window.__toolboxFlowState = {
+        state: (n && (n.state || n.id)) || '',
+        version: (n && n.version != null && n.version !== '') ? String(n.version) : ''
+      };
+    } catch (e) {}
   }
   function viewComments(id) {
     openLive(id);
