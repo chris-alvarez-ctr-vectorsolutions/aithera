@@ -30,6 +30,8 @@
     good: 'var(--teal-500)', neutral: 'var(--ink-800)'
   };
   function toneColor(t) { return TONE[t] || TONE.neutral; }
+  // Worst first — drives the summary table's Status sort.
+  var STATUS_RANK = { bad: 0, warn: 1, neutral: 2, flat: 2, good: 3 };
 
   /* =====================================================================
      VIZ RENDERERS
@@ -236,42 +238,56 @@
 
   function vizDonut(spec) { return KXCharts.pdDonut(spec.data || [], null); }
 
-  function vizTable(spec) { return KXCharts.pdTable(spec.cols || [], spec.rows || []); }
+  /* =====================================================================
+     TABLE ENGINE
+     ---------------------------------------------------------------------
+     Lives in charts.js (KXCharts.tableWidget) because BOTH surfaces render
+     tables: this canvas, and the Hub's published dashboards via hub-hero.js.
+     charts.js is the only module both pages load, so it owns the one
+     implementation of filtering, sorting, column choice and paging.
+
+     What stays here is the part that is genuinely canvas-specific: turning a
+     widget spec into the cells the engine draws.
+     ===================================================================== */
+
+  var tableWidget = KXCharts.tableWidget;
+
+  function vizTable(widget, spec, o) {
+    return tableWidget(widget, spec.cols || [], spec.rows || [], o);
+  }
 
   // Cross-metric read: one row per metric with its value, change, and a plain
-  // status word. Lets a dashboard read as a report rather than a wall of charts.
-  function vizMetricsTable(spec) {
+  // status word. Lets a dashboard read as a report rather than a wall of
+  // charts. Feeds the shared engine rich cells so it sorts on the underlying
+  // number while still painting the tone colour and status pill.
+  function vizMetricsTable(widget, spec, o) {
     var rows = spec.rows || [];
     if (!rows.length) {
       return noDataState('No metrics selected', 'Pick the metrics this summary table should cover.');
     }
-    return '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>' +
-      ['Metric', 'Now', 'Change', 'Status'].map(function (c, i) {
-        return '<th style="text-align:' + (i === 0 ? 'left' : i === 3 ? 'right' : 'right') + ';padding:6px 8px;' +
-          'color:var(--ink-500);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;' +
-          'border-bottom:1px solid var(--ink-100)">' + c + '</th>';
-      }).join('') + '</tr></thead><tbody>' +
-      rows.map(function (r, i) {
-        var last = i === rows.length - 1;
-        var bd = last ? 'none' : '1px solid var(--ink-100)';
-        return '<tr>' +
-          '<td style="padding:8px;border-bottom:' + bd + '">' +
-          '<span style="display:inline-flex;align-items:center;gap:8px">' +
+    var cells = rows.map(function (r) {
+      return [
+        { v: r.label, html: '<span style="display:inline-flex;align-items:center;gap:8px">' +
           '<span style="width:22px;height:22px;border-radius:6px;background:var(--amber-100);color:var(--amber-700);' +
           'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' +
           micon(r.icon, { size: 13, fill: 1 }) + '</span>' +
-          '<span style="font-weight:600;color:var(--ink-800)">' + esc(r.label) + '</span></span></td>' +
-          '<td style="padding:8px;text-align:right;border-bottom:' + bd + ';font-family:var(--font-numeric);' +
-          'font-weight:700;color:' + toneColor(r.tone) + '">' + esc(r.num) + '</td>' +
-          '<td style="padding:8px;text-align:right;border-bottom:' + bd + ';color:var(--ink-500);font-size:11.5px">' +
-          esc(r.delta) + '</td>' +
-          '<td style="padding:8px;text-align:right;border-bottom:' + bd + '">' +
-          '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;' +
-          'font-size:11px;font-weight:700;background:' +
+          '<span style="font-weight:600;color:var(--ink-800)">' + esc(r.label) + '</span></span>' },
+        { v: r.num, html: '<span style="font-family:var(--font-numeric);font-weight:700;color:' +
+          toneColor(r.tone) + '">' + esc(r.num) + '</span>' },
+        { v: r.delta, html: '<span style="color:var(--ink-500);font-size:11.5px">' + esc(r.delta) + '</span>' },
+        // Sorted by severity, not alphabetically — "Attention, On track,
+        // Steady, Watch" is an ordering nobody asked for. Ascending puts the
+        // things that need attention at the top, which is the whole job of
+        // sorting a status column.
+        { v: r.status, s: STATUS_RANK[r.tone] == null ? 9 : STATUS_RANK[r.tone],
+          html: '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;' +
+          'border-radius:999px;font-size:11px;font-weight:700;background:' +
           (r.tone === 'bad' ? 'var(--coral-50)' : r.tone === 'warn' ? 'var(--amber-50)' :
             r.tone === 'good' ? 'var(--teal-50)' : 'var(--surface-3)') + ';color:' + toneColor(r.tone) + '">' +
-          esc(r.status) + '</span></td></tr>';
-      }).join('') + '</tbody></table>';
+          esc(r.status) + '</span>' }
+      ];
+    });
+    return tableWidget(widget, ['Metric', 'Now', 'Change', 'Status'], cells, o);
   }
 
   // Narrative summary of a single metric — the "explain it to me" block.
@@ -372,9 +388,13 @@
         : noDataState();
     }
 
+    // Table opts: `interactive` is set by widgetCard (so inline previews stay
+    // static), `report` by the delivered-report and PDF paths.
+    var tOpts = { interactive: !!opts.interactive, report: !!opts.report };
+
     var viz = widget.viz, inner;
     if (viz === 'text') inner = vizText(widget, opts.editable);
-    else if (viz === 'metrics_table') inner = vizMetricsTable(spec);
+    else if (viz === 'metrics_table') inner = vizMetricsTable(widget, spec, tOpts);
     else if (viz === 'summary') inner = vizSummary(widget.metricId);
     else if (viz === 'kpi') inner = vizKpi(spec);
     else if (viz === 'bar') inner = vizBar(spec);
@@ -383,7 +403,7 @@
     else if (viz === 'line') inner = vizLine(spec);
     else if (viz === 'stack') inner = vizStack(spec);
     else if (viz === 'donut') inner = vizDonut(spec);
-    else if (viz === 'table') inner = vizTable(spec);
+    else if (viz === 'table') inner = vizTable(widget, spec, tOpts);
     else inner = vizBar(spec);
 
     return '<div style="position:relative">' + inner +
@@ -504,7 +524,8 @@
         : '<span style="margin-left:auto"></span>') +
       '</div>' +
       (supportsRange ? '<div class="cpw-range">' + dateRangeControl(widget, editable) + '</div>' : '') +
-      '<div class="cpw-body">' + widgetBody(widget, { editable: editable, interactive: true }) + '</div>' +
+      '<div class="cpw-body">' +
+      widgetBody(widget, { editable: editable, interactive: true, report: !!o.report }) + '</div>' +
       '</div>';
   }
 
@@ -520,6 +541,24 @@
     getOpenMenu: function () { return openMenu; },
     setOpenRange: function (id) { openRange = id; },
     getOpenRange: function () { return openRange; },
-    setLocalRange: function (id, v) { if (v == null) delete localRange[id]; else localRange[id] = v; }
+    setLocalRange: function (id, v) { if (v == null) delete localRange[id]; else localRange[id] = v; },
+
+    /* ---- table controls ---------------------------------------------
+       Straight pass-throughs to the shared engine in charts.js. The page
+       layer owns the event listeners (one delegated set for the whole canvas)
+       and calls these to move state, then re-renders. Whether a change is the
+       owner's saved default or a viewer's local exploration is decided by the
+       PAGE (see saveTableSetting in agency-intel-page.js), not here. */
+    TABLE_PAGE_SIZES: KXCharts.TABLE_PAGE_SIZES,
+    TABLE_DEFAULT_PAGE_SIZE: KXCharts.TABLE_DEFAULT_PAGE_SIZE,
+    tableSettings: KXCharts.tableSettings,
+    setOpenCols: KXCharts.setOpenCols,
+    getOpenCols: KXCharts.getOpenCols,
+    setTableQuery: KXCharts.setTableQuery,
+    getTableQuery: KXCharts.getTableQuery,
+    setTablePage: KXCharts.setTablePage,
+    setLocalTable: KXCharts.setLocalTable,
+    clearLocalTable: KXCharts.clearLocalTable,
+    resetTable: KXCharts.resetTable
   };
 })();

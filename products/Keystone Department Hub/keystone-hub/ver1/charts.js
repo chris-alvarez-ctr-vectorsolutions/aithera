@@ -1010,6 +1010,235 @@
   }
 
   /* =====================================================================
+     TABLE ENGINE
+     ---------------------------------------------------------------------
+     Both table vizzes — the data table (`table`) and the summary table
+     (`metrics_table`) — render through ONE engine that owns filtering,
+     sorting, column selection and paging. The two differ only in how a cell
+     paints, which they supply as cell descriptors, so a fix to sorting fixes
+     both surfaces at once.
+
+     A cell is either a plain string, or { v, html, s? } where `v` is the
+     value that filters and sorts, `html` is what's drawn, and the optional
+     `s` overrides the SORT key only. That split is the whole trick: the
+     summary table sorts on the raw number while showing a tone-coloured
+     figure, filtering matches the metric's name rather than the markup around
+     it, and Status sorts by severity while still matching the word you type.
+     ===================================================================== */
+
+  var TABLE_PAGE_SIZES = [10, 25, 50, 100];
+  var TABLE_DEFAULT_PAGE_SIZE = 10;
+
+  // Viewer-side table state. Mirrors the date-range model directly above:
+  // the OWNER's choices save onto the widget (tableSort / tableHidden /
+  // tablePageSize), a viewer's stay here, local and flagged unsaved.
+  // Query and page are ALWAYS local for everyone — a filter is a lookup and
+  // "page 3" is a scroll position; neither is a default worth shipping.
+  var tableLocal = {};
+  var tableQuery = {};
+  var tablePage = {};
+  var openCols = null;
+
+  function cellValue(c) {
+    if (c && typeof c === 'object') return String(c.v == null ? '' : c.v);
+    return String(c == null ? '' : c);
+  }
+  function cellHtml(c) {
+    if (c && typeof c === 'object') return c.html;
+    return esc(String(c == null ? '' : c));
+  }
+  // Sort key falls back to the filter value unless the cell overrides it.
+  function cellSort(c) {
+    if (c && typeof c === 'object' && c.s != null) return c.s;
+    return cellValue(c);
+  }
+
+  // '8', '38 %', '$21.4K', '2.3 d' and '5:24' all have to sort as numbers, or
+  // "Days late" orders 10 before 9. Time-like M:SS becomes seconds; K/M
+  // suffixes scale. Anything non-numeric on either side falls back to a
+  // locale compare, which is what dates like 'Jun 2' and words want anyway.
+  function numish(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return null;
+    if (/^\d+:\d{2}$/.test(s)) { var p = s.split(':'); return (+p[0]) * 60 + (+p[1]); }
+    var m = s.replace(/[,$\s]/g, '').match(/^([+-]?\d*\.?\d+)([KM])?/);
+    if (!m) return null;
+    var n = parseFloat(m[1]);
+    if (isNaN(n)) return null;
+    if (m[2] === 'K') n *= 1e3;
+    else if (m[2] === 'M') n *= 1e6;
+    return n;
+  }
+  function compareCells(a, b) {
+    var na = numish(a), nb = numish(b);
+    if (na !== null && nb !== null) return na - nb;
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  }
+
+  // Saved defaults live on the widget; local overrides win while they exist.
+  // `savedOnly` is how the delivered report reads it — a viewer poking at the
+  // live dashboard must not change what the PDF prints.
+  function tableSettings(widget, savedOnly) {
+    var local = savedOnly ? {} : (tableLocal[widget.id] || {});
+    var has = function (k) { return Object.prototype.hasOwnProperty.call(local, k); };
+    return {
+      sort: has('sort') ? local.sort : (widget.tableSort || null),
+      hidden: (has('hidden') ? local.hidden : (widget.tableHidden || [])) || [],
+      pageSize: has('pageSize') ? local.pageSize : (widget.tablePageSize || TABLE_DEFAULT_PAGE_SIZE),
+      dirty: has('sort') || has('hidden') || has('pageSize'),
+      q: savedOnly ? '' : (tableQuery[widget.id] || ''),
+      page: savedOnly ? 0 : (tablePage[widget.id] || 0)
+    };
+  }
+
+  function visibleCols(cols, hidden) {
+    return cols.map(function (c, i) { return i; })
+      .filter(function (i) { return hidden.indexOf(i) === -1; });
+  }
+
+  /**
+   * Render a table widget with its controls.
+   * @param {object} widget  the widget (supplies id + saved defaults)
+   * @param {string[]} cols  column labels
+   * @param {Array} rows     array of cell arrays (string | {v, html})
+   * @param {object} o       { interactive, report, align(i)->'left'|'right', empty }
+   */
+  function tableWidget(widget, cols, rows, o) {
+    o = o || {};
+    var live = !!o.interactive && !o.report;
+    var s = tableSettings(widget, !!o.report);
+    var align = o.align || function (i) { return i === 0 ? 'left' : 'right'; };
+
+    // A column selection that would hide everything is meaningless — and a
+    // stale saved `tableHidden` can outlive a metric swap that changed the
+    // column count, so re-validate rather than trust it.
+    var hidden = s.hidden.filter(function (i) { return i > 0 && i < cols.length; });
+    var vis = visibleCols(cols, hidden);
+    if (!vis.length) { hidden = []; vis = visibleCols(cols, hidden); }
+
+    // Filter across VISIBLE columns only: hiding a column hides its content
+    // from search too, which is what "these are the columns I care about"
+    // ought to mean.
+    var q = s.q.trim().toLowerCase();
+    var filtered = q
+      ? rows.filter(function (r) {
+          return vis.some(function (ci) { return cellValue(r[ci]).toLowerCase().indexOf(q) !== -1; });
+        })
+      : rows;
+
+    var sort = s.sort;
+    if (sort && (sort.col >= cols.length || hidden.indexOf(sort.col) !== -1)) sort = null;
+    if (sort) {
+      var dir = sort.dir === 'desc' ? -1 : 1;
+      filtered = filtered.slice().sort(function (a, b) {
+        return compareCells(cellSort(a[sort.col]), cellSort(b[sort.col])) * dir;
+      });
+    }
+
+    // The report prints every row; on screen we page.
+    var pageSize = live ? s.pageSize : filtered.length || 1;
+    var pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    var page = Math.min(s.page, pages - 1);
+    var start = live ? page * pageSize : 0;
+    var shown = live ? filtered.slice(start, start + pageSize) : filtered;
+
+    var head = '<thead><tr>' + vis.map(function (ci) {
+      var a = align(ci);
+      var th = '<th style="text-align:' + a + ';padding:6px 8px;color:var(--ink-500);font-weight:600;' +
+        'font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--ink-100);' +
+        'white-space:nowrap"' +
+        (sort && sort.col === ci ? ' aria-sort="' + (sort.dir === 'asc' ? 'ascending' : 'descending') + '"' : '') + '>';
+      if (!live) return th + esc(cols[ci]) + '</th>';
+      return th + '<vwc-sortable-header class="cpw-sort" data-tbl-sort="' + KX.attr(widget.id) +
+        '" data-tbl-col="' + ci + '"' +
+        (sort && sort.col === ci ? ' sortDirection="' + sort.dir + '"' : '') +
+        ' accessibleName="' + KX.attr('Sort by ' + cols[ci]) + '">' + esc(cols[ci]) + '</vwc-sortable-header></th>';
+    }).join('') + '</tr></thead>';
+
+    var body = '<tbody>' + shown.map(function (r, ri) {
+      var last = ri === shown.length - 1;
+      var bd = last ? 'none' : '1px solid var(--ink-100)';
+      return '<tr>' + vis.map(function (ci) {
+        var a = align(ci);
+        return '<td style="text-align:' + a + ';padding:7px 8px;border-bottom:' + bd + ';color:' +
+          (ci === 0 ? 'var(--ink-800)' : 'var(--ink-600)') + ';font-weight:' + (ci === 0 ? 600 : 500) +
+          ';font-family:' + (ci === 0 ? 'inherit' : 'var(--font-numeric)') + ';white-space:nowrap">' +
+          cellHtml(r[ci]) + '</td>';
+      }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+
+    var table = '<div class="cpw-tscroll"><table class="cpw-table">' + head + body + '</table></div>' +
+      (shown.length ? '' :
+        '<div class="cpw-tempty">' + micon('search_off', { size: 22, color: 'var(--ink-300)' }) +
+        '<div>No rows match “' + esc(s.q) + '”</div></div>');
+
+    if (!live) return table;
+
+    return tableToolbar(widget, cols, hidden, s) + table +
+      tableFooter(widget, filtered.length, rows.length, pageSize, page, pages);
+  }
+
+  function tableToolbar(widget, cols, hidden, s) {
+    var id = KX.attr(widget.id);
+    var cur = tableSettings(widget);
+    return '<div class="cpw-tbar">' +
+      '<span class="cpw-tsearch">' + micon('search', { size: 14, color: 'var(--ink-400)' }) +
+      '<input type="text" data-tbl-q="' + id + '" placeholder="Filter rows…" value="' + KX.attr(s.q) + '" ' +
+      'aria-label="Filter rows">' +
+      (s.q ? '<button data-tbl-qclear="' + id + '" aria-label="Clear filter">' +
+        micon('close', { size: 13 }) + '</button>' : '') +
+      '</span>' +
+      '<span style="position:relative;display:inline-flex">' +
+      '<button class="kx-range-btn" data-tbl-cols="' + id + '" title="Choose which columns show">' +
+      micon('view_column', { size: 13 }) + '<span>Columns</span>' +
+      (hidden.length ? '<span class="cpw-tpip">' + (cols.length - hidden.length) + '/' + cols.length + '</span>' : '') +
+      micon('expand_more', { size: 14 }) + '</button>' +
+      (openCols === widget.id
+        ? '<div class="kx-menu kx-menu--left" style="width:200px;top:calc(100% + 4px)">' +
+          cols.map(function (c, i) {
+            var on = hidden.indexOf(i) === -1;
+            // The first column identifies the row — hiding it leaves a table
+            // of orphan numbers, so it stays locked.
+            var locked = i === 0;
+            return '<button class="kx-menu-row" data-tbl-col-toggle="' + KX.attr(widget.id) +
+              '" data-tbl-col="' + i + '"' + (locked ? ' disabled title="The first column identifies the row"' : '') + '>' +
+              micon(on ? 'check_box' : 'check_box_outline_blank',
+                { size: 16, color: on ? 'var(--amber-600)' : 'var(--ink-400)' }) +
+              '<span class="label">' + esc(c) + '</span>' +
+              (locked ? micon('lock', { size: 12, color: 'var(--ink-300)' }) : '') + '</button>';
+          }).join('') + '</div>'
+        : '') +
+      '</span>' +
+      (cur.dirty
+        ? '<span class="cpw-tdirty" title="Exploring — not saved to the dashboard">' +
+          '<span class="dot"></span>Unsaved</span>' +
+          '<button class="cpw-tlink" data-tbl-reset="' + id + '" title="Back to the saved defaults">Reset</button>'
+        : '') +
+      '</div>';
+  }
+
+  function tableFooter(widget, count, total, pageSize, page, pages) {
+    // Keyed to the UNFILTERED total, not the current result count. Keying it
+    // to the count makes the footer vanish mid-keystroke the moment a filter
+    // drops below one page — the layout jumps, and the "filtered from" hint
+    // disappears exactly when it's worth reading. A table either has a footer
+    // or it doesn't, and a 5-row table never does.
+    if (total <= TABLE_DEFAULT_PAGE_SIZE) return '';
+    // vwc-paginator prints its own "1 - 10 of 22", and displayRangeToggle is
+    // not a reactive property in this build, so it can't be turned off. Rather
+    // than print the range twice, the left slot carries only what the pager
+    // CAN'T say: that a filter is hiding rows from the total.
+    return '<div class="cpw-tfoot">' +
+      (count !== total
+        ? '<span class="cpw-tcount">' + micon('filter_alt', { size: 13, color: 'var(--ink-400)' }) +
+          ' filtered from ' + total + '</span>'
+        : '<span></span>') +
+      '<vwc-paginator class="cpw-tpager" data-tbl-pager="' + KX.attr(widget.id) + '" total="' + count +
+      '" page="' + page + '" pageSize="' + pageSize + '"></vwc-paginator>' +
+      '</div>';
+  }
+
+  /* =====================================================================
      CSV EXPORT
      ===================================================================== */
   function downloadCSV(prompt, rows) {
@@ -1042,6 +1271,35 @@
     inlineLine: inlineLine, inlineBarPair: inlineBarPair, inlineStack: inlineStack, inlineHBar: inlineHBar,
     pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdScatter: pdScatter,
     pdOutlierScatter: pdOutlierScatter, pdTable: pdTable, pdSpark: pdSpark,
-    downloadCSV: downloadCSV, TONE_FG: TONE_FG
+    downloadCSV: downloadCSV, TONE_FG: TONE_FG,
+
+    /* ---- interactive table engine ------------------------------------
+       Used by BOTH surfaces: the Agency Intelligence canvas
+       (agency-intel-canvas.js) and the Hub's published dashboards
+       (hub-hero.js). Each owns its own event wiring and calls these to move
+       state, then re-renders; the engine itself holds no listeners. */
+    tableWidget: tableWidget,
+    tableSettings: tableSettings,
+    TABLE_PAGE_SIZES: TABLE_PAGE_SIZES,
+    TABLE_DEFAULT_PAGE_SIZE: TABLE_DEFAULT_PAGE_SIZE,
+    setOpenCols: function (id) { openCols = id; },
+    getOpenCols: function () { return openCols; },
+    setTableQuery: function (id, q) {
+      if (!q) delete tableQuery[id]; else tableQuery[id] = q;
+      tablePage[id] = 0;   // a new filter always lands you on page 1
+    },
+    getTableQuery: function (id) { return tableQuery[id] || ''; },
+    setTablePage: function (id, p) { tablePage[id] = Math.max(0, p || 0); },
+    setLocalTable: function (id, key, value) {
+      if (!tableLocal[id]) tableLocal[id] = {};
+      tableLocal[id][key] = value;
+      if (key !== 'sort') tablePage[id] = 0;
+    },
+    clearLocalTable: function (id, key) {
+      if (!tableLocal[id]) return;
+      delete tableLocal[id][key];
+      if (key !== 'sort') tablePage[id] = 0;
+    },
+    resetTable: function (id) { delete tableLocal[id]; delete tableQuery[id]; tablePage[id] = 0; }
   };
 })();
