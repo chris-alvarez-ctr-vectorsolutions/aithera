@@ -52,6 +52,9 @@
     // loading an icon font (Font Awesome, etc.).
     var SVG_CHEV_DOWN = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg>';
     var SVG_CHEV_UP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10l4.5-4.5L12.5 10"/></svg>';
+    // Minimize glyph (a single bottom bar) for the collapse button, instead of a
+    // chevron — reads as "minimize this panel" rather than "scroll down".
+    var SVG_MINIMIZE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="11.5" x2="12" y2="11.5"/></svg>';
     var SVG_TOOLS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2.5" y1="5" x2="13.5" y2="5"/><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"/></svg>';
     // Six-dot grip for the drag handle that lets the team move the whole dock.
     var SVG_GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
@@ -76,7 +79,7 @@
       '.tbx-collapse-btn svg{width:14px;height:14px;display:block;}' +
       // The small, unobtrusive handle that peeks at the bottom while collapsed.
       '.tbx-handle{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:999989;' +
-      'display:none;align-items:center;gap:7px;background:#18181b;color:#fff;cursor:pointer;' +
+      'display:none;align-items:center;gap:7px;background:#18181b;color:#fff;cursor:pointer;touch-action:none;' +
       'border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 13px;' +
       'font:700 12px/1 "Open Sans",system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.32);' +
       'opacity:.9;transition:opacity .15s,transform .15s;}' +
@@ -145,9 +148,9 @@
       var toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'tbx-collapse-btn';
-      toggle.title = 'Hide design tools';
-      toggle.setAttribute('aria-label', 'Hide design tools');
-      toggle.innerHTML = SVG_CHEV_DOWN;
+      toggle.title = 'Minimize design tools';
+      toggle.setAttribute('aria-label', 'Minimize design tools');
+      toggle.innerHTML = SVG_MINIMIZE;
       dock.__tbxToggle = toggle;
 
       function collapse() {
@@ -163,7 +166,46 @@
       }
       function expand() { dock.classList.remove('tbx-collapsed'); handle.classList.remove('tbx-show'); }
       toggle.addEventListener('click', function (e) { e.stopPropagation(); collapse(); });
-      handle.addEventListener('click', function (e) { e.stopPropagation(); expand(); });
+
+      // The collapsed "Tools" handle is BOTH a click target (expand) and a drag
+      // target (move the tool while it's minimized). A small movement threshold
+      // separates the two so a plain click still expands.
+      var hMoved = false;
+      handle.addEventListener('pointerdown', function (e) {
+        if (e.button != null && e.button !== 0) return;   // primary / touch only
+        var startX = e.clientX, startY = e.clientY;
+        var hr = handle.getBoundingClientRect();
+        var offX = e.clientX - hr.left, offY = e.clientY - hr.top;
+        hMoved = false;
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        function move(ev) {
+          if (!hMoved && Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 4) return;
+          hMoved = true;
+          handle.style.left = (ev.clientX - offX) + 'px';
+          handle.style.top = (ev.clientY - offY) + 'px';
+          handle.style.bottom = 'auto';
+          handle.style.transform = 'none';
+        }
+        function up() {
+          try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+          document.removeEventListener('pointermove', move, true);
+          document.removeEventListener('pointerup', up, true);
+          if (!hMoved) return;
+          // Moved: park the dock (still collapsed) centered under the handle so it
+          // reappears here on expand, and persist that position site-wide.
+          var r = handle.getBoundingClientRect();
+          var pos = { left: r.left + r.width / 2 - (dock.offsetWidth || 0) / 2, top: r.top };
+          if (dock.__tbxPlace) dock.__tbxPlace(pos);
+          if (dock.__tbxSave) { var rr = dock.getBoundingClientRect(); dock.__tbxSave({ left: rr.left, top: rr.top }); }
+        }
+        document.addEventListener('pointermove', move, true);
+        document.addEventListener('pointerup', up, true);
+      });
+      handle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (hMoved) { hMoved = false; return; }   // was a drag, not a click — don't expand
+        expand();
+      });
       // Open by default — no stored/collapsed state on load.
       return toggle;
     }
@@ -205,6 +247,10 @@
         dock.style.transform = 'none';
       }
       function save(pos) { try { localStorage.setItem(DOCK_POS_KEY, JSON.stringify(pos)); } catch (_) {} }
+      // Expose place/save so the collapsed "Tools" handle can move the dock too
+      // (see setupCollapsible) — the handle drags, then persists the same position.
+      dock.__tbxPlace = place;
+      dock.__tbxSave = save;
 
       grip.addEventListener('pointerdown', function (e) {
         if (e.button != null && e.button !== 0) return;   // primary / touch only

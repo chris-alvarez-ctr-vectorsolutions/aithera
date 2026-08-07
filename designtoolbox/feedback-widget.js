@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.24.0';
+  const WIDGET_VERSION = '1.25.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -131,6 +131,8 @@
 .cw-bubble:hover { transform: scale(1.12) rotate(-8deg); box-shadow: 0 12px 26px rgba(17,24,39,.36); }
 .cw-bubble:active { transform: scale(1.02); }
 .cw-bubble .cw-bubble-icon { transition: transform .25s var(--cw-ease); display: inline-block; }
+.cw-bubble .cw-bubble-icon .cw-fa { width: 20px; height: 20px; display: inline-flex; }
+.cw-bubble--docked .cw-bubble-icon .cw-fa { width: 16px; height: 16px; }
 .cw-bubble:hover .cw-bubble-icon { transform: scale(1.12); }
 .cw-bubble--active { background: linear-gradient(140deg, #ef4444, #dc2626); font-size: 18px; animation: cw-pulse-ring 1.8s ease-out infinite; }
 .cw-bubble--active:hover { transform: scale(1.12) rotate(8deg); }
@@ -173,12 +175,18 @@
 .cw-banner-link .cw-fa { width: 11px; height: 11px; }
 .cw-banner-esc { padding: 5px 12px; }
 /* Docked: float just above the bottom-center toolbox dock instead of top-right, so the pick-mode hint reads as part of the flow switcher. */
-.cw-banner--docked { top: auto; right: auto; bottom: 66px; left: 50%; transform: translateX(-50%); }
+.cw-banner--docked { top: auto; right: auto; bottom: 86px; left: 50%; transform: translateX(-50%); }
 
 /* Pick mode */
 .cw-picking, .cw-picking * { cursor: crosshair !important; }
 .cw-picking .cw-pin, .cw-picking .cw-pin * { cursor: grab !important; }
 .cw-picking .cw-pin--dragging, .cw-picking .cw-pin--dragging * { cursor: grabbing !important; }
+/* The crosshair is for picking PAGE elements — the widget's own chrome (bubble,
+   banner, panel, nav hub) and the toolbox dock are not pickable, so revert them
+   to normal cursors: default over surfaces, pointer over their buttons/links. */
+.cw-picking .cw-root, .cw-picking .cw-root *, .cw-picking .cw-bubble, .cw-picking .cw-bubble *, .cw-picking .cw-banner, .cw-picking .cw-banner *, .cw-picking .cw-nav, .cw-picking .cw-nav *, .cw-picking .cw-panel, .cw-picking .cw-panel *, .cw-picking .tbx-dock, .cw-picking .tbx-dock *, .cw-picking .tbx-handle, .cw-picking .tbx-handle * { cursor: default !important; }
+.cw-picking .cw-bubble, .cw-picking .cw-banner button, .cw-picking .cw-banner a, .cw-picking .cw-nav button, .cw-picking .cw-panel button, .cw-picking .cw-panel a, .cw-picking .cw-root button, .cw-picking .cw-root a, .cw-picking .tbx-dock button, .cw-picking .tbx-handle { cursor: pointer !important; }
+.cw-picking .tbx-drag-btn, .cw-picking .cw-nav-grip { cursor: grab !important; }
 .cw-hover-outline { position: fixed; border: 2.5px dashed var(--cw-accent); background: rgba(245,158,11,.1); pointer-events: none; z-index: 2147483630; transition: all .08s var(--cw-ease); border-radius: 6px; box-shadow: 0 0 0 4px rgba(245,158,11,.08); }
 
 /* Popup (new pin) — sticky-note overlay */
@@ -853,6 +861,11 @@
   function captureViewState(excludeEl) {
     const out = [];
     const seen = new Set();
+    // Compute the flow node up front so the control cap reserves a slot for it
+    // ONLY when there is one. A non-flow mock keeps the original 14-control cap,
+    // so its captured state is byte-for-byte identical to before this feature.
+    const flow = currentFlowState();
+    const ctrlCap = flow ? 13 : 14;
     let nodes = [];
     try { nodes = document.querySelectorAll(ACTIVE_SELECTOR); } catch (_) {}
     for (const node of nodes) {
@@ -863,13 +876,12 @@
       if (seen.has(k)) continue;
       seen.add(k);
       out.push(anchor);
-      if (out.length >= 13) break; // leave room for the flow + modal sentinels below
+      if (out.length >= ctrlCap) break; // leave room for the flow + modal sentinels below
     }
     // Fold in the current flow-map node (if any), so "Go" can jump straight to it
     // via applyFlowState. Inert to every other viewState consumer (they skip
     // '@'-prefixed entries). Pushed before the modal sentinels so it stays within
     // the worker's 16-entry cap.
-    const flow = currentFlowState();
     if (flow) out.push({ sel: FLOW_SEL, text: flow.slice(0, 80) });
     // Fold in modal open-state (see notes above).
     out.push({ sel: MODAL_AWARE_SEL, text: '' });
@@ -1345,7 +1357,7 @@
       type: 'button',
       'aria-label': 'Add feedback',
       title: 'Comments',
-      onclick: togglePickMode,
+      onclick: onBubbleClick,
     }, [
       bubbleIcon,
       bubbleLabel,
@@ -1427,9 +1439,55 @@
     }
   }
 
-  function togglePickMode() {
-    if (state.pickMode) exitPickMode();
-    else enterPickMode();
+  // The dock comment button is the single show/hide + comment control. Its
+  // behavior depends on state (comments are hidden by default):
+  //   • pick mode      → exit pick mode
+  //   • comments hidden → SHOW comments (reveal pins) — this is how you get back
+  //                       in after the default-hidden load; the eye lives HERE,
+  //                       not in the nav hub.
+  //   • comments shown → enter pick mode to add feedback
+  function onBubbleClick() {
+    if (state.pickMode) { exitPickMode(); return; }
+    if (state.commentsHidden) { showComments(); return; }
+    enterPickMode();
+  }
+  function showComments() {
+    state.commentsHidden = false;   // session-only (not persisted); resets on refresh
+    refreshBubble();
+    renderPins();
+  }
+
+  // Set the bubble's glyph. 'eye' uses the inline SVG icon; the others are text.
+  function setBubbleGlyph(kind) {
+    if (!bubbleIcon) return;
+    if (kind === 'eye') { bubbleIcon.textContent = ''; bubbleIcon.appendChild(faIcon('eye')); }
+    else bubbleIcon.textContent = kind;
+  }
+  // Reconcile the bubble's icon / labels / ghosting with the current state. One
+  // place so pick-mode, hidden, and shown states never drift out of sync.
+  function refreshBubble() {
+    if (!bubble) return;
+    // Dormant (comments disabled by an admin, or off the published site) still
+    // dims the bubble in place — but it stays clickable so it can be opened.
+    bubble.classList.toggle('cw-bubble--ghost', isDormant() && !state.pickMode);
+    if (state.pickMode) {
+      setBubbleGlyph('✕');
+      bubble.title = 'Exit comment mode';
+      bubble.setAttribute('aria-label', 'Exit comment mode');
+      if (bubbleLabel) bubbleLabel.textContent = 'Cancel';
+    } else if (state.commentsHidden) {
+      // Comments hidden (the default): keep the familiar 💬 button fully enabled
+      // — it is NOT disabled/ghosted here — and clicking it reveals comments.
+      setBubbleGlyph('💬');
+      bubble.title = 'Show comments';
+      bubble.setAttribute('aria-label', 'Show comments');
+      if (bubbleLabel) bubbleLabel.textContent = 'Comments';
+    } else {
+      setBubbleGlyph('💬');
+      bubble.title = 'Add feedback';
+      bubble.setAttribute('aria-label', 'Add feedback');
+      if (bubbleLabel) bubbleLabel.textContent = 'Comments';
+    }
   }
 
   // ----- Admin -----------------------------------------------------------------
@@ -1444,16 +1502,9 @@
     renderPins();
   }
 
-  function applyAdminBubble() {
-    if (!bubble) return;
-    const off = isDormant();
-    // Dormant (comments disabled, or not on the published Pages site) → the
-    // bubble fades fully out so it doesn't draw the eye, but it stays in the DOM
-    // and clickable for everyone. Clicking it opens comment mode and reveals the
-    // pins (see visiblePins), so no hotkey is needed. Otherwise → fully visible.
-    bubble.classList.toggle('cw-bubble--ghost', off);
-    bubble.title = off ? 'Comments hidden — click to open' : 'Add feedback';
-  }
+  // Kept as the public name other call sites use; the bubble's full icon/label/
+  // ghost state now lives in refreshBubble (single source of truth).
+  function applyAdminBubble() { refreshBubble(); }
 
   // ----- Toast ----------------------------------------------------------------
   function showToast(text, variant = 'neutral', opts = {}) {
@@ -1508,12 +1559,7 @@
     if (state.pickMode) return;
     state.pickMode = true;
     document.documentElement.classList.add('cw-picking');
-    if (bubble) {
-      bubble.classList.add('cw-bubble--active');
-      bubble.setAttribute('aria-label', 'Exit comment mode');
-      if (bubbleIcon) bubbleIcon.textContent = '✕';
-      if (bubbleLabel) bubbleLabel.textContent = 'Cancel';
-    }
+    if (bubble) { bubble.classList.add('cw-bubble--active'); refreshBubble(); }
     if (banner) { banner.classList.remove('cw-hidden'); renderBannerHide(); }
     hoverOutline = el('div', { class: 'cw-hover-outline cw-hidden' });
     document.body.appendChild(hoverOutline);
@@ -1527,12 +1573,7 @@
     if (!state.pickMode) return;
     state.pickMode = false;
     document.documentElement.classList.remove('cw-picking');
-    if (bubble) {
-      bubble.classList.remove('cw-bubble--active');
-      bubble.setAttribute('aria-label', 'Add feedback');
-      if (bubbleIcon) bubbleIcon.textContent = '💬';
-      if (bubbleLabel) bubbleLabel.textContent = 'Comments';
-    }
+    if (bubble) { bubble.classList.remove('cw-bubble--active'); refreshBubble(); }
     if (banner) banner.classList.add('cw-hidden');
     if (hoverOutline) { hoverOutline.remove(); hoverOutline = null; }
     document.removeEventListener('mousemove', onPickHover, true);
@@ -2371,27 +2412,11 @@
     const eligibleTotal = eligiblePins().length;
     if (!eligibleTotal || (isDormant() && !state.pickMode)) { navOpen = false; return; }
 
-    // The eye toggles LOCAL comment visibility for this viewer (remembered per
-    // browser; hidden by default so the design reads clean). In pick mode pins
-    // are always revealed, so the eye reads as "shown" then.
-    const hidden = state.commentsHidden && !state.pickMode;
-    const eyeBtn = el('button', {
-      type: 'button', class: 'cw-nav-eye' + (hidden ? ' cw-nav-eye--off' : ''),
-      title: hidden ? `Show ${eligibleTotal} comment${eligibleTotal === 1 ? '' : 's'}` : 'Hide comments',
-      'aria-label': hidden ? 'Show comments' : 'Hide comments',
-      'aria-pressed': hidden ? 'false' : 'true',
-      onclick: toggleCommentsHidden,
-    }, [faIcon(hidden ? 'eye-slash' : 'eye')]);
-
-    // Hidden → the hub collapses to just the eye, so nothing clutters the mock.
-    if (hidden) {
-      navEl = el('div', { class: 'cw-nav cw-nav--collapsed' }, [
-        el('div', { class: 'cw-nav-bar' }, [eyeBtn]),
-      ]);
-      document.body.appendChild(navEl);
-      applyNavPos();
-      return;
-    }
+    // Comments hidden → no hub at all. Revealing is done from the dock comment
+    // button (the single show/hide control); the hub used to carry its own eye
+    // toggle, but that lived in two places at once — the eye now belongs ONLY to
+    // the comment button, so the hub simply doesn't appear while hidden.
+    if (state.commentsHidden && !state.pickMode) { navOpen = false; return; }
 
     const groups = computeNavGroups();
     const total = groups.all.length;
@@ -2411,7 +2436,6 @@
 
     const bar = el('div', { class: 'cw-nav-bar' }, [
       grip,
-      eyeBtn,
       el('button', {
         type: 'button', class: 'cw-nav-count',
         title: navOpen ? 'Hide comment list' : 'Show all comments on this page',
