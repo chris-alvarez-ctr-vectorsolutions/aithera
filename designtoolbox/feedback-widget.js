@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.26.0';
+  const WIDGET_VERSION = '1.26.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -1476,9 +1476,10 @@
       bubble.setAttribute('aria-label', 'Exit comment mode');
       if (bubbleLabel) bubbleLabel.textContent = 'Cancel';
     } else if (state.commentsHidden) {
-      // Comments hidden (the default): the island's single eyeball. Fully enabled
-      // (never ghosted for hidden); clicking it reveals comments.
-      setBubbleGlyph('eye');
+      // Comments hidden (the default): the button STAYS a comment button (💬) —
+      // it must never turn into an eye/view-hide glyph. Fully enabled (never
+      // ghosted here); clicking it reveals the comments.
+      setBubbleGlyph('💬');
       bubble.title = 'Show comments';
       bubble.setAttribute('aria-label', 'Show comments');
       if (bubbleLabel) bubbleLabel.textContent = 'Comments';
