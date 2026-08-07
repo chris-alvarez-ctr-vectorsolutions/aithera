@@ -149,7 +149,25 @@
         vs.classList.add('tbx-has-versions');
         dock = vs;
       } else {
-        dock = document.querySelector('.tbx-dock');
+        // Defensive: if a stale/duplicate script ever created more than one
+        // `.tbx-dock` (seen intermittently when a cached older toolbox.js loaded
+        // alongside a fresh one), collapse them into the FIRST — fold any
+        // launchers from the extras in, then drop the empty duplicate pills — so
+        // the page never shows two stacked docks.
+        var docks = document.querySelectorAll('.tbx-dock');
+        if (docks.length > 1) {
+          dock = docks[0];
+          for (var i = 1; i < docks.length; i++) {
+            var extra = docks[i];
+            Array.prototype.slice.call(extra.children).forEach(function (c) {
+              if (c.classList && (c.classList.contains('tbx-dock-sep') || c.classList.contains('tbx-collapse-btn'))) return;
+              dock.appendChild(c);
+            });
+            extra.remove();
+          }
+        } else {
+          dock = docks[0];
+        }
         if (!dock) {
           ensureStyle();
           dock = document.createElement('div');
@@ -162,6 +180,16 @@
       var toggle = setupCollapsible(dock);
       if (toggle && toggle.parentNode !== dock) dock.appendChild(toggle);
       return dock;
+    }
+    // Identity of a dock launcher, so duplicates (same tool docked twice — e.g.
+    // a widget that ran in two contexts) can be collapsed to one in reflow().
+    function launcherKey(node) {
+      if (!node || node.nodeType !== 1) return null;
+      if (node.id === 'loader-version-group') return 'versions';
+      var cl = node.classList;
+      if (cl && cl.contains('cw-bubble')) return 'comments';
+      if (cl && cl.contains('fm-launch')) return 'flowmap';
+      return null;
     }
     // Canonical left-to-right order of the dock's launchers. The loader's
     // version group is always leftmost, then the comment widget, then the flow
@@ -183,10 +211,20 @@
     // safe to run after every add() regardless of who won the race.
     function reflow(dock) {
       var toggle = dock.querySelector('.tbx-collapse-btn');
+      // Drop any extra collapse chevrons — only the first survives as `toggle`.
+      Array.prototype.slice.call(dock.querySelectorAll('.tbx-collapse-btn')).forEach(function (t) {
+        if (t !== toggle) t.remove();
+      });
       var launchers = [];
+      var seen = {};
       Array.prototype.slice.call(dock.children).forEach(function (c) {
         if (c === toggle) return;
         if (c.classList && c.classList.contains('tbx-dock-sep')) { c.remove(); return; }
+        // Collapse duplicate launchers of the same identity (a tool docked twice)
+        // — keep the first, remove the rest, so the pill never shows two 💬 or
+        // two version groups.
+        var key = launcherKey(c);
+        if (key) { if (seen[key]) { c.remove(); return; } seen[key] = true; }
         launchers.push(c);
       });
       launchers.sort(function (a, b) { return orderOf(a) - orderOf(b); });

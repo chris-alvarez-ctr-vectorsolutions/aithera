@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.20.0';
+  const WIDGET_VERSION = '1.21.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -153,7 +153,16 @@
 .cw-banner button { background: rgba(255,255,255,.14); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 5px 12px; border-radius: 999px; transition: background .15s, transform .1s; }
 .cw-banner button:hover { background: rgba(255,255,255,.26); }
 .cw-banner button:active { transform: scale(.95); }
-.cw-banner .cw-banner-gear { padding: 5px 9px; border-radius: 50%; font-size: 14px; line-height: 1; }
+/* Inline admin controls in the pick-mode banner (replaces the gear→settings
+   popover): a Hide-comments toggle button and a View-log link, right beside the
+   "Click any element to leave feedback" prompt. */
+.cw-banner-text { white-space: nowrap; }
+.cw-banner-sep { width: 1px; align-self: stretch; margin: 3px 0; background: rgba(255,255,255,.2); flex: none; }
+.cw-banner-hide { white-space: nowrap; }
+.cw-banner-hide.cw-banner-on { background: rgba(255,255,255,.32); }
+.cw-banner-link { color: #fff; font-size: 13px; font-weight: 600; text-decoration: underline; white-space: nowrap; }
+.cw-banner-link:hover { opacity: .85; }
+.cw-banner-esc { padding: 5px 12px; }
 /* Docked: float just above the bottom-center toolbox dock instead of top-right, so the pick-mode hint reads as part of the flow switcher. */
 .cw-banner--docked { top: auto; right: auto; bottom: 66px; left: 50%; transform: translateX(-50%); }
 
@@ -211,15 +220,21 @@
 /* Compact, low-emphasis management actions docked in the header row (Done / Edit
    / Delete) — deliberately quiet so the FEEDBACK is the panel's focus, and kept
    inline at the top so opening the panel never grows the page. */
-.cw-head-actions { display: flex; align-items: center; gap: 3px; margin-left: auto; flex: none; }
-.cw-act { background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: #78716c; font: 600 12px/1 inherit; padding: 5px 7px; display: inline-flex; align-items: center; gap: 5px; transition: background .12s, color .12s; }
+.cw-head-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
+.cw-act { background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: #78716c; font: 600 12px/1 inherit; padding: 5px 7px; display: inline-flex; align-items: center; gap: 5px; transition: background .12s, color .12s, border-color .12s; }
 .cw-act:hover { background: rgba(120,113,108,.12); color: #44403c; }
 .cw-act:active { transform: scale(.96); }
-.cw-act--icon { width: 28px; height: 28px; padding: 0; justify-content: center; font-size: 13px; }
-.cw-act--done { color: #047857; }
-.cw-act--done:hover { background: #ecfdf5; color: #065f46; }
-.cw-act--done.cw-act--is-done { color: #92400e; }
+.cw-act .cw-fa { width: 12px; height: 12px; }
+.cw-act--icon { width: 28px; height: 28px; padding: 0; justify-content: center; }
+/* Mark done keeps a visible border so it reads as the affirmative action, while
+   Edit/Delete stay borderless icons — a gentle hierarchy that doesn't shout. */
+.cw-act--done { color: #047857; border-color: #a7f3d0; }
+.cw-act--done:hover { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
+.cw-act--done.cw-act--is-done { color: #92400e; border-color: #fcd34d; }
+.cw-act--done.cw-act--is-done:hover { background: #fffbeb; color: #78350f; }
 .cw-act--danger:hover { background: #fef2f2; color: #b91c1c; }
+.cw-fa { display: inline-flex; align-items: center; justify-content: center; }
+.cw-fa svg { width: 100%; height: 100%; display: block; }
 
 /* Element screenshot, pulled to the TOP of the panel so a reviewer sees WHAT the
    comment is about before reading it. */
@@ -368,6 +383,25 @@
   }
 
   const clamp01 = (n) => Math.min(Math.max(n, 0), 1);
+
+  // Font Awesome 6 (Solid) glyphs, inlined as SVG. We render these as SVG rather
+  // than <i class="fa-solid fa-…"> because the widget runs on EVERY mock — incl.
+  // legacy ones that never load the Font Awesome stylesheet, where an <i> tag
+  // would be an invisible zero-width glyph (the exact silent-failure the repo
+  // guidelines warn about). Inline SVG always renders and inherits currentColor.
+  const FA_SVG = {
+    check: '<svg viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/></svg>',
+    'rotate-left': '<svg viewBox="0 0 512 512" aria-hidden="true"><path fill="currentColor" d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3-163.8-62.5-226.3 0L125.7 160z"/></svg>',
+    pen: '<svg viewBox="0 0 512 512" aria-hidden="true"><path fill="currentColor" d="M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505.1s15.4 8.5 23.9 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z"/></svg>',
+    trash: '<svg viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M135.2 17.7L128 32 32 32C14.3 32 0 46.3 0 64S14.3 96 32 96l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0-7.2-14.3C307.4 6.8 296.3 0 284.2 0L163.8 0c-12.1 0-23.2 6.8-28.6 17.7zM416 128L32 128 53.2 467c1.6 25.3 22.6 45 47.9 45l245.8 0c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg>',
+  };
+  function faIcon(name) {
+    const s = document.createElement('span');
+    s.className = 'cw-fa';
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = FA_SVG[name] || '';
+    return s;
+  }
 
   // Topmost real page element at a viewport point, skipping the widget's own
   // layers (pins, outlines, banner, etc.) so we anchor to the design, not us.
@@ -988,6 +1022,15 @@
 
   const currentTrail = () => clickTrail.slice();
   const hasTrail = (pin) => Array.isArray(pin.trail) && pin.trail.length > 0;
+  // Does this pin carry anything the widget can act on to auto-navigate to it —
+  // a recorded click trail, or captured toggle-group controls (version/tab/nav)?
+  // Legacy pins predate trails and often captured only the modal sentinel, so
+  // they have no path: their element genuinely lives on another screen, but the
+  // widget can't drive there — the reviewer must open that flow manually.
+  function hasNavInfo(pin) {
+    if (hasTrail(pin)) return true;
+    return Array.isArray(pin.viewState) && pin.viewState.some(d => d.sel && d.sel[0] !== '@');
+  }
 
   // Pins whose full navigation (including the reload fallback) failed this
   // session — listed honestly as "not found" instead of bouncing forever.
@@ -1169,7 +1212,7 @@
   }
 
   // ----- Root container -------------------------------------------------------
-  let root, pinsLayer, bubble, bubbleIcon, bubbleLabel, banner;
+  let root, pinsLayer, bubble, bubbleIcon, bubbleLabel, banner, bannerHideBtn;
 
   function buildRoot() {
     const style = el('style'); style.textContent = css;
@@ -1199,21 +1242,69 @@
     else document.body.appendChild(bubble);
     applyAdminBubble();
 
-    // The pick-mode banner. When docked, it sits just above the toolbox dock and
-    // drops its own "Esc to cancel" button — the docked Comments button already
-    // becomes ✕ Cancel in pick mode (and Esc still works), so it's redundant.
+    // The pick-mode banner. The admin controls (Hide comments, View activity log)
+    // live INLINE here — right where "Click any element to leave feedback" is —
+    // instead of hidden behind a gear→settings popover. When docked, the banner
+    // sits just above the toolbox dock and drops its own "Esc" button (the docked
+    // Comments button already becomes ✕ Cancel in pick mode, and Esc still works).
     var docked = !!window.ToolboxDock;
+
+    bannerHideBtn = el('button', {
+      type: 'button', class: 'cw-banner-hide',
+      title: 'Hide every pin and disable the bubble for non-admins. Admins still see and manage everything.',
+      onclick: async () => {
+        becomeAdmin();
+        const next = !state.settings.commentsDisabled;
+        await saveCommentsSetting({ commentsDisabled: next }, next ? 'Comments hidden' : 'Comments shown');
+        renderBannerHide();
+      },
+    }, []);
+    const logLink = el('a', {
+      class: 'cw-banner-link', href: LOG_URL, target: '_blank', rel: 'noopener',
+      title: 'Open the activity log in a new tab', onclick: () => becomeAdmin(),
+    }, ['🗒 Log ↗']);
+
     var bannerKids = [
-      document.createTextNode('Click any element to leave feedback'),
-      el('button', {
-        type: 'button', class: 'cw-banner-gear', title: 'Comment settings',
-        'aria-label': 'Comment settings',
-        onclick: () => { becomeAdmin(); openAdminPanel(); },
-      }, ['⚙']),
+      el('span', { class: 'cw-banner-text' }, ['Click any element to leave feedback']),
+      el('span', { class: 'cw-banner-sep', 'aria-hidden': 'true' }),
+      bannerHideBtn,
+      logLink,
     ];
-    if (!docked) bannerKids.push(el('button', { type: 'button', onclick: exitPickMode }, ['Esc to cancel']));
+    if (!docked) {
+      bannerKids.push(el('span', { class: 'cw-banner-sep', 'aria-hidden': 'true' }));
+      bannerKids.push(el('button', { type: 'button', class: 'cw-banner-esc', onclick: exitPickMode }, ['Esc']));
+    }
     banner = el('div', { class: 'cw-banner cw-hidden' + (docked ? ' cw-banner--docked' : '') }, bannerKids);
     document.body.appendChild(banner);
+    renderBannerHide();
+  }
+
+  // Reflect the live "comments hidden" setting on the banner's Hide button.
+  function renderBannerHide() {
+    if (!bannerHideBtn) return;
+    const on = !!state.settings.commentsDisabled;
+    bannerHideBtn.textContent = on ? '✓ Comments hidden' : 'Hide comments';
+    bannerHideBtn.classList.toggle('cw-banner-on', on);
+    bannerHideBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  // Save a comment setting (currently just commentsDisabled) with an optimistic
+  // update that snaps back on failure. Used by the banner's Hide button. (This
+  // replaces the old gear→settings panel, whose controls now live in the banner.)
+  async function saveCommentsSetting(patch, successMsg) {
+    const prev = { ...state.settings };
+    state.settings = { ...state.settings, ...patch };
+    applyAdminBubble(); renderPins(); renderBannerHide();
+    try {
+      const { settings } = await api('PATCH', '/settings', { url: pageUrl, author: state.author || 'admin', ...patch });
+      state.settings = settings;
+      applyAdminBubble(); renderPins(); renderBannerHide();
+      if (successMsg) showToast(successMsg, 'success');
+    } catch (e) {
+      state.settings = prev;
+      applyAdminBubble(); renderPins(); renderBannerHide();
+      showToast(e.message || 'Could not save setting', 'error');
+    }
   }
 
   function togglePickMode() {
@@ -1242,89 +1333,6 @@
     // pins (see visiblePins), so no hotkey is needed. Otherwise → fully visible.
     bubble.classList.toggle('cw-bubble--ghost', off);
     bubble.title = off ? 'Comments hidden — click to open' : 'Add feedback';
-  }
-
-  let adminPanel = null;
-  function closeAdminPanel() {
-    unbindOutsideClose();
-    if (adminPanel) { adminPanel.remove(); adminPanel = null; }
-  }
-
-  function openAdminPanel() {
-    closeAdminPanel();
-    // The gear lives in the comment-mode banner, so leave pick mode first —
-    // otherwise the pick handlers would treat clicks on this panel as
-    // "place a new pin" and the toggles would never get the click.
-    exitPickMode();
-
-    const disabledToggle = makeToggle(
-      () => state.settings.commentsDisabled,
-      (next) => saveSetting({ commentsDisabled: next }, next ? 'Comments hidden' : 'Comments shown'),
-    );
-
-    // Kept intentionally minimal: just the hide-comments toggle and a link to
-    // the activity log. (Other admin options were removed by request.)
-    adminPanel = el('div', { class: 'cw-admin-panel' }, [
-      el('div', { class: 'cw-admin-head' }, [
-        el('span', { class: 'cw-admin-title' }, ['⚙ Comment settings']),
-        el('button', { class: 'cw-panel-close', onclick: closeAdminPanel, 'aria-label': 'Close' }, ['×']),
-      ]),
-      el('div', { class: 'cw-admin-row' }, [
-        el('div', { class: 'cw-admin-label' }, [
-          el('strong', {}, ['Hide comments']),
-          el('span', {}, ['Hides every pin and disables the bubble for non-admins. Admins still see and can manage everything.']),
-        ]),
-        disabledToggle.el,
-      ]),
-      el('a', { class: 'cw-admin-link', href: LOG_URL, target: '_blank', rel: 'noopener' }, ['🗒️ View activity log ↗']),
-    ]);
-    document.body.appendChild(adminPanel);
-    bindOutsideClose(adminPanel, closeAdminPanel);
-
-    function syncToggles() { disabledToggle.render(); }
-
-    async function saveSetting(patch, successMsg) {
-      const prev = { ...state.settings };
-      state.settings = { ...state.settings, ...patch };
-      applyAdminBubble();
-      renderPins();
-      try {
-        const { settings } = await api('PATCH', '/settings', {
-          url: pageUrl, author: state.author || 'admin', ...patch,
-        });
-        state.settings = settings;
-        applyAdminBubble();
-        renderPins();
-        syncToggles();
-        if (successMsg) showToast(successMsg, 'success');
-      } catch (e) {
-        state.settings = prev;
-        applyAdminBubble();
-        renderPins();
-        syncToggles();
-        showToast(e.message || 'Could not save setting', 'error');
-      }
-    }
-  }
-
-  // Toggle whose visual state is always derived from `getValue()` (the live
-  // setting), so a failed save snaps it back. Disabled during the async call.
-  function makeToggle(getValue, onChange) {
-    const node = el('button', { type: 'button', class: 'cw-toggle', role: 'switch' });
-    function render() {
-      const v = !!getValue();
-      node.classList.toggle('cw-toggle--on', v);
-      node.setAttribute('aria-checked', v ? 'true' : 'false');
-    }
-    node.addEventListener('click', async () => {
-      if (node.disabled) return;
-      node.disabled = true;
-      try { await onChange(!getValue()); }
-      catch (_) {}
-      finally { node.disabled = false; render(); }
-    });
-    render();
-    return { el: node, render };
   }
 
   // ----- Toast ----------------------------------------------------------------
@@ -1386,7 +1394,7 @@
       if (bubbleIcon) bubbleIcon.textContent = '✕';
       if (bubbleLabel) bubbleLabel.textContent = 'Cancel';
     }
-    if (banner) banner.classList.remove('cw-hidden');
+    if (banner) { banner.classList.remove('cw-hidden'); renderBannerHide(); }
     hoverOutline = el('div', { class: 'cw-hover-outline cw-hidden' });
     document.body.appendChild(hoverOutline);
     document.addEventListener('mousemove', onPickHover, true);
@@ -1769,16 +1777,18 @@
       const found = findPinEl(pin);
       if (!found) {
         // Missing from the DOM is NOT the same as removed from the design. Mocks
-        // that rebuild whole screens (innerHTML swaps, React mounts) only keep
-        // the CURRENT screen's elements in the DOM — so when this pin was left
-        // in a different interaction state (or its click trail says it lives
-        // deeper in a flow), it's "on another screen" and Go can navigate to it.
-        // Only a pin whose captured state matches the page right now — we're
-        // looking at its screen and it still isn't here — or whose navigation
-        // already failed this session is treated as genuinely removed.
-        const navigable = (!viewMatches(pin, null) || hasTrail(pin)) && !navFailed(pin.id);
-        if (navigable) state.offscreen.push(pin);
-        else state.stranded.push(pin);
+        // rebuild whole screens (innerHTML swaps, React mounts, tabs), keeping
+        // only the CURRENT screen's elements in the DOM — so an absent element
+        // is, by default, just "on another screen." We stay optimistic and file
+        // it under "On other screens" (navigable); it only drops to the honest
+        // "Couldn't locate" bucket once an actual navigation attempt has failed
+        // this session (navFailed) — that's the real evidence it's gone. This is
+        // exactly the case the reviewer hit: a comment on a button that only
+        // renders deep in a flow was wrongly called "removed" on the landing
+        // screen; now it's "On other screens" and reappears the moment you open
+        // that flow (see the pin observer + viewMatches).
+        if (navFailed(pin.id)) state.stranded.push(pin);
+        else state.offscreen.push(pin);
         continue;
       }
       // Element exists but isn't being shown (it's on a hidden screen/view).
@@ -2299,10 +2309,13 @@
 
   function navItem(pin, opts = {}) {
     const stateLabel = viewStateLabel(pin);
+    const canNav = hasNavInfo(pin);
     const title = opts.notFound
-      ? 'Open this comment — its element isn’t on the current screen and couldn’t be auto-located (it may be deeper in a flow, or removed)'
+      ? 'Open this comment — a navigation attempt couldn’t find its element (it may be deeper in a flow, or removed)'
       : opts.elsewhere
-        ? 'Go — switches the mock to this comment’s screen/state and opens it there'
+        ? (canNav
+            ? 'Go — switches the mock to this comment’s screen/state and opens it there'
+            : 'Not on this screen. This older comment has no saved path — open its flow in the mock and the pin appears. Click to see details.')
         : 'Jump to this comment';
     return el('div', {
       class: 'cw-nav-item' + (pin.id === navCurrentId ? ' cw-nav-item--current' : ''),
@@ -2318,7 +2331,7 @@
         opts.notFound
           ? el('div', { class: 'cw-nav-item-ctx' }, ['⚠ Not on the current screen — couldn’t auto-locate (deeper in a flow, or removed)'])
           : opts.elsewhere
-            ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ Not on this screen' + (stateLabel ? ' — on: ' + stateLabel : '') + ' · Go opens it'])
+            ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ Not on this screen' + (stateLabel ? ' — on: ' + stateLabel : '') + (canNav ? ' · Go opens it' : ' · open its flow to see it')])
             : (stateLabel ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ ' + stateLabel]) : null),
         (!opts.notFound && pin.elementText) ? el('div', { class: 'cw-nav-item-ctx' }, ['↳ ' + pin.elementText.slice(0, 60)]) : null,
       ]),
@@ -2472,16 +2485,25 @@
 
       const target = findPinEl(pin);
       if (!target) {
-        // In-place navigation couldn't rebuild the element's screen. A reload
-        // can put the mock into its landing state so the trail replay can reach
-        // the step — but reloading is destructive, so only offer it (behind a
-        // confirm) when the user explicitly asked to go there, and never twice.
-        if (!opts.fromReload && opts.allowReload && confirmNavReload(pin)) return;
-        markNavFailed(pin.id);
+        const canNav = hasNavInfo(pin);
+        // With a real path (trail / captured controls) we can try a reload:
+        // a fresh landing state lets the trail replay reach the step. Reloading
+        // is destructive, so it's offered only behind a confirm, on explicit
+        // Go, and never twice.
+        if (canNav && !opts.fromReload && opts.allowReload && confirmNavReload(pin)) return;
+        if (canNav) {
+          // We had a path and still couldn't reach it — strong evidence it's
+          // gone. Mark failed so it moves to the honest "Couldn't locate" bucket.
+          markNavFailed(pin.id);
+          showToast('Couldn’t auto-navigate to that element — it may be deeper in a flow, or removed. See the selector in the panel.', 'neutral');
+        } else {
+          // No saved path (older comment). The element likely lives on another
+          // screen we can't drive to — DON'T call it removed and DON'T mark it
+          // failed; leave it under "On other screens" and tell the reviewer to
+          // open that flow themselves, at which point the pin reappears on its own.
+          showToast('This is an older comment with no saved navigation path. Open its screen/flow in the mock and the pin will appear there.', 'neutral');
+        }
         renderPins();
-        showToast(opts.allowReload
-          ? 'Couldn’t auto-navigate to that element — it may be deeper in a flow (or removed). See the selector in the panel.'
-          : 'That comment’s on another screen — use “Go” in the list to navigate to it', opts.allowReload ? 'neutral' : 'neutral');
         openPanel(pin, { stranded: true });
         return;
       }
@@ -2598,15 +2620,15 @@
       class: 'cw-act cw-act--done' + (pin.done ? ' cw-act--is-done' : ''),
       title: pin.done ? 'Reopen this comment' : 'Mark this comment done',
       onclick: (e) => { e.stopPropagation(); onDone(pin); },
-    }, [pin.done ? '↺ Reopen' : '✓ Mark done']);
+    }, [faIcon(pin.done ? 'rotate-left' : 'check'), el('span', {}, [pin.done ? 'Reopen' : 'Mark done'])]);
     const editBtn = el('button', {
       class: 'cw-act cw-act--icon', title: 'Edit the comment text', 'aria-label': 'Edit',
       onclick: (e) => { e.stopPropagation(); reopenPanel(pin, { editing: true }); },
-    }, ['✎']);
+    }, [faIcon('pen')]);
     const deleteBtn = el('button', {
       class: 'cw-act cw-act--icon cw-act--danger', title: 'Delete this comment', 'aria-label': 'Delete',
       onclick: (e) => { e.stopPropagation(); onDelete(pin); },
-    }, ['🗑']);
+    }, [faIcon('trash')]);
     const headActions = el('div', { class: 'cw-head-actions' }, [doneBtn, editBtn, deleteBtn]);
 
     // Header row carries identity on the left and the quiet actions on the right.
@@ -2803,7 +2825,7 @@
       });
       try { ro.observe(document.documentElement); } catch (_) {}
     }
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeNavList(); exitReveal(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeNavList(); exitReveal(); } });
     // Record the user's real clicks (capture phase, before any mock handler can
     // stop propagation) — each new comment snapshots this trail so "Go" can
     // navigate back to the exact step it was left on. Observation only.
