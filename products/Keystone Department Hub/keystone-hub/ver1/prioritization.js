@@ -339,7 +339,7 @@
 
     return '<div class="pf-card">' +
       cardHead('tune', 'teal', 'Task-type importance',
-        'Your Keystone task list shows every item assigned to you or in progress. Prioritization ' +
+        'Your Readiness Hub task list shows every item assigned to you or in progress. Prioritization ' +
         'settings let your department control how those items are ranked, so the things that are most ' +
         'important to your department surface first.') +
       sections + '</div>';
@@ -590,7 +590,7 @@
       '<div class="pf-main">' +
       '<div style="min-width:0">' +
       '<div class="pf-intro"><h1>Prioritization</h1>' +
-      '<p>Tune how Keystone ranks open work across TargetSolutions, Check It, Guardian Tracking, ' +
+      '<p>Tune how the Readiness Hub ranks open work across TargetSolutions, Check It, Guardian Tracking, ' +
       'Vector Scheduling, and Evaluations +. ' +
       'Settings apply department-wide and take effect immediately.</p></div>' +
       importanceCard() +
