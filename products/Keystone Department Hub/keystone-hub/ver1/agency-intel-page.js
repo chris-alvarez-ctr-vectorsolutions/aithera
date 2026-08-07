@@ -1270,6 +1270,7 @@
   // The audience picker (job titles / named individuals / AI groups) lives
   // in agency-intel-audience.js — this is just the hand-off.
   function openAssignDialog(d) {
+    advertiseFlow('publish');
     AGENCY_INTEL_AUDIENCE.open({
       dashboard: d,
       // How many OTHER dashboards ride on this group — editing a live rule
@@ -1464,12 +1465,28 @@
     try { window.__toolboxFlowState = { state: id, version: '' }; } catch (e) {}
   }
   // The single hook the flow map / comment "Go" calls to reach a named screen.
+  // Each case drives the mock into that state via its own functions; modal nodes
+  // open the builder first, then the dialog.
   window.applyFlowState = function (id) {
-    if (id === 'build') {
-      var d = active() || state.dashboards[0];
-      if (d) { openDash(d.id); return; }
+    // Home screens.
+    if (id === 'home' || id === 'home-ai') {
+      goHome();
+      if (id === 'home-ai') { state.homeTab = 'ai'; advertiseFlow('home-ai'); render(); }
+      return;
     }
-    goHome();
+    // Everything else lives inside a dashboard — open the first one.
+    var first = state.dashboards[0];
+    if (!first) { goHome(); return; }
+    openDash(first.id);                       // build · edit (advertises 'build')
+    if (id === 'build') return;
+    if (id === 'build-preview' || id === 'build-report') {
+      state.mode = (id === 'build-report') ? 'report' : 'preview';
+      advertiseFlow(id);
+      render();
+      return;
+    }
+    if (id === 'add-widget') { advertiseFlow('add-widget'); openAddWidgetDialog(); return; }
+    if (id === 'publish') { advertiseFlow('publish'); openAssignDialog(active()); return; }
   };
 
   /* =====================================================================
@@ -1624,7 +1641,7 @@
     root.addEventListener('click', function (e) {
       /* ---- home: tabs / filters / view mode ---- */
       var tab = e.target.closest('[data-cp-tab]');
-      if (tab) { state.homeTab = tab.getAttribute('data-cp-tab'); render(); return; }
+      if (tab) { state.homeTab = tab.getAttribute('data-cp-tab'); advertiseFlow(state.homeTab === 'ai' ? 'home-ai' : 'home'); render(); return; }
 
       var f = e.target.closest('[data-cp-filter]');
       if (f) { state.filter = f.getAttribute('data-cp-filter'); state.page = 1; render(); return; }
@@ -1689,7 +1706,7 @@
       if (e.target.closest('#cpBack')) { goHome(); return; }
       if (e.target.closest('#cpRename')) { state.editingName = true; render(); return; }
       var mode = e.target.closest('[data-cp-mode]');
-      if (mode) { state.mode = mode.getAttribute('data-cp-mode'); render(); return; }
+      if (mode) { state.mode = mode.getAttribute('data-cp-mode'); advertiseFlow(state.mode === 'preview' ? 'build-preview' : state.mode === 'report' ? 'build-report' : 'build'); render(); return; }
       if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule') || e.target.closest('#cpStatusBtn')) {
         openAssignDialog(active());
         return;
@@ -2106,6 +2123,7 @@
 
   // "Add widget" once the canvas is populated — the same builder, in a dialog.
   function openAddWidgetDialog() {
+    advertiseFlow('add-widget');
     state.builder = freshBuilder();
     KX.openDialog({
       title: 'Add a widget',
