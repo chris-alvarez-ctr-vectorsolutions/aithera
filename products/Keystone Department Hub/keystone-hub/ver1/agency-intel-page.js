@@ -1428,7 +1428,7 @@
         : 'Ask me anything across your apps and I\'ll put the answer on the canvas. ' +
           'Pick a few starter ideas above, or just type below.'
     }];
-    advertiseFlow('build');
+    advertiseFlow('build:' + id);   // carry the specific dashboard so a comment returns to IT
     window.scrollTo({ top: 0 });
     render();
   }
@@ -1715,7 +1715,7 @@
       if (e.target.closest('#cpBack')) { goHome(); return; }
       if (e.target.closest('#cpRename')) { state.editingName = true; render(); return; }
       var mode = e.target.closest('[data-cp-mode]');
-      if (mode) { state.mode = mode.getAttribute('data-cp-mode'); advertiseFlow(state.mode === 'preview' ? 'build-preview' : state.mode === 'report' ? 'build-report' : 'build'); render(); return; }
+      if (mode) { state.mode = mode.getAttribute('data-cp-mode'); advertiseFlow((state.mode === 'preview' ? 'build-preview' : state.mode === 'report' ? 'build-report' : 'build') + ':' + state.activeId); render(); return; }
       if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule') || e.target.closest('#cpStatusBtn')) {
         openAssignDialog(active());
         return;

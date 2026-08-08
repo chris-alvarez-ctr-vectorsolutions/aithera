@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.26.1';
+  const WIDGET_VERSION = '1.26.2';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -2899,7 +2899,8 @@
     }
     const feedbackLabel = el('div', { class: 'cw-feedback-label' }, [
       el('span', {}, ['Feedback']),
-      el('span', { class: 'cw-feedback-time' }, [rel(pin.timestamp) + (sl ? ' · on ' + sl : '')]),
+      // Just the timestamp here — no scene/state copy (it read as noise).
+      el('span', { class: 'cw-feedback-time' }, [rel(pin.timestamp)]),
     ]);
 
     // Element screenshot, moved to the TOP so you see WHAT the comment is on
