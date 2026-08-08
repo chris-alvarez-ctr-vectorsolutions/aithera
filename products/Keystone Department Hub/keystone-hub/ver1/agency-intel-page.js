@@ -1468,25 +1468,34 @@
   // Each case drives the mock into that state via its own functions; modal nodes
   // open the builder first, then the dialog.
   window.applyFlowState = function (id) {
+    // A build node may carry the SPECIFIC dashboard it was captured on, as
+    // "<base>:<dashboardId>" — so a comment on Hazmat's build view returns to
+    // Hazmat, not whatever dashboard happens to be first. Generic nodes from the
+    // flow map (no ":id") fall back to the first dashboard.
+    var parts = String(id).split(':');
+    var base = parts[0];
+    var did = parts[1] || '';
     // Home screens.
-    if (id === 'home' || id === 'home-ai') {
+    if (base === 'home' || base === 'home-ai') {
       goHome();
-      if (id === 'home-ai') { state.homeTab = 'ai'; advertiseFlow('home-ai'); render(); }
+      if (base === 'home-ai') { state.homeTab = 'ai'; advertiseFlow('home-ai'); render(); }
       return;
     }
-    // Everything else lives inside a dashboard — open the first one.
-    var first = state.dashboards[0];
-    if (!first) { goHome(); return; }
-    openDash(first.id);                       // build · edit (advertises 'build')
-    if (id === 'build') return;
-    if (id === 'build-preview' || id === 'build-report') {
-      state.mode = (id === 'build-report') ? 'report' : 'preview';
-      advertiseFlow(id);
+    // Everything else lives inside a dashboard.
+    var target = (did && state.dashboards.some(function (d) { return d.id === did; }))
+      ? did
+      : (state.dashboards[0] && state.dashboards[0].id);
+    if (!target) { goHome(); return; }
+    openDash(target);                         // build · edit (advertises 'build:'+target)
+    if (base === 'build') return;
+    if (base === 'build-preview' || base === 'build-report') {
+      state.mode = (base === 'build-report') ? 'report' : 'preview';
+      advertiseFlow(base + ':' + target);
       render();
       return;
     }
-    if (id === 'add-widget') { advertiseFlow('add-widget'); openAddWidgetDialog(); return; }
-    if (id === 'publish') { advertiseFlow('publish'); openAssignDialog(active()); return; }
+    if (base === 'add-widget') { advertiseFlow('add-widget'); openAddWidgetDialog(); return; }
+    if (base === 'publish') { advertiseFlow('publish'); openAssignDialog(active()); return; }
   };
 
   /* =====================================================================
