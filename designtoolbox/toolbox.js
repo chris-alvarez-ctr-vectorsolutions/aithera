@@ -386,12 +386,10 @@
         launchers.push(c);
       });
       launchers.sort(function (a, b) { return orderOf(a) - orderOf(b); });
-      launchers.forEach(function (node, i) {
-        if (i > 0) {
-          var sep = document.createElement('span');
-          sep.className = 'tbx-dock-sep';
-          dock.appendChild(sep);
-        }
+      // No dividers between launchers — the dock's own `gap` spaces them. (The
+      // old vertical `.tbx-dock-sep` rules between Comments and Flow Map read as
+      // visual clutter; the loop above already strips any leftover separators.)
+      launchers.forEach(function (node) {
         dock.appendChild(node);
       });
       if (toggle) dock.appendChild(toggle);   // chevron stays at the far right
