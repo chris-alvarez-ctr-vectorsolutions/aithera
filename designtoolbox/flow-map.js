@@ -181,15 +181,18 @@
 html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .cw-popup,html.fm-open .cw-toast,html.fm-open .cw-banner,html.fm-open .cw-admin-panel,html.fm-open .cw-reveal-bar,html.fm-open .cw-lightbox,html.fm-open .cw-bubble{display:none !important;}\
 ';
 
-  // ---- dev notes (read-only, from committed DEV-NOTES.md) -------------------
+  // ---- notes (read-only, from committed DEV-NOTES.md) -----------------------
   // Notes are authored in a Markdown file next to the mock — not in the browser —
-  // so they're committed to git and shared with everyone. Format:
+  // so they're committed to git and shared with everyone. Labelled "Notes" during
+  // design/review and "Dev notes" in a dev-handoff build (see COMMENTS_ON). Format:
   //
   //   > author: Design handoff            (optional; default attribution)
+  //   > date: 2026-08-10                  (optional; default date for notes below,
+  //                                        can be redeclared partway down the file)
   //
   //   ## <node-id>  — anything after the id is just a human-readable title
-  //   - One bullet = one dev note.
-  //   - Another note for the same step.
+  //   - One bullet = one note.
+  //   - (2026-08-11) A note with its own date, overriding the default above.
   //
   //   ## <another-node-id>
   //   - …
@@ -201,16 +204,23 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function annsFor(id) { return anns[id] || []; }
 
   function parseNotes(md) {
-    var out = {}, cur = null, defaultAuthor = 'Design handoff';
+    var out = {}, cur = null, defaultAuthor = 'Design handoff', defaultDate = '';
     md.split(/\r?\n/).forEach(function (raw) {
       var line = raw.replace(/\s+$/, '');
       var av = line.match(/^>\s*author:\s*(.+)$/i);
       if (av) { defaultAuthor = av[1].trim(); return; }
+      var dv = line.match(/^>\s*date:\s*(.+)$/i);
+      if (dv) { defaultDate = dv[1].trim(); return; }
       var h = line.match(/^##\s+([A-Za-z0-9_-]+)/);
       if (h) { cur = h[1]; if (!out[cur]) out[cur] = []; return; }
       if (!cur) return;
       var b = line.match(/^\s*[-*]\s+(.+)$/);
-      if (b) out[cur].push({ text: b[1].trim(), author: defaultAuthor });
+      if (b) {
+        var text = b[1].trim(), date = defaultDate;
+        var dm = text.match(/^\((\d{4}-\d{2}-\d{2})\)\s*(.*)$/);   // optional per-note date override
+        if (dm) { date = dm[1]; text = dm[2].trim(); }
+        out[cur].push({ text: text, author: defaultAuthor, date: date });
+      }
     });
     return out;
   }
@@ -323,6 +333,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   // Add the dev-notes link only if DEV-NOTES.md is reachable and non-empty, so
   // it never points at a 404 for mocks that don't have one.
   function maybeAddDevNotesLink(launch) {
+    // Only surface the GitHub link in a dev-handoff build (comments OFF). During
+    // design/review (comments ON) we're not ready to point anyone at GitHub yet.
+    if (COMMENTS_ON) return;
     var url = devNotesGitHubUrl();
     if (!url) return;
     fetch(NOTES_URL, { cache: 'no-store' })
@@ -347,7 +360,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     overlay.innerHTML =
       '<div class="fm-top">' +
         '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2></div>' +
-        '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 view dev notes</div>' +
+        '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 ' + NOTES_VERB + '</div>' +
         '<div class="fm-tools">' +
           '<button class="fm-tbtn" data-z="-1" title="Zoom out">' + ICON_MINUS + '</button>' +
           '<button class="fm-tbtn" data-z="0" title="Reset zoom">' + ICON_EXPAND + '</button>' +
@@ -368,7 +381,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     drawer = el('div', 'fm-drawer');
     drawer.innerHTML =
       '<div class="fm-drawer-head"><button class="x" data-dclose="1">' + ICON_X + '</button>' +
-        '<div class="k">Dev notes</div><h3 class="fm-dtitle"></h3></div>' +
+        '<div class="k">' + NOTES_TITLE + '</div><h3 class="fm-dtitle"></h3></div>' +
       '<div class="fm-drawer-body"></div>' +
       '<div class="fm-composer"><div class="fm-source">' + ICON_FILE + ' Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>' +
         '<div class="row"><button class="fm-btn ghost" data-dclose="1">Close</button></div></div>';
@@ -520,7 +533,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       var cmtCorner = node.querySelector('.fm-cmt-corner'), noteSlot = node.querySelector('.fm-note-slot');
       var c = commentCounts[n.id] || 0, a = annsFor(n.id).length;
       cmtCorner.innerHTML = c ? '<span class="fm-cmt-badge" title="' + c + ' comment(s) — view">💬 ' + c + '</span>' : '';
-      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' dev note(s) — view">' + ICON_NOTE + ' ' + a + '</span>' : '';
+      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' ' + NOTE_UNIT + '(s) — view">' + ICON_NOTE + ' ' + a + '</span>' : '';
       var cc = cmtCorner.querySelector('.fm-cmt-badge'); if (cc) cc.addEventListener('click', function (e) { e.stopPropagation(); viewComments(n.id); });
       var nc = noteSlot.querySelector('.fm-note-badge'); if (nc) nc.addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
     });
@@ -537,9 +550,10 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function renderDrawer() {
     var body = drawer.querySelector('.fm-drawer-body');
     var list = annsFor(drawerNode);
-    if (!list.length) { body.innerHTML = '<div class="fm-empty">No dev notes for this step yet.<br>Add them to <code>DEV-NOTES.md</code> under <code>## ' + esc(drawerNode) + '</code> and they’ll show here.</div>'; return; }
+    if (!list.length) { body.innerHTML = '<div class="fm-empty">No ' + NOTE_UNIT + 's for this step yet.<br>Add them to <code>DEV-NOTES.md</code> under <code>## ' + esc(drawerNode) + '</code> and they’ll show here.</div>'; return; }
     body.innerHTML = list.map(function (a) {
-      return '<div class="fm-ann"><div class="meta"><span>' + esc(a.author || 'Design handoff') + '</span><span>📝 dev note</span></div>' +
+      var date = a.date ? '<span>' + esc(a.date) + '</span>' : '';
+      return '<div class="fm-ann"><div class="meta"><span>' + esc(a.author || 'Design handoff') + '</span>' + date + '<span>📝 ' + NOTE_UNIT + '</span></div>' +
         '<div class="txt">' + esc(a.text) + '</div></div>';
     }).join('');
   }
@@ -578,6 +592,13 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   // window.TOOLBOX = { comments:false }), the flow map suppresses 💬 comment
   // counts too — a build with comments hidden should surface only dev notes.
   var COMMENTS_ON = !(window.TOOLBOX && window.TOOLBOX.comments === false);
+  // Phase-aware note framing. During design/review (comments ON) the flow map's
+  // annotations are just "Notes" — tracking review feedback per step, no GitHub
+  // link. In a dev-handoff build (comments OFF) they become "Dev notes" and the
+  // GitHub link to DEV-NOTES.md appears. Same file, different framing per phase.
+  var NOTES_TITLE = COMMENTS_ON ? 'Notes' : 'Dev notes';
+  var NOTES_VERB  = COMMENTS_ON ? 'view notes' : 'view dev notes';
+  var NOTE_UNIT   = COMMENTS_ON ? 'note' : 'dev note';
   function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; requestAnimationFrame(drawEdges); /* redraw once the overlay is visible so edges anchor to real, measured card boxes */ if (COMMENTS_ON && !fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
   function closeMap() { if (overlay) overlay.classList.remove('open'); document.documentElement.classList.remove('fm-open'); document.body.style.overflow = ''; closeDrawer(); }
   var fetchedCounts = false;

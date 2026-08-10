@@ -1,8 +1,11 @@
 > author: Design (in-progress)
+> date: 2026-08-10
 
-<!-- Running dev notes, one section per flow-map node (## <node-id>). Each bullet
-     is a change/decision made while building that screen. The flow map shows
-     these per step; at dev handoff this file already IS the dev notes. -->
+<!-- Running notes, one section per flow-map node (## <node-id>). Each bullet is a
+     change/decision made while building that screen. The flow map shows these per
+     step (as "Notes" during design; they become "Dev notes" at handoff). A `> date:`
+     line dates the notes below it; prefix a bullet with (YYYY-MM-DD) to override. -->
+
 
 ## firstSetup — Step 1 · First setup (no approaches yet)
 - Fresh-account empty state of the Approaches & Rules page (flow version `v1`). "Getting started" guide sits on step 1 of 3, "Create approaches" active.
