@@ -529,14 +529,14 @@
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
 
   /* ── Modules Complete cell (replaces % Complete) ── */
-  .mod-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .mod-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
   .mod-top { display: flex; align-items: center; gap: 8px; }
-  /* Compact "next module a client will report" hint, shown on the collapsed row for
-     learners still working the course — surfaces the Waiting-on-Update module without
-     needing to open the dropdown. */
-  .mod-waiting { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: #b45309; max-width: 100%; }
-  .mod-waiting i { font-size: 10.5px; }
-  .mod-waiting strong { font-weight: 700; }
+  /* Module-level status badge shown on the collapsed row for a learner still working the
+     course: its own pill (same shape/size as the Status-column badges), sitting BELOW the
+     progress element so it never squishes the fraction/bar/Details. Signals that the next
+     module is pending a client update — the exact module is named in the dropdown. */
+  .pending-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #fef3c7; color: #92400e; }
+  .pending-badge i { font-size: 11px; }
   .mod-frac { font-weight: 700; color: var(--ink); font-size: 14.5px; white-space: nowrap; }
   .mod-bar { flex: 0 0 50px; width: 50px; height: 6px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
   .mod-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--blue-primary); }
@@ -1130,14 +1130,13 @@
   function modCellHTML(r, gid, course) {
     const key = rowKey(gid, r.ext);
     const modPct = Math.round((r.mods / MOD_TOTAL) * 100);
-    // For a learner still working the course, name the next module we're waiting on an
-    // update for (the one right after their last completed module) — visible without
-    // opening the dropdown. Overall course progress % (the bar) stays as-is.
-    let waiting = '';
+    // For a learner still working the course, add a "Pending Updates" status badge — its
+    // own pill below the progress element (never squishing the fraction/bar/Details). It
+    // signals the next module is awaiting a client update; the exact module is named in the
+    // dropdown. Overall course progress % (the bar) stays as-is.
+    let badge = '';
     if (r.status === 'in-progress' && r.mods < MOD_TOTAL) {
-      const names = COURSE_MODULES[course] || [];
-      const next = names[r.mods];
-      if (next) waiting = `<span class="mod-waiting" title="${WAITING_TIP}"><i class="fa-regular fa-clock"></i> Waiting on update: <strong>${next}</strong></span>`;
+      badge = `<span class="pending-badge" title="${WAITING_TIP}"><i class="fa-regular fa-clock"></i> Pending Updates</span>`;
     }
     return `<span class="mod-cell">
       <span class="mod-top">
@@ -1145,7 +1144,7 @@
         <span class="mod-bar"><span style="width:${modPct}%; background:${PCT_COLOR[r.status]};"></span></span>
         <button class="mod-link" data-key="${key}"><i class="fa-solid fa-chevron-right mod-caret"></i>Details</button>
       </span>
-      ${waiting}
+      ${badge}
     </span>`;
   }
 
