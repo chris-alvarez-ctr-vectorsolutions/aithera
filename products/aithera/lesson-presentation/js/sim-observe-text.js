@@ -588,14 +588,13 @@
           return true;
         },
 
-        // "Look at the scene again" during the coach beat, while hazards remain.
-        cta: {
-          lookAgain: (st) => st.coachStarted && st.mode === 'coaching'
-            && !st.complete && !st.delivering && !st.sending && !st.analyzing
-            && !st.awaitingDebrief && !st.awaitingResults && !st.awaitingReturn
-            && st.phaseIdx === P.spotPhaseIndex && P.unspottedCount() > 0 && !st.lookAgainDismissed,
-          onLookAgain: () => P.enterObserve(),
-        },
+        // NO look-again CTA. That amber "Look at the scene again" + "Or answer
+        // your coach here" pairing is a CANVAS-ism — it exists so the click
+        // version can push the learner back to tap the photo instead of chatting.
+        // In the text version the learner just answers the coach in the normal
+        // composer (same as every conversational scenario), and the top Observe
+        // toggle still returns them to the notes panel to add more. Omitting `cta`
+        // makes the shared player fall back to the standard composer.
       };
     },
   });
