@@ -55,7 +55,8 @@
 - Characters may deflect, push back, or double down — but they are NEVER abusive, threatening beyond what the authored scenario itself establishes, sexually explicit, or demeaning, and always appropriate for a professional or educational learning audience.
 - Keep every moment RECOVERABLE: however badly the learner plays a beat, a better next move can still land. Never write a character into an irreversible blow-up unless the authored arc calls for it.
 - Characters stay human and specific — flawed, not villains, never a caricature or a stereotype of any group.
-- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
+- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.
+- NEVER address or refer to the LEARNER by name — always "you", never a first name, even if the learner's role, the situation, or your own reaction notes give them one. (This is ONLY about the learner: keep using your own name and any OTHER character's name normally.)`,
   };
 
   /* The locked THREAT-CONTENT FLOOR — ported VERBATIM from branching-arc.js (its
@@ -441,13 +442,13 @@
     type: 'mix-arc',
     title: 'The Kendra Situation',
     course: 'AlcoholEdu for College (JEDU-01015)',
-    learnerName: 'Jay',
+    learnerName: 'you',
     characterName: 'Kendra',
     elevatedStakes: true,   // grief + alcohol/pill risk — the 988 crisis floor applies
     involvesMinors: false,  // Kendra is 19
     threatContent: false,
     framing: 'a peer-intervention scenario: a college student checking on a close friend who has been drinking alone since a loss, with prescription pills in the mix — the skill is notice → reach out → listen → connect, never fixing it yourself',
-    learnerRole: 'Jayda ("Jay") — Kendra\'s roommate and closest friend, and right now the one person she\'ll still let into the room',
+    learnerRole: 'Kendra\'s roommate and closest friend — and right now the one person she\'ll still let into the room',
 
     establishing: {
       eyebrow: 'Scenario Simulator · AlcoholEdu for College',
@@ -484,7 +485,7 @@
           ], cta: 'Sit down with her' },
         inputPlaceholder: 'What do you say to Kendra…',
         exitCriteria: 'the learner leads with care (not confrontation or ultimatums), names the grief/loss rather than only the drinking, and moves toward a concrete SHARED next step — without trying to be her counselor',
-        reactionGuidance: 'Kendra reacts by how she is met, in inches. Confronted, judged, or handed an ultimatum → she shuts down and pulls away (flat, guarded). Met warm but vague ("I\'m here for you") → a tender moment that changes nothing. Met with warmth AND the grief named AND a small shared step → something cracks open, but only in steps: wary first, relenting when the step is small and shared. She never capitulates in one line, never does a therapy monologue. Her signature resistance is the fear of being handed off and judged — "I\'m not going to be somebody\'s case file, Jay." — surface it so the learner has to make the next step shared, not a referral-and-done.',
+        reactionGuidance: 'Kendra reacts by how she is met, in inches. Confronted, judged, or handed an ultimatum → she shuts down and pulls away (flat, guarded). Met warm but vague ("I\'m here for you") → a tender moment that changes nothing. Met with warmth AND the grief named AND a small shared step → something cracks open, but only in steps: wary first, relenting when the step is small and shared. She never capitulates in one line, never does a therapy monologue. Her signature resistance is the fear of being handed off and judged — "I\'m not going to be somebody\'s case file." — surface it so the learner has to make the next step shared, not a referral-and-done.',
         hasRightAnswer: false, throughLine: '',
         character: {
           name: 'Kendra',
@@ -494,7 +495,7 @@
             { when: 'confronted, judged, or given an ultimatum ("you\'ll get kicked out")', then: 'shuts down and pulls away — flat, guarded, turns toward the wall' },
             { when: 'met warm but vague ("I\'m here for you"), no concrete step', then: 'a tender moment that changes nothing — "I know you are." — and the situation holds' },
             { when: 'met with warmth, the grief named, and a small SHARED next step', then: 'something cracks open in steps — wary first, then relenting: "…Okay. If you come with me. Just to talk to someone. Once."' },
-            { when: 'pushed toward help in a way that feels like being handed off', then: 'resists with the fear underneath — "I\'m not going to be somebody\'s case file, Jay."' },
+            { when: 'pushed toward help in a way that feels like being handed off', then: 'resists with the fear underneath — "I\'m not going to be somebody\'s case file."' },
           ],
           styleNotes: 'Short, real dialogue — never therapy-speak, never a theatrical meltdown, never capitulates in one line. Narration 1–2 plain sentences.',
         },
@@ -666,6 +667,7 @@
             { speaker: 'character', kind: 'narration', name: '', text: 'He grins and looks around as you walk into the break room and witness the exchange. What do you do — specifically?' },
           ], cta: 'Step into the scene' },
         inputPlaceholder: 'What do you do — say or do something…',
+        sayDoSplit: true,   // action console — the learner may act (step in, redirect) as well as speak; mirrors the guided-arc Marshall
         exitCriteria: 'the learner sends a clear in-the-moment signal — direct ("not cool, Jake") or indirect (a redirect) — that doesn\'t let the remark stand, holds the line if Jake pushes back, and refuses to let him weaponize Marshall',
         reactionGuidance: 'Jake performs for the room and frames it all as "just a joke." Silent or laughing along → the moment passes, the room half-laughs, and Marshall clocks that no one said anything. A vague redirect half-lands and Jake loops back. A clear signal lands — his grin tightens and he pushes back or doubles down, often weaponizing Marshall ("Whoa, relax — it was a joke. Right, Marshall? Tell them you\'re not offended."), and the room turns to see what you\'ll do. Reward holding the line without escalating and refusing to let Jake use Marshall; don\'t let the learner off with only private sympathy and no public signal. Silence is never neutral — name that in the debrief.',
         hasRightAnswer: false, throughLine: '',
@@ -1068,6 +1070,14 @@ ${closer}`);
         beats: arr(e.beats).map(SBEAT), cta: str(e.cta),
       },
       inputPlaceholder: str(b.inputPlaceholder),
+      // OPT-IN say/do split (default OFF): only a roleplay beat that is a true
+      // ACTION console — where the learner takes physical moves distinct from
+      // speech (step in, block, call for help) — sets this. A pure-conversation
+      // beat (you only ever SAY things to the character, e.g. Kendra) leaves it
+      // off, so the learner's words are shown VERBATIM and never run through the
+      // splitter (which can misread "You okay?" as a question addressed to it and
+      // answer it, dropping that answer into the learner's own bubble).
+      sayDoSplit: b.sayDoSplit === true,
       exitCriteria: str(b.exitCriteria),
       reactionGuidance: str(b.reactionGuidance),
       hasRightAnswer: b.hasRightAnswer === true,

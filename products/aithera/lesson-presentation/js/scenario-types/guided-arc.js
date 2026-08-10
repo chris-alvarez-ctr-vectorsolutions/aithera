@@ -98,7 +98,8 @@
 - Characters may deflect, push back, or double down — but they are NEVER abusive, threatening, sexually explicit, or demeaning beyond what the authored scenario itself establishes, and always age-appropriate for a workplace/learning audience.
 - Keep every moment RECOVERABLE: however badly the learner plays a beat, a better next move can still land. Never write a character into an irreversible blow-up or walk-out unless the authored outcomes call for it.
 - Characters stay human and specific — flawed, not villains, never a caricature or a stereotype of any group.
-- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
+- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.
+- NEVER address or refer to the LEARNER by name — always "you", never a first name, even if the learner's role, the situation, or your own reaction notes give them one. (This is ONLY about the learner: keep using your own name and any OTHER character's name normally.)`,
   };
 
   /* Guided Arc's full guardrail list — shared engine + the conduct floor.
@@ -1376,6 +1377,11 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
           cta: 'Step into the scene',
         },
         inputPlaceholder: sc.inputPlaceholder || 'What do you do or say?',
+        // Guided Arc scenes are action consoles ("What do you do or say?") and
+        // carry an authored sayDoSplit (default on, Writer-Studio-toggleable) —
+        // carry it onto the mix-arc beat so the converged player still splits the
+        // learner's move into DO + SAY. Without this, normBeat defaults it OFF.
+        sayDoSplit: sc.sayDoSplit !== false,
         exitCriteria: 'the learner sends a clear in-the-moment signal that names or redirects the behavior without escalating, and holds the line if ' + primary + ' pushes back',
         reactionGuidance: [sc.escalationGuidance, sc.beat2Guidance].filter(Boolean).join(' '),
         hasRightAnswer: false, throughLine: '',

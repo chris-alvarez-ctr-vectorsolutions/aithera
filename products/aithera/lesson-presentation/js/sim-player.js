@@ -28,6 +28,11 @@
 
   function warn(msg) { try { console.warn('[SimPlayer] ' + msg); } catch (e) {} }
 
+  // The most times the UNGRADED reflection warm-up may STAY (a clarifying probe or
+  // a redirect re-ask) before the app force-opens the scene. Keeps a chatty model
+  // from re-probing a terse gut-read forever. See runArcEngine's reflection branch.
+  var REFLECTION_STAY_CAP = 2;
+
   /* -----------------------------------------------------------------------
      lint(scenario) — a LOAD-TIME authoring check over the ladder graph. The
      engine trusts phases[]/transitions[] blindly at run time, so the mistakes
@@ -198,19 +203,25 @@
 
       const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
 
-      if (state.phaseIdx < 0) {               // reflection warm-up
-        if (turn.action === 'redirect') { turn.deliver = null; return; }
-        // If the coach's turn ends on a QUESTION — a probe on a thin or
-        // overconfident gut-read — STAY so the learner can answer it, ONCE,
-        // instead of advancing over it and stacking Phase 1's hand-off
-        // underneath (which reads as "the coach asked, then didn't wait").
-        // Mirrors the working-phase dangling-probe guard; the one-probe cap
-        // means the warm-up can't stall or loop.
+      if (state.phaseIdx < 0) {               // reflection warm-up (UNGRADED)
+        // The warm-up is not graded, so it must NEVER hold the learner. BOTH a
+        // "redirect" (a thin or off-script reply) and a coach turn left hanging on
+        // a question mean "stay so they can respond" — but each only a BOUNDED
+        // number of times. Once the cap is hit the app opens the scene no matter
+        // what the model reports. Without this bound, a terse reply the coach's
+        // completeness check never accepts ("yes", "not good") gets re-probed
+        // forever: the reported stall where the coach keeps asking, the typing
+        // dots keep cycling, and the scene never opens. (The redirect path used to
+        // be uncapped, which is exactly how it looped.)
         const cb = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
         const last = cb[cb.length - 1];
         const dangling = !!last && /\?\s*$/.test(String(last.text).trim());
-        if (dangling && !state.reflectionProbed) { state.reflectionProbed = true; turn.deliver = null; return; }
-        closePhase(null, turn);                // calibration done → open Phase 1
+        const wantsStay = turn.action === 'redirect' || dangling;
+        state.reflectionStays = state.reflectionStays || 0;
+        if (wantsStay && state.reflectionStays < REFLECTION_STAY_CAP) {
+          state.reflectionStays++; state.reflectionProbed = true; turn.deliver = null; return;
+        }
+        closePhase(null, turn);                // calibration done (or cap reached) → open the scene
         return;
       }
       if (state.phaseIdx >= phases.length) return;   // ladder done — the model owns COMPLETION
