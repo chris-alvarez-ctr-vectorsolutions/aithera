@@ -63,7 +63,13 @@ The CallBack React prototype predates the repo-wide vanilla/Vector convention an
 - **Rendering pattern:** each view is a template function returning an HTML string; per-view `render*()` repaints its region and a hydrate step wires `vaadin-*` properties (e.g. `vaadin-select.items`) and listeners. Interactions dispatch through delegated `data-action` / `data-rb` / `data-sim` click handlers.
 - **State:** `app` (router/flows), `bld` (rule builder), `sim` (simulator), plus small per-page objects. Text inputs update state on `input` without re-render so focus is never lost; discrete actions re-render.
 - **Semantic colors** map to the Vector theme's Lumo tokens (`--ink`, `--primary`, `--error`…); the purple `--ai` palette is a deliberate accent for AI-driven surfaces.
-- The FLOW pill (`.version-switcher`) is adopted by `designtoolbox/toolbox.js` into the shared dock; its clicks are handled by **delegation** (the pill sits after the app script in the document — don't bind to the buttons at parse time).
+- **Single "Approaches & Rules" flow + flow map (2026-08-10).** The old in-page FLOW switcher pill (`.version-switcher`, with "Rules engine" / "First setup" / "Rule step" variants) was **removed** in favor of the Design Toolbox **flow map** (🗺 in the toolbox dock). One flow lane, named **"Approaches & Rules"**, with four screens driven by `window.applyFlowState(id)` + `#fm=<state>` hash boot, configured in `window.TOOLBOX_CONFIG.flowMap` right before the `toolbox.js` include:
+  - `firstSetup` — **Step 1**, fresh account with no approaches yet (`app.flowVersion = 'v1'`, `approachesCreated = false`); create your first approach.
+  - `approaches` — **Step 2 / ENTRY** (`entry: true`), approaches now exist (`app.flowVersion = 'v2'`); create your first rule. **The mock boots here** (no `#fm` hash → default `app.flowVersion 'v2'`).
+  - `builder` — dual-screen AI rule builder (`startBuilder({})`).
+  - `preview` — ranking simulator (`ar.previewMode = true`).
+
+  The `engine` flow branch remains in the render logic but is no longer reachable from the UI.
 
 ## CallBack React prototype architecture
 
