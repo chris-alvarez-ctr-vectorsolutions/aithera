@@ -512,7 +512,6 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            margin-top: 8px;
             padding: 2px 8px;
             border-radius: 999px;
             font-size: 11px;
@@ -535,12 +534,14 @@
             border-color: rgba(109, 40, 217, .28);
         }
         .card .sim-engine i { font-size: 10px; }
+        /* Additive engine-tag row: one or more chips (Universal [+ extension]). */
+        .card .sim-engines { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
         /* Engine badge inside the launcher modal. */
         .modal-engine {
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            margin: 0 0 12px;
+            margin: 0;
             padding: 5px 12px;
             border-radius: 999px;
             font-size: 13px;
@@ -559,6 +560,8 @@
             background: rgba(109, 40, 217, .09);
             border-color: rgba(109, 40, 217, .28);
         }
+        /* Additive engine-tag row in the modal (Universal [+ extension]). */
+        .modal-engines { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
         /* "Edit a built scenario" dropdown in the Authoring & Engine section. */
         .edit-built-select {
             margin: 0 2px;
@@ -813,6 +816,10 @@
             <p class="section-tool">
                 <i class="fa-solid fa-universal-access" aria-hidden="true"></i>
                 <span><a href="a11y-audit.html">Accessibility audit</a> — a code-level review of every prototype in this collection: what each uses (video, AI chat, drag, TTS…), the main compliance concerns, remediation effort, and what to change.</span>
+            </p>
+            <p class="section-tool">
+                <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                <span>Earlier per-type builds — the standalone Marshall, Branching, Guided, Mix, Ensemble &amp; Scene-Sweep pages that predate the universal engine — now live in a frozen, self-contained <a href="archive/2026-08-04/index.html">browsable snapshot (Aug&nbsp;4,&nbsp;2026)</a>. Each type runs live above via the universal player; every past version also stays permanent in git history.</span>
             </p>
         </section>
 
@@ -1349,7 +1356,7 @@
             title: 'The Call from Home',
             example: 'Responding to Bullying · JEDU-00422',
             engine: 'Universal engine · multi-character cast',
-            gridEngine: 'Universal engine',   // multi-character is native — no extension
+            gridEngine: 'Universal',
             thumb: 'thumbnails/ensemble-arc-live.svg',
             poc: 'docs/bullying-poc.pdf',
             studioType: 'ensemble-arc',
@@ -1372,8 +1379,8 @@
             title: 'Spot the Hazard',
             example: 'Hazard Communication · RVCT-479',
             engine: 'Universal engine · perception extension',
-            gridEngine: 'Perception extension',   // the one scenario that needs an add-on engine layer (js/sim-perception.js)
-            engineExt: true,
+            gridEngine: 'Universal',
+            extension: 'Perception',   // additive: layers the perception module (js/sim-perception.js) on top of the universal engine
             thumb: 'thumbnails/scene-sweep-live.svg',
             poc: 'docs/hazcom-spot-the-hazard-poc.pdf',
             studioType: 'scene-sweep',
@@ -1397,7 +1404,7 @@
             title: 'Reading the Warning Signs',
             example: 'Workplace Violence · PS-801',
             engine: 'Universal engine · composed beats',
-            gridEngine: 'Universal engine',   // natively supported — no extension
+            gridEngine: 'Universal',
             thumb: 'thumbnails/branching-arc-live.svg',
             poc: 'docs/workplace-violence-poc-final.pdf',
             studioType: 'mix-arc',
@@ -1414,7 +1421,7 @@
             title: 'The Kendra Situation',
             example: 'AlcoholEdu for College · JEDU-01015',
             engine: 'Universal engine · composed beats',
-            gridEngine: 'Universal engine',   // natively supported — no extension
+            gridEngine: 'Universal',
             thumb: 'thumbnails/action-practice.png',
             studioType: 'mix-arc',
             desc: [
@@ -1430,7 +1437,7 @@
             title: 'The Marshall Scenario',
             example: 'Harassment Prevention · JCOM-40198',
             engine: 'Universal engine · composed beats',
-            gridEngine: 'Universal engine',   // natively supported — no extension
+            gridEngine: 'Universal',
             thumb: 'thumbnails/marshall-live.svg',
             studioType: 'mix-arc',
             desc: [
@@ -1462,7 +1469,7 @@
             title: 'Scene Analysis',
             example: 'Hazardous Materials · scene size-up',
             engine: 'Universal engine · composed beats',
-            gridEngine: 'Universal engine',
+            gridEngine: 'Universal',
             thumb: 'thumbnails/hazmat-scene-practice.png',
             studioType: 'mix-arc',
             desc: [
@@ -1501,6 +1508,24 @@
             scenario: { el: 'simCards',    order: ['wpv-scenario', 'kendra-scenario', 'marshall-scenario', 'ensemble-arc', 'scene-sweep', 'scene-analysis'] },
             engine:   { el: 'engineCards', order: ['branching-arc', 'guided-arc', 'conversation-simulation', 'teach-back'] },
         };
+        // Engine tags for a schema — ADDITIVE and shared by the card grid + the
+        // detail modal. A non-legacy scenario gets a base "Universal" chip; if it
+        // also layers on an extension (s.extension, e.g. "Perception" →
+        // js/sim-perception.js) that chip is ADDED, not substituted. Engine-group
+        // demo cards set no gridEngine, so their base chip keeps the full
+        // descriptive label ("Universal engine · path-contingent branching").
+        // cls is 'sim-engine' (card) or 'modal-engine' (modal) — both carry the
+        // same is-legacy / is-extension color variants.
+        const engineTags = (s, cls) => {
+            if (!s.engine) return '';
+            const chip = (mod, icon, label) =>
+                `<span class="${cls}${mod}"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</span>`;
+            if (/Legacy/.test(s.engine)) return chip(' is-legacy', 'fa-microchip', s.gridEngine || s.engine);
+            let out = chip('', 'fa-microchip', s.gridEngine || s.engine);
+            if (s.extension) out += chip(' is-extension', 'fa-puzzle-piece', s.extension);
+            return out;
+        };
+
         const cardInner = (s) =>
             `<img class="thumb" src="${s.thumb}" alt="${s.title} — ${s.example}" loading="lazy">` +
             (hasLive(s) ? LIVE_FLAG : '') +
@@ -1508,13 +1533,11 @@
             `<span class="card-body">` +
                 `<span class="title">${s.title}</span>` +
                 `<span class="sim-example">${s.example}</span>` +
-                // Card grid shows the SHORT engine role (s.gridEngine) — "Universal
-                // engine" for the natively-supported scenarios, and the unique
-                // add-on ("Perception extension") for the one that needs an engine
-                // layer beyond the stock runtime. The modal shows the full
-                // "Universal engine · …" label. Falls back to s.engine when a
-                // schema sets no gridEngine (the engine-group demo cards).
-                (s.engine ? `<span class="sim-engine${s.engineExt ? ' is-extension' : (/Legacy/.test(s.engine) ? ' is-legacy' : '')}"><i class="fa-solid ${s.engineExt ? 'fa-puzzle-piece' : 'fa-microchip'}" aria-hidden="true"></i>${s.gridEngine || s.engine}</span>` : '') +
+                // Engine tags are ADDITIVE (see engineTags): every non-legacy
+                // scenario shows a "Universal" chip, and one that layers on an
+                // extension (Perception) shows that chip too, rather than one
+                // replacing the other.
+                (s.engine ? `<span class="sim-engines">${engineTags(s, 'sim-engine')}</span>` : '') +
             `</span>`;
         Object.keys(CARD_GROUPS).forEach((g) => {
             const cfg = CARD_GROUPS[g];
@@ -1583,15 +1606,13 @@
         function renderBody() {
             bodyEl.replaceChildren();
 
-            // Engine badge — which runtime this card runs on. The modal always
-            // shows the FULL label ("Universal engine · perception extension"),
-            // even where the card grid abbreviated it to the unique part.
+            // Engine tags — additive, same builder as the card grid (Universal
+            // [+ extension], or the single legacy chip). Composed scenarios read
+            // short; engine-group demos keep their full descriptive label.
             if (current.engine) {
                 const eng = document.createElement('div');
-                const engClass = current.engineExt ? ' is-extension' : (/Legacy/.test(current.engine) ? ' is-legacy' : '');
-                eng.className = 'modal-engine' + engClass;
-                const engIcon = current.engineExt ? 'fa-puzzle-piece' : 'fa-microchip';
-                eng.innerHTML = '<i class="fa-solid ' + engIcon + '" aria-hidden="true"></i><span>' + current.engine + '</span>';
+                eng.className = 'modal-engines';
+                eng.innerHTML = engineTags(current, 'modal-engine');
                 bodyEl.appendChild(eng);
             }
 
