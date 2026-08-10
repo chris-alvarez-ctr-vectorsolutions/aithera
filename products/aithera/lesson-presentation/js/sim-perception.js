@@ -66,25 +66,25 @@
       @keyframes pin-drop { from { opacity: 0; transform: translate(-50%,-50%) scale(.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
       .sweep-pin-ring {
         width: 52px; height: 52px; border-radius: 50%;
-        border: 3px solid #4adebe; display: grid; place-items: center;
-        box-shadow: 0 0 0 4px rgba(74,222,190,.18), 0 0 22px rgba(74,222,190,.5);
+        border: 3px solid #3cbfae; display: grid; place-items: center;
+        box-shadow: 0 0 0 4px rgba(60,191,174,.18), 0 0 22px rgba(60,191,174,.5);
         animation: pin-pulse 1.8s ease-in-out infinite;
       }
       @keyframes pin-pulse {
-        0%,100% { box-shadow: 0 0 0 4px rgba(74,222,190,.18), 0 0 22px rgba(74,222,190,.5); }
-        50%     { box-shadow: 0 0 0 8px rgba(74,222,190,.05), 0 0 30px rgba(74,222,190,.72); }
+        0%,100% { box-shadow: 0 0 0 4px rgba(60,191,174,.18), 0 0 22px rgba(60,191,174,.5); }
+        50%     { box-shadow: 0 0 0 8px rgba(60,191,174,.05), 0 0 30px rgba(60,191,174,.72); }
       }
-      .sweep-pin-ring .n { width: 25px; height: 25px; border-radius: 50%; background: #4adebe; color: #07221c; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+      .sweep-pin-ring .n { width: 25px; height: 25px; border-radius: 50%; background: #3cbfae; color: #07221c; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
       .sweep-pin-label {
         padding: 3px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 700;
-        background: rgba(7,34,28,.92); border: 1px solid rgba(74,222,190,.5);
+        background: rgba(7,34,28,.92); border: 1px solid rgba(60,191,174,.5);
         color: #d9fff5; white-space: nowrap; max-width: 42vw; overflow: hidden; text-overflow: ellipsis;
       }
       @media (prefers-reduced-motion: reduce) { .sweep-pin, .sweep-pin-ring { animation: none; } }
       .sweep-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
       .sweep-region { pointer-events: auto; cursor: crosshair; fill: rgba(0,0,0,.001); stroke: transparent; stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke; outline: none; transition: fill .18s var(--ease), stroke .18s var(--ease); }
-      .sweep-region:focus-visible { fill: rgba(74,222,190,.16); stroke: #fff; stroke-width: 3px; stroke-dasharray: 5 4; }
-      .sweep-region.got { fill: rgba(74,222,190,.20); stroke: #4adebe; }
+      .sweep-region:focus-visible { fill: rgba(60,191,174,.16); stroke: #fff; stroke-width: 3px; stroke-dasharray: 5 4; }
+      .sweep-region.got { fill: rgba(60,191,174,.20); stroke: #3cbfae; }
       .sweep-region.got:focus-visible { stroke: #fff; }
       .sweep-region.decoy.checked { fill: rgba(255,255,255,.08); stroke: rgba(255,255,255,.6); stroke-dasharray: 6 4; }
       .app.sweep:not([data-mode="scene"]) .sweep-svg { pointer-events: none; }
@@ -118,7 +118,7 @@
       .sweep-ft-input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 13.5px; }
       .sweep-ft-input::placeholder { color: rgba(255,255,255,.5); }
       .sweep-ft-btn, .sweep-region-btn { font: inherit; cursor: pointer; }
-      .sweep-ft-btn { flex: none; padding: 0 15px; border-radius: 9px; border: 0; background: #4adebe; color: #06231d; font-weight: 800; font-size: 13px; }
+      .sweep-ft-btn { flex: none; padding: 0 15px; border-radius: 9px; border: 0; background: #3cbfae; color: #06231d; font-weight: 800; font-size: 13px; }
       .sweep-ft-hint { font-size: 12px; color: rgba(255,255,255,.62); margin: 2px 0 0; line-height: 1.45; }
       .sweep-region-list { display: flex; flex-direction: column; gap: 8px; }
       .sweep-region-btn {
@@ -127,10 +127,10 @@
         background: rgba(255,255,255,.05); color: #fff; font-size: 13px; line-height: 1.4;
       }
       .sweep-region-btn:hover { background: rgba(255,255,255,.1); }
-      .sweep-region-btn:focus-visible { outline: 2px solid #4adebe; outline-offset: 2px; }
+      .sweep-region-btn:focus-visible { outline: 2px solid #3cbfae; outline-offset: 2px; }
       .sweep-region-btn .ic { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: rgba(255,255,255,.12); }
-      .sweep-region-btn[aria-pressed="true"] { border-color: #4adebe; background: color-mix(in srgb, #4adebe 20%, transparent); }
-      .sweep-region-btn[aria-pressed="true"] .ic { background: #4adebe; color: #06231d; }
+      .sweep-region-btn[aria-pressed="true"] { border-color: #3cbfae; background: color-mix(in srgb, #3cbfae 20%, transparent); }
+      .sweep-region-btn[aria-pressed="true"] .ic { background: #3cbfae; color: #06231d; }
       .sweep-region-btn.is-checked { border-color: rgba(255,255,255,.4); opacity: .82; }
       .sweep-toast {
         position: absolute; left: 50%; top: 76px; transform: translateX(-50%) translateY(-6px);
@@ -151,10 +151,10 @@
         border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 8px 16px;
       }
       .sweep-progress .lbl { font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
-      .sweep-progress .lbl i { color: #4adebe; }
+      .sweep-progress .lbl i { color: #3cbfae; }
       .sweep-progress .dots { display: inline-flex; gap: 6px; }
       .sweep-progress .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.2); transition: background .3s var(--ease), transform .3s var(--ease); }
-      .sweep-progress .dot.on { background: #4adebe; transform: scale(1.12); }
+      .sweep-progress .dot.on { background: #3cbfae; transform: scale(1.12); }
       .sweep-cta-wrap {
         position: absolute; left: 0; right: 0; bottom: 26px; z-index: 4;
         display: flex; flex-direction: column; align-items: center; gap: 10px;

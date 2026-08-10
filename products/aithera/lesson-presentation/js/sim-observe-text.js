@@ -65,7 +65,7 @@
         background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
         border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
         padding: 6px 13px; font-size: 12.5px; font-weight: 600; }
-      .obt-photo-cap i { color: #4adebe; }
+      .obt-photo-cap i { color: #3cbfae; }
 
       /* The notes panel — a light inspector card on the dark stage. */
       .obt-panel { position: relative; display: flex; flex-direction: column;

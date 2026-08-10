@@ -80,9 +80,9 @@
   .closing-step.is-done .mark { border-color: var(--c-accent); background: var(--c-accent); color: #fff; }
   /* —— report sections (inside the results modal) —— */
   .report-section h3 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 9px; color: var(--c-ink); }
-  .report-section h3 i { color: var(--accent-color, #16a34a); }
-  .report-section.growth { --accent-color: #d97706; }
-  .report-section.playbook { --accent-color: #2563eb; }
+  .report-section h3 i { color: var(--accent-color, #158444); }
+  .report-section.growth { --accent-color: #e0782e; }
+  .report-section.playbook { --accent-color: #0271ce; }
   /* —— resources / report item lists —— */
   .coach-msg.wide-msg { max-width: 92%; }
   .resources-bubble { white-space: normal; }
