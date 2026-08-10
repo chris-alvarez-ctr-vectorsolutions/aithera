@@ -159,7 +159,10 @@
 .fm-drawer-body{flex:1;overflow-y:auto;padding:16px 20px;}\
 .fm-ann{background:#1f2338;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px 13px;margin-bottom:10px;}\
 .fm-ann .meta{font-size:11px;color:#8e93c4;display:flex;justify-content:space-between;margin-bottom:5px;}\
-.fm-ann .txt{font-size:13px;color:#e6e8f5;line-height:1.5;white-space:pre-wrap;}\
+.fm-ann .txt{font-size:13px;color:#e6e8f5;line-height:1.55;white-space:pre-wrap;}\
+.fm-ann-date{font-size:10.5px;color:#7a80a8;font-weight:700;letter-spacing:.04em;margin-bottom:5px;}\
+.fm-ann .txt strong{color:#fff;font-weight:700;}\
+.fm-ann .txt code{background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px;color:#cdd1f0;font-size:12px;}\
 .fm-ann .ops{display:flex;gap:12px;margin-top:8px;}\
 .fm-ann .ops button{border:none;background:none;color:#9aa0cf;font:700 11px/1 inherit;cursor:pointer;}\
 .fm-ann .ops button:hover{color:#fff;}\
@@ -383,7 +386,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       '<div class="fm-drawer-head"><button class="x" data-dclose="1">' + ICON_X + '</button>' +
         '<div class="k">' + NOTES_TITLE + '</div><h3 class="fm-dtitle"></h3></div>' +
       '<div class="fm-drawer-body"></div>' +
-      '<div class="fm-composer"><div class="fm-source">' + ICON_FILE + ' Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>' +
+      '<div class="fm-composer">' + (COMMENTS_ON ? '' : '<div class="fm-source">' + ICON_FILE + ' Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>') +
         '<div class="row"><button class="fm-btn ghost" data-dclose="1">Close</button></div></div>';
     overlay.appendChild(drawer);
 
@@ -552,12 +555,19 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     var list = annsFor(drawerNode);
     if (!list.length) { body.innerHTML = '<div class="fm-empty">No ' + NOTE_UNIT + 's for this step yet.<br>Add them to <code>DEV-NOTES.md</code> under <code>## ' + esc(drawerNode) + '</code> and they’ll show here.</div>'; return; }
     body.innerHTML = list.map(function (a) {
-      var date = a.date ? '<span>' + esc(a.date) + '</span>' : '';
-      return '<div class="fm-ann"><div class="meta"><span>' + esc(a.author || 'Design handoff') + '</span>' + date + '<span>📝 ' + NOTE_UNIT + '</span></div>' +
-        '<div class="txt">' + esc(a.text) + '</div></div>';
+      var date = a.date ? '<div class="fm-ann-date">' + esc(a.date) + '</div>' : '';
+      return '<div class="fm-ann">' + date + '<div class="txt">' + mdInline(a.text) + '</div></div>';
     }).join('');
   }
   function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  // Minimal, SAFE inline markdown for note text: HTML-escape first, then render
+  // **bold** and `code` only. Keeps a long notes list scannable without opening
+  // an XSS hole (no raw HTML ever reaches innerHTML).
+  function mdInline(s) {
+    return esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
 
   // ---- open live / view comments -------------------------------------------
   function openLive(id) {

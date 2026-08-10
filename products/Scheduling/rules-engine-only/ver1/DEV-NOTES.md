@@ -1,4 +1,3 @@
-> author: Design (in-progress)
 > date: 2026-08-10
 
 <!-- Running notes, one section per flow-map node (## <node-id>). Each bullet is a
