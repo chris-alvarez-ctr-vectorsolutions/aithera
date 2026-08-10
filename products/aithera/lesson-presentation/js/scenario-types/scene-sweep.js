@@ -317,6 +317,13 @@
 
   function compile(s) {
     const L = s.learnerName || 'you';
+    // TEXT-OBSERVATION variant (scenario-live.html?observe=text): the learner
+    // TYPES findings and is HANDED BACK to look again — there is no scene to tap —
+    // so the coach must NOT nudge toward hazard zones in chat (that gives the
+    // answers away). Flips the Observe-beat instructions to a credit-and-hand-back
+    // model. The canvas build (no ?observe) keeps the zone-nudge behavior.
+    const TEXT_MODE = (typeof location !== 'undefined' && location.search)
+      ? new URLSearchParams(location.search).get('observe') === 'text' : false;
     const course = fill(s.course, s) || 'training';
     const voice = obj(s.voice);
     const refl = obj(s.reflection);
@@ -371,10 +378,13 @@ FOR THIS MODULE:
 
     // 4) The rubric (tagged object list).
     if (hazards.length) {
-      parts.push('THE OBSERVABLE-HAZARD RUBRIC — the ONLY hazards in the scene and the ONLY ones you credit. For each: its id, what it is, WHERE it is (use the zone for spatial nudges), and phrasings to accept:\n\n' +
+      parts.push('THE OBSERVABLE-HAZARD RUBRIC — the ONLY hazards in the scene and the ONLY ones you credit. For each: its id, what it is, ' + (TEXT_MODE ? '' : 'WHERE it is (use the zone for spatial nudges), ') + 'and phrasings to accept:\n\n' +
         hazards.map((h) => {
-          const lines = [`[${h.id}] ${fill(h.short, s)} — ${fill(h.zone, s)}`];
-          if (String(h.alt || '').trim()) lines.push(`  · Visible as (what's on screen): ${fill(h.alt, s)}`);
+          // TEXT MODE omits the zone + the on-screen "Visible as" line: the coach
+          // must not tell the learner WHERE a miss is, so it isn't given the
+          // location strings it would otherwise parrot back.
+          const lines = [`[${h.id}] ${fill(h.short, s)}` + (TEXT_MODE ? '' : ' — ' + fill(h.zone, s))];
+          if (!TEXT_MODE && String(h.alt || '').trim()) lines.push(`  · Visible as (what's on screen): ${fill(h.alt, s)}`);
           if (String(h.full || '').trim()) lines.push(`  · What: ${fill(h.full, s)}`);
           if (String(h.synonyms || '').trim()) lines.push(`  · Credit phrasings like: ${fill(h.synonyms, s)}`);
           if (String(h.fix || '').trim()) lines.push(`  · Right-now fix (Diagnose & Remediate beat): ${fill(h.fix, s)}`);
@@ -423,7 +433,9 @@ FOR THIS MODULE:
         ? ' Set "action":"teach" with the tier, then COMPLETE this same turn: complete:true with the report (see COMPLETION).'
         : ' Set "action":"teach" with the tier — the app advances and shows the next locked hand-off; never preview it.';
       const spotNote = p.kind === 'spot'
-        ? ' Each turn, CREDIT every real catch (name it in standard terms) and set "spotted" to the cumulative ids; if hazards remain and you have a nudge left, point to the ZONE of a miss without naming it, and set "action":"continue".'
+        ? (TEXT_MODE
+          ? ' Each turn, CREDIT GENEROUSLY every hazard the learner clearly names — ignore spelling/typos, and do NOT require them to say WHY it is dangerous yet — and set "spotted" to the cumulative ids. If hazards remain, do NOT name, describe, or point to where any UNspotted hazard is: give a brief hand-off (credit what they caught + the count so far, e.g. "that\'s 2 of 4"), set "action":"continue", and end WITHOUT a question — the app sends the learner back to look again. Close only once the coverage target is met.'
+          : ' Each turn, CREDIT every real catch (name it in standard terms) and set "spotted" to the cumulative ids; if hazards remain and you have a nudge left, point to the ZONE of a miss without naming it, and set "action":"continue".')
         : '';
       arcParts.push(
 `BEAT ${i + 1} · ${fill(p.label || p.id, s).toUpperCase()} (${fill(p.level || '', s)}) — up to ${cap} learner turns:
@@ -452,13 +464,29 @@ FOR THIS MODULE:
     // 8b) The grounding floor.
     parts.push(GROUNDING_SECTION.text());
 
+    // 8c) TEXT-OBSERVATION override — highest-priority restatement, since the
+    // learner types and is handed back rather than tapping the scene.
+    if (TEXT_MODE) {
+      parts.push(
+`TEXT-OBSERVATION MODE — OVERRIDES all "nudge toward the zone" guidance above. The learner types and is sent back to look again; they cannot tap the scene.
+RULE: until the coverage target is met, NEVER tell the learner where to look or what they are missing. Do NOT name, describe, or point to ANY object, area, person, or paper tied to a hazard they have NOT already flagged.
+Each incomplete Observe turn has exactly two parts: (1) warmly credit what they DID catch, in standard terms — typos/rough wording are fine, and an "ooh, close" if a note was near but not a clear hazard; (2) ONE short hand-off line: the count so far plus "take another look", ending in a period.
+SAY exactly this shape → "Nice — that's 1 of ${hazards.length}. Take another look and see what else you notice."
+NEVER do this → "take another look at the bench / the jug / the drum / your coworker / the paperwork" — listing places or objects hands them the answers.
+Reveal the misses ONLY in the debrief, after the coverage target is met.`);
+    }
+
     // 9) Behavioral rules.
     parts.push('BEHAVIORAL RULES:\n' + [
       'Reflection feedback is calibration ONLY — acknowledge, never credit hazards or evaluate.',
       'CREDIT before correcting: name what the learner caught in standard terms before pointing them on.',
-      'NUDGE toward WHERE to look (the zone), never toward WHAT is there. Reveal a missed hazard only at the Observe debrief (the app shows the full rubric).',
+      (TEXT_MODE
+        ? 'HAND BACK, do NOT hunt in chat: while any hazard is unspotted, never name, describe, or locate one the learner has not flagged — not even its zone. Credit what they caught, give the count, and send them back to look again. Reveal misses only at the debrief, once the target is met.'
+        : 'NUDGE toward WHERE to look (the zone), never toward WHAT is there. Reveal a missed hazard only at the Observe debrief (the app shows the full rubric).'),
       'Only credit hazards in the rubric; never invent one, and never credit "messy"/"cluttered" as a red flag.',
-      'A "continue" turn ends with a question or a clear look-again nudge that hands the turn back — never a bare statement.',
+      (TEXT_MODE
+        ? 'During Observe, a "continue" turn is a HAND-OFF STATEMENT (credit + count + go look again), NOT a question — the app returns the learner to the scene.'
+        : 'A "continue" turn ends with a question or a clear look-again nudge that hands the turn back — never a bare statement.'),
       'NEVER ask/nudge AND close the beat in the same turn. A turn that ends open is "continue"; only a landing turn closes.',
       'Open each debrief with the exact "talk it through" line for that beat.',
       'Every "teach" carries an honest "tier"; during Observe every turn carries the cumulative "spotted" ids.',

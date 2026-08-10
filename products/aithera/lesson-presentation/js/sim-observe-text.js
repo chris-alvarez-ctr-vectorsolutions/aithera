@@ -53,7 +53,7 @@
 
       .obt-scene { position: absolute; inset: 0; }
       .obt-stage { position: absolute; inset: 0; background: #0b0d12; overflow: hidden;
-        display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr); }
+        display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
       /* The photo — a plain reference. No overlay, no tap targets, no geometry. */
       .obt-photo-wrap { position: relative; overflow: hidden; }
       .obt-photo { position: absolute; inset: 0; width: 100%; height: 100%;
@@ -78,6 +78,16 @@
       .obt-count { display: inline-block; margin-top: 12px; font-size: 12px; font-weight: 700;
         color: var(--c-ink-faint); }
       .obt-count b { color: var(--c-ink); }
+      /* Coach-graded coverage meter — how many of the fixed set have been found. */
+      .obt-meter { display: flex; align-items: center; gap: 11px; margin-top: 13px; }
+      .obt-meter-pips { display: flex; gap: 5px; }
+      .obt-pip { width: 22px; height: 7px; border-radius: 4px; background: var(--c-line); transition: background .3s var(--ease); }
+      .obt-pip.on { background: #2ecc71; }
+      .obt-meter-txt { font-size: 12.5px; font-weight: 700; color: var(--c-ink-faint); }
+      .obt-meter-txt b { color: #1f9d57; font-size: 14px; }
+      /* The coach hand-back uses ONLY the single "look again" CTA — hide the shared
+         "Or answer your coach here" secondary that pairs with it on the canvas. */
+      .app.observe-text #lookAgainType { display: none !important; }
 
       /* Body: input(s) + the running notes, scrolls within the panel. */
       .obt-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; }
@@ -206,6 +216,7 @@
     const SPOT_PHASE_ID = ((scenario.phases || []).find((p) => p.kind === 'spot') || {}).id || '';
     const SPOT_PHASE_IDX = (scenario.phases || []).findIndex((p) => p.id === SPOT_PHASE_ID);
     const RAIL_TOTAL = (COVERAGE && COVERAGE.total) || HAZARDS.length;
+    const REQUIRED = (COVERAGE && COVERAGE.required) || Math.max(1, HAZARDS.length - 1);
 
     const OBSERVE = (scenario.observe && typeof scenario.observe === 'object') ? scenario.observe : {};
     const URL_INPUT = new URLSearchParams(location.search).get('input');
@@ -327,13 +338,21 @@
       const list = collect();
       const n = list.length;
 
+      // The meter is COACH-GRADED coverage (state.covered), not a raw note count —
+      // it climbs as the coach confirms catches across look-again passes, so it's
+      // always honest. The title states the fixed target so the goal is explicit.
+      const covered = coveredCount();
       const headTitle = MODE === 'slots'
         ? esc(OBSERVE.slotsPrompt || ('Find the ' + SLOT_COUNT + ' hazards in this scene'))
-        : 'What looks unsafe?';
+        : ('Find the ' + RAIL_TOTAL + ' hazards in this scene');
       const headSub = MODE === 'slots'
-        ? 'Write one thing you notice per line. You’ll review them with your coach next.'
-        : 'Jot down everything that looks off — one thing at a time. You’ll talk it through with your coach next.';
-      const countHtml = n ? `<span class="obt-count"><b>${n}</b> noted</span>` : '';
+        ? 'Write one per line — spelling doesn’t matter. Your coach confirms each one when you review.'
+        : 'Note anything that looks unsafe — spelling doesn’t matter. Your coach confirms each catch when you review.';
+      const meterHtml =
+        `<div class="obt-meter" aria-live="polite">
+           <span class="obt-meter-pips">${Array.from({ length: RAIL_TOTAL }, (_, i) => `<span class="obt-pip ${i < covered ? 'on' : ''}"></span>`).join('')}</span>
+           <span class="obt-meter-txt"><b>${covered}</b> of ${RAIL_TOTAL} found</span>
+         </div>`;
 
       const nudgeHtml = hintMsg
         ? `<div class="obt-nudge"><i class="fa-solid fa-circle-info"></i> <span>${esc(hintMsg)}</span></div>`
@@ -359,7 +378,6 @@
                placeholder="${esc(PLACEHOLDER)}" aria-label="Describe what looks unsafe" />
              <button class="obt-add-btn" type="submit"><i class="fa-solid fa-plus"></i> Add</button>
            </form>
-           <p class="obt-add-hint">One thing at a time — add as many as you spot.</p>
            <ul class="obt-notes">${items}</ul>`;
       }
 
@@ -371,8 +389,8 @@
         `<div class="obt-panel-head">
            <p class="obt-eyebrow">Observe · beat 1</p>
            <h2 class="obt-title">${headTitle}</h2>
+           ${meterHtml}
            <p class="obt-sub">${headSub}</p>
-           ${countHtml}
          </div>
          <div class="obt-body">${nudgeHtml}${bodyHtml}</div>
          <div class="obt-foot">${footHtml}</div>`;
@@ -458,18 +476,29 @@
       render();
     }
 
-    /* ---- the per-turn COVERAGE state block for the spot phase — verbatim from
-       the canvas; sim-player.js folds it into the coach prompt. ---- */
+    /* ---- the per-turn COVERAGE state block for the spot phase. This is the
+       authoritative [SYSTEM STATE] line the coach must obey, and it steers the
+       TEXT version's whole Observe behavior: credit generously on the spot (no
+       zone-hunting in chat), then HAND BACK to the activity until the target is
+       met — never giving the misses away. Distinct from the canvas coverageBlock,
+       which enumerates zones to nudge tapping. ---- */
     function coverageBlock(p) {
       if (!(p && p.kind === 'spot' && HAZARDS.length)) return '';
-      const remaining = HAZARDS.filter((h) => !state.covered.has(h.id));
-      const spotN = HAZARDS.length - remaining.length;
-      return ' COVERAGE: ' + spotN + '/' + (COVERAGE.total || HAZARDS.length)
-        + ' spotted (target ' + (COVERAGE.required || HAZARDS.length) + ').'
-        + (remaining.length
-            ? ' Still unspotted — nudge toward these ZONES without naming them: '
-              + remaining.map((h) => '[' + h.id + '] ' + fillT(h.zone)).join('; ') + '.'
-            : ' All hazards spotted — credit the last one and close the beat.');
+      const spotN = HAZARDS.filter((h) => state.covered.has(h.id)).length;
+      const target = COVERAGE.required || HAZARDS.length;
+      const base = ' [OBSERVE — TEXT MODE] The learner TYPED their observations. Credit GENEROUSLY:'
+        + ' any clear reference to a rubric hazard counts — ignore spelling and typos, and do NOT'
+        + ' require them to explain WHY it is dangerous yet. Set "spotted" to the cumulative ids.'
+        + ' Spotted so far: ' + spotN + ' of ' + HAZARDS.length + ' (target ' + target + ').';
+      if (spotN >= target) {
+        return base + ' TARGET MET — stop looping and deliver the debrief now: "action":"teach".';
+      }
+      return base + ' MORE REMAIN. Do NOT name, describe, quote, or hint at any hazard they have'
+        + ' NOT yet flagged, and do NOT say where to look. In 1–2 short bubbles: warmly credit what'
+        + ' they just caught (a quick "ooh, close" if a note was near but not a clear hazard), tell'
+        + ' them the count so far (' + spotN + ' of ' + HAZARDS.length + '), and send them back to'
+        + ' take another look. End with "action":"continue" — the app returns them to the scene.'
+        + ' Do NOT ask a question and do NOT debrief yet.';
     }
 
     /* ---- the coach-panel coverage rail — filled by the coach's grading ---- */
@@ -523,11 +552,13 @@
       crossToReact,
       nudgeFindFirst,
       observationCount: () => collect().length,
+      needsMore: () => coveredCount() < REQUIRED,   // target not yet met → coach hands back
       // The coach's credited catches (turn.spotted) — the ONLY thing that fills
-      // state.covered now, since there is no client grading.
+      // state.covered now, since there is no client grading. Refresh both the coach
+      // rail and the Observe meter so the count is live across look-again passes.
       creditSpotted: (ids) => {
         (ids || []).forEach((id) => { if (HAZARD_IDS.has(id)) state.covered.add(id); });
-        updateCoachRail();
+        updateCoachRail(); renderPanel();
       },
       unspottedCount: () => HAZARDS.filter((h) => !state.covered.has(h.id)).length,
       closeA11yPanel: () => {},
@@ -588,13 +619,21 @@
           return true;
         },
 
-        // NO look-again CTA. That amber "Look at the scene again" + "Or answer
-        // your coach here" pairing is a CANVAS-ism — it exists so the click
-        // version can push the learner back to tap the photo instead of chatting.
-        // In the text version the learner just answers the coach in the normal
-        // composer (same as every conversational scenario), and the top Observe
-        // toggle still returns them to the notes panel to add more. Omitting `cta`
-        // makes the shared player fall back to the standard composer.
+        // The coach HANDS BACK to the activity until the target is met: while
+        // hazards remain, the composer is replaced by a single "look again" CTA
+        // that returns the learner to the notes panel (the coverageBlock tells the
+        // coach to make a hand-off statement, not ask a question). Once the target
+        // is met, this hides → the normal composer returns and the coach debriefs.
+        // We show ONLY this one CTA — the shared "Or answer your coach here"
+        // secondary is hidden via CSS (.app.observe-text #lookAgainType), so the
+        // dual-pill funk doesn't come back.
+        cta: {
+          lookAgain: (st) => st.coachStarted && st.mode === 'coaching'
+            && !st.complete && !st.delivering && !st.sending && !st.analyzing
+            && !st.awaitingDebrief && !st.awaitingResults && !st.awaitingReturn
+            && st.phaseIdx === P.spotPhaseIndex && P.needsMore(),
+          onLookAgain: () => P.enterObserve(),
+        },
       };
     },
   });
