@@ -156,7 +156,14 @@ Sub-versions use a dotted folder, e.g. `ver2.x/index.html` with `{ "id": "ver2x"
 
 **Paths inside a version file:** because every version file sits at `products/<Product>/<feature>/verN/index.html` (four levels below the repo root), any repo-root asset it references resolves at `../../../../` — e.g. the Design Toolbox include is `<script src="../../../../designtoolbox/toolbox.js"></script>`. Required Core/Themes/font/icon resources are already in `base-template/version.html`'s header (absolute CDN URLs).
 
-**Moving, renaming, or restructuring a mock (including moving pages into `verN/`):** the dashboards and landing page render links straight from `products.json`, so **update every affected `rel` (and any `versions.json` path) in the SAME commit** — otherwise the card's link 404s on the live site while the card itself still renders. `scripts/check-catalog-links.js` enforces this (pre-commit Guard A2 + the check-mock-structure CI workflow): it fails on any `products.json` rel or `versions.json` path that doesn't resolve to a real file. Comments relink automatically in CI on renames (`.github/workflows/relink-comments.yml`). One thing no guard can fix: **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
+**Moving, renaming, or restructuring a mock (including moving pages into `verN/`):** the dashboards and landing page render links straight from `products.json`, so every affected `rel` (and any `versions.json` path) must follow the file. **When YOU (Claude) move or rename a mock, do the catalog update yourself in the same change — update the `rel`s and `versions.json` paths as part of the rename, don't leave it for the designer.** The team does not hand-edit `products.json`, so treat the catalog update as part of "renaming," not a separate step.
+
+As a backstop, a rename now **self-heals automatically** — nobody's commit is blocked for forgetting it:
+- **On commit** (local pre-commit hook, Guard A2, if `node` is present): `scripts/relink-catalog.js --staged` follows the staged rename, rewrites the `products.json` rel / `versions.json` path, and re-stages it INTO the commit being made. Then `scripts/check-catalog-links.js --warn-only` prints — but never blocks on — anything a rename can't explain (a hand-typed path, a deletion, a move across product folders).
+- **On push** (CI, `.github/workflows/dashboards.yml`): the same `relink-catalog.js` runs over the pushed range and commits the fix back on the silent `[skip ci]` bot commit — this covers pushes from machines with no hook / no `node` (e.g. GitHub Desktop).
+- Comments relink separately in CI on renames (`.github/workflows/relink-comments.yml`).
+
+So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
 
 ## Dev Handoff Process
 
@@ -166,8 +173,12 @@ The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev
 
 ### Step 0 — Pick the version FIRST (before anything else)
 
-Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then — if there is **more than one** — **stop and ask the designer which version to hand off** (name them by their `label`, e.g. "V1 or V2?"). We almost always launch only one, so the handoff should not carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then:
 
+- **Exactly ONE version (or a legacy flat mock, which becomes `ver1`): do NOT ask — proceed silently with that version.** One version means the choice is already made; asking "which version?" when there's only one is noise. This is the common case — most mocks launch a single version — so the handoff should run start-to-finish without a version question.
+- **More than one version: STOP and ask** which to hand off (name them by their `label`, e.g. "V1 or V2?"), so the handoff doesn't carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+
+Details for the two cases:
 - If they keep **one** version, build the handoff from that version's file.
 - If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
 - Never guess which version to keep or what to call them.

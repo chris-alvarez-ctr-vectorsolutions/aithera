@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Map Test — Assign Training</title>
+
+    <!-- Vector Web Components -->
+    <script
+      type="module"
+      src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <!-- Vector themes (import as a plain script) -->
+    <script
+      src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <!-- Open Sans -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+    <!-- Font Awesome 6 PRO (self-hosted, depth-relative) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+
+    <style>
+        :root {
+            --page-bg: #f4f6fb;
+            --card-bg: #ffffff;
+            --ink: #1b2436;
+            --ink-soft: #55617a;
+            --line: #e2e7f0;
+            --brand: #0b56fc;
+            --brand-soft: #e8effe;
+            --ok: #158444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Open Sans", system-ui, -apple-system, sans-serif;
+            color: var(--ink);
+            background: var(--page-bg);
+        }
+
+        /* ---- App shell ---- */
+        .topbar {
+            height: 56px;
+            background: #0b1b3a;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+        }
+        .topbar .logo {
+            font-weight: 700;
+            letter-spacing: .2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .topbar .logo i { color: #66a3ff; }
+        .topbar .spacer { flex: 1; }
+        .topbar .who {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; opacity: .9;
+        }
+        .topbar .who .avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: #274a86; display: grid; place-items: center;
+            font-size: 12px; font-weight: 700;
+        }
+
+        .wrap {
+            max-width: 960px;
+            margin: 28px auto;
+            padding: 0 20px;
+        }
+
+        /* Progress rail across the flow */
+        .rail {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 22px;
+        }
+        .rail .dot {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: var(--ink-soft);
+            white-space: nowrap;
+        }
+        .rail .dot .num {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #fff; border: 2px solid var(--line);
+            display: grid; place-items: center;
+            font-size: 12px; font-weight: 700; color: var(--ink-soft);
+        }
+        .rail .dot.active .num { background: var(--brand); border-color: var(--brand); color: #fff; }
+        .rail .dot.done .num { background: var(--ok); border-color: var(--ok); color: #fff; }
+        .rail .dot.active { color: var(--ink); font-weight: 600; }
+        .rail .bar { flex: 1; height: 2px; background: var(--line); min-width: 16px; }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04);
+        }
+        h1.view-title { font-size: 22px; margin: 0 0 4px; }
+        p.view-sub { margin: 0 0 20px; color: var(--ink-soft); font-size: 14px; }
+
+        /* Course list (landing) */
+        .course {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: border-color .12s, background .12s;
+        }
+        .course:hover { border-color: var(--brand); background: var(--brand-soft); }
+        .course .thumb {
+            width: 44px; height: 44px; border-radius: 8px;
+            background: var(--brand-soft); color: var(--brand);
+            display: grid; place-items: center; font-size: 18px;
+            flex: none;
+        }
+        .course .meta { flex: 1; }
+        .course .meta .name { font-weight: 600; }
+        .course .meta .sub { font-size: 12.5px; color: var(--ink-soft); }
+        .course .chev { color: var(--ink-soft); }
+
+        /* Form rows */
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+        .field-grid .full { grid-column: 1 / -1; }
+        .learners {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+        }
+        .pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--brand-soft); color: var(--brand);
+            border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600;
+        }
+
+        /* Review list */
+        .kv { display: grid; grid-template-columns: 160px 1fr; gap: 10px 16px; font-size: 14px; }
+        .kv dt { color: var(--ink-soft); }
+        .kv dd { margin: 0; font-weight: 600; }
+
+        /* Confirmation */
+        .done-wrap { text-align: center; padding: 20px 0 8px; }
+        .done-wrap .check {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: #e7f6ed; color: var(--ok);
+            display: grid; place-items: center; margin: 0 auto 16px;
+            font-size: 34px;
+        }
+        .done-wrap h1 { font-size: 22px; margin: 0 0 6px; }
+        .done-wrap p { color: var(--ink-soft); margin: 0 0 20px; }
+
+        .foot {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 24px; gap: 12px;
+        }
+        .foot .right { display: flex; gap: 10px; margin-left: auto; }
+
+        /* View switching */
+        .view { display: none; }
+        .view.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- ===== App shell ===== -->
+    <header class="topbar">
+        <span class="logo"><i class="fa-solid fa-shield-halved"></i> SafeLMS</span>
+        <span class="spacer"></span>
+        <span class="who">
+            <span>Jordan Avery</span>
+            <span class="avatar">JA</span>
+        </span>
+    </header>
+
+    <main class="wrap">
+        <!-- Progress rail -->
+        <nav class="rail" aria-label="Progress">
+            <span class="dot" data-step="land"><span class="num">1</span> Choose course</span>
+            <span class="bar"></span>
+            <span class="dot" data-step="assign"><span class="num">2</span> Assign learners</span>
+            <span class="bar"></span>
+            <span class="dot" data-step="review"><span class="num">3</span> Review</span>
+            <span class="bar"></span>
+            <span class="dot" data-step="done"><span class="num">4</span> Done</span>
+        </nav>
+
+        <!-- ===== Screen 1: Course catalog (entry) ===== -->
+        <section class="view" id="view-land">
+            <div class="card">
+                <h1 class="view-title">Assign Training</h1>
+                <p class="view-sub">Pick a course to assign to your team.</p>
+
+                <div class="course" data-goto="assign">
+                    <span class="thumb"><i class="fa-solid fa-helmet-safety"></i></span>
+                    <span class="meta">
+                        <div class="name">Fall Protection &amp; Working at Heights</div>
+                        <div class="sub">45 min · Compliance · Renewal due yearly</div>
+                    </span>
+                    <i class="fa-solid fa-chevron-right chev"></i>
+                </div>
+                <div class="course" data-goto="assign">
+                    <span class="thumb"><i class="fa-solid fa-fire-extinguisher"></i></span>
+                    <span class="meta">
+                        <div class="name">Fire Safety Essentials</div>
+                        <div class="sub">30 min · Compliance · Renewal due yearly</div>
+                    </span>
+                    <i class="fa-solid fa-chevron-right chev"></i>
+                </div>
+                <div class="course" data-goto="assign">
+                    <span class="thumb"><i class="fa-solid fa-hand-dots"></i></span>
+                    <span class="meta">
+                        <div class="name">Hazard Communication (HazCom)</div>
+                        <div class="sub">50 min · OSHA · Renewal due yearly</div>
+                    </span>
+                    <i class="fa-solid fa-chevron-right chev"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 2: Assign form ===== -->
+        <section class="view" id="view-assign">
+            <div class="card">
+                <h1 class="view-title">Fall Protection &amp; Working at Heights</h1>
+                <p class="view-sub">Choose who takes this course and when it's due.</p>
+
+                <div class="field-grid">
+                    <vaadin-multi-select-combo-box
+                        class="full"
+                        theme="outlined"
+                        label="Learners"
+                        id="learners"></vaadin-multi-select-combo-box>
+
+                    <vaadin-date-picker theme="outlined" label="Due date" id="due"></vaadin-date-picker>
+                    <vaadin-select theme="outlined" label="Reminder cadence" id="cadence"></vaadin-select>
+
+                    <div class="full">
+                        <span style="font-size:13px;color:var(--ink-soft);">Selected learners</span>
+                        <div class="learners">
+                            <span class="pill"><i class="fa-solid fa-user"></i> Maria Chen</span>
+                            <span class="pill"><i class="fa-solid fa-user"></i> Devon Park</span>
+                            <span class="pill"><i class="fa-solid fa-user"></i> Sam Okafor</span>
+                            <span class="pill"><i class="fa-solid fa-users"></i> +5 crew</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="foot">
+                    <vaadin-button theme="tertiary" data-goto="land">
+                        <i class="fa-solid fa-arrow-left" slot="prefix"></i> Back
+                    </vaadin-button>
+                    <div class="right">
+                        <vaadin-button theme="primary" data-goto="review">Continue</vaadin-button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 3: Review ===== -->
+        <section class="view" id="view-review">
+            <div class="card">
+                <h1 class="view-title">Review assignment</h1>
+                <p class="view-sub">Confirm the details before you send it out.</p>
+
+                <dl class="kv">
+                    <dt>Course</dt>
+                    <dd>Fall Protection &amp; Working at Heights</dd>
+                    <dt>Learners</dt>
+                    <dd>8 people (Maria Chen, Devon Park, Sam Okafor, +5)</dd>
+                    <dt>Due date</dt>
+                    <dd>March 15, 2026</dd>
+                    <dt>Reminder cadence</dt>
+                    <dd>Weekly until complete</dd>
+                    <dt>Estimated time</dt>
+                    <dd>45 minutes per learner</dd>
+                </dl>
+
+                <div class="foot">
+                    <vaadin-button theme="tertiary" data-goto="assign">
+                        <i class="fa-solid fa-arrow-left" slot="prefix"></i> Back
+                    </vaadin-button>
+                    <div class="right">
+                        <vaadin-button theme="secondary" data-goto="land">Cancel</vaadin-button>
+                        <vaadin-button theme="success primary" data-goto="done">
+                            <i class="fa-solid fa-paper-plane" slot="prefix"></i> Assign course
+                        </vaadin-button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 4: Confirmation ===== -->
+        <section class="view" id="view-done">
+            <div class="card">
+                <div class="done-wrap">
+                    <div class="check"><i class="fa-solid fa-check"></i></div>
+                    <h1>Course assigned</h1>
+                    <p>8 learners were assigned <strong>Fall Protection &amp; Working at Heights</strong>, due March 15, 2026.</p>
+                    <vaadin-button theme="primary" data-goto="land">
+                        <i class="fa-solid fa-plus" slot="prefix"></i> Assign another course
+                    </vaadin-button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- =========================================================================
+         Flow state driver + hash boot.
+         The flow map (below) drives the page into any screen via applyFlowState(id),
+         and deep-links each thumbnail with #fm=<id>. This is exactly the wiring the
+         toolbox README documents — it's what we're testing here.
+         ========================================================================= -->
+    <script>
+        (function () {
+            // The four screens, in order. Ids double as flow-map node states.
+            const STEPS = ['land', 'assign', 'review', 'done'];
+
+            function applyFlowState(id, opts) {
+                opts = opts || {};
+                if (!STEPS.includes(id)) id = 'land';
+
+                // Swap the active view
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                const view = document.getElementById('view-' + id);
+                if (view) view.classList.add('active');
+
+                // Update the progress rail (done = every step before the active one)
+                const idx = STEPS.indexOf(id);
+                document.querySelectorAll('.rail .dot').forEach(dot => {
+                    const dotIdx = STEPS.indexOf(dot.dataset.step);
+                    dot.classList.toggle('active', dotIdx === idx);
+                    dot.classList.toggle('done', dotIdx < idx || (id === 'done' && dot.dataset.step === 'done'));
+                });
+
+                // Keep the URL hash in sync so links + browser back work, unless we
+                // were called *from* a hash change (instant) — avoids a loop.
+                if (!opts.fromHash) {
+                    const target = 'fm=' + id;
+                    if (location.hash.replace(/^#/, '') !== target) {
+                        history.replaceState(null, '', '#' + target);
+                    }
+                }
+
+                if (!opts.instant) window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            window.applyFlowState = applyFlowState;
+
+            // In-page navigation: any element with data-goto drives the flow.
+            document.addEventListener('click', e => {
+                const t = e.target.closest('[data-goto]');
+                if (!t) return;
+                applyFlowState(t.dataset.goto);
+            });
+
+            // Hash boot: honor a flow-map #fm=<id> deep link on load, else start at landing.
+            function bootFromHash() {
+                const m = (location.hash || '').match(/fm=([\w-]+)/);
+                applyFlowState(m ? decodeURIComponent(m[1]) : 'land', { instant: true, fromHash: true });
+            }
+            bootFromHash();
+            window.addEventListener('hashchange', bootFromHash);
+
+            // ---- Populate the Vaadin inputs (representative, non-functional) ----
+            window.addEventListener('DOMContentLoaded', () => {
+                const learners = document.getElementById('learners');
+                if (learners) {
+                    learners.items = ['Maria Chen', 'Devon Park', 'Sam Okafor', 'Riley Voss', 'Ana Bello', 'Kai Nguyen'];
+                    learners.selectedItems = ['Maria Chen', 'Devon Park', 'Sam Okafor'];
+                }
+                const cadence = document.getElementById('cadence');
+                if (cadence) {
+                    cadence.items = [
+                        { label: 'Weekly until complete', value: 'weekly' },
+                        { label: 'Every 3 days', value: '3d' },
+                        { label: 'No reminders', value: 'none' }
+                    ];
+                    cadence.value = 'weekly';
+                }
+                const due = document.getElementById('due');
+                if (due) due.value = '2026-03-15';
+            });
+        })();
+    </script>
+
+    <!-- =========================================================================
+         Design Toolbox — flow map config.
+         Defined BEFORE the toolbox include so the flow map picks it up. Comments
+         stay ENABLED (no window.TOOLBOX override) per the auto-toolbox rule.
+         ========================================================================= -->
+    <script>
+        window.TOOLBOX_CONFIG = {
+            flowMap: {
+                title: 'Assign Training — Flow Map',
+                applyState: 'applyFlowState',
+                canvas: { w: 1500, h: 420 },
+                flows: [
+                    { id: 'assign', name: 'Assign Training', pill: 'A', color: '#9ec2ff',
+                      lane: { x: 300, y: 70, w: 1160, h: 300 }, labelXY: { x: 316, y: 40 } }
+                ],
+                nodes: [
+                    { id: 'land', flow: 'entry', entry: true, x: 40, y: 170,
+                      step: 'Entry', name: 'Course catalog', state: 'land', match: [],
+                      desc: 'The starting screen. Pick a course to assign — each row opens the assign form.' },
+                    { id: 'assign', flow: 'assign', x: 320, y: 120,
+                      step: 'Step 2', name: 'Assign learners', state: 'assign', match: [],
+                      desc: 'Choose learners (multi-select), a due date, and a reminder cadence for the selected course.' },
+                    { id: 'review', flow: 'assign', x: 700, y: 120,
+                      step: 'Step 3', name: 'Review assignment', state: 'review', match: [],
+                      desc: 'A scannable summary of course, learners, due date, and cadence before sending.' },
+                    { id: 'done', flow: 'assign', x: 1080, y: 120,
+                      step: 'Step 4', name: 'Confirmation', state: 'done', match: [],
+                      desc: 'Success state confirming the assignment went out, with a shortcut to assign another course.' }
+                ],
+                edges: [
+                    ['land', 'assign', 'branch'],
+                    ['assign', 'review'],
+                    ['review', 'done']
+                ]
+            }
+        };
+    </script>
+
+    <!-- Design Toolbox: comment widget + flow map. Review tooling only — developers
+         strip this one line for production. Depth-relative (four levels up). -->
+    <script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

@@ -248,7 +248,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function fetchCommentCounts() {
     return fetch(WORKER_URL + '/pins?url=' + encodeURIComponent(canonicalPageUrl()))
       .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (pins) {
+      .then(function (data) {
+        // The worker wraps the list ({ pins: [...] }); accept a bare array too.
+        var pins = Array.isArray(data) ? data : (data && data.pins);
         if (!Array.isArray(pins)) return;
         // Attribute each pin to the single best node: the entry node of whichever
         // flow its captured state matches (state capture pinpoints the flow, not
@@ -453,16 +455,59 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     thumb.insertBefore(iframe, thumb.firstChild);
   }
 
+  // Real geometry for a node's card: measured from the DOM when the overlay is
+  // visible (so different card heights and the entry card's narrower width are
+  // exact), falling back to the config coords + estimates while it's still
+  // display:none (nodes report zero size until first paint).
+  function nodeRect(n) {
+    var eln = canvas && canvas.querySelector('.fm-node[data-node="' + n.id + '"]');
+    if (eln && eln.offsetWidth) return { x: eln.offsetLeft, y: eln.offsetTop, w: eln.offsetWidth, h: eln.offsetHeight };
+    return { x: n.x, y: n.y, w: nodeW(n), h: nodeH() };
+  }
+
   function drawEdges() {
+    if (!edgesSvg) return;
     var ns = 'http://www.w3.org/2000/svg';
-    edgesSvg.innerHTML = '<defs><marker id="fmarrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9,4.5 L0,9 Z" fill="#5b6092"></path></marker></defs>';
+    // One arrowhead per edge color. markerUnits=userSpaceOnUse keeps the head a
+    // constant size at any zoom.
+    edgesSvg.innerHTML =
+      '<defs>' +
+        '<marker id="fmarrow" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5.5 L0,11 Z" fill="#5b6092"></path></marker>' +
+        '<marker id="fmarrow-b" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5.5 L0,11 Z" fill="#6b5bd6"></path></marker>' +
+      '</defs>';
+    // Small gap so the arrowhead sits just OUTSIDE the target card's border and
+    // reads clearly, rather than tucking under the card edge.
+    var STAND = 3;
     CFG.edges.forEach(function (e) {
       var a = nodeById(e[0]), b = nodeById(e[1]); if (!a || !b) return;
-      var x1 = a.x + nodeW(a), y1 = a.y + nodeH() / 2, x2 = b.x, y2 = b.y + nodeH() / 2;
-      var dx = Math.max(40, (x2 - x1) / 2);
+      var ra = nodeRect(a), rb = nodeRect(b);
+      var acx = ra.x + ra.w / 2, acy = ra.y + ra.h / 2;
+      var bcx = rb.x + rb.w / 2, bcy = rb.y + rb.h / 2;
+      var dxc = bcx - acx, dyc = bcy - acy;
+      var x1, y1, x2, y2, c1x, c1y, c2x, c2y;
+
+      if (Math.abs(dxc) >= Math.abs(dyc)) {
+        // Side-by-side: leave one card's left/right face, enter the other's
+        // opposite face. Control points pull horizontally for a clean S-curve.
+        if (dxc >= 0) { x1 = ra.x + ra.w; x2 = rb.x - STAND; }   // A → right, into B's left
+        else          { x1 = ra.x;        x2 = rb.x + rb.w + STAND; } // A → left, into B's right
+        y1 = acy; y2 = bcy;
+        var hx = Math.max(40, Math.abs(x2 - x1) / 2), hdir = x2 >= x1 ? 1 : -1;
+        c1x = x1 + hdir * hx; c1y = y1; c2x = x2 - hdir * hx; c2y = y2;
+      } else {
+        // Stacked: leave the top/bottom face and enter the other's opposite
+        // face, so the connector runs straight up/down instead of wrapping
+        // around behind the cards. Control points pull vertically.
+        if (dyc >= 0) { y1 = ra.y + ra.h; y2 = rb.y - STAND; }   // A → bottom, into B's top
+        else          { y1 = ra.y;        y2 = rb.y + rb.h + STAND; } // A → top, into B's bottom
+        x1 = acx; x2 = bcx;
+        var vy = Math.max(40, Math.abs(y2 - y1) / 2), vdir = y2 >= y1 ? 1 : -1;
+        c1x = x1; c1y = y1 + vdir * vy; c2x = x2; c2y = y2 - vdir * vy;
+      }
+
       var p = document.createElementNS(ns, 'path');
-      p.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2);
-      p.setAttribute('marker-end', 'url(#fmarrow)');
+      p.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + x2 + ' ' + y2);
+      p.setAttribute('marker-end', e[2] === 'branch' ? 'url(#fmarrow-b)' : 'url(#fmarrow)');
       if (e[2]) p.classList.add(e[2]);
       edgesSvg.appendChild(p);
     });
@@ -512,6 +557,15 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       if (typeof setVer === 'function') { try { setVer(n.version); } catch (e) {} }
     }
     if (typeof apply === 'function') apply(n.state || n.id);
+    // Record the node we just drove to (our OWN global — we never wrap or touch
+    // the host's applyFlowState). The comment widget reads this to bind a new
+    // comment to its flow node, so "Go" can later jump straight back here.
+    try {
+      window.__toolboxFlowState = {
+        state: (n && (n.state || n.id)) || '',
+        version: (n && n.version != null && n.version !== '') ? String(n.version) : ''
+      };
+    } catch (e) {}
   }
   function viewComments(id) {
     openLive(id);
@@ -525,7 +579,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   // window.TOOLBOX = { comments:false }), the flow map suppresses 💬 comment
   // counts too — a build with comments hidden should surface only dev notes.
   var COMMENTS_ON = !(window.TOOLBOX && window.TOOLBOX.comments === false);
-  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; if (COMMENTS_ON && !fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
+  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; requestAnimationFrame(drawEdges); /* redraw once the overlay is visible so edges anchor to real, measured card boxes */ if (COMMENTS_ON && !fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
   function closeMap() { if (overlay) overlay.classList.remove('open'); document.documentElement.classList.remove('fm-open'); document.body.style.overflow = ''; closeDrawer(); }
   var fetchedCounts = false;
 

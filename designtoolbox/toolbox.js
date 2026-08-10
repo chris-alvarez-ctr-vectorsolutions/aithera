@@ -53,6 +53,8 @@
     var SVG_CHEV_DOWN = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg>';
     var SVG_CHEV_UP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10l4.5-4.5L12.5 10"/></svg>';
     var SVG_TOOLS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2.5" y1="5" x2="13.5" y2="5"/><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"/></svg>';
+    // Six-dot grip for the drag handle that lets the team move the whole dock.
+    var SVG_GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
     var DOCK_CSS =
       '.tbx-dock{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999990;' +
       'display:inline-flex;align-items:center;gap:8px;background:#18181b;padding:6px 8px;border-radius:999px;' +
@@ -74,7 +76,7 @@
       '.tbx-collapse-btn svg{width:14px;height:14px;display:block;}' +
       // The small, unobtrusive handle that peeks at the bottom while collapsed.
       '.tbx-handle{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:999989;' +
-      'display:none;align-items:center;gap:7px;background:#18181b;color:#fff;cursor:pointer;' +
+      'display:none;align-items:center;gap:7px;background:#18181b;color:#fff;cursor:pointer;touch-action:none;' +
       'border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 13px;' +
       'font:700 12px/1 "Open Sans",system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.32);' +
       'opacity:.9;transition:opacity .15s,transform .15s;}' +
@@ -102,7 +104,23 @@
       '.tbx-has-versions .fm-launch i,.tbx-has-versions .fm-launch svg{font-size:15px;}' +
       // Preserve the "comment pick-mode active" red feedback on the icon button.
       '.tbx-has-versions .cw-bubble--docked.cw-bubble--active{' +
-      'background:linear-gradient(140deg,#ef4444,#dc2626);border-color:rgba(255,255,255,.4);}';
+      'background:linear-gradient(140deg,#ef4444,#dc2626);border-color:rgba(255,255,255,.4);}' +
+      // ── Drag handle ────────────────────────────────────────────────────────
+      // A quiet six-dot grip at the LEFT of the pill. Grab it to move the whole
+      // dock somewhere else when it's covering the design; buttons stay clickable
+      // because only this handle starts a drag. Position persists site-wide.
+      '.tbx-drag-btn{flex:none;width:20px;height:26px;padding:0;margin-right:-2px;border:0;' +
+      'background:transparent;cursor:grab;color:#8b8f9e;display:inline-flex;align-items:center;' +
+      'justify-content:center;touch-action:none;border-radius:8px;transition:color .12s,background .12s;}' +
+      '.tbx-drag-btn:hover{color:#e5e7eb;background:rgba(255,255,255,.1);}' +
+      '.tbx-drag-btn:active{cursor:grabbing;}' +
+      '.tbx-drag-btn svg{width:12px;height:15px;display:block;}' +
+      // Once moved, the dock is positioned by explicit left/top (set inline), so
+      // drop the default bottom/right anchoring. Collapsing a moved dock slides it
+      // straight down (no translateX(-50%) recenters it back to the middle).
+      '.tbx-dock.tbx-dock--moved,.version-switcher.tbx-dock--moved{bottom:auto;right:auto;}' +
+      '.tbx-collapsible.tbx-collapsed.tbx-dock--moved{transform:translateY(calc(100% + 28px)) !important;}' +
+      '.tbx-dock--dragging{transition:none !important;}';
     var styled = false;
     function ensureStyle() {
       if (styled) return; styled = true;
@@ -127,17 +145,153 @@
       var toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'tbx-collapse-btn';
-      toggle.title = 'Hide design tools';
-      toggle.setAttribute('aria-label', 'Hide design tools');
+      toggle.title = 'Minimize design tools';
+      toggle.setAttribute('aria-label', 'Minimize design tools');
       toggle.innerHTML = SVG_CHEV_DOWN;
       dock.__tbxToggle = toggle;
 
-      function collapse() { dock.classList.add('tbx-collapsed'); handle.classList.add('tbx-show'); }
+      function collapse() {
+        // Park the "Tools" peek handle where the dock currently sits (its center
+        // x, its top y) so a moved dock reappears right where the team left it —
+        // not back at the default bottom-center.
+        var r = dock.getBoundingClientRect();
+        handle.style.left = (r.left + r.width / 2) + 'px';
+        handle.style.top = r.top + 'px';
+        handle.style.bottom = 'auto';
+        dock.classList.add('tbx-collapsed');
+        handle.classList.add('tbx-show');
+      }
       function expand() { dock.classList.remove('tbx-collapsed'); handle.classList.remove('tbx-show'); }
       toggle.addEventListener('click', function (e) { e.stopPropagation(); collapse(); });
-      handle.addEventListener('click', function (e) { e.stopPropagation(); expand(); });
+
+      // The collapsed "Tools" handle is BOTH a click target (expand) and a drag
+      // target (move the tool while it's minimized). A small movement threshold
+      // separates the two so a plain click still expands.
+      var hMoved = false;
+      handle.addEventListener('pointerdown', function (e) {
+        if (e.button != null && e.button !== 0) return;   // primary / touch only
+        var startX = e.clientX, startY = e.clientY;
+        var hr = handle.getBoundingClientRect();
+        var offX = e.clientX - hr.left, offY = e.clientY - hr.top;
+        hMoved = false;
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        function move(ev) {
+          if (!hMoved && Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 4) return;
+          hMoved = true;
+          handle.style.left = (ev.clientX - offX) + 'px';
+          handle.style.top = (ev.clientY - offY) + 'px';
+          handle.style.bottom = 'auto';
+          handle.style.transform = 'none';
+        }
+        function up() {
+          try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+          document.removeEventListener('pointermove', move, true);
+          document.removeEventListener('pointerup', up, true);
+          if (!hMoved) return;
+          // Moved: park the dock (still collapsed) centered under the handle so it
+          // reappears here on expand, and persist that position site-wide.
+          var r = handle.getBoundingClientRect();
+          var pos = { left: r.left + r.width / 2 - (dock.offsetWidth || 0) / 2, top: r.top };
+          if (dock.__tbxPlace) dock.__tbxPlace(pos);
+          if (dock.__tbxSave) { var rr = dock.getBoundingClientRect(); dock.__tbxSave({ left: rr.left, top: rr.top }); }
+        }
+        document.addEventListener('pointermove', move, true);
+        document.addEventListener('pointerup', up, true);
+      });
+      handle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (hMoved) { hMoved = false; return; }   // was a drag, not a click — don't expand
+        expand();
+      });
       // Open by default — no stored/collapsed state on load.
       return toggle;
+    }
+    // Make the dock movable: a left-edge grip drags the whole pill, and the
+    // position is remembered site-wide so it stays put across mocks. Idempotent.
+    var DOCK_POS_KEY = 'tbx-dock-pos';
+    function setupDraggable(dock) {
+      if (dock.__tbxDraggable) return dock.__tbxGrip;
+      dock.__tbxDraggable = true;
+      ensureStyle();
+
+      var grip = document.createElement('button');
+      grip.type = 'button';
+      grip.className = 'tbx-drag-btn';
+      grip.title = 'Drag to move the toolbox';
+      grip.setAttribute('aria-label', 'Move the toolbox');
+      grip.innerHTML = SVG_GRIP;
+      dock.__tbxGrip = grip;
+
+      function clamp(pos) {
+        var w = dock.offsetWidth || 0, h = dock.offsetHeight || 0;
+        var maxLeft = Math.max(8, window.innerWidth - w - 8);
+        var maxTop = Math.max(8, window.innerHeight - h - 8);
+        return {
+          left: Math.min(Math.max(8, pos.left), maxLeft),
+          top: Math.min(Math.max(8, pos.top), maxTop),
+        };
+      }
+      // Pin the dock to an explicit viewport position (switches it off the
+      // default centered anchoring). Inline styles beat the stylesheet, so this
+      // wins over both .tbx-dock and an adopted .version-switcher's own rules.
+      function place(pos) {
+        var c = clamp(pos);
+        dock.classList.add('tbx-dock--moved');
+        dock.style.left = c.left + 'px';
+        dock.style.top = c.top + 'px';
+        dock.style.bottom = 'auto';
+        dock.style.right = 'auto';
+        dock.style.transform = 'none';
+      }
+      function save(pos) { try { localStorage.setItem(DOCK_POS_KEY, JSON.stringify(pos)); } catch (_) {} }
+      // Expose place/save so the collapsed "Tools" handle can move the dock too
+      // (see setupCollapsible) — the handle drags, then persists the same position.
+      dock.__tbxPlace = place;
+      dock.__tbxSave = save;
+
+      grip.addEventListener('pointerdown', function (e) {
+        if (e.button != null && e.button !== 0) return;   // primary / touch only
+        e.preventDefault();
+        var r = dock.getBoundingClientRect();
+        var offX = e.clientX - r.left, offY = e.clientY - r.top;
+        // Anchor to the current on-screen rect first, so the very first move
+        // doesn't jump whether the dock was centered or already relocated.
+        place({ left: r.left, top: r.top });
+        dock.classList.add('tbx-dock--dragging');
+        try { grip.setPointerCapture(e.pointerId); } catch (_) {}
+        var moved = false;
+        function move(ev) { moved = true; place({ left: ev.clientX - offX, top: ev.clientY - offY }); }
+        function up() {
+          dock.classList.remove('tbx-dock--dragging');
+          try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
+          document.removeEventListener('pointermove', move, true);
+          document.removeEventListener('pointerup', up, true);
+          if (moved) { var rr = dock.getBoundingClientRect(); save({ left: rr.left, top: rr.top }); }
+        }
+        document.addEventListener('pointermove', move, true);
+        document.addEventListener('pointerup', up, true);
+      });
+
+      // Restore a saved position (clamped to the current viewport) once the dock
+      // has been laid out, so width/height are known for clamping.
+      try {
+        var raw = localStorage.getItem(DOCK_POS_KEY);
+        if (raw) {
+          var saved = JSON.parse(raw);
+          if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+            requestAnimationFrame(function () { place(saved); });
+          }
+        }
+      } catch (_) {}
+
+      // Keep a relocated dock on-screen if the window is resized smaller.
+      window.addEventListener('resize', function () {
+        if (!dock.classList.contains('tbx-dock--moved')) return;
+        var r = dock.getBoundingClientRect();
+        place({ left: r.left, top: r.top });
+      });
+
+      return grip;
     }
     function getDock() {
       var dock;
@@ -149,7 +303,25 @@
         vs.classList.add('tbx-has-versions');
         dock = vs;
       } else {
-        dock = document.querySelector('.tbx-dock');
+        // Defensive: if a stale/duplicate script ever created more than one
+        // `.tbx-dock` (seen intermittently when a cached older toolbox.js loaded
+        // alongside a fresh one), collapse them into the FIRST — fold any
+        // launchers from the extras in, then drop the empty duplicate pills — so
+        // the page never shows two stacked docks.
+        var docks = document.querySelectorAll('.tbx-dock');
+        if (docks.length > 1) {
+          dock = docks[0];
+          for (var i = 1; i < docks.length; i++) {
+            var extra = docks[i];
+            Array.prototype.slice.call(extra.children).forEach(function (c) {
+              if (c.classList && (c.classList.contains('tbx-dock-sep') || c.classList.contains('tbx-collapse-btn'))) return;
+              dock.appendChild(c);
+            });
+            extra.remove();
+          }
+        } else {
+          dock = docks[0];
+        }
         if (!dock) {
           ensureStyle();
           dock = document.createElement('div');
@@ -158,10 +330,23 @@
         }
       }
       // The collapse chevron lives at the far-right of the pill; add() keeps it
-      // last so new launchers slot in before it.
+      // last so new launchers slot in before it. The drag grip lives at the far
+      // LEFT (reflow keeps it there) so the pill can be moved out of the way.
       var toggle = setupCollapsible(dock);
       if (toggle && toggle.parentNode !== dock) dock.appendChild(toggle);
+      var grip = setupDraggable(dock);
+      if (grip && grip.parentNode !== dock) dock.insertBefore(grip, dock.firstChild);
       return dock;
+    }
+    // Identity of a dock launcher, so duplicates (same tool docked twice — e.g.
+    // a widget that ran in two contexts) can be collapsed to one in reflow().
+    function launcherKey(node) {
+      if (!node || node.nodeType !== 1) return null;
+      if (node.id === 'loader-version-group') return 'versions';
+      var cl = node.classList;
+      if (cl && cl.contains('cw-bubble')) return 'comments';
+      if (cl && cl.contains('fm-launch')) return 'flowmap';
+      return null;
     }
     // Canonical left-to-right order of the dock's launchers. The loader's
     // version group is always leftmost, then the comment widget, then the flow
@@ -183,10 +368,21 @@
     // safe to run after every add() regardless of who won the race.
     function reflow(dock) {
       var toggle = dock.querySelector('.tbx-collapse-btn');
+      var grip = dock.querySelector('.tbx-drag-btn');
+      // Drop any extra collapse chevrons — only the first survives as `toggle`.
+      Array.prototype.slice.call(dock.querySelectorAll('.tbx-collapse-btn')).forEach(function (t) {
+        if (t !== toggle) t.remove();
+      });
       var launchers = [];
+      var seen = {};
       Array.prototype.slice.call(dock.children).forEach(function (c) {
-        if (c === toggle) return;
+        if (c === toggle || c === grip) return;
         if (c.classList && c.classList.contains('tbx-dock-sep')) { c.remove(); return; }
+        // Collapse duplicate launchers of the same identity (a tool docked twice)
+        // — keep the first, remove the rest, so the pill never shows two 💬 or
+        // two version groups.
+        var key = launcherKey(c);
+        if (key) { if (seen[key]) { c.remove(); return; } seen[key] = true; }
         launchers.push(c);
       });
       launchers.sort(function (a, b) { return orderOf(a) - orderOf(b); });
@@ -199,6 +395,7 @@
         dock.appendChild(node);
       });
       if (toggle) dock.appendChild(toggle);   // chevron stays at the far right
+      if (grip) dock.insertBefore(grip, dock.firstChild);   // grip stays far left
     }
     window.ToolboxDock = {
       get: getDock,

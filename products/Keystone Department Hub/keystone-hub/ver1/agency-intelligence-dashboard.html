@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agency Intelligence — Keystone</title>
+<title>Agency Intelligence — Readiness Hub</title>
 
 <!--
-  Agency Intelligence — the build surface from the Keystone PRD.
+  Agency Intelligence — the build surface from the Readiness Hub PRD.
 
   Views:
     · Agency Intelligence home — Dashboards tab (dense sortable/filterable/paginated
@@ -16,7 +16,7 @@
       text-only chat. Charts land on the canvas, never in the chat.
 
   Admin-facing: dashboards are published to job titles / individuals with
-  access reconciliation, or scheduled out as a report. Reuses the Keystone
+  access reconciliation, or scheduled out as a report. Reuses the Readiness Hub
   data layer, primitives, and chart renderers.
 
   Reskinned on Vector web components: vaadin-text-field for search and naming,
@@ -206,6 +206,10 @@
   .cpw-kebab:hover { background: var(--surface-3); color: var(--ink-700); }
   .cpw-range { margin-top: 6px; }
   .cpw-body { margin-top: 12px; flex: 1; }
+
+  /* Table-widget controls (.cpw-tbar / .cpw-tfoot / table.cpw-table) live in
+     styles.css — the Hub's published dashboards render the same engine, and
+     styles.css is the sheet both pages load. */
   .cpw-shimmer {
     background: linear-gradient(90deg, var(--ink-100) 25%, var(--surface-3) 37%, var(--ink-100) 63%);
     background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
@@ -396,6 +400,15 @@
     }
     body.kx-printing .cpw-range svg:last-child { display: none; }
     body.kx-printing .cpw-kebab { display: none !important; }
+    /* Table controls are screen affordances — a filter box and a pager on
+       paper are furniture nobody can use. The report path already renders
+       every row unpaginated; this is the belt to that braces, covering any
+       table that reaches print through a path that kept its chrome. */
+    body.kx-printing .cpw-tbar,
+    body.kx-printing .cpw-tfoot { display: none !important; }
+    body.kx-printing .cpw-tscroll { overflow: visible !important; }
+    body.kx-printing table.cpw-table { break-inside: auto; }
+    body.kx-printing table.cpw-table tr { break-inside: avoid; page-break-inside: avoid; }
     @page { margin: 14mm; }
   }
 
@@ -418,6 +431,11 @@
     display: inline-flex; align-items: center; justify-content: center;
   }
   .au-tabbody { min-height: 330px; max-height: 46vh; overflow-y: auto; padding-right: 4px; }
+  /* The min-height above keeps the audience picker from jumping as its list
+     filters. The review step has no list — and with report delivery behind the
+     Future-functionality flag it holds only the audience summary — so it sizes
+     to its content instead of leaving a void above the footer. */
+  .au-tabbody.is-short { min-height: 0; }
   .au-promise { font-size: 11.5px; color: var(--ink-500); margin: -8px 0 14px; }
   .au-saved-toggle {
     display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius-pill);
@@ -685,8 +703,43 @@
 <script src="agency-intel-export.js"></script>
 <script src="agency-intel-page.js"></script>
 
-<!-- Design Toolbox: review tooling (comment widget). NOT part of the product design —
-     developers must strip this include for production. -->
+<!-- Flow Map config (review tooling). Two named screens the Design Toolbox can
+     show and drive to via window.applyFlowState (defined in agency-intel-page.js):
+     the Dashboards home and the Dashboard build view (where Publish / Manage
+     delivery lives). Comments left on a node bind to it, so "Go" jumps straight
+     here. Not part of the product — stripped with the toolbox for production. -->
+<script>
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Agency Intelligence — Flow',
+      applyState: 'applyFlowState',
+      nodes: [
+        { id: 'home', name: 'Agency Intelligence (home)', step: 'Home · Dashboards',
+          desc: 'Dashboards list — the landing screen.', x: 60, y: 120, entry: true },
+        { id: 'home-ai', name: 'Home — AI access', step: 'Home · AI access',
+          desc: 'The AI access tab on the home screen.', x: 60, y: 470 },
+        { id: 'build', name: 'Dashboard build — Edit', step: 'Build · Edit',
+          desc: 'Two-pane builder (first dashboard). Publish / Manage delivery lives in this header.',
+          x: 470, y: 120 },
+        { id: 'build-preview', name: 'Dashboard build — Preview', step: 'Build · Preview',
+          desc: 'Preview mode — the dashboard as its audience sees it.', x: 880, y: 120 },
+        { id: 'build-report', name: 'Dashboard build — Report', step: 'Build · Report',
+          desc: 'Report / delivery mode (falls back to Preview when delivery is off).', x: 1290, y: 120 },
+        { id: 'add-widget', name: 'Add widget dialog', step: 'Modal',
+          desc: 'The Add-a-widget dialog over the builder.', x: 470, y: 470 },
+        { id: 'publish', name: 'Publish / Manage delivery', step: 'Modal',
+          desc: 'The audience dialog opened by Publish / Manage delivery / Edit schedule.', x: 880, y: 470 }
+      ],
+      edges: [
+        ['home', 'build'], ['build', 'build-preview'], ['build-preview', 'build-report'],
+        ['home', 'home-ai'], ['build', 'add-widget'], ['build', 'publish']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: review tooling (comment widget + flow map). NOT part of the
+     product design — developers must strip this include for production. -->
 <script src="../../../../designtoolbox/toolbox.js"></script>
 
 </body>

@@ -171,6 +171,10 @@ const args = process.argv.slice(2);
 let grandfatherRef = null;
 const gfIdx = args.indexOf('--grandfather');
 if (gfIdx !== -1) grandfatherRef = args[gfIdx + 1] || null;
+// --warn-only: never exit non-zero. Remaining dead links (ones auto-relink
+// couldn't follow — a hand-typed path, a deletion, a cross-product move) are
+// surfaced as warnings instead of blocking the commit.
+const warnOnly = args.includes('--warn-only');
 
 const problems = collectProblems(liveWorld());
 
@@ -198,22 +202,30 @@ if (legacy.length) {
 }
 
 if (fresh.length) {
-  console.error('\n  ✋ BLOCKED — this change introduces dashboard/loader link(s) that don\'t resolve:\n');
+  const heading = warnOnly
+    ? '\n  ⚠ dashboard/loader link(s) still don\'t resolve after auto-relink:\n'
+    : '\n  ✋ BLOCKED — this change introduces dashboard/loader link(s) that don\'t resolve:\n';
+  console.error(heading);
   for (const p of fresh) {
-    console.error(`  ✗ ${p.msg}`);
-    if (process.env.GITHUB_ACTIONS) console.log(`::error::Dead catalog link introduced: ${p.msg}`);
+    console.error(`  ${warnOnly ? '⚠' : '✗'} ${p.msg}`);
+    const level = warnOnly ? 'warning' : 'error';
+    if (process.env.GITHUB_ACTIONS) console.log(`::${level}::Dead catalog link${warnOnly ? '' : ' introduced'}: ${p.msg}`);
   }
   console.error(
-    '\n  If you moved or renamed a mock, update its `rel` in products.json (and\n' +
-    '  any versions.json path) in the SAME change — the dashboards and landing\n' +
-    '  page render these links directly. Old shared URLs still 404 for anyone\n' +
-    '  holding them; re-share the new link. Comments relink automatically in CI.\n'
+    '\n  A rename is followed automatically; this is what auto-relink could NOT\n' +
+    '  fix — a hand-typed path, a deletion, or a move across product folders.\n' +
+    '  Update the `rel` in products.json (and any versions.json path) to a real\n' +
+    '  file. Old shared URLs still 404 for anyone holding them; re-share the\n' +
+    '  new link. Comments relink automatically in CI.\n'
   );
-  process.exit(1);
+  if (!warnOnly) process.exit(1);
 }
 
-console.log(
-  legacy.length
-    ? `✓ no NEW dead links (${legacy.length} pre-existing grandfathered — see warnings above).`
-    : '✓ catalog links OK — every products.json rel and versions.json path resolves.'
-);
+// Suppress the all-clear line when warn-only already printed unresolved links.
+if (!(warnOnly && fresh.length)) {
+  console.log(
+    legacy.length
+      ? `✓ no NEW dead links (${legacy.length} pre-existing grandfathered — see warnings above).`
+      : '✓ catalog links OK — every products.json rel and versions.json path resolves.'
+  );
+}

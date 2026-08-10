@@ -14,13 +14,19 @@
      2. Rewrite every products.json `rel` and versions.json `path` that
         resolved to an old name so it points at the new one.
 
-   It runs in CI from .github/workflows/dashboards.yml (the same job that
-   regenerates meta.json), and the changes ride the existing silent
-   "[skip ci]" bot commit — no failed runs, no warning emails. Renames that
-   cross product folders, or deletions, can't be auto-fixed and are only
-   logged to the job output.
+   It runs in two places, both auto-fixing renames instead of blocking:
+     • CI from .github/workflows/dashboards.yml (the same job that regenerates
+       meta.json), over the pushed range — the changes ride the existing
+       silent "[skip ci]" bot commit.
+     • The local pre-commit hook in `--staged` mode, over the STAGED index —
+       it rewrites the catalog and `git add`s the fix so it joins the commit
+       being made, so a rename never blocks the commit.
+   Renames that cross product folders, or deletions, can't be auto-fixed and
+   are only logged (the hook's warn-only link check surfaces those).
 
-   Usage:  node scripts/relink-catalog.js <base-ref> <head-ref>
+   Usage:
+     node scripts/relink-catalog.js <base-ref> <head-ref>   # CI: a commit range
+     node scripts/relink-catalog.js --staged                # pre-commit: index vs HEAD
    Exits 0 always; prints what it relinked.
    ========================================================================= */
 
@@ -31,10 +37,12 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const [baseRef, headRef] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const stagedMode = argv[0] === '--staged';
+const [baseRef, headRef] = stagedMode ? [] : argv;
 
-if (!baseRef || !headRef) {
-  console.error('usage: node scripts/relink-catalog.js <base-ref> <head-ref>');
+if (!stagedMode && (!baseRef || !headRef)) {
+  console.error('usage: node scripts/relink-catalog.js <base-ref> <head-ref>  |  --staged');
   process.exit(1);
 }
 
@@ -42,21 +50,33 @@ function git(args) {
   return execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
-// refuse quietly when the base is unknown (first push / force push)
-try { git(['cat-file', '-e', `${baseRef}^{commit}`]); }
-catch { console.log(`relink-catalog: base ref ${baseRef} not found — nothing to do.`); process.exit(0); }
+// Range mode only: refuse quietly when the base is unknown (first push / force push).
+if (!stagedMode) {
+  try { git(['cat-file', '-e', `${baseRef}^{commit}`]); }
+  catch { console.log(`relink-catalog: base ref ${baseRef} not found — nothing to do.`); process.exit(0); }
+}
 
 // ---------------------------------------------------------------------------
-// 1. Renames in the range (old repo-relative path -> new repo-relative path)
+// 1. Renames (old repo-relative path -> new repo-relative path). Range mode
+//    diffs base..head; staged mode diffs HEAD against the index (--cached),
+//    so a rename staged for the current commit is followed before it lands.
 // ---------------------------------------------------------------------------
+
+const diffArgs = stagedMode
+  ? ['diff', '-M', '--diff-filter=R', '--name-status', '--cached']
+  : ['diff', '-M', '--diff-filter=R', '--name-status', `${baseRef}..${headRef}`];
 
 const renames = new Map();
-for (const line of git(['diff', '-M', '--diff-filter=R', '--name-status', `${baseRef}..${headRef}`]).split('\n')) {
+for (const line of git(diffArgs).split('\n')) {
   const parts = line.split('\t');
   if (parts.length === 3 && parts[0].startsWith('R') && parts[1].startsWith('products/')) {
     renames.set(parts[1], parts[2]);
   }
 }
+
+// Files this run rewrote — in staged mode they get re-added so the fix is
+// part of the commit being made.
+const changedFiles = [];
 
 if (!renames.size) {
   console.log('relink-catalog: no renames under products/ in this push — nothing to do.');
@@ -113,6 +133,7 @@ for (const product of catalog.products || []) {
 if (catalogChanged) {
   // preserve the file's 2-space formatting
   fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + '\n');
+  changedFiles.push('products.json');
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +166,10 @@ if (catalogChanged) {
       v.path = newPath;
       changed = true;
     }
-    if (changed) fs.writeFileSync(path.join(REPO_ROOT, p), JSON.stringify(versions, null, 2) + '\n');
+    if (changed) {
+      fs.writeFileSync(path.join(REPO_ROOT, p), JSON.stringify(versions, null, 2) + '\n');
+      changedFiles.push(p);
+    }
   }
 })('products');
 
@@ -160,4 +184,15 @@ if (relinked.length) {
 for (const u of unfixable) {
   console.log(`  ⚠ ${u}`);
   if (process.env.GITHUB_ACTIONS) console.log(`::notice::relink-catalog could not auto-fix: ${u}`);
+}
+
+// Staged mode: re-stage the rewritten catalog files so the relink is part of
+// the very commit that carried the rename — the commit self-heals, no block.
+if (stagedMode && changedFiles.length) {
+  try {
+    git(['add', '--', ...changedFiles]);
+    console.log(`relink-catalog: re-staged ${changedFiles.join(', ')} into this commit.`);
+  } catch (e) {
+    console.error(`relink-catalog: could not re-stage relinked files (${e.message}).`);
+  }
 }

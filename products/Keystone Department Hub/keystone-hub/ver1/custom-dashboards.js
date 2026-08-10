@@ -73,6 +73,94 @@
     trade_requests:         'bar',
   };
 
+  /* ---------- Detail rows at department scale ----------
+     A table widget is only worth filtering, sorting and paging if it carries
+     more than a handful of rows, so the ENTITY-LIST metrics below seed at the
+     scale a real department runs at, and every set reconciles with its own
+     headline: 14 overdue inspections is 14 rows, 23 trade requests is 23 rows,
+     and the CEU roster's station averages are computed FROM the roster so the
+     bar chart can't drift away from it.
+
+     What deliberately did NOT grow: the aggregate tables. Response time by
+     station is four rows because there are four stations; overtime by month is
+     five because it's five months. Padding those would mean inventing stations
+     and months, which is worse than a table that fits on one page. */
+
+  const ROSTER_LAST = [
+    'Brennan', 'Maguire', 'Shah', 'Okafor', 'Vega', 'Iverson', 'Whitfield', 'Rosenfeld', 'Park', 'Hartwell',
+    'Kim', 'Tanaka', 'Delgado', 'Novak', 'Ashby', 'Cortez', 'Lindqvist', 'Mbeki', 'Ferraro', 'Sandoval',
+    'Prewitt', 'Nakamura', 'Ellery', 'Boone', 'Vasquez', 'Hollis', 'Amari', 'Redgrave', 'Sutton', 'Calloway'
+  ];
+  const ROSTER_FIRST = [
+    'Riley', 'Owen', 'Priya', 'Jamal', 'Marisol', 'Theo', 'Kai', 'Naima', 'Eli', 'Cassidy',
+    'Devon', 'Sloane', 'Alex', 'Jamie', 'Rosa', 'Miles', 'Nadia', 'Grant', 'Iris', 'Tomas',
+    'Elena', 'Bryce', 'Simone', 'Hector', 'Lena', 'Cole', 'Farida', 'Duncan', 'Maya', 'Roland'
+  ];
+  // Two co-prime strides so 92 people get 92 distinct names without a shuffle.
+  function rosterName(i) {
+    return ROSTER_LAST[i % ROSTER_LAST.length] + ', ' +
+      ROSTER_FIRST[(i * 7 + Math.floor(i / ROSTER_LAST.length)) % ROSTER_FIRST.length];
+  }
+
+  // Headcount and target CEU average per house. The weighted mean of these is
+  // the metric's headline figure — Stations 4 and 7 sit well below the rest,
+  // which is the story every other surface tells about those two houses.
+  const CEU_HOUSES = [
+    { station: 'Sta. 1',  n: 18, avg: 82 },
+    { station: 'Sta. 4',  n: 22, avg: 51 },
+    { station: 'Sta. 7',  n: 20, avg: 48 },
+    { station: 'Sta. 9',  n: 17, avg: 77 },
+    { station: 'Sta. 11', n: 15, avg: 70 }
+  ];
+  const CEU_CREDENTIALS = ['Paramedic', 'EMT-B', 'EVOC', 'HazMat', 'Pump Op', 'CPR/AED'];
+  const CEU_COHORTS = ['Q3 Cohort A', 'Q3 Cohort B', 'Q4 Cohort A', 'Unassigned'];
+
+  // Spread each house's people around its average with offsets that sum to
+  // zero, so the house average lands exactly on target rather than near it.
+  function buildCeuRoster() {
+    const rows = [];
+    let i = 0;
+    CEU_HOUSES.forEach(function (h) {
+      const offsets = [];
+      for (let k = 0; k < h.n; k++) {
+        const mag = 4 + ((k * 9) % 22);           // 4–25 points of spread
+        offsets.push(k % 2 ? -mag : mag);
+      }
+      // Fold the residue back in so the offsets cancel exactly.
+      const drift = offsets.reduce(function (a, b) { return a + b; }, 0);
+      offsets[offsets.length - 1] -= drift;
+      offsets.forEach(function (off, k) {
+        const pct = Math.max(4, Math.min(100, h.avg + off));
+        rows.push([
+          rosterName(i),
+          h.station,
+          CEU_CREDENTIALS[(i * 5) % CEU_CREDENTIALS.length],
+          pct + '%',
+          // Anyone under half way is the one nobody has scheduled yet — that
+          // pairing is the point of the column.
+          pct < 50 ? 'Unassigned' : CEU_COHORTS[(i * 3) % (CEU_COHORTS.length - 1)]
+        ]);
+        i++;
+      });
+    });
+    return rows;
+  }
+  const CEU_ROWS = buildCeuRoster();
+
+  // Derived, not hand-typed: the bar and the headline read off the roster, so
+  // a later edit to a person's CEU % can't leave the chart telling a different
+  // story from the table underneath it.
+  function ceuHouseAverage(station) {
+    const mine = CEU_ROWS.filter(function (r) { return r[1] === station; });
+    return Math.round(mine.reduce(function (a, r) { return a + parseInt(r[3], 10); }, 0) / mine.length);
+  }
+  const CEU_BAR = CEU_HOUSES.map(function (h) {
+    return { label: h.station, value: ceuHouseAverage(h.station) };
+  });
+  const CEU_OVERALL = Math.round(
+    CEU_ROWS.reduce(function (a, r) { return a + parseInt(r[3], 10); }, 0) / CEU_ROWS.length
+  );
+
   // ---------- Seeded mock data per metric ----------
   // Each entry carries enough fields to render any viz type the user might
   // pick. Numbers were chosen to look believable, not random.
@@ -83,7 +171,24 @@
       line:  [{ x: 'Jan', y: 8 }, { x: 'Feb', y: 9 }, { x: 'Mar', y: 11 }, { x: 'Apr', y: 10 }, { x: 'May', y: 14 }],
       stack: { legend: ['Overdue', 'In window'], rows: [{ label: 'Engine', a: 8, b: 22 }, { label: 'Ladder', a: 4, b: 11 }, { label: 'Medic', a: 2, b: 14 }] },
       donut: [{ label: 'Engine',  value: 8, color: 'var(--coral-400)' }, { label: 'Ladder', value: 4, color: 'var(--amber-400)' }, { label: 'Medic',  value: 2, color: 'var(--teal-300)' }],
-      table: { cols: ['Apparatus', 'Station', 'Days late'], rows: [['Engine 4-A', 'Sta. 4', '8'], ['Ladder 7', 'Sta. 7', '5'], ['Engine 4-B', 'Sta. 4', '4'], ['Medic 11', 'Sta. 11', '3'], ['Engine 1', 'Sta. 1', '2']] },
+      // 14 rows — one per overdue inspection, matching the headline count and
+      // the bar's 7 / 4 / 2 / 1 / 0 split across the houses.
+      table: { cols: ['Apparatus', 'Station', 'Inspection', 'Days late'], rows: [
+        ['Engine 4-A',  'Sta. 4',  'Annual pump test',   '8'],
+        ['Engine 4-A',  'Sta. 4',  'Ladder/aerial',      '6'],
+        ['Engine 4-B',  'Sta. 4',  'Hose service test',  '5'],
+        ['Engine 4-B',  'Sta. 4',  'SCBA flow test',     '4'],
+        ['Medic 4',     'Sta. 4',  'Drug box audit',     '4'],
+        ['Medic 4',     'Sta. 4',  'Annual pump test',   '3'],
+        ['Rescue 4',    'Sta. 4',  'Extrication tools',  '2'],
+        ['Ladder 7',    'Sta. 7',  'Aerial certification', '5'],
+        ['Ladder 7',    'Sta. 7',  'Hose service test',  '3'],
+        ['Engine 7',    'Sta. 7',  'Annual pump test',   '3'],
+        ['Medic 7',     'Sta. 7',  'Drug box audit',     '1'],
+        ['Medic 11',    'Sta. 11', 'SCBA flow test',     '3'],
+        ['Engine 11',   'Sta. 11', 'Hose service test',  '2'],
+        ['Engine 1',    'Sta. 1',  'Annual pump test',   '2']
+      ] },
       unit:  'inspections',
     },
     training_completion: {
@@ -101,7 +206,19 @@
       line:  [{ x: 'Wk 1', y: 4 }, { x: 'Wk 2', y: 5 }, { x: 'Wk 3', y: 7 }, { x: 'Wk 4', y: 9 }],
       stack: { legend: ['Unfilled', 'Backfill pending'], rows: [{ label: 'Sta. 7', a: 4, b: 2 }, { label: 'Sta. 4', a: 1, b: 1 }, { label: 'Sta. 1', a: 1, b: 0 }] },
       donut: [{ label: 'A-shift', value: 4, color: 'var(--coral-400)' }, { label: 'B-shift', value: 3, color: 'var(--amber-400)' }, { label: 'C-shift', value: 2, color: 'var(--teal-300)' }],
-      table: { cols: ['Date', 'Station', 'Role', 'Status'], rows: [['Jun 2', 'Sta. 7', 'Engineer', 'No coverage'], ['Jun 4', 'Sta. 7', 'FF × 2',  'Voluntary OT'], ['Jun 6', 'Sta. 7', 'Lieutenant', 'Mutual aid'], ['Jun 9', 'Sta. 4', 'FF × 1', 'Trade pending']] },
+      // 9 rows — the 9 open shifts in the headline, split 6 / 2 / 1 across
+      // Sta. 7 / 4 / 1 exactly as the bar reads it.
+      table: { cols: ['Date', 'Station', 'Role', 'Shift', 'Status'], rows: [
+        ['Jun 2',  'Sta. 7', 'Engineer',   'A', 'No coverage'],
+        ['Jun 4',  'Sta. 7', 'FF × 2',     'C', 'Voluntary OT'],
+        ['Jun 6',  'Sta. 7', 'Lieutenant', 'A', 'Mutual aid'],
+        ['Jun 8',  'Sta. 7', 'Paramedic',  'B', 'No coverage'],
+        ['Jun 11', 'Sta. 7', 'FF × 1',     'C', 'Backfill pending'],
+        ['Jun 13', 'Sta. 7', 'Engineer',   'A', 'Voluntary OT'],
+        ['Jun 9',  'Sta. 4', 'FF × 1',     'B', 'Trade pending'],
+        ['Jun 12', 'Sta. 4', 'Paramedic',  'A', 'Backfill pending'],
+        ['Jun 10', 'Sta. 1', 'FF × 1',     'C', 'Voluntary OT']
+      ] },
       unit:  'shifts',
     },
     credential_expirations: {
@@ -110,7 +227,21 @@
       line:  [{ x: 'Jul', y: 6 }, { x: 'Aug', y: 9 }, { x: 'Sep', y: 11 }, { x: 'Oct', y: 14 }, { x: 'Nov', y: 18 }],
       stack: { legend: ['At risk', 'On track'], rows: [{ label: 'Paramedic', a: 4, b: 2 }, { label: 'EVOC', a: 3, b: 6 }, { label: 'HazMat', a: 2, b: 4 }, { label: 'CPR/AED', a: 1, b: 11 }] },
       donut: [{ label: 'Paramedic', value: 4, color: 'var(--coral-400)' }, { label: 'EVOC', value: 3, color: 'var(--amber-400)' }, { label: 'HazMat', value: 2, color: 'var(--teal-300)' }, { label: 'Other', value: 2, color: 'var(--ink-300)' }],
-      table: { cols: ['Person', 'Credential', 'Expires', 'CEU %'], rows: [['Brennan, Riley', 'Paramedic', 'Jul 12', '38%'], ['Maguire, Owen', 'Paramedic', 'Jul 19', '41%'], ['Shah, Priya', 'EVOC', 'Jun 30', '12%'], ['Okafor, Jamal', 'HazMat', 'Jul 04', '25%']] },
+      // 11 rows — the 11 credentials in the 60-day window, split by type the
+      // way the bar reads it: 4 Paramedic, 3 EVOC, 2 HazMat, 1 Pump Op, 1 CPR.
+      table: { cols: ['Person', 'Station', 'Credential', 'Expires', 'CEU %'], rows: [
+        ['Brennan, Riley',   'Sta. 4',  'Paramedic', 'Jul 12', '38%'],
+        ['Maguire, Owen',    'Sta. 7',  'Paramedic', 'Jul 19', '41%'],
+        ['Tanaka, Alex',     'Sta. 9',  'Paramedic', 'Jul 26', '64%'],
+        ['Delgado, Rosa',    'Sta. 4',  'Paramedic', 'Aug 02', '47%'],
+        ['Shah, Priya',      'Sta. 7',  'EVOC',      'Jun 30', '12%'],
+        ['Vega, Marisol',    'Sta. 9',  'EVOC',      'Jul 08', '55%'],
+        ['Novak, Miles',     'Sta. 4',  'EVOC',      'Jul 22', '31%'],
+        ['Okafor, Jamal',    'Sta. 4',  'HazMat',    'Jul 04', '25%'],
+        ['Iverson, Theo',    'Sta. 11', 'HazMat',    'Jul 30', '68%'],
+        ['Park, Cassidy',    'Sta. 1',  'Pump Op',   'Jul 15', '72%'],
+        ['Rosenfeld, Eli',   'Sta. 7',  'CPR/AED',   'Aug 05', '19%']
+      ] },
       unit:  'people',
     },
     pto_pending: {
@@ -119,7 +250,16 @@
       line:  [{ x: 'Jan', y: 3 }, { x: 'Feb', y: 4 }, { x: 'Mar', y: 5 }, { x: 'Apr', y: 6 }, { x: 'May', y: 6 }],
       stack: { legend: ['Conflicts coverage', 'Clean'], rows: [{ label: 'Jun', a: 3, b: 1 }, { label: 'Jul', a: 1, b: 4 }, { label: 'Aug', a: 0, b: 6 }] },
       donut: [{ label: 'Vacation', value: 4, color: 'var(--teal-300)' }, { label: 'Medical', value: 1, color: 'var(--amber-400)' }, { label: 'Family',   value: 1, color: 'var(--coral-400)' }],
-      table: { cols: ['Person', 'Dates', 'Station', 'Coverage'], rows: [['Maguire, Owen', 'Jun 6–9', 'Sta. 7', 'No backfill'], ['Shah, Priya', 'Jun 18–21', 'Sta. 7', 'Pending'], ['Okafor, Jamal', 'Jul 1–7', 'Sta. 4', 'Trade approved']] },
+      // 6 rows — the 6 pending requests, 3 / 2 / 1 across Sta. 7 / 4 / 1, and
+      // the 3 in coverage-critical windows the KPI calls out.
+      table: { cols: ['Person', 'Dates', 'Station', 'Days', 'Coverage'], rows: [
+        ['Maguire, Owen',  'Jun 6–9',   'Sta. 7', '4',  'No backfill'],
+        ['Shah, Priya',    'Jun 18–21', 'Sta. 7', '4',  'No backfill'],
+        ['Rosenfeld, Eli', 'Jul 3–5',   'Sta. 7', '3',  'Pending'],
+        ['Okafor, Jamal',  'Jul 1–7',   'Sta. 4', '7',  'Trade approved'],
+        ['Delgado, Rosa',  'Jun 24–26', 'Sta. 4', '3',  'No backfill'],
+        ['Park, Cassidy',  'Jul 10–17', 'Sta. 1', '8',  'Trade approved']
+      ] },
       unit:  'requests',
     },
     apparatus_downtime: {
@@ -128,7 +268,25 @@
       line:  [{ x: 'Jan', y: 18 }, { x: 'Feb', y: 24 }, { x: 'Mar', y: 22 }, { x: 'Apr', y: 30 }, { x: 'May', y: 42 }],
       stack: { legend: ['Scheduled', 'Unscheduled'], rows: [{ label: 'Jan', a: 10, b: 8 }, { label: 'Feb', a: 12, b: 12 }, { label: 'Mar', a: 14, b: 8 }, { label: 'Apr', a: 12, b: 18 }, { label: 'May', a: 16, b: 26 }] },
       donut: [{ label: 'Pump',  value: 18, color: 'var(--coral-400)' }, { label: 'Aerial',value: 14, color: 'var(--amber-400)' }, { label: 'Other', value: 10, color: 'var(--teal-300)' }],
-      table: { cols: ['Apparatus', 'Reason', 'Hours', 'Status'], rows: [['Engine 4-A', 'Pump rebuild', '14', 'In shop'], ['Ladder 7', 'Aerial cert.', '11', 'Pending'], ['Engine 4-B', 'Brake job', '8', 'Returned'], ['Medic 11', 'Cab electrical', '5', 'Returned']] },
+      // One row per downtime EVENT rather than per apparatus — a pump rebuild
+      // spans several visits, and the per-apparatus totals are what the bar
+      // already shows. Hours sum to the headline 42, and per apparatus they
+      // sum to the bar: Engine 4-A 14, Ladder 7 11, Engine 4-B 8, Medic 11 5,
+      // Engine 1 4.
+      table: { cols: ['Apparatus', 'Date', 'Reason', 'Hours', 'Status'], rows: [
+        ['Engine 4-A', 'May 04', 'Pump rebuild',      '6', 'Returned'],
+        ['Engine 4-A', 'May 12', 'Pump rebuild',      '5', 'Returned'],
+        ['Engine 4-A', 'May 27', 'Pressure retest',   '3', 'In shop'],
+        ['Ladder 7',   'May 06', 'Aerial cert.',      '7', 'Pending'],
+        ['Ladder 7',   'May 21', 'Hydraulic leak',    '4', 'In shop'],
+        ['Engine 4-B', 'May 09', 'Brake job',         '5', 'Returned'],
+        ['Engine 4-B', 'May 24', 'Relief valve',      '3', 'Returned'],
+        ['Medic 11',   'May 08', 'Cab electrical',    '3', 'Returned'],
+        ['Medic 11',   'May 22', 'Suction unit',      '2', 'Returned'],
+        ['Engine 1',   'May 11', 'Gauge drift',       '2', 'Returned'],
+        ['Engine 1',   'May 19', 'Foam system flush', '1', 'Returned'],
+        ['Engine 1',   'May 29', 'Light bar',         '1', 'Pending']
+      ] },
       unit:  'hours',
     },
     response_time: {
@@ -165,12 +323,14 @@
 
     // ---- expanded metric data ----
     ceu_progress: {
-      kpi:   { num: '64%', delta: '−6 pts vs. last quarter', tone: 'warn' },
-      bar:   [{ label: 'Sta. 1', value: 82 }, { label: 'Sta. 4', value: 51 }, { label: 'Sta. 7', value: 48 }, { label: 'Sta. 9', value: 77 }, { label: 'Sta. 11', value: 70 }],
+      // Headline and breakdown both computed from the 92-person roster below.
+      kpi:   { num: CEU_OVERALL + '%', delta: '−6 pts vs. last quarter', tone: 'warn' },
+      bar:   CEU_BAR,
       line:  [{ x: 'Jan', y: 71 }, { x: 'Feb', y: 70 }, { x: 'Mar', y: 68 }, { x: 'Apr', y: 66 }, { x: 'May', y: 64 }],
       stack: { legend: ['On track', 'At risk'], rows: [{ label: 'Paramedic', a: 6, b: 4 }, { label: 'EVOC', a: 8, b: 3 }, { label: 'HazMat', a: 5, b: 2 }, { label: 'CPR/AED', a: 12, b: 1 }] },
       donut: [{ label: 'On track', value: 64, color: 'var(--teal-300)' }, { label: 'Slipping', value: 24, color: 'var(--amber-300)' }, { label: 'At risk', value: 12, color: 'var(--coral-400)' }],
-      table: { cols: ['Person', 'Credential', 'CEU %', 'Cohort'], rows: [['Brennan, Riley', 'Paramedic', '38%', 'Unassigned'], ['Maguire, Owen', 'Paramedic', '41%', 'Q3 Cohort A'], ['Shah, Priya', 'EVOC', '12%', 'Unassigned'], ['Okafor, Jamal', 'HazMat', '25%', 'Unassigned']] },
+      // Whole roster — 92 rows, the table that actually needs a pager.
+      table: { cols: ['Person', 'Station', 'Credential', 'CEU %', 'Cohort'], rows: CEU_ROWS },
       unit:  '%',
     },
     policy_acks: {
@@ -179,7 +339,22 @@
       line:  [{ x: 'Jan', y: 78 }, { x: 'Feb', y: 81 }, { x: 'Mar', y: 84 }, { x: 'Apr', y: 86 }, { x: 'May', y: 88 }],
       stack: { legend: ['Acknowledged', 'Outstanding'], rows: [{ label: 'PPE SOP v3', a: 88, b: 12 }, { label: 'Mayday update', a: 73, b: 27 }, { label: 'EV decon', a: 91, b: 9 }] },
       donut: [{ label: 'Acknowledged', value: 88, color: 'var(--teal-300)' }, { label: 'Outstanding', value: 12, color: 'var(--amber-400)' }],
-      table: { cols: ['Policy', 'Issued', 'Acks', 'Open'], rows: [['PPE SOP v3', 'May 02', '88', '12'], ['Mayday update', 'Apr 21', '73', '27'], ['EV decon', 'Apr 10', '91', '9']] },
+      // 12 policies in circulation. Acks total 1,057 of 1,200 sent = 88%,
+      // the headline rate.
+      table: { cols: ['Policy', 'Issued', 'Sent', 'Acks', 'Open'], rows: [
+        ['PPE SOP v3',           'May 02', '100', '88',  '12'],
+        ['Mayday update',        'Apr 21', '100', '73',  '27'],
+        ['EV decon',             'Apr 10', '100', '91',  '9'],
+        ['Rehab guidelines',     'Apr 02', '100', '95',  '5'],
+        ['Hydrant testing SOP',  'Mar 24', '100', '89',  '11'],
+        ['Fit-test policy',      'Mar 17', '100', '84',  '16'],
+        ['Radio discipline',     'Mar 05', '100', '79',  '21'],
+        ['Apparatus checkout',   'Feb 26', '100', '93',  '7'],
+        ['Bloodborne pathogens', 'Feb 14', '100', '97',  '3'],
+        ['Rope rescue rev. 2',   'Feb 03', '100', '82',  '18'],
+        ['Fatigue management',   'Jan 22', '100', '90',  '10'],
+        ['Records retention',    'Jan 09', '100', '96',  '4']
+      ] },
       unit:  '%',
     },
     equipment_failures: {
@@ -188,7 +363,27 @@
       line:  [{ x: 'Jan', y: 9 }, { x: 'Feb', y: 11 }, { x: 'Mar', y: 12 }, { x: 'Apr', y: 13 }, { x: 'May', y: 17 }],
       stack: { legend: ['In-service', 'OOS'], rows: [{ label: 'Sta. 4', a: 3, b: 4 }, { label: 'Sta. 7', a: 4, b: 3 }, { label: 'Sta. 1', a: 6, b: 1 }] },
       donut: [{ label: 'SCBA', value: 6, color: 'var(--coral-400)' }, { label: 'Pump', value: 4, color: 'var(--amber-400)' }, { label: 'Other', value: 7, color: 'var(--teal-300)' }],
-      table: { cols: ['Item', 'Station', 'Reason', 'Status'], rows: [['SCBA #142', 'Sta. 4', 'Reg fault', 'OOS'], ['Pump E4-A', 'Sta. 4', 'Pressure loss', 'In shop'], ['Hose 2.5"', 'Sta. 7', 'Coupling', 'Replaced']] },
+      // 17 rows — the 17 failures behind the headline, by type: 6 SCBA,
+      // 4 Pump, 3 Hose, 2 Radio, 2 AED.
+      table: { cols: ['Item', 'Type', 'Station', 'Reason', 'Status'], rows: [
+        ['SCBA #142',   'SCBA',  'Sta. 4',  'Regulator fault',   'OOS'],
+        ['SCBA #118',   'SCBA',  'Sta. 4',  'Low-pressure alarm', 'In shop'],
+        ['SCBA #207',   'SCBA',  'Sta. 7',  'Facepiece seal',    'OOS'],
+        ['SCBA #093',   'SCBA',  'Sta. 7',  'Cylinder hydro due', 'In shop'],
+        ['SCBA #164',   'SCBA',  'Sta. 1',  'Regulator fault',   'Replaced'],
+        ['SCBA #221',   'SCBA',  'Sta. 9',  'Harness wear',      'Returned'],
+        ['Pump E4-A',   'Pump',  'Sta. 4',  'Pressure loss',     'In shop'],
+        ['Pump E4-B',   'Pump',  'Sta. 4',  'Relief valve',      'OOS'],
+        ['Pump E7',     'Pump',  'Sta. 7',  'Primer failure',    'In shop'],
+        ['Pump E1',     'Pump',  'Sta. 1',  'Gauge drift',       'Returned'],
+        ['Hose 2.5"',   'Hose',  'Sta. 7',  'Coupling',          'Replaced'],
+        ['Hose 1.75"',  'Hose',  'Sta. 4',  'Failed service test', 'Replaced'],
+        ['Hose 5"',     'Hose',  'Sta. 11', 'Jacket abrasion',   'OOS'],
+        ['Radio 7-12',  'Radio', 'Sta. 7',  'Battery fault',     'Returned'],
+        ['Radio 4-03',  'Radio', 'Sta. 4',  'No transmit',       'In shop'],
+        ['AED Medic 4', 'AED',   'Sta. 4',  'Pad expiry',        'Returned'],
+        ['AED Engine 9', 'AED',  'Sta. 9',  'Self-test fail',    'OOS']
+      ] },
       unit:  'items',
     },
     incident_volume: {
@@ -215,7 +410,34 @@
       line:  [{ x: 'Jan', y: 14 }, { x: 'Feb', y: 17 }, { x: 'Mar', y: 19 }, { x: 'Apr', y: 21 }, { x: 'May', y: 23 }],
       stack: { legend: ['Approved', 'Pending'], rows: [{ label: 'Sta. 7', a: 6, b: 3 }, { label: 'Sta. 4', a: 4, b: 2 }, { label: 'Sta. 1', a: 3, b: 1 }] },
       donut: [{ label: 'Approved', value: 15, color: 'var(--teal-300)' }, { label: 'Pending', value: 8, color: 'var(--amber-400)' }],
-      table: { cols: ['Date', 'Station', 'Trade', 'Status'], rows: [['Jun 4', 'Sta. 7', 'Maguire ↔ Brennan', 'Approved'], ['Jun 6', 'Sta. 7', 'Shah ↔ Okafor', 'Pending'], ['Jun 9', 'Sta. 4', 'Vega ↔ Lin', 'Approved']] },
+      // 23 rows — every trade request behind the headline. Station split
+      // matches the bar (9 / 6 / 4 / 3 / 1) and 8 sit in Pending, which is
+      // what the KPI's "8 awaiting approval" is counting.
+      table: { cols: ['Date', 'Station', 'Trade', 'Shift', 'Status'], rows: [
+        ['Jun 2',  'Sta. 7',  'Maguire ↔ Brennan',   'A → C', 'Approved'],
+        ['Jun 4',  'Sta. 7',  'Shah ↔ Okafor',       'C → A', 'Pending'],
+        ['Jun 5',  'Sta. 7',  'Rosenfeld ↔ Park',    'A → B', 'Approved'],
+        ['Jun 7',  'Sta. 7',  'Iverson ↔ Vega',      'C → A', 'Approved'],
+        ['Jun 9',  'Sta. 7',  'Novak ↔ Cortez',      'B → C', 'Pending'],
+        ['Jun 11', 'Sta. 7',  'Ferraro ↔ Boone',     'A → B', 'Approved'],
+        ['Jun 13', 'Sta. 7',  'Hollis ↔ Amari',      'C → A', 'Pending'],
+        ['Jun 16', 'Sta. 7',  'Sutton ↔ Redgrave',   'B → C', 'Approved'],
+        ['Jun 18', 'Sta. 7',  'Ashby ↔ Mbeki',       'A → C', 'Approved'],
+        ['Jun 3',  'Sta. 4',  'Vega ↔ Lin',          'A → B', 'Approved'],
+        ['Jun 6',  'Sta. 4',  'Delgado ↔ Kim',       'B → A', 'Pending'],
+        ['Jun 8',  'Sta. 4',  'Brennan ↔ Hartwell',  'A → C', 'Approved'],
+        ['Jun 12', 'Sta. 4',  'Okafor ↔ Sandoval',   'C → B', 'Approved'],
+        ['Jun 15', 'Sta. 4',  'Prewitt ↔ Nakamura',  'B → A', 'Pending'],
+        ['Jun 19', 'Sta. 4',  'Ellery ↔ Vasquez',    'A → C', 'Approved'],
+        ['Jun 5',  'Sta. 1',  'Whitfield ↔ Calloway', 'A → B', 'Approved'],
+        ['Jun 10', 'Sta. 1',  'Tanaka ↔ Lindqvist',  'B → C', 'Pending'],
+        ['Jun 14', 'Sta. 1',  'Park ↔ Novak',        'C → A', 'Approved'],
+        ['Jun 20', 'Sta. 1',  'Boone ↔ Ferraro',     'A → B', 'Pending'],
+        ['Jun 7',  'Sta. 9',  'Vasquez ↔ Amari',     'B → A', 'Approved'],
+        ['Jun 13', 'Sta. 9',  'Cortez ↔ Sutton',     'A → C', 'Approved'],
+        ['Jun 17', 'Sta. 9',  'Mbeki ↔ Hollis',      'C → B', 'Pending'],
+        ['Jun 11', 'Sta. 11', 'Redgrave ↔ Ashby',    'B → A', 'Approved']
+      ] },
       unit:  'requests',
     },
   };
@@ -334,7 +556,17 @@
     if (viz === 'line')  { out.data = m.line;  return out; }
     if (viz === 'stack') { out.data = inc ? m.stack.rows.filter(function (r) { return keep(r.label); }) : m.stack.rows; out.legend = m.stack.legend; return out; }
     if (viz === 'donut') { out.data = inc ? m.donut.filter(function (d) { return keep(d.label); }) : m.donut; return out; }
-    if (viz === 'table') { out.cols = m.table.cols; out.rows = inc ? m.table.rows.filter(function (r) { return keep(r[0]); }) : m.table.rows; return out; }
+    if (viz === 'table') {
+      out.cols = m.table.cols;
+      // The category filter comes from the BAR's labels (stations, credential
+      // types), which may sit in any column of a detail table — the CEU roster
+      // is keyed by person with the station second. Match any cell, or picking
+      // "Sta. 4" silently empties the table.
+      out.rows = inc
+        ? m.table.rows.filter(function (r) { return r.some(function (c) { return keep(c); }); })
+        : m.table.rows;
+      return out;
+    }
     return out;
   }
 

@@ -1,21 +1,41 @@
 name: Build product dashboards
 
 # Regenerates each enrolled product's dashboard/meta.json (folder list, dev-handoff
-# flags, recent-activity log) whenever mocks change, and commits the result back.
-# This is what makes the product dashboards "auto-update on push" — nobody edits
-# meta.json by hand. See scripts/build-dashboards.js and designtoolbox/dashboard.js.
+# flags, recent-activity log) and commits the result back — nobody edits meta.json
+# by hand. See scripts/build-dashboards.js and designtoolbox/dashboard.js.
+#
+# DESIGNER PUSHES ARE PRIORITISED OVER THIS BOT. A designer's mock push
+# (products/**) deliberately does NOT trigger this job. Here's why: the site
+# deploys from the branch, so every push kicks off a GitHub Pages deploy — and
+# a newer push CANCELS the in-progress one. When this bot pushed a meta.json
+# commit seconds after every designer push, it (a) doubled the Pages deploys and
+# (b) cancelled the designer's own in-flight deploy, so their mock took an extra
+# bot-cycle to go live. Now a mock push deploys straight to Pages on its own,
+# uncontested; this job catches up that mock's dashboard metadata (activity log,
+# dev-handoff flip, rename relink) on the 15-minute schedule below instead.
+#
+# Immediate rebuild still happens for the things that change dashboard STRUCTURE
+# or code (products.json curation, the build scripts, dashboard.js) — those are
+# rare and worth deploying at once. Anyone can also force a rebuild now via the
+# "Run workflow" button (workflow_dispatch).
 
 on:
   push:
     branches: [main]
     paths:
-      - 'products/**'
+      # NOTE: 'products/**' is intentionally ABSENT — see the header comment.
       - 'products.json'
       - 'scripts/build-dashboards.js'
       - 'scripts/build-updated-stamps.js'
       - 'scripts/relink-catalog.js'
       - 'designtoolbox/dashboard.js'
       - '.github/workflows/dashboards.yml'
+  schedule:
+    # Every 15 min: fold in the mock pushes that no longer trigger this job —
+    # refresh each card's activity log, flip dev-handoff cards to Ready for Dev,
+    # and relink any rename a local hook didn't already fix. Idempotent: it only
+    # commits (and only then re-deploys) when something actually changed.
+    - cron: '*/15 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -47,7 +67,12 @@ jobs:
           set -euo pipefail
           BASE='${{ github.event.before }}'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
-            BASE=$(git rev-parse HEAD~1 2>/dev/null || echo '')
+            # cron / workflow_dispatch have no push range — relink over every
+            # rename in the last ~2h (comfortably longer than the 15-min cadence,
+            # so nothing slips through a gap). Relink is idempotent, so the
+            # overlap between runs is harmless. Fall back to HEAD~1 on a young repo.
+            BASE=$(git rev-list -1 --before='2 hours ago' HEAD 2>/dev/null || true)
+            [ -z "$BASE" ] && BASE=$(git rev-parse HEAD~1 2>/dev/null || echo '')
           fi
           if [ -n "$BASE" ]; then
             node scripts/relink-catalog.js "$BASE" "${{ github.sha }}"
