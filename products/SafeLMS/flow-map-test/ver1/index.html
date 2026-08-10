@@ -32,6 +32,8 @@
             --brand: #0b56fc;
             --brand-soft: #e8effe;
             --ok: #158444;
+            --warn: #b26a00;
+            --warn-soft: #fff3e0;
         }
 
         * { box-sizing: border-box; }
@@ -42,6 +44,8 @@
             color: var(--ink);
             background: var(--page-bg);
         }
+
+        .hidden { display: none !important; }
 
         /* ---- App shell ---- */
         .topbar {
@@ -78,12 +82,14 @@
             padding: 0 20px;
         }
 
-        /* Progress rail across the flow */
+        /* Progress rail across the flow (rebuilt per-course by JS — each course
+           has a different set of steps, so the rail is not hard-coded). */
         .rail {
             display: flex;
             align-items: center;
             gap: 6px;
             margin-bottom: 22px;
+            flex-wrap: wrap;
         }
         .rail .dot {
             display: flex; align-items: center; gap: 8px;
@@ -132,6 +138,16 @@
         .course .meta { flex: 1; }
         .course .meta .name { font-weight: 600; }
         .course .meta .sub { font-size: 12.5px; color: var(--ink-soft); }
+        /* Little "path preview" so it's clear each course routes differently. */
+        .course .path {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 11px; color: var(--ink-soft); margin-top: 5px; flex-wrap: wrap;
+        }
+        .course .path .seg {
+            background: #eef2fa; border-radius: 999px; padding: 2px 8px; font-weight: 600;
+        }
+        .course .path .seg.special { background: var(--warn-soft); color: var(--warn); }
+        .course .path i { font-size: 9px; opacity: .5; }
         .course .chev { color: var(--ink-soft); }
 
         /* Form rows */
@@ -149,6 +165,33 @@
             display: inline-flex; align-items: center; gap: 6px;
             background: var(--brand-soft); color: var(--brand);
             border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600;
+        }
+
+        /* Callout used on the branch-specific step to explain WHY it exists */
+        .callout {
+            display: flex; gap: 12px; align-items: flex-start;
+            background: var(--brand-soft); border: 1px solid #cfe0ff;
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
+            font-size: 13.5px; color: var(--ink-soft); line-height: 1.5;
+        }
+        .callout i { color: var(--brand); margin-top: 2px; font-size: 16px; }
+
+        /* Gear-inspection checklist (Fall Protection branch) */
+        .checklist { list-style: none; margin: 0; padding: 0; }
+        .check-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 13px 16px; border: 1px solid var(--line);
+            border-radius: 10px; margin-bottom: 10px;
+        }
+        .check-item .box {
+            width: 24px; height: 24px; border-radius: 6px;
+            background: #e7f6ed; color: var(--ok);
+            display: grid; place-items: center; flex: none; font-size: 12px;
+        }
+        .check-item .lbl { flex: 1; font-weight: 600; font-size: 14px; }
+        .check-item .req {
+            font-size: 11px; font-weight: 700; color: var(--brand);
+            background: var(--brand-soft); border-radius: 999px; padding: 3px 9px;
         }
 
         /* Review list */
@@ -191,54 +234,67 @@
     </header>
 
     <main class="wrap">
-        <!-- Progress rail -->
-        <nav class="rail" aria-label="Progress">
-            <span class="dot" data-step="land"><span class="num">1</span> Choose course</span>
-            <span class="bar"></span>
-            <span class="dot" data-step="assign"><span class="num">2</span> Assign learners</span>
-            <span class="bar"></span>
-            <span class="dot" data-step="review"><span class="num">3</span> Review</span>
-            <span class="bar"></span>
-            <span class="dot" data-step="done"><span class="num">4</span> Done</span>
-        </nav>
+        <!-- Progress rail — rebuilt by JS for whichever course path you're in. -->
+        <nav class="rail" id="rail" aria-label="Progress"></nav>
 
-        <!-- ===== Screen 1: Course catalog (entry) ===== -->
+        <!-- ===== Screen: Course catalog (entry) ===== -->
+        <!-- Each row shows its own mini path preview, so it's obvious up front
+             that picking a different course routes you through a different flow. -->
         <section class="view" id="view-land">
             <div class="card">
                 <h1 class="view-title">Assign Training</h1>
-                <p class="view-sub">Pick a course to assign to your team.</p>
+                <p class="view-sub">Pick a course to assign. Each course routes through its own path.</p>
 
-                <div class="course" data-goto="assign">
+                <div class="course" data-goto="fp-assign">
                     <span class="thumb"><i class="fa-solid fa-helmet-safety"></i></span>
                     <span class="meta">
                         <div class="name">Fall Protection &amp; Working at Heights</div>
                         <div class="sub">45 min · Compliance · Renewal due yearly</div>
+                        <div class="path">
+                            <span class="seg">Assign</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg special">Gear check</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg">Review</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg">Done</span>
+                        </div>
                     </span>
                     <i class="fa-solid fa-chevron-right chev"></i>
                 </div>
-                <div class="course" data-goto="assign">
+
+                <div class="course" data-goto="fs-assign">
                     <span class="thumb"><i class="fa-solid fa-fire-extinguisher"></i></span>
                     <span class="meta">
                         <div class="name">Fire Safety Essentials</div>
                         <div class="sub">30 min · Compliance · Renewal due yearly</div>
+                        <div class="path">
+                            <span class="seg">Assign</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg special">Schedule drill</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg">Review</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg">Done</span>
+                        </div>
                     </span>
                     <i class="fa-solid fa-chevron-right chev"></i>
                 </div>
-                <div class="course" data-goto="assign">
+
+                <div class="course" data-goto="hc-assign">
                     <span class="thumb"><i class="fa-solid fa-hand-dots"></i></span>
                     <span class="meta">
                         <div class="name">Hazard Communication (HazCom)</div>
-                        <div class="sub">50 min · OSHA · Renewal due yearly</div>
+                        <div class="sub">50 min · OSHA · Digital-only</div>
+                        <div class="path">
+                            <span class="seg">Assign</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg">Review</span><i class="fa-solid fa-chevron-right"></i>
+                            <span class="seg">Done</span>
+                        </div>
                     </span>
                     <i class="fa-solid fa-chevron-right chev"></i>
                 </div>
             </div>
         </section>
 
-        <!-- ===== Screen 2: Assign form ===== -->
+        <!-- ===== Screen: Assign learners (shared template, filled per course) ===== -->
         <section class="view" id="view-assign">
             <div class="card">
-                <h1 class="view-title">Fall Protection &amp; Working at Heights</h1>
+                <h1 class="view-title" id="assign-title">Assign course</h1>
                 <p class="view-sub">Choose who takes this course and when it's due.</p>
 
                 <div class="field-grid">
@@ -253,27 +309,84 @@
 
                     <div class="full">
                         <span style="font-size:13px;color:var(--ink-soft);">Selected learners</span>
-                        <div class="learners">
-                            <span class="pill"><i class="fa-solid fa-user"></i> Maria Chen</span>
-                            <span class="pill"><i class="fa-solid fa-user"></i> Devon Park</span>
-                            <span class="pill"><i class="fa-solid fa-user"></i> Sam Okafor</span>
-                            <span class="pill"><i class="fa-solid fa-users"></i> +5 crew</span>
-                        </div>
+                        <div class="learners" id="assign-pills"></div>
                     </div>
                 </div>
 
                 <div class="foot">
-                    <vaadin-button theme="tertiary" data-goto="land">
+                    <vaadin-button theme="tertiary" data-nav="back">
                         <i class="fa-solid fa-arrow-left" slot="prefix"></i> Back
                     </vaadin-button>
                     <div class="right">
-                        <vaadin-button theme="primary" data-goto="review">Continue</vaadin-button>
+                        <vaadin-button theme="primary" data-nav="next">Continue</vaadin-button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- ===== Screen 3: Review ===== -->
+        <!-- ===== Screen: Branch-specific step (Gear check OR Schedule drill) =====
+             One view container holds both branch blocks; JS shows whichever one the
+             chosen course uses. HazCom skips this screen entirely. -->
+        <section class="view" id="view-extra">
+            <div class="card">
+                <h1 class="view-title" id="extra-title">Extra step</h1>
+                <p class="view-sub" id="extra-sub"></p>
+
+                <!-- Fall Protection → gear inspection checklist -->
+                <div class="extra-gear">
+                    <div class="callout">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Working-at-heights courses require a PPE inspection <strong>before the course unlocks</strong>. Confirm the crew has checked each item.</span>
+                    </div>
+                    <ul class="checklist">
+                        <li class="check-item">
+                            <span class="box"><i class="fa-solid fa-check"></i></span>
+                            <span class="lbl">Full-body harness &amp; buckles</span>
+                            <span class="req">Required</span>
+                        </li>
+                        <li class="check-item">
+                            <span class="box"><i class="fa-solid fa-check"></i></span>
+                            <span class="lbl">Shock-absorbing lanyard</span>
+                            <span class="req">Required</span>
+                        </li>
+                        <li class="check-item">
+                            <span class="box"><i class="fa-solid fa-check"></i></span>
+                            <span class="lbl">Anchor point rated ≥ 5,000 lb</span>
+                            <span class="req">Required</span>
+                        </li>
+                        <li class="check-item">
+                            <span class="box"><i class="fa-solid fa-check"></i></span>
+                            <span class="lbl">Hard hat with chin strap</span>
+                            <span class="req">Required</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Fire Safety → on-site drill scheduling -->
+                <div class="extra-drill">
+                    <div class="callout">
+                        <i class="fa-solid fa-fire"></i>
+                        <span>Fire Safety includes a hands-on evacuation drill. Pick when and where the crew will run it.</span>
+                    </div>
+                    <div class="field-grid">
+                        <vaadin-date-picker theme="outlined" label="Drill date" id="drill-date"></vaadin-date-picker>
+                        <vaadin-select theme="outlined" label="Building / location" id="drill-building"></vaadin-select>
+                        <vaadin-select class="full" theme="outlined" label="Drill coordinator" id="drill-coord"></vaadin-select>
+                    </div>
+                </div>
+
+                <div class="foot">
+                    <vaadin-button theme="tertiary" data-nav="back">
+                        <i class="fa-solid fa-arrow-left" slot="prefix"></i> Back
+                    </vaadin-button>
+                    <div class="right">
+                        <vaadin-button theme="primary" data-nav="next">Continue</vaadin-button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen: Review (shared template, filled per course) ===== -->
         <section class="view" id="view-review">
             <div class="card">
                 <h1 class="view-title">Review assignment</h1>
@@ -281,24 +394,28 @@
 
                 <dl class="kv">
                     <dt>Course</dt>
-                    <dd>Fall Protection &amp; Working at Heights</dd>
+                    <dd id="review-course"></dd>
                     <dt>Learners</dt>
-                    <dd>8 people (Maria Chen, Devon Park, Sam Okafor, +5)</dd>
+                    <dd id="review-learners"></dd>
                     <dt>Due date</dt>
-                    <dd>March 15, 2026</dd>
+                    <dd id="review-due"></dd>
                     <dt>Reminder cadence</dt>
-                    <dd>Weekly until complete</dd>
+                    <dd id="review-cadence">Weekly until complete</dd>
+                    <!-- Branch-specific row (gear inspection OR scheduled drill).
+                         Hidden for HazCom, which has no extra step. -->
+                    <dt id="review-extra-dt"></dt>
+                    <dd id="review-extra-dd"></dd>
                     <dt>Estimated time</dt>
-                    <dd>45 minutes per learner</dd>
+                    <dd id="review-time"></dd>
                 </dl>
 
                 <div class="foot">
-                    <vaadin-button theme="tertiary" data-goto="assign">
+                    <vaadin-button theme="tertiary" data-nav="back">
                         <i class="fa-solid fa-arrow-left" slot="prefix"></i> Back
                     </vaadin-button>
                     <div class="right">
-                        <vaadin-button theme="secondary" data-goto="land">Cancel</vaadin-button>
-                        <vaadin-button theme="success primary" data-goto="done">
+                        <vaadin-button theme="secondary" data-nav="cancel">Cancel</vaadin-button>
+                        <vaadin-button theme="success primary" data-nav="next">
                             <i class="fa-solid fa-paper-plane" slot="prefix"></i> Assign course
                         </vaadin-button>
                     </div>
@@ -306,14 +423,14 @@
             </div>
         </section>
 
-        <!-- ===== Screen 4: Confirmation ===== -->
+        <!-- ===== Screen: Confirmation (shared template, filled per course) ===== -->
         <section class="view" id="view-done">
             <div class="card">
                 <div class="done-wrap">
                     <div class="check"><i class="fa-solid fa-check"></i></div>
                     <h1>Course assigned</h1>
-                    <p>8 learners were assigned <strong>Fall Protection &amp; Working at Heights</strong>, due March 15, 2026.</p>
-                    <vaadin-button theme="primary" data-goto="land">
+                    <p id="done-text"></p>
+                    <vaadin-button theme="primary" data-nav="restart">
                         <i class="fa-solid fa-plus" slot="prefix"></i> Assign another course
                     </vaadin-button>
                 </div>
@@ -322,116 +439,335 @@
     </main>
 
     <!-- =========================================================================
-         Flow state driver + hash boot.
-         The flow map (below) drives the page into any screen via applyFlowState(id),
-         and deep-links each thumbnail with #fm=<id>. This is exactly the wiring the
-         toolbox README documents — it's what we're testing here.
+         Course model + flow state driver + hash boot.
+         Each course carries its OWN path (course.steps), so "pick a course" leads
+         through a different flow. State ids are "<courseKey>-<step>" (e.g. fp-gear),
+         and `land` is the entry. The flow map drives the page via applyFlowState(id)
+         and deep-links each thumbnail with #fm=<id> — same wiring as before, just
+         many more states because the flow now branches.
          ========================================================================= -->
     <script>
         (function () {
-            // The four screens, in order. Ids double as flow-map node states.
-            const STEPS = ['land', 'assign', 'review', 'done'];
+            var qs = function (s) { return document.querySelector(s); };
 
+            // Shared learner roster (the multi-select's options).
+            var ROSTER = ['Maria Chen', 'Devon Park', 'Sam Okafor', 'Riley Voss',
+                          'Ana Bello', 'Kai Nguyen', 'Tom Alvarez', 'Priya Nair'];
+
+            // ---- The three courses, each with a DIFFERENT path ----
+            // steps[] is the ordered path AFTER the landing screen. The branch-
+            // specific step ('gear' / 'drill') renders in #view-extra; HazCom
+            // omits it, so its path is one screen shorter.
+            var COURSES = {
+                fp: {
+                    key: 'fp',
+                    name: 'Fall Protection & Working at Heights',
+                    steps: ['assign', 'gear', 'review', 'done'],
+                    selected: ['Maria Chen', 'Devon Park', 'Sam Okafor'],
+                    crew: 5,
+                    due: '2026-03-15', dueLabel: 'March 15, 2026',
+                    time: '45 minutes',
+                    extra: {
+                        kind: 'gear',
+                        title: 'Confirm gear inspection',
+                        sub: 'A PPE check is required before this course unlocks for the crew.',
+                        reviewLabel: 'Gear inspection',
+                        reviewValue: 'Required before start · 4-point PPE check'
+                    }
+                },
+                fs: {
+                    key: 'fs',
+                    name: 'Fire Safety Essentials',
+                    steps: ['assign', 'drill', 'review', 'done'],
+                    selected: ['Riley Voss', 'Ana Bello'],
+                    crew: 10,
+                    due: '2026-04-02', dueLabel: 'April 2, 2026',
+                    time: '30 minutes',
+                    extra: {
+                        kind: 'drill',
+                        title: 'Schedule the on-site fire drill',
+                        sub: 'Fire Safety includes a hands-on evacuation drill — set the date, place, and coordinator.',
+                        reviewLabel: 'On-site fire drill',
+                        reviewValue: 'March 20, 2026 · Building C — Warehouse · Coord. Tom Alvarez'
+                    }
+                },
+                hc: {
+                    key: 'hc',
+                    name: 'Hazard Communication (HazCom)',
+                    steps: ['assign', 'review', 'done'],   // digital-only — no hands-on step
+                    selected: ['Kai Nguyen', 'Priya Nair', 'Tom Alvarez'],
+                    crew: 0,
+                    due: '2026-02-28', dueLabel: 'February 28, 2026',
+                    time: '50 minutes',
+                    extra: null
+                }
+            };
+
+            var CADENCE = [
+                { label: 'Weekly until complete', value: 'weekly' },
+                { label: 'Every 3 days', value: '3d' },
+                { label: 'No reminders', value: 'none' }
+            ];
+            var BUILDINGS = [
+                { label: 'Building A — Office', value: 'a' },
+                { label: 'Building B — Plant', value: 'b' },
+                { label: 'Building C — Warehouse', value: 'c' }
+            ];
+
+            // Human labels for the progress rail (varies by course).
+            var RAIL_LABEL = {
+                land: 'Choose course', assign: 'Assign learners',
+                gear: 'Gear check', drill: 'Schedule drill',
+                review: 'Review', done: 'Done'
+            };
+
+            // Current position in the flow.
+            var current = { course: null, step: 'land' };
+            function curId() { return current.step === 'land' ? 'land' : current.course + '-' + current.step; }
+
+            function learnerCount(c) { return c.selected.length + (c.crew || 0); }
+            function learnerSummary(c) {
+                var names = c.selected.join(', ');
+                return learnerCount(c) + ' people (' + names + (c.crew ? ', +' + c.crew : '') + ')';
+            }
+            function learnerPills(c) {
+                var html = c.selected.map(function (n) {
+                    return '<span class="pill"><i class="fa-solid fa-user"></i> ' + n + '</span>';
+                }).join('');
+                if (c.crew) html += '<span class="pill"><i class="fa-solid fa-users"></i> +' + c.crew + ' crew</span>';
+                return html;
+            }
+
+            // ---- Fill each screen from the chosen course ----
+            function fillAssign(c) {
+                qs('#assign-title').textContent = c.name;
+                var learners = qs('#learners');
+                if (learners) { learners.items = ROSTER.slice(); learners.selectedItems = c.selected.slice(); }
+                var cadence = qs('#cadence');
+                if (cadence) { cadence.items = CADENCE; cadence.value = 'weekly'; }
+                var due = qs('#due');
+                if (due) due.value = c.due;
+                qs('#assign-pills').innerHTML = learnerPills(c);
+            }
+
+            function fillExtra(c) {
+                var ex = c.extra || {};
+                qs('#extra-title').textContent = ex.title || '';
+                qs('#extra-sub').textContent = ex.sub || '';
+                var gear = qs('.extra-gear'), drill = qs('.extra-drill');
+                var isGear = ex.kind === 'gear';
+                gear.classList.toggle('hidden', !isGear);
+                drill.classList.toggle('hidden', isGear);
+                if (!isGear) {
+                    var dd = qs('#drill-date'); if (dd) dd.value = '2026-03-20';
+                    var db = qs('#drill-building'); if (db) { db.items = BUILDINGS; db.value = 'c'; }
+                    var dc = qs('#drill-coord');
+                    if (dc) { dc.items = ROSTER.map(function (n) { return { label: n, value: n }; }); dc.value = 'Tom Alvarez'; }
+                }
+            }
+
+            function fillReview(c) {
+                qs('#review-course').textContent = c.name;
+                qs('#review-learners').textContent = learnerSummary(c);
+                qs('#review-due').textContent = c.dueLabel;
+                qs('#review-time').textContent = c.time + ' per learner';
+                var dt = qs('#review-extra-dt'), dd = qs('#review-extra-dd');
+                if (c.extra) {
+                    dt.textContent = c.extra.reviewLabel;
+                    dd.textContent = c.extra.reviewValue;
+                    dt.classList.remove('hidden'); dd.classList.remove('hidden');
+                } else {
+                    dt.textContent = ''; dd.textContent = '';
+                    dt.classList.add('hidden'); dd.classList.add('hidden');
+                }
+            }
+
+            function fillDone(c) {
+                qs('#done-text').innerHTML =
+                    learnerCount(c) + ' learners were assigned <strong>' + c.name +
+                    '</strong>, due ' + c.dueLabel + '.';
+            }
+
+            // ---- Progress rail (dynamic per course) ----
+            function renderRail() {
+                var rail = qs('#rail');
+                var steps, curIdx;
+                if (current.step === 'land' || !current.course) {
+                    // Generic skeleton on the landing screen.
+                    steps = ['land', 'assign', 'review', 'done'];
+                    curIdx = 0;
+                } else {
+                    steps = ['land'].concat(COURSES[current.course].steps);
+                    curIdx = steps.indexOf(current.step);
+                }
+                rail.innerHTML = steps.map(function (s, i) {
+                    var isDone = i < curIdx || (current.step === 'done' && s === 'done');
+                    var isActive = i === curIdx;
+                    var cls = (isActive ? ' active' : '') + (isDone ? ' done' : '');
+                    var num = isDone ? '<i class="fa-solid fa-check"></i>' : (i + 1);
+                    return '<span class="dot' + cls + '"><span class="num">' + num + '</span> ' + RAIL_LABEL[s] + '</span>';
+                }).join('<span class="bar"></span>');
+            }
+
+            // ---- The flow state driver the flow map calls ----
             function applyFlowState(id, opts) {
                 opts = opts || {};
-                if (!STEPS.includes(id)) id = 'land';
+                var course = null, step = 'land';
+                if (id && id !== 'land') {
+                    var i = id.indexOf('-');
+                    course = id.slice(0, i);
+                    step = id.slice(i + 1);
+                    // Guard against unknown ids (fall back to landing).
+                    if (!COURSES[course] || COURSES[course].steps.indexOf(step) === -1) {
+                        course = null; step = 'land'; id = 'land';
+                    }
+                } else {
+                    id = 'land';
+                }
+                current = { course: course, step: step };
 
-                // Swap the active view
-                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-                const view = document.getElementById('view-' + id);
+                // Which view container renders this step? gear/drill share #view-extra.
+                var viewType = step === 'land' ? 'land'
+                    : (step === 'gear' || step === 'drill') ? 'extra' : step;
+
+                // Fill content BEFORE showing, so live thumbnails snapshot correctly.
+                if (course) {
+                    var c = COURSES[course];
+                    if (step === 'assign') fillAssign(c);
+                    else if (viewType === 'extra') fillExtra(c);
+                    else if (step === 'review') fillReview(c);
+                    else if (step === 'done') fillDone(c);
+                }
+
+                document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+                var view = qs('#view-' + viewType);
                 if (view) view.classList.add('active');
+                renderRail();
 
-                // Update the progress rail (done = every step before the active one)
-                const idx = STEPS.indexOf(id);
-                document.querySelectorAll('.rail .dot').forEach(dot => {
-                    const dotIdx = STEPS.indexOf(dot.dataset.step);
-                    dot.classList.toggle('active', dotIdx === idx);
-                    dot.classList.toggle('done', dotIdx < idx || (id === 'done' && dot.dataset.step === 'done'));
-                });
-
-                // Keep the URL hash in sync so links + browser back work, unless we
-                // were called *from* a hash change (instant) — avoids a loop.
+                // Keep the URL hash in sync (unless we were called FROM a hash change).
                 if (!opts.fromHash) {
-                    const target = 'fm=' + id;
+                    var target = 'fm=' + id;
                     if (location.hash.replace(/^#/, '') !== target) {
                         history.replaceState(null, '', '#' + target);
                     }
                 }
-
                 if (!opts.instant) window.scrollTo({ top: 0, behavior: 'smooth' });
             }
             window.applyFlowState = applyFlowState;
 
-            // In-page navigation: any element with data-goto drives the flow.
-            document.addEventListener('click', e => {
-                const t = e.target.closest('[data-goto]');
-                if (!t) return;
-                applyFlowState(t.dataset.goto);
+            // ---- In-page navigation ----
+            // Course rows carry data-goto="<key>-assign"; Back/Continue/Cancel/Assign
+            // carry data-nav and move along the CURRENT course's path.
+            document.addEventListener('click', function (e) {
+                var g = e.target.closest('[data-goto]');
+                if (g) { applyFlowState(g.dataset.goto); return; }
+                var n = e.target.closest('[data-nav]');
+                if (n) handleNav(n.dataset.nav);
             });
+            function handleNav(dir) {
+                if (dir === 'cancel' || dir === 'restart') { applyFlowState('land'); return; }
+                if (!current.course) return;
+                var steps = COURSES[current.course].steps;
+                var i = steps.indexOf(current.step);
+                if (dir === 'next') {
+                    if (i < steps.length - 1) applyFlowState(current.course + '-' + steps[i + 1]);
+                } else if (dir === 'back') {
+                    if (i > 0) applyFlowState(current.course + '-' + steps[i - 1]);
+                    else applyFlowState('land');
+                }
+            }
 
-            // Hash boot: honor a flow-map #fm=<id> deep link on load, else start at landing.
+            // ---- Hash boot: honor a flow-map #fm=<id> deep link on load ----
             function bootFromHash() {
-                const m = (location.hash || '').match(/fm=([\w-]+)/);
+                var m = (location.hash || '').match(/fm=([\w-]+)/);
                 applyFlowState(m ? decodeURIComponent(m[1]) : 'land', { instant: true, fromHash: true });
             }
             bootFromHash();
             window.addEventListener('hashchange', bootFromHash);
 
-            // ---- Populate the Vaadin inputs (representative, non-functional) ----
-            window.addEventListener('DOMContentLoaded', () => {
-                const learners = document.getElementById('learners');
-                if (learners) {
-                    learners.items = ['Maria Chen', 'Devon Park', 'Sam Okafor', 'Riley Voss', 'Ana Bello', 'Kai Nguyen'];
-                    learners.selectedItems = ['Maria Chen', 'Devon Park', 'Sam Okafor'];
-                }
-                const cadence = document.getElementById('cadence');
-                if (cadence) {
-                    cadence.items = [
-                        { label: 'Weekly until complete', value: 'weekly' },
-                        { label: 'Every 3 days', value: '3d' },
-                        { label: 'No reminders', value: 'none' }
-                    ];
-                    cadence.value = 'weekly';
-                }
-                const due = document.getElementById('due');
-                if (due) due.value = '2026-03-15';
+            // Re-apply once the Vaadin components have upgraded (deferred module runs
+            // before DOMContentLoaded), so combo boxes / selects populate reliably.
+            document.addEventListener('DOMContentLoaded', function () {
+                applyFlowState(curId(), { instant: true, fromHash: true });
             });
         })();
     </script>
 
     <!-- =========================================================================
          Design Toolbox — flow map config.
-         Defined BEFORE the toolbox include so the flow map picks it up. Comments
-         stay ENABLED (no window.TOOLBOX override) per the auto-toolbox rule.
+         Three lanes (one per course) fan out from the single entry node, so the
+         map visibly shows each course taking a different path. Comments stay
+         ENABLED (no window.TOOLBOX override) per the auto-toolbox rule.
          ========================================================================= -->
     <script>
         window.TOOLBOX_CONFIG = {
             flowMap: {
                 title: 'Assign Training — Flow Map',
                 applyState: 'applyFlowState',
-                canvas: { w: 1500, h: 420 },
+                canvas: { w: 1720, h: 1020 },
                 flows: [
-                    { id: 'assign', name: 'Assign Training', pill: 'A', color: '#9ec2ff',
-                      lane: { x: 300, y: 70, w: 1160, h: 300 }, labelXY: { x: 316, y: 40 } }
+                    { id: 'fp', name: 'Fall Protection', pill: 'A', color: '#9ec2ff',
+                      lane: { x: 300, y: 60, w: 1360, h: 292 }, labelXY: { x: 316, y: 30 } },
+                    { id: 'fs', name: 'Fire Safety', pill: 'B', color: '#ffc08a',
+                      lane: { x: 300, y: 370, w: 1360, h: 292 }, labelXY: { x: 316, y: 340 } },
+                    { id: 'hc', name: 'Hazard Communication', pill: 'C', color: '#a9e5c0',
+                      lane: { x: 300, y: 680, w: 1360, h: 292 }, labelXY: { x: 316, y: 650 } }
                 ],
                 nodes: [
-                    { id: 'land', flow: 'entry', entry: true, x: 40, y: 170,
+                    { id: 'land', flow: 'entry', entry: true, x: 40, y: 400,
                       step: 'Entry', name: 'Course catalog', state: 'land', match: [],
-                      desc: 'The starting screen. Pick a course to assign — each row opens the assign form.' },
-                    { id: 'assign', flow: 'assign', x: 320, y: 120,
-                      step: 'Step 2', name: 'Assign learners', state: 'assign', match: [],
-                      desc: 'Choose learners (multi-select), a due date, and a reminder cadence for the selected course.' },
-                    { id: 'review', flow: 'assign', x: 700, y: 120,
-                      step: 'Step 3', name: 'Review assignment', state: 'review', match: [],
-                      desc: 'A scannable summary of course, learners, due date, and cadence before sending.' },
-                    { id: 'done', flow: 'assign', x: 1080, y: 120,
-                      step: 'Step 4', name: 'Confirmation', state: 'done', match: [],
-                      desc: 'Success state confirming the assignment went out, with a shortcut to assign another course.' }
+                      desc: 'Pick a course to assign. Each course branches into its own path — Fall Protection and Fire Safety add a hands-on step; HazCom goes straight to review.' },
+
+                    // ---- Fall Protection path ----
+                    { id: 'fp-assign', flow: 'fp', x: 340, y: 90,
+                      step: 'Assign', name: 'Assign learners', state: 'fp-assign', match: [],
+                      desc: 'Fall Protection — choose learners, due date, and reminder cadence.' },
+                    { id: 'fp-gear', flow: 'fp', x: 680, y: 90,
+                      step: 'Gear check', name: 'Confirm gear inspection', state: 'fp-gear', match: [],
+                      desc: 'Branch-only step: a 4-point PPE checklist (harness, lanyard, anchor, hard hat) that must pass before the course unlocks.' },
+                    { id: 'fp-review', flow: 'fp', x: 1020, y: 90,
+                      step: 'Review', name: 'Review assignment', state: 'fp-review', match: [],
+                      desc: 'Summary including the required gear inspection.' },
+                    { id: 'fp-done', flow: 'fp', x: 1360, y: 90,
+                      step: 'Done', name: 'Confirmation', state: 'fp-done', match: [],
+                      desc: 'Fall Protection assigned to the crew.' },
+
+                    // ---- Fire Safety path ----
+                    { id: 'fs-assign', flow: 'fs', x: 340, y: 400,
+                      step: 'Assign', name: 'Assign learners', state: 'fs-assign', match: [],
+                      desc: 'Fire Safety — choose learners, due date, and reminder cadence.' },
+                    { id: 'fs-drill', flow: 'fs', x: 680, y: 400,
+                      step: 'Schedule drill', name: 'Schedule fire drill', state: 'fs-drill', match: [],
+                      desc: 'Branch-only step: schedule the on-site evacuation drill (date, building, coordinator).' },
+                    { id: 'fs-review', flow: 'fs', x: 1020, y: 400,
+                      step: 'Review', name: 'Review assignment', state: 'fs-review', match: [],
+                      desc: 'Summary including the scheduled on-site drill.' },
+                    { id: 'fs-done', flow: 'fs', x: 1360, y: 400,
+                      step: 'Done', name: 'Confirmation', state: 'fs-done', match: [],
+                      desc: 'Fire Safety assigned to the shift.' },
+
+                    // ---- Hazard Communication path (shorter — no hands-on step) ----
+                    { id: 'hc-assign', flow: 'hc', x: 340, y: 710,
+                      step: 'Assign', name: 'Assign learners', state: 'hc-assign', match: [],
+                      desc: 'HazCom — choose learners, due date, and reminder cadence.' },
+                    { id: 'hc-review', flow: 'hc', x: 680, y: 710,
+                      step: 'Review', name: 'Review assignment', state: 'hc-review', match: [],
+                      desc: 'HazCom is digital-only — no hands-on step, so assign goes straight to review.' },
+                    { id: 'hc-done', flow: 'hc', x: 1020, y: 710,
+                      step: 'Done', name: 'Confirmation', state: 'hc-done', match: [],
+                      desc: 'HazCom assigned.' }
                 ],
                 edges: [
-                    ['land', 'assign', 'branch'],
-                    ['assign', 'review'],
-                    ['review', 'done']
+                    // Entry branches into each course (dashed "branch" edges).
+                    ['land', 'fp-assign', 'branch'],
+                    ['land', 'fs-assign', 'branch'],
+                    ['land', 'hc-assign', 'branch'],
+                    // Fall Protection
+                    ['fp-assign', 'fp-gear'], ['fp-gear', 'fp-review'], ['fp-review', 'fp-done'],
+                    // Fire Safety
+                    ['fs-assign', 'fs-drill'], ['fs-drill', 'fs-review'], ['fs-review', 'fs-done'],
+                    // HazCom
+                    ['hc-assign', 'hc-review'], ['hc-review', 'hc-done']
                 ]
             }
         };
