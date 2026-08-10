@@ -147,13 +147,15 @@
     // `prevent` feed the later beats and the debriefs.
     coverage: { required: 3, total: 4 },
 
-    // TEXT-OBSERVATION version only (scenario-live.html?type=scene-sweep&observe=text):
-    // how the learner enters findings when there is no tap canvas. 'sweep' = one
-    // open findings log (default — keeps the hazard COUNT hidden, so it stays a
-    // real "is this unsafe?" judgment). 'slots' = N labeled "find the N items"
-    // fields (more guided, but hands over the count). Ignored entirely by the
-    // photo/hotspot canvas (V1), which reads hazards[]/coverage directly.
-    observe: { inputMode: 'sweep', slotsPrompt: '', slotCount: 0 },
+    // HOW LEARNERS SPOT HAZARDS. `surface` picks the Observe extension:
+    //   'canvas' (default) — tap/outline the photo (js/sim-perception.js)
+    //   'text'             — type findings; coach grades + hands back (js/sim-observe-text.js)
+    // The rest apply only in text mode: `inputMode` 'sweep' (one open findings
+    // log, count kept implicit) or 'slots' (N labeled "find the N" fields);
+    // `slotsPrompt`/`slotCount` tune the slots; `placeholder` is the (neutral!)
+    // input hint. The Studio "How learners spot hazards" section edits these, and
+    // previewUrl adds ?observe=text when surface is 'text'.
+    observe: { surface: 'canvas', inputMode: 'sweep', slotsPrompt: '', slotCount: 0, placeholder: '' },
 
     hazards: [
       {
@@ -322,8 +324,9 @@
     // so the coach must NOT nudge toward hazard zones in chat (that gives the
     // answers away). Flips the Observe-beat instructions to a credit-and-hand-back
     // model. The canvas build (no ?observe) keeps the zone-nudge behavior.
-    const TEXT_MODE = (typeof location !== 'undefined' && location.search)
-      ? new URLSearchParams(location.search).get('observe') === 'text' : false;
+    const TEXT_MODE = (obj(s.observe).surface === 'text')
+      || ((typeof location !== 'undefined' && location.search)
+        ? new URLSearchParams(location.search).get('observe') === 'text' : false);
     const course = fill(s.course, s) || 'training';
     const voice = obj(s.voice);
     const refl = obj(s.reflection);
@@ -652,6 +655,7 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
     out.coverage = { total, required: Number.isFinite(cov.required) && cov.required > 0 ? Math.min(cov.required, total) : Math.max(1, total - 1) };
     const ob = obj(out.observe);
     out.observe = {
+      surface: ob.surface === 'text' ? 'text' : 'canvas',
       inputMode: ob.inputMode === 'slots' ? 'slots' : 'sweep',
       slotsPrompt: typeof ob.slotsPrompt === 'string' ? ob.slotsPrompt : '',
       slotCount: Number.isFinite(ob.slotCount) && ob.slotCount > 0 ? Math.floor(ob.slotCount) : 0,
@@ -909,6 +913,12 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
       .ss-aside .ss-stage { max-height:none; aspect-ratio:3/2; }
       .tabbody.is-aside.is-active { display:flex; flex-direction:column; padding:12px 12px 14px; }
       .ss-center .ss-coverage { margin-top:2px; }
+      /* TEXT mode skips the hotspot step — hide the outline canvas + the per-region
+         "Outline on photo" buttons; the photo upload (.ss-imgpanel) stays. Keyed
+         off a root class so the "What learners do" toggle hides them instantly,
+         without rebuilding the already-rendered Photo & hazards section. */
+      html.ssweep-textmode .ss-canvas,
+      html.ssweep-textmode .ss-hotspot { display:none !important; }
     `;
     document.head.appendChild(s);
   }
@@ -920,6 +930,11 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
 
     { id: 'context', group: 'context', stage: 'ENTER', icon: 'fa-book-open', title: 'The scene, read',
       lead: 'The first-person reading that drops the learner on the floor before they look around.' },
+
+    { id: 'observe', group: 'interaction', stage: 'ENGAGE', icon: 'fa-hand-pointer', title: 'How learners spot hazards',
+      lead: 'Do learners tap the photo, or type what they see? For typing, pick the input style.',
+      bridgeTitle: 'Two ways to run the same scene',
+      bridge: '<b>Tap the photo</b> is the full perception canvas — learners tap each hazard, outlines light up. <b>Type what you see</b> is a lower-cost build: learners write what looks unsafe and the coach grades it, hands them back to look for the rest, and never gives the misses away. Same photo, rubric, and coach either way — in type mode you can <b>skip outlining</b> the hazards entirely.' },
 
     { id: 'scene', group: 'interaction', stage: 'ENGAGE', icon: 'fa-image', title: 'Photo & hazards',
       lead: 'The work-area photo the learner sweeps, the hazards (and decoys) they mark, and the outline of each on the photo.',
@@ -1330,11 +1345,17 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
         helper: 'Describe the scene AND every hazard in words. The model reasons over this text, not the image.' }),
     );
 
+    // In TEXT mode there is no tap canvas, so the hotspot tool is skipped: the
+    // `ss-text` class hides the outline stage + the per-region "Outline on photo"
+    // buttons (kept mounted, just hidden, so none of the canvas wiring trips on
+    // detached nodes). The photo upload stays — text mode still shows the image.
+    const textMode = !!(s.observe && s.observe.surface === 'text');
+    document.documentElement.classList.toggle('ssweep-textmode', textMode);  // in case this section renders first
     // ASIDE — the image + its vector canvas (upload lives with the image it acts on).
-    const aside = document.createElement('div'); aside.className = 'ss-aside';
+    const aside = document.createElement('div'); aside.className = 'ss-aside' + (textMode ? ' ss-text' : '');
     aside.append(imgPanel, canvas);
     // CENTER — the cards the author fills while watching the pinned image.
-    center = document.createElement('div'); center.className = 'fields ss-center';
+    center = document.createElement('div'); center.className = 'fields ss-center' + (textMode ? ' ss-text' : '');
     center.append(covPanel, listWrap, sceneText);
 
     paintImage(); paintStage(); paintCoverage(); paintList();
@@ -1371,6 +1392,61 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
       });
       return el;
     };
+
+    // a radio-group field (segmented choice); mutates obj[key], re-paints on change
+    const radioField = (o, key, label, choices, opts = {}) => {
+      const g = document.createElement('vaadin-radio-group');
+      g.label = label;
+      g.setAttribute('theme', 'horizontal');
+      if (opts.helper) g.helperText = opts.helper;
+      choices.forEach((c) => {
+        const r = document.createElement('vaadin-radio-button');
+        r.value = c.value; r.label = c.label;
+        g.appendChild(r);
+      });
+      g.value = (o[key] != null ? String(o[key]) : choices[0].value);
+      g.addEventListener('value-changed', () => {
+        if (g.value === o[key]) return;
+        o[key] = g.value; scheduleUpdate(); if (opts.onChange) opts.onChange(g.value);
+      });
+      return g;
+    };
+
+    // "How learners spot hazards" — the surface toggle + the text-mode knobs.
+    // A local paint() re-renders so the text options appear only when relevant.
+    if (sec.id === 'observe') {
+      const s = H.getScenario();
+      if (!s.observe || typeof s.observe !== 'object') s.observe = { surface: 'canvas', inputMode: 'sweep', slotsPrompt: '', slotCount: 0, placeholder: '' };
+      const ob = s.observe;
+      const wrap = document.createElement('div'); wrap.className = 'fields';
+      const paint = () => {
+        // Flip the root class so the Photo & hazards section hides its hotspot
+        // tool live, even though it was rendered before this toggle.
+        document.documentElement.classList.toggle('ssweep-textmode', ob.surface === 'text');
+        wrap.innerHTML = '';
+        wrap.append(radioField(ob, 'surface', 'What learners do', [
+          { value: 'canvas', label: 'Tap the photo' },
+          { value: 'text', label: 'Type what they see' },
+        ], { helper: 'Type mode is the lower-cost build — no hotspots to outline.', onChange: paint }));
+        if (ob.surface === 'text') {
+          wrap.append(radioField(ob, 'inputMode', 'Input style', [
+            { value: 'sweep', label: 'Open list' },
+            { value: 'slots', label: 'Labeled slots' },
+          ], { helper: 'Open list keeps the count implicit; labeled slots show N “find the item” fields (hands over the count).', onChange: paint }));
+          wrap.append(tf('observe.placeholder', 'Input placeholder', {
+            placeholder: 'Describe something that looks unsafe…',
+            helper: 'The hint inside the type box. Keep it neutral — never name a hazard, or it gives an answer away.' }));
+          if (ob.inputMode === 'slots') {
+            wrap.append(
+              tf('observe.slotsPrompt', 'Slots heading', { placeholder: 'Find the 4 hazards in this scene', helper: 'Shown above the labeled fields.' }),
+              numField(ob, 'slotCount', 'Number of slots', { min: 1, max: (s.hazards || []).length || 8, helper: 'How many labeled fields. Defaults to the hazard count.' }),
+            );
+          }
+        }
+      };
+      paint();
+      box.append(wrap);
+    }
 
     if (sec.id === 'basics') {
       box.append(
@@ -1468,6 +1544,8 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
     const L = [];
     const add = (severity, section, msg, why) => L.push({ severity, section, msg, why });
     const empty = (v) => !String(v ?? '').trim();
+    // TEXT mode has no tap canvas, so "no outline" is not a problem — skip those.
+    const textMode = !!(s.observe && s.observe.surface === 'text');
 
     if (empty(s.title)) add('err', 'basics', 'The exercise needs a title.', 'It appears in the learner’s top bar.');
     if (empty(s.course)) add('info', 'basics', 'No course named.', 'It grounds the coach’s framing.');
@@ -1484,14 +1562,14 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
       if (empty(h.full)) add('warn', 'scene', `Hazard ${label} has no description.`, 'The coach grounds to this — without it, it can’t credit the catch.');
       if (empty(h.zone)) add('warn', 'scene', `Hazard ${label} has no zone.`, 'The coach nudges toward the zone without naming the hazard.');
       if (empty(h.alt)) add('warn', 'scene', `Hazard ${label} has no neutral description.`, 'It’s the screen-reader name for the keyboard/list path and the on-screen reference fed to the coach. Describe what’s visible, not why it’s a hazard.');
-      if (!h.spot) add('err', 'scene', `Hazard ${label} has no outline on the photo.`, 'Without a placed hotspot the learner can’t tap or key to mark it — click “Outline on photo”.');
+      if (!textMode && !h.spot) add('err', 'scene', `Hazard ${label} has no outline on the photo.`, 'Without a placed hotspot the learner can’t tap or key to mark it — click “Outline on photo”.');
     });
 
     (s.decoys || []).forEach((d, i) => {
       const label = d.alt ? `“${String(d.alt).slice(0, 32)}…”` : `#${i + 1}`;
       if (empty(d.alt)) add('info', 'scene', `Decoy ${label} has no neutral description.`, 'It’s the region’s screen-reader/list name — without it the decoy can’t be presented.');
       if (empty(d.note)) add('info', 'scene', `Decoy ${label} has no “why it’s fine” note.`, 'Shown when a learner marks it — the teaching moment that it’s safe.');
-      if (!d.spot) add('warn', 'scene', `Decoy ${label} has no outline on the photo.`, 'Without an outline the decoy can’t be tapped or keyed — outline it, or remove it.');
+      if (!textMode && !d.spot) add('warn', 'scene', `Decoy ${label} has no outline on the photo.`, 'Without an outline the decoy can’t be tapped or keyed — outline it, or remove it.');
     });
 
     const cov = s.coverage || {};
@@ -1531,7 +1609,7 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
     // perception layer (js/sim-perception.js). Was the bespoke scene-sweep-live.html;
     // migrated onto the shared runtime with its OWN toRuntime + compile. The bespoke
     // page is frozen in archive/2026-08-04/.
-    previewUrl: () => 'scenario-live.html?type=scene-sweep',
+    previewUrl: (s) => 'scenario-live.html?type=scene-sweep' + (s && obj(s.observe).surface === 'text' ? '&observe=text' : ''),
     sections,
     renderFields,
     lints,
