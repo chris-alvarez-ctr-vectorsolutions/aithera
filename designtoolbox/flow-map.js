@@ -217,12 +217,12 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
 
   var fetchedNotes = false;
   var notesExist = false;   // true once DEV-NOTES.md is found with ≥1 note
-  // Reflect whether any dev notes exist: when none, show the "no dev notes yet"
-  // banner at the top and keep the per-step "Dev notes" buttons hidden.
+  // Reflect whether any dev notes exist: when none, keep the per-step
+  // "Dev notes" buttons hidden. (No empty-state banner — removed by request;
+  // an empty DEV-NOTES.md simply shows nothing until notes are added.)
   function applyNotesState() {
     if (!overlay) return;
     overlay.classList.toggle('fm-add-note-hidden', !notesExist);
-    overlay.classList.toggle('fm-nonotes-on', !notesExist);
   }
   function fetchNotes() {
     return fetch(NOTES_URL, { cache: 'no-store' })
@@ -346,7 +346,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     overlay = el('div', 'fm-overlay fm-add-note-hidden');
     overlay.innerHTML =
       '<div class="fm-top">' +
-        '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2><span class="tag">Dev tool</span></div>' +
+        '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2></div>' +
         '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 view dev notes</div>' +
         '<div class="fm-tools">' +
           '<button class="fm-tbtn" data-z="-1" title="Zoom out">' + ICON_MINUS + '</button>' +
@@ -355,7 +355,6 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
           '<button class="fm-tbtn" data-close="1" title="Close" style="margin-left:6px;">' + ICON_X + '</button>' +
         '</div>' +
       '</div>' +
-      '<div class="fm-nonotes">' + ICON_NOTE + '<span>No dev notes yet — add them to <code>DEV-NOTES.md</code> next to this mock and they’ll appear on each step.</span></div>' +
       '<div class="fm-view"><div class="fm-canvas"><svg class="fm-edges"></svg></div></div>';
     document.body.appendChild(overlay);
 
