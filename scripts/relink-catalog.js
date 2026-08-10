@@ -27,6 +27,23 @@
    Usage:
      node scripts/relink-catalog.js <base-ref> <head-ref>   # CI: a commit range
      node scripts/relink-catalog.js --staged                # pre-commit: index vs HEAD
+     node scripts/relink-catalog.js --heal                  # CI safety net: fix ANY
+                                                            # dangling catalog link by
+                                                            # chasing git rename history
+
+   HEAL MODE (the bulletproof net): the range/staged modes above only follow a
+   rename that Git pairs WITHIN the scanned commits. A folder renamed in Finder
+   whose rename Git didn't detect, or one that landed outside the scanned range,
+   can still leave a card pointing at a path that no longer exists. --heal fixes
+   that after the fact: for every products.json `rel` / versions.json `path` that
+   does NOT resolve on disk, it walks the FULL git rename history (reachable from
+   HEAD) to find where that file was renamed to, and rewrites the entry to the
+   live path. It only ever touches links that are already broken, and only to a
+   destination git actually recorded a rename to — so it cannot mis-link a
+   working card. Silent and non-failing by design: it exits 0 no matter what and
+   emits at most a `::notice::` (never a warning/error), so it never turns a
+   green run red or sends a workflow-failure email.
+
    Exits 0 always; prints what it relinked.
    ========================================================================= */
 
@@ -39,15 +56,25 @@ const { execFileSync } = require('child_process');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const argv = process.argv.slice(2);
 const stagedMode = argv[0] === '--staged';
-const [baseRef, headRef] = stagedMode ? [] : argv;
+const healMode = argv[0] === '--heal';
+const [baseRef, headRef] = (stagedMode || healMode) ? [] : argv;
 
-if (!stagedMode && (!baseRef || !headRef)) {
-  console.error('usage: node scripts/relink-catalog.js <base-ref> <head-ref>  |  --staged');
+if (!stagedMode && !healMode && (!baseRef || !headRef)) {
+  console.error('usage: node scripts/relink-catalog.js <base-ref> <head-ref>  |  --staged  |  --heal');
   process.exit(1);
 }
 
 function git(args) {
   return execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
+// --heal is a self-contained pass (see runHeal at the bottom). It never throws
+// out and always exits 0, so it can't fail a CI step or trigger a run-failure
+// email — exactly what "fix it silently" needs.
+if (healMode) {
+  try { runHeal(); }
+  catch (e) { console.log(`relink-catalog --heal: skipped (${e.message}).`); }
+  process.exit(0);
 }
 
 // Range mode only: refuse quietly when the base is unknown (first push / force push).
@@ -194,5 +221,124 @@ if (stagedMode && changedFiles.length) {
     console.log(`relink-catalog: re-staged ${changedFiles.join(', ')} into this commit.`);
   } catch (e) {
     console.error(`relink-catalog: could not re-stage relinked files (${e.message}).`);
+  }
+}
+
+// ===========================================================================
+// --heal — full-history safety net (see the header's HEAD MODE note).
+// ===========================================================================
+//
+// Fixes any catalog link that no longer resolves on disk by chasing git's
+// rename history to the file's current path. Reuses flattenItems (hoisted) and
+// the same rel→target resolution the dashboards use. Only rewrites links that
+// are ALREADY broken, and only to a path git recorded a rename to — so it can
+// never mis-link a working card. Writes products.json / versions.json in place;
+// the CI job's own commit step picks the changes up.
+function runHeal() {
+  // Full rename graph reachable from HEAD: source path -> the path it became.
+  // `git log` is newest-first, so first-seen per source is the most recent
+  // rename of that path. Chains (a→b→c) are followed at lookup time.
+  const graph = new Map();
+  const logOut = git(['log', '--diff-filter=R', '-M', '--name-status', '--format=']);
+  for (const line of logOut.split('\n')) {
+    const parts = line.split('\t');
+    if (parts.length === 3 && parts[0][0] === 'R' && parts[1].startsWith('products/')) {
+      if (!graph.has(parts[1])) graph.set(parts[1], parts[2]);
+    }
+  }
+  if (!graph.size) { console.log('relink-catalog --heal: no renames in history — nothing to do.'); return; }
+
+  const existsOnDisk = (rel) => fs.existsSync(path.join(REPO_ROOT, rel));
+
+  // Walk the rename chain from a now-missing path to a file that exists on disk.
+  // Returns the live destination, or null if the trail doesn't end at a real
+  // file (then we leave the link untouched rather than guess).
+  function chase(startTarget) {
+    let cur = startTarget;
+    const seen = new Set();
+    while (graph.has(cur) && !seen.has(cur)) {
+      seen.add(cur);
+      cur = graph.get(cur);
+      if (existsOnDisk(cur)) return cur;
+    }
+    return null;
+  }
+
+  const relinked = [];
+  const notices = [];
+
+  // ---- products.json rels ----
+  const catalogPath = path.join(REPO_ROOT, 'products.json');
+  let catalog = null;
+  try { catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8')); } catch { /* leave alone */ }
+  if (catalog) {
+    let catalogChanged = false;
+    for (const product of catalog.products || []) {
+      if (!product || !product.folder) continue;
+      const productPrefix = `products/${product.folder}/`;
+      for (const it of flattenItems(product.items)) {
+        const rel = it.rel;
+        const target = rel === '.'
+          ? `${productPrefix}index.html`
+          : rel.endsWith('.html')
+            ? `${productPrefix}${rel}`
+            : `${productPrefix}${rel}/index.html`;
+        if (existsOnDisk(target)) continue;            // link works — nothing to heal
+        const dest = chase(target);
+        if (!dest) continue;                            // no recorded rename to a live file — leave quietly
+        if (!dest.startsWith(productPrefix)) {
+          // moved to a different product — automation can't own the rel across
+          // products (a human must). Informational only; never a warning/error.
+          notices.push(`products.json "${it.name || rel}": ${target} moved to another product (${dest}) — update by hand.`);
+          continue;
+        }
+        let newRel = dest.slice(productPrefix.length);
+        if (newRel.endsWith('/index.html')) newRel = newRel.slice(0, -'/index.html'.length);
+        else if (newRel === 'index.html') newRel = '.';
+        relinked.push(`products.json "${it.name || rel}": rel "${it.rel}" → "${newRel}"`);
+        it.rel = newRel;
+        catalogChanged = true;
+      }
+    }
+    if (catalogChanged) fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + '\n');
+  }
+
+  // ---- versions.json paths ----
+  (function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(path.join(REPO_ROOT, dir), { withFileTypes: true }); }
+    catch { return; }
+    for (const e of entries) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) { walk(p); continue; }
+      if (e.name !== 'versions.json') continue;
+      let versions;
+      try { versions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, p), 'utf8')); } catch { continue; }
+      if (!Array.isArray(versions)) continue;
+      let changed = false;
+      for (const v of versions) {
+        if (!v || !v.path) continue;
+        const target = `${dir}/${v.path}`;
+        if (existsOnDisk(target)) continue;
+        const dest = chase(target);
+        if (!dest || !dest.startsWith(`${dir}/`)) continue;
+        const newPath = dest.slice(dir.length + 1);
+        relinked.push(`${p} "${v.id || v.label}": path "${v.path}" → "${newPath}"`);
+        v.path = newPath;
+        changed = true;
+      }
+      if (changed) fs.writeFileSync(path.join(REPO_ROOT, p), JSON.stringify(versions, null, 2) + '\n');
+    }
+  })('products');
+
+  if (relinked.length) {
+    console.log(`relink-catalog --heal: healed ${relinked.length} dangling catalog link(s):`);
+    for (const r of relinked) console.log(`  ✎ ${r}`);
+  } else {
+    console.log('relink-catalog --heal: no dangling catalog links to heal.');
+  }
+  for (const n of notices) {
+    console.log(`  · ${n}`);
+    if (process.env.GITHUB_ACTIONS) console.log(`::notice::relink-catalog: ${n}`);
   }
 }

@@ -83,6 +83,19 @@ function detectDevHandoff(productDir, rel) {
   return fs.existsSync(path.join(dir, candidate)) ? true : null;
 }
 
+// A card must NEVER point at the product's own dashboard. The dashboard app
+// always lives at products/<Product>/dashboard/, so any rel that resolves into
+// that folder is a self-link — it renders a redundant "go to the dashboard"
+// card on the dashboard the user is already viewing. Skip it structurally so a
+// hand-added or duplicated "Dashboard" entry in products.json can never render
+// (designers do edit products.json by hand, and this kind of entry kept coming
+// back). Real mocks that merely have "dashboard" in their name (e.g.
+// "ai-search-engine-dashboard") are unaffected — only the dashboard/ folder is.
+function isDashboardSelfLink(rel) {
+  const norm = String(rel || '').replace(/^\.\//, '').replace(/\/+$/, '');
+  return norm === 'dashboard' || norm.startsWith('dashboard/');
+}
+
 // ---------------------------------------------------------------------------
 // Git-derived recent activity
 // ---------------------------------------------------------------------------
@@ -163,6 +176,8 @@ function buildProduct(product, jiraBase) {
   // source of truth for the list, titles, tickets, and any hand-set status.
   const mocks = {};
   for (const it of flattenItems(product.items)) {
+    // Never render a card that links back to this product's own dashboard.
+    if (isDashboardSelfLink(it.rel)) continue;
     const entry = {};
     if (it.name) entry.title = it.name;
     if (it.desc) entry.description = it.desc;

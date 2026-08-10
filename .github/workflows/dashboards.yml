@@ -75,10 +75,25 @@ jobs:
             [ -z "$BASE" ] && BASE=$(git rev-parse HEAD~1 2>/dev/null || echo '')
           fi
           if [ -n "$BASE" ]; then
-            node scripts/relink-catalog.js "$BASE" "${{ github.sha }}"
+            # '|| echo' so a throw here (e.g. transient git error) can never
+            # fail the step and email the actor — the heal pass below is the
+            # real safety net anyway.
+            node scripts/relink-catalog.js "$BASE" "${{ github.sha }}" || echo "range relink skipped — non-fatal."
           else
             echo "no usable base ref — skipping relink."
           fi
+
+      - name: Heal any dangling catalog links (full-history safety net)
+        # Belt-and-suspenders for the range relink above. The range/staged modes
+        # only follow a rename Git pairs within the scanned commits; a Finder
+        # rename Git didn't detect, or one outside the range, can still leave a
+        # dead card. --heal walks the FULL git rename history and fixes any
+        # products.json rel / versions.json path that no longer resolves on disk
+        # (only broken links, only to a git-recorded destination — it can't
+        # mis-link a working card). It runs BEFORE meta.json regen so the fix
+        # flows into the dashboards in the same job. Exits 0 no matter what and
+        # emits at most ::notice::, so it never reddens the run or emails anyone.
+        run: node scripts/relink-catalog.js --heal || true
 
       - name: Regenerate dashboard meta.json
         run: node scripts/build-dashboards.js
