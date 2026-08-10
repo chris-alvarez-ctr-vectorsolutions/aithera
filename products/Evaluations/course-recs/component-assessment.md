@@ -1,148 +1,120 @@
 # Component Assessment
-## Performance Standards for Teacher Practice (Flat Form) — flat-form.html
+## Performance Standards for Teacher Practice (Flat Form) — [flat-form.html](flat-form.html)
 
-**Source**: Local file (`products/Evaluations/course-recs/flat-form.html`)
-**Date**: 2026-07-29 (re-assessed; supersedes the 2026-07-22 pass)
-**Assessed against**: core v1.19.0 loaded (CONTEXT.md unavailable; assessed against **core v1.22.1**), themes v1.5.0 loaded (CONTEXT.md unavailable; assessed against **themes v1.9.3**) — both fetched from CDN.
-
-> Version caveat: the mock loads core v1.19.0 / themes v1.5.0, which predate the
-> first published CONTEXT.md files. Assessment uses the minimum available baselines
-> (core v1.22.1, themes v1.9.3). A few components/tokens flagged below may differ
-> slightly from what v1.19.0/v1.5.0 actually shipped.
+**Source**: Local file
+**Date**: 2026-08-06
+**Assessed against**: core v1.22.1, themes v1.9.3 (fetched from CDN). The mock loads **core v1.19.0** and **themes v1.5.0**; CONTEXT.md is not published for either (minimums are core v1.22.1 / themes v1.9.3), so those baselines were substituted. Token values below are quoted from themes v1.9.3 and may differ slightly from v1.5.0.
+**Scope**: Whole file, with the **Script question step** audited in depth per request.
 
 ---
 
 ## Design Element Coverage
 
-| Design Element | VWC Component | Status | Notes |
-|---|---|---|---|
-| Top navigation bar | `vwc-topnav` | ✅ Covered | Used with `notifications-menu` + `user-menu` slots filled by `vwc-notifications-menu` / `vwc-user-menu`. Correct. |
-| Buttons (30×) | `vaadin-button` | ✅ Covered | Every instance carries a style variant (`primary`/`secondary`/`tertiary`, one `icon secondary`). No unstyled buttons. Correct per CLAUDE.md. |
-| Text inputs / textareas | `vaadin-text-field`, `vaadin-text-area` | ✅ Covered | All carry `theme="outlined"`. |
-| Number / date / time / datetime | `vaadin-number-field`, `vaadin-date-picker`, `vaadin-time-picker`, `vaadin-date-time-picker` | ✅ Covered | All `theme="outlined"`. |
-| Select | `vaadin-select` | ✅ Covered | `theme="outlined"`; items set via JS. |
-| Radio groups | `vaadin-radio-group` + `vaadin-radio-button` | ✅ Covered | `theme="horizontal"` used for inline layouts (Copy dialog). Valid. |
-| Checkbox | `vaadin-checkbox` | ✅ Covered | Native label attr used. |
-| All modals (Copy, Share, Assign, Validation, Signature, Quick Search, Change Log) | `vaadin-dialog` | ✅ Covered | Recently converted; renderer-driven header/body/footer per the component's slot-less API. Correct. |
-| Side panels (Video review, Attachment edit) | `vwc-drawer` | ⚠️ Partial | Correct component, but driven as a standalone overlay with several `::part`/host CSS workarounds (self-anchor, scrim, width, content-height). Intentional; the DS gaps are logged in `DESIGN-SYSTEM-GAPS.md`. |
-| Loading indicator (Quick Search) | `vaadin-progress-bar` | ✅ Covered | `indeterminate` used correctly. |
-| Compare-mode divider / split | *(custom)* | ⚠️ Partial | Hand-rolled resizable split pane. No VWC split/layout component exists — reasonable custom. |
-| Segmented control — "Mandatory / Suggested" (Assign modal) | `vwc-toggle-button-group` + `vwc-toggle-button` | ⚠️ Partial | Hand-rolled `.assign-segment` button pair. `vwc-toggle-button-group` is the intended single-select control. **Prior repo memory notes `vwc-toggle-button-group` misbehaves inside dialog renderers** (selection goes additive) — so the custom chips are a deliberate, documented workaround, not an oversight. Keep, but revisit if the component is fixed. |
-| Course-list tabs (`.cl-tabs` / `.cl-tab`) | `vaadin-tabs` + `vaadin-tab` | ⚠️ Partial | Custom tab strip with count/warning adornments. `vaadin-tabs` covers the base pattern; the per-tab count/warning badges aren't native. Fine for the prototype; consider `vaadin-tabs` if adornments can be slotted. |
-| Custom dropdown menus — ⋯ Actions menu, Compare menu, Add-Tags search menus (`.actions-menu`, `.q-tag-menu`) | `vaadin-popover` (+ `vaadin-list-box`/`vaadin-item`) | ✅ Covered (converted) | **`vaadin-popover` IS registered in the loaded bundle** (verified live), along with `vaadin-list-box` + `vaadin-item`. The ⋯ Actions and Compare menus are now `vaadin-popover` + `vaadin-list-box`; the Add-Tags menus use `vaadin-popover` for the overlay/positioning/outside-click with the search + checkable multi-select list in its renderer. This removed the hand-rolled fixed-positioning + outside-click code (the earlier source of the off-screen/close bugs). |
-| Tags — multi-select search + chips | *(custom)* / `vaadin-multi-select-combo-box` | ⚠️ Partial | The earlier `vaadin-multi-select-combo-box` was intentionally dropped in favor of the button+search-dropdown+chips pattern (per the designer's A/B comparison). Deliberate departure. |
-| Static status pills — "Off" lock pill, section/gap badges, signed badge, address chips, variant chips (`.copy-badge-off`, `.rec-section-badge`, `.rec-gap-chip`, `.sig-signed-badge`, `.rec-addr-chip`, `.details-variant-chip`) | `theme="badge …"` attribute pattern | ✅ Covered (converted) | **No badge OR chip ELEMENT exists in the loaded bundle** — `vwc-badge`, `vaadin-badge`, `vwc-chip`, `vaadin-chip`, `vwc-tag` are all unregistered (verified live). The DS ships badges as a `theme="badge <variant>"` **attribute** on a plain element (verified: a `<span theme="badge success">` picks up the tint bg + text + padding + radius from tokens). These non-interactive pills were moved to that pattern. |
-| Removable / interactive chips — tag chips (`.q-tag-custom-chip`), quick-search chips (`.qs-chip`) | *(none available)* | ❌ Gap | **DS has no chip/tag element at all** (see above) and the `theme="badge"` attribute is display-only — it can't host a remove ✕ or selection behavior. These chips (removable, with an ✕ affordance) therefore **cannot** use a VWC component and remain custom of necessity. **Candidate for a new `vwc-chip` component** (removable + selectable). |
-| Draggable session-timer widget | *(custom)* | ❌ Gap | No VWC floating/draggable widget. Deliberate prototype affordance; not a general component candidate. |
-| Video scrubber / progress (`.q-video-progress`) | *(custom)* — NOT `vaadin-progress-bar` | ⚠️ Partial | A media scrubber (seek), not a data progress indicator; `vaadin-progress-bar` is the wrong semantic. Correct to keep custom. |
-| Signature pad (canvas) | *(custom)* | ❌ Gap | No VWC signature/canvas component. Legitimately custom. |
-| Comment-thread / Script transcript, rec cards, form-header meta | *(custom)* | ⚠️ Partial | Bespoke layouts with no 1:1 VWC equivalent; `vwc-card` could back the rec cards but the current custom cards carry feature-specific structure. Fine for a prototype. |
+### Script question step (focus area)
 
-### Added in the 2026-07-29 re-assessment
-
-Findings not covered by the previous pass. Verified against the current file.
+> **Converted 2026-08-06** — steps 1–3 of the remediation plan were applied after this audit. Rows below marked ✅ Covered *(converted)* were ⚠️ Partial at audit time. The tag-menu container remains ⚠️ Partial on purpose; see "Notable risk".
 
 | Design Element | VWC Component | Status | Notes |
 |---|---|---|---|
-| Course-detail slide-over (`.details-panel` + `.details-overlay`) | `vwc-drawer` | ⚠️ Partial | Built from scratch in JS at [flat-form.html:6454](products/Evaluations/course-recs/flat-form.html#L6454) — `createElement('div')` for both panel and a manual `.details-overlay` scrim, with hand-written click-to-close. The same file already drives `vwc-drawer` correctly twice for the video-review and attachment panels. **The clearest remaining inconsistency**: converting it would inherit the backdrop, `inert` content handling, focus restore, and Escape handling already solved for the other two panels — and would consolidate the drawer `::part` workarounds already logged in `DESIGN-SYSTEM-GAPS.md` into one place instead of two patterns. |
-| Tooltips (23 native `title=` attributes) | `vaadin-tooltip` | ⚠️ Partial | Zero `vaadin-tooltip` in the file. Native `title` tooltips are not keyboard-accessible, can't be styled, and have an uncontrollable delay — a WCAG 2.2 AA concern given the DS targets that bar. Worth converting the informational ones (e.g. the `rec-addr-chip` "Addresses …" hints); pure-affordance ones like the ✕ "Remove" labels are lower priority since they also carry `aria-label`. |
-| Section headings (`.rec-generate-title` + `.rec-generate-desc`, `.recs-zone-title` + `.recs-zone-sub`) | `vwc-headline` | ⚠️ Partial | Raw `<h1>`–`<h4>` with custom title/subtitle class pairs. Several of these hand-build exactly the icon + `header-text` + `subtext` slot structure `vwc-headline` provides. Low risk, cosmetic consolidation. |
-| Section dividers (`.actions-menu-divider`, `.qs-menu-divider`, `.cl-legend-sep`) | `vwc-divider` | ⚠️ Partial | CSS `border-top` rules. Distinct from the author-selectable form-builder dividers noted in the token table — these are menu/UI separators, where `vwc-divider` applies cleanly. |
-| Quick-search results table (`.qs-table` + `.qs-sort-btn`) | `vwc-sortable-header`, `vwc-paginator` | ⚠️ Partial | Raw `<table>` with a hand-rolled sort button; no `vwc-sortable-header` or `vaadin-grid` present. Sorting is already being hand-built, and `vwc-sortable-header` handles the `aria-sort` wiring on the `<th>` plus clearing sibling headers. No pagination today — flag `vwc-paginator` if the result set grows beyond a screen. |
-| Collapsible course rows (`.assign-course` + chevron), question details (`.q-details`) | `vaadin-details` | ⚠️ Partial | Custom chevron-rotate disclosure driven by an `.expanded` class. `vaadin-details` supplies the disclosure semantics and ARIA. Defensible to keep given the custom header layout, but worth a look. |
-| Back-nav in secondary topbar (`.topbar-back-btn`) | `vwc-bread-crumb-nav` | ⚠️ Partial | "← Evaluation Users" is a custom `<button>`. `vwc-bread-crumb-nav` covers the hierarchical trail; the surrounding topbar also hosts the title, share pill, and action cluster, so it is not a drop-in — only the back link itself is a candidate. |
-| Floating cart pill (`.floating-cart`) | *(none)* | ❌ Gap | Viewport-anchored persistent count + CTA. No VWC equivalent; feature-specific, not a general component candidate. |
-| Rubric rating grid (`.rubric-grid` / `.rubric-tile`) | *(none)* | ❌ Gap | Tile-based `role="radiogroup"` scoring matrix with per-level color coding. `vaadin-radio-group` covers the semantics but not the tiled scoring-matrix presentation. **Possible general-purpose candidate** — see Gap Requirements below. |
+| Tag picker search field | `vaadin-text-field` + `vwc-icon` suffix | ✅ Covered | `theme="outlined"`, MDI glyph in `suffix` slot. Matches the Quick Search dual-listbox pattern. |
+| Composer message input | `vaadin-text-area` | ✅ Covered *(converted)* | `theme="outlined"`. Manual `scrollHeight` autosize **removed** — the component self-grows; the 120px cap moved to CSS `::part(input-field)`. T/S shortcut detection now reads `input.value` with an `\|\| ''` pre-upgrade guard; Backspace-pops-pill reads `selectionStart` off `inputElement` (the host returns `undefined`). Composer border suppressed via `::part(input-field)` so the wrapper remains the visible field. |
+| Edit-message input | `vaadin-text-area` | ✅ Covered *(converted)* | `theme="outlined"`, value passed as an attribute. Caret-to-end uses `inputElement.setSelectionRange` inside `requestAnimationFrame` (selection APIs don't exist on the host, and the component needs a frame to upgrade). |
+| Reply composer input | `vaadin-text-area` | ✅ Covered *(converted)* | `theme="outlined"`. Focus deferred a frame after the re-render creates it. |
+| Send button | `vaadin-button theme="icon primary"` | ✅ Covered *(converted)* | 30×30 footprint pinned in CSS; `disabled` still driven as a property. |
+| Tag trigger button | `vaadin-button theme="icon tertiary"` | ✅ Covered *(converted)* | Borderless icon button, sized to match send. |
+| Row actions (reply / edit / delete) | `vaadin-button theme="icon tertiary small"` | ✅ Covered *(converted)* | 4 instances (3 message + 1 reply), matching the `theme="icon tertiary small"` convention used in the Keystone hub mocks. Semantic hover colors kept via class. |
+| Save / Cancel / Reply actions | `vaadin-button` `primary` / `tertiary` | ✅ Covered *(converted)* | Legacy `.q-script-edit-btn` CSS scoped with `:not(vaadin-button)` so `theme="primary"` supplies the fill rather than the old hand-rolled background. |
+| Tag picker menu container | `vaadin-popover` | ⚠️ Partial | `<div class="q-tag-menu">` with `position: fixed` + hand-written flip/clamp positioning and a document-level outside-click handler. **The action-bar "Add Tags" picker in this same file uses `vaadin-popover` for the identical job** — two implementations of one pattern. **Deliberately NOT converted** pending the version question in "Notable risk" below. |
+| Tag option rows | `vaadin-list-box` + `vaadin-item` | ⚠️ Partial | `<button class="q-tag-option">` list. Multi-select + checkmark state is currently hand-managed. Tied to the popover decision. |
+| Per-button tooltips | `vaadin-tooltip` | ✅ Covered *(converted)* | 7 tooltips bound by `for=` replace the native `title=` attributes, matching the video tile / attachment card pattern. |
+| Speaker reassignment chips | `vwc-toggle-button-group` | ⚠️ Partial | Plain `<button>` + `.active` class, kept **deliberately**: `vwc-toggle-button-group` behaves additively inside dialog renderers (selection doesn't clear), a known issue in this repo — plain chips are the documented workaround. |
+| Speaker pill / tag chips | — | ❌ Gap | No chip/tag component in the index. CSS `<span>` is correct. See gap note. |
+| Speaker avatars | — | ❌ Gap | `vaadin-avatar` is **not** in this bundle (verified absent in v1.19.0 and not in the v1.22.1 runtime list). CSS circle is correct. |
+| Message / thread list | — | ❌ Gap | `vaadin-message-list` / `-message-input` are **not** in this bundle (verified absent). A comment-thread pattern has no DS equivalent — the hand-rolled log is the right call. |
+| Transcript log container | `vwc-card` | ⚠️ Partial | `<div class="q-script-log">` with border/radius. `vwc-card theme="outlined"` could host it, but its always-rendering `image` slot adds phantom space — the custom container is a defensible choice. |
+
+### Rest of the file
+
+| Design Element | VWC Component | Status | Notes |
+|---|---|---|---|
+| Form inputs (all types) | `vaadin-text-field`, `-text-area`, `-number-field`, `-select`, `-date-picker`, `-time-picker`, `-date-time-picker`, `-multi-select-combo-box` | ✅ Covered | **All 29 text-input-style fields carry `theme="outlined"`.** Zero violations. |
+| Buttons (35 instances) | `vaadin-button` | ✅ Covered | **Every instance has a style variant** (`primary`/`secondary`/`tertiary`/`icon`). Zero unstyled buttons. |
+| Checkboxes / radios | `vaadin-checkbox`, `vaadin-radio-group`, `vaadin-radio-button` | ✅ Covered | Correctly no `theme="outlined"` (per CONTEXT.md that attribute is text-input only). |
+| Dialogs (Copy / Share / Quick Search / Change Log) | `vaadin-dialog` | ✅ Covered | Uses `renderer` / `headerRenderer` / `footerRenderer` function properties — correct, since `vaadin-dialog` ignores slotted children. |
+| Section dividers (Copy dialog) | `vwc-divider` | ✅ Covered | Added this session; replaced three boxed cards. |
+| Side panels (video review, attachment detail) | `vwc-drawer` | ✅ Covered | `position="end" overlay resizable theme="no-padding"`, `closable` set via JS property (the attribute coerces truthy). Documented DS gaps compensated locally. |
+| Topnav / user menu / notifications | `vwc-topnav`, `vwc-user-menu`, `vwc-notifications-menu` | ✅ Covered | — |
+| Tooltips | `vaadin-tooltip` | ✅ Covered | 5 instances bound by `for=`. |
+| Progress / loading | `vaadin-progress-bar` | ✅ Covered | `indeterminate` on the Quick Search generate step. |
+| Tag pickers (action bar, attachment panel) | `vaadin-popover` | ⚠️ Partial | Works, but see the popover risk note — not in the documented v1.22.1 runtime. |
+| Quick Search dual-listbox | `vaadin-list-box` + `vaadin-item` | ⚠️ Partial | Custom `<ul>`/`<button>` panes. Multi-select move semantics and per-pane filtering aren't a `list-box` behavior, so custom is defensible. |
+| Forms accordion (Quick Search) | `vaadin-details` / `vaadin-accordion` | ⚠️ Partial | Native `<details>`/`<summary>`, chosen for free disclosure semantics + keyboard handling. `vaadin-details` is available and would be the DS-consistent choice. |
+| Rating rubric tiles | — | ❌ Gap | Domain/indicator rubric grid is domain-specific; no DS equivalent. |
+| Results table (Quick Search) | `vaadin-grid` / `vwc-sortable-header` | ⚠️ Partial | Plain `<table>` with custom sort carets. `vwc-sortable-header` exists for the header cells and would handle `aria-sort` automatically. |
+| Badges / status pills | — | ⚠️ Partial | Uses `theme="badge …"` attribute spans (per repo convention there is no badge element). Consistent with the rest of the repo. |
 
 ---
 
 ## Design Token Usage
 
-Values quoted from themes CONTEXT.md (v1.9.3) at assessment time.
+The mock defines a documented `:root` alias layer that already resolves most semantics to tokens (`--brand: var(--lumo-primary-color)`, `--border-soft: var(--lumo-contrast-10pct)`, `--text-strong: var(--lumo-body-text-color)`, `--text-muted: var(--lumo-secondary-text-color)`, `--card-bg: var(--lumo-base-color)`). The table covers the remaining raw values.
 
-| Color in Mock | Nearest Token | Token Value | Status |
+| Color in Mock | Nearest Token | Token Value (themes v1.9.3) | Status |
 |---|---|---|---|
-| `#fff` (surfaces, 78×) | `--lumo-base-color` | `#fff` | ✅ Match |
-| `#0066cc` (`--brand`, links, primary accents) | `--lumo-primary-color` | `#0271ce` | ⚠️ Off — both mid-blue; swap to the token (slight hue shift). |
-| `#0271ce` — *(not currently used)* | `--lumo-primary-color` | `#0271ce` | — reference |
-| `#158444` (success green) | `--lumo-success-color` | `#158444` | ✅ Match — exact; use the token. |
-| `#b91c1c`, `#991b1b`, `#dc2626` (destructive reds) | `--lumo-error-text-color` | `#ca150c` | ⚠️ Off — near error red; standardize on `--lumo-error-text-color` / `--lumo-error-color` (`#d83e38`). |
-| `#fee2e2`, `#fef2f2` (error-tint backgrounds) | `--lumo-error-color-10pct` | `#e71d131a` | ⚠️ Off — semantic error tint; the token is a translucent overlay vs. the mock's solid tint. |
-| `#fef3c7`, `#fffbeb` (warning-tint backgrounds) | `--lumo-warning-color-10pct` | `#ffcc001a` | ⚠️ Off — warning tint; token is translucent. |
-| `#fde68a` (warning border) | `--lumo-warning-color` | `#e0782e` | ⚠️ No direct match — a light amber border; no light warning-tint border token. |
-| `#92400e`, `#8a6500` (warning text) | `--lumo-warning-text-color` | `#995211` | ⚠️ Off — amber-brown warning text; use the token. |
-| `#e2e4e8`, `#c4ccd6` (`--border-soft`, borders/dividers) | `--lumo-contrast-10pct` / `-20pct` | `#1a38601a` / `#1c375a29` | ⚠️ No direct match (intentional) — these solid greys are the **form-builder's divider styling**, kept deliberately consistent with the author-selectable "add divider or not" feature. Not a token deviation to fix; the solid value is required so it matches the dividers users apply. (The nearest tokens are translucent contrast overlays, which would shift against stacked surfaces.) |
-| `#6b7280`, `#9aa0ac` (muted text) | `--lumo-secondary-text-color` | `#00000099` | ⚠️ Off — muted greys; token is a translucent black. |
-| `#1e293b` (strong ink) | `--lumo-contrast` | `#192434` | ⚠️ Off — near-black; close to the darkest contrast token. |
-| `#8b5cf6`, `#6d28d9`, `#7c3aed`, `#5b21b6` (`--rec-accent` purple) | — | — | ⚠️ No direct match — deliberate feature accent for the course-recs zone (kept distinct from `--brand`). No token equivalent; keep as a documented feature palette. |
-| `#ec4899` (rec pink accent) | — | — | ⚠️ No direct match — feature accent. |
-| `#eef2ff`/`#c7d2fe`/`#3730a3`/`#6366f1` (tag-chip indigo set) | — | — | ⚠️ No direct match — a self-consistent indigo chip palette; no semantic token. Consider consolidating to one accent. |
-| `#f4f5f7`, `#fafbfc` (subtle fills) | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — very light fills; token is translucent. |
-| `#e0edff` (signature-pad tint) | `--lumo-primary-color-10pct` | `#0271ce1a` | ⚠️ Off — light primary tint; token is translucent. |
-| `rgba(15,23,42,0.4)` (modal/drawer scrim) | — | — | ⚠️ No direct match — no scrim/overlay token exposed. |
-
-Added in the 2026-07-29 pass:
-
-| Color in Mock | Nearest Token | Token Value | Status |
-|---|---|---|---|
-| `#0a7637` (dark success text, 2×) | `--lumo-success-text-color` | `#0a7637` | ✅ Match — exact; second exact hit alongside `#158444`. |
-| `#0271ce` (2×) | `--lumo-primary-color` | `#0271ce` | ✅ Match — exact. **Corrects the prior row** that recorded `#0271ce` as "not currently used": the file now has two occurrences, so it carries **two** primary blues (`#0066cc` and `#0271ce`). Reconciling onto the token also removes that internal inconsistency. |
-| `#f0c040`, `#fde68a`, `#fef3c7`, `#fffbeb` (warning yellows) | `--lumo-warning-color` | `#e0782e` | ⚠️ Off — worth calling out explicitly: Vector's warning is **orange**, the mock's is **yellow**. This is a hue change, not a shade tweak, so a straight swap will visibly alter the warning treatments (including the six pills already on `theme="badge warning"`, which render from the token). Confirm with design before converting. |
-| `#d1fae5`, `#a7f3d0`, `#065f46`, `#047857` (success tints/text) | `--lumo-success-color-10pct` / `--lumo-success-text-color` | `#1688461a` / `#0a7637` | ⚠️ Off — Tailwind emerald scale sitting alongside the two *exact* success-token hits in the same file. Inconsistent internally. |
-| `#b45309`, `#b48810` (further warning text) | `--lumo-warning-text-color` | `#995211` | ⚠️ Off — brings the count to **four** distinct amber/brown text values where one token applies. |
-| `#334155`, `#4b5563`, `#94a3b8` (further ink/muted greys) | `--lumo-body-text-color` / `--lumo-secondary-text-color` | `#000000de` / `#00000099` | ⚠️ Off — the muted/ink grey set is wider than the prior pass captured: six distinct values across two token slots. |
-| `rgba(0,0,0,0.04 / .06 / .12 / .14 / .18)` box-shadows | Elevation levels | five levels, `0 1px 4px -1px` → `0 18px 64px -8px` | ⚠️ Off — shadows are hand-rolled throughout; themes ships a five-step elevation scale. Not previously assessed. |
-
-**Overall palette note:** the error, warning, neutral, and much of the success scale track **Tailwind's** palette rather than Vector's. The exceptions are three exact token hits (`#158444`, `#0a7637`, `#0271ce`). This is the single largest source of drift in the file — larger than any individual component finding.
+| `#eef0f3` (`--page-bg`) | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — deliberate. Documented inline: contrast tokens are **translucent rgba**, so sticky/scroll surfaces would let content show through. Keeping opaque hex is correct. |
+| `#f8f9fb` (`--workspace-bg`) | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — same documented opacity rationale. |
+| `#fafbfc` | `--lumo-base-color` / `--lumo-contrast-5pct` | `#fff` / `#193b670d` | ⚠️ Off — near-white surface; token swap would be a small shift. |
+| `#f4f5f7` | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — opaque-surface exception. |
+| `#8b5cf6`, `#6d28d9`, `#7c3aed` (`--rec-*`) | — | — | ⚠️ No direct match — intentional feature accent (course-recs violet), documented as distinct from `--brand`. Keep. |
+| `#6366f1`, `#3730a3`, `#5b21b6`, `#c7d2fe`, `#eef2ff` | `--lumo-primary-color` family | `#0271ce`, `-10pct` `#0271ce1a` | ⚠️ No direct match — indigo/violet ramp for the recommendations feature. Hue-shifted from the DS blue on purpose. |
+| `#ec4899`, `rgba(236,72,153,0.08)` | — | — | ⚠️ No direct match — pink accent in the recs feature. |
+| `#f8f5ff`, `#e2d6fa` (compare pane) | — | — | ⚠️ No direct match — violet tint marking "reference, not yours". Keep. |
+| `rgba(15,23,42,0.4)` (drawer scrims) | — | — | ⚠️ No direct match — scrim overlay; no scrim token in themes. Reasonable. |
+| `rgba(15,23,42,0.55–0.78)` | — | — | ⚠️ No direct match — video-stage overlay chrome. |
+| `#d97706` (warning icon) | `--lumo-warning-text-color` | `#995211` | ⚠️ Off — amber vs the DS's browner warning text. The mock documents preferring the **notification** family (`--vwc-notification-*`) for its ambers because `--lumo-warning-*` is orange; this one icon still uses raw amber and **could move to `--notice-text`** for consistency. |
+| `#166534` (badge-on text) | `--lumo-success-text-color` | `#0a7637` | ⚠️ Off — recommend the token; small hue shift. |
+| `#0044aa` (primary pane badge) | `--lumo-primary-color` | `#0271ce` | ⚠️ Off — recommend `--brand`. |
+| `#fef4e2` + domain header swatches | — | — | ⚠️ No direct match — author-selected per-question background swatches; data, not chrome. |
+| `rgba(255,255,255,0.25–0.92)` | `--lumo-base-color` @ opacity | `#fff` | ⚠️ No direct match — white overlays on dark media chrome. Fine. |
 
 ---
 
 ## Gap Component Requirements
 
-Of the ❌ gaps, most are legitimately feature-specific (signature canvas, draggable timer,
-floating cart, video scrubber). Two are worth considering as **general-purpose shared
-components**, but per the skill's process both need requirements input before a spec is
-written — questions first:
+Three ❌ Gaps were found. All three are **documented gaps, not spec candidates** — each was verified absent from the bundle, and in every case the custom implementation is the correct choice for a prototype. No new-component specs are proposed; recording them so the DS team can see the demand signal.
 
-**`vwc-chip` (removable/selectable chip)** — the strongest candidate, carried over from the
-prior pass. Still unspecced. Open questions: removable-only, or selectable too? Does it need
-a leading icon/avatar slot? Sizes? Is a read-only variant needed, or does `theme="badge"`
-already cover that case?
+### 1. Comment / message thread
+`vaadin-message-list`, `vaadin-message`, and `vaadin-message-input` were **verified absent** from the v1.19.0 bundle and are not in the v1.22.1 documented runtime. The script step's transcript — threaded messages, per-message tags, and nested replies without timestamps — has no DS equivalent. **Outstanding decision before any spec**: whether a chat/comment surface belongs in the DS at all, or stays a product-level composition.
 
-**Rubric rating grid** — are score levels a fixed scale or per-form? Single or multi-select
-per criterion? Is the per-level color author-configurable (it appears to be here)? Is this
-pattern used outside Evaluations?
+### 2. Chip / tag element
+No chip component in the index. The mock hand-rolls three variants (speaker pill, message tag, removable tag). Given how many surfaces in this file render tag chips (action bar, attachment panel, script messages, Quick Search), a shared chip is a plausible DS addition. **Outstanding decisions**: removable vs static, icon support, selected state, max-width/truncation behavior.
 
-The **split-pane comparison layout** sits between the two — genuinely reusable in principle,
-but ask whether side-by-side comparison appears anywhere beyond this feature before treating
-it as a library candidate.
+### 3. Avatar
+`vaadin-avatar` **verified absent**. The mock uses CSS circles with a speaker-accent background and an icon glyph. Low-value gap — trivially done in CSS.
+
+---
+
+## Notable risk — `vaadin-popover` is undocumented at the assessed version
+
+`vaadin-popover` is used **17 times** in this mock (action-bar tag picker, attachment tag picker). It **is present** in the v1.19.0 bundle the mock loads — verified directly in `core.iife.js` — but it is **not listed** in the v1.22.1 CONTEXT.md Vaadin runtime inventory.
+
+Two possible readings: it's an undocumented re-export, or it was dropped between v1.19.0 and v1.22.1. **This should be confirmed with the DS team before dev handoff**, and it argues for *not* converting the script step's tag menu to `vaadin-popover` until resolved — the hand-rolled `position: fixed` menu, while inconsistent, has no version risk.
 
 ---
 
 ## Summary
 
-| Category | Count |
-|---|---|
-| ✅ Covered | 13 |
-| ⚠️ Partial | 15 |
-| ❌ Gap | 5 |
+| Category | At audit | After conversion |
+|---|---|---|
+| ✅ Covered | 12 | **20** |
+| ⚠️ Partial | 17 | 9 |
+| ❌ Gap | 3 | 3 |
 
-**Key takeaways:**
+**Key takeaways**
 
-*Re-assessment (2026-07-29) — what changed since the 2026-07-22 pass:*
-
-- **The prior pass's conversion claims all hold up.** Re-verified in the current file: the ⋯ Actions and Compare menus are `vaadin-popover` with `for=` anchoring, and six static pills carry `theme="badge contrast"` / `theme="badge warning"`. No regressions.
-- **Seven new ⚠️ Partials and two new ❌ Gaps** are recorded above — chiefly the hand-rolled course-detail slide-over (which should be `vwc-drawer`, already used correctly twice in the same file), the total absence of `vaadin-tooltip` behind 23 native `title=` attributes, and the unsorted/unpaginated quick-search table.
-- **`#0271ce` is now in use (2×)**, correcting the prior report's "not currently used" row — the file carries two different primary blues.
-- **The token picture is worse than the prior pass conveyed.** Beyond the individual off-by-a-shade rows, the error/warning/neutral scales are systematically **Tailwind's palette**, and box-shadows bypass the five-step elevation scale entirely. The warning case needs a design decision, not a find-and-replace: Vector's warning is orange, the mock's is yellow.
-
-*Standing findings from the prior pass (still accurate):*
-
-- **Component usage is solid.** All form inputs carry `theme="outlined"`, every `vaadin-button` has a variant, all seven modals are `vaadin-dialog`, both side panels are `vwc-drawer`. Nothing uses a fabricated tag or an unstyled control.
-- **Dropdown menus converted to `vaadin-popover`.** `vaadin-popover` + `vaadin-list-box`/`vaadin-item` are present in the loaded bundle (verified live), so the ⋯ Actions, Compare, and Add-Tags menus were moved off hand-rolled fixed-position markup — eliminating the manual positioning + outside-click code that previously caused off-screen/auto-close bugs.
-- **Static pills converted to the `theme="badge"` attribute pattern.** The DS ships badges as an attribute (no badge element exists in this bundle), verified to pick up tint/text/padding from tokens. Non-interactive pills (Off/lock, section & gap badges, signed badge, address & variant chips) now use it.
-- **Removable chips are a genuine ❌ gap → `vwc-chip` request.** No badge/chip/tag ELEMENT exists in the bundle, and the `theme="badge"` attribute is display-only — it can't host a remove ✕ or selection state. The tag chips and quick-search chips therefore stay custom of necessity. This is the clearest new-component candidate from the mock (removable + selectable chip).
-- **Remaining ⚠️ Partials are deliberate, documented departures:** the tag *input* pattern (chosen over `vaadin-multi-select-combo-box` in an A/B), the Mandatory/Suggested segmented control (avoids the known `vwc-toggle-button-group`-in-dialog bug), the course-list tabs' count/warning adornments, and the solid grey **dividers/borders** — which are the form-builder's author-selectable divider feature, intentionally kept solid to match applied dividers (not a token deviation).
-- **`vwc-drawer` overlay workarounds** (self-anchor, scrim, width, content-height) remain the most actionable DS requests — captured in `DESIGN-SYSTEM-GAPS.md`.
-- **Other ❌ gaps (draggable timer widget, signature canvas)** are genuinely outside the library — appropriate as custom prototype code.
-- **Token swaps still worth doing:** `#158444` → `--lumo-success-color` (exact), `#0066cc` → `--lumo-primary-color`, destructive reds → `--lumo-error-*`. Feature-accent purple/pink and the solid divider greys have no token by design.
+- **The library-hygiene basics are clean, before and after.** Every text-input-style field carries `theme="outlined"` and every `vaadin-button` carries a style variant — zero violations of the two global rules in core CONTEXT.md, verified again post-conversion (button count 35 → 46, text-area 3 → 6, tooltip 5 → 12). Dialogs correctly use renderer properties rather than slots.
+- **The script step was the file's main outlier and is now converted.** Sibling step types (text-entry, date, time, duration) all used Vaadin form components while the script step used raw `<textarea>` ×3 and `<button>` ×10. All three textareas and all ten buttons now use DS components, plus 7 `vaadin-tooltip`s replacing native `title=`.
+- **The `vaadin-text-area` port needed four shadow-DOM fixes**, worth knowing for the next conversion of this kind: (1) selection APIs (`selectionStart` / `setSelectionRange`) exist only on `inputElement`, not the host — reading them off the host silently returns `undefined` and disables the shortcut; (2) `focus`/`blur` don't bubble from the shadow root, so `focusin`/`focusout` are required; (3) keydown handlers need `composedPath()` rather than `e.target.closest()`; (4) `.value` is `undefined` before upgrade, so every read needs `|| ''`. The component self-grows, so the manual `scrollHeight` autosize was deleted entirely.
+- **Two items are ⚠️ Partial on purpose, not as debt**: the tag-menu container (held pending the `vaadin-popover` version question below) and the speaker-reassignment chips (`vwc-toggle-button-group` misbehaves additively in dialog renderers — plain chips are this repo's documented workaround).
+- **Token discipline is strong and its exceptions are documented.** The `:root` alias layer resolves borders/text/brand/surfaces to real tokens, and the two deliberate departures (opaque scroll surfaces; the course-recs violet/pink accent ramp) are explained inline. Three small one-off values could still move to tokens: `#0044aa` → `--brand`, `#166534` → `--lumo-success-text-color`, `#d97706` → `--notice-text`.
+- **Two same-job/two-implementation inconsistencies** are worth resolving regardless of component choice: the tag picker (popover vs hand-rolled fixed menu) and the search field (DS `vaadin-text-field` in the script menu and Quick Search, hand-rolled `<input>` in the other three tag menus).
