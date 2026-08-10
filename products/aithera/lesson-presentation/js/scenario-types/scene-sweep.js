@@ -146,6 +146,15 @@
     // `zone` powers the spatial nudges; `synonyms` widen the credit; `fix` and
     // `prevent` feed the later beats and the debriefs.
     coverage: { required: 3, total: 4 },
+
+    // TEXT-OBSERVATION version only (scenario-live.html?type=scene-sweep&observe=text):
+    // how the learner enters findings when there is no tap canvas. 'sweep' = one
+    // open findings log (default — keeps the hazard COUNT hidden, so it stays a
+    // real "is this unsafe?" judgment). 'slots' = N labeled "find the N items"
+    // fields (more guided, but hands over the count). Ignored entirely by the
+    // photo/hotspot canvas (V1), which reads hazards[]/coverage directly.
+    observe: { inputMode: 'sweep', slotsPrompt: '', slotCount: 0 },
+
     hazards: [
       {
         id: 'jug', short: 'Unlabeled secondary container', zone: 'on the bench in front of you, to the left',
@@ -172,7 +181,7 @@
         alt: 'A printed “Safety Data Sheet” taped to the front of the drum on the right; the sheet’s printed date reads from years ago.',
         spot: { points: [[0.720, 0.600], [0.855, 0.598], [0.982, 0.615], [0.980, 0.900], [0.850, 0.910], [0.723, 0.895]] },
         full: 'The safety data sheet on hand is years out of date — a current SDS is required whenever the hazard information changes.',
-        synonyms: 'old SDS, outdated safety data sheet, expired sheet, SDS from years ago, old MSDS, decades-old sheet',
+        synonyms: 'old SDS, outdated safety data sheet, safety data sheet out of date, data sheet out of date, sds out of date, expired sheet, SDS from years ago, old MSDS, decades-old sheet',
         source: 'RVCT-479 P010',
         fix: 'Pull a current SDS for the chemical — the out-of-date one can’t be relied on for handling or first aid.',
         prevent: 'An SDS review cadence that keeps sheets current and accessible whenever the hazard information changes.',
@@ -198,16 +207,23 @@
     decoys: [
       {
         id: 'parts', alt: 'A row of machined metal parts laid out across the middle of the bench, ready to be finished.',
+        // `synonyms` — distinctive phrasings that name THIS safe object, used by the
+        // text-observation version to route a typed guess to the "that's fine" note
+        // instead of a blank miss. Keep them specific (never a lone domain word like
+        // "safety") so they can't collide with a real hazard's phrasing.
+        synonyms: 'the parts, metal parts, machined parts, parts on the bench, metal pieces, the pieces',
         note: 'Those are just the parts being worked — the job itself. Nothing unsafe about the parts sitting there.',
         spot: { points: [[0.340, 0.560], [0.460, 0.545], [0.600, 0.565], [0.610, 0.610], [0.470, 0.628], [0.350, 0.612]] },
       },
       {
         id: 'bollard', alt: 'A bright yellow safety post standing on the floor in the background, to the left.',
+        synonyms: 'bollard, yellow post, yellow bollard, safety post, yellow pole, the yellow thing',
         note: 'That’s a safety bollard doing its job — protecting equipment and people from traffic. Good to see, not a hazard.',
         spot: { points: [[0.148, 0.318], [0.174, 0.322], [0.181, 0.602], [0.139, 0.602], [0.137, 0.360]] },
       },
       {
         id: 'equipment', alt: 'Other workstations and shop equipment further back on the floor, behind the bench.',
+        synonyms: 'the equipment, other machines, workstations, shop equipment, machines in the background, the other stations',
         note: 'That’s the rest of the shop in the background — not part of the bench you’re inspecting right now.',
         spot: { points: [[0.210, 0.305], [0.330, 0.315], [0.335, 0.420], [0.208, 0.430]] },
       },
@@ -548,6 +564,7 @@ FOR THIS MODULE:
       ...d,
       id: (typeof d.id === 'string' && d.id.trim()) ? d.id.trim() : '',
       alt: typeof d.alt === 'string' ? d.alt : '',     // neutral description (SR name)
+      synonyms: typeof d.synonyms === 'string' ? d.synonyms : '', // distinctive phrasings → route to `note` in the text version
       note: typeof d.note === 'string' ? d.note : '',  // the "that's actually fine" feedback
       spot: normSpot(d.spot),
     };
@@ -605,6 +622,14 @@ FOR THIS MODULE:
     const cov = obj(out.coverage);
     const total = Number.isFinite(cov.total) && cov.total > 0 ? cov.total : out.hazards.length;
     out.coverage = { total, required: Number.isFinite(cov.required) && cov.required > 0 ? Math.min(cov.required, total) : Math.max(1, total - 1) };
+    const ob = obj(out.observe);
+    out.observe = {
+      inputMode: ob.inputMode === 'slots' ? 'slots' : 'sweep',
+      slotsPrompt: typeof ob.slotsPrompt === 'string' ? ob.slotsPrompt : '',
+      slotCount: Number.isFinite(ob.slotCount) && ob.slotCount > 0 ? Math.floor(ob.slotCount) : 0,
+      // Neutral input placeholder for the text version — must never name a hazard.
+      placeholder: typeof ob.placeholder === 'string' ? ob.placeholder : '',
+    };
     out.phases = arr(out.phases).map(normPhase);
     if (!out.phases.length) out.phases = [normPhase({})];
     const seen = {};
@@ -647,6 +672,7 @@ FOR THIS MODULE:
     const out = { ...base, ...draft };
     out.establishing = { ...base.establishing, ...obj(draft.establishing) };
     out.scene = { ...base.scene, ...obj(draft.scene) };
+    out.observe = { ...base.observe, ...obj(draft.observe) };
     out.voice = { ...base.voice, ...obj(draft.voice) };
     out.reflection = { ...base.reflection, ...obj(draft.reflection) };
     out.intro = { ...base.intro, ...obj(draft.intro) };
