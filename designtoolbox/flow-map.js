@@ -122,8 +122,8 @@
 .fm-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;}\
 .fm-edges path{fill:none;stroke:#5b6092;stroke-width:2.5;}\
 .fm-edges path.branch{stroke:#6b5bd6;stroke-dasharray:6 5;}\
-.fm-node{position:absolute;width:248px;background:#1c1f33;border:1px solid rgba(255,255,255,.10);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s;}\
-.fm-node:hover{z-index:50;border-color:#7c5cff;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 2px rgba(124,92,255,.5);}\
+.fm-node{position:absolute;width:248px;background:#1c1f33;border:1px solid rgba(255,255,255,.10);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s,transform .2s;}\
+.fm-node:hover{z-index:50;border-color:#7c5cff;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 2px rgba(124,92,255,.5);transform:scale(1.035);transform-origin:top center;}\
 .fm-node--entry{width:214px;background:#2a2150;border-color:rgba(124,92,255,.4);}\
 .fm-thumb{position:relative;width:100%;height:160px;background:#fff;overflow:hidden;border-bottom:1px solid rgba(0,0,0,.25);}\
 .fm-thumb iframe{position:absolute;top:0;left:0;border:0;transform-origin:top left;pointer-events:none;background:#fff;}\
@@ -135,11 +135,15 @@
 .fm-step{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8e93c4;}\
 .fm-name{font-size:14px;font-weight:700;color:#fff;margin-top:2px;}\
 /* Dev-annotation badge — purple glassmorphism, lives next to the step label (not in the corner). */\
-.fm-note-badge{display:inline-flex;align-items:center;gap:5px;font:700 10px/1 inherit;padding:4px 8px;border-radius:999px;color:#e9e3ff;cursor:pointer;white-space:nowrap;background:rgba(124,92,255,.20);border:1px solid rgba(124,92,255,.45);box-shadow:0 2px 10px rgba(124,92,255,.22);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);transition:background .15s,border-color .15s;}\
+.fm-note-badge{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:10px;line-height:1;padding:4px 8px;border-radius:999px;color:#e9e3ff;cursor:pointer;white-space:nowrap;background:rgba(124,92,255,.20);border:1px solid rgba(124,92,255,.45);box-shadow:0 2px 10px rgba(124,92,255,.22);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);transition:background .15s,border-color .15s,padding .18s,font-size .18s;}\
 .fm-note-badge:hover{background:rgba(124,92,255,.34);border-color:rgba(124,92,255,.7);}\
+/* On card hover the little notes badge swells into a fuller button and reveals a → to open. */\
+.fm-nb-go{display:inline-block;max-width:0;opacity:0;overflow:hidden;margin-left:0;transition:max-width .18s,opacity .18s,margin-left .18s;}\
+.fm-node:hover .fm-note-badge{font-size:12px;padding:6px 11px;background:rgba(124,92,255,.34);border-color:rgba(124,92,255,.72);}\
+.fm-node:hover .fm-nb-go{max-width:16px;opacity:1;margin-left:3px;}\
 .fm-desc{font-size:12px;color:#aab0d8;line-height:1.45;margin-top:6px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
 .fm-node:hover .fm-desc{max-height:90px;opacity:1;margin-top:6px;}\
-.fm-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
+.fm-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
 .fm-node:hover .fm-actions{max-height:30px;opacity:1;margin-top:10px;}\
 .fm-add-note{border:1px solid rgba(124,92,255,.5);background:rgba(124,92,255,.12);color:#cdc4ff;border-radius:6px;font:700 10.5px/1 inherit;padding:5px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}\
 .fm-add-note:hover{background:rgba(124,92,255,.25);}\
@@ -377,6 +381,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     viewport = overlay.querySelector('.fm-view');
     canvas = overlay.querySelector('.fm-canvas');
     edgesSvg = overlay.querySelector('.fm-edges');
+    fitToHover();
     canvas.style.width = CFG.canvas.w + 'px';
     canvas.style.height = CFG.canvas.h + 'px';
 
@@ -401,6 +406,31 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     drawEdges();
     setupPan();
     built = true;
+  }
+
+  // Grow each lane box (and the canvas) so a HOVERED card — which expands
+  // downward as its description/actions reveal and scales up slightly — is never
+  // cut off by the lane. Only ever extends; clamps so a lane can't grow into a
+  // lane stacked directly below it. Runs before lanes/canvas are sized.
+  function fitToHover() {
+    var HOVER_H = 380, PAD = 24, GAP = 16;
+    var flows = CFG.flows || [], nodes = CFG.nodes || [];
+    function overlapX(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w; }
+    flows.forEach(function (f) {
+      if (!f.lane) return;
+      var need = f.lane.y + f.lane.h;
+      nodes.forEach(function (n) { if (n.flow === f.id) need = Math.max(need, n.y + HOVER_H + PAD); });
+      var limit = Infinity;                          // don't grow into a lane below us
+      flows.forEach(function (g) {
+        if (g === f || !g.lane) return;
+        if (g.lane.y > f.lane.y && overlapX(f.lane, g.lane)) limit = Math.min(limit, g.lane.y - GAP);
+      });
+      f.lane.h = Math.max(f.lane.h, Math.min(need, limit) - f.lane.y);
+    });
+    var maxB = CFG.canvas.h;
+    flows.forEach(function (f) { if (f.lane) maxB = Math.max(maxB, f.lane.y + f.lane.h + PAD); });
+    nodes.forEach(function (n) { maxB = Math.max(maxB, n.y + HOVER_H + PAD); });
+    CFG.canvas.h = maxB;
   }
 
   function buildLanes() {
@@ -442,14 +472,14 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
           '<div class="fm-step-row"><div class="fm-step">' + (n.step || '') + '</div><span class="fm-note-slot"></span></div>' +
           '<div class="fm-name">' + n.name + '</div>' +
           '<div class="fm-desc">' + (n.desc || '') + '</div>' +
-          '<div class="fm-actions"><button class="fm-add-note">' + ICON_NOTE + ' Dev notes</button><span class="fm-open">Open live →</span></div>' +
+          '<div class="fm-actions"><span class="fm-open">Open live →</span></div>' +
         '</div>';
-      // open live (ignore clicks on chips / add-note)
+      // Click the card to open it live (but not when clicking the notes badge,
+      // which opens the notes drawer and stops propagation itself).
       node.addEventListener('click', function (e) {
-        if (e.target.closest('.fm-chip') || e.target.closest('.fm-add-note')) return;
+        if (e.target.closest('.fm-chip') || e.target.closest('.fm-note-badge')) return;
         openLive(n.id);
       });
-      node.querySelector('.fm-add-note').addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
       canvas.appendChild(node);
       io.observe(node);
     });
@@ -536,7 +566,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       var cmtCorner = node.querySelector('.fm-cmt-corner'), noteSlot = node.querySelector('.fm-note-slot');
       var c = commentCounts[n.id] || 0, a = annsFor(n.id).length;
       cmtCorner.innerHTML = c ? '<span class="fm-cmt-badge" title="' + c + ' comment(s) — view">💬 ' + c + '</span>' : '';
-      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' ' + NOTE_UNIT + '(s) — view">' + ICON_NOTE + ' ' + a + '</span>' : '';
+      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' ' + NOTE_UNIT + '(s) — click to open">' + ICON_NOTE + ' ' + a + '<span class="fm-nb-go">→</span></span>' : '';
       var cc = cmtCorner.querySelector('.fm-cmt-badge'); if (cc) cc.addEventListener('click', function (e) { e.stopPropagation(); viewComments(n.id); });
       var nc = noteSlot.querySelector('.fm-note-badge'); if (nc) nc.addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
     });
