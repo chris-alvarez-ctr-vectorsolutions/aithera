@@ -71,82 +71,44 @@ tooltips, density toggle, and the deployable switch are the highest-value VWC sw
 ---
 
 ## land — Edit Assignments (landing)
-- The Crew Scheduling landing; the primary branch point is **Add New Deployment**, which opens
-  the single-page/stepper deployment builder.
-- **Deployable tooltip (AC-1.3):** the "Is Deployable?" column header has an info icon
-  explaining the toggle (appears in the deployment workflow; doesn't affect active/past
-  deployments).
-- **Single Quick Deploy (AC-7.6/7.7):** each row's **⋯ ellipses menu** has Deploy / Edit /
-  Delete; Deploy first opens a small date-pick dialog (start/end date is a hard prerequisite —
-  employees pre-populate from the start date), then drops into the builder with that assignment
-  pre-selected.
-- **Multi-select deploy was removed** (old "Select to deploy" checkbox mode + sticky bar). To
-  deploy several assignments, use **Add New Deployment** and pick them inside the flow.
-- The **"Deployable" toggle** per row is a `vwc-switch` in the real build.
-- **Manage Templates** (header button) — present in the **master only; removed from the dev
-  build** (templates are out of the first release).
+- **Landing + entry point:** the Crew Scheduling landing; the primary branch point is Add New Deployment, which opens the single-page/stepper deployment builder.
+- **Deployable tooltip (AC-1.3):** the "Is Deployable?" column header has an info icon explaining the toggle (appears in the deployment workflow; doesn't affect active/past deployments).
+- **Single Quick Deploy (AC-7.6/7.7):** each row's ⋯ ellipses menu has Deploy / Edit / Delete; Deploy first opens a small date-pick dialog (start/end date is a hard prerequisite — employees pre-populate from the start date), then drops into the builder with that assignment pre-selected.
+- **Multi-select deploy removed:** the old "Select to deploy" checkbox mode + sticky bar is gone. To deploy several assignments, use Add New Deployment and pick them inside the flow.
+- **Deployable toggle → vwc-switch:** the per-row "Deployable" toggle is a `vwc-switch` in the real build.
+- **Manage Templates (master only):** the header button is present in the master only; removed from the dev build (templates are out of the first release).
 
 ## d1 — Deployment details (Step 1)
-- Leads with the **deployment type** — 24-hour (default, runs continuously) or **recurring** (a
-  daily time frame that repeats). The effective dates live inside the chosen type, with a
-  plain-language summary once dates/times are set.
-- Then the details: **deployment name** (shown in the crew scheduler; for multiple assignments
-  it prefixes each — "Name – Assignment"), **code**, **CrewScheduler location**, and the two
-  **Work Type** fields.
-- **Work Type — On-Duty / Off-Duty are required** (asterisk) — build as required selects.
-- "This is a work shift" is a locked-on flag for this flow.
-- **Deploy is not available here** — only Continue (+ Cancel). See d4.
+- **Deployment type first:** choose 24-hour (default, runs continuously) or recurring (a daily time frame that repeats); the effective dates live inside the chosen type, with a plain-language summary once dates/times are set.
+- **Then the details:** deployment name (shown in the crew scheduler; for multiple assignments it prefixes each — "Name – Assignment"), code, CrewScheduler location, and the two Work Type fields.
+- **Work Type required:** On-Duty / Off-Duty fields need an asterisk — build as required selects.
+- **Work-shift locked on:** "This is a work shift" is a locked-on flag for this flow.
+- **No Deploy here:** only Continue (+ Cancel) on this step. See d4.
 
 ## d2 — Pick or build assignments (Step 2)
-- **Existing deployable assignments appear automatically off the start date** (no Pull step) as
-  selectable cards showing name + a position summary. Only `isDeployable` assignments show, and
-  they're **sorted alphabetically** (AC-3.1). At real scale this list must be
-  server-filtered/virtualized — don't render every assignment client-side.
-- **Selecting hoists the card into a "Selected (N)" bucket** at the top (light-blue background),
-  pulled out of the unselected group so the user sees everything chosen together; **search still
-  filters** the rest.
-- **Shared-qualifier "cover" badge is hidden** in V2 (was "PM covered · Name" / "no one holds it").
-- **Templates** (multi-select) tab — **master only; stripped from the dev build.**
-- **Select Employee picker** (opened from an open slot): employees are **ranked, not filtered** —
-  full match of required primary + shared quals = "Recommended", some = "Partial", none falls to
-  the bottom but stays selectable. `PM1` normalizes to `PM` for matching. OT/PTO is a trailing
-  availability note, not a block. ⚠️ Mocked at a handful of people — virtualize + rank
-  server-side for real stations (hundreds).
-- Open slots inside a card are **fillable in place**; filled bars can be cleared back to open.
+- **Auto-listed off start date:** existing deployable assignments appear automatically (no Pull step) as selectable cards showing name + a position summary. Only `isDeployable` assignments show, sorted alphabetically (AC-3.1). At real scale this list must be server-filtered/virtualized — don't render every assignment client-side.
+- **Selecting hoists to a bucket:** the card moves into a "Selected (N)" bucket at the top (light-blue background), pulled out of the unselected group so the user sees everything chosen together; search still filters the rest.
+- **Cover badge hidden (V2):** the shared-qualifier "cover" badge (was "PM covered · Name" / "no one holds it") is hidden.
+- **Templates tab (master only):** the multi-select Templates tab is stripped from the dev build.
+- **Employee picker ranks, not filters:** opened from an open slot — full match of required primary + shared quals = "Recommended", some = "Partial", none falls to the bottom but stays selectable. `PM1` normalizes to `PM` for matching; OT/PTO is a trailing availability note, not a block. ⚠️ Mocked at a handful of people — virtualize + rank server-side for real stations (hundreds).
+- **Open slots fill in place:** slots inside a card are fillable in place; filled bars can be cleared back to open.
 
 ## d3 — Build assignment(s) (Step 2 · from scratch)
-- A **two-column qualifier builder** inside Step 2. Left picks required **primary + optional
-  shared** qualifiers (steppers); **hard rule: shared qualifiers can never exceed primary**
-  (enforce server-side too). Right shows the resulting open slots, fillable now or later.
-- **Open slots are generated from qualifiers, not entered manually.** Slot identity is
-  `(qualifier key + ordinal)`; when counts change, preserve already-assigned people for surviving
-  slots (re-match by key+ordinal) — losing assignments on re-render is a bug.
-- **"Save as reusable template"** (checkbox + a built card's "Save as template") — **master only;
-  stripped from the dev build.**
-- Built cards land in a **"New assignments"** list where they can be renamed, re-staffed, or removed.
+- **Two-column qualifier builder:** inside Step 2 — left picks required primary + optional shared qualifiers (steppers); hard rule: shared qualifiers can never exceed primary (enforce server-side too). Right shows the resulting open slots, fillable now or later.
+- **Slots generated from qualifiers:** open slots aren't entered manually. Slot identity is `(qualifier key + ordinal)`; when counts change, preserve already-assigned people for surviving slots (re-match by key+ordinal) — losing assignments on re-render is a bug.
+- **Save as template (master only):** the "Save as reusable template" checkbox + a built card's "Save as template" are stripped from the dev build.
+- **Built cards → New assignments:** they land in a "New assignments" list where they can be renamed, re-staffed, or removed.
 
 ## d4 — Review & deploy (Result)
-- **Review layout (V2):** no card background; **schedule (start/end) on top**, other details
-  (code, location, work types, shift type) underneath; **label-left / value-right**; condensed.
-  Empty fields read "Not set" so the review is the full record.
-- **"Assignments in this deployment"** lists each selected/built assignment read-only with its
-  slot bars.
-- **Deploy is green and lives only here** (with Back as an uncolored pill + Cancel). Enabled once
-  a name, dates, and ≥1 assignment are set; clicking while incomplete jumps to the offending step
-  and highlights it. Deploying returns to the crew scheduler with a toast; each assignment becomes
-  a "Name – Assignment" row (AC-7.3).
-- Deploying with **open slots is allowed** (they fill via callback later).
+- **Review layout (V2):** no card background; schedule (start/end) on top, other details (code, location, work types, shift type) underneath; label-left / value-right; condensed. Empty fields read "Not set" so the review is the full record.
+- **Assignments list, read-only:** "Assignments in this deployment" lists each selected/built assignment with its slot bars.
+- **Deploy is green, only here:** with Back as an uncolored pill + Cancel. Enabled once a name, dates, and ≥1 assignment are set; clicking while incomplete jumps to the offending step and highlights it. Deploying returns to the crew scheduler with a toast; each assignment becomes a "Name – Assignment" row (AC-7.3).
+- **Open slots allowed:** deploying with open slots is fine — they fill via callback later.
 
 ## Edit after deploy (from the landing ⋯ → Edit)
-- **End-date-only (MVP):** the start **date** locks after deploying (only its time can be
-  fine-tuned); the **end date/time is editable** and applies to **every assignment in the group**.
-- Assignments can be added to / removed from the group; open slots filled in place. Saving routes
-  through a **note modal** so the change is annotated on the confirmation.
+- **End-date-only (MVP):** the start date locks after deploying (only its time can be fine-tuned); the end date/time is editable and applies to every assignment in the group.
+- **Edit group + note modal:** assignments can be added to / removed from the group and open slots filled in place; saving routes through a note modal so the change is annotated on the confirmation.
 
 ## Manage Templates (master only — removed from the dev build)
-- Dedicated page from the **Manage Templates** header button; replaces the old multi-step flow.
-  Lists deployable assignments + saved templates as cards (alphabetical) with an All/Assignments/
-  Templates filter + search. Create/Edit/Delete templates via the editor dialog.
-- **Not in the first release** — stripped from `dev_handoff.html`. Kept in `index.html` for
-  future scope; migration intent: enabling "Is Deployable?" on an assignment should surface it as
-  a template automatically.
+- **Dedicated templates page:** from the Manage Templates header button; replaces the old multi-step flow. Lists deployable assignments + saved templates as cards (alphabetical) with an All/Assignments/Templates filter + search. Create/Edit/Delete via the editor dialog.
+- **Not in first release:** stripped from `dev_handoff.html`; kept in `index.html` for future scope. Migration intent: enabling "Is Deployable?" on an assignment should surface it as a template automatically.

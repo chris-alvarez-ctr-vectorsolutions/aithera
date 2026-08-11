@@ -79,10 +79,14 @@ into labelled lanes (flows).
 - **📝 Dev notes.** Read-only developer notes — *"be careful: this list can be
   hundreds long, virtualize it."* Notes live in a committed **`DEV-NOTES.md`**
   next to the mock (so the whole team sees the same notes — no `localStorage`,
-  no per-browser state). Click **"Dev notes"** on a node (or the 📝 chip) to read
-  them in the drawer; the badge count is the number of notes for that step.
-  Authoring is done in the Markdown file, not in the browser — see *Dev notes
-  file format* below.
+  no per-browser state). Click the prominent **"Dev notes"** badge on a node to
+  read them in the drawer. Authoring is done in the Markdown file, not in the
+  browser — see *Dev notes file format* below. **Notes are a dev-ready
+  affordance:** they render **only in a dev-handoff build** (comments off). While
+  a mock is still in progress the flow map shows no notes — the running change log
+  for that phase is the **dashboard's recent-changes + GitHub commit history**.
+  You can still author `DEV-NOTES.md` incrementally (jotting client feedback and
+  decisions as they land); it just stays hidden until the mock is dev-ready.
 
 ### Dev notes file format
 
@@ -96,15 +100,23 @@ parser). Every `-`/`*` bullet under a heading becomes one dev note and counts
 toward the node's 📝 badge. An optional `> author: <name>` line sets the
 attribution shown on notes (default: *Design handoff*).
 
+**Optional scannable header.** A bullet may lead with a **bold header that ends
+in a colon inside the `** **`** — `- **Short header:** the description follows.`
+The header then renders as its own heading line above the description, an
+optional aid to keep a dev note skimmable (header the developer scans, detail
+underneath). It's opt-in: a bullet without that exact form (the colon must sit
+*inside* the bold) renders as plain prose, so freeform dev notes are unaffected.
+Use it where it helps; write everything else however developers read best.
+
 ```markdown
 > author: Design handoff
 
 ## n2 — Details + qualifiers
-- Open slots are generated from qualifiers, not entered manually.
-- Total shared qualifiers can never exceed total primary qualifiers.
+- **Qualifiers drive slots:** open slots are generated from qualifiers, not entered manually.
+- **Shared ≤ primary:** total shared qualifiers can never exceed total primary qualifiers.
 
 ## n3 — Select Employee
-- Employees are ranked, not filtered: full match = Recommended.
+- Employees are ranked, not filtered: full match = Recommended.   (plain prose — still fine)
 ```
 
 Notes for a `## <id>` that doesn't match any node are simply ignored, so the
