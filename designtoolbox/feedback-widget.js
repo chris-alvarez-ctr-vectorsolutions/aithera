@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.28.0';
+  const WIDGET_VERSION = '1.29.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -166,8 +166,8 @@
    "Click any element to leave feedback" prompt. */
 .cw-banner-text { white-space: nowrap; }
 .cw-banner-sep { width: 1px; align-self: stretch; margin: 3px 0; background: rgba(255,255,255,.2); flex: none; }
-.cw-banner-hide { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border-radius: 50%; flex-shrink: 0; }
-.cw-banner-hide .cw-fa { width: 15px; height: 15px; }
+.cw-banner-hide { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; flex-shrink: 0; }
+.cw-banner-hide .cw-fa { width: 18px; height: 18px; }
 .cw-banner-hide.cw-banner-on { background: rgba(255,255,255,.32); }
 .cw-banner-link { color: #fff; font-size: 13px; font-weight: 600; text-decoration: underline; white-space: nowrap; }
 .cw-banner-link:hover { opacity: .85; }
@@ -1386,15 +1386,17 @@
     // Comments button already becomes ✕ Cancel in pick mode, and Esc still works).
     var docked = !!window.ToolboxDock;
 
+    // The sole show/hide eye, on the central island. Clicking it hides comments
+    // for this session (tucks pins + island + nav bar away to the clean default) —
+    // the natural pair to the dock button that revealed them. Session-only, so a
+    // refresh brings comments back. This replaced the old admin "disable for
+    // everyone" toggle, which was vestigial: commentsDisabled never gated pin
+    // visibility (comments already start hidden every load), so that control
+    // couldn't visibly hide anything for the person clicking it.
     bannerHideBtn = el('button', {
       type: 'button', class: 'cw-banner-hide',
-      title: 'Hide every pin and disable the bubble for non-admins. Admins still see and manage everything.',
-      onclick: async () => {
-        becomeAdmin();
-        const next = !state.settings.commentsDisabled;
-        await saveCommentsSetting({ commentsDisabled: next }, next ? 'Comments hidden' : 'Comments shown');
-        renderBannerHide();
-      },
+      title: 'Hide comments', 'aria-label': 'Hide comments',
+      onclick: hideComments,
     }, []);
     const logLink = el('a', {
       class: 'cw-banner-link', href: LOG_URL, target: '_blank', rel: 'noopener',
@@ -1416,22 +1418,15 @@
     renderBannerHide();
   }
 
-  // Reflect the live "comments hidden" setting on the banner's Hide button.
+  // Paint the island's show/hide eye. The island only appears while comments are
+  // shown, so this control always means "click to hide" — a single open-eye glyph,
+  // no toggle state to track. (Kept as a function so enterPickMode can call it once
+  // the button exists.)
   function renderBannerHide() {
     if (!bannerHideBtn) return;
-    const on = !!state.settings.commentsDisabled;
-    // Icon-only view toggle. The glyph shows the current state — open eye when
-    // comments are visible, eye-slash when hidden — matching the nav bar's eye
-    // language. The label lives in the tooltip/aria-label and says "for everyone"
-    // so this admin control (persisted) stays distinct from the nav bar's
-    // session-only eye. The filled cw-banner-on pill also marks the hidden state.
-    bannerHideBtn.textContent = '';
-    bannerHideBtn.appendChild(faIcon(on ? 'eye-slash' : 'eye'));
-    const label = on ? 'Show comments for everyone' : 'Hide comments for everyone';
-    bannerHideBtn.title = label;
-    bannerHideBtn.setAttribute('aria-label', label);
-    bannerHideBtn.classList.toggle('cw-banner-on', on);
-    bannerHideBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (!bannerHideBtn.firstChild) bannerHideBtn.appendChild(faIcon('eye'));
+    bannerHideBtn.title = 'Hide comments';
+    bannerHideBtn.setAttribute('aria-label', 'Hide comments');
   }
 
   // Save a comment setting (currently just commentsDisabled) with an optimistic
@@ -1453,16 +1448,15 @@
     }
   }
 
-  // The dock comment button is the single show/hide + comment control. Its
-  // behavior depends on state (comments are hidden by default):
-  //   • pick mode      → exit pick mode
-  //   • comments hidden → SHOW comments (reveal pins) — this is how you get back
-  //                       in after the default-hidden load; the eye lives HERE,
-  //                       not in the nav hub.
-  //   • comments shown → enter pick mode to add feedback
+  // The dock comment button is the session show/hide control. One click opens
+  // feedback mode in a single step: it reveals comments AND the "Click any element
+  // to leave feedback" island together (the left nav bar appears only if comments
+  // already exist — see renderHub; a fresh mock gets no empty bar). Clicking again
+  // (the button is now ✕) closes everything back to the clean, hidden default. The
+  // show/hide eye lives on the central island, never on the nav bar.
   function onBubbleClick() {
-    if (state.pickMode) { exitPickMode(); return; }
-    if (state.commentsHidden) { showComments(); return; }
+    if (state.pickMode) { hideComments(); return; }
+    state.commentsHidden = false;
     enterPickMode();
   }
   function showComments() {
@@ -1470,10 +1464,10 @@
     refreshBubble();
     renderPins();                   // draws pins (if any) and the nav bar
   }
-  // The "off" switch, paired with showComments. Lives on the nav bar's eye — the
-  // dock button turns comments ON, the nav bar turns them back OFF — so the two
-  // controls never overlap. Session-only, like showComments. Closing pick mode /
-  // any open panel here keeps nothing dangling over a now-clean design.
+  // The "off" switch: tucks everything away back to the clean default. Reached
+  // from the dock button's ✕ (a second click closes feedback mode entirely).
+  // Session-only (resets on refresh). Closing pick mode / any open panel here
+  // leaves nothing dangling over a now-clean design.
   function hideComments() {
     state.commentsHidden = true;
     navOpen = false;
@@ -1954,7 +1948,7 @@
   // Pins stay hidden — until pick mode reveals them — when EITHER the page is
   // dormant (comments disabled, or not on the published Pages site) OR the viewer
   // has comments locally hidden (the default). Showing is driven from the dock
-  // comment button, hiding from the nav bar's eye (see show/hideComments).
+  // comment button; hiding from the dock's ✕ or the island's eye (see hideComments).
   // Otherwise admins see everything and non-admins respect visitor mode.
   function visiblePins() {
     if (!state.pickMode && (isDormant() || state.commentsHidden)) return [];
@@ -2432,18 +2426,18 @@
   function renderHub() {
     if (navEl) { navEl.remove(); navEl = null; }
 
-    // The nav bar is bound PURELY to the shown/hidden state (plus pick mode):
-    // it comes out whenever comments are shown and tucks away when hidden. It is
-    // deliberately NOT gated on comment count or environment (dormant / off
-    // Pages) anymore, so clicking "Show comments" on the dock button ALWAYS
-    // produces a visible, consistent surface — even on a fresh mock with zero
-    // comments or a local/preview view. That surface carries its own hide
-    // control (the eye), which is how you turn comments back off. Comments start
-    // hidden by default, so there's nothing to clutter until the user asks.
+    // The left nav bar is purely the comment-NAVIGATION surface. It comes out
+    // when comments are shown (or in pick mode) AND there is at least one comment
+    // to navigate. It carries no show/hide eye — that control lives only on the
+    // central island. An empty "No comments yet" bar was just clutter, so a fresh
+    // mock gets none: the island alone lets you add the first comment.
     if (state.commentsHidden && !state.pickMode) { navOpen = false; return; }
 
     const groups = computeNavGroups();
     const total = groups.all.length;
+    // No comments yet → don't bring the left bar up at all. It returns the moment
+    // a comment exists.
+    if (!total) { navOpen = false; return; }
 
     // Grip handle: drag it to move the whole bar aside so you can see/click the
     // elements underneath. Double-click resets it to the default bottom-left spot.
@@ -2455,39 +2449,11 @@
     }, ['⠿']);
     grip.addEventListener('pointerdown', startNavDrag);
 
-    // The eye is the "hide comments" control — the off switch that pairs with the
-    // dock button's on switch. Present whenever the bar is (i.e. whenever comments
-    // are shown), so the bar is a self-contained view/hide surface.
-    const eyeBtn = el('button', {
-      type: 'button', class: 'cw-nav-eye',
-      title: 'Hide comments', 'aria-label': 'Hide comments',
-      onclick: hideComments,
-    }, [faIcon('eye-slash')]);
-
-    let bar;
-    if (!total) {
-      // Comments are shown but there are none yet (fresh mock, or a preview where
-      // the backend isn't reachable). Show a calm confirmation bar — just the
-      // grip, the hide eye, and a label — with no stepper/expander to click into
-      // emptiness. This is what makes "Show comments" feel responsive at 0.
-      navOpen = false;   // nothing to expand; don't carry a stale open-list state
-      bar = el('div', { class: 'cw-nav-bar' }, [
-        grip,
-        eyeBtn,
-        el('span', { class: 'cw-nav-empty' }, ['No comments yet']),
-      ]);
-      navEl = el('div', { class: 'cw-nav' }, [bar]);
-      document.body.appendChild(navEl);
-      applyNavPos();
-      return;
-    }
-
     const idx = groups.all.findIndex(p => p.id === navCurrentId);
     const pos = idx >= 0 ? `${idx + 1} / ${total}` : `– / ${total}`;
 
-    bar = el('div', { class: 'cw-nav-bar' }, [
+    const bar = el('div', { class: 'cw-nav-bar' }, [
       grip,
-      eyeBtn,
       el('button', {
         type: 'button', class: 'cw-nav-count',
         title: navOpen ? 'Hide comment list' : 'Show all comments on this page',
