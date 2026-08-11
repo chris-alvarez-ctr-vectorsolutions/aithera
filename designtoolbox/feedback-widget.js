@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.27.0';
+  const WIDGET_VERSION = '1.28.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -166,7 +166,8 @@
    "Click any element to leave feedback" prompt. */
 .cw-banner-text { white-space: nowrap; }
 .cw-banner-sep { width: 1px; align-self: stretch; margin: 3px 0; background: rgba(255,255,255,.2); flex: none; }
-.cw-banner-hide { white-space: nowrap; }
+.cw-banner-hide { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border-radius: 50%; flex-shrink: 0; }
+.cw-banner-hide .cw-fa { width: 15px; height: 15px; }
 .cw-banner-hide.cw-banner-on { background: rgba(255,255,255,.32); }
 .cw-banner-link { color: #fff; font-size: 13px; font-weight: 600; text-decoration: underline; white-space: nowrap; }
 .cw-banner-link:hover { opacity: .85; }
@@ -439,6 +440,11 @@
     'eye-slash': '<svg viewBox="0 0 640 512" aria-hidden="true"><path fill="currentColor" d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4 3.3-7.9 3.3-16.7 0-24.6-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144 0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3-11.1-41.5-47.8-69.4-88.6-71.1-5.8-.2-9.2 6.1-7.4 11.7 2.1 6.4 3.3 13.2 3.3 20.3 0 .5 0 1.1 0 1.6l-91.1-71.2zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1-79.5 0-144-64.5-144-144 0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6 14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z"/></svg>',
     // Arrow-up-right (external / new-tab) — replaces the ↗ character on the log link.
     'arrow-up-right': '<svg viewBox="0 0 384 512" aria-hidden="true"><path fill="currentColor" d="M328 96c13.3 0 24 10.7 24 24l0 240c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-182.1L73 409c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l231-231L88 144c-13.3 0-24-10.7-24-24s10.7-24 24-24l240 0z"/></svg>',
+    // Comment (speech bubble w/ dots) — the dock comment button's glyph. A crisp
+    // white SVG, NOT the 💬 emoji: the emoji renders in its own muted gray and made
+    // the button read as disabled next to the flow-map's white icon on the same
+    // purple. currentColor inherits the button's #fff so it pops identically now.
+    'comment-dots': '<svg viewBox="0 0 512 512" aria-hidden="true"><path fill="currentColor" d="M512 240c0 114.9-114.6 208-256 208-37.1 0-72.3-6.4-104.1-17.9-11.9 8.7-31.3 20.6-54.3 30.6C73.6 471.1 44.7 480 16 480c-6.5 0-12.3-3.9-14.8-9.9-2.5-6-1.1-12.8 3.4-17.4 .3-.3 .7-.7 1.3-1.4 1.1-1.2 2.8-3.1 4.9-5.7 4.1-5 9.6-12.4 15.2-21.6 10-16.6 19.5-38.4 21.4-62.9C17.7 326.8 0 285.1 0 240 0 125.1 114.6 32 256 32s256 93.1 256 208zM128 272a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm128 0a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm160-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg>',
   };
   function faIcon(name) {
     const s = document.createElement('span');
@@ -1354,7 +1360,7 @@
     root.appendChild(pinsLayer);
     document.body.appendChild(root);
 
-    bubbleIcon = el('span', { class: 'cw-bubble-icon' }, ['💬']);
+    bubbleIcon = el('span', { class: 'cw-bubble-icon' }, [faIcon('comment-dots')]);
     bubbleLabel = el('span', { class: 'cw-bubble-label' }, ['Comments']);
     bubble = el('button', {
       class: 'cw-bubble',
@@ -1414,9 +1420,16 @@
   function renderBannerHide() {
     if (!bannerHideBtn) return;
     const on = !!state.settings.commentsDisabled;
-    // Text label (no eye icon here — the only eyeball lives on the island's
-    // comment button). This is the admin "hide for everyone" control.
-    bannerHideBtn.textContent = on ? '✓ Comments hidden' : 'Hide comments';
+    // Icon-only view toggle. The glyph shows the current state — open eye when
+    // comments are visible, eye-slash when hidden — matching the nav bar's eye
+    // language. The label lives in the tooltip/aria-label and says "for everyone"
+    // so this admin control (persisted) stays distinct from the nav bar's
+    // session-only eye. The filled cw-banner-on pill also marks the hidden state.
+    bannerHideBtn.textContent = '';
+    bannerHideBtn.appendChild(faIcon(on ? 'eye-slash' : 'eye'));
+    const label = on ? 'Show comments for everyone' : 'Hide comments for everyone';
+    bannerHideBtn.title = label;
+    bannerHideBtn.setAttribute('aria-label', label);
     bannerHideBtn.classList.toggle('cw-banner-on', on);
     bannerHideBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
@@ -1469,10 +1482,14 @@
     else { refreshBubble(); renderPins(); }   // clears dots + removes the nav bar
   }
 
-  // Set the bubble's glyph. 'eye' uses the inline SVG icon; the others are text.
+  // Set the bubble's glyph. 'eye' / 'comment' use inline white SVG icons (so the
+  // button never looks disabled next to the flow-map's white icon); anything else
+  // is rendered as literal text (e.g. the '✕' cancel glyph, which is already white).
   function setBubbleGlyph(kind) {
     if (!bubbleIcon) return;
-    if (kind === 'eye') { bubbleIcon.textContent = ''; bubbleIcon.appendChild(faIcon('eye')); }
+    bubbleIcon.textContent = '';
+    if (kind === 'eye') { bubbleIcon.appendChild(faIcon('eye')); }
+    else if (kind === 'comment') { bubbleIcon.appendChild(faIcon('comment-dots')); }
     else bubbleIcon.textContent = kind;
   }
   // Reconcile the bubble's icon / labels / ghosting with the current state. One
@@ -1497,12 +1514,12 @@
       // Comments hidden (the default): the button STAYS a comment button (💬) —
       // it must never turn into an eye/view-hide glyph. Fully enabled (never
       // ghosted here); clicking it reveals the comments.
-      setBubbleGlyph('💬');
+      setBubbleGlyph('comment');
       bubble.title = 'Show comments';
       bubble.setAttribute('aria-label', 'Show comments');
       if (bubbleLabel) bubbleLabel.textContent = 'Comments';
     } else {
-      setBubbleGlyph('💬');
+      setBubbleGlyph('comment');
       bubble.title = 'Add feedback';
       bubble.setAttribute('aria-label', 'Add feedback');
       if (bubbleLabel) bubbleLabel.textContent = 'Comments';
