@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.29.0';
+  const WIDGET_VERSION = '1.29.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -1386,17 +1386,16 @@
     // Comments button already becomes ✕ Cancel in pick mode, and Esc still works).
     var docked = !!window.ToolboxDock;
 
-    // The sole show/hide eye, on the central island. Clicking it hides comments
-    // for this session (tucks pins + island + nav bar away to the clean default) —
-    // the natural pair to the dock button that revealed them. Session-only, so a
-    // refresh brings comments back. This replaced the old admin "disable for
-    // everyone" toggle, which was vestigial: commentsDisabled never gated pin
-    // visibility (comments already start hidden every load), so that control
-    // couldn't visibly hide anything for the person clicking it.
+    // The sole show/hide eye, on the central island. It TOGGLES pin visibility for
+    // this session (show ⇄ hide) and deliberately keeps the island open, so you can
+    // keep leaving feedback and reach the Log while comments are hidden. Closing the
+    // island is a separate action — the dock's ✕. This replaced an old admin
+    // "disable for everyone" toggle, which was vestigial: commentsDisabled never
+    // gated pin visibility, so that control couldn't visibly hide anything.
     bannerHideBtn = el('button', {
       type: 'button', class: 'cw-banner-hide',
       title: 'Hide comments', 'aria-label': 'Hide comments',
-      onclick: hideComments,
+      onclick: togglePins,
     }, []);
     const logLink = el('a', {
       class: 'cw-banner-link', href: LOG_URL, target: '_blank', rel: 'noopener',
@@ -1418,15 +1417,20 @@
     renderBannerHide();
   }
 
-  // Paint the island's show/hide eye. The island only appears while comments are
-  // shown, so this control always means "click to hide" — a single open-eye glyph,
-  // no toggle state to track. (Kept as a function so enterPickMode can call it once
-  // the button exists.)
+  // Paint the island's show/hide eye to match the current pin visibility. It is a
+  // TOGGLE that never closes the island: open eye when comments are visible (click
+  // to hide), eye-slash when hidden (click to show). The filled pill marks the
+  // hidden state. Closing the island is the dock's ✕, not this.
   function renderBannerHide() {
     if (!bannerHideBtn) return;
-    if (!bannerHideBtn.firstChild) bannerHideBtn.appendChild(faIcon('eye'));
-    bannerHideBtn.title = 'Hide comments';
-    bannerHideBtn.setAttribute('aria-label', 'Hide comments');
+    const hidden = !!state.commentsHidden;
+    bannerHideBtn.textContent = '';
+    bannerHideBtn.appendChild(faIcon(hidden ? 'eye-slash' : 'eye'));
+    const label = hidden ? 'Show comments' : 'Hide comments';
+    bannerHideBtn.title = label;
+    bannerHideBtn.setAttribute('aria-label', label);
+    bannerHideBtn.classList.toggle('cw-banner-on', hidden);
+    bannerHideBtn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
   }
 
   // Save a comment setting (currently just commentsDisabled) with an optimistic
@@ -1463,6 +1467,17 @@
     state.commentsHidden = false;   // session-only (not persisted); resets on refresh
     refreshBubble();
     renderPins();                   // draws pins (if any) and the nav bar
+  }
+  // The island's eye: toggle pin (and nav bar) visibility WITHOUT leaving feedback
+  // mode. The island stays open — so you can keep leaving feedback and reach the
+  // Log — while pins hide/show underneath. Session-only. The dock's ✕ is what
+  // actually closes the island (see hideComments).
+  function togglePins() {
+    state.commentsHidden = !state.commentsHidden;
+    if (state.commentsHidden) navOpen = false;   // collapse any open list when hiding
+    if (typeof closePanel === 'function') closePanel();
+    renderBannerHide();   // swap eye ⇄ eye-slash + label
+    renderPins();         // show/hide pins; renderHub shows/hides the nav bar
   }
   // The "off" switch: tucks everything away back to the clean default. Reached
   // from the dock button's ✕ (a second click closes feedback mode entirely).
@@ -1827,6 +1842,8 @@
           screenshot: ctx.screenshot,
           author, comment,
         });
+        state.commentsHidden = false;   // adding feedback reveals comments, so the
+        renderBannerHide();             // new pin is never swallowed by a hidden eye
         state.pins.push(pin);
         renderPins();
         closePopup();
@@ -1945,13 +1962,14 @@
   }
 
   // Returns the pins this user is allowed to see right now.
-  // Pins stay hidden — until pick mode reveals them — when EITHER the page is
-  // dormant (comments disabled, or not on the published Pages site) OR the viewer
-  // has comments locally hidden (the default). Showing is driven from the dock
-  // comment button; hiding from the dock's ✕ or the island's eye (see hideComments).
-  // Otherwise admins see everything and non-admins respect visitor mode.
+  // Pin visibility. The viewer's explicit "hide comments" (commentsHidden, toggled
+  // by the island's eye) ALWAYS hides pins — even inside pick mode, so the eye can
+  // hide comments while the island stays open. Separately, a dormant page (comments
+  // disabled, or not on the published Pages site) hides pins until pick mode reveals
+  // them. Otherwise admins see everything and non-admins respect visitor mode.
   function visiblePins() {
-    if (!state.pickMode && (isDormant() || state.commentsHidden)) return [];
+    if (state.commentsHidden) return [];
+    if (!state.pickMode && isDormant()) return [];
     return eligiblePins();
   }
 
@@ -2426,12 +2444,12 @@
   function renderHub() {
     if (navEl) { navEl.remove(); navEl = null; }
 
-    // The left nav bar is purely the comment-NAVIGATION surface. It comes out
-    // when comments are shown (or in pick mode) AND there is at least one comment
-    // to navigate. It carries no show/hide eye — that control lives only on the
-    // central island. An empty "No comments yet" bar was just clutter, so a fresh
-    // mock gets none: the island alone lets you add the first comment.
-    if (state.commentsHidden && !state.pickMode) { navOpen = false; return; }
+    // The left nav bar is purely the comment-NAVIGATION surface. It appears only
+    // when comments are shown AND at least one exists to navigate. It carries no
+    // show/hide eye — that control lives only on the central island — and it hides
+    // whenever comments are hidden (including via the island eye mid-pick-mode). An
+    // empty "No comments yet" bar was just clutter, so a fresh mock gets none.
+    if (state.commentsHidden) { navOpen = false; return; }
 
     const groups = computeNavGroups();
     const total = groups.all.length;
