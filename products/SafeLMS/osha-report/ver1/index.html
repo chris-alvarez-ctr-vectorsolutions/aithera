@@ -347,6 +347,8 @@
   .status-badge.not-started  { background: #f3f4f6; color: #4b5563; }
   .status-badge.failed       { background: #fee2e2; color: #b91c1c; }
   .status-badge.overdue      { background: #fef3c7; color: #92400e; }
+  .status-badge.pending      { background: #fef3c7; color: #92400e; gap: 5px; }
+  .status-badge.pending i    { font-size: 11px; }
 
   /* ============================================================
      FILTER PANEL (right column, V1)
@@ -529,17 +531,14 @@
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
 
   /* ── Modules Complete cell (replaces % Complete) ── */
-  .mod-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-  .mod-top { display: flex; align-items: center; gap: 8px; }
-  /* Module-level status badge shown on the collapsed row for a learner still working the
-     course: its own pill (same shape/size as the Status-column badges), sitting BELOW the
-     progress element so it never squishes the fraction/bar/Details. Signals that the next
-     module is pending a client update — the exact module is named in the dropdown. */
-  .pending-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #fef3c7; color: #92400e; }
-  .pending-badge i { font-size: 11px; }
+  .mod-cell { display: flex; align-items: center; gap: 8px; }
   .mod-frac { font-weight: 700; color: var(--ink); font-size: 14.5px; white-space: nowrap; }
-  .mod-bar { flex: 0 0 50px; width: 50px; height: 6px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
-  .mod-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--blue-primary); }
+  /* Per-module progress ticks: one segment per module. Completed = status color,
+     the module the learner is working on next (pending a client update) = yellow,
+     the rest = empty. Makes "done 3, working on the 4th" legible at a glance. */
+  .mod-bar { display: inline-flex; gap: 2px; align-items: center; }
+  .mtick { width: 5px; height: 9px; border-radius: 2px; background: var(--hair-2); flex: 0 0 auto; }
+  .mtick.mt-pending { background: #f59e0b; }
   .mod-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 13px; font-weight: 600; white-space: nowrap; }
   .mod-link:hover { text-decoration: underline; }
 
@@ -1098,10 +1097,10 @@
       render:(r) => `${r.name}<span class="l-id">${r.ext}</span>` },
     { key:'course',   label:'Course',           width:'13%', sortable:true,
       render:(r, course) => `<span class="course-cell">${course}</span>` },
-    { key:'status',   label:'Status',           width:'8%',  sortable:true,
-      render:(r) => `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>` },
-    { key:'mods',     label:'Modules Complete', width:'16%', sortable:true,
-      render:(r, course, gid) => modCellHTML(r, gid, course) },
+    { key:'status',   label:'Status',           width:'11%', sortable:true,
+      render:(r) => statusBadgeHTML(r) },
+    { key:'mods',     label:'Modules Complete', width:'14%', sortable:true,
+      render:(r, course, gid) => modCellHTML(r, gid) },
     { key:'time',     label:'Time Spent',       width:'8%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.time },
     { key:'last',     label:'Last Accessed',    width:'9%',  sortable:true,
@@ -1127,24 +1126,37 @@
     if (r.status === 'passed') return `<button class="cert-link row-act" data-type="cert" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid fa-award"></i> View certificate</button>`;
     return '<span class="muted-cell">—</span>';
   }
-  function modCellHTML(r, gid, course) {
-    const key = rowKey(gid, r.ext);
-    const modPct = Math.round((r.mods / MOD_TOTAL) * 100);
-    // For a learner still working the course, add a "Pending Updates" status badge — its
-    // own pill below the progress element (never squishing the fraction/bar/Details). It
-    // signals the next module is awaiting a client update; the exact module is named in the
-    // dropdown. Overall course progress % (the bar) stays as-is.
-    let badge = '';
-    if (r.status === 'in-progress' && r.mods < MOD_TOTAL) {
-      badge = `<span class="pending-badge" title="${WAITING_TIP}"><i class="fa-regular fa-clock"></i> Pending Updates</span>`;
+  // "Pending Updates" takes over the Status column for a learner mid-course: we're waiting
+  // on the client to report their next module, so that amber status replaces "In Progress".
+  // Other statuses render as usual.
+  function isPendingUpdate(r) { return r.status === 'in-progress' && r.mods < MOD_TOTAL; }
+  function statusBadgeHTML(r) {
+    if (isPendingUpdate(r)) {
+      return `<span class="status-badge pending" title="${WAITING_TIP}"><i class="fa-regular fa-clock"></i> Pending Updates</span>`;
     }
+    return `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>`;
+  }
+
+  // Per-module tick bar: completed modules in the status color, the next module (pending a
+  // client update) in yellow, the rest empty — so "done 3, working on the 4th" reads at a glance.
+  function modBarHTML(r) {
+    const color = PCT_COLOR[r.status];
+    const pendingIdx = isPendingUpdate(r) ? r.mods : -1;   // the module they're working on next
+    let ticks = '';
+    for (let i = 0; i < MOD_TOTAL; i++) {
+      if (i < r.mods)          ticks += `<span class="mtick mt-done" style="background:${color}"></span>`;
+      else if (i === pendingIdx) ticks += `<span class="mtick mt-pending"></span>`;
+      else                     ticks += `<span class="mtick"></span>`;
+    }
+    return `<span class="mod-bar" title="${r.mods}/${MOD_TOTAL} modules complete">${ticks}</span>`;
+  }
+
+  function modCellHTML(r, gid) {
+    const key = rowKey(gid, r.ext);
     return `<span class="mod-cell">
-      <span class="mod-top">
-        <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
-        <span class="mod-bar"><span style="width:${modPct}%; background:${PCT_COLOR[r.status]};"></span></span>
-        <button class="mod-link" data-key="${key}"><i class="fa-solid fa-chevron-right mod-caret"></i>Details</button>
-      </span>
-      ${badge}
+      <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
+      ${modBarHTML(r)}
+      <button class="mod-link" data-key="${key}"><i class="fa-solid fa-chevron-right mod-caret"></i>Details</button>
     </span>`;
   }
 
