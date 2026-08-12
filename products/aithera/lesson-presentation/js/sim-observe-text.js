@@ -81,7 +81,7 @@
       /* Coach-graded coverage meter — how many of the fixed set have been found. */
       .obt-meter { display: flex; align-items: center; gap: 11px; margin-top: 13px; }
       .obt-meter-pips { display: flex; gap: 5px; }
-      .obt-pip { width: 22px; height: 7px; border-radius: 4px; background: var(--c-line); transition: background .3s var(--ease); }
+      .obt-pip { width: 22px; height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--c-ink-faint) 42%, var(--c-surface)); transition: background .3s var(--ease); }
       .obt-pip.on { background: #2ecc71; }
       .obt-meter-txt { font-size: 12.5px; font-weight: 700; color: var(--c-ink-faint); }
       .obt-meter-txt b { color: #1f9d57; font-size: 14px; }
@@ -97,11 +97,11 @@
       .obt-input { flex: 1; min-width: 0; padding: 11px 13px; border-radius: 10px;
         border: 1px solid var(--c-line); background: var(--c-surface); color: var(--c-ink);
         font: inherit; font-size: 14px; }
-      .obt-input:focus-visible { outline: none; border-color: var(--s-you);
-        box-shadow: 0 0 0 3px var(--s-you-soft); }
+      .obt-input:focus-visible { outline: none; border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px var(--c-accent-soft); }
       .obt-input::placeholder { color: var(--c-ink-faint); }
       .obt-add-btn { flex: none; padding: 0 16px; border-radius: 10px; border: 0;
-        background: var(--c-ink); color: var(--c-surface-2); font: inherit; font-weight: 800;
+        background: var(--c-accent); color: var(--c-on-accent); font: inherit; font-weight: 800;
         font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
       .obt-add-btn:hover { filter: brightness(1.12); }
       .obt-add-btn:active { transform: scale(.98); }
@@ -118,13 +118,13 @@
       /* The notes list — neutral, NO verdicts. Grading is the coach's job. */
       .obt-notes { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; list-style: none; padding: 0; }
       .obt-notes:empty { margin-top: 0; }
-      .obt-note { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px;
+      .obt-note { display: flex; align-items: center; gap: 9px; padding: 10px 12px;
         border-radius: 10px; font-size: 13px; line-height: 1.45; color: var(--c-ink);
         border: 1px solid var(--c-line); background: var(--c-surface);
         animation: obt-in .24s var(--ease) both; }
       @keyframes obt-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
       @media (prefers-reduced-motion: reduce) { .obt-note, .obt-nudge { animation: none; } }
-      .obt-note i { flex: none; margin-top: 2px; font-size: 11px; color: var(--c-ink-faint); }
+      .obt-note i { flex: none; font-size: 11px; color: var(--c-ink-faint); }
       .obt-note-x { margin-left: auto; flex: none; border: 0; background: transparent; cursor: pointer;
         color: var(--c-ink-faint); font-size: 13px; padding: 0 2px; line-height: 1; }
       .obt-note-x:hover { color: var(--c-ink); }
@@ -231,7 +231,7 @@
     // the learner an answer. LXD-overridable via observe.placeholder.
     const PLACEHOLDER = (typeof OBSERVE.placeholder === 'string' && OBSERVE.placeholder.trim())
       ? OBSERVE.placeholder
-      : 'Describe something that looks unsafe…';
+      : 'Describe what looks unsafe';
 
     function listJoin(items) {
       items = items.filter(Boolean);
@@ -347,7 +347,7 @@
         : ('Find the ' + RAIL_TOTAL + ' hazards in this scene');
       const headSub = MODE === 'slots'
         ? 'Write one per line — spelling doesn’t matter. Your coach confirms each one when you review.'
-        : 'Note anything that looks unsafe — spelling doesn’t matter. Your coach confirms each catch when you review.';
+        : 'Note anything that looks unsafe, then we’ll review.';
       const meterHtml =
         `<div class="obt-meter" aria-live="polite">
            <span class="obt-meter-pips">${Array.from({ length: RAIL_TOTAL }, (_, i) => `<span class="obt-pip ${i < covered ? 'on' : ''}"></span>`).join('')}</span>
@@ -370,7 +370,7 @@
         }).join('') + `</ol>`;
       } else {
         const items = notes.map((t, i) =>
-          `<li class="obt-note"><i class="fa-solid fa-pen"></i><span>${esc(t)}</span>
+          `<li class="obt-note"><i class="fa-solid fa-eye"></i><span>${esc(t)}</span>
              <button class="obt-note-x" type="button" data-i="${i}" aria-label="Remove this note">✕</button></li>`).join('');
         bodyHtml =
           `<form class="obt-add" id="obtAddForm">
@@ -382,12 +382,12 @@
       }
 
       const footHtml = n >= 1
-        ? `<button class="obt-cta" id="obtCta"><i class="fa-solid fa-comments"></i> Review it with your coach <i class="fa-solid fa-arrow-right arrow"></i></button>`
+        ? `<button class="obt-cta" id="obtCta"><i class="fa-solid fa-comments"></i> Review with your coach <i class="fa-solid fa-arrow-right arrow"></i></button>`
         : `<div class="obt-foot-hint">Add what you notice, then review it with your coach.</div>`;
 
       panelEl.innerHTML =
         `<div class="obt-panel-head">
-           <p class="obt-eyebrow">Observe · beat 1</p>
+           <p class="obt-eyebrow">Observe</p>
            <h2 class="obt-title">${headTitle}</h2>
            ${meterHtml}
            <p class="obt-sub">${headSub}</p>
