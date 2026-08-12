@@ -53,11 +53,27 @@
 
       .obt-scene { position: absolute; inset: 0; }
       .obt-stage { position: absolute; inset: 0; background: #0b0d12; overflow: hidden;
-        display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
+        display: grid; grid-template-columns: minmax(0, 1fr) 400px;
+        transition: grid-template-columns .35s var(--ease), grid-template-rows .35s var(--ease); }
+      /* Full-image mode: collapse the notes panel so the photo takes the whole
+         stage (the object-fit:contain image just renders larger — the cheap
+         "look closer" affordance, no pan/zoom). Toggled by the floating button. */
+      .obt-stage.photo-full { grid-template-columns: minmax(0, 1fr) 0; }
+      .obt-stage.photo-full .obt-panel { opacity: 0; pointer-events: none; border-left-color: transparent; }
       /* The photo — a plain reference. No overlay, no tap targets, no geometry. */
       .obt-photo-wrap { position: relative; overflow: hidden; }
       .obt-photo { position: absolute; inset: 0; width: 100%; height: 100%;
         object-fit: contain; -webkit-user-select: none; user-select: none; }
+      /* Floating full-image toggle, top-right of the photo (mirrors the caption pill). */
+      .obt-fs { position: absolute; top: 14px; right: 14px; z-index: 3;
+        width: 40px; height: 40px; display: grid; place-items: center;
+        border-radius: 10px; border: 1px solid rgba(255,255,255,.16);
+        background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
+        color: #fff; font-size: 15px; cursor: pointer;
+        transition: background .15s var(--ease), transform .1s var(--ease); }
+      .obt-fs:hover { background: rgba(0,0,0,.72); }
+      .obt-fs:active { transform: scale(.94); }
+      .obt-fs:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(2,113,206,.55); }
       .obt-photo-wrap::after { content: ''; position: absolute; inset: 0; pointer-events: none;
         background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,0) 20%, rgba(0,0,0,0) 60%, rgba(0,0,0,.38) 100%); }
       .obt-photo-cap { position: absolute; left: 14px; bottom: 12px; z-index: 2;
@@ -69,7 +85,8 @@
 
       /* The notes panel — a light inspector card on the dark stage. */
       .obt-panel { position: relative; display: flex; flex-direction: column;
-        background: var(--c-surface-2); border-left: 1px solid var(--c-line); min-height: 0; }
+        background: var(--c-surface-2); border-left: 1px solid var(--c-line); min-height: 0;
+        overflow: hidden; transition: opacity .25s var(--ease); }
       .obt-panel-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--c-line); }
       .obt-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em;
         text-transform: uppercase; color: var(--c-ink-faint); margin: 0 0 6px; }
@@ -123,7 +140,7 @@
         border: 1px solid var(--c-line); background: var(--c-surface);
         animation: obt-in .24s var(--ease) both; }
       @keyframes obt-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-      @media (prefers-reduced-motion: reduce) { .obt-note, .obt-nudge { animation: none; } }
+      @media (prefers-reduced-motion: reduce) { .obt-note, .obt-nudge { animation: none; } .obt-stage, .obt-panel { transition: none; } }
       .obt-note i { flex: none; font-size: 11px; color: var(--c-ink-faint); }
       .obt-note-x { margin-left: auto; flex: none; border: 0; background: transparent; cursor: pointer;
         color: var(--c-ink-faint); font-size: 13px; padding: 0 2px; line-height: 1; }
@@ -185,6 +202,7 @@
       /* Stacked layout on narrow screens: photo on top, panel below. */
       @media (max-width: 780px) {
         .obt-stage { grid-template-columns: 1fr; grid-template-rows: 38vh minmax(0, 1fr); }
+        .obt-stage.photo-full { grid-template-columns: 1fr; grid-template-rows: 1fr 0; }
         .obt-panel { border-left: 0; border-top: 1px solid var(--c-line); }
       }
   `;
@@ -261,6 +279,28 @@
 
     let panelEl = null;
 
+    /* ---- full-image toggle: collapse the notes panel so the photo owns the
+       whole stage (a cheap "look closer" — no pan/zoom). State persists across
+       stage remounts and re-applies via applyPhotoFull(). ---- */
+    let photoFull = false;
+    function applyPhotoFull() {
+      const stage = panelEl && panelEl.closest('.obt-stage');
+      if (!stage) return;
+      stage.classList.toggle('photo-full', photoFull);
+      const btn = stage.querySelector('#obtFs');
+      if (btn) {
+        btn.setAttribute('aria-pressed', photoFull ? 'true' : 'false');
+        btn.setAttribute('aria-label', photoFull ? 'Show the notes panel' : 'Expand the image');
+        const ic = btn.querySelector('i');
+        if (ic) ic.className = photoFull ? 'fa-solid fa-table-columns' : 'fa-solid fa-expand';
+      }
+    }
+    function togglePhotoFull() {
+      photoFull = !photoFull;
+      announce(photoFull ? 'Image expanded to full view.' : 'Notes panel restored.');
+      applyPhotoFull();
+    }
+
     /* ---- transient nudge banner + the "look first" redirect ---- */
     let hintMsg = '';
     let hintTimer = 0;
@@ -305,6 +345,8 @@
            <div class="obt-photo-wrap">
              <img class="obt-photo" id="obtPhoto" src="${esc(SCENE_IMG)}" alt="${esc(SCENE_ALT)}" draggable="false" />
              <div class="obt-photo-cap"><i class="fa-solid fa-image"></i> The work area — look closely</div>
+             <button class="obt-fs" id="obtFs" type="button" aria-pressed="false" aria-label="Expand the image">
+               <i class="fa-solid fa-expand"></i></button>
            </div>
            <div class="obt-panel" id="obtPanel"></div>
            <div class="obt-brief" id="obtBrief">
@@ -318,7 +360,10 @@
          </div>`;
       panelEl = wrap.querySelector('#obtPanel');
       wrap.querySelector('#obtBriefBtn').addEventListener('click', dismissBrief);
+      const fsBtn = wrap.querySelector('#obtFs');
+      if (fsBtn) fsBtn.addEventListener('click', togglePhotoFull);
       renderPanel();
+      applyPhotoFull();   // re-apply full-image state on remount
       return wrap;
     }
 
