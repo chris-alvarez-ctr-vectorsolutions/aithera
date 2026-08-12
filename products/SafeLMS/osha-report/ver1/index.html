@@ -1,0 +1,2185 @@
+<!-- Live URL: https://vectorlearning.github.io/ux-mockups/products/SafeLMS/osha-report/?v=ver1 -->
+<!-- V1 — MODULE-LEVEL OSHA report, built on the current (V2 Convergence) design. Same modern
+     layout (pie + action cards, column picker, Email Learners compose page) PLUS a per-learner
+     "Modules Complete" column whose Details dropdown expands the per-module table: status,
+     attempts, time, quiz, module-level FAILURE data, and a "Pending Updates"/"Waiting on Update"
+     status for the next module a client will report. Default version behind the feature loader.
+     V2 (same design, course-level only — no module dropdown) is one folder over at ../ver2/index.html. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSHA Reporting — Module-level · SafeLMS · VectorSolutions</title>
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css"/>
+<style>
+  /* ============================================================
+     This OSHA dashboard is built on the Convergence "Report
+     Redesign V1" report patterns (per the OSHA reporting plan to
+     leverage VRF / Convergence), wearing the SafeLMS wrapper:
+       • SafeLMS chrome  → left sidebar + blue topbar
+       • Ported from V1  → Completion Status Overview (pie + bar),
+                           the Completion Report grouped table style,
+                           and the right-side report filter panel.
+     ============================================================ */
+  :root {
+    --blue-primary: #155DFC;
+    --blue-accent:  #0271CE;
+    --blue-dark:    #1038C8;
+    --ink:   #101828;
+    --ink-2: #344055;
+    --muted: #6A7282;
+    --muted-2: #99A1AF;
+    --hair:   #E5E7EB;
+    --hair-2: #F3F4F6;
+    --canvas: #f3f4f6;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--canvas);
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: 16px;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── App grid (SafeLMS chrome) ── */
+  .app {
+    display: grid;
+    grid-template-columns: 224px minmax(0,1fr);
+    min-height: 100vh;
+    min-width: 860px;
+    position: relative;
+  }
+
+  /* ── Sidebar (SafeLMS) ── */
+  .sidebar {
+    background: #fff;
+    border-right: 1px solid var(--hair-2);
+    padding: 16px 16px 80px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .logo { display: flex; align-items: center; gap: 7px; }
+  .logo svg { display: block; flex-shrink: 0; }
+  .logo .wordmark { display: flex; flex-direction: column; line-height: 1; }
+  .logo .wordmark .brand { font-weight: 700; font-size: 16px; letter-spacing: .1px; color: #374C61; }
+  .logo .wordmark .brand sup { font-size: 8px; color: #374C61; font-weight: 700; }
+  .logo .wordmark .sub { font-size: 9px; margin-top: 3px; color: var(--muted); letter-spacing: .2px; }
+
+  .sidebar .user { display: flex; align-items: center; gap: 10px; margin: 24px 0 0; padding-left: 2px; }
+  .sidebar .user .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #E9EBF0; display: grid; place-items: center; color: var(--muted-2); flex-shrink: 0;
+  }
+  .sidebar .user .name { font-size: 15px; line-height: 1.3; color: #364153; }
+  .sidebar .user .name b { display: block; font-weight: 600; }
+  .sidebar .user .name span { font-weight: 400; color: #4A5565; }
+
+  .nav-group { margin-top: 24px; }
+  .nav-group .label {
+    font-size: 12px; font-weight: 700; letter-spacing: .8px;
+    color: var(--muted-2); padding: 4px 6px; margin-bottom: 2px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 7px 6px; border-radius: 4px;
+    font-size: 15px; color: #364153; cursor: pointer; text-decoration: none;
+  }
+  .nav-item:hover { background: var(--hair-2); }
+  .nav-item .ico { width: 17px; height: 17px; display: grid; place-items: center; color: #4A5565; flex: 0 0 17px; }
+  .nav-item .lbl { white-space: nowrap; }
+  .nav-item.active { font-weight: 700; color: var(--ink); }
+  .nav-item.active .lbl { text-decoration: underline; text-underline-offset: 2px; }
+  .nav-item .chev { margin-left: auto; color: var(--muted-2); }
+
+  .sidebar-footer { position: absolute; left: 0; right: 0; bottom: 18px; display: grid; place-items: center; }
+  .sidebar-footer .emblem {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #fff; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--hair-2);
+    text-align: center; font-size: 7px; font-weight: 700; color: #2F6FB0; letter-spacing: .3px; line-height: 1.35;
+  }
+
+  /* ── Main column ── */
+  /* Fixed viewport height so the report area scrolls internally and the filter
+     panel (with its pinned Apply button) is always fully visible. */
+  .main { display: flex; flex-direction: column; background: var(--canvas); height: 100vh; overflow: hidden; position: relative; }
+
+  /* Blue topbar (SafeLMS) */
+  .topbar {
+    min-height: 92px;
+    background: linear-gradient(90deg, #05347a 0%, #095ad2 100%);
+    display: flex; align-items: center;
+    padding: 18px 32px; color: #fff; gap: 22px; flex-shrink: 0;
+  }
+  .topbar .t-title { font-weight: 700; font-size: 34px; letter-spacing: .2px; flex-shrink: 0; }
+  .topbar .t-sub { font-size: 16px; color: #cdd9f0; opacity: .95; line-height: 1.45; max-width: 720px; }
+
+  /* ============================================================
+     PAGE LAYOUT — report content + right filter panel (V1)
+     ============================================================ */
+  .page-layout { display: flex; align-items: stretch; gap: 0; flex: 1 1 auto; min-height: 0; }
+
+  .main-content {
+    flex: 1; min-width: 0; min-height: 0; overflow-y: auto;
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  /* main-content scrolls as a whole — its cards keep their natural height and must NOT
+     shrink to fit (the cards use overflow:hidden, which would otherwise let them collapse). */
+  .main-content > * { flex-shrink: 0; }
+
+  /* Report meta row (last-updated + actions) — replaces V1 page-title row,
+     since the SafeLMS blue topbar already carries the page title. */
+  /* Meta block: full-width filter-scope row on top, then a row with the "Last updated"
+     note on the left and the Filters + Export buttons on the right. */
+  .report-meta { display: flex; flex-direction: column; gap: 10px; }
+  .meta-actions-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .data-note i { color: var(--blue-primary); }
+  .data-note b { color: var(--ink-2); font-weight: 700; }
+  .actions-right { display: flex; align-items: center; gap: 8px; }
+  vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
+
+  /* ── Report card (V1) ── */
+  .report-card { background: #fff; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
+  .report-card-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--hair-2); }
+  .report-card-title-row { display: flex; align-items: center; justify-content: space-between; }
+  .report-card-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--ink); }
+  .date-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #f9fafb; border: 1px solid var(--hair); border-radius: 6px;
+    /* match the Email Learners button height/type so the two controls read as the same size
+       (the small-theme button label is var(--lumo-font-size-s) ≈ 12.25px, not 14px) */
+    height: 36px; box-sizing: border-box; padding: 0 14px; font-size: var(--lumo-font-size-s, .875rem); color: var(--ink-2);
+  }
+
+  /* ── Charts (V1) ── */
+  .chart-area { display: flex; gap: 32px; padding: 20px 20px 16px; flex-wrap: wrap; align-items: stretch; }
+  .chart-col { flex: 0 0 auto; }
+  .chart-col-bar { flex: 1; min-width: 280px; }
+  /* Pie column: title on top, then the pie + legend centered in the remaining height so the
+     chart aligns with the middle of the Action Needed cards beside it (not shoved top-left). */
+  .chart-col:not(.chart-col-bar) { display: flex; flex-direction: column; min-width: 210px; }
+  .chart-section-title {
+    font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); margin-bottom: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  /* Info affordance next to a section title — anchors a vaadin-tooltip (hover + keyboard focus) */
+  .section-info {
+    background: none; border: 0; padding: 2px; margin: 0; line-height: 0; cursor: help;
+    color: var(--muted-2); font-size: 13px; border-radius: 4px;
+  }
+  .section-info:hover, .section-info:focus-visible { color: var(--blue-accent); outline: none; }
+  /* Legend UNDER the pie, both centered; flex:1 so the group centers vertically in the column. */
+  .pie-chart-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+  .pie-chart {
+    width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0;
+    background: var(--hair-2); /* live conic-gradient set by renderDistribution() */
+  }
+  .pie-labels { display: grid; grid-template-columns: repeat(2, auto); gap: 7px 20px; justify-items: start; align-items: center; }
+  .pie-label { font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .pie-label .pd { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pie-legend { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-dot.passed     { background: #22c55e; }
+  .legend-dot.inprogress { background: #3b82f6; }
+  .legend-dot.notstarted { background: #d1d5db; }
+  .legend-dot.failed     { background: #dc2626; }
+
+  /* Overview chart toggle: Completion Distribution (pie) ⇄ Where Learners Are (bars) */
+  .chart-flip { display: inline-flex; background: var(--hair-2); border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 14px; }
+  .chart-flip .cf-btn { background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 14.5px; font-weight: 600; color: var(--muted); padding: 6px 14px; border-radius: 6px; }
+  .chart-flip .cf-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+  .chart-view[hidden] { display: none; }
+
+  /* "Where Learners Are" — horizontal progress-status breakdown */
+  .prog-chart { display: flex; flex-direction: column; gap: 11px; min-width: 320px; }
+  .prog-row { display: flex; align-items: center; gap: 10px; }
+  .prog-label { width: 132px; flex-shrink: 0; font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 7px; }
+  .prog-label .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .prog-track { flex: 1; height: 12px; border-radius: 999px; background: var(--hair-2); overflow: hidden; min-width: 40px; }
+  .prog-fill { display: block; height: 100%; border-radius: 999px; }
+  .prog-val { width: 26px; text-align: right; font-size: 15px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
+
+  /* "Course Pass / Fail" — pass-rate donut + per-module pass/fail drill */
+  .donut-wrap { display: flex; align-items: center; gap: 18px; }
+  .donut { width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0; position: relative; background: var(--hair-2); }
+  .donut::after { content: ''; position: absolute; inset: 27px; background: #fff; border-radius: 50%; z-index: 1; }
+  .donut-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 2; }
+  .donut-center .dc-num { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1; }
+  .donut-center .dc-lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 7px; }
+  .donut-legend .dl { display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--ink-2); }
+  .donut-legend .dl .dd { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .donut-legend .dl b { color: var(--ink); }
+  .drill-toggle { margin-top: 14px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 14.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
+  .drill-toggle:hover { text-decoration: underline; }
+  .drill-toggle i { font-size: 13px; }
+  .module-breakdown { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
+  .module-breakdown[hidden] { display: none; }
+  .mb-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .mb-name { width: 170px; flex-shrink: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-bar { flex: 1; height: 14px; border-radius: 4px; overflow: hidden; display: flex; background: var(--hair-2); }
+  .mb-bar .mb-pass { background: #22c55e; height: 100%; }
+  .mb-bar .mb-fail { background: #ef4444; height: 100%; }
+  .mb-counts { width: 70px; flex-shrink: 0; text-align: right; color: var(--muted-2); font-size: 13px; }
+  .mb-counts .mc-p { color: #15803d; font-weight: 700; }
+  .mb-counts .mc-f { color: #b91c1c; font-weight: 700; }
+
+  .bar-chart { display: flex; flex-direction: column; gap: 9px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; }
+  .bar-label { width: 190px; flex-shrink: 0; font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 10px; background: var(--hair-2); border-radius: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--blue-primary); border-radius: 5px; }
+  .bar-val { width: 30px; text-align: right; font-size: 14px; color: var(--ink-2); font-weight: 600; flex-shrink: 0; }
+  .bar-axis { display: flex; justify-content: space-between; padding-left: 198px; padding-right: 38px; font-size: 12px; color: var(--muted-2); margin-top: 2px; }
+
+  /* ── Report toolbar (V1) ── */
+  .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Filter scope row spans the full width so chips can stretch across and wrap to
+     additional rows when the filter set gets long. */
+  .filter-scope-row { display: flex; width: 100%; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
+  /* Lead-in sentence: "Showing all courses" by default, "Filtered to:" once chips appear */
+  .filter-lead { font-size: 15px; color: var(--muted); flex-shrink: 0; padding-top: 3px; }
+  /* Active filters as individual removable chips — take the remaining width and wrap. */
+  .applied-filters { display: flex; flex: 1 1 auto; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .applied-filters:empty { display: none; }
+  #filtersClearBtn { flex-shrink: 0; }
+  .applied-filters .filter-chip { max-width: 280px; }
+  .applied-filters .filter-chip .fc-k { color: #3b6fd4; font-weight: 700; flex-shrink: 0; overflow: visible; }
+
+  /* Course cell */
+  .course-cell { color: var(--ink-2); }
+  .toolbar-right { display: flex; align-items: center; gap: 8px; }
+  /* Match the Email Learners button to the 36px search input / Manage columns button height */
+  #emailFilteredBtn { height: 36px; min-height: 36px; --lumo-size-s: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0; }
+  .search-wrap { position: relative; display: flex; align-items: center; }
+  .search-icon { position: absolute; left: 9px; color: var(--muted-2); font-size: 14px; pointer-events: none; }
+  .search-input {
+    /* same box model as the "Past 30 days" trigger (7px/15px/1px border) so heights match */
+    border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 10px 7px 28px; font-size: 15px;
+    box-sizing: border-box;
+    outline: none; width: 200px; font-family: inherit; color: var(--ink-2); background: #fff;
+  }
+  .search-input:focus { border-color: var(--blue-primary); box-shadow: 0 0 0 2px rgba(21,93,252,.15); }
+  .col-picker-btn {
+    background: none; border: 1px solid #d1d5db; border-radius: 6px;
+    width: 36px; height: 36px; box-sizing: border-box;   /* square, matches the search / date-range height */
+    display: grid; place-items: center; cursor: pointer; color: var(--muted); font-size: 15px;
+  }
+  .col-picker-btn:hover { background: #f9fafb; color: var(--ink-2); border-color: var(--muted-2); }
+  /* Column manager — show/hide + drag-to-reorder */
+  .col-picker { position: relative; }
+  .col-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 244px;
+    background: #fff; border: 1px solid var(--hair); border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(16,24,40,.16); padding: 8px;
+  }
+  .col-menu[hidden] { display: none; }
+  .col-menu-title { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; padding: 4px 8px 8px; }
+  .col-reset { background: none; border: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+  .col-reset:hover { text-decoration: underline; }
+  .col-list { display: flex; flex-direction: column; gap: 1px; }
+  .col-row { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; }
+  .col-row:hover { background: var(--hair-2); }
+  .col-row.dragging { opacity: .45; }
+  .col-row.drop-before { box-shadow: inset 0 2px 0 var(--blue-primary); }
+  .col-row.drop-after  { box-shadow: inset 0 -2px 0 var(--blue-primary); }
+  .col-grip { color: var(--muted-2); font-size: 14px; cursor: grab; flex-shrink: 0; }
+  .col-row input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--blue-primary); flex-shrink: 0; }
+  .col-row input[type="checkbox"]:disabled { cursor: not-allowed; }
+  .col-row-label { flex: 1; font-size: 15px; color: var(--ink-2); cursor: pointer; }
+  .col-row input:disabled + .col-row-label { color: var(--muted-2); }
+  .col-row .col-lock { color: var(--muted-2); font-size: 12px; }
+
+  /* Failed / Attempts cells */
+  .fr-fail { color: #b91c1c; font-weight: 600; }
+  .fr-attempt { font-weight: 600; color: var(--ink-2); }
+
+  /* ── Report table (V1) ── */
+  /* Table body scrolls inside a bounded region so the header row can stay frozen
+     (sticky) while you scroll through learners — both vertically and horizontally. */
+  .report-table-wrap { overflow: auto; max-height: calc(100vh - 210px); }
+  /* Fixed layout keeps the column widths stable; a min-width (set below) holds the table at
+     its natural size so it scrolls horizontally inside .report-table-wrap when the area is
+     narrow, instead of squishing/overlapping cells.
+     Column widths + visibility + order are driven by the JS column model (inline th widths). */
+  .report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 14.5px; }
+
+  /* Whenever the content area is too narrow for every column (e.g. the filter panel is
+     open, or the window is small), hold the table at its natural width so
+     .report-table-wrap scrolls horizontally rather than squishing/overlapping the columns,
+     and freeze the Action column as a fixed pane pinned to the right edge. This is always on:
+     when the table already fits, the frozen pane simply sits flush at the right edge. */
+  /* min-width equals the sum of the (tight) per-column pixel widths for the default-visible set,
+     so the table holds its natural width without stretching columns back out into dead space.
+     When the area is narrower than this the .report-table-wrap scrolls horizontally, with data
+     packed right up to the frozen Action pane so the scroll affordance reads clearly. */
+  .report-table { min-width: 1500px; }
+  .report-table th.col-action,
+  .report-table td.cell-actions {
+    position: sticky; right: 0; z-index: 2;
+    box-shadow: -8px 0 12px -8px rgba(16,24,40,.18);   /* soft edge marks the frozen pane */
+  }
+  /* Header of the frozen Action column sits at the top-right corner — above both the
+     sticky header row and the sticky right column. */
+  .report-table th.col-action { background: #f9fafb; z-index: 6; }
+  /* Frozen body cells need an opaque background so scrolled content doesn't show through —
+     mirror each row state (default / hover / selected). */
+  .report-table td.cell-actions { background: #fff; }
+  .report-table .data-row:hover td.cell-actions { background: #fafafa; }
+  .report-table td.nowrap, .report-table th.nowrap { white-space: nowrap; }
+  .report-table thead { background: #f9fafb; }
+  .report-table thead th {
+    padding: 8px 9px; text-align: left; font-size: 13px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .3px; border-bottom: 1px solid var(--hair);
+    white-space: nowrap; vertical-align: bottom; line-height: 1.25;
+    /* Freeze the header row while the body scrolls. Opaque bg so rows don't show through. */
+    position: sticky; top: 0; z-index: 5; background: #f9fafb;
+  }
+  .sortable-th { cursor: pointer; user-select: none; }
+  .sortable-th:hover { background: var(--hair-2); }
+  .sortable-th.active-sort { color: var(--blue-accent); }
+  .sort-arrow { font-size: 12px; color: var(--muted-2); margin-left: 2px; }
+  .sortable-th.active-sort .sort-arrow { color: var(--blue-accent); }
+  .group-row { background: var(--hair-2); cursor: pointer; user-select: none; }
+  .group-row:hover { background: #e9eaec; }
+  .expand-cell { padding: 8px 0 8px 14px; color: var(--muted); font-size: 13px; width: 36px; }
+  .group-label { padding: 8px 14px; font-size: 15px; font-weight: 600; color: var(--ink-2); }
+  .group-count { color: var(--muted); font-weight: 500; }
+  .data-row td { padding: 8px 9px; border-bottom: 1px solid var(--hair-2); color: var(--ink-2); vertical-align: middle; white-space: normal; word-break: break-word; }
+  .data-row:last-child td { border-bottom: none; }
+  .data-row:hover td { background: #fafafa; }
+  .data-row .l-name { font-weight: 600; color: var(--ink); }
+  .data-row td.l-uname { color: var(--muted); }
+  .pct-cell { display: flex; align-items: center; gap: 6px; }
+  .pct-track { flex: 1; min-width: 24px; height: 7px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
+  .pct-fill { height: 100%; border-radius: 999px; }
+  .pct-num { font-size: 14px; font-weight: 600; color: var(--ink); flex-shrink: 0; }
+  /* "Never" = no activity yet — neutral placeholder, not alarm-red (Status column owns the "not started" signal) */
+  .never { color: var(--muted); }
+  .exp-soon { color: #b45309; font-weight: 600; }
+
+  /* Status badges (V1) */
+  .status-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .status-badge.passed       { background: #dcfce7; color: #15803d; }
+  .status-badge.in-progress  { background: #dbeafe; color: #1d4ed8; }
+  .status-badge.not-started  { background: #f3f4f6; color: #4b5563; }
+  .status-badge.failed       { background: #fee2e2; color: #b91c1c; }
+  .status-badge.overdue      { background: #fef3c7; color: #92400e; }
+  .status-badge.pending      { background: #fef3c7; color: #92400e; gap: 5px; }
+  .status-badge.pending i    { font-size: 11px; }
+
+  /* ============================================================
+     FILTER PANEL (right column, V1)
+     ============================================================ */
+  .filter-panel {
+    width: 320px; flex-shrink: 0; background: #fff; border-left: 1px solid var(--hair);
+    display: flex; flex-direction: column;
+    align-self: stretch; overflow: hidden;
+    transition: width .25s ease, opacity .2s ease;
+  }
+  .filter-panel.collapsed { width: 0; opacity: 0; border-left: none; overflow: hidden; pointer-events: none; }
+  .filter-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--hair); flex-shrink: 0; }
+  .filter-panel-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
+  .filter-close-btn { background: none; border: none; cursor: pointer; color: var(--muted); width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; font-size: 16px; }
+  .filter-close-btn:hover { background: var(--hair-2); color: var(--ink-2); }
+  .filter-panel-body { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .filter-section { padding: 12px 16px; }
+  .filter-extra { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+  .filter-label { display: block; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 8px; }
+  .filter-divider { height: 1px; background: var(--hair-2); margin: 0; }
+  .filter-select-btn {
+    width: 100%; border: 1px dashed #d1d5db; background: #f9fafb; border-radius: 6px;
+    padding: 7px 12px; font-size: 15px; color: var(--ink-2); cursor: pointer; text-align: left; font-family: inherit;
+  }
+  .filter-select-btn:hover { background: var(--hair-2); border-color: var(--muted-2); }
+  .filter-checkboxes { display: flex; flex-direction: column; gap: 6px; }
+  .filter-check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; color: var(--ink-2); cursor: pointer; }
+  /* Nudge the checkbox down a hair so it lines up with the first line of a wrapping label. */
+  .filter-check-row vaadin-checkbox { margin-top: 1px; flex-shrink: 0; }
+  .filter-panel-footer { padding: 12px 16px; border-top: 1px solid var(--hair); flex-shrink: 0; }
+  .filter-panel-footer vaadin-button { width: 100%; }
+
+  /* Filter chips */
+  .filter-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; color: #1d4ed8;
+    border: 1px solid #bfdbfe; border-radius: 20px; padding: 2px 8px; font-size: 14px; font-weight: 500; white-space: nowrap; max-width: 200px;
+  }
+  .filter-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-chip-remove { background: none; border: none; cursor: pointer; padding: 0; color: #93c5fd; font-size: 12px; line-height: 1; display: flex; flex-shrink: 0; }
+  .filter-chip-remove:hover { color: #1d4ed8; }
+
+
+  /* Row actions */
+  .cell-actions { text-align: right; white-space: nowrap; }
+  .cell-actions vaadin-button { margin-left: 4px; }
+  .muted-cell { color: var(--muted-2); }
+
+  /* Certificate column link */
+  .cert-link {
+    background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+    color: var(--blue-accent); font-size: var(--lumo-font-size-s); font-weight: 500; /* match the row Email (Vaadin small) buttons */
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .cert-link:hover { text-decoration: underline; }
+  .cert-link i { color: #15803d; }
+
+  /* ── Multi-select (STRETCH) — row checkboxes + select-all highlight rows; no bulk bar ── */
+  .report-table th.col-expand { width: 36px; padding: 0; vertical-align: middle; }
+  .sel-cell { width: 36px; }
+  /* Align the select-all checkbox with the per-row checkboxes (row cells pad 9px left). */
+  th.col-expand vaadin-checkbox { margin-left: 9px; }
+  .report-table .data-row.row-selected td { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td { background: #e0ebff; }
+  .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
+
+  /* Bulk-step recipient list */
+  .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
+  .recip-list .recip { margin: 0; border: 0; border-bottom: 1px solid var(--hair-2); border-radius: 0; }
+  .recip-list .recip:last-child { border-bottom: 0; }
+
+  /* ── Action dialog content (vaadin-dialog renderer body) ── */
+  .dlg-body { width: min(540px, 92vw); }
+  .dlg-head { display: flex; align-items: flex-start; gap: 14px; padding: 2px 0 14px; }
+  .dlg-head .m-ico { width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center; font-size: 21px; }
+  .dlg-head .m-title { font-size: 20px; font-weight: 800; color: var(--ink); line-height: 1.25; }
+  .dlg-head .m-sub { font-size: 15px; color: var(--muted); margin-top: 3px; }
+  .dlg-body p { font-size: 15px; line-height: 1.55; color: var(--ink-2); margin: 0 0 16px; }
+  .recip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 10px; margin-bottom: 16px; }
+  .recip .r-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
+  .recip .r-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .recip .r-mail { font-size: 13px; color: var(--muted); }
+  .recip .r-meta { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .opt { display: flex; align-items: flex-start; gap: 11px; padding: 7px 0; font-size: 15px; color: var(--ink-2); }
+  .opt .o-text b { color: var(--ink); font-weight: 700; }
+  .opt .o-hint { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .field-label { font-size: 13px; font-weight: 700; letter-spacing: .5px; color: var(--muted); margin: 14px 0 6px; }
+  .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 16px; }
+  .info-cell { background: var(--hair-2); border-radius: 10px; padding: 12px 14px; }
+  .info-cell .ic-k { font-size: 13px; color: var(--muted); }
+  .info-cell .ic-v { font-size: 16px; font-weight: 700; color: var(--ink); margin-top: 3px; }
+  .info-cell.accent { background: #fee2e2; }
+  .info-cell.accent .ic-v { color: #b91c1c; }
+  .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 4px; }
+  .detail-cell { background: var(--hair-2); border-radius: 10px; padding: 13px 15px; }
+  .detail-cell .d-k { font-size: 13px; color: var(--muted); }
+  .detail-cell .d-v { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 3px; }
+  .cert { border: 2px solid #E4C97A; border-radius: 12px; padding: 26px 24px; text-align: center; background: linear-gradient(180deg, #FFFDF6 0%, #FFF9EC 100%); }
+  .cert .c-seal { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid #15803d; color: #15803d; display: grid; place-items: center; font-size: 22px; margin: 0 auto 12px; }
+  .cert .c-kicker { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: #B7791F; }
+  .cert .c-name { font-size: 26px; font-weight: 800; color: var(--ink); margin: 8px 0 2px; }
+  .cert .c-for { font-size: 14.5px; color: var(--muted); }
+  .cert .c-course { font-size: 17px; font-weight: 700; color: var(--ink); margin: 6px 0 16px; }
+  .cert .c-meta { display: flex; justify-content: center; gap: 28px; font-size: 14px; color: var(--ink-2); }
+  .cert .c-meta b { display: block; color: var(--ink); font-size: 15px; margin-top: 2px; }
+
+  /* Footer */
+  .footer { text-align: center; padding: 28px 24px 8px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: auto; }
+  .footer .links { display: flex; gap: 18px; align-items: center; }
+  .footer .links a { color: var(--blue-accent); text-decoration: none; }
+  .footer .links a:hover { text-decoration: underline; }
+  .footer .links .sep { color: var(--muted-2); }
+  .footer .copy { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+
+  /* ============================================================
+     DASHBOARD TABS — OSHA Report lives as a tab in the Dashboard
+     menu (alongside Completions + Impact Insights), not as a
+     separate left-nav item.
+     ============================================================ */
+  .dash-tabs {
+    display: flex; gap: 28px; padding: 0 32px;
+    background: #fff; border-bottom: 1px solid var(--hair); flex-shrink: 0;
+  }
+  .dash-tab {
+    padding: 13px 2px 14px; font-size: 16px; color: #4A5565; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
+    background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+    transition: color .12s;
+  }
+  .dash-tab:hover { color: var(--ink); }
+  .dash-tab.active { color: var(--blue-accent); border-bottom-color: var(--blue-accent); font-weight: 700; }
+
+  /* ============================================================
+     ACTION-NEEDED CARDS — a read-out of how many learners fall in
+     each actionable bucket. They are NOT quick filters; use the
+     Action Needed filter to focus the table, or Email Learners to
+     message everyone in a bucket.
+     ============================================================ */
+  /* Cards stacked as rows beside the pie (icon · count/label · CTA) */
+  .action-cards { display: flex; flex-direction: column; gap: 10px; }
+  .action-card {
+    display: flex; align-items: center; gap: 13px; text-align: left; width: 100%; flex: 0 0 auto;
+    background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px;
+    font-family: inherit;
+  }
+  .action-card .ac-ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; flex-shrink: 0; }
+  .action-card .ac-body { flex: 1; min-width: 0; }
+  .action-card .ac-count { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.05; }
+  .action-card .ac-count .ac-of { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+  .action-card .ac-label { display: block; font-size: 14.5px; color: var(--ink-2); margin-top: 2px; }
+  .action-card .ac-take { margin-left: auto; flex-shrink: 0; }
+  .action-card .ac-ico.intervene { background: #f3f4f6; color: #4b5563; }
+  .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
+  .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
+
+  /* ── Progress cell — % complete + a short fixed-width bar (column is narrow). ── */
+  .mod-cell { display: flex; align-items: center; gap: 8px; }
+  .mod-frac { flex: 0 0 auto; font-weight: 700; color: var(--ink); font-size: 14.5px; white-space: nowrap; }
+  .mod-bar { flex: 0 0 54px; width: 54px; height: 6px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
+  .mod-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--blue-primary); }
+  /* ── Modules-Complete "Details" link (expands the per-module table below the row) ── */
+  .mod-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .mod-link:hover { text-decoration: underline; }
+  .mod-link .mod-caret { display: inline-block; margin-right: 4px; font-size: 11px; transition: transform .15s; }
+  .mod-link.open .mod-caret { transform: rotate(90deg); }
+  /* ── Nested module-detail row (expands inside the report table) ── */
+  .detail-row { display: none; }
+  .detail-row.open { display: table-row; }
+  .detail-row > td { padding: 0; background: #eef2fb; border-bottom: 2px solid var(--blue-primary); }
+  /* Sticky-left so the expanded module table stays put next to the frozen columns even as the
+     wide report table scrolls horizontally. */
+  .mod-detail-inner { padding: 14px 20px 18px 46px; position: sticky; left: 0; width: min(760px, 100%); }
+  .mod-detail-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+  .mod-detail-inner .mods-list { max-width: 700px; background: #fff; }
+  .mods-list { border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
+  .mod-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--hair-2); font-size: 15px; }
+  .mod-item:last-child { border-bottom: 0; }
+  .mod-item .mi-num { width: 24px; height: 24px; border-radius: 50%; background: var(--hair-2); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+  .mod-item.done .mi-num { background: #dcfce7; color: #15803d; }
+  .mod-item.failed-mod .mi-num { background: #fee2e2; color: #b91c1c; }
+  .mod-item.pending .mi-num { background: #fef3c7; color: #b45309; }
+  .mod-item.pending { background: #fffdf5; }
+  .mod-item .mi-name { flex: 1; min-width: 0; color: var(--ink-2); }
+  .mod-item .mi-status { width: 132px; flex-shrink: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .mod-item .mi-status.s-complete { color: #15803d; }
+  .mod-item .mi-status.s-failed { color: #b91c1c; }
+  .mod-item .mi-status.s-pending { color: #b45309; display: flex; align-items: center; gap: 5px; }
+  .mod-item .mi-status.s-in-progress { color: #1d4ed8; }
+  .mod-item .mi-status.s-not-started { color: var(--muted-2); }
+  .mi-status .wait-i { font-size: 11px; opacity: .75; cursor: help; }
+  /* Module-level failure/attempt data — how many tries the module took. */
+  .mod-item .mi-attempts { width: 70px; flex-shrink: 0; text-align: center; font-size: 13px; color: var(--muted); }
+  .mi-attempts .att-fail { color: #b91c1c; font-weight: 700; }
+  .mi-attempts .att-ok, .mi-attempts .att-dash { color: var(--muted-2); font-weight: 500; }
+  .mod-item .mi-time { width: 60px; flex-shrink: 0; text-align: right; font-size: 14px; color: var(--muted); }
+  .mod-item .mi-score { width: 52px; text-align: right; font-weight: 700; color: var(--ink); }
+  .mod-item.failed-mod .mi-score { color: #b91c1c; }
+  .mod-item .mi-score.dash { color: var(--muted-2); font-weight: 500; }
+  /* Explainer for the Waiting-on-Update status, shown under the module list when present. */
+  .mod-note { margin-top: 10px; max-width: 700px; font-size: 12.5px; line-height: 1.5; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 12px; }
+  .mod-note i { color: #b45309; margin-right: 2px; }
+  .mod-note strong { color: #92400e; }
+  /* Column header row inside the module list */
+  .mod-item.mod-head { background: #f9fafb; font-size: 12px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--muted); padding-top: 8px; padding-bottom: 8px; }
+  .mod-item.mod-head .mi-num { background: none; }
+  .mod-item.mod-head .mi-time, .mod-item.mod-head .mi-score { font-weight: 700; color: var(--muted); }
+
+  /* ── Action-group modal: course filter row ── */
+  .ag-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px; }
+  .ag-filter .agf-label { font-size: 14px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .ag-empty { padding: 22px; text-align: center; color: var(--muted); font-size: 15px; }
+
+  /* ── Delivery channels (Send via Email / Push) with preview + edit ── */
+  .delivery { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
+  .dlv-channel { border: 1px solid var(--hair); border-radius: 12px; padding: 12px 14px; }
+  .dlv-channel.dlv-off { opacity: .5; }
+  .dlv-head { display: flex; align-items: center; gap: 10px; }
+  .dlv-head .dlv-name { font-size: 15px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+  .dlv-head .dlv-name i { color: var(--muted); }
+  .dlv-edit-btn { margin-left: auto; background: none; border: 1px solid var(--hair); border-radius: 6px; padding: 3px 11px; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--blue-accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .dlv-edit-btn:hover { background: var(--hair-2); }
+  .dlv-preview { margin-top: 10px; }
+  /* Email preview */
+  .ep { border: 1px solid var(--hair); border-radius: 9px; overflow: hidden; }
+  .ep-line { display: flex; gap: 8px; padding: 8px 12px; background: #f9fafb; border-bottom: 1px solid var(--hair); font-size: 14px; }
+  .ep-k { color: var(--muted); font-weight: 700; min-width: 54px; }
+  .ep-v { color: var(--ink); font-weight: 600; }
+  .ep-body { padding: 11px 12px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); white-space: pre-wrap; }
+  /* Push preview — phone-style toast */
+  .pp { background: #1f2937; color: #fff; border-radius: 12px; padding: 11px 13px; max-width: 340px; }
+  .pp-top { font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .pp-ico { width: 16px; height: 16px; border-radius: 4px; background: var(--blue-primary); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+  .pp-title { font-size: 15px; font-weight: 700; }
+  .pp-body { font-size: 14px; color: #e5e7eb; margin-top: 2px; line-height: 1.4; white-space: pre-wrap; }
+  .dlv-editor { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .dlv-editor[hidden] { display: none; }   /* author display:flex would otherwise override [hidden] */
+  .dlv-editor-actions { display: flex; justify-content: flex-end; }
+
+  /* ============================================================
+     EMAIL LEARNERS PAGE — a separate LMS page, not a modal.
+     Overlays the main column (the sidebar stays), with its own
+     blue topbar + back button. Recipients are read-only.
+     ============================================================ */
+  .email-page {
+    position: absolute; inset: 0; z-index: 40;
+    background: var(--canvas);
+    display: flex; flex-direction: column;
+  }
+  .email-page[hidden] { display: none; }
+  .email-topbar { align-items: center; gap: 16px; }
+  .email-back {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12);
+    color: #fff; font-size: 17px; cursor: pointer; display: grid; place-items: center;
+    transition: background .12s;
+  }
+  .email-back:hover { background: rgba(255,255,255,.22); }
+  .email-topbar-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .email-topbar .t-title { font-size: 28px; }
+
+  .email-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 24px; }
+  .email-card {
+    background: #fff; border: 1px solid var(--hair); border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
+    max-width: 860px; margin: 0 auto; padding: 22px 24px 24px;
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+  /* 1. Header — recipient count + the filter context that defined the group (view-only) */
+  .ec-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+  .ec-count { font-size: 20px; font-weight: 800; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+  .ec-count i { color: var(--blue-primary); font-size: 16px; }
+  .ec-count #emailRecipCount { color: var(--blue-primary); }
+  .ec-context { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .ec-header-hint { display: flex; align-items: flex-start; gap: 7px; font-size: 13px; color: var(--muted); margin: 8px 0 20px; }
+  .ec-header-hint i { color: var(--blue-primary); margin-top: 2px; }
+
+  /* Email preview — locked greeting → editable intro → locked body + sign-off */
+  .ec-preview {
+    border: 1px solid var(--hair); border-radius: 12px; overflow: hidden; background: #fff;
+  }
+  .ec-subject {
+    background: var(--hair-2); border-bottom: 1px solid var(--hair);
+    padding: 11px 16px; font-size: 14px; color: var(--ink-2);
+  }
+  .ec-subject .ec-subject-k { font-weight: 700; color: var(--muted); margin-right: 8px; text-transform: uppercase; font-size: 12px; letter-spacing: .4px; }
+
+  /* Preview blocks: locked (greeting, body+sign-off) vs. editable (intro) */
+  .ec-block { position: relative; padding: 16px 18px; font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+  .ec-block p { margin: 0 0 10px; }
+  .ec-block p:last-child { margin-bottom: 0; }
+
+  /* Locked blocks — faint tinted background + a lock chip in the top-right.
+     Extra right padding keeps body text from ever running under the lock chip. */
+  .ec-locked { background: #FBFCFE; padding-right: 48px; }
+  .ec-lock {
+    position: absolute; top: 12px; right: 12px;
+    width: 26px; height: 26px; border-radius: 7px;
+    display: grid; place-items: center;
+    background: var(--hair-2); color: var(--muted); font-size: 12px;
+    border: 1px solid var(--hair);
+  }
+  .ec-greeting { font-weight: 600; color: var(--ink); }
+  .ec-sample {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 20px;
+    background: #EEF2FF; color: var(--blue-accent); border: 1px dashed #C7D2FE;
+    font-size: 11.5px; font-weight: 700; letter-spacing: .2px; vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .ec-signoff { color: var(--ink); }
+
+  /* Editable intro — the ONLY editable field; accent outline marks it clearly */
+  .ec-editable { background: #fff; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .ec-editable-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--blue-accent); margin-bottom: 8px; }
+  .ec-intro {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 78px;
+    font-family: inherit; font-size: 14.5px; line-height: 1.55; color: var(--ink);
+    padding: 10px 12px; border-radius: 8px;
+    border: 2px solid var(--blue-primary);
+    background: #fff; outline: none;
+    box-shadow: 0 0 0 3px rgba(21,93,252,.12);
+    transition: box-shadow .12s, border-color .12s;
+  }
+  .ec-intro:focus { border-color: var(--blue-accent); box-shadow: 0 0 0 4px rgba(21,93,252,.20); }
+  .ec-intro::placeholder { color: var(--muted-2); }
+
+  .email-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+
+  /* Pencil banner — informational, white card with a blue left accent + info glyph */
+  .pencil-banner {
+    position: relative; display: flex; align-items: flex-start; gap: 14px;
+    margin: 16px 0 0; padding: 16px 20px;
+    background: #fff; border-radius: 6px;
+    border-left: 6px solid var(--blue-primary);
+    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
+  }
+  .pencil-banner .pb-icon {
+    flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+    background: #E1EBF9; color: var(--blue-primary);
+    display: grid; place-items: center;
+  }
+  .pencil-banner .pb-text { flex: 1; align-self: center; font-size: 14px; line-height: 1.55; color: #1D2939; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══ Sidebar (SafeLMS chrome) ═══ -->
+  <aside class="sidebar">
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/>
+      </svg>
+      <div class="wordmark">
+        <span class="brand">VectorSolutions<sup>®</sup></span>
+        <span class="sub">Vector Training, K-12 Edition</span>
+      </div>
+    </div>
+
+    <div class="user">
+      <div class="avatar">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
+      </div>
+      <div class="name"><span>Welcome,</span><b>Deborah Kim</b></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="label">MAIN</div>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg></span>
+        <span class="lbl">My Assignments</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span class="lbl">Training History</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="13" rx="2"/><path d="M4 10h16"/></svg></span>
+        <span class="lbl">Extra Training</span>
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="label">ADMIN</div>
+      <a class="nav-item active" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="5" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><rect x="4" y="15" width="7" height="5" rx="1"/></svg></span>
+        <span class="lbl">Dashboard</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M8 5V3M16 5V3"/></svg></span>
+        <span class="lbl">Training Plans</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><circle cx="16" cy="10" r="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 18c0-2 2-3 4-3s3 1 3 3"/></svg></span>
+        <span class="lbl">Employees</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg></span>
+        <span class="lbl">Courses</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16"/></svg></span>
+        <span class="lbl">Reports</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+        <span class="lbl">Settings</span>
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="emblem">SAMPLE<br>SCHOOL<br>DISTRICT</div>
+    </div>
+  </aside>
+
+  <!-- ═══ Main ═══ -->
+  <section class="main">
+
+    <!-- Blue topbar (SafeLMS) -->
+    <div class="topbar">
+      <div class="t-title">Dashboard</div>
+      <div class="t-sub">The administrative dashboard offers a quick overview of recent activity and insights, including course completions and feedback from your users.</div>
+    </div>
+
+    <!-- Dashboard menu tabs — OSHA Report sits next to Impact Insights -->
+    <div class="dash-tabs" role="tablist" id="dashTabs">
+      <button class="dash-tab" data-tab="completions" role="tab" aria-selected="false">Completions</button>
+      <button class="dash-tab" data-tab="impact" role="tab" aria-selected="false">Impact Insights</button>
+      <button class="dash-tab active" data-tab="osha" role="tab" aria-selected="true">OSHA Dashboard</button>
+    </div>
+
+    <!-- Report content + right filter panel -->
+    <div class="page-layout" id="oshaLayout">
+      <main class="main-content">
+
+        <!-- Meta + actions -->
+        <div class="report-meta">
+          <!-- Page-level filter scope — applies to the charts AND the table.
+               Default reads "Showing all courses"; once filters are applied the lead-in
+               becomes "Filtered to:" followed by a removable chip per active filter,
+               with a tertiary Clear button to clear them all. This row spans the full
+               width and wraps its chips to additional rows when there are many. -->
+          <div class="filter-scope-row">
+            <span class="filter-lead" id="filterLead">Showing all courses</span>
+            <span class="applied-filters" id="appliedFilters"></span>
+            <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i aria-hidden="true" class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
+          </div>
+          <!-- Last updated on the left, Filters + Export on the right -->
+          <div class="meta-actions-row">
+            <div class="data-note">
+              <i aria-hidden="true" class="fa-solid fa-rotate"></i>
+              <span>Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+            </div>
+            <div class="actions-right">
+              <vaadin-button theme="secondary small" id="filterInlineToggle"><i aria-hidden="true" class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
+              <vaadin-button theme="primary small" id="exportBtn"><i aria-hidden="true" class="fa-solid fa-file-export" slot="prefix"></i> Export</vaadin-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Completion Status Overview ── -->
+        <div class="report-card" id="completionOverview">
+          <div class="report-card-header">
+            <div class="report-card-title-row">
+              <h2 class="report-card-title">Completion Status Overview</h2>
+              <div class="date-badge"><i aria-hidden="true" class="fa-regular fa-calendar"></i> Past 30 days</div>
+            </div>
+          </div>
+          <div class="chart-area">
+            <!-- Status Distribution: share of learners by completion status (live from the data).
+                 Reflects the applied panel filters only — the table's temporary search box does
+                 NOT change these numbers. -->
+            <div class="chart-col">
+              <div class="chart-section-title">Status Distribution</div>
+              <div class="pie-chart-wrap">
+                <div class="pie-chart" id="pieChart"></div>
+                <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
+              </div>
+            </div>
+
+            <!-- Action-needed counts, beside the chart -->
+            <div class="chart-col chart-col-bar">
+              <div class="chart-section-title">Action Needed
+                <button type="button" class="section-info" id="actionNeededInfo" aria-label="About the Action Needed categories">
+                  <i aria-hidden="true" class="fa-solid fa-circle-info"></i>
+                </button>
+              </div>
+              <vaadin-tooltip for="actionNeededInfo" position="top"
+                text="Use the Action Needed filter to show only the learners in a category, or Email Learners to contact that group."></vaadin-tooltip>
+              <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── OSHA Completion Report ── -->
+        <!-- DEV NOTE — DevExtreme DataGrid feasibility. This table is a visual stand-in
+             for a dxDataGrid; every behavior here maps to a NATIVE DataGrid feature
+             (don't hand-roll these):
+               • Group-by-course rows + expand/collapse → grouping (group the Course column).
+                 "· N learners" → group summary (summaryType:'count') rendered via groupCellTemplate.
+               • Course sort pill → column sorting / group ordering.
+               • Search box → searchPanel.
+               • Show/hide columns menu → built-in columnChooser (mode:'select').
+               • Row checkboxes + select-all → selection {mode:'multiple',
+                 showCheckBoxesMode:'always', selectAllMode:'page'} (respects the active filter).
+               • Status badge, % Complete bar, Time Spent, Failure/Retry (eligible-to-retry =
+                 failure date + cooldown via calculateCellValue), Certificate link, Action button
+                 → cellTemplate / command "buttons" column.
+             NOT DataGrid config (app-level UI that drives the grid via its dataSource filter
+             and getSelectedRowsData()/selectedRowKeys APIs):
+               • the right-hand Report Filters panel,
+               • the bulk action bar + the grouped, stepped bulk modal.
+             The Completion Status Overview above is a dxPieChart + dxChart (separate components),
+             not part of the grid. -->
+        <div class="report-card" id="qualReport">
+          <div class="report-toolbar">
+            <div class="toolbar-left">
+              <span class="report-card-title">OSHA Completion Report</span>
+            </div>
+            <div class="toolbar-right">
+              <!-- #5/#6: always-visible Email Learners — emails everyone the table is currently
+                   filtered to (reflects the full applied filter state), no row selection needed.
+                   Leads the right cluster so the primary action reads first, with the search +
+                   column-picker utility pair grouped together at the far edge. -->
+              <vaadin-button theme="secondary small" id="emailFilteredBtn"><i aria-hidden="true" class="fa-solid fa-envelope" slot="prefix"></i> Email Learners</vaadin-button>
+              <div class="search-wrap">
+                <i aria-hidden="true" class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input class="search-input" type="text" placeholder="Search learners…" id="qualSearch" aria-label="Search learners">
+              </div>
+              <div class="col-picker" id="colPicker">
+                <button class="col-picker-btn" id="qualColPicker" title="Manage columns" aria-label="Manage columns" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-table-columns" aria-hidden="true"></i></button>
+                <div class="col-menu" id="colMenu" hidden>
+                  <div class="col-menu-title">Manage columns <button class="col-reset" id="colReset" type="button">Reset</button></div>
+                  <div class="col-list" id="colList"><!-- rendered by JS: drag to reorder, check to show/hide --></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DEV NOTE — STRETCH (want, not a must-have): row checkboxes + select-all let an
+               admin hand-pick recipients. There is intentionally NO separate bulk-action bar:
+               checking rows highlights them, and the toolbar "Email Learners" button emails the
+               checked rows (or the full filtered set when nothing is checked). Flag the whole
+               multi-select path as a stretch at dev handoff — this note is for devs, not the UI. -->
+          <div class="report-table-wrap">
+            <table class="report-table" id="qualTable">
+              <thead>
+                <tr id="headRow">
+                  <!-- STRETCH (want, not a must-have): select-all for the multi-select path -->
+                  <th class="col-expand" scope="col"><vaadin-checkbox id="selectAll" aria-label="Select all visible learners"></vaadin-checkbox></th>
+                  <!-- data-column headers rendered by JS from the column model (order + visibility) -->
+                </tr>
+              </thead>
+              <tbody id="qualTbody"><!-- rendered by JS --></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Footer (sits at the bottom of the content column, beside the panel) -->
+        <div class="footer">
+          <div class="links">
+            <a href="#">Terms Of Use</a><span class="sep">·</span>
+            <a href="#">Privacy Policy</a><span class="sep">·</span>
+            <a href="#">Contact</a><span class="sep">·</span>
+            <a href="#">UI Version 4 ⌄</a>
+          </div>
+          <div class="copy">© 2026 Vector Solutions
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/></svg>
+            VectorSolutions
+          </div>
+        </div>
+
+      </main><!-- /main-content -->
+
+      <!-- ── FILTER PANEL (V1) ── -->
+      <aside class="filter-panel" id="filterPanel">
+        <div class="filter-panel-header">
+          <h3 class="filter-panel-title">Report Filters</h3>
+          <button class="filter-close-btn" id="closePanelBtn" title="Close filters" aria-label="Close filters"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="filter-panel-body">
+          <!-- Action Needed -->
+          <div class="filter-section">
+            <label class="filter-label">Action Needed</label>
+            <div class="filter-checkboxes" id="actionChecks">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures throughout the course — connect for remediation</span></label>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Quick Groups — saved learner cohorts -->
+          <div class="filter-section">
+            <label class="filter-label">Quick Groups</label>
+            <div class="filter-checkboxes" id="groupChecks">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-group="A"></vaadin-checkbox><span>Group A</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-group="B"></vaadin-checkbox><span>Group B</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-group="C"></vaadin-checkbox><span>Group C</span></label>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- OSHA Courses — inline checkbox multiselect (rendered by JS from the data) -->
+          <div class="filter-section">
+            <label class="filter-label">OSHA Courses</label>
+            <div class="filter-checkboxes" id="courseChecks"><!-- rendered by JS --></div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Completion Status -->
+          <div class="filter-section">
+            <label class="filter-label">Completion Status</label>
+            <div class="filter-checkboxes" id="statusChecks">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed"></vaadin-checkbox><span>Passed</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress"></vaadin-checkbox><span>Pending Updates</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started"></vaadin-checkbox><span>Not Started</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed"></vaadin-checkbox><span>Failed</span></label>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Extra options -->
+          <div class="filter-section filter-extra">
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only learners in progress with course expiring ≤ 30 days</span></label>
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners with at least 1 failure</span></label>
+          </div>
+        </div>
+
+        <div class="filter-panel-footer">
+          <vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button>
+        </div>
+      </aside>
+    </div><!-- /page-layout -->
+
+    <!-- ═══ Email Learners page — a separate LMS page (overlays the dashboard, keeps the sidebar) ═══ -->
+    <!-- Email Learners page. Recipients are defined by the dashboard filters (#6) and are
+         VIEW-ONLY here — a count, not an editable list (#7). The admin can add an intro that
+         is prepended to a standard template (#8). -->
+    <div class="email-page" id="emailPage" hidden aria-hidden="true">
+      <div class="topbar email-topbar">
+        <button class="email-back" id="emailBack" aria-label="Back to dashboard"><i aria-hidden="true" class="fa-solid fa-arrow-left"></i></button>
+        <div class="email-topbar-copy">
+          <div class="t-title">Email Learners</div>
+          <div class="t-sub">Review the recipient count and send. To change who receives this, go back and adjust your filters.</div>
+        </div>
+      </div>
+
+      <div class="email-scroll">
+        <div class="email-card">
+          <!-- 1. Header — recipient COUNT + the filter context that defined the group (view-only) -->
+          <div class="ec-header">
+            <div class="ec-count"><i aria-hidden="true" class="fa-solid fa-users"></i> <span id="emailRecipCount">0</span> <span class="ec-word">recipients</span></div>
+            <div class="ec-context" id="emailContext"></div>
+          </div>
+          <div class="ec-header-hint"><i aria-hidden="true" class="fa-solid fa-circle-info"></i> Recipients come from your active filters. To change who receives this, go back and re-filter — there’s no manual list to edit here.</div>
+
+          <!-- Email preview: locked greeting → editable intro → locked body + sign-off -->
+          <div class="ec-preview">
+            <div class="ec-subject"><span class="ec-subject-k">Subject</span> <span id="emailTplSubject"></span></div>
+
+            <!-- 2. Locked greeting block — sample first name, resolved per-learner on real sends -->
+            <div class="ec-block ec-locked">
+              <span class="ec-lock" title="Locked — set in your email template"><i aria-hidden="true" class="fa-solid fa-lock"></i></span>
+              <p class="ec-greeting">Hi Jordan,<span class="ec-sample" title="A sample first name — each learner sees their own">sample name</span></p>
+            </div>
+
+            <!-- 3. Editable message — the greeting and sign-off are locked; everything between them is editable -->
+            <div class="ec-block ec-editable">
+              <div class="ec-editable-tag"><i aria-hidden="true" class="fa-solid fa-pen"></i> Your message — everything except the greeting and sign-off is yours to edit</div>
+              <label class="sr-only" for="emailPreamble">Email message</label>
+              <textarea id="emailPreamble" class="ec-intro" rows="6" placeholder="Write the message that appears between the greeting and sign-off…"></textarea>
+            </div>
+
+            <!-- 4. Locked sign-off block — standard template -->
+            <div class="ec-block ec-locked">
+              <span class="ec-lock" title="Locked — set in your email template"><i aria-hidden="true" class="fa-solid fa-lock"></i></span>
+              <p class="ec-signoff">Thanks,<br>Ms. Rivera · Vector Solutions</p>
+            </div>
+          </div>
+
+          <!-- 5. Pencil banner — explains what's locked and where to change it -->
+          <div class="pencil-banner">
+            <span class="pb-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+              </svg>
+            </span>
+            <span class="pb-text">The greeting and sign-off are locked here. To change them, log in to edit your email template in Settings.</span>
+          </div>
+
+          <!-- 6. Actions -->
+          <div class="email-actions">
+            <vaadin-button theme="tertiary" id="emailCancel">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="emailSend"><i aria-hidden="true" class="fa-solid fa-paper-plane" slot="prefix"></i> Send to <span id="emailSendCount">0</span> learners</vaadin-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<!-- Certificate modal (the only remaining dialog on the report) + toast -->
+<vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
+<vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
+
+<script>
+  /* ═══════════════ Data — OSHA completion report, grouped by course ═══════════════ */
+  // pct = course completion percentage from ClickSafety (drives the Progress column).
+  // attempts = failed attempts (out of 3). failDate is only present once attempts === 3,
+  //   since ClickSafety only reports the failure date after the learner fails all 3 times.
+  // behind = backend-flagged "behind the expected pace" for in-progress learners (needs a nudge).
+  const GROUPS = [
+    { id:'g1', course:'OSHA 10-Hour General Industry', expanded:true, rows:[
+      { name:'Hale, Marcus',    ext:'mhale454',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/02/2026', expSoon:true },
+      { name:'Nair, Priya',     ext:'pnair391',    status:'in-progress', mods:1,  pct:5,   time:'0h 20m', last:'41 days ago', exp:'05/14/2026', expSoon:true, behind:true },
+      { name:'Carter, Liam',    ext:'lcarter612',  status:'in-progress', mods:6,  pct:64,  time:'3h 05m', last:'2 days ago',  exp:'10/15/2026' },
+      { name:'Lin, Grace',      ext:'glin201',     status:'passed',      mods:10, pct:100, time:'4h 30m', last:'04/18/2026',  exp:'04/18/2027' },
+      { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      mods:9,  pct:92,  time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:3 },
+      { name:'Adams, Olivia',   ext:'oadams118',   status:'passed',      mods:10, pct:100, time:'4h 05m', last:'04/10/2026',  exp:'04/10/2027' },
+      { name:'Bauer, Eli',      ext:'ebauer773',   status:'in-progress', mods:3,  pct:28,  time:'1h 35m', last:'9 days ago',  exp:'08/20/2026' },
+      { name:'Coleman, Tara',   ext:'tcoleman240', status:'in-progress', mods:2,  pct:18,  time:'0h 55m', last:'30 days ago', exp:'06/28/2026', expSoon:true, behind:true },
+      { name:'Diaz, Hugo',      ext:'hdiaz556',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/05/2026' },
+      { name:'Ellison, Mara',   ext:'mellison803', status:'passed',      mods:10, pct:100, time:'3h 50m', last:'03/22/2026',  exp:'03/22/2027' },
+      { name:'Farris, Quinn',   ext:'qfarris417',  status:'failed',      mods:9,  pct:95,  time:'4h 20m', last:'05/12/2026',  exp:'—', attempts:1 },
+      { name:'Gibson, Noel',    ext:'ngibson629',  status:'in-progress', mods:7,  pct:70,  time:'3h 15m', last:'Yesterday',   exp:'11/20/2026' },
+      { name:'Hoffman, Dana',   ext:'dhoffman361', status:'in-progress', mods:1,  pct:8,   time:'0h 25m', last:'22 days ago', exp:'09/10/2026', behind:true },
+      { name:'Iqbal, Sana',     ext:'siqbal905',   status:'passed',      mods:10, pct:100, time:'4h 00m', last:'04/28/2026',  exp:'04/28/2027' },
+      { name:'Jensen, Cole',    ext:'cjensen472',  status:'in-progress', mods:5,  pct:50,  time:'2h 30m', last:'4 days ago',  exp:'10/05/2026' },
+      { name:'Keller, Ruth',    ext:'rkeller138',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/30/2026', expSoon:true },
+    ]},
+    { id:'g2', course:'OSHA 10-Hour Construction', expanded:true, rows:[
+      { name:'Reyes, Tomás',    ext:'treyes824',   status:'in-progress', mods:2,  pct:15,  time:'1h 10m', last:'24 days ago', exp:'07/30/2026', behind:true },
+      { name:'Osei, Janet',     ext:'josei330',    status:'in-progress', mods:4,  pct:38,  time:'2h 40m', last:'16 days ago', exp:'09/02/2026', behind:true },
+      { name:'Zhang, Emily',    ext:'ezhang118',   status:'in-progress', mods:5,  pct:48,  time:'3h 20m', last:'Yesterday',   exp:'11/01/2026' },
+      { name:'Mendez, Carlos',  ext:'cmendez507',  status:'passed',      mods:10, pct:100, time:'6h 15m', last:'03/30/2026',  exp:'03/30/2027' },
+      { name:'Allen, Brooke',   ext:'ballen294',   status:'passed',      mods:10, pct:100, time:'6h 00m', last:'03/15/2026',  exp:'03/15/2027' },
+      { name:'Bishop, Dane',    ext:'dbishop681',  status:'in-progress', mods:6,  pct:58,  time:'4h 10m', last:'3 days ago',  exp:'10/12/2026' },
+      { name:'Choi, Min',       ext:'mchoi735',    status:'failed',      mods:9,  pct:90,  time:'5h 50m', last:'05/01/2026',  exp:'—', failDate:'05/01/2026', attempts:3 },
+      { name:'Duarte, Lena',    ext:'lduarte162',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'06/26/2026', expSoon:true },
+      { name:'Eaton, Russ',     ext:'reaton408',   status:'in-progress', mods:2,  pct:16,  time:'1h 20m', last:'27 days ago', exp:'09/18/2026', behind:true },
+      { name:'Fenn, Gail',      ext:'gfenn557',    status:'passed',      mods:10, pct:100, time:'6h 30m', last:'04/02/2026',  exp:'04/02/2027' },
+      { name:'Greer, Paul',     ext:'pgreer820',   status:'in-progress', mods:8,  pct:78,  time:'5h 05m', last:'Today',       exp:'11/15/2026' },
+      { name:'Hsu, Wendy',      ext:'whsu346',     status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'08/01/2026' },
+      { name:'Irwin, Blake',    ext:'birwin914',   status:'in-progress', mods:3,  pct:26,  time:'2h 00m', last:'19 days ago', exp:'09/05/2026', behind:true },
+      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'failed',      mods:9,  pct:94,  time:'5h 40m', last:'05/09/2026',  exp:'—', attempts:1 },
+      { name:'Kim, Sora',       ext:'skim671',     status:'passed',      mods:10, pct:100, time:'6h 10m', last:'04/20/2026',  exp:'04/20/2027' },
+      { name:'Lowe, Trent',     ext:'tlowe238',    status:'in-progress', mods:5,  pct:46,  time:'3h 30m', last:'6 days ago',  exp:'10/22/2026' },
+    ]},
+    { id:'g3', course:'OSHA 30-Hour Construction', expanded:false, rows:[
+      { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
+      { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', mods:8,  pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
+      { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:9,  pct:88,  time:'1h 50m', last:'05/03/2026',  exp:'—', attempts:2 },
+      { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      mods:10, pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
+      { name:'Abbott, Cleo',    ext:'cabbott190',  status:'passed',      mods:10, pct:100, time:'1h 45m', last:'04/12/2026',  exp:'04/12/2027' },
+      { name:'Burke, Mia',      ext:'mburke427',   status:'in-progress', mods:6,  pct:61,  time:'1h 20m', last:'2 days ago',  exp:'10/30/2026' },
+      { name:'Cho, Ravi',       ext:'rcho815',     status:'in-progress', mods:1,  pct:9,   time:'0h 15m', last:'25 days ago', exp:'06/29/2026', expSoon:true, behind:true },
+      { name:'Doyle, Faye',     ext:'fdoyle362',   status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/10/2026' },
+      { name:'Engel, Mark',     ext:'mengel578',   status:'passed',      mods:10, pct:100, time:'1h 35m', last:'03/28/2026',  exp:'03/28/2027' },
+      { name:'Frost, Lena',     ext:'lfrost931',   status:'failed',      mods:9,  pct:91,  time:'1h 55m', last:'05/05/2026',  exp:'—', failDate:'05/05/2026', attempts:3 },
+      { name:'Glass, Omar',     ext:'oglass246',   status:'in-progress', mods:7,  pct:72,  time:'1h 30m', last:'Yesterday',   exp:'11/08/2026' },
+      { name:'Hahn, Iris',      ext:'ihahn703',    status:'in-progress', mods:2,  pct:19,  time:'0h 40m', last:'21 days ago', exp:'09/14/2026', behind:true },
+      { name:'Ito, Ken',        ext:'kito459',     status:'passed',      mods:10, pct:100, time:'1h 40m', last:'04/25/2026',  exp:'04/25/2027' },
+      { name:'Jain, Asha',      ext:'ajain612',    status:'in-progress', mods:4,  pct:40,  time:'1h 10m', last:'5 days ago',  exp:'10/18/2026' },
+      { name:'Knox, Bea',       ext:'bknox827',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/28/2026', expSoon:true },
+      { name:'Lopez, Raul',     ext:'rlopez394',   status:'in-progress', mods:8,  pct:83,  time:'1h 50m', last:'Today',       exp:'11/22/2026' },
+    ]},
+  ];
+  const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed', 'overdue':'Overdue' };
+  const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626' };
+
+  /* ── Module model: each OSHA course has 10 modules; the last is the Final Assessment ── */
+  const MOD_TOTAL = 10;
+  const COURSE_MODULES = {
+    'OSHA 10-Hour General Industry': ['Intro to OSHA','Walking-Working Surfaces','Exit Routes & Emergency Plans','Electrical Safety','Personal Protective Equipment','Hazard Communication','Materials Handling','Machine Guarding','Bloodborne Pathogens','Final Assessment'],
+    'OSHA 10-Hour Construction': ['Intro to OSHA','OSHA Focus Four Hazards','Fall Protection','Electrical Safety','Personal Protective Equipment','Hand & Power Tools','Scaffolds','Ladders & Stairways','Health Hazards in Construction','Final Assessment'],
+    'OSHA 30-Hour Construction': ['Intro to OSHA','Managing Safety & Health','OSHA Focus Four Hazards','Fall Protection','Electrocution Hazards','Struck-By & Caught-Between','Excavations & Trenching','Cranes & Rigging','Materials Handling & Storage','Final Assessment'],
+  };
+  // Deterministic per-module quiz score (stable across re-renders — no Math.random).
+  function scoreFor(ext, i) {
+    const h = (ext.charCodeAt(0) * 7 + ext.charCodeAt(ext.length - 1) * 13 + i * 17) % 18;
+    return 80 + h; // 80–97
+  }
+  // Deterministic per-module quiz time spent, in minutes.
+  function timeFor(ext, i) {
+    const h = (ext.charCodeAt(0) * 5 + ext.charCodeAt(ext.length - 1) * 11 + i * 23) % 16;
+    return 9 + h; // 9–24 min
+  }
+  // "14m" / "1h 05m"
+  function fmtMin(min) {
+    if (min == null) return '—';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+  }
+  // Shared labels + the plain-language reason behind the "Waiting on Update" status.
+  const MOD_STATUS_LABEL = { complete:'Complete', failed:'Failed', pending:'Waiting on Update', 'in-progress':'In Progress', 'not-started':'Not Started' };
+  const WAITING_TIP = 'Clients report a module to us only after the learner completes it — so this is the next module we expect an update for.';
+  // Deterministic per-module attempt count. A passing module almost always takes one attempt;
+  // a failed module burns through 2–3 (each retry re-sends a completion record — module-level attempts).
+  function attemptsFor(ext, i, failed) {
+    if (failed) return 2 + ((ext.charCodeAt(0) + i) % 2);                        // 2 or 3
+    return ((ext.charCodeAt(ext.length - 1) * 3 + i * 5) % 7 === 0) ? 2 : 1;     // occasional retake
+  }
+  // Build a learner's per-module detail from their `mods` count. Failure lands at the MODULE
+  // level (which module + attempts); the module right after the last completed one is "pending"
+  // (Waiting on Update — the next module a client will report a completion for).
+  function learnerModules(r, course) {
+    const names = COURSE_MODULES[course] || COURSE_MODULES['OSHA 10-Hour General Industry'];
+    const done = r.mods;
+    const finished = r.status === 'passed' || r.status === 'failed';   // course over — no "next update"
+    return names.map((name, i) => {
+      if (i < done) {
+        const failed = r.status === 'failed' && i === done - 1;        // failed the last module reached
+        const score = failed ? 61 : scoreFor(r.ext, i);
+        return { name, status: failed ? 'failed' : 'complete', score, time: timeFor(r.ext, i), attempts: attemptsFor(r.ext, i, failed) };
+      }
+      if (i === done && !finished) {
+        const t = r.status === 'in-progress' ? Math.round(timeFor(r.ext, i) / 2) : null;
+        return { name, status: 'pending', score: null, time: t, attempts: null };
+      }
+      return { name, status: 'not-started', score: null, time: null, attempts: null };
+    });
+  }
+
+  /* Status-driven row action. Every actionable row gets an "Email" button that opens
+     the Email Learners page pre-scoped to that learner; the underlying `type` picks the
+     default subject/message. `type` also drives the Action-Needed cards + quick filter. */
+  const ACTIONS = {
+    'not-started': { type:'intervene', theme:'secondary', icon:'fa-envelope', label:'Email' },
+    'in-progress': { type:'nudge',     theme:'secondary', icon:'fa-envelope', label:'Email' },
+    'failed':      { type:'retry',     theme:'secondary', icon:'fa-envelope', label:'Email' },
+  };
+  /* Action-needed group order (Not started → Behind → Failed). */
+  const BULK_ORDER = ['intervene','nudge','retry'];
+
+  const rowKey = (gid, ext) => gid + '::' + ext;
+  const selectedRows = new Set();   // STRETCH multi-select — keys: "groupId::ext"
+
+  // Flat row list — every learner across all courses. Course is a column (not a grouping drawer).
+  const rows = GROUPS.flatMap(g => g.rows.map(r => ({ r, course: g.course, gid: g.id })));
+
+  const tbody = document.getElementById('qualTbody');
+
+  /* Module controls — the "Details" link expands a per-student module table inline. */
+  tbody.addEventListener('click', e => {
+    const link = e.target.closest('.mod-link');
+    if (!link) return;
+    const detail = document.getElementById('detail-' + link.dataset.key);
+    if (!detail) return;
+    const open = detail.classList.toggle('open');
+    link.classList.toggle('open', open);
+  });
+  const qualTable = document.getElementById('qualTable');
+
+  /* ═══════════════ Column model — drives the header, cells, order & visibility ═══════════════ */
+  // render(r, course, gid) → cell HTML. `required` columns can't be hidden (but can still be reordered).
+  // Column order: identity → current state → the assignment timeline (chronological)
+  // → exceptions → action. `hidden:true` = hidden by default (toggle in Manage columns).
+  // Widths are tuned tight to each column's content (dates hold "04/18/2026", not much more)
+  // and the header labels are kept short, so the columns pack densely and real data runs right
+  // up to the frozen Action pane — that makes the horizontal scroll obvious instead of leaving
+  // a dead gap. The sum drives .report-table min-width (see CSS).
+  const COLUMNS = [
+    // ── Identity ──
+    { key:'learner',  label:'Learner',          width:'160px', sortable:true, cellClass:'l-name',
+      render:(r) => r.name },
+    { key:'username', label:'Username',         width:'120px', sortable:true, cellClass:'l-uname',
+      render:(r) => r.ext },
+    { key:'course',   label:'Course',           width:'175px', sortable:true,
+      render:(r, course) => `<span class="course-cell">${course}</span>` },
+    // ── Current state ──
+    { key:'status',   label:'Status',           width:'150px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => statusBadgeHTML(r) },
+    { key:'mods',     label:'Modules Complete', width:'185px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r, course, gid) => modCellHTML(r, gid) },
+    // ── Assignment timeline (Started → Due → Completed → Last Access → Time Spent) ──
+    { key:'start',    label:'Started',          width:'110px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => dateCell(courseDates(r).start) },
+    { key:'due',      label:'Due',              width:'95px',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => dateCell(courseDates(r).due) },
+    { key:'complete', label:'Completed',        width:'130px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => dateCell(courseDates(r).complete) },
+    { key:'last',     label:'Last Access',      width:'140px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => r.last === 'Never' ? '<span class="never">Never</span>' : r.last },
+    { key:'time',     label:'Time Spent',       width:'115px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => r.time },
+    // ── Exceptions ──
+    { key:'exp',      label:'Expires',          width:'115px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>` },
+    // Total Failed Attempts — ClickSafety reports a running count of failed attempts.
+    { key:'attempts', label:'Total Failed Attempts', width:'190px', sortable:true, headClass:'nowrap',
+      render:(r) => (r.status === 'failed') ? `<span class="fr-attempt">${r.attempts || 1}</span>` : '<span class="muted-cell">—</span>' },
+    // Course Failure Date — we only receive this from ClickSafety once a learner has failed all
+    // attempts, so it is populated only when the learner has exhausted their attempts.
+    { key:'failed',   label:'Course Failure Date', width:'170px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => (r.status === 'failed' && r.attempts === 3 && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
+    // ── Action (always last, right-aligned) ──
+    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'150px', required:true, align:'right', cellClass:'cell-actions',
+      render:(r, course, gid) => actionCellHTML(r, gid) },
+  ];
+  const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
+  let columnOrder = COLUMNS.map(c => c.key);   // current left-to-right order
+  const hiddenCols = new Set(COLUMNS.filter(c => c.hidden).map(c => c.key));  // default-hidden columns
+  const visibleColumns = () => columnOrder.map(k => colByKey[k]).filter(c => !hiddenCols.has(c.key));
+
+  // Passed learners have no follow-up action — their certificate link shares the action column.
+  function actionCellHTML(r, gid) {
+    const a = ACTIONS[r.status];
+    if (a) return `<vaadin-button theme="${a.theme} small" class="row-act" data-type="${a.type}" data-group="${gid}" data-ext="${r.ext}"><i aria-hidden="true" class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}</vaadin-button>`;
+    if (r.status === 'passed') return `<button class="cert-link row-act" data-type="cert" data-group="${gid}" data-ext="${r.ext}"><i aria-hidden="true" class="fa-solid fa-award"></i> View certificate</button>`;
+    return '<span class="muted-cell">—</span>';
+  }
+  // "Pending Updates" takes over the Status column for a learner mid-course: we're waiting on
+  // the client to report their next module, so that amber status replaces "In Progress".
+  function isPendingUpdate(r) { return r.status === 'in-progress' && r.mods < MOD_TOTAL; }
+  function statusBadgeHTML(r) {
+    if (isPendingUpdate(r)) {
+      return `<span class="status-badge pending" title="${WAITING_TIP}"><i class="fa-regular fa-clock"></i> Pending Updates</span>`;
+    }
+    return `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>`;
+  }
+  // Continuous module-progress bar. Fill = fraction complete, yellow while the learner is
+  // mid-course (pending the client's next module update), status color otherwise.
+  function modBarHTML(r) {
+    const modPct = Math.round((r.mods / MOD_TOTAL) * 100);
+    const color = isPendingUpdate(r) ? '#f59e0b' : PCT_COLOR[r.status];
+    return `<span class="mod-bar" title="${r.mods}/${MOD_TOTAL} modules complete"><span style="width:${modPct}%; background:${color};"></span></span>`;
+  }
+  // Modules Complete — module fraction + bar + a "Details" link that expands the per-module table.
+  function modCellHTML(r, gid) {
+    const key = rowKey(gid, r.ext);
+    return `<span class="mod-cell">
+      <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
+      ${modBarHTML(r)}
+      <button class="mod-link" data-key="${key}"><i class="fa-solid fa-chevron-right mod-caret"></i>Details</button>
+    </span>`;
+  }
+  // Per-module table rendered inline in the expandable detail row — module-level failure data
+  // (which module failed + attempts) and the "Waiting on Update" status.
+  function moduleTableHTML(r, course) {
+    const mods = learnerModules(r, course);
+    const hasPending = mods.some(m => m.status === 'pending');
+    return `<div class="mods-list">
+      <div class="mod-item mod-head">
+        <div class="mi-num"></div>
+        <div class="mi-name">Module</div>
+        <div class="mi-status">Status</div>
+        <div class="mi-attempts">Attempts</div>
+        <div class="mi-score">Quiz</div>
+      </div>
+      ${mods.map((m, i) => {
+        const cls = m.status === 'complete' ? 'done'
+                  : m.status === 'failed'   ? 'failed-mod'
+                  : m.status === 'pending'  ? 'pending' : '';
+        const numInner = m.status === 'complete' ? '<i class="fa-solid fa-check"></i>'
+                       : m.status === 'failed'   ? '<i class="fa-solid fa-xmark"></i>'
+                       : m.status === 'pending'  ? '<i class="fa-regular fa-clock"></i>' : (i + 1);
+        const statusCell = m.status === 'pending'
+          ? `<div class="mi-status s-pending" title="${WAITING_TIP}">${MOD_STATUS_LABEL.pending}<i class="fa-solid fa-circle-info wait-i"></i></div>`
+          : `<div class="mi-status s-${m.status}">${MOD_STATUS_LABEL[m.status]}</div>`;
+        const attempts = m.attempts != null
+          ? (m.status === 'failed'
+              ? `<span class="att-fail">${m.attempts}/3</span>`
+              : (m.attempts > 1 ? String(m.attempts) : '<span class="att-ok">1</span>'))
+          : '<span class="att-dash">—</span>';
+        const score = m.score != null ? `${m.score}%` : '—';
+        return `<div class="mod-item ${cls}">
+          <div class="mi-num">${numInner}</div>
+          <div class="mi-name">${m.name}</div>
+          ${statusCell}
+          <div class="mi-attempts">${attempts}</div>
+          <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${hasPending ? `<div class="mod-note"><i class="fa-regular fa-clock"></i> <strong>Waiting on Update</strong> — ${WAITING_TIP}</div>` : ''}`;
+  }
+  // Assignment dates. ClickSafety reports these per enrollment; here they're derived
+  // deterministically per learner so the columns stay stable across renders/sorts.
+  function courseDates(r) {
+    let s = 0; for (const ch of r.ext) s = (s * 31 + ch.charCodeAt(0)) >>> 0;
+    const pad = n => String(n).padStart(2, '0');
+    const mk = (mo, dy) => `${pad(mo)}/${pad(dy)}/2026`;
+    // Due date — the enrollment deadline; every learner has one (spread Jun–Dec 2026).
+    const due = mk(6 + (s % 7), 1 + (s % 27));
+    // Start date — when the learner began; not-started learners have none yet.
+    const start = r.status === 'not-started' ? '—' : mk(1 + (s % 4), 1 + ((s >> 4) % 27));
+    // Complete date — only passed learners have finished; reuse their completion date.
+    const complete = r.status === 'passed' ? (r.last && r.last !== 'Never' ? r.last : mk(4, 1 + (s % 27))) : '—';
+    return { due, start, complete };
+  }
+  const dateCell = v => v === '—' ? '<span class="muted-cell">—</span>' : v;
+
+  function dataRowHTML(r, course, gid) {
+    const key = rowKey(gid, r.ext);
+    const sel = selectedRows.has(key);
+    const cells = visibleColumns().map(c => {
+      const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
+      return `<td${cls}>${c.render(r, course, gid)}</td>`;
+    }).join('');
+    // colspan = the select-checkbox column + every visible data column.
+    const span = visibleColumns().length + 1;
+    return `
+      <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
+        <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${gid}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
+        ${cells}
+      </tr>
+      <tr class="detail-row" id="detail-${key}" data-key="${key}">
+        <td colspan="${span}">
+          <div class="mod-detail-inner">
+            <div class="mod-detail-title">${displayName(r.name)} · Module completion — ${course}</div>
+            ${moduleTableHTML(r, course)}
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  // Rebuild the data-column headers from the model (the leading select-all th stays in place).
+  function renderHead() {
+    const row = document.getElementById('headRow');
+    while (row.children.length > 1) row.removeChild(row.lastChild);
+    visibleColumns().forEach(c => {
+      const th = document.createElement('th');
+      th.scope = 'col';
+      if (c.sortable) { th.classList.add('sortable-th'); th.dataset.sort = c.key; }
+      if (c.headClass) th.classList.add(c.headClass);
+      if (c.key === 'action') th.classList.add('col-action');  // matches the frozen pane when the filter panel is open
+      if (c.width) th.style.width = c.width;
+      if (c.align === 'right') th.style.textAlign = 'right';
+      th.innerHTML = `${c.label}${c.sortable ? ' <i aria-hidden="true" class="fa-solid fa-sort sort-arrow"></i>' : ''}`;
+      row.appendChild(th);
+    });
+    updateSortIndicators();
+  }
+
+  function renderTable() {
+    renderHead();
+    tbody.innerHTML = rows.map(x => dataRowHTML(x.r, x.course, x.gid)).join('');
+    applyFilters();
+  }
+
+  /* ═══════════════ Column manager — show/hide + drag-to-reorder ═══════════════ */
+  const colPicker = document.getElementById('colPicker');
+  const colMenu = document.getElementById('colMenu');
+  const colList = document.getElementById('colList');
+  let dragKey = null;
+  function renderColumnManager() {
+    // The action/certificate column is an action affordance, not a data column, so it's
+    // omitted from the Manage columns list (always present, not toggleable/reorderable).
+    colList.innerHTML = columnOrder.filter(key => key !== 'action').map(key => {
+      const c = colByKey[key];
+      const checked = !hiddenCols.has(key);
+      return `<div class="col-row" draggable="true" data-key="${key}">
+        <span class="col-grip" title="Drag to reorder"><i aria-hidden="true" class="fa-solid fa-grip-vertical"></i></span>
+        <input type="checkbox" class="col-vis" id="cv-${key}" ${checked ? 'checked' : ''} ${c.required ? 'disabled' : ''}>
+        <label class="col-row-label" for="cv-${key}">${c.menuLabel || c.label || key}</label>
+        ${c.required ? '<i aria-hidden="true" class="fa-solid fa-lock col-lock" title="Always shown"></i>' : ''}
+      </div>`;
+    }).join('');
+    // Show/hide
+    colList.querySelectorAll('.col-vis').forEach(cb => cb.addEventListener('change', () => {
+      const key = cb.closest('.col-row').dataset.key;
+      cb.checked ? hiddenCols.delete(key) : hiddenCols.add(key);
+      renderTable();
+    }));
+    // Drag-to-reorder
+    colList.querySelectorAll('.col-row').forEach(rowEl => {
+      rowEl.addEventListener('dragstart', e => { dragKey = rowEl.dataset.key; rowEl.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+      rowEl.addEventListener('dragend',   () => { dragKey = null; colList.querySelectorAll('.col-row').forEach(r => r.classList.remove('dragging', 'drop-before', 'drop-after')); });
+      rowEl.addEventListener('dragover',  e => {
+        e.preventDefault();
+        if (!dragKey || rowEl.dataset.key === dragKey) return;
+        const rect = rowEl.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        rowEl.classList.toggle('drop-after', after);
+        rowEl.classList.toggle('drop-before', !after);
+      });
+      rowEl.addEventListener('dragleave', () => rowEl.classList.remove('drop-before', 'drop-after'));
+      rowEl.addEventListener('drop', e => {
+        e.preventDefault();
+        const toKey = rowEl.dataset.key;
+        if (!dragKey || toKey === dragKey) return;
+        const rect = rowEl.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        moveColumn(dragKey, toKey, after);
+      });
+    });
+  }
+  function moveColumn(fromKey, toKey, after) {
+    columnOrder = columnOrder.filter(k => k !== fromKey);
+    let idx = columnOrder.indexOf(toKey);
+    if (after) idx += 1;
+    columnOrder.splice(idx, 0, fromKey);
+    renderColumnManager();
+    renderTable();
+  }
+  document.getElementById('qualColPicker').addEventListener('click', e => {
+    e.stopPropagation();
+    const willOpen = colMenu.hidden;
+    colMenu.hidden = !willOpen;
+    e.currentTarget.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.getElementById('colReset').addEventListener('click', () => {
+    columnOrder = COLUMNS.map(c => c.key);
+    hiddenCols.clear();
+    COLUMNS.filter(c => c.hidden).forEach(c => hiddenCols.add(c.key));   // back to the default-hidden set
+    renderColumnManager();
+    renderTable();
+  });
+  document.addEventListener('click', e => { if (!colPicker.contains(e.target)) colMenu.hidden = true; });
+
+  /* ═══════════════ Column sorting — every data column header sorts the table ═══════════════ */
+  // Reference "today" for relative Last-Accessed values (matches the report's last-updated date).
+  const SORT_REF = new Date(2026, 5, 22);
+  const STATUS_ORDER = { 'passed':0, 'in-progress':1, 'not-started':2, 'failed':3, 'overdue':4 };
+  function timeToMin(t) {                       // "4h 30m" / "0h 20m" / "0h" → minutes
+    if (!t) return 0;
+    const h = (t.match(/(\d+)\s*h/) || [])[1] || 0;
+    const m = (t.match(/(\d+)\s*m/) || [])[1] || 0;
+    return Number(h) * 60 + Number(m);
+  }
+  function mdyToDate(s) {                        // "MM/DD/YYYY" → Date (null if blank/—)
+    if (!s || s === '—') return null;
+    const [m, d, y] = s.split('/').map(Number);
+    return (m && d && y) ? new Date(y, m - 1, d) : null;
+  }
+  function lastAgo(last) {                       // smaller = more recent
+    if (last === 'Never') return Infinity;
+    if (last === 'Today') return 0;
+    if (last === 'Yesterday') return 1;
+    const days = (last.match(/(\d+)\s*days?\s*ago/) || [])[1];
+    if (days != null) return Number(days);
+    const dt = mdyToDate(last);
+    return dt ? Math.round((SORT_REF - dt) / 86400000) : Infinity;
+  }
+  // Each extractor returns a comparable value, or null when the row has no value for that column.
+  // Extractors take a row wrapper { r, course, gid }; return a comparable value or null.
+  const SORT_KEYS = {
+    learner:  x => x.r.name.toLowerCase(),
+    username: x => x.r.ext.toLowerCase(),
+    course:   x => x.course.toLowerCase(),
+    status:   x => STATUS_ORDER[x.r.status] ?? 99,
+    mods:     x => x.r.pct,
+    time:     x => timeToMin(x.r.time),
+    due:      x => { const d = mdyToDate(courseDates(x.r).due);      return d ? d.getTime() : null; },
+    start:    x => { const d = mdyToDate(courseDates(x.r).start);    return d ? d.getTime() : null; },
+    complete: x => { const d = mdyToDate(courseDates(x.r).complete); return d ? d.getTime() : null; },
+    last:     x => lastAgo(x.r.last),
+    exp:      x => { const d = mdyToDate(x.r.exp); return d ? d.getTime() : null; },
+    failed:   x => (x.r.status === 'failed' && x.r.attempts === 3) ? (mdyToDate(x.r.failDate)?.getTime() ?? null) : null,
+    attempts: x => (x.r.status === 'failed') ? (x.r.attempts || 1) : null,
+  };
+  let sortState = { key: 'learner', dir: 'asc' };
+  function applySort() {
+    const get = SORT_KEYS[sortState.key];
+    if (!get) return;
+    const mult = sortState.dir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      const va = get(a), vb = get(b);
+      const na = va == null, nb = vb == null;
+      if (na && nb) return 0;
+      if (na) return 1;                          // blanks always sort to the bottom
+      if (nb) return -1;
+      if (typeof va === 'string') return mult * va.localeCompare(vb);
+      return mult * (va - vb);
+    });
+  }
+  function updateSortIndicators() {
+    document.querySelectorAll('#qualTable thead th.sortable-th').forEach(th => {
+      const active = th.dataset.sort === sortState.key;
+      th.classList.toggle('active-sort', active);
+      const ic = th.querySelector('.sort-arrow');
+      if (ic) ic.className = 'sort-arrow fa-solid ' + (active ? (sortState.dir === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down') : 'fa-sort');
+    });
+  }
+  // Delegated so it survives the header being re-rendered on column show/hide/reorder.
+  qualTable.querySelector('thead').addEventListener('click', (e) => {
+    const th = e.target.closest('th.sortable-th');
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (sortState.key === key) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    else sortState = { key, dir: 'asc' };
+    applySort();
+    renderTable();   // renderTable → renderHead → updateSortIndicators
+  });
+
+  /* ═══════════════ Filters — status · course · learner · expiring · near-limit · search ═══════════════ */
+  const searchInput = document.getElementById('qualSearch');
+  const filters = {
+    statuses: new Set(),   // empty = all statuses (check specific ones to narrow)
+    courses:  new Set(),   // empty = all courses
+    actions:  new Set(),   // action-needed groups: 'intervene' | 'nudge' | 'retry' (empty = all)
+    groups:   new Set(),   // quick groups (saved learner cohorts): 'A' | 'B' | 'C' (empty = all)
+    expiringOnly: false,
+    nearLimitOnly: false,
+  };
+  // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
+  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), groups: new Set(f.groups), expiringOnly: f.expiringOnly, nearLimitOnly: f.nearLimitOnly });
+  let draft = cloneFilters(filters);
+  function commitDraft() {
+    filters.statuses = new Set(draft.statuses);
+    filters.courses = new Set(draft.courses);
+    filters.actions = new Set(draft.actions);
+    filters.groups = new Set(draft.groups);
+    filters.expiringOnly = draft.expiringOnly;
+    filters.nearLimitOnly = draft.nearLimitOnly;
+  }
+  // Quick Groups are saved learner cohorts; here each learner is assigned to one
+  // deterministically from their ext so the filter demonstrates real narrowing.
+  const QUICK_GROUPS = ['A', 'B', 'C'];
+  function learnerGroup(r) {
+    let h = 0;
+    for (const ch of r.ext) h += ch.charCodeAt(0);
+    return QUICK_GROUPS[h % 3];
+  }
+  // "Base" filters — course · status · expiring · near-limit. These scope both the table
+  // and the Action-Needed cards (the cards intentionally ignore the action-needed quick filter
+  // so their counts stay meaningful).
+  function passesBase(x) {
+    const r = x.r;
+    if (filters.statuses.size && !filters.statuses.has(r.status)) return false;
+    if (filters.courses.size && !filters.courses.has(x.course)) return false;
+    if (filters.groups.size && !filters.groups.has(learnerGroup(r))) return false;
+    if (filters.expiringOnly && !r.expSoon) return false;
+    if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
+    return true;
+  }
+  // Applied filters = base + the action-needed quick filter. Drives the pie + the table.
+  // The table's search box is deliberately NOT part of this — search is table-only and
+  // temporary (see rowVisible), so it never changes the overview or the Filtered-to chips.
+  function passesFilters(x) {
+    if (!passesBase(x)) return false;
+    if (filters.actions.size && !BULK_ORDER.some(t => filters.actions.has(t) && GROUP_MATCH[t](x.r))) return false;
+    return true;
+  }
+  function matchesSearch(x) {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) return true;
+    return `${x.r.name} ${x.r.ext} ${x.course}`.toLowerCase().includes(q);
+  }
+  // Table row visibility = applied filters + the temporary search box.
+  function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
+  function applyFilters() {
+    rows.forEach(x => {
+      const key = rowKey(x.gid, x.r.ext);
+      const vis = rowVisible(x);
+      const tr = tbody.querySelector(`.data-row[data-key="${key}"]`);
+      if (tr) tr.style.display = vis ? '' : 'none';
+      // Keep the expandable module detail in sync — collapse it when its row is filtered out.
+      if (!vis) {
+        const detail = document.getElementById('detail-' + key);
+        if (detail) detail.classList.remove('open');
+        const link = tbody.querySelector(`.mod-link[data-key="${key}"]`);
+        if (link) link.classList.remove('open');
+      }
+    });
+    updateFilterBadge();
+    // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
+    if (typeof renderActionCards === 'function') renderActionCards();
+    if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
+    if (typeof updateSelectAll === 'function') updateSelectAll();   // STRETCH multi-select
+  }
+  // Learners passing the applied filters (NOT the search box) — the data source for the pie.
+  function scopedWrappers() { return rows.filter(passesFilters); }
+  function scopedLearners() { return scopedWrappers().map(x => x.r); }
+  // The Action-Needed cards ignore the action-needed quick filter so their counts stay stable.
+  function cardScopeLearners() { return rows.filter(passesBase).map(x => x.r); }
+  // Back-compat aliases — bulk-flow call sites still reference these names.
+  function applyStatusFilter() { applyFilters(); }
+  function syncSearch() { applyFilters(); }
+
+  // Panel checkboxes only edit the DRAFT — no live apply. Committed on Apply Filters.
+  document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const s = cb.dataset.status;
+      cb.checked ? draft.statuses.add(s) : draft.statuses.delete(s);
+    });
+  });
+  document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const a = cb.dataset.action;
+      cb.checked ? draft.actions.add(a) : draft.actions.delete(a);
+    });
+  });
+  document.querySelectorAll('#groupChecks vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const g = cb.dataset.group;
+      cb.checked ? draft.groups.add(g) : draft.groups.delete(g);
+    });
+  });
+  // OSHA Courses — inline checkbox multiselect, built from the data.
+  const courseChecks = document.getElementById('courseChecks');
+  courseChecks.innerHTML = GROUPS.map(g =>
+    `<label class="filter-check-row"><vaadin-checkbox theme="small" data-course="${g.course.replace(/"/g,'&quot;')}"></vaadin-checkbox><span>${g.course}</span></label>`).join('');
+  courseChecks.querySelectorAll('vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const c = cb.dataset.course;
+      cb.checked ? draft.courses.add(c) : draft.courses.delete(c);
+    });
+  });
+  document.getElementById('chk-expiring').addEventListener('change', e => { draft.expiringOnly = e.target.checked; });
+  document.getElementById('chk-failed-limit').addEventListener('change', e => { draft.nearLimitOnly = e.target.checked; });
+  // The table search box is separate from the panel filters and still applies live.
+  searchInput.addEventListener('input', applyFilters);
+
+  /* ═══════════════ Filter scope sentence + applied-filter chips ═══════════════ */
+  const filtersClearBtn = document.getElementById('filtersClearBtn');
+  const appliedFilters = document.getElementById('appliedFilters');
+  const filterLead = document.getElementById('filterLead');
+  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'At least 2 failures throughout the course — connect for remediation' };
+  // The search box is intentionally excluded — it is a temporary table-only filter and must
+  // not flip the scope to "Filtered to" nor appear as an applied-filter chip.
+  function extraFilterCount() {
+    let n = 0;
+    if (filters.statuses.size) n++;
+    if (filters.actions.size) n += filters.actions.size;
+    if (filters.groups.size) n += filters.groups.size;
+    if (filters.expiringOnly) n++;
+    if (filters.nearLimitOnly) n++;
+    return n;
+  }
+  // The panel checkboxes reflect the DRAFT (what you're editing), not the applied filters.
+  function syncStatusChecks() {
+    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.statuses.has(cb.dataset.status); });
+  }
+  function syncActionChecks() {
+    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.actions.has(cb.dataset.action); });
+  }
+  function syncGroupChecks() {
+    document.querySelectorAll('#groupChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.groups.has(cb.dataset.group); });
+  }
+  function syncCourseChecks() {
+    document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.courses.has(cb.dataset.course); });
+  }
+  function syncAllChecks() {
+    syncStatusChecks(); syncActionChecks(); syncGroupChecks(); syncCourseChecks();
+    const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = draft.expiringOnly;
+    const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = draft.nearLimitOnly;
+  }
+  // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
+  function renderAppliedChips() {
+    if (!appliedFilters) return;
+    const chips = [];
+    filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncCourseChecks(); } }));
+    if (filters.statuses.size) {
+      const names = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ');
+      chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); syncStatusChecks(); } });
+    }
+    filters.actions.forEach(a => chips.push({ k: 'Action needed', label: ACTION_FILTER_LABEL[a], remove: () => { filters.actions.delete(a); syncActionChecks(); } }));
+    filters.groups.forEach(g => chips.push({ k: 'Quick group', label: `Group ${g}`, remove: () => { filters.groups.delete(g); syncGroupChecks(); } }));
+    if (filters.expiringOnly) chips.push({ k: '', label: 'Expiring ≤ 30 days', remove: () => { filters.expiringOnly = false; const e = document.getElementById('chk-expiring'); if (e) e.checked = false; } });
+    if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
+    appliedFilters.innerHTML = '';
+    chips.forEach(c => {
+      const chip = document.createElement('span');
+      chip.className = 'filter-chip';
+      chip.innerHTML = `${c.k ? `<span class="fc-k">${c.k}:</span>` : ''}<span>${c.label}</span><button class="filter-chip-remove" aria-label="Remove ${c.label}"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>`;
+      // Removing a chip acts on the applied filters immediately; keep the draft in step so the
+      // panel checkboxes reflect it if it's open.
+      chip.querySelector('.filter-chip-remove').addEventListener('click', () => { c.remove(); draft = cloneFilters(filters); syncAllChecks(); applyFilters(); });
+      appliedFilters.appendChild(chip);
+    });
+  }
+  function updateFilterBadge() {
+    const hasFilters = filters.courses.size > 0 || extraFilterCount() > 0;
+    filterLead.textContent = hasFilters ? 'Filtered to:' : 'Showing all courses';
+    renderAppliedChips();   // active filters render as removable chips after the lead-in
+    filtersClearBtn.hidden = !hasFilters;
+  }
+  function clearAllFilters() {
+    filters.statuses.clear();
+    filters.courses.clear(); filters.actions.clear(); filters.groups.clear();
+    filters.expiringOnly = false; filters.nearLimitOnly = false;
+    draft = cloneFilters(filters);
+    searchInput.value = '';
+    syncAllChecks();
+    applyFilters();
+  }
+  filtersClearBtn.addEventListener('click', clearAllFilters);
+
+  /* ═══════════════ Row actions → Email Learners page / Certificate modal ═══════════════ */
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.row-act');
+    if (!btn) return;
+    const g = GROUPS.find(x => x.id === btn.dataset.group);
+    const r = g && g.rows.find(x => x.ext === btn.dataset.ext);
+    if (!r) return;
+    // Certificate keeps its lightweight modal; every email action opens the Email Learners page.
+    if (btn.dataset.type === 'cert') { openCertModal(r, g.course); return; }
+    const type = (ACTIONS[r.status] && ACTIONS[r.status].type) || 'generic';
+    showEmailPage([{ r, course: g.course }], emailContent(type, g.course));
+  });
+
+  const dialog = document.getElementById('actionDialog');
+  const toast = document.getElementById('toast');
+  const MODAL_STYLE = {
+    intervene: { bg:'#fee2e2', col:'#dc2626', icon:'fa-circle-exclamation' },
+    nudge:     { bg:'#fef3c7', col:'#d97706', icon:'fa-bell' },
+    retry:     { bg:'#fee2e2', col:'#b91c1c', icon:'fa-rotate-right' },
+    cert:      { bg:'#dcfce7', col:'#15803d', icon:'fa-award' },
+  };
+  const displayName = n => { const p = n.split(', '); return p.length === 2 ? `${p[1]} ${p[0]}` : n; };
+  const initials = n => n.replace(/[^A-Za-z, ]/g,'').split(/[,\s]+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const emailOf = r => `${r.ext}@sampleisd.org`;
+
+  /* ═══════════════ Email content — default subject/message per action type ═══════════════ */
+  // Used to pre-fill the Email Learners page. `courseLabel` is the course name for a single
+  // learner / single-course group; null for a mixed group (falls back to generic wording).
+  // ONE standard template for every entry point — the row Email button, the Action-Needed tile,
+  // and the toolbar Email Learners button all show the same subject/body/intro. The only thing
+  // that changes between them is the recipient COUNT (and the header context describing them).
+  // `type` is carried through only to label the header context line, not to alter the template.
+  const STANDARD_SUBJECT = 'A reminder about your required OSHA training';
+  const STANDARD_BODY = 'This is a reminder about your required OSHA training. Please log in to SafeLMS to continue your required training.';
+  // Default text pre-filled into the (fully editable) message box. It carries the standard
+  // reminder wording that used to be locked — the admin can now edit any of it. Only the
+  // greeting ("Hi …") and sign-off ("Thanks, …") stay locked.
+  const STANDARD_INTRO = 'This is a reminder about your required OSHA training. Please log in to SafeLMS to continue your required training.\n\nIf you have any questions, please contact your administrator.';
+  function emailContent(type, courseLabel) {
+    return { type: type || 'generic', subject: STANDARD_SUBJECT, body: STANDARD_BODY };
+  }
+
+  /* ═══════════════ Certificate modal (the only remaining dialog on the report) ═══════════════ */
+  function openCertModal(r, course) {
+    const name = displayName(r.name), s = MODAL_STYLE.cert;
+    dialog.headerRenderer = (root) => {
+      root.innerHTML = `<div class="dlg-head" style="width:min(540px,92vw)">
+        <div class="m-ico" style="background:${s.bg}; color:${s.col}"><i aria-hidden="true" class="fa-solid ${s.icon}"></i></div>
+        <div><div class="m-title">Certificate of Completion</div><div class="m-sub">${course}</div></div>
+        <vaadin-button theme="icon tertiary" aria-label="Close" id="dlgClose" style="margin-left:auto"><i aria-hidden="true" class="fa-solid fa-xmark"></i></vaadin-button>
+      </div>`;
+      root.querySelector('#dlgClose').addEventListener('click', closeModal);
+    };
+    dialog.renderer = (root) => {
+      root.innerHTML = `<div class="dlg-body"><div class="cert">
+        <div class="c-seal"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
+        <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
+        <div class="c-name">${name}</div>
+        <div class="c-for">has successfully completed</div>
+        <div class="c-course">${course}</div>
+        <div class="c-meta">
+          <div>Completed<b>${r.last}</b></div>
+          <div>Score<b>92%</b></div>
+          <div>Certificate ID<b>OSHA-${r.ext.toUpperCase()}</b></div>
+        </div>
+      </div></div>`;
+    };
+    dialog.footerRenderer = (root) => {
+      root.innerHTML = '';
+      const cancel = document.createElement('vaadin-button');
+      cancel.setAttribute('theme','tertiary'); cancel.textContent = 'Close';
+      cancel.addEventListener('click', closeModal);
+      const ok = document.createElement('vaadin-button');
+      ok.setAttribute('theme','primary');
+      ok.innerHTML = `<i aria-hidden="true" class="fa-solid fa-download" slot="prefix"></i>Download PDF`;
+      ok.addEventListener('click', () => { closeModal(); showToast(`Certificate downloaded for ${name}`); });
+      root.append(cancel, ok);
+    };
+    dialog.opened = true;
+  }
+  function closeModal() { dialog.opened = false; }
+  function showToast(msg) {
+    toast.renderer = (root) => {
+      root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:10px; font-weight:600">
+        <i aria-hidden="true" class="fa-solid fa-circle-check" style="color:#4ADE80"></i>${msg}</span>`;
+    };
+    toast.opened = true;
+  }
+
+  /* ═══════════════ Email Learners (single email action) ═══════════════ */
+  // #5/#6: "Email Learners" is always available. If the admin has hand-picked rows via the
+  // checkboxes (STRETCH multi-select), it emails just those; otherwise it targets whoever the
+  // table is currently filtered to — the FULL applied filter state (course + status + action +
+  // expiring/near-limit). The transient search box is not part of the recipient set.
+  document.getElementById('emailFilteredBtn').addEventListener('click', () => {
+    if (selectedRows.size > 0) {
+      const picked = [...selectedRows].map(getRow).filter(Boolean).map(({ r, g }) => ({ r, course: g.course }));
+      showEmailPage(picked, emailContent('generic', null), { fromSelection: true });
+      return;
+    }
+    const items = scopedWrappers().map(x => ({ r: x.r, course: x.course }));
+    showEmailPage(items, emailContent('generic', null));
+  });
+
+  /* ═══════════════ Multi-select (STRETCH — want, not must-have) ═══════════════ */
+  // Per-row + select-all checkboxes let an admin hand-pick recipients as an alternative to the
+  // filter-based path above. Flag as a stretch at dev handoff; the primary path is filter-based.
+  const selectAll = document.getElementById('selectAll');
+  function getRow(key) {
+    const [gid, ext] = key.split('::');
+    const g = GROUPS.find(x => x.id === gid);
+    const r = g && g.rows.find(x => x.ext === ext);
+    return r ? { r, g } : null;
+  }
+  function visibleDataRows() {
+    return Array.from(tbody.querySelectorAll('.data-row')).filter(tr => tr.style.display !== 'none');
+  }
+  // Keeps the header select-all in sync (checked / indeterminate) with the visible rows.
+  function updateSelectAll() {
+    const vis = visibleDataRows();
+    const selVis = vis.filter(tr => selectedRows.has(rowKey(tr.dataset.group, tr.dataset.ext))).length;
+    if (selectAll) {
+      selectAll.checked = vis.length > 0 && selVis === vis.length;
+      selectAll.indeterminate = selVis > 0 && selVis < vis.length;
+    }
+  }
+  // Checking a row highlights it (.row-selected) and adds it to the recipient set; the toolbar
+  // "Email Learners" button emails whatever is checked. No separate bulk-action bar.
+  tbody.addEventListener('change', e => {
+    const cb = e.target.closest('.row-sel');
+    if (!cb) return;
+    cb.closest('tr').classList.toggle('row-selected', cb.checked);
+    cb.checked ? selectedRows.add(rowKey(cb.dataset.group, cb.dataset.ext)) : selectedRows.delete(rowKey(cb.dataset.group, cb.dataset.ext));
+    updateSelectAll();
+  });
+  // Select-all applies to the currently visible (filtered) rows. This whole-page select-all is
+  // the riskiest piece of the stretch — call it out at dev handoff.
+  selectAll.addEventListener('change', () => {
+    const want = selectAll.checked;
+    visibleDataRows().forEach(tr => {
+      const key = rowKey(tr.dataset.group, tr.dataset.ext);
+      want ? selectedRows.add(key) : selectedRows.delete(key);
+      tr.classList.toggle('row-selected', want);
+      const cb = tr.querySelector('.row-sel');
+      if (cb) cb.checked = want;
+    });
+    updateSelectAll();
+  });
+
+  /* ═══════════════ Email Learners page (a separate LMS page, not a modal) ═══════════════ */
+  // #7: recipients are VIEW-ONLY here — we show a COUNT only (no name list). To change
+  //     recipients, go back and re-filter.
+  // #8: the admin edits only an intro/preamble; it's prepended to a fixed standard template.
+  const emailPage = document.getElementById('emailPage');
+  const emailRecipCount = document.getElementById('emailRecipCount');
+  const emailSendCount = document.getElementById('emailSendCount');
+  const emailContextEl = document.getElementById('emailContext');
+  const emailPreamble = document.getElementById('emailPreamble');
+  const emailTplSubject = document.getElementById('emailTplSubject');
+  let emailCtx = null;   // { recipients }
+
+  // Header context line: "Not started · OSHA 10 – Construction". The status/action segment
+  // comes from the email type (or, for the filter-based send, the active filters); the course
+  // segment collapses to a single course name or "N courses" for mixed groups.
+  const TYPE_CONTEXT = { intervene: 'Not started', nudge: 'Behind pace', retry: 'Failed' };
+  function emailContextLine(recipients, content, opts) {
+    const parts = [];
+    let statusPart = TYPE_CONTEXT[content.type];
+    if (!statusPart) {
+      if (opts.fromSelection) statusPart = 'Hand-picked';
+      else if (filters.actions.size) statusPart = [...filters.actions].map(a => TYPE_CONTEXT[a] || a).join(', ');
+      else if (filters.statuses.size) statusPart = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ');
+      else statusPart = 'All learners';
+    }
+    parts.push(statusPart);
+    const courses = [...new Set(recipients.map(x => x.course).filter(Boolean))];
+    if (courses.length === 1) parts.push(courses[0]);
+    else if (courses.length > 1) parts.push(`${courses.length} courses`);
+    return parts.join(' · ');
+  }
+
+  function showEmailPage(recipients, content, opts = {}) {
+    recipients = recipients || [];
+    emailCtx = { recipients, fromSelection: !!opts.fromSelection };
+    const n = recipients.length;
+    // 1. Header — count (from the active filters) + the context that defined the group.
+    emailRecipCount.textContent = n;
+    emailSendCount.textContent = n;
+    document.querySelector('#emailPage .ec-word').textContent = n === 1 ? 'recipient' : 'recipients';
+    document.querySelector('#emailSend').lastChild.textContent = n === 1 ? ' learner' : ' learners';
+    emailContextEl.textContent = emailContextLine(recipients, content, opts);
+    // Standard template subject; the message body is fully editable (greeting + sign-off stay locked).
+    emailTplSubject.textContent = content.subject || '';
+    // Pre-fill the editable message with the standard reminder wording the admin can tweak.
+    emailPreamble.value = STANDARD_INTRO;
+    emailPage.hidden = false;
+    emailPage.setAttribute('aria-hidden', 'false');
+    emailPage.scrollTop = 0;
+  }
+  function closeEmailPage() {
+    emailPage.hidden = true;
+    emailPage.setAttribute('aria-hidden', 'true');
+    emailCtx = null;
+  }
+  document.getElementById('emailBack').addEventListener('click', closeEmailPage);
+  document.getElementById('emailCancel').addEventListener('click', closeEmailPage);
+  document.getElementById('emailSend').addEventListener('click', () => {
+    if (!emailCtx) return;
+    const n = emailCtx.recipients.length;
+    const fromSelection = emailCtx.fromSelection;
+    closeEmailPage();
+    showToast(`Email sent to ${n} learner${n === 1 ? '' : 's'}`);
+    // Emailing a hand-picked selection consumes it (STRETCH path).
+    if (fromSelection) { selectedRows.clear(); renderTable(); }
+  });
+
+  /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
+  const filterPanel = document.getElementById('filterPanel');
+  const filterInlineToggle = document.getElementById('filterInlineToggle');
+  const oshaLayout = document.getElementById('oshaLayout');
+  // The table always holds its width and scrolls horizontally with a frozen Action column
+  // (see CSS), so opening the panel just narrows the content area — no extra table state to flip.
+  function closePanel() { filterPanel.classList.add('collapsed'); }
+  function openPanel()  {
+    // Start editing from the currently applied filters; discard any earlier un-applied edits.
+    draft = cloneFilters(filters);
+    syncAllChecks();
+    filterPanel.classList.remove('collapsed');
+  }
+  document.getElementById('closePanelBtn').addEventListener('click', closePanel);   // X = discard draft
+  filterInlineToggle.addEventListener('click', openPanel);
+  /* Filters start closed on the report. */
+  closePanel();
+
+  /* Apply Filters — commit the draft, refresh the report, and close the panel. */
+  document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    commitDraft();
+    applyFilters();
+    closePanel();
+  });
+
+  /* Top-of-report actions (prototype) */
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const b = document.getElementById('exportBtn');
+    b.setAttribute('disabled',''); setTimeout(() => b.removeAttribute('disabled'), 1200);
+  });
+
+  /* ═══════════════ Action-needed cards (replace the Top-5 bar chart) ═══════════════ */
+  const GROUP_MATCH = {
+    intervene: r => r.status === 'not-started',
+    nudge:     r => r.status === 'in-progress' && r.behind,
+    retry:     r => r.status === 'failed',
+  };
+  function renderActionCards() {
+    // Cards are a read-out only (NOT a quick filter). Counts reflect the course/status/etc.
+    // base scope so they stay meaningful.
+    const data = cardScopeLearners();
+    // Every card is "N of the total number of students" — same denominator across all three.
+    const total = data.length;
+    const cards = [
+      { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
+      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, label: 'Behind the expected pace — needs a nudge' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures throughout the course — connect for remediation' },
+    ];
+    const wrap = document.getElementById('actionCards');
+    // Tiles are static, non-interactive display elements. The ONLY interactive control is the
+    // "Email Learners" button, which is always present (no disabled/hidden state at zero) and
+    // emails that bucket within the currently applied filters.
+    wrap.innerHTML = cards.map(c => `
+      <div class="action-card" data-action="${c.type}">
+        <span class="ac-ico ${c.cls}"><i aria-hidden="true" class="fa-solid ${c.icon}"></i></span>
+        <span class="ac-body">
+          <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
+          <span class="ac-label">${c.label}</span>
+        </span>
+        <vaadin-button theme="secondary small" class="ac-take"><i aria-hidden="true" class="fa-solid fa-envelope" slot="prefix"></i>Email Learners</vaadin-button>
+      </div>`).join('');
+    wrap.querySelectorAll('.ac-take').forEach(btn => {
+      const type = btn.closest('.action-card').dataset.action;
+      btn.addEventListener('click', () => openActionGroup(type));
+    });
+  }
+
+  /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */
+  // The pie reflects the COURSE filter ONLY. Status, Action-Needed, expiring/near-limit,
+  // and the table search box do NOT change it — only narrowing by course does.
+  function courseScopedLearners() {
+    return rows.filter(x => !filters.courses.size || filters.courses.has(x.course)).map(x => x.r);
+  }
+  function renderDistribution() {
+    const data = courseScopedLearners();
+    const total = data.length || 1;
+    const segs = [
+      { key: 'passed',      label: 'Passed',      color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
+      { key: 'in-progress', label: 'In Progress', color: '#3b82f6', n: data.filter(r => r.status === 'in-progress').length },
+      { key: 'not-started', label: 'Not Started', color: '#d1d5db', n: data.filter(r => r.status === 'not-started').length },
+      { key: 'failed',      label: 'Failed',      color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
+    ];
+    let acc = 0;
+    const stops = segs.map(s => { const a = acc / total * 360; acc += s.n; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
+    document.getElementById('pieChart').style.background = `conic-gradient(${stops})`;
+    document.getElementById('pieLabels').innerHTML = segs.map(s =>
+      `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${Math.round(s.n / total * 100)}%</span>`).join('');
+  }
+  function renderOverviewCharts() { renderDistribution(); }
+
+  /* ═══════════════ Action-tile "Email Learners" — open the page for one bucket ═══════════════ */
+  // #6: the bucket is intersected with the currently-applied filters (same scope as the tile
+  // count), so the recipient set reflects every active filter, not just the action group.
+  function openActionGroup(type) {
+    const items = rows.filter(x => passesBase(x) && GROUP_MATCH[type](x.r)).map(x => ({ r: x.r, course: x.course }));
+    showEmailPage(items, emailContent(type, null));
+  }
+
+  /* ═══════════════ Dashboard tabs — OSHA Report vs. the other (out-of-scope) tabs ═══════════════ */
+  const dashTabs = document.getElementById('dashTabs');
+  // oshaLayout is declared earlier (filter panel open/close section)
+  dashTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.dash-tab');
+    if (!tab) return;
+    dashTabs.querySelectorAll('.dash-tab').forEach(t => {
+      const on = t === tab;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', String(on));
+    });
+    const isOsha = tab.dataset.tab === 'osha';
+    oshaLayout.style.display = isOsha ? '' : 'none';
+  });
+
+  /* ═══════════════ Init ═══════════════ */
+  renderColumnManager(); // build the show/hide + reorder list
+  applySort();           // default sort: learner name A→Z
+  renderTable();         // first paint (renderHead + body + applyFilters → charts + badge)
+
+  /* ============================================================
+     Flow-state driver — powers the Design Toolbox flow map + its live thumbnails.
+     Lives at the end of the main script so it can reach the view functions.
+     ============================================================ */
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    const instant = !!opts.instant;
+    // Reset shared surfaces so every state starts from the clean dashboard.
+    try { closeEmailPage(); } catch (_) {}
+    try { closePanel(); } catch (_) {}
+    tbody.querySelectorAll('.detail-row.open').forEach(d => d.classList.remove('open'));
+    tbody.querySelectorAll('.mod-link.open').forEach(l => l.classList.remove('open'));
+    window.scrollTo(0, 0);
+
+    function expand(gid, ext) {
+      const key = gid + '::' + ext;
+      const detail = document.getElementById('detail-' + key);
+      const link = tbody.querySelector('.mod-link[data-key="' + key + '"]');
+      if (detail) detail.classList.add('open');
+      if (link) link.classList.add('open');
+      if (detail) detail.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    if (id === 'filters') { openPanel(); return; }
+    if (id === 'waiting') { expand('g1', 'ebauer773'); return; }   // in-progress → Pending Updates + Waiting on Update
+    if (id === 'failure') { expand('g1', 'bsull099'); return; }    // failed → module-level failure data
+    if (id === 'email') {
+      // Open the Email Learners compose page with a representative selection.
+      try {
+        const picked = rows.slice(0, 6).map(x => ({ r: x.r, course: x.course }));
+        showEmailPage(picked, emailContent('generic', null), { fromSelection: true });
+      } catch (_) {}
+      return;
+    }
+    // 'dashboard' (entry) / unknown → default report view (already reset above).
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    const m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (_) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+</script>
+
+<!-- ===================== Design Toolbox (comment widget + flow map) ===================== -->
+<script>
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'OSHA Report (Module-level) — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1440, h: 600 },
+      flows: [
+        { id: 'report', name: 'Module-level completion detail (current design)', pill: 'M', color: '#9ec5fe',
+          lane: { x: 360, y: 60, w: 1020, h: 500 }, labelXY: { x: 376, y: 34 } }
+      ],
+      nodes: [
+        { id: 'dashboard', flow: 'entry', entry: true, x: 40, y: 240, step: 'Entry', name: 'OSHA Dashboard', state: 'dashboard', match: [],
+          desc: 'The OSHA completion report on the current design — status pie, action-needed cards, and the completion table. Each learner row shows Modules Complete (x/N + bar) and a Details dropdown.' },
+        { id: 'waiting', flow: 'report', x: 400, y: 90, step: 'Module detail', name: 'Waiting on Update', state: 'waiting', match: [],
+          desc: 'An in-progress learner expanded. Status reads "Pending Updates" and the module right after their last completed one shows "Waiting on Update" — clients only report a module once the learner finishes it, so it is the next update we expect.' },
+        { id: 'failure', flow: 'report', x: 400, y: 310, step: 'Module detail', name: 'Module-level failure data', state: 'failure', match: [],
+          desc: 'A failed learner expanded: the exact module they failed (red X), the quiz score, and how many attempts it took (module-level attempts, x/3) — the failure detail course-level status alone hides.' },
+        { id: 'filters', flow: 'report', x: 880, y: 120, step: 'Refine', name: 'Report Filters', state: 'filters', match: [],
+          desc: 'The right-side filter panel — date range, OSHA courses, completion status, and action-needed buckets. Applies on Apply.' },
+        { id: 'email', flow: 'report', x: 880, y: 320, step: 'Act', name: 'Email Learners', state: 'email', match: [],
+          desc: 'The Email Learners compose page (a full LMS page, not a modal): recipient list, message body, and delivery options for nudging a selected group.' }
+      ],
+      edges: [
+        ['dashboard', 'waiting', 'branch'],
+        ['dashboard', 'failure', 'branch'],
+        ['dashboard', 'filters'],
+        ['dashboard', 'email']
+      ]
+    }
+  };
+</script>
+<script src="../../../../designtoolbox/toolbox.js"></script>
+
+</body>
+</html>
