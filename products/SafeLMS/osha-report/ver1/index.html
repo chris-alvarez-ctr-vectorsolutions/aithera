@@ -512,10 +512,12 @@
   .dash-tab.active { color: var(--blue-accent); border-bottom-color: var(--blue-accent); font-weight: 700; }
 
   /* ============================================================
-     ACTION-NEEDED CARDS — a read-out of how many learners fall in
-     each actionable bucket. They are NOT quick filters; use the
-     Action Needed filter to focus the table, or Email Learners to
-     message everyone in a bucket.
+     ACTION-NEEDED CARDS — each card shows how many learners fall in
+     an actionable bucket AND is a toggle quick filter (V1): click a
+     card to scope the TABLE to that bucket (click again to clear).
+     The panel's Action Needed checkboxes stay in sync; the pie is
+     unaffected (it tracks the course filter only). Email Learners
+     messages everyone in the bucket within the applied filters.
      ============================================================ */
   /* Cards stacked as rows beside the pie (icon · count/label · CTA) */
   .action-cards { display: flex; flex-direction: column; gap: 10px; }
@@ -523,6 +525,15 @@
     display: flex; align-items: center; gap: 13px; text-align: left; width: 100%; flex: 0 0 auto;
     background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px;
     font-family: inherit;
+    cursor: pointer;                       /* whole card is a toggle quick filter (V1) */
+    transition: border-color .12s, box-shadow .12s, background .12s;
+  }
+  .action-card:hover { border-color: #CFD6E0; box-shadow: 0 1px 3px rgba(16,24,40,.10); }
+  .action-card:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 2px; }
+  /* Selected bucket — this card is the active table filter */
+  .action-card.active {
+    border-color: var(--blue-primary); background: #F0F5FF;
+    box-shadow: 0 0 0 1px var(--blue-primary) inset;
   }
   .action-card .ac-ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; flex-shrink: 0; }
   .action-card .ac-body { flex: 1; min-width: 0; }
@@ -868,7 +879,7 @@
                 </button>
               </div>
               <vaadin-tooltip for="actionNeededInfo" position="top"
-                text="Use the Action Needed filter to show only the learners in a category, or Email Learners to contact that group."></vaadin-tooltip>
+                text="Click a category to filter the report to those learners (click again to clear), or use Email Learners to contact that group."></vaadin-tooltip>
               <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
             </div>
           </div>
@@ -968,7 +979,7 @@
             <div class="filter-checkboxes" id="actionChecks">
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures throughout the course — connect for remediation</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures within a module — connect for remediation</span></label>
             </div>
           </div>
 
@@ -1010,7 +1021,7 @@
           <!-- Extra options -->
           <div class="filter-section filter-extra">
             <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only learners in progress with course expiring ≤ 30 days</span></label>
-            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners with at least 1 failure</span></label>
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners with at least 1 failure within a module</span></label>
           </div>
         </div>
 
@@ -1696,7 +1707,7 @@
   const filtersClearBtn = document.getElementById('filtersClearBtn');
   const appliedFilters = document.getElementById('appliedFilters');
   const filterLead = document.getElementById('filterLead');
-  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'At least 2 failures throughout the course — connect for remediation' };
+  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'At least 2 failures within a module — connect for remediation' };
   // The search box is intentionally excluded — it is a temporary table-only filter and must
   // not flip the scope to "Filtered to" nor appear as an applied-filter chip.
   function extraFilterCount() {
@@ -2021,33 +2032,53 @@
     retry:     r => r.status === 'failed',
   };
   function renderActionCards() {
-    // Cards are a read-out only (NOT a quick filter). Counts reflect the course/status/etc.
-    // base scope so they stay meaningful.
+    // Each card is BOTH a read-out and a toggle quick filter (V1). Counts always reflect the
+    // course/status/etc. base scope (they ignore the action filter) so all three bucket sizes
+    // stay visible even while the table is scoped to one bucket.
     const data = cardScopeLearners();
     // Every card is "N of the total number of students" — same denominator across all three.
     const total = data.length;
     const cards = [
       { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
       { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures throughout the course — connect for remediation' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures within a module — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
-    // Tiles are static, non-interactive display elements. The ONLY interactive control is the
-    // "Email Learners" button, which is always present (no disabled/hidden state at zero) and
-    // emails that bucket within the currently applied filters.
-    wrap.innerHTML = cards.map(c => `
-      <div class="action-card" data-action="${c.type}">
+    // A card is the active table filter when its bucket is in filters.actions. Clicking the card
+    // toggles that filter (scopes the TABLE only — the pie is untouched). "Email Learners" is a
+    // nested control that always emails the bucket within the applied filters.
+    wrap.innerHTML = cards.map(c => {
+      const on = filters.actions.has(c.type);
+      return `
+      <div class="action-card${on ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0" aria-pressed="${on}" aria-label="Filter report to: ${c.label}">
         <span class="ac-ico ${c.cls}"><i aria-hidden="true" class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
           <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
         <vaadin-button theme="secondary small" class="ac-take"><i aria-hidden="true" class="fa-solid fa-envelope" slot="prefix"></i>Email Learners</vaadin-button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.action-card').forEach(card => {
+      const type = card.dataset.action;
+      card.addEventListener('click', () => toggleActionCard(type));
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleActionCard(type); }
+      });
+    });
     wrap.querySelectorAll('.ac-take').forEach(btn => {
       const type = btn.closest('.action-card').dataset.action;
-      btn.addEventListener('click', () => openActionGroup(type));
+      // Stop the CTA from bubbling up and toggling the card filter.
+      btn.addEventListener('click', e => { e.stopPropagation(); openActionGroup(type); });
     });
+  }
+  // Card = toggle quick filter. Mirrors the chip-removal pattern: mutate the applied filters,
+  // keep the draft + panel checkboxes in step, then re-render (which refreshes the highlight).
+  function toggleActionCard(type) {
+    filters.actions.has(type) ? filters.actions.delete(type) : filters.actions.add(type);
+    draft = cloneFilters(filters);
+    syncActionChecks();
+    applyFilters();
   }
 
   /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */
