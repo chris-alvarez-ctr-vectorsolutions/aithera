@@ -1,6 +1,6 @@
 /* global window, document, KEYSTONE */
 /* ========================================================================
-   keystone-shared.js — shared vanilla helpers for the Keystone surfaces.
+   keystone-shared.js — shared vanilla helpers for the Readiness Hub surfaces.
    ------------------------------------------------------------------------
    Ports ui-primitives.jsx (icons, chips, badges, avatars, toasts, feature
    flags) and shell.jsx's PrototypeFab to plain JS. Everything hangs off the
@@ -86,7 +86,7 @@
      STATUS + PRIORITY
      --------------------------------------------------------------------- */
 
-  // Keystone statuses mapped onto Vector's semantic tones. The design renders
+  // Readiness Hub statuses mapped onto Vector's semantic tones. The design renders
   // status as plain text (no badge fill) — the meta is kept because the
   // Agency Intelligence surfaces still use the tones.
   var STATUS_META = {

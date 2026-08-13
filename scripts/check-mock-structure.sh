@@ -55,8 +55,9 @@ while IFS= read -r f; do
   [ -z "$f" ] && continue
   base=$(basename "$f")
 
-  # Dev-handoff builds are copies with comments intentionally off.
-  case "$base" in dev_handoff*.html) continue ;; esac
+  # Dev-handoff builds are copies with comments intentionally off. Both naming
+  # styles in use count: "dev_handoff*.html" and "<mock name>_dev_handoff.html".
+  case "$base" in *dev_handoff*.html) continue ;; esac
 
   # Non-mock housekeeping locations.
   case "/$f" in
@@ -91,7 +92,7 @@ while IFS= read -r f; do
 
   # 3. …and comments must not be disabled in a design file.
   if printf '%s' "$content" | grep -qE 'comments[[:space:]]*:[[:space:]]*false'; then
-    add_violation "$f — sets comments: false. Comments stay ENABLED in design files; that override belongs only in dev_handoff*.html builds."
+    add_violation "$f — sets comments: false. Comments stay ENABLED in design files; that override belongs only in dev-handoff builds (*dev_handoff*.html)."
   fi
 done <<< "$FILES"
 

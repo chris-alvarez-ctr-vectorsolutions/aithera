@@ -3,10 +3,30 @@
   "$id": "https://vectorlearning.github.io/ux-mockups/products/aithera/lesson-presentation/scenario-simulator-runtime.schema.json",
   "title": "Scenario Simulator — Runtime Contract",
   "description": "The one runtime shape the shared ladder engine (js/sim-player.js) drives. Every scenario type normalizes into this shape via type.toRuntime(source). This schema is the SUPERSET: the common core is required; additive blocks (cast, state, canon, coverage/hazards/decoys/scene) appear only on the types that need them. Companion reference: scenario-simulator-json-contract.html. NOTE: this describes the RUNTIME object, not the authored source the Studio exports and not the compiled system-prompt string (type.compile → string). Fields the engine actually reads carry x-engine-reads:true — everything else is prompt fuel or render-surface data.",
-  "x-source-of-truth": "Verified against toRuntime(DEFAULT) dumps for mix-arc, branching-arc, ensemble-arc, scene-sweep, and guided-arc (recipe → mix-arc) on 2026-08-05.",
+  "x-source-of-truth": "Verified against toRuntime(DEFAULT) dumps for mix-arc, branching-arc, ensemble-arc, scene-sweep, and guided-arc (recipe → mix-arc). Core + the two structural conditionals below re-verified against fresh dumps 2026-08-06.",
+  "x-discriminator": "No single runtime field names the scenario TYPE — the shape is discriminated STRUCTURALLY. A phase is a coaching/scene rung (has `world`) or a scene-sweep perception rung (has `kind`). The additive top-level blocks are type-scoped and each carries `x-applies-to`: `state` (mix·branching·ensemble·guided), `cast`+`canon` (branching·ensemble), `coverage`+`hazards`+`decoys`+`scene` (scene-sweep). The `allOf` conditionals encode the invariants that hold across every type today; a production port SHOULD promote this to a full per-type discriminated union (`oneOf` on the discriminant) in its own type system so invalid field combinations become unrepresentable rather than merely catchable.",
   "type": "object",
   "additionalProperties": true,
   "required": ["phases", "opening", "sceneLineCaption"],
+  "allOf": [
+    {
+      "$comment": "A scene-sweep scenario — identified by any phase with kind:'spot' — must carry the perception scaffolding the render surface reads. Verified: only scene-sweep has a spot phase, and it alone carries coverage+hazards+scene.",
+      "if": {
+        "required": ["phases"],
+        "properties": {
+          "phases": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["kind"],
+              "properties": { "kind": { "const": "spot" } }
+            }
+          }
+        }
+      },
+      "then": { "required": ["coverage", "hazards", "scene"] }
+    }
+  ],
   "properties": {
     "title":         { "type": "string", "description": "Scenario name — shown in the learner top bar and results screen." },
     "course":        { "type": "string", "description": "The training/course this scenario lives inside (register cue for the prompt)." },
@@ -61,35 +81,42 @@
     "state": {
       "type": "array",
       "x-engine-reads": true,
-      "description": "ADDITIVE (mix · branching · ensemble · guided). Session variables surfaced on the per-turn [SYSTEM STATE] line and written by phase transitions[].set.",
+      "x-applies-to": ["mix-arc", "branching-arc", "ensemble-arc", "guided-arc"],
+      "description": "ADDITIVE (mix · branching · ensemble · guided). Session variables surfaced on the per-turn [SYSTEM STATE] line and written by phase transitions[].set. Only keys declared HERE are writable — a transition writing an undeclared key is dropped (SimPlayer.lint flags it at load; the engine warns at run time).",
       "items": { "$ref": "#/$defs/StateVar" }
     },
     "cast": {
       "type": "array",
+      "x-applies-to": ["branching-arc", "ensemble-arc"],
       "description": "ADDITIVE (branching · ensemble). Character behavior models. One entry for branching; many for ensemble (each phase names its own counterpart). Read by compile() into the prompt — NOT by the engine.",
       "items": { "$ref": "#/$defs/CastMember" }
     },
     "canon": {
       "type": "array",
+      "x-applies-to": ["branching-arc", "ensemble-arc"],
       "description": "ADDITIVE (branching · ensemble). Continuity facts the prompt must keep consistent across phases.",
       "items": { "type": "string" }
     },
     "coverage": {
       "$ref": "#/$defs/Coverage",
+      "x-applies-to": ["scene-sweep"],
       "description": "ADDITIVE (scene-sweep only)."
     },
     "hazards": {
       "type": "array",
+      "x-applies-to": ["scene-sweep"],
       "description": "ADDITIVE (scene-sweep only). The real observable hazards, with hotspot geometry and fix/prevent follow-ups.",
       "items": { "$ref": "#/$defs/Hazard" }
     },
     "decoys": {
       "type": "array",
+      "x-applies-to": ["scene-sweep"],
       "description": "ADDITIVE (scene-sweep only). Plausible-but-safe items, separate from hazards so coverage/spotted never counts them.",
       "items": { "$ref": "#/$defs/Decoy" }
     },
     "scene": {
       "$ref": "#/$defs/Scene",
+      "x-applies-to": ["scene-sweep"],
       "description": "ADDITIVE (scene-sweep only). The observed image + its authored descriptions."
     }
   },
@@ -100,6 +127,11 @@
       "additionalProperties": true,
       "description": "One rung of the ladder. Three authored flavors collapse here: a lean ladder phase (branching/ensemble), a rich beat phase (mix/guided — adds type/character/media/hasRightAnswer/throughLine), and a perception phase (scene-sweep — uses kind + flat signpost/prompt that toRuntime folds into entry).",
       "required": ["id", "maxTurns", "entry"],
+      "anyOf": [
+        { "required": ["world"] },
+        { "required": ["kind"] }
+      ],
+      "x-anyOf-note": "Every phase is EITHER a coaching/scene rung (world) or a scene-sweep perception rung (kind). Re-verified against toRuntime(DEFAULT) for all types on 2026-08-06: no real phase lacks both.",
       "properties": {
         "id":    { "type": "string", "x-engine-reads": true, "description": "Unique phase id. transitions[].next references it; the app cues delivery by it." },
         "label": { "type": "string" },
@@ -107,14 +139,16 @@
         "world": {
           "type": "string",
           "x-engine-reads": true,
+          "x-applies-to": ["mix-arc", "branching-arc", "ensemble-arc", "guided-arc"],
           "enum": ["coaching", "scene"],
-          "description": "Interaction mode. 'scene' flips the learner's input to the character and enters scene mode; 'coaching' faces the coach. Present on mix/branching/ensemble/guided phases; scene-sweep uses `kind` instead."
+          "description": "Interaction mode (the discriminant for non-perception phases). 'scene' flips the learner's input to the character and enters scene mode; 'coaching' faces the coach. Present on mix/branching/ensemble/guided phases; scene-sweep uses `kind` instead. Every phase has EITHER world OR kind (see the Phase anyOf)."
         },
         "kind": {
           "type": "string",
           "x-engine-reads": true,
+          "x-applies-to": ["scene-sweep"],
           "enum": ["spot", "act", "prevent"],
-          "description": "scene-sweep only. Selects the optional render surface via ctx.outcomeBlock/coverageBlock (self-guarding hook). A 'spot' phase mounts the perception canvas; no hook → no surface code runs."
+          "description": "scene-sweep only (the discriminant for perception phases). Selects the optional render surface via ctx.outcomeBlock/coverageBlock (self-guarding hook). A 'spot' phase mounts the perception canvas; no hook → no surface code runs."
         },
         "counterpart": {
           "type": "string",
@@ -151,14 +185,15 @@
         "type": {
           "type": "string",
           "enum": ["coach-led", "roleplay", "observe"],
+          "x-applies-to": ["mix-arc", "guided-arc"],
           "description": "mix-arc/guided authoring type; toRuntime derives `world` from it (roleplay → scene, else coaching)."
         },
-        "character":      { "$ref": "#/$defs/Character", "description": "mix-arc roleplay beat: the counterpart model. Prompt-only." },
-        "media":          { "$ref": "#/$defs/Media", "description": "mix-arc observe beat: stimulus clip(s)/message(s)." },
-        "hasRightAnswer": { "type": "boolean", "description": "mix/guided coaching beat: whether there is a correct read to land." },
-        "throughLine":    { "type": "string", "description": "mix/guided: the point the coach must land." },
-        "signpost":       { "type": "string", "description": "scene-sweep authored field; toRuntime copies it into entry.signpost." },
-        "prompt":         { "type": "string", "description": "scene-sweep authored field; toRuntime copies it into entry.prompt." }
+        "character":      { "$ref": "#/$defs/Character", "x-applies-to": ["mix-arc", "guided-arc"], "description": "mix-arc roleplay beat: the counterpart model. Prompt-only." },
+        "media":          { "$ref": "#/$defs/Media", "x-applies-to": ["mix-arc", "guided-arc"], "description": "mix-arc observe beat: stimulus clip(s)/message(s)." },
+        "hasRightAnswer": { "type": "boolean", "x-applies-to": ["mix-arc", "guided-arc"], "description": "mix/guided coaching beat: whether there is a correct read to land." },
+        "throughLine":    { "type": "string", "x-applies-to": ["mix-arc", "guided-arc"], "description": "mix/guided: the point the coach must land." },
+        "signpost":       { "type": "string", "x-applies-to": ["scene-sweep"], "description": "scene-sweep authored field; toRuntime copies it into entry.signpost." },
+        "prompt":         { "type": "string", "x-applies-to": ["scene-sweep"], "description": "scene-sweep authored field; toRuntime copies it into entry.prompt." }
       }
     },
 
@@ -231,7 +266,7 @@
         "talkItThrough": {
           "type": "string",
           "x-engine-reads": true,
-          "description": "The VERBATIM teach-opener. When the model's turn begins with this line, runArcEngine() knows the phase is closing (teachOpener detection)."
+          "description": "The VERBATIM teach-opener. The model's structured `action` field is the PRIMARY phase-close signal; this string-match is the FALLBACK runArcEngine() uses only when a turn omits `action` — matched case/space/punctuation-insensitively against the first coach bubble, not by raw equality."
         },
         "points": { "type": "string", "description": "The debrief content the coach lands. Prompt-only." }
       }

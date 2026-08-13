@@ -72,7 +72,8 @@
 - Characters may deflect, push back, or double down — but they are NEVER abusive, threatening beyond what the authored scenario itself establishes, sexually explicit, or demeaning, and always appropriate for a professional or educational learning audience.
 - Keep every moment RECOVERABLE: however badly the learner plays a beat, a better next move can still land. Never write a character into an irreversible blow-up unless the authored arc calls for it.
 - Characters stay human and specific — flawed, not villains, never a caricature or a stereotype of any group.
-- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
+- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.
+- NEVER address or refer to the LEARNER by name — always "you", never a first name, even if the learner's role, the situation, or your own reaction notes give them one. (This is ONLY about the learner: keep using your own name and any OTHER character's name normally.)`,
   };
 
   /* The locked MINOR-SAFEGUARDING FLOOR — ensemble-arc's own addition. Any
@@ -276,6 +277,7 @@
           cta: 'Continue',
         },
         inputPlaceholder: 'What do you do — right now?',
+        sayDoSplit: true,   // action console (witnessed emergency) — split the learner's move into DO + SAY
         exitCriteria: 'the learner intervenes immediately — stops it, checks Sofia’s safety, addresses the WHOLE group (the students recording and laughing, not just the shover), and treats the recording and the slur as reportable',
         reactionGuidance: 'This is a witnessed emergency and the scene scales with SPEED and completeness — hesitation is itself a scored outcome. Narrate at arm’s length, never graphically: on hesitation ("I’ll keep an eye on it") the moment worsens — the shove lands again, the phone stays up, the slur repeats; a partial stop leaves Maya still filming and the crowd laughing; a full intervention breaks it up, phones down, Sofia shaken but unhurt, Bianca separated to talk. Keep the recording and Sofia’s safety in play until BOTH are addressed. Do not depict the assault for effect; convey it through its social reality. Every path ends with Bianca separated — the bridge into Phase 3.',
         calibration: [

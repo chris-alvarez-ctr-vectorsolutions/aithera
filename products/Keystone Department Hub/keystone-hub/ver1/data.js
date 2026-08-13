@@ -1,5 +1,5 @@
 /* global React */
-// data.js — fixture data for the Keystone Department Hub prototype.
+// data.js — fixture data for the Readiness Hub prototype.
 // Seeded with realistic Fire department content. All dates are relative to "now"
 // so the prototype always feels fresh.
 

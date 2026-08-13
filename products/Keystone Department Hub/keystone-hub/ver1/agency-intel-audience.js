@@ -277,15 +277,22 @@
         ? '<div class="au-note">' + micon('bolt', { size: 13, fill: 1 }) +
           ' AI groups are live rules — people who match later receive this automatically.</div>'
         : '') +
-      '<div class="au-sec" style="margin-top:16px">Or deliver it as a report</div>' +
-      '<label class="au-sched"><vaadin-checkbox id="auSchedule"' + (S.schedule ? ' checked' : '') +
-      '></vaadin-checkbox><span><b>Schedule delivery</b>' +
-      '<span>Sends on a cadence to the audience above.</span></span></label>' +
-      '<div id="auSchedOpts" style="display:' + (S.schedule ? 'grid' : 'none') +
-      ';grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">' +
-      '<vaadin-select theme="outlined" id="auCadence" label="Cadence" style="width:100%"></vaadin-select>' +
-      '<vaadin-select theme="outlined" id="auFormat" label="Format" style="width:100%"></vaadin-select>' +
-      '</div>';
+      // Emailed report delivery is NOT in v1 — the whole second destination
+      // sits behind the Future-functionality flag (see deliveryOf() in
+      // agency-intel-page-data.js). With the flag off, publishing live to the
+      // audience above is the only outcome of this dialog. S.schedule is
+      // already false in that case, because open() reads CP.deliveryOf().
+      (CP.deliveryEnabled()
+        ? '<div class="au-sec" style="margin-top:16px">Or deliver it as a report</div>' +
+          '<label class="au-sched"><vaadin-checkbox id="auSchedule"' + (S.schedule ? ' checked' : '') +
+          '></vaadin-checkbox><span><b>Schedule delivery</b>' +
+          '<span>Sends on a cadence to the audience above.</span></span></label>' +
+          '<div id="auSchedOpts" style="display:' + (S.schedule ? 'grid' : 'none') +
+          ';grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">' +
+          '<vaadin-select theme="outlined" id="auCadence" label="Cadence" style="width:100%"></vaadin-select>' +
+          '<vaadin-select theme="outlined" id="auFormat" label="Format" style="width:100%"></vaadin-select>' +
+          '</div>'
+        : '');
   }
 
   /* ---------------------------------------------------------------- */
@@ -318,7 +325,8 @@
         '<div class="au-tabbody">' +
         (S.tab === 'titles' ? titlesTab() : S.tab === 'individuals' ? individualsTab() : groupsTab()) +
         '</div>'
-      : '<div class="au-tabbody">' + reviewHtml() + '</div>') +
+      : '<div class="au-tabbody' + (CP.deliveryEnabled() ? '' : ' is-short') + '">' +
+        reviewHtml() + '</div>') +
       '<div class="au-foot">' +
       '<span class="au-sum">' + summary + '</span>' +
       (S.step === 'review'

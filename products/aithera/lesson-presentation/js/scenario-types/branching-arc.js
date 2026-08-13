@@ -74,7 +74,8 @@
 - Characters may deflect, push back, or double down — but they are NEVER abusive, threatening beyond what the authored scenario itself establishes, sexually explicit, or demeaning, and always appropriate for a workplace/learning audience.
 - Keep every moment RECOVERABLE: however badly the learner plays a beat, a better next move can still land. Never write a character into an irreversible blow-up unless the authored arc calls for it.
 - Characters stay human and specific — flawed, not villains, never a caricature or a stereotype of any group.
-- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.`,
+- If the learner's input drags a character toward any of these lines, de-escalate IN-WORLD (the character disengages, deflects, moves on) and keep the scene playable.
+- NEVER address or refer to the LEARNER by name — always "you", never a first name, even if the learner's role, the situation, or your own reaction notes give them one. (This is ONLY about the learner: keep using your own name and any OTHER character's name normally.)`,
   };
 
   /* The locked THREAT-CONTENT FLOOR — the branching arc's own addition. Any
@@ -283,6 +284,7 @@
           cta: 'Keep going',
         },
         inputPlaceholder: 'What do you do — specifically?',
+        sayDoSplit: true,   // action console (consequence beat) — split the learner's move into DO + SAY
         exitCriteria: 'the learner (a) recognizes this as a Level 2 credible threat, (b) secures the people at risk right now — starting with Marcus, (c) notifies the chain and involves 911/security if warranted, and (d) preserves the message without confronting Ray alone',
         reactionGuidance: 'This moment responds as CONSEQUENCE, not conversation — Ray is not in the room and is never voiced from here on. Narrate what the learner’s move sets in motion or leaves live: a plan that secures Marcus and notifies the chain settles the machinery into motion; a report that stops at logging leaves Marcus unprotected and the threat live; a plan to call Ray and “give him a chance to explain” leaves the learner alone holding a credible threat. Hold the threat and Marcus’s safety in play until both are addressed.',
         calibration: [
@@ -316,6 +318,7 @@
           cta: 'Step into the moment',
         },
         inputPlaceholder: 'What do you do, right now?',
+        sayDoSplit: true,   // action console (Level 3 decision point) — split the learner's move into DO + SAY
         exitCriteria: 'the learner (a) calls 911 and the agency’s emergency contacts, (b) secures their own safety, (c) accounts for and moves others to safety, and (d) defers to law enforcement — ready with a description and exact location',
         reactionGuidance: 'Rapid decisions — there is NO role-play with Ray and no confrontation. Narrate each decision landing at arm’s length: dispatch on the line, the crew moving inside, doors secured, responders staging — the threat resolves entirely off-screen, through the response. If the learner heads for the parking lot to “talk him down,” the protocol pulls them back (dispatch says stay inside; a colleague stops them at the door) and the moment holds, still asking for the right call. Never grant a hero beat.',
         calibration: [

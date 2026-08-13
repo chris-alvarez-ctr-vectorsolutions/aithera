@@ -239,7 +239,21 @@
     const a = d && d.assignedTo;
     return !!(a && (((a.titles || []).length) || ((a.individuals || []).length) || ((a.displays || []).length)));
   }
-  function deliveryOf(d) { return (d && d.delivery && d.delivery.on) ? d.delivery : null; }
+  // NOT IN V1 — emailed dashboard updates are a follow-up feature, so the whole
+  // report-delivery surface sits behind the Future-functionality flag. This is
+  // the single choke point: with the flag off deliveryOf() reports every
+  // dashboard as undelivered, which is what removes the Scheduled status and
+  // filter, the Delivery column and card pill, the build view's schedule
+  // button, and the publish dialog's "deliver it as a report" step. The seeded
+  // delivery objects are left untouched, so flipping the flag on restores the
+  // full feature with its data intact.
+  function deliveryEnabled() {
+    return !!(window.KX && window.KX.getFlags().futureOn);
+  }
+  function deliveryOf(d) {
+    if (!deliveryEnabled()) return null;
+    return (d && d.delivery && d.delivery.on) ? d.delivery : null;
+  }
 
   function reportReach(dl) {
     if (!dl) return 0;
@@ -455,9 +469,11 @@
   const STATUS_RANK = { draft: 0, private: 1, scheduled: 2, published: 3 };
   function dashStatusMeta(id) { return DASH_STATUSES.find(function (s) { return s.id === id; }) || DASH_STATUSES[0]; }
   // Source of truth is d.status; a report-only dashboard reads as 'scheduled',
-  // and a legacy audience with no status infers 'published'.
+  // and a legacy audience with no status infers 'published'. Goes through
+  // deliveryOf(), so with the Future-functionality flag off no dashboard ever
+  // reads as 'scheduled' — it falls back to its own draft/private/published.
   function statusOf(d) {
-    if (d && d.delivery && d.delivery.on && !hasHomeAudience(d)) return 'scheduled';
+    if (deliveryOf(d) && !hasHomeAudience(d)) return 'scheduled';
     if (d && d.status) return d.status;
     const a = d && d.assignedTo;
     return (a && ((a.titles || []).length || (a.individuals || []).length)) ? 'published' : 'draft';
@@ -849,6 +865,7 @@
     nextSendFrom: nextSendFrom,
     defaultDelivery: defaultDelivery,
     hasHomeAudience: hasHomeAudience,
+    deliveryEnabled: deliveryEnabled,
     deliveryOf: deliveryOf,
     deliveryMeta: deliveryMeta,
     reportReach: reportReach,

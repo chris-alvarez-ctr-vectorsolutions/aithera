@@ -228,6 +228,41 @@
             background-image: linear-gradient(#f8f5ff, #f8f5ff);
             border-bottom-color: #e2d6fa;
         }
+        /* ── Read-only compare pane ──
+           The compared form is a reference snapshot: answers can't be changed and
+           text can't be edited, but the content MUST stay selectable and copyable
+           (you quote from it). The JS blocks mutating events in the capture phase
+           and marks the list `.is-readonly`; these rules remove the affordances
+           that would still SUGGEST editability — pointer cursors and hover lifts —
+           without ever touching `user-select`. */
+        .form-list.is-readonly .rubric-tile,
+        .form-list.is-readonly .q-choice,
+        .form-list.is-readonly button,
+        .form-list.is-readonly input,
+        .form-list.is-readonly select,
+        .form-list.is-readonly textarea,
+        .form-list.is-readonly label { cursor: default; }
+        /* Text cursor over the actual prose, so it advertises "selectable". */
+        .form-list.is-readonly .rubric-tile-body,
+        .form-list.is-readonly .rubric-tile-label,
+        .form-list.is-readonly .q-title,
+        .form-list.is-readonly .q-details { cursor: text; }
+        /* CRITICAL for copy: the rating tiles are <button>s, and browsers make
+           button text unselectable by default — that's exactly the rubric criteria
+           prose users need to copy. Force selection back on for the whole pane. */
+        .form-list.is-readonly,
+        .form-list.is-readonly * {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        /* Neutralize hover feedback on the rating tiles. */
+        .form-list.is-readonly .rubric-tile:hover {
+            border-color: var(--border-soft);
+            box-shadow: none;
+            transform: none;
+        }
+        /* A selected tile still needs to read as the recorded answer, so its
+           .selected styling is intentionally left intact. */
         .pane-header-badge {
             display: inline-flex;
             align-items: center;
@@ -1559,21 +1594,29 @@
         .q-video-attachment[hidden] { display: none; }
 
         /* Thumbnail-style attachment shown in the step once a video is added.
-           Clicking it opens the global video review panel. */
+           A11Y: this tile is deliberately NOT clickable and carries no role or
+           tabindex. Actions live in sibling <button>s (.q-video-attachment-act),
+           exactly like .q-attachment-card. A clickable card wrapping nested
+           buttons is invalid ARIA — a button's accessible name is computed from
+           its contents, so nested controls get flattened into it — and it gives
+           keyboard users a single focus stop that hides the delete action. */
         .q-video-attachment {
             display: flex; align-items: center; gap: 14px;
             padding: 12px;
             border: 1px solid var(--border-soft);
             border-radius: 10px;
             background: var(--lumo-base-color);
-            cursor: pointer;
             max-width: 460px;
             transition: border-color 0.15s, box-shadow 0.15s;
         }
+        /* Hover is on the tile for affordance, but only the buttons are targets. */
         .q-video-attachment:hover {
             border-color: var(--brand);
             box-shadow: var(--lumo-box-shadow-s);
         }
+        /* The play badge echoes the primary action; the real target is the
+           adjacent Preview button, so keep it out of the a11y tree. */
+        .q-video-attachment .q-video-thumb { cursor: default; }
         .q-video-thumb {
             flex-shrink: 0;
             width: 96px; height: 60px; border-radius: 6px;
@@ -1591,11 +1634,23 @@
         .q-video-attachment-name i { color: var(--text-muted); font-size: 12px; }
         .q-video-attachment-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .q-video-attachment-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
-        .q-video-attachment-cta {
-            flex-shrink: 0;
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 13px; font-weight: 600; color: var(--brand);
+        /* Action group — mirrors .q-attachment-actions on the attachment cards
+           (same gutter + hairline divider, same 28px targets) so the video tile
+           and the file tiles read as one component family. */
+        .q-video-attachment-actions {
+            display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+            margin-left: 4px; padding-left: 6px;
+            border-left: 1px solid var(--border-soft);
         }
+        .q-video-attachment-act {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 13px; border-radius: 6px;
+            width: 28px; height: 28px; line-height: 1;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background 0.12s, color 0.12s;
+        }
+        .q-video-attachment-act:hover { color: var(--brand); background: var(--page-bg); }
+        .q-video-attachment-act.remove:hover { color: var(--lumo-error-color); }
 
         /* Full-width two-column layout below the video step title/description:
            left (40%) = upload workflow, right (60%) = stored annotations (scrolls). */
@@ -1693,11 +1748,30 @@
         #videoReviewDrawer {
             --vwc-drawer-width: 480px;
             --vwc-drawer-min-width: 360px;
-            --vwc-drawer-max-width: 96vw;
+            /* Desktop resize cap: the panel can never be dragged past HALF the
+               viewport, so the form stays readable alongside it. Below the
+               tablet breakpoint the panel becomes a full-screen takeover
+               instead (see the media query below), where 50% makes no sense. */
+            --vwc-drawer-max-width: 50vw;
             --vwc-drawer-offset-top: 0px;
             --vwc-drawer-max-column-height: 100vh;
             /* Widen the 8px grab strip so the resize edge is easy to hit. */
             --vwc-drawer-resize-handle-size: 10px;
+        }
+        /* Small screens: full-screen takeover. Pinning min AND max to 100vw is
+           what makes the drag inert here — the DS drag handle writes an inline
+           width on .drawer-column, but that element's own shadow styles clamp it
+           between --vwc-drawer-min-width and --vwc-drawer-max-width, so a
+           collapsed range leaves nothing to drag. (.drawer-column is NOT an
+           exposed ::part, so the tokens are the only lever.) */
+        @media (max-width: 760px) {
+            #videoReviewDrawer {
+                --vwc-drawer-width: 100vw;
+                --vwc-drawer-min-width: 100vw;
+                --vwc-drawer-max-width: 100vw;
+            }
+            /* Hide the now-pointless grab affordance on the left edge. */
+            .video-review-host:hover .video-review-panel::before { opacity: 0; }
         }
         #videoReviewDrawer::part(drawer-container) {
             box-shadow: var(--lumo-box-shadow-xl);
@@ -1794,6 +1868,22 @@
         .q-video-upload-option-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-strong); }
         .q-video-upload-option-sub { display: block; font-size: 12px; color: var(--text-muted); }
 
+        /* Upload limits helper text. Lives INSIDE the source menu — for both the
+           video step and the attachment action bar — so the file-count and size
+           ceilings are read at the moment a source is picked, not after a
+           rejection, and neither trigger carries permanent helper text. */
+        .q-upload-hint {
+            display: flex; align-items: flex-start; gap: 7px;
+            font-size: 12px; line-height: 1.5; color: var(--text-muted);
+            max-width: 420px;
+        }
+        .q-upload-hint i { color: var(--text-muted); font-size: 12px; margin-top: 3px; flex-shrink: 0; }
+        /* Sits under the two source options, divided off from them. */
+        .q-video-upload-menu .q-upload-hint {
+            margin-top: 4px; padding: 8px 12px 4px;
+            border-top: 1px solid var(--border-soft);
+        }
+
         /* ─── Attachment detail panel (right-side overlay drawer) ─── */
         /* Attachment edit drawer host — fixed full-viewport layer + scrim (see
            video-review-host for the vwc-drawer DS-gap rationale). */
@@ -1815,10 +1905,27 @@
         #attachDrawer {
             --vwc-drawer-width: 460px;
             --vwc-drawer-min-width: 360px;
-            --vwc-drawer-max-width: 96vw;
+            /* Desktop resize cap: never past HALF the viewport, so the form stays
+               readable alongside the panel. Matches #videoReviewDrawer. The DS
+               clamps the drag against this token, so it caps dragging (not just
+               the initial width). Full-screen takeover below 760px — see the
+               media query after this block. */
+            --vwc-drawer-max-width: 50vw;
             --vwc-drawer-offset-top: 0px;
             --vwc-drawer-max-column-height: 100vh;
             --vwc-drawer-resize-handle-size: 10px;
+        }
+        /* Small screens: full-screen takeover. Collapsing min AND max to 100vw
+           leaves no clamp range, which is what makes the drag inert (.drawer-column
+           is not an exposed ::part, so these tokens are the only lever). */
+        @media (max-width: 760px) {
+            #attachDrawer {
+                --vwc-drawer-width: 100vw;
+                --vwc-drawer-min-width: 100vw;
+                --vwc-drawer-max-width: 100vw;
+            }
+            /* Hide the now-pointless grab affordance on the left edge. */
+            .attach-host:hover .attach-panel::before { opacity: 0; }
         }
         #attachDrawer::part(drawer-container) {
             box-shadow: var(--lumo-box-shadow-xl);
@@ -1969,22 +2076,31 @@
             transform: rotate(var(--rot, 0deg)) scale(0.5625);
         }
         /* File identity strip — now the FALLBACK for unpreviewable file types. */
+        /* No-preview placeholder tile. Unpreviewable types (spreadsheets, zips,
+           unknown extensions) get this instead of a rendered page: a centered
+           file-type icon over the filename + source. It deliberately occupies the
+           same stage footprint as the image/doc previews so the panel layout
+           doesn't jump between attachments as the user pages through them. */
         .attach-file-row {
-            display: flex; align-items: center; gap: 12px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px;
             background: var(--page-bg); border: 1px solid var(--border-soft);
-            border-radius: 10px; padding: 12px;
+            border-radius: 10px; padding: 28px 16px;
+            text-align: center; min-height: 190px;
         }
         .attach-file-row .attach-file-nopreview {
-            margin-left: auto; flex-shrink: 0;
+            flex-shrink: 0;
             font-size: 11px; color: var(--text-muted); font-style: italic;
             white-space: nowrap;
         }
+        /* Large placeholder glyph — the visual stand-in for the missing preview. */
         .attach-file-thumb {
-            width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+            width: 62px; height: 62px; border-radius: 12px; flex-shrink: 0;
             display: inline-flex; align-items: center; justify-content: center;
-            background: var(--lumo-base-color); color: var(--brand); font-size: 17px;
+            background: var(--lumo-base-color); color: var(--brand); font-size: 27px;
+            border: 1px solid var(--border-soft);
         }
-        .attach-file-meta { min-width: 0; }
+        .attach-file-meta { min-width: 0; max-width: 100%; }
         .attach-file-name {
             font-size: 14px; font-weight: 700; color: var(--text-strong);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -2159,6 +2275,14 @@
             flex: 1; min-width: 0; border: none; outline: none;
             font-family: inherit; font-size: 13px; background: transparent;
         }
+        /* Script-step tag menu uses the DS search field (vaadin-text-field +
+           vwc-icon suffix) instead of the hand-rolled input above. Only the
+           wrapper needs styling — the component supplies its own chrome. */
+        .q-script-tag-search-wrap { margin-bottom: 6px; }
+        .q-script-tag-search-wrap vaadin-text-field {
+            width: 100%; margin: 0; padding: 0;
+        }
+        .q-script-tag-search-wrap vwc-icon { color: var(--text-muted); }
         .q-tag-menu-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
         .q-tag-option {
             display: flex; align-items: center; gap: 10px; width: 100%;
@@ -2414,30 +2538,33 @@
             gap: 8px;
         }
 
-        /* ── Computed (system-derived read-only value) ── */
+        /* ── Computed / Computed Value (read-only, system-derived) ──
+           ONE standard presentation shared by both computed step types: the bare
+           number in a dashed read-only card, no icon and no unit. The two steps
+           previously diverged (base 14px vs .is-score 22px) and read as different
+           components; they are deliberately identical now. */
         .q-computed-value {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 14px;
+            min-width: 96px;
+            padding: 12px 16px;
             background: var(--page-bg);
             border: 1px dashed var(--border-soft);
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--text-strong);
             font-variant-numeric: tabular-nums;
+            line-height: 1.2;
         }
-        .q-computed-value i {
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-
-        /* ── Computed Value (read-only value pulled from an external workflow) ── */
-        .q-computed-value.is-score { font-size: 22px; }
+        /* No .is-score rule: the score variant IS the base style. Only text
+           values need to differ.
+           Text values aren't numbers: normal figures, lighter weight, and free to
+           wrap since they can run long. */
         .q-computed-value.is-text {
             font-weight: 600; font-size: 14px;
             font-variant-numeric: normal;
+            min-width: 0;
         }
 
         /* ─── Script "question" — conversational note-taking log ───
@@ -2512,15 +2639,22 @@
             display: grid;
             grid-template-columns: 28px 1fr;
             gap: 10px; align-items: start;
-            /* Light default surface so each message reads as its own card against
-               the log; hovering swaps to the (darker) page-bg gray so it's clear
-               which message the visible action icons belong to. */
+            /* Each message is a white card against the log's grey surface. The card
+               MUST stay white on hover: the log body is --page-bg, so the old
+               hover (also --page-bg) made the card dissolve into the background
+               and stop reading as a message at all. Hover now keeps the white fill
+               and signals itself with a brand-tinted border + lift instead. */
             background: var(--lumo-base-color);
+            border: 1px solid var(--border-soft);
             border-radius: 8px;
             padding: 8px 10px;
-            transition: background 0.12s;
+            transition: border-color 0.12s, box-shadow 0.12s;
         }
-        .q-script-row:hover { background: var(--page-bg); }
+        .q-script-row:hover {
+            background: var(--lumo-base-color);   /* stays white — never --page-bg */
+            border-color: var(--lumo-primary-color-50pct);
+            box-shadow: var(--lumo-box-shadow-xs);
+        }
         /* Speaker avatar — a colored initial disc. Ties the entry to its speaker
            by color, the same identity signal used in the composer pill/legend. */
         .q-script-avatar {
@@ -2548,14 +2682,131 @@
             font-size: 13px; line-height: 1.5; color: var(--text-strong);
             white-space: pre-wrap; word-break: break-word;
         }
-        /* Per-row edit/delete affordances — always visible. */
-        .q-script-row-btn {
-            background: none; border: none; cursor: pointer; padding: 2px 4px;
-            color: var(--text-muted); font-size: 11px; border-radius: 4px;
-            transition: color 0.12s;
+
+        /* ── Message labels (tags appended to a message) ──
+           NOTE: distinct from `.q-script-tag`, which is the composer's SPEAKER
+           pill (T/S). These are catalog tags attached to a message as metadata —
+           appended BELOW the text, never inline in it, like emoji reactions. */
+        .q-script-labels {
+            display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;
         }
-        .q-script-row-edit:hover { color: var(--brand); }
-        .q-script-row-del:hover { color: var(--lumo-error-color); }
+        .q-script-labels:empty { display: none; }
+        .q-script-label {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 600;
+            background: var(--lumo-primary-color-10pct); color: var(--brand);
+            border: 1px solid transparent;
+            border-radius: 999px; padding: 2px 8px;
+        }
+        .q-script-label i { font-size: 9px; }
+        /* Remove affordance, only present while editing the message. */
+        .q-script-label-x {
+            cursor: pointer; opacity: 0.65; margin-left: 1px;
+            display: inline-flex; padding: 1px;
+        }
+        .q-script-label-x:hover { opacity: 1; }
+        /* Tag trigger — the icon button that opens the searchable tag menu. Used
+           in the composer AND in the edit form, same affordance both places.
+           Sized to match .q-script-send exactly (30x30, flex-end aligned, 13px
+           glyph) so the two composer icons sit as a matched pair. */
+        /* vaadin-button theme="icon tertiary" — borderless icon button. Sized to
+           match .q-script-send (30x30, flex-end) so the pair reads as one unit. */
+        .q-script-tag-btn {
+            flex-shrink: 0; align-self: flex-end;
+            min-width: 30px; width: 30px; height: 30px;
+            margin: 0; padding: 0;
+            color: var(--text-muted); font-size: 13px;
+        }
+        /* theme="icon tertiary" inherits the Vector theme's tertiary label
+           underline; needs the same specificity bump (see .q-script-row-btn). */
+        vaadin-button.q-script-tag-btn[theme~="tertiary"]::part(label),
+        vaadin-button.q-script-tag-btn::part(label) {
+            padding: 0;
+            text-decoration: none !important;
+        }
+        .q-script-tag-btn:hover { color: var(--brand); }
+        .q-script-tag-btn.has-tags { color: var(--brand); }
+        /* In the edit form the actions row is centered, so drop the composer's
+           flex-end alignment there (it would push the icon out of line). */
+        .q-script-edit-actions .q-script-tag-btn { align-self: center; }
+
+        /* ── Replies (nested comments under a message) ──
+           Replies deliberately carry NO timestamp: they belong to their parent
+           message and live under it, outside the transcript's chronological order.
+           The indent signals that containment; each reply then carries its OWN
+           box (below). The old 2px left rule is gone — with per-reply containers it
+           read as a second, competing boundary. */
+        .q-script-replies {
+            margin-top: 8px;
+            padding-left: 12px;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .q-script-replies:empty { display: none; }
+        /* Each reply is its OWN small container, not just an indented line. Without
+           a surface of its own a two-line reply is indistinguishable from a single
+           reply containing a line break — the box is what makes the boundary
+           between separate comments legible. Tinted (page-bg) so it reads as
+           nested INSIDE the white parent card rather than as a sibling message. */
+        .q-script-reply {
+            display: block;
+            background: var(--page-bg);
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            padding: 6px 9px;
+            transition: border-color 0.12s;
+        }
+        .q-script-reply:hover { border-color: var(--lumo-primary-color-50pct); }
+        .q-script-reply-body { min-width: 0; }
+        /* Holds only the delete action now (no speaker label, no timestamp), so it
+           overlays the first text line rather than occupying its own row. */
+        .q-script-reply-meta {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 11px; color: var(--text-muted);
+            float: right; margin-left: 8px;
+        }
+        .q-script-reply-text {
+            font-size: 12.5px; line-height: 1.5; color: var(--text-strong);
+            white-space: pre-wrap; word-break: break-word;
+        }
+        .q-script-reply-actions { display: inline-flex; gap: 2px; }
+        /* Reply composer, opened from a message's Reply action. */
+        /* Same 12px indent as the reply list so the composer lines up with the
+           replies it will join. No left rule (dropped with the thread rule). */
+        .q-script-reply-form {
+            display: flex; align-items: flex-end; gap: 6px;
+            margin-top: 8px; padding-left: 12px;
+        }
+        /* vaadin-text-area supplies its own outlined chrome; only sizing here. */
+        .q-script-reply-input {
+            flex: 1; min-width: 0; margin: 0; padding: 0;
+            --vaadin-input-field-top-end-radius: 8px;
+        }
+        /* Per-row reply/edit/delete affordances — vaadin-button theme="icon
+           tertiary small" supplies the chrome; these only tighten the footprint
+           and set the semantic hover colors. */
+        .q-script-row-btn {
+            color: var(--text-muted); font-size: 11px;
+            min-width: 24px; width: 24px; height: 24px; margin: 0; padding: 0;
+        }
+        /* DS GAP: the Vector theme applies
+             vaadin-button[theme~=tertiary]::part(label){text-decoration:underline}
+           and `theme~=icon` never resets it — so an icon-only tertiary button gets
+           a stray underline struck through the glyph (most visible on the reply
+           arrow and edit pencil).
+           SPECIFICITY NOTE: themes/styles.js injects via
+           document.adoptedStyleSheets, and adopted sheets apply AFTER every
+           <style> element regardless of source order. A plain
+           `.q-script-row-btn::part(label)` therefore LOSES to the theme's
+           element+attribute selector. Matching the theme's own shape
+           (vaadin-button[theme~=tertiary]) plus our class out-specifies it;
+           !important is the belt-and-braces so this can't silently regress. */
+        vaadin-button.q-script-row-btn[theme~="tertiary"]::part(label),
+        vaadin-button.q-script-row-btn::part(label) {
+            padding: 0;
+            text-decoration: none !important;
+        }
+        .q-script-row-edit:hover, .q-script-row-reply:hover { color: var(--brand); }
+        .q-script-row-del:hover, .q-script-reply-del:hover { color: var(--lumo-error-color); }
 
         /* ── Inline edit mode for a saved line ── */
         .q-script-edit { display: flex; flex-direction: column; gap: 8px; }
@@ -2573,46 +2824,62 @@
             color: var(--lumo-base-color); border-color: var(--spk-accent, var(--brand));
             background: var(--spk-accent, var(--brand));
         }
-        .q-script-edit-input {
-            border: 1px solid var(--brand); border-radius: 8px;
-            padding: 8px 10px; font-family: inherit; font-size: 13px;
-            line-height: 1.5; resize: vertical; min-height: 56px; outline: none;
-            box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
-        }
-        .q-script-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
-        .q-script-edit-btn {
+        /* vaadin-text-area supplies its own outlined chrome. */
+        .q-script-edit-input { width: 100%; margin: 0; padding: 0; }
+        .q-script-edit-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+        /* Save/Cancel/Reply are vaadin-buttons now; this rule only survives for
+           any legacy plain-button usage and is harmless on the DS host. */
+        .q-script-edit-btn:not(vaadin-button) {
             border: 1px solid var(--border-soft); background: var(--lumo-base-color);
             border-radius: 8px; padding: 5px 12px; cursor: pointer;
             font-family: inherit; font-size: 12px; font-weight: 600;
             color: var(--text-strong);
         }
-        .q-script-edit-btn.save {
+        /* Scoped away from vaadin-button so theme="primary" supplies the fill. */
+        .q-script-edit-btn.save:not(vaadin-button) {
             background: var(--brand); border-color: var(--brand); color: var(--lumo-base-color);
         }
-        .q-script-edit-btn.save:disabled { opacity: 0.5; cursor: default; }
+        .q-script-edit-btn.save:not(vaadin-button):disabled { opacity: 0.5; cursor: default; }
 
         /* ── Composer: a text row with an inline speaker pill (the "tag") ── */
+        /* Column: [input row] over [staged tag chips]. The chips sit INSIDE the
+           bordered field so they read as part of the message being composed
+           rather than as a separate strip above it. */
         .q-script-composer {
-            display: flex; align-items: flex-start; gap: 8px;
+            display: flex; flex-direction: column; gap: 0;
             margin-top: 12px;
             border: 1px solid var(--border-soft); border-radius: 10px;
             background: var(--lumo-base-color); padding: 8px 10px;
             transition: border-color 0.15s, box-shadow 0.15s;
         }
+        /* The control row — speaker pill + input + tag/send icons. */
+        .q-script-composer-row {
+            display: flex; align-items: flex-start; gap: 8px;
+        }
+        /* Staged chips along the bottom of the field. Only takes space when
+           tags exist (`:empty` collapses, and the margin lives here not on the
+           shared .q-script-labels rule). */
+        .q-script-composer .q-script-pending-labels { margin-top: 8px; }
+        .q-script-composer .q-script-pending-labels:empty { display: none; margin-top: 0; }
         .q-script-composer.focused {
             border-color: var(--brand);
             box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
         }
-        /* The tag pill — hidden until a speaker is detected, then it appears
-           pinned to the left of the input. Mirrors the bubble accent color. */
+        /* The speaker pill — hidden until a speaker is detected. It is slotted into
+           the vaadin-text-area's own `prefix` slot, so it renders INSIDE the field
+           at the start of the text. Mirrors the bubble accent color.
+           `align-self: flex-start` + the small top offset keep it on the FIRST text
+           line as the textarea grows, instead of drifting to the vertical centre. */
         .q-script-tag {
             display: none; align-items: center; gap: 5px;
-            flex-shrink: 0; margin-top: 2px;
+            flex-shrink: 0; align-self: flex-start; margin-top: 5px;
             padding: 3px 6px 3px 8px; border-radius: 999px;
             font-size: 12px; font-weight: 700; line-height: 1.2;
             color: var(--lumo-base-color); background: var(--spk-accent, var(--text-muted));
             white-space: nowrap;
         }
+        /* Still driven by .tagged on the composer: the pill is slotted light-DOM
+           content, so it stays reachable from an ancestor selector. */
         .q-script-composer.tagged .q-script-tag { display: inline-flex; }
         .q-script-tag i { font-size: 10px; }
         .q-script-tag-x {
@@ -2622,24 +2889,37 @@
             font-size: 9px; margin-left: 1px;
         }
         .q-script-tag-x:hover { background: rgba(255, 255, 255, 0.4); }
-        /* Growable input. A textarea so a long turn wraps; auto-sizes with a cap
-           handled in JS. Borderless — the composer wrapper is the visible field. */
+        /* Growable input — a vaadin-text-area, which auto-grows as content wraps
+           (the old JS scrollHeight autosize is gone). The composer wrapper is the
+           visible field, so the component's own outlined border/background is
+           suppressed via its ::part(input-field) and the 120px cap that JS used to
+           enforce now lives here in CSS. */
         .q-script-input {
-            flex: 1; min-width: 0; border: none; outline: none; resize: none;
-            font-family: inherit; font-size: 13px; line-height: 1.5;
-            color: var(--text-strong); background: transparent;
-            padding: 3px 0; max-height: 120px; overflow-y: auto;
+            flex: 1; min-width: 0; margin: 0; padding: 0;
+            --vaadin-input-field-border-width: 0;
+            --vaadin-input-field-background: transparent;
         }
-        .q-script-input::placeholder { color: var(--text-muted); }
+        .q-script-input::part(input-field) {
+            background: transparent; box-shadow: none; padding: 0;
+            max-height: 120px; overflow-y: auto;
+            /* The speaker pill sits in the `prefix` slot inside this container;
+               align to the top so it tracks the first text line, and add a gap so
+               it doesn't butt against the note text. */
+            align-items: flex-start;
+            gap: 8px;
+        }
+        /* Kill the DS focus ring — the wrapping .q-script-composer paints the
+           focused state for the whole field (see .q-script-composer.focused). */
+        .q-script-input::part(input-field)::after { display: none; }
+        /* vaadin-button theme="icon primary" supplies the brand fill + disabled
+           state; these only pin the 30x30 footprint and bottom alignment so the
+           two composer icons stay a matched pair. */
         .q-script-send {
             flex-shrink: 0; align-self: flex-end;
-            border: none; cursor: pointer; border-radius: 8px;
-            width: 30px; height: 30px;
-            display: inline-flex; align-items: center; justify-content: center;
-            background: var(--brand); color: var(--lumo-base-color); font-size: 13px;
-            transition: opacity 0.12s;
+            min-width: 30px; width: 30px; height: 30px;
+            margin: 0; padding: 0; font-size: 13px;
         }
-        .q-script-send:disabled { opacity: 0.4; cursor: default; }
+        .q-script-send::part(label) { padding: 0; }
         .q-script-hint {
             font-size: 11px; color: var(--text-muted); margin-top: 6px;
         }
@@ -2899,22 +3179,23 @@
         .copy-modal-body {
             padding: 4px 4px 8px;
             max-height: min(72vh, 660px); overflow-y: auto;
-            display: flex; flex-direction: column; gap: 14px;
+            display: flex; flex-direction: column; gap: 18px;
         }
-        /* Grouped sections — each an elevated card matching the form's cards
-           (same treatment as the Change Log / Quick Search clusters). */
-        .copy-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-soft); border-radius: 12px;
-            box-shadow: var(--lumo-box-shadow-s);
-            padding: 16px 18px;
-        }
+        /* Sections are separated by DS <vwc-divider> rules rather than each being
+           wrapped in its own bordered/elevated card. Three stacked cards inside an
+           already-bordered dialog read as nested panels; one flat surface with
+           hairline rules reads as a single form. The divider is the DS component —
+           1px, --vwc-divider-color (--lumo-contrast-10pct), role=presentation. */
+        .copy-section { min-width: 0; }
         /* Standard design-system section heading — normal case, header text
            color, body-relative size (no uppercase micro-label styling). */
-        .copy-card-title {
+        .copy-section-title {
             font-size: 16px; font-weight: 600; color: var(--text-strong);
             margin: 0 0 14px;
         }
+        /* The flex `gap` already spaces the divider from its neighbours; zero the
+           component's own box so it doesn't add a second, uneven gap. */
+        .copy-modal-body vwc-divider { margin: 0; flex-shrink: 0; }
         /* Read-only source summary — label-beside-value pairs (right-aligned
            labels), matching the Change Log header. */
         .copy-summary {
@@ -2937,16 +3218,21 @@
         .copy-badge-off { background: var(--page-bg); color: var(--text-muted); }
         .copy-badge-on { background: var(--lumo-success-color-10pct); color: #166534; }
 
-        /* Option rows — a label column + control column. */
-        .copy-options { display: flex; flex-direction: column; gap: 16px; }
+        /* Option rows — a label column + control column. `gap` is now the ONLY
+           thing separating rows (the old `.copy-row + .copy-row` rule added a
+           border plus 16px padding-top on top of this gap); raised from 16px so
+           removing that padding doesn't leave the rows cramped. */
+        .copy-options { display: flex; flex-direction: column; gap: 18px; }
         .copy-row {
             display: grid; grid-template-columns: 160px 1fr;
             align-items: center; gap: 12px;
         }
         .copy-row-label { font-size: 13px; color: var(--text-strong); font-weight: 600; }
         .copy-row-control { min-width: 0; }
-        /* Divider between rows inside a card, for visual separation. */
-        .copy-row + .copy-row { border-top: 1px solid var(--lumo-contrast-5pct); padding-top: 16px; }
+        /* No rules between individual input rows — dividers separate SECTIONS
+           only (the <vwc-divider>s in the dialog body). Ruling every row made the
+           body read as a dense table and competed with the section dividers, so
+           rows are spaced by .copy-options' `gap` alone. */
         /* "— none found —" empty states: quieter, right-aligned meta look so
            they don't compete with the interactive rows. */
         .copy-empty {
@@ -2999,6 +3285,12 @@
             transition: height 0.2s ease;
         }
         .qs-body--expanded { height: min(78vh, 760px); }
+        /* Opening the Forms accordion adds ~330px of picker. Grow the body to fit
+           it rather than letting it scroll inside the fixed filters-only height —
+           a dual-listbox trapped in a 420px scroller is unusable. Capped at the
+           viewport so the modal can't outgrow the screen. JS mirrors the
+           <details> open state onto .qs-body as .qs-body--forms-open. */
+        .qs-body--forms-open { height: min(88vh, 800px); }
         #qsGenerateBtn::part(label) { font-weight: 700; }
 
         /* Filter cluster — an elevated white card holding all 9 criteria plus
@@ -3047,6 +3339,110 @@
         }
         /* Computed date range hint sits in the reserved 3rd band. */
         .qs-date-hint { font-size: 11px; color: var(--text-muted); line-height: 16px; }
+
+        /* ─── Forms accordion (replaces the Forms combo box) ───
+           The Forms picker is a dual-listbox "add tool" that needs far more room
+           than one grid cell, so it spans the full cluster width on its own row
+           and collapses by default — the cluster keeps its tidy 2-row shape until
+           a user opens it. Uses a native <details> so open/close, keyboard
+           activation, and the disclosure semantics come for free (no ARIA to
+           hand-maintain, unlike a div+role=button). */
+        .qs-field-forms { grid-column: 1 / -1; display: block; }
+        .qs-forms-acc {
+            border: 1px solid var(--border-soft); border-radius: 8px;
+            background: var(--page-bg);
+        }
+        .qs-forms-acc[open] { background: var(--card-bg); }
+        /* Summary = the clickable header row. list-style:none + ::marker kills the
+           default triangle in every engine so our own chevron is the only glyph. */
+        .qs-forms-summary {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px 12px; cursor: pointer;
+            font-size: 12px; font-weight: 700; color: var(--text-strong);
+            list-style: none; border-radius: 8px;
+        }
+        .qs-forms-summary::-webkit-details-marker { display: none; }
+        .qs-forms-summary::marker { content: ''; }
+        .qs-forms-summary:hover { background: var(--lumo-contrast-5pct); }
+        .qs-forms-summary:focus-visible {
+            outline: 2px solid var(--brand); outline-offset: -2px;
+        }
+        /* Chevron rotates to point down when the accordion is open. */
+        .qs-forms-chev {
+            color: var(--text-muted); font-size: 11px;
+            transition: transform 0.15s ease;
+        }
+        .qs-forms-acc[open] .qs-forms-chev { transform: rotate(90deg); }
+        .qs-forms-panel { padding: 0 12px 12px; }
+
+        /* Form Groups filter — narrows the available list (left pane) only. */
+        .qs-forms-group-row { margin-bottom: 10px; max-width: 260px; }
+        .qs-forms-group-row vaadin-select { width: 100%; }
+
+        /* Dual-listbox: [available] [move buttons] [selected]. The middle column
+           is intrinsically sized so the two panes split the remaining space. */
+        .qs-dual {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            gap: 12px; align-items: stretch;
+        }
+        .qs-dual-col { display: flex; flex-direction: column; min-width: 0; }
+        .qs-dual-search { margin-bottom: 8px; }
+        .qs-dual-search vaadin-text-field { width: 100%; }
+        .qs-dual-title {
+            font-size: 12px; font-style: italic; color: var(--text-muted);
+            text-align: center; padding: 6px 8px;
+            background: var(--page-bg);
+            border: 1px solid var(--border-soft); border-bottom: none;
+            border-radius: 6px 6px 0 0;
+        }
+        /* The scrolling option list. Fixed height keeps the accordion (and so the
+           dialog) from growing as forms are moved between panes. */
+        .qs-dual-list {
+            height: 190px; overflow-y: auto;
+            border: 1px solid var(--border-soft); border-radius: 0 0 6px 6px;
+            background: var(--lumo-base-color);
+            padding: 4px; margin: 0; list-style: none;
+        }
+        .qs-dual-opt {
+            display: block; width: 100%; text-align: left;
+            background: none; border: none; font-family: inherit;
+            font-size: 13px; color: var(--text-strong);
+            padding: 5px 8px; border-radius: 4px; cursor: pointer;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .qs-dual-opt:hover { background: var(--page-bg); }
+        /* Multi-select highlight — mirrors a native listbox selection. */
+        .qs-dual-opt[aria-selected="true"] {
+            background: var(--lumo-primary-color-10pct); color: var(--brand);
+            font-weight: 600;
+        }
+        .qs-dual-opt:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+        .qs-dual-empty {
+            font-size: 12px; color: var(--text-muted); font-style: italic;
+            padding: 8px; text-align: center;
+        }
+        /* Move buttons — vertically centered between the two panes. */
+        .qs-dual-moves {
+            display: flex; flex-direction: column; justify-content: center; gap: 6px;
+            align-self: center;
+        }
+        .qs-dual-move {
+            width: 30px; height: 28px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--lumo-base-color);
+            border: 1px solid var(--border-soft); border-radius: 5px;
+            color: var(--text-muted); font-size: 11px; cursor: pointer;
+        }
+        .qs-dual-move:hover:not(:disabled) {
+            border-color: var(--brand); color: var(--brand); background: var(--page-bg);
+        }
+        .qs-dual-move:disabled { opacity: 0.4; cursor: default; }
+        /* Stack the panes when the modal gets narrow (WCAG 1.4.10 reflow). */
+        @media (max-width: 760px) {
+            .qs-dual { grid-template-columns: minmax(0, 1fr); }
+            .qs-dual-moves { flex-direction: row; justify-content: center; }
+        }
         /* Exclude self-authored — a checkbox; vertically center it in the
            control band (no label band, no hint band). */
         .qs-field-check {
@@ -3240,6 +3636,14 @@
             padding: 40px 20px; text-align: center; color: var(--text-muted);
         }
         .qs-empty i { font-size: 26px; display: block; margin-bottom: 10px; color: var(--lumo-contrast-20pct); }
+        /* Inline CTA in the "no forms selected" empty state — jumps to the picker. */
+        .qs-empty-cta {
+            display: block; margin: 12px auto 0;
+            background: none; border: none; cursor: pointer; font-family: inherit;
+            font-size: 13px; font-weight: 600; color: var(--brand);
+            padding: 4px 8px; border-radius: 6px;
+        }
+        .qs-empty-cta:hover { text-decoration: underline; background: var(--page-bg); }
         .qs-results-footnote { font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 8px; }
         /* Filter fields flex-wrap on their own; no width media query needed. */
 
@@ -3962,9 +4366,20 @@
      copied — plus an after-copy card. Empty states are quiet inline notes. -->
 <template id="copyDialogBody">
     <div class="copy-modal-body">
-        <!-- Card 1: read-only source-form summary -->
-        <section class="copy-card">
-            <h3 class="copy-card-title">Source Form</h3>
+        <!-- Notice FIRST: it qualifies the whole operation ("users are not
+             notified"), so it belongs before the settings it applies to — not
+             stranded at the bottom where it's read after the decisions are made
+             (and, in a scrolling dialog, potentially not read at all). -->
+        <div class="share-modal-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Users are not automatically notified of copied forms.</span>
+        </div>
+
+        <!-- Section 1: read-only source-form summary. Sections are separated by
+             DS <vwc-divider> rules instead of each being boxed in its own card —
+             one flat surface reads as a single form, not three nested panels. -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">Source Form</h3>
             <dl class="copy-summary">
                 <div class="copy-summary-item"><dt>Form</dt><dd>Question Types</dd></div>
                 <div class="copy-summary-item"><dt>Author</dt><dd>Austin Smith</dd></div>
@@ -3974,9 +4389,11 @@
             </dl>
         </section>
 
-        <!-- Card 2: settings for the new copy -->
-        <section class="copy-card">
-            <h3 class="copy-card-title">New Copy Settings</h3>
+        <vwc-divider></vwc-divider>
+
+        <!-- Section 2: settings for the new copy -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">New Copy Settings</h3>
             <div class="copy-options">
                 <div class="copy-row">
                     <label class="copy-row-label" for="copyEvaluee">Evaluee</label>
@@ -4005,9 +4422,11 @@
             </div>
         </section>
 
-        <!-- Card 3: what data comes across + the after-copy action -->
-        <section class="copy-card">
-            <h3 class="copy-card-title">What to Copy</h3>
+        <vwc-divider></vwc-divider>
+
+        <!-- Section 3: what data comes across + the after-copy action -->
+        <section class="copy-section">
+            <h3 class="copy-section-title">What to Copy</h3>
             <div class="copy-options">
                 <div class="copy-row">
                     <span class="copy-row-label">Data</span>
@@ -4038,12 +4457,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- Warning — its own element outside the cards, above the footer. -->
-        <div class="share-modal-warning">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Users are not automatically notified of copied forms.</span>
-        </div>
     </div>
 </template>
 
@@ -4143,10 +4556,6 @@
                 <span class="qs-date-hint" id="qsDateHint">Aug 1, 2025 – Jul 31, 2026</span>
             </div>
             <div class="qs-field">
-                <span class="qs-field-label">Forms</span>
-                <vaadin-multi-select-combo-box theme="outlined" class="qs-combo" data-qs-select="forms"></vaadin-multi-select-combo-box>
-            </div>
-            <div class="qs-field">
                 <span class="qs-field-label">Tags</span>
                 <vaadin-multi-select-combo-box theme="outlined" class="qs-combo" data-qs-select="tags"></vaadin-multi-select-combo-box>
             </div>
@@ -4164,6 +4573,73 @@
             </div>
             <!-- Spacer — pushes Generate into the 5th (last) grid column. -->
             <div class="qs-field qs-field-spacer" aria-hidden="true"></div>
+
+            <!-- Forms picker — replaces the old Forms combo box. A dual-listbox
+                 "add tool" (available → selected) needs more room than one grid
+                 cell, so it spans the cluster and collapses by default. Native
+                 <details> supplies the disclosure semantics + keyboard handling. -->
+            <div class="qs-field qs-field-forms">
+                <details class="qs-forms-acc" id="qsFormsAcc">
+                    <summary class="qs-forms-summary">
+                        <i class="fa-solid fa-chevron-right qs-forms-chev" aria-hidden="true"></i>
+                        <span>Select Forms</span>
+                    </summary>
+                    <div class="qs-forms-panel">
+                        <!-- Form Groups — narrows the AVAILABLE list only. -->
+                        <div class="qs-forms-group-row">
+                            <vaadin-select theme="outlined" id="qsFormGroup" label="Form Groups"></vaadin-select>
+                        </div>
+
+                        <div class="qs-dual">
+                            <!-- Available -->
+                            <div class="qs-dual-col">
+                                <div class="qs-dual-search">
+                                    <vaadin-text-field theme="outlined" id="qsAvailSearch"
+                                        placeholder="Search by Name" aria-label="Search available forms">
+                                        <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                                    </vaadin-text-field>
+                                </div>
+                                <div class="qs-dual-title" id="qsAvailTitle">Forms (0)</div>
+                                <ul class="qs-dual-list" id="qsAvailList" role="listbox"
+                                    aria-multiselectable="true" aria-labelledby="qsAvailTitle"></ul>
+                            </div>
+
+                            <!-- Move controls -->
+                            <div class="qs-dual-moves">
+                                <button type="button" class="qs-dual-move" data-qs-move="add" id="qsMoveAdd"
+                                        aria-label="Add selected forms" title="Add selected">
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                                <button type="button" class="qs-dual-move" data-qs-move="add-all"
+                                        aria-label="Add all forms" title="Add all">
+                                    <i class="fa-solid fa-angles-right"></i>
+                                </button>
+                                <button type="button" class="qs-dual-move" data-qs-move="remove"
+                                        aria-label="Remove selected forms" title="Remove selected">
+                                    <i class="fa-solid fa-arrow-left"></i>
+                                </button>
+                                <button type="button" class="qs-dual-move" data-qs-move="remove-all"
+                                        aria-label="Remove all forms" title="Remove all">
+                                    <i class="fa-solid fa-angles-left"></i>
+                                </button>
+                            </div>
+
+                            <!-- Selected -->
+                            <div class="qs-dual-col">
+                                <div class="qs-dual-search">
+                                    <vaadin-text-field theme="outlined" id="qsSelSearch"
+                                        placeholder="Search by Name" aria-label="Search selected forms">
+                                        <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                                    </vaadin-text-field>
+                                </div>
+                                <div class="qs-dual-title" id="qsSelTitle">Selected Forms</div>
+                                <ul class="qs-dual-list" id="qsSelList" role="listbox"
+                                    aria-multiselectable="true" aria-labelledby="qsSelTitle"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
             <!-- Generate Report — inside the cluster, blue primary, last column. -->
             <div class="qs-field qs-field-generate">
                 <vaadin-button theme="primary" id="qsGenerateBtn">Generate Report</vaadin-button>
@@ -5260,6 +5736,11 @@ function actionBarHtml(extrasId) {
                                 <span class="q-video-upload-option-sub">Select one or more shared files</span>
                             </span>
                         </button>
+                        <!-- Upload limits, surfaced before the picker opens -->
+                        <p class="q-upload-hint">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>You may select up to 10 files with maximal size up to 120 MBs. Video files can be up to 1,200 MBs.</span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -5502,8 +5983,8 @@ function renderFormList() {
         layout: 'under',
         title: 'Computed',
         detailsHtml: `<p>System-derived value, read-only. Calculated from other form responses.</p>`,
-        value: '3.42',
-        unit: 'avg rating'
+        // No unit/denominator — the computed number is the only value available.
+        value: '3.42'
     });
 
     // Computed Value — read-only value sourced from a separate workflow outside
@@ -5515,8 +5996,8 @@ function renderFormList() {
         title: 'Computed Value (numeric score)',
         detailsHtml: `<p>Read-only value pulled in from a separate workflow outside this form. Displayed for visibility — not editable here.</p>`,
         valueType: 'score',
-        value: '87',
-        unit: '/ 100'
+        // No unit/denominator — the computed number is the only value available.
+        value: '87'
     });
     // Text variant:
     items.push({
@@ -5806,24 +6287,20 @@ function renderQuestion(item) {
         `;
     }
     if (item.type === 'computed') {
+        // Just the number in the shared read-only card — no icon, no unit, no
+        // denominator. Identical presentation to the 'computed-value' score
+        // variant below so the two steps don't read as different components.
         return wrapStandard(item, `
-            <div class="q-computed-value">
-                <i class="fa-solid fa-calculator"></i>
-                ${escapeHtml(item.value || '—')}
-                ${item.unit ? `<span style="font-weight:400; color:var(--text-muted); font-size:12px;">${escapeHtml(item.unit)}</span>` : ''}
-            </div>
+            <div class="q-computed-value">${escapeHtml(item.value || '—')}</div>
         `);
     }
     if (item.type === 'computed-value') {
         // Value pulled in from a separate workflow outside this form — shown for
         // visibility only. `valueType` is 'score' (numeric) or 'text'.
         const isScore = (item.valueType || 'score') === 'score';
+        // Bare value in the shared read-only card — no icon, unit, or denominator.
         return wrapStandard(item, `
-            <div class="q-computed-value ${isScore ? 'is-score' : 'is-text'}">
-                <i class="fa-solid ${isScore ? 'fa-gauge-high' : 'fa-file-lines'}"></i>
-                ${escapeHtml(item.value != null && item.value !== '' ? item.value : '—')}
-                ${isScore && item.unit ? `<span style="font-weight:400; color:var(--text-muted); font-size:12px;">${escapeHtml(item.unit)}</span>` : ''}
-            </div>
+            <div class="q-computed-value ${isScore ? 'is-score' : 'is-text'}">${escapeHtml(item.value != null && item.value !== '' ? item.value : '—')}</div>
         `);
     }
     if (item.type === 'passfail') {
@@ -5874,23 +6351,64 @@ function renderQuestion(item) {
                     </div>
                 </div>
 
-                <!-- Composer: inline speaker tag + growable input + send -->
+                <!-- Composer. Outer box is a COLUMN: the input row on top, then the
+                     staged tag chips along the bottom INSIDE the same bordered
+                     field, so tags read as part of the message being composed. -->
                 <div class="q-script-composer">
-                    <span class="q-script-tag" hidden>
-                        <i class="fa-solid"></i>
-                        <span class="q-script-tag-label"></span>
-                        <span class="q-script-tag-x" role="button" aria-label="Remove speaker tag" title="Remove speaker">
-                            <i class="fa-solid fa-xmark"></i>
-                        </span>
-                    </span>
-                    <textarea class="q-script-input" rows="1"
-                        placeholder="Type a note… (start with T or S to tag a speaker)"></textarea>
-                    <button type="button" class="q-script-send" aria-label="Add to transcript" disabled>
-                        <i class="fa-solid fa-arrow-up"></i>
-                    </button>
+                    <div class="q-script-composer-row">
+                        <!-- The speaker pill lives in the field's own "prefix" slot, so
+                             it sits INSIDE the input rather than beside it.
+                             NB: no backticks in this comment — it sits inside a JS
+                             template literal, where a backtick ends the string. -->
+                        <vaadin-text-area theme="outlined" class="q-script-input" rows="1"
+                            placeholder="Type a note… (start with T or S to tag a speaker)"
+                            aria-label="Type a note">
+                            <span class="q-script-tag" slot="prefix" hidden>
+                                <i class="fa-solid"></i>
+                                <span class="q-script-tag-label"></span>
+                                <span class="q-script-tag-x" role="button" aria-label="Remove speaker tag" title="Remove speaker">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </span>
+                            </span>
+                        </vaadin-text-area>
+                        <!-- Tag icon → searchable tag list (like an emoji/reaction picker) -->
+                        <vaadin-button theme="icon tertiary" class="q-script-tag-btn q-script-compose-tag-btn"
+                                id="scr-${escapeHtml(sid)}-composetag"
+                                aria-haspopup="true" aria-expanded="false"
+                                aria-label="Add tags to this note">
+                            <i class="fa-solid fa-tag"></i>
+                        </vaadin-button>
+                        <vaadin-tooltip for="scr-${escapeHtml(sid)}-composetag" text="Add tags" position="top"></vaadin-tooltip>
+                        <vaadin-button theme="icon primary" class="q-script-send"
+                                id="scr-${escapeHtml(sid)}-send" aria-label="Add to transcript" disabled>
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </vaadin-button>
+                        <vaadin-tooltip for="scr-${escapeHtml(sid)}-send" text="Add to transcript" position="top"></vaadin-tooltip>
+                    </div>
+                    <!-- Staged tags, along the bottom of the input box. Appended to
+                         the message on send, never inserted into its text. -->
+                    <div class="q-script-labels q-script-pending-labels"></div>
                 </div>
                 <div class="q-script-hint">
                     Type <kbd>T</kbd> or <kbd>S</kbd> then space to tag a speaker · <kbd>Enter</kbd> to save · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
+                </div>
+
+                <!-- ONE searchable tag menu per step, shared by the composer and
+                     every message's edit form. position:fixed so it escapes the
+                     log's overflow clip; JS positions it from whichever trigger
+                     opened it and tracks that trigger's target in dataset. -->
+                <div class="q-tag-menu q-script-tag-menu" role="menu" hidden>
+                    <!-- DS search field: vaadin-text-field theme="outlined" with a
+                         vwc-icon MDI glyph in the suffix slot (the repo's standard
+                         search pattern — see the Quick Search dual-listbox). -->
+                    <div class="q-script-tag-search-wrap">
+                        <vaadin-text-field theme="outlined" class="q-script-tag-search"
+                            placeholder="Search tags" aria-label="Search tags">
+                            <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                        </vaadin-text-field>
+                    </div>
+                    <div class="q-tag-menu-list q-script-tag-list" role="listbox" aria-multiselectable="true"></div>
+                    <div class="q-tag-menu-empty q-script-tag-empty" hidden>No matching tags</div>
                 </div>
             </div>
         `);
@@ -5931,15 +6449,23 @@ function renderQuestion(item) {
                                             <span class="q-video-upload-option-sub">Paste a shared Google Drive URL</span>
                                         </span>
                                     </button>
+                                    <!-- Upload limits, surfaced before the picker opens -->
+                                    <p class="q-upload-hint">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                        <span>You may select up to 10 files with maximal size up to 120 MBs. Video files can be up to 1,200 MBs.</span>
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Attached state: a small thumbnail-style attachment. Clicking it
-                             (or its play badge) opens the global video review panel. The
-                             player + annotation UI live in that shared panel, not here. -->
-                        <div class="q-video-attachment" hidden role="button" tabindex="0" aria-label="Play video and add annotations">
-                            <div class="q-video-thumb">
+                        <!-- Attached state: a thumbnail-style tile standardized on the
+                             .q-attachment-card pattern — the tile itself is inert (no
+                             role/tabindex/click) and each action is its own <button>, so
+                             every target is a separate focus stop with its own label.
+                             "Play" opens the global review panel, where the player +
+                             annotation UI live. -->
+                        <div class="q-video-attachment" hidden>
+                            <div class="q-video-thumb" aria-hidden="true">
                                 <i class="fa-solid fa-play"></i>
                             </div>
                             <div class="q-video-attachment-meta">
@@ -5953,7 +6479,19 @@ function renderQuestion(item) {
                                     · <span class="q-video-attachment-notecount">0 notes</span>
                                 </div>
                             </div>
-                            <span class="q-video-attachment-cta">Open <i class="fa-solid fa-arrow-right-long"></i></span>
+                            <!-- Same shape/tooltip binding as the file attachment tiles -->
+                            <div class="q-video-attachment-actions">
+                                <button type="button" class="q-video-attachment-act" id="vidact-${escapeHtml(vid)}-preview"
+                                        data-action="preview" aria-label="Preview video and add annotations">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                                <vaadin-tooltip for="vidact-${escapeHtml(vid)}-preview" text="Preview" position="top"></vaadin-tooltip>
+                                <button type="button" class="q-video-attachment-act remove" id="vidact-${escapeHtml(vid)}-remove"
+                                        data-action="remove" aria-label="Remove video">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                                <vaadin-tooltip for="vidact-${escapeHtml(vid)}-remove" text="Remove" position="top"></vaadin-tooltip>
+                            </div>
                         </div>
                     </div>
 
@@ -7232,11 +7770,30 @@ function renderCustomTagChips(bar) {
 //     side; General notes render as a centered full-width aside). Shift+Enter
 //     inserts a newline. After saving, the composer RESETS (speaker + text
 //     cleared) so alternating T/S turns need no manual clearing.
+// One message label chip. `removable` adds the × (only shown while editing).
+function labelChipHtml(tag, removable) {
+    return `<span class="q-script-label">
+        <i class="fa-solid fa-tag"></i>${escapeHtml(tag)}${removable
+            ? `<span class="q-script-label-x" role="button" tabindex="0" aria-label="Remove tag ${escapeHtml(tag)}" data-tag="${escapeHtml(tag)}"><i class="fa-solid fa-xmark"></i></span>`
+            : ''}
+    </span>`;
+}
+// Repaint the label strip inside a row's edit form from its draft array.
+function renderEditLabels(rowEl, labels) {
+    const host = rowEl.querySelector('.q-script-edit-labels');
+    if (host) host.innerHTML = labels.map(t => labelChipHtml(t, true)).join('');
+    const btn = rowEl.querySelector('.q-script-edit-tag-btn');
+    if (btn) btn.classList.toggle('has-tags', labels.length > 0);
+}
+
 // Speakers come from `scriptSpeakers` — adding a third is a data change only.
 function wireScriptStep(stepEl) {
     const sid = stepEl.dataset.scriptId;
     scriptLogs[sid] = scriptLogs[sid] || [];
 
+    // Declared up front: the tag-menu helpers below close over `body` to find the
+    // row being edited, and they can run before the later wiring code.
+    const body = stepEl.querySelector('.q-script-log-body');
     const composer = stepEl.querySelector('.q-script-composer');
     const input = stepEl.querySelector('.q-script-input');
     const sendBtn = stepEl.querySelector('.q-script-send');
@@ -7247,6 +7804,157 @@ function wireScriptStep(stepEl) {
 
     // The speaker currently armed on the composer (null = General).
     let activeSpeaker = null;
+    // Tags staged for the message being composed (appended on send, not inlined).
+    let pendingLabels = [];
+
+    // ── Shared searchable tag menu (composer + every edit form) ──
+    // One menu per step. `tagTarget` records what the open menu is editing:
+    //   { kind: 'compose' }            → pendingLabels
+    //   { kind: 'line', id: <lineId> } → that message's draft labels
+    const tagMenu = stepEl.querySelector('.q-script-tag-menu');
+    const tagSearch = stepEl.querySelector('.q-script-tag-search');
+    const tagList = stepEl.querySelector('.q-script-tag-list');
+    const tagEmpty = stepEl.querySelector('.q-script-tag-empty');
+    const pendingLabelsEl = stepEl.querySelector('.q-script-pending-labels');
+    let tagTarget = null;
+
+    // Which label array the open menu is mutating. For a message being edited we
+    // stage onto the row element so Cancel discards and Save commits.
+    function targetLabels() {
+        if (!tagTarget) return [];
+        if (tagTarget.kind === 'compose') return pendingLabels;
+        const rowEl = body.querySelector(`.q-script-row[data-line-id="${tagTarget.id}"]`);
+        if (!rowEl) return [];
+        try { return JSON.parse(rowEl.dataset.draftLabels || '[]'); } catch { return []; }
+    }
+    function setTargetLabels(next) {
+        if (!tagTarget) return;
+        if (tagTarget.kind === 'compose') {
+            pendingLabels = next;
+            renderPendingLabels();
+            return;
+        }
+        const rowEl = body.querySelector(`.q-script-row[data-line-id="${tagTarget.id}"]`);
+        if (!rowEl) return;
+        rowEl.dataset.draftLabels = JSON.stringify(next);
+        renderEditLabels(rowEl, next);
+    }
+
+    function renderPendingLabels() {
+        pendingLabelsEl.innerHTML = pendingLabels.map(t => labelChipHtml(t, true)).join('');
+        const btn = stepEl.querySelector('.q-script-compose-tag-btn');
+        if (btn) btn.classList.toggle('has-tags', pendingLabels.length > 0);
+    }
+
+    function renderTagOptions() {
+        // `|| ''` matters: before the vaadin-text-field upgrades, .value is
+        // undefined rather than an empty string.
+        const q = (tagSearch.value || '').trim().toLowerCase();
+        const sel = targetLabels();
+        const matches = TAG_CATALOG.filter(t => t.toLowerCase().includes(q));
+        tagEmpty.hidden = matches.length > 0;
+        tagList.innerHTML = matches.map(t => `
+            <button type="button" class="q-tag-option${sel.includes(t) ? ' selected' : ''}"
+                    role="option" aria-selected="${sel.includes(t)}" data-tag="${escapeHtml(t)}">
+                <span class="q-tag-option-check"><i class="fa-solid fa-check"></i></span>
+                <span class="q-tag-option-label">${escapeHtml(t)}</span>
+            </button>`).join('');
+    }
+
+    function closeTagMenu() {
+        tagMenu.hidden = true;
+        tagTarget = null;
+        stepEl.querySelectorAll('.q-script-tag-btn[aria-expanded="true"]')
+            .forEach(b => b.setAttribute('aria-expanded', 'false'));
+    }
+    function openTagMenu(trigger, target) {
+        tagTarget = target;
+        tagSearch.value = '';
+        renderTagOptions();
+        // Unhide BEFORE measuring/focusing. The menu is `hidden` (display:none)
+        // while closed, and a vaadin-text-field inside a display:none parent
+        // measures zero-width and won't lay out correctly — so the field must be
+        // visible before we position the menu or move focus into it.
+        tagMenu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        // Position from the trigger; flip above when there's no room below.
+        const b = trigger.getBoundingClientRect();
+        const m = tagMenu.getBoundingClientRect();
+        const gap = 6;
+        const below = window.innerHeight - b.bottom;
+        const top = (below < m.height + gap && b.top > m.height + gap)
+            ? b.top - m.height - gap : b.bottom + gap;
+        let left = Math.min(b.left, window.innerWidth - m.width - 8);
+        tagMenu.style.top = top + 'px';
+        tagMenu.style.left = Math.max(8, left) + 'px';
+        // Focus on the next frame: the field has just become visible, and Vaadin
+        // needs a beat to finish laying out its internals before focus lands.
+        requestAnimationFrame(() => tagSearch.focus());
+    }
+
+    // vaadin-text-field: listen for the DS `value-changed` event (it also fires
+    // `input` from the inner native field, but value-changed is the component's
+    // contract and covers the clear button too).
+    tagSearch.addEventListener('value-changed', renderTagOptions);
+    // Multi-select: toggling an option NEVER closes the menu, so several tags can
+    // be picked in one visit.
+    //
+    // Two things are load-bearing here:
+    //  1. stopPropagation() — without it the document-level outside-click handler
+    //     below also runs, and by then this handler has already replaced the
+    //     option markup, so `e.target` is DETACHED. `tagMenu.contains(detached)`
+    //     is false, so the menu read as an outside click and closed on every pick.
+    //  2. The row is patched in place rather than re-rendering the whole list, so
+    //     the clicked element stays in the DOM, keeps focus, and the list doesn't
+    //     jump under the pointer mid-selection.
+    tagList.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const opt = e.target.closest('.q-tag-option');
+        if (!opt) return;
+        const tag = opt.dataset.tag;
+        const cur = targetLabels();
+        const next = cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag];
+        setTargetLabels(next);
+        // Patch just this row's selected state (no innerHTML rebuild).
+        const on = next.includes(tag);
+        opt.classList.toggle('selected', on);
+        opt.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    // Clicks anywhere else in the menu chrome (search field, padding, empty state)
+    // must not bubble to the outside-click handler either.
+    tagMenu.addEventListener('click', (e) => e.stopPropagation());
+    // Outside click / Esc closes.
+    document.addEventListener('click', (e) => {
+        if (tagMenu.hidden) return;
+        if (tagMenu.contains(e.target) || e.target.closest('.q-script-tag-btn')) return;
+        closeTagMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !tagMenu.hidden) { e.preventDefault(); closeTagMenu(); }
+    });
+    // Composer's tag trigger.
+    stepEl.querySelector('.q-script-compose-tag-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!tagMenu.hidden && tagTarget && tagTarget.kind === 'compose') { closeTagMenu(); return; }
+        openTagMenu(e.currentTarget, { kind: 'compose' });
+    });
+    // Remove a pending tag from the composer's staged strip. stopPropagation for
+    // the same reason as the option handler: this re-renders the strip, detaching
+    // e.target, and a detached target would read as an outside click and close an
+    // open menu — removing a chip shouldn't dismiss the picker.
+    pendingLabelsEl.addEventListener('click', (e) => {
+        const x = e.target.closest('.q-script-label-x');
+        if (!x) return;
+        e.stopPropagation();
+        pendingLabels = pendingLabels.filter(t => t !== x.dataset.tag);
+        renderPendingLabels();
+        if (!tagMenu.hidden && tagTarget && tagTarget.kind === 'compose') renderTagOptions();
+    });
+    pendingLabelsEl.addEventListener('keydown', (e) => {
+        const x = e.target.closest('.q-script-label-x');
+        if (x && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); x.click(); }
+    });
+    renderPendingLabels();
 
     function setTag(speaker) {
         activeSpeaker = speaker || null;
@@ -7262,59 +7970,90 @@ function wireScriptStep(stepEl) {
         }
     }
 
-    function autosize() {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    }
+    // The inner native <textarea> of the vaadin-text-area. Selection APIs
+    // (selectionStart/setSelectionRange) only exist there, not on the host.
+    const nativeInput = () => input.inputElement || input.querySelector('textarea');
+
+    // NOTE: there is no autosize() here any more. vaadin-text-area grows itself as
+    // content wraps, and the 120px cap the old JS enforced now lives in CSS on
+    // .q-script-input::part(input-field).
 
     function refreshSend() {
         // Enabled when there's note text OR a tag with any pending text.
-        sendBtn.disabled = input.value.trim().length === 0;
+        // `|| ''` guards the pre-upgrade undefined value.
+        sendBtn.disabled = (input.value || '').trim().length === 0;
     }
 
     // Detect a speaker shortcut at the very start of the input and, if found,
     // collapse it into the pill. Runs on input while NO speaker is armed yet.
+    //
+    // WHY THE WRITE IS DEFERRED (regression fix): vaadin-text-area only pushes a
+    // programmatic `.value` back into the visible native input when the change did
+    // NOT originate from typing — internally it sets `__userInput = true` for the
+    // duration of its own `input` handler and skips `_forwardInputValue()` while
+    // that flag is set. Assigning `input.value` synchronously from inside our
+    // `input` listener therefore updated the property but left the typed "T " on
+    // screen. Deferring one microtask lands the write after Vaadin clears the
+    // flag, so the strip is actually reflected in the field.
     function maybeDetectTag() {
         if (activeSpeaker) return;
-        const v = input.value;
+        const v = input.value || '';
         // Match "<letter><space-or-colon>" at the start, letter from config.
         const m = v.match(/^\s*([A-Za-z])[:\s]/);
         if (!m) return;
         const speaker = scriptSpeakerByTrigger(m[1]);
         if (!speaker) return;
-        // Strip the matched prefix, arm the pill, keep the remainder as the note.
-        input.value = v.slice(m[0].length).replace(/^\s+/, '');
+        const stripped = v.slice(m[0].length).replace(/^\s+/, '');
+        // Arm the pill immediately (guards against re-entry on the next event)…
         setTag(speaker);
-        autosize();
+        // …then strip the prefix once we're outside Vaadin's user-input window.
+        Promise.resolve().then(() => {
+            input.value = stripped;
+            const n = nativeInput();
+            if (n) n.value = stripped;   // belt-and-braces for the visible field
+            refreshSend();
+        });
         refreshSend();
     }
 
     function saveLine() {
-        const text = input.value.trim();
+        const text = (input.value || '').trim();
         if (!text) return;
         scriptLogs[sid].push({
             id: 'l-' + Math.random().toString(36).slice(2),
             speakerId: activeSpeaker ? activeSpeaker.id : scriptGeneral.id,
             text,
+            labels: pendingLabels.slice(),   // tags appended to the message
+            replies: [],                     // nested comments (no timestamps)
             time: new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
         });
         // Reset composer for the next turn (alternating speakers type fresh).
+        // Clear the native field too: saveLine runs from a click/Enter (outside
+        // Vaadin's user-input window) so the property write does forward, but
+        // setting both makes the reset independent of that timing.
         input.value = '';
+        const n = nativeInput();
+        if (n) n.value = '';
         setTag(null);
-        autosize();
+        pendingLabels = [];
+        renderPendingLabels();
+        closeTagMenu();
         refreshSend();
         renderScriptLog(stepEl);
         input.focus();
     }
 
-    input.addEventListener('focus', () => composer.classList.add('focused'));
-    input.addEventListener('blur', () => composer.classList.remove('focused'));
+    // focusin/focusout rather than focus/blur: those don't bubble, and the real
+    // focus target is the native <textarea> inside the component's shadow root.
+    input.addEventListener('focusin', () => composer.classList.add('focused'));
+    input.addEventListener('focusout', () => composer.classList.remove('focused'));
 
-    input.addEventListener('input', () => {
-        maybeDetectTag();
-        autosize();
-        refreshSend();
-    });
+    // ONLY `input` — deliberately not `value-changed` as well. Wiring both ran
+    // maybeDetectTag() twice per keystroke (and re-entered it, since the function
+    // writes `.value`, which itself emits value-changed). `input` is the keystroke
+    // signal this shortcut needs; refreshSend covers the rest.
+    const onInput = () => { maybeDetectTag(); refreshSend(); };
+    input.addEventListener('input', onInput);
 
     input.addEventListener('keydown', (e) => {
         // Enter saves; Shift+Enter is a literal newline.
@@ -7324,17 +8063,28 @@ function wireScriptStep(stepEl) {
             return;
         }
         // Backspace at the start of the field pops the armed pill back off.
-        if (e.key === 'Backspace' && activeSpeaker &&
-            input.selectionStart === 0 && input.selectionEnd === 0) {
-            e.preventDefault();
-            setTag(null);
+        // Selection offsets live on the inner native textarea — reading
+        // input.selectionStart off the host yields undefined and would silently
+        // disable this shortcut.
+        if (e.key === 'Backspace' && activeSpeaker) {
+            const n = nativeInput();
+            if (n && n.selectionStart === 0 && n.selectionEnd === 0) {
+                e.preventDefault();
+                setTag(null);
+            }
         }
     });
 
-    tagX.addEventListener('click', () => { setTag(null); input.focus(); });
+    // The pill now lives INSIDE the field (prefix slot), so its × click would also
+    // reach the input and reposition the caret. Stop it, and preventDefault on
+    // mousedown so clicking the × doesn't blur/scroll the textarea first.
+    tagX.addEventListener('mousedown', (e) => e.preventDefault());
+    tagX.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setTag(null);
+        input.focus();
+    });
     sendBtn.addEventListener('click', saveLine);
-
-    const body = stepEl.querySelector('.q-script-log-body');
 
     // Delegated actions for saved rows: delete, enter edit, and (in edit mode)
     // reassign speaker, save, or cancel. `editingId` on the step tracks which
@@ -7352,9 +8102,96 @@ function wireScriptStep(stepEl) {
         const edit = e.target.closest('.q-script-row-edit');
         if (edit) {
             stepEl.dataset.editingId = edit.dataset.rowId;
+            delete stepEl.dataset.replyingId;   // one inline form at a time
             renderScriptLog(stepEl);
             const ta = body.querySelector('.q-script-edit-input');
-            if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+            // vaadin-text-area: focus() exists on the host, but selection APIs
+            // live on the inner native <textarea>, and the component needs a frame
+            // to finish upgrading before either is reliable.
+            if (ta) requestAnimationFrame(() => {
+                ta.focus();
+                const native = ta.inputElement || ta.querySelector('textarea');
+                if (native && native.setSelectionRange) {
+                    const end = (ta.value || '').length;
+                    native.setSelectionRange(end, end);
+                }
+            });
+            return;
+        }
+        // ── Tag menu from a row's edit form ──
+        const editTagBtn = e.target.closest('.q-script-edit-tag-btn');
+        if (editTagBtn) {
+            e.stopPropagation();
+            const lineId = editTagBtn.closest('.q-script-row').dataset.lineId;
+            if (!tagMenu.hidden && tagTarget && tagTarget.id === lineId) { closeTagMenu(); return; }
+            openTagMenu(editTagBtn, { kind: 'line', id: lineId });
+            return;
+        }
+        // Remove a staged tag chip (edit form only). stopPropagation so the
+        // re-render's detached target isn't mistaken for an outside click, which
+        // would close an open tag menu (see the option handler's note).
+        const labelX = e.target.closest('.q-script-label-x');
+        if (labelX) {
+            e.stopPropagation();
+            const rowEl = labelX.closest('.q-script-row');
+            if (rowEl) {
+                const cur = JSON.parse(rowEl.dataset.draftLabels || '[]');
+                const next = cur.filter(t => t !== labelX.dataset.tag);
+                rowEl.dataset.draftLabels = JSON.stringify(next);
+                renderEditLabels(rowEl, next);
+                if (!tagMenu.hidden) renderTagOptions();
+            }
+            return;
+        }
+        // ── Reply: open the nested comment form under this message ──
+        const replyBtn = e.target.closest('.q-script-row-reply');
+        if (replyBtn) {
+            stepEl.dataset.replyingId = replyBtn.dataset.rowId;
+            delete stepEl.dataset.editingId;   // one inline form at a time
+            renderScriptLog(stepEl);
+            const ta = body.querySelector('.q-script-reply-input');
+            // Defer a frame: the vaadin-text-area was just created by the
+            // re-render and needs to upgrade before focus lands.
+            if (ta) requestAnimationFrame(() => ta.focus());
+            return;
+        }
+        // Cancel the reply form
+        if (e.target.closest('.q-script-reply-cancel')) {
+            delete stepEl.dataset.replyingId;
+            renderScriptLog(stepEl);
+            return;
+        }
+        // Save a reply — nested under its parent, deliberately NO timestamp.
+        const replySave = e.target.closest('.q-script-reply-save');
+        if (replySave) {
+            const rowEl = replySave.closest('.q-script-row');
+            const ta = rowEl.querySelector('.q-script-reply-input');
+            const txt = (ta.value || '').trim();
+            if (!txt) return;
+            const parent = scriptLogs[sid].find(l => l.id === rowEl.dataset.lineId);
+            if (parent) {
+                parent.replies = parent.replies || [];
+                // No speakerId: a reply belongs to its parent message, so it gets
+                // no speaker attribution of its own. Stamping scriptGeneral here
+                // made every saved comment render a "General note" label and
+                // sticky-note avatar, which read as a tag on the comment.
+                parent.replies.push({
+                    id: 'r-' + Math.random().toString(36).slice(2),
+                    text: txt
+                });
+            }
+            delete stepEl.dataset.replyingId;
+            renderScriptLog(stepEl);
+            return;
+        }
+        // Delete a reply
+        const replyDel = e.target.closest('.q-script-reply-del');
+        if (replyDel) {
+            const parent = scriptLogs[sid].find(l => l.id === replyDel.dataset.parentId);
+            if (parent && parent.replies) {
+                parent.replies = parent.replies.filter(r => r.id !== replyDel.dataset.replyId);
+            }
+            renderScriptLog(stepEl);
             return;
         }
         // Reassign speaker (edit mode) — updates the draft on the row element
@@ -7368,9 +8205,10 @@ function wireScriptStep(stepEl) {
             rowEl.style.setProperty('--spk-accent', spk.accent);
             return;
         }
-        // Cancel edit
+        // Cancel edit — discards the staged label draft along with the text.
         if (e.target.closest('.q-script-edit-cancel')) {
             delete stepEl.dataset.editingId;
+            closeTagMenu();
             renderScriptLog(stepEl);
             return;
         }
@@ -7385,14 +8223,44 @@ function wireScriptStep(stepEl) {
             if (line) {
                 line.text = newText;
                 line.speakerId = rowEl.dataset.draftSpeaker || line.speakerId;
+                // Commit the staged tags (Cancel above simply never reaches here).
+                try { line.labels = JSON.parse(rowEl.dataset.draftLabels || '[]'); }
+                catch { /* keep existing labels if the draft is unreadable */ }
             }
             delete stepEl.dataset.editingId;
+            closeTagMenu();
             renderScriptLog(stepEl);
         }
     });
     // Enter saves the edit (Shift+Enter = newline); Esc cancels.
     body.addEventListener('keydown', (e) => {
-        const ta = e.target.closest('.q-script-edit-input');
+        // The inputs are vaadin-text-areas, so the keystroke originates on the
+        // inner native <textarea> inside shadow DOM. composedPath() walks that
+        // boundary; e.target alone would be the retargeted host in most engines
+        // but this is explicit and doesn't depend on retargeting behavior.
+        const path = (e.composedPath && e.composedPath()) || [e.target];
+        const inPath = (sel) => path.find(n => n && n.matches && n.matches(sel));
+        // Reply composer: same Enter/Esc contract as the edit form.
+        const rta = inPath('.q-script-reply-input');
+        if (rta) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                rta.closest('.q-script-row').querySelector('.q-script-reply-save').click();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                delete stepEl.dataset.replyingId;
+                renderScriptLog(stepEl);
+            }
+            return;
+        }
+        // Keyboard activation for the tag chip's × (it's a span[role=button]).
+        const lx = inPath('.q-script-label-x');
+        if (lx && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            lx.click();
+            return;
+        }
+        const ta = inPath('.q-script-edit-input');
         if (!ta) return;
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -7400,6 +8268,7 @@ function wireScriptStep(stepEl) {
         } else if (e.key === 'Escape') {
             e.preventDefault();
             delete stepEl.dataset.editingId;
+            closeTagMenu();
             renderScriptLog(stepEl);
         }
     });
@@ -7411,8 +8280,11 @@ function renderScriptLog(stepEl) {
     const sid = stepEl.dataset.scriptId;
     const lines = scriptLogs[sid] || [];
     const editingId = stepEl.dataset.editingId || null;
+    const replyingId = stepEl.dataset.replyingId || null;
     const body = stepEl.querySelector('.q-script-log-body');
     const countEl = stepEl.querySelector('.q-script-count');
+    // Count top-level messages only — replies live under a parent and aren't
+    // separate transcript entries.
     countEl.textContent = lines.length;
 
     if (!lines.length) {
@@ -7423,9 +8295,47 @@ function renderScriptLog(stepEl) {
     // Speakers the edit form can reassign to (configured speakers + General).
     const editSpeakers = [...scriptSpeakers, scriptGeneral];
 
+    // Replies render under their parent, in insertion order, with NO timestamp —
+    // they belong to the parent message rather than the transcript's timeline.
+    const repliesHtml = (l) => {
+        const rs = l.replies || [];
+        if (!rs.length) return '';
+        // Replies carry NO speaker attribution and NO timestamp — they belong to
+        // the parent message. Previously each one rendered scriptGeneral's
+        // "General note" label + sticky-note avatar, which read as a tag on the
+        // comment; both are gone, leaving just the text and a delete action.
+        return `<div class="q-script-replies">` + rs.map(r => {
+            return `
+                <div class="q-script-reply">
+                    <div class="q-script-reply-body">
+                        <div class="q-script-reply-meta">
+                            <span class="q-script-reply-actions">
+                                <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-reply-del"
+                                        id="scr-${r.id}-del" data-parent-id="${l.id}" data-reply-id="${r.id}"
+                                        aria-label="Delete reply">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </vaadin-button>
+                                <vaadin-tooltip for="scr-${r.id}-del" text="Delete reply" position="top"></vaadin-tooltip>
+                            </span>
+                        </div>
+                        <div class="q-script-reply-text">${escapeHtml(r.text)}</div>
+                    </div>
+                </div>`;
+        }).join('') + `</div>`;
+    };
+    // The inline reply composer, shown under the message being replied to.
+    const replyFormHtml = `
+        <div class="q-script-reply-form">
+            <vaadin-text-area theme="outlined" class="q-script-reply-input" rows="1"
+                placeholder="Write a reply…" aria-label="Write a reply"></vaadin-text-area>
+            <vaadin-button theme="tertiary" class="q-script-edit-btn q-script-reply-cancel">Cancel</vaadin-button>
+            <vaadin-button theme="primary" class="q-script-edit-btn save q-script-reply-save">Reply</vaadin-button>
+        </div>`;
+
     body.innerHTML = lines.map(l => {
         const spk = scriptSpeakerById(l.speakerId);
-        // Editing row: speaker chips + textarea + Save/Cancel in place of text.
+        const labels = l.labels || [];
+        // Editing row: speaker chips + textarea + tag row + Save/Cancel.
         if (l.id === editingId) {
             const chips = editSpeakers.map(s => `
                 <button type="button" class="q-script-edit-spk${s.id === l.speakerId ? ' active' : ''}"
@@ -7434,39 +8344,65 @@ function renderScriptLog(stepEl) {
                 </button>
             `).join('');
             return `
-                <div class="q-script-row editing" style="--spk-accent:${spk.accent};" data-draft-speaker="${l.speakerId}">
+                <div class="q-script-row editing" style="--spk-accent:${spk.accent};"
+                     data-line-id="${l.id}" data-draft-speaker="${l.speakerId}"
+                     data-draft-labels="${escapeHtml(JSON.stringify(labels))}">
                     <span class="q-script-avatar"><i class="fa-solid ${spk.icon}"></i></span>
                     <div class="q-script-body">
                         <div class="q-script-edit">
                             <div class="q-script-edit-speakers">${chips}</div>
-                            <textarea class="q-script-edit-input" aria-label="Edit note">${escapeHtml(l.text)}</textarea>
+                            <vaadin-text-area theme="outlined" class="q-script-edit-input" aria-label="Edit note"
+                                value="${escapeHtml(l.text)}"></vaadin-text-area>
+                            <!-- Staged tags for this message + the tag picker trigger -->
+                            <div class="q-script-edit-labels q-script-labels">${labels.map(t => labelChipHtml(t, true)).join('')}</div>
                             <div class="q-script-edit-actions">
-                                <button type="button" class="q-script-edit-btn q-script-edit-cancel">Cancel</button>
-                                <button type="button" class="q-script-edit-btn save q-script-edit-save">Save</button>
+                                <vaadin-button theme="icon tertiary small" class="q-script-tag-btn q-script-edit-tag-btn${labels.length ? ' has-tags' : ''}"
+                                        id="scr-${l.id}-tag" aria-haspopup="true" aria-expanded="false"
+                                        aria-label="Add tags to this note"
+                                        style="margin-right:auto;">
+                                    <i class="fa-solid fa-tag"></i>
+                                </vaadin-button>
+                                <vaadin-tooltip for="scr-${l.id}-tag" text="Add tags" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="tertiary" class="q-script-edit-btn q-script-edit-cancel">Cancel</vaadin-button>
+                                <vaadin-button theme="primary" class="q-script-edit-btn save q-script-edit-save">Save</vaadin-button>
                             </div>
                         </div>
+                        ${repliesHtml(l)}
                     </div>
                 </div>
             `;
         }
         // Normal row
         return `
-            <div class="q-script-row" style="--spk-accent:${spk.accent};">
+            <div class="q-script-row" style="--spk-accent:${spk.accent};" data-line-id="${l.id}">
                 <span class="q-script-avatar"><i class="fa-solid ${spk.icon}"></i></span>
                 <div class="q-script-body">
                     <div class="q-script-meta">
                         <span class="q-script-speaker">${escapeHtml(spk.label)}</span>
                         <span class="q-script-time">${escapeHtml(l.time)}</span>
                         <span class="q-script-row-actions">
-                            <button type="button" class="q-script-row-btn q-script-row-edit" data-row-id="${l.id}" aria-label="Edit note" title="Edit note">
+                            <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-row-reply"
+                                    id="scr-${l.id}-reply" data-row-id="${l.id}" aria-label="Reply to note">
+                                <i class="fa-solid fa-reply"></i>
+                            </vaadin-button>
+                            <vaadin-tooltip for="scr-${l.id}-reply" text="Reply" position="top"></vaadin-tooltip>
+                            <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-row-edit"
+                                    id="scr-${l.id}-edit" data-row-id="${l.id}" aria-label="Edit note">
                                 <i class="fa-solid fa-pen"></i>
-                            </button>
-                            <button type="button" class="q-script-row-btn q-script-row-del" data-row-id="${l.id}" aria-label="Delete note" title="Delete note">
+                            </vaadin-button>
+                            <vaadin-tooltip for="scr-${l.id}-edit" text="Edit note" position="top"></vaadin-tooltip>
+                            <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-row-del"
+                                    id="scr-${l.id}-del" data-row-id="${l.id}" aria-label="Delete note">
                                 <i class="fa-solid fa-trash-can"></i>
-                            </button>
+                            </vaadin-button>
+                            <vaadin-tooltip for="scr-${l.id}-del" text="Delete note" position="top"></vaadin-tooltip>
                         </span>
                     </div>
                     <div class="q-script-text">${escapeHtml(l.text)}</div>
+                    <!-- Tags appended to the message (read-only outside edit mode) -->
+                    <div class="q-script-labels">${labels.map(t => labelChipHtml(t, false)).join('')}</div>
+                    ${repliesHtml(l)}
+                    ${l.id === replyingId ? replyFormHtml : ''}
                 </div>
             </div>
         `;
@@ -7555,16 +8491,44 @@ function wireVideoStep(root) {
         });
     });
 
-    // ── Thumbnail click → open the global review panel bound to this step ──
+    // ── Tile actions (preview / remove) ──
+    // Delegated data-action dispatch, matching the attachment cards' handler. The
+    // tile is inert, so these are plain buttons: native Enter/Space activation,
+    // no stopPropagation, no keydown shim.
     const open = () => VideoPanel.open(root, videoId);
-    attachment.addEventListener('click', open);
-    attachment.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    attachment.addEventListener('click', (e) => {
+        const actBtn = e.target.closest('.q-video-attachment-act');
+        if (!actBtn) return;
+        if (actBtn.dataset.action === 'preview') { open(); return; }
+        if (actBtn.dataset.action === 'remove') {
+            // Confirm only when annotations would be lost — a bare video is cheap to redo.
+            const n = (videoNotes[videoId] || []).length;
+            if (n && !confirm(`Remove this video? Its ${n} timestamped annotation${n === 1 ? '' : 's'} will be deleted too.`)) return;
+            removeVideoAttachment(root, videoId);
+        }
     });
 
     // ── Annotations column: "Review in panel" opens the panel (rows seek there too). ──
     const summaryOpen = root.querySelector('.q-video-summary-open');
     if (summaryOpen) summaryOpen.addEventListener('click', open);
+}
+
+// Remove the video from a step: drop its annotations and return the step to the
+// upload state. If the global review panel is currently showing THIS video it is
+// closed first — otherwise it would be left playing a video the step no longer has.
+function removeVideoAttachment(root, videoId) {
+    VideoPanel.closeIfBound(videoId);
+    videoNotes[videoId] = [];
+    const attachment = root.querySelector('.q-video-attachment');
+    const uploader = root.querySelector('.q-video-uploader');
+    if (attachment) attachment.hidden = true;
+    if (uploader) uploader.hidden = false;
+    // Reset the source label so a re-upload doesn't inherit the old one.
+    if (videoMeta[videoId]) videoMeta[videoId].sourceLabel = 'Sample recording';
+    const src = root.querySelector('.q-video-source-label');
+    if (src) src.textContent = 'Sample recording';
+    // Re-render the count + annotations column (which hides itself when detached).
+    updateVideoAttachmentCount(root, videoId);
 }
 
 // Refresh the "N notes" label on a step's thumbnail attachment and re-render
@@ -7811,6 +8775,12 @@ const VideoPanel = (() => {
     // Programmatic close: drive the drawer; onClosed() does the teardown once it
     // reports closed (also covers the drawer's own backdrop/Esc close).
     function close() { if (drawer.open) drawer.open = false; else onClosed(); }
+    // Close only if the panel is currently bound to `id` — used when that video
+    // is deleted from its step, so the panel can't outlive its source.
+    function closeIfBound(id) {
+        if (wasOpen && videoId === id) close();
+        if (videoId === id) { stepRoot = null; videoId = null; }
+    }
     let wasOpen = false;
     function onClosed() {
         pause();
@@ -7818,7 +8788,7 @@ const VideoPanel = (() => {
         host.hidden = true;
     }
 
-    return { init, open, close };
+    return { init, open, closeIfBound, close };
 })();
 
 // Render the reviewable, timestamp-sorted note log inside the given root
@@ -8422,11 +9392,22 @@ function setSharedState() {
         { label: 'All Time', value: 'allTime', hint: 'No date limit' }
     ];
     // Checklist-dropdown option sets. "value" doubles as the id for filtering.
+    // `group` backs the Form Groups filter in the Forms accordion (left pane only).
     const FORMS = [
-        { label: 'Performance Standards for Teacher Practice', value: 'perf-standards' },
-        { label: 'Mid-Year Review · 2025–26', value: 'mid-year' },
-        { label: 'End-of-Year Evaluation · 2024–25', value: 'eoy' },
-        { label: 'Walk-through Observation · Oct 2025', value: 'walkthrough' }
+        { label: 'Performance Standards for Teacher Practice', value: 'perf-standards', group: 'eval' },
+        { label: 'Mid-Year Review · 2025–26', value: 'mid-year', group: 'eval' },
+        { label: 'End-of-Year Evaluation · 2024–25', value: 'eoy', group: 'eval' },
+        { label: 'Walk-through Observation · Oct 2025', value: 'walkthrough', group: 'obs' },
+        { label: 'Instructional Rounds Observation', value: 'rounds', group: 'obs' },
+        { label: 'Peer Coaching Feedback', value: 'peer-coaching', group: 'coaching' },
+        { label: 'New Teacher Mentoring Check-in', value: 'mentoring', group: 'coaching' }
+    ];
+    // Form group options for the accordion's filter dropdown ("- All -" = no filter).
+    const FORM_GROUPS = [
+        { label: '- All -', value: 'all' },
+        { label: 'Evaluations', value: 'eval' },
+        { label: 'Observations', value: 'obs' },
+        { label: 'Coaching', value: 'coaching' }
     ];
     const TAGS = [
         { label: 'Domain 1: Planning', value: 'd1' },
@@ -8452,11 +9433,17 @@ function setSharedState() {
         { label: 'Date/Time', value: 'datetime' }
     ];
 
-    // Filter state — all multi-selects default to "all selected".
+    // Filter state — multi-selects default to "all selected".
+    // EXCEPT forms: the dual-listbox starts with everything in the left
+    // ("Forms") column — available for selection but NOT yet added to the report
+    // criteria — so `forms` starts EMPTY. selectedFormIds is a real query
+    // parameter (getUserdataByRubricIds), not an optional narrowing filter, so an
+    // empty selection means "no forms chosen yet" and the report asks for one
+    // rather than silently returning an empty table (see runReport).
     const state = {
         users: USERS.map(o => o.value),
         authors: AUTHORS.map(o => o.value),
-        forms: FORMS.map(o => o.value),
+        forms: [],
         tags: TAGS.map(o => o.value),
         elements: ELEMENTS.map(o => o.value),
         qtypes: QTYPES.map(o => o.value)
@@ -8557,6 +9544,166 @@ function setSharedState() {
         el.addEventListener('selected-items-changed', (e) => {
             state[kind] = (e.detail.value || []).map(o => o.value);
         });
+    }
+
+    // ── Forms dual-listbox picker (the accordion's "add tool") ──
+    // Replaces the Forms combo box. Left pane = available (not yet selected,
+    // narrowed by Form Group + its own search), right pane = selected. Both write
+    // to the SAME state.forms array the report already filters on, so matches()
+    // needs no changes. Highlight state is local (which rows the user has clicked);
+    // moving a form is what commits to state.
+    function wireFormsPicker(root) {
+        const acc = root.querySelector('#qsFormsAcc');
+        if (!acc) return;
+        const groupSel = root.querySelector('#qsFormGroup');
+        const availList = root.querySelector('#qsAvailList');
+        const selList = root.querySelector('#qsSelList');
+        const availTitle = root.querySelector('#qsAvailTitle');
+        const selTitle = root.querySelector('#qsSelTitle');
+        const availSearch = root.querySelector('#qsAvailSearch');
+        const selSearch = root.querySelector('#qsSelSearch');
+
+        // Rows the user has highlighted in each pane, pending a move. `const` is
+        // deliberate: the click handlers close over these Set objects, so they must
+        // only ever be mutated (add/delete/clear), never reassigned.
+        const markedAvail = new Set(), markedSel = new Set();
+
+        groupSel.items = FORM_GROUPS.map(g => ({ label: g.label, value: g.value }));
+        groupSel.value = 'all';
+
+        // The two panes are derived views of state.forms — never separate copies,
+        // so they can't drift out of sync.
+        const availableForms = () => FORMS.filter(f =>
+            !state.forms.includes(f.value) &&
+            (groupSel.value === 'all' || f.group === groupSel.value) &&
+            matchesSearch(f, availSearch.value));
+        const selectedForms = () => FORMS.filter(f =>
+            state.forms.includes(f.value) && matchesSearch(f, selSearch.value));
+
+        function matchesSearch(f, q) {
+            const term = (q || '').trim().toLowerCase();
+            return !term || f.label.toLowerCase().includes(term);
+        }
+
+        function paintList(list, forms, marked, emptyMsg) {
+            list.innerHTML = '';
+            if (!forms.length) {
+                const li = document.createElement('li');
+                li.className = 'qs-dual-empty';
+                li.textContent = emptyMsg;
+                list.appendChild(li);
+                return;
+            }
+            forms.forEach(f => {
+                const li = document.createElement('li');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'qs-dual-opt';
+                btn.textContent = f.label;
+                btn.dataset.value = f.value;
+                btn.setAttribute('role', 'option');
+                btn.setAttribute('aria-selected', marked.has(f.value) ? 'true' : 'false');
+                li.appendChild(btn);
+                list.appendChild(li);
+            });
+        }
+
+        // Drop marks whose row is no longer in `visible`, in place.
+        function pruneMarks(marked, visible) {
+            const ok = new Set(visible.map(f => f.value));
+            [...marked].forEach(v => { if (!ok.has(v)) marked.delete(v); });
+        }
+
+        function paint() {
+            const avail = availableForms(), sel = selectedForms();
+            // Drop highlights for rows no longer visible (filtered out or moved).
+            // MUTATE these Sets — never reassign them. The click handlers close over
+            // the Set objects, so replacing them here would leave those handlers
+            // writing to an orphaned Set and highlights would silently never apply.
+            pruneMarks(markedAvail, avail);
+            pruneMarks(markedSel, sel);
+            paintList(availList, avail, markedAvail, 'No forms available');
+            paintList(selList, sel, markedSel, 'No forms selected');
+            availTitle.textContent = `Forms (${avail.length})`;
+            selTitle.textContent = state.forms.length
+                ? `Selected Forms (${state.forms.length})` : 'Selected Forms';
+            // Disable moves that would be no-ops.
+            root.querySelector('[data-qs-move="add"]').disabled = markedAvail.size === 0;
+            root.querySelector('[data-qs-move="remove"]').disabled = markedSel.size === 0;
+            root.querySelector('[data-qs-move="add-all"]').disabled = avail.length === 0;
+            root.querySelector('[data-qs-move="remove-all"]').disabled = sel.length === 0;
+        }
+
+        // Add/remove helpers. addForms dedupes and keeps state.forms in FORMS order
+        // so the Selected pane never shows a form twice or in click order.
+        function addForms(values) {
+            const next = new Set([...state.forms, ...values]);
+            state.forms = FORMS.filter(f => next.has(f.value)).map(f => f.value);
+        }
+        function removeForms(values) {
+            const drop = new Set(values);
+            state.forms = state.forms.filter(v => !drop.has(v));
+        }
+
+        // Click toggles a row's highlight (multi-select, no modifier needed —
+        // matches how the legacy tool behaves and is far easier on touch).
+        function bindListToggle(list, marked) {
+            list.addEventListener('click', (e) => {
+                const opt = e.target.closest('.qs-dual-opt');
+                if (!opt) return;
+                const v = opt.dataset.value;
+                marked.has(v) ? marked.delete(v) : marked.add(v);
+                paint();
+            });
+            // Double-click moves that one row immediately — the usual shortcut in
+            // this pattern. dblclick fires AFTER two clicks, so the row's highlight
+            // has already toggled twice (net zero); clear anyway to be safe, since
+            // the row is about to leave this pane.
+            list.addEventListener('dblclick', (e) => {
+                const opt = e.target.closest('.qs-dual-opt');
+                if (!opt) return;
+                const v = opt.dataset.value;
+                marked.delete(v);
+                if (list === availList) addForms([v]); else removeForms([v]);
+                paint();
+            });
+        }
+        bindListToggle(availList, markedAvail);
+        bindListToggle(selList, markedSel);
+
+        root.querySelectorAll('[data-qs-move]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.qsMove;
+                if (mode === 'add') {
+                    addForms([...markedAvail]);
+                    markedAvail.clear();
+                } else if (mode === 'add-all') {
+                    // Only what's currently VISIBLE in the left pane, so the group
+                    // filter and search actually scope "add all".
+                    addForms(availableForms().map(f => f.value));
+                    markedAvail.clear();
+                } else if (mode === 'remove') {
+                    removeForms([...markedSel]);
+                    markedSel.clear();
+                } else if (mode === 'remove-all') {
+                    removeForms(selectedForms().map(f => f.value));
+                    markedSel.clear();
+                }
+                paint();
+            });
+        });
+
+        groupSel.addEventListener('value-changed', paint);
+        availSearch.addEventListener('input', paint);
+        selSearch.addEventListener('input', paint);
+
+        // Mirror the accordion's open state onto .qs-body so the dialog grows to
+        // fit the picker instead of scrolling it inside the filters-only height.
+        acc.addEventListener('toggle', () => {
+            root.querySelector('.qs-body')?.classList.toggle('qs-body--forms-open', acc.open);
+        });
+
+        paint();
     }
 
     // ── (legacy) checklist dropdown — retained for any non-combo select ──
@@ -8770,6 +9917,24 @@ function setSharedState() {
     function renderResults() {
         const host = bodyRoot.querySelector('#qsResults');
         host.hidden = false;
+
+        // No forms chosen yet: selectedFormIds is a required query parameter, so
+        // say so and offer a way into the picker instead of rendering a bare
+        // "no data" table the user can't diagnose.
+        if (!state.forms.length) {
+            host.innerHTML =
+                `<div class="qs-table-wrap"><div class="qs-empty">` +
+                `<i class="fa-solid fa-list-check"></i>` +
+                `Select at least one form to report on.` +
+                `<button type="button" class="qs-empty-cta" id="qsEmptyOpenForms">Choose forms</button>` +
+                `</div></div>`;
+            host.querySelector('#qsEmptyOpenForms').addEventListener('click', () => {
+                const acc = bodyRoot.querySelector('#qsFormsAcc');
+                if (acc) { acc.open = true; acc.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+            });
+            return;
+        }
+
         const rows = sortRows(ROWS.filter(matches));
 
         if (!rows.length) {
@@ -8920,7 +10085,8 @@ function setSharedState() {
         // DS multi-select combo boxes (fixed size + native chip overflow).
         wireCombo(root.querySelector('[data-qs-select="users"]'), 'users', USERS);
         wireCombo(root.querySelector('[data-qs-select="authors"]'), 'authors', AUTHORS);
-        wireCombo(root.querySelector('[data-qs-select="forms"]'), 'forms', FORMS);
+        // Forms is a dual-listbox accordion, not a combo box (see wireFormsPicker).
+        wireFormsPicker(root);
         wireCombo(root.querySelector('[data-qs-select="tags"]'), 'tags', TAGS);
         wireCombo(root.querySelector('[data-qs-select="elements"]'), 'elements', ELEMENTS);
         wireCombo(root.querySelector('[data-qs-select="qtypes"]'), 'qtypes', QTYPES);
@@ -8942,6 +10108,10 @@ function setSharedState() {
             ModalScrollLock.push();
             // Reopen collapsed (filters-only height); results are re-generated.
             bodyRoot?.querySelector('.qs-body')?.classList.remove('qs-body--expanded');
+            // Also collapse the Forms accordion so the dialog reopens at its
+            // tidy filters-only size (its `toggle` handler clears the height class).
+            const acc = bodyRoot?.querySelector('#qsFormsAcc');
+            if (acc) acc.open = false;
             const host = bodyRoot?.querySelector('#qsResults'); if (host) host.hidden = true;
             const ld = bodyRoot?.querySelector('#qsLoading'); if (ld) ld.hidden = true;
         } else {
@@ -9347,11 +10517,56 @@ const SplitView = (() => {
             t.classList.toggle('selected', sel);
             t.setAttribute('aria-checked', sel ? 'true' : 'false');
         });
-        // Disable interactions in the compare pane (it's reference-only).
-        compareFormList.querySelectorAll('button, input, textarea, vaadin-button, vaadin-text-field, vaadin-text-area, vaadin-date-picker, vaadin-time-picker, vaadin-date-time-picker, vaadin-number-field, select').forEach(el => {
-            el.setAttribute('disabled', '');
-            el.style.pointerEvents = 'none';
+        // ── Make the compared form READ-ONLY but still readable/copyable ──
+        // Requirement: text must stay selectable and copyable (it's reference
+        // material you quote from), but no answer may be changed and no text
+        // edited. Deliberately NOT using `inert` — inert would satisfy the
+        // "no edits" half while also killing text selection and hiding the whole
+        // subtree from screen readers, which defeats the point of a reference pane.
+        //
+        // Instead: intercept the interactions that MUTATE, and leave reading alone.
+
+        // 1. Value-bearing controls -> readonly. Keeps the text selectable and
+        //    copyable (unlike `disabled`, which also blanks it from the a11y tree
+        //    and greys it out) while refusing typed input.
+        compareFormList.querySelectorAll(
+            'input, textarea, select, vaadin-text-field, vaadin-text-area, ' +
+            'vaadin-number-field, vaadin-date-picker, vaadin-time-picker, ' +
+            'vaadin-date-time-picker, vaadin-combo-box, vaadin-select, ' +
+            'vaadin-multi-select-combo-box'
+        ).forEach(el => {
+            el.setAttribute('readonly', '');
+            // Checkboxes/radios ignore `readonly` — the only way to stop a toggle
+            // is to block the event (below); keep them focusable and readable.
+            if (el.type === 'checkbox' || el.type === 'radio') el.removeAttribute('readonly');
         });
+
+        // 2. Block mutating events at the container, in the CAPTURE phase, so they
+        //    never reach any control's own handler. This covers every widget type —
+        //    current and future — without an ever-growing selector list, which is
+        //    what made the old per-control `disabled` pass leak (it missed
+        //    vaadin-checkbox / vaadin-select / vwc-switch, links, role="button").
+        //    `pointerdown`/`mousedown` are intentionally NOT blocked: those start a
+        //    text selection drag, and swallowing them would break copy.
+        const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
+        ['click', 'keydown', 'keypress', 'input', 'change', 'beforeinput', 'paste', 'cut', 'drop']
+            .forEach(type => {
+                compareFormList.addEventListener(type, (e) => {
+                    // Let copy-oriented keys through: Ctrl/Cmd combos (C/A), and
+                    // pure navigation (arrows, Home/End, PageUp/Down) so the
+                    // keyboard can move through and select text.
+                    if (type === 'keydown' || type === 'keypress') {
+                        const nav = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
+                                     'Home','End','PageUp','PageDown','Tab','Shift'];
+                        if (e.ctrlKey || e.metaKey || nav.includes(e.key)) return;
+                    }
+                    swallow(e);
+                }, true);   // capture: intercept before the target's own listeners
+            });
+
+        // 3. Mark the pane so CSS can soften affordances (hover/cursor) without
+        //    touching `user-select` — see the `.form-list.is-readonly` rules.
+        compareFormList.classList.add('is-readonly');
     }
 
     // ── Drag-to-resize divider ──
@@ -9773,7 +10988,15 @@ const AttachPanel = (() => {
     submitBtn.addEventListener('click', submit);
     // Backdrop click on the host scrim closes (DS drawer omits scrim-close in
     // overlay-only use); Esc too. onClosed()/draft reset run via open-changed.
-    host.addEventListener('click', (e) => { if (e.target === host) hide(); });
+    // A resize drag that STARTS on the drawer's edge handle (which half-overhangs
+    // the panel's left edge) and releases over the scrim would otherwise land here
+    // as a click with target === host and close the panel mid-resize. So only
+    // close when the press ALSO began on the scrim. Same guard as the video panel.
+    let pressedScrim = false;
+    host.addEventListener('pointerdown', (e) => { pressedScrim = (e.target === host); });
+    host.addEventListener('click', (e) => {
+        if (e.target === host && pressedScrim) hide();
+    });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !host.hidden) hide(); });
 
     return { openNew, openEdit };
@@ -9790,13 +11013,39 @@ const AttachPreview = (() => {
     // given attachment always previews the same way.
     function fauxDoc(att) {
         const ext = (att.name.split('.').pop() || '').toLowerCase();
-        const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) ||
+        // Kept in step with previewKind()'s lists in the attachment edit panel so
+        // the two views never disagree about whether a file is previewable.
+        const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'];
+        const VIDEO_EXT = ['mp4', 'mov', 'webm', 'avi', 'm4v'];
+        const isImage = IMAGE_EXT.includes(ext) ||
             (att.source === 'Google Drive' && !/\.\w+$/.test(att.name) && /photo|image|screenshot/i.test(att.name));
         if (isImage) {
             const seed = encodeURIComponent(att.id);
             return `
                 <div class="attach-doc attach-doc-image">
                     <img src="https://picsum.photos/seed/${seed}/900/1200" alt="${escapeHtml(att.name)}" />
+                </div>`;
+        }
+        // Unpreviewable types (spreadsheets, archives, unknown extensions) get the
+        // same placeholder tile the edit panel uses. Without this they'd render as
+        // a faux "document page" of ruled text here while the edit panel says "no
+        // preview available" — two views contradicting each other on one file.
+        // ALLOWLIST, not a denylist: mirrors previewKind()'s DOC_EXT so anything
+        // unrecognized falls back here instead of inventing a fake page. A Google
+        // Drive file with no extension is still treated as a document, matching
+        // previewKind()'s name-based inference.
+        const DOC_EXT = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'ppt', 'pptx'];
+        const extensionless = att.source === 'Google Drive' && !/\.\w+$/.test(att.name);
+        const previewable = DOC_EXT.includes(ext) || VIDEO_EXT.includes(ext) || extensionless;
+        if (!previewable) {
+            return `
+                <div class="attach-file-row">
+                    <span class="attach-file-thumb"><i class="${attachmentIcon(att)}"></i></span>
+                    <div class="attach-file-meta">
+                        <div class="attach-file-name">${escapeHtml(att.name)}</div>
+                        <div class="attach-file-source">${escapeHtml(att.source)}</div>
+                    </div>
+                    <span class="attach-file-nopreview">No preview available</span>
                 </div>`;
         }
         // Document: a page with a header block and ruled body lines. Vary line
@@ -9902,9 +11151,13 @@ function seedExtrasExamples() {
         if (!state.tags.length) state.tags = ['Evidence', 'Follow-up', 'Coaching'];
         if (!state.attachments.length) {
             // Seed full attachment records into the registry, then reference by id.
+            // First sample is a SPREADSHEET on purpose: .xlsx has no renderable
+            // preview, so it exercises the no-preview placeholder tile (filename +
+            // source + file-type icon) that unpreviewable types fall back to.
             const samples = [
-                { id: id + '-a0', name: 'lesson-plan-and-reflection-notes.pdf', description: 'Unit plan with the post-lesson reflection appended.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
-                { id: id + '-a1', name: 'Observation notes', description: '', tags: [], source: 'Google Drive', extrasId: id }
+                { id: id + '-a0', name: 'student-growth-data.xlsx', description: 'Benchmark scores exported from the assessment platform.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
+                { id: id + '-a1', name: 'lesson-plan-and-reflection-notes.pdf', description: 'Unit plan with the post-lesson reflection appended.', tags: ['Evidence'], source: 'Uploaded', extrasId: id },
+                { id: id + '-a2', name: 'Observation notes', description: '', tags: [], source: 'Google Drive', extrasId: id }
             ];
             samples.forEach(a => { attachmentsById[a.id] = a; });
             state.attachments = samples.map(a => a.id);
@@ -9936,17 +11189,32 @@ function seedScriptExampleNotes() {
         const id = s.dataset.scriptId;
         if (!id || (scriptLogs[id] && scriptLogs[id].length)) return;
         const [teacher, student] = scriptSpeakers;
+        // `labels` = tags appended to a message; `replies` = nested comments that
+        // carry no timestamp. Seeded on a couple of rows so both features are
+        // visible in the example without the user having to build them.
         const sample = [
-            { spk: teacher, text: 'Opened with the learning objective and connected it to yesterday’s lesson.', time: '9:02 AM' },
+            { spk: teacher, text: 'Opened with the learning objective and connected it to yesterday’s lesson.', time: '9:02 AM',
+              labels: ['Strength'] },
             { spk: student, text: 'Asked a clarifying question about the first example problem.', time: '9:04 AM' },
-            { spk: teacher, text: 'Reframed the example and checked for understanding with a quick thumbs-up poll.', time: '9:05 AM' },
-            { spk: scriptGeneral, text: 'Transition to group work took about two minutes.', time: '9:07 AM' },
+            { spk: teacher, text: 'Reframed the example and checked for understanding with a quick thumbs-up poll.', time: '9:05 AM',
+              labels: ['Evidence', 'Exemplary'],
+              replies: ['Nice recovery — worth naming this in the debrief.',
+                        'Follow up on whether the poll caught the two students in the back.'] },
+            { spk: scriptGeneral, text: 'Transition to group work took about two minutes.', time: '9:07 AM',
+              labels: ['Growth area'],
+              replies: ['Compare against the 45-second target from the last cycle.'] },
             { spk: student, text: 'Explained their reasoning to the group using the sentence stems on the board.', time: '9:09 AM' }
         ];
         scriptLogs[id] = sample.map((row, i) => ({
             id: id + '-s' + i,
             speakerId: row.spk.id,
             text: row.text,
+            labels: row.labels || [],
+            // Replies get no speakerId and no time — they belong to the parent.
+            replies: (row.replies || []).map((t, j) => ({
+                id: id + '-s' + i + '-r' + j,
+                text: t
+            })),
             time: row.time
         }));
     });

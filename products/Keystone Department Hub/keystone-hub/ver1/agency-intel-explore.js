@@ -1,9 +1,13 @@
 /* global window, document, KEYSTONE, KX, KXCanvas, AGENCY_INTEL */
 /* ========================================================================
-   agency-intel-explore.js — Data Explorer (admin-only).
+   agency-intel-explore.js — Data Explorer (admin-only, v2).
    ------------------------------------------------------------------------
    Ported from copilot-explore.jsx + SendReportModal/ReportStep in
    copilot-report.jsx.
+
+   NOT IN V1. The Data Explorer tab only appears when the Future-functionality
+   flag is on (see homeHtml() in agency-intel-page.js) — v1 ships Dashboards
+   and AI access only. Everything below stays wired so the flag previews it.
 
    An open-ended exploration surface that does NOT have to end in a dashboard.
    Start from a blank prompt, or from a quick-start:

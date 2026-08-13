@@ -259,6 +259,10 @@ async function createPin(request, env) {
     // version switcher, tabs, nav, etc.). The widget only pins the comment when
     // the page is back in this state; otherwise it lists in the side drawer.
     viewState: cleanViewState(body.viewState),
+    // The click path the reviewer took from page load to this comment. The
+    // widget's "Go" navigation replays it from a fresh load to reach steps that
+    // toggle-state restore can't (modals, wizard steps, innerHTML-built screens).
+    trail: cleanTrail(body.trail),
     screenshot: body.screenshot || '',
     comment: body.comment,
     author: body.author,
@@ -317,6 +321,14 @@ async function updatePin(id, request, env) {
   if (body.relY !== undefined) pin.relY = body.relY != null ? Number(body.relY) : null;
   // A move/re-anchor recaptures the interaction state, so accept a replacement.
   if (body.viewState !== undefined) pin.viewState = cleanViewState(body.viewState);
+  if (body.trail !== undefined) pin.trail = cleanTrail(body.trail);
+  // Re-anchoring to a different element invalidates the recorded click path
+  // (it led to the OLD element). A current widget always PATCHes a fresh trail
+  // alongside the new selector; an older cached widget re-anchors WITHOUT a
+  // trail field — drop the stale one rather than leave a path that now points
+  // somewhere unrelated. (A pure metadata edit — comment/done/etc. with no new
+  // selector — keeps the trail.)
+  else if (body.selector !== undefined && body.selector !== prevSelector) pin.trail = [];
 
   await writePins(env, body.url, pins);
 
@@ -401,15 +413,37 @@ function truncate(s, n) { s = s || ''; return s.length > n ? s.slice(0, n) + '�
 // { sel, text } descriptors (one per active toggle-group member). We cap the
 // count and string lengths and drop anything malformed — it's display/matching
 // metadata, never executed, so light validation is enough.
+// Hard cap on how many array entries we'll even look at, independent of how
+// many survive validation — so a pathological body (100k junk entries) can't
+// spin the loop. Both cleaners keep at most 16/40 valid entries anyway.
+const MAX_SCAN = 2000;
+
 function cleanViewState(v) {
   if (!Array.isArray(v)) return [];
   const out = [];
-  for (const item of v) {
+  for (const item of v.slice(0, MAX_SCAN)) {
     if (!item || typeof item !== 'object') continue;
     const sel = String(item.sel || '').slice(0, 400);
     if (!sel) continue;
     out.push({ sel, text: String(item.text || '').slice(0, 80) });
     if (out.length >= 16) break;
+  }
+  return out;
+}
+
+// Sanitize the click trail sent by the widget: an ordered array of
+// { s: selector, t: control text } steps recorded from the reviewer's real
+// clicks. Same posture as cleanViewState — replayed metadata, never executed
+// as code — so cap counts and lengths and drop anything malformed.
+function cleanTrail(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const item of v.slice(0, MAX_SCAN)) {
+    if (!item || typeof item !== 'object') continue;
+    const s = String(item.s || '').slice(0, 400);
+    if (!s) continue;
+    out.push({ s, t: String(item.t || '').slice(0, 80) });
+    if (out.length >= 40) break;
   }
   return out;
 }

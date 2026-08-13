@@ -119,6 +119,8 @@ products/<Product>/<feature>/
 3. Create **`versions.json`** with the single `ver1` entry shown above.
 4. Create the **`ver1/`** folder and copy **`base-template/version.html`** (the blank Vector canvas) to `ver1/index.html`. **Do all design work here, not in the root loader `index.html`.**
    - **Every new mock, in every product, gets the Design Toolbox with comments ENABLED — no exceptions.** `base-template/version.html` already carries the `designtoolbox/toolbox.js` include; keep it, and never add `window.TOOLBOX = { comments: false }` to a design file (that override belongs ONLY in `dev_handoff.html` builds). If a mock has multiple pages in its `verN/` folder, every page gets the same toolbox include. This applies to all products — not just SafeLMS/Scheduling.
+   - **The flow map is scaffolded too — every new mock ships with version + flow map + comments.** `base-template/version.html` now carries a starter flow-map config (`window.TOOLBOX_CONFIG.flowMap` + `applyFlowState` + `#fm=` hash boot) with ONE entry node, so the 🗺 Flow Map button is live from the first commit. As you build: rename `flowMap.title` to `"<Feature> — Flow Map"`, and for each screen add a `node` (+ an `applyFlowState` case + an `edge`). Keep `applyFlowState` driving real screen states so the live thumbnails and `#fm=` deep links work.
+   - **Notes live in `verN/`, next to the design file.** The flow map fetches `DEV-NOTES.md` **relative to the page**, so for a versioned mock it must sit at `verN/DEV-NOTES.md` (not the feature root). Format: one `## <node-id>` section per flow-map node, with `- bullet` notes under it; an optional `> date: YYYY-MM-DD` line (redeclarable partway down) stamps the notes below it, and a bullet may start with `(YYYY-MM-DD)` to override. A bullet may also lead with a **bold header ending in a colon inside the `** **`** — `- **Short header:** description follows.` — which renders the header as its own line above the description, an optional aid to keep a dev note skimmable (opt-in: the colon must sit *inside* the bold, so plain-prose bullets are unaffected). **Notes are a dev-ready affordance only.** While a mock is **in progress** the flow map shows **no notes** — the running "what changed" log for that phase is the **dashboard's recent-changes + the GitHub commit history** (write good commit messages and they become the changelog; nothing to hand-author in the flow map). Notes render **only in the `dev_handoff.html` build** (comments OFF), where they ARE the **Dev notes** developers read, and the GitHub link to `DEV-NOTES.md` appears. You can still author `DEV-NOTES.md` incrementally while in progress — jot down **client feedback and decisions as they land** so they surface as Dev notes at handoff — it just stays hidden until dev-ready. So: **in progress → commits tell the story; dev-ready → the flow map surfaces the dev notes.**
 5. If no mock description is given, scaffold these files and then ask where to start with the design in `ver1/index.html`.
 6. **Always add the new prototype to `products.json`** (repo root) — the single curated source for BOTH the landing index and every product dashboard. Add an item under the correct product's `items`, pointing `rel` at the **feature folder** (the loader), relative to `products/<Product>/`:
 
@@ -156,7 +158,14 @@ Sub-versions use a dotted folder, e.g. `ver2.x/index.html` with `{ "id": "ver2x"
 
 **Paths inside a version file:** because every version file sits at `products/<Product>/<feature>/verN/index.html` (four levels below the repo root), any repo-root asset it references resolves at `../../../../` — e.g. the Design Toolbox include is `<script src="../../../../designtoolbox/toolbox.js"></script>`. Required Core/Themes/font/icon resources are already in `base-template/version.html`'s header (absolute CDN URLs).
 
-**Moving, renaming, or restructuring a mock (including moving pages into `verN/`):** the dashboards and landing page render links straight from `products.json`, so **update every affected `rel` (and any `versions.json` path) in the SAME commit** — otherwise the card's link 404s on the live site while the card itself still renders. `scripts/check-catalog-links.js` enforces this (pre-commit Guard A2 + the check-mock-structure CI workflow): it fails on any `products.json` rel or `versions.json` path that doesn't resolve to a real file. Comments relink automatically in CI on renames (`.github/workflows/relink-comments.yml`). One thing no guard can fix: **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
+**Moving, renaming, or restructuring a mock (including moving pages into `verN/`):** the dashboards and landing page render links straight from `products.json`, so every affected `rel` (and any `versions.json` path) must follow the file. **When YOU (Claude) move or rename a mock, do the catalog update yourself in the same change — update the `rel`s and `versions.json` paths as part of the rename, don't leave it for the designer.** The team does not hand-edit `products.json`, so treat the catalog update as part of "renaming," not a separate step.
+
+As a backstop, a rename now **self-heals automatically** — nobody's commit is blocked for forgetting it:
+- **On commit** (local pre-commit hook, Guard A2, if `node` is present): `scripts/relink-catalog.js --staged` follows the staged rename, rewrites the `products.json` rel / `versions.json` path, and re-stages it INTO the commit being made. Then `scripts/check-catalog-links.js --warn-only` prints — but never blocks on — anything a rename can't explain (a hand-typed path, a deletion, a move across product folders).
+- **On push** (CI, `.github/workflows/dashboards.yml`): the same `relink-catalog.js` runs over the pushed range and commits the fix back on the silent `[skip ci]` bot commit — this covers pushes from machines with no hook / no `node` (e.g. GitHub Desktop).
+- Comments relink separately in CI on renames (`.github/workflows/relink-comments.yml`).
+
+So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
 
 ## Dev Handoff Process
 
@@ -166,11 +175,26 @@ The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev
 
 ### Step 0 — Pick the version FIRST (before anything else)
 
-Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then — if there is **more than one** — **stop and ask the designer which version to hand off** (name them by their `label`, e.g. "V1 or V2?"). We almost always launch only one, so the handoff should not carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then:
 
+- **Exactly ONE version (or a legacy flat mock, which becomes `ver1`): do NOT ask — proceed silently with that version.** One version means the choice is already made; asking "which version?" when there's only one is noise. This is the common case — most mocks launch a single version — so the handoff should run start-to-finish without a version question.
+- **More than one version: STOP and ask** which to hand off (name them by their `label`, e.g. "V1 or V2?"), so the handoff doesn't carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+
+Details for the two cases:
 - If they keep **one** version, build the handoff from that version's file.
 - If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
 - Never guess which version to keep or what to call them.
+
+### Step 0.5 — Legacy flat mock? Fold it into a feature folder NOW (not before)
+
+Many older mocks predate the versioned-folder structure: they live as loose `.html` files directly in the product folder, often without the Design Toolbox. **Leave them alone while design iterates — never retrofit versioning/toolbox onto an old mock outside a handoff, and never flag them for it.** But the moment one is declared ready for dev, it gets the standard shape first, because the dashboard automation (Step 5) only detects a `dev_handoff.html` beside a feature's `index.html` — it can NEVER flip the card for a flat file, and hand-approximating it loses the flow map and the GitHub dev links (this is exactly how the EHS "Mobile App — Main" handoff went wrong in Jul 2026):
+
+1. Scaffold the feature folder exactly as for a new mock (see "For a NEW mock"): `products/<Product>/<feature>/` with the loader `index.html` (copied verbatim from `base-template/index.html`), a single-entry `versions.json`, and the design file **moved** to `ver1/index.html`.
+2. Add the Design Toolbox include to the design file (comments **enabled**), and fix any repo-root-relative asset paths for the new depth (`../../../../…`).
+3. Update the mock's `rel` in `products.json` in the **same commit** (Guard A2 enforces), and **re-share the new URL** — the old flat-file link 404s for anyone holding it.
+4. Continue with Steps 1–6 exactly as for any other mock. The `dev_handoff.html` goes at the new feature root — **never floating loose in the product folder**.
+
+**Never** add a separate dashboard card that points at a dev build, and **never** hand-pin `"status": "ready-for-dev"` on a flat-file mock — a handoff is a *state* of the existing mock's card, not a new card. `scripts/check-dev-handoff.js` (pre-commit Guard A3 + the check-mock-structure CI workflow) blocks all of this for NEW handoffs; handoffs that predate the guard are grandfathered silently.
 
 ### Step 1 — Component assessment
 

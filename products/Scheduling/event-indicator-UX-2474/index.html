@@ -122,8 +122,8 @@
       f = document.createElement('iframe');
       // Every time the frame finishes loading a version, re-attempt docking
       // into that version's toolbox pill (the previous frame's dock, if any,
-      // was torn down with it).
-      f.addEventListener('load', () => adoptIntoDock(f));
+      // was torn down with it) and re-sync the browser-tab title to it.
+      f.addEventListener('load', () => { adoptIntoDock(f); syncTitle(f); });
       stage.appendChild(f);
     }
     f.title = v.label;
@@ -194,6 +194,33 @@
       // pill without any delay.
     })();
   }
+
+  // --- Keep the browser-tab title meaningful -----------------------------
+  // The loader's own <title> is the generic "Mockup". Sync the tab to the
+  // loaded version's real <title> instead (the iframe is same-origin on Pages
+  // and locally, so it's readable), falling back to a humanized version of the
+  // feature-folder name. With 2+ versions the active version's label is
+  // appended (e.g. "Assign Training · V2"). Runs on every version load, so
+  // switching versions updates the tab too.
+  function humanizeFolder() {
+    const segs = location.pathname.split('/').filter(Boolean);
+    let last = segs[segs.length - 1] || '';
+    if (/\.html?$/i.test(last)) last = segs[segs.length - 2] || last;   // drop a trailing index.html
+    return last.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Mockup';
+  }
+  function syncTitle(frame) {
+    let base = '';
+    try {
+      const t = frame && frame.contentDocument && frame.contentDocument.title;
+      if (t && t.trim() && t.trim().toLowerCase() !== 'mockup') base = t.trim();
+    } catch (e) { /* cross-origin — fall back to the folder name */ }
+    if (!base) base = humanizeFolder();
+    const label = (byId(currentId) || {}).label;
+    document.title = (versions.length > 1 && label) ? (base + ' · ' + label) : base;
+  }
+  // Set a sensible fallback immediately so the tab never flashes "Mockup"
+  // before the first version finishes loading.
+  document.title = humanizeFolder();
 
   // --- Boot --------------------------------------------------------------
   // The switcher only matters with 2+ versions. Show the loader's own pill

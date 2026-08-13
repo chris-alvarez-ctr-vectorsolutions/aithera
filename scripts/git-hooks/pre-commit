@@ -25,19 +25,41 @@ if [ -x "$REPO_ROOT/scripts/check-mock-structure.sh" ]; then
   "$REPO_ROOT/scripts/check-mock-structure.sh" --staged || exit 1
 fi
 
-# ── Guard A2: dashboard/loader links must resolve ────────────────────────────
-# Only when the commit touches the catalog or mock files: every products.json
-# rel and versions.json path must point at a real file, so a mock that moves
-# or renames can't leave a dead card link on the live dashboards.
+# ── Guard A2: dashboard/loader links FOLLOW renames — auto-fix, don't block ──
+# When the commit touches the catalog or mock files: first auto-relink any
+# staged rename (rewrite the products.json rel / versions.json path to the new
+# location and re-stage it INTO this commit — the same self-heal CI does on
+# push), then surface anything auto-relink couldn't fix (a hand-typed path, a
+# deletion, a cross-product move) as a WARNING. It never blocks the commit.
 # (bypass together with Guard A: SKIP_MOCK_GUARD=1)
-if [ "${SKIP_MOCK_GUARD:-}" != "1" ] && [ -f "$REPO_ROOT/scripts/check-catalog-links.js" ]; then
+if [ "${SKIP_MOCK_GUARD:-}" != "1" ]; then
   if git diff --cached --name-only | grep -qE '^(products\.json$|products/)'; then
     if command -v node >/dev/null 2>&1; then
-      node "$REPO_ROOT/scripts/check-catalog-links.js" || exit 1
+      [ -f "$REPO_ROOT/scripts/relink-catalog.js" ] && \
+        node "$REPO_ROOT/scripts/relink-catalog.js" --staged
+      [ -f "$REPO_ROOT/scripts/check-catalog-links.js" ] && \
+        node "$REPO_ROOT/scripts/check-catalog-links.js" --grandfather HEAD --warn-only
     else
-      # No node on this machine — CI (check-mock-structure.yml) still runs the
-      # link check on push, so skip locally rather than block every commit.
-      echo "  ⚠ node not found; skipping catalog-link check (CI will run it)." >&2
+      # No node here — CI (dashboards.yml) relinks renames on push regardless.
+      echo "  ⚠ node not found; skipping local auto-relink (CI will relink on push)." >&2
+    fi
+  fi
+fi
+
+# ── Guard A3: dev handoffs must follow the standard process ──────────────────
+# New *dev_handoff*.html files must sit at a feature root with the toolbox
+# (flow map on, comments off) and DEV-NOTES.md beside them; products.json may
+# not hand-roll a handoff (a card pointing at a dev build, or a hand-pinned
+# ready-for-dev with no dev build behind it). Pre-guard/legacy handoffs are
+# grandfathered SILENTLY — older flat mocks are never flagged; they get folded
+# into a feature folder at their own handoff (CLAUDE.md → Step 0.5).
+# (bypass together with Guard A: SKIP_MOCK_GUARD=1)
+if [ "${SKIP_MOCK_GUARD:-}" != "1" ] && [ -f "$REPO_ROOT/scripts/check-dev-handoff.js" ]; then
+  if git diff --cached --name-only | grep -qE '^(products\.json$|products/)'; then
+    if command -v node >/dev/null 2>&1; then
+      node "$REPO_ROOT/scripts/check-dev-handoff.js" --grandfather HEAD || exit 1
+    else
+      echo "  ⚠ node not found; skipping dev-handoff check (CI will run it)." >&2
     fi
   fi
 fi

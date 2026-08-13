@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Course Event — Work Type &amp; Sub Type</title>
+
+<!-- Vector Web Components -->
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+<!-- Font Awesome 6 PRO (self-hosted) -->
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+
+<style>
+  :root {
+    /* Retint the Vector brand blue to the legacy Training Tracker blue so the
+       heading, Save button, and "+ ADD NEW" links match the production screen. */
+    --lumo-primary-color:       #2f6fb0;
+    --lumo-primary-color-50pct:  #2f6fb080;
+    --lumo-primary-color-10pct:  #2f6fb01a;
+    --lumo-primary-text-color:  #2f6fb0;
+
+    --step-bar:  #59595b;   /* dark step header bars (legacy chrome) */
+    --step-num:  #eb9a34;   /* orange numbered circles */
+    --ink:       #333333;
+    --label:     #6f7377;
+    --line:      #d7dadf;
+
+    /* Roadmap-addition callout (Scheduling product purple) */
+    --new:      #7c3aed;
+    --new-tint: #f5f0fe;
+    --new-line: #d9c8fb;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #fff;
+    font-family: 'Open Sans', 'Segoe UI', Arial, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 22px 26px 60px; }
+
+  /* Vaadin fields fill their cell and can shrink (no 12em min width) */
+  vaadin-select, vaadin-text-field, vaadin-number-field,
+  vaadin-date-picker {
+    width: 100%;
+    min-width: 0;
+    --vaadin-field-default-width: 0;
+  }
+
+  /* ── Page header ── */
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+  .page-head h1 {
+    margin: 0; font-size: 26px; font-weight: 700;
+    color: var(--lumo-primary-text-color); letter-spacing: .2px;
+  }
+  .subtitle { margin-top: 6px; font-size: 22px; color: #7a7d82; font-weight: 400; }
+  .subtitle .course { color: #4a4d52; }
+  .head-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+  .approved { text-align: right; color: var(--lumo-error-text-color); font-size: 13px; margin-top: 14px; }
+
+  /* ── Step section shell ── */
+  .step { margin-top: 20px; }
+  .step-bar {
+    position: relative; background: var(--step-bar); color: #fff;
+    font-size: 14px; font-weight: 700; letter-spacing: .3px;
+    padding: 13px 16px 13px 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-radius: 4px 4px 0 0;
+  }
+  .step-num {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 30px; background: var(--step-num); color: #fff;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700;
+  }
+  .step-bar .minus { color: #d4d6d9; font-size: 18px; font-weight: 700; }
+  .step-body { border: 1px solid var(--line); border-top: 0; padding: 20px; border-radius: 0 0 4px 4px; }
+  .step-body.shaded { background: #e9eaec; }
+
+  /* ── Field label (custom, to match the legacy uppercase + colon + red *) ── */
+  .fld { min-width: 0; }
+  .lbl {
+    display: flex; align-items: baseline; gap: 3px;
+    font-size: 12px; font-weight: 600; color: var(--label);
+    letter-spacing: .2px; margin-bottom: 5px; white-space: nowrap;
+  }
+  .lbl .req { color: var(--lumo-error-color); font-weight: 700; }
+  .lbl .add-new {
+    margin-left: auto; color: var(--lumo-primary-text-color); font-weight: 700;
+    font-size: 12px; text-decoration: none;
+  }
+  .lbl .add-new:hover { text-decoration: underline; }
+  .lbl .info-i { color: #7a7d82; }
+
+  .grid { display: grid; gap: 18px 20px; }
+  .cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* Roadmap addition — Work Type / Sub Type callout */
+  .new-row {
+    grid-column: 1 / -1;
+    background: var(--new-tint); border: 1px solid var(--new-line);
+    border-radius: 6px; padding: 14px 16px 18px;
+  }
+  .new-row-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .new-row-head .caption {
+    font-size: 12px; font-weight: 700; color: var(--new);
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  .new-badge {
+    background: var(--new); color: #fff; font-size: 10px; font-weight: 800;
+    letter-spacing: .5px; padding: 2px 7px; border-radius: 999px; text-transform: uppercase;
+  }
+  .new-row .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 620px; }
+
+  /* ── Step 2 (date/time) row ── */
+  .datetime {
+    display: grid;
+    grid-template-columns: 1.15fr 1.15fr 1fr 1fr .55fr .7fr .8fr;
+    gap: 14px; align-items: start;
+  }
+
+  /* ── Step 3 (read-only specifics) ── */
+  .specs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; }
+  .spec-h {
+    color: var(--lumo-warning-color); font-size: 14px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .3px;
+    border-bottom: 1px solid #e3e5e8; padding-bottom: 6px; margin-bottom: 12px;
+  }
+  .spec-row { display: flex; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+  .spec-row .k { font-weight: 700; color: #3a3d42; min-width: 118px; }
+  .spec-row .v { color: #4a4d52; }
+  .spec-line { font-size: 14px; color: #4a4d52; margin-bottom: 4px; }
+  .desc { grid-column: 1 / -1; margin-top: 22px; }
+  .desc p { margin: 0; color: #4a4d52; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ── Page header ── -->
+  <div class="page-head">
+    <div>
+      <h1>COURSE EVENT</h1>
+      <div class="subtitle"><span class="course">Active Shooter</span> - Naperville Police Department</div>
+    </div>
+    <div class="head-actions">
+      <vaadin-button theme="secondary">Back to List</vaadin-button>
+      <vaadin-button theme="primary">Save</vaadin-button>
+    </div>
+  </div>
+  <div class="approved">Approved Officers:</div>
+
+  <!-- ── STEP 1 ── -->
+  <div class="step">
+    <div class="step-bar">
+      <span class="step-num">1</span>
+      <span>STEP 1 - SELECT GENERAL DETAILS FROM MENUS</span>
+      <span class="minus">&minus;</span>
+    </div>
+    <div class="step-body">
+      <vaadin-checkbox label="Online Training" style="margin-bottom:18px;"></vaadin-checkbox>
+
+      <div class="grid cols-4">
+        <!-- Row 1 -->
+        <div class="fld">
+          <div class="lbl">SELECT COURSE:<span class="req">*</span></div>
+          <vaadin-select id="f-course" theme="outlined"></vaadin-select>
+        </div>
+        <div class="fld">
+          <div class="lbl">LOCATION:<span class="req">*</span><a class="add-new" href="#">+ ADD NEW</a></div>
+          <vaadin-select id="f-location" theme="outlined"></vaadin-select>
+        </div>
+        <div class="fld">
+          <div class="lbl">TYPE:<a class="add-new" href="#">+ ADD NEW</a></div>
+          <vaadin-select id="f-type" theme="outlined"></vaadin-select>
+        </div>
+        <div class="fld">
+          <div class="lbl">SPONSOR:<a class="add-new" href="#">+ ADD NEW</a></div>
+          <vaadin-select id="f-sponsor" theme="outlined"></vaadin-select>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="fld">
+          <div class="lbl">Budget Category:</div>
+          <vaadin-select id="f-budget" theme="outlined"></vaadin-select>
+        </div>
+        <div class="fld">
+          <div class="lbl">CERTIFICATION # / COURSE ID:</div>
+          <vaadin-text-field theme="outlined" placeholder="CERTIFICATION # / COURSE ID"></vaadin-text-field>
+        </div>
+
+        <!-- ── ROADMAP ADDITION: Work Type + Sub Type ── -->
+        <div class="new-row">
+          <div class="new-row-head">
+            <span class="caption">Scheduling Details</span>
+          </div>
+          <div class="pair">
+            <div class="fld">
+              <div class="lbl">WORK TYPE:<span class="req">*</span></div>
+              <vaadin-select id="f-worktype" theme="outlined"></vaadin-select>
+            </div>
+            <div class="fld">
+              <div class="lbl">SUB TYPE:<span class="req">*</span></div>
+              <vaadin-select id="f-subtype" theme="outlined"></vaadin-select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2 ── -->
+  <div class="step">
+    <div class="step-bar">
+      <span class="step-num">2</span>
+      <span>STEP 2 - ENTER THE DATE/TIME OF THE EVENT</span>
+      <span class="minus">&minus;</span>
+    </div>
+    <div class="step-body shaded">
+      <div class="datetime">
+        <div class="fld">
+          <div class="lbl">START DATE:<span class="req">*</span></div>
+          <vaadin-date-picker theme="outlined" value="2026-07-31"></vaadin-date-picker>
+        </div>
+        <div class="fld">
+          <div class="lbl">END DATE:<span class="req">*</span></div>
+          <vaadin-date-picker theme="outlined" value="2026-07-31"></vaadin-date-picker>
+        </div>
+        <div class="fld">
+          <div class="lbl">START TIME:<span class="req">*</span></div>
+          <vaadin-select id="f-start-time" theme="outlined"></vaadin-select>
+        </div>
+        <div class="fld">
+          <div class="lbl">END TIME:<span class="req">*</span></div>
+          <vaadin-select id="f-end-time" theme="outlined"></vaadin-select>
+        </div>
+        <div class="fld">
+          <div class="lbl">DAYS:<span class="req">*</span></div>
+          <vaadin-text-field theme="outlined" value="1"></vaadin-text-field>
+        </div>
+        <div class="fld">
+          <div class="lbl">HOURS:<span class="req">*</span></div>
+          <vaadin-text-field theme="outlined" value="5.00"></vaadin-text-field>
+        </div>
+        <div class="fld">
+          <div class="lbl">LUNCH / BREAK:<i class="fa-solid fa-circle-info info-i"></i></div>
+          <vaadin-select id="f-lunch" theme="outlined"></vaadin-select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3 ── -->
+  <div class="step">
+    <div class="step-bar">
+      <span class="step-num">3</span>
+      <span>STEP 3 - ADD THE SPECIFICS OF THE COURSE EVENT</span>
+      <span class="minus">&minus;</span>
+    </div>
+    <div class="step-body">
+      <div class="specs">
+        <div>
+          <div class="spec-h">Course Details:</div>
+          <div class="spec-row"><span class="k">Category:</span><span class="v">Patrol</span></div>
+          <div class="spec-row"><span class="k">Budget Category:</span><span class="v">General Budget</span></div>
+          <div class="spec-row"><span class="k">Sponsor:</span><span class="v">POST</span></div>
+        </div>
+        <div>
+          <div class="spec-h">Location Details:</div>
+          <div class="spec-line">Naperville Police Department</div>
+          <div class="spec-line">1350 Aurora Ave</div>
+          <div class="spec-line">Naperville, IL, 60540</div>
+        </div>
+        <div>
+          <div class="spec-h">Mandate Requirements:</div>
+          <div class="spec-line">Legal Update</div>
+          <div class="spec-line">Policy and Procedures</div>
+          <div class="spec-line">Active Shooter</div>
+        </div>
+        <div class="desc">
+          <div class="spec-h">Course Description:</div>
+          <p>Training that helps agencies with the presence of an active shooter on scene anywhere in their jurisdiction.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ── Populate the vaadin-selects (items are a JS property) ── -->
+<script>
+  function opts(list) { return list.map(v => ({ label: v, value: v })); }
+  customElements.whenDefined('vaadin-select').then(() => {
+    const set = (id, list, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.items = opts(list);
+      el.value = val;
+    };
+    set('f-course',   ['Active Shooter', 'Defensive Tactics', 'Firearms Qualification'], 'Active Shooter');
+    set('f-location', ['Naperville Police Department', 'Regional Training Center'], 'Naperville Police Department');
+    set('f-type',     ['In-Service Training', 'Academy', 'Roll Call'], 'In-Service Training');
+    set('f-sponsor',  ['POST', 'Department'], 'POST');
+    set('f-budget',   ['General Budget', 'Grant Budget'], 'General Budget');
+
+    // Roadmap addition — Work Type / Sub Type (defaults tie back to the V1 event)
+    set('f-worktype', ['Regular', 'Overtime [205]', 'Comp Time', 'Detail'], 'Overtime [205]');
+    set('f-subtype',  ['Training', 'Meeting', 'Court', 'Special Event'], 'Training');
+
+    // Step 2 times + lunch
+    set('f-start-time', ['8:00 AM', '9:00 AM', '9:30 AM', '10:00 AM'], '9:30 AM');
+    set('f-end-time',   ['2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'], '3:00 PM');
+    set('f-lunch',      ['0', '0.5', '1.0'], '0.5');
+  });
+</script>
+
+
+<!-- ── Design Toolbox: Flow Map scaffold ────────────────────────────────── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'course-event':
+        break;              /* single-screen mock */
+      default:
+        break;
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Frontline Integration — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 440 },
+      flows: [
+        { id: 'main', name: 'Main Flow', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1200, h: 400 }, labelXY: { x: 40, y: 40 } }
+      ],
+      nodes: [
+        { id: 'course-event', flow: 'main', entry: true, x: 60, y: 170,
+          step: 'Create', name: 'Course Event', state: 'course-event',
+          desc: 'Training Tracker course-event creation. Adds Work Type + Sub Type selects to Step 1 so the event carries a Frontline scheduling work code (e.g. Overtime [205] / Training) when it lands on the schedule.' }
+      ],
+      edges: []
+    }
+  };
+</script>
+
+<!-- Design Toolbox: pin-and-comment review widget + flow map (comments ENABLED). -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

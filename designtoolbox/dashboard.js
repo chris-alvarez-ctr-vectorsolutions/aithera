@@ -184,6 +184,11 @@
   // Config
   // ----------------------------------------------------------------------
   const REPO_BASE = 'https://github.com/VectorLearning/ux-mockups/blob/main/products';
+  // GitHub commit-history view for a mock's path — the card log links here so
+  // the FULL history is one click away even when the inline log is short.
+  // (Repo is private: designers without repo access get a 404, which is why
+  // the inline rows below stay as the primary log.)
+  const HISTORY_BASE = 'https://github.com/VectorLearning/ux-mockups/commits/main/products';
   const PAGES_BASE = 'https://vectorlearning.github.io/ux-mockups/products';
 
   // Detect product from URL — works on file://, localhost, and Pages
@@ -558,6 +563,7 @@
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
+        historyUrl: `${HISTORY_BASE}/${base}`,
         devHandoff,
         devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
         devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
@@ -1150,19 +1156,14 @@
     applyFiltersAndRender();
   });
 
-  // "View full log" — reveals the hidden tail of the card's inline log (every
-  // row is already rendered from meta.json, rows past LOG_SHOWN start hidden).
-  // Delegated so it survives re-renders, like the star handler above.
+  // GitHub icon in the log header: it sits inside the <summary>, so a plain
+  // click would ALSO toggle the log open/closed. Open the tab ourselves and
+  // swallow the toggle.
   document.addEventListener('click', e => {
-    const btn = e.target.closest('.log-full-btn');
-    if (!btn) return;
+    const a = e.target.closest('.log-github');
+    if (!a) return;
     e.preventDefault();
-    const log = btn.closest('.card-log');
-    if (!log) return;
-    const expanded = log.classList.toggle('log-expanded');
-    btn.innerHTML = expanded
-      ? 'Collapse log <i class="fa-solid fa-chevron-up"></i>'
-      : `View full log (${btn.dataset.more} more) <i class="fa-solid fa-chevron-down"></i>`;
+    window.open(a.href, '_blank', 'noopener');
   });
 
   // Jump straight to a feature's card from a side-nav bookmark: put the card in
@@ -1258,9 +1259,9 @@
     const nav = byId('folderNav');
     const favFeatures = favFeatureMocks();
     const hasFolders = folders.size > 0;
-    // The rail now hosts feature Favorites too, so it appears even for products
-    // with NO nested folders — as long as at least one feature is favorited.
-    if (!hasFolders && !favFeatures.length) { nav.hidden = true; nav.innerHTML = ''; return; }
+    // The rail is ALWAYS present: with no favorites yet it shows a quiet
+    // placeholder instead of disappearing, so the layout doesn't jump the
+    // first time a designer stars a mock or a folder group appears.
 
     // Reset a stale folder selection (e.g. the folder disappeared from products.json).
     if (hasFolders && state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
@@ -1274,18 +1275,24 @@
 
     // ── Favorites bookmarks (starred FEATURES) — cross-folder quick links that
     //    jump straight to a card. Rendered above the folder tree, and present
-    //    even when the product is flat (no folders below).
+    //    even when the product is flat (no folders below). With nothing starred
+    //    yet, a short grey hint holds the section's place instead.
+    const favLabel = document.createElement('div');
+    favLabel.className = 'fnav-label';
+    favLabel.textContent = 'Favorites';
+    nav.appendChild(favLabel);
     if (favFeatures.length) {
-      const favLabel = document.createElement('div');
-      favLabel.className = 'fnav-label';
-      favLabel.textContent = 'Favorites';
-      nav.appendChild(favLabel);
       favFeatures.forEach(m => nav.appendChild(favBookmarkRow(m)));
-      if (hasFolders) {
-        const d = document.createElement('div');
-        d.className = 'fnav-divider';
-        nav.appendChild(d);
-      }
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'fnav-empty';
+      hint.innerHTML = '<i class="fa-regular fa-star" aria-hidden="true"></i> Favorite a design and it’ll show up here.';
+      nav.appendChild(hint);
+    }
+    if (hasFolders) {
+      const d = document.createElement('div');
+      d.className = 'fnav-divider';
+      nav.appendChild(d);
     }
 
     // A flat product (no folders) has nothing more to draw — the Favorites list
@@ -1636,7 +1643,7 @@
     // violet pill; otherwise a plain clock + time. Cards with no git history
     // still show the header row so the timestamp is never lost.
     const changes = mock.changes || [];
-    const LOG_SHOWN = 10;
+    const LOG_SHOWN = 5;
     const recentCount = changes.filter(c => isWithin24h(c.date)).length;
     const logNotif = recentCount
       ? `<span class="log-notif" title="${recentCount} change${recentCount !== 1 ? 's' : ''} in the last 24 hours"></span>`
@@ -1648,17 +1655,15 @@
           : `<span class="log-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> Updated ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
       : '';
 
-    const logRow = (entry, extra) => `
-          <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}${extra ? ' log-item--extra' : ''}">
+    const logRow = (entry) => `
+          <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}">
             <span class="log-date">${escapeHtml(formatDate(entry.date))}</span>
             <span class="log-summary">${escapeHtml(entry.summary || '')}</span>
           </li>`;
-    // ALL rows render up front; the tail past LOG_SHOWN is hidden until the
-    // "View full log" button reveals it — inline, in the card. (This button
-    // used to link to the GitHub commits view, but the repo is private, so the
-    // link 404'd for every designer without repo access.)
-    const shownRows = changes.map((entry, i) => logRow(entry, i >= LOG_SHOWN)).join('');
-    const hiddenCount = Math.max(0, changes.length - LOG_SHOWN);
+    // Only the LOG_SHOWN latest rows render inline — there is deliberately no
+    // in-card expander. The complete history lives one click away on GitHub
+    // ("View full log on GitHub" below + the header icon), in a new tab.
+    const shownRows = changes.slice(0, LOG_SHOWN).map(logRow).join('');
 
     let logHtml;
     if (changes.length) {
@@ -1669,19 +1674,23 @@
           <span class="log-title">Log</span>
           <span class="log-count">${changes.length}</span>
           ${updatedPill}
+          <a class="log-github" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener" title="Open this mock's full change history on GitHub (new tab)" aria-label="View log on GitHub"><i class="fa-brands fa-github"></i></a>
           <i class="fa-solid fa-chevron-right log-chevron"></i>
         </summary>
         <ul class="log-list">${shownRows}
         </ul>
-        ${hiddenCount ? `<button type="button" class="log-full-btn" data-more="${hiddenCount}">View full log (${hiddenCount} more) <i class="fa-solid fa-chevron-down"></i></button>` : ''}
+        <a class="log-full-btn" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener" title="Opens in a new tab (needs repo access)">View full log on GitHub <i class="fa-brands fa-github"></i></a>
       </details>`;
     } else {
-      // No git history for this mock — static header row, no expander.
+      // No git history for this mock — static header row, no expander. The
+      // GitHub history link still renders: recentChanges only covers the last
+      // 400 commits per product, so GitHub may know more than the card does.
       logHtml = `
       <div class="card-log card-log--empty">
         <span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></span>
         <span class="log-title">Log</span>
         ${updatedPill || '<span class="log-updated">No recorded changes yet</span>'}
+        <a class="log-github" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener" title="Open this mock's full change history on GitHub (new tab)" aria-label="View log on GitHub"><i class="fa-brands fa-github"></i></a>
       </div>`;
     }
 
@@ -2394,6 +2403,13 @@
       }
       .folder-nav[hidden] { display: none; }
       .folder-nav[data-searching="true"] { opacity: 0.45; }
+      /* empty-favorites placeholder — quiet grey hint that holds the section's
+         place so the rail doesn't jump when the first star lands */
+      .fnav-empty {
+        font-size: 12px; color: var(--text-muted); padding: 2px 12px 8px;
+        line-height: 1.45;
+      }
+      .fnav-empty i { margin-right: 4px; opacity: 0.7; }
       .fnav-label {
         font-family: var(--display); font-size: 11px; font-weight: 700;
         text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-muted);
@@ -2615,13 +2631,17 @@
       .log-updated--recent {
         padding: 3px 10px; border-radius: 999px; background: #f5f3ff; color: #6d28d9; font-weight: 700;
       }
-      /* Log rows past the first LOG_SHOWN stay hidden until "View full log"
-         expands them inline (no GitHub round-trip — the repo is private). */
-      .card-log .log-item--extra { display: none; }
-      .card-log.log-expanded .log-item--extra { display: grid; }
-      /* An expanded full log can be hundreds of rows — cap and scroll. */
-      .card-log.log-expanded .log-list { max-height: 340px; overflow-y: auto; }
-      /* "View full log" button inside the expanded log. */
+      /* GitHub history icon in the log header — always visible, even when the
+         inline log is short; opens the commits view in a new tab. */
+      .log-github {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 6px; margin-left: 4px;
+        color: var(--text-soft); font-size: 13px; text-decoration: none;
+        transition: all 0.15s ease;
+      }
+      .log-github:hover { color: var(--accent-deep); background: var(--accent-soft); }
+      /* "View full log on GitHub" — the ONLY way to the rest of the history;
+         the inline log deliberately shows just the LOG_SHOWN latest rows. */
       .log-full-btn {
         display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
         padding: 7px 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: #fff;
@@ -2630,6 +2650,8 @@
       }
       .log-full-btn:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
       .log-full-btn i { font-size: 10px; opacity: 0.8; }
+      /* In the header-only empty state the icon hugs the right edge. */
+      .card-log--empty .log-github { margin-left: auto; }
 
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;

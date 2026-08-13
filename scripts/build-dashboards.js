@@ -83,6 +83,19 @@ function detectDevHandoff(productDir, rel) {
   return fs.existsSync(path.join(dir, candidate)) ? true : null;
 }
 
+// A card must NEVER point at the product's own dashboard. The dashboard app
+// always lives at products/<Product>/dashboard/, so any rel that resolves into
+// that folder is a self-link — it renders a redundant "go to the dashboard"
+// card on the dashboard the user is already viewing. Skip it structurally so a
+// hand-added or duplicated "Dashboard" entry in products.json can never render
+// (designers do edit products.json by hand, and this kind of entry kept coming
+// back). Real mocks that merely have "dashboard" in their name (e.g.
+// "ai-search-engine-dashboard") are unaffected — only the dashboard/ folder is.
+function isDashboardSelfLink(rel) {
+  const norm = String(rel || '').replace(/^\.\//, '').replace(/\/+$/, '');
+  return norm === 'dashboard' || norm.startsWith('dashboard/');
+}
+
 // ---------------------------------------------------------------------------
 // Git-derived recent activity
 // ---------------------------------------------------------------------------
@@ -163,6 +176,8 @@ function buildProduct(product, jiraBase) {
   // source of truth for the list, titles, tickets, and any hand-set status.
   const mocks = {};
   for (const it of flattenItems(product.items)) {
+    // Never render a card that links back to this product's own dashboard.
+    if (isDashboardSelfLink(it.rel)) continue;
     const entry = {};
     if (it.name) entry.title = it.name;
     if (it.desc) entry.description = it.desc;
@@ -239,6 +254,37 @@ for (const product of productList) {
     `${r.changed ? '✓ updated' : '· no change'}  ${r.product}: ` +
     `${r.mockCount} mocks, ${r.devCount} dev-ready, ${r.recentCount} recent changes`
   );
+}
+
+// ---------------------------------------------------------------------------
+// Cache-busting: stamp each dashboard's <script src=".../dashboard.js"> with a
+// content hash of the shared script. GitHub Pages caches JS for ~10 minutes,
+// so without this a just-deployed dashboard.js change keeps serving stale UI
+// to anyone who loaded a dashboard recently. The stamp only changes when
+// dashboard.js itself changes, so this is a no-op on most pushes.
+// ---------------------------------------------------------------------------
+
+const crypto = require('crypto');
+try {
+  const dashSrc = fs.readFileSync(path.join(REPO_ROOT, 'designtoolbox', 'dashboard.js'));
+  const stamp = crypto.createHash('sha256').update(dashSrc).digest('hex').slice(0, 8);
+  for (const product of productList) {
+    if (!product || !product.folder) continue;
+    const page = path.join(REPO_ROOT, 'products', product.folder, 'dashboard', 'index.html');
+    if (!fs.existsSync(page)) continue;
+    const before = fs.readFileSync(page, 'utf8');
+    const after = before.replace(
+      /(src="[^"]*designtoolbox\/dashboard\.js)(\?v=[0-9a-f]*)?"/g,
+      `$1?v=${stamp}"`
+    );
+    if (after !== before) {
+      fs.writeFileSync(page, after);
+      anyChanged = true;
+      console.log(`✓ updated  ${product.folder}: dashboard.js cache stamp → ${stamp}`);
+    }
+  }
+} catch (e) {
+  console.warn(`! cache stamp skipped: ${e.message}`);
 }
 
 if (!anyChanged) console.log('All dashboards already up to date.');

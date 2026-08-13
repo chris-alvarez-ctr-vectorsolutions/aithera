@@ -122,8 +122,8 @@
 .fm-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;}\
 .fm-edges path{fill:none;stroke:#5b6092;stroke-width:2.5;}\
 .fm-edges path.branch{stroke:#6b5bd6;stroke-dasharray:6 5;}\
-.fm-node{position:absolute;width:248px;background:#1c1f33;border:1px solid rgba(255,255,255,.10);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s;}\
-.fm-node:hover{z-index:50;border-color:#7c5cff;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 2px rgba(124,92,255,.5);}\
+.fm-node{position:absolute;width:248px;background:#1c1f33;border:1px solid rgba(255,255,255,.10);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s,transform .2s;}\
+.fm-node:hover{z-index:50;border-color:#7c5cff;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 2px rgba(124,92,255,.5);transform:scale(1.035);transform-origin:top center;}\
 .fm-node--entry{width:214px;background:#2a2150;border-color:rgba(124,92,255,.4);}\
 .fm-thumb{position:relative;width:100%;height:160px;background:#fff;overflow:hidden;border-bottom:1px solid rgba(0,0,0,.25);}\
 .fm-thumb iframe{position:absolute;top:0;left:0;border:0;transform-origin:top left;pointer-events:none;background:#fff;}\
@@ -134,12 +134,19 @@
 .fm-step-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:18px;}\
 .fm-step{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8e93c4;}\
 .fm-name{font-size:14px;font-weight:700;color:#fff;margin-top:2px;}\
-/* Dev-annotation badge — purple glassmorphism, lives next to the step label (not in the corner). */\
-.fm-note-badge{display:inline-flex;align-items:center;gap:5px;font:700 10px/1 inherit;padding:4px 8px;border-radius:999px;color:#e9e3ff;cursor:pointer;white-space:nowrap;background:rgba(124,92,255,.20);border:1px solid rgba(124,92,255,.45);box-shadow:0 2px 10px rgba(124,92,255,.22);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);transition:background .15s,border-color .15s;}\
-.fm-note-badge:hover{background:rgba(124,92,255,.34);border-color:rgba(124,92,255,.7);}\
+/* Dev-notes badge (dev-ready builds only) — purple glassmorphism, labelled "Dev notes"\
+   so developers spot it immediately; lives next to the step label (not in the corner). */\
+.fm-note-badge{display:inline-flex;align-items:center;gap:5px;font-weight:800;font-size:11px;line-height:1;padding:5px 10px;border-radius:999px;color:#f2eeff;cursor:pointer;white-space:nowrap;background:rgba(124,92,255,.32);border:1px solid rgba(124,92,255,.62);box-shadow:0 2px 12px rgba(124,92,255,.38);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);transition:background .15s,border-color .15s,padding .18s,font-size .18s;}\
+.fm-note-badge:hover{background:rgba(124,92,255,.46);border-color:rgba(124,92,255,.8);}\
+.fm-nb-label{font-weight:800;letter-spacing:.01em;}\
+.fm-nb-n{background:rgba(255,255,255,.20);border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:800;}\
+/* On card hover the notes badge swells a touch more and reveals a → to open. */\
+.fm-nb-go{display:inline-block;max-width:0;opacity:0;overflow:hidden;margin-left:0;transition:max-width .18s,opacity .18s,margin-left .18s;}\
+.fm-node:hover .fm-note-badge{font-size:12px;padding:6px 12px;background:rgba(124,92,255,.46);border-color:rgba(124,92,255,.82);}\
+.fm-node:hover .fm-nb-go{max-width:16px;opacity:1;margin-left:3px;}\
 .fm-desc{font-size:12px;color:#aab0d8;line-height:1.45;margin-top:6px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
 .fm-node:hover .fm-desc{max-height:90px;opacity:1;margin-top:6px;}\
-.fm-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
+.fm-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
 .fm-node:hover .fm-actions{max-height:30px;opacity:1;margin-top:10px;}\
 .fm-add-note{border:1px solid rgba(124,92,255,.5);background:rgba(124,92,255,.12);color:#cdc4ff;border-radius:6px;font:700 10.5px/1 inherit;padding:5px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}\
 .fm-add-note:hover{background:rgba(124,92,255,.25);}\
@@ -159,10 +166,22 @@
 .fm-drawer-body{flex:1;overflow-y:auto;padding:16px 20px;}\
 .fm-ann{background:#1f2338;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px 13px;margin-bottom:10px;}\
 .fm-ann .meta{font-size:11px;color:#8e93c4;display:flex;justify-content:space-between;margin-bottom:5px;}\
-.fm-ann .txt{font-size:13px;color:#e6e8f5;line-height:1.5;white-space:pre-wrap;}\
+.fm-ann .txt{font-size:13px;color:#e6e8f5;line-height:1.55;white-space:pre-wrap;}\
+.fm-ann-date{font-size:10.5px;color:#7a80a8;font-weight:700;letter-spacing:.04em;margin-bottom:5px;}\
+/* Optional scannable header (from a `- **Header:** desc` note); its description dims slightly so the header leads. */\
+.fm-ann-head{font-size:14px;color:#fff;font-weight:800;line-height:1.32;margin-bottom:5px;letter-spacing:.005em;}\
+.fm-ann-head+.txt{color:#c9cce0;}\
+.fm-ann .txt strong{color:#fff;font-weight:700;}\
+.fm-ann .txt code{background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px;color:#cdd1f0;font-size:12px;}\
 .fm-ann .ops{display:flex;gap:12px;margin-top:8px;}\
 .fm-ann .ops button{border:none;background:none;color:#9aa0cf;font:700 11px/1 inherit;cursor:pointer;}\
 .fm-ann .ops button:hover{color:#fff;}\
+/* "+N more — see full DEV-NOTES.md" link shown when a screen has more than NOTE_CAP notes. */\
+.fm-ann-more{display:flex;align-items:center;gap:9px;margin-top:2px;padding:11px 13px;border-radius:10px;background:rgba(124,92,255,.12);border:1px dashed rgba(124,92,255,.5);color:#cdc4ff;font-size:12.5px;font-weight:700;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s;}\
+.fm-ann-more:hover{background:rgba(124,92,255,.22);border-color:rgba(124,92,255,.75);}\
+.fm-ann-more svg{width:15px;height:15px;flex:none;}\
+.fm-ann-more .fm-more-go{margin-left:auto;font-size:14px;}\
+.fm-ann-more-plain{cursor:default;}\
 .fm-empty{color:#7a80a8;font-size:13px;text-align:center;padding:24px 0;}\
 .fm-composer{border-top:1px solid rgba(255,255,255,.08);padding:14px 20px;}\
 .fm-source{font-size:12px;color:#8e93c4;line-height:1.5;display:flex;gap:7px;align-items:flex-start;}\
@@ -181,15 +200,26 @@
 html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .cw-popup,html.fm-open .cw-toast,html.fm-open .cw-banner,html.fm-open .cw-admin-panel,html.fm-open .cw-reveal-bar,html.fm-open .cw-lightbox,html.fm-open .cw-bubble{display:none !important;}\
 ';
 
-  // ---- dev notes (read-only, from committed DEV-NOTES.md) -------------------
+  // ---- notes (read-only, from committed DEV-NOTES.md) -----------------------
   // Notes are authored in a Markdown file next to the mock — not in the browser —
-  // so they're committed to git and shared with everyone. Format:
+  // so they're committed to git and shared with everyone. They are a DEV-READY
+  // affordance: the flow map shows them ONLY in a dev-handoff build (comments OFF;
+  // see NOTES_ON). While a mock is in progress, nothing here renders — the running
+  // change log for that phase is the dashboard's recent-changes + GitHub commits.
+  // You can still author the file incrementally (capturing client feedback and
+  // decisions as they land); it simply stays hidden until the mock is dev-ready.
+  // Format:
   //
   //   > author: Design handoff            (optional; default attribution)
+  //   > date: 2026-08-10                  (optional; default date for notes below,
+  //                                        can be redeclared partway down the file)
   //
   //   ## <node-id>  — anything after the id is just a human-readable title
-  //   - One bullet = one dev note.
-  //   - Another note for the same step.
+  //   - One bullet = one note.
+  //   - **Short header:** description follows.  (bold lead + trailing colon INSIDE
+  //         the ** ** renders the header as its own line above the description —
+  //         an optional aid to keep a dev note skimmable; plain bullets stay prose.)
+  //   - (2026-08-11) A note with its own date, overriding the default above.
   //
   //   ## <another-node-id>
   //   - …
@@ -201,28 +231,44 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function annsFor(id) { return anns[id] || []; }
 
   function parseNotes(md) {
-    var out = {}, cur = null, defaultAuthor = 'Design handoff';
+    var out = {}, cur = null, defaultAuthor = 'Design handoff', defaultDate = '';
     md.split(/\r?\n/).forEach(function (raw) {
       var line = raw.replace(/\s+$/, '');
       var av = line.match(/^>\s*author:\s*(.+)$/i);
       if (av) { defaultAuthor = av[1].trim(); return; }
+      var dv = line.match(/^>\s*date:\s*(.+)$/i);
+      if (dv) { defaultDate = dv[1].trim(); return; }
       var h = line.match(/^##\s+([A-Za-z0-9_-]+)/);
       if (h) { cur = h[1]; if (!out[cur]) out[cur] = []; return; }
       if (!cur) return;
       var b = line.match(/^\s*[-*]\s+(.+)$/);
-      if (b) out[cur].push({ text: b[1].trim(), author: defaultAuthor });
+      if (b) {
+        var text = b[1].trim(), date = defaultDate;
+        var dm = text.match(/^\((\d{4}-\d{2}-\d{2})\)\s*(.*)$/);   // optional per-note date override
+        if (dm) { date = dm[1]; text = dm[2].trim(); }
+        // Optional scannable header: a bold lead that ends in a colon —
+        //   - **Short header:** the description follows.
+        // The header renders as its own heading line above the description, an
+        // optional aid to keep a dev note skimmable. A bullet WITHOUT this exact
+        // form (bold-lead + trailing colon INSIDE the **…**) renders as plain
+        // prose, so freeform dev notes are untouched.
+        var head = '';
+        var hm = text.match(/^\*\*([^*]+?):\*\*\s*([\s\S]*)$/);
+        if (hm) { head = hm[1].trim(); text = hm[2].trim(); }
+        out[cur].push({ text: text, head: head, author: defaultAuthor, date: date });
+      }
     });
     return out;
   }
 
   var fetchedNotes = false;
   var notesExist = false;   // true once DEV-NOTES.md is found with ≥1 note
-  // Reflect whether any dev notes exist: when none, show the "no dev notes yet"
-  // banner at the top and keep the per-step "Dev notes" buttons hidden.
+  // Reflect whether any dev notes exist: when none, keep the per-step
+  // "Dev notes" buttons hidden. (No empty-state banner — removed by request;
+  // an empty DEV-NOTES.md simply shows nothing until notes are added.)
   function applyNotesState() {
     if (!overlay) return;
     overlay.classList.toggle('fm-add-note-hidden', !notesExist);
-    overlay.classList.toggle('fm-nonotes-on', !notesExist);
   }
   function fetchNotes() {
     return fetch(NOTES_URL, { cache: 'no-store' })
@@ -248,7 +294,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function fetchCommentCounts() {
     return fetch(WORKER_URL + '/pins?url=' + encodeURIComponent(canonicalPageUrl()))
       .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (pins) {
+      .then(function (data) {
+        // The worker wraps the list ({ pins: [...] }); accept a bare array too.
+        var pins = Array.isArray(data) ? data : (data && data.pins);
         if (!Array.isArray(pins)) return;
         // Attribute each pin to the single best node: the entry node of whichever
         // flow its captured state matches (state capture pinpoints the flow, not
@@ -321,6 +369,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   // Add the dev-notes link only if DEV-NOTES.md is reachable and non-empty, so
   // it never points at a 404 for mocks that don't have one.
   function maybeAddDevNotesLink(launch) {
+    // Only surface the GitHub link in a dev-handoff build (comments OFF). During
+    // design/review (comments ON) we're not ready to point anyone at GitHub yet.
+    if (COMMENTS_ON) return;
     var url = devNotesGitHubUrl();
     if (!url) return;
     fetch(NOTES_URL, { cache: 'no-store' })
@@ -344,8 +395,8 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     overlay = el('div', 'fm-overlay fm-add-note-hidden');
     overlay.innerHTML =
       '<div class="fm-top">' +
-        '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2><span class="tag">Dev tool</span></div>' +
-        '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 view dev notes</div>' +
+        '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2></div>' +
+        '<div class="fm-hint">Hover to preview the live design · click to open it live' + (COMMENTS_ON ? ' · 💬 view comments' : '') + (NOTES_ON ? ' · 📝 ' + NOTES_VERB : '') + '</div>' +
         '<div class="fm-tools">' +
           '<button class="fm-tbtn" data-z="-1" title="Zoom out">' + ICON_MINUS + '</button>' +
           '<button class="fm-tbtn" data-z="0" title="Reset zoom">' + ICON_EXPAND + '</button>' +
@@ -353,13 +404,13 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
           '<button class="fm-tbtn" data-close="1" title="Close" style="margin-left:6px;">' + ICON_X + '</button>' +
         '</div>' +
       '</div>' +
-      '<div class="fm-nonotes">' + ICON_NOTE + '<span>No dev notes yet — add them to <code>DEV-NOTES.md</code> next to this mock and they’ll appear on each step.</span></div>' +
       '<div class="fm-view"><div class="fm-canvas"><svg class="fm-edges"></svg></div></div>';
     document.body.appendChild(overlay);
 
     viewport = overlay.querySelector('.fm-view');
     canvas = overlay.querySelector('.fm-canvas');
     edgesSvg = overlay.querySelector('.fm-edges');
+    fitToHover();
     canvas.style.width = CFG.canvas.w + 'px';
     canvas.style.height = CFG.canvas.h + 'px';
 
@@ -367,9 +418,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     drawer = el('div', 'fm-drawer');
     drawer.innerHTML =
       '<div class="fm-drawer-head"><button class="x" data-dclose="1">' + ICON_X + '</button>' +
-        '<div class="k">Dev notes</div><h3 class="fm-dtitle"></h3></div>' +
+        '<div class="k">' + NOTES_TITLE + '</div><h3 class="fm-dtitle"></h3></div>' +
       '<div class="fm-drawer-body"></div>' +
-      '<div class="fm-composer"><div class="fm-source">' + ICON_FILE + ' Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>' +
+      '<div class="fm-composer">' + (COMMENTS_ON ? '' : '<div class="fm-source">' + ICON_FILE + ' Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>') +
         '<div class="row"><button class="fm-btn ghost" data-dclose="1">Close</button></div></div>';
     overlay.appendChild(drawer);
 
@@ -384,6 +435,31 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     drawEdges();
     setupPan();
     built = true;
+  }
+
+  // Grow each lane box (and the canvas) so a HOVERED card — which expands
+  // downward as its description/actions reveal and scales up slightly — is never
+  // cut off by the lane. Only ever extends; clamps so a lane can't grow into a
+  // lane stacked directly below it. Runs before lanes/canvas are sized.
+  function fitToHover() {
+    var HOVER_H = 380, PAD = 24, GAP = 16;
+    var flows = CFG.flows || [], nodes = CFG.nodes || [];
+    function overlapX(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w; }
+    flows.forEach(function (f) {
+      if (!f.lane) return;
+      var need = f.lane.y + f.lane.h;
+      nodes.forEach(function (n) { if (n.flow === f.id) need = Math.max(need, n.y + HOVER_H + PAD); });
+      var limit = Infinity;                          // don't grow into a lane below us
+      flows.forEach(function (g) {
+        if (g === f || !g.lane) return;
+        if (g.lane.y > f.lane.y && overlapX(f.lane, g.lane)) limit = Math.min(limit, g.lane.y - GAP);
+      });
+      f.lane.h = Math.max(f.lane.h, Math.min(need, limit) - f.lane.y);
+    });
+    var maxB = CFG.canvas.h;
+    flows.forEach(function (f) { if (f.lane) maxB = Math.max(maxB, f.lane.y + f.lane.h + PAD); });
+    nodes.forEach(function (n) { maxB = Math.max(maxB, n.y + HOVER_H + PAD); });
+    CFG.canvas.h = maxB;
   }
 
   function buildLanes() {
@@ -425,14 +501,14 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
           '<div class="fm-step-row"><div class="fm-step">' + (n.step || '') + '</div><span class="fm-note-slot"></span></div>' +
           '<div class="fm-name">' + n.name + '</div>' +
           '<div class="fm-desc">' + (n.desc || '') + '</div>' +
-          '<div class="fm-actions"><button class="fm-add-note">' + ICON_NOTE + ' Dev notes</button><span class="fm-open">Open live →</span></div>' +
+          '<div class="fm-actions"><span class="fm-open">Open live →</span></div>' +
         '</div>';
-      // open live (ignore clicks on chips / add-note)
+      // Click the card to open it live (but not when clicking the notes badge,
+      // which opens the notes drawer and stops propagation itself).
       node.addEventListener('click', function (e) {
-        if (e.target.closest('.fm-chip') || e.target.closest('.fm-add-note')) return;
+        if (e.target.closest('.fm-chip') || e.target.closest('.fm-note-badge')) return;
         openLive(n.id);
       });
-      node.querySelector('.fm-add-note').addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
       canvas.appendChild(node);
       io.observe(node);
     });
@@ -453,16 +529,59 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     thumb.insertBefore(iframe, thumb.firstChild);
   }
 
+  // Real geometry for a node's card: measured from the DOM when the overlay is
+  // visible (so different card heights and the entry card's narrower width are
+  // exact), falling back to the config coords + estimates while it's still
+  // display:none (nodes report zero size until first paint).
+  function nodeRect(n) {
+    var eln = canvas && canvas.querySelector('.fm-node[data-node="' + n.id + '"]');
+    if (eln && eln.offsetWidth) return { x: eln.offsetLeft, y: eln.offsetTop, w: eln.offsetWidth, h: eln.offsetHeight };
+    return { x: n.x, y: n.y, w: nodeW(n), h: nodeH() };
+  }
+
   function drawEdges() {
+    if (!edgesSvg) return;
     var ns = 'http://www.w3.org/2000/svg';
-    edgesSvg.innerHTML = '<defs><marker id="fmarrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9,4.5 L0,9 Z" fill="#5b6092"></path></marker></defs>';
+    // One arrowhead per edge color. markerUnits=userSpaceOnUse keeps the head a
+    // constant size at any zoom.
+    edgesSvg.innerHTML =
+      '<defs>' +
+        '<marker id="fmarrow" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5.5 L0,11 Z" fill="#5b6092"></path></marker>' +
+        '<marker id="fmarrow-b" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5.5 L0,11 Z" fill="#6b5bd6"></path></marker>' +
+      '</defs>';
+    // Small gap so the arrowhead sits just OUTSIDE the target card's border and
+    // reads clearly, rather than tucking under the card edge.
+    var STAND = 3;
     CFG.edges.forEach(function (e) {
       var a = nodeById(e[0]), b = nodeById(e[1]); if (!a || !b) return;
-      var x1 = a.x + nodeW(a), y1 = a.y + nodeH() / 2, x2 = b.x, y2 = b.y + nodeH() / 2;
-      var dx = Math.max(40, (x2 - x1) / 2);
+      var ra = nodeRect(a), rb = nodeRect(b);
+      var acx = ra.x + ra.w / 2, acy = ra.y + ra.h / 2;
+      var bcx = rb.x + rb.w / 2, bcy = rb.y + rb.h / 2;
+      var dxc = bcx - acx, dyc = bcy - acy;
+      var x1, y1, x2, y2, c1x, c1y, c2x, c2y;
+
+      if (Math.abs(dxc) >= Math.abs(dyc)) {
+        // Side-by-side: leave one card's left/right face, enter the other's
+        // opposite face. Control points pull horizontally for a clean S-curve.
+        if (dxc >= 0) { x1 = ra.x + ra.w; x2 = rb.x - STAND; }   // A → right, into B's left
+        else          { x1 = ra.x;        x2 = rb.x + rb.w + STAND; } // A → left, into B's right
+        y1 = acy; y2 = bcy;
+        var hx = Math.max(40, Math.abs(x2 - x1) / 2), hdir = x2 >= x1 ? 1 : -1;
+        c1x = x1 + hdir * hx; c1y = y1; c2x = x2 - hdir * hx; c2y = y2;
+      } else {
+        // Stacked: leave the top/bottom face and enter the other's opposite
+        // face, so the connector runs straight up/down instead of wrapping
+        // around behind the cards. Control points pull vertically.
+        if (dyc >= 0) { y1 = ra.y + ra.h; y2 = rb.y - STAND; }   // A → bottom, into B's top
+        else          { y1 = ra.y;        y2 = rb.y + rb.h + STAND; } // A → top, into B's bottom
+        x1 = acx; x2 = bcx;
+        var vy = Math.max(40, Math.abs(y2 - y1) / 2), vdir = y2 >= y1 ? 1 : -1;
+        c1x = x1; c1y = y1 + vdir * vy; c2x = x2; c2y = y2 - vdir * vy;
+      }
+
       var p = document.createElementNS(ns, 'path');
-      p.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2);
-      p.setAttribute('marker-end', 'url(#fmarrow)');
+      p.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + x2 + ' ' + y2);
+      p.setAttribute('marker-end', e[2] === 'branch' ? 'url(#fmarrow-b)' : 'url(#fmarrow)');
       if (e[2]) p.classList.add(e[2]);
       edgesSvg.appendChild(p);
     });
@@ -476,7 +595,9 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       var cmtCorner = node.querySelector('.fm-cmt-corner'), noteSlot = node.querySelector('.fm-note-slot');
       var c = commentCounts[n.id] || 0, a = annsFor(n.id).length;
       cmtCorner.innerHTML = c ? '<span class="fm-cmt-badge" title="' + c + ' comment(s) — view">💬 ' + c + '</span>' : '';
-      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' dev note(s) — view">' + ICON_NOTE + ' ' + a + '</span>' : '';
+      // Notes are dev-ready-only, so the badge carries a full "Dev notes" label
+      // (not a bare count) — developers spot it and know it's clickable at a glance.
+      noteSlot.innerHTML = (NOTES_ON && a) ? '<span class="fm-note-badge" title="' + a + ' ' + NOTE_UNIT + '(s) — click to open">' + ICON_NOTE + ' <span class="fm-nb-label">' + NOTES_TITLE + '</span> <span class="fm-nb-n">' + a + '</span><span class="fm-nb-go">→</span></span>' : '';
       var cc = cmtCorner.querySelector('.fm-cmt-badge'); if (cc) cc.addEventListener('click', function (e) { e.stopPropagation(); viewComments(n.id); });
       var nc = noteSlot.querySelector('.fm-note-badge'); if (nc) nc.addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
     });
@@ -493,13 +614,36 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   function renderDrawer() {
     var body = drawer.querySelector('.fm-drawer-body');
     var list = annsFor(drawerNode);
-    if (!list.length) { body.innerHTML = '<div class="fm-empty">No dev notes for this step yet.<br>Add them to <code>DEV-NOTES.md</code> under <code>## ' + esc(drawerNode) + '</code> and they’ll show here.</div>'; return; }
-    body.innerHTML = list.map(function (a) {
-      return '<div class="fm-ann"><div class="meta"><span>' + esc(a.author || 'Design handoff') + '</span><span>📝 dev note</span></div>' +
-        '<div class="txt">' + esc(a.text) + '</div></div>';
+    if (!list.length) { body.innerHTML = '<div class="fm-empty">No ' + NOTE_UNIT + 's for this step yet.<br>Add them to <code>DEV-NOTES.md</code> under <code>## ' + esc(drawerNode) + '</code> and they’ll show here.</div>'; return; }
+    // Cap a long list: show the first NOTE_CAP notes, then point to the full
+    // DEV-NOTES.md (linked on GitHub in a dev build) for the rest — a busy screen
+    // stays skimmable instead of scrolling forever.
+    var shown = list.slice(0, NOTE_CAP);
+    var html = shown.map(function (a) {
+      var date = a.date ? '<div class="fm-ann-date">' + esc(a.date) + '</div>' : '';
+      var head = a.head ? '<div class="fm-ann-head">' + mdInline(a.head) + '</div>' : '';
+      var txt  = a.text ? '<div class="txt">' + mdInline(a.text) + '</div>' : '';
+      return '<div class="fm-ann">' + date + head + txt + '</div>';
     }).join('');
+    var extra = list.length - shown.length;
+    if (extra > 0) {
+      var moreTxt = '+' + extra + ' more ' + NOTE_UNIT + (extra === 1 ? '' : 's') + ' — see the full DEV-NOTES.md';
+      var url = devNotesGitHubUrl();
+      html += url
+        ? '<a class="fm-ann-more" href="' + url + '" target="_blank" rel="noopener">' + ICON_FILE + '<span>' + esc(moreTxt) + '</span><span class="fm-more-go">→</span></a>'
+        : '<div class="fm-ann-more fm-ann-more-plain">' + ICON_FILE + '<span>' + esc(moreTxt) + ' (in this mock’s DEV-NOTES.md)</span></div>';
+    }
+    body.innerHTML = html;
   }
   function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  // Minimal, SAFE inline markdown for note text: HTML-escape first, then render
+  // **bold** and `code` only. Keeps a long notes list scannable without opening
+  // an XSS hole (no raw HTML ever reaches innerHTML).
+  function mdInline(s) {
+    return esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
 
   // ---- open live / view comments -------------------------------------------
   function openLive(id) {
@@ -512,6 +656,15 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       if (typeof setVer === 'function') { try { setVer(n.version); } catch (e) {} }
     }
     if (typeof apply === 'function') apply(n.state || n.id);
+    // Record the node we just drove to (our OWN global — we never wrap or touch
+    // the host's applyFlowState). The comment widget reads this to bind a new
+    // comment to its flow node, so "Go" can later jump straight back here.
+    try {
+      window.__toolboxFlowState = {
+        state: (n && (n.state || n.id)) || '',
+        version: (n && n.version != null && n.version !== '') ? String(n.version) : ''
+      };
+    } catch (e) {}
   }
   function viewComments(id) {
     openLive(id);
@@ -525,7 +678,19 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   // window.TOOLBOX = { comments:false }), the flow map suppresses 💬 comment
   // counts too — a build with comments hidden should surface only dev notes.
   var COMMENTS_ON = !(window.TOOLBOX && window.TOOLBOX.comments === false);
-  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; if (COMMENTS_ON && !fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
+  // Notes are a DEV-READY affordance only. While a mock is still in design/review
+  // (comments ON) the flow map shows NO notes at all — the running "what changed"
+  // log for that phase lives in the dashboard's recent-changes + the GitHub commit
+  // history, not hand-authored here. Notes surface ONLY in a dev-handoff build
+  // (comments OFF), where they ARE the dev notes developers read, framed as such
+  // and with the GitHub link to DEV-NOTES.md shown. So the two phases are: in
+  // progress → commits tell the story; dev-ready → the flow map surfaces dev notes.
+  var NOTES_ON   = !COMMENTS_ON;
+  var NOTES_TITLE = 'Dev notes';
+  var NOTES_VERB  = 'view dev notes';
+  var NOTE_UNIT   = 'dev note';
+  var NOTE_CAP    = 8;   // drawer shows at most this many notes; the rest → "see full DEV-NOTES.md"
+  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; requestAnimationFrame(drawEdges); /* redraw once the overlay is visible so edges anchor to real, measured card boxes */ if (COMMENTS_ON && !fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (NOTES_ON && !fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
   function closeMap() { if (overlay) overlay.classList.remove('open'); document.documentElement.classList.remove('fm-open'); document.body.style.overflow = ''; closeDrawer(); }
   var fetchedCounts = false;
 

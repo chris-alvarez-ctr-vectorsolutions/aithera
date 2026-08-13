@@ -1,6 +1,6 @@
 /* global window, document, KEYSTONE, KX, KXHero, KXAgencyIntel */
 /* ========================================================================
-   hub.js — Keystone Department Hub. Vanilla JS.
+   hub.js — the Readiness Hub. Vanilla JS.
    ------------------------------------------------------------------------
    The role-adaptive readiness surface:
      · Greeting header with vital-sign tiles (always)
@@ -1398,7 +1398,7 @@
         var src = K.SOURCES[t2.source];
         KX.pushToast({
           title: 'Opening ' + src.name + '…',
-          body: 'Deep-linking to ' + t2.title + '. Returns to Keystone after completion.',
+          body: 'Deep-linking to ' + t2.title + '. Returns to the Readiness Hub after completion.',
           icon: 'open_in_new'
         });
       }

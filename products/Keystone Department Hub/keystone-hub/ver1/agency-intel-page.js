@@ -105,6 +105,36 @@
     });
   }
 
+  function widgetById(id) {
+    var d = active();
+    return d ? (d.widgets || []).find(function (w) { return w.id === id; }) || null : null;
+  }
+
+  /**
+   * Move one of a table widget's settings (sort / hidden / pageSize).
+   * In edit mode this is the owner setting the dashboard's default, so it
+   * lands on the widget and clears any local override that would mask it.
+   * Otherwise it's a viewer exploring — local only, and the toolbar flags it
+   * unsaved. Same ownership split the date-range control uses.
+   */
+  function saveTableSetting(widget, key, value) {
+    var prop = key === 'sort' ? 'tableSort' : key === 'hidden' ? 'tableHidden' : 'tablePageSize';
+    if (state.mode === 'edit') {
+      KXCanvas.clearLocalTable(widget.id, key);
+      setWidgets(function (ws) {
+        return ws.map(function (x) {
+          if (x.id !== widget.id) return x;
+          var n = Object.assign({}, x);
+          if (value == null) delete n[prop]; else n[prop] = value;
+          return n;
+        });
+      });
+    } else {
+      KXCanvas.setLocalTable(widget.id, key, value);
+      render();
+    }
+  }
+
   /* =====================================================================
      SHARED BITS
      ===================================================================== */
@@ -225,16 +255,26 @@
      HOME — DASHBOARDS TAB
      ===================================================================== */
 
-  var FILTERS = [
+  // 'scheduled' is a report-delivery state, which is v2 — see deliveryOf() in
+  // agency-intel-page-data.js. With the flag off nothing can hold that status,
+  // so the chip would only ever read 0; drop it from the segmented control.
+  var ALL_FILTERS = [
     { id: 'all', label: 'All', fg: 'var(--ink-900)', bg: 'var(--surface-1)' },
     { id: 'draft', label: 'Draft', fg: 'var(--amber-600)', bg: 'var(--amber-50)' },
     { id: 'private', label: 'Private', fg: 'var(--ink-700)', bg: 'var(--surface-3)' },
-    { id: 'scheduled', label: 'Scheduled', fg: 'var(--lumo-primary-text-color)', bg: 'var(--lumo-primary-color-10pct)' },
+    { id: 'scheduled', label: 'Scheduled', futureOnly: true, fg: 'var(--lumo-primary-text-color)', bg: 'var(--lumo-primary-color-10pct)' },
     { id: 'published', label: 'Published', fg: 'var(--teal-600)', bg: 'var(--teal-50)' }
   ];
+  function filters() {
+    var on = CP.deliveryEnabled();
+    return ALL_FILTERS.filter(function (f) { return on || !f.futureOnly; });
+  }
 
   function filteredDashboards() {
     var list = state.dashboards;
+    // If the flag goes off while 'Scheduled' is the active filter, the chip is
+    // gone from under it — fall back to All rather than showing an empty table.
+    if (state.filter === 'scheduled' && !CP.deliveryEnabled()) state.filter = 'all';
     if (state.filter !== 'all') {
       list = list.filter(function (d) { return CP.statusOf(d) === state.filter; });
     }
@@ -290,7 +330,9 @@
       '<td>' + sourcesCell(d) + '</td>' +
       '<td class="cp-num">' + (d.widgets || []).length + '</td>' +
       '<td>' + statusBadge(st) + '</td>' +
-      '<td>' + deliveryPill(d) + '</td>' +
+      // Delivery is the report-cadence column — v2 only, so the column comes
+      // and goes with the flag (header below matches).
+      (CP.deliveryEnabled() ? '<td>' + deliveryPill(d) + '</td>' : '') +
       '<td>' + audienceCell(d) + '</td>' +
       '<td class="cp-num" title="Estimated people reached"' +
       (reach ? '' : ' style="color:var(--ink-300)"') + '>' + (reach || '—') + '</td>' +
@@ -325,7 +367,7 @@
       '</div>' +
       '<div class="cp-dcard-foot">' +
       '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap">' +
-      deliveryPill(d) + audienceCell(d) + '</span>' +
+      (CP.deliveryEnabled() ? deliveryPill(d) : '') + audienceCell(d) + '</span>' +
       '<span style="font-size:11.5px;color:var(--ink-500);white-space:nowrap">Updated ' + esc(fmtDate(d.updatedAt)) + '</span>' +
       '</div></div>';
   }
@@ -357,7 +399,7 @@
       '<vaadin-text-field theme="outlined" class="cp-search" id="cpSearch" placeholder="Search dashboards…" ' +
       'clear-button-visible value="' + KX.attr(state.query) + '"></vaadin-text-field>' +
       '<div class="cp-seg" role="group" aria-label="Filter by status">' +
-      FILTERS.map(function (f) {
+      filters().map(function (f) {
         var on = state.filter === f.id;
         return '<button data-cp-filter="' + f.id + '" class="' + (on ? 'is-on' : '') + '"' +
           (on ? ' style="background:' + f.bg + ';color:' + f.fg + ';box-shadow:inset 0 -2px 0 ' + f.fg + '"' : '') +
@@ -385,7 +427,7 @@
         '<th>Sources</th>' +
         sortTh('Widgets', 'widgets', { num: true }) +
         sortTh('Status', 'status') +
-        '<th>Delivery</th><th>Published to</th>' +
+        (CP.deliveryEnabled() ? '<th>Delivery</th>' : '') + '<th>Published to</th>' +
         sortTh('Reach', 'reach', { num: true }) +
         sortTh('Updated', 'updated', { num: true }) +
         '</tr></thead><tbody>' + rows.map(dashRow).join('') + '</tbody></table></div></div>';
@@ -553,18 +595,25 @@
   function homeHtml() {
     var isAdmin = !!(K.ROLES[state.role] && K.ROLES[state.role].admin);
     var declined = state.aiLog.filter(function (e) { return e.outcome === 'denied' && !e.flagged; }).length;
-    // Data Explorer is admin-only; if a non-admin lands on it, fall back.
-    var tab = (state.homeTab === 'explore' && !isAdmin) ? 'dashboards' : state.homeTab;
+    // Data Explorer is v2 (Future-functionality flag) and admin-only on top of
+    // that; if the tab goes away underneath someone standing on it, fall back.
+    var exploreOn = isAdmin && KX.getFlags().futureOn;
+    var tab = (state.homeTab === 'explore' && !exploreOn) ? 'dashboards' : state.homeTab;
 
     var subtitle = tab === 'ai'
       ? 'Control who gets an Agency Intelligence assistant on their homepage, and audit every question it answers.'
       : tab === 'explore'
         ? 'Explore your data with Agency Intelligence — follow any thread. Exploration doesn\'t have to become a dashboard.'
-        : 'Dashboards you\'ve built with Agency Intelligence. Open one to edit with AI, publish it live to a role, ' +
-          'or schedule it out as a report — same widgets, your choice of destination.';
+        // The "schedule it out as a report" half of the promise is v2 — with
+        // the flag off, publishing live to a role is the only destination.
+        : CP.deliveryEnabled()
+          ? 'Dashboards you\'ve built with Agency Intelligence. Open one to edit with AI, publish it live to a role, ' +
+            'or schedule it out as a report — same widgets, your choice of destination.'
+          : 'Dashboards you\'ve built with Agency Intelligence. Open one to edit with AI, or publish it live to ' +
+            'the roles and people who need it.';
 
     var TABS = [{ id: 'dashboards', label: 'Dashboards', icon: 'space_dashboard' }]
-      .concat(isAdmin ? [{ id: 'explore', label: 'Data Explorer', icon: 'travel_explore' }] : [])
+      .concat(exploreOn ? [{ id: 'explore', label: 'Data Explorer', icon: 'travel_explore' }] : [])
       .concat([{ id: 'ai', label: 'AI access', icon: 'auto_awesome' }]);
 
     return '<div class="cp-page">' +
@@ -1038,6 +1087,9 @@
   function buildHtml() {
     var d = active();
     if (!d) return homeHtml();
+    // 'report' is the delivered-report view (v2). If the flag goes off while
+    // it's open, drop back to the live-dashboard preview.
+    if (state.mode === 'report' && !CP.deliveryEnabled()) state.mode = 'preview';
     var locked = state.mode !== 'edit';
     var widgets = d.widgets || [];
     var st = CP.statusOf(d);
@@ -1076,8 +1128,11 @@
             : '') +
           exportControl() +
           (published
+            // "Delivery" covers both destinations (live + report). In v1 there
+            // is only the live audience, so the label says so.
             ? '<vaadin-button theme="secondary" id="cpPublish">' + micon('group', { size: 16 }) +
-              '<span class="kx-btn-label">Manage delivery</span></vaadin-button>'
+              '<span class="kx-btn-label">' +
+              (CP.deliveryEnabled() ? 'Manage delivery' : 'Manage audience') + '</span></vaadin-button>'
             : '<vaadin-button theme="primary" id="cpPublish">' + micon('campaign', { size: 16 }) +
               '<span class="kx-btn-label">Publish</span></vaadin-button>')
         : '') +
@@ -1100,14 +1155,18 @@
           : '<span class="cp-status" style="background:var(--surface-3);color:var(--ink-600);' +
             'border:1px solid var(--ink-100)">' + micon('visibility', { size: 12, fill: 1 }) +
             ' Preview only — nothing is sent</span>') +
-        '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
-        '<span style="font-size:11.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;' +
-        'color:var(--ink-400)">Viewing as</span>' +
-        '<div class="cp-modes">' +
-        [['preview', 'Live dashboard', 'space_dashboard'], ['report', 'Delivered report', 'description']].map(function (o) {
-          return '<button data-cp-mode="' + o[0] + '" class="' + (state.mode === o[0] ? 'is-on' : '') + '">' +
-            micon(o[2], { size: 14 }) + ' ' + o[1] + '</button>';
-        }).join('') + '</div></div></div></div>'
+        // "Delivered report" is the emailed-report view — v2 only. With one
+        // choice left there is nothing to toggle, so the whole cluster goes.
+        (CP.deliveryEnabled()
+          ? '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
+            '<span style="font-size:11.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;' +
+            'color:var(--ink-400)">Viewing as</span>' +
+            '<div class="cp-modes">' +
+            [['preview', 'Live dashboard', 'space_dashboard'], ['report', 'Delivered report', 'description']].map(function (o) {
+              return '<button data-cp-mode="' + o[0] + '" class="' + (state.mode === o[0] ? 'is-on' : '') + '">' +
+                micon(o[2], { size: 14 }) + ' ' + o[1] + '</button>';
+            }).join('') + '</div></div>'
+          : '') + '</div></div>'
       : '';
 
     var canvas;
@@ -1157,12 +1216,14 @@
       '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:600;font-size:24px;' +
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(CP.widgetTitle(w)) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
-      esc(d.name) + ' · Keystone · ' + esc(fmtDate(TODAY)) + '</div></div>' +
+      esc(d.name) + ' · Readiness Hub · ' + esc(fmtDate(TODAY)) + '</div></div>' +
       agencyIntelMark(34) + '</div>' +
-      '<div class="cp-grid">' + KXCanvas.widgetCard(Object.assign({}, w, { w: 12 }), { editable: false }) +
+      // `report` prints every table row with no filter box or pager.
+      '<div class="cp-grid">' +
+      KXCanvas.widgetCard(Object.assign({}, w, { w: 12 }), { editable: false, report: true }) +
       '</div>' +
       '<div style="margin-top:26px;padding-top:14px;border-top:1px solid var(--ink-100);font-size:11.5px;' +
-      'color:var(--ink-400)">Generated by Keystone Agency Intelligence · data as of ' +
+      'color:var(--ink-400)">Generated by Readiness Hub Agency Intelligence · data as of ' +
       esc(fmtDate(TODAY)) + '</div></div>';
   }
 
@@ -1177,7 +1238,7 @@
       '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:600;font-size:28px;' +
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(d.name) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
-      'Keystone · ' + esc(fmtDate(TODAY)) +
+      'Readiness Hub · ' + esc(fmtDate(TODAY)) +
       (del ? ' · ' + esc(CP.cadenceMeta(del.cadence).label + ' ' + CP.formatMeta(del.format).label) : '') +
       '</div></div>' + agencyIntelMark(34) + '</div>' +
       // reportSummary() returns { lead, rows } — `lead` is the prose.
@@ -1186,14 +1247,20 @@
           'background:var(--surface-2);border-radius:10px;border-left:3px solid var(--amber-400)">' +
           esc(summary.lead) + '</div>'
         : '') +
+      // `report` prints every table row with no filter box or pager.
       '<div class="cp-grid">' + (d.widgets || []).map(function (w) {
-        return KXCanvas.widgetCard(w, { editable: false });
+        return KXCanvas.widgetCard(w, { editable: false, report: true });
       }).join('') + '</div>' +
       '<div style="margin-top:26px;padding-top:14px;border-top:1px solid var(--ink-100);font-size:11.5px;' +
       'color:var(--ink-400);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
-      '<span>Generated by Keystone Agency Intelligence · data as of ' + esc(fmtDate(TODAY)) + '</span>' +
-      '<span>' + (del ? esc('Delivered ' + CP.cadenceMeta(del.cadence).label.toLowerCase()) : 'Not scheduled') +
-      '</span></div></div>';
+      '<span>Generated by Readiness Hub Agency Intelligence · data as of ' + esc(fmtDate(TODAY)) + '</span>' +
+      // In v1 this layout is only reached by the manual "Export as PDF" action,
+      // where a cadence line would be meaningless — so it's omitted, not "Not
+      // scheduled". With the flag on it reads the dashboard's real cadence.
+      (CP.deliveryEnabled()
+        ? '<span>' + (del ? esc('Delivered ' + CP.cadenceMeta(del.cadence).label.toLowerCase()) : 'Not scheduled') + '</span>'
+        : '') +
+      '</div></div>';
   }
 
   /* =====================================================================
@@ -1203,6 +1270,7 @@
   // The audience picker (job titles / named individuals / AI groups) lives
   // in agency-intel-audience.js — this is just the hand-off.
   function openAssignDialog(d) {
+    advertiseFlow('publish');
     AGENCY_INTEL_AUDIENCE.open({
       dashboard: d,
       // How many OTHER dashboards ride on this group — editing a live rule
@@ -1236,10 +1304,16 @@
       if (d.id === id) {
         var live = !!(audience && ((audience.titles || []).length ||
           (audience.individuals || []).length || (audience.groups || []).length));
+        // With report delivery behind the flag the dialog can't express it, so
+        // leave whatever delivery the dashboard already carries alone — wiping
+        // it here would quietly destroy the seeded schedules that the flag is
+        // meant to preview.
+        var keep = !CP.deliveryEnabled();
+        var nextDelivery = keep ? (d.delivery || null) : (delivery ? Object.assign({ on: true }, delivery) : null);
         return Object.assign({}, d, {
           assignedTo: live ? audience : null,
-          delivery: delivery || null,
-          status: live ? 'published' : (delivery ? 'draft' : 'private'),
+          delivery: nextDelivery,
+          status: live ? 'published' : (!keep && delivery ? 'draft' : 'private'),
           updatedAt: TODAY
         });
       }
@@ -1354,6 +1428,7 @@
         : 'Ask me anything across your apps and I\'ll put the answer on the canvas. ' +
           'Pick a few starter ideas above, or just type below.'
     }];
+    advertiseFlow('build:' + id);   // carry the specific dashboard so a comment returns to IT
     window.scrollTo({ top: 0 });
     render();
   }
@@ -1372,9 +1447,56 @@
   function goHome() {
     state.view = 'home';
     state.activeId = null;
+    advertiseFlow('home');
     window.scrollTo({ top: 0 });
     render();
   }
+
+  /* =====================================================================
+     FLOW MAP (review tooling only — see agency-intelligence-dashboard.html's
+     TOOLBOX_CONFIG). Exposes the two named screens to the Design Toolbox so a
+     comment left on a screen binds to its node and "Go" can jump straight here
+     via window.applyFlowState. Purely additive: no product behavior changes.
+     ===================================================================== */
+  // Tell the toolbox which node is showing, so a comment created here captures a
+  // @flow binding. window.__toolboxFlowState is the toolbox's own channel (read
+  // by feedback-widget.js currentFlowState); setting it is inert to the mock.
+  function advertiseFlow(id) {
+    try { window.__toolboxFlowState = { state: id, version: '' }; } catch (e) {}
+  }
+  // The single hook the flow map / comment "Go" calls to reach a named screen.
+  // Each case drives the mock into that state via its own functions; modal nodes
+  // open the builder first, then the dialog.
+  window.applyFlowState = function (id) {
+    // A build node may carry the SPECIFIC dashboard it was captured on, as
+    // "<base>:<dashboardId>" — so a comment on Hazmat's build view returns to
+    // Hazmat, not whatever dashboard happens to be first. Generic nodes from the
+    // flow map (no ":id") fall back to the first dashboard.
+    var parts = String(id).split(':');
+    var base = parts[0];
+    var did = parts[1] || '';
+    // Home screens.
+    if (base === 'home' || base === 'home-ai') {
+      goHome();
+      if (base === 'home-ai') { state.homeTab = 'ai'; advertiseFlow('home-ai'); render(); }
+      return;
+    }
+    // Everything else lives inside a dashboard.
+    var target = (did && state.dashboards.some(function (d) { return d.id === did; }))
+      ? did
+      : (state.dashboards[0] && state.dashboards[0].id);
+    if (!target) { goHome(); return; }
+    openDash(target);                         // build · edit (advertises 'build:'+target)
+    if (base === 'build') return;
+    if (base === 'build-preview' || base === 'build-report') {
+      state.mode = (base === 'build-report') ? 'report' : 'preview';
+      advertiseFlow(base + ':' + target);
+      render();
+      return;
+    }
+    if (base === 'add-widget') { advertiseFlow('add-widget'); openAddWidgetDialog(); return; }
+    if (base === 'publish') { advertiseFlow('publish'); openAssignDialog(active()); return; }
+  };
 
   /* =====================================================================
      RENDER
@@ -1422,6 +1544,33 @@
         if (p !== state.page) { state.page = p; render(); }
       });
     }
+
+    // Table-widget pagers. pageSizeOptions and the first/last buttons are
+    // properties, not attributes, so they have to be set here. page-change
+    // also fires on the component's FIRST render — re-rendering on that would
+    // loop forever, so only act when a value actually moved.
+    document.querySelectorAll('[data-tbl-pager]').forEach(function (p) {
+      var wid = p.getAttribute('data-tbl-pager');
+      var w = widgetById(wid);
+      if (!w) return;
+      var st = KXCanvas.tableSettings(w);
+      p.pageSizeOptions = KXCanvas.TABLE_PAGE_SIZES;
+      p.firstLastPageButtonToggle = false;   // too wide for a widget card
+      p.pageSize = st.pageSize;
+      p.page = st.page;
+      p.addEventListener('page-change', function (e) {
+        var d = e.detail || {};
+        var cur = KXCanvas.tableSettings(w);
+        if (d.pageSize != null && d.pageSize !== cur.pageSize) {
+          saveTableSetting(w, 'pageSize', d.pageSize);
+          return;
+        }
+        if (d.page != null && d.page !== cur.page) {
+          KXCanvas.setTablePage(wid, d.page);
+          render();
+        }
+      });
+    });
 
     // Builder selects
     var range = document.getElementById('cpBRange');
@@ -1501,7 +1650,7 @@
     root.addEventListener('click', function (e) {
       /* ---- home: tabs / filters / view mode ---- */
       var tab = e.target.closest('[data-cp-tab]');
-      if (tab) { state.homeTab = tab.getAttribute('data-cp-tab'); render(); return; }
+      if (tab) { state.homeTab = tab.getAttribute('data-cp-tab'); advertiseFlow(state.homeTab === 'ai' ? 'home-ai' : 'home'); render(); return; }
 
       var f = e.target.closest('[data-cp-filter]');
       if (f) { state.filter = f.getAttribute('data-cp-filter'); state.page = 1; render(); return; }
@@ -1566,7 +1715,7 @@
       if (e.target.closest('#cpBack')) { goHome(); return; }
       if (e.target.closest('#cpRename')) { state.editingName = true; render(); return; }
       var mode = e.target.closest('[data-cp-mode]');
-      if (mode) { state.mode = mode.getAttribute('data-cp-mode'); render(); return; }
+      if (mode) { state.mode = mode.getAttribute('data-cp-mode'); advertiseFlow((state.mode === 'preview' ? 'build-preview' : state.mode === 'report' ? 'build-report' : 'build') + ':' + state.activeId); render(); return; }
       if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule') || e.target.closest('#cpStatusBtn')) {
         openAssignDialog(active());
         return;
@@ -1702,6 +1851,35 @@
       var rc = e.target.closest('[data-range-clear]');
       if (rc) { KXCanvas.setLocalRange(rc.getAttribute('data-range-clear'), null); render(); return; }
 
+      /* ---- table widget: columns, reset, filter clear ----
+         Sorting and paging come from component events, not clicks — see the
+         hydrate pass. Owner writes the saved default onto the widget, viewer
+         writes a local override; same split as the date range above. */
+      var tc = e.target.closest('[data-tbl-cols]');
+      if (tc) {
+        var tcid = tc.getAttribute('data-tbl-cols');
+        KXCanvas.setOpenCols(KXCanvas.getOpenCols() === tcid ? null : tcid);
+        render();
+        return;
+      }
+      var tct = e.target.closest('[data-tbl-col-toggle]');
+      if (tct) {
+        var ttid = tct.getAttribute('data-tbl-col-toggle');
+        var tcol = parseInt(tct.getAttribute('data-tbl-col'), 10);
+        var tw2 = widgetById(ttid);
+        if (tw2) {
+          var cur = KXCanvas.tableSettings(tw2).hidden.slice();
+          var at = cur.indexOf(tcol);
+          if (at === -1) cur.push(tcol); else cur.splice(at, 1);
+          saveTableSetting(tw2, 'hidden', cur);
+        }
+        return;
+      }
+      var trs = e.target.closest('[data-tbl-reset]');
+      if (trs) { KXCanvas.resetTable(trs.getAttribute('data-tbl-reset')); render(); return; }
+      var tqc = e.target.closest('[data-tbl-qclear]');
+      if (tqc) { KXCanvas.setTableQuery(tqc.getAttribute('data-tbl-qclear'), ''); render(); return; }
+
       /* ---- builder ---- */
       var bt = e.target.closest('[data-b-tab]');
       if (bt) {
@@ -1819,6 +1997,22 @@
 
     /* ---- search + chat input ---- */
     root.addEventListener('input', function (e) {
+      // Table filter. The canvas re-renders wholesale, so the field this
+      // event came from is destroyed — restore focus and caret afterwards,
+      // the same trick the audience dialog's people search uses.
+      var tq = e.target.closest && e.target.closest('[data-tbl-q]');
+      if (tq) {
+        var tqid = tq.getAttribute('data-tbl-q');
+        var caret = tq.selectionStart;
+        KXCanvas.setTableQuery(tqid, e.target.value);
+        render();
+        var back = document.querySelector('[data-tbl-q="' + CSS.escape(tqid) + '"]');
+        if (back) {
+          back.focus();
+          try { back.setSelectionRange(caret, caret); } catch (err) { /* not selectable */ }
+        }
+        return;
+      }
       // Builder text fields update state WITHOUT a re-render, so the caret
       // stays put. Anything that depends on them is patched in place below.
       if (e.target.id === 'cpBTableHeading') {
@@ -1890,6 +2084,19 @@
 
     /* ---- sortable headers ---- */
     root.addEventListener('sort-direction-change', function (e) {
+      // Table widgets on the canvas carry their own sortable headers. They
+      // bubble the same event as the dashboards list, so check for them first.
+      var tsh = e.target.closest('[data-tbl-sort]');
+      if (tsh) {
+        var tsid = tsh.getAttribute('data-tbl-sort');
+        var tsw = widgetById(tsid);
+        if (!tsw) return;
+        var tdir = e.detail && e.detail.direction;
+        // vwc-sortable-header cycles asc → desc → null; null means "no sort",
+        // which for us is the seeded row order, not a fallback column.
+        saveTableSetting(tsw, 'sort', tdir ? { col: +tsh.getAttribute('data-tbl-col'), dir: tdir } : null);
+        return;
+      }
       var h = e.target.closest('[data-cp-sort]');
       if (!h) return;
       var field = h.getAttribute('data-cp-sort');
@@ -1916,12 +2123,16 @@
       if (KXCanvas.getOpenRange() && !e.target.closest('.kx-menu') && !e.target.closest('[data-range-open]')) {
         KXCanvas.setOpenRange(null); changed = true;
       }
+      if (KXCanvas.getOpenCols() && !e.target.closest('.kx-menu') && !e.target.closest('[data-tbl-cols]')) {
+        KXCanvas.setOpenCols(null); changed = true;
+      }
       if (changed) render();
     });
   }
 
   // "Add widget" once the canvas is populated — the same builder, in a dialog.
   function openAddWidgetDialog() {
+    advertiseFlow('add-widget');
     state.builder = freshBuilder();
     KX.openDialog({
       title: 'Add a widget',
@@ -1949,6 +2160,9 @@
 
   // Deep links, so the Hub's Agency Intelligence card hand-off keeps working.
   (function deepLink() {
+    // Flow-map deep link / live thumbnail: #fm=<node> drives to that screen.
+    var fm = (location.hash || '').match(/[#&]fm=([^&]+)/);
+    if (fm) { try { window.applyFlowState(decodeURIComponent(fm[1])); } catch (e) {} return; }
     var p = new URLSearchParams(location.search);
     if (p.get('tab') === 'ai') { state.homeTab = 'ai'; return; }
     if (p.get('new')) { newDash(); return; }
