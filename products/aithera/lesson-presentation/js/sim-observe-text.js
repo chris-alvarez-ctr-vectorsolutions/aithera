@@ -352,8 +352,8 @@
            <div class="obt-brief" id="obtBrief">
              <div class="obt-brief-card">
                <div class="obt-brief-eyebrow">Spot the hazard</div>
-               <h2 class="obt-brief-title">Take a slow look around.</h2>
-               <p class="obt-brief-sub">You just finished the training — now you’re on the floor. Jot down anything that looks unsafe. You’ll walk through it with your coach next, so don’t worry about getting the wording exactly right.</p>
+               <h2 class="obt-brief-title">Here’s how it works</h2>
+               <p class="obt-brief-sub">Look closely at the photo and type each thing that looks unsafe — spelling and wording don’t matter. Add as many as you spot, then review them with your coach.</p>
                <button class="obt-brief-btn" id="obtBriefBtn"><i class="fa-solid fa-pen-to-square"></i> Start looking</button>
              </div>
            </div>
@@ -509,7 +509,7 @@
       state.marking = true;
       state.mode = 'scene'; state.inputTarget = 'coach';
       state.briefUp = true;
-      announce('Take a slow look around the work area. Write down anything that looks unsafe.');
+      announce('Look closely at the photo, then type anything that looks unsafe.');
       render();
     }
     function enterObserve() {
