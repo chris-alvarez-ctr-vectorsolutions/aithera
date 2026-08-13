@@ -419,12 +419,10 @@
         /* Submitted badge as a green success check icon — toggleable via the
            prototype bar (EHS-18527 item 9). ON collapses "Submitted" to an
            icon-only green circle (matches the downloaded indicator's shape). */
-        #app.submitted-icon .badge-submitted {
             background: none; color: #168846; width: auto; height: 18px;
             padding: 0; border-radius: 0; justify-content: center;
             flex-shrink: 0; font-size: 0; gap: 0;
         }
-        #app.submitted-icon .badge-submitted i { font-size: 17px !important; margin: 0; }
         .badge-missing { background: rgba(231,29,19,0.1); color: #ca150c; }
         .badge-incomplete { background: rgba(25,59,103,0.05); color: rgba(26,41,61,0.83); }
         /* Downloaded indicator: neutral circle with a down arrow (download-in-circle
@@ -597,9 +595,10 @@
         .record-meta-row i { width: 14px; text-align: center; }
         .rec-btn-outline {
             background: white; border: 1.5px solid #0271ce; color: #0271ce;
-            border-radius: 6px; font-size: 12.5px; padding: 0 12px;
+            border-radius: 6px; font-size: 12.5px; padding: 0 14px;
             cursor: pointer; font-family: inherit; height: 30px;
-            display: flex; align-items: center; font-weight: 600;
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 6px; white-space: nowrap; font-weight: 600;
         }
         /* Conflict resolution action on a record card */
         .rec-btn-conflict {
@@ -653,6 +652,19 @@
             display: inline-flex; align-items: center; gap: 6px; font-weight: 600;
         }
         .rec-btn-edit:active { background: #eaf3fc; }
+        /* Offline + not downloaded: the card keeps its online styling, only the
+           actions go dead (edit / upload / update need a local copy). */
+        .rec-btn-edit:disabled, .rec-btn-outline:disabled {
+            opacity: 0.45; cursor: not-allowed; background: #f3f4f6;
+            border-color: #d1d5db; color: rgba(26,41,61,0.55);
+        }
+        /* Offline Upload/Update: reads as disabled but stays clickable so the tap can
+           explain that changes are saved and can be uploaded once back online. */
+        .rec-btn-outline.is-offline-disabled {
+            opacity: 0.55; background: #f3f4f6; border-color: #d1d5db;
+            color: rgba(26,41,61,0.55); cursor: not-allowed;
+        }
+        .rec-btn-edit:disabled:active, .rec-btn-outline:disabled:active { background: #f3f4f6; }
         .rec-btn-dl {
             background: white; border: 1.5px solid #d1d5db; color: rgba(26,41,61,0.75);
             border-radius: 6px; font-size: 12.5px; padding: 0 12px;
@@ -856,17 +868,9 @@
         /* ── Slim badge variant (toggleable from the prototype bar): only the
            record-TYPE badge keeps its icon; status / pending / submitted /
            downloaded badges drop theirs. ── */
-        #app.badges-slim .record-badges .badge i,
-        #app.badges-slim .record-foot-status .badge i { display: none; }
         /* The downloaded circle is icon-only, so its arrow ALWAYS stays visible
            in slim mode (selectors mirror the hide rule's specificity so they win). */
-        #app.badges-slim .record-badges .badge-jsa i,
-        #app.badges-slim .record-badges [class*="badge-rt-"] i,
-        #app.badges-slim .record-badges .badge-downloaded i,
-        #app.badges-slim .record-foot-status .badge-downloaded i,
         /* Submitted check icon ALWAYS stays visible in slim mode (both layouts) */
-        #app.badges-slim .record-badges .badge-submitted i,
-        #app.badges-slim .record-foot-status .badge-submitted i { display: inline-block; }
 
         /* Edit-mode facilitator toggle (lives in the prototype nav bar, outside the phone) */
         .editmode-toggle {
@@ -2498,11 +2502,25 @@
         .badge-conflict { background: rgba(224,83,61,0.12); color:#b23a26; font-weight:600; }
         .badge-synced   { background: rgba(22,136,70,0.12); color:#0a7637; font-weight:600; }
         .badge-waitingsync { background: rgba(245,158,11,0.18); color:#92400e; font-weight:600; }
-        /* Offline records page: "waiting to sync" summary strip */
-        .offline-sync-summary { margin:14px 12px 0; background:white; border:1px solid #f0e6cf; border-radius:12px; padding:14px; display:flex; align-items:center; gap:13px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
-        .offline-sync-summary .oss-icon { width:42px; height:42px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; background:#f1ede0; color:#8a7029; }
-        .offline-sync-summary .oss-title { font-size:14px; font-weight:700; color:rgba(0,0,0,0.85); }
-        .offline-sync-summary .oss-sub { font-size:12px; color:rgba(0,0,0,0.55); line-height:1.4; margin-top:2px; }
+        /* A conflict the user skipped / has not decided yet */
+        .badge-conflict { background: rgba(224,83,61,0.14); color:#b23a26; font-weight:600; }
+        /* Conflict stepper strip (multi-record resolution) */
+        /* Conflict stepper (multi-record resolution): same visual pattern as the
+           JSA form stepper (.jsa-stepper white strip + progress track); the step
+           circles reuse the step-nav-num treatment. Resolved circles are locked. */
+        .cr-step-circles { display:flex; gap:8px; margin-left:auto; }
+        .cr-step-circle {
+            width:30px; height:30px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:13px; font-weight:700; font-family:inherit; padding:0;
+            border:1.5px solid #d1d5db; color:rgba(0,0,0,0.6); background:white; cursor:pointer;
+        }
+        .cr-step-circle.current { background:#0271ce; color:white; border-color:#0271ce; }
+        .cr-step-circle.done { background:#dcfce7; color:#166534; border-color:#bbf7d0; cursor:default; }
+        .cr-step-circle.skipped { border-color:#e0533d; color:#b23a26; }
+        /* Offline lists reuse the online record card, so they need the same gutters */
+        .offline-card-list { display:flex; flex-direction:column; gap:10px; padding:8px 12px 0; }
+        .offline-card-list .rec-card-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 2px rgba(28,48,74,0.06); overflow:hidden; }
 
         /* Offline banners */
         .offline-banner { display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:12.5px; font-weight:600; line-height:1.35; flex-shrink:0; }
@@ -2597,6 +2615,9 @@
         .cr-footer > button { flex:1 1 0; width:auto; min-width:0; height:46px; border-radius:10px; font-size:13px; font-weight:700; white-space:nowrap; padding:0 8px; display:flex; align-items:center; justify-content:center; text-align:center; }
         .cr-footer .cr-resolve-alt { flex:0 0 auto; }   /* Save as New sizes to its text; the dynamic action button takes the rest */
         #screen-offline-overview .screen-body { padding-bottom: 116px; }
+        /* The post-sync alert footer is tall; give the sync screen enough bottom
+           padding that the whole queue can scroll clear of it */
+        #screen-offline-syncing .screen-body { padding-bottom: 270px; }
         #screen-offline-overview .merge-intro h3 { font-size:18px; }
         #screen-offline-overview .merge-intro p { font-size:13.5px; line-height:1.5; }
         .cr-resolve-alt { background:white; border:1.5px solid #d1d5db; color:rgba(0,0,0,0.7); font-family:inherit; cursor:pointer; }
@@ -2790,15 +2811,6 @@
     <button id="offlineToggle" class="editmode-toggle" onclick="toggleOfflineMode()" title="Simulate the device going offline — downloaded records become read-only except signatures & attachments">
         <i class="fa-solid fa-wifi"></i> Offline <span class="em-dot"></span><span class="em-state">Off</span>
     </button>
-    <button id="badgeStyleToggle" class="editmode-toggle" onclick="toggleBadgeStyle()" title="Slim badges: only the record-type badge keeps its icon">
-        <i class="fa-solid fa-tag"></i> Slim badges <span class="em-dot"></span><span class="em-state">Off</span>
-    </button>
-    <button id="submittedIconToggle" class="editmode-toggle on" onclick="toggleSubmittedIcon()" title="Show Submitted as a green check icon instead of a text badge (EHS-18527 item 9)">
-        <i class="fa-solid fa-circle-check"></i> Submitted icon <span class="em-dot"></span><span class="em-state">On</span>
-    </button>
-    <button id="badgeLayoutToggle" class="editmode-toggle" onclick="toggleBadgeLayout()" title="On: all badges in one row (the old layout). Off: submission status + downloaded icon bottom-left.">
-        <i class="fa-solid fa-grip-lines"></i> Inline badges <span class="em-dot"></span><span class="em-state">Off</span>
-    </button>
     <span style="flex-basis:100%;height:0;margin:2px 0;"></span>
     <label class="screen-nav-label" for="screenNavSelect"><i class="fa-solid fa-display"></i> Screen</label>
     <select class="screen-nav-select" id="screenNavSelect" onchange="navTo(this.value)" aria-label="Jump to screen">
@@ -2842,7 +2854,7 @@
 </div>
 
 <div class="phone-frame">
-    <div class="phone submitted-icon cards-v2" id="app"><!-- V2 is the sole card design; the V1/Original comparison toggle was dropped -->
+    <div class="phone cards-v2" id="app"><!-- V2 is the sole card design; the V1/Original comparison toggle was dropped -->
 
         <!-- ══════════════════════════════════════ -->
         <!-- SCREEN: HOME                           -->
@@ -2862,7 +2874,7 @@
             <!-- Live offline banner (only while the Offline toggle is on) -->
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <div class="screen-body" style="background:#f5f9fd;">
@@ -2895,7 +2907,7 @@
                     <!-- Jump Back In cards mirror the records-card badge placement:
                          type + form status on top, sync status + downloaded indicator
                          bottom-left (these are downloaded, they're being worked on) -->
-                    <div class="record-card-row" onclick="showScreen('records')">
+                    <div class="record-card-row">
                         <div class="record-title">Incident – Warehouse 12, Atlanta, Georgia, USA</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -2912,7 +2924,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="record-card-row alt-bg" onclick="showScreen('records')">
+                    <div class="record-card-row alt-bg">
                         <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -2929,7 +2941,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="record-card-row" onclick="showScreen('records')">
+                    <div class="record-card-row">
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
@@ -3023,7 +3035,7 @@
                  replaces the old cloud-slash header indicator -->
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <!-- Sticky overlay toolbar (appears when scrolling up, past flow toolbar) -->
@@ -3080,7 +3092,7 @@
                      editable). The two statuses coexist in the footer: the green
                      check = "was submitted", the Pending badge = "current state".
                      data-prev-submitted also drives the read-only summary banner. -->
-                <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" data-prev-submitted="true" data-updated-by-me="true" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" data-prev-submitted="true" data-updated-by-me="true" data-edited-offline="true" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
                     <div class="record-card-row">
                         <div class="record-card-header">
                             <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
@@ -3105,7 +3117,7 @@
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="submit">Upload</button>
+                                <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
                             </div>
                         </div>
                     </div>
@@ -3135,14 +3147,14 @@
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="copy-id" data-id="20451188">Copy ID</button>
+                                <button class="rec-btn-outline" data-action="copy-id" data-id="20451188"><i class="fa-regular fa-copy"></i> Copy ID</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Blue-sky: Inspection + Pending -->
-                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="inspection" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="inspection" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
                     <div class="record-card-row">
                         <div class="record-card-header">
                             <div class="record-title">Monthly Fire Extinguisher Inspection – Floor 2</div>
@@ -3164,7 +3176,7 @@
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="submit">Upload</button>
+                                <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
                             </div>
                         </div>
                     </div>
@@ -3193,7 +3205,7 @@
                                 <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="copy-id" data-id="20451090">Copy ID</button>
+                                <button class="rec-btn-outline" data-action="copy-id" data-id="20451090"><i class="fa-regular fa-copy"></i> Copy ID</button>
                             </div>
                         </div>
                     </div>
@@ -3223,7 +3235,7 @@
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="copy-id" data-id="20450777">Copy ID</button>
+                                <button class="rec-btn-outline" data-action="copy-id" data-id="20450777"><i class="fa-regular fa-copy"></i> Copy ID</button>
                             </div>
                         </div>
                     </div>
@@ -3253,7 +3265,7 @@
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="copy-id" data-id="12345679">Copy ID</button>
+                                <button class="rec-btn-outline" data-action="copy-id" data-id="12345679"><i class="fa-regular fa-copy"></i> Copy ID</button>
                             </div>
                         </div>
                     </div>
@@ -3282,7 +3294,7 @@
                                 <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="copy-id" data-id="12345671">Copy ID</button>
+                                <button class="rec-btn-outline" data-action="copy-id" data-id="12345671"><i class="fa-regular fa-copy"></i> Copy ID</button>
                             </div>
                         </div>
                     </div>
@@ -3318,7 +3330,7 @@
                 </div>
 
                 <!-- Card 5: JSA + Pending -->
-                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
                     <div class="record-card-row">
                         <div class="record-card-header">
                             <div class="record-title">Chemical Storage Audit – Bay 4</div>
@@ -3339,14 +3351,14 @@
                                 <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="submit">Upload</button>
+                                <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Card 6: JSA + Pending + Downloaded -->
-                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="jsa" data-form-status="overdue" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="jsa" data-form-status="overdue" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
                     <div class="record-card-row">
                         <div class="record-card-header">
                             <div class="record-title">Scaffold Erection – East Wing Exterior</div>
@@ -3368,7 +3380,7 @@
                                 <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="submit">Upload</button>
+                                <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
                             </div>
                         </div>
                     </div>
@@ -3397,7 +3409,7 @@
                                 <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
                             </div>
                             <div class="rec-action-row">
-                                <button class="rec-btn-outline" data-action="copy-id" data-id="99182743">Copy ID</button>
+                                <button class="rec-btn-outline" data-action="copy-id" data-id="99182743"><i class="fa-regular fa-copy"></i> Copy ID</button>
                             </div>
                         </div>
                     </div>
@@ -3712,7 +3724,7 @@
                     </div>
                 </div>
                 <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('records')" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button class="hdr-btn" onclick="rvGoBack()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
                     <span class="header-title">Record</span>
                     <!-- Save moved to the top right for viewing/editing (assumed to persist added attachments/signatures/corrective actions) -->
                     <button class="hdr-btn-text" id="rv-save-btn" onclick="showToast('Changes saved')">Save</button>
@@ -3722,7 +3734,7 @@
             <!-- Live offline banner (only while the Offline toggle is on) -->
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
             <!-- Read-only notice: shown only when editing is blocked because the device is
                  offline and this record has no local copy. Previously uploaded records are
@@ -3837,6 +3849,11 @@
                     <button class="hdr-btn-text" onclick="showScreen('record-view')">Done</button>
                 </div>
             </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
+            </div>
             <div class="screen-body" style="padding:16px 12px 32px;">
                 <div id="ra-list"></div>
                 <div class="attach-add-wrap">
@@ -3883,7 +3900,7 @@
             <!-- Live offline banner (only while the Offline toggle is on) -->
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
             <!-- Read-only banner (EHS-18527 item 5): previously-submitted records
                  are only editable for attachments & signatures. -->
@@ -3943,7 +3960,7 @@
             </div>
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
             <!-- Read-only banner (EHS-18527 item 5): previously-submitted records
                  are only editable for attachments & signatures. -->
@@ -4044,7 +4061,7 @@
             </div>
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
             <!-- Read-only banner (EHS-18527 item 5): previously-submitted records
                  are only editable for attachments & signatures. -->
@@ -4125,7 +4142,7 @@
             </div>
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
             <!-- Read-only banner (EHS-18527 item 5): previously-submitted records
                  are only editable for attachments & signatures. -->
@@ -4194,7 +4211,7 @@
             </div>
             <div class="offline-banner is-offline app-offline-banner">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
             <!-- Read-only banner (EHS-18527 item 5): previously-submitted records
                  are only editable for attachments & signatures. -->
@@ -4462,6 +4479,11 @@
                     <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit Record</span></span>
                     <button class="hdr-btn-text when-edit" onclick="saveEditSession()">Save</button>
                 </div>
+            </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <div class="jsa-stepper">
@@ -4784,6 +4806,11 @@
                     <button class="hdr-btn-text when-edit" onclick="saveEditSession()">Save</button>
                 </div>
             </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
+            </div>
 
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -4833,6 +4860,11 @@
                     <button class="hdr-btn" onclick="showScreen('jsa-steps-empty')"><i class="fa-solid fa-arrow-left"></i></button>
                     <span class="header-title">Add Step</span>
                 </div>
+            </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <div class="screen-body">
@@ -5041,6 +5073,11 @@
                     <button class="hdr-btn-text when-edit" onclick="saveEditSession()">Save</button>
                 </div>
             </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
+            </div>
 
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -5223,6 +5260,11 @@
                     <button class="hdr-btn-text when-edit" onclick="saveEditSession()">Save</button>
                 </div>
             </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
+            </div>
 
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -5333,6 +5375,11 @@
                     <button class="hdr-btn" id="ca-stepper-back" onclick="showScreen(caReturnScreen)" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
                     <span class="header-title">Corrective Action</span>
                 </div>
+            </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <!-- CA Stepper -->
@@ -5739,6 +5786,11 @@
                     <button class="hdr-btn-text when-edit" onclick="saveEditSession()">Save</button>
                 </div>
             </div>
+            <!-- Live offline banner: stays visible while editing offline too -->
+            <div class="offline-banner is-offline app-offline-banner">
+                <i class="fa-solid fa-cloud-slash"></i>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
+            </div>
 
             <div class="jsa-stepper">
                 <div class="stepper-row">
@@ -5885,7 +5937,7 @@
             <!-- Persistent offline banner (Google Docs pattern) -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <div class="screen-body">
@@ -5894,6 +5946,7 @@
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-circle-exclamation"></i></div><span class="qa-label">Incident</span></button>
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-clipboard-list"></i></div><span class="qa-label">Inspection</span></button>
                     <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-triangle-exclamation"></i></div><span class="qa-label">Hazard</span></button>
+                    <button class="qa-btn"><div class="qa-circle"><i class="fa-solid fa-eye"></i></div><span class="qa-label">Observation</span></button>
                     <button class="qa-btn" onclick="openOfflineJsa()"><div class="qa-circle"><i class="fa-solid fa-traffic-cone"></i></div><span class="qa-label">JSA</span></button>
                 </div>
 
@@ -5902,28 +5955,91 @@
                     <span class="badge badge-waitingsync" onclick="showScreen('offline-records')" style="cursor:pointer;"><i class="fa-solid fa-cloud-arrow-up"></i> 2 waiting to sync</span>
                 </div>
 
-                <div class="card-wrap" style="margin-top:8px;">
-                    <div class="record-card-row" onclick="openOfflineJsa(this)" style="border-bottom:1px solid rgba(0,0,0,0.08);">
-                        <div class="record-title">Roof Access – Maintenance Crew</div>
-                        <div class="record-badges">
-                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
-                        </div>
-                        <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
-                            <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> Saved on this device · 2:14 PM</div>
+                <!-- Same card component as the online "Jump back in" list -->
+                <div class="offline-card-list">
+                    <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" data-prev-submitted="true" data-updated-by-me="true" data-edited-offline="true" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row">
+                            <div class="record-card-header">
+                                <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                                <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
+                            </div>
+                            <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition. Two open findings require resolution before submission.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 12:12:34 PM</div>
+                                <!-- Pending Update = uploaded once already, so it carries a record ID -->
+                                <div class="record-meta-row record-id-row" data-id="44820115"><i class="fa-regular fa-copy"></i> ID: 44820115</div>
+                            </div>
+                            <!-- Card footer: Pending (current) + previously-submitted green check + downloaded (item 10) -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                    <span class="badge badge-submitted" title="Previously submitted" aria-label="Previously submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="record-card-row">
-                        <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
-                        <div class="record-badges">
-                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-card-state="submitted" data-card-type="incident" data-form-status="completed" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row is-submitted">
+                            <div class="record-card-header">
+                                <div class="record-title">Slip and Fall – Loading Bay Entrance</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-rt-incident"><i class="fa-solid fa-circle-exclamation" style="font-size:11px;"></i> Incident</span>
+                                <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
+                            </div>
+                            <div class="record-desc">Worker reported a slip near the loading bay entrance during the morning shift. Initial first-aid given; corrective actions being tracked.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 8:05:00 AM</div>
+                                <div class="record-meta-row record-id-row" data-id="20451188"><i class="fa-regular fa-copy"></i> ID: 20451188</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="copy-id" data-id="20451188"><i class="fa-regular fa-copy"></i> Copy ID</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="record-desc">Daily inspection checklist for forklift unit #4. Hydraulic fluid and brake checks flagged for follow-up.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> Saved on this device · 1:51 PM</div>
+                    </div>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="inspection" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row">
+                            <div class="record-card-header">
+                                <div class="record-title">Monthly Fire Extinguisher Inspection – Floor 2</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-rt-inspection"><i class="fa-solid fa-clipboard-list" style="font-size:11px;"></i> Inspection</span>
+                                <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
+                            </div>
+                            <div class="record-desc">Routine monthly check of all extinguishers on Floor 2 — gauge pressure, tamper seals, and inspection tags verified.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 9:20:00 AM</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -5960,77 +6076,211 @@
             <!-- Offline: only records saved to this device are available -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>No connection.</span>
+                <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
             <div class="screen-body">
-                <div class="offline-sync-summary">
-                    <div class="oss-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                    <div>
-                        <div class="oss-title">2 changes waiting to sync</div>
-                        <div class="oss-sub">Saved on this device. They upload automatically the moment you reconnect.</div>
-                    </div>
+                <!-- Same compact sync badge the offline Home page uses, beside the list heading -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:16px;">
+                    <span class="section-label" style="padding:0;margin:0;">On this device (7)</span>
+                    <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up"></i> 2 waiting to sync</span>
                 </div>
-
-                <span class="section-label">On this device (5)</span>
-                <div class="card-wrap" style="margin-top:8px;">
-                    <!-- Downloaded + local edits → waiting to sync (tap to keep editing) -->
-                    <div class="record-card-row" onclick="openOfflineJsa(this)" style="border-bottom:1px solid rgba(0,0,0,0.08);">
-                        <div class="record-title">Roof Access – Maintenance Crew</div>
-                        <div class="record-badges">
-                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
-                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
-                        </div>
-                        <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 4 fields edited on this device · 2:14 PM</div>
-                        </div>
-                    </div>
-                    <div class="record-card-row" onclick="openOfflineJsa(this)" style="border-bottom:1px solid rgba(0,0,0,0.08);">
-                        <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
-                        <div class="record-badges">
-                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
-                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
-                        </div>
-                        <div class="record-desc">Daily inspection checklist for forklift unit #4. Hydraulic fluid and brake checks flagged for follow-up.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 2 fields edited on this device · 1:51 PM</div>
-                        </div>
-                    </div>
-                    <!-- Downloaded, no local changes → fully in sync -->
-                    <div class="record-card-row" style="border-bottom:1px solid rgba(0,0,0,0.08);cursor:default;">
-                        <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
-                        <div class="record-badges">
-                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
-                        </div>
-                        <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Up to date on this device</div>
+                <!-- Offline list is the SAME card component as the online Records list, built
+                     from the downloaded records so styling and states match exactly. -->
+                <div class="offline-card-list">
+                    <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-assigned-to-me="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" data-prev-submitted="true" data-updated-by-me="true" data-edited-offline="true" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row">
+                            <div class="record-card-header">
+                                <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                                <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
+                            </div>
+                            <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition. Two open findings require resolution before submission.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 12:12:34 PM</div>
+                                <!-- Pending Update = uploaded once already, so it carries a record ID -->
+                                <div class="record-meta-row record-id-row" data-id="44820115"><i class="fa-regular fa-copy"></i> ID: 44820115</div>
+                            </div>
+                            <!-- Card footer: Pending (current) + previously-submitted green check + downloaded (item 10) -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                    <span class="badge badge-submitted" title="Previously submitted" aria-label="Previously submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="record-card-row" style="border-bottom:1px solid rgba(0,0,0,0.08);cursor:default;">
-                        <div class="record-title">Slip and Fall – Loading Bay Entrance</div>
-                        <div class="record-badges">
-                            <span class="badge badge-rt-incident"><i class="fa-solid fa-circle-exclamation" style="font-size:11px;"></i> Incident</span>
-                            <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
-                        </div>
-                        <div class="record-desc">Worker reported a slip near the loading bay entrance during the morning shift. Initial first-aid given; corrective actions being tracked.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Up to date on this device</div>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-card-state="submitted" data-card-type="incident" data-form-status="completed" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row is-submitted">
+                            <div class="record-card-header">
+                                <div class="record-title">Slip and Fall – Loading Bay Entrance</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-rt-incident"><i class="fa-solid fa-circle-exclamation" style="font-size:11px;"></i> Incident</span>
+                                <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
+                            </div>
+                            <div class="record-desc">Worker reported a slip near the loading bay entrance during the morning shift. Initial first-aid given; corrective actions being tracked.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 8:05:00 AM</div>
+                                <div class="record-meta-row record-id-row" data-id="20451188"><i class="fa-regular fa-copy"></i> ID: 20451188</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="copy-id" data-id="20451188"><i class="fa-regular fa-copy"></i> Copy ID</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="record-card-row" style="cursor:default;">
-                        <div class="record-title">Monthly Fire Extinguisher Inspection – Floor 2</div>
-                        <div class="record-badges">
-                            <span class="badge badge-rt-inspection"><i class="fa-solid fa-clipboard-list" style="font-size:11px;"></i> Inspection</span>
-                            <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="inspection" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row">
+                            <div class="record-card-header">
+                                <div class="record-title">Monthly Fire Extinguisher Inspection – Floor 2</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-rt-inspection"><i class="fa-solid fa-clipboard-list" style="font-size:11px;"></i> Inspection</span>
+                                <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
+                            </div>
+                            <div class="record-desc">Routine monthly check of all extinguishers on Floor 2 — gauge pressure, tamper seals, and inspection tags verified.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 9:20:00 AM</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="record-desc">Routine monthly check of all extinguishers on Floor 2. Gauge pressure, tamper seals, and inspection tags verified.</div>
-                        <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Up to date on this device</div>
+                    </div>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-card-state="submitted" data-card-type="observation" data-form-status="completed" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row is-submitted">
+                            <div class="record-card-header">
+                                <div class="record-title">Safe Lifting Technique Observed – Dock A</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-rt-observation"><i class="fa-solid fa-eye" style="font-size:11px;"></i> Observation</span>
+                                <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
+                            </div>
+                            <div class="record-desc">Positive safety observation: dock crew used correct team-lift technique for an oversized crate. Recognized in the daily huddle.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/14/26 – 1:25:00 PM</div>
+                                <div class="record-meta-row record-id-row" data-id="20450777"><i class="fa-regular fa-copy"></i> ID: 20450777</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="copy-id" data-id="20450777"><i class="fa-regular fa-copy"></i> Copy ID</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-submitted-by-me="true" data-card-state="submitted" data-card-type="jsa" data-form-status="completed" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row is-submitted">
+                            <div class="record-card-header">
+                                <div class="record-title">Forklift Operation – Loading Dock B</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                                <span class="badge badge-fs-completed" data-form-status="completed"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Completed</span>
+                            </div>
+                            <div class="record-desc">Pre-operation safety analysis for forklift units at Loading Dock B. Covers load limits, travel paths, and spotter requirements for the shift.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/15/26 – 12:12:34 PM</div>
+                                <div class="record-meta-row record-id-row" data-id="12345679"><i class="fa-regular fa-copy"></i> ID: 12345679</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-submitted"><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="copy-id" data-id="12345679"><i class="fa-regular fa-copy"></i> Copy ID</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-card-state="conflict" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row">
+                            <div class="record-card-header">
+                                <div class="record-title">Roof Access – Maintenance Crew</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                                <span class="badge badge-fs-inprogress" data-form-status="in-progress"><i class="fa-solid fa-circle-half-stroke" style="font-size:10px;"></i> In Progress</span>
+                            </div>
+                            <div class="record-desc">Fall protection and tie-off requirements for rooftop HVAC work. This record was changed on the server while your offline edit was waiting to sync.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row" style="color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i> 2 fields need your decision</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-conflict" data-action="resolve-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:11px;"></i> Resolve conflict</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="jsa" data-form-status="overdue" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                        <div class="record-card-row">
+                            <div class="record-card-header">
+                                <div class="record-title">Scaffold Erection – East Wing Exterior</div>
+                                <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            </div>
+                            <div class="record-badges">
+                                <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                                <span class="badge badge-fs-overdue" data-form-status="overdue"><i class="fa-solid fa-clock" style="font-size:10px;"></i> Overdue</span>
+                            </div>
+                            <div class="record-desc">Multi-level scaffold setup for exterior facade repairs. All components inspected and tagged; base plates and guardrails confirmed installed per spec.</div>
+                            <div class="record-meta">
+                                <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                                <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last edited: 1/12/26 – 8:15:00 AM</div>
+                            </div>
+                            <!-- Card footer (EHS-18527 follow-up): sync status + downloaded indicator bottom-LEFT, actions bottom-right -->
+                            <div class="record-foot">
+                                <div class="record-foot-status">
+                                    <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                                    <span class="badge badge-downloaded" title="Downloaded" aria-label="Downloaded"><i class="fa-solid fa-arrow-down" style="font-size:10px;"></i></span>
+                                </div>
+                                <div class="rec-action-row">
+                                    <button class="rec-btn-outline" data-action="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6063,11 +6313,6 @@
                 </div>
             </div>
 
-            <div class="offline-banner is-online" id="syncBanner">
-                <i class="fa-solid fa-arrows-rotate fa-spin"></i>
-                <span>Back online — syncing your 3 changes…</span>
-            </div>
-
             <div class="screen-body no-nav">
                 <div class="sync-hero">
                     <div class="sync-ring" id="syncHeroRing"></div>
@@ -6080,25 +6325,23 @@
                         <div class="queue-item">
                             <div class="qi-icon" style="background:#e4f4ea;color:#0a7637;"><i class="fa-solid fa-check"></i></div>
                             <div class="qi-main">
-                                <div class="qi-title">Forklift Pre-Operation Inspection</div>
-                                <div class="qi-meta">Uploaded successfully</div>
-                            </div>
-                            <div class="qi-status synced"><i class="fa-solid fa-check"></i> Synced</div>
-                        </div>
-                        <div class="queue-item">
-                            <div class="qi-icon" style="background:#e4f4ea;color:#0a7637;"><i class="fa-solid fa-check"></i></div>
-                            <div class="qi-main">
                                 <div class="qi-title">Hazard photo — loading bay</div>
                                 <div class="qi-meta">Uploaded successfully</div>
                             </div>
                             <div class="qi-status synced"><i class="fa-solid fa-check"></i> Synced</div>
                         </div>
-                        <div class="queue-item">
+                        <!-- Conflicted rows mirror crQueue: runSyncSequence() rewrites their
+                             status from crQueue so the list always matches the alert count -->
+                        <div class="queue-item" data-cr-title="Roof Access – Maintenance Crew">
                             <div class="qi-icon" style="background:#fbe9e4;color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i></div>
                             <div class="qi-main">
-                                <div class="qi-title">Roof Access – Maintenance Crew</div>
-                                <div class="qi-meta">Changed by someone else while you were away</div>
-                            </div>
+                                <div class="qi-title">Roof Access – Maintenance Crew</div>                            </div>
+                            <div class="qi-status conflict"><i class="fa-solid fa-triangle-exclamation"></i> Conflict</div>
+                        </div>
+                        <div class="queue-item" data-cr-title="Forklift Pre-Operation Inspection – Dock C">
+                            <div class="qi-icon" style="background:#fbe9e4;color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="qi-main">
+                                <div class="qi-title">Forklift Pre-Operation Inspection – Dock C</div>                            </div>
                             <div class="qi-status conflict"><i class="fa-solid fa-triangle-exclamation"></i> Conflict</div>
                         </div>
                     </div>
@@ -6110,11 +6353,11 @@
                 <div class="sync-note">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                     <div>
-                        <div class="sn-title">1 record has a merge conflict</div>
-                        <div class="sn-sub">Changes made online while you were offline overlap with your edits to <b>Roof Access – Maintenance Crew</b>. You can resolve this now or come back to it later.</div>
+                        <div class="sn-title">2 records have sync conflicts</div>
+                        <div class="sn-sub">Changes saved on the server while you were offline overlap with some of your edits. Your other changes synced normally — only the overlapping records need a decision, one at a time.</div>
                     </div>
                 </div>
-                <button class="btn-primary" onclick="viewConflictRecords()"><i class="fa-solid fa-list-ul"></i> View conflicts</button>
+                <button class="btn-primary" onclick="crOpenQueue()"><i class="fa-solid fa-triangle-exclamation"></i> Resolve conflicts</button><!-- was: View conflicts via records filter; the stepper is now the primary path -->
                 <button class="btn-ghost" style="margin-top:8px;" onclick="showScreen('home')">Return to home</button>
             </div>
         </div>
@@ -6131,13 +6374,27 @@
                 <div class="header-bar">
                     <button class="hdr-btn" onclick="showScreen('offline-syncing')"><i class="fa-solid fa-arrow-left"></i></button>
                     <span class="header-title">Resolve Conflict</span>
+                    <!-- Multiple conflicted records step through one at a time; Skip leaves
+                         THIS record unresolved and moves to the next. -->
+                    <button class="hdr-btn-text" id="cr-skip-btn" onclick="crSkipRecord()">Skip</button>
+                </div>
+            </div>
+
+            <!-- Conflict stepper: which of the conflicted records is being decided -->
+            <div class="jsa-stepper" id="cr-stepper">
+                <div class="stepper-row">
+                    <span class="stepper-step-name" id="cr-step-count">Conflict 1 of 2</span>
+                    <span class="cr-step-circles" id="cr-step-dots"></span>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" id="cr-step-fill" style="width:50%;"></div>
                 </div>
             </div>
 
             <div class="screen-body no-nav">
                 <div class="merge-intro">
-                    <h3>Roof Access – Maintenance Crew</h3>
-                    <p>J. Okafor saved changes to this record while you were editing it offline. Choose which version to keep, or save yours as a separate record.</p>
+                    <h3 id="cr-record-title">Roof Access – Maintenance Crew</h3>
+                    <p id="cr-intro-text">J. Okafor changed this record on the server before your offline edits were uploaded, and some of your edits touch the same fields. Choose whose version wins <b>for those conflicting fields only</b>. Everything else you changed is kept either way.</p>
                 </div>
                 <span class="section-label" style="margin-top:14px;">Conflicting versions</span>
                 <div class="cr-vcards">
@@ -6157,7 +6414,10 @@
                     </button>
                 </div>
 
-                <p class="cr-helper">Edits that didn't conflict are merged into the record either way — your choice only applies to the changes that conflict.</p>
+                <p class="cr-helper">Your choice applies only to the fields that actually conflict. Every other edit you made to this record is applied regardless of which version you pick, so nothing you changed is thrown away.</p>
+                <!-- This screen is shown ONLY for genuine conflicts: server-side changes that
+                     landed before your edits were uploaded and that touch the same fields. If
+                     your edits do not overlap, sync just proceeds and this screen never opens. -->
 
                 <button class="cr-switch-link" onclick="showScreen('offline-resolve-each')">Decide each conflict individually <i class="fa-solid fa-arrow-right"></i></button>
 
@@ -8303,6 +8563,14 @@ function showSubmitToast(id) {
 
 function submitRecordCard(cardRow) {
     if (cardRow._submitTimer) return;
+    /* Offline you can still edit, but nothing leaves the device: tell the user the
+       work is safe and will go up on reconnect, and do not start the upload. */
+    if ((typeof appOffline !== 'undefined' && appOffline) ||
+        document.getElementById('app').classList.contains('offline-editing') ||
+        cardRow.closest('.offline-card-list')) {
+        showToast("You're offline, so this can't upload right now. Your changes are saved and can be uploaded once you're back online.");
+        return;
+    }
     /* Remember what to restore on cancel: Pending Upload or Pending Update */
     cardRow._prevUpload = cardRow.dataset.upload || 'pending-upload';
     rcSetUpload(cardRow, 'uploading');
@@ -8373,7 +8641,9 @@ function applyRecordFilters() {
         }
         const titleEl = wrap.querySelector('.record-title');
         const searchOk = !recSearchQuery || (titleEl && titleEl.textContent.toLowerCase().includes(recSearchQuery));
-        wrap.style.display = (ok && searchOk) ? '' : 'none';
+        /* Offline, the list only carries what's actually on the device */
+        const offlineOk = !(typeof appOffline !== 'undefined' && appOffline) || !!wrap.querySelector('.badge-downloaded');
+        wrap.style.display = (ok && searchOk && offlineOk) ? '' : 'none';
     });
     refreshRecordsFab();
 }
@@ -8986,6 +9256,156 @@ function toggleReorderMode() {
     }, { passive: true });
 }());
 
+
+/* ── Offline list actions ──
+   These cards are the same component as the online Records list, but they live on
+   the offline screens, so the #screen-records delegation never sees them. */
+document.addEventListener('click', (e) => {
+    const list = e.target.closest('.offline-card-list');
+    if (!list) return;
+    const row = e.target.closest('.record-card-row');
+    if (!row) return;
+    const sub = e.target.closest('[data-action="submit"]');
+    if (sub) { e.stopPropagation(); if (!sub.disabled) submitRecordCard(row); return; }
+    const cid = e.target.closest('[data-action="copy-id"]');
+    if (cid) {
+        e.stopPropagation();
+        if (navigator.clipboard) navigator.clipboard.writeText(cid.dataset.id || '').catch(() => {});
+        showToast('ID copied');
+        return;
+    }
+    if (e.target.closest('[data-action="open-flow"]')) return;   /* its own listener handles it */
+    openOfflineJsa(row);                                          /* tapping the card opens it */
+});
+
+/* Online home "Jump back in" cards: same actions as the records list, and tapping
+   the card body opens that record's DETAILS page (not the Records list). */
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.jbi-card-container')) return;
+    const row = e.target.closest('.record-card-row');
+    if (!row) return;
+    const cid = e.target.closest('[data-action="copy-id"]');
+    if (cid) {
+        e.stopPropagation();
+        if (navigator.clipboard) navigator.clipboard.writeText(cid.dataset.id || '').catch(() => {});
+        showToast('ID copied');
+        return;
+    }
+    if (e.target.closest('[data-action="submit"]')) { e.stopPropagation(); submitRecordCard(row); return; }
+    if (e.target.closest('[data-action="cancel-submit"]')) { e.stopPropagation(); cancelSubmitCard(row); return; }
+    /* Edit button and the "see more" ellipsis carry their own listeners */
+    if (e.target.closest('[data-action="open-flow"]') || e.target.closest('.rec-btn-icon')) return;
+    openRecordView(row);
+});
+
+
+/* ── Multi-record conflict stepper ──
+   Only records with GENUINE conflicts enter this queue: the server changed them
+   before the user's offline edits were uploaded AND the same fields overlap.
+   Non-conflicting changes sync normally and never come through here. */
+const crQueue = [
+    { title: 'Roof Access – Maintenance Crew',        theirs: 'Saved Today, 2:08 PM', mine: 'Saved Today, 2:14 PM', status: 'open' },
+    { title: 'Forklift Pre-Operation Inspection – Dock C', theirs: 'Saved Today, 1:52 PM', mine: 'Saved Today, 2:20 PM', status: 'open' },
+];
+let crIndex = 0;
+
+function crRenderStepper() {
+    const rec = crQueue[crIndex];
+    const count = document.getElementById('cr-step-count');
+    if (count) count.textContent = 'Conflict ' + (crIndex + 1) + ' of ' + crQueue.length;
+    /* Step circles: resolved = green check and locked (disabled, no jump);
+       open/skipped are clickable to move between records that still need a decision */
+    const dots = document.getElementById('cr-step-dots');
+    if (dots) dots.innerHTML = crQueue.map((q, i) => {
+        const cls = 'cr-step-circle' + (q.status === 'resolved' ? ' done' : i === crIndex ? ' current' : q.status === 'skipped' ? ' skipped' : '');
+        const inner = q.status === 'resolved' ? '<i class="fa-solid fa-check"></i>' : (i + 1);
+        const attrs = q.status === 'resolved'
+            ? ' disabled aria-label="Conflict ' + (i + 1) + ' resolved"'
+            : ' onclick="crJumpTo(' + i + ')" aria-label="Go to conflict ' + (i + 1) + '"';
+        return '<button type="button" class="' + cls + '"' + attrs + '>' + inner + '</button>';
+    }).join('');
+    const fill = document.getElementById('cr-step-fill');
+    if (fill) fill.style.width = Math.round(((crIndex + 1) / crQueue.length) * 100) + '%';
+    const t = document.getElementById('cr-record-title');
+    if (t) t.textContent = rec.title;
+    const intro = document.getElementById('cr-intro-text');
+    if (intro) intro.innerHTML = 'J. Okafor changed this record on the server before your offline edits were uploaded, and some of your edits touch the same fields. Choose whose version wins <b>for those conflicting fields only</b>. Everything else you changed is kept either way.';
+    const whens = document.querySelectorAll('#screen-offline-overview .cr-vcard-when');
+    if (whens[0]) whens[0].innerHTML = '<i class="fa-regular fa-clock"></i> ' + rec.theirs;
+    if (whens[1]) whens[1].innerHTML = '<i class="fa-regular fa-clock"></i> ' + rec.mine;
+    /* reset the selection for the new record */
+    crSelectedSide = null;
+    document.querySelectorAll('#screen-offline-overview .cr-vcard').forEach(c => c.classList.remove('selected'));
+    const btn = document.getElementById('cr-apply-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Select a version'; }
+}
+
+/* Jump to another conflict from the stepper circles. Resolved records are locked
+   (their circle is disabled); revisiting a skipped record reopens it. */
+function crJumpTo(i) {
+    const rec = crQueue[i];
+    if (!rec || rec.status === 'resolved') return;
+    if (rec.status === 'skipped') rec.status = 'open';
+    crIndex = i;
+    crRenderStepper();
+}
+
+/* Mark the matching records-list card as unresolved (red Conflict pill) or clear it */
+function crMarkCardConflict(title, unresolved) {
+    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
+        const t = wrap.querySelector('.record-title');
+        if (!t || t.textContent.trim() !== title) return;
+        const badges = wrap.querySelector('.record-badges');
+        const pills = wrap.querySelector('.rc-sec.rc-first .rc-pills');
+        [badges, pills].forEach(host => {
+            if (!host) return;
+            const old = host.querySelector('.badge-conflict');
+            if (old) old.remove();
+            if (unresolved) {
+                const b = document.createElement('span');
+                b.className = 'badge badge-conflict';
+                b.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict unresolved';
+                host.appendChild(b);
+            }
+        });
+    });
+}
+
+function crAdvance() {
+    const next = crQueue.findIndex(q => q.status === 'open');
+    if (next !== -1) { crIndex = next; crRenderStepper(); return; }
+    /* queue finished — summarize on the done screen */
+    const skipped = crQueue.filter(q => q.status === 'skipped');
+    const hero = document.querySelector('#screen-offline-done .done-hero');
+    if (hero && skipped.length) {
+        const h = hero.querySelector('h2'); if (h) h.textContent = 'Conflicts reviewed';
+        const p = hero.querySelector('p');
+        if (p) p.innerHTML = skipped.length + ' record' + (skipped.length === 1 ? ' was' : 's were') + ' skipped and still ' +
+            (skipped.length === 1 ? 'needs' : 'need') + ' a decision — ' + skipped.map(q => '<b>' + q.title + '</b>').join(', ') +
+            '. The rest synced to the server.';
+    }
+    showScreen('offline-done');
+}
+
+/* Open the conflict stepper at the first record that still needs a decision.
+   Untouched conflicts come first; skipped ones still count (they were deferred,
+   not decided), so re-entering the queue lands on them next. */
+function crOpenQueue() {
+    let first = crQueue.findIndex(q => q.status === 'open');
+    if (first === -1) first = crQueue.findIndex(q => q.status === 'skipped');
+    crIndex = first === -1 ? 0 : first;
+    if (first !== -1) crQueue[first].status = 'open';   /* reopening a skipped record makes it decidable again */
+    showScreen('offline-overview');
+    crRenderStepper();
+}
+function crSkipRecord() {
+    const rec = crQueue[crIndex];
+    rec.status = 'skipped';
+    crMarkCardConflict(rec.title, true);      /* the pill shows the conflict is unresolved */
+    showToast('Skipped — resolve it from the Records list');
+    crAdvance();
+}
+
 /* ── Conflict resolution (lightweight, all-or-nothing) ──
    The user reviews both sets of changes (read-only), then picks ONE outcome:
    use theirs, overwrite with mine, or save mine as a new record. No per-field merge. */
@@ -9076,8 +9496,11 @@ function confirmConflictResolution() {
     if (hw) hw.textContent = histWhat[pendingConflictChoice];
     const hc = document.getElementById('cr-hist-chips');
     if (hc) hc.innerHTML = '<span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">' + histChip[pendingConflictChoice] + '</span>';
-    showScreen('offline-done');
+    const rec = crQueue[crIndex];
+    rec.status = 'resolved';
+    crMarkCardConflict(rec.title, false);
     showToast(m.toast);
+    crAdvance();
 }
 
 /* ── Conflict resolution: per-item (radio) version ── */
@@ -9122,27 +9545,51 @@ function runSyncSequence() {
     const ring = document.getElementById('syncHeroRing');
     const title = document.getElementById('syncHeroTitle');
     const sub = document.getElementById('syncHeroSub');
-    const banner = document.getElementById('syncBanner');
     const queue = document.getElementById('syncQueueList');
     const alertEl = document.getElementById('conflictAlert');
     /* reset to the in-progress state */
     if (ring) { ring.classList.remove('done'); ring.innerHTML = ''; }
     if (title) title.textContent = 'Syncing your work';
     if (sub) sub.textContent = 'Uploading the changes you made offline and checking for updates from your team.';
-    if (banner) banner.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i><span>Back online — syncing your 3 changes…</span>';
     if (queue) queue.style.display = 'none';
     if (alertEl) alertEl.style.display = 'none';
     clearTimeout(syncSeqTimer);
     syncSeqTimer = setTimeout(() => {
         if (ring) { ring.classList.add('done'); ring.innerHTML = '<i class="fa-solid fa-check"></i>'; }
         if (title) title.textContent = 'Sync complete';
-        if (sub) sub.textContent = 'Most changes synced. 1 record needs your review before it can finish.';
-        if (banner) banner.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Sync complete — 1 record needs your review</span>';
+        /* Every count on this screen (hero sub, alert title, row statuses)
+           derives from crQueue so they can never disagree. Skipped records still
+           count as needing review; only resolved ones drop out. */
+        const crOpen = (typeof crQueue !== 'undefined') ? crQueue.filter(r => r.status !== 'resolved').length : 0;
+        const crPhrase = crOpen === 1 ? '1 record needs your review' : crOpen + ' records need your review';
+        if (sub) sub.textContent = crOpen === 0
+            ? 'All of your changes synced to the server.'
+            : 'Your other changes synced. ' + crPhrase + ' before ' + (crOpen === 1 ? 'it' : 'they') + ' can finish.';
+        /* Restamp the conflicted rows from crQueue: resolved rows flip to Synced */
+        if (queue && typeof crQueue !== 'undefined') crQueue.forEach(rec => {
+            const rowEl = queue.querySelector('.queue-item[data-cr-title="' + rec.title + '"]');
+            if (!rowEl) return;
+            const done = rec.status === 'resolved';
+            const icon = rowEl.querySelector('.qi-icon');
+            const stat = rowEl.querySelector('.qi-status');
+            if (icon) {
+                icon.style.cssText = done ? 'background:#e4f4ea;color:#0a7637;' : 'background:#fbe9e4;color:#b23a26;';
+                icon.innerHTML = done ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-triangle-exclamation"></i>';
+            }
+            if (stat) {
+                stat.className = 'qi-status ' + (done ? 'synced' : 'conflict');
+                stat.innerHTML = done ? '<i class="fa-solid fa-check"></i> Synced' : '<i class="fa-solid fa-triangle-exclamation"></i> Conflict';
+            }
+        });
         if (queue) queue.style.display = '';
-        if (alertEl) alertEl.style.display = '';
+        const alertTitle = alertEl ? alertEl.querySelector('.sn-title') : null;
+        if (alertTitle) alertTitle.textContent = crOpen === 1 ? '1 record has a sync conflict' : crOpen + ' records have sync conflicts';
+        if (alertEl) alertEl.style.display = crOpen === 0 ? 'none' : '';
     }, 1900);
 }
 
+/* Entering the conflict screen always lands on the first undecided record */
+const _origShowScreenCR = typeof showScreen === 'function' ? null : null;
 /* Override preview entry to populate first */
 const _origShow = showScreen;
 showScreen = function(id) {
@@ -9182,6 +9629,54 @@ function toggleEditMode() { setEditMode(!editModeEnabled); }
    Offline: downloaded records are read-only except signatures & attachments,
    and sync pauses. Reconnecting resyncs automatically. */
 let appOffline = false;
+/* Connectivity changed: re-list the records (offline = downloaded only), hide
+   undownloaded "Jump back in" cards, and re-render every card's actions so the
+   disabled state tracks the current state. Styling is identical either way. */
+function applyOfflineCardState() {
+    const offline = (typeof appOffline !== 'undefined' && appOffline);
+    document.querySelectorAll('.jbi-card-container .record-card-row').forEach(row => {
+        const downloaded = !!row.querySelector('.badge-downloaded');
+        row.style.display = (offline && !downloaded) ? 'none' : '';
+    });
+    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row, .jbi-card-container .record-card-row')
+        .forEach(row => { if (row.dataset.upload) rcSetUpload(row, row.dataset.upload); });
+    if (typeof applyRecordFilters === 'function') applyRecordFilters();
+    if (typeof applyEditMode === 'function') applyEditMode();
+}
+
+/* ── When may a record show Pending Upload / Pending Update? (EHS-18527) ──
+   Only when the change could not have gone up already:
+     • the user edited it while OFFLINE  (data-edited-offline), or
+     • the record was newly created and never uploaded (data-created-new).
+   Edits made online upload as they are saved, and on reconnect anything queued
+   offline uploads by itself — EXCEPT records created from scratch, which stay
+   pending until the user presses Upload. */
+function rcMayStayPending(row) {
+    const wrap = row.closest('.rec-card-wrap') || row;
+    return wrap.dataset.createdNew === 'true';
+}
+/* Reconnecting: push everything that was queued offline, leaving only the
+   freshly created records for the user to upload themselves. */
+function autoUploadOnReconnect() {
+    let uploaded = 0;
+    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row').forEach(row => {
+        const st = row.dataset.upload;
+        if (st !== 'pending-upload' && st !== 'pending-update') return;
+        if (rcMayStayPending(row)) return;                 /* created from scratch: user uploads it */
+        const wrap = row.closest('.rec-card-wrap');
+        row.classList.add('is-submitted');
+        if (wrap) wrap.dataset.cardState = 'submitted';
+        rcSetUpload(row, 'uploaded', rcRecordId(row) || String(Math.floor(10000000 + Math.random() * 90000000)));
+        uploaded++;
+    });
+    if (uploaded) {
+        applyRecordFilters();
+        applyEditMode();
+        showToast(uploaded === 1 ? 'Your offline change was uploaded' : uploaded + ' offline changes were uploaded');
+    }
+    return uploaded;
+}
+
 function toggleOfflineMode() {
     appOffline = !appOffline;
     document.getElementById('app').classList.toggle('app-offline', appOffline);
@@ -9191,60 +9686,12 @@ function toggleOfflineMode() {
         const st = t.querySelector('.em-state');
         if (st) st.textContent = appOffline ? 'On' : 'Off';
     }
-    if (!appOffline) runRecordsSync('auto');   /* reconnect → automatic resync */
+    applyOfflineCardState();
+    if (!appOffline) { autoUploadOnReconnect(); runRecordsSync('auto'); }   /* reconnect → upload queued work, then resync */
 }
 
-/* ── Slim badge variant (prototype toggle): icons only on the record-type badge ── */
-let slimBadges = false;
-function toggleBadgeStyle() {
-    slimBadges = !slimBadges;
-    document.getElementById('app').classList.toggle('badges-slim', slimBadges);
-    const t = document.getElementById('badgeStyleToggle');
-    if (t) {
-        t.classList.toggle('on', slimBadges);
-        const st = t.querySelector('.em-state');
-        if (st) st.textContent = slimBadges ? 'On' : 'Off';
-    }
-}
 
-/* Submitted badge display: green check icon (default) vs "Submitted" text.
-   Toggleable from the prototype bar (EHS-18527 item 9). Defaults ON — the
-   #app element carries `submitted-icon` in the markup. */
-let submittedIcon = true;
-function toggleSubmittedIcon() {
-    submittedIcon = !submittedIcon;
-    document.getElementById('app').classList.toggle('submitted-icon', submittedIcon);
-    const t = document.getElementById('submittedIconToggle');
-    if (t) {
-        t.classList.toggle('on', submittedIcon);
-        const st = t.querySelector('.em-state');
-        if (st) st.textContent = submittedIcon ? 'On' : 'Off';
-    }
-}
 
-/* Badge layout toggle (EHS-18527 follow-up): ON = every badge in one top row
-   (the old layout); OFF = submission status + downloaded icon bottom-left in
-   the card footer (current default). Physically moves the badges between the
-   two containers so all behaviors keep working. */
-let badgesInline = false;
-function toggleBadgeLayout() {
-    badgesInline = !badgesInline;
-    document.getElementById('app').classList.toggle('badges-inline', badgesInline);
-    const STATUS = ['badge-pending','badge-submitting','badge-submitted','badge-downloaded','badge-waitingsync','badge-conflict','badge-missing','submit-progress-wrap'];
-    document.querySelectorAll('.record-card-row').forEach(card => {
-        const top = card.querySelector('.record-badges');
-        const foot = card.querySelector('.record-foot-status');
-        if (!top || !foot) return;
-        if (badgesInline) { [...foot.children].forEach(el => top.appendChild(el)); }
-        else { [...top.children].forEach(el => { if (STATUS.some(c => el.classList.contains(c))) foot.appendChild(el); }); }
-    });
-    const t = document.getElementById('badgeLayoutToggle');
-    if (t) {
-        t.classList.toggle('on', badgesInline);
-        const st = t.querySelector('.em-state');
-        if (st) st.textContent = badgesInline ? 'On' : 'Off';
-    }
-}
 
 /* Rewrite the action row of every uploaded record for edit mode. Editing no longer
    has a download prerequisite — any record is editable. Downloading only matters
@@ -9261,7 +9708,7 @@ function applyEditMode() {
         if (editModeEnabled && !rcEditBlockedOffline(row)) {
             actionRow.innerHTML = `<button class="rec-btn-edit" data-action="edit-record" data-id="${id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>`;
         } else {
-            actionRow.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${id}">Copy ID</button>`;
+            actionRow.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${id}"><i class="fa-regular fa-copy"></i> Copy ID</button>`;
         }
     });
     if (typeof rcEnsureAllViewEdit === 'function') rcEnsureAllViewEdit();
@@ -9582,9 +10029,21 @@ function stampLastSynced() {
     });
 }
 
+/* Any record still holding changes that have not been uploaded */
+function recordsWithPendingChanges() {
+    return [...document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row')]
+        .filter(r => r.dataset.upload === 'pending-upload' || r.dataset.upload === 'pending-update');
+}
+
 function runRecordsSync(source) {
     if (typeof appOffline !== 'undefined' && appOffline) {
         if (source === 'manual') showToast("You're offline, sync will resume when reconnected");
+        return;
+    }
+    /* Pending work has to go up first: syncing would pull the server copy over
+       edits that were never uploaded. */
+    if (recordsWithPendingChanges().length) {
+        if (source === 'manual') showToast('You have pending changes, please upload before syncing.');
         return;
     }
     if (recordsSyncing) return;
@@ -9595,7 +10054,8 @@ function runRecordsSync(source) {
     setTimeout(() => {
         recordsSyncing = false;
         stampLastSynced();
-        if (source === 'manual') showToast('Records up to date');
+        /* A pull-down syncs EVERY record, not just the ones on screen */
+        if (source === 'manual') showToast('All records synced');
     }, 900);
 }
 function manualRecordsSync() { runRecordsSync('manual'); }
@@ -9635,9 +10095,14 @@ function initPullToSync() {
    and attachments (item 2), submit when applicable (item 2), and open the full
    read-only record (item 3). */
 let rvSourceRow = null;
+let rvReturnScreen = 'records';
+/* Back returns to wherever the record was opened from (Records list or Home) */
+function rvGoBack() { showScreen(rvReturnScreen || 'records'); }
 
 function openRecordView(row) {
     rvSourceRow = row;
+    const activeScr = document.querySelector('.screen.active');
+    if (activeScr && activeScr.id !== 'screen-record-view') rvReturnScreen = activeScr.id.replace(/^screen-/, '');
     const get = (sel) => { const el = row.querySelector(sel); return el ? el.textContent.trim() : ''; };
     document.getElementById('rv-title').textContent = get('.record-title') || 'Record';
     document.getElementById('rv-desc').textContent = get('.record-desc') || '–';
@@ -10527,8 +10992,8 @@ ccApply();
    incomplete = Missing Fields (no CTA); uploaded = Uploaded (cloud-check).
    Each card carries BOTH layouts in one DOM; #app.cards-v2 switches them. */
 const RC_UPLOAD = {
-    'pending-upload': { cls: 'up-pending',   icon: 'fa-solid fa-file-pen',             label: 'Pending Upload', cta: 'Upload' },
-    'pending-update': { cls: 'up-update',    icon: 'fa-solid fa-cloud-exclamation',    label: 'Pending Update', cta: 'Update' },
+    'pending-upload': { cls: 'up-pending',   icon: 'fa-solid fa-file-pen',             label: 'Pending Upload', cta: 'Upload', ctaIcon: 'fa-solid fa-cloud-arrow-up' },
+    'pending-update': { cls: 'up-update',    icon: 'fa-solid fa-cloud-exclamation',    label: 'Pending Update', cta: 'Update', ctaIcon: 'fa-solid fa-arrows-rotate' },
     'missing':        { cls: 'up-missing',   icon: 'fa-solid fa-triangle-exclamation', label: 'Missing Fields', cta: null },
     'uploading':      { cls: 'up-uploading', icon: 'fa-solid fa-circle-notch fa-spin', label: 'Uploading',      cta: 'cancel' },
     'uploaded':       { cls: 'up-uploaded',  icon: 'fa-solid fa-cloud-check',          label: 'Uploaded',       cta: 'copy' },
@@ -10583,8 +11048,8 @@ function rcSetUpload(row, state, newId) {
     const ar = row.querySelector('.rec-action-row');
     if (ar) {
         if (m.cta === 'cancel') ar.innerHTML = '<button class="rec-btn-cancel" data-action="cancel-submit"><i class="fa-solid fa-xmark" style="font-size:12px;"></i> Cancel</button>';
-        else if (m.cta === 'copy') { const id = newId || rcRecordId(row); ar.innerHTML = '<button class="rec-btn-outline" data-action="copy-id" data-id="' + id + '">Copy ID</button>'; }
-        else if (m.cta) ar.innerHTML = '<button class="rec-btn-outline" data-action="submit">' + (typeof cardsVersion !== 'undefined' && cardsVersion === 0 ? 'Submit' : m.cta) + '</button>';
+        else if (m.cta === 'copy') { const id = newId || rcRecordId(row); ar.innerHTML = '<button class="rec-btn-outline" data-action="copy-id" data-id="' + id + '"><i class="fa-regular fa-copy"></i> Copy ID</button>'; }
+        else if (m.cta) ar.innerHTML = '<button class="rec-btn-outline' + (rcUploadBlocked(row) ? ' is-offline-disabled' : '') + '" data-action="submit"><i class="' + m.ctaIcon + '"></i> ' + m.cta + '</button>';
         else ar.innerHTML = '';
     }
     rcSyncOrigBadges(row, state);
@@ -10752,17 +11217,29 @@ function rcSyncDownloadClone(wrap) {
 /* Editing rule: every record the user has access to is editable — whether it was
    previously uploaded (or completed) no longer matters. The ONE restriction is
    connectivity: while offline, only records downloaded to this device can be
-   edited, because an undownloaded record has no local copy to open.
+   edited/uploaded/updated, because an undownloaded record has no local copy.
+   Offline cards keep their ONLINE styling — the actions are disabled, not relabelled.
    AMBIGUITY: "any record" is taken literally, so a Completed record is editable
    too; if completed JSAs should stay view-only, gate on formStatus here. */
-function rcEditBlockedOffline(row) {
+/* Uploading needs a connection, full stop — so offline the Upload/Update CTA is
+   styled as disabled on EVERY card (downloaded or not). It stays clickable on
+   purpose: pressing it explains that the work is saved and will go up later. */
+function rcUploadBlocked(row) {
+    if (typeof appOffline !== 'undefined' && appOffline) return true;
+    const app = document.getElementById('app');
+    if (app && app.classList.contains('offline-editing')) return true;
+    return !!(row && row.closest('.offline-card-list'));
+}
+function rcOfflineLocked(row) {
     const offline = (typeof appOffline !== 'undefined' && appOffline);
     if (!offline) return false;
     const wrap = (row && row.closest('.rec-card-wrap')) || row;
     return !(wrap && wrap.querySelector('.badge-downloaded'));
 }
+/* Kept as an alias: other call sites read "is editing blocked right now?" */
+function rcEditBlockedOffline(row) { return rcOfflineLocked(row); }
 function rcViewEditMode(row) {
-    return rcEditBlockedOffline(row) ? 'view' : 'edit';
+    return 'edit';   /* label never changes; rcEnsureViewEdit disables it when locked */
 }
 function rcEnsureViewEdit(row) {
     let ar = row.querySelector('.rec-action-row');
@@ -10781,27 +11258,29 @@ function rcEnsureViewEdit(row) {
     }
     ar.querySelectorAll('[data-action="open-flow"]').forEach(b => b.remove());
     const mode = rcViewEditMode(row);
+    const locked = rcOfflineLocked(row);
     const btn = document.createElement('button');
     btn.className = 'rec-btn-edit';
     btn.dataset.action = 'open-flow';
     btn.dataset.flow = mode;
-    btn.innerHTML = mode === 'edit'
-        ? '<i class="fa-regular fa-pen-to-square"></i> Edit'
-        : '<i class="fa-regular fa-eye"></i> View';
+    btn.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> Edit';
+    if (locked) { btn.disabled = true; btn.title = 'Download this record to edit it offline'; }
     /* Listener sits on the button so the card body's own tap never fires */
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (mode === 'edit') openEditRecord(row);
-        else { rvSourceRow = row; openRecordReadonly(); }
+        if (btn.disabled) return;
+        /* Offline-list cards keep the offline editing session so Save returns there */
+        if (row.closest('.offline-card-list')) openOfflineJsa(row);
+        else openEditRecord(row);
     });
     ar.insertBefore(btn, ar.firstChild);
 }
 function rcEnsureAllViewEdit() {
-    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row, .jbi-card-container .record-card-row').forEach(rcEnsureViewEdit);
+    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row, .jbi-card-container .record-card-row, .offline-card-list .rec-card-wrap .record-card-row').forEach(rcEnsureViewEdit);
 }
 
 function rcUpgradeCards() {
-    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row, .jbi-card-container .record-card-row').forEach(rcUpgradeCard);
+    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row, .jbi-card-container .record-card-row, .offline-card-list .rec-card-wrap .record-card-row').forEach(rcUpgradeCard);
     if (typeof applyEditMode === 'function') applyEditMode();
 }
 

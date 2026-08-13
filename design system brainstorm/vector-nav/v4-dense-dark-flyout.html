@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas nav · V4: Dense dark + collapsed rail + flyouts</title>
+<!--
+  ============================================================================
+  V4 · COMPACT/DENSE BUILD · SIDE NAV COLLAPSED TO AN ICON RAIL · FLYOUT
+  SUBMENUS · DARK THEME
+  ============================================================================
+  What this version tests
+  · "Collapsed" as a DESIGNED state, not an afterthought: the product nav is a
+    56px icon rail. Sections with children open a flyout panel to the right.
+  · Reachability without hover: every rail icon is itself a link to the
+    section's landing page, and flyouts also open on keyboard focus
+    (:focus-within), so hover is never the only path.
+  · Density: tighter shell metrics (48px top bar, 28px items, 12.5px base)
+    for data-heavy screens like this scheduling board.
+  · Dark theme from the SAME token contract: only the token values change;
+    every component rule is untouched. Accent is re-stepped lighter for
+    contrast on dark surfaces.
+  · Switcher: the 9-dot launcher (as in V1), proving the switcher pattern is
+    independent of theme/density.
+
+  NOTE ON THE FLYOUT: flyouts open on hover and keyboard focus. For review,
+  ?fly in the URL pins the "Shifts" flyout open (adds a .pinned class) so the
+  state can be linked/screenshotted. The active section (Board) stays
+  highlighted independently, so you can see active vs. peeked at once.
+  ============================================================================
+-->
+<style>
+/* ---- Design tokens: SAME CONTRACT as the light versions, dark values.
+       Density overrides are limited to the metric tokens at the bottom. ---- */
+:root{
+  color-scheme:dark;
+  --bg:#121418; --surface:#191c22; --surface-2:#1f232a; --well:#272c35;
+  --ink:#e9ebf0; --ink-2:#b6bbc6; --ink-3:#8d93a0;
+  --line:#2b303a; --line-strong:#3c424e;
+  --accent:#8f97ff; --accent-strong:#a6acff; --on-accent:#14163a;
+  --accent-soft:rgba(143,151,255,.14); --accent-line:rgba(143,151,255,.45);
+  --rail-bg:#0e1013; --rail-ink:#9aa0ac;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3);
+  --shadow-2:0 6px 20px rgba(0,0,0,.45);
+  --shadow-3:0 16px 44px rgba(0,0,0,.55);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r-1:6px; --r-2:8px; --r-3:12px;
+  /* density: compact metrics */
+  --topbar-h:48px; --nav-w:56px; --item-h:28px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--font);font-size:12.5px;line-height:1.45;color:var(--ink);background:var(--bg);display:flex;flex-direction:column}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+svg.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.skip{position:absolute;left:-9999px;top:8px;z-index:100;background:var(--surface);border:1px solid var(--line-strong);padding:8px 12px;border-radius:8px;font-weight:600}
+.skip:focus{left:8px}
+
+/* ---- Top bar (shared slots, compact height) ---- */
+.topbar{flex:none;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr minmax(260px,440px) 1fr;align-items:center;gap:16px;padding:0 10px;position:relative;z-index:40}
+.tb-left{display:flex;align-items:center;gap:6px;min-width:0}
+.tb-right{display:flex;align-items:center;gap:5px;justify-content:flex-end}
+.brand{display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:8px;white-space:nowrap}
+.brand-chip{width:24px;height:24px;border-radius:6px;background:var(--ink);color:var(--bg);display:grid;place-items:center;flex:none}
+.brand-chip .ic{width:14px;height:14px}
+.brand b{font-size:13px;font-weight:650}
+.brand .org{font-size:11.5px;color:var(--ink-3);border-left:1px solid var(--line);padding-left:8px;margin-left:2px}
+.search{display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 10px;border-radius:8px;background:var(--well);border:1px solid transparent;color:var(--ink-3)}
+.search:hover{border-color:var(--line-strong)}
+.search .grow{flex:1}
+kbd{font:600 10px/1 var(--font);color:var(--ink-3);background:var(--surface);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:2px 4px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--r-1);border:1px solid var(--line-strong);background:var(--surface);font-weight:600;font-size:12px;white-space:nowrap;cursor:pointer}
+.btn:hover{background:var(--well)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent-strong)}
+.btn .ic{width:13px;height:13px}
+.icon-btn{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2);position:relative;flex:none}
+.icon-btn:hover{background:var(--well);color:var(--ink)}
+.icon-btn .ic{width:16px;height:16px}
+.icon-btn .ndot{position:absolute;top:5px;right:6px;width:7px;height:7px;border-radius:99px;background:var(--accent);border:2px solid var(--surface)}
+.avatar{width:26px;height:26px;border-radius:99px;background:var(--ink);color:var(--bg);font-size:10px;font-weight:650;display:grid;place-items:center;margin-left:3px;flex:none}
+
+/* ---- App launcher (same pattern as V1, restyled purely by tokens) ---- */
+.launcher{position:fixed;top:calc(var(--topbar-h) + 6px);left:8px;width:348px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:var(--shadow-3);padding:8px;z-index:60}
+.l-org{display:flex;align-items:center;gap:10px;padding:6px 8px 9px;border-bottom:1px solid var(--line);margin-bottom:7px}
+.l-orgmark{width:28px;height:28px;border-radius:7px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+.l-org b{display:block;font-size:12.5px;font-weight:650}
+.l-org span{font-size:11px;color:var(--ink-3)}
+.l-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.l-tile{display:grid;grid-template-columns:30px 1fr;grid-template-rows:auto auto;gap:1px 9px;align-items:center;padding:8px 9px;border-radius:var(--r-2);border:1px solid transparent}
+.l-tile:hover{background:var(--well)}
+.l-chip{grid-row:1/3;width:30px;height:30px;border-radius:8px;background:var(--well);color:var(--ink);display:grid;place-items:center}
+.l-chip .ic{width:15px;height:15px}
+.l-name{font-size:12px;font-weight:650;display:flex;align-items:center;gap:6px}
+.l-desc{font-size:10.5px;color:var(--ink-3);line-height:1.3}
+.l-tile.current{background:var(--accent-soft);border-color:var(--accent-line)}
+.l-cur{font-size:9px;font-weight:650;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 5px}
+.l-tile.locked{opacity:.6}
+</style>
+<style>
+/* ---- COLLAPSED PRODUCT NAV: 56px icon rail + flyout submenus ---- */
+.shell{flex:1;display:flex;min-height:0}
+.snav{flex:none;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;z-index:30}
+.ni-wrap{position:relative}
+.rnav{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--ink-2);position:relative}
+.rnav .ic{width:18px;height:18px}
+.rnav:hover{background:var(--well);color:var(--ink)}
+.rnav[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+/* icon-only labels: tooltip on hover AND keyboard focus */
+.rnav[data-tip]::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--ink);color:var(--bg);font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .1s;z-index:70}
+.rnav[data-tip]:hover::after,.rnav[data-tip]:focus-visible::after{opacity:1}
+.snav-space{flex:1}
+/* Flyout: opens on hover, keyboard focus, or (here) a .pinned demo class.
+   The 8px transparent bridge prevents hover flicker crossing the gap. */
+.fly{position:absolute;left:100%;top:-6px;padding-left:8px;display:none;z-index:65}
+.has-fly:hover .fly,.has-fly:focus-within .fly,.has-fly.pinned .fly{display:block}
+.fly-card{width:216px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-2);padding:6px}
+.fly-h{font-size:11px;font-weight:650;color:var(--ink-3);padding:6px 10px 4px}
+.nitem{display:flex;align-items:center;gap:8px;height:var(--item-h);padding:0 10px;border-radius:var(--r-1);color:var(--ink-2);font-weight:500;font-size:12.5px}
+.nitem:hover{background:var(--well);color:var(--ink)}
+.nitem[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.count{margin-left:auto;font-size:10.5px;font-weight:650;color:var(--ink-3);background:var(--well);border-radius:99px;padding:1px 6px}
+
+/* ---- Content: dense scheduling board ---- */
+.content{flex:1;min-width:0;overflow-y:auto}
+.page{max-width:1260px;margin:0 auto;padding:16px 20px 44px}
+.crumbs{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--ink-3);margin-bottom:5px}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs .sep{color:var(--line-strong)}
+.page-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.page-head h1{margin:0;font-size:18px;font-weight:650;letter-spacing:-.01em}
+.page-head .sub{margin:2px 0 0;color:var(--ink-2);font-size:12px}
+.head-actions{margin-left:auto;display:flex;gap:7px;flex:none}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.wk{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line-strong);border-radius:8px;padding:2px;background:var(--surface)}
+.wk .icon-btn{width:24px;height:24px}
+.wk b{padding:0 8px;font-size:12px;font-variant-numeric:tabular-nums}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{height:26px;padding:0 11px;font-size:11.5px;font-weight:600;color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.tspace{flex:1}
+.board{display:grid;grid-template-columns:148px repeat(7,1fr);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);overflow:hidden}
+.bh{padding:7px 9px;border-bottom:1px solid var(--line);font-size:10.5px;font-weight:650;color:var(--ink-3)}
+.bh .d{display:block;font-size:14px;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:1px}
+.bh.today{color:var(--accent)}
+.bh.today .d{color:var(--accent)}
+.bh.today .d::after{content:"";display:inline-block;width:5px;height:5px;border-radius:99px;background:var(--accent);margin-left:5px;vertical-align:2px}
+.bperson{border-bottom:1px solid var(--line);padding:7px 9px;display:flex;flex-direction:column;justify-content:center}
+.bperson b{font-size:11.5px;font-weight:650}
+.bperson span{font-size:10px;color:var(--ink-3)}
+.bcell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:4px;min-height:54px;display:flex;flex-direction:column;gap:3px}
+.brow-label-open{color:var(--accent)}
+.shift{background:var(--well);border:1px solid var(--line-strong);border-radius:6px;padding:3px 6px;line-height:1.3}
+.shift b{display:block;font-size:10.5px;font-weight:650;font-variant-numeric:tabular-nums}
+.shift span{display:block;font-size:9.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shift.open{background:var(--accent-soft);border:1px dashed var(--accent-line)}
+.shift.open b,.shift.open span{color:var(--accent)}
+.legend{display:flex;gap:16px;align-items:center;margin-top:9px;font-size:11px;color:var(--ink-3)}
+.sw{display:inline-block;width:14px;height:9px;border-radius:3px;background:var(--well);border:1px solid var(--line-strong);vertical-align:-1px;margin-right:5px}
+.sw.open{background:var(--accent-soft);border:1px dashed var(--accent-line)}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- Inline icon set (same sprite as every version) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5" cy="5" r="1.7"/><circle cx="12" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/><circle cx="5" cy="19" r="1.7"/><circle cx="12" cy="19" r="1.7"/><circle cx="19" cy="19" r="1.7"/></g></symbol>
+<symbol id="i-mark" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="m4.2 18 5.9-11 3.3 6 2-3.6 4.4 8.6z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20.4 20.4-3.9-3.9"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.4 9.2a5.6 5.6 0 0 1 11.2 0c0 5.5 2.1 6.9 2.1 6.9H4.3s2.1-1.4 2.1-6.9"/><path d="M10.4 19.6a1.7 1.7 0 0 0 3.2 0"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M9.4 9.1a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.4-2.6 3.7"/><path d="M12 17.1h.01"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></symbol>
+<symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m14.5 6.5-5.5 5.5 5.5 5.5"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="m3.5 10.2 8.5-6.7 8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.4v-6.3H9.4v6.3H5A1.5 1.5 0 0 1 3.5 19z"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M2.8 9.7 12 5.2l9.2 4.5L12 14.2z"/><path d="M6.6 12v4.1c0 1.5 2.4 2.8 5.4 2.8s5.4-1.3 5.4-2.8V12"/><path d="M21.2 9.7v5"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.2c2.5 1.5 4.9 2.1 7.2 2.4V12c0 4.6-3 7.3-7.2 8.7C7.8 19.3 4.8 16.6 4.8 12V5.6C7.1 5.3 9.5 4.7 12 3.2z"/><path d="m8.9 12 2.1 2.1 4.1-4.2"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.8" y="5" width="16.4" height="15" rx="1.8"/><path d="M8.2 3.2V7M15.8 3.2V7M3.8 10.4h16.4"/><path d="M8.2 14h.01M12 14h.01M15.8 14h.01M8.2 17.2h.01M12 17.2h.01"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4.2 4.2v14.6a1 1 0 0 0 1 1h14.6"/><path d="M9 15.4v-4.2M13.4 15.4V7.8M17.8 15.4v-2.5"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.2" r="3.4"/><path d="M3.2 19.6c0-3.2 2.6-5.2 5.8-5.2s5.8 2 5.8 5.2"/><path d="M15.9 5.2a3.4 3.4 0 0 1 0 6M17.9 14.7c1.9.8 3 2.4 3 4.9"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M13.6 3.4H7A1.6 1.6 0 0 0 5.4 5v14A1.6 1.6 0 0 0 7 20.6h10a1.6 1.6 0 0 0 1.6-1.6V8.4z"/><path d="M13.6 3.4v5h5"/><path d="M8.8 13h6.4M8.8 16.4h6.4"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4.5 7.5h6.2M17.3 7.5h2.2M4.5 16.5h2.2M13.3 16.5h6.2"/><circle cx="14" cy="7.5" r="2.3"/><circle cx="9.5" cy="16.5" r="2.3"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3 2.1"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M4.2 5h15.6l-6 7v6.2l-3.6-1.8V12z"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5.8" y="10.6" width="12.4" height="9.4" rx="1.8"/><path d="M8.6 10.6V8.2a3.4 3.4 0 0 1 6.8 0v2.4"/></symbol>
+</defs></svg>
+
+<!-- ============ TOP BAR (compact, same slots) ============ -->
+<header class="topbar" role="banner">
+  <div class="tb-left">
+    <button class="icon-btn" id="launcherBtn" aria-label="Switch app" aria-haspopup="dialog" aria-expanded="false">
+      <svg class="ic"><use href="#i-grid"/></svg>
+    </button>
+    <a class="brand" href="#" aria-label="Schedule home">
+      <span class="brand-chip"><svg class="ic"><use href="#i-cal"/></svg></span>
+      <b>Schedule</b>
+      <span class="org">Northline Utilities</span>
+    </a>
+  </div>
+  <div>
+    <button class="search" aria-label="Search Atlas">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <span class="grow">Search Atlas</span>
+      <kbd aria-hidden="true">⌘</kbd><kbd aria-hidden="true">K</kbd>
+    </button>
+  </div>
+  <div class="tb-right">
+    <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>New</button>
+    <button class="icon-btn" aria-label="Notifications, 3 unread"><svg class="ic"><use href="#i-bell"/></svg><span class="ndot"></span></button>
+    <button class="icon-btn" aria-label="Help"><svg class="ic"><use href="#i-help"/></svg></button>
+    <button class="avatar" aria-label="Account: Alex Kim">AK</button>
+  </div>
+</header>
+
+<!-- App launcher: same pattern as V1; the dark theme comes from tokens alone -->
+<div class="launcher" id="launcher" role="dialog" aria-label="Switch app" hidden>
+  <div class="l-org">
+    <span class="l-orgmark"><svg class="ic"><use href="#i-mark"/></svg></span>
+    <div><b>Northline Utilities</b><span>Atlas suite · 3 licensed apps</span></div>
+  </div>
+  <div class="l-grid">
+    <a class="l-tile" href="#"><span class="l-chip"><svg class="ic"><use href="#i-cap"/></svg></span><span class="l-name">Learn</span><span class="l-desc">Courses, plans, certifications</span></a>
+    <a class="l-tile" href="#"><span class="l-chip"><svg class="ic"><use href="#i-shield"/></svg></span><span class="l-name">Comply</span><span class="l-desc">Incidents, inspections, SDS</span></a>
+    <a class="l-tile current" href="#" aria-current="true"><span class="l-chip"><svg class="ic"><use href="#i-cal"/></svg></span><span class="l-name">Schedule <span class="l-cur">Current</span></span><span class="l-desc">Shifts, coverage, timesheets</span></a>
+    <a class="l-tile locked" href="#"><span class="l-chip"><svg class="ic"><use href="#i-lock"/></svg></span><span class="l-name">Insights</span><span class="l-desc">Cross-app analytics</span></a>
+  </div>
+</div>
+
+<div class="shell">
+  <!-- ============ COLLAPSED PRODUCT NAV: icon rail + flyouts ============ -->
+  <nav class="snav" aria-label="Schedule navigation">
+    <div class="ni-wrap">
+      <a class="rnav" href="#" data-tip="Home" aria-label="Home"><svg class="ic"><use href="#i-home"/></svg></a>
+    </div>
+    <div class="ni-wrap">
+      <a class="rnav" href="#" aria-current="page" data-tip="Board" aria-label="Board"><svg class="ic"><use href="#i-cal"/></svg></a>
+    </div>
+    <!-- Flyout section: opens on hover/focus; ?fly pins it (see header comment) -->
+    <div class="ni-wrap has-fly" id="shiftsFly">
+      <a class="rnav" href="#" aria-label="Shifts"><svg class="ic"><use href="#i-clock"/></svg></a>
+      <div class="fly">
+        <div class="fly-card" role="menu" aria-label="Shifts">
+          <div class="fly-h">Shifts</div>
+          <a class="nitem" href="#">Overview</a>
+          <a class="nitem" href="#">Open shifts<span class="count">12</span></a>
+          <a class="nitem" href="#">Swap requests<span class="count">4</span></a>
+          <a class="nitem" href="#">Time off</a>
+          <a class="nitem" href="#">Coverage rules</a>
+        </div>
+      </div>
+    </div>
+    <div class="ni-wrap has-fly">
+      <a class="rnav" href="#" aria-label="People"><svg class="ic"><use href="#i-users"/></svg></a>
+      <div class="fly">
+        <div class="fly-card" role="menu" aria-label="People">
+          <div class="fly-h">People</div>
+          <a class="nitem" href="#">Directory</a>
+          <a class="nitem" href="#">Teams</a>
+          <a class="nitem" href="#">Availability</a>
+        </div>
+      </div>
+    </div>
+    <div class="ni-wrap">
+      <a class="rnav" href="#" data-tip="Timesheets" aria-label="Timesheets"><svg class="ic"><use href="#i-doc"/></svg></a>
+    </div>
+    <div class="ni-wrap">
+      <a class="rnav" href="#" data-tip="Reports" aria-label="Reports"><svg class="ic"><use href="#i-chart"/></svg></a>
+    </div>
+    <span class="snav-space"></span>
+    <div class="ni-wrap">
+      <a class="rnav" href="#" data-tip="Settings" aria-label="Settings"><svg class="ic"><use href="#i-sliders"/></svg></a>
+    </div>
+  </nav>
+
+  <!-- ============ CONTENT: dense week board ============ -->
+  <main class="content" id="main">
+    <div class="page">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="#">Schedule</a><span class="sep">/</span>
+        <span style="color:var(--ink);font-weight:600" aria-current="page">Board</span>
+      </nav>
+      <div class="page-head">
+        <div>
+          <h1>Schedule board</h1>
+          <p class="sub">DC North, Plant 7, Plant 12 · 42 people scheduled</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn"><svg class="ic"><use href="#i-filter"/></svg>Filters</button>
+          <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>New shift</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <span class="wk">
+          <button class="icon-btn" aria-label="Previous week"><svg class="ic"><use href="#i-chev-l"/></svg></button>
+          <b>Aug 10 – 16, 2026</b>
+          <button class="icon-btn" aria-label="Next week"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+        </span>
+        <button class="btn">Today</button>
+        <span class="seg" role="group" aria-label="Board scale">
+          <button aria-pressed="false">Day</button>
+          <button aria-pressed="true">Week</button>
+          <button aria-pressed="false">Month</button>
+        </span>
+        <span class="tspace"></span>
+        <span style="font-size:11px;color:var(--ink-3)">12 open shifts this week</span>
+      </div>
+
+      <div class="board" role="table" aria-label="Week of Aug 10 to 16, 2026">
+        <div class="bh"></div>
+        <div class="bh today">Mon<span class="d">10</span></div>
+        <div class="bh">Tue<span class="d">11</span></div>
+        <div class="bh">Wed<span class="d">12</span></div>
+        <div class="bh">Thu<span class="d">13</span></div>
+        <div class="bh">Fri<span class="d">14</span></div>
+        <div class="bh">Sat<span class="d">15</span></div>
+        <div class="bh">Sun<span class="d">16</span></div>
+
+        <div class="bperson"><b class="brow-label-open">Open shifts</b><span>12 unfilled</span></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift open"><b>2p–10p</b><span>Line 2 · Plant 12</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift open"><b>6a–2p</b><span>Dock · DC North</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift open"><b>10p–6a</b><span>Maint · Plant 7</span></div></div>
+        <div class="bcell"></div>
+
+        <div class="bperson"><b>Alex Kim</b><span>Supervisor</span></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>DC North</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>DC North</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>DC North</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>DC North</span></div></div>
+        <div class="bcell"><div class="shift"><b>8a–4p</b><span>HQ Campus</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"></div>
+
+        <div class="bperson"><b>Maria Jimenez</b><span>Line operator</span></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Line 2 · Plant 12</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Line 2 · Plant 12</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Line 2 · Plant 12</span></div></div>
+        <div class="bcell"><div class="shift"><b>2p–10p</b><span>Line 2 · Plant 12</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Line 2 · Plant 12</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"></div>
+
+        <div class="bperson"><b>Tom Shaw</b><span>Warehouse</span></div>
+        <div class="bcell"><div class="shift"><b>2p–10p</b><span>Dock B · DC North</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>2p–10p</b><span>Dock B · DC North</span></div></div>
+        <div class="bcell"><div class="shift"><b>2p–10p</b><span>Dock B · DC North</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Dock B · DC North</span></div></div>
+        <div class="bcell"></div>
+
+        <div class="bperson"><b>Priya Natarajan</b><span>Field tech</span></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>7a–3p</b><span>Route 4</span></div></div>
+        <div class="bcell"><div class="shift"><b>7a–3p</b><span>Route 6</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>7a–3p</b><span>Route 4</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"></div>
+
+        <div class="bperson"><b>Rob Beck</b><span>Maintenance</span></div>
+        <div class="bcell"><div class="shift"><b>10p–6a</b><span>Plant 7</span></div></div>
+        <div class="bcell"><div class="shift"><b>10p–6a</b><span>Plant 7</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>10p–6a</b><span>Plant 7</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>10p–6a</b><span>Plant 7</span></div></div>
+
+        <div class="bperson"><b>Sana Okafor</b><span>Line operator</span></div>
+        <div class="bcell"></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Line 1 · Plant 12</span></div></div>
+        <div class="bcell"><div class="shift"><b>6a–2p</b><span>Line 1 · Plant 12</span></div></div>
+        <div class="bcell"></div>
+        <div class="bcell"><div class="shift"><b>2p–10p</b><span>Line 1 · Plant 12</span></div></div>
+        <div class="bcell"><div class="shift"><b>2p–10p</b><span>Line 1 · Plant 12</span></div></div>
+      </div>
+
+      <div class="legend">
+        <span><span class="sw"></span>Scheduled</span>
+        <span><span class="sw open"></span>Open (unassigned)</span>
+        <span>Rows continue for 36 more people</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// Demo-only: launcher open/close (same as V1). ?launcher pre-opens it.
+(function(){
+  var btn=document.getElementById('launcherBtn'),panel=document.getElementById('launcher');
+  function setOpen(o){panel.hidden=!o;btn.setAttribute('aria-expanded',String(o));}
+  btn.addEventListener('click',function(e){e.stopPropagation();setOpen(panel.hidden);});
+  document.addEventListener('click',function(e){if(!panel.hidden&&!panel.contains(e.target))setOpen(false);});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});
+  var params=new URLSearchParams(location.search);
+  if(params.has('launcher'))setOpen(true);
+  if(params.has('fly'))document.getElementById('shiftsFly').classList.add('pinned');
+})();
+</script>
+<!-- ============================================================================
+     REVIEW TOOLING - NOT PART OF THE PRODUCT DESIGN
+     Floating version switcher, bottom-left, so reviewers can flip between the
+     six explorations without returning to the gallery. Self-contained: delete
+     this comment through the closing </nav> to remove it entirely.
+     ============================================================================ -->
+<style>
+.vswitch{position:fixed;bottom:14px;left:70px;/* clears the 56px rail */z-index:90;display:flex;align-items:center;gap:2px;padding:4px 5px;border-radius:99px;background:rgba(20,22,28,.95);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+.vswitch a{display:grid;place-items:center;min-width:28px;height:26px;padding:0 8px;border-radius:99px;color:#c9cdd7;font:650 11.5px/1 var(--font);text-decoration:none;white-space:nowrap}
+.vswitch a:hover{background:rgba(255,255,255,.14);color:#fff}
+.vswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
+.vswitch a:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.vswitch .vs-all{padding:0 11px;color:#fff}
+.vswitch .vs-div{width:1px;height:15px;background:rgba(255,255,255,.2);margin:0 4px;flex:none}
+.vswitch .vs-cap{color:#8b909c;font:650 10px/1 var(--font);padding:0 4px 0 2px}
+</style>
+<nav class="vswitch" aria-label="Switch exploration version">
+  <a class="vs-all" href="index.html" title="Back to the gallery: all six versions with rationale and trade-offs">All</a>
+  <span class="vs-div" aria-hidden="true"></span>
+  <span class="vs-cap" aria-hidden="true">Version</span>
+  <a href="v1-launcher-tabs.html" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
+  <a href="v2-rail-twopane.html" title="V2 · App rail + two-pane nav, no tabs">V2</a>
+  <a href="v3-sidebar-dropdown-tree.html" title="V3 · Sidebar product dropdown + 3-level tree">V3</a>
+  <a href="v4-dense-dark-flyout.html" aria-current="page" title="V4 · Dense dark: collapsed rail + flyout submenus">V4</a>
+  <a href="v5-topbar-switcher-tabs.html" title="V5 · Top-bar switcher + dedicated tab row">V5</a>
+  <a href="v6-synthesis.html" title="V6 · Synthesis (recommended)">V6</a>
+</nav>
+</body>
+</html>

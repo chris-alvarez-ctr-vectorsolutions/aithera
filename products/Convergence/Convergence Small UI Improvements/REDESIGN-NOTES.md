@@ -428,6 +428,27 @@ structure, sizing, 16:9 thumbnail, badges and XS shadow, plus the E tag and the 
 Assigned badge, with the info action leftmost in the card foot. No separate catalog card
 style remains.
 
+## Round 5: Fin (Vectoria) launcher
+
+The Fin integration is included on every page via the shared rollout include,
+`products/Convergence/ai-chat-widget/fin-widget.js` (launcher, unread badge, and the full
+Vectoria chat window), loaded by `shared/chrome.js`. Only its presentation is overridden for
+this prototype, per designer spec; the shared widget file is untouched, so other consumers
+keep the corner FAB:
+
+- Docked flush to the right screen edge: 30 x 30px with a 15px corner radius on the left
+  corners (the right side is flush), unread badge top-left.
+- Draggable up and down the edge: pointer drag, or Arrow Up/Down when focused. A drag never
+  toggles the chat, and the position persists locally (server persistence is a logic item).
+- The chat window opens beside the launcher, vertically near its current position, clamped to
+  the viewport.
+- The rollout's gutter contract is honoured: `--fin-gutter` (40px) pads the right of the main
+  scroll areas so content never sits under the launcher.
+
+Verified headlessly: 30x30 at radius 15/0/0/15 with a 0px edge gap, badge at top-left, a
+120px drag that does not open the chat and persists, a plain click opening the window beside
+the launcher, and the 40px gutter applied.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest
