@@ -14,6 +14,11 @@
 - Area 2: the dark breadcrumb bar is replaced by a light page header on `--c-surface`: breadcrumb (12.5, blue links) above the page title (20/600), page actions right-aligned in the same bar.
 - Area 2: tabs keep the blue label + underline active state, on even 20px padding with a hover fill.
 - All of this chrome is injected by shared/chrome.js and styled by shared/styles.css. Every page in the folder loads the same two files, so change the chrome there once rather than per page.
+- Fin (Vectoria) launcher: the SHARED rollout include (`products/Convergence/ai-chat-widget/fin-widget.js`) is loaded by shared/chrome.js on every page; only its presentation is overridden here, per designer spec. The shared widget file is untouched.
+- Fin presentation: 30 x 30px, border-radius 15px 0 0 15px, docked FLUSH to the right screen edge (right gap 0). The unread badge sits top-LEFT because the right side is off-screen.
+- Fin drag: the launcher drags up and down the edge (pointer drag; Arrow Up/Down in 24px steps when focused). A drag never toggles the chat (a >4px move swallows the following click), and the position persists in localStorage (`fin-dock-top`). Server-side persistence is a logic item.
+- Fin window: opens at right 12px, vertically beside wherever the launcher currently sits, clamped to the viewport.
+- Fin gutter contract (rollout rule): `--fin-gutter: 40px` pads the right of every non-flush scroll area so content never sits under the launcher.
 - The bottom-centre toolbox dock and the flow map are review tooling. Do NOT ship the `designtoolbox/toolbox.js` include.
 
 ## loc - Location tree open (Area 2)

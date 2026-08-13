@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas nav · V3: Sidebar product dropdown + 3-level tree</title>
+<!--
+  ============================================================================
+  V3 · SIDEBAR-HEADER PRODUCT DROPDOWN + NESTED TREE (FULL 3-LEVEL DEPTH)
+  ============================================================================
+  What this version tests
+  · Product switching as a dropdown at the TOP OF THE SIDEBAR (Notion /
+    Linear / Figma pattern). The current product's name is the sidebar
+    header; open it to switch. Most chrome-efficient switcher of the set.
+  · No tab row: the product's entire structure lives in one nested tree.
+  · The hierarchy requirement, shown for real:
+       Section (Training) → Area (Compliance courses) → Item (OSHA 10 · 2024)
+    Depth is carried by INDENTATION + a 1px guide line, never by longer
+    labels. Visible depth is capped at 3 levels by rule.
+  · The top bar keeps only suite identity + universal actions.
+
+  Demo interactivity: the product menu opens on click (?switcher in the URL
+  pre-opens it for the gallery thumbnail). Tree groups are native <details>.
+  ============================================================================
+-->
+<style>
+/* ---- Design tokens: shared verbatim across all versions ---- */
+:root{
+  color-scheme:light;
+  --bg:#f3f4f6; --surface:#ffffff; --surface-2:#f8f9fa; --well:#edeef1;
+  --ink:#191c21; --ink-2:#4d525b; --ink-3:#6d727c;
+  --line:#e4e6ea; --line-strong:#cfd3d9;
+  --accent:#4f46e5; --accent-strong:#4338ca; --on-accent:#ffffff;
+  --accent-soft:#eef0fe; --accent-line:#c7cbf8;
+  --shadow-1:0 1px 2px rgba(20,22,28,.06);
+  --shadow-2:0 6px 20px rgba(20,22,28,.13);
+  --shadow-3:0 16px 44px rgba(20,22,28,.22);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r-1:6px; --r-2:8px; --r-3:12px;
+  --topbar-h:56px; --nav-w:272px; --item-h:32px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--font);font-size:13px;line-height:1.45;color:var(--ink);background:var(--bg);display:flex;flex-direction:column}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+svg.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.skip{position:absolute;left:-9999px;top:8px;z-index:100;background:var(--surface);border:1px solid var(--line-strong);padding:8px 12px;border-radius:8px;font-weight:600}
+.skip:focus{left:8px}
+
+/* ---- Top bar: suite identity only; the product lives in the sidebar ---- */
+.topbar{flex:none;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr minmax(280px,460px) 1fr;align-items:center;gap:16px;padding:0 12px;position:relative;z-index:40}
+.tb-left{display:flex;align-items:center;gap:8px;min-width:0}
+.tb-right{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.suite{display:flex;align-items:center;gap:9px;padding:4px 6px;border-radius:8px;white-space:nowrap}
+.suite-mark{width:26px;height:26px;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center}
+.suite b{font-size:14px;font-weight:650}
+.suite .org{font-size:12px;color:var(--ink-3);border-left:1px solid var(--line);padding-left:9px;margin-left:2px}
+.search{display:flex;align-items:center;gap:8px;width:100%;height:34px;padding:0 10px;border-radius:8px;background:var(--well);border:1px solid transparent;color:var(--ink-3)}
+.search:hover{border-color:var(--line-strong);background:var(--surface)}
+.search .grow{flex:1}
+kbd{font:600 10.5px/1 var(--font);color:var(--ink-3);background:var(--surface);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:2px 4px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--r-1);border:1px solid var(--line-strong);background:var(--surface);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent-strong)}
+.btn .ic{width:14px;height:14px}
+.icon-btn{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);position:relative;flex:none}
+.icon-btn:hover{background:var(--well);color:var(--ink)}
+.icon-btn .ic{width:17px;height:17px}
+.icon-btn .ndot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:99px;background:var(--accent);border:2px solid var(--surface)}
+.avatar{width:30px;height:30px;border-radius:99px;background:var(--ink);color:var(--surface);font-size:11px;font-weight:650;display:grid;place-items:center;margin-left:4px;flex:none}
+
+/* ---- Side nav with the product switcher as its header ---- */
+.shell{flex:1;display:flex;min-height:0}
+.sidenav{flex:none;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);overflow-y:auto;padding:10px 10px 16px;display:flex;flex-direction:column;gap:1px}
+.prod-switch{position:relative;margin-bottom:8px}
+.ps-btn{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:var(--r-2);border:1px solid transparent}
+.ps-btn:hover{background:var(--well);border-color:var(--line)}
+.ps-chip{width:30px;height:30px;border-radius:8px;background:var(--ink);color:var(--surface);display:grid;place-items:center;flex:none}
+.ps-name{flex:1;min-width:0}
+.ps-name b{display:block;font-size:13.5px;font-weight:650;line-height:1.2}
+.ps-name span{font-size:11px;color:var(--ink-3)}
+.ps-btn>.ic{width:14px;height:14px;color:var(--ink-3)}
+.ps-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:var(--shadow-3);padding:6px;z-index:60}
+.ps-sec{font-size:11px;font-weight:650;color:var(--ink-3);padding:6px 8px 4px}
+.ps-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:var(--r-2)}
+.ps-item:hover{background:var(--well)}
+.ps-item .ps-chip{width:28px;height:28px;border-radius:7px}
+.ps-item div{flex:1;min-width:0}
+.ps-item b{display:block;font-size:12.5px;font-weight:650;line-height:1.25}
+.ps-item .d{font-size:11px;color:var(--ink-3)}
+.ps-item .ck{width:15px;height:15px;color:var(--accent)}
+.ps-div{height:1px;background:var(--line);margin:6px 4px}
+.ps-item.more .ps-chip{background:var(--well);color:var(--ink-2)}
+
+/* ---- Nested tree: indentation + guide lines carry the 3 levels ---- */
+.nav-h{font-size:11px;font-weight:650;color:var(--ink-3);padding:16px 10px 5px}
+.nitem{display:flex;align-items:center;gap:9px;height:var(--item-h);padding:0 10px;border-radius:var(--r-1);color:var(--ink-2);font-weight:500;font-size:13px}
+.nitem .ic{width:16px;height:16px;color:var(--ink-3)}
+.nitem:hover{background:var(--well);color:var(--ink)}
+.nitem:hover .ic{color:var(--ink)}
+.nitem[aria-current="page"]{background:var(--accent-soft);color:var(--accent-strong);font-weight:650}
+.nitem[aria-current="page"] .ic{color:var(--accent)}
+.count{margin-left:auto;font-size:11px;font-weight:650;color:var(--ink-3);background:var(--well);border-radius:99px;padding:1px 7px}
+details.grp>summary{display:flex;align-items:center;gap:9px;height:var(--item-h);padding:0 10px;border-radius:var(--r-1);color:var(--ink-2);font-weight:500;cursor:pointer;list-style:none}
+details.grp>summary::-webkit-details-marker{display:none}
+details.grp>summary:hover{background:var(--well);color:var(--ink)}
+details.grp>summary .ic{width:16px;height:16px;color:var(--ink-3)}
+.tw{width:13px;height:13px;color:var(--ink-3);transition:transform .12s ease;flex:none}
+details[open]>summary .tw{transform:rotate(90deg)}
+.kids{margin:2px 0 4px 18px;padding-left:9px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:1px}
+.kids .nitem{height:30px;font-size:12.5px}
+.kids details.grp>summary{height:30px;font-size:12.5px}
+/* Level 3: one more indent step off the level-2 guide line */
+.kids .kids{margin-left:14px}
+.kids .kids .nitem{height:28px;font-size:12.5px}
+
+/* ---- Content ---- */
+.content{flex:1;min-width:0;overflow-y:auto}
+.page{max-width:1180px;margin:0 auto;padding:20px 28px 56px}
+.crumbs{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-3);margin-bottom:6px;flex-wrap:wrap}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs .sep{color:var(--line-strong)}
+.page-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.page-head h1{margin:0;font-size:20px;font-weight:650;letter-spacing:-.01em}
+.head-actions{margin-left:auto;display:flex;gap:8px;flex:none}
+.metas{display:flex;gap:8px;margin:8px 0 18px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+.pill .ic{width:11px;height:11px}
+.pill.soft{background:var(--well);color:var(--ink-2)}
+.pill.line{background:var(--surface);border:1px solid var(--line-strong);color:var(--ink-2)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);padding:13px 16px 12px}
+.kpi .lbl{font-size:12px;color:var(--ink-2);font-weight:500}
+.kpi .val{font-size:23px;font-weight:650;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .sub{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.cols{display:grid;grid-template-columns:2fr 1fr;gap:12px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.card-h b{font-size:13.5px;font-weight:650}
+.card-h .right{margin-left:auto}
+.card-f{display:flex;align-items:center;padding:11px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+.card-f a{margin-left:auto;color:var(--accent-strong);font-weight:600}
+.card-f a:hover{text-decoration:underline}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:11px;font-weight:650;color:var(--ink-3);padding:9px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+td .ttl{font-weight:600;color:var(--ink)}
+td .meta{font-size:11.5px;color:var(--ink-3)}
+.bar{display:inline-block;width:96px;height:5px;border-radius:99px;background:var(--well);vertical-align:middle}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.pct{font-variant-numeric:tabular-nums;color:var(--ink-2);margin-left:8px;font-size:12px}
+.owner{width:24px;height:24px;border-radius:99px;background:var(--well);color:var(--ink-2);font-size:10px;font-weight:650;display:inline-grid;place-items:center;border:1px solid var(--line-strong);margin-right:8px;vertical-align:middle}
+.about p{margin:0;padding:13px 16px;font-size:12.5px;color:var(--ink-2);line-height:1.55;border-bottom:1px solid var(--line)}
+.about dl{margin:0;padding:8px 16px 12px;display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:12px}
+.about dt{color:var(--ink-3)}
+.about dd{margin:0;font-weight:600}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- Inline icon set (same sprite as every version) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5" cy="5" r="1.7"/><circle cx="12" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/><circle cx="5" cy="19" r="1.7"/><circle cx="12" cy="19" r="1.7"/><circle cx="19" cy="19" r="1.7"/></g></symbol>
+<symbol id="i-mark" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="m4.2 18 5.9-11 3.3 6 2-3.6 4.4 8.6z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20.4 20.4-3.9-3.9"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.4 9.2a5.6 5.6 0 0 1 11.2 0c0 5.5 2.1 6.9 2.1 6.9H4.3s2.1-1.4 2.1-6.9"/><path d="M10.4 19.6a1.7 1.7 0 0 0 3.2 0"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M9.4 9.1a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.4-2.6 3.7"/><path d="M12 17.1h.01"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></symbol>
+<symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="m3.5 10.2 8.5-6.7 8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.4v-6.3H9.4v6.3H5A1.5 1.5 0 0 1 3.5 19z"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M2.8 9.7 12 5.2l9.2 4.5L12 14.2z"/><path d="M6.6 12v4.1c0 1.5 2.4 2.8 5.4 2.8s5.4-1.3 5.4-2.8V12"/><path d="M21.2 9.7v5"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.2c2.5 1.5 4.9 2.1 7.2 2.4V12c0 4.6-3 7.3-7.2 8.7C7.8 19.3 4.8 16.6 4.8 12V5.6C7.1 5.3 9.5 4.7 12 3.2z"/><path d="m8.9 12 2.1 2.1 4.1-4.2"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.8" y="5" width="16.4" height="15" rx="1.8"/><path d="M8.2 3.2V7M15.8 3.2V7M3.8 10.4h16.4"/><path d="M8.2 14h.01M12 14h.01M15.8 14h.01M8.2 17.2h.01M12 17.2h.01"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4.2 4.2v14.6a1 1 0 0 0 1 1h14.6"/><path d="M9 15.4v-4.2M13.4 15.4V7.8M17.8 15.4v-2.5"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.2" r="3.4"/><path d="M3.2 19.6c0-3.2 2.6-5.2 5.8-5.2s5.8 2 5.8 5.2"/><path d="M15.9 5.2a3.4 3.4 0 0 1 0 6M17.9 14.7c1.9.8 3 2.4 3 4.9"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.6 6.2a1.8 1.8 0 0 1 1.8-1.8h3.1a1.8 1.8 0 0 1 1.4.7l1 1.3h7.7a1.8 1.8 0 0 1 1.8 1.8v9.6a1.8 1.8 0 0 1-1.8 1.8H5.4a1.8 1.8 0 0 1-1.8-1.8z"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M13.6 3.4H7A1.6 1.6 0 0 0 5.4 5v14A1.6 1.6 0 0 0 7 20.6h10a1.6 1.6 0 0 0 1.6-1.6V8.4z"/><path d="M13.6 3.4v5h5"/><path d="M8.8 13h6.4M8.8 16.4h6.4"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4.5 7.5h6.2M17.3 7.5h2.2M4.5 16.5h2.2M13.3 16.5h6.2"/><circle cx="14" cy="7.5" r="2.3"/><circle cx="9.5" cy="16.5" r="2.3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5.5 12.6 4.2 4.2 8.8-9.6"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3.6 8.6 4.2L12 12 3.4 7.8z"/><path d="m5 11.3-1.6.7L12 16.2l8.6-4.2-1.6-.7"/><path d="m5 15.5-1.6.7L12 20.4l8.6-4.2-1.6-.7"/></symbol>
+<symbol id="i-dots" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></g></symbol>
+</defs></svg>
+
+<!-- ============ TOP BAR: suite identity + universal actions only ============ -->
+<header class="topbar" role="banner">
+  <div class="tb-left">
+    <a class="suite" href="#" aria-label="Atlas home">
+      <span class="suite-mark"><svg class="ic"><use href="#i-mark"/></svg></span>
+      <b>Atlas</b>
+      <span class="org">Northline Utilities</span>
+    </a>
+  </div>
+  <div>
+    <button class="search" aria-label="Search Atlas">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <span class="grow">Search Atlas</span>
+      <kbd aria-hidden="true">⌘</kbd><kbd aria-hidden="true">K</kbd>
+    </button>
+  </div>
+  <div class="tb-right">
+    <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>New</button>
+    <button class="icon-btn" aria-label="Notifications, 3 unread"><svg class="ic"><use href="#i-bell"/></svg><span class="ndot"></span></button>
+    <button class="icon-btn" aria-label="Help"><svg class="ic"><use href="#i-help"/></svg></button>
+    <button class="avatar" aria-label="Account: Alex Kim">AK</button>
+  </div>
+</header>
+
+<div class="shell">
+  <!-- ============ SIDE NAV: switcher header + one nested tree ============ -->
+  <nav class="sidenav" aria-label="Learn navigation">
+    <!-- The version-defining switcher: current product as the sidebar header -->
+    <div class="prod-switch">
+      <button class="ps-btn" id="psBtn" aria-haspopup="menu" aria-expanded="false">
+        <span class="ps-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
+        <span class="ps-name"><b>Learn</b><span>Northline Utilities</span></span>
+        <svg class="ic"><use href="#i-chev-d"/></svg>
+      </button>
+      <div class="ps-menu" id="psMenu" role="menu" aria-label="Switch product" hidden>
+        <div class="ps-sec">Switch product</div>
+        <a class="ps-item" href="#" role="menuitem" aria-current="true">
+          <span class="ps-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
+          <div><b>Learn</b><span class="d">Courses, plans, certifications</span></div>
+          <svg class="ic ck"><use href="#i-check"/></svg>
+        </a>
+        <a class="ps-item" href="#" role="menuitem">
+          <span class="ps-chip"><svg class="ic"><use href="#i-shield"/></svg></span>
+          <div><b>Comply</b><span class="d">Incidents, inspections, SDS</span></div>
+        </a>
+        <a class="ps-item" href="#" role="menuitem">
+          <span class="ps-chip"><svg class="ic"><use href="#i-cal"/></svg></span>
+          <div><b>Schedule</b><span class="d">Shifts, coverage, timesheets</span></div>
+        </a>
+        <div class="ps-div"></div>
+        <a class="ps-item more" href="#" role="menuitem">
+          <span class="ps-chip"><svg class="ic"><use href="#i-grid"/></svg></span>
+          <div><b>All apps</b><span class="d">Catalog and access requests</span></div>
+        </a>
+      </div>
+    </div>
+
+    <a class="nitem" href="#"><svg class="ic"><use href="#i-home"/></svg>Home</a>
+
+    <!-- Level 1: Section -->
+    <details class="grp" open>
+      <summary><svg class="ic tw"><use href="#i-chev-r"/></svg><svg class="ic"><use href="#i-cap"/></svg>Training</summary>
+      <div class="kids">
+        <!-- Level 2: Areas -->
+        <a class="nitem" href="#">My assignments</a>
+        <a class="nitem" href="#">Course catalog</a>
+        <details class="grp" open>
+          <summary><svg class="ic tw"><use href="#i-chev-r"/></svg>Compliance courses</summary>
+          <div class="kids">
+            <!-- Level 3: Items. Depth capped here by rule. -->
+            <a class="nitem" href="#" aria-current="page">OSHA 10 · 2024</a>
+            <a class="nitem" href="#">OSHA 30 · 2024</a>
+            <a class="nitem" href="#">HazCom refresher</a>
+          </div>
+        </details>
+        <a class="nitem" href="#">Learning paths</a>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><svg class="ic tw"><use href="#i-chev-r"/></svg><svg class="ic"><use href="#i-users"/></svg>People</summary>
+      <div class="kids">
+        <a class="nitem" href="#">Learners</a>
+        <a class="nitem" href="#">Groups</a>
+        <a class="nitem" href="#">Instructors</a>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><svg class="ic tw"><use href="#i-chev-r"/></svg><svg class="ic"><use href="#i-folder"/></svg>Content</summary>
+      <div class="kids">
+        <a class="nitem" href="#">Course library</a>
+        <a class="nitem" href="#">Media assets</a>
+        <a class="nitem" href="#">Question banks</a>
+      </div>
+    </details>
+
+    <a class="nitem" href="#"><svg class="ic"><use href="#i-chart"/></svg>Reports</a>
+
+    <div class="nav-h">Workspace</div>
+    <a class="nitem" href="#"><svg class="ic"><use href="#i-sliders"/></svg>Admin settings</a>
+  </nav>
+
+  <!-- ============ CONTENT: a level-3 destination, so the breadcrumb shows all levels ============ -->
+  <main class="content" id="main">
+    <div class="page">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="#">Learn</a><span class="sep">/</span>
+        <a href="#">Training</a><span class="sep">/</span>
+        <a href="#">Compliance courses</a><span class="sep">/</span>
+        <span style="color:var(--ink);font-weight:600" aria-current="page">OSHA 10 · 2024</span>
+      </nav>
+      <div class="page-head">
+        <h1>OSHA 10 · 2024</h1>
+        <div class="head-actions">
+          <button class="btn">Preview</button>
+          <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Assign learners</button>
+        </div>
+      </div>
+      <div class="metas">
+        <span class="pill line">eLearning</span>
+        <span class="pill line">10 hours</span>
+        <span class="pill line">EN + ES</span>
+        <span class="pill line">Version 2024.2</span>
+        <span class="pill soft"><svg class="ic"><use href="#i-check"/></svg>Published</span>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="lbl">Enrolled</div><div class="val">412</div><div class="sub">via Annual Compliance</div></div>
+        <div class="kpi"><div class="lbl">Completed</div><div class="val">71%</div><div class="sub">294 of 412</div></div>
+        <div class="kpi"><div class="lbl">Average score</div><div class="val">89%</div><div class="sub">pass mark 70%</div></div>
+        <div class="kpi"><div class="lbl">Due</div><div class="val">Sep 30</div><div class="sub">2026 · then annual renewal</div></div>
+      </div>
+
+      <div class="cols">
+        <div class="card">
+          <div class="card-h"><b>Enrollment</b><div class="right"><button class="btn">Manage</button></div></div>
+          <table>
+            <thead><tr><th>Learner</th><th>Group</th><th>Progress</th><th>Score</th><th>Completed</th></tr></thead>
+            <tbody>
+              <tr><td><span class="owner">MJ</span><span class="ttl">Maria Jimenez</span></td><td>Plant 12 · Ops</td><td><span class="bar"><i style="width:100%"></i></span><span class="pct">100%</span></td><td>92%</td><td>Aug 1, 2026</td></tr>
+              <tr><td><span class="owner">SO</span><span class="ttl">Sana Okafor</span></td><td>Plant 12 · Ops</td><td><span class="bar"><i style="width:100%"></i></span><span class="pct">100%</span></td><td>95%</td><td>Jul 22, 2026</td></tr>
+              <tr><td><span class="owner">TS</span><span class="ttl">Tom Shaw</span></td><td>DC North · Warehouse</td><td><span class="bar"><i style="width:100%"></i></span><span class="pct">100%</span></td><td>88%</td><td>Jul 29, 2026</td></tr>
+              <tr><td><span class="owner">PN</span><span class="ttl">Priya Natarajan</span></td><td>Field Services</td><td><span class="bar"><i style="width:45%"></i></span><span class="pct">45%</span></td><td>–</td><td><span class="pill line">In progress</span></td></tr>
+              <tr><td><span class="owner">RB</span><span class="ttl">Rob Beck</span></td><td>Plant 7 · Maintenance</td><td><span class="bar"><i style="width:0%"></i></span><span class="pct">0%</span></td><td>–</td><td><span class="pill soft">Not started</span></td></tr>
+            </tbody>
+          </table>
+          <div class="card-f">Showing 5 of 412 learners<a href="#">View all</a></div>
+        </div>
+
+        <div class="card about">
+          <div class="card-h"><b>About this course</b></div>
+          <p>Entry-level OSHA outreach training for general industry. Covers hazard recognition, PPE, walking-working surfaces, HazCom, and emergency action plans. Completion issues a DOL wallet card.</p>
+          <dl>
+            <dt>Owner</dt><dd>EHS Training team</dd>
+            <dt>Source</dt><dd>Course library</dd>
+            <dt>Renewal</dt><dd>Annual</dd>
+            <dt>Credit</dt><dd>OSHA 10 card</dd>
+            <dt>Added</dt><dd>Jan 12, 2024</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// Demo-only: open/close the product menu. ?switcher pre-opens it (gallery thumbnail).
+(function(){
+  var btn=document.getElementById('psBtn'),menu=document.getElementById('psMenu');
+  function setOpen(o){menu.hidden=!o;btn.setAttribute('aria-expanded',String(o));}
+  btn.addEventListener('click',function(e){e.stopPropagation();setOpen(menu.hidden);});
+  document.addEventListener('click',function(e){if(!menu.hidden&&!menu.contains(e.target))setOpen(false);});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});
+  if(new URLSearchParams(location.search).has('switcher'))setOpen(true);
+})();
+</script>
+<!-- ============================================================================
+     REVIEW TOOLING - NOT PART OF THE PRODUCT DESIGN
+     Floating version switcher, bottom-left, so reviewers can flip between the
+     six explorations without returning to the gallery. Self-contained: delete
+     this comment through the closing </nav> to remove it entirely.
+     ============================================================================ -->
+<style>
+.vswitch{position:fixed;bottom:14px;left:14px;z-index:90;display:flex;align-items:center;gap:2px;padding:4px 5px;border-radius:99px;background:rgba(20,22,28,.95);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+.vswitch a{display:grid;place-items:center;min-width:28px;height:26px;padding:0 8px;border-radius:99px;color:#c9cdd7;font:650 11.5px/1 var(--font);text-decoration:none;white-space:nowrap}
+.vswitch a:hover{background:rgba(255,255,255,.14);color:#fff}
+.vswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
+.vswitch a:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.vswitch .vs-all{padding:0 11px;color:#fff}
+.vswitch .vs-div{width:1px;height:15px;background:rgba(255,255,255,.2);margin:0 4px;flex:none}
+.vswitch .vs-cap{color:#8b909c;font:650 10px/1 var(--font);padding:0 4px 0 2px}
+</style>
+<nav class="vswitch" aria-label="Switch exploration version">
+  <a class="vs-all" href="index.html" title="Back to the gallery: all six versions with rationale and trade-offs">All</a>
+  <span class="vs-div" aria-hidden="true"></span>
+  <span class="vs-cap" aria-hidden="true">Version</span>
+  <a href="v1-launcher-tabs.html" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
+  <a href="v2-rail-twopane.html" title="V2 · App rail + two-pane nav, no tabs">V2</a>
+  <a href="v3-sidebar-dropdown-tree.html" aria-current="page" title="V3 · Sidebar product dropdown + 3-level tree">V3</a>
+  <a href="v4-dense-dark-flyout.html" title="V4 · Dense dark: collapsed rail + flyout submenus">V4</a>
+  <a href="v5-topbar-switcher-tabs.html" title="V5 · Top-bar switcher + dedicated tab row">V5</a>
+  <a href="v6-synthesis.html" title="V6 · Synthesis (recommended)">V6</a>
+</nav>
+</body>
+</html>

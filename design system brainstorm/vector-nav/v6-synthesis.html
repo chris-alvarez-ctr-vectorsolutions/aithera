@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas nav · V6: Recommended synthesis</title>
+<!--
+  ============================================================================
+  V6 · SYNTHESIS (RECOMMENDED): APP RAIL + OPTIONAL PER-PRODUCT TABS +
+  COLLAPSIBLE SIDE NAV
+  ============================================================================
+  Why these pieces won
+  · App rail (from V2): switching ≠ navigating gets a PHYSICAL answer — the
+    suite lives in its own dark column that never mixes with product nav,
+    and the whole suite is always one click away.
+  · Mode tabs as an OPT-IN layer (from V1/V5): deep products (Learn, Comply)
+    get a tab row for their modes; shallow products (Schedule) simply omit
+    it and the shell still reads as the same system. Click the rail:
+    Learn/Comply show tabs, Schedule doesn't — the shell absorbs both.
+  · Collapsible side nav (from V4, per review feedback): the sidenav header
+    names the product + mode, and the collapse toggle sits in the FAR-LEFT
+    corner of the top bar, the same slot as V1/V5, so the control never moves.
+    Collapsed is a DESIGNED state: icon rail with labels as tooltips (hover AND
+    keyboard focus), active item still visible. It also auto-collapses below
+    1120px; resize the window to see the responsive state.
+  · Accordion depth capped at 2 inside a mode (from V3's rule): tabs absorb
+    one level, so the tree stays shallow.
+
+  Demo wiring: rail switches product panes (?app=learn|comply|schedule),
+  collapse toggle or ?collapsed pre-collapses the sidenav. No storage.
+  ============================================================================
+-->
+<style>
+/* ---- Design tokens: shared verbatim across all versions ---- */
+:root{
+  color-scheme:light;
+  --bg:#f3f4f6; --surface:#ffffff; --surface-2:#f8f9fa; --well:#edeef1;
+  --ink:#191c21; --ink-2:#4d525b; --ink-3:#6d727c;
+  --line:#e4e6ea; --line-strong:#cfd3d9;
+  --accent:#4f46e5; --accent-strong:#4338ca; --on-accent:#ffffff;
+  --accent-soft:#eef0fe; --accent-line:#c7cbf8;
+  --rail-bg:#1f2229; --rail-ink:#a9aeb9;
+  --shadow-1:0 1px 2px rgba(20,22,28,.06);
+  --shadow-2:0 6px 20px rgba(20,22,28,.13);
+  --shadow-3:0 16px 44px rgba(20,22,28,.22);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r-1:6px; --r-2:8px; --r-3:12px;
+  --topbar-h:56px; --tabs-h:44px; --nav-w:248px; --rail-w:56px; --item-h:32px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--font);font-size:13px;line-height:1.45;color:var(--ink);background:var(--bg);display:flex;flex-direction:column}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+svg.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.skip{position:absolute;left:-9999px;top:8px;z-index:100;background:var(--surface);border:1px solid var(--line-strong);padding:8px 12px;border-radius:8px;font-weight:600}
+.skip:focus{left:8px}
+
+/* ---- Top bar (shared slots; brand follows the active product) ---- */
+.topbar{flex:none;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr minmax(280px,460px) 1fr;align-items:center;gap:16px;padding:0 12px;position:relative;z-index:40}
+.tb-left{display:flex;align-items:center;gap:8px;min-width:0}
+.tb-right{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 6px;border-radius:8px;white-space:nowrap}
+.brand-chip{width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--surface);display:grid;place-items:center;flex:none}
+.brand-chip .ic{width:15px;height:15px}
+.brand b{font-size:14px;font-weight:650}
+.brand .org{font-size:12px;color:var(--ink-3);border-left:1px solid var(--line);padding-left:9px;margin-left:2px}
+.search{display:flex;align-items:center;gap:8px;width:100%;height:34px;padding:0 10px;border-radius:8px;background:var(--well);border:1px solid transparent;color:var(--ink-3)}
+.search:hover{border-color:var(--line-strong);background:var(--surface)}
+.search .grow{flex:1;text-align:left}
+kbd{font:600 10.5px/1 var(--font);color:var(--ink-3);background:var(--surface);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:2px 4px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--r-1);border:1px solid var(--line-strong);background:var(--surface);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent-strong)}
+.btn .ic{width:14px;height:14px}
+.icon-btn{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);position:relative;flex:none}
+.icon-btn:hover{background:var(--well);color:var(--ink)}
+.icon-btn .ic{width:17px;height:17px}
+.icon-btn .ndot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:99px;background:var(--accent);border:2px solid var(--surface)}
+.avatar{width:30px;height:30px;border-radius:99px;background:var(--ink);color:var(--surface);font-size:11px;font-weight:650;display:grid;place-items:center;margin-left:4px;flex:none}
+
+/* ---- App rail (the switcher) ---- */
+.below{flex:1;display:flex;min-height:0}
+.apprail{flex:none;width:var(--rail-w);background:var(--rail-bg);display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:4px;z-index:30}
+.rlogo{width:34px;height:34px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;margin-bottom:10px}
+.rlogo .ic{width:18px;height:18px}
+.rapp{width:40px;height:40px;border-radius:10px;color:var(--rail-ink);display:grid;place-items:center;position:relative}
+.rapp .ic{width:19px;height:19px}
+.rapp:hover{background:rgba(255,255,255,.09);color:#fff}
+.rapp[aria-pressed="true"]{background:rgba(255,255,255,.13);color:#fff}
+.rapp[aria-pressed="true"]::before{content:"";position:absolute;left:-8px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.rapp::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--ink);color:var(--surface);font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .1s;z-index:70}
+.rapp:hover::after,.rapp:focus-visible::after{opacity:1}
+.rdiv{width:26px;height:1px;background:rgba(255,255,255,.14);margin:6px 0}
+.rspace{flex:1}
+.apprail :focus-visible{outline-color:#aab3ff}
+
+/* ---- Product panes ---- */
+.pane-area{flex:1;min-width:0;display:flex}
+.app-pane{display:none;flex:1;min-width:0;flex-direction:column}
+body[data-app="learn"] .app-pane[data-app="learn"],
+body[data-app="comply"] .app-pane[data-app="comply"],
+body[data-app="schedule"] .app-pane[data-app="schedule"]{display:flex}
+.brand{display:none}
+body[data-app="learn"] .brand[data-app="learn"],
+body[data-app="comply"] .brand[data-app="comply"],
+body[data-app="schedule"] .brand[data-app="schedule"]{display:flex}
+
+/* ---- Optional per-product tab row ---- */
+.tabs{flex:none;height:var(--tabs-h);background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:stretch;gap:2px;padding:0 14px}
+.tabs a{display:flex;align-items:center;padding:0 13px;color:var(--ink-2);font-weight:500;font-size:13px;border-bottom:2px solid transparent}
+.tabs a:hover{color:var(--ink)}
+.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:650}
+
+/* ---- Collapsible side nav: expanded list <-> icon rail ---- */
+.shell-row{flex:1;display:flex;min-height:0}
+.sidenav{flex:none;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:1px;transition:width .15s ease}
+.sn-head{display:flex;align-items:center;gap:8px;padding:2px 4px 10px}
+.sn-title{flex:1;min-width:0;padding-left:4px}
+.sn-title b{display:block;font-size:13.5px;font-weight:650;line-height:1.2}
+.sn-title span{font-size:11px;color:var(--ink-3)}
+.nav-h{font-size:11px;font-weight:650;color:var(--ink-3);padding:16px 10px 5px}
+.nitem{position:relative;display:flex;align-items:center;gap:9px;height:var(--item-h);padding:0 10px;border-radius:var(--r-1);color:var(--ink-2);font-weight:500;font-size:13px}
+.nitem .ic{width:16px;height:16px;color:var(--ink-3)}
+.nitem:hover{background:var(--well);color:var(--ink)}
+.nitem:hover .ic{color:var(--ink)}
+.nitem[aria-current="page"]{background:var(--accent-soft);color:var(--accent-strong);font-weight:650}
+.nitem[aria-current="page"] .ic{color:var(--accent)}
+.count{margin-left:auto;font-size:11px;font-weight:650;color:var(--ink-3);background:var(--well);border-radius:99px;padding:1px 7px}
+/* Collapsed: icon-only rail. Labels move into tooltips (hover + focus). */
+body.nav-collapsed .sidenav{width:60px;padding:10px 9px;overflow:visible}
+body.nav-collapsed .sn-title,body.nav-collapsed .lab,body.nav-collapsed .count,body.nav-collapsed .nav-h{display:none}
+body.nav-collapsed .sn-head{display:none}
+body.nav-collapsed .nitem{justify-content:center;width:40px;height:38px;padding:0;margin:0 auto}
+body.nav-collapsed .nitem::after{content:attr(data-tip);position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);background:var(--ink);color:var(--surface);font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .1s;z-index:70}
+body.nav-collapsed .nitem:hover::after,body.nav-collapsed .nitem:focus-visible::after{opacity:1}
+
+/* ---- Content ---- */
+.content{flex:1;min-width:0;overflow-y:auto}
+.page{max-width:1180px;margin:0 auto;padding:20px 28px 56px}
+.crumbs{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-3);margin-bottom:6px;flex-wrap:wrap}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs .sep{color:var(--line-strong)}
+.crumbs .here{color:var(--ink);font-weight:600}
+.page-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+.page-head h1{margin:0;font-size:20px;font-weight:650;letter-spacing:-.01em}
+.page-head .sub{margin:3px 0 0;color:var(--ink-2);font-size:12.5px}
+.head-actions{margin-left:auto;display:flex;gap:8px;flex:none}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);padding:13px 16px 12px}
+.kpi .lbl{font-size:12px;color:var(--ink-2);font-weight:500}
+.kpi .val{font-size:23px;font-weight:650;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .sub{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.card-h b{font-size:13.5px;font-weight:650}
+.card-f{display:flex;align-items:center;padding:11px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+.card-f a{margin-left:auto;color:var(--accent-strong);font-weight:600}
+.card-f a:hover{text-decoration:underline}
+.lrow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.lrow:last-of-type{border-bottom:0}
+.lrow .lt{flex:1;min-width:0}
+.lrow .lt b{display:block;font-size:12.5px;font-weight:600}
+.lrow .lt span{font-size:11.5px;color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+.pill.soft{background:var(--well);color:var(--ink-2)}
+.pill.line{background:var(--surface);border:1px solid var(--line-strong);color:var(--ink-2)}
+.pill.fill{background:var(--ink);color:var(--surface)}
+.owner{width:26px;height:26px;border-radius:99px;background:var(--well);color:var(--ink-2);font-size:10px;font-weight:650;display:grid;place-items:center;border:1px solid var(--line-strong);flex:none}
+.frow{display:flex;align-items:flex-start;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-2)}
+.frow:last-of-type{border-bottom:0}
+.frow b{color:var(--ink);font-weight:600}
+.frow .time{margin-left:auto;font-size:11px;color:var(--ink-3);white-space:nowrap;padding-left:10px}
+</style>
+</head>
+<body data-app="learn">
+<a class="skip" href="#">Skip to content</a>
+
+<!-- Inline icon set (same sprite as every version) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5" cy="5" r="1.7"/><circle cx="12" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/><circle cx="5" cy="19" r="1.7"/><circle cx="12" cy="19" r="1.7"/><circle cx="19" cy="19" r="1.7"/></g></symbol>
+<symbol id="i-mark" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="m4.2 18 5.9-11 3.3 6 2-3.6 4.4 8.6z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20.4 20.4-3.9-3.9"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.4 9.2a5.6 5.6 0 0 1 11.2 0c0 5.5 2.1 6.9 2.1 6.9H4.3s2.1-1.4 2.1-6.9"/><path d="M10.4 19.6a1.7 1.7 0 0 0 3.2 0"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M9.4 9.1a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.4-2.6 3.7"/><path d="M12 17.1h.01"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="m3.5 10.2 8.5-6.7 8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.4v-6.3H9.4v6.3H5A1.5 1.5 0 0 1 3.5 19z"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M2.8 9.7 12 5.2l9.2 4.5L12 14.2z"/><path d="M6.6 12v4.1c0 1.5 2.4 2.8 5.4 2.8s5.4-1.3 5.4-2.8V12"/><path d="M21.2 9.7v5"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.2c2.5 1.5 4.9 2.1 7.2 2.4V12c0 4.6-3 7.3-7.2 8.7C7.8 19.3 4.8 16.6 4.8 12V5.6C7.1 5.3 9.5 4.7 12 3.2z"/><path d="m8.9 12 2.1 2.1 4.1-4.2"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.8" y="5" width="16.4" height="15" rx="1.8"/><path d="M8.2 3.2V7M15.8 3.2V7M3.8 10.4h16.4"/><path d="M8.2 14h.01M12 14h.01M15.8 14h.01M8.2 17.2h.01M12 17.2h.01"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4.2 4.2v14.6a1 1 0 0 0 1 1h14.6"/><path d="M9 15.4v-4.2M13.4 15.4V7.8M17.8 15.4v-2.5"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.2" r="3.4"/><path d="M3.2 19.6c0-3.2 2.6-5.2 5.8-5.2s5.8 2 5.8 5.2"/><path d="M15.9 5.2a3.4 3.4 0 0 1 0 6M17.9 14.7c1.9.8 3 2.4 3 4.9"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M13.6 3.4H7A1.6 1.6 0 0 0 5.4 5v14A1.6 1.6 0 0 0 7 20.6h10a1.6 1.6 0 0 0 1.6-1.6V8.4z"/><path d="M13.6 3.4v5h5"/><path d="M8.8 13h6.4M8.8 16.4h6.4"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4.5 7.5h6.2M17.3 7.5h2.2M4.5 16.5h2.2M13.3 16.5h6.2"/><circle cx="14" cy="7.5" r="2.3"/><circle cx="9.5" cy="16.5" r="2.3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.4 4.4 3.1 17.1a1.85 1.85 0 0 0 1.6 2.8h14.6a1.85 1.85 0 0 0 1.6-2.8L13.6 4.4a1.85 1.85 0 0 0-3.2 0z"/><path d="M12 9.4v4.2M12 16.9h.01"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3 2.1"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.8 13.6 6.5 5.9a1.6 1.6 0 0 1 1.5-1.1h8a1.6 1.6 0 0 1 1.5 1.1l2.7 7.7v4.7a1.6 1.6 0 0 1-1.6 1.6H5.4a1.6 1.6 0 0 1-1.6-1.6z"/><path d="M3.8 13.6h4.7l1.4 2.4h4.2l1.4-2.4h4.7"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="m7.3 4.6-3.4 3.4 3.4 3.4M3.9 8h12.6"/><path d="m16.7 12.6 3.4 3.4-3.4 3.4M20.1 16H7.5"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3.6 8.6 4.2L12 12 3.4 7.8z"/><path d="m5 11.3-1.6.7L12 16.2l8.6-4.2-1.6-.7"/><path d="m5 15.5-1.6.7L12 20.4l8.6-4.2-1.6-.7"/></symbol>
+<symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.6" y="4.6" width="16.8" height="14.8" rx="1.8"/><path d="M9.8 4.6v14.8"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5.5 12.6 4.2 4.2 8.8-9.6"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 4.4 2.25 4.55 5.05.75-3.65 3.55.85 5L12 15.9l-4.5 2.35.85-5L4.7 9.7l5.05-.75z"/></symbol>
+</defs></svg>
+
+<!-- ============ TOP BAR (shared slots) ============ -->
+<header class="topbar" role="banner">
+  <div class="tb-left">
+    <!-- Side nav collapse/expand: the far-left corner in every version that has
+         a toggle, so the control never moves between products or versions. -->
+    <button class="icon-btn navToggle" aria-label="Collapse navigation" aria-pressed="false">
+      <svg class="ic"><use href="#i-panel"/></svg>
+    </button>
+    <a class="brand" data-app="learn" href="#"><span class="brand-chip"><svg class="ic"><use href="#i-cap"/></svg></span><b>Learn</b><span class="org">Northline Utilities</span></a>
+    <a class="brand" data-app="comply" href="#"><span class="brand-chip"><svg class="ic"><use href="#i-shield"/></svg></span><b>Comply</b><span class="org">Northline Utilities</span></a>
+    <a class="brand" data-app="schedule" href="#"><span class="brand-chip"><svg class="ic"><use href="#i-cal"/></svg></span><b>Schedule</b><span class="org">Northline Utilities</span></a>
+  </div>
+  <div>
+    <button class="search" aria-label="Search Atlas">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <span class="grow">Search Atlas</span>
+      <kbd aria-hidden="true">⌘</kbd><kbd aria-hidden="true">K</kbd>
+    </button>
+  </div>
+  <div class="tb-right">
+    <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>New</button>
+    <button class="icon-btn" aria-label="Notifications, 3 unread"><svg class="ic"><use href="#i-bell"/></svg><span class="ndot"></span></button>
+    <button class="icon-btn" aria-label="Help"><svg class="ic"><use href="#i-help"/></svg></button>
+    <button class="avatar" aria-label="Account: Alex Kim">AK</button>
+  </div>
+</header>
+
+<div class="below">
+  <!-- ============ APP RAIL: the switcher ============ -->
+  <nav class="apprail" aria-label="Products">
+    <span class="rlogo" title="Atlas suite"><svg class="ic"><use href="#i-mark"/></svg></span>
+    <button class="rapp" data-app="learn" data-tip="Learn" aria-pressed="true"><svg class="ic"><use href="#i-cap"/></svg></button>
+    <button class="rapp" data-app="comply" data-tip="Comply" aria-pressed="false"><svg class="ic"><use href="#i-shield"/></svg></button>
+    <button class="rapp" data-app="schedule" data-tip="Schedule" aria-pressed="false"><svg class="ic"><use href="#i-cal"/></svg></button>
+    <span class="rspace"></span>
+    <span class="rdiv"></span>
+    <button class="rapp" data-tip="All apps" aria-label="All apps"><svg class="ic"><use href="#i-grid"/></svg></button>
+    <button class="rapp" data-tip="Org admin" aria-label="Org admin"><svg class="ic"><use href="#i-sliders"/></svg></button>
+  </nav>
+
+  <div class="pane-area">
+
+    <!-- ============ LEARN: deep product, HAS a tab row ============ -->
+    <div class="app-pane" data-app="learn">
+      <nav class="tabs" aria-label="Learn modes">
+        <a href="#" aria-current="page">Home</a>
+        <a href="#">Admin</a>
+        <a href="#">Training Plan</a>
+        <a href="#">Reporting &amp; Insights</a>
+      </nav>
+      <div class="shell-row">
+        <nav class="sidenav" aria-label="Learn Home navigation">
+          <div class="sn-head">
+            <div class="sn-title"><b>Learn</b><span>Home</span></div>
+          </div>
+          <a class="nitem" href="#" aria-current="page" data-tip="Overview"><svg class="ic"><use href="#i-home"/></svg><span class="lab">Overview</span></a>
+          <a class="nitem" href="#" data-tip="Inbox"><svg class="ic"><use href="#i-inbox"/></svg><span class="lab">Inbox</span><span class="count">5</span></a>
+          <a class="nitem" href="#" data-tip="My tasks"><svg class="ic"><use href="#i-check"/></svg><span class="lab">My tasks</span></a>
+          <div class="nav-h">Quick access</div>
+          <a class="nitem" href="#" data-tip="Annual Compliance"><svg class="ic"><use href="#i-star"/></svg><span class="lab">Annual Compliance</span></a>
+          <a class="nitem" href="#" data-tip="OSHA 10 · 2024"><svg class="ic"><use href="#i-star"/></svg><span class="lab">OSHA 10 · 2024</span></a>
+          <a class="nitem" href="#" data-tip="New hire onboarding"><svg class="ic"><use href="#i-star"/></svg><span class="lab">New hire onboarding</span></a>
+          <div class="nav-h">Reports</div>
+          <a class="nitem" href="#" data-tip="Completion"><svg class="ic"><use href="#i-chart"/></svg><span class="lab">Completion</span></a>
+          <a class="nitem" href="#" data-tip="Overdue learners"><svg class="ic"><use href="#i-alert"/></svg><span class="lab">Overdue learners</span></a>
+        </nav>
+        <main class="content">
+          <div class="page">
+            <div class="page-head">
+              <div>
+                <h1>Good morning, Alex</h1>
+                <p class="sub">Monday, Aug 10 · here's where your teams stand</p>
+              </div>
+              <div class="head-actions">
+                <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Assign training</button>
+              </div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="lbl">Assigned learners</div><div class="val">1,284</div><div class="sub">across 6 sites</div></div>
+              <div class="kpi"><div class="lbl">Overdue</div><div class="val">43</div><div class="sub">down 6 this week</div></div>
+              <div class="kpi"><div class="lbl">Due this month</div><div class="val">128</div><div class="sub">Annual Compliance</div></div>
+              <div class="kpi"><div class="lbl">Average completion</div><div class="val">86%</div><div class="sub">target: 85%</div></div>
+            </div>
+            <div class="cols">
+              <div class="card">
+                <div class="card-h"><b>Needs attention</b></div>
+                <div class="lrow">
+                  <div class="lt"><b>Forklift Operator Refresher</b><span>12 overdue at Plant 12 · due Aug 15</span></div>
+                  <span class="pill fill">At risk</span>
+                  <button class="btn">View</button>
+                </div>
+                <div class="lrow">
+                  <div class="lt"><b>Lockout/Tagout Awareness</b><span>8 overdue at DC North · due Aug 31</span></div>
+                  <span class="pill line">Watch</span>
+                  <button class="btn">View</button>
+                </div>
+                <div class="lrow">
+                  <div class="lt"><b>OSHA 10 renewals</b><span>21 certifications lapse in 14 days</span></div>
+                  <span class="pill line">Watch</span>
+                  <button class="btn">View</button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><b>Recent activity</b></div>
+                <div class="frow"><span class="owner">MJ</span><span><b>Maria Jimenez</b> completed OSHA 10 · 2024 with a 92%</span><span class="time">2h ago</span></div>
+                <div class="frow"><span class="owner">TS</span><span><b>Tom Shaw</b> submitted the forklift practical for review</span><span class="time">4h ago</span></div>
+                <div class="frow"><span class="owner">AK</span><span>12 learners were auto-assigned <b>New hire onboarding</b></span><span class="time">Yesterday</span></div>
+                <div class="frow"><span class="owner">PN</span><span><b>Priya Natarajan</b> requested the Spanish version of HazCom</span><span class="time">Yesterday</span></div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ============ COMPLY: deep product, HAS a tab row (different set) ============ -->
+    <div class="app-pane" data-app="comply">
+      <nav class="tabs" aria-label="Comply modes">
+        <a href="#" aria-current="page">Home</a>
+        <a href="#">Incidents</a>
+        <a href="#">Inspections</a>
+        <a href="#">Chemical safety</a>
+        <a href="#">Reporting</a>
+      </nav>
+      <div class="shell-row">
+        <nav class="sidenav" aria-label="Comply Home navigation">
+          <div class="sn-head">
+            <div class="sn-title"><b>Comply</b><span>Home</span></div>
+          </div>
+          <a class="nitem" href="#" aria-current="page" data-tip="Overview"><svg class="ic"><use href="#i-home"/></svg><span class="lab">Overview</span></a>
+          <a class="nitem" href="#" data-tip="My queue"><svg class="ic"><use href="#i-inbox"/></svg><span class="lab">My queue</span><span class="count">3</span></a>
+          <a class="nitem" href="#" data-tip="Assigned to me"><svg class="ic"><use href="#i-check"/></svg><span class="lab">Assigned to me</span></a>
+          <div class="nav-h">Saved views</div>
+          <a class="nitem" href="#" data-tip="Serious · 30 days"><svg class="ic"><use href="#i-star"/></svg><span class="lab">Serious · 30 days</span></a>
+          <a class="nitem" href="#" data-tip="Plant 12 only"><svg class="ic"><use href="#i-star"/></svg><span class="lab">Plant 12 only</span></a>
+        </nav>
+        <main class="content">
+          <div class="page">
+            <div class="page-head">
+              <div>
+                <h1>Safety overview</h1>
+                <p class="sub">All sites · updated 2 minutes ago</p>
+              </div>
+              <div class="head-actions">
+                <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Report incident</button>
+              </div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="lbl">Open incidents</div><div class="val">27</div><div class="sub">4 serious</div></div>
+              <div class="kpi"><div class="lbl">Overdue actions</div><div class="val">9</div><div class="sub">3 due this week</div></div>
+              <div class="kpi"><div class="lbl">Inspections this week</div><div class="val">6</div><div class="sub">2 assigned to you</div></div>
+              <div class="kpi"><div class="lbl">Days since lost time</div><div class="val">142</div><div class="sub">record: 218</div></div>
+            </div>
+            <div class="card">
+              <div class="card-h"><b>My queue</b></div>
+              <div class="lrow">
+                <div class="lt"><b>INC-2046 · Near miss: forklift, dock B</b><span>Investigation due Aug 12</span></div>
+                <span class="pill fill">Serious</span>
+                <button class="btn">Open</button>
+              </div>
+              <div class="lrow">
+                <div class="lt"><b>Monthly walkthrough · Plant 12</b><span>Inspection scheduled Wed, Aug 12</span></div>
+                <span class="pill soft">Inspection</span>
+                <button class="btn">Open</button>
+              </div>
+              <div class="lrow">
+                <div class="lt"><b>SDS review · new degreaser</b><span>Chemical approval waiting on you</span></div>
+                <span class="pill line">Approval</span>
+                <button class="btn">Open</button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ============ SCHEDULE: shallow product, NO tab row — the shell absorbs both ============ -->
+    <div class="app-pane" data-app="schedule">
+      <div class="shell-row">
+        <nav class="sidenav" aria-label="Schedule navigation">
+          <div class="sn-head">
+            <div class="sn-title"><b>Schedule</b><span>All areas</span></div>
+          </div>
+          <a class="nitem" href="#" aria-current="page" data-tip="Overview"><svg class="ic"><use href="#i-home"/></svg><span class="lab">Overview</span></a>
+          <a class="nitem" href="#" data-tip="Board"><svg class="ic"><use href="#i-cal"/></svg><span class="lab">Board</span></a>
+          <a class="nitem" href="#" data-tip="Open shifts"><svg class="ic"><use href="#i-clock"/></svg><span class="lab">Open shifts</span><span class="count">12</span></a>
+          <a class="nitem" href="#" data-tip="Swap requests"><svg class="ic"><use href="#i-swap"/></svg><span class="lab">Swap requests</span><span class="count">4</span></a>
+          <a class="nitem" href="#" data-tip="Time off"><svg class="ic"><use href="#i-doc"/></svg><span class="lab">Time off</span></a>
+          <div class="nav-h">Manage</div>
+          <a class="nitem" href="#" data-tip="People"><svg class="ic"><use href="#i-users"/></svg><span class="lab">People</span></a>
+          <a class="nitem" href="#" data-tip="Coverage rules"><svg class="ic"><use href="#i-sliders"/></svg><span class="lab">Coverage rules</span></a>
+        </nav>
+        <main class="content">
+          <div class="page">
+            <div class="page-head">
+              <div>
+                <h1>This week</h1>
+                <p class="sub">Aug 10 to 16 · DC North, Plant 7, Plant 12</p>
+              </div>
+              <div class="head-actions">
+                <button class="btn">Open board</button>
+                <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Post shift</button>
+              </div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="lbl">Shifts scheduled</div><div class="val">186</div><div class="sub">42 people</div></div>
+              <div class="kpi"><div class="lbl">Unfilled</div><div class="val">12</div><div class="sub">3 this weekend</div></div>
+              <div class="kpi"><div class="lbl">Swap requests</div><div class="val">4</div><div class="sub">2 need approval</div></div>
+              <div class="kpi"><div class="lbl">Coverage</div><div class="val">94%</div><div class="sub">target: 95%</div></div>
+            </div>
+            <div class="card">
+              <div class="card-h"><b>Open shifts, next 7 days</b></div>
+              <div class="lrow">
+                <div class="lt"><b>Line 2 operator · Plant 12</b><span>Tue, Aug 11 · 2p–10p</span></div>
+                <span class="pill soft">1 applicant</span>
+                <button class="btn">Assign</button>
+              </div>
+              <div class="lrow">
+                <div class="lt"><b>Dock loader · DC North</b><span>Thu, Aug 13 · 6a–2p</span></div>
+                <span class="pill soft">3 applicants</span>
+                <button class="btn">Assign</button>
+              </div>
+              <div class="lrow">
+                <div class="lt"><b>Maintenance tech · Plant 7</b><span>Sat, Aug 15 · 10p–6a</span></div>
+                <span class="pill line">No applicants</span>
+                <button class="btn">Assign</button>
+              </div>
+              <div class="card-f">12 open shifts total<a href="#">View all</a></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Demo-only wiring, no storage, no framework.
+(function(){
+  var apps=['learn','comply','schedule'];
+
+  // Rail switches product panes (?app=learn|comply|schedule)
+  function setApp(a){
+    document.body.dataset.app=a;
+    document.querySelectorAll('.rapp[data-app]').forEach(function(b){
+      b.setAttribute('aria-pressed',String(b.dataset.app===a));
+    });
+  }
+  document.querySelectorAll('.rapp[data-app]').forEach(function(b){
+    b.addEventListener('click',function(){setApp(b.dataset.app);});
+  });
+
+  // Side nav collapse: toggle buttons (one per pane) all drive one state.
+  // ?collapsed pre-collapses; below 1120px it auto-collapses (responsive state).
+  function setCollapsed(c){
+    document.body.classList.toggle('nav-collapsed',c);
+    document.querySelectorAll('.navToggle').forEach(function(b){
+      b.setAttribute('aria-pressed',String(c));
+      b.setAttribute('aria-label',c?'Expand navigation':'Collapse navigation');
+    });
+  }
+  document.querySelectorAll('.navToggle').forEach(function(b){
+    b.addEventListener('click',function(){setCollapsed(!document.body.classList.contains('nav-collapsed'));});
+  });
+  var mq=window.matchMedia('(max-width:1120px)');
+  function onMq(){setCollapsed(mq.matches);}
+  if(mq.addEventListener)mq.addEventListener('change',onMq);
+
+  var params=new URLSearchParams(location.search);
+  var q=params.get('app');
+  if(q&&apps.indexOf(q)>-1)setApp(q);
+  if(params.has('collapsed'))setCollapsed(true);
+  else if(mq.matches)setCollapsed(true);
+})();
+</script>
+<!-- ============================================================================
+     REVIEW TOOLING - NOT PART OF THE PRODUCT DESIGN
+     Floating version switcher, bottom-left, so reviewers can flip between the
+     six explorations without returning to the gallery. Self-contained: delete
+     this comment through the closing </nav> to remove it entirely.
+     ============================================================================ -->
+<style>
+.vswitch{position:fixed;bottom:14px;left:70px;/* clears the 56px rail */z-index:90;display:flex;align-items:center;gap:2px;padding:4px 5px;border-radius:99px;background:rgba(20,22,28,.95);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+.vswitch a{display:grid;place-items:center;min-width:28px;height:26px;padding:0 8px;border-radius:99px;color:#c9cdd7;font:650 11.5px/1 var(--font);text-decoration:none;white-space:nowrap}
+.vswitch a:hover{background:rgba(255,255,255,.14);color:#fff}
+.vswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
+.vswitch a:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.vswitch .vs-all{padding:0 11px;color:#fff}
+.vswitch .vs-div{width:1px;height:15px;background:rgba(255,255,255,.2);margin:0 4px;flex:none}
+.vswitch .vs-cap{color:#8b909c;font:650 10px/1 var(--font);padding:0 4px 0 2px}
+</style>
+<nav class="vswitch" aria-label="Switch exploration version">
+  <a class="vs-all" href="index.html" title="Back to the gallery: all six versions with rationale and trade-offs">All</a>
+  <span class="vs-div" aria-hidden="true"></span>
+  <span class="vs-cap" aria-hidden="true">Version</span>
+  <a href="v1-launcher-tabs.html" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
+  <a href="v2-rail-twopane.html" title="V2 · App rail + two-pane nav, no tabs">V2</a>
+  <a href="v3-sidebar-dropdown-tree.html" title="V3 · Sidebar product dropdown + 3-level tree">V3</a>
+  <a href="v4-dense-dark-flyout.html" title="V4 · Dense dark: collapsed rail + flyout submenus">V4</a>
+  <a href="v5-topbar-switcher-tabs.html" title="V5 · Top-bar switcher + dedicated tab row">V5</a>
+  <a href="v6-synthesis.html" aria-current="page" title="V6 · Synthesis (recommended)">V6</a>
+</nav>
+</body>
+</html>

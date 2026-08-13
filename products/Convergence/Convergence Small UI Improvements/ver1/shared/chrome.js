@@ -378,3 +378,99 @@
 `;
   document.body.insertAdjacentHTML('afterbegin', SHELL);
 })();
+
+/* ============================================================================
+   FIN LAUNCHER (Vectoria) - shared rollout include, docked presentation
+   ----------------------------------------------------------------------------
+   Loads the shared products/Convergence/ai-chat-widget/fin-widget.js (the
+   Fin rollout include: launcher + Vectoria chat window + unread badge), then
+   overrides ONLY its presentation for this prototype, per designer spec:
+
+     - docked flush to the RIGHT EDGE of the screen (not a corner FAB)
+     - 30 x 30px, 15px corner radius (left corners; the right side is flush)
+     - draggable up and down the edge (pointer drag; arrow keys when focused;
+       the position persists locally)
+     - unread badge sits top-LEFT, since the right side is off-screen
+     - the chat window opens beside the launcher, vertically near it
+     - main scroll areas keep a --fin-gutter right lane so content never
+       sits under the launcher (the rollout's gutter contract)
+
+   The shared widget file is untouched: other consumers keep the corner FAB.
+   ============================================================================ */
+(function () {
+  const loader = document.createElement('script');
+  loader.src = '../../ai-chat-widget/fin-widget.js';
+  loader.onload = dock;
+  document.body.appendChild(loader);
+
+  function dock() {
+    const rootEl = document.getElementById('fin-root');
+    if (!rootEl) return;
+    const fab = rootEl.querySelector('.fin-fab');
+    const win = rootEl.querySelector('.fin-window');
+
+    /* Presentation overrides. Injected after the widget's own style tag so
+       equal-specificity rules win without !important. */
+    const st = document.createElement('style');
+    st.textContent = `
+      :root { --fin-fab-size: 30px; --fin-gutter: 40px; }
+      .view-scroll:not(.flush) { padding-right: var(--fin-gutter); }
+      .fin-fab {
+        right: 0; bottom: auto;
+        border-radius: 15px 0 0 15px;
+        cursor: grab; touch-action: none;
+      }
+      .fin-fab:active { cursor: grabbing; }
+      .fin-fab:hover { background: #015ba6; transform: translateX(-2px); box-shadow: 0 10px 22px rgba(2,113,206,.48); }
+      .fin-fab .fin-badge { right: auto; left: -6px; top: -5px; }
+      .fin-window { right: 12px; }
+    `;
+    document.head.appendChild(st);
+
+    /* Drag along the edge. A real drag (>4px) never toggles the chat: the
+       document-capture click handler swallows the click that follows it. */
+    const KEY = 'fin-dock-top';
+    const clampTop = (t) => Math.min(Math.max(t, 8), innerHeight - 38);
+    const setTop = (t) => { fab.style.top = clampTop(t) + 'px'; };
+    const saved = parseFloat(localStorage.getItem(KEY));
+    setTop(isNaN(saved) ? innerHeight - 180 : saved);
+
+    let dragging = false, moved = false, startY = 0, startTop = 0;
+    fab.addEventListener('pointerdown', (e) => {
+      dragging = true; moved = false;
+      startY = e.clientY; startTop = fab.getBoundingClientRect().top;
+      fab.setPointerCapture(e.pointerId);
+    });
+    fab.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      if (Math.abs(e.clientY - startY) > 4) moved = true;
+      if (moved) setTop(startTop + (e.clientY - startY));
+    });
+    fab.addEventListener('pointerup', () => {
+      dragging = false;
+      if (moved) localStorage.setItem(KEY, String(fab.getBoundingClientRect().top));
+    });
+    window.addEventListener('resize', () => setTop(fab.getBoundingClientRect().top));
+
+    /* Focused launcher: arrow keys nudge it along the edge (24px steps). */
+    fab.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      const t = fab.getBoundingClientRect().top + (e.key === 'ArrowUp' ? -24 : 24);
+      setTop(t);
+      localStorage.setItem(KEY, String(fab.getBoundingClientRect().top));
+    });
+
+    /* Runs in document capture, BEFORE the widget's own toggle: swallow the
+       post-drag click, and place the window vertically beside the launcher. */
+    document.addEventListener('click', (e) => {
+      if (!fab.contains(e.target)) return;
+      if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; return; }
+      const wh = Math.min(620, innerHeight - 24);
+      const top = Math.min(Math.max(fab.getBoundingClientRect().top + 15 - wh / 2, 12), innerHeight - wh - 12);
+      win.style.top = top + 'px';
+      win.style.bottom = 'auto';
+      win.style.height = wh + 'px';
+    }, true);
+  }
+})();
