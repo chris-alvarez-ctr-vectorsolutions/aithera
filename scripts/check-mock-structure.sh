@@ -1,18 +1,25 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Guard: every NEW mock page must be versioned and carry the Design Toolbox.
+# Advisory: nudge NEW mock pages toward versioning + the Design Toolbox.
 #
-# Policy (see CLAUDE.md "For a NEW mock"): every new feature in every product is
-# a versioned folder — loader index.html + versions.json + verN/index.html — and
-# every design page ships the designtoolbox/toolbox.js include with comments
-# ENABLED. This applies to ALL products, not just SafeLMS/Scheduling. Older flat
-# mocks are grandfathered; this guard only inspects files being ADDED.
+# Policy (see CLAUDE.md "For a NEW mock"): new features are scaffolded from
+# base-template/ as a versioned folder — loader index.html + versions.json +
+# verN/index.html — and every design page ships the designtoolbox/toolbox.js
+# include (comment widget + flow map) with comments ENABLED. That is the
+# recommended default the template gives you for free.
 #
-# Checked per new products/**/*.html file (full pages only):
-#   1. It lives inside a verN/ folder (ver1/, ver2.x/, …) — i.e. it is versioned.
-#   2. It includes designtoolbox/toolbox.js.
-#   3. It does not disable comments (window.TOOLBOX = { comments: false }) —
-#      that override belongs only in dev_handoff*.html builds.
+# It is NOT enforced and NOT run automatically. The versioned loader, the comment
+# widget, and the flow map are OPTIONAL — offered at setup, never required. This
+# script is a MANUAL, opt-in advisory: it only PRINTS A HEADS-UP and always exits
+# 0, and nothing calls it on commit. (A missing toolbox once failed teammates'
+# commits; that hard block, and later even the on-commit heads-up, were removed —
+# run this by hand only if you want to review a mock's structure.)
+#
+# Noticed per new products/**/*.html file (full pages only):
+#   1. Whether it lives inside a verN/ folder (ver1/, ver2.x/, …) — versioned.
+#   2. Whether it includes designtoolbox/toolbox.js.
+#   3. Whether it disables comments (window.TOOLBOX = { comments: false }) in a
+#      design file — that override belongs only in dev_handoff*.html builds.
 #
 # Skipped: dev_handoff*.html, loaders (they reference versions.json), dashboard/
 # archive/ before-screenshots/ folders, any path segment starting with "_",
@@ -23,7 +30,7 @@
 #   check-mock-structure.sh --staged            # pre-commit: staged added files
 #   check-mock-structure.sh --range BASE HEAD   # CI: files added in a push
 #
-# Bypass (rare, e.g. intentionally restoring a legacy flat file):
+# Silence the heads-up entirely (it never blocks either way):
 #   SKIP_MOCK_GUARD=1 git commit ...
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -48,7 +55,7 @@ fi
 [ -z "$FILES" ] && exit 0
 
 violations=''
-add_violation() { violations="${violations}  ✗ $1
+add_violation() { violations="${violations}  • $1
 "; }
 
 while IFS= read -r f; do
@@ -80,35 +87,35 @@ while IFS= read -r f; do
   # reads versions.json.
   if printf '%s' "$content" | grep -q 'versions.json'; then continue; fi
 
-  # 1. Versioning: the page must live in a verN/ folder.
+  # 1. Versioning: is the page inside a verN/ folder? (optional, recommended)
   if ! printf '%s' "$f" | grep -qE '/ver[0-9][^/]*/'; then
-    add_violation "$f — not inside a verN/ folder. New mocks are versioned: loader index.html + versions.json + ver1/index.html (copy both from base-template/). See CLAUDE.md → 'For a NEW mock'."
+    add_violation "$f — not inside a verN/ folder. The versioned layout (loader index.html + versions.json + ver1/index.html, copied from base-template/) is recommended but optional. See CLAUDE.md → 'For a NEW mock'."
   fi
 
-  # 2. Comments: the Design Toolbox include must be present…
+  # 2. Comments: is the Design Toolbox include present? (optional, recommended)
   if ! printf '%s' "$content" | grep -q 'designtoolbox/toolbox\.js'; then
-    add_violation "$f — missing the Design Toolbox include (<script src=\"../../../../designtoolbox/toolbox.js\"></script> before </body>). Every new mock in every product gets comments."
+    add_violation "$f — no Design Toolbox include (<script src=\"../../../../designtoolbox/toolbox.js\"></script> before </body>). Adds the comment widget + flow map — recommended, but optional; add it whenever you want them."
   fi
 
-  # 3. …and comments must not be disabled in a design file.
+  # 3. …and if the toolbox IS included, flag comments:false in a design file.
   if printf '%s' "$content" | grep -qE 'comments[[:space:]]*:[[:space:]]*false'; then
-    add_violation "$f — sets comments: false. Comments stay ENABLED in design files; that override belongs only in dev-handoff builds (*dev_handoff*.html)."
+    add_violation "$f — sets comments: false. In a design file comments are normally left on; that override is expected only in dev-handoff builds (*dev_handoff*.html)."
   fi
 done <<< "$FILES"
 
 if [ -n "$violations" ]; then
   cat >&2 <<EOF
 
-  ✋ BLOCKED — new mock page(s) missing versioning and/or the comment toolbox:
+  ℹ Heads-up (not blocking) — new mock page(s) skip the recommended setup:
 
 $violations
-  Every new mock, in every product, is scaffolded as a versioned feature folder
-  with the Design Toolbox (comments enabled). base-template/version.html already
-  has the include — scaffold from it. To bypass for a genuine exception:
-      SKIP_MOCK_GUARD=1 git commit ...
+  The versioned feature folder + Design Toolbox (comment widget & flow map) are
+  the default you get for free by scaffolding from base-template/version.html —
+  recommended, but OPTIONAL. Your commit will proceed. Add the toolbox later if
+  you want comments/flow map, or silence this notice with SKIP_MOCK_GUARD=1.
 
 EOF
-  exit 1
 fi
 
+# Advisory only — never block a commit.
 exit 0
