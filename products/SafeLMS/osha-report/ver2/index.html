@@ -524,7 +524,6 @@
   .action-card .ac-count { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.05; }
   .action-card .ac-count .ac-of { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 3px; }
   .action-card .ac-label { display: block; font-size: 14.5px; color: var(--ink-2); margin-top: 2px; }
-  .action-card .ac-take { margin-left: auto; flex-shrink: 0; }
   .action-card .ac-ico.intervene { background: #f3f4f6; color: #4b5563; }
   .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
@@ -917,7 +916,7 @@
             <div class="filter-checkboxes" id="actionChecks">
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures throughout the course — connect for remediation</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures within a module — connect for remediation</span></label>
             </div>
           </div>
 
@@ -959,7 +958,7 @@
           <!-- Extra options -->
           <div class="filter-section filter-extra">
             <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only learners in progress with course expiring ≤ 30 days</span></label>
-            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners with at least 1 failure</span></label>
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners with at least 1 failure within a module</span></label>
           </div>
         </div>
 
@@ -1180,8 +1179,8 @@
 
   // Passed learners have no follow-up action — their certificate link shares the action column.
   function actionCellHTML(r, gid) {
-    const a = ACTIONS[r.status];
-    if (a) return `<vaadin-button theme="${a.theme} small" class="row-act" data-type="${a.type}" data-group="${gid}" data-ext="${r.ext}"><i aria-hidden="true" class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}</vaadin-button>`;
+    // Email actions removed from the table rows — this column now only surfaces the
+    // certificate for passed learners.
     if (r.status === 'passed') return `<button class="cert-link row-act" data-type="cert" data-group="${gid}" data-ext="${r.ext}"><i aria-hidden="true" class="fa-solid fa-award"></i> View certificate</button>`;
     return '<span class="muted-cell">—</span>';
   }
@@ -1509,7 +1508,7 @@
   const filtersClearBtn = document.getElementById('filtersClearBtn');
   const appliedFilters = document.getElementById('appliedFilters');
   const filterLead = document.getElementById('filterLead');
-  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'At least 2 failures throughout the course — connect for remediation' };
+  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'At least 2 failures within a module — connect for remediation' };
   // The search box is intentionally excluded — it is a temporary table-only filter and must
   // not flip the scope to "Filtered to" nor appear as an applied-filter chip.
   function extraFilterCount() {
@@ -1842,12 +1841,11 @@
     const cards = [
       { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
       { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures throughout the course — connect for remediation' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures within a module — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
-    // Tiles are static, non-interactive display elements. The ONLY interactive control is the
-    // "Email Learners" button, which is always present (no disabled/hidden state at zero) and
-    // emails that bucket within the currently applied filters.
+    // Tiles are static, non-interactive read-outs. To email a bucket, filter to it, then use
+    // the toolbar "Email Learners" button.
     wrap.innerHTML = cards.map(c => `
       <div class="action-card" data-action="${c.type}">
         <span class="ac-ico ${c.cls}"><i aria-hidden="true" class="fa-solid ${c.icon}"></i></span>
@@ -1855,12 +1853,7 @@
           <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
-        <vaadin-button theme="secondary small" class="ac-take"><i aria-hidden="true" class="fa-solid fa-envelope" slot="prefix"></i>Email Learners</vaadin-button>
       </div>`).join('');
-    wrap.querySelectorAll('.ac-take').forEach(btn => {
-      const type = btn.closest('.action-card').dataset.action;
-      btn.addEventListener('click', () => openActionGroup(type));
-    });
   }
 
   /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */

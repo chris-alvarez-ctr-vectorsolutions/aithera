@@ -83,6 +83,9 @@
       '.tbx-handle.tbx-show{display:inline-flex;}' +
       '.tbx-handle:hover{opacity:1;transform:translateX(-50%) translateY(-1px);}' +
       '.tbx-handle svg{width:13px;height:13px;display:block;}' +
+      // Leading icon is the 6-dot grip (viewBox 10×16) — size it to that aspect
+      // ratio so the dots stay round and it reads as a "drag me" affordance.
+      '.tbx-handle svg:first-child{width:9px;height:14px;}' +
       // ── Multi-version dock (an adopted .version-switcher) ──────────────────
       // When the mock ships its own V1/V2 switcher, the section dividers are
       // dropped and the Comments + Flow Map launchers collapse to compact
@@ -139,7 +142,9 @@
       handle.className = 'tbx-handle';
       handle.title = 'Show design tools';
       handle.setAttribute('aria-label', 'Show design tools');
-      handle.innerHTML = SVG_TOOLS + '<span>Tools</span>' + SVG_CHEV_UP;
+      // Lead with the 6-dot grip (not the tools icon) so the minimized pill still
+      // signals it can be dragged around, even while collapsed.
+      handle.innerHTML = SVG_GRIP + '<span>Tools</span>' + SVG_CHEV_UP;
       (document.body || document.documentElement).appendChild(handle);
 
       var toggle = document.createElement('button');
