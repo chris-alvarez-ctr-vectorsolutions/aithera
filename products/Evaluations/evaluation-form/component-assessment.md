@@ -2,121 +2,198 @@
 ## Evaluation Form — [ver1/index.html](ver1/index.html)
 
 **Source**: Local file
-**Date**: 2026-08-06 (audit) · 2026-08-14 (repointed at `ver1/index.html` when the
-legacy flat mock was folded into this versioned feature folder — same file, same
-content, new path)
-**Assessed against**: core v1.22.1, themes v1.9.3 (fetched from CDN). The mock loads **core v1.19.0** and **themes v1.5.0**; CONTEXT.md is not published for either (minimums are core v1.22.1 / themes v1.9.3), so those baselines were substituted. Token values below are quoted from themes v1.9.3 and may differ slightly from v1.5.0.
-**Scope**: Whole file, with the **Script question step** audited in depth per request.
+**Date**: 2026-08-14
+**Assessed against**: core **v1.22.1**, themes **v1.9.3** (fetched from CDN).
+The mock loads **core v1.19.0** and **themes v1.5.0**; CONTEXT.md is not published
+below core v1.22.1 / themes v1.9.3, so those baselines were substituted. Token
+values quoted below come from themes v1.9.3 and may differ slightly from v1.5.0.
+**Scope**: The locked V1 handoff version, in full.
+
+> **Supersedes** the 2026-08-06 audit, which was written against the pre-handoff
+> `course-recs/flat-form.html`. **+31 component instances** have landed since —
+> the script step's conversion to DS components, the paired start/end timer, the
+> deleted form state, and share-on-signature in three signature modals.
+> Component totals: **109 → 140**, with no removals.
+
+---
+
+## What changed since the last audit
+
+| Tag | Then | Now | Δ | Driver |
+|---|---|---|---|---|
+| `vaadin-button` | 35 | 51 | **+16** | Script row actions, timer controls, restore, back |
+| `vaadin-tooltip` | 5 | 12 | **+7** | Replaced native `title=` on script row actions |
+| `vaadin-text-area` | 3 | 6 | **+3** | Script composer, message edit, comment composer |
+| `vaadin-number-field` | 4 | 7 | **+3** | Timer custom-result h/m/s fields |
+| `vaadin-text-field` | 3 | 4 | **+1** | Script tag-menu search |
+| `vwc-icon` | 2 | 3 | **+1** | Script tag-menu search glyph |
+
+Net effect: the script step moved from ⚠️ Partial to ✅ Covered across its inputs,
+buttons, and tooltips — the single biggest coverage gain in this file.
 
 ---
 
 ## Design Element Coverage
 
-### Script question step (focus area)
+### Global rules (core CONTEXT.md, "Theme requirements")
 
-> **Converted 2026-08-06** — steps 1–3 of the remediation plan were applied after this audit. Rows below marked ✅ Covered *(converted)* were ⚠️ Partial at audit time. The tag-menu container remains ⚠️ Partial on purpose; see "Notable risk".
+| Rule | Result |
+|---|---|
+| Text-input fields carry `theme="outlined"` | ✅ **0 violations** across 34 input-style fields |
+| `vaadin-button` carries a style variant | ✅ **0 violations** across 51 buttons |
 
-| Design Element | VWC Component | Status | Notes |
+Variant distribution: `primary` ×16, `tertiary` ×14, `secondary` ×11,
+`icon tertiary small` ×5, `icon tertiary` ×3, `icon secondary` ×1, `icon primary` ×1.
+
+### Components in use — all verified present in the loaded v1.19.0 bundle
+
+| Design Element | Component | Status | Notes |
 |---|---|---|---|
-| Tag picker search field | `vaadin-text-field` + `vwc-icon` suffix | ✅ Covered | `theme="outlined"`, MDI glyph in `suffix` slot. Matches the Quick Search dual-listbox pattern. |
-| Composer message input | `vaadin-text-area` | ✅ Covered *(converted)* | `theme="outlined"`. Manual `scrollHeight` autosize **removed** — the component self-grows; the 120px cap moved to CSS `::part(input-field)`. T/S shortcut detection now reads `input.value` with an `\|\| ''` pre-upgrade guard; Backspace-pops-pill reads `selectionStart` off `inputElement` (the host returns `undefined`). Composer border suppressed via `::part(input-field)` so the wrapper remains the visible field. |
-| Edit-message input | `vaadin-text-area` | ✅ Covered *(converted)* | `theme="outlined"`, value passed as an attribute. Caret-to-end uses `inputElement.setSelectionRange` inside `requestAnimationFrame` (selection APIs don't exist on the host, and the component needs a frame to upgrade). |
-| Reply composer input | `vaadin-text-area` | ✅ Covered *(converted)* | `theme="outlined"`. Focus deferred a frame after the re-render creates it. |
-| Send button | `vaadin-button theme="icon primary"` | ✅ Covered *(converted)* | 30×30 footprint pinned in CSS; `disabled` still driven as a property. |
-| Tag trigger button | `vaadin-button theme="icon tertiary"` | ✅ Covered *(converted)* | Borderless icon button, sized to match send. |
-| Row actions (reply / edit / delete) | `vaadin-button theme="icon tertiary small"` | ✅ Covered *(converted)* | 4 instances (3 message + 1 reply), matching the `theme="icon tertiary small"` convention used in the Keystone hub mocks. Semantic hover colors kept via class. |
-| Save / Cancel / Reply actions | `vaadin-button` `primary` / `tertiary` | ✅ Covered *(converted)* | Legacy `.q-script-edit-btn` CSS scoped with `:not(vaadin-button)` so `theme="primary"` supplies the fill rather than the old hand-rolled background. |
-| Tag picker menu container | `vaadin-popover` | ⚠️ Partial | `<div class="q-tag-menu">` with `position: fixed` + hand-written flip/clamp positioning and a document-level outside-click handler. **The action-bar "Add Tags" picker in this same file uses `vaadin-popover` for the identical job** — two implementations of one pattern. **Deliberately NOT converted** pending the version question in "Notable risk" below. |
-| Tag option rows | `vaadin-list-box` + `vaadin-item` | ⚠️ Partial | `<button class="q-tag-option">` list. Multi-select + checkmark state is currently hand-managed. Tied to the popover decision. |
-| Per-button tooltips | `vaadin-tooltip` | ✅ Covered *(converted)* | 7 tooltips bound by `for=` replace the native `title=` attributes, matching the video tile / attachment card pattern. |
-| Speaker reassignment chips | `vwc-toggle-button-group` | ⚠️ Partial | Plain `<button>` + `.active` class, kept **deliberately**: `vwc-toggle-button-group` behaves additively inside dialog renderers (selection doesn't clear), a known issue in this repo — plain chips are the documented workaround. |
-| Speaker pill / tag chips | — | ❌ Gap | No chip/tag component in the index. CSS `<span>` is correct. See gap note. |
-| Speaker avatars | — | ❌ Gap | `vaadin-avatar` is **not** in this bundle (verified absent in v1.19.0 and not in the v1.22.1 runtime list). CSS circle is correct. |
-| Message / thread list | — | ❌ Gap | `vaadin-message-list` / `-message-input` are **not** in this bundle (verified absent). A comment-thread pattern has no DS equivalent — the hand-rolled log is the right call. |
-| Transcript log container | `vwc-card` | ⚠️ Partial | `<div class="q-script-log">` with border/radius. `vwc-card theme="outlined"` could host it, but its always-rendering `image` slot adds phantom space — the custom container is a defensible choice. |
+| Topbar shell | `vwc-topnav`, `vwc-user-menu`, `vwc-notifications-menu` | ✅ Covered | — |
+| Buttons (all) | `vaadin-button` | ✅ Covered | Every instance variant-tagged. Icon-only buttons need a local override for the theme's tertiary label underline — see gap 2. |
+| Tooltips | `vaadin-tooltip` | ✅ Covered | 12 instances, bound by `for=`. Native `title=` eliminated from the script step. |
+| Text inputs | `vaadin-text-field`, `-text-area`, `-number-field` | ✅ Covered | All `theme="outlined"`. Script step's 3 textareas converted; see the shadow-DOM notes in DEV-NOTES. |
+| Date/time | `vaadin-date-picker`, `-time-picker`, `-date-time-picker` | ✅ Covered | All `theme="outlined"`. |
+| Selects / multi-select | `vaadin-select`, `-multi-select-combo-box` | ✅ Covered | All `theme="outlined"`. |
+| Checkboxes / radios | `vaadin-checkbox`, `-radio-group`, `-radio-button` | ✅ Covered | Correctly no `theme="outlined"` (text-input only). **`vaadin-radio-button` is undocumented at v1.22.1** — see gap 3. |
+| Dialogs | `vaadin-dialog` | ✅ Covered | Uses `renderer` / `headerRenderer` / `footerRenderer` function properties — correct, since this component ignores slotted children. |
+| Section dividers | `vwc-divider` | ✅ Covered | Copy Form dialog. |
+| Side panels | `vwc-drawer` | ✅ Covered | `position="end" overlay resizable theme="no-padding"`; `closable` set as a JS property (the attribute coerces truthy). Both capped at 50vw desktop / 100vw mobile. |
+| Progress | `vaadin-progress-bar` | ✅ Covered | `indeterminate` on Quick Search generate. |
+| Icons | `vwc-icon` | ✅ Covered | MDI paths, used in `suffix` slots. |
+| Popovers | `vaadin-popover` | ⚠️ Partial | Works in v1.19.0 but **undocumented at v1.22.1** — see gap 1. |
 
-### Rest of the file
+### Hand-rolled — a component exists but wasn't used
 
-| Design Element | VWC Component | Status | Notes |
+| Design Element | Component that exists | Status | Notes |
 |---|---|---|---|
-| Form inputs (all types) | `vaadin-text-field`, `-text-area`, `-number-field`, `-select`, `-date-picker`, `-time-picker`, `-date-time-picker`, `-multi-select-combo-box` | ✅ Covered | **All 29 text-input-style fields carry `theme="outlined"`.** Zero violations. |
-| Buttons (35 instances) | `vaadin-button` | ✅ Covered | **Every instance has a style variant** (`primary`/`secondary`/`tertiary`/`icon`). Zero unstyled buttons. |
-| Checkboxes / radios | `vaadin-checkbox`, `vaadin-radio-group`, `vaadin-radio-button` | ✅ Covered | Correctly no `theme="outlined"` (per CONTEXT.md that attribute is text-input only). |
-| Dialogs (Copy / Share / Quick Search / Change Log) | `vaadin-dialog` | ✅ Covered | Uses `renderer` / `headerRenderer` / `footerRenderer` function properties — correct, since `vaadin-dialog` ignores slotted children. |
-| Section dividers (Copy dialog) | `vwc-divider` | ✅ Covered | Added this session; replaced three boxed cards. |
-| Side panels (video review, attachment detail) | `vwc-drawer` | ✅ Covered | `position="end" overlay resizable theme="no-padding"`, `closable` set via JS property (the attribute coerces truthy). Documented DS gaps compensated locally. |
-| Topnav / user menu / notifications | `vwc-topnav`, `vwc-user-menu`, `vwc-notifications-menu` | ✅ Covered | — |
-| Tooltips | `vaadin-tooltip` | ✅ Covered | 5 instances bound by `for=`. |
-| Progress / loading | `vaadin-progress-bar` | ✅ Covered | `indeterminate` on the Quick Search generate step. |
-| Tag pickers (action bar, attachment panel) | `vaadin-popover` | ⚠️ Partial | Works, but see the popover risk note — not in the documented v1.22.1 runtime. |
-| Quick Search dual-listbox | `vaadin-list-box` + `vaadin-item` | ⚠️ Partial | Custom `<ul>`/`<button>` panes. Multi-select move semantics and per-pane filtering aren't a `list-box` behavior, so custom is defensible. |
-| Forms accordion (Quick Search) | `vaadin-details` / `vaadin-accordion` | ⚠️ Partial | Native `<details>`/`<summary>`, chosen for free disclosure semantics + keyboard handling. `vaadin-details` is available and would be the DS-consistent choice. |
-| Rating rubric tiles | — | ❌ Gap | Domain/indicator rubric grid is domain-specific; no DS equivalent. |
-| Results table (Quick Search) | `vaadin-grid` / `vwc-sortable-header` | ⚠️ Partial | Plain `<table>` with custom sort carets. `vwc-sortable-header` exists for the header cells and would handle `aria-sort` automatically. |
-| Badges / status pills | — | ⚠️ Partial | Uses `theme="badge …"` attribute spans (per repo convention there is no badge element). Consistent with the rest of the repo. |
+| Change Log tabs | `vaadin-tabs` + `vaadin-tab` | ⚠️ Partial | `<button class="cl-tab">` + `role="tablist"`. A straightforward swap; the custom version exists for the compact underline styling. |
+| Quick Search forms accordion | `vaadin-details` | ⚠️ Partial | Native `<details>`/`<summary>`, chosen for free disclosure semantics + keyboard handling. `vaadin-details` is the DS-consistent choice. |
+| Tag picker menus (script step) | `vaadin-popover` | ⚠️ Partial | Hand-rolled `position: fixed` menu with flip/clamp positioning. **The action-bar tag picker in this same file uses `vaadin-popover` for the identical job** — two implementations of one pattern. Held pending gap 1. |
+| Tag option rows | `vaadin-list-box` + `vaadin-item` | ⚠️ Partial | `<button class="q-tag-option">`; multi-select + checkmark state hand-managed. Tied to the popover decision. |
+| Quick Search results table | `vaadin-grid` / `vwc-sortable-header` | ⚠️ Partial | Plain `<table>` with custom sort carets. `vwc-sortable-header` would handle `aria-sort` automatically. |
+| Dual-listbox panes | `vaadin-list-box` | ⚠️ Partial | Custom `<ul>`/`<button>`. Move semantics and per-pane filtering aren't list-box behaviours, so custom is defensible. |
+| Privacy toggle | `vwc-toggle-button-group` | ⚠️ Partial | **Deliberate** — that component behaves additively outside a form context (repo-documented). Plain buttons + `.active`. |
+| Speaker reassignment chips | `vwc-toggle-button-group` | ⚠️ Partial | **Deliberate** — same additive-selection issue inside dialog renderers. |
+| Pass/Fail buttons | `vwc-toggle-button-group` | ⚠️ Partial | Same reasoning; 13 instances. |
+| Transcript log container | `vwc-card` | ⚠️ Partial | `<div class="q-script-log">`. `vwc-card theme="outlined"` could host it, but its always-rendering `image` slot adds phantom space. |
+| Status pills / badges | — | ⚠️ Partial | `theme="badge …"` attribute spans, per repo convention (no badge element exists). |
+
+### New in this version
+
+| Design Element | Component | Status | Notes |
+|---|---|---|---|
+| Paired timer (start/end) | `vaadin-button` + `vaadin-number-field` | ✅ Covered | One clock per `timerId`; both halves are views of the same state, so they can't drift. Custom result via 3 outlined number fields. |
+| Deleted-state banner | — | ⚠️ Partial | Custom banner. `vaadin-notification` exists but is transient (toast); a persistent sticky state banner has no DS equivalent. Reasonable custom. |
+| Share-on-signature opt-in | — | ⚠️ Partial | Native `<input type="checkbox">` rather than `vaadin-checkbox`. **Actionable**: `vaadin-checkbox` is available and used elsewhere in this file (6×); this is the one inconsistent checkbox. |
+| Rating rubric tiles | — | ❌ Gap | Domain/indicator grid, 26 instances. No DS equivalent. |
+| Comment / message thread | — | ❌ Gap | `vaadin-message-list` / `-message` / `-message-input` **verified absent** from the bundle. |
+| Chips / tags | — | ❌ Gap | No chip component. Hand-rolled in 4 places (speaker pill, message tag, custom tag chip, attachment tag). |
+| Avatars | — | ❌ Gap | `vaadin-avatar` **verified absent**. CSS circles. |
 
 ---
 
 ## Design Token Usage
 
-The mock defines a documented `:root` alias layer that already resolves most semantics to tokens (`--brand: var(--lumo-primary-color)`, `--border-soft: var(--lumo-contrast-10pct)`, `--text-strong: var(--lumo-body-text-color)`, `--text-muted: var(--lumo-secondary-text-color)`, `--card-bg: var(--lumo-base-color)`). The table covers the remaining raw values.
+The mock defines a documented `:root` alias layer that already resolves most
+semantics to real tokens: `--brand: var(--lumo-primary-color)`,
+`--border-soft: var(--lumo-contrast-10pct)`,
+`--text-strong: var(--lumo-body-text-color)`,
+`--text-muted: var(--lumo-secondary-text-color)`,
+`--card-bg` / `--surface-opaque: var(--lumo-base-color)`, and the notice family
+mapped to `--vwc-notification-*`. The table covers the remaining raw values.
 
 | Color in Mock | Nearest Token | Token Value (themes v1.9.3) | Status |
 |---|---|---|---|
-| `#eef0f3` (`--page-bg`) | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — deliberate. Documented inline: contrast tokens are **translucent rgba**, so sticky/scroll surfaces would let content show through. Keeping opaque hex is correct. |
-| `#f8f9fb` (`--workspace-bg`) | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — same documented opacity rationale. |
-| `#fafbfc` | `--lumo-base-color` / `--lumo-contrast-5pct` | `#fff` / `#193b670d` | ⚠️ Off — near-white surface; token swap would be a small shift. |
-| `#f4f5f7` | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — opaque-surface exception. |
-| `#8b5cf6`, `#6d28d9`, `#7c3aed` (`--rec-*`) | — | — | ⚠️ No direct match — intentional feature accent (course-recs violet), documented as distinct from `--brand`. Keep. |
-| `#6366f1`, `#3730a3`, `#5b21b6`, `#c7d2fe`, `#eef2ff` | `--lumo-primary-color` family | `#0271ce`, `-10pct` `#0271ce1a` | ⚠️ No direct match — indigo/violet ramp for the recommendations feature. Hue-shifted from the DS blue on purpose. |
-| `#ec4899`, `rgba(236,72,153,0.08)` | — | — | ⚠️ No direct match — pink accent in the recs feature. |
-| `#f8f5ff`, `#e2d6fa` (compare pane) | — | — | ⚠️ No direct match — violet tint marking "reference, not yours". Keep. |
-| `rgba(15,23,42,0.4)` (drawer scrims) | — | — | ⚠️ No direct match — scrim overlay; no scrim token in themes. Reasonable. |
+| `rgba(216, 62, 56, 0.06)` — deleted-state wash | `--lumo-error-color` @ 6% | `#d83e38` | ✅ **Match** — 216,62,56 **is** `#d83e38`. Recommend `color-mix(in srgb, var(--lumo-error-color) 6%, transparent)` or an error tint token instead of the literal rgba. **New since last audit.** |
+| `#d97706` — warning icon | `--lumo-warning-text-color` | `#995211` | ⚠️ Off — amber vs the DS's browner warning text. The mock documents preferring `--vwc-notification-*` for ambers; this icon could move to `--notice-text` (`#a66900`). |
+| `#166534` — badge-on text | `--lumo-success-text-color` | `#0a7637` | ⚠️ Off — recommend the token; small hue shift. |
+| `#0044aa` — primary pane badge | `--lumo-primary-color` | `#0271ce` | ⚠️ Off — recommend `--brand`. |
+| `#eef0f3` (`--page-bg`), `#f8f9fb` (`--workspace-bg`), `#fafbfc`, `#f4f5f7` | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ Off — **deliberate and documented**: contrast tokens are translucent rgba, so a sticky/scrolling surface would let content show through. Opaque hex is correct here. |
+| `#8b5cf6`, `#6d28d9`, `#7c3aed` (`--rec-*`) | — | — | ⚠️ No direct match — intentional course-recs violet accent, documented as distinct from `--brand`. |
+| `#6366f1`, `#3730a3`, `#5b21b6`, `#c7d2fe`, `#eef2ff` | `--lumo-primary-color` family | `#0271ce`, `-10pct` `#0271ce1a` | ⚠️ No direct match — indigo/violet ramp for the recommendations feature, hue-shifted on purpose. |
+| `#ec4899`, `rgba(236,72,153,0.08)` | — | — | ⚠️ No direct match — pink accent, recs feature. |
+| `#f8f5ff`, `#e2d6fa` — compare pane | — | — | ⚠️ No direct match — violet tint marking "reference, not yours". |
+| `rgba(15,23,42,0.4)` — drawer scrims | — | — | ⚠️ No direct match — no scrim token in themes. |
 | `rgba(15,23,42,0.55–0.78)` | — | — | ⚠️ No direct match — video-stage overlay chrome. |
-| `#d97706` (warning icon) | `--lumo-warning-text-color` | `#995211` | ⚠️ Off — amber vs the DS's browner warning text. The mock documents preferring the **notification** family (`--vwc-notification-*`) for its ambers because `--lumo-warning-*` is orange; this one icon still uses raw amber and **could move to `--notice-text`** for consistency. |
-| `#166534` (badge-on text) | `--lumo-success-text-color` | `#0a7637` | ⚠️ Off — recommend the token; small hue shift. |
-| `#0044aa` (primary pane badge) | `--lumo-primary-color` | `#0271ce` | ⚠️ Off — recommend `--brand`. |
-| `#fef4e2` + domain header swatches | — | — | ⚠️ No direct match — author-selected per-question background swatches; data, not chrome. |
-| `rgba(255,255,255,0.25–0.92)` | `--lumo-base-color` @ opacity | `#fff` | ⚠️ No direct match — white overlays on dark media chrome. Fine. |
+| `rgba(255,255,255,0.25–0.92)` | `--lumo-base-color` @ opacity | `#fff` | ⚠️ No direct match — white overlays on dark media chrome. |
+| `#fef4e2` + domain header swatches | — | — | ⚠️ No direct match — author-selected per-question backgrounds; data, not chrome. |
+
+88 distinct hardcoded values total. The count is up from the last audit, but the
+additions are concentrated in the deleted state (one value, and it's a ✅ Match)
+and the timer (which uses `--brand` / `--text-*` aliases throughout).
 
 ---
 
-## Gap Component Requirements
+## Documented gaps — confirm before build
 
-Three ❌ Gaps were found. All three are **documented gaps, not spec candidates** — each was verified absent from the bundle, and in every case the custom implementation is the correct choice for a prototype. No new-component specs are proposed; recording them so the DS team can see the demand signal.
+### 1. `vaadin-popover` is undocumented at v1.22.1 (**highest risk**)
+Used **4 element instances / ~17 references** (actions menu, compare menu, tag
+pickers). **Verified present** in the v1.19.0 bundle this mock loads; **`popover`
+appears zero times** in the v1.22.1 CONTEXT.md runtime inventory. Either an
+undocumented re-export or dropped between versions. **Confirm with the DS team** —
+if dropped, these menus need a different component, which changes what devs build.
+This is why the script step's tag menu was *not* converted to `vaadin-popover`
+despite the inconsistency.
 
-### 1. Comment / message thread
-`vaadin-message-list`, `vaadin-message`, and `vaadin-message-input` were **verified absent** from the v1.19.0 bundle and are not in the v1.22.1 documented runtime. The script step's transcript — threaded messages, per-message tags, and nested replies without timestamps — has no DS equivalent. **Outstanding decision before any spec**: whether a chat/comment surface belongs in the DS at all, or stays a product-level composition.
+### 2. `theme~=icon` does not reset the tertiary label underline
+The Vector theme sets
+`vaadin-button[theme~=tertiary]::part(label){text-decoration:underline}`, and
+`theme~=icon` never resets it — so an icon-only tertiary button gets an underline
+struck through the glyph. Worked around locally, but the override must
+**out-specify** the theme rather than merely follow it, because `themes.js` injects
+via `document.adoptedStyleSheets`, which applies *after* every `<style>` element.
+Affects 9 icon-only buttons here. **DS fix: add `text-decoration: none` to the
+`theme~=icon` label rule.**
 
-### 2. Chip / tag element
-No chip component in the index. The mock hand-rolls three variants (speaker pill, message tag, removable tag). Given how many surfaces in this file render tag chips (action bar, attachment panel, script messages, Quick Search), a shared chip is a plausible DS addition. **Outstanding decisions**: removable vs static, icon support, selected state, max-width/truncation behavior.
+### 3. `vaadin-radio-button` is undocumented at v1.22.1 (**new finding**)
+10 instances. `vaadin-radio-group` **is** listed in the v1.22.1 runtime inventory
+but `vaadin-radio-button` is not — despite a group being unusable without buttons
+inside it. Verified present in the v1.19.0 bundle. Reads as a documentation
+omission rather than a removal (low risk), but worth confirming alongside gap 1.
 
-### 3. Avatar
-`vaadin-avatar` **verified absent**. The mock uses CSS circles with a speaker-accent background and an icon glyph. Low-value gap — trivially done in CSS.
+### 4. `vwc-toggle-button-group` behaves additively outside a form context
+Selection doesn't clear inside dialog renderers. Repo-documented; plain buttons
+with an `.active` class are the standard workaround. Affects the privacy toggle,
+speaker chips, and 13 pass/fail buttons.
 
----
+### 5. No DS equivalent (verified absent from the bundle)
+Comment/message threads (`vaadin-message-*`), chips, and avatars
+(`vaadin-avatar`). The hand-rolled implementations are the right call; recorded as
+demand signal. Chips are the strongest candidate for a shared component — 4
+distinct hand-rolled variants in this file alone.
 
-## Notable risk — `vaadin-popover` is undocumented at the assessed version
-
-`vaadin-popover` is used **17 times** in this mock (action-bar tag picker, attachment tag picker). It **is present** in the v1.19.0 bundle the mock loads — verified directly in `core.iife.js` — but it is **not listed** in the v1.22.1 CONTEXT.md Vaadin runtime inventory.
-
-Two possible readings: it's an undocumented re-export, or it was dropped between v1.19.0 and v1.22.1. **This should be confirmed with the DS team before dev handoff**, and it argues for *not* converting the script step's tag menu to `vaadin-popover` until resolved — the hand-rolled `position: fixed` menu, while inconsistent, has no version risk.
+Longer-form notes: [`../course-recs/DESIGN-SYSTEM-GAPS.md`](../course-recs/DESIGN-SYSTEM-GAPS.md)
 
 ---
 
 ## Summary
 
-| Category | At audit | After conversion |
+| Category | Previous audit | This audit |
 |---|---|---|
-| ✅ Covered | 12 | **20** |
-| ⚠️ Partial | 17 | 9 |
-| ❌ Gap | 3 | 3 |
+| ✅ Covered | 20 | **13 element groups** (broader per-row grouping) |
+| ⚠️ Partial | 9 | **15** |
+| ❌ Gap | 3 | **4** |
+
+Row counts aren't directly comparable — this audit groups by design element rather
+than by individual tag, and adds rows for the timer, deleted state, and
+share-on-sign that didn't exist before. The meaningful movement is **the script
+step going from Partial to Covered** on inputs, buttons, and tooltips.
 
 **Key takeaways**
 
-- **The library-hygiene basics are clean, before and after.** Every text-input-style field carries `theme="outlined"` and every `vaadin-button` carries a style variant — zero violations of the two global rules in core CONTEXT.md, verified again post-conversion (button count 35 → 46, text-area 3 → 6, tooltip 5 → 12). Dialogs correctly use renderer properties rather than slots.
-- **The script step was the file's main outlier and is now converted.** Sibling step types (text-entry, date, time, duration) all used Vaadin form components while the script step used raw `<textarea>` ×3 and `<button>` ×10. All three textareas and all ten buttons now use DS components, plus 7 `vaadin-tooltip`s replacing native `title=`.
-- **The `vaadin-text-area` port needed four shadow-DOM fixes**, worth knowing for the next conversion of this kind: (1) selection APIs (`selectionStart` / `setSelectionRange`) exist only on `inputElement`, not the host — reading them off the host silently returns `undefined` and disables the shortcut; (2) `focus`/`blur` don't bubble from the shadow root, so `focusin`/`focusout` are required; (3) keydown handlers need `composedPath()` rather than `e.target.closest()`; (4) `.value` is `undefined` before upgrade, so every read needs `|| ''`. The component self-grows, so the manual `scrollHeight` autosize was deleted entirely.
-- **Two items are ⚠️ Partial on purpose, not as debt**: the tag-menu container (held pending the `vaadin-popover` version question below) and the speaker-reassignment chips (`vwc-toggle-button-group` misbehaves additively in dialog renderers — plain chips are this repo's documented workaround).
-- **Token discipline is strong and its exceptions are documented.** The `:root` alias layer resolves borders/text/brand/surfaces to real tokens, and the two deliberate departures (opaque scroll surfaces; the course-recs violet/pink accent ramp) are explained inline. Three small one-off values could still move to tokens: `#0044aa` → `--brand`, `#166534` → `--lumo-success-text-color`, `#d97706` → `--notice-text`.
-- **Two same-job/two-implementation inconsistencies** are worth resolving regardless of component choice: the tag picker (popover vs hand-rolled fixed menu) and the search field (DS `vaadin-text-field` in the script menu and Quick Search, hand-rolled `<input>` in the other three tag menus).
+- **Library hygiene is clean and got cleaner.** 0 of 34 input fields miss
+  `theme="outlined"`; 0 of 51 buttons miss a style variant — verified after
+  +31 instances landed. Dialogs correctly use renderer properties, not slots.
+- **The script step is no longer the outlier.** Its 3 textareas, 10 buttons, and 7
+  tooltips are now DS components, matching every sibling question type.
+- **Three actionable items, all small**: the deleted-state wash is literally
+  `--lumo-error-color` at 6% and should reference the token; the share-on-sign
+  opt-in is the file's only native `<input type="checkbox">` where
+  `vaadin-checkbox` is used 6× elsewhere; and `#0044aa` / `#166534` / `#d97706`
+  could move to `--brand` / `--lumo-success-text-color` / `--notice-text`.
+- **One new documentation gap found**: `vaadin-radio-button` (10 uses) is absent
+  from the v1.22.1 runtime list, same as `vaadin-popover`. Low risk, but it means
+  **two** of this file's tags aren't in the documented inventory.
+- **`vaadin-popover` remains the only finding that could change the build.** Still
+  unresolved; still the reason the script tag menu stays hand-rolled.

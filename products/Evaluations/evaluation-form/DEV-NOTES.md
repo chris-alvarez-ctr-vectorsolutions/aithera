@@ -30,7 +30,9 @@ against the version your app ships; two known gaps are recorded under
 
 A full audit lives in
 [`component-assessment.md`](component-assessment.md) — in this folder
-(20 ✅ covered / 9 ⚠️ partial / 3 ❌ gap). Summary of what maps to what:
+— re-audited 2026-08-14 against the locked V1 (13 ✅ covered element groups /
+15 ⚠️ partial / 4 ❌ gap). **0 of 34 input fields miss `theme="outlined"`; 0 of 51
+buttons miss a style variant.** Summary of what maps to what:
 
 | Region | Components |
 |---|---|
@@ -137,7 +139,11 @@ while checked. Confirming applies both the signature and the share.
 1. **`vaadin-popover` version status.** Used 17× (actions menu, compare menu, tag
    pickers). Present in the **v1.19.0** bundle this mock loads, but **absent from the
    v1.22.1 documented Vaadin runtime**. Either undocumented or dropped. **Confirm with
-   the DS team** — if dropped, these menus need a different component.
+   the DS team** — if dropped, these menus need a different component. This is the
+   only open finding that could change what you build.
+1b. **`vaadin-radio-button` is also undocumented at v1.22.1** (10 uses). Its parent
+   `vaadin-radio-group` *is* listed, so this reads as a documentation omission
+   rather than a removal — low risk, but confirm alongside the popover question.
 2. **`theme~=icon` does not reset the tertiary label underline.** The Vector theme sets
    `vaadin-button[theme~=tertiary]::part(label){text-decoration:underline}`, which
    strikes through icon-only buttons. Worked around locally with a higher-specificity
@@ -150,6 +156,22 @@ while checked. Confirming applies both the signature and the share.
    (hand-rolled in 4 places), avatars (`vaadin-avatar` absent).
 
 Longer-form gap notes: [`../course-recs/DESIGN-SYSTEM-GAPS.md`](../course-recs/DESIGN-SYSTEM-GAPS.md)
+
+---
+
+## Small cleanups the re-audit flagged (safe to apply in the real build)
+
+None of these are blockers — they're places the prototype is inconsistent with
+itself, listed so they don't get carried into production code:
+
+1. **Deleted-state wash should use the token.** `rgba(216, 62, 56, 0.06)` is
+   literally `--lumo-error-color` (`#d83e38`) at 6%. Prefer
+   `color-mix(in srgb, var(--lumo-error-color) 6%, transparent)`.
+2. **Share-on-signature opt-in uses a native `<input type="checkbox">`** — the only
+   one in the file. `vaadin-checkbox` is used 6× elsewhere; use it here too.
+3. **Three one-off colours have exact-ish tokens**: `#0044aa` → `--brand`
+   (`#0271ce`), `#166534` → `--lumo-success-text-color` (`#0a7637`), `#d97706` →
+   `--notice-text` (`#a66900`).
 
 ---
 
