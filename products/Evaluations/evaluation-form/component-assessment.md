@@ -78,9 +78,10 @@ Variant distribution: `primary` ×16, `tertiary` ×14, `secondary` ×11,
 | Pass/Fail buttons | `vwc-toggle-button-group` | ⚠️ Partial | Same reasoning; 13 instances. |
 | Transcript log container | `vwc-card` | ⚠️ Partial | `<div class="q-script-log">`. `vwc-card theme="outlined"` could host it, but its always-rendering `image` slot adds phantom space. |
 | Status pills / badges | — | ⚠️ Partial | `theme="badge …"` attribute spans, per repo convention (no badge element exists). |
-| "Choose any" question checkboxes | `vaadin-checkbox` | ⚠️ Partial | Native `<input type="checkbox">` inside `<label class="q-choice">`. **A product question type** — worth converting, unlike the two below. |
+| "Choose any" question | `vaadin-checkbox-group` + `vaadin-checkbox` | ✅ Covered | **Fixed 2026-08-14** (was native `<input type="checkbox">`). The group owns the selection as a single `value` array and supplies the fieldset semantics; `theme="vertical"` lays the options out. Correctly no `theme="outlined"` — per core CONTEXT.md that attribute is text-input-only. |
+| "Choose one" question (radio variant) | `vaadin-radio-group` + `vaadin-radio-button` | ⚠️ Partial | Native `<input type="radio">` in `<label class="q-choice">`. **Now the inconsistent sibling** — its checkbox counterpart was converted, so this is the remaining hand-rolled choice control. Both DS elements are in the bundle; `vaadin-radio-group` is used 5× elsewhere in this file. Straightforward conversion. |
 | Quick Search row selection | `vaadin-checkbox` | ⚠️ Partial | Native inputs for select-all + per-row. Inside a plain `<table>`; would come along with a `vaadin-grid` conversion (which has its own `-selection-column`). |
-| Prototype widget toggle | — | ⚠️ Partial | Native input, but this widget is review scaffolding and is stripped for production — no action needed. |
+| Prototype widget toggle | — | n/a | Native input, but this widget is review scaffolding stripped for production — **intentionally left alone.** |
 
 ### New in this version
 
@@ -174,14 +175,18 @@ Longer-form notes: [`../course-recs/DESIGN-SYSTEM-GAPS.md`](../course-recs/DESIG
 
 | Category | Previous audit | This audit |
 |---|---|---|
-| ✅ Covered | 20 | **14 element groups** (broader per-row grouping) |
+| ✅ Covered | 20 | **15 element groups** (broader per-row grouping) |
 | ⚠️ Partial | 9 | **17** |
 | ❌ Gap | 3 | **4** |
 
-> **Post-audit fixes applied 2026-08-14**, before the handoff was finalised: the
-> deleted-state wash now references `--lumo-error-color` via a `--deleted-tint`
-> alias, and the share-on-signature opt-in is a `vaadin-checkbox`. Both rows above
-> are marked ✅ accordingly. The dev build was rebuilt from the corrected `ver1`.
+> **Post-audit fixes applied 2026-08-14**, before the handoff was finalised:
+> 1. Deleted-state wash now references `--lumo-error-color` via a `--deleted-tint` alias.
+> 2. Share-on-signature opt-in is a `vaadin-checkbox`.
+> 3. "Choose any" is a `vaadin-checkbox-group` + `vaadin-checkbox`.
+>
+> Those rows are marked ✅ accordingly, and the dev build was rebuilt from the
+> corrected `ver1`. The prototype widget's native checkbox is **intentionally**
+> left alone — it's review scaffolding, stripped for production.
 
 Row counts aren't directly comparable — this audit groups by design element rather
 than by individual tag, and adds rows for the timer, deleted state, and
@@ -195,17 +200,20 @@ step going from Partial to Covered** on inputs, buttons, and tooltips.
   +31 instances landed. Dialogs correctly use renderer properties, not slots.
 - **The script step is no longer the outlier.** Its 3 textareas, 10 buttons, and 7
   tooltips are now DS components, matching every sibling question type.
-- **Two of three actionable items are now fixed** (see the note under Summary): the
-  deleted-state wash references `--lumo-error-color` through a `--deleted-tint`
-  alias, and the share-on-sign opt-in is a `vaadin-checkbox`. Still open:
-  `#0044aa` / `#166534` / `#d97706` could move to `--brand` /
-  `--lumo-success-text-color` / `--notice-text`.
-- **Correction to an earlier claim.** The share opt-in was described as the file's
-  *only* native `<input type="checkbox">`. It wasn't — **four others remain**: the
-  "choose any" question type (a real product control, worth converting), Quick
-  Search select-all and per-row selection (would come with a `vaadin-grid`
-  conversion), and the prototype widget's toggle (scaffolding, stripped for
-  production). Only the "choose any" one is a genuine product inconsistency.
+- **All three flagged product-code items are fixed** (see the note under Summary):
+  the deleted-state wash references `--lumo-error-color` through a `--deleted-tint`
+  alias, the share-on-sign opt-in is a `vaadin-checkbox`, and "choose any" is a
+  `vaadin-checkbox-group`. Still open: `#0044aa` / `#166534` / `#d97706` could move
+  to `--brand` / `--lumo-success-text-color` / `--notice-text`.
+- **Native form controls remaining: three, none of them blocking.** Quick Search
+  select-all and per-row selection (they'd come along with a `vaadin-grid`
+  conversion) and the prototype widget's toggle (scaffolding, intentionally left).
+  Earlier drafts of this report called the share opt-in the file's *only* native
+  checkbox — that was wrong, and the full picture is now recorded.
+- **`choose-one` is now the inconsistent sibling.** Converting "choose any" leaves
+  the radio variant as the only hand-rolled choice control. `vaadin-radio-group` is
+  already used 5× in this file, so it's a straightforward follow-up — deliberately
+  out of scope for this handoff rather than an oversight.
 - **One new documentation gap found**: `vaadin-radio-button` (10 uses) is absent
   from the v1.22.1 runtime list, same as `vaadin-popover`. Low risk, but it means
   **two** of this file's tags aren't in the documented inventory.

@@ -30,8 +30,8 @@ against the version your app ships; two known gaps are recorded under
 
 A full audit lives in
 [`component-assessment.md`](component-assessment.md) — in this folder
-— re-audited 2026-08-14 against the locked V1, then refreshed after the two
-pre-handoff fixes (14 ✅ covered element groups / 17 ⚠️ partial / 4 ❌ gap).
+— re-audited 2026-08-14 against the locked V1, then refreshed after the three
+pre-handoff fixes (15 ✅ covered element groups / 17 ⚠️ partial / 4 ❌ gap).
 **0 of 34 input fields miss `theme="outlined"`; 0 of 51 buttons miss a style
 variant.** Summary of what maps to what:
 
@@ -39,7 +39,7 @@ variant.** Summary of what maps to what:
 |---|---|
 | Topbar | `vaadin-button` (`primary` Save, `tertiary` Back, `icon secondary` ⋯), `vaadin-popover` (actions + compare menus) |
 | Form action cluster | `vaadin-button theme="secondary"` (Pass all / Clear all), plain buttons for Privacy (see gap note), `vwc-divider` |
-| Question types | `vaadin-text-field` / `-text-area` / `-number-field` / `-select` / `-date-picker` / `-time-picker` / `-date-time-picker` / `-checkbox` / `-radio-group` — **all text inputs carry `theme="outlined"`** |
+| Question types | `vaadin-text-field` / `-text-area` / `-number-field` / `-select` / `-date-picker` / `-time-picker` / `-date-time-picker` — **all carry `theme="outlined"`**. "Choose any" is `vaadin-checkbox-group` + `vaadin-checkbox` (`theme="vertical"`, **no** `outlined`); "choose one" radio variant is still native — see cleanup 5 |
 | Rating rubric | Custom tiles (`<button role="radio">`) — no DS equivalent |
 | Script step | `vaadin-text-area` ×3, `vaadin-button theme="icon tertiary small"` row actions, `vaadin-tooltip`, `vaadin-text-field` search |
 | Attachments / video panels | `vwc-drawer` (`position="end" overlay resizable theme="no-padding"`) |
@@ -117,9 +117,9 @@ while checked. Confirming applies both the signature and the share.
 ### Deleted state
 - Deleting is **recoverable**: the record stays viewable and read-only. It remains
   visible in the evaluation list with a **Deleted** status.
-- Indicators: sticky red banner, topbar "Deleted" pill, `--deleted-tint` wash
-  (`--lumo-error-color` at 6%) on the form
-  backdrop (`.split-pane-primary`, not the form card).
+- Indicators: sticky red banner, topbar "Deleted" pill, and a `--deleted-tint` wash
+  (`--lumo-error-color` at 6%) on the form backdrop (`.split-pane-primary`, not the
+  form card — the card keeps its white surface so content stays legible).
 - **Restore is the only action.** Topbar actions, the form action cluster, and the
   per-question Add tags / Add attachment rows are all hidden. Existing tag chips and
   attachment cards stay — they're content.
@@ -178,16 +178,27 @@ Longer-form gap notes: [`../course-recs/DESIGN-SYSTEM-GAPS.md`](../course-recs/D
    > component upgrades, and the property is `undefined` until then. The banner's
    > initial visibility is seeded from the attribute for the same reason.
 
+3. ✅ **"Choose any" is a `vaadin-checkbox-group` + `vaadin-checkbox`.** The group
+   owns the selection as a single `value` array rather than N loose inputs, and
+   `theme="vertical"` handles the option layout.
+   > Two things to preserve: the group takes **no `theme="outlined"`** (per core
+   > CONTEXT.md that attribute is text-input-only), and the `.q-choices` flex rules
+   > are scoped with `:not(vaadin-checkbox-group)` so they don't fight the DS host's
+   > own layout. Setting the value programmatically is deferred a frame — the
+   > group must upgrade before `value` sticks.
+
 **Still open (not blockers):**
 
-3. **Three one-off colours have near-tokens**: `#0044aa` → `--brand` (`#0271ce`),
+4. **Three one-off colours have near-tokens**: `#0044aa` → `--brand` (`#0271ce`),
    `#166534` → `--lumo-success-text-color` (`#0a7637`), `#d97706` →
    `--notice-text` (`#a66900`).
-4. **Four native `<input type="checkbox">` remain**, only one of which matters:
-   the **"choose any" question type** is a real product control and should be
-   `vaadin-checkbox`. The Quick Search select-all / per-row boxes would come along
-   with a `vaadin-grid` conversion, and the prototype widget's toggle is
-   scaffolding you strip anyway.
+5. **`choose-one` (radio variant) is now the inconsistent sibling** — native
+   `<input type="radio">` where its checkbox counterpart is a DS group.
+   `vaadin-radio-group` + `vaadin-radio-button` are both in the bundle and the group
+   is used 5× elsewhere in this file. Deliberately out of scope for this handoff.
+6. **Three native `<input type="checkbox">` remain, none blocking**: Quick Search
+   select-all and per-row selection (they'd come along with a `vaadin-grid`
+   conversion), and the prototype widget's toggle (scaffolding you strip anyway).
 
 ---
 

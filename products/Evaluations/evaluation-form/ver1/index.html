@@ -1623,16 +1623,30 @@
         .q-duration-fields .sep { color: var(--text-muted); font-size: 12px; }
 
         /* ── Choice questions (Choose One, Choose Any, Pass/Fail) ── */
-        .q-choices {
+        /* Choose One (native radios) still uses a plain flex container.
+           `:not(vaadin-checkbox-group)` keeps these rules off the Choose Any
+           group, which is a DS component that lays its own options out via
+           theme="vertical" — forcing display:flex on that host fights its
+           internal grid and drops the fieldset spacing. */
+        .q-choices:not(vaadin-checkbox-group) {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
-        .q-choices.horizontal {
+        .q-choices:not(vaadin-checkbox-group).horizontal {
             flex-direction: row;
             flex-wrap: wrap;
             gap: 16px;
         }
+        /* Choose Any — the DS group host. It supplies its own option layout; this
+           only removes the label slot's reserved space (these questions carry their
+           title in the step header, not on the group). */
+        vaadin-checkbox-group.q-choices {
+            padding: 0;
+            --vaadin-field-default-width: auto;
+        }
+        vaadin-checkbox-group.q-choices::part(label) { display: none; }
+        /* Choose One option rows (native radio + text). */
         .q-choice {
             display: flex;
             align-items: center;
@@ -6525,13 +6539,17 @@ function renderQuestion(item) {
         return wrapStandard(item, `<div class="q-choices">${opts}</div>`);
     }
     if (item.type === 'choose-any') {
-        const opts = (item.choices || []).map(c => `
-            <label class="q-choice">
-                <input type="checkbox" value="${escapeHtml(c)}">
-                <span>${escapeHtml(c)}</span>
-            </label>
-        `).join('');
-        return wrapStandard(item, `<div class="q-choices">${opts}</div>`);
+        // vaadin-checkbox-group + vaadin-checkbox, not native inputs. The group
+        // owns the selection as a single `value` array (rather than N loose
+        // checkboxes) and supplies the fieldset semantics. Per core CONTEXT.md,
+        // checkbox-group does NOT take theme="outlined" — that attribute is for
+        // text-input-style fields only.
+        const opts = (item.choices || []).map(c =>
+            `<vaadin-checkbox value="${escapeHtml(c)}" label="${escapeHtml(c)}"></vaadin-checkbox>`
+        ).join('');
+        return wrapStandard(item, `
+            <vaadin-checkbox-group class="q-choices" theme="vertical">${opts}</vaadin-checkbox-group>
+        `);
     }
     if (item.type === 'date') {
         return wrapStandard(item, `<vaadin-date-picker theme="outlined" placeholder="Pick a date"></vaadin-date-picker>`);
@@ -11932,10 +11950,17 @@ function fillExampleQuestions() {
         const opt = Array.from(sel.options).find(o => o.value);
         if (opt) sel.value = opt.value;
     });
-    // Choose Any (checkboxes) — check the first two
-    scope.querySelectorAll('.q-choices').forEach(group => {
-        const boxes = group.querySelectorAll('input[type="checkbox"]');
-        boxes.forEach((b, i) => { if (i < 2) b.checked = true; });
+    // Choose Any — vaadin-checkbox-group: set the group's `value` array (the DS
+    // way) rather than poking individual boxes. Deferred with the other Vaadin
+    // writes below, since the group must upgrade before `value` sticks.
+    requestAnimationFrame(() => {
+        scope.querySelectorAll('vaadin-checkbox-group.q-choices').forEach(group => {
+            const vals = Array.from(group.querySelectorAll('vaadin-checkbox'))
+                .map(b => b.getAttribute('value'))
+                .filter(Boolean)
+                .slice(0, 2);              // first two options, as before
+            group.value = vals;
+        });
     });
 
     // Pass/Fail — select Pass
