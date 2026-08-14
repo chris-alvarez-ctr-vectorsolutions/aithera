@@ -214,11 +214,11 @@ if (violations.length) {
   ✋ BLOCKED — dev handoff done outside the standard process:
 `);
   for (const v of violations) console.error(`  ✗ ${v}\n`);
-  console.error(`  Handoffs follow CLAUDE.md → "Dev Handoff Process": pick the version,
-  fold a legacy flat mock into a feature folder first (Step 0.5), run
-  assess-mock-components, write DEV-NOTES.md, copy the version file to
-  dev_handoff.html at the FEATURE ROOT with comments off + flow map on, and
-  let build-dashboards.js flip the card.
+  console.error(`  Handoffs follow the ux-wrapup skill: pick the version (Phase 0), fold a
+  legacy flat mock into a feature folder first (Phase 0.5), confirm components
+  with audit-mock-vwc, write mock-definition.md + DEV-NOTES.md, copy the version
+  file to dev_handoff.html at the FEATURE ROOT with comments off + flow map on,
+  and let build-dashboards.js flip the card.
   Bypass for a genuine exception:  SKIP_MOCK_GUARD=1 git commit ...
 `);
   process.exit(1);
