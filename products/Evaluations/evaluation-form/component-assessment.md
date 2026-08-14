@@ -1,8 +1,10 @@
 # Component Assessment
-## Performance Standards for Teacher Practice (Flat Form) — [flat-form.html](flat-form.html)
+## Evaluation Form — [ver1/index.html](ver1/index.html)
 
 **Source**: Local file
-**Date**: 2026-08-06
+**Date**: 2026-08-06 (audit) · 2026-08-14 (repointed at `ver1/index.html` when the
+legacy flat mock was folded into this versioned feature folder — same file, same
+content, new path)
 **Assessed against**: core v1.22.1, themes v1.9.3 (fetched from CDN). The mock loads **core v1.19.0** and **themes v1.5.0**; CONTEXT.md is not published for either (minimums are core v1.22.1 / themes v1.9.3), so those baselines were substituted. Token values below are quoted from themes v1.9.3 and may differ slightly from v1.5.0.
 **Scope**: Whole file, with the **Script question step** audited in depth per request.
 

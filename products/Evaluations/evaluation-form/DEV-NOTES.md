@@ -29,7 +29,7 @@ against the version your app ships; two known gaps are recorded under
 ## Component mapping
 
 A full audit lives in
-[`../course-recs/component-assessment.md`](../course-recs/component-assessment.md)
+[`component-assessment.md`](component-assessment.md) — in this folder
 (20 ✅ covered / 9 ⚠️ partial / 3 ❌ gap). Summary of what maps to what:
 
 | Region | Components |
