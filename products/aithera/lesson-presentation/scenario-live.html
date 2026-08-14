@@ -705,6 +705,18 @@
       }
       .marks-row + .marks-row { border-top: 1px solid rgba(128,148,178,.20); }
       .marks-row i { color: var(--c-accent); font-size: 12.5px; margin-top: 3px; flex: 0 0 auto; }
+      /* Coach-graded verdicts: a HIT flips the flag to a green "Found" check; a
+         CLOSE reads amber; ungraded/other items keep the neutral flag. Greens
+         match the coverage rail (#2ecc71 / #1f9d57). */
+      .marks-row.hit   i { color: #2ecc71; font-size: 13.5px; }
+      .marks-row.close i { color: var(--s-you); }
+      .marks-row.off { opacity: .72; }
+      .marks-row.off i { color: var(--c-ink-faint); }
+      .marks-tag { margin-left: auto; align-self: center; flex: 0 0 auto;
+        font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+        padding: 2px 8px; border-radius: 999px; }
+      .marks-tag.found { color: #1f9d57; background: color-mix(in srgb, #2ecc71 16%, transparent); }
+      .marks-tag.close { color: var(--s-you); background: color-mix(in srgb, var(--s-you) 16%, transparent); }
 
       /* ===================================================================
          6. STAGE CARD  — wraps a contiguous run of SCENE messages.
@@ -1548,7 +1560,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=7"></script>
+    <script src="js/sim-core.js?v=8"></script>
     <script src="js/sim-player.js?v=7"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
@@ -1591,7 +1603,7 @@
          part dev balked at). It SELF-GATES on ?observe=text, so it registers and
          overrides the canvas ONLY for the text version (V2); V1 stays byte-
          identical. Loads AFTER sim-perception.js so "last registration wins". -->
-    <script src="js/sim-observe-text.js?v=11"></script>
+    <script src="js/sim-observe-text.js?v=14"></script>
     <!-- [Option B] surface #2: teach-back (retrieval). Registers the 'teach' SURFACE
          (js/sim-surfaces.js). Owns its whole loop — framing calibration chat, the
          10-tile board + live grader, the N/10 close — via ownsInput/onInput; the
@@ -2241,9 +2253,21 @@
       const wrap = el('div', 'you-coach you-marks' + ec(m));
       wrap.appendChild(el('div', 'cap', 'You flagged'));
       const card = el('div', 'marks-card');
-      card.innerHTML = items.map((it) =>
-        `<div class="marks-row"><i class="fa-solid fa-flag"></i><span>${esc(it)}</span></div>`
-      ).join('');
+      // Once the coach grades this batch, each flagged item carries a verdict
+      // (m._markVerdicts, keyed by its 1-based number): a HIT turns the blue flag
+      // into a green "Found" check; a CLOSE reads amber; anything else stays a
+      // muted flag. Until grading lands (or in the tap version, which has no
+      // verdicts) every item shows the neutral blue flag — no regression.
+      const vmap = Object.create(null);
+      (Array.isArray(m._markVerdicts) ? m._markVerdicts : []).forEach((e) => { if (e && e.n) vmap[e.n] = e.v; });
+      card.innerHTML = items.map((it, i) => {
+        const v = vmap[i + 1];
+        const icon = v === 'hit' ? 'fa-circle-check'
+          : v === 'close' ? 'fa-circle-dot' : 'fa-flag';
+        const tag = v === 'hit' ? '<span class="marks-tag found">Found</span>'
+          : v === 'close' ? '<span class="marks-tag close">Close</span>' : '';
+        return `<div class="marks-row${v ? ' ' + v : ''}"><i class="fa-solid ${icon}"></i><span>${esc(it)}</span>${tag}</div>`;
+      }).join('');
       wrap.appendChild(card);
       return wrap;
     }
@@ -3271,6 +3295,7 @@
       }
 
       let youMsg = null;
+      let marksMsg = null;   // scene-sweep text mode: the "You flagged" card we repaint with verdicts once the coach grades
       if (state.mode === 'scene') {
         // The learner's move renders SPLIT (what they DO vs what they SAY). While
         // that split resolves we stand in a "considering…" loader and render the
@@ -3301,6 +3326,7 @@
         if (state.pendingMarkCard) {
           youC.variant = 'marks';
           youC._marks = state.pendingMarkCard.items;
+          marksMsg = youC;   // remember it so grading verdicts can turn its flags into checks
           state.pendingMarkCard = null;
         }
         state.messages.push(youC);
@@ -3357,6 +3383,17 @@
       // ladder routes, so its rail and the next [SYSTEM STATE] outcome line reflect
       // it (scene-sweep: credit turn.spotted into coverage).
       if (SURFACE && SURFACE.onTurn) SURFACE.onTurn(turn);
+
+      // scene-sweep text mode: paint the coach's per-note verdicts onto the "You
+      // flagged" card so its flags become green "Found" checks. The card first
+      // showed neutral flags at send; this is the "flagged → then confirmed
+      // correct" beat the learner asked to see. reconcileCoachBody caches one node
+      // per message, so drop the stale cached node — the next render rebuilds it
+      // through youMarksNode with the verdicts.
+      if (marksMsg && Array.isArray(turn.marks)) {
+        marksMsg._markVerdicts = turn.marks;
+        coachNodeMap.delete(marksMsg);
+      }
 
       // LOCKED (grey) beats: the model only writes the dynamic feedback, then
       // asks us to show the next app-owned beat via turn.deliver. We append that

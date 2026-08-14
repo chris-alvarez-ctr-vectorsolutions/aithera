@@ -174,6 +174,8 @@
                              // teach turns (branching arc records it as ladder state)
       spotted: null,         // (id) => bool — predicate; when set, parse obj.spotted
                              // as an array of rubric ids (scene sweep coverage rail)
+      marks: null,           // (v) => v|null — validator; when set, parse obj.marks as
+                             // per-note DISPLAY verdicts (scene sweep text mode: hit/close/off)
       sceneHints: false,
       observeNext: null,
       fallbackText: FALLBACK_TEXT,
@@ -273,6 +275,23 @@
             .map((x) => x.trim())
             .filter((x) => o.spotted(x));
           if (ids.length) out.spotted = Array.from(new Set(ids));
+        }
+
+        if (o.marks) {
+          // Per-note DISPLAY verdicts for a text-observation batch: the model tags
+          // each note it just graded as hit|close|off, keyed by that note's 1-based
+          // number in the batch the page sent. Purely for the "you flagged" card +
+          // the notes-list icons — the coverage COUNT still comes from `spotted`.
+          // The page supplies the verdict validator; item-level arrays hoist too.
+          const rawMarks = Array.isArray(obj.marks) ? obj.marks
+            : obj.turn.map((m) => m && m.marks).find(Array.isArray) || [];
+          const marks = rawMarks.map((e) => {
+            if (!e || typeof e !== 'object') return null;
+            const n = parseInt(e.n != null ? e.n : e.note, 10);
+            const v = o.marks(e.verdict != null ? e.verdict : e.v);
+            return (Number.isFinite(n) && n >= 1 && v) ? { n, v } : null;
+          }).filter(Boolean);
+          if (marks.length) out.marks = marks;
         }
 
         if (o.sceneHints) {

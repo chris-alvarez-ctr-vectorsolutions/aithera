@@ -142,8 +142,24 @@
       @keyframes obt-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
       @media (prefers-reduced-motion: reduce) { .obt-note, .obt-nudge { animation: none; } .obt-stage, .obt-panel { transition: none; } }
       .obt-note i { flex: none; font-size: 11px; color: var(--c-ink-faint); }
-      .obt-note-x { margin-left: auto; flex: none; border: 0; background: transparent; cursor: pointer;
+      /* Coach-graded verdicts, painted back onto the note the learner typed so
+         they can see WHICH note landed (found) vs the ones that didn't line up.
+         Greens match the coverage chips/meter (#2ecc71 / #1f9d57); close reuses the
+         same amber (--s-you) the "missed" chips use. */
+      .obt-note.hit   { border-color: color-mix(in srgb, #2ecc71 50%, var(--c-line));
+        background: color-mix(in srgb, #2ecc71 10%, var(--c-surface)); }
+      .obt-note.hit i   { color: #2ecc71; }
+      .obt-note.close i { color: var(--s-you); }
+      .obt-note.off   { opacity: .68; }
+      .obt-note.off i { color: var(--c-ink-faint); }
+      .obt-note-tag { margin-left: auto; flex: none; font-size: 10.5px; font-weight: 700;
+        letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+      .obt-note-tag.found { color: #1f9d57; background: color-mix(in srgb, #2ecc71 16%, transparent); }
+      .obt-note-tag.close { color: var(--s-you); background: color-mix(in srgb, var(--s-you) 16%, transparent); }
+      .obt-note-x { flex: none; border: 0; background: transparent; cursor: pointer;
         color: var(--c-ink-faint); font-size: 13px; padding: 0 2px; line-height: 1; }
+      .obt-note.hit .obt-note-x, .obt-note.close .obt-note-x { margin-left: 8px; }
+      .obt-note:not(.hit):not(.close):not(.off) .obt-note-x { margin-left: auto; }
       .obt-note-x:hover { color: var(--c-ink); }
 
       /* Slots mode — N labeled fields, no verdict; a filled field just reads as filled. */
@@ -263,6 +279,11 @@
     const notes = [];                                   // sweep
     const slots = MODE === 'slots' ? Array.from({ length: SLOT_COUNT }, () => '') : null;
     const sent = new Set();                             // observations already handed to the coach (lowercased)
+    // Coach-graded per-note verdicts, keyed by the note text (lowercased): 'hit'
+    // (named a rubric hazard), 'close' (right area, wrong/unnamed hazard), or 'off'.
+    // Filled by applyMarks() after each review so the learner sees which note landed.
+    const noteVerdict = Object.create(null);
+    let lastBatch = [];                                 // the notes handed to the coach THIS review, in order (for marks[].n)
 
     // Every non-blank observation the learner has entered, in order, de-duped.
     function collect() {
@@ -414,9 +435,16 @@
             </li>`;
         }).join('') + `</ol>`;
       } else {
-        const items = notes.map((t, i) =>
-          `<li class="obt-note"><i class="fa-solid fa-eye"></i><span>${esc(t)}</span>
-             <button class="obt-note-x" type="button" data-i="${i}" aria-label="Remove this note">✕</button></li>`).join('');
+        const items = notes.map((t, i) => {
+          const v = noteVerdict[String(t).trim().toLowerCase()];
+          const icon = v === 'hit' ? 'fa-circle-check'
+            : v === 'close' ? 'fa-circle-dot'
+            : v === 'off' ? 'fa-circle-minus' : 'fa-eye';
+          const tag = v === 'hit' ? '<span class="obt-note-tag found">Found</span>'
+            : v === 'close' ? '<span class="obt-note-tag close">Close</span>' : '';
+          return `<li class="obt-note${v ? ' ' + v : ''}"><i class="fa-solid ${icon}"></i><span>${esc(t)}</span>${tag}
+             <button class="obt-note-x" type="button" data-i="${i}" aria-label="Remove this note">✕</button></li>`;
+        }).join('');
         bodyHtml =
           `<form class="obt-add" id="obtAddForm">
              <input class="obt-input" id="obtInput" type="text" autocomplete="off"
@@ -470,11 +498,16 @@
       fresh.forEach((o) => sent.add(o.toLowerCase()));
       if (fresh.length) {
         // Show the raw notes as an inline "you flagged" card (not spoken); the
-        // sentence below is what the model actually grades.
+        // sentence below is what the model actually grades. NUMBER the notes so the
+        // coach can tag each one back by number (marks[]) — the card + notes list
+        // then mark WHICH note landed. Numbers are model-facing only (the card shows
+        // the raw note text, in this same order).
+        lastBatch = fresh.slice();
         state.pendingMarkCard = { items: fresh.slice() };
         const lead = state.coachStarted ? 'A few more things I noticed: ' : 'Here’s what I noticed: ';
-        return lead + listJoin(fresh) + '.';
+        return lead + fresh.map((o, i) => '[' + (i + 1) + '] ' + o).join('; ') + '.';
       }
+      lastBatch = [];
       if (reason === 'stuck') return 'I’ve looked around, but I’m not sure what else is unsafe here.';
       return 'I’ve taken another look — nothing else jumps out at me.';
     }
@@ -521,29 +554,67 @@
       render();
     }
 
+    /* ---- paint the coach's per-note verdicts (marks[]) back onto the notes the
+       learner typed THIS review, so the notes list marks WHICH note landed. Keyed
+       by number into lastBatch (the order we handed the coach). Display only — the
+       coverage count still comes from `spotted`. ---- */
+    function applyMarks(marks) {
+      if (!Array.isArray(marks) || !lastBatch.length) return;
+      let changed = false;
+      marks.forEach((m) => {
+        const note = lastBatch[m.n - 1];
+        if (note) { noteVerdict[String(note).trim().toLowerCase()] = m.v; changed = true; }
+      });
+      if (changed) renderPanel();
+    }
+
     /* ---- the per-turn COVERAGE state block for the spot phase. This is the
        authoritative [SYSTEM STATE] line the coach must obey, and it steers the
        TEXT version's whole Observe behavior: credit generously on the spot (no
        zone-hunting in chat), then HAND BACK to the activity until the target is
-       met — never giving the misses away. Distinct from the canvas coverageBlock,
-       which enumerates zones to nudge tapping. ---- */
+       met OR the look-again budget runs out — never giving the misses away.
+       Distinct from the canvas coverageBlock, which enumerates zones to nudge
+       tapping. ---- */
     function coverageBlock(p) {
       if (!(p && p.kind === 'spot' && HAZARDS.length)) return '';
       const spotN = HAZARDS.filter((h) => state.covered.has(h.id)).length;
       const target = COVERAGE.required || HAZARDS.length;
-      const base = ' [OBSERVE — TEXT MODE] The learner TYPED their observations. Credit GENEROUSLY:'
-        + ' any clear reference to a rubric hazard counts — ignore spelling and typos, and do NOT'
-        + ' require them to explain WHY it is dangerous yet. Set "spotted" to the cumulative ids.'
-        + ' Spotted so far: ' + spotN + ' of ' + HAZARDS.length + ' (target ' + target + ').';
-      if (spotN >= target) {
-        return base + ' TARGET MET — stop looping and deliver the debrief now: "action":"teach".';
+      // Cap-aware: send() has already counted THIS review, so once turns used
+      // reaches the phase cap this is the LAST look — stop bouncing them back and
+      // debrief, matching the arc's cap clause (they'd otherwise conflict → a
+      // "review → look again → review" loop the learner can't escape).
+      const cap = Math.max(1, p.maxTurns || 2);
+      const lastPass = state.turnsInPhase >= cap;
+      const base = ' [OBSERVE — TEXT MODE] The learner TYPED their observations, NUMBERED [1], [2], …'
+        + ' Credit GENEROUSLY: any clear reference to a rubric hazard counts — ignore spelling and'
+        + ' typos, and do NOT require them to explain WHY it is dangerous yet. Set "spotted" to the'
+        + ' cumulative rubric ids. Spotted so far: ' + spotN + ' of ' + HAZARDS.length + ' (target '
+        + target + ').'
+        + ' ALSO return "marks": an array of {"n":<the note number>,"verdict":"hit"|"close"|"off"} with'
+        + ' one entry for EACH numbered note this turn — "hit" = it names a rubric hazard (its id is in'
+        + ' "spotted"); "close" = it points at the right object or area but does NOT name the actual'
+        + ' hazard (e.g. "barrel"/"drum" when the hazard is the drum\'s out-of-date SDS or its unreadable'
+        + ' label); "off" = not a hazard.';
+      if (spotN >= target || lastPass) {
+        return base + (spotN >= target
+            ? ' TARGET MET.'
+            : ' FINAL REVIEW — this is their last look; do NOT send them back to the scene again.')
+          + ' DEBRIEF now: briefly credit what they caught, then NAME all ' + HAZARDS.length + ' hazards in'
+          + ' the scene (the full rubric) so they leave seeing every one — including any they missed — in'
+          + ' plain, standard terms. Do NOT reference turns, budgets, or the app; do NOT ask a question;'
+          + ' do NOT tell them to look again. Set "action":"teach".';
       }
-      return base + ' MORE REMAIN. Do NOT name, describe, quote, or hint at any hazard they have'
-        + ' NOT yet flagged, and do NOT say where to look. In 1–2 short bubbles: warmly credit what'
-        + ' they just caught (a quick "ooh, close" if a note was near but not a clear hazard), tell'
-        + ' them the count so far (' + spotN + ' of ' + HAZARDS.length + '), and send them back to'
-        + ' take another look. End with "action":"continue" — the app returns them to the scene.'
-        + ' Do NOT ask a question and do NOT debrief yet.';
+      // Hand-back turn: the composer is REPLACED by a "look again" button, so the
+      // learner CANNOT answer — a question here just dangles. Force a fixed closing
+      // shape (the same technique the canvas grader uses) so the coach can't tack a
+      // probe on the end. Never name/point to an unflagged hazard.
+      return base + ' MORE REMAIN. This is a HAND-BACK — the learner cannot reply, so you MUST NOT ask a'
+        + ' question or invite them to explain. Reply in AT MOST two short bubbles: (1) if a note scored'
+        + ' "hit", warmly credit it in one line; if a note scored "close", say a quick, plain "Close —" and'
+        + ' name the object they pointed at WITHOUT naming the real hazard; (2) then end with EXACTLY this'
+        + ' line and nothing after it: "That\'s ' + spotN + ' of ' + HAZARDS.length + ' so far — take'
+        + ' another look and see what else you notice." Do NOT name, describe, or point to any hazard they'
+        + ' have not flagged. Set "action":"continue".';
     }
 
     /* ---- the coach-panel coverage rail — filled by the coach's grading ---- */
@@ -605,6 +676,7 @@
         (ids || []).forEach((id) => { if (HAZARD_IDS.has(id)) state.covered.add(id); });
         updateCoachRail(); renderPanel();
       },
+      applyMarks,
       unspottedCount: () => HAZARDS.filter((h) => !state.covered.has(h.id)).length,
       closeA11yPanel: () => {},
     };
@@ -631,9 +703,15 @@
         noCharacterScene: true,
         mountsFullBleed: true,
 
-        turnFields: { spotted: P.spottedValidator },
+        turnFields: {
+          spotted: P.spottedValidator,
+          marks: (v) => { v = String(v || '').trim().toLowerCase(); return (v === 'hit' || v === 'close' || v === 'off') ? v : null; },
+        },
         outcomeBlock: P.coverageBlock,
-        onTurn: (turn) => { if (Array.isArray(turn.spotted)) P.creditSpotted(turn.spotted); },
+        onTurn: (turn) => {
+          if (Array.isArray(turn.spotted)) P.creditSpotted(turn.spotted);
+          if (Array.isArray(turn.marks)) P.applyMarks(turn.marks);
+        },
 
         onStart: () => { P.enterMarking(); return true; },
 
