@@ -40,6 +40,11 @@
             --notice: var(--vwc-notification-color);
             --notice-text: var(--vwc-notification-text-color);
             --notice-tint: var(--vwc-notification-color-10pct);
+            /* Deleted-state wash — derived from the error token rather than a
+               hardcoded rgba (the literal 216,62,56 IS --lumo-error-color
+               #d83e38). 6% is lighter than --lumo-error-color-10pct, which is too
+               strong for a full-page backdrop. */
+            --deleted-tint: color-mix(in srgb, var(--lumo-error-color) 6%, transparent);
             /* Course-recommendations accent — pink/purple to match the feature's
                original theme (distinct from the form's blue --brand). */
             --rec-accent: #8b5cf6;
@@ -519,9 +524,10 @@
         /* Pane only — NOT also .app. Stacking the wash on both would double the
            tint where they overlap and leave the gutters a different shade. */
         body.is-deleted .split-pane-primary {
-            /* Very light red over an opaque backstop — the error token is
-               translucent rgba, so the solid layer keeps it consistent. */
-            background-image: linear-gradient(rgba(216, 62, 56, 0.06), rgba(216, 62, 56, 0.06)),
+            /* Very light red over an opaque backstop — --deleted-tint is
+               translucent (derived from --lumo-error-color), so the solid layer
+               underneath keeps it consistent against the page grey. */
+            background-image: linear-gradient(var(--deleted-tint), var(--deleted-tint)),
                               linear-gradient(var(--page-bg), var(--page-bg));
             /* Fill the viewport so a short form doesn't leave untinted grey below
                the content (the pane is only as tall as its children otherwise). */
@@ -3139,18 +3145,12 @@
            checkbox + label: no surface fill or border, so it reads as part of the
            modal body rather than a nested card. The warning banner below carries
            the emphasis. */
-        .sig-share-optin {
-            display: flex; align-items: center; gap: 10px;
-            margin-top: 14px;
-            cursor: pointer;
-        }
-        .sig-share-optin input[type="checkbox"] {
-            margin: 0; flex-shrink: 0;
-            width: 16px; height: 16px; cursor: pointer;
-            accent-color: var(--brand);
-        }
-        .sig-share-optin-text { min-width: 0; }
-        .sig-share-optin-text strong {
+        /* vaadin-checkbox supplies its own box, label, and hit target — this only
+           positions it. No native-input or label-span rules needed. */
+        .sig-share-optin { margin-top: 14px; }
+        .sig-share-optin vaadin-checkbox { margin: 0; }
+        /* Match the modal body's emphasis on the label text. */
+        .sig-share-optin vaadin-checkbox::part(label) {
             font-size: 13px; font-weight: 700; color: var(--text-strong);
         }
         /* The consequence banner sits under the checkbox, not inside the label, so
@@ -9887,13 +9887,14 @@ function shareOnSignHtml() {
     // banner the Share confirmation dialog uses, revealed while the box is checked
     // (default) and hidden when the user opts out. One consistent warning, and it
     // only appears when it actually applies.
+    // vaadin-checkbox (not a native input) — matches every other checkbox in this
+    // form. It supplies its own label, so no wrapping <label> is needed; `checked`
+    // as an attribute is fine here because the element is created fresh per modal.
     return `
-        <label class="sig-share-optin">
-            <input type="checkbox" id="sigShareOptIn" checked />
-            <span class="sig-share-optin-text">
-                <strong>Share this evaluation when signed</strong>
-            </span>
-        </label>
+        <div class="sig-share-optin">
+            <vaadin-checkbox id="sigShareOptIn" checked
+                label="Share this evaluation when signed"></vaadin-checkbox>
+        </div>
         <div class="share-modal-warning sig-share-warning" id="sigShareWarning">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span><strong>This can't be undone.</strong> Once shared, access is permanent — it cannot be revoked.</span>
@@ -9905,16 +9906,25 @@ function wireShareOnSign(rootEl) {
     const box = (rootEl || document).querySelector('#sigShareOptIn');
     const warn = (rootEl || document).querySelector('#sigShareWarning');
     if (!box || !warn) return;
+    // vaadin-checkbox emits `checked-changed`; it also fires a native `change`
+    // from its inner input, but the DS event is the component's contract.
     const sync = () => { warn.hidden = !box.checked; };
+    box.addEventListener('checked-changed', sync);
     box.addEventListener('change', sync);
-    sync();
+    // The element may not have upgraded yet when this runs, so seed the banner
+    // from the attribute rather than the (possibly undefined) property.
+    warn.hidden = !box.hasAttribute('checked');
 }
 // Read the checkbox out of a just-closed modal and apply it. Called from the
 // confirm handler; safe to call when the checkbox wasn't rendered.
 function applyShareOnSign(rootEl) {
     if (formShared) return;
     const box = (rootEl || document).querySelector('#sigShareOptIn');
-    if (box && box.checked) setSharedState();
+    if (!box) return;
+    // Prefer the upgraded property; fall back to the attribute if the component
+    // hasn't upgraded (the modal can be confirmed before Vaadin finishes).
+    const checked = (typeof box.checked === 'boolean') ? box.checked : box.hasAttribute('checked');
+    if (checked) setSharedState();
 }
 
 function setSharedState() {

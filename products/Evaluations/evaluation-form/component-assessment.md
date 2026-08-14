@@ -78,6 +78,9 @@ Variant distribution: `primary` ×16, `tertiary` ×14, `secondary` ×11,
 | Pass/Fail buttons | `vwc-toggle-button-group` | ⚠️ Partial | Same reasoning; 13 instances. |
 | Transcript log container | `vwc-card` | ⚠️ Partial | `<div class="q-script-log">`. `vwc-card theme="outlined"` could host it, but its always-rendering `image` slot adds phantom space. |
 | Status pills / badges | — | ⚠️ Partial | `theme="badge …"` attribute spans, per repo convention (no badge element exists). |
+| "Choose any" question checkboxes | `vaadin-checkbox` | ⚠️ Partial | Native `<input type="checkbox">` inside `<label class="q-choice">`. **A product question type** — worth converting, unlike the two below. |
+| Quick Search row selection | `vaadin-checkbox` | ⚠️ Partial | Native inputs for select-all + per-row. Inside a plain `<table>`; would come along with a `vaadin-grid` conversion (which has its own `-selection-column`). |
+| Prototype widget toggle | — | ⚠️ Partial | Native input, but this widget is review scaffolding and is stripped for production — no action needed. |
 
 ### New in this version
 
@@ -85,7 +88,7 @@ Variant distribution: `primary` ×16, `tertiary` ×14, `secondary` ×11,
 |---|---|---|---|
 | Paired timer (start/end) | `vaadin-button` + `vaadin-number-field` | ✅ Covered | One clock per `timerId`; both halves are views of the same state, so they can't drift. Custom result via 3 outlined number fields. |
 | Deleted-state banner | — | ⚠️ Partial | Custom banner. `vaadin-notification` exists but is transient (toast); a persistent sticky state banner has no DS equivalent. Reasonable custom. |
-| Share-on-signature opt-in | — | ⚠️ Partial | Native `<input type="checkbox">` rather than `vaadin-checkbox`. **Actionable**: `vaadin-checkbox` is available and used elsewhere in this file (6×); this is the one inconsistent checkbox. |
+| Share-on-signature opt-in | `vaadin-checkbox` | ✅ Covered | **Fixed 2026-08-14** (was a native `<input type="checkbox">`). Uses the `label` property and the `checked-changed` event; reads fall back to the `checked` attribute in case the modal is confirmed before the component upgrades. |
 | Rating rubric tiles | — | ❌ Gap | Domain/indicator grid, 26 instances. No DS equivalent. |
 | Comment / message thread | — | ❌ Gap | `vaadin-message-list` / `-message` / `-message-input` **verified absent** from the bundle. |
 | Chips / tags | — | ❌ Gap | No chip component. Hand-rolled in 4 places (speaker pill, message tag, custom tag chip, attachment tag). |
@@ -105,7 +108,7 @@ mapped to `--vwc-notification-*`. The table covers the remaining raw values.
 
 | Color in Mock | Nearest Token | Token Value (themes v1.9.3) | Status |
 |---|---|---|---|
-| `rgba(216, 62, 56, 0.06)` — deleted-state wash | `--lumo-error-color` @ 6% | `#d83e38` | ✅ **Match** — 216,62,56 **is** `#d83e38`. Recommend `color-mix(in srgb, var(--lumo-error-color) 6%, transparent)` or an error tint token instead of the literal rgba. **New since last audit.** |
+| `--deleted-tint` — deleted-state wash | `--lumo-error-color` @ 6% | `#d83e38` | ✅ **Resolved 2026-08-14** — was a literal `rgba(216, 62, 56, 0.06)`; 216,62,56 **is** `#d83e38`. Now `color-mix(in srgb, var(--lumo-error-color) 6%, transparent)`, aliased as `--deleted-tint` in the `:root` layer. 6% is deliberately lighter than `--lumo-error-color-10pct`, which is too strong for a full-page backdrop. |
 | `#d97706` — warning icon | `--lumo-warning-text-color` | `#995211` | ⚠️ Off — amber vs the DS's browner warning text. The mock documents preferring `--vwc-notification-*` for ambers; this icon could move to `--notice-text` (`#a66900`). |
 | `#166534` — badge-on text | `--lumo-success-text-color` | `#0a7637` | ⚠️ Off — recommend the token; small hue shift. |
 | `#0044aa` — primary pane badge | `--lumo-primary-color` | `#0271ce` | ⚠️ Off — recommend `--brand`. |
@@ -171,9 +174,14 @@ Longer-form notes: [`../course-recs/DESIGN-SYSTEM-GAPS.md`](../course-recs/DESIG
 
 | Category | Previous audit | This audit |
 |---|---|---|
-| ✅ Covered | 20 | **13 element groups** (broader per-row grouping) |
-| ⚠️ Partial | 9 | **15** |
+| ✅ Covered | 20 | **14 element groups** (broader per-row grouping) |
+| ⚠️ Partial | 9 | **17** |
 | ❌ Gap | 3 | **4** |
+
+> **Post-audit fixes applied 2026-08-14**, before the handoff was finalised: the
+> deleted-state wash now references `--lumo-error-color` via a `--deleted-tint`
+> alias, and the share-on-signature opt-in is a `vaadin-checkbox`. Both rows above
+> are marked ✅ accordingly. The dev build was rebuilt from the corrected `ver1`.
 
 Row counts aren't directly comparable — this audit groups by design element rather
 than by individual tag, and adds rows for the timer, deleted state, and
@@ -187,11 +195,17 @@ step going from Partial to Covered** on inputs, buttons, and tooltips.
   +31 instances landed. Dialogs correctly use renderer properties, not slots.
 - **The script step is no longer the outlier.** Its 3 textareas, 10 buttons, and 7
   tooltips are now DS components, matching every sibling question type.
-- **Three actionable items, all small**: the deleted-state wash is literally
-  `--lumo-error-color` at 6% and should reference the token; the share-on-sign
-  opt-in is the file's only native `<input type="checkbox">` where
-  `vaadin-checkbox` is used 6× elsewhere; and `#0044aa` / `#166534` / `#d97706`
-  could move to `--brand` / `--lumo-success-text-color` / `--notice-text`.
+- **Two of three actionable items are now fixed** (see the note under Summary): the
+  deleted-state wash references `--lumo-error-color` through a `--deleted-tint`
+  alias, and the share-on-sign opt-in is a `vaadin-checkbox`. Still open:
+  `#0044aa` / `#166534` / `#d97706` could move to `--brand` /
+  `--lumo-success-text-color` / `--notice-text`.
+- **Correction to an earlier claim.** The share opt-in was described as the file's
+  *only* native `<input type="checkbox">`. It wasn't — **four others remain**: the
+  "choose any" question type (a real product control, worth converting), Quick
+  Search select-all and per-row selection (would come with a `vaadin-grid`
+  conversion), and the prototype widget's toggle (scaffolding, stripped for
+  production). Only the "choose any" one is a genuine product inconsistency.
 - **One new documentation gap found**: `vaadin-radio-button` (10 uses) is absent
   from the v1.22.1 runtime list, same as `vaadin-popover`. Low risk, but it means
   **two** of this file's tags aren't in the documented inventory.

@@ -30,9 +30,10 @@ against the version your app ships; two known gaps are recorded under
 
 A full audit lives in
 [`component-assessment.md`](component-assessment.md) — in this folder
-— re-audited 2026-08-14 against the locked V1 (13 ✅ covered element groups /
-15 ⚠️ partial / 4 ❌ gap). **0 of 34 input fields miss `theme="outlined"`; 0 of 51
-buttons miss a style variant.** Summary of what maps to what:
+— re-audited 2026-08-14 against the locked V1, then refreshed after the two
+pre-handoff fixes (14 ✅ covered element groups / 17 ⚠️ partial / 4 ❌ gap).
+**0 of 34 input fields miss `theme="outlined"`; 0 of 51 buttons miss a style
+variant.** Summary of what maps to what:
 
 | Region | Components |
 |---|---|
@@ -116,7 +117,8 @@ while checked. Confirming applies both the signature and the share.
 ### Deleted state
 - Deleting is **recoverable**: the record stays viewable and read-only. It remains
   visible in the evaluation list with a **Deleted** status.
-- Indicators: sticky red banner, topbar "Deleted" pill, light-red wash on the form
+- Indicators: sticky red banner, topbar "Deleted" pill, `--deleted-tint` wash
+  (`--lumo-error-color` at 6%) on the form
   backdrop (`.split-pane-primary`, not the form card).
 - **Restore is the only action.** Topbar actions, the form action cluster, and the
   per-question Add tags / Add attachment rows are all hidden. Existing tag chips and
@@ -159,19 +161,33 @@ Longer-form gap notes: [`../course-recs/DESIGN-SYSTEM-GAPS.md`](../course-recs/D
 
 ---
 
-## Small cleanups the re-audit flagged (safe to apply in the real build)
+## Cleanups — two applied, the rest optional
 
-None of these are blockers — they're places the prototype is inconsistent with
-itself, listed so they don't get carried into production code:
+**Fixed in V1 before handoff (2026-08-14):**
 
-1. **Deleted-state wash should use the token.** `rgba(216, 62, 56, 0.06)` is
-   literally `--lumo-error-color` (`#d83e38`) at 6%. Prefer
-   `color-mix(in srgb, var(--lumo-error-color) 6%, transparent)`.
-2. **Share-on-signature opt-in uses a native `<input type="checkbox">`** — the only
-   one in the file. `vaadin-checkbox` is used 6× elsewhere; use it here too.
-3. **Three one-off colours have exact-ish tokens**: `#0044aa` → `--brand`
-   (`#0271ce`), `#166534` → `--lumo-success-text-color` (`#0a7637`), `#d97706` →
+1. ✅ **Deleted-state wash now references the error token.** Was a literal
+   `rgba(216, 62, 56, 0.06)`; 216,62,56 **is** `--lumo-error-color` (`#d83e38`).
+   Now `--deleted-tint: color-mix(in srgb, var(--lumo-error-color) 6%, transparent)`
+   in the `:root` alias layer. 6% is deliberately lighter than
+   `--lumo-error-color-10pct`, which is too strong for a full-page backdrop.
+2. ✅ **Share-on-signature opt-in is a `vaadin-checkbox`.** Uses the `label`
+   property (so no wrapping `<label>`) and the `checked-changed` event.
+   > **Preserve the attribute fallback.** `applyShareOnSign()` reads
+   > `box.checked` when it's a boolean and falls back to
+   > `box.hasAttribute('checked')` otherwise — a modal can be confirmed before the
+   > component upgrades, and the property is `undefined` until then. The banner's
+   > initial visibility is seeded from the attribute for the same reason.
+
+**Still open (not blockers):**
+
+3. **Three one-off colours have near-tokens**: `#0044aa` → `--brand` (`#0271ce`),
+   `#166534` → `--lumo-success-text-color` (`#0a7637`), `#d97706` →
    `--notice-text` (`#a66900`).
+4. **Four native `<input type="checkbox">` remain**, only one of which matters:
+   the **"choose any" question type** is a real product control and should be
+   `vaadin-checkbox`. The Quick Search select-all / per-row boxes would come along
+   with a `vaadin-grid` conversion, and the prototype widget's toggle is
+   scaffolding you strip anyway.
 
 ---
 
