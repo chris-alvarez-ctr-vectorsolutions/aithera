@@ -632,7 +632,7 @@
     outline.firstChild.textContent = selectorFor(node) + suffix;
   }
 
-  // ---- Design-system tokens (from THEMES-CONTEXT.md) -----------------------
+  // ---- Design-system tokens (from the themes CONTEXT.md) -------------------
   // The browser tool is not pixel-precise, and hand-dialed values shouldn't
   // become magic numbers (a 17px margin is really "the 16px spacing step").
   // So every pixel edit SNAPS to the nearest token on the relevant scale, and

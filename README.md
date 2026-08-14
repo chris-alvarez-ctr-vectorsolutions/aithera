@@ -28,7 +28,7 @@ base-template/    Starting-point files to copy for a new mock
 products/         One folder per product (aithera, EHS, Pathways, …)
 commentwidget/    Feedback widget worker
 scripts/          Maintenance helpers
-*-CONTEXT.md      Vector component & theme reference (see below)
+context/          Cached Vector component & theme CONTEXT.md (from the CDN; see CLAUDE.md)
 ```
 
 ## Adding a new prototype
@@ -37,8 +37,9 @@ The full process — including the Vector web-component library and the design
 tokens to use — is documented in [`CLAUDE.md`](CLAUDE.md). In short:
 
 1. Copy `base-template/index.html` into a folder under the right `products/…`.
-2. Build with Vector web components (`vaadin-*` / `vwc-*`) — see
-   [`CORE-CONTEXT.md`](CORE-CONTEXT.md) and [`THEMES-CONTEXT.md`](THEMES-CONTEXT.md).
+2. Build with Vector web components (`vaadin-*` / `vwc-*`) — resolve the
+   component/theme reference from the [`context/`](context/) cache (or the CDN)
+   using the lookup pattern in [`CLAUDE.md`](CLAUDE.md).
 3. Register it in [`products.json`](products.json) so it shows in the index and
    the product dashboards.
 
