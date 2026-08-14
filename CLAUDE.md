@@ -104,6 +104,8 @@ For the complete list with props and examples, fetch the CONTEXT.md for the vers
 
 > **Two files are named `index.html` — don't confuse them.** The one at the **feature root** is the loader (copied verbatim from `base-template/index.html`, never edited). The one at **`verN/index.html`** is the actual mock you design in. They are always one folder apart.
 
+> **🚫 A third `index.html` is off-limits: the one at the REPO ROOT.** `/index.html` is the GitHub Pages **landing page** for the whole site (<https://vectorlearning.github.io/ux-mockups/>) — it lists every product and links to each dashboard. It is never a mock, never a loader, and never where design work goes. A mock once got written there and the live site served that single prototype to everyone until someone noticed. Three guards now block it: a Claude Code `PreToolUse` hook, the `scripts/git-hooks/pre-commit` hook, and a GitHub Actions job that auto-restores the file on push. All three key off the `GUARD:PAGES-LANDING-PAGE` marker comment at the top of the file — **keep that comment.** To change the landing page on purpose, see `scripts/git-hooks/README.md`: `touch .claude/.allow-landing-edit` to unlock the write, and commit with `LANDING=1 git commit …`.
+
 **Scaffold a new feature like this** (feature folder = the ticket/ask name; ask if not given):
 
 ```
@@ -118,22 +120,65 @@ products/<Product>/<feature>/
 2. Copy **`base-template/index.html`** (the loader) to the feature root as `index.html`. **Do not modify it** — it is identical across every feature; only `versions.json` differs.
 3. Create **`versions.json`** with the single `ver1` entry shown above.
 4. Create the **`ver1/`** folder and copy **`base-template/version.html`** (the blank Vector canvas) to `ver1/index.html`. **Do all design work here, not in the root loader `index.html`.**
+   - **Every new mock is scaffolded WITH the Design Toolbox (comments enabled) by default — but the toolbox, comments, and flow map are OPTIONAL, never enforced.** `base-template/version.html` already carries the `designtoolbox/toolbox.js` include; keep it so designers get comments + flow map for free, and don't add `window.TOOLBOX = { comments: false }` to a design file (that override belongs in `dev_handoff.html` builds). If a mock has multiple pages in its `verN/` folder, give each page the same include. This is the recommended default for all products — but a mock without the toolbox (or without versioning) is fine: nothing checks for it on commit, so it will **never block or nag**. `scripts/check-mock-structure.sh` still exists as a **manual, opt-in advisory** you can run by hand, but it is not wired into the commit flow. Removing or skipping the toolbox is a legitimate choice; the review/handoff tooling is opt-in.
+   - **The flow map is scaffolded too — every new mock ships with version + flow map + comments.** `base-template/version.html` now carries a starter flow-map config (`window.TOOLBOX_CONFIG.flowMap` + `applyFlowState` + `#fm=` hash boot) with ONE entry node, so the 🗺 Flow Map button is live from the first commit. As you build: rename `flowMap.title` to `"<Feature> — Flow Map"`, and for each screen add a `node` (+ an `applyFlowState` case + an `edge`). Keep `applyFlowState` driving real screen states so the live thumbnails and `#fm=` deep links work.
+   - **Notes are fetched relative to the page that renders them.** `flow-map.js` resolves `TOOLBOX_CONFIG.flowMap.devNotes || <folder of the current page> + 'DEV-NOTES.md'`, so `DEV-NOTES.md` must sit beside **whichever page will show it** — `verN/DEV-NOTES.md` for the design file, the **feature root** for `dev_handoff.html` (which lives one folder up). Since notes only actually render in the dev build, the feature root is the placement that matters at handoff; if one file must serve both, keep the single copy at the feature root and point the design file at it with `devNotes: '../DEV-NOTES.md'` in its `flowMap` config rather than duplicating the file. Format: one `## <node-id>` section per flow-map node, with `- bullet` notes under it; an optional `> date: YYYY-MM-DD` line (redeclarable partway down) stamps the notes below it, and a bullet may start with `(YYYY-MM-DD)` to override. A bullet may also lead with a **bold header ending in a colon inside the `** **`** — `- **Short header:** description follows.` — which renders the header as its own line above the description, an optional aid to keep a dev note skimmable (opt-in: the colon must sit *inside* the bold, so plain-prose bullets are unaffected). **Notes are a dev-ready affordance only.** While a mock is **in progress** the flow map shows **no notes** — the running "what changed" log for that phase is the **dashboard's recent-changes + the GitHub commit history** (write good commit messages and they become the changelog; nothing to hand-author in the flow map). Notes render **only in the `dev_handoff.html` build** (comments OFF), where they ARE the **Dev notes** developers read, and the GitHub link to `DEV-NOTES.md` appears. You can still author `DEV-NOTES.md` incrementally while in progress — jot down **client feedback and decisions as they land** so they surface as Dev notes at handoff — it just stays hidden until dev-ready. So: **in progress → commits tell the story; dev-ready → the flow map surfaces the dev notes.**
 5. If no mock description is given, scaffold these files and then ask where to start with the design in `ver1/index.html`.
-6. **Always add the new prototype to the `PRODUCTS` array in `/index.html`** so it appears in the shareable index, pointing at the **feature folder** (the loader): `{ name: 'Display Name', href: 'products/ProductName/feature-folder/' }`. Add it under the correct product block; if it belongs in a sub-folder group, add it inside the matching `{ folder: '...', items: [...] }` entry, or create a new one.
+6. **Always add the new prototype to `products.json`** (repo root) — the single curated source for BOTH the landing index and every product dashboard. Add an item under the correct product's `items`, pointing `rel` at the **feature folder** (the loader), relative to `products/<Product>/`:
+
+   ```json
+   { "name": "Display Name", "rel": "feature-folder", "modified": "YYYY-MM-DD",
+     "desc": "One tight sentence (~150 chars max): what the design shows + its key interaction.",
+     "jira": "TICKET-123", "status": "in-progress" }
+   ```
+
+   `jira` and `status` are optional. Valid statuses: `ready-for-dev`, `in-progress` (the default), `archived`.
+
+   **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). **Folders nest to any depth** — a `folder` group's `items` may contain further `folder` groups, rendered as a collapsible tree in the rail; selecting a parent scopes to its whole subtree and the content column shows a breadcrumb of the active path. To put a mock in a nested folder, just nest the groups in `products.json` — nothing else to wire up:
+
+   ```json
+   { "folder": "Phase 2", "items": [
+     { "folder": "Content Workflow", "items": [
+       { "folder": "Experiments", "items": [
+         { "name": "Deep Mock", "rel": "Phase2/content-workflow/experiments/deep-mock", "modified": "YYYY-MM-DD", "desc": "…" }
+       ] },
+       { "name": "Nested Mock", "rel": "Phase2/content-workflow", "modified": "YYYY-MM-DD", "desc": "…" }
+     ] },
+     { "name": "Top-of-group Mock", "rel": "Phase2/foo.html", "modified": "YYYY-MM-DD", "desc": "…" }
+   ] }
+   ```
+
+   A group's placement in `products.json` is what creates the dashboard folder — the `rel` paths don't have to mirror the folder names (though keeping the disk layout parallel, e.g. `Phase2/content-workflow/…`, is good practice). Folder display names may even contain `" / "` (e.g. "AI Chat Widget (Vectoria / Fin)") — that renders as ONE folder, never fake nesting, because the build pipeline carries paths as arrays. Group a workstream's related mocks into a folder (e.g. "Content Portal", "Qualifications"); leave one-off mocks at the top level — they show under the dashboard's "Main" entry. Always give every item a `desc`, including items inside folders.
 
 **Adding another version later** (do NOT add a hide/unhide switcher inside a design file):
 
 1. Copy the version folder you're branching from, e.g. `cp -r ver1 ver2`. The file inside is already `index.html`, so there's nothing to rename — you now have `ver2/index.html`.
 2. Add an entry to `versions.json`: `{ "id": "ver2", "label": "V2", "path": "ver2/index.html" }`.
-3. That's it — the loader **automatically shows the floating version-switcher pill** the moment there are 2+ versions. It's a dark **bottom-center** pill matching the Design Toolbox dock; when the loaded version runs the toolbox, the loader **merges the version buttons into that same dock** so they share one pill. It swaps versions in place via one iframe, deep-links each with `?v=<id>`, and needs no code changes. Order the manifest however you like; the first entry is what opens by default (put the newest first if you want it to open on the latest).
+3. That's it — the loader **automatically shows the floating version-switcher pill** the moment there are 2+ versions. It's a dark **bottom-center** pill matching the Design Toolbox dock; when the loaded version runs the toolbox, the loader **merges the version buttons into that same dock** so they share one pill. It swaps versions in place via one iframe, deep-links each with `?v=<id>`, and needs no code changes. **Version order is fixed: the loader sorts versions ascending (V1, V2, V2.x, V10…) no matter how the manifest is ordered, and always opens V1 (the lowest) by default.** Use a `?v=<id>` deep link to share a later version directly.
 
 Sub-versions use a dotted folder, e.g. `ver2.x/index.html` with `{ "id": "ver2x", "label": "V2.x", "path": "ver2.x/index.html" }`.
 
 **Paths inside a version file:** because every version file sits at `products/<Product>/<feature>/verN/index.html` (four levels below the repo root), any repo-root asset it references resolves at `../../../../` — e.g. the Design Toolbox include is `<script src="../../../../designtoolbox/toolbox.js"></script>`. Required Core/Themes/font/icon resources are already in `base-template/version.html`'s header (absolute CDN URLs).
 
+**Moving, renaming, or restructuring a mock (including moving pages into `verN/`):** the dashboards and landing page render links straight from `products.json`, so every affected `rel` (and any `versions.json` path) must follow the file. **When YOU (Claude) move or rename a mock, do the catalog update yourself in the same change — update the `rel`s and `versions.json` paths as part of the rename, don't leave it for the designer.** The team does not hand-edit `products.json`, so treat the catalog update as part of "renaming," not a separate step.
+
+As a backstop, a rename now **self-heals automatically** — nobody's commit is blocked for forgetting it:
+- **On commit** (local pre-commit hook, Guard A2, if `node` is present): `scripts/relink-catalog.js --staged` follows the staged rename, rewrites the `products.json` rel / `versions.json` path, and re-stages it INTO the commit being made. Then `scripts/check-catalog-links.js --warn-only` prints — but never blocks on — anything a rename can't explain (a hand-typed path, a deletion, a move across product folders).
+- **On push** (CI, `.github/workflows/dashboards.yml`): the same `relink-catalog.js` runs over the pushed range and commits the fix back on the silent `[skip ci]` bot commit — this covers pushes from machines with no hook / no `node` (e.g. GitHub Desktop).
+- Comments relink separately in CI on renames (`.github/workflows/relink-comments.yml`).
+
+So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
+
 ## Dev Handoff / Wrap-Up
 
-When a designer says the mock is done — *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill. It owns the whole completion phase: PRD reconciliation (gaps in both directions + edge cases missing from both), conditional `audit-mock-vwc` confirmation, the `mock-definition.md` build brief, the flow map's `DEV-NOTES.md`, and the `dev_handoff.html` build. Do not improvise a handoff flow here — the skill is the single source of truth for those steps.
+When a designer says the mock is done — *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill.
+
+**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the three-way reconciliation, the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
+
+Two consequences worth knowing before the handoff starts, because they change what you do *during* design:
+
+- **The component audit is not a separate step you run.** `ux-wrapup` invokes **`audit-mock-vwc`** itself, in embedded mode, and folds the report into `mock-definition.md`'s Component confirmation section. Run `audit-mock-vwc` **on its own only** when someone asks for a component audit outside a handoff — that standalone mode is the only one that writes `component-assessment.md`.
+- **Legacy flat mocks stay flat until handoff.** Many older mocks predate the versioned-folder structure and live as loose `.html` files in the product folder, often without the Design Toolbox. **Leave them alone while design iterates — never retrofit versioning or the toolbox onto an old mock outside a handoff, and never flag a designer for it.** Folding one into a feature folder is a handoff-time step that `ux-wrapup` owns; it is not something to do (or suggest) mid-design.
 
 ## Style Guidelines
 
@@ -151,18 +196,52 @@ Use the themes CONTEXT.md for the version in use (see CDN lookup pattern above) 
 
 ### Icons
 
-**Default Icon Library: Font Awesome 6**
+**Default Icon Library: Font Awesome 6 PRO — self-hosted**
 
-This project uses **Font Awesome 6 Free** as the default icon library. Font Awesome provides a comprehensive set of icons for common UI needs.
+We have a Font Awesome **Pro** license. Pro 6.7.2 is vendored into this repo at
+`assets/fontawesome/` (CSS + woff2 webfonts). New mocks link it with a
+**depth-relative** path, the same convention as the Design Toolbox include:
+
+```html
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+```
+
+Four levels up, because every mock lives at
+`products/<Product>/<feature>/verN/index.html`. This is already in
+`base-template/version.html`, so anything scaffolded from the template gets it
+automatically — don't hand-write the CDN URL into a new mock.
+
+**Why self-hosted and not a Kit or the Pro CDN:** both are domain-locked, and a
+domain lock breaks `file://`. Designers must be able to double-click an HTML file
+and still see icons. Self-hosting works on `file://`, localhost, and GitHub Pages
+identically, with no network dependency.
 
 **Font Awesome Usage:**
 - Use standard Font Awesome HTML syntax: `<i class="fa-solid fa-icon-name"></i>`
-- Available styles in Font Awesome 6 Free:
+- Available styles (Pro — all of these work):
   - `fa-solid` - Solid filled icons (most common)
   - `fa-regular` - Regular outline icons
+  - `fa-light` / `fa-thin` - Lighter weights, good for large or decorative icons
+  - `fa-duotone` - Two-tone icons (`--fa-primary-color` / `--fa-secondary-color`)
+  - `fa-sharp` - Squared-off variants; combines with a weight, e.g. `fa-sharp fa-solid`
   - `fa-brands` - Brand logos (GitHub, Twitter, Facebook, etc.)
 - Size icons with CSS `font-size`, or use Font Awesome size classes: `fa-xs`, `fa-sm`, `fa-lg`, `fa-2x`, `fa-3x`, etc.
-- Complete icon catalog: https://fontawesome.com/search?ic=free-collection
+- Complete icon catalog: https://fontawesome.com/search (no need to filter to Free)
+
+**⚠️ Verify icons actually render — silent failure is the trap here.**
+An icon class that isn't in the loaded set renders as a **zero-width invisible
+glyph**: no console error, no broken-image marker, just a blank gap nobody notices
+until it's on a projector. This bit three separate icons in one feature while the
+repo was still on the Free CDN. Before committing a mock, run this in the console
+and require an empty array:
+
+```js
+[...document.querySelectorAll('i[class*="fa-"]')].filter(e => !e.getBoundingClientRect().width).map(e => e.className)
+```
+
+**Legacy mocks:** ~168 existing files still link the Font Awesome **Free** CDN and
+are intentionally left alone. Pro 6 is a superset of Free 6, so they render exactly
+as before. Swap one to the self-hosted Pro path only if that mock needs a Pro icon.
 
 **Basic Examples:**
 ```html
@@ -170,8 +249,13 @@ This project uses **Font Awesome 6 Free** as the default icon library. Font Awes
 <i class="fa-solid fa-user"></i>
 
 <!-- Regular/outline home icon -->
-<i class="fa-regular fa-home"></i>
+<i class="fa-regular fa-house"></i>
 
+<!-- Pro-only styles -->
+<i class="fa-light fa-bell"></i>
+<i class="fa-thin fa-gauge"></i>
+<i class="fa-sharp fa-solid fa-fire-hydrant"></i>
+<i class="fa-duotone fa-truck-medical" style="--fa-primary-color:#c92626;--fa-secondary-color:#8f1414"></i>
 ```
 
 **Vector Icons (vwc-icon):**

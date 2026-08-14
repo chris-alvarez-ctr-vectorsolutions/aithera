@@ -28,7 +28,10 @@ implements it) needs alongside the mock.
 
 **This skill reads and reports — it never rewrites the design.** It produces
 documents and a byte-copy handoff build; it does not "fix" the mock. If it finds
-gaps, it writes them down for the team to decide on.
+gaps, it writes them down for the team to decide on. The one exception is
+**Phase 0.5**, which *relocates* a legacy flat mock into the standard feature
+folder so the rest of the pipeline can see it — that moves and rewires files, but
+still changes nothing about the design itself.
 
 ## Outputs at a glance
 
@@ -57,10 +60,19 @@ Feature folders are versioned: the design lives in separate **`verN/index.html`*
 files listed in **`versions.json`**, behind the feature-root loader `index.html`.
 Read `versions.json` to see which versions exist. Then:
 
-- If there is **more than one**, **stop and ask the designer which version to hand
-  off** (name them by their `label`, e.g. "V1 or V2?"). We almost always launch
-  only one, so the handoff should not carry dead variants. A legacy in-file
-  `.version-switcher` V1/V2 pill counts as multiple versions too.
+- **Exactly ONE version (or a legacy flat mock, which becomes `ver1` in Phase 0.5):
+  do NOT ask — proceed silently with that version.** One version means the choice
+  is already made; asking "which version?" when there's only one is noise. This is
+  the common case — most mocks launch a single version — so the wrap-up should run
+  start-to-finish without a version question.
+- **More than one version: STOP and ask** which to hand off (name them by their
+  `label`, e.g. "V1 or V2?"), so the handoff doesn't carry dead variants. A legacy
+  in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same
+  question applies.
+
+Details for the two cases:
+
+- If they keep **one** version, build the handoff from that version's file.
 - If they intentionally keep **more than one** (e.g. an **alpha** and a **beta**
   both going to dev), **ask what to name each**, then produce one set of outputs
   per kept version, named accordingly (e.g. `dev_handoff_alpha.html`).
@@ -68,6 +80,39 @@ Read `versions.json` to see which versions exist. Then:
 
 Everything below operates on the **chosen version's file** (`verN/index.html`),
 never the feature-root loader `index.html` — the loader has no design in it.
+
+### Phase 0.5 — Legacy flat mock? Fold it into a feature folder NOW (not before)
+
+Many older mocks predate the versioned-folder structure: they live as loose
+`.html` files directly in the product folder, often without the Design Toolbox.
+**Leave them alone while design iterates — never retrofit versioning or the
+toolbox onto an old mock outside a wrap-up, and never flag a designer for it.**
+But the moment one is declared ready for dev, it gets the standard shape first,
+because the dashboard automation (Phase 7) only detects a `dev_handoff.html`
+beside a feature's `index.html` — it can NEVER flip the card for a flat file, and
+hand-approximating it loses the flow map and the GitHub dev links (this is exactly
+how the EHS "Mobile App — Main" handoff went wrong in Jul 2026):
+
+1. Scaffold the feature folder exactly as for a new mock (see CLAUDE.md, "For a
+   NEW mock"): `products/<Product>/<feature>/` with the loader `index.html`
+   (copied verbatim from `base-template/index.html`), a single-entry
+   `versions.json`, and the design file **moved** to `ver1/index.html`.
+2. Add the Design Toolbox include to the design file (comments **enabled**), and
+   fix any repo-root-relative asset paths for the new depth (`../../../../…`).
+3. Update the mock's `rel` in `products.json` in the **same commit** (pre-commit
+   Guard A2 enforces this), and **re-share the new URL** — the old flat-file link
+   404s for anyone holding it.
+4. Continue with Phases 1–8 exactly as for any other mock. The `dev_handoff.html`
+   goes at the new feature root — **never floating loose in the product folder**.
+
+**Never** add a separate dashboard card that points at a dev build, and **never**
+hand-pin `"status": "ready-for-dev"` on a flat-file mock — a handoff is a *state*
+of the existing mock's card, not a new card. `scripts/check-dev-handoff.js`
+(pre-commit Guard A3 + the check-mock-structure CI workflow) blocks all of this
+for NEW handoffs; handoffs that predate the guard are grandfathered silently.
+
+This is the **one** place the wrap-up is allowed to restructure files. It moves
+and rewires — it still does not redesign.
 
 ### Phase 1 — Get the PRD (optional for smaller work)
 
@@ -243,6 +288,9 @@ Commit the new files, then give the designer the dev build's **GitHub Pages URL*
 | Mistake | Fix |
 |---|---|
 | Running against the feature-root loader `index.html` | It has no design — always use the chosen `verN/index.html` |
+| Asking "which version?" when `versions.json` has only one entry | One version = the choice is already made; proceed silently (Phase 0) |
+| Handing off a legacy flat mock as-is, or bolting a `dev_handoff.html` beside it | Fold it into a feature folder first — the dashboard can't flip a flat file (Phase 0.5) |
+| Retrofitting versioning/toolbox onto an old mock mid-design | That only happens at wrap-up time, never while design iterates (Phase 0.5) |
 | Only checking PRD → mock | Reconcile **both** directions plus Potential gaps when a PRD exists (Phase 2) |
 | Running the full three-way reconciliation when no PRD was provided | Only run Potential gaps — there's nothing to reconcile Requirements-missed/In-mock-not-in-PRD against (Phase 1) |
 | Renaming `DEV-NOTES.md` or its `## <node>` headings | The flow map parses that exact filename/format — keep the contract (Phase 5) |
