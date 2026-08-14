@@ -53,10 +53,17 @@
     m.style.display = 'flex';
   }
 
+  // Cache-bust token. GitHub Pages edge-caches every file for 10 min and ignores
+  // custom cache headers, so a changing query string is the only reliable way to
+  // pull a just-pushed version instead of a stale cached one. One token per load
+  // (so switching back to an already-seen version reuses it within the session).
+  const CB = 'cb=' + Date.now();
+  const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
+
   // --- Load the manifest -------------------------------------------------
   let versions;
   try {
-    const res = await fetch('./versions.json', { cache: 'no-store' });
+    const res = await fetch(bust('./versions.json'), { cache: 'no-store' });
     if (!res.ok) throw new Error('http');
     versions = await res.json();
   } catch (e) {
@@ -65,6 +72,11 @@
   if (!Array.isArray(versions) || versions.length === 0) {
     return showMessage("versions.json has no versions in it. Add at least one entry like { \"id\": \"ver1\", \"label\": \"V1\", \"path\": \"ver1/ver1.html\" }.");
   }
+
+  // Versions always present in ascending order — V1 first, then V2, V2.x, V10…
+  // — no matter how the manifest happens to be ordered, and the FIRST (lowest)
+  // version is what opens by default. Deep links (?v=) still override.
+  versions.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' }));
 
   const byId = id => versions.find(v => v.id === id);
   const params = new URLSearchParams(location.search);
@@ -110,12 +122,15 @@
       f = document.createElement('iframe');
       // Every time the frame finishes loading a version, re-attempt docking
       // into that version's toolbox pill (the previous frame's dock, if any,
-      // was torn down with it).
-      f.addEventListener('load', () => adoptIntoDock(f));
+      // was torn down with it) and re-sync the browser-tab title to it.
+      f.addEventListener('load', () => { adoptIntoDock(f); syncTitle(f); });
       stage.appendChild(f);
     }
     f.title = v.label;
-    if (f.getAttribute('src') !== v.path) f.setAttribute('src', v.path);
+    // Cache-bust the version file so a just-pushed mock loads fresh, not the
+    // edge-cached copy. Compared against the busted URL so we don't reload it.
+    const src = bust(v.path);
+    if (f.getAttribute('src') !== src) f.setAttribute('src', src);
     setUrl(v.id);
     markActive(v.id);
   }
@@ -179,6 +194,33 @@
       // pill without any delay.
     })();
   }
+
+  // --- Keep the browser-tab title meaningful -----------------------------
+  // The loader's own <title> is the generic "Mockup". Sync the tab to the
+  // loaded version's real <title> instead (the iframe is same-origin on Pages
+  // and locally, so it's readable), falling back to a humanized version of the
+  // feature-folder name. With 2+ versions the active version's label is
+  // appended (e.g. "Assign Training · V2"). Runs on every version load, so
+  // switching versions updates the tab too.
+  function humanizeFolder() {
+    const segs = location.pathname.split('/').filter(Boolean);
+    let last = segs[segs.length - 1] || '';
+    if (/\.html?$/i.test(last)) last = segs[segs.length - 2] || last;   // drop a trailing index.html
+    return last.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Mockup';
+  }
+  function syncTitle(frame) {
+    let base = '';
+    try {
+      const t = frame && frame.contentDocument && frame.contentDocument.title;
+      if (t && t.trim() && t.trim().toLowerCase() !== 'mockup') base = t.trim();
+    } catch (e) { /* cross-origin — fall back to the folder name */ }
+    if (!base) base = humanizeFolder();
+    const label = (byId(currentId) || {}).label;
+    document.title = (versions.length > 1 && label) ? (base + ' · ' + label) : base;
+  }
+  // Set a sensible fallback immediately so the tab never flashes "Mockup"
+  // before the first version finishes loading.
+  document.title = humanizeFolder();
 
   // --- Boot --------------------------------------------------------------
   // The switcher only matters with 2+ versions. Show the loader's own pill

@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agency Intelligence — Readiness Hub</title>
+
+<!--
+  Agency Intelligence — the build surface from the Readiness Hub PRD.
+
+  Views:
+    · Agency Intelligence home — Dashboards tab (dense sortable/filterable/paginated
+      management table, plus a card view) and AI access tab (homepage Agency Intelligence
+      grants + a full audit log of every question answered)
+    · Build view — the two-pane dashboard canvas + Agency Intelligence, the docked
+      text-only chat. Charts land on the canvas, never in the chat.
+
+  Admin-facing: dashboards are published to job titles / individuals with
+  access reconciliation, or scheduled out as a report. Reuses the Readiness Hub
+  data layer, primitives, and chart renderers.
+
+  Reskinned on Vector web components: vaadin-text-field for search and naming,
+  vaadin-button throughout, vwc-paginator for the table pager,
+  vwc-sortable-header for column sorting, vaadin-dialog for the publish and
+  export flows, vwc-toggle-button-group for the view/mode switches.
+-->
+
+<link rel="stylesheet" href="styles.css">
+
+<!-- Vector Web Components — core + themes + Open Sans + Font Awesome -->
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+<style>
+  /* ====================================================================
+     PAGE HEADER + TABS
+     ==================================================================== */
+  .cp-page { padding: 4px 0 40px; }
+  .cp-page-head { display: flex; align-items: flex-end; gap: 16px; padding: 20px 0 14px; }
+  /* Page title at the design system's 40px H1 — same rung as the hub greeting. */
+  .cp-page-head h1 {
+    font-family: var(--font-display); font-weight: 600; font-size: 40px;
+    line-height: 1.1; letter-spacing: -1px; color: var(--ink-900); margin: 0;
+  }
+  .cp-page-head p { font-size: 14px; color: var(--ink-500); margin: 8px 0 0; max-width: 640px; line-height: 1.5; }
+  .cp-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--ink-100); margin-bottom: 20px; }
+  .cp-tab {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 2px 11px;
+    background: transparent; border: none; cursor: pointer; font-family: inherit;
+    font-size: 14.5px; font-weight: 600; color: var(--ink-500);
+  }
+  .cp-tab:hover { color: var(--ink-700); }
+  .cp-tab.is-on { color: var(--ink-900); box-shadow: inset 0 -2px 0 var(--lumo-primary-color); }
+  .cp-tab .attn {
+    font-family: var(--font-numeric); font-size: 11px; font-weight: 700;
+    color: var(--lumo-error-text-color); background: var(--lumo-error-color-10pct);
+    border-radius: 999px; padding: 1px 7px; font-variant-numeric: tabular-nums;
+  }
+
+  /* ====================================================================
+     DASHBOARDS TABLE + CARDS
+     ==================================================================== */
+  .cp-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .cp-search { flex: 1 1 260px; max-width: 360px; min-width: 200px; }
+  .cp-seg {
+    display: inline-flex; align-items: stretch; border: 1px solid var(--ink-200);
+    border-radius: 999px; background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1);
+  }
+  .cp-seg button {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; cursor: pointer;
+    border: none; background: transparent; color: var(--ink-700);
+    font-size: 14px; font-weight: 500; font-family: inherit; transition: background 0.15s;
+  }
+  .cp-seg button + button { border-left: 1px solid var(--ink-100); }
+  .cp-seg button:hover:not(.is-on) { background: var(--surface-3); }
+  .cp-seg button .n {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 13px; line-height: 1;
+    color: var(--ink-500); font-variant-numeric: tabular-nums;
+  }
+  .cp-seg button.is-on .n { color: inherit; }
+
+  .cp-table-card {
+    background: var(--surface-1); border-radius: 16px; border: 1px solid var(--ink-100);
+    overflow: hidden; box-shadow: var(--elev-1);
+  }
+  .cp-table-scroll { overflow-x: auto; }
+  table.cp-table { width: 100%; border-collapse: collapse; min-width: 1010px; }
+  table.cp-table thead th {
+    padding: 10px 8px; text-align: left; background: var(--surface-2);
+    border-bottom: 1px solid var(--ink-100);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-500);
+  }
+  table.cp-table thead th.is-num { text-align: right; }
+  .cp-table vwc-sortable-header::part(button) {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--ink-500); padding: 0;
+  }
+  tr.cp-row { cursor: pointer; transition: background 0.12s; }
+  tr.cp-row > td { padding: 10px 8px; border-bottom: 1px solid var(--ink-100); vertical-align: middle; }
+  tr.cp-row:last-child > td { border-bottom: none; }
+  tr.cp-row:hover > td { background: var(--surface-3); }
+  tr.cp-row > td:first-child { border-left: 3px solid transparent; padding-left: 11px; }
+  .cp-dash-name { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .cp-dash-icon {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cp-dash-name .t {
+    font-size: 14px; font-weight: 600; color: var(--ink-900); line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cp-dash-name .s { font-size: 11px; color: var(--ink-500); }
+  .cp-num { font-family: var(--font-numeric); font-size: 14px; font-weight: 600; color: var(--ink-700); text-align: right; font-variant-numeric: tabular-nums; }
+  .cp-status {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .cp-sources { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; align-items: center; }
+  .cp-sources .dot { width: 12px; height: 12px; border-radius: 4px; margin: 0 auto; }
+  .cp-pill-count {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    background: var(--surface-3); border: 1px solid var(--ink-100);
+    font-size: 12px; font-weight: 600; color: var(--ink-700); white-space: nowrap;
+  }
+  .cp-aud-title {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700;
+    color: var(--teal-600); background: var(--teal-50); border: 1px solid var(--teal-100);
+    padding: 3px 8px; border-radius: 999px;
+  }
+  .cp-aud-ind {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600;
+    color: var(--ink-600); background: var(--surface-3); padding: 3px 8px; border-radius: 999px;
+  }
+  .cp-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 14px; }
+  .cp-dcard {
+    display: flex; flex-direction: column; background: var(--surface-1); border-radius: 14px;
+    border: 1px solid var(--ink-100); box-shadow: var(--elev-1); cursor: pointer; overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+  }
+  .cp-dcard:hover { border-color: var(--amber-300); box-shadow: var(--elev-2); transform: translateY(-2px); }
+  .cp-dcard-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 16px; border-top: 1px solid var(--ink-100); background: var(--surface-2);
+  }
+  .cp-empty-table {
+    background: var(--surface-1); border-radius: 16px; border: 1px solid var(--ink-100);
+    padding: 48px 20px; text-align: center;
+  }
+  .cp-pager-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+
+  /* Dashboards empty state */
+  .cp-first-run {
+    background: var(--surface-1); border: 1px dashed var(--ink-200); border-radius: 22px;
+    padding: 72px 24px; text-align: center;
+  }
+  .cp-first-run h2 { font-family: var(--font-display); font-weight: 600; font-size: 34px; color: var(--ink-900); margin: 20px 0 8px; }
+  .cp-first-run p { font-size: 15.5px; color: var(--ink-500); max-width: 480px; margin: 0 auto 26px; line-height: 1.55; }
+
+  /* ====================================================================
+     BUILD VIEW
+     ==================================================================== */
+  .cp-build { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
+  .cp-build-bar { display: flex; align-items: center; gap: 14px; padding: 18px 0 14px; }
+  .cp-build-name {
+    font-family: var(--font-display); font-weight: 600; font-size: 24px; color: var(--ink-900);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cp-saved { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-400); white-space: nowrap; }
+  /* Segmented control — pill track with pill segments, matching .cp-seg. */
+  .cp-modes { display: flex; gap: 3px; background: var(--surface-3); padding: 3px; border-radius: var(--radius-pill); }
+  .cp-modes button {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-pill);
+    border: none; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit;
+    background: transparent; color: var(--ink-500);
+  }
+  .cp-modes button.is-on { background: var(--surface-1); color: var(--ink-900); box-shadow: var(--elev-1); }
+  .cp-panes { flex: 1; display: flex; gap: 16px; min-height: 0; align-items: flex-start; }
+  .cp-panes.dock-left { flex-direction: row-reverse; }
+  .cp-canvas { flex: 1; min-width: 0; }
+  .cp-grid { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 14px; row-gap: 14px; align-items: start; }
+  @media (max-width: 900px) { .cp-grid > * { grid-column: 1 / -1 !important; } .cp-panes { flex-direction: column; } }
+
+  .cpw-card {
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 14px;
+    box-shadow: var(--elev-1); padding: 14px; display: flex; flex-direction: column; min-width: 0;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .cpw-card:hover { border-color: var(--ink-200); }
+  .cpw-card.is-selected { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+  .cpw-card:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
+  .cpw-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .cpw-icon {
+    width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cpw-title {
+    font-size: 13.5px; font-weight: 700; color: var(--ink-900);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .cpw-kebab {
+    width: 28px; height: 28px; border-radius: var(--radius-pill); border: none; background: transparent;
+    color: var(--ink-400); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .cpw-kebab:hover { background: var(--surface-3); color: var(--ink-700); }
+  .cpw-range { margin-top: 6px; }
+  .cpw-body { margin-top: 12px; flex: 1; }
+
+  /* Table-widget controls (.cpw-tbar / .cpw-tfoot / table.cpw-table) live in
+     styles.css — the Hub's published dashboards render the same engine, and
+     styles.css is the sheet both pages load. */
+  .cpw-shimmer {
+    background: linear-gradient(90deg, var(--ink-100) 25%, var(--surface-3) 37%, var(--ink-100) 63%);
+    background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
+  }
+  .cpw-text::part(input-field) { background: var(--surface-2); }
+
+  .cp-canvas-empty {
+    background: var(--surface-1); border: 1px dashed var(--ink-200); border-radius: 18px;
+    min-height: 460px; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+
+  /* Agency Intelligence dock */
+  .cpv-panel {
+    width: 376px; flex-shrink: 0; align-self: stretch; display: flex; flex-direction: column;
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 16px;
+    box-shadow: var(--elev-1); overflow: hidden; min-height: 0; max-height: calc(100vh - 160px);
+  }
+  @media (max-width: 900px) { .cpv-panel { width: 100%; max-height: 520px; } }
+  .cpv-head {
+    display: flex; align-items: center; gap: 11px; padding: 13px 14px;
+    border-bottom: 1px solid var(--ink-100);
+    background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  }
+  .cpv-thread { flex: 1; min-height: 220px; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 14px; }
+  .cpv-user { display: flex; justify-content: flex-end; }
+  .cpv-user .bubble {
+    max-width: 86%; padding: 8px 12px; border-radius: 14px 14px 4px 14px;
+    background: var(--ink-900); color: white; font-size: 13px; line-height: 1.45;
+  }
+  .cpv-ai { display: flex; gap: 9px; align-items: flex-start; }
+  .cpv-ai .bubble {
+    background: var(--surface-2); border: 1px solid var(--ink-100);
+    border-radius: 14px 14px 14px 4px; padding: 9px 12px;
+    font-size: 13px; line-height: 1.5; color: var(--ink-700);
+  }
+  .cpv-added {
+    display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+    padding: 5px 10px; background: var(--teal-50); border: 1px solid var(--teal-100);
+    border-radius: 8px; font-size: 11.5px; color: var(--teal-600); font-weight: 600;
+  }
+  .cpv-choice {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--ink-200);
+    background: var(--surface-1); color: var(--ink-800); font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .cpv-choice:hover { border-color: var(--amber-400); background: var(--amber-50); }
+  .cpv-input-wrap { border-top: 1px solid var(--ink-100); padding: 11px; background: var(--surface-2); }
+  .cpv-input {
+    display: flex; align-items: flex-end; gap: 8px; background: var(--surface-1);
+    border: 1px solid var(--ink-200); border-radius: 13px; padding: 7px 8px 7px 13px;
+  }
+  .cpv-input:focus-within { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+  .cpv-input textarea {
+    flex: 1; resize: none; border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 13px; color: var(--ink-900);
+    padding: 5px 0; min-height: 60px; max-height: 140px; line-height: 1.4;
+  }
+  .cpv-dot { width: 6px; height: 6px; border-radius: 99px; background: var(--ink-500); display: inline-block; animation: cpv-bounce 1s ease-in-out infinite; }
+  @keyframes cpv-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
+  .cpv-collapsed {
+    width: 56px; align-self: stretch; flex-shrink: 0;
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px 0;
+    cursor: pointer; box-shadow: var(--elev-1);
+  }
+  .cpv-collapsed .vlabel { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--ink-600); }
+
+  /* Widget builder (empty canvas) */
+  .cp-builder { width: 100%; max-width: 880px; margin: 0 auto; padding: 18px 0 8px; }
+  .cp-builder.is-modal { max-width: 100%; padding: 0; }
+  /* Centered head + Simple/Advanced tab pill. The modal variant drops the head
+     and footer — those belong to the empty state only. */
+  .cp-builder-head { text-align: center; margin-bottom: 16px; }
+  .cp-builder-head h2 {
+    font-family: var(--font-display); font-weight: 600; font-size: 27px;
+    color: var(--ink-900); margin: 14px 0 6px;
+  }
+  .cp-builder-tabs { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 18px; }
+  .cp-builder-modes { display: flex; gap: 3px; background: var(--surface-3); padding: 4px; border-radius: var(--radius-pill); }
+  .cp-builder-sub { font-size: 12.5px; color: var(--ink-500); text-align: center; }
+  .cp-builder-foot { text-align: center; margin-top: 20px; font-size: 12.5px; color: var(--ink-500); }
+  .cp-builder-foot button {
+    background: none; border: none; color: var(--lumo-primary-text-color);
+    font-weight: 600; cursor: pointer; font-size: 12.5px; font-family: inherit;
+  }
+  /* Advanced — the option list, then a drill-in panel per option. */
+  .cp-adv-list { display: flex; flex-direction: column; gap: 10px; }
+  .cp-adv-opt {
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 12px;
+    cursor: pointer; text-align: left; width: 100%; font-family: inherit;
+    background: var(--surface-1); border: 1px solid var(--ink-200);
+    transition: border-color .15s, background .15s;
+  }
+  .cp-adv-opt:hover { border-color: var(--amber-400); background: var(--amber-50); }
+  .cp-adv-opt .ico {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cp-adv-opt .txt { flex: 1; min-width: 0; }
+  .cp-adv-opt .t { display: block; font-size: 14px; font-weight: 700; color: var(--ink-900); }
+  .cp-adv-opt .d { display: block; font-size: 12.5px; color: var(--ink-500); line-height: 1.5; margin-top: 2px; }
+  .cp-adv-opt .chev { flex-shrink: 0; align-self: center; color: var(--ink-300); display: inline-flex; }
+  .cp-adv-back {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
+    background: var(--surface-1); border: 1px solid var(--ink-200); color: var(--ink-600);
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 14px;
+  }
+  .cp-adv-back:hover { border-color: var(--ink-300); }
+  /* Plain text inputs used by the summary-table and commentary builders. */
+  .cp-b-field {
+    width: 100%; padding: 9px 12px; font-size: 13px; font-family: inherit;
+    border: 1px solid var(--ink-200); border-radius: 9px; background: var(--surface-1);
+    outline: none; color: var(--ink-900);
+  }
+  .cp-b-field:focus { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+  textarea.cp-b-field { line-height: 1.6; resize: vertical; }
+  .cp-step { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .cp-step .n {
+    width: 20px; height: 20px; border-radius: 99px; background: var(--ink-900); color: white;
+    font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cp-step .t { font-size: 13px; font-weight: 700; color: var(--ink-800); }
+  .cp-metric-btn {
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px;
+    cursor: pointer; font-family: inherit; text-align: left; width: 100%;
+    background: var(--surface-1); border: 1px solid var(--ink-100);
+    font-size: 12.5px; font-weight: 600; color: var(--ink-800);
+    transition: border-color .12s;
+  }
+  .cp-metric-btn:hover { border-color: var(--ink-300); }
+  .cp-metric-btn.is-on { background: var(--amber-50); border-color: var(--amber-400); box-shadow: 0 0 0 2px var(--amber-50); }
+  .cp-metric-btn .ic {
+    width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+    background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cp-metric-btn.is-on .ic { background: var(--amber-400); color: white; }
+  .cp-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: var(--radius-pill);
+    cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+    background: var(--surface-1); color: var(--ink-700); border: 1px solid var(--ink-200);
+    transition: background .12s;
+  }
+  .cp-chip.is-on { background: var(--ink-900); color: white; border-color: var(--ink-900); }
+  .cp-param-panel { margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--ink-100); }
+  .cp-cat-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px;
+    cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 600;
+    background: var(--surface-1); color: var(--ink-600); border: 1px solid var(--ink-200);
+  }
+  .cp-cat-chip.is-on { background: var(--amber-50); color: var(--amber-700); border-color: var(--amber-400); }
+  .cp-idea {
+    display: flex; align-items: flex-start; gap: 11px; padding: 13px; border-radius: 13px;
+    text-align: left; cursor: pointer; font-family: inherit;
+    background: var(--surface-1); border: 1px solid var(--ink-100); box-shadow: var(--elev-1);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .cp-idea.is-on { background: var(--amber-50); border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+  .cp-idea .box {
+    width: 22px; height: 22px; border-radius: 6px; margin-top: 1px; flex-shrink: 0;
+    background: var(--surface-1); border: 1px solid var(--ink-300);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cp-idea.is-on .box { background: var(--amber-400); border-color: var(--amber-400); color: white; }
+
+  /* ====================================================================
+     PRINT / PDF EXPORT
+     "Export as PDF" renders the delivered-report layout into #kxPrint and
+     opens the print dialog, where the browser offers Save as PDF. On
+     screen #kxPrint is hidden; when printing it is the ONLY thing shown,
+     so none of the app chrome (dock, dialogs, chat) reaches the page.
+     ==================================================================== */
+  #kxPrint { display: none; }
+  @media print {
+    body.kx-printing > *:not(#kxPrint) { display: none !important; }
+    body.kx-printing #kxPrint { display: block !important; }
+    body.kx-printing { background: white; }
+    /* Let charts and cards break sensibly across pages. */
+    body.kx-printing .cpw-card { break-inside: avoid; page-break-inside: avoid; box-shadow: none; }
+    body.kx-printing .cp-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    /* The date range is useful context on paper, but it shouldn't look like
+       a control you can click. Flatten it to plain text. */
+    body.kx-printing .cpw-range button,
+    body.kx-printing .cpw-range .kx-range-btn {
+      border: none !important; background: none !important; padding: 0 !important;
+      color: var(--ink-500) !important; font-size: 11px !important;
+    }
+    body.kx-printing .cpw-range svg:last-child { display: none; }
+    body.kx-printing .cpw-kebab { display: none !important; }
+    /* Table controls are screen affordances — a filter box and a pager on
+       paper are furniture nobody can use. The report path already renders
+       every row unpaginated; this is the belt to that braces, covering any
+       table that reaches print through a path that kept its chrome. */
+    body.kx-printing .cpw-tbar,
+    body.kx-printing .cpw-tfoot { display: none !important; }
+    body.kx-printing .cpw-tscroll { overflow: visible !important; }
+    body.kx-printing table.cpw-table { break-inside: auto; }
+    body.kx-printing table.cpw-table tr { break-inside: avoid; page-break-inside: avoid; }
+    @page { margin: 14mm; }
+  }
+
+  /* ====================================================================
+     AUDIENCE DIALOG — "Who sees it live?"
+     Three tabs (job titles / named individuals / AI groups), a chat
+     panel for building dynamic groups, and a sticky summary footer.
+     ==================================================================== */
+  .au-tabs { display: flex; gap: 3px; background: var(--surface-3); padding: 4px; border-radius: var(--radius-pill); margin-bottom: 16px; }
+  .au-tabs button {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 10px; border-radius: var(--radius-pill); border: none; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; font-family: inherit;
+    background: transparent; color: var(--ink-500);
+  }
+  .au-tabs button.is-on { background: var(--surface-1); color: var(--ink-900); box-shadow: var(--elev-1); }
+  .au-pip {
+    min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px;
+    background: var(--teal-500); color: white; font-size: 10.5px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .au-tabbody { min-height: 330px; max-height: 46vh; overflow-y: auto; padding-right: 4px; }
+  /* The min-height above keeps the audience picker from jumping as its list
+     filters. The review step has no list — and with report delivery behind the
+     Future-functionality flag it holds only the audience summary — so it sizes
+     to its content instead of leaving a void above the footer. */
+  .au-tabbody.is-short { min-height: 0; }
+  .au-promise { font-size: 11.5px; color: var(--ink-500); margin: -8px 0 14px; }
+  .au-saved-toggle {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius-pill);
+    cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; margin-bottom: 12px;
+    background: var(--surface-2); border: 1px solid var(--ink-200); color: var(--ink-600);
+  }
+  .au-saved-toggle:hover { border-color: var(--ink-300); }
+  /* Editing a saved group changes a live rule other dashboards may ride on. */
+  .au-editing {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    padding: 9px 12px; border-radius: 10px; font-size: 12px; line-height: 1.45;
+    background: var(--amber-50); border: 1px solid var(--amber-400); color: var(--ink-800);
+  }
+  .au-editing span { flex: 1; }
+
+  /* Job-title cards */
+  .au-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .au-card, .au-row {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 13px; border-radius: 12px;
+    cursor: pointer; text-align: left; width: 100%; font-family: inherit;
+    background: var(--surface-1); border: 1px solid var(--ink-100);
+    transition: border-color .13s, background .13s;
+  }
+  .au-card:hover, .au-row:hover { border-color: var(--teal-400); background: var(--teal-50); }
+  .au-card.is-on, .au-row.is-on { border-color: var(--teal-400); background: var(--teal-50); }
+  .au-check {
+    width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0; margin-top: 1px;
+    border: 1px solid var(--ink-300); background: var(--surface-1);
+    display: inline-flex; align-items: center; justify-content: center; color: white;
+  }
+  .au-card.is-on .au-check, .au-row.is-on .au-check { background: var(--teal-500); border-color: var(--teal-500); }
+  .au-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .au-card-title, .au-row-name { font-size: 13.5px; font-weight: 700; color: var(--ink-900); display: block; }
+  .au-card-sub, .au-row-sub { font-size: 11.5px; color: var(--ink-500); display: block; }
+
+  /* Individuals + saved-group rows */
+  .au-row { align-items: center; padding: 9px 12px; }
+  .au-list { display: flex; flex-direction: column; gap: 6px; }
+  .au-saved { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .au-search {
+    width: 100%; padding: 9px 12px; font-size: 13px; font-family: inherit; margin-bottom: 10px;
+    border: 1px solid var(--ink-200); border-radius: 9px; background: var(--surface-1);
+    outline: none; color: var(--ink-900);
+  }
+  .au-search:focus { border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-50); }
+  .au-empty { padding: 24px; text-align: center; font-size: 12.5px; color: var(--ink-500); }
+  .au-dup {
+    flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--lumo-primary-text-color);
+    padding: 4px 8px; border-radius: 7px;
+  }
+  .au-dup:hover { background: var(--surface-3); }
+  .au-sec {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--ink-500); margin-bottom: 8px;
+  }
+
+  /* Selection + criteria chips */
+  .au-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .au-chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 10px;
+    border-radius: 999px; background: var(--teal-50); border: 1px solid var(--teal-400);
+    font-size: 11.5px; font-weight: 600; color: var(--ink-800);
+  }
+  .au-chip.is-neg { background: var(--amber-50); border-color: var(--amber-400); }
+  .au-chip button {
+    border: none; background: none; cursor: pointer; padding: 0; display: inline-flex;
+    color: var(--ink-500); border-radius: 99px;
+  }
+  .au-chip button:hover { color: var(--ink-900); }
+
+  /* Chat */
+  .au-chat { border: 1px solid var(--ink-100); border-radius: 14px; background: var(--surface-2); padding: 12px; }
+  .au-thread { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .au-hint { font-size: 12.5px; color: var(--ink-500); line-height: 1.55; }
+  .au-msg { display: flex; gap: 8px; align-items: flex-start; }
+  .au-msg--me { justify-content: flex-end; }
+  .au-msg--me span {
+    background: var(--ink-900); color: white; padding: 8px 12px; border-radius: 13px 13px 3px 13px;
+    font-size: 12.5px; max-width: 78%; line-height: 1.45;
+  }
+  .au-ai-mark {
+    width: 22px; height: 22px; border-radius: 7px; flex-shrink: 0; color: white;
+    background: linear-gradient(135deg, var(--amber-400), var(--coral-400));
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .au-bubble {
+    background: var(--surface-1); border: 1px solid var(--ink-100); padding: 8px 12px;
+    border-radius: 13px 13px 13px 3px; font-size: 12.5px; line-height: 1.45; max-width: 82%;
+    color: var(--ink-800);
+  }
+  .au-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .au-choices button {
+    padding: 5px 11px; border-radius: 999px; cursor: pointer; font-family: inherit;
+    font-size: 11.5px; font-weight: 600; background: var(--surface-1);
+    border: 1px solid var(--ink-300); color: var(--ink-800);
+  }
+  .au-choices button:hover { border-color: var(--teal-400); background: var(--teal-50); }
+  .au-starters { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .au-starters button {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: var(--radius-pill);
+    cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; text-align: left;
+    background: var(--surface-1); border: 1px solid var(--ink-200); color: var(--ink-700);
+  }
+  .au-starters button:hover { border-color: var(--amber-400); background: var(--amber-50); }
+  .au-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+  .au-rule-lbl {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--ink-400); margin-right: 2px;
+  }
+  .au-count {
+    display: flex; align-items: center; gap: 7px; margin-top: 10px;
+    font-size: 12.5px; color: var(--teal-600);
+  }
+  .au-count.is-zero { color: var(--amber-700); }
+  .au-warn { color: var(--amber-700); font-size: 11.5px; display: inline-flex; align-items: center; gap: 3px; }
+  .au-link {
+    background: none; border: none; cursor: pointer; font-family: inherit; font-size: 12px;
+    font-weight: 600; color: var(--lumo-primary-text-color); display: inline-flex;
+    align-items: center; gap: 4px; padding: 4px 6px; border-radius: var(--radius-pill);
+  }
+  .au-link:hover { background: var(--surface-3); }
+  .au-names {
+    margin-top: 8px; display: flex; flex-direction: column; gap: 4px;
+    font-size: 12px; color: var(--ink-700); padding-left: 22px;
+  }
+  .au-names i { color: var(--ink-400); font-style: normal; font-size: 11px; }
+  .au-more { color: var(--ink-400); font-size: 11.5px; }
+  .au-save { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  .au-save .au-search { margin-bottom: 0; }
+  .au-input { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+  .au-input textarea {
+    flex: 1; resize: none; padding: 9px 12px; border-radius: 10px; font-family: inherit;
+    font-size: 12.5px; line-height: 1.5; border: 1px solid var(--ink-200);
+    background: var(--surface-1); color: var(--ink-900); outline: none; min-height: 38px;
+  }
+  .au-input textarea:focus { border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-50); }
+  .au-input button {
+    /* Circular send action — square footprint under full rounding. */
+    width: 34px; height: 34px; border-radius: var(--radius-pill); border: none; cursor: pointer; flex-shrink: 0;
+    background: var(--ink-900); color: white; display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* Review step + footer */
+  .au-review {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px;
+    background: var(--teal-50); border: 1px solid var(--teal-400); color: var(--ink-800);
+    font-size: 13px;
+  }
+  .au-review span { flex: 1; }
+  .au-note {
+    display: flex; align-items: center; gap: 6px; margin-top: 10px;
+    font-size: 11.5px; color: var(--ink-500);
+  }
+  .au-sched {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--ink-100); background: var(--surface-2); cursor: pointer;
+  }
+  .au-sched b { display: block; font-size: 13px; }
+  .au-sched span span { display: block; font-size: 11px; color: var(--ink-500); }
+  .au-foot {
+    display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--ink-100);
+  }
+  .au-sum { flex: 1; font-size: 12.5px; color: var(--ink-600); }
+
+  /* ====================================================================
+     DATA EXPLORER
+     ==================================================================== */
+  .ex-quickstart {
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+    border-radius: 12px; cursor: pointer; text-align: left; font-family: inherit;
+    background: var(--surface-1); border: 1px solid var(--ink-200);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .ex-quickstart:hover { border-color: var(--amber-400); background: var(--amber-50); }
+  .ex-quickstart .ic {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .ex-card {
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 14px;
+    box-shadow: var(--elev-1); padding: 16px;
+  }
+  .ex-action {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
+    background: var(--surface-1); border: 1px solid var(--ink-200); color: var(--ink-600);
+    font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit; flex-shrink: 0;
+  }
+  .ex-action:hover { border-color: var(--amber-400); background: var(--amber-50); }
+
+  /* Send-as-report dialog controls */
+  .ex-cad {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+    padding: 11px 12px; border-radius: 11px; cursor: pointer; font-family: inherit; text-align: left;
+    background: var(--surface-1); border: 1px solid var(--ink-200);
+  }
+  .ex-cad.is-on { background: var(--amber-50); border-color: var(--amber-400); box-shadow: 0 0 0 2px var(--amber-50); }
+  .ex-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
+    background: var(--surface-1); border: 1px solid var(--ink-200); color: var(--ink-700);
+    font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .ex-chip:hover { border-color: var(--amber-400); }
+  .ex-chip.is-on { background: var(--amber-50); border-color: var(--amber-400); color: var(--amber-700); }
+  .ex-fmt {
+    display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-radius: 11px;
+    cursor: pointer; font-family: inherit; text-align: left;
+    background: var(--surface-1); border: 1px solid var(--ink-200);
+  }
+  .ex-fmt.is-on { background: var(--amber-50); border-color: var(--amber-400); }
+  .ex-fmt .radio {
+    width: 18px; height: 18px; border-radius: 999px; flex-shrink: 0;
+    border: 1.5px solid var(--ink-300);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .ex-fmt.is-on .radio { border-color: var(--amber-400); }
+  .ex-fmt .radio .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--amber-400); }
+
+  /* ====================================================================
+     AI ACCESS TAB
+     ==================================================================== */
+  .cp-ai-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 18px; align-items: start; }
+  @media (max-width: 1000px) { .cp-ai-grid { grid-template-columns: 1fr; } }
+  .cp-panel {
+    background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 16px;
+    box-shadow: var(--elev-1); overflow: hidden;
+  }
+  .cp-panel-head { padding: 16px 18px 14px; border-bottom: 1px solid var(--ink-100); }
+  .cp-panel-head h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.3px; color: var(--ink-900); }
+  .cp-panel-head p { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-500); line-height: 1.5; }
+  .cp-grant-row {
+    display: flex; align-items: center; gap: 11px; padding: 11px 18px;
+    border-bottom: 1px solid var(--ink-100);
+  }
+  .cp-grant-row:last-child { border-bottom: none; }
+  .cp-ent-dots { display: inline-flex; gap: 3px; }
+  .cp-ent-dots .d { width: 10px; height: 10px; border-radius: 3px; }
+  .cp-log-row { padding: 12px 18px; border-bottom: 1px solid var(--ink-100); }
+  .cp-log-row:last-child { border-bottom: none; }
+  .cp-outcome {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<!-- Data layer (plain JS, runs first) -->
+<script src="data.js"></script>
+<script src="custom-dashboards.js"></script>
+<script src="agency-intel-page-data.js"></script>
+<script src="agency-intel-ai-data.js"></script>
+
+<!-- Shared helpers, chart renderers, canvas widgets, then the page -->
+<script src="keystone-shared.js"></script>
+<script src="charts.js"></script>
+<script src="agency-intel-canvas.js"></script>
+<script src="agency-intel-explore.js"></script>
+<!-- Roster + rule engine must load before the audience dialog that uses it. -->
+<script src="agency-intel-roster.js"></script>
+<script src="agency-intel-audience.js"></script>
+<script src="agency-intel-export.js"></script>
+<script src="agency-intel-page.js"></script>
+
+<!-- Flow Map config (review tooling). Two named screens the Design Toolbox can
+     show and drive to via window.applyFlowState (defined in agency-intel-page.js):
+     the Dashboards home and the Dashboard build view (where Publish / Manage
+     delivery lives). Comments left on a node bind to it, so "Go" jumps straight
+     here. Not part of the product — stripped with the toolbox for production. -->
+<script>
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Agency Intelligence — Flow',
+      applyState: 'applyFlowState',
+      nodes: [
+        { id: 'home', name: 'Agency Intelligence (home)', step: 'Home · Dashboards',
+          desc: 'Dashboards list — the landing screen.', x: 60, y: 120, entry: true },
+        { id: 'home-ai', name: 'Home — AI access', step: 'Home · AI access',
+          desc: 'The AI access tab on the home screen.', x: 60, y: 470 },
+        { id: 'build', name: 'Dashboard build — Edit', step: 'Build · Edit',
+          desc: 'Two-pane builder (first dashboard). Publish / Manage delivery lives in this header.',
+          x: 470, y: 120 },
+        { id: 'build-preview', name: 'Dashboard build — Preview', step: 'Build · Preview',
+          desc: 'Preview mode — the dashboard as its audience sees it.', x: 880, y: 120 },
+        { id: 'build-report', name: 'Dashboard build — Report', step: 'Build · Report',
+          desc: 'Report / delivery mode (falls back to Preview when delivery is off).', x: 1290, y: 120 },
+        { id: 'add-widget', name: 'Add widget dialog', step: 'Modal',
+          desc: 'The Add-a-widget dialog over the builder.', x: 470, y: 470 },
+        { id: 'publish', name: 'Publish / Manage delivery', step: 'Modal',
+          desc: 'The audience dialog opened by Publish / Manage delivery / Edit schedule.', x: 880, y: 470 }
+      ],
+      edges: [
+        ['home', 'build'], ['build', 'build-preview'], ['build-preview', 'build-report'],
+        ['home', 'home-ai'], ['build', 'add-widget'], ['build', 'publish']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: review tooling (comment widget + flow map). NOT part of the
+     product design — developers must strip this include for production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+
+</body>
+</html>

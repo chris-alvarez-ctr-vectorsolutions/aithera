@@ -1,0 +1,119 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────────────
+# Guard 2 of 3: git pre-commit hook.
+#
+# Refuses to commit a change to the repo-root index.html — the GitHub Pages
+# landing page — unless the commit is explicitly ABOUT the landing page.
+# Catches clobbers that never went through an editor: cp, shell redirects,
+# scripts, other agents.
+#
+# Intentional landing-page commit:
+#     LANDING=1 git commit -m "Landing page: ..."
+#
+# Install (per clone — git hooks are not shared automatically):
+#     git config core.hooksPath scripts/git-hooks
+#
+# See scripts/git-hooks/README.md.
+# ─────────────────────────────────────────────────────────────────────────────
+
+set -u
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# The versioned loader, comment widget, and flow map are OPTIONAL — scaffolded by
+# base-template/ at setup, never required. There is intentionally NO mock-structure
+# check on commit: it neither blocks nor nags. scripts/check-mock-structure.sh
+# remains as a manual, opt-in advisory you can run yourself if you ever want it.
+
+# ── Guard A2: dashboard/loader links FOLLOW renames — auto-fix, don't block ──
+# When the commit touches the catalog or mock files: first auto-relink any
+# staged rename (rewrite the products.json rel / versions.json path to the new
+# location and re-stage it INTO this commit — the same self-heal CI does on
+# push), then surface anything auto-relink couldn't fix (a hand-typed path, a
+# deletion, a cross-product move) as a WARNING. It never blocks the commit.
+# (bypass together with Guard A: SKIP_MOCK_GUARD=1)
+if [ "${SKIP_MOCK_GUARD:-}" != "1" ]; then
+  if git diff --cached --name-only | grep -qE '^(products\.json$|products/)'; then
+    if command -v node >/dev/null 2>&1; then
+      [ -f "$REPO_ROOT/scripts/relink-catalog.js" ] && \
+        node "$REPO_ROOT/scripts/relink-catalog.js" --staged
+      [ -f "$REPO_ROOT/scripts/check-catalog-links.js" ] && \
+        node "$REPO_ROOT/scripts/check-catalog-links.js" --grandfather HEAD --warn-only
+    else
+      # No node here — CI (dashboards.yml) relinks renames on push regardless.
+      echo "  ⚠ node not found; skipping local auto-relink (CI will relink on push)." >&2
+    fi
+  fi
+fi
+
+# ── Guard A3: dev handoffs must follow the standard process ──────────────────
+# New *dev_handoff*.html files must sit at a feature root with the toolbox
+# (flow map on, comments off) and DEV-NOTES.md beside them; products.json may
+# not hand-roll a handoff (a card pointing at a dev build, or a hand-pinned
+# ready-for-dev with no dev build behind it). Pre-guard/legacy handoffs are
+# grandfathered SILENTLY — older flat mocks are never flagged; they get folded
+# into a feature folder at their own handoff (CLAUDE.md → Step 0.5).
+# (bypass together with Guard A: SKIP_MOCK_GUARD=1)
+if [ "${SKIP_MOCK_GUARD:-}" != "1" ] && [ -f "$REPO_ROOT/scripts/check-dev-handoff.js" ]; then
+  if git diff --cached --name-only | grep -qE '^(products\.json$|products/)'; then
+    if command -v node >/dev/null 2>&1; then
+      node "$REPO_ROOT/scripts/check-dev-handoff.js" --grandfather HEAD || exit 1
+    else
+      echo "  ⚠ node not found; skipping dev-handoff check (CI will run it)." >&2
+    fi
+  fi
+fi
+
+# ── Guard B: the GitHub Pages landing page ───────────────────────────────────
+MARKER='GUARD:PAGES-LANDING-PAGE'
+
+# Is the root index.html part of this commit at all?
+if ! git diff --cached --name-only | grep -qx 'index.html'; then
+  exit 0
+fi
+
+# The staged content must still carry the guard marker. Losing it is the exact
+# signature of a clobber (a mock written over the landing page).
+if ! git show ":index.html" 2>/dev/null | grep -q "$MARKER"; then
+  cat >&2 <<EOF
+
+  ✋ COMMIT BLOCKED — the root index.html lost its landing-page marker.
+
+  index.html at the repo root is the GitHub Pages landing page:
+      https://vectorlearning.github.io/ux-mockups/
+
+  The staged version no longer contains "$MARKER",
+  which means something overwrote it — almost certainly a mock written to the
+  wrong path. Mocks belong at products/<Product>/<feature>/verN/index.html.
+
+  To discard the clobber and restore the landing page:
+      git restore --staged --worktree index.html
+
+  If you really are rewriting the landing page, keep the GUARD marker comment
+  at the top of the file, then commit with:
+      LANDING=1 git commit ...
+
+EOF
+  exit 1
+fi
+
+# Marker intact, but a landing-page change still needs explicit intent.
+if [ "${LANDING:-}" != "1" ]; then
+  cat >&2 <<EOF
+
+  ✋ COMMIT BLOCKED — index.html (the GitHub Pages landing page) is staged.
+
+  This file is protected because it is the site index for every product
+  dashboard, not a mock. If this change is a side effect of other work,
+  unstage it:
+      git restore --staged index.html
+
+  If you ARE intentionally updating the landing page, say so explicitly:
+      LANDING=1 git commit -m "Landing page: ..."
+
+EOF
+  exit 1
+fi
+
+echo "  ✓ Landing-page change authorised via LANDING=1 (marker intact)." >&2
+exit 0

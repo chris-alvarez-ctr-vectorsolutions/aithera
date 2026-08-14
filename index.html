@@ -1,4 +1,23 @@
 <!DOCTYPE html>
+<!--
+    GUARD:PAGES-LANDING-PAGE
+    ────────────────────────────────────────────────────────────────────────
+    This file is the GitHub Pages LANDING PAGE for the whole repo:
+    https://vectorlearning.github.io/ux-mockups/
+
+    It is NOT a mock. Never write a prototype, mock, or version file here.
+    Every mock lives at products/<Product>/<feature>/verN/index.html.
+
+    Three guards enforce that (see scripts/git-hooks/README.md):
+      1. a Claude Code PreToolUse hook blocks Write/Edit to this file
+      2. the git pre-commit hook blocks committing it without LANDING=1
+      3. .github/workflows/protect-landing-page.yml auto-restores it on push
+         if this GUARD marker line goes missing
+
+    KEEP THE "GUARD:PAGES-LANDING-PAGE" LINE ABOVE. It is how all three
+    guards recognise this file. Losing it means the file was clobbered.
+    ────────────────────────────────────────────────────────────────────────
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -200,6 +219,13 @@
     const CATALOG_URL = 'products.json';
     let PRODUCTS = [];
 
+    // Cache-bust token. GitHub Pages edge-caches every file for 10 min and
+    // ignores custom cache headers, so a changing query string is the only
+    // reliable way to show just-pushed data instead of a stale cached copy.
+    // One token per page load.
+    const CB = 'cb=' + Date.now();
+    const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
+
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     // "2026-06-23" -> "Jun 23, 2026" (parsed manually to avoid timezone shifts)
@@ -214,9 +240,22 @@
     function flattenItems(items) {
         return (items || []).flatMap(it => it.items ? flattenItems(it.items) : [it]);
     }
+    // Curated fallback: the hand-set `modified` field in products.json. Only used
+    // when a product has no generated dashboard/meta.json to read a live date from.
     function latestModified(items) {
         return flattenItems(items).reduce((max, it) =>
             (it.modified && it.modified > max) ? it.modified : max, '');
+    }
+
+    // Live date: the newest real design change from a product's generated
+    // dashboard/meta.json (git-derived, auto-updated on every push — the SAME
+    // source the per-product dashboard uses). Returns a YYYY-MM-DD string or ''.
+    function latestFromMeta(meta) {
+        const arr = (meta && Array.isArray(meta.recentChanges)) ? meta.recentChanges : [];
+        return arr.reduce((max, e) => {
+            const d = (e && e.date) ? String(e.date).slice(0, 10) : '';
+            return d > max ? d : max;
+        }, '');
     }
 
     function renderLanding() {
@@ -225,7 +264,8 @@
         PRODUCTS.forEach(product => {
             const leaves  = flattenItems(product.items);
             const count   = leaves.length;
-            const latest  = latestModified(product.items);
+            // Prefer the live git-derived date; fall back to the curated field.
+            const latest  = product._latest || latestModified(product.items);
             const dashHref = `products/${product.folder}/dashboard/`;
             const haystack = (product.label + ' ' + leaves.map(l => l.name).join(' ')).toLowerCase();
 
@@ -269,10 +309,22 @@
 
     // ── Bootstrap ──────────────────────────────────────────────────────────────
     document.getElementById('searchInput').addEventListener('input', applyFilter);
-    fetch(CATALOG_URL, { cache: 'no-cache' })
+    fetch(bust(CATALOG_URL), { cache: 'no-cache' })
         .then(r => { if (!r.ok) throw new Error('products.json ' + r.status); return r.json(); })
         .then(data => {
             PRODUCTS = Array.isArray(data.products) ? data.products : [];
+            // Overlay each product's live git-derived date from its generated
+            // dashboard/meta.json (auto-updated on push). Per-fetch failures fall
+            // back to the curated `modified` field, so a product without a
+            // dashboard still shows a date.
+            return Promise.all(PRODUCTS.map(p =>
+                fetch(bust(`products/${p.folder}/dashboard/meta.json`), { cache: 'no-cache' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(meta => { p._latest = latestFromMeta(meta); })
+                    .catch(() => { p._latest = ''; })
+            ));
+        })
+        .then(() => {
             renderLanding();
             applyFilter();
         })

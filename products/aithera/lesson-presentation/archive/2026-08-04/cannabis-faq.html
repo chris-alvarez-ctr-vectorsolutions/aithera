@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cannabis FAQ — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+
+    <!-- ====================================================================
+         Page-scoped styles. The shared frame (header/footer, the .disc-*
+         eyebrow/prompt/lead typography) comes from lesson.css. Everything
+         else here is new to this experiment: the two-column text+art intro,
+         and a from-scratch FAQ accordion whose answer panel starts as a
+         guess prompt and "personalizes" into the real answer on reveal.
+         ==================================================================== -->
+    <style>
+      /* ---- Intro screen: text + art, side by side --------------------- */
+      .faq-intro { max-width: 900px; }
+
+      .faq-intro-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+        gap: 44px;
+        align-items: center;
+        width: 100%;
+      }
+
+      .faq-intro-title {
+        margin: 0 0 14px;
+        font-size: clamp(28px, 4vw, 40px);
+        font-weight: 700;
+        letter-spacing: -.01em;
+        line-height: 1.15;
+        color: var(--ink);
+      }
+      .faq-intro-text {
+        margin: 0 0 16px;
+        max-width: 56ch;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--ink-soft);
+      }
+      .faq-intro-text:last-of-type { margin-bottom: 0; }
+
+      /* The "we know who you are" proof point — makes the personalization
+         mechanic visible rather than just baked silently into the copy. */
+      .faq-personal-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 20px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .faq-personal-chip i { font-size: 12px; }
+
+      /* Stand-in "photo" — a gradient art panel (matches the poster
+         treatment used for the video-frame content type) rather than a
+         real image, so the mock has no external asset dependency. */
+      .faq-art {
+        position: relative;
+        aspect-ratio: 4 / 3;
+        border-radius: 20px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-image:
+          radial-gradient(120% 90% at 75% 15%, rgba(15, 158, 142, .42), transparent 55%),
+          radial-gradient(120% 90% at 15% 90%, rgba(124, 58, 237, .38), transparent 55%),
+          linear-gradient(160deg, #111827, #0b1220);
+        box-shadow: var(--shadow-lg);
+      }
+      .faq-art-icon {
+        color: rgba(255, 255, 255, .92);
+        font-size: clamp(64px, 9vw, 92px);
+        filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .35));
+      }
+      .faq-art-chip {
+        position: absolute;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .14);
+        backdrop-filter: blur(4px);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .faq-art-chip.state  { top: 18px; left: 18px; }
+      .faq-art-chip.school { bottom: 18px; right: 18px; }
+
+      @media (max-width: 720px) {
+        .faq-intro-grid { grid-template-columns: 1fr; }
+        .faq-art { aspect-ratio: 16 / 9; }
+      }
+
+      /* ---- FAQ screen shell -------------------------------------------- */
+      .faq-screen { max-width: 760px; }
+
+      .faq-accordion {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* ---- Each FAQ item -------------------------------------------------
+         A plain expand/collapse row (no chat bubbles). The CSS grid-rows
+         trick animates the reveal without measuring content height in JS. */
+      .faq-item {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      .faq-item.is-open { box-shadow: var(--shadow-md); }
+      .faq-item.is-revealed { border-color: var(--accent-soft); }
+
+      .faq-item-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--ink);
+      }
+      .faq-item-q { font-size: 16px; font-weight: 700; line-height: 1.4; }
+      .faq-item-status {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .faq-item-check {
+        display: none;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 11px;
+        align-items: center;
+        justify-content: center;
+      }
+      .faq-item.is-revealed .faq-item-check { display: flex; }
+      .faq-item-chevron { color: var(--ink-faint); font-size: 14px; transition: transform .25s ease; }
+      .faq-item.is-open .faq-item-chevron { transform: rotate(180deg); }
+
+      /* Height-animated panel: 0fr → 1fr, content clipped by the inner wrap. */
+      .faq-item-panel {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows .32s cubic-bezier(.4, 0, .2, 1);
+      }
+      .faq-item.is-open .faq-item-panel { grid-template-rows: 1fr; }
+      .faq-item-panel-inner { overflow: hidden; padding: 0 20px; }
+      .faq-item.is-open .faq-item-panel-inner { padding: 0 20px 20px; }
+
+      /* --- Guess form -------------------------------------------------- */
+      /* Deliberately separate from .faq-item-q above it: the header is the
+         actual FAQ question (asked the way a student would ask it), this is
+         a distinct UI prompt inviting a guess at the answer. */
+      .faq-guess-prompt { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+      .faq-guess-row { display: flex; gap: 10px; align-items: center; }
+      .faq-guess-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 11px 14px;
+        font: inherit;
+        font-size: 14px;
+        color: var(--ink);
+        outline: none;
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      .faq-guess-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .faq-guess-btn {
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 18px;
+        background: var(--accent-strong);   /* strong for 4.5:1 with white */
+        color: #fff;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: filter .15s ease;
+        white-space: nowrap;
+      }
+      .faq-guess-btn:hover:not(:disabled) { filter: brightness(1.12); }
+      .faq-guess-btn:disabled { background: var(--ink-faint); cursor: default; }
+      .faq-guess-hint { margin: 10px 0 0; font-size: 12px; color: var(--ink-faint); }
+
+      /* --- "Personalizing…" shimmer, shown mid-reveal --------------------- */
+      .faq-thinking { display: flex; flex-direction: column; gap: 10px; }
+      .faq-thinking-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-faint);
+      }
+      .faq-thinking-label i { color: var(--accent); font-size: 11px; animation: faq-spin 1.1s linear infinite; }
+      @keyframes faq-spin { to { transform: rotate(360deg); } }
+      .faq-skeleton { display: flex; flex-direction: column; gap: 8px; }
+      .faq-skeleton-line {
+        height: 12px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, var(--line) 25%, #eef1f4 37%, var(--line) 63%);
+        background-size: 400% 100%;
+        animation: faq-shimmer 1.3s ease-in-out infinite;
+      }
+      .faq-skeleton-line.w1 { width: 94%; }
+      .faq-skeleton-line.w2 { width: 100%; }
+      .faq-skeleton-line.w3 { width: 68%; }
+      @keyframes faq-shimmer {
+        0%   { background-position: 100% 0; }
+        100% { background-position: 0 0; }
+      }
+
+      /* --- Revealed answer ------------------------------------------------ */
+      .faq-answer-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin: 0 0 12px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .faq-answer-tag i { font-size: 11px; }
+      .faq-answer-opener { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.5; }
+      .faq-answer-fact { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
+      .faq-answer.in { animation: faq-rise .45s cubic-bezier(.2, .7, .2, 1) both; }
+      .faq-answer:focus { outline: none; }   /* programmatic focus target, not a control */
+      @keyframes faq-rise {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: none; }
+      }
+
+      /* Visually hidden, screen-reader only (the live status region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Substance Use Awareness</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Cannabis FAQ</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 4 of 7</span>
+            <vaadin-progress-bar value="0.57" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <!-- ----- Screen a: personalized intro (text + art) -------------- -->
+            <section class="disc-screen faq-intro" id="introScreen" aria-label="Cannabis FAQ intro">
+                <p class="disc-eyebrow">
+                    <i class="fa-solid fa-cannabis"></i> Cannabis FAQ
+                </p>
+
+                <div class="faq-intro-grid">
+                    <div class="faq-intro-copy">
+                        <p class="faq-personal-chip" id="personalChip">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </p>
+                        <h1 class="faq-intro-title" id="introTitle"></h1>
+                        <p class="faq-intro-text" id="introText1"></p>
+                        <p class="faq-intro-text">
+                            Take a guess on each question first — the answer you get will build on
+                            what you actually say. At the end, you can ask one of your own.
+                        </p>
+                    </div>
+                    <div class="faq-art" aria-hidden="true">
+                        <span class="faq-art-chip state" id="artStateChip"></span>
+                        <span class="faq-art-icon"><i class="fa-solid fa-cannabis"></i></span>
+                        <span class="faq-art-chip school" id="artSchoolChip"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ----- Screen b: the FAQ accordion ----------------------------- -->
+            <section class="disc-screen faq-screen" id="faqScreen" aria-label="Cannabis FAQ questions" hidden>
+                <p class="disc-eyebrow">
+                    <i class="fa-solid fa-circle-question"></i> Cannabis FAQ
+                </p>
+                <h2 class="disc-prompt">Answer each one your way.</h2>
+                <p class="disc-lead" id="faqLead">Take a guess, then open it up to see how you did.</p>
+
+                <div class="faq-accordion" id="faqAccordion"></div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Polite live region: announces answer reveals for screen readers -->
+    <span class="sr-only" id="faqStatus" aria-live="polite"></span>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions">
+            Read the intro, then select Continue to start the FAQ.
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="continueBtn">Continue</vaadin-button>
+        </div>
+    </footer>
+
+    <script src="js/lesson.js?v=5"></script>
+    <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+    <script>
+    /* ========================================================================
+       Cannabis FAQ — a personalized, guess-then-reveal FAQ accordion.
+
+       This is a traditional FAQ layout (question-only headers, expandable
+       answers) rather than a chat: nothing here simulates a conversation.
+       What makes each item more than a static accordion:
+
+         1. Copy is assembled from a STUDENT record (school + state), not
+            hard-coded — swap the record and the whole FAQ re-personalizes.
+         2. Opening an item first shows a one-line guess prompt, not the
+            answer. Submitting a guess triggers a brief "Personalizing your
+            answer…" shimmer, then reveals an answer that opens by reacting
+            to what was guessed before stating the real fact.
+         3. The last item flips the direction — the learner asks their own
+            ("infrequently asked") question, matched against a small topic
+            library with a graceful fallback.
+
+       Everything here is simulated (regex matching + canned copy, plus a
+       timed shimmer) — there is no live model call, same as the other
+       lesson-presentation prototypes.
+       ====================================================================== */
+    (function () {
+        'use strict';
+
+        // ----- The "logged in" student — this is the whole personalization
+        // mechanism. Everything visible below reads from this one record. ---
+        const STUDENT = {
+            school: 'CU Boulder',
+            state:  'Colorado',
+            health: 'Wardenburg Health Center',
+        };
+
+        // ----- Elements ------------------------------------------------------
+        const introScreen  = document.getElementById('introScreen');
+        const faqScreen    = document.getElementById('faqScreen');
+        const faqLead      = document.getElementById('faqLead');
+        const accordion    = document.getElementById('faqAccordion');
+        const continueBtn  = document.getElementById('continueBtn');
+        const backBtn      = document.getElementById('backBtn');
+        const instructions = document.getElementById('instructions');
+        const faqStatus    = document.getElementById('faqStatus');
+
+        // Screen-reader announcements (clear first so repeats re-announce).
+        function announce(msg) {
+            faqStatus.textContent = '';
+            setTimeout(() => { faqStatus.textContent = msg; }, 30);
+        }
+
+        // ----- Stamp the personalized intro copy ------------------------------
+        document.getElementById('personalChip').innerHTML =
+            '<i class="fa-solid fa-location-dot"></i> Personalized for ' +
+            STUDENT.school + ' · ' + STUDENT.state;
+        document.getElementById('introTitle').textContent =
+            'Cannabis: what’s actually true at ' + STUDENT.school + '?';
+        document.getElementById('introText1').textContent =
+            'Cannabis is legal for adults 21+ in ' + STUDENT.state + ', but the rules get more ' +
+            'complicated once you’re a ' + STUDENT.school + ' student living, studying, and maybe ' +
+            'working on or near campus.';
+        document.getElementById('artStateChip').textContent = STUDENT.state;
+        document.getElementById('artSchoolChip').textContent = STUDENT.school;
+
+        // ----- FAQ content -----------------------------------------------------
+        // Questions are written the way a real FAQ reads — asked in the first
+        // person by a student, not addressed to the reader as a survey prompt.
+        // Each still has a yes/no-shaped answer so a learner's guess (typed
+        // separately, below) can be read for sentiment and used to pick how
+        // the AI-authored reply opens.
+        const FAQS = [
+            {
+                question:
+                    'If cannabis is legal in ' + STUDENT.state + ', is it allowed on campus at ' +
+                    STUDENT.school + '?',
+                placeholder: 'Yes, no, or your best guess…',
+                whenYes:
+                    'A lot of people assume that — if it’s legal in the state, it must be fine ' +
+                    'on campus too. But that’s actually not the case:',
+                whenNo: 'You’ve got sharp instincts — that’s exactly right:',
+                whenNeutral: 'Good thinking. Here’s the real answer:',
+                fact:
+                    STUDENT.school + ' still has to follow federal law, because it receives federal ' +
+                    'funding — and cannabis remains illegal at the federal level no matter what ' +
+                    STUDENT.state + ' allows. Using, possessing, or distributing it anywhere on campus ' +
+                    'can mean suspension, probation, loss of financial aid or student housing, and even ' +
+                    'criminal charges.',
+            },
+            {
+                question:
+                    'Does ' + STUDENT.state + ' law treat edibles the same as smoking cannabis?',
+                placeholder: 'Same, different, or your best guess…',
+                whenYes: 'Right — you’re thinking about this correctly:',
+                whenNo: 'Close, but not quite — here’s the nuance:',
+                whenNeutral: 'Fair guess. Here’s what’s actually true:',
+                fact:
+                    'For adults 21+ using off campus, ' + STUDENT.state + ' law treats edibles the same ' +
+                    'as any other legal cannabis product. The catch is how they feel: edibles can take ' +
+                    '30–90 minutes to kick in, so it’s easy to assume "this isn’t working" and take ' +
+                    'more before the first dose ever hits. And ' + STUDENT.school + '’s campus policy ' +
+                    'doesn’t care how it was consumed — the same rules from the first question still apply.',
+            },
+            {
+                question:
+                    'Can using cannabis affect my financial aid or scholarships at ' + STUDENT.school + '?',
+                placeholder: 'Yes, no, or your best guess…',
+                whenYes: 'You’re right to be cautious here:',
+                whenNo: 'Actually, this one’s riskier than it seems:',
+                whenNeutral: 'Here’s the honest answer:',
+                fact:
+                    'Federal financial aid follows federal law, so a drug-related conviction — or ' +
+                    'sometimes even a campus conduct violation — can put your aid, work-study, or ' +
+                    'scholarships at risk. It depends on the specifics, but it’s a real consequence a ' +
+                    'lot of students don’t think about until it happens to them.',
+            },
+            {
+                question:
+                    'Should I mention cannabis use to a provider at ' + STUDENT.health + '?',
+                placeholder: 'Yes, no, or your best guess…',
+                whenYes: 'Good call — here’s why that matters:',
+                whenNo: 'Actually, yes — and here’s why:',
+                whenNeutral: 'Here’s why the answer is yes:',
+                fact:
+                    'Cannabis can interact with medications, affect conditions like anxiety or ' +
+                    'depression, and matters if you ever need anesthesia for a procedure. Providers at ' +
+                    STUDENT.health + ' aren’t asking to judge you — they need the full picture to ' +
+                    'actually take care of you.',
+            },
+        ];
+
+        // The closing item flips direction: the learner asks, the "AI" answers.
+        const IAQ = {
+            question: 'Got a question of your own?',
+            placeholder: 'What have you been wondering but haven’t asked anyone?',
+            cta: 'Get my answer',
+        };
+
+        // Small keyword library standing in for a live model call. Answers are
+        // written as flat statements of fact — no "good question" validation,
+        // no hedging ("worth checking") — the same register as the four FAQ
+        // facts above, so this doesn't read like a chatbot being agreeable.
+        // Order matters: more specific/serious topics are checked before
+        // broader ones so overlapping words (e.g. "international" containing
+        // "intern") resolve to the right answer — each pattern uses \b so a
+        // term like "intern" can't accidentally match inside "international".
+        const IAQ_TOPICS = [
+            { test: /\b(visa|international|immigration|green card)\b/i,
+              say: 'Immigration law is entirely federal, so cannabis use — even where it’s legal ' +
+                   'under ' + STUDENT.state + ' law — creates real risk for visa holders and green ' +
+                   'card applicants. Talk to ' + STUDENT.school + '’s international student office ' +
+                   'before using, not after.' },
+            { test: /\b(job|employer|employment|internship|hiring|hire|background check)\b/i,
+              say: STUDENT.state + ' legalizing cannabis does not change what an employer can do. ' +
+                   'Companies with federal contracts or safety-sensitive roles can still test for it ' +
+                   'and act on a positive result, even off the clock. Check the specific employer’s ' +
+                   'policy — state law does not override it.' },
+            { test: /\b(driv(e|ing)?|dui|dwai|behind the wheel)\b/i,
+              say: 'Driving under the influence of cannabis is illegal in ' + STUDENT.state +
+                   ', same as alcohol, and impairment can last several hours after use — longer ' +
+                   'than most people expect. Feeling fine is not the same as being under the legal ' +
+                   'limit.' },
+            { test: /\b(alcohol|drink(s|ing)?|mix(ing)?|combin(e|ing))\b/i,
+              say: 'Mixing cannabis and alcohol is the most common way people end up "greening out" ' +
+                   '— nausea, dizziness, sometimes passing out — because each one intensifies the ' +
+                   'other faster than either would alone. Go slow on both if combining them.' },
+            { test: /\b(addict(ed|ion)?|depend(ent|ency)?|hook(ed)?|habit|withdraw(al)?)\b/i,
+              say: 'Roughly 1 in 10 regular users develop what’s clinically defined as cannabis use ' +
+                   'disorder, and the risk is higher for people who start using regularly before ' +
+                   'their mid-20s.' },
+            { test: /\b(roommate|dorm|resident|smell|ra|housing)\b/i,
+              say: 'Residence hall policy does not require proof beyond smell — a resident advisor ' +
+                   'can file a conduct report on that basis alone, even if you weren’t the one using ' +
+                   'it. Address it with a roommate directly before it becomes a shared conduct issue.' },
+            { test: /\b(athlet(e|ics)?|ncaa|team|sport)\b/i,
+              say: 'NCAA drug-testing policy is stricter than ' + STUDENT.state + ' law and makes no ' +
+                   'exception for legal recreational use — a positive test can mean losing ' +
+                   'eligibility. Check with your athletics compliance office directly if you’re on a ' +
+                   'team at ' + STUDENT.school + '.' },
+            { test: /\b(grow(ing)?|plant(s)?|cultivat(e|ion|ing))\b/i,
+              say: STUDENT.state + ' allows limited home cultivation for adults 21+, but ' +
+                   STUDENT.school + ' housing policy bans it entirely in dorms and university housing ' +
+                   'regardless of state law — the same federal-funding issue as the first question.' },
+            { test: /\b(cbd|thc|hemp|difference)\b/i,
+              say: 'CBD does not produce intoxication — THC is the compound responsible for that. ' +
+                   'Many CBD products still contain trace THC, which can be enough to trigger a ' +
+                   'positive drug test even without noticeable effect. Use products labeled ' +
+                   '"THC-free" and third-party tested if that matters.' },
+            { test: /\b(vape|vaping|dab(bing)?|concentrate)\b/i,
+              say: 'Vaping and dabbing concentrates are not equivalent to smoking flower — they ' +
+                   'deliver a much higher, faster dose of THC, which makes it easier to use more than ' +
+                   'intended. Edibles are slower to take effect but last longer. None of these methods ' +
+                   'are risk-free; they carry different risks.' },
+            { test: /\b(anxiet(y|ies)|depress(ion|ed)?|paranoi(a|d)|mental health|psychosis|panic)\b/i,
+              say: 'Cannabis can worsen anxiety or trigger paranoia in some people, and regular use ' +
+                   'is linked to a higher risk of anxiety, depression, and psychosis — especially for ' +
+                   'people who start young. Talk to a provider before using it to manage an existing ' +
+                   'condition.' },
+        ];
+        const IAQ_FALLBACK =
+            STUDENT.state + ' law and federal law do not agree with each other, and ' + STUDENT.school +
+            ' has to follow the stricter one. When a specific situation isn’t covered here, check the ' +
+            'student conduct code or ask someone at ' + STUDENT.health + ' directly — don’t assume.';
+
+        function answerForIAQ(text) {
+            const hit = IAQ_TOPICS.find((t) => t.test.test(text));
+            return hit ? hit.say : IAQ_FALLBACK;
+        }
+
+        function detectSentiment(text) {
+            const t = text.toLowerCase();
+            if (/\b(no|not|isn'?t|illegal|shouldn'?t|can'?t|nope|nah|wouldn'?t)\b/.test(t)) return 'no';
+            if (/\b(yes|yeah|yep|yup|allowed|fine|ok(ay)?|legal|sure|probably|same)\b/.test(t)) return 'yes';
+            return null;
+        }
+
+        // ----- State -------------------------------------------------------
+        let screen = 'intro';      // 'intro' | 'faq'
+        const ITEMS = FAQS.concat([IAQ]);
+        const revealed = new Array(ITEMS.length).fill(false);
+
+        function revealedCount() {
+            return revealed.filter(Boolean).length;
+        }
+
+        // ----- Build the accordion -------------------------------------------
+        ITEMS.forEach((item, i) => {
+            const el = document.createElement('div');
+            el.className = 'faq-item';
+
+            const header = document.createElement('button');
+            header.type = 'button';
+            header.className = 'faq-item-header';
+            header.id = 'faqHeader' + i;
+            header.setAttribute('aria-expanded', 'false');
+            header.setAttribute('aria-controls', 'faqPanel' + i);
+            header.innerHTML =
+                '<span class="faq-item-q" id="faqQ' + i + '">' + item.question + '</span>' +
+                '<span class="faq-item-status">' +
+                    '<span class="faq-item-check"><i class="fa-solid fa-check"></i></span>' +
+                    '<i class="fa-solid fa-chevron-down faq-item-chevron"></i>' +
+                '</span>';
+
+            const panel = document.createElement('div');
+            panel.className = 'faq-item-panel';
+            panel.id = 'faqPanel' + i;
+            panel.setAttribute('role', 'region');
+            panel.setAttribute('aria-labelledby', 'faqHeader' + i);
+            const panelInner = document.createElement('div');
+            panelInner.className = 'faq-item-panel-inner';
+            panel.appendChild(panelInner);
+
+            el.append(header, panel);
+            accordion.appendChild(el);
+
+            header.addEventListener('click', () => {
+                const open = el.classList.toggle('is-open');
+                header.setAttribute('aria-expanded', String(open));
+                if (open && !revealed[i]) {
+                    const guessInput = panelInner.querySelector('.faq-guess-input');
+                    if (guessInput) setTimeout(() => guessInput.focus(), 260);
+                }
+            });
+
+            renderGuessForm(panelInner, item, i, el);
+
+            // First item starts open, inviting the learner in immediately.
+            if (i === 0) {
+                el.classList.add('is-open');
+                header.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        function renderGuessForm(panelInner, item, i) {
+            const prompt = item === IAQ ? 'Type your question:' : 'Take your best guess:';
+            const hint = item === IAQ
+                ? 'We’ll build an answer around whatever you ask.'
+                : 'There’s no wrong guess — it just shapes what you see next.';
+            panelInner.innerHTML =
+                '<p class="faq-guess-prompt">' + prompt + '</p>' +
+                '<div class="faq-guess-row">' +
+                    '<input type="text" class="faq-guess-input" placeholder="' + item.placeholder + '"' +
+                        ' aria-labelledby="faqQ' + i + '" aria-label="Your answer">' +
+                    '<button type="button" class="faq-guess-btn" disabled>' + (item.cta || 'Reveal answer') + '</button>' +
+                '</div>' +
+                '<p class="faq-guess-hint">' + hint + '</p>';
+
+            const guessInput = panelInner.querySelector('.faq-guess-input');
+            const guessBtn   = panelInner.querySelector('.faq-guess-btn');
+
+            guessInput.addEventListener('input', () => {
+                guessBtn.disabled = !guessInput.value.trim();
+            });
+            guessInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !guessBtn.disabled) {
+                    e.preventDefault();
+                    reveal(panelInner, item, i, guessInput.value);
+                }
+            });
+            guessBtn.addEventListener('click', () => reveal(panelInner, item, i, guessInput.value));
+        }
+
+        function reveal(panelInner, item, i, rawValue) {
+            const value = rawValue.trim();
+            if (!value || revealed[i]) return;
+
+            const label = item === IAQ ? 'Finding your answer…' : 'Personalizing your answer…';
+            const panelEl = panelInner.closest('.faq-item-panel');
+            panelEl.setAttribute('aria-busy', 'true');   // panel content is mid-swap
+            panelInner.innerHTML =
+                '<div class="faq-thinking">' +
+                    '<span class="faq-thinking-label"><i class="fa-solid fa-wand-magic-sparkles"></i>' + label + '</span>' +
+                    '<div class="faq-skeleton">' +
+                        '<div class="faq-skeleton-line w1"></div>' +
+                        '<div class="faq-skeleton-line w2"></div>' +
+                        '<div class="faq-skeleton-line w3"></div>' +
+                    '</div>' +
+                '</div>';
+
+            const delay = 900 + Math.min(value.length * 14, 900);
+            setTimeout(() => {
+                revealed[i] = true;
+
+                let openerHtml = '';
+                let factHtml;
+                if (item === IAQ) {
+                    factHtml = answerForIAQ(value);
+                    // Swap the generic prompt for the learner's own question, so
+                    // the header now reads like any other FAQ item once answered.
+                    const headerQ = panelInner.closest('.faq-item').querySelector('.faq-item-q');
+                    headerQ.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+                } else {
+                    const sentiment = detectSentiment(value);
+                    const opener = sentiment === 'yes' ? item.whenYes
+                        : sentiment === 'no' ? item.whenNo
+                        : item.whenNeutral;
+                    openerHtml = '<p class="faq-answer-opener">' + opener + '</p>';
+                    factHtml = item.fact;
+                }
+
+                panelInner.innerHTML =
+                    '<div class="faq-answer in" tabindex="-1">' +
+                        '<p class="faq-answer-tag"><i class="fa-solid fa-wand-magic-sparkles"></i> ' +
+                            (item === IAQ ? 'Answered just for you' : 'Personalized based on your answer') +
+                        '</p>' +
+                        openerHtml +
+                        '<p class="faq-answer-fact">' + factHtml + '</p>' +
+                    '</div>';
+                panelEl.removeAttribute('aria-busy');
+
+                const itemEl = panelInner.closest('.faq-item');
+                itemEl.classList.add('is-revealed');
+
+                // Tell screen readers, and move focus onto the revealed answer.
+                announce('Answer revealed.');
+                const answerEl = panelInner.querySelector('.faq-answer');
+                if (answerEl) answerEl.focus();
+
+                updateProgress();
+            }, delay);
+        }
+
+        function updateProgress() {
+            const done = revealedCount();
+            const total = ITEMS.length;
+            if (done === 0) {
+                faqLead.textContent = 'Take a guess, then open it up to see how you did.';
+            } else if (done < total) {
+                faqLead.textContent = done + ' of ' + total + ' answered — keep going.';
+            } else {
+                faqLead.textContent = 'All ' + total + ' answered — nice work.';
+            }
+
+            if (done >= total) {
+                continueBtn.disabled = false;
+                instructions.textContent = 'Nicely done — select Continue to move on.';
+            } else {
+                continueBtn.disabled = true;
+                instructions.textContent =
+                    'Open each question, take a guess, then see how you did — ' +
+                    'Continue unlocks once you’ve gone through all of them.';
+            }
+        }
+
+        // ----- Screen transitions -------------------------------------------
+        function showFaq() {
+            screen = 'faq';
+            introScreen.hidden = true;
+            faqScreen.hidden = false;
+            updateProgress();
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+
+        function showIntro() {
+            screen = 'intro';
+            faqScreen.hidden = true;
+            introScreen.hidden = false;
+            continueBtn.disabled = false;
+            instructions.textContent = 'Read the intro, then select Continue to start the FAQ.';
+        }
+
+        // ----- Footer navigation ---------------------------------------------
+        continueBtn.addEventListener('click', () => {
+            if (continueBtn.disabled) return;
+            if (screen === 'intro') {
+                showFaq();
+            } else {
+                console.log('Continue — Cannabis FAQ complete');
+            }
+        });
+
+        backBtn.addEventListener('click', () => {
+            if (screen === 'faq') showIntro();
+            else console.log('Back');
+        });
+    })();
+    </script>
+</body>
+</html>

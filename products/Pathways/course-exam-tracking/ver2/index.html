@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course &amp; Exam Tracking · Platform-native · V2</title>
+
+    <!--
+    ══════════════════════════════════════════════════════════════════════════
+    PathwayOS · Course & Exam Tracking · V2 (platform-native restyle)
+    Aligned to PRD VPATH-15545 plus the 7/29 feedback round, using screenshots
+    of the live Vector Pathways platform (Student Details page) as reference.
+
+    WHAT CHANGED FROM V1:
+    - Chrome rebuilt to match the live platform: white top bar with the
+      VectorSolutions logo, slash breadcrumbs, Navigation/Search with the
+      command-K hint, light gray sidenav (Admin Dashboard, Experiences,
+      Create, Manage, Data Center, Edu & Career Planning, Settings).
+    - Tables rebuilt as grid-style tables matching the platform's data grids:
+      per-column header filters (funnel icon opens a popup with an operator
+      select and filter input), click-to-sort headers, "Showing X of Y"
+      line, "No Rows To Show" empty state.
+    - Student Details: Courses and Exams live as tabs in the platform's
+      existing tab row (Information, Parents, Time Logs, ... Courses, Exams,
+      Test Scores, ...). Test Scores remains: it is a separate existing
+      feature.
+    - Exams tables: new Category column (grouping, e.g. Regents_Math),
+      records with status In Progress or Withdrawn are filtered out, the
+      Status column is removed, and an Upload Date column was added.
+    - Courses tables: Upload Date column added.
+    - Grade Level renders as a number only (11, not "Grade 11").
+    - Student names format as Last, First and link to that student's
+      Student View (Student Details page), with their records derived from
+      the same rosters.
+    - Sections: courses split into sections (e.g. Algebra 2 · Period 1 ·
+      Ms. Jones). The Student Courses list has an accordion per course that
+      expands to its sections and the students in each; sections drill down
+      to a scoped roster. Rosters carry Section and Teacher columns.
+    - "Records synced" banner updated: per-tab wording plus a computed
+      Last upload date; the exams banner notes that only completed exam
+      records are shown.
+
+    ASSUMPTIONS / TO CONFIRM:
+    - Category values (Regents_Math, Regents_SS, Regents_ELA,
+      Regents_Science, CTE_Assessment) follow the "Regions_Math" example
+      from the feedback; swap the strings if the real feed differs.
+    - A lightweight "Manage" landing view exists here only so the demo can
+      navigate to Student Courses / Student Exams; confirm real placement.
+    - The Archived/Unarchived/All control sits above the roster grids since
+      archived state is not a column.
+    - Type set in Roboto to match the live platform.
+    ══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Roboto: PathwayOS's existing type family -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+<style>
+/* ─── Tokens (sampled from the live platform screenshots) ────────────── */
+:root {
+    --border: #e0e0e0;
+    --border-strong: #c9d1d9;
+    --text: #333333;
+    --heading: #222222;
+    --muted: #6b7280;
+    --link: #1976d2;
+    --link-strong: #0b66c2;
+    --sidenav-bg: #efefef;
+    --sidenav-active: #dcdcdc;
+    --tab-active-bg: #e7f1fb;
+    --grid-header-bg: #fafafa;
+    --grid-line: #e8e8e8;
+    --teal: #4da1c7;
+    --teal-strong: #3d90b6;
+    --green: #2e7d32;
+    --green-soft: #e8f5e9;
+    --green-line: #c8e6c9;
+    --blue-soft: #eef5fc;
+    --blue-line: #b9d8f4;
+    --gray-soft: #f0f2f5;
+    --gray-line: #dde0e5;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: 'Roboto', 'Open Sans', system-ui, sans-serif; background: #fff; color: var(--text); font-size: 14px; }
+.view[hidden] { display: none; }
+a { color: var(--link); }
+
+/* ─── App shell ──────────────────────────────────────────────────────── */
+.app { display: flex; min-height: 100vh; flex-direction: column; }
+.topnav { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 40; }
+.logo { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.logo .vmark { font-size: 24px; font-weight: 800; font-style: italic; background: linear-gradient(135deg, #e63946 20%, #f77f00 50%, #1976d2 80%); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1; }
+.logo .wordmark .l1 { font-size: 15px; color: #4a4a4a; line-height: 1.1; }
+.logo .wordmark .l1 b { color: #333; }
+.logo .wordmark .l2 { font-size: 9.5px; color: #9aa0a6; letter-spacing: .3px; }
+.crumbs { color: #555; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.crumbs .sl { color: #b7bcc2; }
+.crumbs a { color: #555; text-decoration: none; cursor: pointer; }
+.crumbs a:hover { color: var(--link); text-decoration: underline; }
+.crumbs .here { color: #333; }
+.topnav .spacer { flex: 1; }
+.pill-search { border: 1px solid var(--border); background: #f4f5f6; border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: #555; display: flex; align-items: center; gap: 8px; white-space: nowrap; cursor: default; }
+.pill-search kbd { background: #fff; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 5px; font-size: 11px; color: var(--muted); font-family: inherit; }
+.topnav .icon-link { color: #555; font-size: 13px; white-space: nowrap; cursor: default; }
+.topnav .avatar-sm { width: 26px; height: 26px; border-radius: 50%; background: #e3e6ea; color: #8a939e; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+
+.body-row { display: flex; flex: 1; min-height: 0; }
+.sidenav { width: 202px; background: var(--sidenav-bg); flex-shrink: 0; padding: 16px 0 48px; position: relative; }
+.org { text-align: center; padding: 4px 14px 18px; }
+.org .org-logo { width: 74px; height: 46px; margin: 0 auto 8px; border-radius: 4px; background: linear-gradient(135deg, #f6d8a8, #d9e7f5 60%, #f3c6c6); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #b0653a; letter-spacing: 1px; border: 1px solid #e6d9c4; }
+.org .org-name { font-size: 13px; color: #333; }
+.org .org-sub { font-size: 11.5px; color: #777; margin-top: 2px; }
+.sidenav .nav-gap { height: 18px; }
+.sidenav a.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 18px; font-size: 13.5px; color: #333; text-decoration: none; cursor: pointer; }
+.sidenav a.nav-item i { width: 18px; text-align: center; color: #4a4a4a; font-size: 14px; }
+.sidenav a.nav-item:hover { background: #e6e6e6; }
+.sidenav a.nav-item.active { background: var(--sidenav-active); }
+.collapse-btn { position: absolute; bottom: 12px; left: 12px; width: 22px; height: 22px; border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; color: var(--muted); font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: default; }
+
+.main { flex: 1; min-width: 0; }
+.page { max-width: 1480px; margin: 0 auto; width: 100%; padding: 22px 26px 72px; }
+.page-title { font-size: 20px; font-weight: 500; color: var(--heading); margin: 0 0 14px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: -6px 0 14px; }
+.backlink { display: inline-flex; align-items: center; gap: 8px; color: var(--link); font-size: 13px; font-weight: 500; background: none; border: none; font-family: inherit; padding: 2px 4px 2px 0; margin-bottom: 10px; cursor: pointer; }
+.backlink:hover { text-decoration: underline; }
+
+/* Records-synced banner */
+.source-note { background: var(--blue-soft); border: 1px solid var(--blue-line); color: #0b5cab; border-radius: 6px; padding: 9px 13px; font-size: 12.5px; margin-bottom: 12px; display: flex; gap: 9px; align-items: flex-start; line-height: 1.45; }
+.source-note i { margin-top: 2px; flex-shrink: 0; }
+/* Compact upload-freshness subtitle used on the Student Details Courses/Exams
+   tabs in place of the heavier banner: just the last-upload cue with an icon. */
+.last-upload { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); margin: 0 0 12px; }
+.last-upload i { font-size: 12px; color: var(--muted); }
+
+/* ─── Manage landing (demo hub, placement TBC) ───────────────────────── */
+.hub { border: 1px solid var(--border); border-radius: 6px; max-width: 560px; overflow: hidden; }
+.hub a { display: flex; align-items: center; gap: 12px; padding: 13px 16px; font-size: 14px; color: var(--text); text-decoration: none; cursor: pointer; border-bottom: 1px solid var(--grid-line); }
+.hub a:last-child { border-bottom: none; }
+.hub a:hover { background: #f7f9fb; }
+.hub a i.lead { width: 18px; text-align: center; color: var(--muted); }
+.hub a .chev { margin-left: auto; color: #b7bcc2; font-size: 12px; }
+.hub a.inert { color: var(--muted); cursor: default; }
+.hub a.inert:hover { background: none; }
+
+/* ─── Student Details header + tab row ───────────────────────────────── */
+.sd-card { border: 1px solid var(--border); border-radius: 6px; padding: 18px 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+.sd-avatar { width: 56px; height: 56px; border-radius: 50%; background: #e9ebee; color: #aab2bb; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.sd-name { font-size: 15px; font-weight: 700; color: #222; }
+.sd-meta { font-size: 13px; color: #555; margin-top: 3px; line-height: 1.5; }
+.sd-card .spacer { flex: 1; }
+.btn-impersonate { display: inline-flex; align-items: stretch; border-radius: 4px; overflow: hidden; }
+.btn-impersonate .b-main { background: var(--teal); color: #fff; border: none; font-family: inherit; font-size: 13px; padding: 8px 16px; cursor: default; }
+.btn-impersonate .b-caret { background: var(--teal); color: #fff; border: none; border-left: 1px solid rgba(255,255,255,.45); font-size: 11px; padding: 0 9px; cursor: default; }
+
+.sd-tabs { display: inline-flex; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; }
+.sd-tab { padding: 8px 12px; font-size: 13px; color: #555; background: #fff; border: none; border-right: 1px solid var(--grid-line); font-family: inherit; cursor: pointer; white-space: nowrap; }
+.sd-tab:last-child { border-right: none; }
+.sd-tab:hover { color: #222; }
+.sd-tab.active { background: var(--tab-active-bg); color: var(--link); font-weight: 500; }
+.sd-tab.inert { cursor: default; }
+.sd-tab.inert:hover { color: #555; }
+.tabpanel[hidden] { display: none; }
+.tab-total { font-size: 14px; font-weight: 700; color: #222; margin: 2px 0 4px; }
+
+/* ─── Grid (matches the platform's data-grid look) ───────────────────── */
+.grid-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 6px; min-height: 26px; }
+.grid-tools .left { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+.grid-tools select { font-family: inherit; font-size: 12.5px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; padding: 4px 8px; }
+.showing { font-size: 12px; color: var(--muted); font-style: italic; margin-left: auto; }
+.gridbox { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.grid-scroll { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th { text-align: left; font-size: 12.5px; font-weight: 500; color: #333; background: var(--grid-header-bg); border-bottom: 1px solid var(--border); border-right: 1px solid #ececec; padding: 0; white-space: nowrap; }
+table.grid th:last-child { border-right: none; }
+.th-inner { display: flex; align-items: center; gap: 6px; padding: 9px 10px; }
+.th-lab { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+.th-lab:hover { color: #000; }
+.th-lab .sort-ico { font-size: 11px; color: #555; }
+.funnel { margin-left: auto; background: none; border: none; color: #9aa0a6; font-size: 11px; cursor: pointer; padding: 3px 4px; border-radius: 3px; }
+.funnel:hover { color: #555; background: #ededed; }
+.funnel.on { color: var(--link); }
+table.grid td { padding: 10px 10px; border-bottom: 1px solid var(--grid-line); vertical-align: middle; }
+table.grid tbody tr:last-child td { border-bottom: none; }
+table.grid tbody tr:hover td { background: #fafbfd; }
+table.grid a.cell-link { color: var(--link); text-decoration: none; cursor: pointer; }
+table.grid a.cell-link:hover { text-decoration: underline; color: var(--link-strong); }
+.cell-muted { color: var(--muted); }
+.no-rows { text-align: center; color: #888; font-size: 13px; padding: 90px 16px; }
+.tag-archived { display: inline-block; font-size: 10.5px; font-weight: 500; color: var(--muted); background: var(--gray-soft); border: 1px solid var(--gray-line); border-radius: 3px; padding: 0 6px; margin-left: 8px; vertical-align: 1px; }
+
+.chip { display: inline-block; font-size: 11.5px; font-weight: 500; border-radius: 999px; padding: 1px 10px; white-space: nowrap; }
+.chip.complete { color: var(--green); background: var(--green-soft); border: 1px solid var(--green-line); }
+.chip.inprogress { color: var(--link-strong); background: var(--blue-soft); border: 1px solid var(--blue-line); }
+.chip.withdrawn { color: var(--muted); background: var(--gray-soft); border: 1px solid var(--gray-line); }
+
+.grid-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+.grid-foot[hidden] { display: none; }
+.pager-btn { width: 26px; height: 26px; border: 1px solid var(--border-strong); background: #fff; border-radius: 4px; color: var(--text); cursor: pointer; font-size: 11px; }
+.pager-btn:hover:not(:disabled) { background: #f3f5f8; }
+.pager-btn:disabled { opacity: .4; cursor: default; }
+
+/* Header filter popup (funnel): operator select + filter input */
+.filter-pop { position: fixed; background: #fff; border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 10px; z-index: 300; width: 200px; display: none; }
+.filter-pop select, .filter-pop input { width: 100%; font-family: inherit; font-size: 12.5px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; padding: 6px 8px; }
+.filter-pop select { margin-bottom: 8px; }
+.filter-pop .pop-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+.filter-pop .pop-clear { background: none; border: none; color: var(--link); font-size: 12px; font-family: inherit; cursor: pointer; padding: 0; }
+.filter-pop .pop-clear:hover { text-decoration: underline; }
+
+/* ─── Sections accordion (Student Courses list) ──────────────────────── */
+.exp-btn { background: none; border: none; color: #777; cursor: pointer; font-size: 11px; padding: 4px 6px; border-radius: 3px; }
+.exp-btn:hover { color: #333; background: #ededed; }
+.exp-btn i { transition: transform .12s; }
+.exp-btn.open i { transform: rotate(90deg); }
+tr.expand-row > td { background: #f7f8fa; padding: 12px 16px 16px 44px; }
+.sec-cap { font-size: 12px; font-weight: 500; color: var(--muted); margin: 0 0 8px; }
+/* Nested sections grid: identical visual language to the main data grid
+   (header fill, vertical column separators, row lines, padding, hover). */
+.sec-tablebox { border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; max-width: 900px; }
+.sec-tablebox table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sec-tablebox th { text-align: left; font-size: 12.5px; font-weight: 500; color: #333; background: var(--grid-header-bg); border-bottom: 1px solid var(--border); border-right: 1px solid #ececec; padding: 9px 10px; white-space: nowrap; }
+.sec-tablebox th:last-child { border-right: none; }
+.sec-tablebox td { padding: 10px 10px; border-bottom: 1px solid var(--grid-line); vertical-align: middle; }
+.sec-tablebox tbody tr:last-child td { border-bottom: none; }
+.sec-tablebox tbody tr:hover td { background: #fafbfd; }
+.sec-view { background: none; border: none; color: var(--link); font-size: 12.5px; font-family: inherit; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sec-view:hover { text-decoration: underline; }
+
+/* Detail page meta: badges under the title (with breathing room from it) */
+.detail-meta { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; flex-wrap: wrap; }
+.meta-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #3f4a56; background: #eef1f4; border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px; white-space: nowrap; }
+.meta-badge i { font-size: 10.5px; color: var(--muted); }
+
+/* ─── Annotation footer (not product UI) ─────────────────────────────── */
+.demo-div { display: flex; align-items: center; gap: 12px; margin: 44px 0 14px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.demo-div::before, .demo-div::after { content: ""; flex: 1; border-top: 1px dashed #c9ced6; }
+.notes { background: #fffdf5; border: 1px dashed #d9c789; border-radius: 8px; padding: 18px 22px; font-size: 13px; }
+.notes h2 { font-size: 14px; margin: 0 0 8px; color: var(--heading); }
+.notes h3 { font-size: 13px; margin: 14px 0 4px; color: var(--heading); }
+.notes ul, .notes ol { margin: 4px 0 0 18px; padding: 0; }
+.notes li { margin-top: 6px; line-height: 1.5; }
+.notes b { color: var(--heading); font-weight: 500; }
+
+@media (max-width: 900px) {
+    .sidenav { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+    <!-- ============ Top bar (matches live platform) ============ -->
+    <div class="topnav">
+        <div class="logo">
+            <span class="vmark">V</span>
+            <span class="wordmark">
+                <div class="l1">Vector<b>Solutions</b></div>
+                <div class="l2">Vector Pathways</div>
+            </span>
+        </div>
+        <div class="crumbs" id="crumbs"></div>
+        <div class="spacer"></div>
+        <div class="pill-search"><i class="fa-solid fa-table-cells-large"></i> Navigation/Search <kbd>&#8984;K</kbd></div>
+        <span class="icon-link"><i class="fa-solid fa-filter"></i></span>
+        <span class="icon-link">Go to Resources</span>
+        <span class="icon-link"><i class="fa-regular fa-circle-question"></i></span>
+        <span class="avatar-sm"><i class="fa-solid fa-user"></i></span>
+    </div>
+
+    <div class="body-row">
+        <!-- ============ Sidenav (matches live platform) ============ -->
+        <nav class="sidenav">
+            <div class="org">
+                <div class="org-logo">CTE</div>
+                <div class="org-name">CTE District</div>
+                <div class="org-sub">District Administrator</div>
+                <div class="org-sub">Andy Xia</div>
+            </div>
+            <a class="nav-item" data-nav="dashboard"><i class="fa-solid fa-house"></i> Admin Dashboard</a>
+            <a class="nav-item" data-nav="experiences"><i class="fa-regular fa-compass"></i> Experiences</a>
+            <div class="nav-gap"></div>
+            <a class="nav-item" data-nav="create"><i class="fa-solid fa-circle-plus"></i> Create</a>
+            <a class="nav-item" data-nav="manage" onclick="showView('manage-home')"><i class="fa-solid fa-play"></i> Manage</a>
+            <div class="nav-gap"></div>
+            <a class="nav-item" data-nav="data"><i class="fa-solid fa-database"></i> Data Center</a>
+            <a class="nav-item" data-nav="edu"><i class="fa-solid fa-book-open"></i> Edu &amp; Career Planning</a>
+            <div class="nav-gap"></div>
+            <a class="nav-item" data-nav="settings"><i class="fa-solid fa-gear"></i> Settings</a>
+            <div class="collapse-btn"><i class="fa-solid fa-arrow-left"></i></div>
+        </nav>
+
+        <div class="main">
+        <div class="page">
+
+            <!-- ════════ Manage landing: demo hub so the flow is navigable.
+                        Real placement of these entries is TBC. ════════ -->
+            <div class="view" id="view-manage-home" hidden>
+                <h1 class="page-title">Manage</h1>
+                <div class="hub">
+                    <a onclick="openStudent('Emily','Growler')"><i class="fa-solid fa-user-group lead"></i> Stakeholders <span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+                    <a onclick="showView('manage-courses')"><i class="fa-solid fa-book-open lead"></i> Student Courses <span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+                    <a onclick="showView('manage-exams')"><i class="fa-solid fa-file-pen lead"></i> Student Exams <span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+                    <a class="inert"><i class="fa-solid fa-file-lines lead"></i> Forms</a>
+                    <a class="inert"><i class="fa-solid fa-layer-group lead"></i> Experience Templates</a>
+                </div>
+                <div class="page-sub" style="margin-top:12px">Stakeholders opens Emily Growler's Student Details directly in this demo; the students list is not part of this epic.</div>
+            </div>
+
+            <!-- ════════ Student Details (profile) with Courses / Exams tabs ════════ -->
+            <div class="view" id="view-profile" hidden>
+                <h1 class="page-title">Student Details</h1>
+                <div class="sd-card">
+                    <div class="sd-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div>
+                        <div class="sd-name" id="sd-name"></div>
+                        <div class="sd-meta" id="sd-meta"></div>
+                    </div>
+                    <div class="spacer"></div>
+                    <span class="btn-impersonate">
+                        <button class="b-main">Impersonate</button>
+                        <button class="b-caret"><i class="fa-solid fa-caret-down"></i></button>
+                    </span>
+                </div>
+
+                <!-- The platform's existing Student Details tab row with Courses and
+                     Exams added. Test Scores remains: separate existing feature. -->
+                <div class="sd-tabs" id="sd-tabs"></div>
+
+                <div class="tabpanel" id="panel-courses">
+                    <div class="tab-total" id="pc-total"></div>
+                    <div class="last-upload" id="pc-note"></div>
+                    <div class="grid-tools"><span class="showing" id="pc-showing"></span></div>
+                    <div class="gridbox">
+                        <div class="grid-scroll"><table class="grid" id="pc-table"></table></div>
+                        <div class="grid-foot" id="pc-foot" hidden></div>
+                    </div>
+                </div>
+
+                <div class="tabpanel" id="panel-exams" hidden>
+                    <div class="tab-total" id="pe-total"></div>
+                    <div class="last-upload" id="pe-note"></div>
+                    <div class="grid-tools"><span class="showing" id="pe-showing"></span></div>
+                    <div class="gridbox">
+                        <div class="grid-scroll"><table class="grid" id="pe-table"></table></div>
+                        <div class="grid-foot" id="pe-foot" hidden></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════ Manage > Student Courses (accordion to sections) ════════ -->
+            <div class="view" id="view-manage-courses" hidden>
+                <h1 class="page-title">Student Courses</h1>
+                <div class="page-sub" id="mc-sub"></div>
+                <div class="grid-tools"><span class="showing" id="mc-showing"></span></div>
+                <div class="gridbox">
+                    <div class="grid-scroll"><table class="grid" id="mc-table"></table></div>
+                    <div class="grid-foot" id="mc-foot" hidden></div>
+                </div>
+            </div>
+
+            <!-- ════════ Course / section drill-down roster ════════ -->
+            <div class="view" id="view-course-detail" hidden>
+                <button class="backlink" id="cd-back"></button>
+                <h1 class="page-title" id="cd-title" style="margin-bottom:12px"></h1>
+                <div class="detail-meta" id="cd-meta"></div>
+                <div class="grid-tools">
+                    <div class="left">
+                        <label for="cd-arch">Show</label>
+                        <select id="cd-arch" onchange="renderGrid('cd')">
+                            <option value="unarchived">Unarchived</option>
+                            <option value="archived">Archived</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
+                    <span class="showing" id="cd-showing"></span>
+                </div>
+                <div class="gridbox">
+                    <div class="grid-scroll"><table class="grid" id="cd-table"></table></div>
+                    <div class="grid-foot" id="cd-foot"></div>
+                </div>
+            </div>
+
+            <!-- ════════ Manage > Student Exams ════════ -->
+            <div class="view" id="view-manage-exams" hidden>
+                <h1 class="page-title">Student Exams</h1>
+                <div class="page-sub" id="me-sub"></div>
+                <div class="grid-tools"><span class="showing" id="me-showing"></span></div>
+                <div class="gridbox">
+                    <div class="grid-scroll"><table class="grid" id="me-table"></table></div>
+                    <div class="grid-foot" id="me-foot" hidden></div>
+                </div>
+            </div>
+
+            <!-- ════════ Exam drill-down roster ════════ -->
+            <div class="view" id="view-exam-detail" hidden>
+                <button class="backlink" id="ed-back"></button>
+                <h1 class="page-title" id="ed-title" style="margin-bottom:12px"></h1>
+                <div class="detail-meta" id="ed-meta"></div>
+                <div class="grid-tools">
+                    <div class="left">
+                        <label for="ed-arch">Show</label>
+                        <select id="ed-arch" onchange="renderGrid('ed')">
+                            <option value="unarchived">Unarchived</option>
+                            <option value="archived">Archived</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
+                    <span class="showing" id="ed-showing"></span>
+                </div>
+                <div class="gridbox">
+                    <div class="grid-scroll"><table class="grid" id="ed-table"></table></div>
+                    <div class="grid-foot" id="ed-foot"></div>
+                </div>
+            </div>
+
+            <!-- ═ Annotation only · not product UI ═ -->
+            <div class="demo-div">Implementation notes for the team · not part of the product UI</div>
+            <section class="notes">
+                <h2>V2 · platform-native restyle + 7/29 feedback round (VPATH-15545)</h2>
+                <ol>
+                    <li><b>Chrome:</b> rebuilt from live-platform screenshots: VectorSolutions top bar with slash breadcrumbs and command-K search, gray sidenav (Manage active for these pages), Student Details card with Impersonate, and the existing tab row now carrying <b>Courses</b> and <b>Exams</b>. Test Scores stays as its own existing tab.</li>
+                    <li><b>Grids:</b> filters moved into the column headers: the funnel opens the platform's standard filter popup (operator + value, live). Headers click-to-sort. "Showing X of Y" and "No Rows To Show" match the platform grid.</li>
+                    <li><b>Exams tables:</b> new <b>Category</b> column (grouping such as Regents_Math), <b>Upload Date</b> column, Status column removed, and records that are In Progress or Withdrawn are filtered out everywhere exams render. Counts reflect completed records only.</li>
+                    <li><b>Courses tables:</b> <b>Upload Date</b> added; Grade Level renders as a number in all grids.</li>
+                    <li><b>Names:</b> all student names format as Last, First and link to that student's Student View. Any student opens a real profile: their course and exam records derive from the same section rosters.</li>
+                    <li><b>Sections:</b> each course splits into sections that drive rosters. Expanding a course in Student Courses shows a sections table (Instructor, Section, Number of Students, View Section). View Section opens the course table with the Section column's header filter pre-applied; clearing that filter from the funnel shows the whole course. Rosters carry <b>Section</b> and <b>Teacher</b> columns.</li>
+                    <li><b>Banner:</b> per-surface wording plus a computed Last upload date; the exams banner states that only completed exam records are shown.</li>
+                </ol>
+                <h3>Assumptions to confirm</h3>
+                <ul>
+                    <li>Category values (Regents_Math, Regents_SS, Regents_ELA, Regents_Science, CTE_Assessment) follow the "Regions_Math" example; one array to change if the feed differs.</li>
+                    <li>The Manage landing here is a demo hub only, so the flow is navigable; confirm where Student Courses / Student Exams live in the real Manage area.</li>
+                    <li>Archived/Unarchived/All sits above the roster grids since archived state is not a column; the rename to "Active" stays deferred per the PRD.</li>
+                    <li>Upload Date = the date the record's data was received (nightly upload batches in this demo: 07/22, 07/25, 07/28).</li>
+                </ul>
+            </section>
+
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- Header filter popup (one instance, anchored to the active funnel) -->
+<div class="filter-pop" id="filter-pop">
+    <select id="fp-op" onchange="fpChanged()">
+        <option value="contains">Contains</option>
+        <option value="equals">Equals</option>
+        <option value="gte">Greater than or equal</option>
+        <option value="lte">Less than or equal</option>
+    </select>
+    <input id="fp-val" type="text" placeholder="Filter..." oninput="fpChanged()">
+    <div class="pop-foot"><button class="pop-clear" onclick="fpClear()">Clear</button></div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════════════════
+// Demo data. Rosters generate deterministically from the record id so the
+// mock stays stable between loads (no randomness).
+// ═════════════════════════════════════════════════════════════════════════
+
+const SCHOOL = 'Acero-Garcia High School';
+const UPLOAD_BATCHES = ['07/22/2026', '07/25/2026', '07/28/2026'];
+const LAST_UPLOAD = UPLOAD_BATCHES[UPLOAD_BATCHES.length - 1];
+
+// Courses split into sections; sections drive rosters (feedback round).
+const COURSES = [
+    { id: 'alg2h', name: 'Algebra II (Honors)',                     students: 28,  classification: 'Honors',             gradeBase: 10, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Ms. Jones' }, { period: 'Period 4', teacher: 'Ms. Jones' } ] },
+    { id: 'alg2',  name: 'Algebra II',                              students: 63,  classification: 'General Education',  gradeBase: 10, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 2', teacher: 'Mr. Delgado' }, { period: 'Period 5', teacher: 'Ms. Whitfield' }, { period: 'Period 7', teacher: 'Mr. Delgado' } ] },
+    { id: 'apush', name: 'AP US History',                           students: 24,  classification: 'Advanced Placement', gradeBase: 11, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 3', teacher: 'Ms. Chen' } ] },
+    { id: 'chemh', name: 'Chemistry (Honors)',                      students: 31,  classification: 'Honors',             gradeBase: 10, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Mr. Novak' }, { period: 'Period 6', teacher: 'Mr. Novak' } ] },
+    { id: 'chem',  name: 'Chemistry',                               students: 84,  classification: 'General Education',  gradeBase: 10, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 2', teacher: 'Mr. Novak' }, { period: 'Period 5', teacher: 'Ms. Foster' } ] },
+    { id: 'health',name: 'Health',                                  students: 156, classification: 'General Education',  gradeBase: 9,  gradeSpan: 2, scoreType: 'passfail',
+      sections: [ { period: 'Period 3', teacher: 'Ms. Barnes' }, { period: 'Period 7', teacher: 'Mr. Vaughn' } ] },
+    { id: 'eng11', name: 'English 11',                              students: 118, classification: 'General Education',  gradeBase: 11, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Ms. Brooks' }, { period: 'Period 2', teacher: 'Ms. Brooks' }, { period: 'Period 4', teacher: 'Mr. Reyes' }, { period: 'Period 6', teacher: 'Ms. Sullivan' }, { period: 'Period 8', teacher: 'Mr. Reyes' } ] },
+    { id: 'ghg1',  name: 'Global History & Geography I',            students: 108, classification: 'General Education',  gradeBase: 9,  gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Mr. Foster' }, { period: 'Period 3', teacher: 'Ms. Kim' }, { period: 'Period 5', teacher: 'Mr. Foster' }, { period: 'Period 7', teacher: 'Ms. Kim' } ] },
+    { id: 'ghg2',  name: 'Global History & Geography II',           students: 104, classification: 'General Education',  gradeBase: 10, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 2', teacher: 'Ms. Torres' }, { period: 'Period 4', teacher: 'Mr. Price' }, { period: 'Period 6', teacher: 'Ms. Torres' }, { period: 'Period 8', teacher: 'Mr. Price' } ] },
+    { id: 'pig',   name: 'Participation in Government & Economics', students: 96,  classification: 'General Education',  gradeBase: 11, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Mr. Quinn' }, { period: 'Period 3', teacher: 'Mr. Quinn' }, { period: 'Period 5', teacher: 'Ms. Haddad' }, { period: 'Period 7', teacher: 'Ms. Haddad' } ] },
+    { id: 'pe',    name: 'Physical Education',                      students: 210, classification: 'General Education',  gradeBase: 9,  gradeSpan: 4, scoreType: 'passfail',
+      sections: [ { period: 'Period 1', teacher: 'Coach Ivanov' }, { period: 'Period 2', teacher: 'Coach Ivanov' }, { period: 'Period 3', teacher: 'Coach Mercado' }, { period: 'Period 5', teacher: 'Coach Mercado' }, { period: 'Period 6', teacher: 'Coach Yang' }, { period: 'Period 8', teacher: 'Coach Yang' } ] },
+    { id: 'ush',   name: 'US History & Government',                 students: 112, classification: 'General Education',  gradeBase: 11, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Ms. Alvarez' }, { period: 'Period 2', teacher: 'Ms. Alvarez' }, { period: 'Period 4', teacher: 'Mr. Okafor' }, { period: 'Period 6', teacher: 'Mr. Okafor' } ] },
+];
+
+// Exams carry a Category (grouping from the feed, e.g. Regents_Math).
+const EXAMS = [
+    { id: 'x-alg1',  name: 'NY Regents: Algebra I',                     category: 'Regents_Math',    students: 122, classification: 'General Education', gradeBase: 9,  gradeSpan: 2, scoreType: 'numeric'  },
+    { id: 'x-alg2h', name: 'NY Regents: Algebra II',                    category: 'Regents_Math',    students: 54,  classification: 'Honors',            gradeBase: 10, gradeSpan: 2, scoreType: 'numeric'  },
+    { id: 'x-cte',   name: 'CTE Technical Assessment: Hospitality',     category: 'CTE_Assessment',  students: 36,  classification: 'General Education', gradeBase: 10, gradeSpan: 3, scoreType: 'passfail' },
+    { id: 'x-ela',   name: 'NY Regents: English Language Arts',         category: 'Regents_ELA',     students: 118, classification: 'General Education', gradeBase: 11, gradeSpan: 1, scoreType: 'numeric'  },
+    { id: 'x-ghg2',  name: 'NY Regents: Global History & Geography II', category: 'Regents_SS',      students: 104, classification: 'General Education', gradeBase: 10, gradeSpan: 1, scoreType: 'numeric'  },
+    { id: 'x-liv',   name: 'NY Regents: Living Environment',            category: 'Regents_Science', students: 101, classification: 'General Education', gradeBase: 9,  gradeSpan: 2, scoreType: 'numeric'  },
+    { id: 'x-ush',   name: 'NY Regents: US History & Government',       category: 'Regents_SS',      students: 96,  classification: 'General Education', gradeBase: 11, gradeSpan: 1, scoreType: 'numeric'  },
+];
+
+const FIRST = ['Emily','Noah','Olivia','Liam','Ava','Mateo','Sophia','Jackson','Isabella','Ethan','Mia','Lucas','Amelia','Aiden','Harper','Caleb','Zoe','Daniel','Layla','Owen','Priya','Marcus','Nina','Diego','Grace','Tyler','Jasmine','Cole'];
+const LAST  = ['Growler','Acosta','Chen','Patel','Robinson','Nguyen','Kowalski','Barnes','Delgado','Foster','Haddad','Ivanov','Jefferson','Kim','Lombardi','Mercado','Novak','Okafor','Price','Quinn','Reyes','Sullivan','Torres','Underwood','Vaughn','Whitfield','Yang','Zimmerman'];
+const STATUS_PATTERN = ['complete','complete','complete','inprogress','complete','complete','withdrawn','complete','inprogress','complete','complete','complete'];
+const STATUS_LABEL = { complete: 'Complete', inprogress: 'In Progress', withdrawn: 'Withdrawn' };
+
+// Emily pinned into her profile-relevant rosters so the story is consistent.
+const PINNED = {
+    'ush': { first: 'Emily', last: 'Growler', status: 'complete',   grade: 11, score: '87', archived: false, secIdx: 0, uploadDate: '07/22/2026' },
+    'pig': { first: 'Emily', last: 'Growler', status: 'inprogress', grade: 11, score: '–',  archived: false, secIdx: 0, uploadDate: '07/28/2026' },
+};
+
+function hashId(s) {
+    let h = 7;
+    for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 997;
+    return h;
+}
+
+// Deterministic roster for a course or exam record.
+const rosterCache = {};
+function rosterFor(item) {
+    if (rosterCache[item.id]) return rosterCache[item.id];
+    const h = hashId(item.id);
+    const rows = [];
+    for (let i = 0; i < item.students; i++) {
+        const status = STATUS_PATTERN[(h + i) % STATUS_PATTERN.length];
+        let score = '–';
+        if (status === 'complete') {
+            score = item.scoreType === 'passfail'
+                ? (((h + i * 3) % 11) === 7 ? 'Fail' : 'Pass')
+                : String(66 + ((h + i * 17) % 33));
+        }
+        rows.push({
+            first: FIRST[(h + i * 9) % FIRST.length],
+            last: LAST[(h * 3 + i * 11) % LAST.length],
+            status: status,
+            grade: item.gradeBase + ((h + i * 5) % item.gradeSpan),
+            score: score,
+            archived: ((h + i * 13) % 17) === 4,          // roughly 6% archived
+            secIdx: item.sections ? i % item.sections.length : 0,
+            uploadDate: UPLOAD_BATCHES[(h + i * 7) % UPLOAD_BATCHES.length],
+        });
+    }
+    if (PINNED[item.id]) rows[0] = PINNED[item.id];
+    rosterCache[item.id] = rows;
+    return rows;
+}
+
+// Exams render completed records only (feedback: In Progress and Withdrawn
+// are filtered out; the Status column is gone).
+function examRoster(item) { return rosterFor(item).filter(r => r.status === 'complete'); }
+
+const displayName = r => r.last + ', ' + r.first;
+const studentLink = r => '<a class="cell-link" onclick="openStudent(\'' + r.first + '\',\'' + r.last + '\')">' + displayName(r) + '</a>';
+
+// Resolve a Student Details course/exam record (keyed by display name) back to
+// its catalog id, so the name drills into that course/exam roster. Falls back
+// to plain text if no matching catalog record exists.
+const courseIdByName = name => { const c = COURSES.find(c => c.name === name); return c ? c.id : null; };
+const examIdByName   = name => { const x = EXAMS.find(x => x.name === name);   return x ? x.id : null; };
+// On a student's profile the name links carry the student, so the roster page
+// can say "Back to {Student}'s Courses/Exams" and route back to their tab.
+const courseNameCell = r => { const id = courseIdByName(r.name); return id ? '<a class="cell-link" onclick="openCourseFromStudent(\'' + id + '\',\'' + currentStudent.first + '\',\'' + currentStudent.last + '\')">' + r.name + '</a>' : r.name; };
+const examNameCell   = r => { const id = examIdByName(r.name);   return id ? '<a class="cell-link" onclick="openExamFromStudent(\'' + id + '\',\'' + currentStudent.first + '\',\'' + currentStudent.last + '\')">' + r.name + '</a>' : r.name; };
+
+// Meta badges shown under the roster-page titles.
+function metaBadge(icon, text, extra) { return '<span class="meta-badge' + (extra ? ' ' + extra : '') + '"><i class="fa-solid ' + icon + '"></i>' + text + '</span>'; }
+
+// ═════════════════════════════════════════════════════════════════════════
+// Mini grid engine: header filters (funnel popup), sort, paging.
+// One config per table, rendered into <table class="grid">.
+// ═════════════════════════════════════════════════════════════════════════
+const GRIDS = {};
+function defineGrid(id, cfg) { GRIDS[id] = { id, cfg, sort: null, filters: {}, page: 0, expanded: {} }; }
+
+function fmatch(op, val, cell) {
+    const s = String(cell).toLowerCase(), v = String(val).toLowerCase();
+    if (op === 'contains') return s.includes(v);
+    if (op === 'equals') return s === v;
+    const n = parseFloat(cell), m = parseFloat(val);
+    if (isNaN(n) || isNaN(m)) return false;
+    return op === 'gte' ? n >= m : n <= m;
+}
+
+function gridRows(g) {
+    let rows = g.cfg.rows();
+    for (const key in g.filters) {
+        const f = g.filters[key];
+        if (!f || f.val === '') continue;
+        const col = g.cfg.columns.find(c => c.key === key);
+        rows = rows.filter(r => fmatch(f.op, f.val, col.val(r)));
+    }
+    if (g.sort) {
+        const col = g.cfg.columns.find(c => c.key === g.sort.key);
+        const dir = g.sort.dir;
+        rows = [...rows].sort((a, b) => {
+            const av = col.val(a), bv = col.val(b);
+            const an = parseFloat(av), bn = parseFloat(bv);
+            const cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : String(av).localeCompare(String(bv));
+            return dir === 'asc' ? cmp : -cmp;
+        });
+    }
+    return rows;
+}
+
+function renderGrid(id) {
+    const g = GRIDS[id];
+    const total = g.cfg.rows().length;
+    const rows = gridRows(g);
+    const cols = g.cfg.columns;
+
+    // Header: label (click to sort), sort arrow, funnel (opens filter popup)
+    let html = '<thead><tr>' + cols.map(c => {
+        const sorted = g.sort && g.sort.key === c.key;
+        const arrow = sorted ? '<i class="fa-solid fa-arrow-' + (g.sort.dir === 'asc' ? 'up' : 'down') + '-long sort-ico"></i>' : '';
+        const active = g.filters[c.key] && g.filters[c.key].val !== '';
+        const funnel = c.noFilter ? '' :
+            '<button class="funnel' + (active ? ' on' : '') + '" onclick="openFilter(this,\'' + id + '\',\'' + c.key + '\')" title="Filter"><i class="fa-solid fa-filter"></i></button>';
+        const lab = c.noSort ? '<span>' + c.label + '</span>' :
+            '<span class="th-lab" onclick="sortGrid(\'' + id + '\',\'' + c.key + '\')">' + c.label + ' ' + arrow + '</span>';
+        return '<th' + (c.width ? ' style="width:' + c.width + '"' : '') + '><span class="th-inner">' + lab + funnel + '</span></th>';
+    }).join('') + '</tr></thead>';
+
+    // Body (with optional paging and accordion expansion rows)
+    let slice = rows, start = 0;
+    if (g.cfg.pageSize) {
+        const maxPage = Math.max(0, Math.ceil(rows.length / g.cfg.pageSize) - 1);
+        g.page = Math.min(g.page, maxPage);
+        start = g.page * g.cfg.pageSize;
+        slice = rows.slice(start, start + g.cfg.pageSize);
+    }
+    html += '<tbody>' + (slice.length
+        ? slice.map(r => {
+            let tr = '<tr>' + cols.map(c => '<td>' + c.cell(r) + '</td>').join('') + '</tr>';
+            if (g.cfg.expansion && g.expanded[g.cfg.rowId(r)]) {
+                tr += '<tr class="expand-row"><td colspan="' + cols.length + '">' + g.cfg.expansion(r) + '</td></tr>';
+            }
+            return tr;
+        }).join('')
+        : '<tr><td colspan="' + cols.length + '"><div class="no-rows">No Rows To Show</div></td></tr>') + '</tbody>';
+
+    document.getElementById(g.cfg.mount + '-table').innerHTML = html;
+    document.getElementById(g.cfg.mount + '-showing').textContent = 'Showing ' + rows.length + ' of ' + total;
+
+    const foot = document.getElementById(g.cfg.mount + '-foot');
+    if (foot) {
+        if (g.cfg.pageSize && rows.length > g.cfg.pageSize) {
+            foot.hidden = false;
+            foot.innerHTML = '<span>' + (start + 1) + '-' + (start + slice.length) + ' of ' + rows.length + '</span>' +
+                '<button class="pager-btn" ' + (g.page === 0 ? 'disabled' : '') + ' onclick="pageGrid(\'' + id + '\',-1)"><i class="fa-solid fa-chevron-left"></i></button>' +
+                '<button class="pager-btn" ' + (start + slice.length >= rows.length ? 'disabled' : '') + ' onclick="pageGrid(\'' + id + '\',1)"><i class="fa-solid fa-chevron-right"></i></button>';
+        } else { foot.hidden = true; foot.innerHTML = ''; }
+    }
+}
+
+function sortGrid(id, key) {
+    const g = GRIDS[id];
+    if (!g.sort || g.sort.key !== key) g.sort = { key, dir: 'asc' };
+    else if (g.sort.dir === 'asc') g.sort.dir = 'desc';
+    else g.sort = null;
+    renderGrid(id);
+}
+function pageGrid(id, dir) { GRIDS[id].page += dir; renderGrid(id); }
+
+// ── Header filter popup ──
+const pop = document.getElementById('filter-pop');
+let popTarget = null;   // { gridId, key }
+function openFilter(btn, gridId, key) {
+    const g = GRIDS[gridId];
+    const cur = g.filters[key] || { op: 'contains', val: '' };
+    popTarget = { gridId, key };
+    document.getElementById('fp-op').value = cur.op;
+    document.getElementById('fp-val').value = cur.val;
+    pop.style.display = 'block';
+    const r = btn.getBoundingClientRect();
+    let left = r.left - 8;
+    if (left + 200 > window.innerWidth - 10) left = window.innerWidth - 210;
+    pop.style.top = (r.bottom + 6) + 'px';
+    pop.style.left = left + 'px';
+    document.getElementById('fp-val').focus();
+}
+function fpChanged() {
+    if (!popTarget) return;
+    GRIDS[popTarget.gridId].filters[popTarget.key] = {
+        op: document.getElementById('fp-op').value,
+        val: document.getElementById('fp-val').value.trim(),
+    };
+    GRIDS[popTarget.gridId].page = 0;
+    renderGrid(popTarget.gridId);
+}
+function fpClear() {
+    if (!popTarget) return;
+    delete GRIDS[popTarget.gridId].filters[popTarget.key];
+    renderGrid(popTarget.gridId);
+    closePop();
+}
+function closePop() { pop.style.display = 'none'; popTarget = null; }
+document.addEventListener('mousedown', e => {
+    if (pop.style.display === 'block' && !e.target.closest('.filter-pop') && !e.target.closest('.funnel')) closePop();
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Views + breadcrumb (slash style, matching the live platform)
+// ═════════════════════════════════════════════════════════════════════════
+const crumbsEl = document.getElementById('crumbs');
+function crumbHTML(parts) {
+    let html = '<i class="fa-solid fa-house"></i>';
+    parts.forEach((p, i) => {
+        html += '<span class="sl">/</span>';
+        html += (i === parts.length - 1)
+            ? '<span class="here">' + p.label + '</span>'
+            : (p.view ? '<a onclick="' + p.view + '">' + p.label + '</a>' : '<span>' + p.label + '</span>');
+    });
+    return html;
+}
+
+const NAV_FOR_VIEW = { 'manage-home': 'manage', 'profile': 'manage', 'manage-courses': 'manage', 'course-detail': 'manage', 'manage-exams': 'manage', 'exam-detail': 'manage' };
+
+function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.hidden = (v.id !== 'view-' + id));
+    document.querySelectorAll('.sidenav a.nav-item').forEach(a => a.classList.toggle('active', a.dataset.nav === NAV_FOR_VIEW[id]));
+    closePop();
+    if (id === 'manage-home') crumbsEl.innerHTML = crumbHTML([{ label: 'Manage' }]);
+    if (id === 'profile') crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Stakeholders' }, { label: 'Students' }, { label: 'Details' }]);
+    if (id === 'manage-courses') crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Student Courses' }]);
+    if (id === 'manage-exams') crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Student Exams' }]);
+    if (id === 'course-detail') {
+        if (detailOrigin.type === 'student') {
+            const s = detailOrigin.student;
+            crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Stakeholders' }, { label: 'Students' }, { label: s.first + ' ' + s.last, view: "openStudent('" + s.first + "','" + s.last + "')" }, { label: detail.item.name }]);
+        } else {
+            crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Student Courses', view: "showView('manage-courses')" }, { label: detail.item.name }]);
+        }
+    }
+    if (id === 'exam-detail') {
+        if (detailOrigin.type === 'student') {
+            const s = detailOrigin.student;
+            crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Stakeholders' }, { label: 'Students' }, { label: s.first + ' ' + s.last, view: "openStudent('" + s.first + "','" + s.last + "')" }, { label: detail.item.name }]);
+        } else {
+            crumbsEl.innerHTML = crumbHTML([{ label: 'Manage', view: "showView('manage-home')" }, { label: 'Student Exams', view: "showView('manage-exams')" }, { label: detail.item.name }]);
+        }
+    }
+    window.scrollTo(0, 0);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Student Details (Student View): header, tab row, per-student records
+// ═════════════════════════════════════════════════════════════════════════
+const SD_TABS = ['Information','Parents','Time Logs','Experiences','Activities','Service','Tasks','Notes','Emails','Forms','Files','Courses','Exams','Test Scores','Career Surveys','Credentials','Badges'];
+let currentStudent = { first: 'Emily', last: 'Growler' };
+let profileTab = 'courses';
+
+// Emily keeps a hand-curated record set (richer story than the generated
+// rosters alone); every other student derives from the rosters they appear in.
+const EMILY_COURSES = [
+    { name: 'Participation in Government & Economics', status: 'inprogress', grade: 11, score: '–',    uploadDate: '07/28/2026' },
+    { name: 'English 11',                              status: 'inprogress', grade: 11, score: '–',    uploadDate: '07/28/2026' },
+    { name: 'US History & Government',                 status: 'complete',   grade: 11, score: '87',   uploadDate: '07/22/2026' },
+    { name: 'Algebra II (Honors)',                     status: 'complete',   grade: 10, score: '84',   uploadDate: '07/22/2026' },
+    { name: 'Global History & Geography II',           status: 'complete',   grade: 10, score: '91',   uploadDate: '07/22/2026' },
+    { name: 'Chemistry',                               status: 'withdrawn',  grade: 10, score: '–',    uploadDate: '07/22/2026' },
+    { name: 'Health',                                  status: 'complete',   grade: 10, score: 'Pass', uploadDate: '07/22/2026' },
+    { name: 'Global History & Geography I',            status: 'complete',   grade: 9,  score: '88',   uploadDate: '07/22/2026' },
+    { name: 'Physical Education',                      status: 'complete',   grade: 9,  score: 'Pass', uploadDate: '07/22/2026' },
+];
+// Includes an in-progress and a withdrawn exam on purpose: the exams tab
+// filters them out, which the banner explains.
+const EMILY_EXAMS = [
+    { name: 'NY Regents: US History & Government',       category: 'Regents_SS',     status: 'inprogress', grade: 11, score: '–',    uploadDate: '07/28/2026' },
+    { name: 'NY Regents: English Language Arts',         category: 'Regents_ELA',    status: 'complete',   grade: 11, score: '88',   uploadDate: '07/25/2026' },
+    { name: 'NY Regents: Global History & Geography II', category: 'Regents_SS',     status: 'complete',   grade: 10, score: '82',   uploadDate: '07/22/2026' },
+    { name: 'NY Regents: Living Environment',            category: 'Regents_Science',status: 'withdrawn',  grade: 10, score: '–',    uploadDate: '07/22/2026' },
+    { name: 'CTE Technical Assessment: Hospitality',     category: 'CTE_Assessment', status: 'complete',   grade: 10, score: 'Pass', uploadDate: '07/22/2026' },
+    { name: 'NY Regents: Algebra I',                     category: 'Regents_Math',   status: 'complete',   grade: 9,  score: '79',   uploadDate: '07/22/2026' },
+];
+
+function isEmily(s) { return s.first === 'Emily' && s.last === 'Growler'; }
+
+function studentCourseRecords(s) {
+    if (isEmily(s)) return EMILY_COURSES;
+    const recs = [];
+    COURSES.forEach(c => {
+        const row = rosterFor(c).find(r => r.first === s.first && r.last === s.last);
+        if (row) recs.push({ name: c.name, status: row.status, grade: row.grade, score: row.score, uploadDate: row.uploadDate });
+    });
+    return recs.sort((a, b) => b.grade - a.grade);
+}
+function studentExamRecords(s) {
+    const all = isEmily(s) ? EMILY_EXAMS : (() => {
+        const recs = [];
+        EXAMS.forEach(x => {
+            const row = rosterFor(x).find(r => r.first === s.first && r.last === s.last);
+            if (row) recs.push({ name: x.name, category: x.category, status: row.status, grade: row.grade, score: row.score, uploadDate: row.uploadDate });
+        });
+        return recs.sort((a, b) => b.grade - a.grade);
+    })();
+    return all.filter(r => r.status === 'complete');   // completed only, everywhere exams render
+}
+
+function openStudent(first, last) {
+    currentStudent = { first, last };
+    document.getElementById('sd-name').textContent = first + ' ' + last;
+    const courses = studentCourseRecords(currentStudent);
+    const grade = isEmily(currentStudent) ? 11 : (courses.length ? Math.max(...courses.map(r => r.grade)) : 11);
+    document.getElementById('sd-meta').innerHTML = SCHOOL + '<br>Grade: ' + grade;
+    renderProfileTabs();
+    showProfileTab(profileTab === 'exams' ? 'exams' : 'courses');
+    showView('profile');
+}
+
+function renderProfileTabs() {
+    document.getElementById('sd-tabs').innerHTML = SD_TABS.map(t => {
+        if (t === 'Courses') return '<button class="sd-tab' + (profileTab === 'courses' ? ' active' : '') + '" onclick="showProfileTab(\'courses\')">Courses</button>';
+        if (t === 'Exams') return '<button class="sd-tab' + (profileTab === 'exams' ? ' active' : '') + '" onclick="showProfileTab(\'exams\')">Exams</button>';
+        return '<button class="sd-tab inert">' + t + '</button>';
+    }).join('');
+}
+
+function showProfileTab(tab) {
+    profileTab = tab;
+    document.getElementById('panel-courses').hidden = (tab !== 'courses');
+    document.getElementById('panel-exams').hidden = (tab !== 'exams');
+    renderProfileTabs();
+    if (tab === 'courses') {
+        const recs = studentCourseRecords(currentStudent);
+        document.getElementById('pc-total').textContent = 'Total Course Records: ' + recs.length;
+        document.getElementById('pc-note').innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Last upload ' + lastUploadOf(recs);
+        renderGrid('pc');
+    } else {
+        const recs = studentExamRecords(currentStudent);
+        document.getElementById('pe-total').textContent = 'Total Exam Records: ' + recs.length;
+        document.getElementById('pe-note').innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Last upload ' + lastUploadOf(recs);
+        renderGrid('pe');
+    }
+}
+function lastUploadOf(recs) {
+    if (!recs.length) return LAST_UPLOAD;
+    return recs.map(r => r.uploadDate).sort((a, b) => new Date(a) - new Date(b)).pop();
+}
+
+// Profile grids (per-column filters + sort, same engine as the manage grids)
+defineGrid('pc', {
+    mount: 'pc',
+    rows: () => studentCourseRecords(currentStudent),
+    columns: [
+        { key: 'name',   label: 'Course', width: '34%', val: r => r.name,                 cell: r => courseNameCell(r) },
+        { key: 'status', label: 'Status',               val: r => STATUS_LABEL[r.status], cell: r => '<span class="chip ' + r.status + '">' + STATUS_LABEL[r.status] + '</span>' },
+        { key: 'grade',  label: 'Grade Level',          val: r => r.grade,                cell: r => r.grade },
+        { key: 'score',  label: 'Score',                val: r => r.score,                cell: r => r.score === '–' ? '<span class="cell-muted">–</span>' : r.score },
+        { key: 'upload', label: 'Upload Date',          val: r => r.uploadDate,           cell: r => r.uploadDate },
+    ],
+});
+defineGrid('pe', {
+    mount: 'pe',
+    rows: () => studentExamRecords(currentStudent),
+    columns: [
+        { key: 'name',     label: 'Exam', width: '30%', val: r => r.name,       cell: r => examNameCell(r) },
+        { key: 'category', label: 'Category',           val: r => r.category,   cell: r => r.category },
+        { key: 'grade',    label: 'Grade Level',        val: r => r.grade,      cell: r => r.grade },
+        { key: 'score',    label: 'Score',              val: r => r.score,      cell: r => r.score },
+        { key: 'upload',   label: 'Upload Date',        val: r => r.uploadDate, cell: r => r.uploadDate },
+    ],
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Manage > Student Courses: grid with the sections accordion
+// ═════════════════════════════════════════════════════════════════════════
+// Expanded course row: the sections laid out as a table (Instructor,
+// Section, Number of Students, View Section as the action).
+function sectionsPanel(course) {
+    const roster = rosterFor(course);
+    return '<div class="sec-cap">Sections</div><div class="sec-tablebox"><table>' +
+        '<thead><tr><th>Instructor</th><th>Section</th><th>Number of Students</th><th></th></tr></thead><tbody>' +
+        course.sections.map((s, idx) =>
+            '<tr>' +
+                '<td>' + s.teacher + '</td>' +
+                '<td>' + s.period + '</td>' +
+                '<td>' + roster.filter(r => r.secIdx === idx).length + '</td>' +
+                '<td style="text-align:right"><button class="sec-view" onclick="openSection(\'' + course.id + '\',' + idx + ')">View Section <i class="fa-solid fa-chevron-right" style="font-size:10px"></i></button></td>' +
+            '</tr>'
+        ).join('') + '</tbody></table></div>';
+}
+
+function toggleExpand(id, courseId) {
+    const g = GRIDS[id];
+    g.expanded[courseId] = !g.expanded[courseId];
+    renderGrid(id);
+}
+
+defineGrid('mc', {
+    mount: 'mc',
+    rows: () => COURSES,
+    rowId: c => c.id,
+    expansion: c => sectionsPanel(c),
+    columns: [
+        { key: 'exp', label: '', width: '36px', noSort: true, noFilter: true, val: () => '',
+          cell: c => '<button class="exp-btn' + (GRIDS.mc.expanded[c.id] ? ' open' : '') + '" onclick="toggleExpand(\'mc\',\'' + c.id + '\')" title="Show sections"><i class="fa-solid fa-chevron-right"></i></button>' },
+        { key: 'name',  label: 'Course', width: '38%', val: c => c.name, cell: c => '<a class="cell-link" onclick="openCourse(\'' + c.id + '\')">' + c.name + '</a>' },
+        { key: 'count', label: 'Number of Students', val: c => rosterFor(c).length, cell: c => rosterFor(c).length },
+        { key: 'class', label: 'Classification',     val: c => c.classification,    cell: c => c.classification },
+        { key: 'view',  label: '', width: '150px', noSort: true, noFilter: true, val: () => '',
+          cell: c => '<div style="text-align:right"><button class="sec-view" onclick="openCourse(\'' + c.id + '\')">View Course <i class="fa-solid fa-chevron-right" style="font-size:10px"></i></button></div>' },
+    ],
+});
+
+defineGrid('me', {
+    mount: 'me',
+    rows: () => EXAMS,
+    columns: [
+        { key: 'name',     label: 'Exam', width: '36%', val: x => x.name, cell: x => '<a class="cell-link" onclick="openExam(\'' + x.id + '\')">' + x.name + '</a>' },
+        { key: 'category', label: 'Category',           val: x => x.category,           cell: x => x.category },
+        { key: 'count',    label: 'Number of Students', val: x => examRoster(x).length, cell: x => examRoster(x).length },
+        { key: 'class',    label: 'Classification',     val: x => x.classification,     cell: x => x.classification },
+    ],
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Drill-downs: course roster (optionally scoped to a section) and exam roster
+// ═════════════════════════════════════════════════════════════════════════
+let detail = { kind: 'course', item: COURSES[0] };
+let detailOrigin = { type: 'manage' };   // or { type: 'student', student: { first, last } }
+
+function archFilter(selectId) {
+    const mode = document.getElementById(selectId).value;
+    return r => mode === 'all' || (mode === 'archived' ? r.archived : !r.archived);
+}
+
+defineGrid('cd', {
+    mount: 'cd',
+    pageSize: 25,
+    rows: () => rosterFor(detail.item).filter(archFilter('cd-arch')),
+    columns: [
+        { key: 'name',    label: 'Student Name', width: '24%', val: r => displayName(r),
+          cell: r => studentLink(r) + (document.getElementById('cd-arch').value !== 'unarchived' && r.archived ? '<span class="tag-archived">Archived</span>' : '') },
+        { key: 'section', label: 'Section', val: r => detail.item.sections[r.secIdx].period, cell: r => detail.item.sections[r.secIdx].period },
+        { key: 'teacher', label: 'Teacher', val: r => detail.item.sections[r.secIdx].teacher, cell: r => detail.item.sections[r.secIdx].teacher },
+        { key: 'status',  label: 'Status',      val: r => STATUS_LABEL[r.status], cell: r => '<span class="chip ' + r.status + '">' + STATUS_LABEL[r.status] + '</span>' },
+        { key: 'grade',   label: 'Grade Level', val: r => r.grade,                cell: r => r.grade },
+        { key: 'score',   label: 'Score',       val: r => r.score,                cell: r => r.score === '–' ? '<span class="cell-muted">–</span>' : r.score },
+        { key: 'upload',  label: 'Upload Date', val: r => r.uploadDate,           cell: r => r.uploadDate },
+    ],
+});
+
+defineGrid('ed', {
+    mount: 'ed',
+    pageSize: 25,
+    rows: () => examRoster(detail.item).filter(archFilter('ed-arch')),
+    columns: [
+        { key: 'name',   label: 'Student Name', width: '30%', val: r => displayName(r),
+          cell: r => studentLink(r) + (document.getElementById('ed-arch').value !== 'unarchived' && r.archived ? '<span class="tag-archived">Archived</span>' : '') },
+        { key: 'grade',  label: 'Grade Level', val: r => r.grade,      cell: r => r.grade },
+        { key: 'score',  label: 'Score',       val: r => r.score,      cell: r => r.score },
+        { key: 'upload', label: 'Upload Date', val: r => r.uploadDate, cell: r => r.uploadDate },
+    ],
+});
+
+function resetGrid(id) { const g = GRIDS[id]; g.sort = null; g.filters = {}; g.page = 0; }
+
+function openCourse(id, origin) {
+    detail = { kind: 'course', item: COURSES.find(c => c.id === id) };
+    detailOrigin = origin || { type: 'manage' };
+    resetGrid('cd');
+    document.getElementById('cd-arch').value = 'unarchived';
+    const back = document.getElementById('cd-back');
+    if (detailOrigin.type === 'student') {
+        const s = detailOrigin.student;
+        back.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to ' + s.first + ' ' + s.last + '’s Courses';
+        back.onclick = () => { profileTab = 'courses'; openStudent(s.first, s.last); };
+    } else {
+        back.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to Courses';
+        back.onclick = () => showView('manage-courses');
+    }
+    document.getElementById('cd-title').textContent = detail.item.name;
+    document.getElementById('cd-meta').innerHTML =
+        metaBadge('fa-layer-group', detail.item.classification) +
+        metaBadge('fa-table-cells', detail.item.sections.length + ' sections') +
+        metaBadge('fa-user-group', rosterFor(detail.item).length + ' students') +
+        metaBadge('fa-cloud-arrow-up', 'Last upload ' + LAST_UPLOAD) +
+        metaBadge('fa-lock', 'Read-only');
+    showView('course-detail');
+    renderGrid('cd');
+}
+function openCourseFromStudent(id, first, last) { openCourse(id, { type: 'student', student: { first: first, last: last } }); }
+
+// View Section: open the course table with the Section column's header
+// filter pre-applied (clear it from the funnel to see the whole course).
+function openSection(courseId, secIdx) {
+    const course = COURSES.find(c => c.id === courseId);
+    openCourse(courseId);
+    GRIDS.cd.filters.section = { op: 'equals', val: course.sections[secIdx].period };
+    renderGrid('cd');
+}
+
+function openExam(id, origin) {
+    detail = { kind: 'exam', item: EXAMS.find(x => x.id === id) };
+    detailOrigin = origin || { type: 'manage' };
+    resetGrid('ed');
+    document.getElementById('ed-arch').value = 'unarchived';
+    const back = document.getElementById('ed-back');
+    if (detailOrigin.type === 'student') {
+        const s = detailOrigin.student;
+        back.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to ' + s.first + ' ' + s.last + '’s Exams';
+        back.onclick = () => { profileTab = 'exams'; openStudent(s.first, s.last); };
+    } else {
+        back.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to Exams';
+        back.onclick = () => showView('manage-exams');
+    }
+    document.getElementById('ed-title').textContent = detail.item.name;
+    document.getElementById('ed-meta').innerHTML =
+        metaBadge('fa-tag', detail.item.category) +
+        metaBadge('fa-layer-group', detail.item.classification) +
+        metaBadge('fa-user-group', examRoster(detail.item).length + ' students') +
+        metaBadge('fa-circle-check', 'Completed only') +
+        metaBadge('fa-cloud-arrow-up', 'Last upload ' + LAST_UPLOAD);
+    showView('exam-detail');
+    renderGrid('ed');
+}
+function openExamFromStudent(id, first, last) { openExam(id, { type: 'student', student: { first: first, last: last } }); }
+
+// ═════════════════════════════════════════════════════════════════════════
+// Boot. Deep links: #manage, #manage-courses, #manage-exams, #profile,
+// #profile-exams, #course-detail, #exam-detail, #section-detail
+// ═════════════════════════════════════════════════════════════════════════
+document.getElementById('mc-sub').textContent = 'Courses uploaded from your student information system. Records are read-only. Last upload: ' + LAST_UPLOAD + '. Expand a course to see its sections, or click it to see all students.';
+document.getElementById('me-sub').textContent = 'Exams uploaded from your student information system. Only completed exam records are shown. Last upload: ' + LAST_UPLOAD + '.';
+renderGrid('mc');
+renderGrid('me');
+
+const hash = (location.hash || '').replace('#', '');
+if (hash === 'profile-exams') { profileTab = 'exams'; openStudent('Emily', 'Growler'); }
+else if (hash === 'profile') { openStudent('Emily', 'Growler'); }
+else if (hash === 'course-detail') { openCourse('ush'); }
+else if (hash === 'section-detail') { openSection('alg2h', 0); }
+else if (hash === 'exam-detail') { openExam('x-ush'); }
+else if (hash === 'manage-courses' || hash === 'manage-exams' || hash === 'manage') { showView(hash === 'manage' ? 'manage-home' : hash); }
+else { openStudent('Emily', 'Growler'); }
+</script>
+
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

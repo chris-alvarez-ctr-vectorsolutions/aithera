@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draft Scenario — Learning Studio</title>
+
+  <!-- Vector Web Components (same resources as the editor) -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Open Sans', -apple-system, sans-serif; height: 100vh; overflow: hidden; color: var(--lumo-body-text-color, #1a1a1a); font-size: 13px; }
+    /* Flat neutral background, modeled after scenario-setup.html. */
+    #app { height: 100vh; display: flex; flex-direction: column; background: #f4f5f7; }
+
+    /* ============ GLOBAL HEADER (matches scenario editor) ============ */
+    #page-header {
+      height: 56px; background: white; border-bottom: 1px solid rgba(28,55,90,0.12);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      display: flex; align-items: center; padding: 0 16px 0 12px; flex-shrink: 0; z-index: 40; position: relative;
+    }
+    .ph-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+    .ph-logo { width: 36px; height: 36px; border-radius: 8px; background: #0271ce; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; flex-shrink: 0; text-decoration: none; }
+    .ph-divider { width: 1px; height: 22px; background: #e5e7eb; flex-shrink: 0; margin: 0 4px; }
+    .ph-title-group { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .ph-code { font-size: 10.5px; color: #6b7280; white-space: nowrap; }
+    .ph-title { font-size: 13px; font-weight: 700; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .ph-tag {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700;
+      color: #6d28d9; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 20px; padding: 4px 11px;
+    }
+    .ph-push-btn {
+      height: 30px; padding: 0 14px; border-radius: 6px; font-size: 12.5px; font-weight: 700;
+      cursor: pointer; font-family: inherit; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px;
+      background: var(--lumo-primary-color, #0271ce); color: #fff; border: 1px solid var(--lumo-primary-color, #0271ce);
+      transition: filter 0.12s;
+    }
+    .ph-push-btn:hover { filter: brightness(0.94); }
+
+    /* ============ BODY: two staged layouts, morphing between them ============
+       Stage 1 (.stage-chat): a single roomy, centered chat window — no preview.
+       Stage 2 (.stage-split): once real structure exists, the chat collapses to
+       a 30% left panel and the scenario compile becomes the 70% work surface.
+       In split mode the chat panel takes on a DISTINCT dark "console" styling
+       so it reads as a separate surface from the light preview. */
+    #body {
+      flex: 1; display: grid; min-height: 0;
+      grid-template-columns: minmax(0, 1fr) 0px;
+      transition: grid-template-columns 620ms cubic-bezier(0.7, 0, 0.2, 1);
+    }
+    #body.stage-split { grid-template-columns: 30% 70%; }
+
+    /* ----- CHAT WINDOW ----- */
+    #chat-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; position: relative; transition: background 400ms ease; }
+    .chat-head { flex-shrink: 0; padding: 16px 28px 14px; border-bottom: 1px solid rgba(0,0,0,.06); background: #fff; transition: background 400ms ease, border-color 400ms ease; }
+    /* Chat content is centered & capped while chat-focused; fills the panel once split. */
+    .chat-head-inner { max-width: 780px; margin: 0 auto; transition: max-width 620ms cubic-bezier(0.7,0,0.2,1); }
+    .chat-head .ch-title { font-size: 15px; font-weight: 700; color: #1a1a1a; display: flex; align-items: center; gap: 8px; }
+    .chat-head .ch-title i { color: #7c3aed; }
+    .chat-head .ch-sub { font-size: 12.5px; color: #6b7280; margin-top: 3px; }
+
+    .chat-scroll { flex: 1; overflow-y: auto; padding: 26px 28px; }
+    .chat-inner { max-width: 780px; margin: 0 auto; transition: max-width 620ms cubic-bezier(0.7,0,0.2,1); }
+
+    /* ---- Distinct (but subtle) chat panel — split stage only ----
+       A soft violet-tinted surface distinguishes the conversation from the
+       plain-white preview, without going dark. Modeled on the flat, light
+       card styling from scenario-setup.html. */
+    #body.stage-split #chat-pane {
+      background: #f2f0fa; border-right: 1px solid rgba(124,58,237,0.12);
+    }
+    #body.stage-split .chat-head { background: rgba(255,255,255,0.55); border-bottom-color: rgba(124,58,237,0.12); }
+    #body.stage-split .chat-head-inner { max-width: 100%; }
+    #body.stage-split .chat-scroll { padding: 22px 18px; }
+    #body.stage-split .chat-inner { max-width: 100%; }
+
+    .msg { display: flex; gap: 11px; margin-bottom: 18px; align-items: flex-start; }
+    .msg .avatar { flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; color: #fff; }
+    .msg.ai .avatar { background: linear-gradient(135deg, #7c3aed, #0271ce); }
+    .msg.user { flex-direction: row-reverse; }
+    .msg.user .avatar { background: #cbd2dc; color: #4b5563; }
+    .bubble { border-radius: 14px; padding: 11px 14px; font-size: 13.5px; line-height: 1.6; max-width: 85%; }
+    .msg.ai .bubble { background: #fff; border: 1px solid #eceef1; border-top-left-radius: 4px; }
+    .msg.user .bubble { background: var(--lumo-primary-color, #0271ce); color: #fff; border-top-right-radius: 4px; }
+    .bubble .did { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(124,58,237,0.25); font-size: 12px; color: #6d28d9; }
+    .bubble .did i { margin-right: 5px; }
+
+    /* typing indicator */
+    .typing { display: inline-flex; gap: 4px; padding: 3px 0; }
+    .typing span { width: 7px; height: 7px; border-radius: 50%; background: #b8c0cc; animation: blink 1.2s infinite; }
+    .typing span:nth-child(2){ animation-delay: .2s; } .typing span:nth-child(3){ animation-delay: .4s; }
+    @keyframes blink { 0%,60%,100%{opacity:.3;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }
+
+    /* suggested prompts */
+    .suggests { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px 41px; }
+    .suggests button {
+      font: inherit; font-size: 12.5px; cursor: pointer; padding: 7px 13px; border-radius: 18px;
+      border: 1.5px solid rgba(124,58,237,0.35); background: #fff; color: #6d28d9; transition: all 0.12s;
+    }
+    .suggests button:hover { background: #f5f0fd; }
+
+    /* ===== Rich interactive widgets in the AI stream ===== */
+    /* all live inset under the AI avatar column */
+    .ai-widget { margin: 2px 0 8px 41px; }
+    .ai-widget.spent { opacity: 0.55; pointer-events: none; }
+    .ai-widget .aw-picked-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: #158444; margin-left: 41px; margin-bottom: 8px; }
+    .ai-widget .aw-picked-tag i { color: #158444; }
+
+    /* mode choice (ask vs auto-fill) — vertical option cards */
+    .mode-choice { display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
+    .mode-opt {
+      display: flex; align-items: flex-start; gap: 11px; text-align: left; cursor: pointer; font-family: inherit;
+      background: #fff; border: 1.5px solid #e6e8ec; border-radius: 12px; padding: 12px 14px; transition: all 0.14s;
+    }
+    .mode-opt:hover { border-color: #7c3aed; background: #faf7ff; }
+    .mode-opt .mo-ico { flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; color: #7c3aed; background: rgba(124,58,237,0.1); }
+    .mode-opt .mo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .mode-opt .mo-title { display: block; font-size: 13.5px; font-weight: 700; color: #0f2e3d; }
+    .mode-opt .mo-desc { display: block; font-size: 12px; color: #6b7280; line-height: 1.45; margin-top: 2px; }
+
+    /* clarifying question with selectable choices (Claude-style) */
+    .clarify { max-width: 480px; }
+    .clarify .cl-q { font-size: 13px; font-weight: 600; color: #0f2e3d; margin-bottom: 10px; }
+    .clarify .cl-opts { display: flex; flex-direction: column; gap: 7px; }
+    .clarify .cl-opt {
+      display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; font-family: inherit;
+      background: #fff; border: 1.5px solid #e6e8ec; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #0f2e3d; transition: all 0.12s;
+    }
+    .clarify .cl-opt:hover { border-color: #7c3aed; background: #faf7ff; }
+    .clarify .cl-opt .cl-key { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,0.1); }
+    .clarify .cl-free { margin-top: 8px; font-size: 12px; color: #6b7280; }
+    .clarify .cl-free b { color: #6d28d9; }
+
+    /* A/B option cards (ChatGPT-style: two answers, pick one) */
+    .ab-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 620px; }
+    @media (max-width: 1200px) { .ab-wrap { grid-template-columns: 1fr; } }
+    .ab-card {
+      display: flex; flex-direction: column; cursor: pointer; font-family: inherit; text-align: left;
+      background: #fff; border: 1.5px solid #e6e8ec; border-radius: 12px; overflow: hidden; transition: all 0.14s;
+    }
+    .ab-card:hover { border-color: #7c3aed; box-shadow: 0 6px 18px rgba(124,58,237,0.12); }
+    .ab-card .ab-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #f0f1f3; background: #faf9fc; }
+    .ab-card .ab-badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.12); border-radius: 4px; padding: 2px 7px; }
+    .ab-card .ab-name { font-size: 12px; font-weight: 700; color: #0f2e3d; }
+    .ab-card .ab-text { padding: 11px 13px; font-size: 12.5px; line-height: 1.55; color: #0f2e3d; }
+    .ab-card .ab-pick { margin-top: auto; padding: 8px 13px; font-size: 12px; font-weight: 700; color: #6d28d9; border-top: 1px solid #f0f1f3; display: flex; align-items: center; gap: 6px; }
+    .ab-card:hover .ab-pick { background: #f5f0fd; }
+
+    /* tone samples (same line, different tones) */
+    .tone-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+    .tone-opt {
+      display: flex; align-items: stretch; gap: 0; cursor: pointer; font-family: inherit; text-align: left;
+      background: #fff; border: 1.5px solid #e6e8ec; border-radius: 10px; overflow: hidden; transition: all 0.12s;
+    }
+    .tone-opt:hover { border-color: #7c3aed; background: #faf7ff; }
+    .tone-opt .to-label { flex-shrink: 0; width: 92px; display: flex; align-items: center; gap: 6px; padding: 10px 12px; font-size: 11.5px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,0.06); border-right: 1px solid #f0f1f3; }
+    .tone-opt .to-text { flex: 1; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: #0f2e3d; }
+
+    /* gap card (AI flags a missing piece + offers to fill) */
+    .gap-card { max-width: 500px; background: #fffdf5; border: 1px solid #fde68a; border-radius: 12px; padding: 13px 15px; }
+    .gap-card .gc-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #92400e; margin-bottom: 6px; }
+    .gap-card .gc-head i { color: #d97706; }
+    .gap-card .gc-desc { font-size: 12.5px; line-height: 1.5; color: #6b5426; margin-bottom: 11px; }
+    .gap-card .gc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .gap-card .gc-btn {
+      font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 7px 12px; border-radius: 8px; transition: all 0.12s;
+      border: 1.5px solid #e6d9a8; background: #fff; color: #92400e;
+    }
+    .gap-card .gc-btn:hover { border-color: #d97706; background: #fffbeb; }
+    .gap-card .gc-btn.primary { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    .gap-card .gc-btn.primary:hover { filter: brightness(1.06); }
+
+    /* On the tinted chat surface, give the AI bubbles a hairline so they don't
+       blend into the lavender background; user bubbles keep the primary fill. */
+    #body.stage-split .msg.ai .bubble { border-color: rgba(124,58,237,0.12); }
+    /* composer sits on a slightly lifted white strip to read against the tint */
+    #body.stage-split .composer { background: rgba(255,255,255,0.7); border-top-color: rgba(124,58,237,0.12); }
+
+    /* composer */
+    .composer { flex: 0 0 auto; border-top: 1px solid #e6e8ec; background: #fff; padding: 14px 28px; transition: background 400ms ease, border-color 400ms ease; }
+    .composer-inner { max-width: 780px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; transition: max-width 620ms cubic-bezier(0.7,0,0.2,1); }
+    #body.stage-split .composer { padding: 12px 18px; }
+    #body.stage-split .composer-inner { max-width: 100%; }
+    .composer textarea {
+      flex: 1; resize: none; border: 1.5px solid #d5d9e0; border-radius: 12px; padding: 10px 13px;
+      font: inherit; font-size: 13.5px; line-height: 1.4; max-height: 120px; outline: none;
+      transition: border-color 0.14s;
+    }
+    .composer textarea:focus { border-color: #7c3aed; }
+    .composer .send { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px; border: none; cursor: pointer; background: #7c3aed; color: #fff; font-size: 15px; }
+    .composer .send:hover { filter: brightness(1.06); }
+
+    /* ----- SCENARIO COMPILE — the 60% work surface (after morph) -----
+       In stage-split this is the dominant content surface: a wider centered
+       column of interaction-point cards with room for the lock/regenerate
+       actions. Hidden (0px track) during the chat-focused stage. */
+    #preview-pane {
+      display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
+      background: #f4f5f7; border-left: 1px solid rgba(0,0,0,.06);
+    }
+    .pv-head { position: relative; flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 13px 28px 12px; border-bottom: 1px solid rgba(0,0,0,.06); background: #fff; }
+    .pv-headings { min-width: 0; }
+    .pv-title { font-size: 16px; font-weight: 700; color: #0f2e3d; }
+    .pv-arch { width: 100%; font-size: 11.5px; color: #6b7280; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .pv-arch .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.1); border-radius: 4px; padding: 2px 7px; }
+    .pv-arch .arch-suffix { color: #9aa3af; }
+    .pv-spacer { flex: 1; }
+
+    /* Add-template control + menu */
+    .pv-addtmpl {
+      display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+      border: 1px solid rgba(124,58,237,0.35); background: #fff; color: #6d28d9; border-radius: 7px;
+      cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; transition: all 0.12s;
+    }
+    .pv-addtmpl:hover { background: #f5f0fd; border-color: #7c3aed; }
+    .addtmpl-menu {
+      display: none; position: absolute; top: 52px; right: 28px; z-index: 30;
+      background: #fff; border: 1px solid #e6e8ec; border-radius: 12px; padding: 6px;
+      box-shadow: 0 12px 30px rgba(16,24,40,.16); width: 320px;
+    }
+    .addtmpl-menu.show { display: block; }
+    .addtmpl-menu .atm-header { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9aa3af; padding: 8px 10px 6px; }
+    .atm-item { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; padding: 10px; border: none; background: none; border-radius: 8px; cursor: pointer; font-family: inherit; transition: background 0.1s; }
+    .atm-item:hover { background: rgba(124,58,237,0.07); }
+    .atm-item .atm-ico { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; color: #7c3aed; background: rgba(124,58,237,0.1); }
+    .atm-item .atm-title { font-size: 13px; font-weight: 700; color: #0f2e3d; }
+    .atm-item .atm-desc { font-size: 11.5px; color: #6b7280; line-height: 1.4; margin-top: 2px; }
+
+    /* view toggle */
+    .view-toggle { display: flex; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18); border-radius: 7px; padding: 2px; gap: 1px; }
+    .vt-btn { display: flex; align-items: center; gap: 5px; padding: 6px 12px; border: none; background: none; border-radius: 5px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; color: var(--lumo-secondary-text-color, #55606f); }
+    .vt-btn.active { background: #fff; color: #6d28d9; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+    .pv-scroll { flex: 1; overflow-y: auto; padding: 24px 28px 32px; }
+    .pv-inner { max-width: 760px; margin: 0 auto; }
+
+    /* ---- Preview block (mounted floating card) ---- */
+    /* template-group divider between blocks from different templates */
+    .tmpl-divider { display: flex; align-items: center; gap: 12px; margin: 6px 0 16px; }
+    .tmpl-divider:first-child { margin-top: 0; }
+    .tmpl-divider .td-line { flex: 1; height: 1px; background: rgba(124,58,237,0.18); }
+    .tmpl-divider .td-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18); border-radius: 20px; padding: 4px 12px; }
+
+    .pblock {
+      position: relative; background: #fff; border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 13px; margin-bottom: 14px; overflow: hidden;
+      box-shadow: 0 4px 14px rgba(24,39,57,0.08), 0 1px 3px rgba(24,39,57,0.04);
+      transition: box-shadow 0.16s, border-color 0.16s, opacity 0.3s, transform 0.3s;
+    }
+    .pblock.locked { border-color: rgba(2,113,206,0.35); background: rgba(240,249,255,0.9); }
+    .pblock.just-updated { animation: flash 1.1s ease; }
+    @keyframes flash { 0% { box-shadow: 0 0 0 3px rgba(124,58,237,0.35); } 100% { box-shadow: 0 0 0 3px rgba(124,58,237,0); } }
+    .pblock.entering { opacity: 0; transform: translateY(10px); }
+
+    .pb-head { display: flex; align-items: center; gap: 11px; padding: 13px 16px; border-bottom: 1px solid rgba(124,58,237,0.1); }
+    .pb-ico { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; color: #7c3aed; background: rgba(124,58,237,0.1); }
+    .pblock.locked .pb-ico { color: #0271ce; background: rgba(2,113,206,0.1); }
+    .pb-titles { flex: 1; min-width: 0; }
+    .pb-type { font-size: 14px; font-weight: 700; color: #0f2e3d; display: flex; align-items: center; gap: 8px; }
+    .pb-phase { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6d28d9; background: rgba(124,58,237,0.12); border-radius: 3px; padding: 2px 6px; }
+    .pb-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    /* Labeled action buttons — the split view has room to make these explicit. */
+    .pb-btn {
+      display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px;
+      border: 1px solid #e6e8ec; background: #fff; border-radius: 7px; cursor: pointer;
+      color: #6b7280; font-family: inherit; font-size: 12px; font-weight: 600; transition: all 0.12s;
+    }
+    .pb-btn i { font-size: 11px; }
+    .pb-btn.regen:hover { background: #f5f0fd; border-color: rgba(124,58,237,0.4); color: #7c3aed; }
+    .pb-btn.lock:hover { background: #eff6ff; border-color: rgba(2,113,206,0.4); color: #0271ce; }
+    .pb-btn.lock.on { background: rgba(2,113,206,0.08); border-color: rgba(2,113,206,0.4); color: #0271ce; }
+
+    .pb-body { padding: 16px; }
+    .pb-field { margin-bottom: 14px; }
+    .pb-field:last-child { margin-bottom: 0; }
+    .pb-flabel { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8a93a0; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .pb-flabel .verbatim { color: #6d28d9; background: rgba(124,58,237,0.1); border-radius: 3px; padding: 1px 5px; font-size: 8.5px; letter-spacing: 0; }
+    .pb-ftext { font-size: 13.5px; line-height: 1.65; color: #0f2e3d; }
+    .pb-ftext.muted { color: #9ca3af; font-style: italic; }
+
+    /* regenerating shimmer on a single field */
+    .pb-ftext.regenerating { position: relative; color: transparent !important; border-radius: 5px; background: linear-gradient(90deg,#eef0f3 25%,#e2e6ea 37%,#eef0f3 63%); background-size: 400% 100%; animation: shimmer 1.1s infinite; min-height: 34px; }
+    @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+    /* locked overlay ribbon */
+    .pb-lockbar { display: none; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #0271ce; padding: 6px 14px; background: rgba(2,113,206,0.06); border-top: 1px solid rgba(2,113,206,0.12); }
+    .pblock.locked .pb-lockbar { display: flex; }
+
+    /* ---- Script view ---- */
+    .pv-scroll.script-mode .pblock { border-radius: 10px; }
+    .script-line { font-size: 13.5px; line-height: 1.7; color: #0f2e3d; margin-bottom: 9px; }
+    .script-line:last-child { margin-bottom: 0; }
+    .script-line .sl-cue { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7c3aed; display: block; margin-bottom: 2px; }
+    .script-line .sl-verbatim { border-left: 3px solid rgba(124,58,237,0.4); padding-left: 11px; color: #0f2e3d; }
+    .script-line .sl-coach { color: #55606f; }
+
+    /* empty state before first draft */
+    .pv-empty { max-width: 380px; margin: 60px auto 0; text-align: center; }
+    .pv-empty .e-ico { width: 60px; height: 60px; border-radius: 16px; background: rgba(124,58,237,0.1); color: #7c3aed; display: grid; place-items: center; font-size: 26px; margin: 0 auto 16px; }
+    .pv-empty h3 { font-size: 16px; font-weight: 700; color: #0f2e3d; margin-bottom: 8px; }
+    .pv-empty p { font-size: 13px; line-height: 1.6; color: #6b7280; }
+
+    /* small footnote under preview */
+    .pv-foot { flex-shrink: 0; padding: 10px 16px; border-top: 1px solid rgba(0,0,0,.06); background: #fff; font-size: 11px; line-height: 1.45; color: #6b7280; display: flex; align-items: flex-start; gap: 8px; }
+    .pv-foot i { color: #0271ce; margin-top: 2px; }
+
+    /* Below a comfortable width the rail collapses so the chat window keeps its room. */
+    @media (max-width: 1080px) {
+      #body { grid-template-columns: minmax(0, 1fr); }
+      #preview-pane { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- ===== Global header ===== -->
+    <header id="page-header">
+      <div class="ph-left">
+        <a class="ph-logo" href="index.html" title="Back to Create Content"><i class="fa-solid fa-layer-group"></i></a>
+        <div class="ph-divider"></div>
+        <div class="ph-title-group">
+          <span class="ph-code" id="ph-code">Scenario · Drafting</span>
+          <span class="ph-title" id="ph-title">Bystander to Harassment — The Marshall Situation</span>
+        </div>
+      </div>
+      <div class="ph-right">
+        <span class="ph-tag"><i class="fa-solid fa-wand-magic-sparkles"></i> AI draft</span>
+        <button class="ph-push-btn" id="pushBtn" onclick="pushToEditor()">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Push to editor
+        </button>
+      </div>
+    </header>
+
+    <div id="body">
+      <!-- ============ CHAT WINDOW (primary) ============ -->
+      <div id="chat-pane">
+        <div class="chat-head">
+          <div class="chat-head-inner">
+            <div class="ch-title"><i class="fa-solid fa-comments"></i> Draft in conversation</div>
+            <div class="ch-sub">Talk through the scenario with AI — pick from the choices it offers. Once there's structure to build, it opens the scenario alongside.</div>
+          </div>
+        </div>
+        <div class="chat-scroll" id="chatScroll">
+          <div class="chat-inner" id="chatInner"></div>
+        </div>
+        <div class="composer">
+          <div class="composer-inner">
+            <textarea id="composerInput" rows="1" placeholder="Describe what should happen, or answer the question above…" onkeydown="onComposerKey(event)"></textarea>
+            <button class="send" onclick="sendMessage()" title="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SCENARIO COMPILE — mounted sidepanel ============ -->
+      <div id="preview-pane">
+        <div class="pv-head">
+          <div class="pv-title">Scenario</div>
+          <div class="pv-spacer"></div>
+          <button class="pv-addtmpl" id="addTmplBtn" onclick="toggleAddTmplMenu(event)"><i class="fa-solid fa-plus"></i> Add template</button>
+          <div class="view-toggle">
+            <button class="vt-btn active" id="vt-cards" onclick="setView('cards')"><i class="fa-solid fa-list-ul"></i> Cards</button>
+            <button class="vt-btn" id="vt-script" onclick="setView('script')"><i class="fa-solid fa-align-left"></i> Script</button>
+          </div>
+          <div class="pv-arch" id="archTags"></div>
+        </div>
+        <!-- Add-template menu (populated on open) -->
+        <div class="addtmpl-menu" id="addTmplMenu"></div>
+
+        <div class="pv-scroll" id="pvScroll">
+          <div class="pv-inner" id="pvInner">
+            <div class="pv-empty" id="pvEmpty">
+              <div class="e-ico"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+              <h3>Your scenario will build here</h3>
+              <p>As you chat, interaction points and their content fill in live. Lock the parts you like, and regenerate the ones you don't.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pv-foot">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Lock <i class="fa-solid fa-lock" style="color:#0271ce"></i> a block to protect it from regeneration. Push to editor when the draft is ready.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Read setup params (carried from scenario-setup.html) ----
+    const params = new URLSearchParams(location.search);
+    const TEMPLATE_LABELS = { 'roleplay':'Roleplay', 'guided-arc':'Guided Arc', 'observe':'Observe / React', 'teach-back':'Teach-Back', 'custom':'Custom', 'upload':'Custom template' };
+    const TEMPLATE_ICONS  = { 'roleplay':'fa-comments', 'guided-arc':'fa-diagram-project', 'observe':'fa-clapperboard', 'teach-back':'fa-chalkboard-user', 'custom':'fa-wand-magic-sparkles' };
+    const projTitle = params.get('name') || 'Bystander to Harassment — The Marshall Situation';
+    const template  = params.get('template') || 'guided-arc';
+    document.getElementById('ph-title').textContent = projTitle;
+
+    // Templates layered into this scenario, in order. The setup's choice seeds
+    // the first; more can be added mid-build. Each new block is tagged with the
+    // template currently being appended (curTemplate).
+    const usedTemplates = [];   // [{id,label}]
+    let curTemplate = template === 'custom' ? null : template;
+    function ensureTemplateUsed(id) {
+      if (!id || usedTemplates.some(u => u.id === id)) return;
+      usedTemplates.push({ id, label: TEMPLATE_LABELS[id] || id });
+      renderArchTags();
+    }
+    function renderArchTags() {
+      const wrap = document.getElementById('archTags');
+      if (!wrap) return;
+      wrap.innerHTML = usedTemplates.length
+        ? usedTemplates.map(u => `<span class="pill"><i class="fa-solid ${TEMPLATE_ICONS[u.id]||'fa-layer-group'}"></i> ${u.label}</span>`).join('')
+          + ` <span class="arch-suffix">${usedTemplates.length > 1 ? 'templates' : 'template'} · drives the shape</span>`
+        : `<span class="arch-suffix">Custom · build freely</span>`;
+    }
+
+    /* =====================================================================
+       DRAFT MODEL — the live scenario preview. Blocks fill in as the
+       scripted conversation advances. Each block: id, type, phase, fields{},
+       locked. The Guided-Arc template seeds the *shape* (an Enter reflection
+       + phases); the conversation fills the *content*.
+    ===================================================================== */
+    let blocks = [];           // preview blocks, in order
+    let blockSeq = 0;
+    let view = 'cards';
+
+    let splitEntered = false;
+
+    // Morph the chat-focused layout into the 40/60 working split the first time
+    // real structure gets drafted. One-way. Blocks that follow animate in.
+    function enterSplitStage() {
+      if (splitEntered) return;
+      splitEntered = true;
+      document.getElementById('body').classList.add('stage-split');
+    }
+
+    function addBlock(b, { animate = true } = {}) {
+      b.id = ++blockSeq;
+      b.locked = false;
+      if (b.tmpl === undefined) b.tmpl = curTemplate;   // tag with the template being appended
+      ensureTemplateUsed(b.tmpl);
+      const firstBlock = blocks.length === 0;
+      blocks.push(b);
+      enterSplitStage();
+      // If this is the first block, let the layout begin morphing before the
+      // card paints, so it enters into the new surface rather than the old rail.
+      const paint = () => {
+        renderPreview();
+        if (animate) {
+          const el = document.querySelector(`.pblock[data-id="${b.id}"]`);
+          if (el) { el.classList.add('entering'); requestAnimationFrame(() => el.classList.remove('entering')); }
+        }
+      };
+      if (firstBlock) setTimeout(paint, 240); else paint();
+      return b.id;
+    }
+
+    function updateBlock(id, patch) {
+      const b = blocks.find(x => x.id === id);
+      if (!b || b.locked) return;
+      Object.assign(b.fields, patch);
+      renderPreview();
+      const el = document.querySelector(`.pblock[data-id="${id}"]`);
+      if (el) { el.classList.add('just-updated'); setTimeout(() => el.classList.remove('just-updated'), 1100); }
+    }
+
+    // ---- Field definitions per block type (drives both views) ----
+    const BLOCK_META = {
+      reflection: { label: 'Reflection', phase: 'ENTER', icon: 'fa-comments',
+        fields: [ {key:'prompt', label:'Reflection prompt', verbatim:true}, {key:'coach', label:'How the coach responds'} ] },
+      phase: { label: 'Phase', phase: 'ENGAGE', icon: 'fa-layer-group',
+        fields: [ {key:'signpost', label:'Signpost in', verbatim:true}, {key:'task', label:'Task prompt', verbatim:true}, {key:'through', label:'Through-line'} ] },
+      practice: { label: 'Live Practice', phase: 'PRACTICE', icon: 'fa-clapperboard',
+        fields: [ {key:'setup', label:'Scene setup'}, {key:'goal', label:'What the learner must do'} ] },
+    };
+
+    // ---- Render the preview (cards or script), grouped by source template ----
+    function renderPreview() {
+      const inner = document.getElementById('pvInner');
+      const empty = document.getElementById('pvEmpty');
+      if (!blocks.length) { if (empty) empty.style.display = ''; return; }
+      if (empty) empty.style.display = 'none';
+
+      const render = view === 'cards' ? cardHTML : scriptHTML;
+      let lastTmpl = undefined;
+      let html = '';
+      blocks.forEach(b => {
+        // Insert a template-group divider whenever the source template changes.
+        if (b.tmpl !== lastTmpl) {
+          const label = TEMPLATE_LABELS[b.tmpl] || 'Custom';
+          const icon = TEMPLATE_ICONS[b.tmpl] || 'fa-layer-group';
+          html += `<div class="tmpl-divider"><span class="td-line"></span><span class="td-tag"><i class="fa-solid ${icon}"></i> ${label}</span><span class="td-line"></span></div>`;
+          lastTmpl = b.tmpl;
+        }
+        html += render(b);
+      });
+      inner.innerHTML = html;
+    }
+
+    function fieldValue(b, key) { return (b.fields[key] || '').trim(); }
+
+    // Shared block header — labeled Regenerate / Lock actions (room in the split view).
+    function blockHeadHTML(b, m) {
+      return `
+        <div class="pb-head">
+          <span class="pb-ico"><i class="fa-solid ${m.icon}"></i></span>
+          <div class="pb-titles">
+            <div class="pb-type">${b.title || m.label} <span class="pb-phase">${b.phase || m.phase}</span></div>
+          </div>
+          <div class="pb-actions">
+            <button class="pb-btn regen" onclick="regenBlock(${b.id})"><i class="fa-solid fa-arrows-rotate"></i> Regenerate</button>
+            <button class="pb-btn lock ${b.locked ? 'on' : ''}" onclick="toggleLock(${b.id})"><i class="fa-solid fa-lock${b.locked ? '' : '-open'}"></i> ${b.locked ? 'Locked' : 'Lock'}</button>
+          </div>
+        </div>`;
+    }
+
+    function cardHTML(b) {
+      const m = BLOCK_META[b.type];
+      const fields = m.fields.map(f => {
+        const v = fieldValue(b, f.key);
+        return `
+          <div class="pb-field">
+            <div class="pb-flabel">${f.label}${f.verbatim ? ' <span class="verbatim">verbatim</span>' : ''}</div>
+            <div class="pb-ftext ${v ? '' : 'muted'}" data-field="${f.key}">${v ? escapeHTML(v) : 'Not drafted yet'}</div>
+          </div>`;
+      }).join('');
+      return `
+        <div class="pblock ${b.locked ? 'locked' : ''}" data-id="${b.id}">
+          ${blockHeadHTML(b, m)}
+          <div class="pb-body">${fields}</div>
+          <div class="pb-lockbar"><i class="fa-solid fa-lock"></i> Locked — protected from regeneration</div>
+        </div>`;
+    }
+
+    function scriptHTML(b) {
+      const m = BLOCK_META[b.type];
+      const lines = m.fields.map(f => {
+        const v = fieldValue(b, f.key);
+        if (!v) return '';
+        const verbatimCls = f.verbatim ? 'sl-verbatim' : 'sl-coach';
+        return `<div class="script-line"><span class="sl-cue">${(b.title || m.label)} · ${f.label}</span><span class="${verbatimCls}">${escapeHTML(v)}</span></div>`;
+      }).filter(Boolean).join('');
+      return `
+        <div class="pblock ${b.locked ? 'locked' : ''}" data-id="${b.id}">
+          ${blockHeadHTML(b, m)}
+          <div class="pb-body">${lines || '<div class="pb-ftext muted">Not drafted yet</div>'}</div>
+          <div class="pb-lockbar"><i class="fa-solid fa-lock"></i> Locked — protected from regeneration</div>
+        </div>`;
+    }
+
+    // ---- Block controls ----
+    function toggleLock(id) {
+      const b = blocks.find(x => x.id === id);
+      if (!b) return;
+      b.locked = !b.locked;
+      renderPreview();
+    }
+
+    // Regenerate: shimmer the block's fields, then swap in an alternate phrasing.
+    function regenBlock(id) {
+      const b = blocks.find(x => x.id === id);
+      if (!b || b.locked) return;
+      const el = document.querySelector(`.pblock[data-id="${id}"]`);
+      if (el) el.querySelectorAll('.pb-ftext').forEach(f => { if (f.textContent.trim() && f.textContent !== 'Not drafted yet') f.classList.add('regenerating'); });
+      setTimeout(() => {
+        const alt = REGEN_ALTS[b.type];
+        if (alt) Object.keys(alt).forEach(k => { if (b.fields[k] !== undefined) b.fields[k] = alt[k]; });
+        renderPreview();
+        const el2 = document.querySelector(`.pblock[data-id="${id}"]`);
+        if (el2) { el2.classList.add('just-updated'); setTimeout(() => el2.classList.remove('just-updated'), 1100); }
+      }, 1200);
+    }
+
+    // Alternate phrasings used by regenerate (scripted).
+    const REGEN_ALTS = {
+      reflection: {
+        prompt: "Take a beat before we dig in. When you picture what's been happening to Marshall — what's the first thing that comes up for you?",
+        coach: "CALIBRATION ONLY — never grade. 2 short bubbles: reflect their reaction back; if they minimize it ('just jokes'), gently flag that without correcting yet. Do NOT preview the next phase.",
+      },
+      phase: {
+        signpost: "Let's slow down and look at what's really going on here.",
+        task: "Given what you know about workplace harassment law — does what Marshall is going through count? Reason it out.",
+        through: "Title VII reaches gender-based ridicule; no sexual advance or job threat is required; same-sex conduct is covered; the move is to report — HR, documented, promptly.",
+      },
+      practice: {
+        setup: "You're at your desk when Jake makes another 'cozy lady job' crack toward Marshall. A couple of people chuckle.",
+        goal: "Decide what you, as a co-worker, say or do in the moment — and be ready to talk through why.",
+      },
+    };
+
+    // ---- View toggle ----
+    function setView(v) {
+      view = v;
+      document.getElementById('vt-cards').classList.toggle('active', v === 'cards');
+      document.getElementById('vt-script').classList.toggle('active', v === 'script');
+      document.getElementById('pvScroll').classList.toggle('script-mode', v === 'script');
+      renderPreview();
+    }
+
+    /* =====================================================================
+       SCRIPTED CONVERSATION — each user turn advances a canned AI reply
+       that narrates what it changed and mutates the preview live.
+    ===================================================================== */
+    const chatInner = document.getElementById('chatInner');
+    const chatScroll = document.getElementById('chatScroll');
+
+    function scrollChat() { chatScroll.scrollTop = chatScroll.scrollHeight; }
+
+    function addUserMsg(text) {
+      const el = document.createElement('div');
+      el.className = 'msg user';
+      el.innerHTML = `<div class="avatar"><i class="fa-solid fa-user"></i></div><div class="bubble">${escapeHTML(text)}</div>`;
+      chatInner.appendChild(el); scrollChat();
+    }
+
+    function addAiMsg(html, did) {
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      el.innerHTML = `<div class="avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="bubble">${html}${did ? `<span class="did"><i class="fa-solid fa-arrow-right"></i>${did}</span>` : ''}</div>`;
+      chatInner.appendChild(el); scrollChat();
+    }
+
+    function addSuggests(items) {
+      const el = document.createElement('div');
+      el.className = 'suggests';
+      el.innerHTML = items.map((s, i) => `<button onclick="pickSuggest(${i})">${escapeHTML(s)}</button>`).join('');
+      el.id = 'live-suggests';
+      chatInner.appendChild(el); scrollChat();
+    }
+    function clearSuggests() { const s = document.getElementById('live-suggests'); if (s) s.remove(); }
+
+    function showTyping() {
+      const el = document.createElement('div');
+      el.className = 'msg ai'; el.id = 'typing-row';
+      el.innerHTML = `<div class="avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+      chatInner.appendChild(el); scrollChat();
+    }
+    function hideTyping() { const t = document.getElementById('typing-row'); if (t) t.remove(); }
+
+    /* ===== Rich interactive widgets =====
+       Each widget is appended under an AI message. Choosing an option marks the
+       widget "spent" (dimmed, with a confirmation tag) so the transcript reads
+       cleanly, echoes the choice as a user bubble, then advances the script. */
+    let widgetSeq = 0;
+    const WIDGET_HANDLERS = {};
+
+    function addWidget(html, onPick) {
+      const wid = ++widgetSeq;
+      WIDGET_HANDLERS[wid] = onPick;
+      const el = document.createElement('div');
+      el.className = 'ai-widget'; el.id = `widget-${wid}`;
+      el.dataset.wid = wid;
+      el.innerHTML = html.replace(/__WID__/g, wid);
+      chatInner.appendChild(el); scrollChat();
+      return wid;
+    }
+
+    // Called by every widget option. Marks spent, echoes choice, runs handler.
+    function widgetPick(wid, value, echo) {
+      const el = document.getElementById(`widget-${wid}`);
+      if (!el || el.classList.contains('spent')) return;
+      el.classList.add('spent');
+      if (echo) addUserMsg(echo);
+      const h = WIDGET_HANDLERS[wid];
+      if (h) h(value);
+    }
+
+    // --- widget builders (return HTML strings) ---
+    function modeChoiceHTML(opts) {
+      return `<div class="mode-choice">` + opts.map(o => `
+        <button class="mode-opt" onclick="widgetPick(__WID__, '${o.id}', '${escapeAttr(o.echo)}')">
+          <span class="mo-ico"><i class="fa-solid ${o.icon}"></i></span>
+          <span class="mo-body"><span class="mo-title">${o.title}</span><span class="mo-desc">${o.desc}</span></span>
+        </button>`).join('') + `</div>`;
+    }
+
+    function clarifyHTML(q, opts) {
+      const keys = ['A','B','C','D'];
+      return `<div class="clarify">
+        <div class="cl-q">${q}</div>
+        <div class="cl-opts">` + opts.map((o, i) => `
+          <button class="cl-opt" onclick="widgetPick(__WID__, '${o.id}', '${escapeAttr(o.echo || o.label)}')">
+            <span class="cl-key">${keys[i]}</span> ${o.label}
+          </button>`).join('') + `</div>
+        <div class="cl-free">…or just <b>type your own answer</b> below.</div>
+      </div>`;
+    }
+
+    function abHTML(a, b) {
+      const card = (o) => `
+        <button class="ab-card" onclick="widgetPick(__WID__, '${o.id}', '${escapeAttr('I prefer option ' + o.badge)}')">
+          <span class="ab-head"><span class="ab-badge">${o.badge}</span><span class="ab-name">${o.name}</span></span>
+          <span class="ab-text">${escapeHTML(o.text)}</span>
+          <span class="ab-pick"><i class="fa-solid fa-circle-check"></i> Use this one</span>
+        </button>`;
+      return `<div class="ab-wrap">${card(a)}${card(b)}</div>`;
+    }
+
+    function toneHTML(opts) {
+      return `<div class="tone-wrap">` + opts.map(o => `
+        <button class="tone-opt" onclick="widgetPick(__WID__, '${o.id}', '${escapeAttr('Go with the ' + o.label.toLowerCase() + ' tone')}')">
+          <span class="to-label"><i class="fa-solid ${o.icon}"></i> ${o.label}</span>
+          <span class="to-text">${escapeHTML(o.text)}</span>
+        </button>`).join('') + `</div>`;
+    }
+
+    function gapHTML(title, desc, actions) {
+      return `<div class="gap-card">
+        <div class="gc-head"><i class="fa-solid fa-circle-exclamation"></i> ${title}</div>
+        <div class="gc-desc">${desc}</div>
+        <div class="gc-actions">` + actions.map(a => `
+          <button class="gc-btn ${a.primary ? 'primary' : ''}" onclick="widgetPick(__WID__, '${a.id}', '${escapeAttr(a.echo)}')">${a.label}</button>`).join('') + `</div>
+      </div>`;
+    }
+
+    function pickedTagHTML(text) { return `<div class="aw-picked-tag"><i class="fa-solid fa-check"></i> ${escapeHTML(text)}</div>`; }
+    function escapeAttr(s) { return String(s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+    /* =====================================================================
+       CONVERSATION FLOW (scripted, branching)
+       After the opening prompt the AI asks HOW to work: interview the user,
+       auto-fill from preferences, or a mix. Each branch mixes clarifying
+       questions, A/B drafts, tone samples, and gap cards — offering choices
+       whenever the user may not have the answer, and auto-filling on request.
+    ===================================================================== */
+    let started = false;   // has the user sent/kicked off yet
+    const T = TEMPLATE_LABELS[template] || 'Guided Arc';
+
+    function ai(html, did) { withTyping(() => addAiMsg(html, did)); }
+    function withTyping(fn, delay = 700) {
+      clearSuggests(); showTyping();
+      setTimeout(() => { hideTyping(); fn(); }, delay);
+    }
+
+    // ----- Seed blocks helper -----
+    function seedReflection() {
+      return addBlock({ type:'reflection', title:'Reflection', phase:'ENTER', fields:{
+        prompt: "Before we get into the specifics — take a moment. What's your gut reaction to this behavior? Is anything about this situation standing out to you, or feeling unclear?",
+        coach: "CALIBRATION ONLY, do not evaluate. 2-3 short bubbles: acknowledge in their own words; gently note any misconception ('nothing sexual is happening', 'just banter'). END on that calibration.",
+      }});
+    }
+    function seedLawPhase() {
+      return addBlock({ type:'phase', title:'Phase 1 · The Law', phase:'ENGAGE', fields:{
+        signpost: "Now let's take a closer look at what's actually happening here.",
+        task: "Based on what you know about workplace harassment — does what Marshall is experiencing qualify as sexual harassment? Walk through your reasoning.",
+        through: "Title VII covers gender-stereotype conduct; no explicit advance and no job threat required; same-sex is fully covered; report — HR, documented, soon.",
+      }});
+    }
+    function seedActionPhase() {
+      return addBlock({ type:'phase', title:'Phase 2 · What You Do', phase:'ENGAGE', fields:{
+        signpost: "Okay — you can see the problem. So what can you actually do about it?",
+        task: "You're a peer, not their manager. In the moment and after — what are your real options to support Marshall and interrupt this?",
+        through: "Bystanders have real moves: interrupt in the moment, check in with Marshall privately, and report what you saw — you don't need to be the target to raise it.",
+      }});
+    }
+    function seedPractice() {
+      return addBlock({ type:'practice', title:'Live Practice · In the Moment', phase:'PRACTICE', fields:{
+        setup: "You're at your desk when Jake makes another 'cozy lady job' crack at Marshall. A couple of people laugh.",
+        goal: "Say or do something in the moment as a co-worker — then the coach debriefs your choice against the through-lines.",
+      }});
+    }
+
+    /* =====================================================================
+       MULTI-TEMPLATE — append another template's structure mid-build.
+       Each appender switches curTemplate so its blocks group under it, then
+       seeds a representative starting structure the author can edit.
+    ===================================================================== */
+    const ADDABLE_TEMPLATES = [
+      { id:'observe',    icon:'fa-clapperboard',      title:'Observe / React',
+        desc:'Review a moment beat-by-beat and react with a coach.' },
+      { id:'roleplay',   icon:'fa-comments',          title:'Roleplay',
+        desc:'Rehearse a hard conversation with a simulated person.' },
+      { id:'teach-back', icon:'fa-chalkboard-user',   title:'Teach-Back',
+        desc:'Have the learner explain the key points back from memory.' },
+      { id:'guided-arc', icon:'fa-diagram-project',   title:'Guided Arc',
+        desc:'Another scripted Practice → Learn arc of phases.' },
+    ];
+
+    // Append a template's starting blocks (tagged with that template).
+    function appendTemplate(id) {
+      const prev = curTemplate;
+      curTemplate = id;
+      if (id === 'observe') {
+        addBlock({ type:'practice', title:'Observe · The Group Chat Surfaces', phase:'PRACTICE', fields:{
+          setup: "The coach plays the moment the group-chat images reach public social media. Pause on Marshall's reaction.",
+          goal: "React to what you just watched — what changed, and what do you notice about how it's landing on Marshall?",
+        }});
+        addBlock({ type:'phase', title:'React · Name What You Saw', phase:'ENGAGE', fields:{
+          signpost: "Let's slow the tape. What did you actually just witness?",
+          task: "Put words to it — was that harassment, and what makes this different from the earlier 'jokes'?",
+          through: "Public, targeted, gender-based ridicule is harassment; escalation and audience raise the stakes and the duty to act.",
+        }});
+      } else if (id === 'roleplay') {
+        addBlock({ type:'phase', title:'Roleplay · Checking In With Marshall', phase:'PRACTICE', fields:{
+          signpost: "You catch Marshall alone. Open the conversation.",
+          task: "Speak as yourself — what do you say to a colleague who's clearly worn down but hasn't asked for help?",
+          through: "Lead with what you noticed, not advice; offer support and options (including reporting) without taking over.",
+        }});
+      } else if (id === 'teach-back') {
+        addBlock({ type:'phase', title:'Teach-Back · Say It In Your Words', phase:'ENGAGE', fields:{
+          signpost: "Before we wrap — teach it back to me.",
+          task: "In your own words: what counts as harassment here, and what are a bystander's real options?",
+          through: "Learner can restate the standard + the report path unprompted; coach fills only what's missing.",
+        }});
+      } else { // guided-arc
+        addBlock({ type:'phase', title:'Phase · Another Beat', phase:'ENGAGE', fields:{
+          signpost: "Now let's turn to the next piece.",
+          task: "Reason through the next decision the learner faces.",
+          through: "The takeaway every learner should leave this phase with.",
+        }});
+      }
+      curTemplate = prev;   // subsequent auto-seeds go back to the base template
+    }
+
+    // ----- Add-template menu (preview header control) -----
+    function toggleAddTmplMenu(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('addTmplMenu');
+      const open = menu.classList.contains('show');
+      if (open) { menu.classList.remove('show'); return; }
+      menu.innerHTML = `<div class="atm-header">Layer in another template</div>` +
+        ADDABLE_TEMPLATES.map(t => `
+          <button class="atm-item" onclick="pickAddTemplate('${t.id}')">
+            <span class="atm-ico"><i class="fa-solid ${t.icon}"></i></span>
+            <span><span class="atm-title">${t.title}</span><span class="atm-desc" style="display:block">${t.desc}</span></span>
+          </button>`).join('');
+      menu.classList.add('show');
+    }
+    function pickAddTemplate(id) {
+      document.getElementById('addTmplMenu').classList.remove('show');
+      const label = TEMPLATE_LABELS[id] || id;
+      addUserMsg(`Add a ${label} section`);
+      withTyping(() => {
+        appendTemplate(id);
+        addAiMsg(`Added a <strong>${label}</strong> section and moved the arc into it. Its blocks are grouped under the ${label} tag — edit, lock, or regenerate them like the rest.`,
+          `Layered in the ${label} template`);
+        addSuggests([ 'Regenerate the new section', 'Push it all to the editor' ]);
+      });
+    }
+    // close the menu on outside click
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('addTmplMenu');
+      if (menu && menu.classList.contains('show') && !e.target.closest('#addTmplMenu') && !e.target.closest('#addTmplBtn')) {
+        menu.classList.remove('show');
+      }
+    });
+
+    // ----- Step 1: the AI asks how to work (ask vs auto-fill) -----
+    function askWorkingMode() {
+      withTyping(() => {
+        addAiMsg(`A bystander arc fits the <strong>${T}</strong> template nicely. Before I draft — how do you want to work? I can interview you for the details, or make smart calls myself and let you react.`);
+        addWidget(modeChoiceHTML([
+          { id:'interview', icon:'fa-comments', title:'Ask me questions',
+            desc:"Walk me through it — I'll offer choices whenever you're unsure.", echo:'Ask me questions as we go' },
+          { id:'autofill', icon:'fa-wand-magic-sparkles', title:'Auto-fill from my setup',
+            desc:'Draft the whole arc from the template + context, then I’ll review.', echo:'Auto-fill it and I’ll review' },
+          { id:'mix', icon:'fa-scale-balanced', title:'A bit of both',
+            desc:'Ask me the one or two calls that matter, auto-fill the rest.', echo:'Ask the key calls, auto-fill the rest' },
+        ]), (mode) => {
+          if (mode === 'interview') runInterview();
+          else if (mode === 'autofill') runAutoFill();
+          else runMix();
+        });
+      });
+    }
+
+    /* ---------- Branch A: INTERVIEW (ask, with choices) ---------- */
+    function runInterview() {
+      withTyping(() => {
+        addAiMsg(`Great — I'll ask, and give you options to pick from whenever it helps. First: <strong>where should the arc land?</strong> This sets the through-line every learner must hear.`);
+        addWidget(clarifyHTML('What’s the core takeaway for this scenario?', [
+          { id:'law', label:'The law — what legally counts as harassment here', echo:'Land on what legally counts as harassment' },
+          { id:'action', label:'The action — what a bystander should actually do', echo:'Land on what a bystander should do' },
+          { id:'both', label:'Both — recognize it, then act on it', echo:'Both: recognize it, then act' },
+        ]), (choice) => {
+          seedReflection();
+          if (choice === 'action') { seedActionPhase(); }
+          else if (choice === 'both') { seedLawPhase(); seedActionPhase(); }
+          else { seedLawPhase(); }
+          interviewReflectionTone();
+        });
+      });
+    }
+
+    function interviewReflectionTone() {
+      withTyping(() => {
+        addAiMsg(`I drafted the opening <strong>Reflection</strong>. Its tone really sets the room — here's the same prompt in three voices. Which feels right?`);
+        addWidget(toneHTML([
+          { id:'warm', icon:'fa-mug-hot', label:'Warm',
+            text:"Take a second before we dig in — no right answer here. What's your honest gut read on how Marshall's being treated?" },
+          { id:'direct', icon:'fa-bullseye', label:'Direct',
+            text:"First reaction — is what's happening to Marshall a problem, or not? Say what you actually think." },
+          { id:'reflective', icon:'fa-feather', label:'Reflective',
+            text:"Before the specifics, sit with it a moment. When you picture Marshall's week, what comes up for you?" },
+        ]), (tone) => {
+          const map = {
+            warm: "Take a second before we dig in — no right answer here. What's your honest gut read on how Marshall's being treated?",
+            direct: "First reaction — is what's happening to Marshall a problem, or not? Say what you actually think.",
+            reflective: "Before the specifics, sit with it a moment. When you picture Marshall's week, what comes up for you?",
+          };
+          const refl = blocks.find(b => b.type === 'reflection');
+          if (refl) updateBlock(refl.id, { prompt: map[tone] });
+          interviewTaskAB();
+        });
+      });
+    }
+
+    function interviewTaskAB() {
+      withTyping(() => {
+        addAiMsg(`For the phase task, I wrote it two ways — one leads with the law, one leads with Marshall's experience. Pick the one you like and I'll use it.`);
+        addWidget(abHTML(
+          { id:'a', badge:'A', name:'Lead with the law',
+            text:"Based on what you know about workplace harassment law — does what Marshall is going through qualify? Reason it out step by step." },
+          { id:'b', badge:'B', name:'Lead with the person',
+            text:"Think about Marshall's week — the nicknames, the 'jokes', the images. In your view, does this cross into harassment? Why or why not?" },
+        ), (pick) => {
+          const map = {
+            a: "Based on what you know about workplace harassment law — does what Marshall is going through qualify? Reason it out step by step.",
+            b: "Think about Marshall's week — the nicknames, the 'jokes', the images. In your view, does this cross into harassment? Why or why not?",
+          };
+          const phase = blocks.find(b => b.type === 'phase');
+          if (phase) updateBlock(phase.id, { task: map[pick] });
+          interviewGapCheck();
+        });
+      });
+    }
+
+    // A gap the user likely hasn't thought about → offer to fill it a few ways.
+    function interviewGapCheck() {
+      withTyping(() => {
+        addAiMsg(`One thing's still open, and it's easy to miss.`);
+        addWidget(gapHTML(
+          'No practice moment yet',
+          "Right now the learner reasons about the situation but never rehearses acting on it. Bystander scenarios land better with a live beat. Want one?",
+          [
+            { id:'add', primary:true, label:'Add a live practice beat', echo:'Add a live practice beat' },
+            { id:'auto', label:'Pick the best fit for me', echo:'Pick the best practice beat for me' },
+            { id:'skip', label:'Skip it for now', echo:'Skip practice for now' },
+          ]
+        ), (choice) => {
+          if (choice === 'skip') { wrapUp("Skipped the practice beat — you can add one anytime in the editor."); return; }
+          seedPractice();
+          wrapUp(choice === 'auto'
+            ? "I picked an in-the-moment practice beat — it mirrors the day-to-day incidents the learner just reasoned about."
+            : "Added a live practice beat so the learner rehearses the moment, not just reasons about it.");
+        });
+      });
+    }
+
+    /* ---------- Branch B: AUTO-FILL (draft everything, then review) ---------- */
+    function runAutoFill() {
+      withTyping(() => {
+        addAiMsg(`On it — drafting the full arc from your template, course context, and the situation. Give me a second…`, `Building the arc`);
+        setTimeout(() => {
+          seedReflection(); seedLawPhase(); seedActionPhase(); seedPractice();
+          withTyping(() => {
+            addAiMsg(`Done — a four-beat arc: <strong>Reflection → The Law → What You Do → Live Practice</strong>. I made a few judgment calls; here's the one I'm least sure about.`,
+              `Drafted 4 interaction points`);
+            addWidget(gapHTML(
+              'I guessed on the ending',
+              "I ended on a live practice beat. Some teams prefer to end on a reflection instead, so the learner leaves thinking rather than doing. Keep practice, or switch?",
+              [
+                { id:'keep', primary:true, label:'Keep the practice ending', echo:'Keep the practice ending' },
+                { id:'switch', label:'End on a reflection instead', echo:'End on a reflection instead' },
+              ]
+            ), (choice) => {
+              if (choice === 'switch') {
+                const pr = blocks.find(b => b.type === 'practice');
+                if (pr) updateBlock(pr.id, {
+                  setup: "Step back from the specifics for a moment.",
+                  goal: "What will you carry out of this — and what's the first thing you'd do differently at work tomorrow?",
+                });
+              }
+              wrapUp("Locked in. Review any block, regenerate what you'd like, and push it into the editor.");
+            });
+          });
+        }, 1400);
+      });
+    }
+
+    /* ---------- Branch C: MIX (one key question, then auto-fill) ---------- */
+    function runMix() {
+      withTyping(() => {
+        addAiMsg(`Efficient. I'll auto-fill the arc — I just need <strong>one call</strong> from you first, since it changes the whole shape.`);
+        addWidget(clarifyHTML('How hard should the scenario push on the legal detail?', [
+          { id:'light', label:'Light touch — mostly recognizing & responding', echo:'Keep the legal detail light' },
+          { id:'balanced', label:'Balanced — some law, strong on action', echo:'Balanced law and action' },
+          { id:'heavy', label:'Rigorous — really nail the legal standard', echo:'Go rigorous on the legal standard' },
+        ]), (depth) => {
+          withTyping(() => {
+            addAiMsg(`Got it. Auto-filling a ${depth === 'heavy' ? 'law-forward' : depth === 'light' ? 'action-forward' : 'balanced'} arc now…`, `Building the arc`);
+            setTimeout(() => {
+              seedReflection();
+              if (depth !== 'light') seedLawPhase();
+              seedActionPhase();
+              seedPractice();
+              if (depth === 'heavy') {
+                const phase = blocks.find(b => b.type === 'phase');
+                if (phase) updateBlock(phase.id, {
+                  through: "Title VII reaches gender-stereotype conduct; no sexual advance and no tangible job action are required; same-sex harassment is fully covered; the standard is 'severe or pervasive'; report route — HR, in writing, promptly.",
+                });
+              }
+              wrapUp("Arc drafted around your call. Tweak any block, or push it into the editor.");
+            }, 1400);
+          });
+        });
+      });
+    }
+
+    // ----- Shared wrap-up + free-form refinement -----
+    let offeredTemplate = false;
+    function wrapUp(note) {
+      withTyping(() => {
+        addAiMsg(`${note} You can also just tell me what to change — e.g. "make phase 1 warmer" or "give me two options for the practice scene."`);
+        // Proactively offer to layer in another template once the base arc is drafted.
+        if (!offeredTemplate && blocks.length >= 3) {
+          offeredTemplate = true;
+          addWidget(gapHTML(
+            'Want to layer in another template?',
+            "This arc reasons the situation through. You could move into an <strong>Observe / React</strong> beat — watch the moment the images go public and react to it — for a stronger emotional turn before the wrap.",
+            [
+              { id:'observe', primary:true, label:'Add an Observe / React section', echo:'Add an Observe / React section' },
+              { id:'more',              label:'Show me other templates',      echo:'Show me other templates' },
+              { id:'no',                label:'No, this arc is enough',        echo:'This arc is enough' },
+            ]
+          ), (choice) => {
+            if (choice === 'observe') {
+              withTyping(() => { appendTemplate('observe'); addAiMsg('Layered in an <strong>Observe / React</strong> section, grouped under its own template tag. Tune it like the rest.', 'Added the Observe / React template'); afterExtra(); });
+            } else if (choice === 'more') {
+              toggleAddTmplMenu();
+              afterExtra();
+            } else { afterExtra(); }
+          });
+        }
+        addSuggests([ 'Give me 2 options for the practice scene', 'Regenerate Phase 1', 'Push it all to the editor' ]);
+      });
+    }
+    function afterExtra() {
+      withTyping(() => { addSuggests([ 'Add another template', 'Push it all to the editor' ]); });
+    }
+
+    // ----- Composer + free-form handling -----
+    function sendMessage() {
+      const input = document.getElementById('composerInput');
+      const text = input.value.trim();
+      if (!text) return;
+      addUserMsg(text);
+      input.value = '';
+      handleFreeText(text);
+    }
+
+    function handleFreeText(text) {
+      if (!started) { started = true; askWorkingMode(); return; }
+      // A few intents are recognized so free-typing feels responsive.
+      if (/push|editor|done|looks good|ship/i.test(text)) { withTyping(() => addAiMsg('Pushing it into the editor…')); setTimeout(pushToEditor, 700); return; }
+      // Layer in another template — recognize a named one, else open the menu.
+      if (/\b(add|layer|move into|bring in|another).*(template|section|observe|roleplay|teach.?back|guided arc)|observe.?react/i.test(text)) {
+        const named = /observe|react/i.test(text) ? 'observe' : /roleplay/i.test(text) ? 'roleplay' : /teach.?back/i.test(text) ? 'teach-back' : /guided arc/i.test(text) ? 'guided-arc' : null;
+        if (named) { const label = TEMPLATE_LABELS[named]; withTyping(() => { appendTemplate(named); addAiMsg(`Layered in a <strong>${label}</strong> section, grouped under its own template tag.`, `Added the ${label} template`); afterExtra(); }); }
+        else { withTyping(() => { addAiMsg('Sure — which template should I layer in?'); toggleAddTmplMenu(); }); }
+        return;
+      }
+      if (/2 options|two options|give me options|not sure|options for/i.test(text)) { offerPracticeOptions(); return; }
+      if (/regenerate|redo|try again/i.test(text)) { const b = blocks[blocks.length-1]; if (b) { withTyping(()=>addAiMsg('Regenerating that block…')); setTimeout(()=>regenBlock(b.id),700); } return; }
+      // Default: acknowledge and offer choices rather than assume.
+      withTyping(() => {
+        addAiMsg(`I can take that a couple of ways — which did you mean?`);
+        addWidget(clarifyHTML('How should I apply that?', [
+          { id:'tone', label:'Adjust the tone/wording', echo:'Adjust the tone' },
+          { id:'add', label:'Add a new interaction point', echo:'Add a new interaction point' },
+          { id:'auto', label:'Just use your best judgment', echo:'Use your best judgment' },
+        ]), (choice) => {
+          if (choice === 'add') { seedActionPhase(); wrapUp('Added a phase.'); }
+          else if (choice === 'tone') { offerPracticeOptions(); }
+          else { wrapUp('Applied my best guess.'); }
+        });
+      });
+    }
+
+    // On-demand A/B for a block the user is unsure about.
+    function offerPracticeOptions() {
+      withTyping(() => {
+        addAiMsg(`Here are two directions for the practice scene — pick the one you'd rather the learner face.`);
+        addWidget(abHTML(
+          { id:'a', badge:'A', name:'In the moment',
+            text:"Jake makes another 'cozy lady job' crack at Marshall and a couple of people laugh. What do you say or do, right now?" },
+          { id:'b', badge:'B', name:'The private check-in',
+            text:"Later, you catch Marshall alone at the coffee machine, clearly worn down. How do you open the conversation?" },
+        ), (pick) => {
+          const pr = blocks.find(b => b.type === 'practice') || seedPractice() && blocks.find(b => b.type === 'practice');
+          const map = {
+            a: { setup: "Jake makes another 'cozy lady job' crack at Marshall and a couple of people laugh.", goal: "Say or do something in the moment as a co-worker — the coach debriefs your choice." },
+            b: { setup: "You catch Marshall alone at the coffee machine, clearly worn down.", goal: "Open the conversation as a supportive peer — the coach debriefs your approach." },
+          };
+          if (pr) updateBlock(pr.id, map[pick]);
+          wrapUp("Set. Anything else, or ready to push it in?");
+        });
+      });
+    }
+
+    function pickSuggest(i) {
+      const btns = document.querySelectorAll('#live-suggests button');
+      const text = btns[i] ? btns[i].textContent : '';
+      if (!text) return;
+      addUserMsg(text);
+      clearSuggests();
+      if (/push/i.test(text)) { withTyping(()=>addAiMsg('Pushing it into the editor…')); setTimeout(pushToEditor, 700); return; }
+      if (/options/i.test(text)) { offerPracticeOptions(); return; }
+      if (/regenerate phase 1/i.test(text)) { const p = blocks.find(b => b.type==='phase'); if (p) { withTyping(()=>addAiMsg('Regenerating Phase 1…')); setTimeout(()=>{ regenBlock(p.id); wrapUp('Regenerated Phase 1.'); }, 700); } return; }
+      handleFreeText(text);
+    }
+
+    function onComposerKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    }
+
+    // ---- Push the draft into the real editor ----
+    function pushToEditor() {
+      const p = new URLSearchParams(location.search);
+      p.set('section', 'interaction');
+      p.set('drafted', blocks.length);   // simulated: editor would ingest the drafted points
+      window.location.href = `scenario-introduction.html?${p.toString()}`;
+    }
+
+    function escapeHTML(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ---- Kick off the conversation ----
+    renderArchTags();   // paint the starting-template tag(s)
+    addAiMsg(`Let's draft <strong>${escapeHTML(projTitle)}</strong> together. Tell me the journey you want the learner to go on — or start from one of these and I'll take it from there.`);
+    addSuggests([
+      'Start from the Marshall situation',
+      'Learner should recognize it and know how to act',
+      'Not sure yet — help me shape it',
+    ]);
+
+</script>
+</body>
+</html>

@@ -1,309 +1,235 @@
-<!-- Live URL: https://vectorlearning.github.io/ux-mockups/products/SafeLMS/timeout%20modal%20SAFELMS-30656/ -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SAFELMS-30656 — Session Timeout Warning Modal</title>
-  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
-  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
-  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
-    body {
-      font-family: 'Open Sans', sans-serif;
-      background: #f0f2f6;
-      min-height: 100vh;
-    }
+  /* Stage holds the full-page version iframe */
+  #stage { position: fixed; inset: 0; }
+  #stage iframe { width: 100%; height: 100%; border: 0; display: block; }
 
-    /* ── Session warning icon (used inside vaadin-dialog renderer) ── */
-    .session-warning-icon {
-      width: 40px; height: 40px; border-radius: 8px;
-      background: #fef9c3; border: 1.5px solid #fde047;
-      display: flex; align-items: center; justify-content: center;
-      color: #a16207; font-size: 18px; flex-shrink: 0;
-    }
+  /* Centered plain-language message for error/empty states */
+  #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #4a5568; font-size: 15px; line-height: 1.5; }
 
-    /* ── vaadin-dialog sizing and position ── */
-    vaadin-dialog-overlay {
-      --vaadin-dialog-overlay-width: 400px;
-    }
-
-    vaadin-dialog-overlay::part(overlay) {
-      position: fixed;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      min-width: 275px;
-      max-width: 400px;
-      width: 400px;
-    }
-
-    /* ── Footer buttons ── */
-    .dialog-footer-btns {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      width: 100%;
-    }
-
-    /* ── Mobile ── */
-    @media (max-width: 480px) {
-      .dialog-footer-btns {
-        flex-direction: column;
-      }
-      .dialog-footer-btns vaadin-button {
-        width: 100%;
-      }
-      vaadin-dialog-overlay::part(overlay) {
-        width: calc(100vw - 32px);
-        min-width: unset;
-        max-width: unset;
-        left: 16px;
-        transform: none;
-      }
-    }
-
-    /* ── Screen-reader-only live region ── */
-    .sr-only {
-      position: absolute; width: 1px; height: 1px;
-      padding: 0; margin: -1px; overflow: hidden;
-      clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
-    }
-
-    /* ── Logged-out full-screen overlay ── */
-    .loggedout-screen {
-      display: none; position: fixed; inset: 0;
-      background: #0a2a5e; z-index: 1000;
-      flex-direction: column; align-items: center; justify-content: center; gap: 16px;
-    }
-    .loggedout-screen.visible { display: flex; }
-    .loggedout-box {
-      background: white; border-radius: 8px;
-      padding: 40px; max-width: 420px; width: calc(100% - 32px);
-      text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px;
-    }
-    .loggedout-icon {
-      width: 56px; height: 56px; border-radius: 50%;
-      background: #fee2e2; border: 2px solid #fca5a5;
-      display: flex; align-items: center; justify-content: center;
-      color: #dc2626; font-size: 24px;
-    }
-    .loggedout-title { font-size: 20px; font-weight: 700; color: #1c3050; }
-    .loggedout-msg   { font-size: 14px; color: rgba(0,0,0,0.6); line-height: 1.6; }
-    .loggedout-watermark { font-size: 12px; color: rgba(255,255,255,0.35); position: absolute; bottom: 16px; }
-
-    /* ── Demo control panel ── */
-    .demo-panel {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: #1c3050; border-top: 2px solid #0a59ce;
-      padding: 10px 20px; display: flex; align-items: center; gap: 12px;
-      z-index: 800; flex-wrap: wrap;
-    }
-    .demo-panel-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
-    .demo-btn {
-      font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 600;
-      border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: white;
-      border-radius: 4px; padding: 5px 12px; cursor: pointer; transition: background 0.15s;
-    }
-    .demo-btn:hover { background: rgba(255,255,255,0.2); }
-    .demo-btn.danger { border-color: #f87171; color: #fca5a5; }
-    .demo-btn.danger:hover { background: rgba(220,38,38,0.2); }
-    .demo-divider { width: 1px; height: 22px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
-    .demo-note { font-size: 11px; color: rgba(255,255,255,0.4); margin-left: auto; }
-  </style>
+  /* ---- Version switcher ---------------------------------------------------
+     Matches the Design Toolbox dock: a dark, bottom-CENTER pill (same #18181b
+     rounded pill the toolbox and the legacy in-mock `.version-switcher` use),
+     so the version control reads as one family with the design tools instead of
+     a separate widget in its own corner. Bottom-center is the team's reserved
+     "chrome" lane — it stays clear of the bottom-RIGHT area where mocks put
+     their own floating action buttons. */
+  #switcher { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483000; display: none; align-items: center; gap: 6px; background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,.28); font-family: "Open Sans", system-ui, sans-serif; }
+  #switcher .vs-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 2px; }
+  #switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .15s ease, color .15s ease; }
+  #switcher .vs-btn:hover { color: #fff; }
+  #switcher .vs-btn.active { background: #1f4596; color: #fff; }
+  :focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
 </head>
 <body>
+<div id="stage"></div>
+<div id="msg"></div>
+<!-- The switcher is a plain dark pill of segmented version buttons. When the
+     loaded version runs the Design Toolbox, the loader instead docks these same
+     buttons INTO that toolbox pill (see adoptIntoDock) so there is one pill. -->
+<div id="switcher" role="group" aria-label="Switch version">
+  <span class="vs-label">VERSION</span>
+</div>
 
-  <!-- ════════════════════════════════════════════════════════
-       SESSION TIMEOUT WARNING — vaadin-dialog
-       WCAG 2.2.1: Timing Adjustable — Level A
+<script>
+(async function () {
+  const stage = document.getElementById('stage');
+  const switcher = document.getElementById('switcher');
 
-       Accessibility notes for production:
-       • vaadin-dialog renders role="dialog" by default. Override to
-         role="alertdialog" on the overlay element (see JS below) so
-         screen readers announce the warning immediately.
-       • aria-labelledby and aria-describedby are set on the overlay
-         element in the opened-changed handler.
-       • vaadin-dialog handles focus trapping and focus restoration natively.
-       • no-close-on-outside-click prevents accidental dismissal.
-       • Esc key closes the dialog — wire that to extendSession() via
-         the opened-changed event (closing = user intent to stay).
-       ════════════════════════════════════════════════════════ -->
-  <vaadin-dialog id="timeout-dialog" no-close-on-outside-click data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="135"></vaadin-dialog>
+  function showMessage(text) {
+    stage.style.display = 'none';
+    const m = document.getElementById('msg');
+    m.textContent = text;
+    m.style.display = 'flex';
+  }
 
+  // Cache-bust token. GitHub Pages edge-caches every file for 10 min and ignores
+  // custom cache headers, so a changing query string is the only reliable way to
+  // pull a just-pushed version instead of a stale cached one. One token per load
+  // (so switching back to an already-seen version reuses it within the session).
+  const CB = 'cb=' + Date.now();
+  const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
 
-  <!-- ════ LOGGED-OUT SCREEN ════ -->
-  <div class="loggedout-screen" id="loggedout-screen" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="139">
-    <div class="loggedout-box" aria-labelledby="loggedout-title" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="140">
-      <div class="loggedout-icon" aria-hidden="true" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="141">
-        <i class="fa-solid fa-right-from-bracket"></i>
-      </div>
-      <div class="loggedout-title" id="loggedout-title" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="144">You've Been Logged Out</div>
-      <p class="loggedout-msg">
-        Your session expired due to inactivity. Any unsaved work has been preserved.
-        Please log in again to continue.
-      </p>
-      <vaadin-button theme="primary" id="btn-login-again" style="margin-top:8px;" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="149">
-        <i class="fa-solid fa-arrow-right-to-bracket" slot="prefix"></i>
-        Log In Again
-      </vaadin-button>
-    </div>
-    <div class="loggedout-watermark" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="154">VectorSolutions SafeLMS</div>
-  </div>
+  // --- Load the manifest -------------------------------------------------
+  let versions;
+  try {
+    const res = await fetch(bust('./versions.json'), { cache: 'no-store' });
+    if (!res.ok) throw new Error('http');
+    versions = await res.json();
+  } catch (e) {
+    return showMessage("Couldn't load versions.json. Check that it sits next to this file, and that you're viewing this over http (not by opening the file directly).");
+  }
+  if (!Array.isArray(versions) || versions.length === 0) {
+    return showMessage("versions.json has no versions in it. Add at least one entry like { \"id\": \"ver1\", \"label\": \"V1\", \"path\": \"ver1/ver1.html\" }.");
+  }
 
+  // Versions always present in ascending order — V1 first, then V2, V2.x, V10…
+  // — no matter how the manifest happens to be ordered, and the FIRST (lowest)
+  // version is what opens by default. Deep links (?v=) still override.
+  versions.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' }));
 
-  <!-- ════ SESSION-EXTENDED NOTIFICATION ════ -->
-  <vaadin-notification id="extend-notification" duration="5000" position="bottom-end" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="159"></vaadin-notification>
+  const byId = id => versions.find(v => v.id === id);
+  const params = new URLSearchParams(location.search);
+  let currentId = null;
 
+  function setUrl(id) {
+    const p = new URLSearchParams();
+    p.set('v', id);
+    history.replaceState(null, '', location.pathname + '?' + p.toString());
+  }
 
-  <!-- ════ DEMO CONTROL PANEL ════ -->
-  <div class="demo-panel" role="region" aria-label="Prototype demo controls" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="163">
-    <span class="demo-panel-label" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="164">Demo</span>
-    <button class="demo-btn" id="demo-open" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="165">
-      <i class="fa-solid fa-clock"></i> Show Warning Dialog
-    </button>
-    <div class="demo-divider" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="168"></div>
-    <button class="demo-btn danger" id="demo-expire" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="169">
-      <i class="fa-solid fa-hourglass-end"></i> Simulate Session Expired
-    </button>
-    <div class="demo-divider" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="172"></div>
-    <button class="demo-btn" id="demo-reset" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="173">
-      <i class="fa-solid fa-rotate-left"></i> Reset
-    </button>
-    <span class="demo-note" data-file="products/SafeLMS/timeout-modal-SAFELMS-30656/index.html" data-line="176">SAFELMS-30656 · WCAG 2.2.1 Timing Adjustable (Level A) · Session timer: 8 hrs inactivity</span>
-  </div>
+  // --- Segmented version buttons (built once, reused) --------------------
+  // One button per version. They live in the loader's #switcher by default,
+  // but get MOVED into the iframe's toolbox dock when one is present, so the
+  // same button elements are reused either way (no duplicate handlers).
+  const buttons = versions.map(v => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'vs-btn';
+    b.dataset.id = v.id;
+    b.textContent = v.label;
+    if (v.title) b.title = v.title;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => showVersion(v.id));
+    return b;
+  });
+  buttons.forEach(b => switcher.appendChild(b));
 
+  function markActive(id) {
+    buttons.forEach(b => {
+      const on = b.dataset.id === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  }
 
-  <script>
-    const dialog       = document.getElementById('timeout-dialog');
-    const loggedout    = document.getElementById('loggedout-screen');
-    const notification = document.getElementById('extend-notification');
+  // --- Load a version (reuses one iframe so the src swaps in place) -------
+  function showVersion(id) {
+    const v = byId(id) || versions[0];
+    currentId = v.id;
+    let f = stage.querySelector('iframe');
+    if (!f) {
+      f = document.createElement('iframe');
+      // Every time the frame finishes loading a version, re-attempt docking
+      // into that version's toolbox pill (the previous frame's dock, if any,
+      // was torn down with it) and re-sync the browser-tab title to it.
+      f.addEventListener('load', () => { adoptIntoDock(f); syncTitle(f); });
+      stage.appendChild(f);
+    }
+    f.title = v.label;
+    // Cache-bust the version file so a just-pushed mock loads fresh, not the
+    // edge-cached copy. Compared against the busted URL so we don't reload it.
+    const src = bust(v.path);
+    if (f.getAttribute('src') !== src) f.setAttribute('src', src);
+    setUrl(v.id);
+    markActive(v.id);
+  }
 
-    // ── Dialog renderers ──────────────────────────────────────
-
-    dialog.headerRenderer = (root) => {
-      if (root.firstChild) return;
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex; align-items:center; gap:14px;';
-      wrap.innerHTML = `
-        <div class="session-warning-icon" aria-hidden="true">
-          <i class="fa-regular fa-clock"></i>
-        </div>
-        <span id="session-title" style="font-size:18px; font-weight:700; color:#1c3050;">
-          Still there?
-        </span>
-      `;
-      root.appendChild(wrap);
-    };
-
-    dialog.renderer = (root) => {
-      if (root.firstChild) return;
-
-      const desc = document.createElement('p');
-      desc.id = 'session-desc';
-      desc.style.cssText = 'font-size:14px; color:rgba(0,0,0,0.75); line-height:1.6; margin:0;';
-      desc.textContent = "You've been inactive for a while. To help keep your account secure, your session is about to expire and you'll be signed out automatically.";
-
-      // Screen-reader live region — announces warning to AT immediately
-      const srLive = document.createElement('div');
-      srLive.className = 'sr-only';
-      srLive.setAttribute('role', 'status');
-      srLive.setAttribute('aria-live', 'assertive');
-      srLive.setAttribute('aria-atomic', 'true');
-      srLive.textContent = 'Warning: your session is about to expire. Select Continue session to stay logged in.';
-
-      root.appendChild(desc);
-      root.appendChild(srLive);
-    };
-
-    dialog.footerRenderer = (root) => {
-      if (root.firstChild) return;
-
-      const signOutBtn = document.createElement('vaadin-button');
-      signOutBtn.setAttribute('theme', 'secondary');
-      signOutBtn.textContent = 'Sign out';
-      signOutBtn.addEventListener('click', handleSignOut);
-
-      const continueBtn = document.createElement('vaadin-button');
-      continueBtn.setAttribute('theme', 'primary');
-      continueBtn.textContent = 'Continue session';
-      continueBtn.addEventListener('click', handleContinueSession);
-
-      const btnWrap = document.createElement('div');
-      btnWrap.className = 'dialog-footer-btns';
-      btnWrap.appendChild(signOutBtn);
-      btnWrap.appendChild(continueBtn);
-      root.appendChild(btnWrap);
-    };
-
-    // ── Override role to alertdialog for WCAG compliance ─────
-    dialog.addEventListener('opened-changed', (e) => {
-      if (e.detail.value) {
-        requestAnimationFrame(() => {
-          const overlay = document.querySelector('vaadin-dialog-overlay');
-          if (overlay) {
-            overlay.setAttribute('role', 'alertdialog');
-            overlay.setAttribute('aria-labelledby', 'session-title');
-            overlay.setAttribute('aria-describedby', 'session-desc');
+  // --- Connect to the Design Toolbox dock --------------------------------
+  // If the loaded version runs toolbox.js, it exposes window.ToolboxDock — the
+  // shared bottom-center pill. We add a version group to that pill (via its
+  // documented .add()) and hide the loader's own pill, so the version controls
+  // and the tool launchers share ONE dock. If there's no toolbox (the common
+  // case for a plain mock), we just show the loader's own dark pill.
+  //
+  // The version buttons in the dock are built FRESH in the iframe's own
+  // document each load — never the parent's button elements. Moving one element
+  // across the iframe boundary and re-adopting it after each navigation orphans
+  // it in the torn-down document (which broke switching back). Fresh per-load
+  // buttons are destroyed with the iframe and rebuilt cleanly next load; their
+  // click handlers just call the parent's showVersion. Best-effort + guarded.
+  function adoptIntoDock(frame) {
+    let tries = 0;
+    (function attempt() {
+      let docked = false;
+      try {
+        const win = frame.contentWindow;
+        if (win && win.ToolboxDock && typeof win.ToolboxDock.add === 'function') {
+          const idoc = win.document;
+          if (!idoc.querySelector('#loader-version-group')) {
+            // NB: deliberately NOT class "version-switcher" — that class is the
+            // toolbox's own "adopt me as the dock" signal, and tagging our group
+            // with it would make the toolbox nest its launchers inside us.
+            const group = idoc.createElement('span');
+            group.id = 'loader-version-group';
+            group.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:transparent;box-shadow:none;padding:0;position:static;transform:none;';
+            const label = idoc.createElement('span');
+            label.textContent = 'VERSION';
+            label.style.cssText = 'color:#a1a1aa;font-size:11px;font-weight:700;letter-spacing:.4px;font-family:"Open Sans",system-ui,sans-serif;';
+            group.appendChild(label);
+            versions.forEach(v => {
+              const b = idoc.createElement('button');
+              b.type = 'button';
+              b.textContent = v.label;
+              if (v.title) b.title = v.title;
+              const on = v.id === currentId;
+              b.style.cssText = 'border:0;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:"Open Sans",system-ui,sans-serif;' +
+                (on ? 'background:#1f4596;color:#fff;' : 'background:transparent;color:#d4d4d8;');
+              b.addEventListener('click', () => showVersion(v.id));
+              group.appendChild(b);
+            });
+            win.ToolboxDock.add(group);
           }
-        });
+          docked = true;
+        }
+      } catch (e) { /* cross-origin or not ready — fall through to loader pill */ }
+
+      if (docked) {
+        switcher.style.display = 'none';          // merged into the toolbox pill
+      } else if (tries++ < 8) {
+        setTimeout(attempt, 200);                 // dock may mount just after load
       }
-    });
+      // No dock found: the loader's own pill is already showing (set at boot),
+      // so there is nothing to do — a plain mock keeps its dark bottom-center
+      // pill without any delay.
+    })();
+  }
 
-    // ── Action handlers ───────────────────────────────────────
+  // --- Keep the browser-tab title meaningful -----------------------------
+  // The loader's own <title> is the generic "Mockup". Sync the tab to the
+  // loaded version's real <title> instead (the iframe is same-origin on Pages
+  // and locally, so it's readable), falling back to a humanized version of the
+  // feature-folder name. With 2+ versions the active version's label is
+  // appended (e.g. "Assign Training · V2"). Runs on every version load, so
+  // switching versions updates the tab too.
+  function humanizeFolder() {
+    const segs = location.pathname.split('/').filter(Boolean);
+    let last = segs[segs.length - 1] || '';
+    if (/\.html?$/i.test(last)) last = segs[segs.length - 2] || last;   // drop a trailing index.html
+    return last.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Mockup';
+  }
+  function syncTitle(frame) {
+    let base = '';
+    try {
+      const t = frame && frame.contentDocument && frame.contentDocument.title;
+      if (t && t.trim() && t.trim().toLowerCase() !== 'mockup') base = t.trim();
+    } catch (e) { /* cross-origin — fall back to the folder name */ }
+    if (!base) base = humanizeFolder();
+    const label = (byId(currentId) || {}).label;
+    document.title = (versions.length > 1 && label) ? (base + ' · ' + label) : base;
+  }
+  // Set a sensible fallback immediately so the tab never flashes "Mockup"
+  // before the first version finishes loading.
+  document.title = humanizeFolder();
 
-    function handleContinueSession() {
-      dialog.opened = false;
-      // In production: call session refresh API here
-      notification.renderer = (root) => {
-        if (root.firstChild) return;
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:13px; font-family:Open Sans,sans-serif;';
-        wrap.innerHTML = `
-          <i class="fa-solid fa-circle-check" style="color:#16a34a; font-size:16px;" aria-hidden="true"></i>
-          <span><strong>Session extended.</strong> You have 8 hours before the next inactivity check.</span>
-        `;
-        root.appendChild(wrap);
-      };
-      notification.opened = true;
-      dialog.opened = true; // keep open for demo
-    }
-
-    function handleSignOut() {
-      dialog.opened = false;
-      loggedout.classList.add('visible');
-      requestAnimationFrame(() => document.getElementById('btn-login-again').focus());
-    }
-
-    // ── Demo controls ─────────────────────────────────────────
-
-    document.getElementById('demo-open').addEventListener('click', () => {
-      dialog.opened = true;
-    });
-
-    document.getElementById('demo-expire').addEventListener('click', () => {
-      dialog.opened = false;
-      loggedout.classList.add('visible');
-      requestAnimationFrame(() => document.getElementById('btn-login-again').focus());
-    });
-
-    document.getElementById('demo-reset').addEventListener('click', () => {
-      loggedout.classList.remove('visible');
-      dialog.opened = true;
-    });
-
-    document.getElementById('btn-login-again').addEventListener('click', () => {
-      loggedout.classList.remove('visible');
-      dialog.opened = true;
-    });
-
-    // ── Open on load ──────────────────────────────────────────
-    dialog.opened = true;
-  </script>
-
-<script src="../../../designtoolbox/toolbox.js"></script>
+  // --- Boot --------------------------------------------------------------
+  // The switcher only matters with 2+ versions. Show the loader's own pill
+  // right away (no wait); adoptIntoDock hides/merges it only if the loaded
+  // version turns out to run the toolbox.
+  if (versions.length > 1) switcher.style.display = 'inline-flex';
+  const want = params.get('v');
+  showVersion(byId(want) ? want : versions[0].id);
+})();
+</script>
 </body>
 </html>

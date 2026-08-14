@@ -3,6 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <!-- Dark mode is OPT-IN. Vector products are light-only, so scenarios default to light
+         regardless of the OS setting. Set window.SCENARIO_ALLOW_DARK = true to restore
+         OS-driven dark — nothing is lost, the gated dark CSS is still in the head. -->
+    <script>
+      (function () {
+        if (window.SCENARIO_ALLOW_DARK === true) {
+          document.documentElement.classList.add('allow-dark');
+          document.documentElement.style.colorScheme = 'light dark';
+        }
+      })();
+    </script>
     <title>Story Highlight Practice — Conversation Coach (Live AI)</title>
 
     <!-- Vector Web Components: Core -->
@@ -21,7 +33,7 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <!-- Course-delivery frame (production Vector Training chrome) -->
-    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <link rel="stylesheet" href="css/frame.css?v=5" />
     <style>
       /* Frame integration for this full-viewport app shell: the frame is embedded
          as the first flex child of .app (see the window.LESSON_FRAME config near
@@ -66,7 +78,7 @@
             dark "stage" so the two modes never look alike.
          =================================================================== */
       :root {
-        color-scheme: light dark;
+        color-scheme: light;   /* default light-only; the opt-in dark flag restores 'light dark' */
 
         /* —— Coaching world (light theme defaults) —— */
         --c-bg:          #f5f7fb;
@@ -76,9 +88,9 @@
         --c-ink-soft:    #5a6379;
         --c-ink-faint:   #67718a;   /* darkened for ≥4.5:1 contrast on the light surfaces */
         --c-line:        #e3e7f0;
-        --c-accent:      #4b63e6;   /* indigo — the coach */
-        --c-accent-strong:#3a4fce;
-        --c-accent-soft: #eef1fe;
+        --c-accent:      #0271ce;   /* Vector primary blue (--lumo-primary-color) — the coach */
+        --c-accent-strong:#015aa8;
+        --c-accent-soft: #e6f1fb;
         --c-on-accent:   #ffffff;
 
         /* —— Scene world (constant across themes: a lit set in a dark room) —— */
@@ -88,7 +100,7 @@
         --s-surface:     #211a16;   /* stage panel */
         --s-surface-2:   #2c241e;
         --s-line:        #43372e;
-        --s-char:        #c79bff;   /* the character — violet */
+        --s-char:        #c173d1;   /* the character — Vivid Violet (--vwc-color-vivid-violet-400) */
         --s-char-soft:   rgba(199,155,255,.16);
         --s-you:         #f1b34a;   /* your spoken voice — warm amber */
         --s-you-soft:    rgba(241,179,74,.16);
@@ -116,17 +128,18 @@
 
         --radius:   16px;
         --radius-sm:10px;
-        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
-        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
-        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --shadow-sm: 0 1px 4px -1px #1c304a85;                             /* Vector --lumo-box-shadow-xs */
+        --shadow-md: 0 2px 4px -1px #1c375a29, 0 3px 12px -1px #1c345442;   /* Vector --lumo-box-shadow-s */
+        --shadow-lg: 0 3px 18px -2px #1c375a29, 0 12px 48px -6px #1c324f61; /* Vector --lumo-box-shadow-l */
         --ease: cubic-bezier(.4, 0, .2, 1);
 
         --topbar-h: 52px;
         --input-h:  84px;
       }
 
+      /* Dark mode is OPT-IN (default light) — gated behind html.allow-dark; see the boot snippet in <head>. */
       @media (prefers-color-scheme: dark) {
-        :root {
+        :root.allow-dark {
           --c-bg:          #0c0f17;
           --c-surface:     #161b27;
           --c-surface-2:   #1e2433;
@@ -606,6 +619,39 @@
         box-shadow: var(--shadow-sm);
       }
 
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
+
       /* Your coaching reply: right-aligned accent bubble */
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
       .you-coach .cap {
@@ -709,7 +755,7 @@
         width: 36px; height: 36px;
         border-radius: 50%;
         display: grid; place-items: center;
-        background: linear-gradient(135deg, #7c5bb0, #c79bff);
+        background: linear-gradient(135deg, #7e398c, #c173d1);   /* Vivid Violet ramp (matches --s-char) */
         color: #fff;
         font-size: 15px;
         font-weight: 700;
@@ -1116,6 +1162,26 @@
       }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
       /* —— Phase transition (whole-stage content swaps, e.g. landing → story) ——
          Outgoing content softens and lifts away; incoming content settles in
          from below. Used by transitionStagePhase() so a phase change reads as
@@ -1286,6 +1352,11 @@
         .stage.is-frozen { filter: brightness(.7); }   /* drop the blur; keep static dim */
         /* the sheet still hides/shows, just instantly (global rule zeroes the slide) */
       }
+
+      /* —— Vector control corners (4px), appended so they win over the inline radii above —— */
+      .input-shell { border-radius: 4px; }
+      .send-btn { border-radius: 4px; }
+      .enter-cta, .debrief-cta { border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -1447,15 +1518,16 @@
       </div>
     </div>
 
-    <script src="js/scenario.js?v=12"></script>
+    <script src="js/scenario.js?v=13"></script>
     <!-- Shared simulator framework — one implementation under every mode:
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=2"></script>
+    <script src="js/sim-core.js?v=7"></script>
     <script src="js/sim-context.js?v=1"></script>
-    <script src="js/sim-debrief.js?v=5"></script>
+    <script src="js/sim-debrief.js?v=6"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
+    <script src="js/sim-coach-sheet.js?v=4"></script>
     <script>
     /* =====================================================================
        ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
@@ -2183,8 +2255,18 @@ You didn't carry this alone, and you didn't ask her to either.` },
           // The closing recap shows here like any other coach line — the
           // loading beats live in the CTA slot below (see showAnalyzing).
           const coachingRun = trailingRun(messages, 'coaching');
-          coachingRun.forEach((m) => coachPanelBody.appendChild(
-            m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m))));
+          const _last = coachingRun[coachingRun.length - 1];
+          const _askMsg = (_last && _last.speaker === 'coach' && /\?/.test(String(_last.text || '')) && !state.complete) ? _last : null;
+          coachingRun.forEach((m, i) => {
+            const node = m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m));
+            if (m.speaker === 'coach') {
+              const prev = coachingRun[i - 1], next = coachingRun[i + 1];
+              if (!prev || prev.speaker !== 'coach') node.classList.add('grp-first');
+              if (!next || next.speaker !== 'coach') node.classList.add('grp-last');
+              if (m === _askMsg) { node.classList.add('is-prompt'); if (m._enter) node.classList.add('just-asked'); }
+            }
+            coachPanelBody.appendChild(node);
+          });
           // The full strengths/growth-areas report lives in its own modal (see
           // resultsModal below) — opened only when the learner taps "View full
           // results" in the footer, never dumped in here. Resources are the
@@ -2245,7 +2327,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
         composer.placeholder = `Say this to ${SCENARIO.character}…`;
         inputIcon.className = 'fa-solid fa-microphone lead-icon';
       } else {
-        composer.placeholder = 'Type your response…';
+        composer.placeholder = coachPanelBody.querySelector('.coach-msg.is-prompt') ? 'Type your answer…' : 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
       }
 
@@ -2289,19 +2371,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
       messages.forEach((m) => { if (m._enter) m._enter = false; });
 
       manageFocus(trap);
-      // Coach thread: grow the sheet smoothly (tweenCoachHeight pins the newest
-      // bubble to the bottom itself); once maxed out, glide the scroll to the new
-      // bottom instead of snapping — instant fallback when motion is reduced or the
-      // tab is backgrounded (where smooth scroll silently no-ops).
-      if (coachUp) {
-        if (!tweenCoachHeight()) {
-          const canGlide = !reducedMotion() && document.visibilityState === 'visible';
-          if (canGlide) coachPanelBody.scrollTo({ top: coachPanelBody.scrollHeight, behavior: 'smooth' });
-          else coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
-        }
-      } else {
-        lastCoachH = null;
-      }
+      // Coach thread: grow the sheet smoothly (which pins the newest bubble to the
+      // bottom itself); once maxed out, glide the scroll to the new bottom instead
+      // of snapping — instant fallback when motion is reduced or the tab is
+      // backgrounded (where smooth scroll silently no-ops).
+      if (coachUp) coachSheet.follow({ nearBottom: true, delivering: state.delivering });
+      else coachSheet.reset();
       // The scene stage follows only when fresh scene content arrived.
       requestAnimationFrame(() => {
         if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
@@ -2311,46 +2386,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
 
-    /* —— Raise the coach sheet as ONE piece ————————————————————————————————
-       The sheet is bottom-anchored (it sits on the input bar). New content used
-       to snap the sheet taller and PIN the newest bubble to the bottom while the
-       height tweened — so only the header (riding the top edge) visibly moved,
-       arriving ~300ms late and reading as out-of-sync with the thread. Instead we
-       now lay the sheet out at its final height immediately, then ease the WHOLE
-       sheet — header + thread together — up into place from a dropped start: we
-       translateY it down by exactly how much it grew (the extra height tucks
-       behind the input bar, and the header lands where the shorter sheet's top
-       was), then animate that transform back to 0. Header and messages share one
-       motion, so nothing lags. Once the sheet is at its max height it stops
-       growing and the body scrolls (render()/showTyping() glide that scroll).
-       Returns true if it animated. */
-    let lastCoachH = null;      // sheet height we last painted, = the rise's start point
-    let coachGrowRAF = 0;       // in-flight rise, so a fresh one can cancel it
-    function tweenCoachHeight() {
-      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
-      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
-      coachPanel.style.transition = 'none';             // we drive the transform ourselves this beat
-      coachPanel.style.transform = '';                  // sit at the resting position to measure
-      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
-      const from = lastCoachH;
-      lastCoachH = target;
-      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // newest bubble to the bottom (layout is final now)
-      if (from == null || reducedMotion() || Math.abs(target - from) < 2) { coachPanel.style.transition = ''; return false; }
-      const delta = target - from;                      // how much taller we grew = how far to rise
-      const dur = 300;
-      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
-      let t0 = null;
-      const step = (ts) => {
-        if (t0 == null) t0 = ts;
-        const p = Math.min(1, (ts - t0) / dur);
-        coachPanel.style.transform = 'translateY(' + (delta * (1 - ease(p))) + 'px)';   // header + thread, one block
-        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
-        else { coachGrowRAF = 0; coachPanel.style.transform = ''; coachPanel.style.transition = ''; }  // release to CSS
-      };
-      coachPanel.style.transform = 'translateY(' + delta + 'px)';   // start dropped, synchronously
-      coachGrowRAF = requestAnimationFrame(step);
-      return true;
-    }
+    /* Coach-sheet rise + follow-scroll motion — shared in js/sim-coach-sheet.js.
+       coachSheet.follow({nearBottom,delivering}) from render(); .pin() for the
+       typing dots; .reset() when the sheet lowers. */
+    const coachSheet = SimCoachSheet.create({ app, panel: coachPanel, body: coachPanelBody });
 
     /* ---- typing indicator (in the right world) ------------------------ */
     function showTyping(label) {
@@ -2363,8 +2402,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
       else { typingHost = stageInner; stageInner.appendChild(node); }
       if (typingHost === coachPanelBody) {
-        // the dots grow the sheet too — tween it (which pins the thread); pin instantly if already maxed
-        if (!tweenCoachHeight()) coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        // the dots grow the sheet too — grow-or-pin the thread to the bottom
+        coachSheet.pin();
       } else {
         requestAnimationFrame(() => { stage.scrollTop = 1e9; });
       }
@@ -2617,6 +2656,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
       state.sending = true;
       render();          // shows the learner's line (faded in) and locks input
+      await wait(reducedMotion() ? 80 : 700);   // a beat before the reply begins — a real response doesn't start the instant you hit send
       showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');      // the AI is composing — covers the model round-trip
 
       let turn;
@@ -2988,7 +3028,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
         state.messages.push(m);
         render();
         // just a short settle so the next "thinking" doesn't start the same instant
-        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
         if (dead()) return;
       }
       state.delivering = false;
@@ -3100,6 +3140,60 @@ You didn't carry this alone, and you didn't ask her to either.` },
     });
     document.getElementById('restartBtn').addEventListener('click', restart);
 
+    /* ─────────────────────────────────────────────────────────────────────
+       DEV / REVIEW ONLY — "Skip to…" jump points (surfaced in the frame ⋯ menu
+       by js/frame.js, which reads window.SIM_SKIP). Lets the dev team land on
+       any screen of the simulation without playing through it. Each jump resets
+       to a clean baseline (restart) and then drives the SAME transitions the
+       learner would, so what's shown is the real screen, not a fake.
+       NOT part of the product — a production build simply doesn't ship frame.js
+       /window.SIM_SKIP. Nothing else to strip.
+       ───────────────────────────────────────────────────────────────────── */
+    (function () {
+      function sceneBeat() {
+        // The runner's own opening-image safety net (see the enterScene path).
+        try {
+          return `You step in. ${AitheraScenario.fill(ACTIVE_SCENARIO.openingImage, ACTIVE_SCENARIO)}.`;
+        } catch (e) { return 'You step into the scene.'; }
+      }
+      const JUMPS = {
+        reflection() {                       // opening coach warm-up
+          restart();
+          startSession(null);                // skip the context intro → deliver the opening
+        },
+        practice() {                         // the live roleplay scene
+          restart();
+          state.started = true;
+          state.pendingScene = [{ speaker: 'character', kind: 'narration', text: sceneBeat() }];
+          state.awaitingEntry = true;
+          enterScene();                      // real reveal → the scene paints in
+        },
+        recap() {                            // post-practice coach recap + "Analyzing…"
+          restart();
+          state.started = true;
+          state.complete = true;
+          DEBRIEF.openClosing([{ speaker: 'coach', kind: 'coaching',
+            text: `That's the end of the scenario — let's look back at how it went.` }]);
+        },
+        summary() {                          // straight into the results modal
+          restart();
+          state.started = true;
+          state.complete = true;
+          state.awaitingResults = true;
+          DEBRIEF.openResults();
+        },
+      };
+      window.SIM_SKIP = {
+        label: 'Skip to',
+        targets: [
+          { id: 'reflection', label: 'Opening reflection', icon: 'fa-lightbulb',       go: JUMPS.reflection },
+          { id: 'practice',   label: 'Main practice',       icon: 'fa-comments',        go: JUMPS.practice },
+          { id: 'recap',      label: 'Closing recap',       icon: 'fa-clipboard-check', go: JUMPS.recap },
+          { id: 'summary',    label: 'Final summary',       icon: 'fa-flag-checkered',  go: JUMPS.summary },
+        ],
+      };
+    })();
+
     // Opening beat: the landing card anchors the scene. The story page (and
     // everything after it) waits for the learner to tap "Read the background story."
     render();
@@ -3109,7 +3203,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // Embed into the app shell; course/lesson auto-derive from #scenarioName.
       window.LESSON_FRAME = { mount: '#app' };
     </script>
-    <script src="js/frame.js?v=3"></script>
+    <script src="js/frame.js?v=4"></script>
     <script>
       // Relocate the app's Restart control onto the frame's actions slot; moving
       // the node preserves its click handler (attached above by element id).
@@ -3121,6 +3215,24 @@ You didn't carry this alone, and you didn't ask her to either.` },
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
         else relocate();
+      })();
+    </script>
+
+    <!-- Voice input (mic / speech-to-text) — shared drop-in component.
+         A real product affordance (unlike the review toolbox). Self-hiding where
+         the browser can't do speech; retires the decorative lead comment icon. -->
+    <script src="js/sim-voice-input.js?v=1"></script>
+    <script>
+      (function () {
+        function initVoice() {
+          if (!window.SimVoiceInput) return;
+          SimVoiceInput.attach({
+            shell: '.input-shell', textarea: '#composer', sendButton: '#sendBtn',
+            hint: '#inputHint', leadIcon: '#inputIcon'
+          });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initVoice);
+        else initVoice();
       })();
     </script>
 </body>

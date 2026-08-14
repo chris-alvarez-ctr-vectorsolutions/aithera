@@ -1,957 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LS Integration Warning — SafeLMS</title>
-    <script
-    type="module"
-    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
-    </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
-    <!-- Vector Web Components JavaScript -->
-    <script
-    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
-    </script>
+  /* Stage holds the full-page version iframe */
+  #stage { position: fixed; inset: 0; }
+  #stage iframe { width: 100%; height: 100%; border: 0; display: block; }
 
-    <!-- Open Sans -->
-    <link
-    rel="stylesheet"
-    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
-    />
+  /* Centered plain-language message for error/empty states */
+  #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #4a5568; font-size: 15px; line-height: 1.5; }
 
-    <!-- Font Awesome 6 -->
-    <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-    />
-
-    <style>
-      * { box-sizing: border-box; }
-      html, body {
-        margin: 0;
-        padding: 0;
-        font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-        color: #1d2939;
-        background: #fff;
-      }
-
-      /* App shell */
-      .app {
-        display: grid;
-        grid-template-columns: 240px 1fr;
-        min-height: 100vh;
-      }
-
-      /* Sidebar */
-      .sidebar {
-        background: #fff;
-        border-right: 1px solid #e6e8eb;
-        padding: 16px 0 24px;
-        display: flex;
-        flex-direction: column;
-      }
-      .sidebar-logo {
-        padding: 4px 20px 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .sidebar-logo .vs-mark {
-        width: 38px;
-        height: 30px;
-        position: relative;
-        display: inline-block;
-      }
-      .sidebar-logo .vs-mark svg { width: 100%; height: 100%; }
-      .sidebar-logo .vs-text {
-        display: flex;
-        flex-direction: column;
-        line-height: 1.05;
-      }
-      .sidebar-logo .vs-name {
-        font-weight: 800;
-        font-size: 14px;
-        color: #0d2a55;
-        letter-spacing: -0.2px;
-      }
-      .sidebar-logo .vs-name sup { font-size: 8px; vertical-align: super; font-weight: 700; }
-      .sidebar-logo .vs-tag {
-        font-size: 9px;
-        color: #1d2939;
-        font-weight: 600;
-      }
-
-      .user-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 6px 20px 18px;
-        position: relative;
-      }
-      .user-row .avatar {
-        width: 22px; height: 22px;
-        border-radius: 50%;
-        background: #e6e8eb;
-        color: #5b6478;
-        display: inline-flex;
-        align-items: center; justify-content: center;
-        font-size: 12px;
-      }
-      .user-row .welcome {
-        font-size: 12px;
-        line-height: 1.25;
-        color: #1d2939;
-      }
-      .user-row .welcome b { font-weight: 700; display: block; }
-      .user-row .close-x {
-        margin-left: auto;
-        background: none;
-        border: 0;
-        color: #9aa3b2;
-        cursor: pointer;
-        font-size: 14px;
-        padding: 4px;
-      }
-
-      .nav-section { padding: 0 0 4px; }
-      .nav-heading {
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.8px;
-        color: #1f4596;
-        padding: 14px 20px 8px;
-        text-transform: uppercase;
-      }
-      .nav-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 9px 20px;
-        font-size: 13px;
-        color: #1d2939;
-        text-decoration: none;
-        cursor: pointer;
-      }
-      .nav-item .ic {
-        width: 18px;
-        text-align: center;
-        color: #1d2939;
-        font-size: 14px;
-      }
-      .nav-item:hover { background: #f4f6f9; }
-      .nav-item.active .label {
-        text-decoration: underline;
-        text-underline-offset: 3px;
-        font-weight: 600;
-      }
-      .nav-item .chev-right {
-        margin-left: auto;
-        color: #9aa3b2;
-        font-size: 12px;
-      }
-
-      .sidebar-bottom { margin-top: auto; padding-top: 8px; }
-
-      /* Main column */
-      .main { display: flex; flex-direction: column; min-width: 0; }
-
-      .page-header {
-        background: linear-gradient(180deg, #0d2a55 0%, #0d2a55 100%);
-        color: #fff;
-        padding: 20px 32px 26px;
-        display: flex;
-        align-items: flex-start;
-        gap: 28px;
-      }
-      .page-header h1 {
-        margin: 0;
-        font-size: 30px;
-        font-weight: 600;
-        letter-spacing: -0.3px;
-        line-height: 1.1;
-      }
-      .page-header .desc {
-        font-size: 13.5px;
-        line-height: 1.45;
-        color: #ffffff;
-        opacity: 0.95;
-        flex: 1;
-        padding-top: 10px;
-        font-weight: 400;
-      }
-
-      /* Content */
-      .content {
-        padding: 0 32px 24px;
-        flex: 1;
-        background: #fff;
-      }
-
-      .tabs {
-        display: flex;
-        gap: 36px;
-        border-bottom: 1px solid #e6e8eb;
-        padding: 8px 0 0;
-        margin-bottom: 18px;
-      }
-      .tab {
-        font-size: 14px;
-        font-weight: 400;
-        color: #1d2939;
-        padding: 10px 0 12px;
-        cursor: pointer;
-        border-bottom: 3px solid transparent;
-      }
-      .tab.active {
-        color: #1f4596;
-        font-weight: 600;
-        border-bottom-color: #1f4596;
-      }
-
-      /* Info banner */
-      .info-banner {
-        background: #f5f7fa;
-        border-left: 4px solid #1f4596;
-        padding: 14px 16px 14px 16px;
-        display: flex;
-        gap: 14px;
-        align-items: flex-start;
-        margin-bottom: 18px;
-        border-radius: 2px;
-        position: relative;
-      }
-      .info-banner .info-ic {
-        color: #1f4596;
-        font-size: 18px;
-        background: #e1ebf9;
-        width: 24px; height: 24px;
-        display: inline-flex; align-items: center; justify-content: center;
-        border-radius: 50%;
-        flex-shrink: 0;
-        margin-top: 1px;
-      }
-      .info-banner .info-text {
-        font-size: 13px;
-        line-height: 1.55;
-        color: #1d2939;
-        flex: 1;
-        padding-right: 24px;
-      }
-      .info-banner .close-banner {
-        background: none;
-        border: 0;
-        color: #5b6478;
-        cursor: pointer;
-        font-size: 16px;
-        position: absolute;
-        right: 12px;
-        top: 12px;
-      }
-
-      /* Controls row */
-      .controls-row {
-        display: flex;
-        align-items: center;
-        gap: 18px;
-        margin-bottom: 14px;
-      }
-      .btn-primary {
-        background: #1f4596;
-        color: #fff;
-        border: 0;
-        padding: 12px 18px;
-        border-radius: 4px;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        letter-spacing: 0.2px;
-      }
-      .btn-primary:hover { background: #163571; }
-      .collapse-all {
-        margin-left: auto;
-        color: #1f4596;
-        font-size: 13px;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-        cursor: pointer;
-      }
-      .search-box {
-        position: relative;
-        width: 260px;
-      }
-      .search-box input {
-        width: 100%;
-        padding: 10px 36px 10px 14px;
-        border: 1px solid #cfd3dc;
-        border-radius: 4px;
-        font-size: 13px;
-        background: #fff;
-        outline: none;
-        font-family: inherit;
-      }
-      .search-box input::placeholder { color: #5b6478; }
-      .search-box .search-ic {
-        position: absolute;
-        right: 12px; top: 50%;
-        transform: translateY(-50%);
-        color: #1d2939;
-        font-size: 13px;
-      }
-
-      /* Course list */
-      .course-list { display: flex; flex-direction: column; gap: 6px; }
-      .course-row {
-        background: #eef1f5;
-        border-radius: 6px;
-        padding: 12px 16px 12px 14px;
-        display: grid;
-        grid-template-columns: 22px 60px 1fr auto auto;
-        align-items: center;
-        gap: 16px;
-        min-height: 64px;
-      }
-      .course-row.expanded {
-        padding-bottom: 18px;
-      }
-      .chev-btn {
-        background: none; border: 0; cursor: pointer;
-        color: #1d2939;
-        font-size: 14px;
-        width: 22px;
-        padding: 0;
-      }
-      .course-thumb {
-        width: 56px;
-        height: 50px;
-        border-radius: 8px;
-        background-size: cover;
-        background-position: center;
-        background-image: url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=160&h=160&fit=crop');
-      }
-      .course-title-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-      .course-title { font-size: 14px; font-weight: 600; color: #1d2939; }
-      .course-meta { display: flex; align-items: center; gap: 14px; font-size: 12px; color: #1d2939; }
-      .course-meta .dot { color: #9aa3b2; }
-      .course-meta i { margin-right: 4px; color: #5b6478; }
-
-      .course-updated {
-        font-size: 12px;
-        color: #1d2939;
-        text-align: right;
-      }
-      .wip-badge {
-        background: #fde7d6;
-        color: #b9531c;
-        font-size: 11px;
-        font-weight: 700;
-        padding: 4px 8px;
-        border-radius: 4px;
-        letter-spacing: 0.4px;
-      }
-      .visible-pill {
-        background: #138a4a;
-        color: #fff;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 6px 14px;
-        border-radius: 4px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .kebab {
-        background: none;
-        border: 0;
-        color: #1d2939;
-        font-size: 16px;
-        cursor: pointer;
-        padding: 4px 6px;
-        letter-spacing: 1px;
-      }
-
-      /* Footer */
-      .footer {
-        background: #f5f7fa;
-        padding: 18px 32px;
-        text-align: center;
-        font-size: 13px;
-        color: #1f4596;
-        margin-top: 12px;
-      }
-      .footer a { color: #1f4596; text-decoration: none; margin: 0 8px; }
-      .footer .sep { color: #5b6478; margin: 0 4px; }
-      .ui-version {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .copyright {
-        margin-top: 8px;
-        font-size: 12px;
-        color: #5b6478;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-      }
-      .copyright .vs-mark-tiny {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        color: #1f4596;
-        font-weight: 700;
-      }
-
-      /* Modal */
-      .modal-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(50, 60, 80, 0.42);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-      }
-      .modal {
-        background: #fff;
-        border-radius: 16px;
-        width: 560px;
-        height: 375px;
-        max-width: calc(100% - 32px);
-        padding: 24px 28px 24px;
-        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
-        position: relative;
-        display: flex;
-        flex-direction: column;
-      }
-      /* Warning/confirm state fills the modal: copy centered, footer pinned to bottom */
-      #state-warning {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-      }
-      #state-warning .modal-body {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding-bottom: 18px;
-        margin-bottom: 0;
-        border-bottom: 1px solid #e6e8eb;
-      }
-      .modal-title {
-        font-size: 20px;
-        font-weight: 700;
-        color: #1d2939;
-        margin: 0;
-      }
-      .modal-close {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: #d6e3f5;
-        color: #1f4596;
-        border: 0;
-        cursor: pointer;
-        font-size: 13px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal-body {
-        text-align: center;
-        padding: 26px 0 28px;
-      }
-      .modal-message {
-        font-size: 16px;
-        line-height: 1.5;
-        color: #1d2939;
-        font-weight: 400;
-        margin: 0 auto;
-      }
-      .modal-footer {
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-        padding-top: 0;
-        margin-top: 0;
-      }
-      .btn-secondary {
-        background: #fff;
-        color: #1f4596;
-        border: 1px solid #1f4596;
-        padding: 10px 20px;
-        border-radius: 4px;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: inherit;
-      }
-      .btn-secondary:hover { background: #f1f5fc; }
-      .modal-footer .btn-primary { padding: 10px 20px; }
-
-      /* Success state */
-      .modal--success { width: 380px; height: 375px; display: flex; flex-direction: column; }
-      .modal--success #state-success {
-        flex: 1;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal-body--success {
-        text-align: center;
-        padding: 0;
-      }
-      .success-icon-wrap {
-        width: 56px;
-        height: 56px;
-        background: #eafaf1;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 26px;
-      }
-      .success-icon-wrap i {
-        color: #34c878;
-        font-size: 28px;
-      }
-      .modal-message.success-message {
-        font-weight: 700;
-        text-align: center;
-        max-width: 280px;
-        margin: 0 auto;
-      }
-
-      /* ===== V1 modal (Create and Launch Learning Studio) ===== */
-      .modal.modal-v1 {
-        width: 620px;
-        height: auto;
-        padding: 0;
-        overflow: hidden;
-      }
-      .modal-v1 .modal-header {
-        padding: 22px 28px 18px;
-        margin-bottom: 0;
-      }
-      .modal-v1-body {
-        padding: 22px 28px 8px;
-      }
-      .modal-intro {
-        font-size: 14px;
-        line-height: 1.55;
-        color: #475467;
-        margin: 0 0 22px;
-      }
-      .v1-banner {
-        display: flex;
-        align-items: flex-start;
-        gap: 16px;
-        background: #fff;
-        border: 1px solid #e6e8eb;
-        border-radius: 6px;
-        padding: 18px 20px;
-        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-        margin-bottom: 16px;
-      }
-      .v1-banner--info { border-left: 5px solid #1f4596; }
-      .v1-banner--warn { border-left: 5px solid #dc6803; }
-      .v1-banner-ic {
-        flex-shrink: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .v1-banner-ic--info {
-        width: 34px; height: 34px;
-        border-radius: 6px;
-        background: #e1ebf9;
-        color: #1f4596;
-        font-size: 16px;
-      }
-      .v1-banner-ic--warn {
-        width: 34px; height: 34px;
-        border-radius: 6px;
-        background: #fef0c7;
-        color: #dc6803;
-        font-size: 16px;
-      }
-      .v1-banner-text {
-        font-size: 14px;
-        line-height: 1.55;
-        color: #1d2939;
-        font-weight: 700;
-        padding-top: 4px;
-      }
-      .v1-banner-text strong { font-weight: 700; }
-      .v1-banner-close {
-        flex-shrink: 0;
-        background: none;
-        border: 0;
-        color: #5b6478;
-        cursor: pointer;
-        font-size: 16px;
-        padding: 2px 4px;
-        margin-top: 2px;
-        align-self: flex-start;
-      }
-      .v1-banner-close:hover { color: #1d2939; }
-      .modal-v1-footer {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        gap: 22px;
-        background: #eef1f5;
-        padding: 18px 28px;
-        margin-top: 8px;
-      }
-      .btn-back {
-        background: none;
-        border: 0;
-        color: #1f4596;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: inherit;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 4px;
-      }
-      .btn-back:hover { text-decoration: underline; }
-      .btn-launch {
-        background: #1f4596;
-        color: #fff;
-        border: 0;
-        padding: 12px 22px;
-        border-radius: 4px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: inherit;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .btn-launch:hover { background: #163571; }
-
-      /* ===== Version switcher controller ===== */
-      .version-switcher {
-        position: fixed;
-        bottom: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 2147483000;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: #18181b;
-        padding: 6px 8px 6px 14px;
-        border-radius: 999px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-      }
-      .version-switcher .vs-controller-label {
-        color: #a1a1aa;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        margin-right: 4px;
-      }
-      .version-switcher .vs-btn {
-        background: transparent;
-        border: 0;
-        color: #d4d4d8;
-        font-size: 12px;
-        font-weight: 700;
-        padding: 6px 14px;
-        border-radius: 999px;
-        cursor: pointer;
-        font-family: inherit;
-        transition: background 0.15s ease, color 0.15s ease;
-      }
-      .version-switcher .vs-btn:hover { color: #fff; }
-      .version-switcher .vs-btn.active {
-        background: #1f4596;
-        color: #fff;
-      }
-    </style>
+  /* ---- Version switcher ---------------------------------------------------
+     Matches the Design Toolbox dock: a dark, bottom-CENTER pill (same #18181b
+     rounded pill the toolbox and the legacy in-mock `.version-switcher` use),
+     so the version control reads as one family with the design tools instead of
+     a separate widget in its own corner. Bottom-center is the team's reserved
+     "chrome" lane — it stays clear of the bottom-RIGHT area where mocks put
+     their own floating action buttons. */
+  #switcher { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483000; display: none; align-items: center; gap: 6px; background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,.28); font-family: "Open Sans", system-ui, sans-serif; }
+  #switcher .vs-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 2px; }
+  #switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .15s ease, color .15s ease; }
+  #switcher .vs-btn:hover { color: #fff; }
+  #switcher .vs-btn.active { background: #1f4596; color: #fff; }
+  :focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
 </head>
 <body>
+<div id="stage"></div>
+<div id="msg"></div>
+<!-- The switcher is a plain dark pill of segmented version buttons. When the
+     loaded version runs the Design Toolbox, the loader instead docks these same
+     buttons INTO that toolbox pill (see adoptIntoDock) so there is one pill. -->
+<div id="switcher" role="group" aria-label="Switch version">
+  <span class="vs-label">VERSION</span>
+</div>
 
-    <div class="app" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="539">
-      <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-logo" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="542">
-          <span class="vs-mark" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="543">
-            <svg viewBox="0 0 60 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <polygon points="2,4 22,4 30,28 38,4 58,4 36,44 24,44" fill="#1f4596"/>
-              <polygon points="14,8 22,8 30,22 38,8 46,8 30,36" fill="#5cb85c"/>
-            </svg>
-          </span>
-          <span class="vs-text" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="549">
-            <span class="vs-name" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="550">Vector<span style="color:#5cb85c">Solutions</span><sup>™</sup></span>
-            <span class="vs-tag" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="551">Vector Training, K-12 Edition</span>
-          </span>
-        </div>
+<script>
+(async function () {
+  const stage = document.getElementById('stage');
+  const switcher = document.getElementById('switcher');
 
-        <div class="user-row" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="555">
-          <span class="avatar" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="556"><i class="fa-regular fa-user"></i></span>
-          <span class="welcome" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="557">Welcome,<b>Deborah Kim</b></span>
-          <button class="close-x" aria-label="Close" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="558"><i class="fa-solid fa-xmark"></i></button>
-        </div>
+  function showMessage(text) {
+    stage.style.display = 'none';
+    const m = document.getElementById('msg');
+    m.textContent = text;
+    m.style.display = 'flex';
+  }
 
-        <div class="nav-section" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="561">
-          <div class="nav-heading" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="562">Main</div>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="563"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="563"><i class="fa-regular fa-bookmark"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="563">My Assignments</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="564"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="564"><i class="fa-solid fa-clock-rotate-left"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="564">Training History</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="565"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="565"><i class="fa-solid fa-layer-group"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="565">Extra Training</span></a>
-        </div>
+  // Cache-bust token. GitHub Pages edge-caches every file for 10 min and ignores
+  // custom cache headers, so a changing query string is the only reliable way to
+  // pull a just-pushed version instead of a stale cached one. One token per load
+  // (so switching back to an already-seen version reuses it within the session).
+  const CB = 'cb=' + Date.now();
+  const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
 
-        <div class="nav-section" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="568">
-          <div class="nav-heading" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="569">Admin</div>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="570"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="570"><i class="fa-solid fa-gauge"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="570">Dashboard</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="571"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="571"><i class="fa-regular fa-rectangle-list"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="571">Training Plans</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="572"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="572"><i class="fa-solid fa-user-group"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="572">Employees</span></a>
-          <a class="nav-item active" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="573"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="573"><i class="fa-solid fa-circle-play"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="573">Courses</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="574"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="574"><i class="fa-solid fa-table-cells"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="574">Reports</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="575"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="575"><i class="fa-solid fa-gear"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="575">Settings</span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="576"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="576"><i class="fa-regular fa-circle-question"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="576">Help</span></a>
-        </div>
+  // --- Load the manifest -------------------------------------------------
+  let versions;
+  try {
+    const res = await fetch(bust('./versions.json'), { cache: 'no-store' });
+    if (!res.ok) throw new Error('http');
+    versions = await res.json();
+  } catch (e) {
+    return showMessage("Couldn't load versions.json. Check that it sits next to this file, and that you're viewing this over http (not by opening the file directly).");
+  }
+  if (!Array.isArray(versions) || versions.length === 0) {
+    return showMessage("versions.json has no versions in it. Add at least one entry like { \"id\": \"ver1\", \"label\": \"V1\", \"path\": \"ver1/ver1.html\" }.");
+  }
 
-        <div class="sidebar-bottom" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="579">
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="580"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="580"><i class="fa-solid fa-globe"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="580">Language</span><span class="chev-right" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="580"><i class="fa-solid fa-chevron-right"></i></span></a>
-          <a class="nav-item" href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="581"><span class="ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="581"><i class="fa-solid fa-right-from-bracket"></i></span><span class="label" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="581">Log Out</span></a>
-        </div>
-      </aside>
+  // Versions always present in ascending order — V1 first, then V2, V2.x, V10…
+  // — no matter how the manifest happens to be ordered, and the FIRST (lowest)
+  // version is what opens by default. Deep links (?v=) still override.
+  versions.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' }));
 
-      <!-- Main -->
-      <section class="main">
-        <header class="page-header" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="587">
-          <h1>Courses</h1>
-          <p class="desc">Browse our course content and even add your own resources. Custom courses and offline courses are also managed in this section.</p>
-        </header>
+  const byId = id => versions.find(v => v.id === id);
+  const params = new URLSearchParams(location.search);
+  let currentId = null;
 
-        <div class="content" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="592">
-          <!-- Tabs -->
-          <div class="tabs" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="594">
-            <div class="tab" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="595">Online</div>
-            <div class="tab" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="596">Custom</div>
-            <div class="tab active" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="597">Learning Studio</div>
-          </div>
+  function setUrl(id) {
+    const p = new URLSearchParams();
+    p.set('v', id);
+    history.replaceState(null, '', location.pathname + '?' + p.toString());
+  }
 
-          <!-- Info banner -->
-          <div class="info-banner" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="601">
-            <span class="info-ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="602"><i class="fa-solid fa-info"></i></span>
-            <div class="info-text" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="603">
-              Learning Studio Courses are editable copies of our Vector Solutions courses. Click "Create Learning Studio Course" to generate an editable Learning Studio course, giving you a flexible starting point for tailoring content to your needs. Note that AI Items will not be copied over.
-            </div>
-            <button class="close-banner" aria-label="Dismiss" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="606"><i class="fa-solid fa-xmark"></i></button>
-          </div>
+  // --- Segmented version buttons (built once, reused) --------------------
+  // One button per version. They live in the loader's #switcher by default,
+  // but get MOVED into the iframe's toolbox dock when one is present, so the
+  // same button elements are reused either way (no duplicate handlers).
+  const buttons = versions.map(v => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'vs-btn';
+    b.dataset.id = v.id;
+    b.textContent = v.label;
+    if (v.title) b.title = v.title;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => showVersion(v.id));
+    return b;
+  });
+  buttons.forEach(b => switcher.appendChild(b));
 
-          <!-- Controls -->
-          <div class="controls-row" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="610">
-            <button class="btn-primary" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="611"><i class="fa-solid fa-plus"></i> Create Learning Studio Course</button>
-            <span class="collapse-all" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="612">Collapse All</span>
-            <div class="search-box" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="613">
-              <input type="text" placeholder="Search for a course..." data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="614">
-              <span class="search-ic" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="615"><i class="fa-solid fa-magnifying-glass"></i></span>
-            </div>
-          </div>
+  function markActive(id) {
+    buttons.forEach(b => {
+      const on = b.dataset.id === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  }
 
-          <!-- Course list -->
-          <div class="course-list" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="620">
-            <div class="course-row expanded" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="621">
-              <button class="chev-btn" aria-label="Collapse" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="622"><i class="fa-solid fa-chevron-up"></i></button>
-              <div class="course-thumb" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="623"></div>
-              <div class="course-title-wrap" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="624">
-                <div class="course-title" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="625">Artificial Intelligence for Educators</div>
-                <div class="course-meta" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="626">
-                  <span>Full Course</span>
-                  <span class="dot" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="628">•</span>
-                  <span><i class="fa-regular fa-clock"></i>44m</span>
-                </div>
-              </div>
-              <div class="course-updated" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="632">
-                Last Updated Jun 1, 2026 at 1:59 PM
-                <span class="wip-badge" style="margin-left:14px;" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="634">WIP</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="visible-pill" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="637">Visible <i class="fa-solid fa-check"></i></span>
-                <button class="kebab" aria-label="More" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="638">•••</button>
-              </div>
-            </div>
+  // --- Load a version (reuses one iframe so the src swaps in place) -------
+  function showVersion(id) {
+    const v = byId(id) || versions[0];
+    currentId = v.id;
+    let f = stage.querySelector('iframe');
+    if (!f) {
+      f = document.createElement('iframe');
+      // Every time the frame finishes loading a version, re-attempt docking
+      // into that version's toolbox pill (the previous frame's dock, if any,
+      // was torn down with it) and re-sync the browser-tab title to it.
+      f.addEventListener('load', () => { adoptIntoDock(f); syncTitle(f); });
+      stage.appendChild(f);
+    }
+    f.title = v.label;
+    // Cache-bust the version file so a just-pushed mock loads fresh, not the
+    // edge-cached copy. Compared against the busted URL so we don't reload it.
+    const src = bust(v.path);
+    if (f.getAttribute('src') !== src) f.setAttribute('src', src);
+    setUrl(v.id);
+    markActive(v.id);
+  }
 
-            <div class="course-row" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="642">
-              <button class="chev-btn" aria-label="Expand" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="643"><i class="fa-solid fa-chevron-down"></i></button>
-              <div class="course-thumb" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="644"></div>
-              <div class="course-title-wrap" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="645">
-                <div class="course-title" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="646">Artificial Intelligence for Educators</div>
-              </div>
-              <div></div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="visible-pill" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="650">Visible <i class="fa-solid fa-check"></i></span>
-                <button class="kebab" aria-label="More" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="651">•••</button>
-              </div>
-            </div>
-
-            <div class="course-row" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="655">
-              <button class="chev-btn" aria-label="Expand" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="656"><i class="fa-solid fa-chevron-down"></i></button>
-              <div class="course-thumb" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="657"></div>
-              <div class="course-title-wrap" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="658">
-                <div class="course-title" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="659">Artificial Intelligence for Educators - Liz test 5/29/26</div>
-              </div>
-              <div></div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="visible-pill" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="663">Visible <i class="fa-solid fa-check"></i></span>
-                <button class="kebab" aria-label="More" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="664">•••</button>
-              </div>
-            </div>
-
-            <div class="course-row" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="668">
-              <button class="chev-btn" aria-label="Expand" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="669"><i class="fa-solid fa-chevron-down"></i></button>
-              <div class="course-thumb" style="background-image:url('https://images.unsplash.com/photo-1577896851231-70ef18881754?w=160&h=160&fit=crop');" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="670"></div>
-              <div class="course-title-wrap" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="671">
-                <div class="course-title" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="672">Building Supportive Communities: Clery Act and Title IX</div>
-              </div>
-              <div></div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="visible-pill" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="676">Visible <i class="fa-solid fa-check"></i></span>
-                <button class="kebab" aria-label="More" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="677">•••</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="684">
-          <a href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="685">Terms Of Use</a><span class="sep" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="685">•</span>
-          <a href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="686">Privacy Policy</a><span class="sep" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="686">•</span>
-          <a href="#" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="687">Contact</a><span class="sep" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="687">•</span>
-          <a href="#" class="ui-version" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="688">UI Version 4 <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i></a>
-          <div class="copyright" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="689">
-            © 2026 Vector Solutions
-            <span class="vs-mark-tiny" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="691">
-              <svg width="14" height="11" viewBox="0 0 60 48" aria-hidden="true">
-                <polygon points="2,4 22,4 30,28 38,4 58,4 36,44 24,44" fill="#1f4596"/>
-                <polygon points="14,8 22,8 30,22 38,8 46,8 30,36" fill="#5cb85c"/>
-              </svg>
-              Vector<span style="color:#5cb85c">Solutions</span>
-            </span>
-          </div>
-        </footer>
-      </section>
-    </div>
-
-    <!-- ===== Modal V1 (Create and Launch Learning Studio) ===== -->
-    <div class="modal-backdrop" id="modal-v1">
-      <div class="modal modal-v1" role="dialog" aria-labelledby="modal-v1-title" aria-modal="true">
-        <div class="modal-header">
-          <h2 class="modal-title" id="modal-v1-title">Create and Launch Learning Studio</h2>
-          <button class="modal-close" aria-label="Close" onclick="document.getElementById('modal-v1').style.display='none'">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="modal-v1-body">
-          <p class="modal-intro">This will duplicate the selected variant to create a new customizable course in Learning Studio. Additional variants can be added later from the Variants tab on the Course Details modal after the course is created.</p>
-
-          <div class="v1-banner v1-banner--warn">
-            <span class="v1-banner-ic v1-banner-ic--warn"><i class="fa-solid fa-triangle-exclamation"></i></span>
-            <div class="v1-banner-text">Modifying this course may affect its ability to meet regulatory, certification, or compliance requirements. Please ensure compliance is maintained after any changes.</div>
-            <button class="v1-banner-close" aria-label="Dismiss" onclick="this.closest('.v1-banner').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-        </div>
-        <div class="modal-v1-footer">
-          <button class="btn-back" onclick="document.getElementById('modal-v1').style.display='none'"><i class="fa-solid fa-xmark"></i> Back</button>
-          <button class="btn-launch"><i class="fa-solid fa-check"></i> Launch In Learning Studio</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== Modal V2 (current Learning Studio Launcher) ===== -->
-    <div class="modal-backdrop" id="modal" style="display:none;" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="704">
-      <div class="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="705">
-        <div class="modal-header" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="706">
-          <h2 class="modal-title" id="modal-title">Learning Studio Launcher</h2>
-          <button class="modal-close" aria-label="Close" onclick="document.getElementById('modal').style.display='none'" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="708">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-
-        <!-- Warning state -->
-        <div id="state-warning" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="714">
-          <div class="modal-body" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="715">
-            <p class="modal-message">You are creating a copy of a Vector Solutions course. Changes to this course may impact its ability to meet regulatory, certification, or compliance requirements. You are responsible for ensuring compliance is maintained after any modifications.</p>
-          </div>
-          <div class="modal-footer" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="718">
-            <button class="btn-primary" onclick="showSuccessState()" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="719">Confirm</button>
-          </div>
-        </div>
-
-        <!-- Success state -->
-        <div id="state-success" style="display:none;" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="724">
-          <div class="modal-body modal-body--success" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="725">
-            <div class="success-icon-wrap" data-file="products/SafeLMS/ls-integration-warning/index.html" data-line="726">
-              <i class="fa-regular fa-circle-check"></i>
-            </div>
-            <p class="modal-message success-message">Learning Studio is open in a<br>new tab.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <script>
-      function showSuccessState() {
-        document.getElementById('state-warning').style.display = 'none';
-        document.getElementById('state-success').style.display = 'flex';
-        document.querySelector('#modal .modal').classList.add('modal--success');
-      }
-    </script>
-
-    <!-- Version switcher controller -->
-    <div class="version-switcher" role="group" aria-label="Switch design version">
-      <span class="vs-controller-label">DESIGN</span>
-      <button class="vs-btn active" data-version="1" type="button">V1</button>
-      <button class="vs-btn" data-version="2" type="button">V2</button>
-    </div>
-    <script>
-      (function() {
-        const modalV1 = document.getElementById('modal-v1');
-        const modalV2 = document.getElementById('modal');
-        const btns = document.querySelectorAll('.version-switcher .vs-btn');
-
-        function showVersion(v) {
-          btns.forEach(b => b.classList.toggle('active', b.dataset.version === v));
-          modalV1.style.display = (v === '1') ? 'flex' : 'none';
-          modalV2.style.display = (v === '2') ? 'flex' : 'none';
-
-          // Reset V2 back to its initial warning state each time it's shown
-          if (v === '2') {
-            document.getElementById('state-warning').style.display = 'flex';
-            document.getElementById('state-success').style.display = 'none';
-            document.querySelector('#modal .modal').classList.remove('modal--success');
+  // --- Connect to the Design Toolbox dock --------------------------------
+  // If the loaded version runs toolbox.js, it exposes window.ToolboxDock — the
+  // shared bottom-center pill. We add a version group to that pill (via its
+  // documented .add()) and hide the loader's own pill, so the version controls
+  // and the tool launchers share ONE dock. If there's no toolbox (the common
+  // case for a plain mock), we just show the loader's own dark pill.
+  //
+  // The version buttons in the dock are built FRESH in the iframe's own
+  // document each load — never the parent's button elements. Moving one element
+  // across the iframe boundary and re-adopting it after each navigation orphans
+  // it in the torn-down document (which broke switching back). Fresh per-load
+  // buttons are destroyed with the iframe and rebuilt cleanly next load; their
+  // click handlers just call the parent's showVersion. Best-effort + guarded.
+  function adoptIntoDock(frame) {
+    let tries = 0;
+    (function attempt() {
+      let docked = false;
+      try {
+        const win = frame.contentWindow;
+        if (win && win.ToolboxDock && typeof win.ToolboxDock.add === 'function') {
+          const idoc = win.document;
+          if (!idoc.querySelector('#loader-version-group')) {
+            // NB: deliberately NOT class "version-switcher" — that class is the
+            // toolbox's own "adopt me as the dock" signal, and tagging our group
+            // with it would make the toolbox nest its launchers inside us.
+            const group = idoc.createElement('span');
+            group.id = 'loader-version-group';
+            group.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:transparent;box-shadow:none;padding:0;position:static;transform:none;';
+            const label = idoc.createElement('span');
+            label.textContent = 'VERSION';
+            label.style.cssText = 'color:#a1a1aa;font-size:11px;font-weight:700;letter-spacing:.4px;font-family:"Open Sans",system-ui,sans-serif;';
+            group.appendChild(label);
+            versions.forEach(v => {
+              const b = idoc.createElement('button');
+              b.type = 'button';
+              b.textContent = v.label;
+              if (v.title) b.title = v.title;
+              const on = v.id === currentId;
+              b.style.cssText = 'border:0;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:"Open Sans",system-ui,sans-serif;' +
+                (on ? 'background:#1f4596;color:#fff;' : 'background:transparent;color:#d4d4d8;');
+              b.addEventListener('click', () => showVersion(v.id));
+              group.appendChild(b);
+            });
+            win.ToolboxDock.add(group);
           }
+          docked = true;
         }
+      } catch (e) { /* cross-origin or not ready — fall through to loader pill */ }
 
-        btns.forEach(btn => {
-          btn.addEventListener('click', () => showVersion(btn.dataset.version));
-        });
+      if (docked) {
+        switcher.style.display = 'none';          // merged into the toolbox pill
+      } else if (tries++ < 8) {
+        setTimeout(attempt, 200);                 // dock may mount just after load
+      }
+      // No dock found: the loader's own pill is already showing (set at boot),
+      // so there is nothing to do — a plain mock keeps its dark bottom-center
+      // pill without any delay.
+    })();
+  }
 
-        // Default to V1 (the attached screenshot design)
-        showVersion('1');
-      })();
-    </script>
+  // --- Keep the browser-tab title meaningful -----------------------------
+  // The loader's own <title> is the generic "Mockup". Sync the tab to the
+  // loaded version's real <title> instead (the iframe is same-origin on Pages
+  // and locally, so it's readable), falling back to a humanized version of the
+  // feature-folder name. With 2+ versions the active version's label is
+  // appended (e.g. "Assign Training · V2"). Runs on every version load, so
+  // switching versions updates the tab too.
+  function humanizeFolder() {
+    const segs = location.pathname.split('/').filter(Boolean);
+    let last = segs[segs.length - 1] || '';
+    if (/\.html?$/i.test(last)) last = segs[segs.length - 2] || last;   // drop a trailing index.html
+    return last.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Mockup';
+  }
+  function syncTitle(frame) {
+    let base = '';
+    try {
+      const t = frame && frame.contentDocument && frame.contentDocument.title;
+      if (t && t.trim() && t.trim().toLowerCase() !== 'mockup') base = t.trim();
+    } catch (e) { /* cross-origin — fall back to the folder name */ }
+    if (!base) base = humanizeFolder();
+    const label = (byId(currentId) || {}).label;
+    document.title = (versions.length > 1 && label) ? (base + ' · ' + label) : base;
+  }
+  // Set a sensible fallback immediately so the tab never flashes "Mockup"
+  // before the first version finishes loading.
+  document.title = humanizeFolder();
 
-<script src="../../../designtoolbox/toolbox.js"></script>
+  // --- Boot --------------------------------------------------------------
+  // The switcher only matters with 2+ versions. Show the loader's own pill
+  // right away (no wait); adoptIntoDock hides/merges it only if the loaded
+  // version turns out to run the toolbox.
+  if (versions.length > 1) switcher.style.display = 'inline-flex';
+  const want = params.get('v');
+  showVersion(byId(want) ? want : versions[0].id);
+})();
+</script>
 </body>
 </html>

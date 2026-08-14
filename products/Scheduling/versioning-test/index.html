@@ -53,10 +53,17 @@
     m.style.display = 'flex';
   }
 
+  // Cache-bust token. GitHub Pages edge-caches every file for 10 min and ignores
+  // custom cache headers, so a changing query string is the only reliable way to
+  // pull a just-pushed version instead of a stale cached one. One token per load
+  // (so switching back to an already-seen version reuses it within the session).
+  const CB = 'cb=' + Date.now();
+  const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
+
   // --- Load the manifest -------------------------------------------------
   let versions;
   try {
-    const res = await fetch('./versions.json', { cache: 'no-store' });
+    const res = await fetch(bust('./versions.json'), { cache: 'no-store' });
     if (!res.ok) throw new Error('http');
     versions = await res.json();
   } catch (e) {
@@ -65,6 +72,11 @@
   if (!Array.isArray(versions) || versions.length === 0) {
     return showMessage("versions.json has no versions in it. Add at least one entry like { \"id\": \"ver1\", \"label\": \"V1\", \"path\": \"ver1/ver1.html\" }.");
   }
+
+  // Versions always present in ascending order — V1 first, then V2, V2.x, V10…
+  // — no matter how the manifest happens to be ordered, and the FIRST (lowest)
+  // version is what opens by default. Deep links (?v=) still override.
+  versions.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' }));
 
   const byId = id => versions.find(v => v.id === id);
   const params = new URLSearchParams(location.search);
@@ -115,7 +127,10 @@
       stage.appendChild(f);
     }
     f.title = v.label;
-    if (f.getAttribute('src') !== v.path) f.setAttribute('src', v.path);
+    // Cache-bust the version file so a just-pushed mock loads fresh, not the
+    // edge-cached copy. Compared against the busted URL so we don't reload it.
+    const src = bust(v.path);
+    if (f.getAttribute('src') !== src) f.setAttribute('src', src);
     setUrl(v.id);
     markActive(v.id);
   }

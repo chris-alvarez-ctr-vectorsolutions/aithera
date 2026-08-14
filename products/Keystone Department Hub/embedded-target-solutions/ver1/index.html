@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Readiness Hub — in Target Solutions</title>
+
+<!--
+  Readiness Hub, wearing the Target Solutions shell.
+
+  The hub will be published inside several Vector Solutions applications. This is
+  the first of three bake-outs showing what that looks like (Target Solutions, then
+  Check It, then Scheduling).
+
+  Structure: persistent TS chrome (accent bar / top nav / sidebar) wrapping two
+  sibling views. `data-view` on .ts-app picks one; CSS hides the other. Nothing
+  re-renders on a switch, so the chrome never flickers mid-demo.
+
+    data-view="home"  -> #view-home, a recreation of today's TS homepage
+    data-view="hub"   -> #view-hub, an iframe of the REAL keystone-hub/ver1/index.html (toolbox off inside the shell)
+
+  The hub is embedded by reference, never copied. Edits to the hub show up here for
+  free, and all of its interactivity survives because it gets its own document.
+
+  The legacy TS chrome is plain HTML/CSS on purpose — the real page predates the
+  Vector component library. Only genuinely NEW elements (the announcement banner,
+  its CTA, the nav link's NEW pill) are built with Vector components, because those
+  are the parts a developer would actually build.
+-->
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 PRO Icons — self-hosted at the repo root, four levels up.
+     Self-hosted rather than a Kit or the Pro CDN because both are domain-locked,
+     which would break `file://`. See base-template/version.html for the full note. -->
+<link
+rel="stylesheet"
+href="../../../../assets/fontawesome/css/all.min.css"
+/>
+
+<style id="ts-styles">
+  /* ====================================================================
+     TOKENS — sampled from the current Target Solutions product
+     ==================================================================== */
+  :root {
+    --ts-accent:      #b4155e;  /* the crimson rule above the top nav */
+    --ts-page-bg:     #f2f5fa;
+    --ts-surface:     #ffffff;
+    --ts-nav-dark:    #14202e;  /* the black Administration block */
+    --ts-nav-active:  #22303f;
+    --ts-nav-rule:    rgba(255,255,255,.16);
+    --ts-ink-900:     #1f2933;
+    --ts-ink-700:     #3f4a56;
+    --ts-ink-500:     #5b6673;
+    --ts-ink-300:     #98a2ae;
+    --ts-hairline:    #e2e8f0;
+    --ts-link:        #1668c9;
+    --ts-sidebar-w:   267px;
+    --ts-topnav-h:    80px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ts-ink-900);
+    background: var(--ts-page-bg);
+  }
+  :focus-visible { outline: 2px solid var(--ts-link); outline-offset: 2px; }
+
+  /* ====================================================================
+     APP FRAME
+     Fixed full-viewport layout so only the content column scrolls — which
+     is what lets the hub iframe below size itself to 100% height.
+     ==================================================================== */
+  .ts-app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: var(--ts-page-bg);
+  }
+  .ts-accentbar { height: 4px; background: var(--ts-accent); flex-shrink: 0; }
+
+  /* ====================================================================
+     TOP NAV
+     ==================================================================== */
+  .ts-topnav {
+    height: var(--ts-topnav-h); flex-shrink: 0;
+    background: var(--ts-surface);
+    border-bottom: 1px solid var(--ts-hairline);
+    display: flex; align-items: center; gap: 28px;
+    padding: 0 26px;
+  }
+  .ts-logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+  /* Official Vector Solutions mark. Height-driven so the artwork keeps its own
+     aspect ratio — the source is 60x52, not the 40x34 the placeholder used. */
+  .ts-logo-mark { height: 34px; width: auto; flex-shrink: 0; display: block; }
+  .ts-logo-text {
+    font-size: 21px; font-weight: 700; letter-spacing: -.3px;
+    color: #2b3947; white-space: nowrap;
+  }
+  .ts-logo-text em { font-style: normal; font-weight: 400; }
+  .ts-dept {
+    font-size: 17px; color: var(--ts-ink-700); font-weight: 400;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ts-topnav-right {
+    margin-left: auto; display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  }
+  .ts-icon-btn {
+    width: 40px; height: 40px; border: 0; border-radius: 50%;
+    background: transparent; color: var(--ts-ink-500); font-size: 19px;
+    display: grid; place-items: center; cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+  .ts-icon-btn:hover { background: #eef2f7; color: var(--ts-ink-900); }
+  /* Decorative <span> uses of .ts-icon-btn are not interactive — they must
+     not inherit the pointer cursor or hover fill from the real <button> use
+     above. Matches the .ts-collapse / .ts-nav-dark .ts-nav-item pattern. */
+  span.ts-icon-btn { cursor: default; }
+  span.ts-icon-btn:hover { background: transparent; color: var(--ts-ink-500); }
+  .ts-avatar {
+    width: 38px; height: 38px; margin-left: 6px; border-radius: 50%;
+    background: #eef2f7; color: var(--ts-ink-700);
+    font-size: 13px; font-weight: 700; letter-spacing: .3px;
+    display: grid; place-items: center; cursor: default;
+  }
+
+  /* ====================================================================
+     APP SWITCHER
+     The product's real cross-app launcher, anchored under the bento button.
+     Identical in all three embedded views — only the prefix and the current
+     app differ — so a designer comparing shells sees one component.
+     ==================================================================== */
+  .ts-apps-wrap { position: relative; display: inline-flex; }
+  #ts-apps-btn.is-open { background: #dceaf6; color: var(--ts-ink-900); }
+  #ts-app-switcher {
+    position: absolute; top: calc(100% + 10px); right: 0; z-index: 200;
+    width: 372px; background: #fff; border-radius: 12px;
+    box-shadow: 0 14px 38px rgba(16,24,40,.24), 0 2px 8px rgba(16,24,40,.10);
+    padding: 22px 22px 12px; text-align: left;
+  }
+  #ts-app-switcher[hidden] { display: none; }
+  .ts-apps-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .ts-apps-head img { height: 32px; width: auto; flex-shrink: 0; display: block; }
+  .ts-apps-head .t { font-size: 19px; color: #1f2933; white-space: nowrap; }
+  .ts-apps-head .t b { font-weight: 700; }
+  .ts-apps-head .t b em { font-style: normal; font-weight: 400; }
+  .ts-apps-head .t b sup { font-size: 8px; vertical-align: super; font-weight: 400; }
+  .ts-apps-head .t span { color: #5b6673; font-weight: 400; }
+
+  .ts-app-row {
+    display: flex; align-items: center; gap: 15px;
+    padding: 11px 8px; border-radius: 8px;
+    text-decoration: none; color: inherit;
+  }
+  .ts-app-row:hover { background: #f2f5f9; }
+  .ts-app-tile {
+    width: 42px; height: 42px; border-radius: 8px; flex-shrink: 0;
+    background: #1c1c1c; color: #fff;
+    display: grid; place-items: center; font-size: 19px;
+  }
+  .ts-app-name { flex: 1; font-size: 17px; font-weight: 600; color: #1f2933; }
+  .ts-app-ext { font-size: 17px; color: #1f2933; flex-shrink: 0; }
+  /* Rows for products we have not built a view for stay non-interactive,
+     like the rest of the recreated chrome. */
+  span.ts-app-row { cursor: default; }
+  span.ts-app-row:hover { background: transparent; }
+
+  /* ====================================================================
+     BODY + SIDEBAR
+     ==================================================================== */
+  .ts-body { flex: 1; display: flex; min-height: 0; }
+  .ts-sidebar {
+    width: var(--ts-sidebar-w); flex-shrink: 0;
+    background: var(--ts-surface);
+    border-right: 1px solid var(--ts-hairline);
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  /* Scrolls badge + nav, but stops short of .ts-collapse: overflow-x and
+     overflow-y are coupled per spec (setting one to auto/scroll forces the
+     other from visible to auto too), so putting the scrollbar on .ts-sidebar
+     itself would clip the chevron's -11px right overhang. Keeping the scroll
+     region one level in lets the chevron overhang freely while the sidebar
+     still scrolls when the nav is taller than the viewport. */
+  .ts-sidebar-scroll {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: none;
+  }
+  .ts-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+  /* Department badge, with the collapse chevron pinned to the sidebar edge */
+  .ts-badge { padding: 22px 0 18px; display: grid; place-items: center; }
+  .ts-collapse {
+    position: absolute; top: 96px; right: -11px; z-index: 2;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid var(--ts-hairline); background: var(--ts-surface);
+    color: var(--ts-ink-500); font-size: 10px;
+    display: grid; place-items: center; cursor: default;
+  }
+
+  .ts-nav { display: flex; flex-direction: column; flex: 1; }
+
+  /* --- White block: the only interactive nav items --------------------- */
+  .ts-nav-light { background: var(--ts-surface); }
+  .ts-nav-item {
+    width: 100%; border: 0; background: transparent;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px; font: inherit; font-size: 15px;
+    color: var(--ts-ink-900); text-align: left; cursor: pointer;
+    border-left: 4px solid transparent;
+    transition: background .12s ease;
+  }
+  .ts-nav-item .ts-nav-icon { width: 20px; font-size: 17px; text-align: center; flex-shrink: 0; }
+  .ts-nav-item .ts-nav-label { flex: 1; }
+  .ts-nav-light .ts-nav-item:hover { background: #f4f7fb; }
+  .ts-nav-light .ts-nav-item[aria-current="page"] {
+    background: #eaf1fa; border-left-color: var(--ts-link); font-weight: 600;
+  }
+
+  /* NEW pill on the Readiness Hub link — one of the genuinely new elements,
+     so it uses a Vector theme token rather than a hand-picked hex. */
+  .ts-new-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: .6px;
+    padding: 2px 7px; border-radius: 999px;
+    background: var(--lumo-primary-color, #0271ce);
+    color: var(--lumo-primary-contrast-color, #fff);
+    flex-shrink: 0;
+  }
+
+  /* --- Black block: decorative, for fidelity only ---------------------- */
+  .ts-nav-dark { background: var(--ts-nav-dark); flex: 1; padding-bottom: 24px; }
+  .ts-nav-dark .ts-nav-item { color: #fff; cursor: default; }
+  .ts-nav-dark .ts-nav-item.is-active { background: var(--ts-nav-active); }
+  .ts-nav-dark .ts-nav-item .ts-nav-caret { font-size: 12px; color: #cbd3dc; flex-shrink: 0; }
+  .ts-nav-rule { height: 1px; background: var(--ts-nav-rule); margin: 8px 22px; }
+
+  /* ====================================================================
+     CONTENT COLUMN — filled in Task 3
+     ==================================================================== */
+  .ts-content { flex: 1; min-width: 0; overflow-y: auto; position: relative; }
+
+  /* ====================================================================
+     VIEWS
+     Two siblings in the content column; `data-view` on .ts-app shows one.
+     Attribute-driven rather than two pages, so the chrome never reloads and
+     the switch is instant mid-demo.
+     ==================================================================== */
+  .ts-view { display: none; }
+  .ts-app[data-view="home"] #view-home { display: block; }
+  .ts-app[data-view="hub"]  #view-hub  { display: block; }
+
+  /* The homepage column */
+  #view-home { padding: 22px 26px 40px; max-width: 1400px; }
+
+  /* The hub fills the content area edge to edge and scrolls inside it — which
+     is how an embedded product page actually behaves. .ts-content is a fixed
+     flex child, so 100% height here is a real pixel height. */
+  #view-hub { height: 100%; }
+  #view-hub iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .ts-app[data-view="hub"] .ts-content { overflow: hidden; }
+
+  /* ====================================================================
+     SHARED CARD — also used by To Do and Bulletin Board in Task 5
+     ==================================================================== */
+  .ts-card {
+    background: var(--ts-surface); border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.10);
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .ts-card--accent { border-top: 4px solid var(--ts-accent); }
+  .ts-card-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 22px 10px;
+  }
+  .ts-card-title {
+    margin: 0; font-size: 22px; font-weight: 400; color: #4a5a6b;
+  }
+  .ts-card-head-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+  .ts-card-body { padding: 0 22px 20px; }
+
+  /* ====================================================================
+     FREQUENT ACTIVITIES
+     One row of nine solid tiles. The source page also has a pastel
+     "Field-based Trainings" row; it is deliberately omitted to save
+     vertical space so To Do and the Bulletin Board sit higher.
+     ==================================================================== */
+  .ts-sublabel {
+    font-size: 15px; color: var(--ts-link); font-weight: 400;
+    margin: 4px 0 12px;
+  }
+  .ts-tiles { display: flex; gap: 12px; flex-wrap: nowrap; }
+  .ts-tile {
+    width: 100px; height: 100px; border-radius: 8px; border: 0;
+    flex: 1 1 0; min-width: 0; max-width: 100px;
+    padding: 12px 8px 10px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    color: #fff; font: inherit; text-align: center;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .ts-tile:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16,24,40,.20); }
+  .ts-tile i { font-size: 26px; margin-top: 8px; }
+  .ts-tile span { font-size: 11px; line-height: 1.25; font-weight: 600; }
+  /* Two tiles are light enough to need dark ink */
+  .ts-tile--dark { color: #1f2933; }
+
+  /* ====================================================================
+     HOMEPAGE TWO-COLUMN ROW
+     ==================================================================== */
+  .ts-home-row {
+    display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 20px; align-items: start;
+  }
+  @media (max-width: 1180px) { .ts-home-row { grid-template-columns: 1fr; } }
+
+  /* ---- To Do --------------------------------------------------------- */
+  .ts-tabs {
+    display: flex; gap: 26px; padding: 0 22px;
+    border-bottom: 1px solid var(--ts-hairline);
+  }
+  .ts-tab {
+    border: 0; background: transparent; font: inherit; font-size: 15px;
+    color: var(--ts-ink-500); padding: 8px 0 12px; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+  }
+  .ts-tab.is-active { color: var(--ts-ink-900); border-bottom-color: #d13438; }
+
+  .ts-todo-list { padding: 16px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .ts-todo {
+    display: grid; grid-template-columns: 56px 1fr auto;
+    gap: 14px; align-items: start;
+    border: 1px solid var(--ts-hairline); border-radius: 4px; padding: 12px 14px;
+  }
+  .ts-todo-icon {
+    width: 56px; height: 56px; border-radius: 4px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; color: #fff;
+  }
+  .ts-todo-icon i { font-size: 20px; }
+  .ts-todo-icon span { font-size: 8.5px; font-weight: 700; letter-spacing: .2px; }
+  .ts-todo-meta { font-size: 13px; color: var(--ts-ink-500); }
+  .ts-todo-link {
+    display: block; margin: 3px 0 5px; font-size: 15px;
+    color: var(--ts-link); text-decoration: none;
+  }
+  .ts-todo-link:hover { text-decoration: underline; }
+  .ts-todo-date { font-size: 13px; color: var(--ts-ink-500); }
+  .ts-todo-right {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+    justify-content: space-between; align-self: stretch;
+  }
+  .ts-todo-pin { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ts-ink-700); }
+  .ts-todo-pin .fa-chevron-down { color: var(--ts-ink-300); font-size: 14px; }
+  .ts-chip {
+    font-size: 12.5px; padding: 3px 9px; border-radius: 3px;
+    background: #eceff3; color: #4a5563; white-space: nowrap;
+  }
+  .ts-chip--rejected { background: #fde4e4; color: #b3261e; }
+
+  /* ---- Bulletin Board ------------------------------------------------ */
+  .ts-bulletin-body { padding: 4px 22px 22px; }
+  .ts-bulletin-body h3 {
+    margin: 0 0 14px; font-size: 27px; font-weight: 400; color: var(--ts-ink-900);
+  }
+  .ts-bulletin-body p {
+    margin: 0 0 18px; font-size: 15.5px; line-height: 1.55; color: var(--ts-ink-700);
+  }
+  .ts-bulletin-rule { height: 1px; background: var(--ts-hairline); margin: 0 0 18px; }
+  .ts-bulletin-figure {
+    border: 8px solid #b8bec6; background: #fff; padding: 10px;
+  }
+
+  /* ====================================================================
+     ANNOUNCEMENT BANNER — NEW
+     A dark, Readiness Hub–branded banner that deliberately breaks the host app's
+     light-card rhythm: this is a product announcement, not another panel.
+     The values here are identical in all three embedded mocks (only the
+     class prefix differs), so it hands off to dev as ONE component.
+
+     Dismissal is session-only, on purpose: no storage is written, so a
+     reload always restores it and the demo resets to a known state.
+     ==================================================================== */
+  #ts-announce {
+    position: relative;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 20px 28px;
+    padding: 26px 30px; margin-bottom: 20px;
+    border-radius: 14px;
+    background: linear-gradient(100deg, #08172b 0%, #0d3a72 55%, #0f5fbd 100%);
+  }
+  #ts-announce[hidden] { display: none; }
+
+  /* ---- left column: eyebrow row, headline, body ---- */
+  .ts-announce-copy { flex: 1 1 380px; min-width: 0; }
+  .ts-announce-eyebrow {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  }
+  .ts-announce-mark {
+    width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 16px;
+    background: var(--lumo-primary-color, #0271ce); color: #fff;
+  }
+  .ts-announce-kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: #77b6f2;
+  }
+  .ts-announce-live {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
+    background: #6ee7ad; color: #0a3b2a;
+  }
+  .ts-announce-copy h2 {
+    margin: 0 0 8px; font-size: 30px; line-height: 1.12; font-weight: 700;
+    letter-spacing: -.01em; color: #fff;
+  }
+  .ts-announce-copy p {
+    margin: 0; max-width: 68ch; font-size: 15px; line-height: 1.5;
+    color: #bcd8f5;
+  }
+  .ts-announce-copy p strong { color: #fff; font-weight: 700; }
+
+  /* ---- right column: CTA + subline, then the dismiss square ---- */
+  .ts-announce-actions {
+    display: flex; align-items: flex-start; gap: 14px;
+    flex: 0 0 auto; margin-left: auto;
+  }
+  .ts-announce-cta-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .ts-announce-sub { font-size: 13px; color: #cfe3f8; text-align: center; }
+
+  /* A white-on-dark button is NOT a stock Vector variant — the closest,
+     theme="contrast primary", is dark-filled and would vanish on this
+     background. Scoped inverse override; call it out at dev handoff.
+
+     WHAT ACTUALLY CARRIES THE COLOUR: the direct `background` / `color`
+     declarations on the host element — outer author styles win over the
+     component's own :host rules. Do NOT drop them. The custom properties
+     beside them are Lumo's THEME-SPECIFIC names, which are the only ones a
+     themed button reads: --vaadin-button-primary-* for theme="primary",
+     --vaadin-button-tertiary-* for theme="tertiary". The generic
+     --vaadin-button-background / --vaadin-button-text-color names style
+     nothing on a themed button (verified in the browser) and are not used
+     here. --vaadin-button-border-radius is generic and does work. */
+  #ts-announce-cta {
+    --vaadin-button-border-radius: 10px;
+    --vaadin-button-primary-background: #fff;
+    --vaadin-button-primary-text-color: #0d2a4d;
+    background: #fff; color: #0d2a4d; font-weight: 700;
+  }
+  #ts-announce-dismiss {
+    --vaadin-button-border-radius: 8px;
+    --vaadin-button-tertiary-background: rgba(255,255,255,.12);
+    --vaadin-button-tertiary-text-color: #fff;
+    width: 36px; min-width: 36px; height: 36px; padding: 0;
+    /* Lumo gives every vaadin-button a --lumo-space-xs vertical margin, so
+       the CTA's box already starts 3.5px down; +2px on top of that same
+       value centres this 36px square on the 40px CTA beside it. */
+    margin-top: calc(var(--lumo-space-xs, .25rem) + 2px);
+    background: rgba(255,255,255,.12); color: #fff;
+  }
+
+  /* Keyboard focus. Lumo's own ring is Vector blue and this page's global
+     :focus-visible outline is a link blue — both measure ~1:1 against the
+     navy ground, so focus is effectively invisible here. A white ring held
+     2px off the button reads against the navy on both of its edges,
+     including around the white CTA. (WCAG 2.4.7 / 1.4.11) */
+  #ts-announce vaadin-button:focus-visible {
+    outline: 3px solid #fff; outline-offset: 2px; box-shadow: none;
+  }
+
+  /* ---- narrow: action column stacks under the copy, ✕ pins top-right ---- */
+  @media (max-width: 900px) {
+    #ts-announce {
+      flex-direction: column; align-items: stretch;
+      gap: 20px; padding: 24px 22px 26px;
+    }
+    /* The wrap basis above is a main-axis size; in this column layout that
+       axis is vertical, so it must go back to auto or the copy would
+       reserve 380px of dead height. */
+    .ts-announce-copy { flex-basis: auto; }
+    .ts-announce-copy h2 { font-size: 24px; padding-right: 44px; }
+    .ts-announce-actions {
+      flex-direction: column; align-items: stretch; margin-left: 0;
+    }
+    .ts-announce-cta-wrap { width: 100%; }
+    #ts-announce-cta { width: 100%; }
+    #ts-announce-dismiss { position: absolute; top: 14px; right: 14px; }
+  }
+
+  /* Buttons are pill-shaped — the design system now allows full corner
+     rounding, so Vector buttons drop the old 4px default. */
+  vaadin-button { --vaadin-button-border-radius: 999px; }
+</style>
+</head>
+<body>
+
+<div class="ts-app" data-view="home">
+
+  <div class="ts-accentbar"></div>
+
+  <!-- ============================ TOP NAV ============================ -->
+  <header class="ts-topnav">
+    <div class="ts-logo">
+      <img class="ts-logo-mark" src="../../../../assets/vector-solutions-logo.svg" alt="Vector Solutions">
+      <span class="ts-logo-text">Vector<em>Solutions</em></span>
+    </div>
+
+    <div class="ts-dept">Springfield Fire Department</div>
+
+    <div class="ts-topnav-right">
+      <!-- App switcher. The three products we built embedded views for are real
+           links opening in a new tab, as the external-link glyph promises; the
+           other two are decorative, like the rest of the recreated chrome. -->
+      <div class="ts-apps-wrap">
+        <button class="ts-icon-btn" id="ts-apps-btn" type="button"
+                aria-label="Switch application" aria-expanded="false"
+                aria-controls="ts-app-switcher">
+          <i class="fa-solid fa-grid" aria-hidden="true"></i>
+        </button>
+
+        <div id="ts-app-switcher" role="menu" aria-label="Vector Solutions products" hidden>
+          <div class="ts-apps-head">
+            <img src="../../../../assets/vector-solutions-logo.svg" alt="">
+            <span class="t"><b>Vector<em>Solutions</em><sup>&trade;</sup></b> <span>Products</span></span>
+          </div>
+
+          <span class="ts-app-row" role="menuitem" aria-disabled="true">
+            <span class="ts-app-tile"><i class="fa-solid fa-clipboard-list-check" aria-hidden="true"></i></span>
+            <span class="ts-app-name">Evaluations+</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ts-app-ext" aria-hidden="true"></i>
+          </span>
+
+          <a class="ts-app-row" role="menuitem" target="_blank" rel="noopener"
+             href="../../embedded-target-solutions/">
+            <span class="ts-app-tile"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span>
+            <span class="ts-app-name">Target Solutions</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ts-app-ext" aria-hidden="true"></i>
+          </a>
+
+          <a class="ts-app-row" role="menuitem" target="_blank" rel="noopener"
+             href="../../embedded-scheduling/">
+            <span class="ts-app-tile"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+            <span class="ts-app-name">Scheduling</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ts-app-ext" aria-hidden="true"></i>
+          </a>
+
+          <a class="ts-app-row" role="menuitem" target="_blank" rel="noopener"
+             href="../../embedded-check-it/">
+            <span class="ts-app-tile"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+            <span class="ts-app-name">Check It</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ts-app-ext" aria-hidden="true"></i>
+          </a>
+
+          <span class="ts-app-row" role="menuitem" aria-disabled="true">
+            <span class="ts-app-tile"><i class="fa-solid fa-shield" aria-hidden="true"></i></span>
+            <span class="ts-app-name">Guardian Tracking</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ts-app-ext" aria-hidden="true"></i>
+          </span>
+        </div>
+      </div>
+
+      <span class="ts-icon-btn" aria-hidden="true"><i class="fa-regular fa-circle-question"></i></span>
+      <span class="ts-icon-btn" aria-hidden="true"><i class="fa-regular fa-bell"></i></span>
+      <span class="ts-avatar" aria-hidden="true">JS</span>
+    </div>
+  </header>
+
+  <div class="ts-body">
+
+    <!-- ============================ SIDEBAR ============================ -->
+    <aside class="ts-sidebar">
+      <div class="ts-sidebar-scroll">
+        <div class="ts-badge">
+          <svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="Springfield Fire Department">
+            <!-- Maltese cross: four arms, each narrow at the center and flaring
+                 wide at the outer edge, with a concave V-notch cut into the
+                 outer edge of every arm — the fire-service badge silhouette. -->
+            <path d="M61,53 L35,5 L75,25 L115,5 L89,53 L97,61 L145,35 L125,75
+                     L145,115 L97,89 L89,97 L115,145 L75,125 L35,145 L61,97
+                     L53,89 L5,115 L25,75 L5,35 L53,61 Z"
+                  fill="#8f1414"/>
+            <path d="M63.5,57 L42.2,17.6 L75,34 L107.8,17.6 L86.5,57 L93,63.5
+                     L132.4,42.2 L116,75 L132.4,107.8 L93,86.5 L86.5,93 L107.8,132.4
+                     L75,116 L42.2,132.4 L63.5,93 L57,86.5 L17.6,107.8 L34,75
+                     L17.6,42.2 L57,63.5 Z"
+                  fill="#c92626"/>
+            <circle cx="75" cy="75" r="29" fill="#2b3947" stroke="#8f1414" stroke-width="4"/>
+            <circle cx="75" cy="75" r="21" fill="none" stroke="#c92626" stroke-width="3"/>
+            <circle cx="75" cy="75" r="11" fill="#8f1414"/>
+          </svg>
+        </div>
+
+        <nav class="ts-nav" aria-label="Main">
+
+          <!-- White block — the only clickable items on this page -->
+          <div class="ts-nav-light">
+          <button class="ts-nav-item" id="nav-home" type="button"
+                  data-target="home" aria-current="page">
+            <i class="fa-solid fa-house ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Home</span>
+          </button>
+
+          <button class="ts-nav-item" id="nav-hub" type="button" data-target="hub">
+            <i class="fa-solid fa-fire-flame-curved ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Readiness Hub</span>
+            <span class="ts-new-pill">NEW</span>
+          </button>
+        </div>
+
+        <!-- Black block — decorative. Reproduces the current admin section so the
+             demo reads as the real application. Rendered as <span> rather than
+             <button> so nothing here is focusable or looks clickable. -->
+        <div class="ts-nav-dark">
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-user-shield ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Administration</span>
+            <i class="fa-solid fa-chevron-up ts-nav-caret" aria-hidden="true"></i>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-chart-column ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Dashboard</span>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-database ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Generate Reports</span>
+          </span>
+
+          <div class="ts-nav-rule"></div>
+
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-square-check ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Completions</span>
+            <i class="fa-solid fa-chevron-down ts-nav-caret" aria-hidden="true"></i>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-pen-to-square ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Assignments</span>
+            <i class="fa-solid fa-chevron-down ts-nav-caret" aria-hidden="true"></i>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-users ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Manage Users</span>
+            <i class="fa-solid fa-chevron-down ts-nav-caret" aria-hidden="true"></i>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-id-badge ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Manage Credentials</span>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-calendar-days ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Manage Events</span>
+          </span>
+
+          <div class="ts-nav-rule"></div>
+
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-book-open ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Course Library</span>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-diagram-project ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Activities Builder</span>
+          </span>
+          <span class="ts-nav-item is-active">
+            <i class="fa-solid fa-sitemap ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Test Builder</span>
+          </span>
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-folder ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">File Center</span>
+          </span>
+
+          <div class="ts-nav-rule"></div>
+
+          <span class="ts-nav-item">
+            <i class="fa-solid fa-circle-user ts-nav-icon" aria-hidden="true"></i>
+            <span class="ts-nav-label">Account</span>
+          </span>
+        </div>
+        </nav>
+      </div>
+
+      <span class="ts-collapse" aria-hidden="true"><i class="fa-solid fa-chevron-left"></i></span>
+    </aside>
+
+    <!-- ============================ CONTENT ============================ -->
+    <main class="ts-content" id="ts-content">
+
+      <!-- ---------- VIEW: the recreated Target Solutions homepage ---------- -->
+      <div class="ts-view" id="view-home">
+
+        <!-- ================= ANNOUNCEMENT (NEW) ================= -->
+        <section id="ts-announce" role="region"
+                 aria-label="New feature announcement">
+          <div class="ts-announce-copy">
+            <div class="ts-announce-eyebrow">
+              <span class="ts-announce-mark">
+                <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>
+              </span>
+              <span class="ts-announce-kicker">New in Vector Solutions</span>
+              <span class="ts-announce-live">Live</span>
+            </div>
+            <h2>Stop hunting for what&rsquo;s due.</h2>
+            <p>
+              The <strong>Readiness Hub</strong> gathers every open task across your Vector
+              applications, prioritized in one place — with department readiness at a glance.
+            </p>
+          </div>
+          <div class="ts-announce-actions">
+            <div class="ts-announce-cta-wrap">
+              <vaadin-button theme="primary" id="ts-announce-cta">View the Readiness Hub</vaadin-button>
+              <span class="ts-announce-sub">Or find it any time in the left navigation</span>
+            </div>
+            <vaadin-button theme="tertiary" id="ts-announce-dismiss" aria-label="Dismiss announcement">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </vaadin-button>
+          </div>
+        </section>
+
+        <!-- ================= FREQUENT ACTIVITIES ================= -->
+        <section class="ts-card ts-card--accent">
+          <div class="ts-card-head">
+            <h2 class="ts-card-title">Frequent Activities</h2>
+            <div class="ts-card-head-actions">
+              <span class="ts-icon-btn" aria-hidden="true"><i class="fa-solid fa-chevron-up"></i></span>
+            </div>
+          </div>
+          <div class="ts-card-body">
+            <p class="ts-sublabel">Station-based Trainings</p>
+            <div class="ts-tiles">
+              <button class="ts-tile" type="button" style="background:#edb211">
+                <i class="fa-solid fa-briefcase-medical" aria-hidden="true"></i><span>EMT Basics</span>
+              </button>
+              <button class="ts-tile" type="button" style="background:#c2306a">
+                <i class="fa-solid fa-fire-extinguisher" aria-hidden="true"></i><span>Extinguisher Training</span>
+              </button>
+              <button class="ts-tile" type="button" style="background:#e8402a">
+                <i class="fa-solid fa-fire" aria-hidden="true"></i><span>Fire Basics</span>
+              </button>
+              <button class="ts-tile" type="button" style="background:#6a2c91">
+                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Firewalls</span>
+              </button>
+              <button class="ts-tile" type="button" style="background:#3b3fa8">
+                <i class="fa-solid fa-fire-hydrant" aria-hidden="true"></i><span>Hydrant Training</span>
+              </button>
+              <button class="ts-tile" type="button" style="background:#1668c9">
+                <i class="fa-solid fa-shower" aria-hidden="true"></i><span>Sprinkler System Basics</span>
+              </button>
+              <button class="ts-tile" type="button" style="background:#0e7f9e">
+                <i class="fa-solid fa-car-burst" aria-hidden="true"></i><span>Vehicle Stabilization</span>
+              </button>
+              <button class="ts-tile ts-tile--dark" type="button" style="background:#f2cf14">
+                <i class="fa-solid fa-water" aria-hidden="true"></i><span>When Hoses Attack</span>
+              </button>
+              <button class="ts-tile ts-tile--dark" type="button" style="background:#d3e04f">
+                <i class="fa-solid fa-water" aria-hidden="true"></i><span>When Hoses Attack</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TO DO  +  BULLETIN BOARD ================= -->
+        <div class="ts-home-row">
+
+          <!-- ---------------- To Do ---------------- -->
+          <section class="ts-card">
+            <div class="ts-card-head">
+              <h2 class="ts-card-title">To Do</h2>
+              <div class="ts-card-head-actions">
+                <span class="ts-icon-btn" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <span class="ts-icon-btn" aria-hidden="true"><i class="fa-solid fa-arrow-up-arrow-down"></i></span>
+                <span class="ts-icon-btn" aria-hidden="true"><i class="fa-solid fa-filter"></i></span>
+              </div>
+            </div>
+
+            <div class="ts-tabs">
+              <button class="ts-tab is-active" type="button">All</button>
+              <button class="ts-tab" type="button">Credentials</button>
+              <button class="ts-tab" type="button">Assignments</button>
+            </div>
+
+            <div class="ts-todo-list">
+
+              <article class="ts-todo">
+                <div class="ts-todo-icon" style="background:#16a3a3">
+                  <i class="fa-solid fa-certificate" aria-hidden="true"></i><span>Credential</span>
+                </div>
+                <div>
+                  <div class="ts-todo-meta">ISO&nbsp; |&nbsp; 458468</div>
+                  <a class="ts-todo-link" href="javascript:void(0)">Wildfire Emergency Response Credential</a>
+                  <div class="ts-todo-date">Exp Date: Mar 22, 2025</div>
+                </div>
+                <div class="ts-todo-right">
+                  <div class="ts-todo-pin">
+                    <i class="fa-solid fa-thumbtack" aria-hidden="true"></i> Pinned
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <span class="ts-chip">Not Started</span>
+                </div>
+              </article>
+
+              <article class="ts-todo">
+                <div class="ts-todo-icon" style="background:#e8712a">
+                  <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span>Activity</span>
+                </div>
+                <div>
+                  <div class="ts-todo-meta">ISO&nbsp; |&nbsp; 458468</div>
+                  <a class="ts-todo-link" href="javascript:void(0)">Wildfire Emergency Response Credential</a>
+                  <div class="ts-todo-date">Mar 22, 2025</div>
+                </div>
+                <div class="ts-todo-right">
+                  <div class="ts-todo-pin">
+                    <i class="fa-solid fa-thumbtack" aria-hidden="true"></i> Pinned
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <span class="ts-chip">Not Started</span>
+                </div>
+              </article>
+
+              <article class="ts-todo">
+                <div class="ts-todo-icon" style="background:#2f7fd1">
+                  <i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Course</span>
+                </div>
+                <div>
+                  <div class="ts-todo-meta">ISO&nbsp; |&nbsp; 458468</div>
+                  <a class="ts-todo-link" href="javascript:void(0)">Wildfire Emergency Response Credential</a>
+                  <div class="ts-todo-date">Exp Date: Mar 22, 2025</div>
+                </div>
+                <div class="ts-todo-right">
+                  <div class="ts-todo-pin">
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <span class="ts-chip ts-chip--rejected">Validation Rejected</span>
+                </div>
+              </article>
+
+              <article class="ts-todo">
+                <div class="ts-todo-icon" style="background:#7b4bd8">
+                  <i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Course</span>
+                </div>
+                <div>
+                  <div class="ts-todo-meta">ISO&nbsp; |&nbsp; 458468</div>
+                  <a class="ts-todo-link" href="javascript:void(0)">Wildfire Emergency Response Credential</a>
+                  <div class="ts-todo-date">Exp Date: Mar 22, 2025</div>
+                </div>
+                <div class="ts-todo-right">
+                  <div class="ts-todo-pin">
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <span class="ts-chip">Not Started</span>
+                </div>
+              </article>
+
+            </div>
+          </section>
+
+          <!-- ---------------- Bulletin Board ---------------- -->
+          <section class="ts-card">
+            <div class="ts-card-head">
+              <h2 class="ts-card-title">Bulletin Board</h2>
+              <div class="ts-card-head-actions">
+                <span class="ts-icon-btn" aria-hidden="true"><i class="fa-solid fa-pencil"></i></span>
+              </div>
+            </div>
+            <div class="ts-bulletin-body">
+              <h3>Welcome</h3>
+              <p>
+                The Bulletin Board is visible from all user accounts and can be edited by
+                any Administrator. This space can be used to communicate messages to your
+                staff, save commonly used links, post a Google training calendar, embed
+                videos or images, and more.
+              </p>
+              <div class="ts-bulletin-rule"></div>
+              <div class="ts-bulletin-figure">
+                <svg viewBox="0 0 400 190" width="100%" role="img" aria-label="Placeholder chart">
+                  <rect width="400" height="190" fill="#fff"/>
+                  <circle cx="200" cy="42" r="15" fill="#8d949c"/>
+                  <path d="M10 180 L118 74 L200 140 L296 46 L390 180 Z" fill="#1668c9"/>
+                </svg>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+
+      <!-- ---------- VIEW: the real Readiness Hub ----------------
+           Embedded by reference, never copied. Hub edits appear here for free,
+           and its own stylesheet and #root get a clean document instead of
+           fighting the Target Solutions shell. -->
+      <div class="ts-view" id="view-hub">
+        <!-- Eagerly loaded on purpose: `loading="lazy"` inside a display:none
+             parent defers the fetch until the first click, which would put a
+             visible stall in the middle of the demo. -->
+        <iframe src="../../keystone-hub/ver1/index.html?toolbox=off"
+                title="Readiness Hub"></iframe>
+      </div>
+
+    </main>
+
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   TOP NAV — app switcher
+
+   Opens the cross-app launcher. Identical logic in all three embedded views.
+   Closes on outside click and on Escape, which a menu anchored to a button
+   has to do or it strands itself open over the page.
+   ====================================================================== */
+(function () {
+  var btn   = document.getElementById('ts-apps-btn');
+  var panel = document.getElementById('ts-app-switcher');
+
+  function setOpen(open) {
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.classList.toggle('is-open', open);
+  }
+
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setOpen(panel.hidden);
+  });
+
+  // Clicks inside the panel must not reach the document handler below, or
+  // the panel would close before a link's default navigation ran.
+  panel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+  document.addEventListener('click', function () { setOpen(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !panel.hidden) { setOpen(false); btn.focus(); }
+  });
+})();
+</script>
+
+<script>
+/* ======================================================================
+   VIEW SWITCHING
+
+   One attribute on .ts-app drives which view is visible. The shell itself
+   never re-renders, so the sidebar and top nav hold perfectly still while
+   the content swaps — the thing that makes the demo click feel native.
+   ====================================================================== */
+(function () {
+  var app     = document.querySelector('.ts-app');
+  var content = document.getElementById('ts-content');
+  var navBtns = document.querySelectorAll('.ts-nav-light .ts-nav-item');
+
+  window.tsSetView = function (name) {
+    app.setAttribute('data-view', name);
+
+    // Exactly one nav item reads as selected at a time.
+    navBtns.forEach(function (b) {
+      if (b.dataset.target === name) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+
+    content.scrollTop = 0;
+  };
+
+  navBtns.forEach(function (b) {
+    b.addEventListener('click', function () { window.tsSetView(b.dataset.target); });
+  });
+})();
+</script>
+
+<script>
+/* ======================================================================
+   ANNOUNCEMENT BANNER
+
+   The CTA calls the same tsSetView the nav buttons call, so both demo paths
+   land in exactly the same state — including the sidebar selection moving to
+   Readiness Hub.
+
+   Dismissal deliberately writes no storage. Presenters reload between runs,
+   and a banner that stays gone is a banner you cannot get back mid-demo.
+   ====================================================================== */
+(function () {
+  var banner = document.getElementById('ts-announce');
+
+  document.getElementById('ts-announce-cta')
+    .addEventListener('click', function () { window.tsSetView('hub'); });
+
+  document.getElementById('ts-announce-dismiss')
+    .addEventListener('click', function () { banner.hidden = true; });
+})();
+</script>
+
+<script>
+/* ======================================================================
+   TO DO TABS — visual only, by design
+
+   The task list below is static per spec (no filtering/sorting exists for
+   this demo). Clicking a tab only moves the red underline between All /
+   Credentials / Assignments; it never touches the list contents.
+   ====================================================================== */
+(function () {
+  var tabs = document.querySelectorAll('.ts-tab');
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) { t.classList.remove('is-active'); });
+      tab.classList.add('is-active');
+    });
+  });
+})();
+</script>
+
+<!-- Design Toolbox — review/handoff tooling, NOT part of the product design -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+
+</body>
+</html>

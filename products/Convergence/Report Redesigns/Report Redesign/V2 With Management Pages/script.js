@@ -643,6 +643,87 @@ const SAVED_VIEWS = [
         statusTypes: 'Overdue', columns: 'Activity, User, Status, Next Due Date',
         activityCount: 0, userCount: 0, favorited: false,
     },
+    // Additional Qualification views (ordered oldest → newest; later = more recent)
+    {
+        id: 'forklift-cert', name: 'Forklift Operator Certification', report: 'Qualification Report',
+        desc: 'Forklift operators due for recertification', dateRange: '05/01/26 – 05/31/26',
+        qualIds: ['q10'], activities: ['Forklift Operator Certification'],
+        userIds: ['u2', 'u9'], users: ['Brandin Podziemski', 'Jarred Vanderbilt'],
+        status: 'incomplete', statusTypes: 'Incomplete', columns: 'Activity, User, Status, Due Date',
+        activityCount: 1, userCount: 14, favorited: false,
+    },
+    {
+        id: 'first-aid-cpr', name: 'First Aid & CPR Compliance', report: 'Qualification Report',
+        desc: 'First aid and CPR certification across all sites', dateRange: 'All Time',
+        qualIds: ['q9'], activities: ['First Aid & CPR'],
+        userIds: ['u1', 'u4', 'u7'], users: ['Anthony Davis', 'Darvin Ham', 'Gary Payton II'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
+        activityCount: 1, userCount: 32, favorited: true,
+    },
+    {
+        id: 'scaffolding-q2', name: 'Scaffolding Safety Q2', report: 'Qualification Report',
+        desc: 'Scaffolding safety qualifications for Q2', dateRange: '04/01/26 – 06/30/26',
+        qualIds: ['q19'], activities: ['Scaffolding Safety'],
+        userIds: ['u6', 'u8'], users: ['Fred VanVleet', 'Jalen Green'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status',
+        activityCount: 1, userCount: 9, favorited: false,
+    },
+    {
+        id: 'electrical-safety', name: 'Electrical Safety Qualifications', report: 'Qualification Report',
+        desc: 'Electrical safety tracking for maintenance crews', dateRange: '03/01/26 – 05/31/26',
+        qualIds: ['q14'], activities: ['Lock-Out / Tag-Out (LOTO)'],
+        userIds: ['u5', 'u10'], users: ['Draymond Green', 'Klay Thompson'],
+        status: 'incomplete', statusTypes: 'Incomplete', columns: 'Activity, User, Status, Due Date',
+        activityCount: 2, userCount: 11, favorited: false,
+    },
+    {
+        id: 'respiratory-fit', name: 'Respiratory Protection Fit Test', report: 'Qualification Report',
+        desc: 'Annual respirator fit-test compliance', dateRange: '01/01/26 – 12/31/26',
+        qualIds: ['q12'], activities: ['Hazardous Materials Handling'],
+        userIds: ['u3', 'u6'], users: ["D'Angelo Russell", 'Fred VanVleet'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
+        activityCount: 1, userCount: 18, favorited: true,
+    },
+    {
+        id: 'hot-work', name: 'Hot Work Permits', report: 'Qualification Report',
+        desc: 'Welding and hot-work permit holders', dateRange: '05/01/26 – 05/31/26',
+        qualIds: ['q6'], activities: ['Crane Operations Training'],
+        userIds: ['u8'], users: ['Jalen Green'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status',
+        activityCount: 1, userCount: 7, favorited: false,
+    },
+    {
+        id: 'machine-guarding', name: 'Machine Guarding Review', report: 'Qualification Report',
+        desc: 'Machine guarding qualification review', dateRange: '04/15/26 – 06/15/26',
+        qualIds: ['q8'], activities: ['Fall Protection Training'],
+        userIds: ['u1', 'u7'], users: ['Anthony Davis', 'Gary Payton II'],
+        status: 'qualified', statusTypes: 'Qualified', columns: 'Activity, User, Status',
+        activityCount: 2, userCount: 15, favorited: false,
+    },
+    {
+        id: 'ladder-safety', name: 'Ladder Safety Refresher', report: 'Qualification Report',
+        desc: 'Annual ladder safety refresher tracking', dateRange: '06/01/26 – 06/30/26',
+        qualIds: ['q19'], activities: ['Scaffolding Safety'],
+        userIds: ['u2', 'u9'], users: ['Brandin Podziemski', 'Jarred Vanderbilt'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Due Date',
+        activityCount: 1, userCount: 22, favorited: false,
+    },
+    {
+        id: 'ppe-audit', name: 'PPE Compliance Audit', report: 'Qualification Report',
+        desc: 'Personal protective equipment compliance audit', dateRange: '06/01/26 – 06/30/26',
+        qualIds: ['q4', 'q12'], activities: ['Confined Space Entry', 'Hazardous Materials Handling'],
+        userIds: ['u3', 'u4', 'u5'], users: ["D'Angelo Russell", 'Darvin Ham', 'Draymond Green'],
+        status: 'incomplete', statusTypes: 'Incomplete', columns: 'Activity, User, Status',
+        activityCount: 3, userCount: 26, favorited: true,
+    },
+    {
+        id: 'welding-cert', name: 'Welding Certification Status', report: 'Qualification Report',
+        desc: 'Current welding certification status by shift', dateRange: '06/10/26 – 06/24/26',
+        qualIds: ['q6', 'q10'], activities: ['Crane Operations Training', 'Forklift Operator Certification'],
+        userIds: ['u8', 'u10'], users: ['Jalen Green', 'Klay Thompson'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
+        activityCount: 2, userCount: 13, favorited: false,
+    },
 ];
 
 let selectedSavedViewId = null;
@@ -872,15 +953,19 @@ function buildSavedViewsDropdown(cfg) {
     const btn = document.getElementById(cfg.btnId);
     const menu = document.getElementById(cfg.menuId);
     if (!control || !btn || !menu) return;
-    const MAX_INLINE = 5;
+    const MAX_INLINE = 10;
 
     function render() {
         const views = SAVED_VIEWS.filter(v => v.report === cfg.reportName);
         const activeId = (appliedSavedView && appliedSavedView.report === cfg.reportName) ? appliedSavedView.id : null;
-        const favorites = views.filter(v => v.favorited);
-        const rest      = views.filter(v => !v.favorited);
-        const overCap   = views.length > MAX_INLINE;
-        const shown     = overCap ? [...favorites, ...rest].slice(0, MAX_INLINE) : [...favorites, ...rest];
+        // Recency proxy: later in SAVED_VIEWS = more recently created/updated.
+        // Show favorites first, then fill with the most recent — up to 10 total.
+        const byRecent  = [...views].reverse();
+        const favorites = byRecent.filter(v => v.favorited);
+        const rest      = byRecent.filter(v => !v.favorited);
+        const ordered   = [...favorites, ...rest];
+        const overCap   = ordered.length > MAX_INLINE;
+        const shown     = overCap ? ordered.slice(0, MAX_INLINE) : ordered;
         const shownFav  = shown.filter(v => v.favorited);
         const shownRest = shown.filter(v => !v.favorited);
 
@@ -906,7 +991,7 @@ function buildSavedViewsDropdown(cfg) {
         }
         html += `</div>`;
         // Bottommost row — always present; opens the full saved-views modal
-        html += `<button type="button" class="sv-dd-browse"><i class="fa-regular fa-rectangle-list"></i> All saved views${views.length ? ` (${views.length})` : ''}</button>`;
+        html += `<button type="button" class="sv-dd-browse"><i class="fa-regular fa-rectangle-list"></i> View all${views.length ? ` (${views.length})` : ''}</button>`;
         menu.innerHTML = html;
 
         menu.querySelector('.sv-dd-clear')?.addEventListener('click', () => { menu.style.display = 'none'; clearAppliedView(); });
@@ -934,26 +1019,9 @@ function buildSavedViewsDropdown(cfg) {
     });
 }
 
-// Keep the "Saved views" buttons in sync with the applied view. The button label
-// always reads "Saved views"; when a view is applied its name shows as a removable
-// chip inside the button.
-function updateSavedViewsLabels() {
-    const av = appliedSavedView;
-    // When a view is applied, hide the "Saved views" text so only the chip shows.
-    const apply = (active, labelId, chipId, nameId) => {
-        const label = document.getElementById(labelId);
-        const chip  = document.getElementById(chipId);
-        const name  = document.getElementById(nameId);
-        if (label) label.style.display = active ? 'none' : '';
-        if (name && active) name.textContent = av.name;
-        if (chip) chip.style.display = active ? '' : 'none';
-    };
-    apply(!!(av && av.report === 'Qualification Report'),      'savedViewsBtnLabel',      'savedViewsChip',      'savedViewsChipName');
-    apply(!!(av && av.report === 'Activity Exception Report'), 'actExSavedViewsBtnLabel', 'actExSavedViewsChip', 'actExSavedViewsChipName');
-}
-// Clear the applied view straight from the Saved-views control (no need to open the menu)
-document.getElementById('savedViewsClear')?.addEventListener('click', (e) => { e.stopPropagation(); clearAppliedView(); });
-document.getElementById('actExSavedViewsClear')?.addEventListener('click', (e) => { e.stopPropagation(); clearAppliedView(); });
+// The dropdown button always reads "Saved views". The applied view is shown as a
+// removable chip UNDER the report title (see renderAppliedBanner), not in the button.
+function updateSavedViewsLabels() { /* no-op: applied view now renders as a chip under the title */ }
 
 // The saved view currently applied to the report (null = ad-hoc filters)
 let appliedSavedView = null;
@@ -1018,9 +1086,11 @@ function renderAppliedBanner() {
             ? `<span class="rvs-sep">·</span><button type="button" class="rvs-sched"><i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}</button>`
             : `<span class="rvs-sep">·</span><span class="rvs-sched-static">No scheduled reports</span>`;
         eye.style.display = 'flex';
-        eye.innerHTML = `<span class="rvs-name"><i class="fa-solid fa-bookmark"></i> ${appliedSavedView.name}</span>${schedHTML}`;
+        eye.innerHTML = `<span class="rvs-chip"><i class="fa-solid fa-bookmark"></i><span class="rvs-chip-name">${appliedSavedView.name}</span><button type="button" class="rvs-chip-x" title="Clear applied view"><i class="fa-solid fa-xmark"></i></button></span>${schedHTML}`;
         const schedBtn = eye.querySelector('.rvs-sched');
         if (schedBtn) schedBtn.addEventListener('click', () => openManageSchedulesDialog(appliedSavedView));
+        const clearBtn = eye.querySelector('.rvs-chip-x');
+        if (clearBtn) clearBtn.addEventListener('click', () => clearAppliedView());
     });
 }
 

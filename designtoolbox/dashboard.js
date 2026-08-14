@@ -2,7 +2,7 @@
    Product Dashboard — shared, drop-in prototype index
    =========================================================================
 
-   ONE shared implementation of the per-product "Design Lab" dashboard. A
+   ONE shared implementation of the per-product "Design Dashboard". A
    product enrolls by dropping a tiny shell into `products/<Product>/dashboard/`:
 
        <!DOCTYPE html><html lang="en"><head>
@@ -81,63 +81,97 @@
   const MARKUP = `
     <header class="page-header">
       <div class="header-inner">
-        <span class="product-tag">
-          <span class="emoji" id="productEmoji">🎨</span>
-          <span id="productName">Product</span>
-        </span>
-        <h1 class="page-title">Design <em>Lab</em></h1>
-        <p class="page-subtitle">
-          Every in-progress prototype, one click away. Bookmark this page — it stays in sync as the design team ships new work.
-        </p>
-        <div class="meta-bar">
-          <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-          <span class="dot-sep">·</span>
-          <span id="lastUpdated"></span>
+        <!-- Compact banner: the PRODUCT is the headline (emoji + name), with a
+             small "Design Dashboard" eyebrow above it. Search + the freshness
+             meta stack on the right, both flush with the page's right gutter. -->
+        <div class="header-main">
+          <!-- Left = eyebrow pill → wordmark → subtitle; right = search.
+               The freshness status lives INSIDE the pill, so all system
+               telemetry reads as one chip. -->
+          <div class="header-id">
+            <span class="dash-eyebrow">Design <em>Dashboard</em><span class="dot-sep">·</span><span class="meta-bar"><span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span><span class="dot-sep">·</span><span id="lastUpdated"></span></span></span>
+            <h1 class="page-title">
+              <!-- Boots with the theme emoji; swaps to the landing page's
+                   icon tile (same FA icon + brand color) once meta.json loads. -->
+              <span class="title-icon" id="productIcon"><span id="productEmoji">🎨</span></span>
+              <span id="productName">Product</span>
+            </h1>
+            <p class="page-subtitle">Bookmark this page — it stays in sync as the design team ships new work.</p>
+          </div>
+          <div class="header-side">
+            <!-- Global search lives in the banner — it looks across ALL folders,
+                 unlike the folder-scoped chips in the content column below. -->
+            <div class="header-search" id="headerSearch" hidden>
+              <div class="search-wrapper" id="searchWrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
+                <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+        <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
       </div>
     </header>
 
-    <div class="toolbar" id="toolbar" hidden>
-      <div class="toolbar-row">
-        <div class="search-wrapper" id="searchWrapper">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
-          <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="sort-control">
-          <i class="fa-solid fa-arrow-down-wide-short sort-icon"></i>
-          <label class="sort-label" for="sortSelect">Sort</label>
-          <select class="sort-select" id="sortSelect" aria-label="Sort prototypes"></select>
-        </div>
-        <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
-          <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
-          <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
-        </div>
-      </div>
-      <div class="filter-chips" id="filterChips" role="group" aria-label="Filter by status"></div>
-    </div>
-
     <main class="content">
-      <div class="state" id="loadingState">
-        <div class="spinner"></div>
-        <p style="margin-top: 18px;">Loading the prototype index…</p>
-      </div>
+      <div class="content-columns">
+        <nav class="folder-nav" id="folderNav" aria-label="Design folders" hidden></nav>
+        <div class="content-main">
+          <!-- Toolbar lives INSIDE the content column: folder = scope (picked
+               in the rail), status chips = refinement within it. Search sits
+               up in the banner and looks across all folders. -->
+          <div class="toolbar" id="toolbar" hidden>
+            <div class="toolbar-row">
+              <div class="filter-chips" id="filterChips" role="group" aria-label="Filter by status"></div>
+              <!-- Compact multi-select replacement for the chips — only shown
+                   at narrow widths (the chips hide via media query). -->
+              <div class="status-dd" id="statusDd">
+                <button class="status-dd-btn" id="statusDdBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <i class="fa-solid fa-filter"></i>
+                  <span id="statusDdLabel">Status: All</span>
+                  <i class="fa-solid fa-chevron-down status-dd-chev"></i>
+                </button>
+                <div class="status-dd-panel" id="statusDdPanel" role="listbox" aria-multiselectable="true" hidden></div>
+              </div>
+              <!-- Sort + view switch wrap BELOW as one unit when the column
+                   narrows — the status chips keep their line. -->
+              <div class="toolbar-controls">
+                <div class="sort-control">
+                  <i class="fa-solid fa-arrow-down-wide-short sort-icon"></i>
+                  <label class="sort-label" for="sortSelect">Sort</label>
+                  <select class="sort-select" id="sortSelect" aria-label="Sort prototypes"></select>
+                </div>
+                <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
+                  <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
+                  <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <div id="contentRoot"></div>
+          <div class="state" id="loadingState">
+            <div class="spinner"></div>
+            <p style="margin-top: 18px;">Loading the prototype index…</p>
+          </div>
 
-      <div class="state" id="errorState" hidden>
-        <i class="fa-solid fa-circle-exclamation"></i>
-        <h3>Couldn't load the prototype index</h3>
-        <p id="errorMessage"></p>
-        <button class="retry" id="retryBtn" type="button">Try again</button>
-      </div>
+          <div id="contentRoot"></div>
 
-      <div class="state" id="emptyState" hidden>
-        <i class="fa-regular fa-folder-open"></i>
-        <h3>No prototypes yet</h3>
-        <p id="emptyMessage"></p>
+          <div class="state" id="errorState" hidden>
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <h3>Couldn't load the prototype index</h3>
+            <p id="errorMessage"></p>
+            <button class="retry" id="retryBtn" type="button">Try again</button>
+          </div>
+
+          <div class="state" id="emptyState" hidden>
+            <i class="fa-regular fa-folder-open"></i>
+            <h3>No prototypes yet</h3>
+            <p id="emptyMessage"></p>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -150,6 +184,11 @@
   // Config
   // ----------------------------------------------------------------------
   const REPO_BASE = 'https://github.com/VectorLearning/ux-mockups/blob/main/products';
+  // GitHub commit-history view for a mock's path — the card log links here so
+  // the FULL history is one click away even when the inline log is short.
+  // (Repo is private: designers without repo access get a 404, which is why
+  // the inline rows below stay as the primary log.)
+  const HISTORY_BASE = 'https://github.com/VectorLearning/ux-mockups/commits/main/products';
   const PAGES_BASE = 'https://vectorlearning.github.io/ux-mockups/products';
 
   // Detect product from URL — works on file://, localhost, and Pages
@@ -204,6 +243,12 @@
       accent: '#8a6500', accentSoft: '#f7edc9', accentDeep: '#6b4e00',
       accentGlow: 'rgba(240, 192, 64, 0.24)',
       gradStart: '#95700c', gradMid: '#8a6500', gradEnd: '#6b4e00',
+    },
+    'Keystone Department Hub': {
+      label: 'Keystone Department Hub', emoji: '🚒',
+      accent: '#9a5b06', accentSoft: '#fdebd0', accentDeep: '#7c4708',
+      accentGlow: 'rgba(245, 158, 11, 0.22)',
+      gradStart: '#d97706', gradMid: '#b45309', gradEnd: '#c2410c',
     },
     'Keystone-Tenants': {
       label: 'Keystone Tenants', emoji: '🏢',
@@ -298,34 +343,38 @@
   }
 
   const STATUS_LABELS = {
-    'concept': 'Concept',
     'in-progress': 'In Progress',
-    'review': 'In Review',
-    'ready': 'Ready',
     'ready-for-dev': 'Ready for Dev',
     'archived': 'Archived',
   };
   const DEFAULT_STATUS = 'in-progress';
-  const STATUS_ORDER = ['ready-for-dev', 'ready', 'review', 'in-progress', 'concept', 'archived'];
+  const STATUS_ORDER = ['ready-for-dev', 'in-progress', 'archived'];
   // Font Awesome icon per status — shown in the status pill instead of a dot.
   const STATUS_ICONS = {
-    'concept': 'fa-lightbulb',
     'in-progress': 'fa-pencil',
-    'review': 'fa-eye',
-    'ready': 'fa-circle-check',
     'ready-for-dev': 'fa-code',
     'archived': 'fa-box-archive',
   };
   function statusIcon(status) { return STATUS_ICONS[status] || 'fa-circle'; }
 
+  // How folder groups are presented: 'sidebar' (left folder panel with
+  // favorites) or 'tabs' (file-folder tabs in the header). Both implementations
+  // are kept working — flip this one constant to switch back.
+  const FOLDER_NAV_STYLE = 'sidebar';
+  // Sidebar-mode sentinel for state.tab. In tabs mode, null means the "Main"
+  // tab; folder names select a folder in both modes.
+  const MAIN_KEY = '__main__';
+
   const VIEW_KEY = 'designlab-view';
   const SORT_KEY = 'designlab-sort';
+  // Cards are ALWAYS grouped by status; the sort controls ordering WITHIN each
+  // status group (there is no standalone "by status" sort — grouping is implicit).
   const SORTS = {
-    status:  'Status',
-    updated: 'Recently updated',
-    oldest:  'Oldest updated',
-    az:      'Name (A–Z)',
-    za:      'Name (Z–A)',
+    updated:   'Recently updated',
+    oldest:    'Oldest updated',
+    az:        'Name (A–Z)',
+    za:        'Name (Z–A)',
+    favorited: 'Favorited first',
   };
   const state = {
     allMocks: [],
@@ -333,6 +382,9 @@
     statuses: new Set(),
     view: readStoredView(), // 'card' | 'list' — persisted per browser
     sort: readStoredSort(), // one of SORTS keys — persisted per browser
+    // Active folder selection. Sidebar mode: MAIN_KEY (default) or a folder
+    // name. Tabs mode: null = "Main" tab, or a folder name.
+    tab: FOLDER_NAV_STYLE === 'sidebar' ? MAIN_KEY : null,
   };
 
   function readStoredView() {
@@ -343,13 +395,12 @@
   function readStoredSort() {
     try {
       const s = localStorage.getItem(SORT_KEY);
-      return SORTS[s] ? s : 'status';
-    } catch { return 'status'; }
+      return SORTS[s] ? s : 'updated';
+    } catch { return 'updated'; }
   }
 
-  // Comparator for the current sort. "status" is handled by grouping in the card
-  // view, but still used as a flat comparator (status order, then name) in the
-  // list view and as the fallback tiebreaker everywhere.
+  // Comparator for the current sort — applied WITHIN each status group (both
+  // views always group by status first). Defaults to newest-updated.
   function mockComparator(sort) {
     const byName = (a, b) => a.title.localeCompare(b.title);
     // Newest first / oldest first; mocks with no history sort last either way.
@@ -363,13 +414,20 @@
     switch (sort) {
       case 'az': return byName;
       case 'za': return (a, b) => byName(b, a);
-      case 'updated': return byDate('desc');
       case 'oldest': return byDate('asc');
-      case 'status':
-      default: return (a, b) => {
-        const d = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
-        return d !== 0 ? d : byName(a, b);
-      };
+      case 'favorited': {
+        // Starred features first, the rest after — ordered by recency within
+        // each group. Applied WITHIN each status group like every other sort.
+        const favs = new Set(readFavMocks());
+        const recent = byDate('desc');
+        return (a, b) => {
+          const fa = favs.has(a.relKey), fb = favs.has(b.relKey);
+          if (fa !== fb) return fa ? -1 : 1;
+          return recent(a, b);
+        };
+      }
+      case 'updated':
+      default: return byDate('desc');
     }
   }
 
@@ -380,17 +438,24 @@
     byId('errorState').hidden = true;
     byId('emptyState').hidden = true;
     byId('toolbar').hidden = true;
+    byId('headerSearch').hidden = true;
+    byId('folderTabs').hidden = true;
+    byId('folderNav').hidden = true;
     byId('contentRoot').innerHTML = '';
     byId('loadingState').hidden = false;
 
     try {
-      const res = await fetch('./meta.json', { cache: 'no-cache' });
+      // Cache-bust: GitHub Pages edge-caches meta.json for 10 min and ignores
+      // custom headers, so a changing query string is the only reliable way to
+      // show a just-pushed date/status/dev-handoff instead of a stale copy.
+      const res = await fetch('./meta.json?cb=' + Date.now(), { cache: 'no-cache' });
       if (!res.ok) throw new Error(`meta.json returned ${res.status} ${res.statusText}`);
       const meta = await res.json();
       if (!meta || typeof meta.mocks !== 'object' || meta.mocks === null) {
         throw new Error('meta.json is missing a "mocks" object.');
       }
 
+      applyProductBranding(meta.product);
       state.allMocks = computeMocks(meta);
       attachChanges(state.allMocks, meta);
 
@@ -404,12 +469,32 @@
       }
 
       byId('loadingState').hidden = true;
-      renderFilterChips();
       byId('toolbar').hidden = false;
-      applyFiltersAndRender();
+      byId('headerSearch').hidden = false;
+      applyFiltersAndRender(); // renders the filter chips (scope-aware counts) too
       updateLastFetched();
     } catch (err) {
       showError(err);
+    }
+  }
+
+  // Banner identity from meta.json's `product` block — the SAME Font Awesome
+  // icon + brand color the landing page card shows, so the dashboard header
+  // matches its card. Icon/color are validated before they touch class/style;
+  // anything unexpected keeps the theme-emoji fallback.
+  function applyProductBranding(product) {
+    if (!product) return;
+    if (product.label) {
+      byId('productName').textContent = product.label;
+      document.title = `${product.label} — Prototype Index`;
+    }
+    const icon = (typeof product.icon === 'string' && /^fa-[a-z0-9-]+$/.test(product.icon)) ? product.icon : null;
+    const color = (typeof product.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(product.color)) ? product.color : null;
+    if (icon && color) {
+      const tile = byId('productIcon');
+      tile.classList.add('title-icon--tile');
+      tile.style.background = color;
+      tile.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
     }
   }
 
@@ -418,9 +503,6 @@
     const jiraBaseNorm = jiraBase ? (jiraBase.endsWith('/') ? jiraBase : jiraBase + '/') : '';
 
     const productEnc = encodeURIComponent(PRODUCT);
-    // GitHub "commits for this path" base — used for the per-card "full history"
-    // link. Same repo/branch as the blob links, just the commits view.
-    const COMMITS_BASE = REPO_BASE.replace('/blob/main/', '/commits/main/');
 
     return Object.keys(meta.mocks).map(key => {
       const m = meta.mocks[key] || {};
@@ -449,6 +531,14 @@
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
 
+      // Curated folder path as an array of display names (["Phase 2",
+      // "Content Workflow"]) — meta.json sends an array because folder names
+      // may themselves contain " / ", which a joined string couldn't encode.
+      // A legacy string value is treated as one (unsplit) folder name.
+      const groupSegs = Array.isArray(m.folder) ? m.folder.map(String)
+        : (typeof m.folder === 'string' && m.folder) ? [m.folder]
+        : null;
+
       // Dev handoff only applies to folder/root mocks (a folder that can hold a
       // dev_handoff.html); file mocks never carry one.
       const devHandoff = !isFile && !!m.devHandoff;
@@ -464,15 +554,22 @@
         ticketUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
+        // Curated folder, or null for a top-level mock. `group` is the
+        // human-readable path ("Phase 2 / Content Workflow") used for display
+        // and search; `groupKey` joins the same segments with an unambiguous
+        // separator and is what the folder tree/selection state keys on.
+        group: groupSegs ? groupSegs.join(' / ') : null,
+        groupKey: groupSegs ? groupSegs.join(FOLDER_SEP) : null,
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
-        // Full commit history for this prototype on GitHub (the "show more" target
-        // for the per-card log). Mirrors what the inline log counts.
-        historyUrl: `${COMMITS_BASE}/${isRoot ? `${productEnc}/index.html` : base}`,
+        historyUrl: `${HISTORY_BASE}/${base}`,
         devHandoff,
         devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
         devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
+        // Optional curated annotation shown inside the Designer Versions drawer
+        // (e.g. "Blue sky UI design") — context for what the working file is.
+        designerNote: (typeof m.designerNote === 'string' && m.designerNote.trim()) ? m.designerNote.trim() : null,
         extraLinks: Array.isArray(m.extraLinks) ? m.extraLinks.map(l => {
           const fileEnc = String(l.file || '').split('/').map(encodeURIComponent).join('/');
           return {
@@ -488,15 +585,19 @@
   // ----------------------------------------------------------------------
   // Toolbar
   // ----------------------------------------------------------------------
-  function renderFilterChips() {
+  // Chip counts describe the mocks the toolbar currently operates on — the
+  // active folder tab's subset (or the search results while searching) — so
+  // they always agree with the sections rendered below.
+  function renderFilterChips(baseMocks) {
+    const base = baseMocks || state.allMocks;
     const counts = {};
-    state.allMocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
+    base.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
     const chipsEl = byId('filterChips');
     // Show EVERY status so the team can see the full set of stages at a glance,
     // even ones with no prototypes yet. Empty statuses render dimmed + disabled
     // (a "0" that can't be clicked into an empty view).
     const chips = [
-      { status: 'all', label: 'All', count: state.allMocks.length },
+      { status: 'all', label: 'All', count: base.length },
       ...STATUS_ORDER.map(s => ({ status: s, label: STATUS_LABELS[s], count: counts[s] || 0 })),
     ];
     chipsEl.innerHTML = chips.map(c => {
@@ -509,6 +610,63 @@
       </button>`;
     }).join('');
     updateChipActiveState();
+
+    // Mirror the same data into the narrow-width multi-select dropdown, then
+    // decide which of the two representations fits.
+    renderStatusDd(chips);
+    fitToolbar();
+  }
+
+  // Compact-or-chips decision: measured, not a viewport breakpoint — the chip
+  // row collapses into the status dropdown the moment chips + sort/view
+  // controls can't share one line of the content column.
+  function fitToolbar() {
+    const toolbar = byId('toolbar');
+    if (toolbar.hidden) return;
+    const row = toolbar.querySelector('.toolbar-row');
+    const chips = byId('filterChips');
+    const ctrl = row.querySelector('.toolbar-controls');
+    // Natural single-line chip width (chips wrap internally, so force nowrap
+    // for the measurement, then restore).
+    chips.style.flexWrap = 'nowrap';
+    const natural = chips.scrollWidth;
+    chips.style.flexWrap = '';
+    const fits = natural + 14 + ctrl.offsetWidth <= row.clientWidth;
+    toolbar.classList.toggle('toolbar--compact', !fits);
+  }
+  let toolbarResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(toolbarResizeTimer);
+    toolbarResizeTimer = setTimeout(fitToolbar, 120);
+  });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => fitToolbar());
+  }
+
+  // Compact status dropdown (shown instead of the chips at narrow widths).
+  // Same semantics: "All" clears the set, statuses toggle independently.
+  function renderStatusDd(chips) {
+    const panel = byId('statusDdPanel');
+    const noneSelected = state.statuses.size === 0;
+    panel.innerHTML = chips.map(c => {
+      const active = c.status === 'all' ? noneSelected : state.statuses.has(c.status);
+      const empty = c.status !== 'all' && c.count === 0;
+      return `
+      <button class="status-dd-item" type="button" role="option" data-status="${escapeHtml(c.status)}"
+        aria-selected="${active ? 'true' : 'false'}"${empty ? ' disabled' : ''}>
+        <i class="fa-solid fa-check status-dd-check" data-on="${active ? 'true' : 'false'}"></i>
+        <span class="status-dd-name">${escapeHtml(c.label)}</span>
+        <span class="chip-count">${c.count}</span>
+      </button>`;
+    }).join('');
+
+    const label = byId('statusDdLabel');
+    if (noneSelected) {
+      label.textContent = 'Status: All';
+    } else {
+      const names = STATUS_ORDER.filter(s => state.statuses.has(s)).map(s => STATUS_LABELS[s]);
+      label.textContent = names.length === 1 ? `Status: ${names[0]}` : `Status: ${names.length} selected`;
+    }
   }
 
   function updateChipActiveState() {
@@ -531,78 +689,786 @@
     const search = state.search.toLowerCase().trim();
     const statusFilter = state.statuses;
 
-    let filtered = state.allMocks;
-    if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
-    if (search) {
-      filtered = filtered.filter(m =>
-        m.title.toLowerCase().includes(search) ||
-        (m.description || '').toLowerCase().includes(search) ||
-        (m.ticket || '').toLowerCase().includes(search) ||
-        m.relKey.toLowerCase().includes(search)
-      );
+    // 1) Structure first: the folder tab bar is built from the UNFILTERED mock
+    //    set, so tab counts and status pills describe each folder's actual
+    //    contents. The toolbar (search / filter / sort) applies WITHIN the
+    //    active tab, below.
+    const { folders, loose } = partitionFolders(state.allMocks);
+    const sidebar = FOLDER_NAV_STYLE === 'sidebar';
+    if (sidebar) {
+      renderFolderNav(folders, loose, !!search);
+      byId('folderTabs').hidden = true;
+    } else {
+      renderTabBar(folders, loose, !!search);
+      byId('folderNav').hidden = true;
     }
 
-    if (filtered.length === 0) { renderNoResults(); return; }
+    // 2) Pick the active selection's subset. The banner search is GLOBAL: while
+    //    a query is active it looks across every folder (the rail dims to show
+    //    the folder scope is bypassed). The status chips below stay scoped to
+    //    whatever the results are.
+    const inFolder = !search && state.tab && state.tab !== MAIN_KEY && folderExists(folders, state.tab);
+    const subset = search ? state.allMocks
+      : inFolder ? descendantMocks(folders, state.tab)
+      : loose;
 
-    // Same filtered set, two layouts — the view switcher just picks the renderer.
-    if (state.view === 'list') renderListView(filtered, root);
-    else renderCardView(filtered, root);
-  }
+    // 3) Apply the toolbar filters to that subset. Search first, so the chip
+    //    counts (rendered from the pre-status-filter set) match what's below.
+    const matchesSearch = m =>
+      m.title.toLowerCase().includes(search) ||
+      (m.description || '').toLowerCase().includes(search) ||
+      (m.ticket || '').toLowerCase().includes(search) ||
+      (m.group || '').toLowerCase().includes(search) ||
+      m.relKey.toLowerCase().includes(search);
 
-  function renderCardView(filtered, root) {
-    // "Status" sort keeps the grouped-by-status sections; any other sort renders
-    // one flat grid ordered by the chosen comparator.
-    if (state.sort !== 'status') {
-      const wrap = document.createElement('section');
-      wrap.className = 'section';
-      const grid = document.createElement('div');
-      grid.className = 'card-grid';
-      [...filtered].sort(mockComparator(state.sort)).forEach((m, i) => grid.appendChild(buildCard(m, i)));
-      wrap.appendChild(grid);
-      root.appendChild(wrap);
+    let filtered = subset;
+    if (search) filtered = filtered.filter(matchesSearch);
+    renderFilterChips(filtered);
+    if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
+
+    if (filtered.length === 0) {
+      // Full no-results state when everything was in scope (global search or
+      // no folders); a lighter "check another folder" note when only the
+      // selected folder came up empty.
+      const wholeScope = !folders.size || search;
+      if (wholeScope) renderNoResults();
+      else renderTabEmpty(root);
       return;
     }
 
-    const grouped = {};
-    filtered.forEach(m => { (grouped[m.status] = grouped[m.status] || []).push(m); });
+    // Name the active scope in the content column: a breadcrumb of the folder
+    // path (each ancestor clickable) so nested selections are legible.
+    if (sidebar && inFolder) renderFolderBreadcrumb(root, state.tab, filtered.length);
 
-    let cardIdx = 0;
-    STATUS_ORDER.forEach(status => {
-      if (!grouped[status]) return;
-      const wrap = document.createElement('section');
-      wrap.className = 'section';
-      wrap.appendChild(statusSectionHeader(status, grouped[status].length));
-      const grid = document.createElement('div');
-      grid.className = 'card-grid';
-      grouped[status].sort((a, b) => a.title.localeCompare(b.title)).forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
-      wrap.appendChild(grid);
-      root.appendChild(wrap);
+    // Starred features are NOT hoisted into a separate section any more — they
+    // stay in their status group with a highlighted border (see .mock-card--fav
+    // / buildCard). The side-nav "Favorites" bookmarks (renderFolderNav) are the
+    // cross-folder quick links; clicking one jumps to the card. The "Favorited
+    // first" sort orders each status group starred-first.
+    if (state.view === 'list') renderListView(filtered, root);
+    else renderCardView(filtered, root);
+    if (state.view === 'card') scheduleAlign();
+  }
+
+  // --------------------------------------------------------------------------
+  // Dynamic row alignment (card view)
+  // --------------------------------------------------------------------------
+  // Instead of statically reserving two lines on every title/description, we
+  // equalize per VISUAL ROW: a card's title only grows to two lines when another
+  // card sharing its row wraps to two lines. A row of all-single-line titles
+  // stays compact. Same idea for the description so the Pages box lines up.
+  // Recomputed on every render and (debounced) on resize, since the column count
+  // reflows responsively.
+  let alignRAF = 0, alignResizeT = 0;
+  function scheduleAlign() {
+    cancelAnimationFrame(alignRAF);
+    alignRAF = requestAnimationFrame(alignCardRows);
+    // Fonts (Fraunces/Space Grotesk) load async and change wrapping — realign
+    // once they're ready so first paint isn't measured against fallback metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => requestAnimationFrame(alignCardRows));
+    }
+  }
+
+  function alignCardRows() {
+    if (state.view !== 'card') return;
+    document.querySelectorAll('.card-grid').forEach(grid => {
+      const cards = Array.from(grid.children).filter(c => c.classList.contains('mock-card'));
+      if (cards.length < 2) {
+        // Single card in the grid — clear any prior reserve so it's natural.
+        cards.forEach(clearReserve);
+        return;
+      }
+      // Reset first so we measure each element's natural height.
+      cards.forEach(clearReserve);
+      // Group cards into visual rows by their top offset (grid cells in one row
+      // share the same top regardless of their content height).
+      const rows = new Map();
+      cards.forEach(card => {
+        const top = Math.round(card.offsetTop);
+        (rows.get(top) || rows.set(top, []).get(top)).push(card);
+      });
+      rows.forEach(rowCards => {
+        if (rowCards.length < 2) return; // nothing to match against
+        equalize(rowCards, '.card-title');
+        equalize(rowCards, '.card-description');
+      });
     });
   }
 
-  // Compact table layout mirroring the top-level product index list. Rows follow
-  // the active sort (defaulting to status order, then name).
-  function renderListView(filtered, root) {
-    const rows = [...filtered].sort(mockComparator(state.sort));
-
-    const wrap = document.createElement('div');
-    wrap.className = 'proto-table-wrap';
-    wrap.innerHTML = `
-      <table class="proto-table">
-        <thead>
-          <tr>
-            <th>Prototype</th>
-            <th class="col-status">Status</th>
-            <th class="col-jira">Jira</th>
-            <th class="col-date">Last updated</th>
-          </tr>
-        </thead>
-        <tbody>${rows.map(listRow).join('')}</tbody>
-      </table>`;
-    root.appendChild(wrap);
+  function clearReserve(card) {
+    const t = card.querySelector('.card-title');
+    const d = card.querySelector('.card-description');
+    if (t) t.style.minHeight = '';
+    if (d) d.style.minHeight = '';
   }
 
-  function listRow(mock) {
+  function equalize(rowCards, selector) {
+    const els = rowCards.map(c => c.querySelector(selector)).filter(Boolean);
+    if (els.length < 2) return;
+    const max = els.reduce((m, el) => Math.max(m, el.offsetHeight), 0);
+    els.forEach(el => { el.style.minHeight = max + 'px'; });
+  }
+
+  // Group the filtered mocks by status, in STATUS_ORDER, with each group's
+  // members ordered by the active within-group sort. Shared by both views.
+  function groupByStatus(filtered) {
+    const grouped = {};
+    filtered.forEach(m => { (grouped[m.status] = grouped[m.status] || []).push(m); });
+    const cmp = mockComparator(state.sort);
+    return STATUS_ORDER
+      .filter(status => grouped[status])
+      .map(status => ({ status, mocks: grouped[status].slice().sort(cmp) }));
+  }
+
+  // Split the filtered mocks into curated folder groups (the ones nested under a
+  // `folder` in products.json) and loose top-level mocks. Folders render as one
+  // expandable unit; loose mocks keep the status-grouped layout.
+  function partitionFolders(filtered) {
+    const folders = new Map(); // folder key -> mocks[] (direct members only)
+    const loose = [];
+    filtered.forEach(m => {
+      if (m.groupKey) {
+        if (!folders.has(m.groupKey)) folders.set(m.groupKey, []);
+        folders.get(m.groupKey).push(m);
+      } else {
+        loose.push(m);
+      }
+    });
+    return { folders, loose };
+  }
+
+  // ── Nested folders ─────────────────────────────────────────────────────
+  // Curated `folder` groups in products.json can nest to any depth; each
+  // mock's `groupKey` joins its path segments with FOLDER_SEP (a control
+  // character no folder NAME can contain — names may legitimately include
+  // " / "). These helpers treat those keys as a tree so the sidebar can
+  // render n levels and selecting a folder scopes to its whole subtree.
+  const FOLDER_SEP = '\u001F'; // ASCII unit separator; never present in a folder name
+  // Human-readable form of a folder key, for labels and tooltips.
+  function folderDisplay(key) { return key.split(FOLDER_SEP).join(' / '); }
+
+  // A path is a valid selection if any mock lives at it OR below it (a parent
+  // folder may hold only subfolders, never a direct mock).
+  function folderExists(folders, path) {
+    const prefix = path + FOLDER_SEP;
+    for (const k of folders.keys()) if (k === path || k.startsWith(prefix)) return true;
+    return false;
+  }
+
+  // Every mock at this path and in every folder nested below it — selecting a
+  // parent shows its whole subtree, so nothing hides behind a collapsed child.
+  function descendantMocks(folders, path) {
+    const prefix = path + FOLDER_SEP;
+    const out = [];
+    folders.forEach((mocks, k) => { if (k === path || k.startsWith(prefix)) out.push(...mocks); });
+    return out;
+  }
+
+  // Display tree: one node per path segment, including intermediate folders
+  // with no direct mocks. Siblings come out A→Z because the paths are sorted
+  // before insertion.
+  function buildFolderTree(folders) {
+    const root = { name: '', path: '', children: new Map() };
+    [...folders.keys()].sort((a, b) => a.localeCompare(b)).forEach(path => {
+      const segs = path.split(FOLDER_SEP);
+      let node = root;
+      segs.forEach((seg, i) => {
+        if (!node.children.has(seg)) {
+          node.children.set(seg, { name: seg, path: segs.slice(0, i + 1).join(FOLDER_SEP), children: new Map() });
+        }
+        node = node.children.get(seg);
+      });
+    });
+    return root;
+  }
+
+  // Tabs mode can't nest, so nested paths aggregate up to their TOP-LEVEL
+  // folder: one tab per top folder, counting (and opening into) its subtree.
+  function topLevelFolders(folders) {
+    const tops = new Map();
+    folders.forEach((mocks, path) => {
+      const top = path.split(FOLDER_SEP)[0];
+      if (!tops.has(top)) tops.set(top, []);
+      tops.get(top).push(...mocks);
+    });
+    return tops;
+  }
+
+  // Row of mini status pills (icon + count) summarizing a folder's contents,
+  // ordered by STATUS_ORDER so it reads highest-status-first.
+  function statusSummary(mocks) {
+    const counts = {};
+    mocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
+    return STATUS_ORDER.filter(s => counts[s]).map(s =>
+      `<span class="status-badge status-badge--mini" data-status="${s}" title="${escapeHtml(STATUS_LABELS[s] || s)}"><i class="fa-solid ${statusIcon(s)} status-icon"></i>${counts[s]}</span>`
+    ).join('');
+  }
+
+  // Folder TAB BAR — one tab per curated folder plus a leading "Main" tab for
+  // the top-level designs. Each folder tab carries its count and per-status
+  // summary pills so a folder's state is visible without opening it. Selecting
+  // a tab swaps the content below to that subset, rendered exactly like the
+  // main dashboard (status-grouped sections of full cards / table rows).
+  //
+  // While a SEARCH is active the tab bar is bypassed: results from every tab
+  // render together (each section still status-grouped) so matches can't hide
+  // behind an unselected tab.
+  // Folder TAB BAR — renders into the fixed #folderTabs strip that sits ABOVE
+  // the toolbar: a leading "Main" tab (top-level designs) plus one tab per
+  // curated folder. Tabs are structural navigation, so counts and status pills
+  // always describe the folder's FULL contents; the toolbar below filters
+  // within the active tab. While a search is active the bar dims — results
+  // come from every tab so matches can't hide behind an unselected one.
+  // The tab row adapts to the browser width in two stages: long folder names
+  // truncate first (progressively tighter, down to a still-readable minimum),
+  // and only when that isn't enough do trailing folders collapse into a "+N
+  // more" dropdown. Selecting a hidden folder activates it AND swaps it into
+  // the visible row, so the active tab is never buried in the dropdown.
+  const TAB_NAME_CLAMPS = ['none', '150px', '115px', '90px'];
+
+  // The overflow dropdown lives on <body> with position:fixed — the header has
+  // overflow:hidden, so an absolutely-positioned child would get clipped. It
+  // opens on hover OR click of the "more" button and stays open while the
+  // pointer is over either; a short grace timer bridges the gap between them.
+  let tabMenuEl = null;
+  let tabMoreBtn = null;
+  let tabMenuCloseTimer = null;
+  function cancelMenuClose() { clearTimeout(tabMenuCloseTimer); tabMenuCloseTimer = null; }
+  function scheduleMenuClose() {
+    cancelMenuClose();
+    tabMenuCloseTimer = setTimeout(closeTabMenu, 200);
+  }
+  function closeTabMenu() {
+    cancelMenuClose();
+    if (tabMenuEl) { tabMenuEl.remove(); tabMenuEl = null; }
+    if (tabMoreBtn) tabMoreBtn.dataset.open = 'false';
+  }
+  document.addEventListener('click', e => {
+    if (tabMenuEl && !tabMenuEl.contains(e.target) && !e.target.closest('.folder-tab-more')) closeTabMenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTabMenu(); });
+
+  function selectTab(tabKey) {
+    closeTabMenu();
+    if (state.tab === tabKey && !state.search) return;
+    state.tab = tabKey;
+    // The banner search is global (spans all folders) — picking a folder while
+    // a query is active exits the search into that folder's scope.
+    if (state.search) {
+      state.search = '';
+      const input = byId('searchInput');
+      input.value = '';
+      byId('searchWrapper').classList.remove('has-value');
+    }
+    applyFiltersAndRender();
+  }
+
+  function openTabMenu(anchor, overflowNames, folders) {
+    closeTabMenu();
+    const menu = document.createElement('div');
+    menu.className = 'folder-tab-menu';
+    menu.setAttribute('role', 'menu');
+    overflowNames.forEach(name => {
+      const mocks = folders.get(name);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'folder-tab-menu-item';
+      item.setAttribute('role', 'menuitem');
+      item.innerHTML = `
+        <i class="fa-solid fa-folder folder-tab-icon"></i>
+        <span class="folder-tab-name">${escapeHtml(name)}</span>
+        <span class="folder-tab-pills">${statusSummary(mocks)}</span>`;
+      item.addEventListener('click', () => selectTab(name));
+      menu.appendChild(item);
+    });
+    // Keep the menu open while hovering it; leaving schedules the close.
+    menu.addEventListener('mouseenter', cancelMenuClose);
+    menu.addEventListener('mouseleave', scheduleMenuClose);
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    const mw = menu.offsetWidth;
+    menu.style.top = (r.bottom + 6) + 'px';
+    menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - mw - 8)) + 'px';
+    tabMenuEl = menu;
+    anchor.dataset.open = 'true';
+  }
+
+  // Remembered so the bar can re-fit itself on window resize / font load.
+  let lastTabRender = null;
+
+  function renderTabBar(folders, loose, searching) {
+    lastTabRender = { folders, loose, searching };
+    // A flat tab row can't nest — collapse nested folder paths into their
+    // top-level folder (tab counts and selection cover the whole subtree).
+    folders = topLevelFolders(folders);
+    const bar = byId('folderTabs');
+    closeTabMenu();
+    if (!folders.size) { bar.hidden = true; bar.innerHTML = ''; return; }
+
+    const names = [...folders.keys()].sort((a, b) => a.localeCompare(b));
+    // Reset a stale selection (e.g. the folder disappeared from products.json).
+    if (state.tab && !folders.has(state.tab)) state.tab = null;
+
+    bar.hidden = false;
+    bar.dataset.searching = searching ? 'true' : 'false';
+    bar.title = searching ? 'Search looks across all tabs' : '';
+
+    const tabBtn = (label, mocks, tabKey, iconClass) => {
+      const active = !searching && state.tab === tabKey;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'folder-tab';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      btn.dataset.active = active ? 'true' : 'false';
+      btn.title = label; // full name when the label is truncated
+      btn.innerHTML = `
+        <i class="fa-solid ${iconClass} folder-tab-icon"></i>
+        <span class="folder-tab-name">${escapeHtml(label)}</span>
+        <span class="folder-tab-pills">${statusSummary(mocks)}</span>`;
+      btn.addEventListener('click', () => selectTab(tabKey));
+      return btn;
+    };
+
+    const build = (visible, overflow) => {
+      bar.innerHTML = '';
+      bar.appendChild(tabBtn('Main', loose, null, 'fa-house'));
+      visible.forEach(name => bar.appendChild(tabBtn(name, folders.get(name), name, (!searching && state.tab === name) ? 'fa-folder-open' : 'fa-folder')));
+      if (overflow.length) {
+        // Floating nav button (NOT a tab): hover or click opens the folder
+        // dropdown; the chevron flips while it's open.
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'folder-tab-more';
+        more.setAttribute('aria-haspopup', 'menu');
+        more.dataset.open = 'false';
+        more.title = overflow.join(' · ');
+        more.innerHTML = `
+          <span>${overflow.length} more</span>
+          <i class="fa-solid fa-chevron-down folder-tab-more-chev"></i>`;
+        more.addEventListener('click', () => {
+          if (tabMenuEl) closeTabMenu();
+          else openTabMenu(more, overflow, folders);
+        });
+        more.addEventListener('mouseenter', () => {
+          cancelMenuClose();
+          if (!tabMenuEl) openTabMenu(more, overflow, folders);
+        });
+        more.addEventListener('mouseleave', scheduleMenuClose);
+        tabMoreBtn = more;
+        bar.appendChild(more);
+      }
+    };
+
+    // Fit pass. The bar is flex-wrap, so "doesn't fit" = the row wrapped =
+    // scrollHeight taller than a single tab row.
+    const fitsOneRow = () => bar.scrollHeight <= 58;
+
+    // Stage 0: everything inline at natural width.
+    let visible = names.slice();
+    let overflow = [];
+    bar.style.setProperty('--tab-name-max', TAB_NAME_CLAMPS[0]);
+    build(visible, overflow);
+
+    // Stage 1: progressively truncate long names until the row fits.
+    for (let i = 1; !fitsOneRow() && i < TAB_NAME_CLAMPS.length; i++) {
+      bar.style.setProperty('--tab-name-max', TAB_NAME_CLAMPS[i]);
+    }
+
+    // Stage 2: still too wide at the smallest readable clamp — collapse
+    // trailing folders into the "+N more" dropdown (keeping the active one).
+    while (!fitsOneRow() && visible.length > 0) {
+      let idx = visible.length - 1;
+      if (visible[idx] === state.tab) idx--;
+      if (idx < 0) break;
+      overflow.unshift(visible.splice(idx, 1)[0]);
+      overflow.sort((a, b) => a.localeCompare(b));
+      build(visible, overflow);
+    }
+  }
+
+  // Re-fit the tab row when the viewport or loaded fonts change its metrics.
+  let tabResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!lastTabRender) return;
+    clearTimeout(tabResizeTimer);
+    tabResizeTimer = setTimeout(() => {
+      renderTabBar(lastTabRender.folders, lastTabRender.loose, lastTabRender.searching);
+    }, 150);
+  });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      if (lastTabRender) renderTabBar(lastTabRender.folders, lastTabRender.loose, lastTabRender.searching);
+    });
+  }
+
+  // ----------------------------------------------------------------------
+  // Folder SIDEBAR (FOLDER_NAV_STYLE === 'sidebar') — the left panel
+  // alternative to the header tabs. "All designs" and "Main" pinned on top,
+  // then favorited folders (star, persisted per browser), then the rest.
+  // ----------------------------------------------------------------------
+  const FAV_KEY = 'designlab-fav-folders:' + PRODUCT;
+  function readFavFolders() {
+    try {
+      const a = JSON.parse(localStorage.getItem(FAV_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function toggleFavFolder(path) {
+    const favs = readFavFolders();
+    const i = favs.indexOf(path);
+    if (i === -1) favs.push(path); else favs.splice(i, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+
+  // Favorited MOCKS (features) — separate from folder favorites. The star on a
+  // card/row pins the feature: it gets a highlighted border in place (it stays
+  // in its status group, never hoisted) and shows up as a bookmark in the side
+  // nav "Favorites" list, from which one click jumps to its card. Keyed by
+  // relKey, per browser per product; the stored array preserves pin order.
+  const MOCK_FAV_KEY = 'designlab-fav-mocks:' + PRODUCT;
+  function readFavMocks() {
+    try {
+      const a = JSON.parse(localStorage.getItem(MOCK_FAV_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function toggleFavMock(relKey) {
+    const favs = readFavMocks();
+    const i = favs.indexOf(relKey);
+    if (i === -1) favs.push(relKey); else favs.splice(i, 1);
+    try { localStorage.setItem(MOCK_FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+  // Favorited features resolved to mock objects, in pin order — the source for
+  // the side-nav Favorites bookmarks. Skips any pin whose mock no longer exists.
+  function favFeatureMocks() {
+    const byKey = new Map(state.allMocks.map(m => [m.relKey, m]));
+    return readFavMocks().map(k => byKey.get(k)).filter(Boolean);
+  }
+  // One delegated handler covers stars in both views (cards are rebuilt on
+  // every render, so per-element listeners would need constant rebinding).
+  document.addEventListener('click', e => {
+    const star = e.target.closest('.mock-star');
+    if (!star) return;
+    e.preventDefault();
+    toggleFavMock(star.dataset.rel);
+    applyFiltersAndRender();
+  });
+
+  // GitHub icon in the log header: it sits inside the <summary>, so a plain
+  // click would ALSO toggle the log open/closed. Open the tab ourselves and
+  // swallow the toggle.
+  document.addEventListener('click', e => {
+    const a = e.target.closest('.log-github');
+    if (!a) return;
+    e.preventDefault();
+    window.open(a.href, '_blank', 'noopener');
+  });
+
+  // Jump straight to a feature's card from a side-nav bookmark: put the card in
+  // scope (its folder or Main), clear search + status filters so nothing hides
+  // it, render, then scroll to it and flash a highlight.
+  function goToMock(relKey) {
+    const mock = state.allMocks.find(m => m.relKey === relKey);
+    if (!mock) return;
+    state.search = '';
+    const input = byId('searchInput');
+    if (input) { input.value = ''; byId('searchWrapper').classList.remove('has-value'); }
+    state.statuses.clear();
+    const scope = mock.groupKey || MAIN_KEY;
+    if (scope !== MAIN_KEY) openAncestors(scope);
+    state.tab = scope;
+    applyFiltersAndRender();
+    requestAnimationFrame(() => {
+      const el = [...document.querySelectorAll('.mock-card, .proto-row')]
+        .find(n => n.dataset.rel === relKey);
+      if (!el) return;
+      // Skip the staggered entry fade-in for the card we jumped to — otherwise a
+      // card far down the list appears up to half a second after the rest, which
+      // reads as "slow to populate." (Cancelling `animation` doesn't affect the
+      // outline-based flash, which is a transition.)
+      if (el.classList.contains('mock-card')) {
+        el.style.animation = 'none';
+        el.style.opacity = '1';
+      }
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('mock-flash');
+      void el.offsetWidth; // ensure the outline-color transition (re)triggers
+      el.classList.add('mock-flash');
+      setTimeout(() => el.classList.remove('mock-flash'), 1700);
+    });
+  }
+
+  // A side-nav Favorites bookmark row for one starred feature. Clicking the row
+  // navigates to the card; the trailing ✕ (shown on hover) unpins it.
+  function favBookmarkRow(mock) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fnav-item fnav-fav';
+    btn.title = 'Go to ' + mock.title;
+    btn.innerHTML = `
+      <span class="fnav-name">
+        <i class="fa-solid fa-star fnav-icon fnav-fav-icon"></i>
+        <span class="fnav-text">${escapeHtml(mock.title)}</span>
+      </span>
+      <span class="fnav-fav-unstar" role="button" tabindex="0" title="Remove from Favorites" aria-label="Remove ${escapeHtml(mock.title)} from Favorites"><i class="fa-solid fa-xmark"></i></span>`;
+    btn.addEventListener('click', e => {
+      if (e.target.closest('.fnav-fav-unstar')) {
+        toggleFavMock(mock.relKey);
+        applyFiltersAndRender();
+        return;
+      }
+      goToMock(mock.relKey);
+    });
+    return btn;
+  }
+
+  // Collapsed tree branches, persisted per browser. Stored as the CLOSED set
+  // (not the open set) so newly added folders default to expanded.
+  const CLOSED_KEY = 'designlab-closed-folders:' + PRODUCT;
+  function readClosedFolders() {
+    try {
+      const a = JSON.parse(localStorage.getItem(CLOSED_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function writeClosedFolders(closed) {
+    try { localStorage.setItem(CLOSED_KEY, JSON.stringify(closed)); } catch { /* private mode */ }
+  }
+  function toggleClosedFolder(path) {
+    const closed = readClosedFolders();
+    const i = closed.indexOf(path);
+    if (i === -1) closed.push(path); else closed.splice(i, 1);
+    writeClosedFolders(closed);
+  }
+  // Un-collapse every ancestor of a path so a selection made from a pinned
+  // favorite (or a deep link) is visible in the tree.
+  function openAncestors(path) {
+    const closed = readClosedFolders();
+    const segs = path.split(FOLDER_SEP);
+    let changed = false;
+    for (let i = 1; i < segs.length; i++) {
+      const idx = closed.indexOf(segs.slice(0, i).join(FOLDER_SEP));
+      if (idx !== -1) { closed.splice(idx, 1); changed = true; }
+    }
+    if (changed) writeClosedFolders(closed);
+  }
+
+  function renderFolderNav(folders, loose, searching) {
+    const nav = byId('folderNav');
+    const favFeatures = favFeatureMocks();
+    const hasFolders = folders.size > 0;
+    // The rail is ALWAYS present: with no favorites yet it shows a quiet
+    // placeholder instead of disappearing, so the layout doesn't jump the
+    // first time a designer stars a mock or a folder group appears.
+
+    // Reset a stale folder selection (e.g. the folder disappeared from products.json).
+    if (hasFolders && state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
+      state.tab = MAIN_KEY;
+    }
+
+    nav.hidden = false;
+    nav.innerHTML = '';
+    nav.dataset.searching = searching ? 'true' : 'false';
+    nav.title = searching ? 'Search looks across all folders' : '';
+
+    // ── Favorites bookmarks (starred FEATURES) — cross-folder quick links that
+    //    jump straight to a card. Rendered above the folder tree, and present
+    //    even when the product is flat (no folders below). With nothing starred
+    //    yet, a short grey hint holds the section's place instead.
+    const favLabel = document.createElement('div');
+    favLabel.className = 'fnav-label';
+    favLabel.textContent = 'Favorites';
+    nav.appendChild(favLabel);
+    if (favFeatures.length) {
+      favFeatures.forEach(m => nav.appendChild(favBookmarkRow(m)));
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'fnav-empty';
+      hint.innerHTML = '<i class="fa-regular fa-star" aria-hidden="true"></i> Favorite a design and it’ll show up here.';
+      nav.appendChild(hint);
+    }
+    if (hasFolders) {
+      const d = document.createElement('div');
+      d.className = 'fnav-divider';
+      nav.appendChild(d);
+    }
+
+    // A flat product (no folders) has nothing more to draw — the Favorites list
+    // stands on its own.
+    if (!hasFolders) return;
+
+    const favs = readFavFolders().filter(p => folderExists(folders, p));
+    const closed = new Set(readClosedFolders());
+    const tree = buildFolderTree(folders);
+    // The chevron column only exists when something can actually expand —
+    // products with flat folders keep the original row layout.
+    const hasBranches = [...tree.children.values()].some(n => n.children.size);
+
+    // One nav row. `depth` indents tree rows; `childCount` adds the
+    // expand/collapse chevron; `pathLabel` renders the full "A / B" path
+    // (pinned favorites, where tree position isn't visible).
+    const row = (label, mocks, key, iconClass, opts = {}) => {
+      const { favoritable = false, depth = 0, childCount = 0, isOpen = true } = opts;
+      const active = !searching && state.tab === key;
+      const isFav = favoritable && favs.includes(key);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'fnav-item';
+      btn.dataset.active = active ? 'true' : 'false';
+      btn.style.setProperty('--fnav-depth', depth);
+      btn.title = key === MAIN_KEY ? label : folderDisplay(key);
+      btn.innerHTML = `
+        ${childCount
+          ? `<span class="fnav-chevron" role="button" tabindex="0" data-open="${isOpen ? 'true' : 'false'}" title="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(label)}" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(label)}"><i class="fa-solid fa-chevron-right"></i></span>`
+          : hasBranches ? '<span class="fnav-chevron fnav-chevron--none" aria-hidden="true"></span>' : ''}
+        <span class="fnav-name">
+          <i class="fa-solid ${iconClass} fnav-icon"></i>
+          <span class="fnav-text">${escapeHtml(label)}</span>
+        </span>
+        ${favoritable ? `<span class="fnav-star" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unfavorite folder' : 'Favorite folder'}" aria-label="${isFav ? 'Unfavorite' : 'Favorite'} ${escapeHtml(label)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>` : ''}
+        <span class="fnav-pills">${statusSummary(mocks)}</span>`;
+      btn.addEventListener('click', e => {
+        const chev = e.target.closest('.fnav-chevron');
+        if (chev && childCount) {
+          toggleClosedFolder(key);
+          renderFolderNav(folders, loose, searching); // redraw the branch in place
+          return;
+        }
+        const star = e.target.closest('.fnav-star');
+        if (star) {
+          toggleFavFolder(key);
+          renderFolderNav(folders, loose, searching); // reorder in place
+          return;
+        }
+        if (key !== MAIN_KEY) openAncestors(key); // keep the selection visible in the tree
+        selectTab(key);
+      });
+      return btn;
+    };
+
+    const label = document.createElement('div');
+    label.className = 'fnav-label';
+    label.textContent = 'Folders';
+    nav.appendChild(label);
+
+    nav.appendChild(row('Main', loose, MAIN_KEY, 'fa-house'));
+
+    const divider = document.createElement('div');
+    divider.className = 'fnav-divider';
+    nav.appendChild(divider);
+
+    // Favoriting a folder simply floats it to the TOP of its level (below Main)
+    // — no separate pinned section, no duplicate row. Sibling folders sort
+    // favorited-first, then A→Z.
+    const favSet = new Set(favs);
+    const orderNodes = nodes => nodes.slice().sort((a, b) => {
+      const fa = favSet.has(a.path), fb = favSet.has(b.path);
+      if (fa !== fb) return fa ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    // The folder tree — n levels deep, chevrons collapse a branch, counts and
+    // pills on a parent describe its whole subtree. Favorited folders lead each
+    // level (star filled in place).
+    const renderNode = (node, depth) => {
+      const kids = orderNodes([...node.children.values()]);
+      const isOpen = !closed.has(node.path);
+      nav.appendChild(row(node.name, descendantMocks(folders, node.path), node.path,
+        (!searching && state.tab === node.path) ? 'fa-folder-open' : 'fa-folder',
+        { favoritable: true, depth, childCount: kids.length, isOpen }));
+      if (kids.length && isOpen) kids.forEach(k => renderNode(k, depth + 1));
+    };
+    orderNodes([...tree.children.values()]).forEach(n => renderNode(n, 0));
+  }
+
+  // Status-grouped sections of FULL cards — used for the main (loose) area and,
+  // via renderFolders, inside each opened folder. `sub` shrinks the headers a
+  // notch when nested in a folder.
+  function statusGroupedCards(mocks, container, sub) {
+    let cardIdx = 0;
+    groupByStatus(mocks).forEach(({ status, mocks: group }) => {
+      const wrap = document.createElement('section');
+      wrap.className = 'section' + (sub ? ' section--sub' : '');
+      wrap.appendChild(statusSectionHeader(status, group.length));
+      const grid = document.createElement('div');
+      grid.className = 'card-grid';
+      group.forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
+      wrap.appendChild(grid);
+      container.appendChild(wrap);
+    });
+  }
+
+  // Status-grouped tables — same shape for the list view.
+  function statusGroupedTables(mocks, container, sub) {
+    groupByStatus(mocks).forEach(({ status, mocks: group }) => {
+      const wrap = document.createElement('section');
+      wrap.className = 'section' + (sub ? ' section--sub' : '');
+      wrap.appendChild(statusSectionHeader(status, group.length));
+      const tableWrap = document.createElement('div');
+      tableWrap.className = 'proto-table-wrap';
+      tableWrap.innerHTML = `
+        <table class="proto-table">
+          <thead>
+            <tr>
+              <th>Prototype</th>
+              <th class="col-status">Status</th>
+              <th class="col-jira">Jira</th>
+              <th class="col-date">Last updated</th>
+            </tr>
+          </thead>
+          <tbody>${group.map(listRow).join('')}</tbody>
+        </table>`;
+      wrap.appendChild(tableWrap);
+      container.appendChild(wrap);
+    });
+  }
+
+  // Resolve the folder tab bar + active subset, shared by both views.
+  // Returns the mocks the active tab should show (or everything while
+  // searching), after rendering the tab bar itself.
+  // Small in-tab empty note — shown when the ACTIVE tab has no mocks left under
+  // the current status filter (other tabs still have matches, so the global
+  // no-results state doesn't apply).
+  function renderTabEmpty(root) {
+    const el = document.createElement('p');
+    el.className = 'tab-empty';
+    el.innerHTML = 'Nothing in this folder matches — try another folder, or clear the search / status filter.';
+    root.appendChild(el);
+  }
+
+  // Breadcrumb naming the active folder scope, shown above the sections in
+  // sidebar mode. Ancestor segments are buttons that jump up the tree.
+  function renderFolderBreadcrumb(root, path, count) {
+    const segs = path.split(FOLDER_SEP);
+    const el = document.createElement('div');
+    el.className = 'folder-breadcrumb';
+    const crumbs = segs.map((seg, i) => {
+      const last = i === segs.length - 1;
+      return last
+        ? `<span class="crumb crumb--current">${escapeHtml(seg)}</span>`
+        : `<button class="crumb crumb-link" type="button" data-path="${escapeHtml(segs.slice(0, i + 1).join(FOLDER_SEP))}">${escapeHtml(seg)}</button>`;
+    }).join('<i class="fa-solid fa-chevron-right crumb-sep"></i>');
+    el.innerHTML = `
+      <i class="fa-solid fa-folder-open crumb-icon"></i>${crumbs}
+      <span class="crumb-count">${count} design${count === 1 ? '' : 's'}</span>`;
+    el.querySelectorAll('.crumb-link').forEach(b =>
+      b.addEventListener('click', () => selectTab(b.dataset.path)));
+    root.appendChild(el);
+  }
+
+  function renderCardView(filtered, root) {
+    statusGroupedCards(filtered, root, false);
+  }
+
+  // Compact table layout mirroring the top-level product index list — same
+  // status-grouped tables below the folder tabs.
+  function renderListView(filtered, root) {
+    statusGroupedTables(filtered, root, false);
+  }
+
+  function listRow(mock, showFolder) {
     const statusLabel = STATUS_LABELS[mock.status] || STATUS_LABELS[DEFAULT_STATUS];
     const href = mock.devHandoff ? mock.devPagesUrl : mock.pagesUrl;
 
@@ -614,17 +1480,22 @@
         : '';
 
     const updated = mock.lastUpdated ? escapeHtml(formatDateTime(mock.lastUpdated)) : '—';
+    const isFav = readFavMocks().includes(mock.relKey);
 
     return `
-          <tr class="proto-row">
+          <tr class="proto-row${isFav ? ' proto-row--fav' : ''}" data-rel="${escapeHtml(mock.relKey)}">
             <td>
-              <a class="proto-name" href="${href}" target="_blank" rel="noopener">
-                <i class="fa-regular fa-file-lines file-icon"></i>
-                <span>${escapeHtml(mock.title)}</span>
-                ${recencyTag(mock)}
-                ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
-                <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
-              </a>
+              <div class="proto-cell">
+                <a class="proto-name" href="${href}" target="_blank" rel="noopener">
+                  <i class="fa-regular fa-file-lines file-icon"></i>
+                  <span>${escapeHtml(mock.title)}</span>
+                  ${recencyTag(mock)}
+                  ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
+                  <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
+                </a>
+                ${showFolder ? folderChipHtml(mock) : ''}
+                ${mockStar(mock)}
+              </div>
             </td>
             <td><span class="status-badge" data-status="${escapeHtml(mock.status)}"><i class="fa-solid ${statusIcon(mock.status)} status-icon"></i>${escapeHtml(statusLabel)}</span></td>
             <td>${jiraCell}</td>
@@ -672,139 +1543,177 @@
   // ----------------------------------------------------------------------
   // Card construction
   // ----------------------------------------------------------------------
-  function buildCard(mock, idx) {
-    const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, extraLinks } = mock;
+
+  // A single link row: a click-to-copy field (a dark "Copy" chip appears over
+  // its right edge on hover) plus a dedicated Open button that opens the link in
+  // a new tab. Used for every Pages / GitHub / dev / extra link on a card.
+  function urlRow(icon, label, url, extraClass) {
+    const u = escapeHtml(url);
+    return `
+        <div class="url-row${extraClass ? ' ' + extraClass : ''}">
+          <span class="url-label"><i class="${icon}"></i> ${escapeHtml(label)}</span>
+          <button class="url-copy" type="button" data-copy="${u}" title="Click to copy this link">
+            <span class="url-copy-text">${u}</span>
+            <span class="url-copy-chip"><i class="fa-regular fa-copy"></i> Copy</span>
+          </button>
+          <a class="url-open" href="${u}" target="_blank" rel="noopener" title="Open in a new tab">Open <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        </div>`;
+  }
+
+  // "Where it lives" chip shown on Favorites-section cards/rows — pins are
+  // cross-folder, so each names its home folder. Clicking jumps there (the
+  // delegated handler below; the key is URI-encoded because it contains the
+  // FOLDER_SEP control character).
+  function folderChipHtml(mock) {
+    const label = mock.groupKey ? folderDisplay(mock.groupKey) : 'Main';
+    return `<span class="card-folder-chip" role="button" tabindex="0" data-key="${encodeURIComponent(mock.groupKey || MAIN_KEY)}" title="Open ${escapeHtml(label)}"><i class="fa-solid ${mock.groupKey ? 'fa-folder' : 'fa-house'}"></i><span class="cfc-text">${escapeHtml(label)}</span></span>`;
+  }
+  document.addEventListener('click', e => {
+    const chip = e.target.closest('.card-folder-chip');
+    if (!chip) return;
+    e.preventDefault();
+    selectTab(decodeURIComponent(chip.dataset.key));
+  });
+
+  // Pin/unpin star for one mock — shared by the card header and list rows.
+  // Toggling is handled by the delegated .mock-star click listener.
+  function mockStar(mock) {
+    const isFav = readFavMocks().includes(mock.relKey);
+    return `<span class="mock-star" data-rel="${escapeHtml(mock.relKey)}" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unpin from Favorites' : 'Pin to Favorites'}" aria-label="${isFav ? 'Unpin' : 'Pin'} ${escapeHtml(mock.title)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>`;
+  }
+
+  function buildCard(mock, idx, showFolder) {
+    const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
     let ticketHtml = '';
     if (ticket && ticketUrl) {
-      ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira">${escapeHtml(ticket)}<i class="fa-solid fa-arrow-up-right-from-square ticket-link-icon"></i></a>`;
+      ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</a>`;
     } else if (ticket) {
-      ticketHtml = `<span class="ticket-badge">${escapeHtml(ticket)}</span>`;
+      ticketHtml = `<span class="ticket-badge"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</span>`;
     } else {
       ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet">Jira link needed</span>`;
     }
 
-    const designRows = `
-        <div class="url-row">
-          <span class="url-label"><i class="fa-solid fa-globe"></i> Pages</span>
-          <a class="url-value" href="${pagesUrl}" target="_blank" rel="noopener" title="${pagesUrl}">${pagesUrl}</a>
-          <button class="copy-btn" data-copy="${pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>
-        <div class="url-row">
-          <span class="url-label"><i class="fa-brands fa-github"></i> GitHub</span>
-          <a class="url-value" href="${blobUrl}" target="_blank" rel="noopener" title="${blobUrl}">${blobUrl}</a>
-          <button class="copy-btn" data-copy="${blobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>`;
+    // The click-to-copy Pages row for the designer's working file. Only
+    // ready-for-dev cards expose the GitHub source link (see below) — before
+    // then, developers don't need the code, only the live Pages preview.
+    const designPages = urlRow('fa-solid fa-globe', 'Pages', pagesUrl);
 
-    const devRows = `
-        <div class="url-row url-row--dev">
-          <span class="url-label"><i class="fa-solid fa-code"></i> Dev Page</span>
-          <a class="url-value" href="${devPagesUrl}" target="_blank" rel="noopener" title="${devPagesUrl}">${devPagesUrl}</a>
-          <button class="copy-btn" data-copy="${devPagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>
-        <div class="url-row url-row--dev">
-          <span class="url-label"><i class="fa-brands fa-github"></i> Dev HTML</span>
-          <a class="url-value" href="${devBlobUrl}" target="_blank" rel="noopener" title="${devBlobUrl}">${devBlobUrl}</a>
-          <button class="copy-btn" data-copy="${devBlobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>`;
-
-    const urlListInner = devHandoff
-      ? `${devRows}
+    let boxHtml;
+    if (devHandoff) {
+      // Ready-for-dev card: two separate boxes. The dev-handoff duplicates are
+      // the primary links (Pages + GitHub, in a labelled cyan box); the working
+      // designer file sits in its own box below, collapsed into a drawer.
+      const devPages = urlRow('fa-solid fa-globe', 'Pages', devPagesUrl, 'url-row--dev');
+      const devGithub = urlRow('fa-brands fa-github', 'GitHub', devBlobUrl, 'url-row--dev');
+      // Optional curated annotation for the designer version (from meta.json's
+      // designerNote), e.g. "Blue sky UI design" — shown inside the drawer so
+      // devs know what the working file represents relative to the dev build.
+      const designerNoteHtml = designerNote
+        ? `<div class="designer-note"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(designerNote)}</div>`
+        : '';
+      boxHtml = `
+      <div class="url-list url-list--dev">
+        <div class="url-list-header">For Dev — Ready-for-Dev Duplicates</div>
+        ${devPages}${devGithub}
+      </div>
+      <div class="url-list url-list--designer">
         <details class="design-links-drawer">
-          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer file <span class="drawer-note">— prototype with review comments</span></summary>
-          <div class="drawer-rows">${designRows}
+          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer Versions <span class="drawer-note">working files — Pages only</span></summary>
+          <div class="drawer-rows">${designerNoteHtml}${designPages}
           </div>
-        </details>`
-      : designRows;
+        </details>
+      </div>`;
+    } else {
+      // Not yet ready for dev (concept / in progress / review / archived):
+      // Pages preview only — the GitHub source link appears at the dev handoff.
+      boxHtml = `<div class="url-list">${designPages}</div>`;
+    }
 
-    const primaryBtn = devHandoff
-      ? `<a class="view-btn" href="${devPagesUrl}" target="_blank" rel="noopener" title="Clean, comment-widget-free build for developers">
-          <i class="fa-solid fa-code"></i>
-          View Dev Build
-        </a>`
-      : `<a class="view-btn" href="${pagesUrl}" target="_blank" rel="noopener">
-          View Design
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </a>`;
-
-    // "Last updated" line — right-aligned. When the prototype changed within the
-    // last 24h it becomes a light-purple pill with a "New/Updated" label on the
-    // left and the timestamp on the right; otherwise it's a plain clock + time.
-    const updatedHtml = mock.lastUpdated
-      ? (mock.recentlyUpdated
-          ? `<span class="card-updated card-updated--recent" title="Changed in the last 24 hours">
-               <span class="updated-label"><span class="recency-dot"></span>${mock.isNew ? 'New' : 'Updated'}</span>
-               <span class="updated-time">${escapeHtml(formatDateTime(mock.lastUpdated))}</span>
-             </span>`
-          : `<span class="card-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
+    // Extra curated links (rare) — their own click-to-copy / Open rows.
+    const extras = extraLinks || [];
+    const extraBox = extras.length
+      ? `<div class="url-list">${extras.map(l => urlRow('fa-solid fa-eye', l.label, l.pagesUrl)).join('')}</div>`
       : '';
 
-    // Per-card log: this prototype's own commit history, collapsed by default.
-    // Capped at the 10 most recent so it never scrolls forever; anything older is
-    // one click away in the full GitHub history (opens in a new tab).
+    // --- Footer: LOG + last-updated -----------------------------------------
+    // The "Updated" timestamp lives in the log header row (always visible, even
+    // when the log is collapsed). Within the last 24h it becomes a highlighted
+    // violet pill; otherwise a plain clock + time. Cards with no git history
+    // still show the header row so the timestamp is never lost.
     const changes = mock.changes || [];
-    const LOG_SHOWN = 10;
-    // Entries inside the 24h window are the recent changes — emphasize them in
-    // the same red as the LOG's notification dot so it's obvious what's new.
+    const LOG_SHOWN = 5;
     const recentCount = changes.filter(c => isWithin24h(c.date)).length;
-    const logRow = entry => `
+    const logNotif = recentCount
+      ? `<span class="log-notif" title="${recentCount} change${recentCount !== 1 ? 's' : ''} in the last 24 hours"></span>`
+      : '';
+
+    const updatedPill = mock.lastUpdated
+      ? (mock.recentlyUpdated
+          ? `<span class="log-updated log-updated--recent" title="Changed in the last 24 hours"><span class="recency-dot"></span>${mock.isNew ? 'New' : 'Updated'} ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`
+          : `<span class="log-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> Updated ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
+      : '';
+
+    const logRow = (entry) => `
           <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}">
             <span class="log-date">${escapeHtml(formatDate(entry.date))}</span>
             <span class="log-summary">${escapeHtml(entry.summary || '')}</span>
           </li>`;
+    // Only the LOG_SHOWN latest rows render inline — there is deliberately no
+    // in-card expander. The complete history lives one click away on GitHub
+    // ("View full log on GitHub" below + the header icon), in a new tab.
     const shownRows = changes.slice(0, LOG_SHOWN).map(logRow).join('');
-    const hiddenCount = Math.max(0, changes.length - LOG_SHOWN);
-    const moreLink = hiddenCount
-      ? `<li class="log-more-item">
-          <a class="log-more-link" href="${mock.historyUrl}" target="_blank" rel="noopener">
-            + ${hiddenCount} more — full history on GitHub <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-        </li>`
-      : '';
-    // Violet push-notification dot (no number) on the LOG label when there are
-    // changes within the last 24h — the "this was just updated" signal.
-    const logNotif = recentCount
-      ? `<span class="log-notif" title="${recentCount} change${recentCount !== 1 ? 's' : ''} in the last 24 hours"></span>`
-      : '';
-    const logHtml = changes.length
-      ? `<details class="card-log">
-          <summary><span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i>${logNotif}</span> Log <span class="log-count">${changes.length}</span><i class="fa-solid fa-chevron-right log-chevron"></i></summary>
-          <ul class="log-list">${shownRows}${moreLink}
-          </ul>
-        </details>`
-      : '';
 
-    const extras = extraLinks || [];
-    const extraRows = extras.map(l => `
-        <div class="url-row">
-          <span class="url-label"><i class="fa-solid fa-eye"></i> ${escapeHtml(l.label)}</span>
-          <a class="url-value" href="${l.pagesUrl}" target="_blank" rel="noopener" title="${l.pagesUrl}">${l.pagesUrl}</a>
-          <button class="copy-btn" data-copy="${l.pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>`).join('');
-    const extraBtns = extras.map(l => `
-        <a class="view-btn view-btn--secondary" href="${l.pagesUrl}" target="_blank" rel="noopener">
-          ${escapeHtml(l.label)} <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </a>`).join('');
+    let logHtml;
+    if (changes.length) {
+      logHtml = `
+      <details class="card-log">
+        <summary>
+          <span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i>${logNotif}</span>
+          <span class="log-title">Log</span>
+          <span class="log-count">${changes.length}</span>
+          ${updatedPill}
+          <a class="log-github" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener" title="Open this mock's full change history on GitHub (new tab)" aria-label="View log on GitHub"><i class="fa-brands fa-github"></i></a>
+          <i class="fa-solid fa-chevron-right log-chevron"></i>
+        </summary>
+        <ul class="log-list">${shownRows}
+        </ul>
+        <a class="log-full-btn" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener" title="Opens in a new tab (needs repo access)">View full log on GitHub <i class="fa-brands fa-github"></i></a>
+      </details>`;
+    } else {
+      // No git history for this mock — static header row, no expander. The
+      // GitHub history link still renders: recentChanges only covers the last
+      // 400 commits per product, so GitHub may know more than the card does.
+      logHtml = `
+      <div class="card-log card-log--empty">
+        <span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></span>
+        <span class="log-title">Log</span>
+        ${updatedPill || '<span class="log-updated">No recorded changes yet</span>'}
+        <a class="log-github" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener" title="Open this mock's full change history on GitHub (new tab)" aria-label="View log on GitHub"><i class="fa-brands fa-github"></i></a>
+      </div>`;
+    }
 
+    const isFav = readFavMocks().includes(mock.relKey);
     const card = document.createElement('div');
-    card.className = 'mock-card' + (mock.recentlyUpdated ? ' mock-card--recent' : '');
+    card.className = 'mock-card'
+      + (mock.recentlyUpdated ? ' mock-card--recent' : '')
+      + (isFav ? ' mock-card--fav' : '');
+    card.dataset.rel = mock.relKey; // scroll target for side-nav Favorites bookmarks
     card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
     card.innerHTML = `
       <div class="card-header">
-        ${updatedHtml ? `<div class="card-meta-row">${updatedHtml}</div>` : ''}
-        <h2 class="card-title">${escapeHtml(title)}</h2>
-        <div class="card-ticket-row">
-          <div class="card-badges">${ticketHtml}</div>
+        <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
+          ${ticketHtml}
+          ${showFolder ? folderChipHtml(mock) : ''}
+          ${mockStar(mock)}
         </div>
+        <h2 class="card-title">${escapeHtml(title)}</h2>
       </div>
       <p class="card-description">${escapeHtml(description)}</p>
-      <div class="url-list">${urlListInner}${extraRows}
-      </div>
-      <div class="card-actions">
-        ${primaryBtn}${extraBtns}
-      </div>
+      ${boxHtml}
+      ${extraBox}
       ${logHtml}
     `;
     return card;
@@ -965,8 +1874,23 @@
     // Retry button
     byId('retryBtn').addEventListener('click', loadMocks);
 
-    // Copy handlers (delegated)
+    // Copy handlers (delegated). New card layout: the URL field itself copies —
+    // its "Copy" chip flips to "Copied!" briefly. (Legacy .copy-btn kept as a
+    // fallback in case any older markup remains.)
     document.addEventListener('click', (e) => {
+      const field = e.target.closest('.url-copy');
+      if (field) {
+        navigator.clipboard.writeText(field.dataset.copy).then(() => {
+          const chip = field.querySelector('.url-copy-chip');
+          if (!chip) return;
+          if (!field._orig) field._orig = chip.innerHTML;
+          chip.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+          field.classList.add('copied');
+          clearTimeout(field._t);
+          field._t = setTimeout(() => { chip.innerHTML = field._orig; field.classList.remove('copied'); }, 1500);
+        });
+        return;
+      }
       const btn = e.target.closest('.copy-btn');
       if (!btn) return;
       const text = btn.dataset.copy;
@@ -996,15 +1920,49 @@
       applyFiltersAndRender();
       searchInput.focus();
     });
-    byId('filterChips').addEventListener('click', (e) => {
-      const chip = e.target.closest('.filter-chip');
-      if (!chip) return;
-      const status = chip.dataset.status;
+    const toggleStatusFilter = (status) => {
       if (status === 'all') state.statuses.clear();
       else if (state.statuses.has(status)) state.statuses.delete(status);
       else state.statuses.add(status);
       updateChipActiveState();
       applyFiltersAndRender();
+    };
+
+    byId('filterChips').addEventListener('click', (e) => {
+      const chip = e.target.closest('.filter-chip');
+      if (!chip) return;
+      toggleStatusFilter(chip.dataset.status);
+    });
+
+    // Narrow-width status dropdown: the trigger toggles the panel; options
+    // multi-select WITHOUT closing it (re-renders keep it open). Closes on
+    // outside click or Escape.
+    const statusDdBtn = byId('statusDdBtn');
+    const statusDdPanel = byId('statusDdPanel');
+    statusDdBtn.addEventListener('click', () => {
+      const open = statusDdPanel.hidden;
+      statusDdPanel.hidden = !open;
+      statusDdBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    statusDdPanel.addEventListener('click', (e) => {
+      const item = e.target.closest('.status-dd-item');
+      if (!item) return;
+      // Stop the bubble: the re-render below detaches the clicked node, which
+      // would make the document-level outside-click check close the panel.
+      e.stopPropagation();
+      toggleStatusFilter(item.dataset.status); // panel innerHTML refreshes; stays open
+    });
+    document.addEventListener('click', (e) => {
+      if (!statusDdPanel.hidden && !e.target.closest('.status-dd')) {
+        statusDdPanel.hidden = true;
+        statusDdBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !statusDdPanel.hidden) {
+        statusDdPanel.hidden = true;
+        statusDdBtn.setAttribute('aria-expanded', 'false');
+      }
     });
 
     // Sort dropdown
@@ -1021,6 +1979,12 @@
       setView(btn.dataset.view);
     });
     updateViewToggle();
+
+    // Recompute per-row title/description alignment when the grid reflows.
+    window.addEventListener('resize', () => {
+      clearTimeout(alignResizeT);
+      alignResizeT = setTimeout(alignCardRows, 120);
+    });
 
     loadMocks();
   }
@@ -1087,8 +2051,9 @@
 
       body {
         font-family: var(--body);
+        /* Keep the page below the header FLAT — the banner glow lives inside
+           .page-header::before so it can't bleed into the toolbar/content. */
         background:
-          radial-gradient(circle at top right, var(--accent-glow), transparent 45%),
           radial-gradient(circle at 0% 80%, rgba(236, 72, 153, 0.06), transparent 40%),
           var(--bg);
         background-attachment: fixed;
@@ -1096,10 +2061,18 @@
         min-height: 100vh;
       }
 
-      .page-header { position: relative; padding: 56px 32px 48px; overflow: hidden; }
+      /* Bottom padding is just 2px: the folder-tab baseline IS the header's
+         bottom edge, so the active tab can drop over the line and visually
+         connect to the flat content zone below. The banner background bleeds
+         full-width, but the CONTENT box uses the exact same geometry as
+         .content and .page-footer (max-width 1400 with the 32px gutter
+         INSIDE it, border-box) so every block's left/right edges line up. */
+      .page-header { position: relative; padding: 26px 0 2px; overflow: hidden; }
       .page-header::before {
         content: ''; position: absolute; inset: 0;
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.10) 0%, rgba(139, 92, 246, 0.06) 50%, rgba(236, 72, 153, 0.04) 100%);
+        background:
+          radial-gradient(circle at top right, var(--accent-glow), transparent 45%),
+          linear-gradient(135deg, rgba(99, 102, 241, 0.10) 0%, rgba(139, 92, 246, 0.06) 50%, rgba(236, 72, 153, 0.04) 100%);
         pointer-events: none;
       }
       .page-header::after {
@@ -1111,34 +2084,87 @@
       }
       @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30px, 20px) scale(1.1); } }
 
-      .header-inner { max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+      .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
-      .product-tag {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: rgba(255, 255, 255, 0.7);
+      /* Two columns: identity stack left, search right (centered against
+         the stack). System telemetry all lives in the eyebrow pill. */
+      .header-main {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 16px 32px; flex-wrap: wrap; padding-bottom: 16px;
+      }
+      .header-id { min-width: 0; }
+      .header-id .page-subtitle { margin-top: 8px; }
+      .dash-eyebrow {
+        /* gap, not a space: flex drops whitespace-only text nodes, so the
+           word gap between "Design" and the <em> is set here instead. */
+        display: inline-flex; align-items: center; gap: 5px;
+        font-family: var(--display); font-size: 12px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-deep);
+        background: rgba(255, 255, 255, 0.72);
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        color: var(--accent-deep); font-family: var(--display);
-        font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
-        padding: 6px 14px; border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); margin-bottom: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
+        padding: 6px 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        margin-bottom: 10px; max-width: 100%;
       }
-      .product-tag .emoji { font-size: 14px; line-height: 1; }
-
+      .dash-eyebrow .dot-sep { opacity: 0.35; margin: 0 3px; }
+      /* The freshness status inside the pill sheds the label styling —
+         sentence case, no tracking, a step smaller. */
+      .dash-eyebrow .meta-bar {
+        font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none;
+        gap: 4px 8px;
+      }
+      /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
+         theme's accent-deep is dark enough — the banner stays colorful via
+         the glow gradients and the product icon tile instead. */
+      .dash-eyebrow em { font-style: normal; }
+      /* The PRODUCT is the headline — same face as the card titles:
+         Fraunces 700 upright, just larger. */
       .page-title {
-        font-family: var(--serif); font-size: clamp(40px, 6vw, 64px); font-weight: 900;
-        margin: 0 0 12px; line-height: 1.0; letter-spacing: -0.02em; font-variation-settings: "opsz" 96;
+        display: flex; align-items: center; gap: 13px;
+        font-family: var(--serif); font-size: clamp(27px, 3.6vw, 38px);
+        font-weight: 700;
+        margin: 0; line-height: 1.1; letter-spacing: -0.01em;
       }
-      .page-title em {
-        font-style: italic; font-weight: 700;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-        font-variation-settings: "opsz" 144;
+      /* Gradient product name, verified accessible: every stop measures
+         ≥ 4.5:1 against pure WHITE across all 14 themes (the header bg is
+         darker than white, so real contrast is higher) — the start/mid stops
+         pass on their own and the end stop is the theme's end hue darkened
+         toward accent-deep. @supports-guarded so a browser without color-mix
+         keeps solid dark text rather than transparent (invisible) text. */
+      @supports (color: color-mix(in srgb, red 50%, blue)) {
+        .page-title #productName {
+          background: linear-gradient(105deg,
+            var(--gradient-start),
+            var(--gradient-mid) 55%,
+            color-mix(in srgb, var(--gradient-end) 55%, var(--accent-deep)));
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+          /* Fraunces can overhang its box slightly — keep the background
+             clip from shaving the last glyph. */
+          padding-right: 0.06em;
+        }
       }
-      .page-subtitle { font-size: 14px; color: var(--text-soft); margin: 0; max-width: none; line-height: 1.5; white-space: nowrap; }
+      /* Product icon beside the name. Boots as the theme emoji, then becomes
+         the landing page's tile — white FA icon on the product's brand color
+         (all brand colors are dark enough for white glyphs). */
+      .title-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto; font-size: 0.78em; line-height: 1;
+      }
+      .title-icon--tile {
+        width: 42px; height: 42px; border-radius: 11px;
+        color: #fff; font-size: 19px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      }
+
+      /* Right column: just the search, right-flush with the page gutter so
+         its edge aligns with the content below. */
+      .header-side { flex: 0 1 460px; min-width: 280px; }
+      .header-search { width: 100%; }
+      .header-search[hidden] { display: none; }
 
       .meta-bar {
-        margin-top: 24px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center;
+        display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center;
         font-size: 13px; color: var(--text-muted); font-family: var(--display); font-weight: 500;
       }
       .meta-bar .dot-sep { opacity: 0.4; }
@@ -1149,7 +2175,7 @@
       }
       @keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); } 50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); } }
 
-      .content { max-width: 1400px; margin: 0 auto; padding: 0 32px 64px; }
+      .content { max-width: 1400px; margin: 0 auto; padding: 28px 32px 64px; }
 
       .state { text-align: center; padding: 64px 24px; color: var(--text-muted); }
       .state h3 { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--text); margin: 16px 0 8px; }
@@ -1189,7 +2215,11 @@
         position: relative; background: var(--card-bg); border: 1px solid var(--border);
         border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px;
         box-shadow: var(--shadow-sm);
-        transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+        /* outline is always present but transparent — the flash just fades its
+           color in/out, so it never touches the animation property (which drives
+           the entry fade-in) and never shifts layout. */
+        outline: 2px solid transparent; outline-offset: 3px;
+        transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease, outline-color 0.6s ease;
         opacity: 0; animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards; overflow: hidden;
       }
       @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -1205,25 +2235,30 @@
          spot in the grid — the same notification violet as the LOG dot + hot rows. */
       .mock-card--recent { border-color: #a78bfa; box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15), var(--shadow-sm); }
 
-      /* Card header stacks in three tight rows: meta (time + status), then the
-         title on its own full-width row (room for long titles), then the Jira
-         ticket. Kept as one flex child so the card's gap only separates the
-         header from the body — the rows themselves sit close together. */
+      /* Favorited features stay in their status group but get a highlighted amber
+         border (matching the star). Declared AFTER --recent so a pinned card that
+         also changed recently reads as favorited. */
+      .mock-card--fav { border-color: #f59e0b; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.30), var(--shadow-sm); }
+      .mock-card--fav:hover { border-color: #f59e0b; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35), var(--shadow-md); }
+      /* List view: an amber accent bar down the row's leading edge. */
+      .proto-row--fav td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+
+      /* Brief flash when a side-nav Favorites bookmark scrolls you to its card.
+         Implemented as an outline-color change (transitioned by the base rules),
+         NOT a keyframe animation — so it can't override the card's entry
+         fade-in (the rise animation) and leave the card stuck invisible. */
+      .mock-card.mock-flash { outline-color: #f59e0b; }
+      .proto-row.mock-flash { background: #fef3c7; }
+
+      /* Card header: a badge row (status pill + Jira ticket) sits above the
+         title on its own full-width row (room for long titles). */
       .card-header { display: block; }
-      /* Timestamp sits on the right of its own row (whether or not it's recent). */
-      .card-meta-row {
-        display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;
-      }
       .card-title {
         font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0;
         line-height: 1.25; color: var(--text); letter-spacing: -0.01em;
+        /* Row alignment is dynamic — alignCardRows() sets a min-height per row so
+           titles only grow when another card in the SAME row wraps to two lines. */
       }
-      /* Jira ticket on the left, status pill pushed to the far right. */
-      .card-ticket-row {
-        display: flex; justify-content: space-between; align-items: center; gap: 12px;
-        margin-top: 6px;
-      }
-      .card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 
       /* Recency label — deliberately NOT a filled pill, so it doesn't read as a
          workflow status. Just the pulsing violet dot + uppercase text. */
@@ -1260,29 +2295,269 @@
       /* Status icon (Font Awesome) — inherits the pill's text color per status. */
       .status-icon { font-size: 10px; }
 
-      .status-badge[data-status="concept"]       { background: #e0e7ff; color: #3730a3; }
       .status-badge[data-status="in-progress"]   { background: #fef3c7; color: #92400e; }
-      .status-badge[data-status="review"]        { background: #dbeafe; color: #1e40af; }
-      .status-badge[data-status="ready"]         { background: #d1fae5; color: #065f46; }
       .status-badge[data-status="archived"]      { background: #f4f4f5; color: #52525b; }
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
+      /* ── Folder tabs ─────────────────────────────────────────────────────
+         Curated folder groups render as file-folder-style tabs INSIDE the
+         header, bottom-aligned on the description line: a "Main" tab
+         (top-level designs) plus one tab per folder, each carrying its count
+         and per-status summary pills. Glassy rounded-top tabs on the header
+         gradient — deliberately nothing like the toolbar's rounded chips. */
+      /* Tabs sit LEFT-ALIGNED under the subtitle, adjacent like browser tabs
+         (2px apart), resting on a full-width baseline rule that doubles as the
+         header's bottom edge. The active tab drops over the line (opaque bg +
+         negative margin) so it reads as "open" — switching tabs visibly swaps
+         what's connected to the flat content zone below. */
+      .folder-tabs {
+        display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
+        border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+        transition: opacity 0.15s ease;
+      }
+      .folder-tabs[hidden] { display: none; }
+      .folder-tabs[data-searching="true"] { opacity: 0.45; }
+      .folder-tab {
+        position: relative;
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.9); border-bottom: none;
+        border-radius: 10px 10px 0 0; padding: 9px 15px 11px; cursor: pointer;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text-soft);
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+      .folder-tab:hover { background: rgba(255, 255, 255, 0.8); color: var(--text); }
+      .folder-tab[data-active="true"] {
+        background: var(--card-bg); color: var(--accent-deep); font-weight: 700;
+        margin-bottom: -2px; padding-bottom: 13px; z-index: 1;
+        box-shadow: inset 0 -3px 0 var(--accent), 0 -6px 16px -8px rgba(0, 0, 0, 0.12);
+      }
+      .folder-tab-icon { font-size: 12px; color: var(--text-muted); }
+      .folder-tab[data-active="true"] .folder-tab-icon { color: var(--accent); }
+      /* Names truncate before tabs collapse into the "+N more" dropdown; the
+         fit pass sets --tab-name-max on the bar (none → 150 → 115 → 90px). */
+      .folder-tab-name {
+        letter-spacing: 0; max-width: var(--tab-name-max, none);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .folder-tab-count {
+        font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+        padding: 1px 7px; border-radius: 4px;
+        background: var(--accent-soft); color: var(--accent-deep);
+      }
+      .folder-tab-pills { display: inline-flex; gap: 5px; }
+      .status-badge--mini { padding: 2px 7px; font-size: 10px; gap: 4px; }
+      .status-badge--mini .status-icon { font-size: 9px; }
 
-      /* "Last updated" line, right-aligned in the meta row. */
-      .card-updated {
-        display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
-        font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
+      /* Overflow "N more" — a floating nav button beside the tabs (NOT a tab):
+         fully rounded, centered on the row, dropdown opens on hover or click. */
+      .folder-tab-more {
+        display: inline-flex; align-items: center; gap: 7px;
+        align-self: center; margin: 0 0 7px 10px;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 999px; padding: 7px 14px; cursor: pointer;
+        font-family: var(--display); font-size: 12.5px; font-weight: 700; color: var(--text-soft);
+        box-shadow: var(--shadow-sm);
+        transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
       }
-      .card-updated i { font-size: 10px; opacity: 0.7; }
-      /* Recent: light-purple pill, "Updated" label on the left, time on the right. */
-      .card-updated--recent {
-        gap: 10px; padding: 3px 10px; border-radius: 999px;
-        background: #f5f3ff; color: #6d28d9;
+      .folder-tab-more:hover, .folder-tab-more[data-open="true"] {
+        border-color: var(--accent); color: var(--accent-deep); box-shadow: var(--shadow-md);
       }
-      .updated-label {
-        display: inline-flex; align-items: center; gap: 5px;
-        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      .folder-tab-more-chev { font-size: 10px; transition: transform 0.15s ease; }
+      .folder-tab-more[data-open="true"] .folder-tab-more-chev { transform: rotate(180deg); }
+
+      /* The dropdown itself — fixed-position panel on <body> (escapes the
+         header's overflow:hidden) listing every folder that didn't fit on the
+         bar, with full names and status pills. */
+      .folder-tab-menu {
+        position: fixed; z-index: 6000; min-width: 300px; max-width: 420px;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px;
+        display: flex; flex-direction: column; gap: 2px;
       }
-      .updated-time { font-size: 11px; font-weight: 600; color: #7c3aed; }
+      .folder-tab-menu-item {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left;
+        padding: 10px 12px; border-radius: 8px;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text);
+        transition: background 0.1s ease, color 0.1s ease;
+      }
+      .folder-tab-menu-item:hover { background: var(--accent-soft); color: var(--accent-deep); }
+      .folder-tab-menu-item .folder-tab-icon { color: var(--accent); }
+      .folder-tab-menu-item .folder-tab-name { flex: 1; white-space: normal; }
+      .folder-tab-menu-item .folder-tab-pills { margin-left: auto; }
+
+      /* ── Folder sidebar (FOLDER_NAV_STYLE === 'sidebar') ─────────────────
+         Sticky left panel: All designs / Main pinned, then favorited folders
+         (star, persisted per browser), then the rest alphabetically. */
+      .content-columns { display: flex; align-items: flex-start; gap: 28px; }
+      .content-main { flex: 1 1 auto; min-width: 0; }
+      .folder-nav {
+        flex: 0 0 250px; width: 250px; position: sticky; top: 18px;
+        /* Scroll independently when the folder list outgrows the viewport. */
+        max-height: calc(100vh - 36px); overflow-y: auto;
+        background: var(--card-bg); border: 1px solid var(--border);
+        border-radius: 14px; padding: 14px 10px; box-shadow: var(--shadow-sm);
+        display: flex; flex-direction: column; gap: 2px;
+        transition: opacity 0.15s ease;
+      }
+      .folder-nav[hidden] { display: none; }
+      .folder-nav[data-searching="true"] { opacity: 0.45; }
+      /* empty-favorites placeholder — quiet grey hint that holds the section's
+         place so the rail doesn't jump when the first star lands */
+      .fnav-empty {
+        font-size: 12px; color: var(--text-muted); padding: 2px 12px 8px;
+        line-height: 1.45;
+      }
+      .fnav-empty i { margin-right: 4px; opacity: 0.7; }
+      .fnav-label {
+        font-family: var(--display); font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-muted);
+        padding: 2px 12px 10px;
+      }
+      .fnav-divider { border-top: 1px solid var(--border); margin: 8px 10px; }
+      .fnav-item {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left;
+        /* Nested folders indent by depth (see --fnav-depth set per row). */
+        padding: 9px 12px 9px calc(10px + var(--fnav-depth, 0) * 16px); border-radius: 10px;
+        font-family: var(--display); font-size: 13.5px; font-weight: 600; color: var(--text-soft);
+        transition: background 0.1s ease, color 0.1s ease;
+      }
+      .fnav-item:hover { background: var(--accent-soft); color: var(--text); }
+      .fnav-item[data-active="true"] { background: var(--accent); color: #fff; }
+      .fnav-item[data-active="true"] .fnav-icon { color: #fff; }
+      /* Expand/collapse chevron on folders that have subfolders; rows without
+         children keep an empty spacer so icons align down the column. */
+      .fnav-chevron {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 14px; width: 14px; height: 14px; border-radius: 4px;
+        color: var(--text-muted); font-size: 9px; cursor: pointer;
+        transition: transform 0.12s ease, background 0.1s ease, color 0.1s ease;
+      }
+      .fnav-chevron[data-open="true"] { transform: rotate(90deg); }
+      .fnav-chevron:not(.fnav-chevron--none):hover { background: rgba(0,0,0,0.1); color: var(--text); }
+      .fnav-chevron--none { cursor: inherit; }
+      .fnav-item[data-active="true"] .fnav-chevron { color: rgba(255,255,255,0.85); }
+      .fnav-item[data-active="true"] .fnav-chevron:not(.fnav-chevron--none):hover { background: rgba(255,255,255,0.2); color: #fff; }
+      .fnav-name { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+      .fnav-icon { font-size: 12px; color: var(--text-muted); width: 14px; text-align: center; }
+      .fnav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fnav-pills { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+      /* Star: hidden until the row is hovered, always visible when favorited. */
+      .fnav-star {
+        display: inline-flex; align-items: center; padding: 2px 3px;
+        color: var(--text-muted); font-size: 11.5px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, transform 0.1s ease;
+      }
+      .fnav-item:hover .fnav-star { opacity: 0.75; }
+      .fnav-star:hover { opacity: 1 !important; transform: scale(1.15); }
+      .fnav-star[data-fav="true"] { opacity: 1; color: #f59e0b; }
+      .fnav-item[data-active="true"] .fnav-star { color: rgba(255,255,255,0.85); }
+      .fnav-item[data-active="true"] .fnav-star[data-fav="true"] { color: #fde68a; }
+
+      /* Favorites bookmark rows (starred FEATURES) — a filled amber star and a
+         trailing ✕ that appears on hover to unpin. Clicking the row jumps to the
+         card (see goToMock). */
+      .fnav-fav-icon { color: #f59e0b; }
+      .fnav-fav-unstar {
+        display: inline-flex; align-items: center; padding: 2px 4px; border-radius: 6px;
+        color: var(--text-muted); font-size: 11px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, background 0.1s ease;
+      }
+      .fnav-fav:hover .fnav-fav-unstar { opacity: 0.7; }
+      .fnav-fav-unstar:hover { opacity: 1 !important; color: #b91c1c; background: rgba(0,0,0,0.06); }
+      @media (hover: none) { .fnav-fav-unstar { opacity: 0.55; } }
+
+      /* Narrow screens: the sidebar becomes a wrapping row above the content. */
+      @media (max-width: 980px) {
+        /* Banner stacks: identity block on top, search full-width under it.
+           The pill may wrap to two lines — soften the radius so it still
+           reads as one chip. */
+        .header-main { align-items: stretch; }
+        .header-side { flex: 1 1 100%; }
+        .dash-eyebrow { flex-wrap: wrap; row-gap: 3px; border-radius: 16px; }
+        .content-columns { display: block; }
+        .folder-nav {
+          position: static; width: auto; flex-direction: row; flex-wrap: wrap;
+          align-items: center; gap: 4px; margin-bottom: 20px; padding: 10px;
+        }
+        .fnav-label { width: 100%; padding-bottom: 6px; }
+        /* The row layout has no tree geometry — drop indent + chevrons and
+           show every folder as a flat chip (nested ones keep their tooltip). */
+        .fnav-item { width: auto; padding-left: 12px; }
+        .fnav-item .fnav-pills { display: none; }
+        .fnav-chevron { display: none; }
+        .fnav-divider { display: none; }
+      }
+
+      .tab-empty { color: var(--text-muted); font-size: 13.5px; padding: 18px 2px; }
+
+      /* ── Active-folder breadcrumb (sidebar mode) ─────────────────────────
+         Names the folder scope above the sections; ancestors are clickable. */
+      .folder-breadcrumb {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+        margin: 2px 0 18px; font-family: var(--display);
+        font-size: 13.5px; font-weight: 600; color: var(--text-soft);
+      }
+      .crumb-icon { color: var(--accent); font-size: 13px; margin-right: 2px; }
+      .crumb-link {
+        background: none; border: none; padding: 0; cursor: pointer;
+        font: inherit; font-family: inherit; color: var(--text-muted);
+      }
+      .crumb-link:hover { color: var(--accent); text-decoration: underline; }
+      .crumb--current { color: var(--text); }
+      .crumb-sep { font-size: 9px; color: var(--text-muted); }
+      .crumb-count {
+        margin-left: 4px; padding: 3px 9px; border-radius: 999px;
+        font-size: 11.5px; color: var(--text-muted); background: var(--accent-soft);
+      }
+
+      /* ── Card-level favorites ────────────────────────────────────────────
+         Star on each card/row pins the mock into the Favorites section.
+         Hidden until hover (like the folder stars), always visible when on. */
+      .mock-star {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto;
+        color: var(--text-muted); font-size: 13px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, transform 0.1s ease, background 0.1s ease;
+      }
+      .mock-card:hover .mock-star, .proto-row:hover .mock-star { opacity: 0.7; }
+      .mock-star:hover { opacity: 1 !important; transform: scale(1.12); background: rgba(0, 0, 0, 0.05); }
+      .mock-star[data-fav="true"] { opacity: 1; color: #f59e0b; }
+      /* Touch screens have no hover — keep unpinned stars faintly visible. */
+      @media (hover: none) { .mock-star, .fnav-star { opacity: 0.55; } }
+      .card-badge-row .mock-star { margin-left: auto; }
+      .proto-cell { display: flex; align-items: center; gap: 8px; }
+      .proto-cell .proto-name { flex: 1 1 auto; min-width: 0; }
+
+      /* Home-folder chip on Favorites cards/rows — pins are cross-folder, so
+         each names (and links to) the folder it lives in. */
+      .card-folder-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family: var(--display); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); border: 1px solid var(--border);
+        padding: 3px 10px; border-radius: 999px; cursor: pointer;
+        max-width: 240px; flex: 0 0 auto;
+        transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+      }
+      .card-folder-chip .cfc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .card-folder-chip:hover { color: var(--accent-deep); border-color: var(--accent); background: var(--accent-soft); }
+
+      /* Favorites section — a collapsible <details> styled like the status
+         sections, always rendered ABOVE them. */
+      .fav-details > summary { cursor: pointer; list-style: none; user-select: none; }
+      .fav-details > summary::-webkit-details-marker { display: none; }
+      .fav-header { align-items: center; }
+      .fav-chevron {
+        font-size: 12px; color: var(--text-muted);
+        transition: transform 0.15s ease;
+      }
+      .fav-details[open] .fav-chevron { transform: rotate(90deg); }
+      .fav-title-star { color: #f59e0b; font-size: 17px; margin-right: 4px; }
+
+      /* kept for potential nested sections; unused by the tab layout */
+      .section--sub .section-title { font-size: 18px; }
 
       /* "Jira link needed" badge — shown when a mock has no ticket linked yet.
          Neutral gray, no warning icon — informational, not an alert. */
@@ -1341,10 +2616,49 @@
       .log-more-link:hover { background: var(--accent-soft); color: var(--accent); }
       .log-more-link i { font-size: 9px; opacity: 0.8; }
 
+      /* Log header row: "LOG" title + count + the always-visible Updated pill. */
+      .card-log--empty { display: flex; align-items: center; gap: 8px; }
+      .log-title { flex-shrink: 0; }
+      /* The "Updated <time>" indicator that now lives in the log header. Reset the
+         summary's uppercase transform so the timestamp reads in normal case. */
+      .log-updated {
+        display: inline-flex; align-items: center; gap: 6px; font-family: var(--display);
+        font-size: 11px; font-weight: 500; color: var(--text-muted);
+        text-transform: none; letter-spacing: 0;
+      }
+      .log-updated i { font-size: 10px; opacity: 0.7; }
+      /* Recent (within 24h): highlighted violet pill with a pulsing dot. */
+      .log-updated--recent {
+        padding: 3px 10px; border-radius: 999px; background: #f5f3ff; color: #6d28d9; font-weight: 700;
+      }
+      /* GitHub history icon in the log header — always visible, even when the
+         inline log is short; opens the commits view in a new tab. */
+      .log-github {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 6px; margin-left: 4px;
+        color: var(--text-soft); font-size: 13px; text-decoration: none;
+        transition: all 0.15s ease;
+      }
+      .log-github:hover { color: var(--accent-deep); background: var(--accent-soft); }
+      /* "View full log on GitHub" — the ONLY way to the rest of the history;
+         the inline log deliberately shows just the LOG_SHOWN latest rows. */
+      .log-full-btn {
+        display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+        padding: 7px 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: #fff;
+        font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text-soft);
+        text-decoration: none; cursor: pointer; transition: all 0.15s ease;
+      }
+      .log-full-btn:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
+      .log-full-btn i { font-size: 10px; opacity: 0.8; }
+      /* In the header-only empty state the icon hugs the right edge. */
+      .card-log--empty .log-github { margin-left: auto; }
+
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
-        /* Keep cards uniform: descriptions are meant to fit two lines;
-           clamp as a safety net so a stray long one can't blow out the card. */
+        /* Two-line clamp as a safety net so a stray long one can't blow out the
+           card. Row alignment (the Pages box lining up) is dynamic — see
+           alignCardRows(); no static reserve, so a whole row of one-line
+           descriptions stays compact. */
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
       }
 
@@ -1357,13 +2671,8 @@
         font-family: var(--display); font-size: 10px; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.7px; min-width: 70px; display: flex; align-items: center; gap: 5px;
       }
-      .url-value {
-        flex: 1; font-family: var(--mono); font-size: 11.5px; color: var(--text); background: #fff;
-        border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; white-space: nowrap;
-        overflow: hidden; text-overflow: ellipsis; text-decoration: none;
-        transition: border-color 0.15s ease, color 0.15s ease;
-      }
-      .url-value:hover { border-color: var(--accent); color: var(--accent); }
+      /* .copy-btn is kept only as a fallback for any legacy markup — the current
+         card uses the .url-copy click-to-copy field defined below. */
       .copy-btn {
         background: #fff; border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 12px;
         font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--text-soft);
@@ -1373,21 +2682,64 @@
       .copy-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); transform: translateY(-1px); }
       .copy-btn.copied { background: #d1fae5; border-color: #10b981; color: #065f46; }
 
-      .card-actions { margin-top: auto; padding-top: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-      .url-row--dev .url-label { color: #0e7490; }
-      .url-row--dev .url-value { border-color: #a5f3fc; }
-      .url-row--dev .url-value:hover { border-color: #06b6d4; color: #0e7490; }
-
-      .dev-btn {
-        display: inline-flex; align-items: center; gap: 9px; background: #fff; color: #0e7490;
-        border: 1.5px solid #06b6d4; border-radius: 8px; padding: 10px 18px; font-size: 13.5px;
-        font-weight: 600; cursor: pointer; text-decoration: none; font-family: var(--display);
-        transition: transform 0.2s ease, background 0.15s ease, box-shadow 0.2s ease;
+      /* ---- Card header: status + ticket badges above the title ------------ */
+      .card-badge-row {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
       }
-      .dev-btn:hover { background: #cffafe; transform: translateY(-2px); box-shadow: 0 8px 20px -6px rgba(6, 182, 212, 0.4); }
-      .dev-btn i { transition: transform 0.2s ease; }
-      .dev-btn:hover i { transform: translate(2px, -2px); }
+
+      /* ---- Link rows: click-to-copy field + Open button ------------------- */
+      .url-list-header {
+        font-family: var(--display); font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.7px; color: var(--text-muted); margin-bottom: 2px;
+      }
+      .url-copy {
+        flex: 1; min-width: 0; position: relative; text-align: left; cursor: pointer;
+        font-family: var(--mono); font-size: 11.5px; color: var(--text); background: #fff;
+        border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+        transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+      }
+      .url-copy-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .url-copy:hover { border-color: var(--accent); color: var(--accent); }
+      .url-copy:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      /* Dark "Copy" chip, revealed over the right edge on hover / focus. */
+      .url-copy-chip {
+        position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+        display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+        background: #18181b; color: #fff; font-family: var(--display); font-size: 11px; font-weight: 600;
+        padding: 4px 9px; border-radius: 6px; opacity: 0; pointer-events: none;
+        transition: opacity 0.12s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+      }
+      .url-copy-chip i { font-size: 10px; }
+      .url-copy:hover .url-copy-chip, .url-copy:focus-visible .url-copy-chip { opacity: 1; }
+      .url-copy.copied { border-color: #10b981; background: #ecfdf5; color: #065f46; }
+      .url-copy.copied .url-copy-chip { opacity: 1; background: #059669; box-shadow: none; }
+
+      .url-open {
+        flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+        background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 14px;
+        font-family: var(--display); font-size: 12px; font-weight: 600; cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+      .url-open:hover { background: var(--accent-deep); transform: translateY(-1px); }
+      .url-open i { font-size: 10px; transition: transform 0.2s ease; }
+      .url-open:hover i { transform: translate(1px, -1px); }
+
+      /* Ready-for-dev box: cyan tint matching the "Ready for Dev" status pill. */
+      .url-list--dev { background: #ecfeff; border-color: #a5f3fc; }
+      .url-list--dev .url-list-header { color: #0e7490; }
+      .url-row--dev .url-label { color: #0e7490; }
+      .url-row--dev .url-copy { border-color: #a5f3fc; }
+      .url-row--dev .url-copy:hover { border-color: #06b6d4; color: #0e7490; }
+      .url-row--dev .url-open { background: #0891b2; }
+      .url-row--dev .url-open:hover { background: #0e7490; }
+
+      /* Designer working-file box — its own separate container below the dev
+         box. The drawer inside is borderless so the box provides the one frame.
+         Tight vertical padding keeps the collapsed box short (it's a secondary
+         link, not a primary action). */
+      .url-list--designer { background: #fff; padding: 2px 10px; }
+      .url-list--designer .design-links-drawer { border: none; padding: 0; background: transparent; }
+      .url-list--designer .design-links-drawer > summary { padding: 5px 2px; }
 
       .design-links-drawer { border: 1px dashed var(--border-strong); border-radius: 6px; padding: 2px 8px; background: #fff; }
       .design-links-drawer > summary {
@@ -1402,18 +2754,15 @@
       .design-links-drawer[open] > summary .drawer-chevron { transform: rotate(90deg); }
       .drawer-rows { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 8px; }
 
-      .view-btn {
-        display: inline-flex; align-items: center; gap: 10px;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid)); color: #fff;
-        border: none; border-radius: 8px; padding: 11px 20px; font-size: 13.5px; font-weight: 600;
-        cursor: pointer; text-decoration: none; font-family: var(--display);
-        transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 12px -4px var(--accent-glow);
+      /* Curated annotation for the designer version (meta.json designerNote),
+         e.g. "Blue sky UI design" — sits above the Pages row inside the drawer. */
+      .designer-note {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 12px; font-style: italic; color: var(--text-muted);
+        background: #f8fafc; border: 1px solid var(--border);
+        border-radius: 6px; padding: 6px 9px;
       }
-      .view-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -4px var(--accent-glow); }
-      .view-btn i { transition: transform 0.2s ease; }
-      .view-btn:hover i { transform: translate(2px, -2px); }
-      .view-btn--secondary { background: #fff; color: var(--text); border: 1.5px solid var(--border); box-shadow: none; }
-      .view-btn--secondary:hover { background: var(--bg-subtle, #f4f4f5); box-shadow: 0 6px 16px -8px rgba(0,0,0,0.25); }
+      .designer-note .fa-circle-info { color: #64748b; font-size: 11px; }
 
       .page-footer {
         max-width: 1400px; margin: 56px auto 0; padding: 24px 32px 32px; border-top: 1px solid var(--border);
@@ -1424,9 +2773,56 @@
         padding: 1px 6px; border-radius: 4px; font-size: 11.5px;
       }
 
-      .toolbar { max-width: 1400px; margin: -8px auto 28px; padding: 0 32px; display: flex; flex-direction: column; gap: 14px; }
+      /* In-column toolbar: spans the content column (right of the rail). */
+      .toolbar { margin: 0 0 24px; display: flex; flex-direction: column; gap: 14px; }
       /* Row 1: search grows and pushes sort + view switcher to the right. */
-      .toolbar-row { display: flex; align-items: center; gap: 14px; }
+      /* Chips refuse to compress (flex-shrink 0), so when the column narrows
+         the controls group wraps to its own line first; only on very tight
+         widths (max-width cap) do the chips themselves start wrapping. */
+      .toolbar-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; position: relative; }
+      .filter-chips { flex: 1 0 auto; max-width: 100%; }
+      .toolbar-controls { display: flex; align-items: center; gap: 14px; margin-left: auto; flex: 0 0 auto; }
+      /* Compact mode (set by fitToolbar() whenever chips + controls can't
+         share one line): the chip row hides (kept measurable off-flow) and
+         the multi-select status dropdown takes its place. */
+      .toolbar--compact .filter-chips { position: absolute; visibility: hidden; pointer-events: none; }
+      .toolbar--compact .status-dd { display: inline-flex; }
+
+      /* ── Narrow-width status dropdown ────────────────────────────────────
+         Below the sidebar-collapse breakpoint the chip row swaps for one
+         compact multi-select "Status: …" dropdown. */
+      .status-dd { display: none; position: relative; flex: 1 1 auto; }
+      .status-dd-btn {
+        display: inline-flex; align-items: center; gap: 9px;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 999px; padding: 9px 16px; cursor: pointer;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text-soft);
+        transition: border-color 0.12s ease, color 0.12s ease;
+      }
+      .status-dd-btn:hover, .status-dd-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-deep); }
+      .status-dd-btn .fa-filter { font-size: 11px; }
+      .status-dd-chev { font-size: 10px; transition: transform 0.15s ease; }
+      .status-dd-btn[aria-expanded="true"] .status-dd-chev { transform: rotate(180deg); }
+      .status-dd-panel {
+        position: absolute; top: calc(100% + 6px); left: 0; z-index: 5000;
+        min-width: 240px; background: var(--card-bg);
+        border: 1px solid var(--border-strong); border-radius: 12px;
+        box-shadow: var(--shadow-lg); padding: 6px;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .status-dd-panel[hidden] { display: none; }
+      .status-dd-item {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left;
+        padding: 9px 12px; border-radius: 8px;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text);
+      }
+      .status-dd-item:hover { background: var(--accent-soft); }
+      .status-dd-item[disabled] { opacity: 0.45; cursor: default; }
+      .status-dd-check { font-size: 11px; color: var(--accent); width: 13px; }
+      .status-dd-check[data-on="false"] { visibility: hidden; }
+      .status-dd-name { flex: 1; }
+
       .search-wrapper { position: relative; flex: 1 1 auto; min-width: 200px; }
       .search-wrapper i.fa-magnifying-glass {
         position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
@@ -1468,18 +2864,12 @@
       .filter-chip[data-active="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); box-shadow: 0 2px 6px var(--accent-glow); }
       .filter-chip[data-active="true"] .chip-count { background: rgba(255, 255, 255, 0.6); color: var(--accent-deep); }
 
-      .filter-chip[data-status="concept"][data-active="true"]     { border-color: #6366f1; background: #e0e7ff; color: #3730a3; }
       .filter-chip[data-status="in-progress"][data-active="true"] { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
-      .filter-chip[data-status="review"][data-active="true"]      { border-color: #3b82f6; background: #dbeafe; color: #1e40af; }
-      .filter-chip[data-status="ready"][data-active="true"]       { border-color: #10b981; background: #d1fae5; color: #065f46; }
       .filter-chip[data-status="archived"][data-active="true"]    { border-color: #a1a1aa; background: #f4f4f5; color: #52525b; }
       .filter-chip[data-status="ready-for-dev"][data-active="true"] { border-color: #06b6d4; background: #cffafe; color: #155e75; }
 
       .filter-chip .chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
-      .filter-chip[data-status="concept"] .chip-dot     { background: #6366f1; }
       .filter-chip[data-status="in-progress"] .chip-dot { background: #f59e0b; }
-      .filter-chip[data-status="review"] .chip-dot      { background: #3b82f6; }
-      .filter-chip[data-status="ready"] .chip-dot       { background: #10b981; }
       .filter-chip[data-status="archived"] .chip-dot    { background: #a1a1aa; }
       .filter-chip[data-status="ready-for-dev"] .chip-dot { background: #06b6d4; }
 

@@ -1,0 +1,351 @@
+/* =========================================================================
+   SIM PLAYER — the shared tier-ladder ENGINE core of the converged Scenario
+   Simulator player (window.SimPlayer).
+   -------------------------------------------------------------------------
+   The runtime sibling of studio-shell.js: the app-owned decision/routing
+   logic that drives a ladder scenario — build a phase's locked entry beats,
+   emit the per-turn [SYSTEM STATE] line, decide stay-vs-advance from the
+   model's turn, close a phase (record tier, apply transitions, route), and
+   append the next locked hand-off. Extracted VERBATIM from the live pages
+   (mix / branching / ensemble / scene-sweep carry byte-identical copies) so
+   ONE engine drives every type.
+
+   DOM-FREE by construction: it operates only on an explicit context
+   { scenario, state, fillT } — the same three things every copy closed over
+   (ACTIVE_SCENARIO, state, fillT). The DOM reveal (deliverTurn / revealScene /
+   coachNode / sceneCardAll) still lives in the page; this is the engine, not
+   the renderer. `scenario` and `state` are captured BY REFERENCE (mutated in
+   place), so the returned functions always see live values.
+
+   Usage (in a live page, after scenario/state/fillT exist):
+     const L = SimPlayer.makeLadder({ scenario: ACTIVE_SCENARIO, state, fillT });
+     const { entryBeatsFor, arcStateBlock, runArcEngine, closePhase, applyDeliver } = L;
+
+   No framework, no build step. See scenario-simulator-player-convergence.html.
+   ========================================================================= */
+(function () {
+  'use strict';
+
+  function warn(msg) { try { console.warn('[SimPlayer] ' + msg); } catch (e) {} }
+
+  // The most times the UNGRADED reflection warm-up may STAY (a clarifying probe or
+  // a redirect re-ask) before the app force-opens the scene. Keeps a chatty model
+  // from re-probing a terse gut-read forever. See runArcEngine's reflection branch.
+  var REFLECTION_STAY_CAP = 2;
+
+  /* -----------------------------------------------------------------------
+     lint(scenario) — a LOAD-TIME authoring check over the ladder graph. The
+     engine trusts phases[]/transitions[] blindly at run time, so the mistakes
+     below would otherwise fail SILENTLY mid-play; surfacing them once at boot
+     turns a mystery into a console line. Checks:
+       · a transition next→ that resolves to no phase id (would end the ladder
+         early instead of advancing — see closePhase's terminal branch)
+       · an onTier label outside the phase's calibration vocabulary (dead route)
+       · a phase no path from the first rung can reach
+       · a transition that routes a phase back to itself (loop risk)
+       · per-tier routing with uncovered tiers AND no default (silent fall-through)
+     Pure and DOM-free — safe to call at boot or from a test. Returns
+     { errors:[…], warnings:[…] } of plain strings and logs nothing itself.
+     NOT on the per-turn hot path.
+     ----------------------------------------------------------------------- */
+  function lint(scenario) {
+    const errors = [];
+    const warnings = [];
+    const phases = Array.isArray(scenario && scenario.phases) ? scenario.phases : [];
+    if (!phases.length) { errors.push('scenario has no phases[].'); return { errors, warnings }; }
+
+    const idSet = new Set(phases.map((p) => p && p.id).filter(Boolean));
+    const idxOf = {};
+    phases.forEach((p, i) => { if (p && p.id) idxOf[p.id] = i; });
+    // Session-state keys DECLARED at the top level. A transition may only write
+    // these (closePhase drops any other key) — so an undeclared write is caught
+    // here at load time, not left as a silent run-time no-op.
+    const declaredState = new Set((Array.isArray(scenario.state) ? scenario.state : [])
+      .map((v) => v && v.key).filter(Boolean));
+
+    // successors[i] = the phase indices phase i can advance to (mirrors closePhase)
+    const successors = phases.map(() => new Set());
+    phases.forEach((p, i) => {
+      const trans = Array.isArray(p.transitions) ? p.transitions : [];
+      const vocab = (p.calibration || []).map((c) => c && c.tier).filter(Boolean);
+      let hasDefaultNext = false;
+      trans.forEach((t) => {
+        if (!t) return;
+        if (t.onTier && vocab.length && !vocab.includes(t.onTier)) {
+          warnings.push('phase "' + p.id + '": transition onTier "' + t.onTier
+            + '" is not in its calibration vocabulary [' + vocab.join(', ') + '] — it can never fire.');
+        }
+        if (t.set && typeof t.set === 'object') Object.keys(t.set).forEach((k) => {
+          if (!declaredState.has(k)) warnings.push('phase "' + p.id
+            + '": transition writes state key "' + k + '" not declared in scenario.state[] — it is ignored at run time.'
+            + (declaredState.size ? ' Declared: [' + [...declaredState].join(', ') + '].' : ' (scenario.state[] is empty.)'));
+        });
+        if (t.next != null) {
+          if (!idSet.has(t.next)) {
+            errors.push('phase "' + p.id + '": transition next→"' + t.next
+              + '" is not a phase id — the ladder would TERMINATE here instead of advancing.');
+          } else {
+            if (t.next === p.id) warnings.push('phase "' + p.id + '": a transition routes the phase to itself — possible loop.');
+            successors[i].add(idxOf[t.next]);
+          }
+          if (!t.onTier) hasDefaultNext = true;
+        }
+      });
+      // Routes by tier but has no vocabulary to route by: the prompt's tier list
+      // (derived from calibration) is empty and no reported tier can be validated.
+      if (!vocab.length && trans.some((t) => t && t.onTier)) {
+        warnings.push('phase "' + p.id + '": routes by onTier but declares no calibration[] — '
+          + 'the compiled prompt\'s tier list is empty and no reported tier can be validated.');
+      }
+      // The implicit fall-through to i+1 fires UNLESS a default (no-onTier)
+      // transition with a next always overrides it.
+      if (!hasDefaultNext) {
+        successors[i].add(i + 1);
+        if (vocab.length && trans.some((t) => t && t.onTier)) {
+          const covered = new Set(trans.filter((t) => t && t.onTier).map((t) => t.onTier));
+          const gaps = vocab.filter((v) => !covered.has(v));
+          if (gaps.length) warnings.push('phase "' + p.id + '": tiers [' + gaps.join(', ')
+            + '] have no transition and no default — they fall through to the next phase in order.'
+            + ' Add an onTier or a default transition if that is not intended.');
+        }
+      }
+    });
+
+    // reachability from the first phase
+    const seen = new Set([0]);
+    const queue = [0];
+    while (queue.length) {
+      const i = queue.shift();
+      successors[i].forEach((j) => { if (j >= 0 && j < phases.length && !seen.has(j)) { seen.add(j); queue.push(j); } });
+    }
+    phases.forEach((p, i) => { if (!seen.has(i)) warnings.push('phase "' + p.id + '" is unreachable — no path from the first phase leads to it.'); });
+
+    return { errors, warnings };
+  }
+
+  function makeLadder(ctx) {
+    const scenario = ctx.scenario;   // ACTIVE_SCENARIO — mutated in place, captured by ref
+    const state = ctx.state;
+    const fillT = ctx.fillT;
+
+    /* Build the LOCKED (app-owned) entry beats for a phase, choosing the
+       bridge variant the PREVIOUS phase's recorded tier calls for (authored
+       branching). Observe phases also present the locked "clip" card. */
+    function entryBeatsFor(phase, prevTier) {
+      const e = phase.entry || {};
+      const beats = [];
+      const bridge = (prevTier && e.bridgesByTier && e.bridgesByTier[prevTier]) || e.bridge || '';
+      if (String(bridge).trim()) beats.push({ speaker: 'coach', kind: 'coaching', text: fillT(bridge) });
+      if (String(e.signpost || '').trim()) beats.push({ speaker: 'coach', kind: 'coaching', text: fillT(e.signpost) });
+      // OBSERVE beats PRESENT the clip the learner reacts to — a locked "clip"
+      // card (a real <video> when a src is authored, otherwise the described
+      // moment). ANY beat may ALSO carry a locked STIMULUS ARTIFACT (a forwarded
+      // message, a note) rendered the same way (variant:'message' → message card).
+      // Shown right after the signpost so the coach never references something
+      // the learner can't see.
+      ((phase.media || {}).segments || [])
+        .filter((sc) => sc && (String(sc.src || '').trim() || String(sc.caption || '').trim()))
+        .forEach((sc) => beats.push({ speaker: 'coach', kind: 'clip',
+          variant: sc.kind === 'message' ? 'message' : 'clip',
+          text: fillT(sc.caption || ''), src: String(sc.src || '').trim(),
+          label: fillT(sc.label || ''), from: fillT(sc.from || '') }));
+      if (String(e.prompt || '').trim()) beats.push({ speaker: 'coach', kind: 'coaching', text: fillT(e.prompt) });
+      (e.beats || []).forEach((b) => {
+        const m = { speaker: b.speaker || 'character', kind: b.kind || 'narration', text: fillT(b.text) };
+        if (b.name) m.name = fillT(b.name);
+        beats.push(m);
+      });
+      return beats;
+    }
+
+    /* The per-turn [SYSTEM STATE] line: the app is the source of truth for
+       WHICH phase is live, how many learner turns it has consumed vs. its cap,
+       what the ladder recorded so far, and the session-state variables. */
+    function arcStateBlock() {
+      const phases = Array.isArray(scenario.phases) ? scenario.phases : [];
+      if (!phases.length || state.complete) return '';
+      const vars = (scenario.state || [])
+        .map((v) => (v.label || v.key) + ': ' + (state.vars[v.key] || v.initial || '—')).join(' · ');
+      if (state.phaseIdx < 0) {
+        return '\n\n[SYSTEM STATE — Reflection warm-up. Calibrate only (do NOT evaluate, no tier); set "action":"teach". The app then opens Phase 1.]';
+      }
+      if (state.phaseIdx >= phases.length) {
+        return '\n\n[SYSTEM STATE — the ladder is complete. You MUST set complete:true with the report on this turn (see COMPLETION).]';
+      }
+      const p = phases[state.phaseIdx];
+      const cap = Math.max(1, p.maxTurns || 3);
+      const used = state.turnsInPhase;
+      const ladder = phases.filter((x) => state.ladder[x.id])
+        .map((x) => (x.label || x.id) + ' = ' + state.ladder[x.id]).join(', ');
+      // OPTIONAL per-phase addendum — the active render SURFACE folds its OUTCOME
+      // line for the phase it owns in here (scene-sweep's COVERAGE, teach-back's
+      // N-of-10). The page passes ctx.outcomeBlock = SURFACE.outcomeBlock, which
+      // self-guards on phase.kind. No hook → empty, so the conversational types
+      // are byte-identical.
+      const coverage = (typeof ctx.outcomeBlock === 'function') ? (ctx.outcomeBlock(p) || '') : '';
+      return '\n\n[SYSTEM STATE — Phase ' + (state.phaseIdx + 1) + '/' + phases.length + ': ' + (p.label || p.id)
+        + ' (' + (p.world === 'scene' ? 'SCENE' + (p.counterpart ? ' · ' + p.counterpart : '') : 'COACHING') + ').'
+        + ' Learner turns used: ' + used + '/' + cap + '.'
+        + coverage
+        + (ladder ? ' THE LADDER so far: ' + ladder + '.' : '')
+        + (vars ? ' Session state — ' + vars + '.' : '')
+        + (used >= cap
+            ? ' THE CAP IS REACHED — you MUST set "action":"teach" on this turn: resolve the moment, open with the verbatim talk-it-through line, debrief, and report the "tier". Do NOT continue.'
+            : ' Set "action":"continue" to stay in the phase, or "action":"teach" (with a "tier") once the exit criteria are met.')
+        + ']';
+    }
+
+    /* Decide stay-vs-advance from the model's turn (action / tier / cap), then
+       close the phase if it's time. The app, not the model, owns advancement. */
+    function runArcEngine(turn) {
+      const phases = Array.isArray(scenario.phases) ? scenario.phases : [];
+      if (!phases.length || state.complete) return;
+
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+
+      if (state.phaseIdx < 0) {               // reflection warm-up (UNGRADED)
+        // The warm-up is not graded, so it must NEVER hold the learner. BOTH a
+        // "redirect" (a thin or off-script reply) and a coach turn left hanging on
+        // a question mean "stay so they can respond" — but each only a BOUNDED
+        // number of times. Once the cap is hit the app opens the scene no matter
+        // what the model reports. Without this bound, a terse reply the coach's
+        // completeness check never accepts ("yes", "not good") gets re-probed
+        // forever: the reported stall where the coach keeps asking, the typing
+        // dots keep cycling, and the scene never opens. (The redirect path used to
+        // be uncapped, which is exactly how it looped.)
+        const cb = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
+        const last = cb[cb.length - 1];
+        const dangling = !!last && /\?\s*$/.test(String(last.text).trim());
+        const wantsStay = turn.action === 'redirect' || dangling;
+        state.reflectionStays = state.reflectionStays || 0;
+        if (wantsStay && state.reflectionStays < REFLECTION_STAY_CAP) {
+          state.reflectionStays++; state.reflectionProbed = true; turn.deliver = null; return;
+        }
+        closePhase(null, turn);                // calibration done (or cap reached) → open the scene
+        return;
+      }
+      if (state.phaseIdx >= phases.length) return;   // ladder done — the model owns COMPLETION
+
+      const p = phases[state.phaseIdx];
+      const cap = Math.max(1, p.maxTurns || 3);
+      const coachBubbles = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
+      const opener = coachBubbles[0] ? norm(coachBubbles[0].text) : '';
+      const tit = (p.debrief && p.debrief.talkItThrough) ? norm(fillT(p.debrief.talkItThrough)) : '';
+      const teachOpener = !!(tit && opener && opener.startsWith(tit));
+      let intent = turn.action;
+      if (!intent) intent = (teachOpener || turn.tier || turn.complete) ? 'teach' : 'continue';
+
+      if (intent === 'redirect') { turn.deliver = null; return; }
+      const overCap = state.turnsInPhase >= cap + 1;   // the forced close was ignored once already
+      if (intent !== 'teach' && !teachOpener && !overCap) { turn.deliver = null; return; }   // stay in the phase
+
+      closePhase(p, turn);
+    }
+
+    /* Close a phase: record the tier, apply its authored transitions (state
+       writes + routing), and cue the next entry. `p` is null for the
+       reflection warm-up (no tier, no transitions — straight to phase 0). */
+    function closePhase(p, turn) {
+      const phases = scenario.phases || [];
+      let nextIdx = 0;
+      if (p) {
+        let tier = turn.tier || null;
+        // GUARD — the model REPORTS the tier, so treat the label as untrusted:
+        // an off-vocabulary value matches no authored `onTier` and would fall
+        // silently through to the default route. Validate against THIS phase's
+        // calibration vocabulary; on a miss, warn and record the rung as
+        // unreported rather than routing on a phantom label.
+        const vocab = (p.calibration || []).map((c) => c && c.tier).filter(Boolean);
+        if (tier && vocab.length && !vocab.includes(tier)) {
+          warn('phase "' + p.id + '" reported off-vocabulary tier ' + JSON.stringify(tier)
+            + ' — expected one of [' + vocab.join(', ') + ']. Recording (unreported); routing on the default transition.');
+          tier = null;
+        }
+        state.ladder[p.id] = tier || '(unreported)';
+        state.lastTier = tier;
+        const trans = (p.transitions || []).find((t) => t.onTier && tier && t.onTier === tier)
+          || (p.transitions || []).find((t) => !t.onTier)
+          || null;
+        if (trans && trans.set) Object.keys(trans.set).forEach((k) => {
+          // Only DECLARED session-state keys are writable. An undeclared key
+          // (usually a typo — `dispositon` for `disposition`) is otherwise a
+          // silent no-op; warn so the intended write isn't lost quietly.
+          if (k in state.vars) state.vars[k] = trans.set[k];
+          else warn('transition on phase "' + p.id + '" writes undeclared state key '
+            + JSON.stringify(k) + ' — ignored. Declared keys: [' + Object.keys(state.vars).join(', ') + '].');
+        });
+        const curIdx = phases.indexOf(p);
+        nextIdx = (trans && trans.next)
+          ? phases.findIndex((x) => x.id === trans.next)
+          : curIdx + 1;
+        // A `next` that resolves to nothing is almost always an authoring typo,
+        // not a deliberate ending — and the terminal branch below would end the
+        // scenario early with no trace. Warn before it does.
+        if (trans && trans.next && nextIdx < 0) {
+          warn('transition on phase "' + p.id + '" points next→' + JSON.stringify(trans.next)
+            + ' which is not a phase id — the ladder will TERMINATE here instead of advancing. Phase ids: ['
+            + phases.map((x) => x.id).join(', ') + '].');
+        }
+        if (nextIdx < 0 || nextIdx >= phases.length) {   // terminal — the model completes this same turn
+          turn.deliver = null;
+          state.phaseIdx = phases.length;
+          return;
+        }
+      }
+      turn.deliver = (phases[nextIdx] || {}).id || null;   // app-authoritative (overrides any model deliver)
+      state.phaseIdx = nextIdx;
+      state.turnsInPhase = 0;
+    }
+
+    /* Append the LOCKED (app-owned) entry the ladder engine cued via
+       turn.deliver: the bridge variant the recorded tier selects, the signpost,
+       the task prompt (coaching) or scene beats (scene). A scene-phase entry
+       also flips the turn into scene mode. */
+    function applyDeliver(turn) {
+      if (!turn || !turn.deliver) return;
+      const phases = scenario.phases || [];
+      const p = phases.find((x) => x.id === turn.deliver);
+      if (!p) return;
+      const beat = entryBeatsFor(p, state.lastTier).map((m) => ({ ...m, locked: true }));
+
+      // The model is told the locked text but sometimes reproduces it anyway;
+      // drop any message it wrote that matches a locked beat so the app's copy
+      // is the only one (prevents a duplicated bridge / scene open).
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      const lockedKeys = new Set(beat.map((m) => norm(m.text)));
+      turn.turn = (turn.turn || []).filter((m) => !lockedKeys.has(norm(m.text)));
+
+      // A locked scene hand-off is the ONLY crossing into a scene phase. Models
+      // sometimes tack a preview onto the debrief ("let's put you in the room"),
+      // which then doubles the locked entry. Strip any preview SENTENCE from the
+      // trailing coach bubbles, then drop a bubble left empty.
+      if (p.world === 'scene') {
+        const PREVIEW = /\b(put you in|into the (room|scene|moment)|step in(to)?|into practice|let'?s (practice|keep going|head in)|in the room|back (to|into) the scene|ready to (practice|go|step))\b/i;
+        for (let i = turn.turn.length - 1; i >= 0 && turn.turn[i].speaker === 'coach'; i--) {
+          turn.turn[i].text = String(turn.turn[i].text || '')
+            .split(/(?<=[.!?])\s+/)
+            .filter((s) => !PREVIEW.test(s))
+            .join(' ').replace(/\s{2,}/g, ' ').trim();
+        }
+        turn.turn = turn.turn.filter((m) => String(m.text || '').trim().length);
+      }
+
+      turn.turn = turn.turn.concat(beat);
+      state.scenePlaceholder = fillT(p.inputPlaceholder || '');
+      state.entryLabel = fillT((p.entry || {}).cta || '');
+      if (p.world === 'scene') {
+        turn.mode = 'scene';
+        turn.inputTarget = 'character';
+        turn.returnLabel = state.entryLabel || null;
+        turn.sceneTarget = (p.counterpart && p.counterpart !== 'Narrator') ? fillT(p.counterpart) : null;
+      } else {
+        turn.mode = 'coaching';
+        turn.inputTarget = 'coach';
+      }
+    }
+
+    return { entryBeatsFor, arcStateBlock, runArcEngine, closePhase, applyDeliver };
+  }
+
+  window.SimPlayer = { makeLadder, lint };
+})();

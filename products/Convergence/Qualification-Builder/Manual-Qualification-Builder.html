@@ -206,6 +206,12 @@
     /* In 2-column mode, widen the cards below the overview to match the overview card */
     .lp-form-body.two-col { max-width: 920px; }
     .builder-details.two-col .edit-banner { grid-column: 1 / -1; }
+    /* Fill the card: Location and the settings accordions span both columns so all
+       four blocks are the same width and align to the card's inner edges. */
+    .builder-details.two-col > .form-field,
+    .builder-details.two-col > .sec-settings.bh-accordion { grid-column: 1 / -1; }
+    /* First full-width block starts a new row under the thumbnail — give it air */
+    .builder-details.two-col > .form-field { margin-top: 20px; }
     .builder-details.two-col .bh-thumb-wrap { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 0; }
     .builder-details.two-col .bh-thumb { width: 100%; height: auto; aspect-ratio: 1 / 1; }
     .builder-details.two-col .bh-thumb.filled .bh-thumb-icon { font-size: 60px; }
@@ -820,8 +826,9 @@
     .sec-settings.open .sec-settings-body { display: block; }
     .setting-group { margin-bottom: 6px; }
     .setting-group > .setting-label { display: block; font-size: 13px; font-weight: 600; color: #1a1a2e; margin-bottom: 8px; }
-    .setting-radio { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; cursor: pointer; }
-    .setting-radio input[type=radio] { accent-color: var(--vblue); flex-shrink: 0; margin: 2px 0 0; }
+    .setting-radio { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; cursor: pointer; }
+    .setting-radio input[type=radio] { accent-color: var(--vblue); flex-shrink: 0; margin: 0; }
+    .setting-radio span input[type=number] { vertical-align: middle; }
     .setting-radio span { font-size: 12.5px; color: #374151; line-height: 1.45; }
 
     /* Standalone settings accordion shell (used in the overview) */
@@ -949,7 +956,7 @@
     .vs-seg.small button { font-size: 11px; padding: 5px 0; }
 
     /* ─── Location picker ─── */
-    .loc-wrap { position:relative; max-width:480px; }
+    .loc-wrap { position:relative; }
     .loc-trigger { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; text-align:left; transition:border-color .15s,box-shadow .15s; }
     .loc-trigger:hover { border-color:var(--vblue); }
     .loc-trigger.open { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
@@ -1136,6 +1143,10 @@
               <label>Description</label>
               <vaadin-text-area theme="outlined" id="lp-description" placeholder="Describe what this program qualifies someone to do..." rows="3" style="width:100%"></vaadin-text-area>
             </div>
+            </div><!-- /.bh-overview-main -->
+            <!-- Location + the settings accordions sit OUTSIDE .bh-overview-main so they
+                 span the full card width (grid-column: 1 / -1) instead of being inset
+                 beside the thumbnail. Title + Description stay beside the thumbnail. -->
             <div class="form-field">
               <label>Location</label>
               <div class="loc-wrap">
@@ -1151,7 +1162,7 @@
             <div class="sec-settings settings-card bh-accordion" id="overview-settings">
               <div class="sec-settings-head" onclick="toggleOverviewSettings()">
                 <i class="fa-solid fa-gear gear"></i>
-                <span id="overview-settings-label">Qualification Settings</span>
+                <span id="overview-settings-label">Completion Settings</span>
                 <i class="fa-solid fa-chevron-right caret"></i>
               </div>
               <div class="sec-settings-body" id="prog-settings-body"></div>
@@ -1198,7 +1209,6 @@
                 <button class="btn btn-secondary btn-sm" style="margin-top:14px" onclick="openAudit()"><i class="fa-solid fa-clock-rotate-left"></i> View audit history</button>
               </div>
             </div>
-            </div><!-- /.bh-overview-main -->
           </div>
 
           <div class="lp-form-body two-col">
@@ -1864,7 +1874,7 @@ function configureBuilderChrome(){
   document.getElementById('lp-title').placeholder = 'e.g., AC Motor Controller Operation';
   // Program settings accordion label
   const sl = document.getElementById('overview-settings-label');
-  if (sl) sl.textContent = 'Qualification Settings';
+  if (sl) sl.textContent = 'Completion Settings';
   // Advanced Properties accordion (status, id, dates, audit)
   renderAdvancedProps();
   renderThumb();
@@ -2615,15 +2625,15 @@ function renderProgSettings(){
   const nReq = requirements.length;
   host.innerHTML = `
     <div class="setting-group">
+      <span class="setting-label">Requirements Required to Complete</span>
+      <label class="setting-radio"><input type="radio" name="prog-complete" value="all" ${progCompletionMode==='all'?'checked':''} onchange="setProgCompletion('all')"><span>All requirements</span></label>
+      <label class="setting-radio"><input type="radio" name="prog-complete" value="number" ${progCompletionMode==='number'?'checked':''} onchange="setProgCompletion('number')"><span>A specific number of requirements:<input type="number" min="1" value="${progRequiredCount}" ${progCompletionMode!=='number'?'disabled':''} style="width:54px;margin:0 6px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-family:inherit;font-size:12.5px" oninput="setProgCount(this.value)">of ${nReq}</span></label>
+      <label class="setting-radio"><input type="radio" name="prog-complete" value="time" ${progCompletionMode==='time'?'checked':''} onchange="setProgCompletion('time')"><span>Accumulate a certain amount of time:<input type="number" min="1" value="${progRequiredMinutes}" ${progCompletionMode!=='time'?'disabled':''} style="width:54px;margin:0 6px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-family:inherit;font-size:12.5px" oninput="setProgMinutes(this.value)">minutes</span></label>
+    </div>
+    <div class="setting-group" style="margin-top:14px">
       <span class="setting-label">Requirement Completion Order</span>
       <label class="setting-radio"><input type="radio" name="prog-req-order" value="any" ${progReqOrder==='any'?'checked':''} onchange="setProgOrder('any')"><span>Any order. Requirements can be completed in any sequence.</span></label>
       <label class="setting-radio"><input type="radio" name="prog-req-order" value="sequential" ${progReqOrder==='sequential'?'checked':''} onchange="setProgOrder('sequential')"><span>Sequential. Requirements must be completed in order.</span></label>
-    </div>
-    <div class="setting-group" style="margin-top:16px">
-      <span class="setting-label">To complete this Qualification</span>
-      <label class="setting-radio"><input type="radio" name="prog-complete" value="all" ${progCompletionMode==='all'?'checked':''} onchange="setProgCompletion('all')"><span>Users must complete all Requirements above</span></label>
-      <label class="setting-radio"><input type="radio" name="prog-complete" value="number" ${progCompletionMode==='number'?'checked':''} onchange="setProgCompletion('number')"><span>Users must complete a certain number of the Requirements above (<input type="number" min="1" value="${progRequiredCount}" ${progCompletionMode!=='number'?'disabled':''} style="width:54px;margin:0 4px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-family:inherit;font-size:12.5px" oninput="setProgCount(this.value)"> of ${nReq})</span></label>
-      <label class="setting-radio"><input type="radio" name="prog-complete" value="time" ${progCompletionMode==='time'?'checked':''} onchange="setProgCompletion('time')"><span>Users must accumulate a certain amount of time (<input type="number" min="1" value="${progRequiredMinutes}" ${progCompletionMode!=='time'?'disabled':''} style="width:54px;margin:0 4px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-family:inherit;font-size:12.5px" oninput="setProgMinutes(this.value)"> minutes)</span></label>
     </div>`;
 }
 
@@ -2790,7 +2800,7 @@ function renderRequirement(r,i){
       <!-- Settings accordion (nested card, closed by default), placed under the Location field -->
       <div class="sec-settings settings-card ${r.settingsOpen?'open':''}" id="reqsettings-${r.id}">
         <div class="sec-settings-head" onclick="toggleReqSettings(${r.id})">
-          <span>Settings</span>
+          <span>Completion Settings</span>
           <i class="fa-solid fa-chevron-right caret"></i>
         </div>
         <div class="sec-settings-body">
@@ -3478,5 +3488,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.SHELL_CONFIG = { active: 'qual-builder-manual', parent: 'Qualifications', title: 'Qualification Builder (Manual)', fullBleed: true };
 </script>
 <script src="../_shell/chrome.js"></script>
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../designtoolbox/toolbox.js"></script>
 </body>
 </html>

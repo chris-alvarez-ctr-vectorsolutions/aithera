@@ -34,7 +34,7 @@
     const s = document.createElement('style');
     s.id = 'scene-context-style';
     s.textContent = `
-    .sc-wrap { --sc-accent:#b07bff; --sc-accent-soft:rgba(176,123,255,0.16);
+    .sc-wrap { --sc-accent:#c173d1; --sc-accent-soft:rgba(193,115,209,0.16);
       --sc-panel:rgba(255,255,255,0.04); --sc-line:rgba(255,255,255,0.12);
       --sc-text:#e8ecf4; --sc-soft:rgba(232,236,244,0.55); --sc-dim:rgba(232,236,244,0.40);
       width:min(620px,100%); margin:0 auto; display:flex; flex-direction:column; gap:16px; }
@@ -295,6 +295,12 @@
     }
 
     function stopAll() {
+      // READING modality mounts return before the audio machinery below is
+      // initialized — its lets are still in their temporal dead zone, so
+      // touching them here threw and (because doContinue had already latched
+      // onContinueFired) permanently bricked the Continue button. Reading has
+      // nothing to stop; bail before touching audio state.
+      if (modality !== 'audio') return;
       stopped = true;
       if (waveRAF) cancelAnimationFrame(waveRAF);
       if (ttsOK) speechSynthesis.cancel();

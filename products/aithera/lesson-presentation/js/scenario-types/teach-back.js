@@ -29,7 +29,7 @@
     title: 'Applying HazCom: The Teach Me Exercise',
 
     // Named in the calibration prompt: "The learner has just finished {subject}."
-    subject: 'a Hazard Communication (HazCom) course',
+    subject: 'a Hazard Communication (HazCom) training',
 
     // The required topics the learner must teach back. `short` labels the tile
     // and the closing list; `full` is what the grader matches on; `synonyms`
@@ -217,6 +217,39 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     return normalize(out);
   }
 
+  /* ---- runtime shape for the converged player --------------------------
+     Teach-Back rides scenario-live.html as a render SURFACE (js/sim-teachback.js
+     + js/sim-surfaces.js). The surface OWNS the whole loop — the framing
+     calibration chat, the tile board + live grader, and the N/10 close — so the
+     ladder here is a SINGLE kind:'teach' phase whose only jobs are to (a) install
+     the surface (resolved by phase.kind) and (b) let the close route through the
+     shared machinery (noCharacterScene → close on complete). The topics /
+     calibrate / grade / close data ride ON the scenario for the surface and the
+     three prompt builders to read (mirrors scene-sweep leaving hazards/scene on
+     the scenario). No warm-up opening — the surface's onStart drives framing. */
+  function toRuntime(raw) {
+    const g = normalize(raw);
+    return Object.assign({}, g, {
+      phases: [{
+        id: 'teach', kind: 'teach', label: 'Teach it back',
+        level: 'Knowledge check', world: 'coaching', maxTurns: 99,
+        entry: { bridge: '', bridgesByTier: {}, signpost: '', prompt: '', beats: [], cta: '' },
+        transitions: [], calibration: [], debrief: { points: [] },
+      }],
+      opening: [],                 // the surface's onStart drives framing, not a ladder warm-up
+      intro: { type: 'none' },     // the calibration chat IS the intro; the surface owns it
+      state: [],
+      establishing: {
+        eyebrow: 'Knowledge check',
+        title: g.title || 'Teach it back',
+        sub: g.subject
+          ? ('You just finished ' + g.subject + '. Now teach it back — in your own words.')
+          : 'Teach the key topics back in your own words.',
+      },
+      course: g.subject || '',
+    });
+  }
+
   /* ---- lints ------------------------------------------------------------ */
   function lints(s) {
     const L = [];
@@ -259,13 +292,13 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     // teaches each topic from memory (ENGAGE), and a live grader focuses tiles and
     // nudges toward gaps (REACT). The score IS the point here — no hidden rubric.
     { id: 'calibrate', group: 'interaction', stage: 'ENTER', icon: 'fa-comment-dots', title: 'Calibration chat',
-      lead: 'The no-scoring warm-up before the tiles appear — how the learner enters the loop.' },
+      lead: 'The no-scoring warm-up before the tiles appear.' },
     { id: 'topics', group: 'interaction', stage: 'ENGAGE', icon: 'fa-list-check', title: 'Required topics',
-      lead: 'What the learner teaches back — each a tile that resolves as they cover it, and the answer key the grader credits against.',
+      lead: 'What the learner teaches back. Each is a tile that resolves as they cover it.',
       bridgeTitle: 'From your old craft: the checklist a complete program must cover',
       bridge: '<b>short</b> labels the tile. <b>full</b> is what the AI grades against. <b>synonyms</b> are the phrasings you\'ll accept, so a learner who says it their own way still gets credit.' },
     { id: 'grade', group: 'interaction', stage: 'REACT', icon: 'fa-scale-balanced', title: 'Grading rules',
-      lead: 'How the grader decides a topic is covered and steers the nudge to the biggest gap. The topic list is added for you.' },
+      lead: 'How the grader decides a topic is covered. The topic list is added for you.' },
 
     // ③ Debrief & Close — the results message. Here the score is shown by design.
     { id: 'close', group: 'debrief', stage: 'RESULTS', icon: 'fa-medal', title: 'Closing feedback',
@@ -339,9 +372,11 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     id: 'teach-back',
     label: 'Teach-Back',
     icon: 'fa-chalkboard-user',
+    blurb: 'Explain the required topics back from memory.',
     DEFAULT,
     ENGINE_SECTIONS,
     fill: (t) => String(t == null ? '' : t),   // no placeholder substitution here
+    toRuntime,                                  // → the converged player's runtime scenario (kind:'teach' phase)
     normalize,
     isValid,
     merge,

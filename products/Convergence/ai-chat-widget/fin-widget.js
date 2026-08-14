@@ -38,46 +38,54 @@
   /* ---- Styles ----------------------------------------------------------- */
   const css = `
     :root {
-      --fin-fab-size: 60px;
-      --fin-fab-margin: 24px;
-      /* THE shared clearance token: FAB height + margin. Every surface's
-         scroll buffer / panel padding uses this one value. */
-      --fin-fab-clearance: calc(var(--fin-fab-size) + var(--fin-fab-margin));
+      /* THE gutter: built-in padding reserved between main content and the
+         window sides. The FAB lives inside this lane, so with content padded
+         by --fin-gutter there is ALWAYS room and the FAB never overlaps it. */
+      --fin-gutter: 48px;
+      /* Small FAB so it always fits the gutter with clearance on both sides. */
+      --fin-fab-size: 32px;
+      /* Centers the 32px FAB in the 48px gutter -> 8px each side. */
+      --fin-fab-margin: calc((var(--fin-gutter) - var(--fin-fab-size)) / 2);
+      /* Kept for any page that still wants a vertical end-of-scroll buffer. */
+      --fin-fab-clearance: var(--fin-gutter);
     }
-    /* Default bottom offset. :where() keeps specificity at zero so a page's
-       own  :root { --fin-fab-bottom: ... }  override always wins, no matter
-       the stylesheet order (this style tag is injected last). */
+    /* Default offsets. :where() keeps specificity at zero so a page's own
+       :root { --fin-fab-bottom / --fin-fab-right: ... } override always wins,
+       no matter the stylesheet order (this style tag is injected last).
+       --fin-fab-right is pushed left of a docked side panel by the pages that
+       have one (AI assistant, Selected Training). */
     :where(:root) {
       --fin-fab-bottom: var(--fin-fab-margin);
+      --fin-fab-right:  var(--fin-fab-margin);
     }
     #fin-root { font-family:"Open Sans","Segoe UI",Arial,sans-serif; }
 
     .fin-fab {
-      position:fixed; right:var(--fin-fab-margin); bottom:var(--fin-fab-bottom); z-index:90000;
+      position:fixed; right:var(--fin-fab-right); bottom:var(--fin-fab-bottom); z-index:90000;
       width:var(--fin-fab-size); height:var(--fin-fab-size); border-radius:50%; border:none; cursor:pointer;
-      background:#0271ce; color:#fff; box-shadow:0 8px 22px rgba(2,113,206,.42), 0 2px 6px rgba(0,0,0,.18);
+      background:#0271ce; color:#fff; box-shadow:0 6px 16px rgba(2,113,206,.42), 0 2px 5px rgba(0,0,0,.18);
       display:flex; align-items:center; justify-content:center;
-      transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .15s, box-shadow .15s, bottom .2s ease;
+      transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .15s, box-shadow .15s, bottom .22s ease, right .22s ease;
     }
-    .fin-fab:hover { background:#015ba6; transform:translateY(-2px); box-shadow:0 12px 28px rgba(2,113,206,.48); }
+    .fin-fab:hover { background:#015ba6; transform:translateY(-2px); box-shadow:0 10px 22px rgba(2,113,206,.48); }
     .fin-fab .ic { position:absolute; transition:opacity .2s, transform .3s; }
-    .fin-fab .ic-open { font-size:24px; }
-    .fin-fab .ic-close { font-size:20px; opacity:0; transform:rotate(-90deg) scale(.6); }
+    .fin-fab .ic-open { font-size:15px; }
+    .fin-fab .ic-close { font-size:13px; opacity:0; transform:rotate(-90deg) scale(.6); }
     #fin-root.open .fin-fab .ic-open { opacity:0; transform:rotate(90deg) scale(.6); }
     #fin-root.open .fin-fab .ic-close { opacity:1; transform:rotate(0) scale(1); }
-    .fin-badge { position:absolute; top:-2px; right:-2px; min-width:20px; height:20px; padding:0 5px; border-radius:20px; background:#e0362f; color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid #fff; }
+    .fin-badge { position:absolute; top:-5px; right:-5px; min-width:16px; height:16px; padding:0 4px; border-radius:16px; background:#e0362f; color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid #fff; }
 
     .fin-window {
-      position:fixed; right:20px; z-index:90001;
-      bottom:calc(var(--fin-fab-bottom) + var(--fin-fab-size) + 16px);
+      position:fixed; right:var(--fin-fab-right); z-index:90001;
+      bottom:calc(var(--fin-fab-bottom) + var(--fin-fab-size) + 12px);
       width:min(384px, calc(100vw - 32px));
-      height:min(620px, calc(100vh - (var(--fin-fab-bottom) + var(--fin-fab-size) + 16px) - 24px));
+      height:min(620px, calc(100vh - (var(--fin-fab-bottom) + var(--fin-fab-size) + 12px) - 24px));
       background:#fff; border-radius:16px; overflow:hidden;
       box-shadow:0 3px 18px -2px #1c375a29, 0 12px 48px -6px #1c324f61;
       display:flex; flex-direction:column;
       opacity:0; pointer-events:none;
       transform:translateY(8px) scale(.97); transform-origin:bottom right;
-      transition:opacity .2s ease, transform .22s cubic-bezier(.34,1.3,.64,1);
+      transition:opacity .2s ease, transform .22s cubic-bezier(.34,1.3,.64,1), right .22s ease, bottom .22s ease;
     }
     #fin-root.open .fin-window { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
 

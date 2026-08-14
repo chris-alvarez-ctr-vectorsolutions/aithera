@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario — Learning Studio</title>
+
+  <!-- Vector Web Components (same resources as objectManager / courseOverview) -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    /* ---- Base shell (matches objectManager / courseOverview) ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Open Sans', -apple-system, sans-serif; height: 100vh; overflow: hidden; color: #0f2e3d; font-size: 13px; }
+    #app { height: 100vh; display: flex; flex-direction: column; background: linear-gradient(140.604deg, rgba(125,205,238,0.35) 4%, rgba(213,236,181,0.35) 100%), #f0f7fb; }
+
+    /* ============================================================
+       GLOBAL HEADER — adapted from courseOverview.html #page-header
+       Same layout/structure (ph-* classes); content adapted to a
+       scenario project instead of a course.
+       ============================================================ */
+    #page-header {
+      height: 56px;
+      background: white;
+      border-bottom: 1px solid rgba(28,55,90,0.12);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      padding: 0 16px 0 12px;
+      gap: 0;
+      flex-shrink: 0;
+      z-index: 40;
+      position: relative;
+    }
+
+    .ph-left {
+      display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+    }
+
+    .ph-logo {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: #0271ce; display: flex; align-items: center;
+      justify-content: center; font-size: 18px; color: white; flex-shrink: 0;
+    }
+
+    .ph-divider { width: 1px; height: 22px; background: #e5e7eb; flex-shrink: 0; margin: 0 4px; }
+
+    .ph-title-group {
+      display: flex; flex-direction: column; gap: 1px; min-width: 0;
+    }
+    .ph-course-code { font-size: 10.5px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-course-title { font-size: 13px; font-weight: 700; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Right actions */
+    .ph-right {
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+
+    .save-status { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #6b7280; }
+    .save-status i { color: #16a34a; }
+
+    .ph-icon-btn {
+      width: 30px; height: 30px; border: none; background: none; border-radius: 5px;
+      cursor: pointer; color: #6b7280; display: flex; align-items: center;
+      justify-content: center; font-size: 16px;
+    }
+    .ph-icon-btn:hover { background: #f3f4f6; color: #374151; }
+
+    .ph-publish-btn {
+      height: 28px; padding: 0 12px; border-radius: 5px; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+      background: var(--lumo-success-color-10pct);
+      color: var(--lumo-success-text-color);
+      border: 1px solid var(--lumo-success-color);
+      transition: background 0.12s;
+    }
+    .ph-publish-btn:hover { background: var(--lumo-success-color-50pct); color: var(--lumo-success-contrast-color); }
+
+    /* ---- Shared dropdown (from courseOverview) — used by Export ---- */
+    .dropdown {
+      position: fixed; background: white; border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.07);
+      z-index: 1000; min-width: 180px; padding: 4px; display: none;
+    }
+    .dropdown.show { display: block; }
+    .dd-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+      border-radius: 5px; font-size: 12.5px; color: #374151; cursor: pointer;
+      background: none; border: none; width: 100%; text-align: left;
+      font-family: inherit; transition: background 0.1s;
+    }
+    .dd-item:hover { background: #f3f4f6; }
+
+    /* ============================================================
+       BODY — Hub. Three top-level domains, each a clickable row that
+       links into its own drill-down editor (built next). Same core
+       layout/architecture & visual language as courseOverview.
+       ============================================================ */
+    #main-content { flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
+
+    /* content header (title + summary chips), from courseOverview */
+    #content-header {
+      padding: 18px 24px 12px; display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0;
+    }
+    .ch-left { min-width: 0; }
+    .ch-title { font-size: 18px; font-weight: 700; color: #0f2e3d; margin-bottom: 3px; }
+    .ch-desc { font-size: 12.5px; color: #6b7280; }
+    .ch-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .stat-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600;
+      background: white; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .stat-pill i { font-size: 11px; }
+    .stat-pill.progress { color: #0271ce; }
+    .stat-pill.progress i { color: #0271ce; }
+    .stat-pill.draft { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+    .stat-pill.draft i { color: #92400e; }
+
+    /* scroll area */
+    #content-body {
+      flex: 1; overflow-y: auto; padding: 4px 24px 28px; scrollbar-gutter: stable;
+      max-width: 920px; width: 100%; margin: 0 auto;
+    }
+    #content-body::-webkit-scrollbar { width: 5px; }
+    #content-body::-webkit-scrollbar-track { background: transparent; }
+    #content-body::-webkit-scrollbar-thumb { background: rgba(14,165,233,0.2); border-radius: 3px; }
+
+    /* section label above the hub card */
+    .hub-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .6px; font-weight: 700; color: #8a93a0;
+      margin: 8px 2px 8px;
+    }
+
+    /* frosted card container (from courseOverview .section-block) */
+    .section-block {
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.9);
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(14,165,233,0.06), 0 1px 3px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    /* ---- Domain row (clickable entry → drill-down editor) ----
+       Same architecture as courseOverview .lo-row / .lo-info: the anchor
+       is the clickable column; the right-side chevron sits outside it. */
+    .domain-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 16px 16px 18px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.1s;
+    }
+    .domain-row:last-child { border-bottom: none; }
+
+    .domain-num {
+      flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb;
+    }
+    .domain-status-bar { width: 3px; height: 46px; border-radius: 2px; flex-shrink: 0; }
+    .domain-status-bar.in-progress { background: #f59e0b; }
+    .domain-status-bar.not-started { background: #e5e7eb; }
+    .domain-status-bar.complete    { background: #22c55e; }
+
+    .domain-icon {
+      flex-shrink: 0; width: 44px; height: 44px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center; font-size: 19px;
+      color: #0271ce; background: rgba(2,113,206,0.10);
+    }
+    .domain-icon.violet { color: #7c3aed; background: rgba(124,58,237,0.10); }
+    .domain-icon.teal   { color: #0891b2; background: rgba(8,145,178,0.10); }
+
+    .domain-info {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;
+      color: inherit; text-decoration: none; border-radius: 8px; padding: 4px 6px; margin: -4px -6px;
+      transition: background 0.12s;
+    }
+    .domain-info:hover { background: rgba(15,46,61,0.06); }
+    .domain-info:hover .domain-title { color: var(--lumo-primary-text-color, #0271ce); text-decoration: underline; }
+    .domain-info:focus-visible { outline: 2px solid var(--lumo-primary-color, #0271ce); outline-offset: 1px; background: var(--lumo-primary-color-10pct, #0271ce1a); }
+    .domain-title-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .domain-title { font-size: 15px; font-weight: 700; color: #0f2e3d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .domain-sub { font-size: 12.5px; color: #6b7280; line-height: 1.45; }
+
+    /* status pills (from courseOverview .lo-status-pill) */
+    .domain-pill {
+      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+      white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .domain-pill.in-progress { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .domain-pill.not-started { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+    .domain-pill.complete    { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+
+    .domain-go {
+      flex-shrink: 0; width: 30px; height: 30px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      color: #9ca3af; font-size: 14px;
+    }
+    .domain-row:hover .domain-go { color: #0271ce; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- ===== Global header (adapted courseOverview #page-header) ===== -->
+    <header id="page-header">
+      <!-- Left: logo + scenario info -->
+      <div class="ph-left">
+        <a class="ph-logo" href="index.html" title="Back to Create Content" style="text-decoration:none;">
+          <i class="fa-solid fa-layer-group"></i>
+        </a>
+        <div class="ph-divider"></div>
+        <div class="ph-title-group">
+          <span class="ph-course-code" id="ph-meta">Scenario · Guided Arc · Draft</span>
+          <span class="ph-course-title" id="ph-title">Bystander to Harassment — The Marshall Situation</span>
+        </div>
+      </div>
+
+      <!-- Right: actions -->
+      <div class="ph-right">
+        <span class="save-status">
+          <i class="fa-solid fa-circle-check"></i>
+          Saved just now
+        </span>
+        <button class="ph-icon-btn" id="btn-support-center"><i class="fa-regular fa-circle-question"></i></button>
+        <vaadin-tooltip for="btn-support-center" text="Support Center" position="bottom"></vaadin-tooltip>
+        <button class="ph-icon-btn" title="Comments"><i class="fa-regular fa-comment"></i></button>
+        <button class="ph-icon-btn" title="Export" data-menu="dd-export"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+        <button class="ph-publish-btn">Publish</button>
+      </div>
+    </header>
+
+    <!-- ===== Body: hub of the 3 scenario domains ===== -->
+    <div id="main-content">
+      <div id="content-header">
+        <div class="ch-left">
+          <div class="ch-title">Scenario builder</div>
+          <div class="ch-desc">Build your scenario across three areas. Open any one to generate, configure, and edit it.</div>
+        </div>
+        <div class="ch-right">
+          <div class="stat-pill progress"><i class="fa-regular fa-circle-dot"></i><span>Setup complete</span></div>
+          <div class="stat-pill draft"><i class="fa-regular fa-pen-to-square"></i><span>Draft</span></div>
+        </div>
+      </div>
+
+      <div id="content-body">
+        <div class="hub-label">Build areas</div>
+        <div class="section-block">
+
+          <!-- 1 · Introduction (objectManager-style scene editor → video output) -->
+          <div class="domain-row">
+            <span class="domain-num">1</span>
+            <div class="domain-status-bar in-progress"></div>
+            <span class="domain-icon"><i class="fa-solid fa-film"></i></span>
+            <a class="domain-info" href="scenario-introduction.html?section=scenes">
+              <div class="domain-title-row">
+                <span class="domain-title">Introduction</span>
+                <span class="domain-pill in-progress">In progress</span>
+              </div>
+              <div class="domain-sub">The scene-by-scene intro video that sets up who the learner is and the situation they're dropped into.</div>
+            </a>
+            <div class="domain-go"><i class="fa-solid fa-chevron-right"></i></div>
+          </div>
+
+          <!-- 2 · Scenario (complex interaction editor — designed next) -->
+          <div class="domain-row">
+            <span class="domain-num">2</span>
+            <div class="domain-status-bar not-started"></div>
+            <span class="domain-icon violet"><i class="fa-solid fa-comments"></i></span>
+            <a class="domain-info" href="scenario-introduction.html?section=interaction">
+              <div class="domain-title-row">
+                <span class="domain-title">Scenario</span>
+                <span class="domain-pill not-started">Not started</span>
+              </div>
+              <div class="domain-sub">The core interaction — AI guidelines, conversational boundaries, and how the scenario plays out with the learner.</div>
+            </a>
+            <div class="domain-go"><i class="fa-solid fa-chevron-right"></i></div>
+          </div>
+
+          <!-- 3 · Results & Summary (designed next) -->
+          <div class="domain-row">
+            <span class="domain-num">3</span>
+            <div class="domain-status-bar not-started"></div>
+            <span class="domain-icon teal"><i class="fa-solid fa-flag-checkered"></i></span>
+            <a class="domain-info" href="scenario-introduction.html?section=results">
+              <div class="domain-title-row">
+                <span class="domain-title">Results &amp; Summary</span>
+                <span class="domain-pill not-started">Not started</span>
+              </div>
+              <div class="domain-sub">How the scenario wraps up — outcomes, reflection, summary, and supporting resources for the learner.</div>
+            </a>
+            <div class="domain-go"><i class="fa-solid fa-chevron-right"></i></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export menu (portalled, from courseOverview) -->
+  <div class="dropdown" id="dd-export">
+    <button class="dd-item"><i class="fa-solid fa-clock fa-fw"></i> Timed Outline</button>
+    <button class="dd-item"><i class="fa-solid fa-box-archive fa-fw"></i> JAM Package</button>
+    <button class="dd-item"><i class="fa-solid fa-code fa-fw"></i> CML</button>
+    <button class="dd-item"><i class="fa-solid fa-key fa-fw"></i> Q &amp; A Key</button>
+  </div>
+
+  <script>
+    // ---- Read the created project (passed from scenario-setup.html) ----
+    // The setup CTA is the point a real, retrievable project would be created;
+    // here we carry the captured setup forward via URL params so this screen
+    // reflects the specific scenario. Falls back to the sample Marshall values.
+    const params = new URLSearchParams(location.search);
+
+    const TEMPLATE_LABELS = {
+      'roleplay':   'Roleplay',
+      'guided-arc': 'Guided Arc',
+      'observe':    'Observe / React',
+      'teach-back': 'Teach-Back',
+      'upload':     'Custom template',
+    };
+
+    const projTitle = params.get('name') || 'Bystander to Harassment — The Marshall Situation';
+    const template  = params.get('template') || 'guided-arc';
+    const templateLabel = TEMPLATE_LABELS[template] || 'Guided Arc';
+
+    document.getElementById('ph-title').textContent = projTitle;
+    document.getElementById('ph-meta').textContent  = `Scenario · ${templateLabel} · Draft`;
+
+    // ---- Export dropdown (delegated, from courseOverview) ----
+    let activeDropdown = null;
+    function openDropdown(menu, trigger) {
+      if (activeDropdown) closeDropdown();
+      const rect = trigger.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 4) + 'px';
+      menu.style.left = rect.left + 'px';
+      menu.classList.add('show');
+      activeDropdown = menu;
+    }
+    function closeDropdown() {
+      if (activeDropdown) { activeDropdown.classList.remove('show'); activeDropdown = null; }
+    }
+    document.querySelectorAll('[data-menu]').forEach(trigger => {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = document.getElementById(trigger.dataset.menu);
+        if (!menu) return;
+        if (menu === activeDropdown) { closeDropdown(); return; }
+        openDropdown(menu, trigger);
+        requestAnimationFrame(() => {
+          const rect = trigger.getBoundingClientRect();
+          const menuWidth = menu.offsetWidth;
+          let left = rect.right - menuWidth;
+          if (left < 8) left = 8;
+          menu.style.left = left + 'px';
+        });
+      });
+    });
+    document.addEventListener('click', () => closeDropdown());
+  </script>
+</body>
+</html>

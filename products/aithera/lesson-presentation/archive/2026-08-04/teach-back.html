@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Teach-back — HazCom Teach Me (Live AI)</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <!-- Vector Web Components: Themes -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <style>
+      /* Frame integration for this full-viewport app shell: the frame is embedded
+         as the first flex child of .app (see the window.LESSON_FRAME config near
+         the end of the page), so the app's own top bar would just duplicate it —
+         hide it and let its Restart button ride the frame's actions slot. The
+         fixed .scrim must also start BELOW the frame so it dims only the stage. */
+      .topbar { display: none !important; }
+      .app .scrim { inset: var(--header-h) 0 0 0; }
+    </style>
+
+
+    <!-- ====================================================================
+         TEACH ME — a HazCom teach-back built on the conversation-simulator
+         shell. Same chrome as Action Practice: a slim top bar, a warm dark
+         "stage" as the persistent base, an AI-coach bottom sheet that rises
+         over it, and the same input-bar state machine. Two differences:
+
+           · The establishing card is the "Teach me" title slide (same format
+             as "Kendra's room").
+           · The practice ISN'T a scripted dialogue — it's the teach-back:
+             10 blurred topic tiles that come into focus as the learner
+             explains each one (speaking or typing), graded live by Claude.
+
+         Self-contained vanilla JS, render-by-state. The coach chat, live
+         grading, stuck hints, and closing feedback run on real Claude through
+         the same Cloudflare Worker proxy the other Live AI experiments use.
+         ==================================================================== */ -->
+    <style>
+      /* ===================================================================
+         1. TOKENS  — coaching world is theme-aware; scene world is a dark
+            "stage" (identical to the conversation simulator).
+         =================================================================== */
+      :root {
+        color-scheme: light dark;
+        --c-bg:          #f5f7fb;
+        --c-surface:     #ffffff;
+        --c-surface-2:   #eef1f7;
+        --c-ink:         #1a2030;
+        --c-ink-soft:    #5a6379;
+        --c-ink-faint:   #67718a;
+        --c-line:        #e3e7f0;
+        --c-accent:      #4b63e6;
+        --c-accent-strong:#3a4fce;
+        --c-accent-soft: #eef1fe;
+        --c-on-accent:   #ffffff;
+
+        --s-ink:         #f3ede5;
+        --s-ink-soft:    #c3b6a8;
+        --s-ink-faint:   #a89b8c;
+        --s-surface:     #211a16;
+        --s-surface-2:   #2c241e;
+        --s-line:        #43372e;
+        --s-char:        #c79bff;
+        --s-you:         #f1b34a;
+        --s-you-soft:    rgba(241,179,74,.16);
+        --s-you-ink:     #2a1d08;
+        --s-ok:          #4fd08a;   /* covered / revealed on the dark stage */
+        --s-ok-soft:     rgba(79,208,138,.14);
+
+        --scene-paint:
+          radial-gradient(120% 80% at 80% 0%, rgba(241,179,74,.10), transparent 60%),
+          radial-gradient(120% 90% at 10% 100%, rgba(199,155,255,.10), transparent 55%),
+          linear-gradient(170deg, #1a1410 0%, #120d0a 100%);
+
+        --radius:   16px;
+        --radius-sm:10px;
+        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --ease: cubic-bezier(.4, 0, .2, 1);
+
+        --topbar-h: 52px;
+        --input-h:  104px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --c-bg:          #0c0f17;
+          --c-surface:     #161b27;
+          --c-surface-2:   #1e2433;
+          --c-ink:         #e9ecf4;
+          --c-ink-soft:    #9aa3b8;
+          --c-ink-faint:   #8b94a8;
+          --c-line:        #29303f;
+          --c-accent:      #8092ff;
+          --c-accent-strong:#9aa8ff;
+          --c-accent-soft: #1b2236;
+          --c-on-accent:   #0c0f17;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+          --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      button { font-family: inherit; }
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+
+      /* ===================================================================
+         2. APP SHELL + TOP BAR
+         =================================================================== */
+      .app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+      .topbar {
+        flex: 0 0 auto; height: var(--topbar-h);
+        display: flex; align-items: center; gap: 12px;
+        padding: 0 16px; background: var(--c-surface);
+        border-bottom: 1px solid var(--c-line); z-index: 60;
+      }
+      .topbar .brand { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+      .topbar .brand .badge {
+        display: inline-flex; align-items: center; gap: 7px;
+        color: var(--c-ink); font-size: 13.5px; font-weight: 700;
+        letter-spacing: .01em; white-space: nowrap;
+      }
+      .topbar .brand .badge i { color: var(--c-accent); font-size: 13px; }
+      .topbar .scenario {
+        font-size: 13px; color: var(--c-ink-faint); white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; min-width: 0;
+      }
+      .topbar .scenario::before {
+        content: ""; display: inline-block; width: 1px; height: 15px;
+        margin-right: 12px; background: var(--c-line); vertical-align: -2px;
+      }
+      .topbar .spacer { flex: 1 1 auto; }
+      .topbar .tb-btn {
+        display: inline-flex; align-items: center; gap: 7px; height: 34px;
+        padding: 0 13px; border: 1px solid var(--c-line); border-radius: 9px;
+        background: var(--c-surface); color: var(--c-ink-soft);
+        font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .topbar .tb-btn:hover { border-color: var(--c-accent); color: var(--c-ink); }
+      .topbar .tb-btn i { font-size: 12px; }
+      @media (max-width: 560px) {
+        .topbar .scenario { display: none; }
+        .topbar .tb-btn .label { display: none; }
+        .topbar .tb-btn { padding: 0 10px; }
+      }
+
+      .viewport { flex: 1 1 auto; position: relative; min-height: 0; display: flex; flex-direction: column; }
+
+      /* ===================================================================
+         3. PROGRESS STRIP  — persistent teach-mode status (N / 10 + Done).
+            Occupies the same slot the simulator uses for its mode toggle.
+         =================================================================== */
+      .progress-strip {
+        flex: 0 0 auto; position: relative; z-index: 56;
+        display: flex; align-items: center; justify-content: center; gap: 16px;
+        padding: 9px 16px; font-size: 12px; max-height: 60px; overflow: hidden;
+        background: #15100c; border-bottom: 1px solid #2c2118; color: var(--s-ink-soft);
+        transition: max-height .45s var(--ease), opacity .4s var(--ease),
+                    padding .45s var(--ease), transform .45s var(--ease);
+      }
+      .progress-strip.is-hidden {
+        max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0;
+        border-bottom-color: transparent; transform: translateY(-10px); pointer-events: none;
+      }
+      .progress-strip .count { font-weight: 800; font-size: 13px; color: var(--s-ink); }
+      .progress-strip .count b { color: var(--s-you); }
+      .progress-strip .bar { width: 120px; height: 7px; border-radius: 999px; background: #2c2118; overflow: hidden; }
+      .progress-strip .bar > span {
+        display: block; height: 100%; width: 0%;
+        background: linear-gradient(90deg, var(--s-you), var(--s-ok));
+        border-radius: 999px; transition: width .5s var(--ease);
+      }
+      .progress-strip .done-btn {
+        display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 14px;
+        border: 1px solid #43372e; border-radius: 999px; background: #221a13;
+        color: var(--s-ink); font-size: 12.5px; font-weight: 700; cursor: pointer;
+        transition: border-color .15s var(--ease), filter .15s var(--ease);
+      }
+      .progress-strip .done-btn:hover { border-color: var(--s-you); }
+      .progress-strip .done-btn i { font-size: 11px; }
+
+      /* ===================================================================
+         4. THE STAGE  — persistent warm dark base
+         =================================================================== */
+      .stage {
+        flex: 1 1 auto; min-height: 0; overflow-y: auto; position: relative;
+        background: var(--scene-paint);
+        transition: filter .2s var(--ease), opacity .2s var(--ease);
+      }
+      .stage-inner {
+        max-width: 760px; margin: 0 auto; padding: 24px 18px 32px;
+        display: flex; flex-direction: column; gap: 16px; min-height: 100%;
+      }
+      .stage.is-frozen { filter: blur(2.5px); pointer-events: none; user-select: none; }
+
+      /* —— Establishing card = the "Teach me" title slide —— */
+      .establishing {
+        margin: auto; max-width: 500px; text-align: center;
+        display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px;
+      }
+      .est-eyebrow {
+        font-size: 12px; font-weight: 700; letter-spacing: .18em;
+        text-transform: uppercase; color: var(--s-ink-faint);
+      }
+      .est-title {
+        margin: 0; font-size: clamp(30px, 6vw, 52px); font-weight: 800;
+        letter-spacing: -.02em; color: var(--s-ink); line-height: 1.03;
+      }
+      .est-title .accent { color: var(--s-you); }
+      .est-sub {
+        margin: 0; max-width: 40ch; font-size: 15px; line-height: 1.6;
+        text-align: center; color: var(--s-ink-soft);
+      }
+      .est-meta {
+        margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+        font-size: 12.5px; color: var(--s-ink-faint);
+      }
+      .est-meta span { display: inline-flex; align-items: center; gap: 7px; }
+
+      /* ===================================================================
+         5. TEACH — 10 target slots that fill in as the learner teaches them.
+            The slots show the SHAPE of the task (10 topics to hit) without
+            giving away the answers; each fills with its label once covered.
+         =================================================================== */
+      .slots-head { max-width: 720px; margin: 0 auto 2px; width: 100%; text-align: center; }
+      .slots-head h2 { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -.01em; color: var(--s-ink); }
+      .slots-head p { margin: 0; font-size: 13px; color: var(--s-ink-soft); }
+      .slots { max-width: 720px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      @media (max-width: 620px) { .slots { grid-template-columns: 1fr; } }
+      .slot {
+        position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px;
+        padding: 13px 15px; border-radius: 14px; border: 1px dashed var(--s-line);
+        background: rgba(255,255,255,.015);
+        transition: background .5s var(--ease), border-color .5s var(--ease);
+      }
+      .slot .num {
+        flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px;
+        background: var(--s-surface-2); border: 1px solid var(--s-line);
+        display: grid; place-items: center; font-weight: 800; font-size: 13px; color: var(--s-ink-faint);
+      }
+      .slot .ph { flex: 1 1 auto; height: 9px; border-radius: 999px; background: linear-gradient(90deg, var(--s-line), transparent); opacity: .55; }
+      .slot .lbl { display: none; flex: 1 1 auto; font-size: 14px; line-height: 1.4; font-weight: 600; color: var(--s-ink); }
+      .slot .check { position: absolute; top: 12px; right: 14px; font-size: 15px; color: var(--s-ok); opacity: 0; transform: scale(.5); transition: all .4s var(--ease); }
+      .slot.covered { border-style: solid; border-color: var(--s-ok); background: var(--s-ok-soft); animation: pop .5s var(--ease); }
+      .slot.covered .num { background: var(--s-ok); color: #0c1710; border-color: var(--s-ok); }
+      .slot.covered .ph { display: none; }
+      .slot.covered .lbl { display: block; }
+      .slot.covered .check { opacity: 1; transform: scale(1); }
+      @keyframes pop { 0% { transform: scale(1);} 40% { transform: scale(1.02);} 100% { transform: scale(1);} }
+
+      /* Interim speech ("what you're saying right now") */
+      .transcript { min-height: 22px; font-size: 14px; font-style: italic; color: var(--s-ink-faint); text-align: center; }
+      .transcript .interim { color: var(--s-you); }
+
+      /* Type / Talk toggle — lives in the input foot, shown only while teaching */
+      .io-toggle { display: none; padding: 3px; gap: 3px; border-radius: 999px; background: #221a13; border: 1px solid #3a2f28; margin-left: auto; }
+      .app[data-mode="scene"] .io-toggle { display: inline-flex; }
+      .io-toggle button {
+        border: 0; background: transparent; color: var(--s-ink-soft); font: inherit; font-size: 12px; font-weight: 700;
+        border-radius: 999px; height: 26px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+      }
+      .io-toggle button i { font-size: 11px; }
+      .io-toggle button[aria-pressed="true"] { background: var(--s-you); color: var(--s-you-ink); }
+      .io-toggle button:disabled { opacity: .4; cursor: not-allowed; }
+
+      /* Nudge — a gentle amber flash in the hint line when a submission lands no new topic */
+      .input-foot .hint.nudge { color: var(--s-you); font-weight: 700; }
+
+      /* Intro modal — instructions shown over the (dimmed, visible) board */
+      .intro-modal {
+        position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+        padding: 20px; background: rgba(8,6,4,.55);
+      }
+      .intro-modal[hidden] { display: none; }
+      .intro-card {
+        width: 100%; max-width: 470px; background: var(--c-surface); border: 1px solid var(--c-line);
+        border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 24px; display: flex; flex-direction: column; gap: 13px;
+      }
+      .intro-card .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--c-accent); }
+      .intro-card h2 { margin: 0; font-size: 22px; font-weight: 800; }
+      .intro-card p { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--c-ink-soft); }
+      .intro-choose { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--c-ink-faint); margin-top: 4px; }
+      .io-pick { display: flex; gap: 10px; }
+      .io-pick button {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 14px 10px; cursor: pointer;
+        border: 1.5px solid var(--c-line); border-radius: 12px; background: var(--c-bg); color: var(--c-ink);
+        font: inherit; font-weight: 700; font-size: 14px; transition: border-color .15s var(--ease), background .15s var(--ease);
+      }
+      .io-pick button i { font-size: 18px; color: var(--c-accent); }
+      .io-pick button small { font-weight: 600; font-size: 11.5px; color: var(--c-ink-faint); }
+      .io-pick button[aria-pressed="true"] { border-color: var(--c-accent); background: var(--c-accent-soft); }
+      .io-pick button:disabled { opacity: .45; cursor: not-allowed; }
+      .intro-card .intro-start { align-self: stretch; margin-top: 6px; }
+
+      /* ===================================================================
+         6. COACH MESSAGES (in the bottom sheet)
+         =================================================================== */
+      .coach-msg { display: flex; gap: 11px; align-items: flex-start; max-width: 65%; }
+      .coach-avatar {
+        flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
+        color: #fff; font-size: 14px; box-shadow: var(--shadow-sm);
+      }
+      .coach-body { min-width: 0; }
+      .coach-label {
+        font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--c-ink-faint); margin: 3px 0 5px;
+      }
+      .coach-bubble {
+        background: var(--c-surface); border: 1px solid var(--c-line);
+        border-radius: 4px 16px 16px 16px; padding: 12px 15px;
+        font-size: 15px; line-height: 1.55; color: var(--c-ink);
+        white-space: pre-wrap; box-shadow: var(--shadow-sm);
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
+      }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
+
+      .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 65%; margin-left: auto; }
+      .you-coach .cap {
+        font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--c-ink-faint); margin: 0 2px 5px 0;
+      }
+      .you-coach .bubble {
+        background: var(--c-accent); color: var(--c-on-accent);
+        border-radius: 16px 4px 16px 16px; padding: 11px 15px;
+        font-size: 15px; line-height: 1.5; white-space: pre-wrap; box-shadow: var(--shadow-sm);
+      }
+
+      /* ===================================================================
+         7. COACH SHEET + SCRIM
+         =================================================================== */
+      .scrim {
+        position: fixed; inset: 0; z-index: 45; background: rgba(8,10,20,.42);
+        opacity: 0; pointer-events: none; transition: opacity .22s var(--ease);
+      }
+      .app.coach-up .scrim { opacity: 1; pointer-events: auto; }
+      .coach-panel {
+        position: fixed; left: 0; right: 0; bottom: var(--input-h); z-index: 50;
+        height: auto; max-height: 56vh; max-width: 860px; margin: 0 auto;
+        background: var(--c-surface); border: 1px solid var(--c-line); border-bottom: 0;
+        border-radius: var(--radius) var(--radius) 0 0; box-shadow: var(--shadow-lg);
+        display: flex; flex-direction: column; overflow: hidden;
+        transform: translateY(120%); transition: transform .24s var(--ease);
+      }
+      .app.coach-up .coach-panel { transform: none; }
+      @media (max-height: 620px) { .coach-panel { max-height: 62vh; } }
+      .coach-panel-head {
+        flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+        padding: 13px 16px 12px; border-bottom: 1px solid var(--c-line);
+      }
+      .coach-panel-head .ttl {
+        display: inline-flex; align-items: center; gap: 8px; font-size: 12px;
+        font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--c-accent-strong);
+      }
+      .coach-panel-head .spacer { flex: 1 1 auto; }
+      .coach-panel-body {
+        flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 16px 22px;
+        display: flex; flex-direction: column; gap: 14px;
+      }
+
+      /* ===================================================================
+         8. INPUT BAR
+         =================================================================== */
+      .inputbar {
+        position: relative; z-index: 55; flex: 0 0 auto; min-height: 104px;
+        display: flex; flex-direction: column; justify-content: center;
+        background: var(--c-surface); border-top: 1px solid var(--c-line);
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        transition: background .2s var(--ease), border-color .2s var(--ease);
+      }
+      .input-row { max-width: 760px; margin: 0 auto; display: flex; align-items: flex-end; gap: 10px; width: 100%; }
+      .input-shell {
+        flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 8px;
+        border: 1.5px solid var(--c-line); border-radius: 14px; background: var(--c-bg);
+        padding: 4px 6px 4px 6px;
+        transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+      }
+      .input-shell:focus-within { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); }
+      .mic-btn {
+        flex: 0 0 auto; align-self: center; width: 36px; height: 36px; border-radius: 10px;
+        border: 1px solid var(--c-line); background: var(--c-surface); color: var(--c-accent);
+        font-size: 14px; cursor: pointer; display: grid; place-items: center;
+        transition: border-color .15s var(--ease), background .15s var(--ease);
+      }
+      .mic-btn:hover { border-color: var(--c-accent); }
+      .mic-btn.on { background: #e5484d; border-color: #e5484d; color: #fff; animation: pulse 1.6s infinite; }
+      @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(229,72,77,.5);} 50% { box-shadow: 0 0 0 8px rgba(229,72,77,0);} }
+      .inputbar textarea {
+        flex: 1 1 auto; resize: none; border: 0; background: transparent; outline: none;
+        font: inherit; font-size: 15px; line-height: 1.45; color: var(--c-ink);
+        max-height: 120px; padding: 9px 4px;
+      }
+      .inputbar textarea::placeholder { color: var(--c-ink-faint); }
+      .send-btn {
+        flex: 0 0 auto; width: 40px; align-self: stretch; min-height: 40px; border: 0;
+        border-radius: 11px; background: var(--c-accent); color: var(--c-on-accent);
+        font-size: 15px; cursor: pointer; transition: background .15s var(--ease), transform .1s var(--ease);
+      }
+      .send-btn:hover { background: var(--c-accent-strong); }
+      .send-btn:active { transform: scale(.95); }
+      .send-btn:disabled { opacity: .45; cursor: default; }
+      .input-main[hidden], .input-entry[hidden], .input-analyzing[hidden], .input-done[hidden] { display: none; }
+      .input-foot {
+        max-width: 760px; margin: 8px auto 0; display: flex; align-items: center; gap: 12px;
+        font-size: 11.5px; color: var(--c-ink-faint); width: 100%;
+      }
+      .input-foot .hint { flex: 1 1 auto; }
+      .input-foot .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--s-ok); flex: 0 0 auto; }
+
+      /* Scene-targeted (teaching) input: warm amber treatment */
+      .app[data-target="character"] .inputbar { background: #15100c; border-top-color: #2c2118; }
+      .app[data-target="character"] .input-shell { background: #221a13; border-color: #43372e; }
+      .app[data-target="character"] .input-shell:focus-within { border-color: var(--s-you); box-shadow: 0 0 0 3px var(--s-you-soft); }
+      .app[data-target="character"] .mic-btn { background: #2c241e; border-color: #43372e; color: var(--s-you); }
+      .app[data-target="character"] .mic-btn.on { background: #e5484d; border-color: #e5484d; color: #fff; }
+      .app[data-target="character"] .inputbar textarea { color: var(--s-ink); }
+      .app[data-target="character"] .inputbar textarea::placeholder { color: var(--s-ink-faint); }
+      .app[data-target="character"] .send-btn { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-target="character"] .send-btn:hover { filter: brightness(1.06); background: var(--s-you); }
+      .app[data-target="character"] .input-foot { color: var(--s-ink-faint); }
+
+      .input-entry { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+      .enter-cta, .debrief-cta {
+        display: inline-flex; align-items: center; justify-content: center; gap: 11px;
+        padding: 13px 22px; border: 0; border-radius: 12px; font: inherit; font-size: 15px;
+        font-weight: 700; cursor: pointer; transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .enter-cta {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f); color: var(--s-you-ink);
+        box-shadow: 0 6px 18px rgba(241,179,74,.26);
+      }
+      .debrief-cta { background: var(--c-accent); color: var(--c-on-accent); box-shadow: 0 6px 18px rgba(75,99,230,.26); }
+      .enter-cta:hover, .debrief-cta:hover { filter: brightness(1.06); }
+      .enter-cta:active, .debrief-cta:active { transform: scale(.98); }
+      .enter-cta .arrow, .debrief-cta .arrow { transition: transform .15s var(--ease); }
+      .enter-cta:hover .arrow, .debrief-cta:hover .arrow { transform: translateX(3px); }
+      .keep-talking {
+        display: inline-flex; align-items: center; gap: 8px; border: 0; background: none;
+        color: var(--c-ink-soft); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        padding: 4px 8px; border-radius: 8px; transition: color .15s var(--ease), background .15s var(--ease);
+      }
+      .keep-talking:hover { color: var(--c-ink); background: var(--c-surface-2); }
+      .keep-talking i { font-size: 12px; opacity: .8; }
+
+      .input-analyzing, .input-done {
+        max-width: 760px; margin: 0 auto; display: flex; align-items: center; justify-content: center;
+        gap: 11px; padding: 15px 14px; color: var(--c-ink-soft); font-size: 14px; font-weight: 600;
+      }
+      .input-analyzing .dots { display: inline-flex; gap: 4px; }
+      .input-analyzing .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent); animation: bob 1.2s infinite ease-in-out; }
+      .input-analyzing .dots span:nth-child(2) { animation-delay: .15s; }
+      .input-analyzing .dots span:nth-child(3) { animation-delay: .3s; }
+      .input-done i { color: #16a34a; }
+
+      /* Typing indicator */
+      .typing {
+        align-self: flex-start; display: inline-flex; gap: 5px; padding: 13px 15px;
+        border-radius: 14px; background: var(--c-surface); border: 1px solid var(--c-line); box-shadow: var(--shadow-sm);
+      }
+      .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--c-ink-faint); animation: bob 1.2s infinite ease-in-out; }
+      .typing span:nth-child(2) { animation-delay: .15s; }
+      .typing span:nth-child(3) { animation-delay: .3s; }
+      @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+      .coach-msg.enter, .you-coach.enter, .establishing.enter, .tiles-wrap.enter {
+        animation: msg-enter .34s var(--ease) both;
+      }
+      @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
+      /* The debrief presentation — closing stepper, results modal, score
+         ring — is styled by the SHARED Section-3 module (js/sim-debrief.js
+         injects one canonical stylesheet) so the close renders identically
+         on every simulator page. Theme colors still resolve from this
+         page's CSS variables above. */
+
+      @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+        .stage.is-frozen { filter: brightness(.7); }
+        .mic-btn.on { animation: none; }
+      }
+    </style>
+</head>
+<body>
+    <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
+      <h1 class="sr-only">Teach-back — Applying HazCom: The Teach Me Exercise</h1>
+
+      <!-- Top bar -->
+      <header class="topbar">
+        <span class="brand"><span class="badge"><i class="fa-solid fa-chalkboard-user"></i> Teach-back</span></span>
+        <span class="scenario" id="scenarioName">Applying HazCom: The Teach Me Exercise</span>
+        <span class="spacer"></span>
+        <button class="tb-btn" id="restartBtn" aria-label="Restart"><i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span></button>
+      </header>
+
+      <!-- Viewport: progress strip + live stage -->
+      <main class="viewport">
+        <div class="progress-strip is-hidden" id="progressStrip" aria-hidden="true">
+          <span class="count"><b id="meterN">0</b> / <b id="meterTotal">10</b> taught</span>
+          <span class="bar"><span id="meterBar"></span></span>
+          <button class="done-btn" id="doneBtn"><i class="fa-solid fa-flag-checkered"></i> Done</button>
+        </div>
+        <section class="stage" id="stage" aria-label="Teach-back activity">
+          <div class="stage-inner" id="stageInner" aria-live="polite"><!-- built by JS --></div>
+        </section>
+      </main>
+
+      <!-- AI Coach bottom sheet -->
+      <div class="scrim" id="scrim"></div>
+      <aside class="coach-panel" id="coachPanel" role="region" aria-label="AI Coach" aria-hidden="true" inert>
+        <div class="coach-panel-head">
+          <span class="ttl"><i class="fa-solid fa-chalkboard-user"></i> AI Coach</span>
+          <span class="spacer"></span>
+        </div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
+      </aside>
+
+      <!-- Input bar -->
+      <footer class="inputbar">
+        <!-- Start: anchored on the title slide; the learner chooses to begin -->
+        <div class="input-entry" id="inputStart">
+          <button class="debrief-cta" id="startCtaBtn"><i class="fa-solid fa-arrow-right-to-bracket"></i> Continue <i class="fa-solid fa-arrow-right arrow"></i></button>
+        </div>
+        <!-- Composer (coach chat + teaching) -->
+        <div class="input-main" id="inputMain" hidden>
+          <div class="input-row">
+            <div class="input-shell">
+              <button class="mic-btn" id="micBtn" aria-label="Speak" title="Speak"><i class="fa-solid fa-microphone"></i></button>
+              <textarea id="composer" rows="1" placeholder="Type your reply…" aria-label="Your message"></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+          <div class="input-foot">
+            <span class="live-dot"></span><span class="hint" id="inputHint">Enter to send · Shift+Enter for a new line</span>
+            <div class="io-toggle" id="ioToggle" role="group" aria-label="Input mode">
+              <button id="modeTalkBtn" aria-pressed="false"><i class="fa-solid fa-microphone"></i> Talk</button>
+              <button id="modeTypeBtn" aria-pressed="true"><i class="fa-solid fa-keyboard"></i> Type</button>
+            </div>
+          </div>
+        </div>
+        <!-- "Start teaching" after the framing chat -->
+        <div class="input-entry" id="inputEntry" hidden>
+          <button class="enter-cta" id="startTeachingBtn"><i class="fa-solid fa-chalkboard-user"></i> Start teaching <i class="fa-solid fa-arrow-right arrow"></i></button>
+        </div>
+        <!-- Stuck / Done: coach hint is up; keep going or wrap up -->
+        <div class="input-entry" id="inputStuck" hidden>
+          <button class="enter-cta" id="keepTeachingBtn"><i class="fa-solid fa-arrow-right-to-bracket"></i> Keep teaching <i class="fa-solid fa-arrow-right arrow"></i></button>
+          <button class="keep-talking" id="finishBtn"><i class="fa-solid fa-flag-checkered"></i> I'm done — score me</button>
+        </div>
+        <!-- Analyzing beat -->
+        <div class="input-analyzing" id="inputAnalyzing" hidden><span class="dots"><span></span><span></span><span></span></span> Checking what you covered…</div>
+        <!-- Results CTA -->
+        <div class="input-entry" id="inputResults" hidden>
+          <button class="debrief-cta" id="resultsCtaBtn"><i class="fa-solid fa-chart-simple"></i> See your score <i class="fa-solid fa-arrow-right arrow"></i></button>
+        </div>
+        <!-- Continue to next activity -->
+        <div class="input-entry" id="inputContinue" hidden>
+          <button class="debrief-cta" id="continueCtaBtn">Next activity <i class="fa-solid fa-arrow-right arrow"></i></button>
+        </div>
+        <div class="input-done" id="inputDone" hidden><i class="fa-solid fa-circle-check"></i> Activity complete</div>
+      </footer>
+
+      <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    </div>
+
+    <!-- Intro modal — instructions over the (visible, dimmed) board -->
+    <div class="intro-modal" id="introModal" hidden role="dialog" aria-modal="true" aria-label="How the teach-back works">
+      <div class="intro-card" id="introCard" tabindex="-1">
+        <span class="eyebrow">Your turn to teach</span>
+        <h2>Teach it back</h2>
+        <p>The cards behind this are the topics a complete training must cover. Explain each one in your own words — in any order — and it locks in. Cover as many as you can, then tap <b>Done</b>. If you go quiet, your coach will step in with a hint.</p>
+        <span class="intro-choose">How do you want to teach?</span>
+        <div class="io-pick" id="ioPick">
+          <button id="pickTalkBtn" aria-pressed="false"><i class="fa-solid fa-microphone"></i> Talk it out <small>Speak your answers</small></button>
+          <button id="pickTypeBtn" aria-pressed="true"><i class="fa-solid fa-keyboard"></i> Type it <small>Write your answers</small></button>
+        </div>
+        <button class="debrief-cta intro-start" id="introStartBtn"><i class="fa-solid fa-arrow-right"></i> Start teaching</button>
+      </div>
+    </div>
+
+    <!-- Results modal (N / 10) -->
+    <!-- The score modal (ring + headline + feedback) is BUILT by the shared
+         Section-3 debrief: SimDebrief.ensureModal() injects the dialog and
+         SimDebrief.scorePage() renders the ring — see openScore() below. -->
+
+    <!-- Scenario type + published-draft plumbing. The engine + type register
+         AitheraStudio.get('teach-back'); this page reads whatever the Writer
+         Studio published (or the shipped default). -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario-types/teach-back.js?v=6"></script>
+    <!-- Shared simulator framework — one implementation under every mode:
+         sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
+         sim-context  the Section-1 → Section-2 coupler (ContextRecord)
+         sim-debrief  the Section-3 close (stepper, results modal, score ring) -->
+    <script src="js/sim-core.js?v=5"></script>
+    <script src="js/sim-context.js?v=1"></script>
+    <script src="js/sim-debrief.js?v=5"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
+
+    <script>
+    /* =====================================================================
+       TEACH ME — controller (vanilla, render-by-state). Drives the same
+       simulator shell as Action Practice. Live LLM: coach framing chat,
+       tile-coverage grading, stuck hints, and closing feedback — through
+       the shared Cloudflare Worker proxy.
+
+       Content (topics + the three prompts) is authored data: the scenario
+       type js/scenario-types/teach-back.js supplies the DEFAULT, and the
+       Writer Studio can publish a revised scenario this page picks up. See
+       ACTIVE below.
+       ===================================================================== */
+
+    /* ---- active scenario: published draft, else the shipped default ------ */
+    const TB_TYPE = window.AitheraStudio && window.AitheraStudio.get('teach-back');
+    const TB_PUBLISHED = TB_TYPE ? TB_TYPE.store.loadPublished() : null;
+    const ACTIVE = TB_PUBLISHED ? TB_PUBLISHED.scenario : (TB_TYPE ? TB_TYPE.DEFAULT : null);
+
+    // The page hard-depends on the engine + type module (same-origin scripts
+    // above). If either failed to load/register, fail loud instead of throwing
+    // an opaque TypeError at parse time and white-screening.
+    if (!ACTIVE) {
+      document.getElementById('app').innerHTML =
+        '<div style="padding:48px;max-width:32rem;margin:0 auto;text-align:center;color:var(--ink,#333)">'
+        + '<h2>Couldn\'t load this exercise</h2><p>Its scenario data didn\'t load. Refresh the page; if it keeps happening, the studio scripts may be missing from this deploy.</p></div>';
+      throw new Error('teach-back: scenario type not registered (AitheraStudio missing?)');
+    }
+
+    /* Model plumbing is SHARED (js/sim-core.js): one proxy Worker and one
+       model registry. Teach-back's multi-model split is a MODE decision the
+       registry supports: DIALOGUE voices the calibration chat + closing
+       feedback (quality); FAST does the live tile grading (~1s turnaround). */
+    const MODEL = SimCore.MODELS.DIALOGUE;
+    const FAST_MODEL = SimCore.MODELS.FAST;
+    const IS_LIVE = Boolean(SimCore.WORKER_URL);
+
+    /* ---- REQUIRED TOPICS (authored data; count is dynamic) ----------- */
+    const TOPICS = ACTIVE.topics;
+    const TOPIC_COUNT = TOPICS.length;   // was hardcoded 10 throughout; now follows the scenario
+
+    /* ---- PROMPTS ----------------------------------------------------- */
+    const CHAT_SYSTEM = TB_TYPE.calibratePrompt(ACTIVE);
+
+    function gradeSystem() { return TB_TYPE.gradePrompt(ACTIVE); }
+
+    function closeSystem() { return TB_TYPE.closePrompt(ACTIVE); }
+
+    /* ---- LLM PLUMBING — shared (js/sim-core.js) ----------------------- */
+    /* JSON repair + parse and the proxy call are the ONE implementation
+       every simulator page uses; this thin alias keeps the page's existing
+       call sites (callLLM(system, messages, maxTokens, model)) unchanged. */
+    const parseJson = SimCore.parseJson;
+    function callLLM(system, messages, maxTokens, model) {
+      return SimCore.callModel({ system, messages, maxTokens: maxTokens || 800, model: model || MODEL });
+    }
+
+    /* ---- OFFLINE FALLBACK GRADER ------------------------------------
+       Only runs if the live grader call fails (WORKER_URL unreachable). This
+       is a lossy heuristic, not the real grader. Keywords come from each
+       topic's SYNONYMS only (full phrases + their significant words) — the
+       short label is deliberately excluded, since generic label words like
+       "work"/"chemicals"/"area" are shared across topics and cross-credit. A
+       small stoplist drops the most collision-prone generic words. */
+    const KW_STOP = new Set(['what', 'where', 'when', 'this', 'that', 'them', 'they',
+      'your', 'with', 'from', 'into', 'about', 'work', 'area', 'kept', 'plan', 'know',
+      'stuff', 'things', 'access', 'each', 'some', 'have', 'made']);
+    function topicKeywords(topic) {
+      const phrases = String(topic.synonyms || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const words = phrases.flatMap((p) => p.split(/[^a-z]+/)).filter((w) => w.length > 3 && !KW_STOP.has(w));
+      return [...new Set([...phrases, ...words])];
+    }
+    function fallbackGrade(text) {
+      const t = text.toLowerCase(); const covered = [];
+      TOPICS.forEach((topic, i) => { if (topicKeywords(topic).some((k) => k && t.includes(k))) covered.push(i + 1); });
+      let nudge = '';
+      for (let i = 1; i <= TOPICS.length; i++) { if (!covered.includes(i)) { nudge = 'There\'s at least one required topic you haven\'t touched on yet — keep going.'; break; } }
+      return { covered, nudge };
+    }
+
+    /* ---- STATE ------------------------------------------------------- */
+    const state = {
+      phase: 'start',        // start | framing | teaching | stuck | closing | done
+      chat: [],              // {who:'coach'|'you', text} — the framing conversation
+      coachReady: false,
+      chatBusy: false,
+      covered: new Set(),
+      utterances: [],
+      utterancesAtLastGrade: 0,
+      inputMode: 'type',     // 'type' | 'talk'
+      lastNudge: '',
+      grading: false, gradeTimer: null,
+      silenceTimer: null,
+      doneOffered: false,
+      listening: false,
+      finalScore: 0,
+      close: null,
+    };
+
+    /* ---- DOM + helpers ----------------------------------------------- */
+    const $ = (id) => document.getElementById(id);
+    const app = $('app');
+    const liveRegion = $('liveRegion');
+    const announce = (m) => { liveRegion.textContent = ''; setTimeout(() => { liveRegion.textContent = m; }, 30); };
+    function el(tag, cls, html) { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
+    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; }
+    function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+    // Keep the coach sheet sitting exactly on top of the input bar.
+    function syncInputH() {
+      const h = document.querySelector('.inputbar').offsetHeight;
+      document.documentElement.style.setProperty('--input-h', h + 'px');
+    }
+    window.addEventListener('resize', syncInputH);
+
+    const INPUT_STATES = ['inputStart','inputMain','inputEntry','inputStuck','inputAnalyzing','inputResults','inputContinue','inputDone'];
+    function showInput(which) {
+      INPUT_STATES.forEach((id) => { $(id).hidden = (id !== which); });
+      syncInputH();
+    }
+
+    /* ---- Coach sheet raise / lower ----------------------------------- */
+    function raiseCoach() {
+      app.classList.add('coach-up');
+      $('stage').classList.add('is-frozen');
+      const panel = $('coachPanel');
+      panel.setAttribute('aria-hidden', 'false');
+      panel.removeAttribute('inert');
+      $('scrim').addEventListener('click', () => {}, { once: true });
+      syncInputH();
+    }
+    function lowerCoach() {
+      app.classList.remove('coach-up');
+      $('stage').classList.remove('is-frozen');
+      const panel = $('coachPanel');
+      panel.setAttribute('aria-hidden', 'true');
+      panel.setAttribute('inert', '');
+    }
+    function coachClear() { $('coachPanelBody').replaceChildren(); }
+    function coachSay(text, opts) {
+      opts = opts || {};
+      const body = $('coachPanelBody');
+      const node = el('div', 'coach-msg enter',
+        `<div class="coach-avatar"><i class="fa-solid fa-user-tie"></i></div>
+         <div class="coach-body"><div class="coach-label">AI Coach</div>
+         <div class="coach-bubble">${opts.raw ? text : escapeHtml(text).replace(/\n/g, '<br>')}</div></div>`);
+      body.appendChild(node);
+      // If this coach line poses a question, glow once as it lands (the live-prompt lift).
+      if (/\?/.test(String(text || ''))) { node.classList.add('just-asked'); setTimeout(() => node.classList.remove('just-asked'), 1400); }
+      regroupCoach();
+      body.scrollTop = body.scrollHeight;
+      return node;
+    }
+    function youSay(text) {
+      const body = $('coachPanelBody');
+      const node = el('div', 'you-coach enter', `<div class="cap">You</div><div class="bubble">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`);
+      body.appendChild(node);
+      regroupCoach();
+      body.scrollTop = body.scrollHeight;
+    }
+    /* WhatsApp-style grouping + live-question lift for the imperative coach thread:
+       recomputed after each coachSay/youSay (nodes are appended, not re-rendered).
+       Name shows once at a run's top (grp-first); the avatar attaches to the run's
+       LAST message (grp-last); the final coach line gets .is-prompt while it poses
+       an unanswered question (a "?" with no learner reply after it). */
+    function regroupCoach() {
+      const items = Array.from($('coachPanelBody').children)
+        .filter((n) => n.classList && (n.classList.contains('coach-msg') || n.classList.contains('you-coach')));
+      items.forEach((node, i) => {
+        if (!node.classList.contains('coach-msg')) return;
+        const prev = items[i - 1], next = items[i + 1];
+        node.classList.toggle('grp-first', !prev || !prev.classList.contains('coach-msg'));
+        node.classList.toggle('grp-last',  !next || !next.classList.contains('coach-msg'));
+        node.classList.remove('is-prompt');
+      });
+      const last = items[items.length - 1];
+      if (last && last.classList.contains('coach-msg')) {
+        const b = last.querySelector('.coach-bubble');
+        if (b && /\?/.test(b.textContent || '')) last.classList.add('is-prompt');
+      }
+    }
+    function coachTyping(on) {
+      const body = $('coachPanelBody');
+      let t = body.querySelector('.typing');
+      if (on && !t) { body.appendChild(el('div', 'typing', '<span></span><span></span><span></span>')); body.scrollTop = body.scrollHeight; }
+      else if (!on && t) t.remove();
+    }
+    // How long the coach "writes" a message before it lands — scales with length
+    // so a longer message takes a beat longer, like a real person typing.
+    function typingDelay(text) {
+      const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
+      return Math.min(1700, 400 + words * 55);
+    }
+    // Show the typing indicator for a realistic beat, then reveal the message.
+    async function coachType(text, opts) {
+      coachTyping(true);
+      await wait(typingDelay(text));
+      coachTyping(false);
+      return coachSay(text, opts);
+    }
+
+    /* ===================================================================
+       BOOT — title slide (establishing card)
+       =================================================================== */
+    function renderEstablishing() {
+      // The teaser derives from the scenario's own subject ("a … training") —
+      // a published teach-back must never carry the HazCom demo's copy.
+      const subject = String((ACTIVE && ACTIVE.subject) || '').trim() || 'your training';
+      $('stageInner').replaceChildren(el('div', 'establishing enter',
+        `<span class="est-eyebrow">Knowledge check</span>
+         <h1 class="est-title">Teach <span class="accent">me</span>.</h1>
+         <p class="est-sub">You just wrapped ${escapeHtml(subject)}. Now, let's see if you can teach it!</p>
+         <div class="est-meta">
+           <span><i class="fa-solid fa-comments"></i> Talk with a coach</span>
+           <span><i class="fa-solid fa-microphone"></i> Speak or type</span>
+           <span><i class="fa-solid fa-list-check"></i> Fill in ${TOPIC_COUNT} topics</span>
+         </div>`));
+    }
+    function boot() {
+      // Reflect the active scenario's title, and — when a Writer-Studio draft
+      // is published — flag it in the top bar with a one-click revert.
+      if (ACTIVE && ACTIVE.title) {
+        $('scenarioName').textContent = ACTIVE.title;
+        document.querySelector('h1.sr-only').textContent = 'Teach-back — ' + ACTIVE.title;
+      }
+      // Meter denominator follows the actual topic count. (The score modal's
+      // "of N topics" is rendered by the shared debrief's scorePage.)
+      if ($('meterTotal')) $('meterTotal').textContent = TOPIC_COUNT;
+      if (TB_PUBLISHED) {
+        const chip = document.createElement('button');
+        chip.className = 'tb-btn';
+        chip.innerHTML = '<i class="fa-solid fa-pen-nib"></i><span class="label">Writer scenario</span>';
+        chip.title = 'Running a teach-back published from the Writer Studio'
+          + (TB_PUBLISHED.savedAt ? ' on ' + new Date(TB_PUBLISHED.savedAt).toLocaleString() : '')
+          + '. Click to revert to the shipped scenario.';
+        chip.addEventListener('click', () => {
+          if (confirm('Revert to the shipped teach-back? The published version stays available in the Writer Studio.')) {
+            TB_TYPE.store.clearPublished();
+            location.reload();
+          }
+        });
+        document.querySelector('.topbar .spacer').after(chip);
+      }
+      renderEstablishing();
+      showInput('inputStart');
+      $('progressStrip').classList.add('is-hidden');
+      lowerCoach();
+      syncInputH();
+    }
+
+    /* ===================================================================
+       FRAMING — coach chat in the bottom sheet
+       =================================================================== */
+    // The coach's opening. (The "you just wrapped the course" line now lives on
+    // the title slide, so the chat gets straight to the calibration question.)
+    const OPENING = [ACTIVE.calibrate.openingQuestion];
+
+    async function beginFraming() {
+      state.phase = 'framing';
+      app.dataset.target = 'coach';
+      coachClear();
+      state.chat = OPENING.map((text) => ({ who: 'coach', text }));
+      raiseCoach();
+      showInput('inputMain');
+      $('composer').placeholder = 'Type your reply…';
+      $('inputHint').textContent = 'Enter to send · Shift+Enter for a new line';
+      // The learner replies only AFTER both intro messages have landed — hold the
+      // composer until the coach finishes "writing" them.
+      setComposerEnabled(false);
+      for (const line of OPENING) await coachType(line);
+      setComposerEnabled(true);
+      $('composer').focus();
+    }
+    function setComposerEnabled(on) {
+      $('composer').disabled = !on;
+      $('sendBtn').disabled = !on;
+      $('micBtn').disabled = !on;
+      $('composer').placeholder = on ? 'Type your reply…' : 'The coach is writing…';
+    }
+
+    async function sendFraming(text) {
+      state.chat.push({ who: 'you', text });
+      youSay(text);
+      state.chatBusy = true;
+      coachTyping(true);
+      let reply = { text: '', ready: true };
+      try {
+        if (!IS_LIVE) throw new Error('offline');
+        const raw = await callLLM(CHAT_SYSTEM, toChatMessages(state.chat), 500);
+        const obj = parseJson(raw);
+        reply.text = String(obj.text || '').trim();
+        reply.ready = obj.ready !== false;
+      } catch (e) {
+        reply.text = `Love it — that's exactly the mindset. Whenever you're ready, tap Start teaching and we'll bring those ${TOPIC_COUNT} topics into focus one by one.`;
+        reply.ready = true;
+      }
+      if (!reply.text) reply.text = "Great. Tap Start teaching when you're ready.";
+      coachTyping(false);
+      state.chatBusy = false;
+      state.chat.push({ who: 'coach', text: reply.text });
+      coachSay(reply.text);
+      if (reply.ready) {
+        state.coachReady = true;
+        showInput('inputEntry');
+        announce('Start teaching is now available.');
+      } else {
+        showInput('inputMain');
+        setTimeout(() => $('composer').focus(), 100);
+      }
+    }
+    function toChatMessages(chat) {
+      const out = [];
+      for (const m of chat) {
+        const role = m.who === 'you' ? 'user' : 'assistant';
+        if (out.length && out[out.length - 1].role === role) out[out.length - 1].content += '\n' + m.text;
+        else out.push({ role, content: m.text });
+      }
+      if (out.length && out[0].role === 'assistant') out.unshift({ role: 'user', content: '(begin)' });
+      return out;
+    }
+
+    /* ===================================================================
+       TEACHING — the 10 tiles on the stage
+       =================================================================== */
+    function renderTeachStage() {
+      const head = el('div', 'slots-head', `<h2>${TOPIC_COUNT} required topics</h2><p>Teach each one in your own words — in any order. They fill in as you go.</p>`);
+      const grid = el('div', 'slots'); grid.id = 'slots';
+      TOPICS.forEach((t, i) => {
+        const n = i + 1; const on = state.covered.has(n);
+        const slot = el('div', 'slot' + (on ? ' covered' : ''),
+          `<span class="num">${on ? '<i class="fa-solid fa-check"></i>' : n}</span>
+           <span class="ph"></span>
+           <span class="lbl">${escapeHtml(t.short)}</span>
+           <span class="check"><i class="fa-solid fa-circle-check"></i></span>`);
+        slot.dataset.n = n;
+        grid.appendChild(slot);
+      });
+      const transcript = el('div', 'transcript', ''); transcript.id = 'transcript';
+      $('stageInner').replaceChildren(head, grid, transcript);
+      updateMeter();
+    }
+    function updateMeter() {
+      const n = state.covered.size;
+      $('meterN').textContent = n;
+      $('meterBar').style.width = (TOPIC_COUNT ? (n / TOPIC_COUNT) * 100 : 0) + '%';
+    }
+
+    // "Start teaching" hands off from the coach: bring up the board, then greet
+    // the learner with the intro modal (board visible/dimmed behind it).
+    // Receives the calibration ContextRecord from the Section-1 coupler.
+    function startTeaching(context) {
+      SimContext.apply(context, {});   // normalized; artifacts.calibration available if a mode ever needs it
+      lowerCoach();
+      app.dataset.entered = 'true';
+      app.dataset.mode = 'scene';
+      app.dataset.target = 'character';
+      renderTeachStage();
+      $('progressStrip').classList.remove('is-hidden');
+      $('progressStrip').setAttribute('aria-hidden', 'false');
+      showInput('inputMain');
+      $('micBtn').style.display = supportsSpeech() ? '' : 'none';
+      openIntro();
+    }
+
+    function openIntro() {
+      const canTalk = supportsSpeech();
+      state.inputMode = 'type';                 // Type is always available; default to it
+      $('pickTalkBtn').disabled = !canTalk;
+      $('modeTalkBtn').disabled = !canTalk;
+      if (!canTalk) $('pickTalkBtn').querySelector('small').textContent = 'Not supported here';
+      syncModeButtons();
+      $('introModal').hidden = false;
+      app.setAttribute('inert', '');            // board dims + waits behind the modal
+      setTimeout(() => $('introStartBtn').focus(), 200);
+    }
+    function beginTeachingActive() {
+      $('introModal').hidden = true;
+      app.removeAttribute('inert');
+      state.phase = 'teaching';
+      showInput('inputMain');
+      applyInputMode();                         // starts the mic if Talk was chosen (this click is the gesture)
+      $('inputHint').textContent = defaultTeachHint();
+      resetSilence();
+      if (state.inputMode !== 'talk') setTimeout(() => $('composer').focus(), 220);
+    }
+    function defaultTeachHint() {
+      if (state.inputMode === 'talk') return 'Listening… speak naturally, or type. Tap Done when finished.';
+      return supportsSpeech() ? 'Type, or tap Talk to speak. Enter to send.' : 'Type what you\'d teach and press Enter.';
+    }
+
+    /* ---- Type / Talk input mode ---- */
+    function syncModeButtons() {
+      const talk = state.inputMode === 'talk';
+      $('modeTalkBtn').setAttribute('aria-pressed', talk);
+      $('modeTypeBtn').setAttribute('aria-pressed', !talk);
+      $('pickTalkBtn').setAttribute('aria-pressed', talk);
+      $('pickTypeBtn').setAttribute('aria-pressed', !talk);
+    }
+    function applyInputMode() {
+      syncModeButtons();
+      if (state.phase !== 'teaching') return;   // don't touch the mic while the intro modal is up
+      if (state.inputMode === 'talk') {
+        if (supportsSpeech() && !state.listening) startListening();
+        $('composer').placeholder = 'Listening… you can also type';
+      } else {
+        if (state.listening) stopListening();
+        $('composer').placeholder = 'Type or speak what you\'d teach…';
+      }
+      const h = $('inputHint'); if (h && !h.classList.contains('nudge')) h.textContent = defaultTeachHint();
+    }
+    function setInputMode(mode) {
+      if (mode === 'talk' && !supportsSpeech()) return;
+      state.inputMode = mode;
+      applyInputMode();
+    }
+
+    /* ---- gentle real-time nudge when a submission lands no new topic ---- */
+    let nudgeTimer = null;
+    function showTinyNudge(text) {
+      const h = $('inputHint'); if (!h) return;
+      h.textContent = text || 'Not a new topic yet — keep going.';
+      h.classList.add('nudge');
+      if (nudgeTimer) clearTimeout(nudgeTimer);
+      nudgeTimer = setTimeout(() => { h.classList.remove('nudge'); h.textContent = defaultTeachHint(); }, 3500);
+    }
+
+    function addUtterance(text) {
+      text = (text || '').trim();
+      if (!text) return;
+      state.utterances.push(text);
+      resetSilence();
+      scheduleGrade();
+    }
+    function scheduleGrade() {
+      if (state.gradeTimer) clearTimeout(state.gradeTimer);
+      state.gradeTimer = setTimeout(runGrade, 450);
+    }
+    async function runGrade() {
+      if (state.grading) { if (state.gradeTimer) clearTimeout(state.gradeTimer); state.gradeTimer = setTimeout(runGrade, 300); return; }
+      const transcript = state.utterances.join('\n');
+      if (!transcript) return;
+      const submittedSinceLast = state.utterances.length > state.utterancesAtLastGrade;
+      state.utterancesAtLastGrade = state.utterances.length;
+      state.grading = true;
+      let result;
+      try {
+        if (!IS_LIVE) throw new Error('offline');
+        // graded on the fast model so a correct answer lands in about a second
+        const raw = await callLLM(gradeSystem(), [{ role: 'user', content: 'Here is everything the learner has said so far:\n\n' + transcript }], 300, FAST_MODEL);
+        result = parseJson(raw);
+      } catch (e) { result = fallbackGrade(transcript); }
+      state.grading = false;
+      const before = state.covered.size;
+      (result.covered || []).forEach((n) => { if (n >= 1 && n <= TOPIC_COUNT) state.covered.add(n); });
+      state.lastNudge = String(result.nudge || '');
+      revealCovered();
+      const gained = state.covered.size - before;
+      if (gained > 0) {
+        announce(`${gained} more topic${gained > 1 ? 's' : ''} covered. ${state.covered.size} of ${TOPIC_COUNT}.`);
+        const h = $('inputHint'); if (h) { h.classList.remove('nudge'); h.textContent = defaultTeachHint(); }
+      } else if (submittedSinceLast && state.phase === 'teaching' && state.covered.size < TOPIC_COUNT) {
+        showTinyNudge(state.lastNudge);          // gentle "not a new one yet — keep going"
+      }
+      if (state.covered.size >= TOPIC_COUNT && state.phase === 'teaching') { finishTeaching(); }
+    }
+    function revealCovered() {
+      document.querySelectorAll('.slot').forEach((slot) => {
+        const n = Number(slot.dataset.n);
+        if (state.covered.has(n) && !slot.classList.contains('covered')) {
+          slot.classList.add('covered');
+          slot.querySelector('.num').innerHTML = '<i class="fa-solid fa-check"></i>';
+        }
+      });
+      updateMeter();
+    }
+
+    /* ---- silence detection (stuck while speaking) -------------------- */
+    function resetSilence() {
+      if (state.silenceTimer) clearTimeout(state.silenceTimer);
+      if (state.phase !== 'teaching') return;
+      state.silenceTimer = setTimeout(async () => {
+        if (state.phase !== 'teaching' || state.utterances.length === 0) return;
+        await runGrade();
+        if (state.covered.size < TOPIC_COUNT && state.phase === 'teaching') raiseStuck(false);
+      }, 14000);
+    }
+
+    /* ---- stuck / Done → coach hint ----------------------------------- */
+    async function raiseStuck(fromDone) {
+      if (state.phase !== 'teaching') return;
+      stopListening();
+      if (state.silenceTimer) clearTimeout(state.silenceTimer);
+      // flush any pending typed text first
+      const pending = $('composer').value.trim();
+      if (pending) { addUtterance(pending); $('composer').value = ''; autoGrow($('composer')); }
+      showInput('inputAnalyzing');
+      if (state.gradeTimer) clearTimeout(state.gradeTimer);
+      await runGrade();
+      if (state.phase !== 'teaching') return;   // hit 10 → already closing
+      state.phase = 'stuck';
+      const n = state.covered.size;
+      const hint = state.lastNudge || 'Think about the whole picture a new worker would need.';
+      coachClear();
+      raiseCoach();
+      await coachType(`You've taught ${n} of ${TOPIC_COUNT} so far${n ? ' — nice progress' : ''}. Here's a nudge: ${hint}\n\nKeep going, or wrap up and see your score.`);
+      showInput('inputStuck');
+      state.doneOffered = true;
+      announce('Coach hint: ' + hint);
+    }
+    function resumeTeaching() {
+      state.phase = 'teaching';
+      lowerCoach();
+      showInput('inputMain');
+      applyInputMode();
+      resetSilence();
+      if (state.inputMode !== 'talk') setTimeout(() => $('composer').focus(), 200);
+    }
+
+    /* ===================================================================
+       CLOSING → score
+       =================================================================== */
+    /* The close is the SHARED Section-3 debrief (js/sim-debrief.js), in
+       teach-back's configuration: mode-worded steps, a 'call' results source
+       (one closing call on the strong model fired IN PARALLEL with the
+       stepper so the animation absorbs the latency), and the score-ring
+       page kind instead of report cards. */
+    const TB_STEPS = ['Reviewing what you taught…', 'Matching it to the required topics…', 'Writing your feedback…'];
+    const SCORE_REFS = SimDebrief.ensureModal({ eyebrow: 'Your score' });
+    const SCORE_PAGE = SimDebrief.scorePage(() => ({
+      n: state.finalScore, of: TOPIC_COUNT, unit: 'topics',
+      headline: (state.close || {}).headline || 'Nice work.',
+      feedback: (state.close || {}).feedback || '',
+    }));
+    SCORE_REFS.foot.addEventListener('click', (e) => {
+      if (e.target.closest('#resultsContinueBtn')) {
+        closeScore();
+        $('continueCtaBtn').innerHTML = '<i class="fa-solid fa-check"></i> Next activity (prototype)';
+      }
+    });
+
+    async function finishTeaching() {
+      state.phase = 'closing';
+      stopListening();
+      if (state.silenceTimer) clearTimeout(state.silenceTimer);
+      if (state.gradeTimer) clearTimeout(state.gradeTimer);
+      state.finalScore = state.covered.size;
+      app.dataset.target = 'coach';
+      coachClear();
+      raiseCoach();
+      showInput('inputAnalyzing');
+
+      // The shared closing stepper, with the closing call riding under it.
+      $('coachPanelBody').appendChild(SimDebrief.stepperNode(TB_STEPS));
+      const closePromise = fetchClose();
+      await SimDebrief.runStepper({ container: $('coachPanelBody'), steps: TB_STEPS, stepMs: 650, parallel: closePromise });
+      state.close = await closePromise;
+      coachClear();
+      await coachType(state.close.feedback);
+      showInput('inputResults');
+      announce(state.close.feedback);
+    }
+
+    // One dedicated closing call ({headline, feedback}) on the strong model,
+    // with authored fallback copy on ANY failure — via the shared debrief.
+    function fetchClose() {
+      const missed = TOPICS.map((t, i) => i + 1).filter((n) => !state.covered.has(n));
+      const missedLabels = missed.map((n) => TOPICS[n - 1].short);
+      const fb = {
+        headline: state.finalScore >= 8 ? 'Strong teach-back' : state.finalScore >= 5 ? 'Good foundation' : 'Solid start',
+        feedback: state.finalScore >= TOPIC_COUNT
+          ? `You taught back all ${TOPIC_COUNT} required topics — exactly what a complete HazCom program covers. You clearly know this well enough to explain it to someone else.`
+          : `You named ${state.finalScore} of the ${TOPIC_COUNT} required topics — a real teach-back, not just recall. Hold onto the areas you didn't reach yet${missedLabels.length ? ', like ' + missedLabels[0].toLowerCase() : ''}; that's where to look next time.`,
+      };
+      return SimDebrief.fetchClose({
+        system: closeSystem(),
+        user: `Final score: ${state.finalScore} of ${TOPIC_COUNT}.\nCovered: ${[...state.covered].sort((a,b)=>a-b).join(', ') || 'none'}.\nMissed: ${missed.join(', ') || 'none'} (${missedLabels.join('; ') || 'none'}).`,
+        model: MODEL, maxTokens: 400,
+        fallback: fb, live: IS_LIVE,
+      });
+    }
+
+    function openScore() {
+      SimDebrief.renderModal({ refs: SCORE_REFS, pages: [SCORE_PAGE], page: 0, open: true, appEl: app });
+      const c = state.close || { feedback: '' };
+      setTimeout(() => { const b = SCORE_REFS.foot.querySelector('.results-nav-btn.primary'); if (b) b.focus(); }, 200);
+      announce(`You scored ${state.finalScore} out of ${TOPIC_COUNT}. ${c.feedback}`);
+    }
+    function closeScore() {
+      SimDebrief.renderModal({ refs: SCORE_REFS, pages: [SCORE_PAGE], page: 0, open: false, appEl: app });
+      state.phase = 'done';
+      lowerCoach();
+      showInput('inputContinue');
+    }
+
+    /* ===================================================================
+       WEB SPEECH (voice)
+       =================================================================== */
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    function supportsSpeech() { return Boolean(SR); }
+    let recog = null, interimText = '';
+    function startListening() {
+      if (!supportsSpeech() || state.phase !== 'teaching') return;
+      state.listening = true; interimText = '';
+      recog = new SR();
+      recog.continuous = true; recog.interimResults = true; recog.lang = 'en-US';
+      recog.onresult = (e) => {
+        interimText = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) addUtterance(r[0].transcript);
+          else interimText += r[0].transcript;
+        }
+        const tr = document.querySelector('.transcript');
+        if (tr) tr.innerHTML = interimText ? '<span class="interim">“' + escapeHtml(interimText) + '”</span>' : '';
+        resetSilence();
+      };
+      recog.onend = () => { if (state.listening) { try { recog.start(); } catch (_) {} } else $('micBtn').classList.remove('on'); };
+      recog.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          state.listening = false; $('micBtn').classList.remove('on');
+          $('inputHint').textContent = 'Mic blocked — type instead.';
+        }
+      };
+      try { recog.start(); } catch (_) {}
+      $('micBtn').classList.add('on');
+      announce('Microphone on.');
+    }
+    function stopListening() {
+      state.listening = false;
+      if (recog) { try { recog.stop(); } catch (_) {} recog = null; }
+      $('micBtn').classList.remove('on');
+      interimText = '';
+      const tr = document.querySelector('.transcript'); if (tr) tr.innerHTML = '';
+    }
+    function toggleMic() { setInputMode(state.listening ? 'type' : 'talk'); }
+
+    /* ===================================================================
+       WIRING
+       =================================================================== */
+    function sendComposer() {
+      const ta = $('composer');
+      const text = ta.value.trim();
+      if (!text) return;
+      if (state.phase === 'framing') {
+        if (state.chatBusy || state.coachReady) return;
+        ta.value = ''; autoGrow(ta);
+        sendFraming(text);
+      } else if (state.phase === 'teaching') {
+        ta.value = ''; autoGrow(ta);
+        state.utterances.push(text);
+        resetSilence();
+        // A typed send is deliberate — grade it right away instead of waiting
+        // out the debounce (that's only there to coalesce streaming speech).
+        if (state.gradeTimer) clearTimeout(state.gradeTimer);
+        runGrade();
+      }
+    }
+    // Section 1 → Section 2, standardized (js/sim-context.js): teach-back's
+    // context is the CALIBRATION CHAT — an intro the learner acts in, so its
+    // ContextRecord carries what they produced (the chat transcript + ready
+    // flag) into the teaching phase through the same coupler every simulator
+    // page uses.
+    const CONTEXT = SimContext.create({
+      modalities: { custom: { available: true, enter: beginFraming } },
+      onDone: startTeaching,
+    });
+    $('startCtaBtn').addEventListener('click', CONTEXT.begin);
+    $('sendBtn').addEventListener('click', sendComposer);
+    $('composer').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComposer(); } });
+    $('composer').addEventListener('input', (e) => { autoGrow(e.target); if (state.phase === 'teaching') resetSilence(); });
+    $('micBtn').addEventListener('click', toggleMic);
+    $('startTeachingBtn').addEventListener('click', () => CONTEXT.done({
+      modality: 'calibration',
+      artifacts: { calibration: { ready: state.coachReady, transcript: state.chat.slice() } },
+    }));
+    $('introStartBtn').addEventListener('click', beginTeachingActive);
+    $('pickTalkBtn').addEventListener('click', () => setInputMode('talk'));
+    $('pickTypeBtn').addEventListener('click', () => setInputMode('type'));
+    $('modeTalkBtn').addEventListener('click', () => setInputMode('talk'));
+    $('modeTypeBtn').addEventListener('click', () => setInputMode('type'));
+    $('doneBtn').addEventListener('click', () => { if (state.phase === 'teaching') raiseStuck(true); });
+    $('keepTeachingBtn').addEventListener('click', resumeTeaching);
+    $('finishBtn').addEventListener('click', finishTeaching);
+    $('resultsCtaBtn').addEventListener('click', openScore);
+    // (the score modal's Continue is delegated on SCORE_REFS.foot above)
+    $('continueCtaBtn').addEventListener('click', () => { showInput('inputDone'); });
+    // "Full conversation" — the SHARED coach-sheet expander
+    // (js/sim-chat-history.js). Teach-back's transcript is the calibration
+    // chat; once the sheet is cleared for teaching, the pill lets the
+    // learner pull that earlier conversation back up.
+    SimChatHistory.attach({
+      panel: $('coachPanel'),
+      body: $('coachPanelBody'),
+      messages: () => state.chat.map((m) => ({ speaker: m.who === 'you' ? 'you' : 'coach', kind: 'coaching', text: m.text })),
+      announce,
+    });
+    $('restartBtn').addEventListener('click', () => { if (confirm('Restart the teach-back from the beginning?')) location.reload(); });
+
+    if (!IS_LIVE) console.warn('[Teach Me] No WORKER_URL set — running with the offline keyword grader.');
+    boot();
+    </script>
+    <!-- ===== Course-delivery frame ===================================== -->
+    <script>
+      // Embed into the app shell; course/lesson auto-derive from #scenarioName.
+      window.LESSON_FRAME = { mount: '#app' };
+    </script>
+    <script src="js/frame.js?v=3"></script>
+    <script>
+      // Relocate the app's Restart control onto the frame's actions slot; moving
+      // the node preserves its click handler (attached above by element id).
+      (function () {
+        function relocate() {
+          var slot = document.querySelector('.vt-frame .vt-actions');
+          var btn  = document.getElementById('restartBtn');
+          if (slot && btn) slot.appendChild(btn);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+        else relocate();
+      })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writer Studio V2 — Scenario Simulator</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- ====================================================================
+         WRITER STUDIO — the (single, converged) authoring tool. The former V1
+         (writer-studio.html) is now a thin redirect here; this page is the one
+         shell. See js/README.writer-studio.md for the full architecture. On
+         top of the shared engine, types, and storage it adds:
+
+           1. LEARN / PRACTICE nomenclature on the rail. For Guided Arc the
+              old ② Interaction bucket splits into ② Learn (the reflection
+              warm-up + the coached TOPIC TURNS), ③ Practice (the live
+              scene), and ④ Voice & Tone (the coach persona) — see
+              js/studio-v2-guided-arc.js. Other modes keep their single
+              Interaction step.
+
+           2. START FROM SCRATCH — a guided wizard (brief → plain-language
+              SME interview → staged AI generation through the same Worker
+              proxy the playtest uses) that drafts a complete scenario,
+              including the coach-facing guidance fields that used to need
+              prompt-engineering craft. Two intake modes: BASIC (describe
+              the course in a sentence or more → "Create outline" drafts
+              every interview answer for review) and ADVANCED (the designer
+              answers the full interview). Generic engine:
+              js/studio-wizard.js; the per-type spec lives on type.wizard.
+
+         The studio styles live in css/writer-studio.css and the app logic in
+         js/studio-shell.js (both extracted from this file). [V2] marks the
+         Learn/Practice + wizard additions over the original shell.
+         ==================================================================== -->
+    <!-- ====================================================================
+         WRITER STUDIO — the content writer's side of the Scenario Simulator.
+
+         The premise: as assessment moves from multiple-choice to AI-assisted
+         conversation, the writer's job shifts from writing answer keys to
+         writing GUIDANCE — and the guardrail IS the structure. Writers never
+         touch raw prompt text. They fill structured, plain-language fields and
+         a per-type compiler assembles the system prompt around locked,
+         safety-critical engine sections they can see but not break.
+
+         ONE FRAMEWORK, THREE SECTIONS (the shared spine of every scenario,
+         mirroring the live runtime — js/sim-context.js / sim-core.js /
+         sim-debrief.js):
+           ①  Scenario Context   — the swappable intro modality (video / audio
+                                    / reading / story / none) that sets the scene
+           ②  Interaction        — the live loop: ENTER → ENGAGE · REACT · COACH ·
+                                    GATE → EXIT. This is where the difficulty
+                                    lives; the MODE only reshapes THIS section.
+           ③  Debrief & Close     — Analyze → Results → Takeaways (the guaranteed,
+                                    writer-authored playbook + resources).
+
+         The MODE (a registered scenario TYPE) picks the Section-2 shape:
+           Roleplay · Guided Arc · Observe / React · Teach-Back.
+         The studio shell is mode-agnostic; each type supplies its own sections,
+         compiler, lints and playtest and hangs them on the three-section spine.
+
+         Three panes:
+           LEFT    section nav grouped by the three sections, with lint dots
+           CENTER  the authoring form (writer-owned fields + locked engine)
+           RIGHT   inspector tabs — Compiled prompt / Guardrails / Playtest
+
+         Publishing writes the scenario to localStorage; the matching learner
+         page picks it up on reload in this same browser. (GitHub Pages has no
+         backend — localStorage is the honest static-hosting handoff. A shared
+         backend would swap in here.)
+         ==================================================================== -->
+    <link rel="stylesheet" href="css/writer-studio.css?v=1" />
+</head>
+<body>
+
+  <!-- ===== Top bar ====================================================== -->
+  <header class="topbar">
+    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Writer Studio <span class="v2tag">V2</span></span>
+    <span class="sub" id="subTitle">Conversation practice</span>
+    <span class="spacer"></span>
+    <span class="save-status" id="saveStatus"></span>
+    <!-- Right-aligned utility toolbar -->
+    <div class="toolbar">
+      <span class="libwrap">
+        <button class="tbtn" id="libraryBtn" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-folder-open"></i> Library <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.6"></i></button>
+        <div class="libpanel" id="libPanel" hidden role="menu" aria-label="Scenario library"><!-- built by JS --></div>
+      </span>
+      <!-- [V2] the guided front door — the wizard drafts a scenario from a
+           brief + interview; "Blank canvas" stays as the manual path. -->
+      <button class="tbtn" id="wizardBtn" style="border-color: var(--accent); color: var(--accent)"><i class="fa-solid fa-wand-magic-sparkles"></i> Start from scratch</button>
+      <button class="tbtn" id="freshBtn"><i class="fa-solid fa-file-circle-plus"></i> Blank canvas</button>
+      <button class="tbtn" id="resetBtn"><i class="fa-solid fa-clock-rotate-left"></i> Reset to shipped</button>
+      <button class="tbtn" id="importBtn"><i class="fa-solid fa-file-import"></i> Import JSON</button>
+      <button class="tbtn" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export JSON</button>
+      <!-- hidden picker the Import button triggers -->
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <!-- Published-state strip — also carries the publish + preview actions -->
+  <div class="pubstrip" id="pubStrip">
+    <span class="dot"></span><span id="pubText">Not published yet — the learner prototype is running the shipped scenario.</span>
+    <button class="unpub" id="unpublishBtn" hidden>Unpublish (revert prototype to shipped)</button>
+    <div class="pubactions">
+      <a class="preview-link" id="previewLink" href="action-practice-live.html" target="_blank" rel="noopener">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Learner preview
+      </a>
+      <vaadin-button theme="primary" id="publishBtn"><i class="fa-solid fa-paper-plane" slot="prefix"></i> Publish to prototype</vaadin-button>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ===== Left: section nav (built by JS) ============================ -->
+    <nav class="secnav" id="secNav" aria-label="Scenario sections"></nav>
+
+    <!-- ===== Center: the authoring form (built by JS) =================== -->
+    <main class="form" id="form"></main>
+
+    <!-- ===== Right: inspector (collapsible) ============================= -->
+    <aside class="inspector" id="inspector" aria-label="Inspector panel">
+      <!-- Header strip: panel title + collapse control -->
+      <div class="insp-bar">
+        <span class="insp-bar-title"><i class="fa-solid fa-flask"></i> Inspector</span>
+        <button class="insp-toggle" id="inspToggle" title="Hide panel" aria-label="Hide inspector panel" aria-expanded="true" aria-controls="inspector">
+          Hide <i class="fa-solid fa-angles-right"></i>
+        </button>
+      </div>
+
+      <div class="insp-main">
+        <vaadin-tabs id="inspectorTabs">
+          <vaadin-tab data-body="tabPrompt"><i class="fa-solid fa-file-code" style="margin-right:7px"></i> Compiled prompt</vaadin-tab>
+          <vaadin-tab id="lintTab" data-body="tabLints"><i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails</vaadin-tab>
+          <vaadin-tab data-body="tabPlaytest"><i class="fa-solid fa-vial" style="margin-right:7px"></i> Playtest</vaadin-tab>
+          <vaadin-tab id="splitTab" data-body="tabSplit"><i class="fa-solid fa-scissors" style="margin-right:7px"></i> Say/Do Split</vaadin-tab>
+        </vaadin-tabs>
+
+        <div class="tabbody is-active" id="tabPrompt">
+          <div class="promptmeta">
+            <span class="pill" id="promptChars">— chars</span>
+            <span class="pill" id="promptTokens">— tokens (est.)</span>
+            <button class="copy" id="copyPromptBtn"><i class="fa-regular fa-copy"></i> Copy</button>
+          </div>
+          <pre class="promptview" id="promptView"></pre>
+          <p class="promptlegend"><span class="wr">Highlighted text</span> is <b>DYNAMIC</b> — compiled from your fields, the guidance the AI performs. Everything else is the <b>LOCKED</b> engine: the same beats the live page owns and injects verbatim. This exact text is what the AI runs on — reading it is how you learn what your guidance turns into.</p>
+        </div>
+
+        <div class="tabbody" id="tabLints"></div>
+
+        <div class="tabbody pt" id="tabPlaytest"></div>
+
+        <div class="tabbody" id="tabSplit"></div>
+      </div>
+
+      <!-- Reopen rail — shown only while collapsed; click anywhere to expand -->
+      <button class="insp-rail" id="inspRail" title="Show panel" aria-label="Show inspector panel">
+        <i class="fa-solid fa-angles-left"></i>
+        <span class="insp-rail-txt">Inspector · Prompt · Guardrails · Playtest</span>
+      </button>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- Reusable context-setter (narrated audio / reading). Used by the Opening
+       & intro section's inline learner preview; harmless if a type never asks. -->
+  <script src="js/scene-context.js?v=2"></script>
+  <!-- Generic studio engine: type registry + per-type storage. Must load
+       BEFORE any type module so registration has somewhere to land. -->
+  <script src="js/studio-engine.js?v=2"></script>
+  <!-- Learner scene-move say/do splitter (window.AitheraSayDoSplit). Used by the
+       playtest scene turns and the Say/Do Split sandbox tab. -->
+  <script src="js/say-do-split.js?v=3"></script>
+  <!-- Scenario types (MODES). Each registers itself into AitheraStudio; the
+       registration order below is the order they appear in the mode picker.
+       action-practice also keeps window.AitheraScenario for the live pages. -->
+  <script src="js/scenario.js?v=17"></script>
+  <script src="js/scenario-types/guided-arc.js?v=19"></script>
+  <script src="js/scenario-types/observe-react.js?v=8"></script>
+  <script src="js/scenario-types/teach-back.js?v=8"></script>
+  <script src="js/scenario-types/scene-sweep.js?v=8"></script>
+  <script src="js/scenario-types/ensemble-arc.js?v=9"></script>
+  <!-- [V2] Mix & Match — the composed-beat type: an ordered list of beats, one
+       interaction type each (coach-led / roleplay / observe), riding the shared
+       ladder runner. Registration order = mode-picker order. -->
+  <script src="js/scenario-types/mix-arc.js?v=4"></script>
+  <!-- [V2] Shared wizard craft: intake helpers + the invariant coach-voice
+       atoms (banned phrases, grounding, JSON-output rule). Loaded BEFORE the
+       wizard engine and every spec so the specs compose their spine from it. -->
+  <script src="js/studio-wizard-craft.js?v=1"></script>
+  <!-- [V2] the start-from-scratch wizard engine + the guided-arc V2
+       presentation (Learn/Practice/Voice & Tone regroup, topic-turn
+       language, and the wizard's interview + generation spec). Loaded
+       AFTER the type modules so they can re-present the registered type. -->
+  <script src="js/studio-wizard.js?v=10"></script>
+  <script src="js/studio-v2-guided-arc.js?v=9"></script>
+  <!-- [V2] wizard specs for the OTHER three interaction types (Roleplay /
+       Teach-Back / Observe-React) — the wizard's "What are you building?"
+       step offers every type that has one. -->
+  <script src="js/studio-v2-wizards.js?v=9"></script>
+  <!-- [V2] the Ensemble wizard spec — its own module (the richest schema:
+       canon · cast + earned disclosures · cross-phase state · per-phase
+       generation). Loaded after the ensemble-arc type module. -->
+  <script src="js/studio-v2-ensemble-wizard.js?v=2"></script>
+  <!-- [V2] the Scene Sweep wizard spec — its own module (bespoke schema: a
+       visual scene + a perception rubric; the 2-beat Observe → Diagnose &
+       Remediate arc). The photo + hotspots stay a manual editor step.
+       Loaded after the scene-sweep type module. -->
+  <script src="js/studio-v2-scene-sweep-wizard.js?v=2"></script>
+  <!-- [V2] the Mix & Match wizard spec — generates an ordered beat list from a
+       one-line brief (one generation task per beat). Loaded after mix-arc.js. -->
+  <script src="js/studio-v2-mix-arc-wizard.js?v=2"></script>
+
+  <!-- Studio shell app logic (extracted from this file). -->
+  <script src="js/studio-shell.js?v=3"></script>
+</body>
+</html>

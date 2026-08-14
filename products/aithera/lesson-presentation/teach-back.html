@@ -3,6 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <!-- Dark mode is OPT-IN. Vector products are light-only, so scenarios default to light
+         regardless of the OS setting. Set window.SCENARIO_ALLOW_DARK = true to restore
+         OS-driven dark — nothing is lost, the gated dark CSS is still in the head. -->
+    <script>
+      (function () {
+        if (window.SCENARIO_ALLOW_DARK === true) {
+          document.documentElement.classList.add('allow-dark');
+          document.documentElement.style.colorScheme = 'light dark';
+        }
+      })();
+    </script>
     <title>Teach-back — HazCom Teach Me (Live AI)</title>
 
     <!-- Vector Web Components: Core -->
@@ -52,7 +64,7 @@
             "stage" (identical to the conversation simulator).
          =================================================================== */
       :root {
-        color-scheme: light dark;
+        color-scheme: light;   /* default light-only; the opt-in dark flag restores 'light dark' */
         --c-bg:          #f5f7fb;
         --c-surface:     #ffffff;
         --c-surface-2:   #eef1f7;
@@ -60,9 +72,9 @@
         --c-ink-soft:    #5a6379;
         --c-ink-faint:   #67718a;
         --c-line:        #e3e7f0;
-        --c-accent:      #4b63e6;
-        --c-accent-strong:#3a4fce;
-        --c-accent-soft: #eef1fe;
+        --c-accent:      #0271ce;   /* Vector primary blue (--lumo-primary-color) — the coach */
+        --c-accent-strong:#015aa8;
+        --c-accent-soft: #e6f1fb;
         --c-on-accent:   #ffffff;
 
         --s-ink:         #f3ede5;
@@ -71,7 +83,7 @@
         --s-surface:     #211a16;
         --s-surface-2:   #2c241e;
         --s-line:        #43372e;
-        --s-char:        #c79bff;
+        --s-char:        #c173d1;   /* Vivid Violet (--vwc-color-vivid-violet-400) */
         --s-you:         #f1b34a;
         --s-you-soft:    rgba(241,179,74,.16);
         --s-you-ink:     #2a1d08;
@@ -85,16 +97,17 @@
 
         --radius:   16px;
         --radius-sm:10px;
-        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
-        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
-        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --shadow-sm: 0 1px 4px -1px #1c304a85;                             /* Vector --lumo-box-shadow-xs */
+        --shadow-md: 0 2px 4px -1px #1c375a29, 0 3px 12px -1px #1c345442;   /* Vector --lumo-box-shadow-s */
+        --shadow-lg: 0 3px 18px -2px #1c375a29, 0 12px 48px -6px #1c324f61; /* Vector --lumo-box-shadow-l */
         --ease: cubic-bezier(.4, 0, .2, 1);
 
         --topbar-h: 52px;
         --input-h:  104px;
       }
+      /* Dark mode is OPT-IN (default light) — gated behind html.allow-dark; see the boot snippet in <head>. */
       @media (prefers-color-scheme: dark) {
-        :root {
+        :root.allow-dark {
           --c-bg:          #0c0f17;
           --c-surface:     #161b27;
           --c-surface-2:   #1e2433;
@@ -338,7 +351,42 @@
         border-radius: 4px 16px 16px 16px; padding: 12px 15px;
         font-size: 15px; line-height: 1.55; color: var(--c-ink);
         white-space: pre-wrap; box-shadow: var(--shadow-sm);
+        transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
       }
+
+      /* ---- The coach's ACTIVE question ---------------------------------------
+         The coach mixes teaching and asking; the ONE line the learner must
+         answer right now is lifted, not decorated: it drops its flat outline and
+         floats on a soft, faintly indigo shadow + a hairline "lit edge" in the
+         accent, blooming forward once as it lands. Flattens back to a plain
+         bubble the instant the learner replies. Toggled by .is-prompt. */
+      .coach-msg.is-prompt .coach-bubble {
+        border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+        box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                    0 2px 6px rgba(16,24,40,.10);
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .coach-msg.just-asked .coach-bubble { animation: promptSettle .7s var(--ease); }
+      }
+      @keyframes promptSettle {
+        0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+        55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+        100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                           0 2px 6px rgba(16,24,40,.10); }
+      }
+
+      /* ---- Coach run = ONE identity (WhatsApp-style grouping) ----------------
+         A contiguous block of coach messages shows the "AI Coach" name once, at
+         the TOP (grp-first), and attaches the avatar once, to the LAST message
+         (grp-last) — bottom-aligned by its tail. In-between bubbles keep the
+         avatar's column reserved so they stay aligned, hide the disc, and tuck
+         closer together. A learner reply breaks the run. */
+      .coach-msg:not(.grp-first) .coach-label { display: none; }
+      .coach-msg:not(.grp-last) .coach-avatar { visibility: hidden; }
+      .coach-msg.grp-last { align-items: flex-end; }
+      .coach-msg + .coach-msg:not(.grp-first) { margin-top: -8px; }
+
       .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 65%; margin-left: auto; }
       .you-coach .cap {
         font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -490,6 +538,26 @@
       }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
+      /* —— Chat-panel transitions — everything swaps by PHASING IN, never a hard cut.
+         Two swaps used to snap in a single frame: a coach line replacing the typing
+         dots, and the composer flipping to a bottom CTA. Both now fade in. Coach
+         bubbles fade with NO vertical hop — the old translateY(7px) fought the coach
+         sheet's own rise/scroll and read as the "jump". The input bar's incoming
+         state (composer <-> CTA / "Analyzing..." / "Continue practicing ->") fades
+         up into place; min-height on .inputbar holds the floor, so no reflow. Scene
+         lines keep their typewriter reveal. Duplicated per page — keep in sync. */
+      .coach-msg.enter, .you-coach.enter { animation: chat-fade-in .28s var(--ease) both; }
+      .input-main:not([hidden]), .input-entry:not([hidden]),
+      .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: input-fade-in .3s var(--ease) both; }
+      @keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes input-fade-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        .coach-msg.enter, .you-coach.enter,
+        .input-main:not([hidden]), .input-entry:not([hidden]),
+        .input-analyzing:not([hidden]), .input-done:not([hidden]) { animation: none; }
+      }
+
+
       /* The debrief presentation — closing stepper, results modal, score
          ring — is styled by the SHARED Section-3 module (js/sim-debrief.js
          injects one canonical stylesheet) so the close renders identically
@@ -501,6 +569,11 @@
         .stage.is-frozen { filter: brightness(.7); }
         .mic-btn.on { animation: none; }
       }
+
+      /* —— Vector control corners (4px), appended so they win over the inline radii above —— */
+      .input-shell { border-radius: 4px; }
+      .send-btn { border-radius: 4px; }
+      .enter-cta, .debrief-cta { border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -609,14 +682,14 @@
          AitheraStudio.get('teach-back'); this page reads whatever the Writer
          Studio published (or the shipped default). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/teach-back.js?v=2"></script>
+    <script src="js/scenario-types/teach-back.js?v=6"></script>
     <!-- Shared simulator framework — one implementation under every mode:
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, score ring) -->
-    <script src="js/sim-core.js?v=2"></script>
+    <script src="js/sim-core.js?v=7"></script>
     <script src="js/sim-context.js?v=1"></script>
-    <script src="js/sim-debrief.js?v=5"></script>
+    <script src="js/sim-debrief.js?v=6"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
 
     <script>
@@ -766,6 +839,9 @@
          <div class="coach-body"><div class="coach-label">AI Coach</div>
          <div class="coach-bubble">${opts.raw ? text : escapeHtml(text).replace(/\n/g, '<br>')}</div></div>`);
       body.appendChild(node);
+      // If this coach line poses a question, glow once as it lands (the live-prompt lift).
+      if (/\?/.test(String(text || ''))) { node.classList.add('just-asked'); setTimeout(() => node.classList.remove('just-asked'), 1400); }
+      regroupCoach();
       body.scrollTop = body.scrollHeight;
       return node;
     }
@@ -773,7 +849,29 @@
       const body = $('coachPanelBody');
       const node = el('div', 'you-coach enter', `<div class="cap">You</div><div class="bubble">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`);
       body.appendChild(node);
+      regroupCoach();
       body.scrollTop = body.scrollHeight;
+    }
+    /* WhatsApp-style grouping + live-question lift for the imperative coach thread:
+       recomputed after each coachSay/youSay (nodes are appended, not re-rendered).
+       Name shows once at a run's top (grp-first); the avatar attaches to the run's
+       LAST message (grp-last); the final coach line gets .is-prompt while it poses
+       an unanswered question (a "?" with no learner reply after it). */
+    function regroupCoach() {
+      const items = Array.from($('coachPanelBody').children)
+        .filter((n) => n.classList && (n.classList.contains('coach-msg') || n.classList.contains('you-coach')));
+      items.forEach((node, i) => {
+        if (!node.classList.contains('coach-msg')) return;
+        const prev = items[i - 1], next = items[i + 1];
+        node.classList.toggle('grp-first', !prev || !prev.classList.contains('coach-msg'));
+        node.classList.toggle('grp-last',  !next || !next.classList.contains('coach-msg'));
+        node.classList.remove('is-prompt');
+      });
+      const last = items[items.length - 1];
+      if (last && last.classList.contains('coach-msg')) {
+        const b = last.querySelector('.coach-bubble');
+        if (b && /\?/.test(b.textContent || '')) last.classList.add('is-prompt');
+      }
     }
     function coachTyping(on) {
       const body = $('coachPanelBody');
@@ -799,10 +897,13 @@
        BOOT — title slide (establishing card)
        =================================================================== */
     function renderEstablishing() {
+      // The teaser derives from the scenario's own subject ("a … training") —
+      // a published teach-back must never carry the HazCom demo's copy.
+      const subject = String((ACTIVE && ACTIVE.subject) || '').trim() || 'your training';
       $('stageInner').replaceChildren(el('div', 'establishing enter',
         `<span class="est-eyebrow">Knowledge check</span>
          <h1 class="est-title">Teach <span class="accent">me</span>.</h1>
-         <p class="est-sub">You just wrapped the Hazard Communication course. Now, let's see if you can teach it!</p>
+         <p class="est-sub">You just wrapped ${escapeHtml(subject)}. Now, let's see if you can teach it!</p>
          <div class="est-meta">
            <span><i class="fa-solid fa-comments"></i> Talk with a coach</span>
            <span><i class="fa-solid fa-microphone"></i> Speak or type</span>
@@ -916,7 +1017,7 @@
        TEACHING — the 10 tiles on the stage
        =================================================================== */
     function renderTeachStage() {
-      const head = el('div', 'slots-head', `<h2>${TOPIC_COUNT} HazCom topics</h2><p>Teach each one in your own words — in any order. They fill in as you go.</p>`);
+      const head = el('div', 'slots-head', `<h2>${TOPIC_COUNT} required topics</h2><p>Teach each one in your own words — in any order. They fill in as you go.</p>`);
       const grid = el('div', 'slots'); grid.id = 'slots';
       TOPICS.forEach((t, i) => {
         const n = i + 1; const on = state.covered.has(n);
@@ -1309,6 +1410,24 @@
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
         else relocate();
+      })();
+    </script>
+
+    <!-- Voice input (mic / speech-to-text) — shared drop-in component.
+         A real product affordance (unlike the review toolbox). Self-hiding where
+         the browser can't do speech. (This page has no lead comment icon.) -->
+    <script src="js/sim-voice-input.js?v=1"></script>
+    <script>
+      (function () {
+        function initVoice() {
+          if (!window.SimVoiceInput) return;
+          SimVoiceInput.attach({
+            shell: '.input-shell', textarea: '#composer', sendButton: '#sendBtn',
+            hint: '#inputHint', leadIcon: '#inputIcon'
+          });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initVoice);
+        else initVoice();
       })();
     </script>
 </body>

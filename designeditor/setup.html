@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Editor — Setup</title>
+  <link rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <style>
+    :root { --ink:#1a202c; --muted:#5a6673; --line:#e2e8f0; --indigo:#6366f1; }
+    * { box-sizing: border-box; }
+    body {
+      font-family:"Open Sans",system-ui,sans-serif; color:var(--ink);
+      max-width:760px; margin:0 auto; padding:48px 24px 80px; line-height:1.6;
+    }
+    h1 { font-size:28px; margin:0 0 6px; }
+    .sub { color:var(--muted); margin:0 0 32px; }
+    h2 { font-size:16px; margin:34px 0 10px; }
+    .badge { display:inline-block; background:#eef2ff; color:var(--indigo);
+      font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin-bottom:18px; }
+    /* The draggable bookmarklet */
+    .bm {
+      display:inline-flex; align-items:center; gap:8px; text-decoration:none;
+      background:#18181b; color:#fff; font-weight:700; font-size:15px;
+      padding:12px 20px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.22);
+      cursor:grab; user-select:none;
+    }
+    .bm:active { cursor:grabbing; }
+    .drop {
+      border:2px dashed var(--line); border-radius:12px; padding:24px;
+      text-align:center; margin:14px 0 8px; background:#fafbfc;
+    }
+    .cfg { display:flex; align-items:center; gap:10px; margin:10px 0 4px; flex-wrap:wrap; }
+    .cfg label { font-weight:600; font-size:14px; }
+    .cfg input { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:14px; width:110px; }
+    .cfg button { border:0; background:var(--indigo); color:#fff; font-weight:600; border-radius:8px; padding:9px 16px; cursor:pointer; }
+    ol { padding-left:22px; } ol li { margin-bottom:8px; }
+    code { background:#f4f6f8; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13px; }
+    .note { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:14px 16px; font-size:14px; color:#78350f; margin-top:26px; }
+    .note strong { color:#92400e; }
+    .steps-note { color:var(--muted); font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="badge">DESIGNER TOOL · LOCALHOST ONLY · POC</div>
+  <h1>Design Editor — Setup</h1>
+  <p class="sub">A private, browser-based overlay for making manual Figma-lite tweaks to any prototype and exporting them to Claude. Nothing is added to your mock files and nothing ships to GitHub Pages.</p>
+
+  <h2>1. Set your live-server port</h2>
+  <p class="steps-note">Whatever port your local server serves the repo on (VS Code Live Server defaults to <code>5500</code>). This rebuilds the bookmark below to point at it.</p>
+  <div class="cfg">
+    <label for="port">http://localhost:</label>
+    <input id="port" type="text" value="5500" inputmode="numeric" />
+    <button id="rebuild">Update bookmark</button>
+  </div>
+
+  <h2>2. Drag this into your bookmarks bar</h2>
+  <div class="drop">
+    <a class="bm" id="bookmarklet" href="#">✏️ Edit Mode</a>
+    <p class="steps-note" style="margin:14px 0 0;">Drag the button up to your browser's bookmarks bar. (If your bar is hidden: <code>⌘⇧B</code> on Mac / <code>Ctrl⇧B</code> on Windows.)</p>
+  </div>
+
+  <h2>3. Use it on any prototype</h2>
+  <ol>
+    <li>Start your local server and open any prototype, e.g. <code>localhost:5500/products/check-it/voicecheck-promo/ver1/ver1.html</code></li>
+    <li>Click <strong>✏️ Edit Mode</strong> in your bookmarks bar — the editor toolbar appears on the page.</li>
+    <li>Click an element, tweak it, then hit <strong>Finish &amp; Export</strong>.</li>
+    <li>Copy the prompt and paste it into your Claude session in VS Code. Click <strong>✏️ Edit Mode</strong> again to turn the editor off.</li>
+  </ol>
+
+  <div class="note">
+    <strong>Why a bookmark and not a button on the page?</strong> Anything added to a mock's HTML would ship to GitHub Pages and be public. The bookmarklet lives in <em>your browser</em>, injects the editor only when you click it, and only runs on localhost — so it stays private and touches zero files.
+  </div>
+
+  <script>
+    // Build the bookmarklet href from the configured port. The thin bookmarklet
+    // just injects /designeditor/editor.js from the local server; editor.js is
+    // idempotent (a second click tears it down), so the same bookmark toggles.
+    function buildHref(port) {
+      var src = 'http://localhost:' + port + '/designeditor/editor.js';
+      // Cache-bust so edits to editor.js are picked up without a hard refresh.
+      var code =
+        "(function(){var s=document.createElement('script');" +
+        "s.src='" + src + "?t='+Date.now();document.body.appendChild(s);})();";
+      return 'javascript:' + encodeURIComponent(code);
+    }
+    var portInput = document.getElementById('port');
+    var bm = document.getElementById('bookmarklet');
+    function refresh() { bm.setAttribute('href', buildHref(portInput.value.trim() || '5500')); }
+    document.getElementById('rebuild').addEventListener('click', refresh);
+    portInput.addEventListener('change', refresh);
+    // Prevent the bookmarklet from navigating if clicked here (it's meant to be dragged).
+    bm.addEventListener('click', function (e) { e.preventDefault(); });
+    refresh();
+  </script>
+</body>
+</html>

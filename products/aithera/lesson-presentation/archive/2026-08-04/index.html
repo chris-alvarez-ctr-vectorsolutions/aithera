@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson Presentation Experiments</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 Icons (Default Icon Library) -->
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
+    <style>
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Open Sans', system-ui, sans-serif;
+            margin: 0;
+            padding: 48px;
+            color: #1f2937;
+            background: #f4f6f8;
+        }
+        main { max-width: 920px; margin: 0 auto; }
+
+        .page-title { font-size: 28px; margin: 0 0 8px; }
+        .page-intro { color: #6b7280; margin: 0 0 8px; max-width: 70ch; }
+        .page-intro:last-of-type { margin-bottom: 0; }
+        .page-intro .live-flag { vertical-align: 1px; }
+
+        /* -------------------------------------------------------------------
+           Section jump nav — the page is long enough that scrolling to find a
+           section is a chore. A slim text-link strip (no pill chrome) that
+           blends with the page background while stuck; the current section
+           gets an underline via the scroll-spy script at the end of <body>.
+           ------------------------------------------------------------------- */
+        .section-nav {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px 22px;
+            margin-top: 28px;
+            padding: 12px 2px 0;
+            background: rgba(244, 246, 248, .92);
+            backdrop-filter: blur(6px);
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .section-nav a {
+            padding: 2px 0 9px;
+            margin-bottom: -1px;             /* underline sits on the bar's border */
+            border-bottom: 2px solid transparent;
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7280;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .section-nav a:hover { color: #0b7d70; }
+        .section-nav a.is-active { color: #0b7d70; border-bottom-color: #0f9e8e; }
+
+        /* "Live AI" flag — marks a variant that runs on a real model (Claude
+           via the Worker proxy) instead of the scripted demo engine. Shown on
+           the card thumbnail, in the page intro legend, and in the modal's
+           Live AI callout. */
+        .live-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .02em;
+            color: #fff;
+            background: linear-gradient(120deg, #7c3aed, #0f9e8e);
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .25);
+        }
+
+        /* Each section groups related experiments. Variant families (A/B/C…)
+           get their own section so the alternatives sit next to each other.
+           scroll-margin keeps jumped-to sections clear of the sticky nav. */
+        .section { margin-top: 64px; scroll-margin-top: 64px; }
+        .section:first-of-type { margin-top: 44px; }
+        .section-head {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin: 0 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .section-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #374151;
+        }
+        .section-note { font-size: 13px; color: #9ca3af; }
+
+        /* Companion-tool line under a section's cards (e.g. Writer Studio):
+           deliberately NOT a card — plain muted text with a direct link, so
+           it reads as tooling for the section rather than another experiment. */
+        .section-tool {
+            display: flex;
+            gap: 9px;
+            align-items: baseline;
+            margin: 14px 2px 0;
+            font-size: 13px;
+            line-height: 1.55;
+            color: #6b7280;
+            max-width: 84ch;
+        }
+        .section-tool i { color: #9ca3af; font-size: 12px; }
+        .section-tool a {
+            color: #0b7d70;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .section-tool a:hover { text-decoration: underline; }
+
+        .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+        /* Variant families lay out side by side so A/B (and later C/D) compare
+           at a glance; they wrap on narrow screens. */
+        .cards.compare { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+        .card {
+            display: block;
+            /* Anchors the absolutely-positioned .live-flag over the thumb. */
+            position: relative;
+            /* border-box so height:100% (used for equal-height cards in the
+               .compare grids) includes padding + border. Without it, padding
+               is added on top of the row height and cards overflow/overlap the
+               next row in the single-column sections. */
+            box-sizing: border-box;
+            height: 100%;
+            /* No padding on the card itself — the thumbnail bleeds to the
+               edges and the text sits in a padded .card-body below it.
+               overflow:hidden clips the thumbnail to the rounded top corners. */
+            overflow: hidden;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .06);
+            transition: border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+        }
+        .card:hover {
+            border-color: #0f9e8e;
+            box-shadow: 0 4px 12px rgba(16, 24, 40, .10);
+            transform: translateY(-1px);
+        }
+        /* Real screenshot of each prototype's landing state. 16:10 to match the
+           capture; object-position top keeps the lesson header + main content in
+           frame. Light fill shows while it loads. */
+        .card .thumb {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            object-fit: cover;
+            object-position: top center;
+            background: #eef1f4;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        /* Live AI flag floats over the thumbnail's top-left corner. */
+        .card > .live-flag { position: absolute; top: 10px; left: 10px; }
+
+        /* "BETA" flag — marks a work-in-progress POC. Amber so it reads as
+           "not finished," and pinned top-RIGHT so it never collides with the
+           Live AI flag top-left. The modal echoes it as an inline chip. */
+        .beta-flag {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 800; letter-spacing: .08em;
+            color: #7a3d00; background: #ffd68a;
+            border: 1px solid #f0b44e; box-shadow: 0 1px 3px rgba(0,0,0,.18);
+        }
+        .beta-flag i { font-size: 10px; }
+        .card > .beta-flag { position: absolute; top: 10px; right: 10px; }
+        /* Inline chip beside the modal title. */
+        .beta-chip {
+            display: inline-flex; align-items: center; gap: 5px; vertical-align: middle;
+            margin-left: 10px; padding: 3px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 800; letter-spacing: .08em;
+            color: #7a3d00; background: #ffd68a; border: 1px solid #f0b44e;
+        }
+        /* The "source POC deck" link shown in the modal detail. */
+        .poc-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            margin: 2px 0 4px; padding: 9px 13px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; text-decoration: none;
+            color: #b45309; background: #fff7ea; border: 1px solid #f4d9a8;
+            transition: background .15s ease, border-color .15s ease;
+        }
+        .poc-link:hover { background: #fdeccd; border-color: #eac57e; }
+        .poc-link i { font-size: 14px; }
+        .poc-link .poc-sub { font-weight: 400; color: #92671f; }
+        /* A short WIP note above the launch panel in the modal. */
+        .beta-note {
+            display: flex; gap: 9px; align-items: flex-start;
+            margin: 4px 0 2px; padding: 10px 12px; border-radius: 10px;
+            font-size: 13px; line-height: 1.45;
+            color: #7a4a12; background: #fff7ea; border: 1px solid #f4d9a8;
+        }
+        .beta-note i { margin-top: 2px; color: #d18b1e; }
+        .card-body { display: block; padding: 14px 18px 16px; }
+        .card .title { font-weight: 600; font-size: 15px; }
+        /* Full descriptions stay in the markup (they're the modal's content
+           source and keep the HTML self-documenting) but are hidden on the
+           card so the grid stays scannable — clicking the card opens them
+           in the details modal, whose CTA opens the prototype itself.
+           .desc-live is the same idea for a card's Live AI variant: it feeds
+           the modal's Live AI callout and second CTA (see data-live-href). */
+        .card .desc, .card .desc-live { display: none; }
+        /* "Updated <date>" stamp, filled in from updated.json (see the script
+           at the end of <body>). Absent until the data loads — cards render
+           fine without it. */
+        .card .updated {
+            display: block;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .card .updated i { margin-right: 4px; }
+        .card .updated.is-recent { color: #0f9e8e; font-weight: 600; }
+
+        /* Layered Learning — live mini-preview thumbnails (no image assets).
+           Each is a tiny dark "course stage" with CLARA (the teal orb) placed
+           where that presentation docks her, so the card previews the layout. */
+        .ll-thumb {
+            position: relative;
+            display: block; width: 100%; aspect-ratio: 16 / 10;
+            background: radial-gradient(120% 100% at 50% -10%, #14233f 0%, #0b1220 58%, #060a12 100%);
+            border-bottom: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+        .ll-thumb::before {                 /* mini blue title band */
+            content: ""; position: absolute; inset: 0 0 auto 0; height: 15%;
+            background: linear-gradient(100deg, #0d2b52, #2664c4);
+        }
+        .ll-thumb .orb {                    /* CLARA */
+            position: absolute; border-radius: 50%; aspect-ratio: 1;
+            background: radial-gradient(circle at 34% 30%, #eafffb, #2ad9c5 46%, #0b8f82 100%);
+            box-shadow: 0 0 10px rgba(46, 230, 207, .75);
+        }
+        .ll-thumb .rail, .ll-thumb .card2 {
+            position: absolute;
+            background: rgba(255, 255, 255, .09);
+            border: 1px solid rgba(255, 255, 255, .18);
+            border-radius: 7px;
+        }
+        .ll-thumb .bar {
+            position: absolute; height: 5.5%;
+            background: rgba(255, 255, 255, .16); border-radius: 3px;
+        }
+        /* ambient — orb centred */
+        .ll-thumb--ambient .orb { width: 26%; left: 50%; top: 55%; transform: translate(-50%, -50%); }
+        /* sidebar — left rail, orb straddling its top, content bars to the right */
+        .ll-thumb--sidebar .rail { left: 6%; top: 26%; bottom: 10%; width: 27%; }
+        .ll-thumb--sidebar .orb  { width: 13%; left: 19.5%; top: 20%; transform: translateX(-50%); }
+        .ll-thumb--sidebar .bar  { left: 42%; }
+        .ll-thumb--sidebar .bar.a { top: 36%; width: 46%; }
+        .ll-thumb--sidebar .bar.b { top: 50%; width: 38%; }
+        .ll-thumb--sidebar .bar.c { top: 64%; width: 42%; }
+        /* floating — content centred, bubble + launcher orb bottom-right */
+        .ll-thumb--floating .bar { left: 12%; }
+        .ll-thumb--floating .bar.a { top: 38%; width: 52%; }
+        .ll-thumb--floating .bar.b { top: 52%; width: 40%; }
+        .ll-thumb--floating .card2 { right: 8%; bottom: 30%; width: 30%; height: 24%; }
+        .ll-thumb--floating .orb  { width: 13%; right: 10%; bottom: 12%; }
+        /* overlay — bottom-centre coaching card, orb at its left */
+        .ll-thumb--overlay .bar { left: 50%; transform: translateX(-50%); }
+        .ll-thumb--overlay .bar.a { top: 32%; width: 46%; }
+        .ll-thumb--overlay .bar.b { top: 45%; width: 34%; }
+        .ll-thumb--overlay .card2 { left: 12%; right: 12%; bottom: 9%; height: 34%; }
+        .ll-thumb--overlay .orb  { width: 11%; left: 16%; bottom: 15%; }
+
+        /* Layered Learning — the end-to-end COURSE hero.
+           A wide dark banner (previews the course's look) that launches the
+           full six-step flow, sitting above the four presentation cards. */
+        .ll-course-hero {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 22px;
+            margin-bottom: 16px;
+            padding: 20px 24px;
+            border-radius: 16px;
+            text-decoration: none;
+            color: #eaf0fb;
+            background:
+                radial-gradient(120% 160% at 12% -20%, rgba(46,230,207,.14), transparent 55%),
+                linear-gradient(120deg, #0d1526 0%, #101c33 55%, #0a1120 100%);
+            border: 1px solid rgba(46,230,207,.28);
+            box-shadow: 0 10px 30px rgba(6,10,20,.35);
+            transition: border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+        }
+        .ll-course-hero:hover {
+            border-color: rgba(46,230,207,.55);
+            box-shadow: 0 14px 38px rgba(6,10,20,.5);
+            transform: translateY(-1px);
+        }
+        .ll-course-hero .llh-orb {
+            width: 62px; height: 62px; border-radius: 50%; flex: 0 0 auto;
+            background: radial-gradient(circle at 34% 30%, #eafffb, #2ad9c5 46%, #0b8f82 100%);
+            box-shadow: 0 0 22px rgba(46,230,207,.6);
+        }
+        .ll-course-hero .llh-eyebrow {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+            color: #2ee6cf; margin-bottom: 6px;
+        }
+        .ll-course-hero .llh-title { display: block; font-size: 19px; font-weight: 800; color: #fff; margin-bottom: 5px; }
+        .ll-course-hero .llh-desc { display: block; font-size: 13px; line-height: 1.55; color: #aab6cc; max-width: 70ch; }
+        .ll-course-hero .llh-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
+        .ll-course-hero .llh-step {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 11.5px; color: #cdd7e8;
+            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+            border-radius: 999px; padding: 4px 10px;
+        }
+        .ll-course-hero .llh-step i { color: #2ee6cf; font-size: 10.5px; }
+        .ll-course-hero .llh-arw { color: #55627a; font-size: 9px; }
+        .ll-course-hero .llh-cta {
+            flex: 0 0 auto; display: inline-flex; align-items: center; gap: 9px;
+            padding: 12px 20px; border-radius: 11px;
+            font-size: 14px; font-weight: 700; color: #052b27; white-space: nowrap;
+            background: linear-gradient(135deg, #46f0dc 0%, #16b8a6 55%, #0c8f83 100%);
+            box-shadow: 0 6px 18px rgba(20,184,166,.34);
+        }
+        @media (max-width: 720px) {
+            .ll-course-hero { grid-template-columns: 1fr; text-align: left; gap: 14px; }
+            .ll-course-hero .llh-orb { width: 48px; height: 48px; }
+        }
+
+        /* -------------------------------------------------------------------
+           Details modal — same UI as the lesson experiments' clarifier modal
+           (Lesson.modal in js/lesson.js, styles in css/lesson.css §6), copied
+           here with this page's concrete colors instead of the lesson theme
+           tokens. Opened by a card's ⓘ button; shows the full description.
+           ------------------------------------------------------------------- */
+        .lesson-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgba(16, 24, 40, .45);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s ease;
+        }
+        .lesson-modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+        .lesson-modal {
+            width: 100%;
+            max-width: 520px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(16, 24, 40, .25);
+            transform: translateY(8px) scale(.98);
+            transition: transform .2s cubic-bezier(.4, 0, .2, 1);
+        }
+        .lesson-modal-backdrop.open .lesson-modal { transform: none; }
+
+        .lesson-modal-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 22px 20px 0;
+        }
+        .lesson-modal-icon {
+            flex: 0 0 auto;
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: #e6f5f3;
+            color: #0b7d70;
+            font-size: 16px;
+        }
+        .lesson-modal-title {
+            flex: 1 1 auto;
+            margin: 6px 0 0;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.3;
+            color: #1f2937;
+        }
+        .lesson-modal-close {
+            flex: 0 0 auto;
+            width: 32px;
+            height: 32px;
+            border: 0;
+            border-radius: 8px;
+            background: none;
+            color: #6b7280;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .lesson-modal-close:hover { background: #f4f6f8; color: #1f2937; }
+
+        .lesson-modal-body {
+            padding: 12px 20px 4px;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #1f2937;
+            text-align: left;
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+        .lesson-modal-body p { margin: 0 0 12px; }
+        .lesson-modal-body p:last-child { margin-bottom: 0; }
+        /* "Updated <date>" line mirrored from the card's stamp */
+        .lesson-modal-body .modal-updated {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .lesson-modal-body .modal-updated i { margin-right: 4px; }
+
+        /* Live AI callout — rendered when the card has a data-live-href;
+           describes what the live variant adds, above the "Launch with
+           Live AI" CTA in the footer. */
+        .modal-live {
+            margin: 14px 0 12px;
+            padding: 12px 14px;
+            border: 1px solid #ddd6fe;
+            border-radius: 12px;
+            background: #f8f6ff;
+        }
+        .modal-live p { margin: 8px 0 0; font-size: 14px; }
+        /* Roadmap note for cards marked data-live-planned — a live variant
+           is intended but not built yet, so no CTA. */
+        .modal-live-planned { font-size: 13px; color: #9ca3af; }
+        .modal-live-planned i { margin-right: 6px; color: #a78bfa; }
+
+        .lesson-modal-foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 16px 20px 20px;
+        }
+        /* The Live AI launch CTA carries the same gradient as the flag so
+           the badge → callout → button all read as one feature. */
+        vaadin-button.live-cta {
+            background: linear-gradient(120deg, #7c3aed, #0f9e8e);
+            color: #fff;
+        }
+        vaadin-button.live-cta[hidden] { display: none; }
+
+        /* -------------------------------------------------------------------
+           Scenario Simulator — schema cards + launcher modal
+           The four cards in the Scenario Simulator section are BUTTONS (not
+           links): clicking one opens the launcher modal (#simModal) where the
+           learner picks a version — and, for Conversation Simulation, the intro
+           context — before launching. Cards + modal are rendered from the
+           SIM_SCHEMAS array in the script at the end of <body>.
+           ------------------------------------------------------------------- */
+        button.card {
+            font: inherit;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+        }
+        /* Example-scenario subtitle under a schema card's title. */
+        .card .sim-example {
+            display: block;
+            margin-top: 3px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Example line under the launcher modal's title. */
+        .lesson-modal-eyebrow {
+            margin: 3px 0 0;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Launch picker: an optional context segmented control + a version list. */
+        .launch-panel {
+            margin-top: 4px;
+            padding-top: 16px;
+            border-top: 1px solid #eef0f2;
+        }
+        .launch-group + .launch-group { margin-top: 18px; }
+        .launch-label {
+            margin: 0 0 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: #9ca3af;
+        }
+
+        /* Context choice (Conversation Simulation only): pill segmented control. */
+        .ctx-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+        .ctx-seg button {
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 7px 13px;
+            border-radius: 999px;
+            border: 1px solid #d5d9df;
+            background: #fff;
+            color: #374151;
+            cursor: pointer;
+        }
+        .ctx-seg button:hover { border-color: #0f9e8e; color: #0b7d70; }
+        .ctx-seg button.is-active { background: #e6f5f3; border-color: #0f9e8e; color: #0b7d70; }
+
+        /* Version options: radio-style rows; the whole row is clickable. */
+        .ver-list { display: grid; gap: 8px; }
+        .ver-opt {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            width: 100%;
+            font: inherit;
+            text-align: left;
+            padding: 11px 13px;
+            border-radius: 10px;
+            border: 1px solid #d5d9df;
+            background: #fff;
+            color: #1f2937;
+            cursor: pointer;
+        }
+        .ver-opt:hover { border-color: #0f9e8e; }
+        .ver-opt.is-selected { border-color: #0f9e8e; background: #f2fbfa; box-shadow: inset 0 0 0 1px #0f9e8e; }
+        .ver-opt[disabled] { opacity: .55; cursor: default; }
+        .ver-opt[disabled]:hover { border-color: #d5d9df; }
+        .ver-radio {
+            flex: 0 0 auto;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #c4c9d2;
+            display: grid;
+            place-items: center;
+        }
+        .ver-opt.is-selected .ver-radio { border-color: #0f9e8e; }
+        .ver-opt.is-selected .ver-radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0f9e8e;
+        }
+        /* Version identifier chip (V1/V2/V3) — leads each option so every row
+           is numbered, not just the ones whose label mentioned a version. */
+        .ver-num {
+            flex: 0 0 auto;
+            min-width: 30px;
+            text-align: center;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: #eef0f2;
+            color: #374151;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+        .ver-opt.is-selected .ver-num { background: #d9f0ec; color: #0b7d70; }
+        .ver-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; }
+        .ver-tags { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
+        .ver-badge {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #eef0f2;
+            color: #6b7280;
+        }
+        .ver-badge.latest { background: #e6f5f3; color: #0b7d70; }
+        .ver-badge.planned { background: #f4f0ff; color: #7c3aed; }
+        .ver-opt .live-flag { padding: 2px 7px; font-size: 10px; }
+
+        /* Launch CTA turns to the Live AI gradient when a live version is picked. */
+        vaadin-button#simModalLaunch[disabled] { opacity: .5; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1 class="page-title">Lesson Presentation Experiments</h1>
+        <p class="page-intro">New ways to present lesson content and check understanding — each one still fits inside the same lesson experience learners already know.</p>
+        <p class="page-intro">Builds marked <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span> run on a real model (Claude) rather than the scripted demo engine. In the Scenario Simulator, open a card and choose a version in the launcher — the Live AI cut is preselected wherever one exists.</p>
+
+        <!-- Jump nav: one pill per section below; counts filled in by script. -->
+        <nav class="section-nav" aria-label="Jump to section">
+            <a href="#scenario-simulator">Scenario Simulator</a>
+            <a href="#layered-learning">Layered Learning</a>
+            <a href="#video-reflection">Video Reflection</a>
+            <a href="#basic-interactions">Basic Interactions</a>
+            <a href="#custom-code">Custom Code</a>
+        </nav>
+
+        <!-- ===== Scenario Simulator — the four schema shapes =================
+             Every card here is one SHAPE of the same live-AI simulator engine
+             (a coach in a bottom sheet, the Learn/Practice rhythm). ONE card per
+             schema; the example scenario is the subtitle. Clicking a card opens
+             the LAUNCHER modal (#simModal), where the learner picks the version
+             — and, for Conversation Simulation, the intro context — before
+             launching. Cards + launcher are rendered from the SIM_SCHEMAS array
+             in the script at the end of <body>: add a version THERE, not as a
+             new card. -->
+        <section class="section" id="scenario-simulator">
+            <div class="section-head">
+                <h2 class="section-title">Scenario Simulator</h2>
+                <span class="section-note">One live-AI engine, four shapes — pick the version (and intro) when you launch</span>
+            </div>
+            <!-- Filled in by the SIM_SCHEMAS renderer below. -->
+            <ul class="cards compare" id="simCards"></ul>
+
+            <!-- Companion tools + specs for the whole simulator family. -->
+            <p class="section-tool">
+                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                <span><a href="writer-studio-v2.html?wizard=1">Writer Studio</a> — the authoring tool behind these simulations. It opens on the guided wizard: describe the scenario simulation you want in a sentence, review the drafted outline field by field, then generate the full draft into the Learn&nbsp;/&nbsp;Practice editor and publish to the Live AI variants. New to it? <a href="writer-studio-guide.html">Learn more&nbsp;&rsaquo;</a></span>
+            </p>
+            <p class="section-tool">
+                <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                <span>Build &amp; authoring specs — the <a href="scenario-simulator-build-spec.html">end-to-end flow</a>, a deep dive on <a href="scenario-simulator-interaction-layer.html">the interaction layer</a> (its six phases, the seven types, and the prompts each needs), and a <a href="scenario-simulator-type-crosswalk.html">type crosswalk</a> reconciling our engines with the content team's interaction types. For product &amp; engineering.</span>
+            </p>
+            <p class="section-tool">
+                <i class="fa-solid fa-universal-access" aria-hidden="true"></i>
+                <span><a href="a11y-audit.html">Accessibility audit</a> — a code-level review of every prototype in this collection: what each uses (video, AI chat, drag, TTS…), the main compliance concerns, remediation effort, and what to change.</span>
+            </p>
+        </section>
+
+        <!-- ===== Layered Learning — CLARA layered onto ordinary content ==== -->
+        <section class="section" id="layered-learning">
+            <div class="section-head">
+                <h2 class="section-title">Layered Learning</h2>
+                <span class="section-note">One coach (CLARA), four ways she layers onto a lesson — now stitched into a full end-to-end course you can click through start to finish</span>
+            </div>
+
+            <!-- The end-to-end COURSE — the four presentations wired into one
+                 six-step flow. Launches at the intro (ambient) title slide. -->
+            <a class="ll-course-hero" href="layered-course.html">
+                <span class="llh-orb" aria-hidden="true"></span>
+                <span class="llh-main">
+                    <span class="llh-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> End-to-end flow · New</span>
+                    <span class="llh-title">Take the full course</span>
+                    <span class="llh-desc">A prototype of a real, six-step lesson built from the CLARA presentations — welcome, a gated video with a comprehension check, a scene-setter, the full Marshall scenario, a closing video, and a scored wrap-up. CLARA carries across every screen and the frame, stage, and nav never shift.</span>
+                    <span class="llh-steps">
+                        <span class="llh-step"><i class="fa-solid fa-hand-sparkles"></i> Welcome</span>
+                        <span class="llh-arw"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="llh-step"><i class="fa-solid fa-circle-play"></i> Video + check</span>
+                        <span class="llh-arw"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="llh-step"><i class="fa-solid fa-clapperboard"></i> Scene</span>
+                        <span class="llh-arw"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="llh-step"><i class="fa-solid fa-comments"></i> Marshall scenario</span>
+                        <span class="llh-arw"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="llh-step"><i class="fa-solid fa-flag-checkered"></i> Closing</span>
+                        <span class="llh-arw"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="llh-step"><i class="fa-solid fa-award"></i> Results</span>
+                    </span>
+                </span>
+                <span class="llh-cta">Start the course <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+
+            <ul class="cards compare">
+                <li>
+                    <a class="card" href="layered-ambient.html">
+                        <span class="thumb ll-thumb ll-thumb--ambient"><span class="orb"></span></span>
+                        <span class="card-body">
+                        <span class="title">Ambient Presence</span>
+                        <span class="desc">CLARA fills the whole screen as a living presence — the welcome, and the hand-off moment between learning objects. This is the flow's opening page; the coach animates out before the page turns and back in on the next, so the four presentations read as one continuous experience.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="layered-sidebar.html">
+                        <span class="thumb ll-thumb ll-thumb--sidebar"><span class="rail"></span><span class="orb"></span><span class="bar a"></span><span class="bar b"></span><span class="bar c"></span></span>
+                        <span class="card-body">
+                        <span class="title">Docked Guide</span>
+                        <span class="desc">CLARA docks beside the material as a steady, always-visible guide — narrating the learning object and ready to unpack any step. Best when the coach should accompany reading or teaching content without taking it over.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="layered-floating.html">
+                        <span class="thumb ll-thumb ll-thumb--floating"><span class="bar a"></span><span class="bar b"></span><span class="card2"></span><span class="orb"></span></span>
+                        <span class="card-body">
+                        <span class="title">Floating Companion</span>
+                        <span class="desc">CLARA tucks into the bottom corner as an on-demand companion — tap the orb to expand or hide her. The learning object stays front and centre, so the coach is available without ever competing with the content.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="layered-overlay.html">
+                        <span class="thumb ll-thumb ll-thumb--overlay"><span class="bar a"></span><span class="bar b"></span><span class="card2"></span><span class="orb"></span></span>
+                        <span class="card-body">
+                        <span class="title">Coaching Overlay</span>
+                        <span class="desc">CLARA lays a coaching card over an activity, with a text composer for a live back-and-forth — the same shape the Marshall scenario uses. Best for practice moments where the coach reacts in role, then coaches on the response.</span>
+                        </span>
+                    </a>
+                </li>
+            </ul>
+            <p class="section-tool">
+                <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                <span>A scaffolded framework for testing the flow: the shared engine (<code>css/layered-learning.css</code> + <code>js/layered-learning.js</code>) supplies the dark stage, the persistent CLARA orb, and the exit&rarr;enter transition, so each page just declares one presentation. Open any card to jump in — the footer <b>Continue&nbsp;/&nbsp;Back</b> links all four.</span>
+            </p>
+        </section>
+
+        <!-- ===== Video Reflection — A/B of the same reflection gate ======== -->
+        <section class="section" id="video-reflection">
+            <div class="section-head">
+                <h2 class="section-title">Video Reflection</h2>
+                <span class="section-note">Same post-video reflection, presented two ways — compared side by side</span>
+            </div>
+            <ul class="cards compare">
+                <li>
+                    <a class="card" href="chat-reflection.html">
+                        <img class="thumb" src="thumbnails/chat-reflection.png" alt="Video Reflection A preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Video Reflection A</span>
+                        <span class="desc">After the training video ends, the learner reflects on it in a short written conversation with an AI: it asks the lesson question, responds to their answer, asks once for more detail if needed, then unlocks Continue once the answer is thorough enough.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="reflection-ab.html">
+                        <img class="thumb" src="thumbnails/reflection-ab.png" alt="Video Reflection B preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Video Reflection B</span>
+                        <span class="desc">The same after-video reflection question, shown two different ways for comparison: one pauses the screen with a pop-up the learner must answer before continuing, the other is a small AI assistant that sits beside the still-playing video and can be opened or tucked away. The reflection itself is identical — only the presentation changes.</span>
+                        </span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- ===== Basic Interactions — distinct standalone content types ==== -->
+        <section class="section" id="basic-interactions">
+            <div class="section-head">
+                <h2 class="section-title">Basic Interactions</h2>
+                <span class="section-note">Distinct lesson content types</span>
+            </div>
+            <ul class="cards compare">
+                <li>
+                    <a class="card" href="terms-to-remember.html">
+                        <img class="thumb" src="thumbnails/terms-to-remember.png" alt="Terms to Remember preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Terms to Remember</span>
+                        <span class="desc">A single key term and its definition on a flip card, with an AI assistant on hand if the learner wants to go deeper.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="quick-question.html">
+                        <img class="thumb" src="thumbnails/quick-question.png" alt="Quick Question preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Quick Question</span>
+                        <span class="desc">One question at a time with large, easy-to-tap answer choices, plus an optional “tell me more” for extra context.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="peer-results.html">
+                        <img class="thumb" src="thumbnails/peer-results.png" alt="Peer Results preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Peer Results</span>
+                        <span class="desc">A “how do you compare?” moment: the learner answers a couple of quick questions, then sees how their answers stack up against their peers on a simple chart, with a plain-language verdict like “better than most.”</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="your-path.html">
+                        <img class="thumb" src="thumbnails/your-path.png" alt="Conversation Step-In preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Conversation Step-In</span>
+                        <span class="desc">The learner reads a realistic text conversation, then takes it over partway through — practicing how to turn down a party invite gracefully, without losing the friendship, while a peer (Jordan) responds in character. Wraps up with three simple takeaways.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="reasons-for-drinking.html">
+                        <img class="thumb" src="thumbnails/reasons-for-drinking.png" alt="Matrix Card Sort preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Matrix Card Sort</span>
+                        <span class="desc">A more engaging way to run a pre-course survey: instead of rating a long list of items in a grid, the learner sorts each one into “not important,” “somewhat important,” or “very important” by dragging or tapping. Includes a side-by-side comparison against the traditional grid version it replaces.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="narrated-presentation.html">
+                        <img class="thumb" src="thumbnails/narrated-presentation.png" alt="Audio Summary preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Audio Summary</span>
+                        <span class="desc">Replaces a narrated slide video with just the words on screen: the learner's device reads the text aloud and highlights each word as it's spoken. No video production needed to update the narration — just edit the text.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="confidence-check.html">
+                        <img class="thumb" src="thumbnails/confidence-check.png" alt="Confidence Check preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Confidence Check</span>
+                        <span class="desc">A lesson wrap-up where an AI coach asks the learner to rate their confidence with a simple slider, then reacts to their answer and asks two quick follow-up questions — their preferred training format, and the one thing they'd tell a coworker — before unlocking Continue.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="cannabis-faq.html">
+                        <img class="thumb" src="thumbnails/cannabis-faq.png" alt="Personalized FAQ preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Personalized FAQ</span>
+                        <span class="desc">A traditional FAQ accordion that's quietly rewritten for the learner in front of it — questions and answers reference their actual school and state. Opening a question first asks for the learner's own guess, then "personalizes" the real answer around what they said. The last item flips the direction: the learner asks a question of their own and gets an answer built for them.</span>
+                        </span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- ===== Custom Code — hand-built interactions (more to come) ====== -->
+        <section class="section" id="custom-code">
+            <div class="section-head">
+                <h2 class="section-title">Custom Code</h2>
+                <span class="section-note">Hand-built interactions — more variants to come</span>
+            </div>
+            <ul class="cards compare">
+                <li>
+                    <a class="card" href="peak-bac.html">
+                        <img class="thumb" src="thumbnails/peak-bac.png" alt="Custom Code A preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Custom Code A</span>
+                        <span class="desc">The learner estimates their blood alcohol level by rating how drunk they'd feel, sees that guess reflected back on screen, then walks through a live calculator that reveals the real number — comparing it side by side with their original guess.</span>
+                        </span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+    </main>
+
+    <!-- Lab: link to the standalone Möbius loader playground/tool -->
+    <style>
+      .lab-foot { text-align: center; padding: 44px 20px 60px; }
+      .lab-foot a { display: inline-flex; align-items: center; gap: 8px; color: #0d9488;
+        font-size: 14px; font-weight: 600; text-decoration: none; opacity: .82; }
+      .lab-foot a:hover { opacity: 1; text-decoration: underline; }
+    </style>
+    <footer class="lab-foot">
+      <a href="https://vectorlearning.github.io/ux-mockups/products/aithera/lesson-presentation/experiments/mobius-strip.html"><i class="fa-solid fa-flask"></i> Möbius loader — playground</a>
+    </footer>
+
+    <!-- Details modal — one shared instance, filled in per card when the
+         card is clicked. Same structure as the lesson clarifier modal.
+         `inert` keeps its controls out of the tab order while it's closed
+         (the backdrop is only visually hidden). -->
+    <div class="lesson-modal-backdrop" id="cardModal" inert>
+        <div class="lesson-modal" role="dialog" aria-modal="true" aria-labelledby="cardModalTitle">
+            <header class="lesson-modal-head">
+                <span class="lesson-modal-icon"><i class="fa-solid fa-circle-info"></i></span>
+                <h2 class="lesson-modal-title" id="cardModalTitle"></h2>
+                <button class="lesson-modal-close" id="cardModalClose" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="lesson-modal-body" id="cardModalBody"></div>
+            <footer class="lesson-modal-foot">
+                <vaadin-button theme="primary" id="cardModalCta">Open prototype</vaadin-button>
+                <!-- Only shown when the card has a data-live-href -->
+                <vaadin-button class="live-cta" id="cardModalLive" hidden>
+                    <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                    Launch with Live AI
+                </vaadin-button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Launcher modal for the Scenario Simulator cards. Description + a picker:
+         the version (every schema) and, for Conversation Simulation, the intro
+         context. Body + footer are rendered from SIM_SCHEMAS by the script below. -->
+    <div class="lesson-modal-backdrop" id="simModal" inert>
+        <div class="lesson-modal" role="dialog" aria-modal="true" aria-labelledby="simModalTitle">
+            <header class="lesson-modal-head">
+                <span class="lesson-modal-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                <div style="flex:1 1 auto;">
+                    <h2 class="lesson-modal-title" id="simModalTitle"></h2>
+                    <p class="lesson-modal-eyebrow" id="simModalExample"></p>
+                </div>
+                <button class="lesson-modal-close" id="simModalClose" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="lesson-modal-body" id="simModalBody"></div>
+            <footer class="lesson-modal-foot">
+                <!-- Shown only when the selected version is Studio-authorable;
+                     deep-links to Writer Studio for the schema's type. -->
+                <vaadin-button theme="tertiary" id="simModalEdit" hidden>
+                    <i class="fa-solid fa-pen-nib" slot="prefix"></i>
+                    Edit in Writer Studio
+                </vaadin-button>
+                <vaadin-button theme="primary" id="simModalLaunch">Launch</vaadin-button>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+    /* Details-on-demand: each card shows only its thumbnail + title; the full
+       description lives in the card's hidden .desc. Clicking the card opens
+       the details modal, and its "Open prototype" CTA is what launches the
+       experiment. Cmd/Ctrl/Shift-click and middle-click keep their native
+       open-in-new-tab behavior (the card is still a real link). */
+    (function () {
+        const backdrop = document.getElementById('cardModal');
+        const dialog = backdrop.querySelector('.lesson-modal');
+        const titleEl = document.getElementById('cardModalTitle');
+        const bodyEl = document.getElementById('cardModalBody');
+        const ctaEl = document.getElementById('cardModalCta');
+        const liveCtaEl = document.getElementById('cardModalLive');
+        const closeEl = document.getElementById('cardModalClose');
+
+        let lastFocused = null;    // restore focus here on close
+        let currentHref = '';      // the card link the CTA opens
+        let currentLiveHref = '';  // the Live AI variant, if the card has one
+
+        function openFor(cardLink) {
+            const title = (cardLink.querySelector('.title') || {}).textContent || '';
+            const desc = (cardLink.querySelector('.desc') || {}).textContent || '';
+            const liveDesc = cardLink.querySelector('.desc-live');
+            const updated = cardLink.querySelector('.updated'); // may not exist yet
+            currentHref = cardLink.getAttribute('href');
+            currentLiveHref = cardLink.getAttribute('data-live-href') || '';
+            // A live-ONLY experiment (no scripted variant) has a single CTA: the
+            // gradient "Launch with Live AI" button. Hide the plain primary CTA
+            // and skip the "also runs live" callout — the whole card IS live.
+            const liveOnly = cardLink.hasAttribute('data-live-only');
+            ctaEl.hidden = liveOnly;
+            liveCtaEl.hidden = !currentLiveHref;
+
+            titleEl.textContent = title;
+            bodyEl.replaceChildren();
+            desc.split(/\n{2,}/).forEach((para) => {
+                const p = document.createElement('p');
+                p.textContent = para.trim();
+                bodyEl.appendChild(p);
+            });
+
+            // Live AI callout (data-live-href) or roadmap note (data-live-planned)
+            if (currentLiveHref && !liveOnly) {
+                const box = document.createElement('div');
+                box.className = 'modal-live';
+                const flag = document.createElement('span');
+                flag.className = 'live-flag';
+                flag.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>Live AI available';
+                box.appendChild(flag);
+                const p = document.createElement('p');
+                p.textContent = liveDesc ? liveDesc.textContent.trim()
+                    : 'This experiment can also run on a real model instead of the scripted demo engine.';
+                box.appendChild(p);
+                bodyEl.appendChild(box);
+            } else if (cardLink.hasAttribute('data-live-planned')) {
+                const p = document.createElement('p');
+                p.className = 'modal-live-planned';
+                p.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>A Live AI version of this variant is planned — not built yet.';
+                bodyEl.appendChild(p);
+            }
+
+            if (updated) {
+                const p = document.createElement('p');
+                p.className = 'modal-updated';
+                p.innerHTML = '<i class="fa-regular fa-clock"></i>' + updated.textContent;
+                bodyEl.appendChild(p);
+            }
+
+            lastFocused = document.activeElement;
+            backdrop.classList.add('open');
+            backdrop.inert = false;
+            window.setTimeout(() => (liveOnly ? liveCtaEl : ctaEl).focus(), 60);
+        }
+
+        function close() {
+            backdrop.classList.remove('open');
+            backdrop.inert = true;
+            if (lastFocused && lastFocused.focus) lastFocused.focus();
+        }
+
+        // A plain left-click on a card opens the modal instead of navigating.
+        // Modified clicks (new tab/window) fall through to the browser.
+        document.querySelectorAll('a.card').forEach((link) => {
+            link.setAttribute('aria-haspopup', 'dialog');
+            link.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                openFor(link);
+            });
+        });
+
+        ctaEl.addEventListener('click', () => { window.location.href = currentHref; });
+        liveCtaEl.addEventListener('click', () => {
+            if (currentLiveHref) window.location.href = currentLiveHref;
+        });
+        closeEl.addEventListener('click', close);
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && backdrop.classList.contains('open')) close();
+        });
+
+        // Focus trap: while open, Tab cycles within the dialog (same pattern
+        // as Lesson.modal in js/lesson.js).
+        backdrop.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || !backdrop.classList.contains('open')) return;
+            // Skip hidden controls (the Live AI CTA when the card has none).
+            const focusables = Array.from(
+                dialog.querySelectorAll('button, vaadin-button, [href]')
+            ).filter((el) => !el.hidden);
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault(); last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault(); first.focus();
+            }
+        });
+    })();
+    </script>
+
+    <script>
+    /* Jump-nav scroll-spy — underline the section currently on screen.
+       "Current" = the last section whose top has passed the sticky bar;
+       before the first section, nothing is highlighted. */
+    (function () {
+        const links = Array.from(document.querySelectorAll('.section-nav a[href^="#"]'));
+        const pairs = links
+            .map((a) => ({ a, sec: document.querySelector(a.getAttribute('href')) }))
+            .filter((p) => p.sec);
+        let ticking = false;
+        function update() {
+            ticking = false;
+            const line = 90; // just under the sticky bar
+            let current = null;
+            pairs.forEach((p) => {
+                if (p.sec.getBoundingClientRect().top <= line) current = p;
+            });
+            pairs.forEach((p) => p.a.classList.toggle('is-active', p === current));
+        }
+        document.addEventListener('scroll', () => {
+            if (!ticking) { ticking = true; requestAnimationFrame(update); }
+        }, { passive: true });
+        update();
+    })();
+    </script>
+
+    <script>
+    /* ===================================================================
+       Scenario Simulator — schema cards + launcher modal
+       -------------------------------------------------------------------
+       SIM_SCHEMAS is the single source of truth for the four simulator
+       shapes. Each schema renders one card; clicking it opens the launcher
+       modal, where the learner picks a VERSION and (for Conversation
+       Simulation) an intro CONTEXT before launching.
+
+       A schema is EITHER:
+         • single-axis  → `versions: [ ... ]`
+         • two-axis      → `contexts: [ { id, label, versions: [ ... ] } ]`
+                           (the version list depends on the chosen context)
+
+       A version = { label, href, latest?, live?, planned?, note? }
+         • latest   — preselected, gets a "Latest" badge
+         • live     — shows the Live AI flag; launch CTA turns gradient
+         • planned  — not built yet: shown disabled, not launchable
+       Add a new build by adding a version entry here — never a new card. */
+    const SIM_SCHEMAS = [
+        {
+            id: 'conversation-simulation',
+            title: 'Conversation Simulation',
+            example: 'Example: Kendra — checking in on a friend',
+            thumb: 'thumbnails/action-practice.png',
+            studioType: 'action-practice',
+            desc: [
+                "The learner practices a hard real-life conversation — checking in on a friend, Kendra, who's showing signs of a drinking problem. An AI coach preps the learner before each line and reacts afterward, while an AI-played Kendra responds in character. The learner can retry any line, and it isn't a success until they take the one action that matters: connecting Kendra to real help.",
+                "The scene can be set three ways — a short video, a story the learner highlights, or no intro at all. Each context can run on the scripted demo engine or live on a real model (Claude).",
+            ],
+            contexts: [
+                { id: 'video', label: 'Video intro', versions: [
+                    { version: 'V3', label: 'Live AI — updated coaching', href: 'action-practice-live-v3.html', latest: true, live: true, authorable: true },
+                    { version: 'V2', label: 'Live AI', href: 'action-practice-live.html', live: true },
+                    { version: 'V1', label: 'Scripted demo', href: 'action-practice.html' },
+                ]},
+                { id: 'story', label: 'Story + highlight', versions: [
+                    { version: 'V2', label: 'Live AI', href: 'story-highlight-practice-live.html', latest: true, live: true, authorable: true },
+                    { version: 'V1', label: 'Scripted demo', href: 'story-highlight-practice.html' },
+                ]},
+                { id: 'none', label: 'No intro', versions: [
+                    { version: 'V1', label: 'Scripted demo', href: 'direct-practice.html', latest: true },
+                    { version: 'V2', label: 'Live AI', planned: true, live: true },
+                ]},
+            ],
+        },
+        {
+            id: 'guided-arc',
+            title: 'Guided Arc',
+            example: 'Example: Marshall — bystander intervention',
+            thumb: 'thumbnails/marshall-live.svg',
+            studioType: 'guided-arc',
+            desc: [
+                "A coached, multi-phase arc built from a Content Design learning object — here, the Marshall sex-based-harassment and bystander-intervention scenario, running live on Claude. A warm AI coach walks the learner through a gut-reaction reflection, the Title VII legal question, the human and team impact, and a live break-room moment where the learner has to act. Whatever they do, the scene plays out a tailored outcome and the coach debriefs.",
+                "Every learner closes on the same SME-validated toolkit — the nine ideal-response components and the Pick an Action · Offer Support · Consider Escalating framework — regardless of the path they took.",
+            ],
+            // V3 launches the GENERIC Guided Arc engine (guided-arc-live.html),
+            // which runs whatever the Studio published and defaults to the
+            // Marshall build — so the latest cut is Studio-authorable.
+            // ⚠ SOURCE OF TRUTH: edit Guided Arc content in Writer Studio (or the
+            // guided-arc.js DEFAULT). The old hand-coded marshall-scenario-v3.js
+            // remains only as the frozen validation oracle (compile(DEFAULT)
+            // reproduces its prompt); it is not loaded by any launched page.
+            versions: [
+                { version: 'V3', label: 'Reconciled — Learn ⟷ Practice', href: 'guided-arc-live.html', latest: true, live: true, authorable: true },
+                { version: 'V2', label: 'Video turn', href: 'marshall-live-v2.html', live: true },
+                { version: 'V1', label: 'Original', href: 'marshall-live.html', live: true },
+            ],
+        },
+        {
+            id: 'branching-arc',
+            title: 'Branching Arc',
+            example: 'Example: Reading the Warning Signs — workplace violence (PS-801)',
+            thumb: 'thumbnails/branching-arc-live.svg',
+            beta: true,
+            poc: 'docs/workplace-violence-poc.pdf',
+            // studioType intentionally unset — the Writer Studio editor for this
+            // type is stage 2; the POC runs the live page off the type's DEFAULT.
+            desc: [
+                "The first path-contingent scenario type: one evolving situation climbing the course's escalation ladder (Level 1 → 2 → 3). A veteran team member's behavior starts to slip; the learner — his supervisor — has to read the early signs, run the private conversation with a live AI-played Ray, recognize the moment a credible threat changes everything, and make the right calls in an emergency that's a decision point, never a confrontation.",
+                "Every phase closes with the app recording a calibration tier, and authored transitions carry the consequences forward — Ray's disposition, the groundwork laid or skipped, and which bridge opens the next rung all read from how the learner actually handled the last one. A locked threat-content floor keeps the high-stakes material procedural and safe, and every learner leaves with the same SME-validated ladder.",
+            ],
+            versions: [
+                { version: 'V1', label: 'POC — Learn ⟷ Practice ladder', href: 'branching-arc-live.html', latest: true, live: true },
+            ],
+        },
+        {
+            id: 'ensemble-arc',
+            title: 'Ensemble',
+            example: 'Example: The Call from Home — responding to bullying (JEDU-00422)',
+            thumb: 'thumbnails/ensemble-arc-live.svg',
+            beta: true,
+            poc: 'docs/bullying-poc.pdf',
+            studioType: 'ensemble-arc',
+            desc: [
+                "A summative role-play where the learner faces more than one distinct AI character across the arc — a worried parent (Ms. Reyes), a hallway incident to break up in the moment, and the student who did it (Bianca) — each with its own persona, its own guardrails, and its own earned-disclosure ledger. Characters reveal the locked canon only as the learner earns it: Ms. Reyes surfaces the times she was brushed off when she's doubted; Bianca opens up about what's going on for her only when she's held to account with dignity, never shame.",
+                "Consequences carry forward: how the learner treats Ms. Reyes in the first meeting is recorded and shapes how she comes back to close the loop. A locked minor-safeguarding floor keeps both 12-year-olds portrayed responsibly and rules out peer mediation, and every learner leaves with the same SME-validated response. Reuses the Branching Arc ladder engine.",
+            ],
+            versions: [
+                { version: 'V1', label: 'POC — multi-character + earned disclosure', href: 'ensemble-arc-live.html', latest: true, live: true, authorable: true },
+            ],
+        },
+        {
+            id: 'scene-sweep',
+            title: 'Scene Sweep',
+            example: 'Example: Spot the Hazard — HazCom GHS (RVCT-479)',
+            thumb: 'thumbnails/scene-sweep-live.svg',
+            beta: true,
+            poc: 'docs/hazcom-spot-the-hazard-poc.pdf',
+            studioType: 'scene-sweep',
+            desc: [
+                "A perception check on a real photo: the learner sweeps a full-screen work-area scene and taps every hazard they spot — pins drop, a coverage counter climbs (3 of 4…), and misses cost nothing. Once they've found enough (or get stuck), they switch to the coach and talk it through; the coach credits each catch against a fixed rubric and nudges toward the zones they missed without giving them away.",
+                "Each hazard is then worked through three beats — Observe, Remediate, Prevent — and every learner leaves with the same SME close: the observable red flags, the right-now fixes, and what a complete HazCom program covers. The coach grounds to a written description of the scene, not the photo itself, so no multimodal model is needed. Authorable end to end in Writer Studio — upload a photo and drop the hazard hotspots right on it.",
+            ],
+            versions: [
+                { version: 'V1', label: 'POC — perception-grading + coverage', href: 'scene-sweep-live.html', latest: true, live: true, authorable: true },
+            ],
+        },
+        {
+            id: 'mix-arc',
+            title: 'Mix & Match',
+            example: 'Example: Speaking Up in the Moment — a composed scenario',
+            thumb: 'thumbnails/ensemble-arc-live.svg',
+            beta: true,
+            studioType: 'mix-arc',
+            desc: [
+                "Compose a scenario beat by beat: an ordered mix of interaction types, one per phase — coach-led reasoning, a live roleplay scene, or a watch-then-react observe beat — in any order, with the turn cap set per beat. The Writer Studio drafts a start-from-scratch scenario from a one-line brief (one generation pass per beat), then every beat is fully editable — add, reorder, retype, and rewrite in the main editor.",
+                "It rides the same ladder runner as Branching and Ensemble, so a composed scenario runs live the moment it's published. This is the general shape every ScenSim example already fits (each is a mix of types across phases) — offered here as an ingredients-first authoring path alongside the proven single-format types.",
+            ],
+            versions: [
+                { version: 'V1', label: 'Composed — beat-by-beat', href: 'mix-arc-live.html', latest: true, live: true, authorable: true },
+            ],
+        },
+        {
+            id: 'teach-back',
+            title: 'Teach-Back',
+            example: 'Example: HazCom — teach the course back',
+            thumb: 'thumbnails/teach-back.png',
+            studioType: 'teach-back',
+            desc: [
+                "After finishing a course — here, Hazard Communication — the learner flips roles and teaches it back. A short coach chat frames the task, then the learner speaks or types to fill 10 numbered topic slots, each with its correct wording. Gentle hints nudge them when a submission doesn't land a new topic or they go quiet. It closes like the conversation simulator, but with a simple N/10 score instead of strengths and weaknesses.",
+                "Grading runs live on a fast model (Haiku) so a correct answer lands in about a second. Voice input uses the browser's built-in speech recognition, with typing always available as a fallback.",
+            ],
+            versions: [
+                { version: 'V1', label: 'Live AI', href: 'teach-back.html', latest: true, live: true, authorable: true },
+            ],
+        },
+        {
+            id: 'scene-analysis',
+            title: 'Scene Analysis',
+            example: 'Example: Hazmat — observe & react',
+            thumb: 'thumbnails/hazmat-scene-practice.png',
+            studioType: 'observe-react',
+            desc: [
+                "The observe/react shape of the same coach module — instead of a conversation, the learner reads a scene. Here, a “what not to do” study of a badly-run hazmat call: a drone shot of an overturned tanker with traffic never cleared, then helmet-cam footage riding along with a firefighter who walks right up to the leaking tank. The coach probes what the learner notices and validates their discomfort as trained instinct before asking what should have been done.",
+                "Three watch-then-react chapters, the same Learn/Practice shape as the conversation simulator, relabeled Observe/React.",
+            ],
+            versions: [
+                { version: 'V1', label: 'Observe / React', href: 'hazmat-scene-practice.html', latest: true, authorable: true },
+            ],
+        },
+    ];
+
+    (function () {
+        // ---- helpers -------------------------------------------------------
+        // Every version list a schema can offer (flattened across contexts).
+        const allVersions = (s) => s.contexts ? s.contexts.flatMap(c => c.versions) : s.versions;
+        // Does the schema have any live build? (drives the card's Live AI flag)
+        const hasLive = (s) => allVersions(s).some(v => v.live && !v.planned);
+        // Index of the default (latest) version within a list.
+        const defaultIdx = (versions) => {
+            const i = versions.findIndex(v => v.latest);
+            return i >= 0 ? i : 0;
+        };
+        // The schema's overall recommended build — used for the "Updated" stamp.
+        const latestHref = (s) => {
+            const list = s.contexts ? s.contexts[0].versions : s.versions;
+            const v = list[defaultIdx(list)];
+            return v && v.href ? v.href : '';
+        };
+        const LIVE_FLAG = '<span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>';
+        const BETA_FLAG = '<span class="beta-flag"><i class="fa-solid fa-flask"></i>BETA</span>';
+
+        // ---- render the four cards ----------------------------------------
+        const wrap = document.getElementById('simCards');
+        SIM_SCHEMAS.forEach((s) => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'card schema-card';
+            btn.dataset.schema = s.id;
+            const lh = latestHref(s);
+            if (lh) btn.dataset.latest = lh;
+            btn.setAttribute('aria-haspopup', 'dialog');
+            btn.innerHTML =
+                `<img class="thumb" src="${s.thumb}" alt="${s.title} — ${s.example}" loading="lazy">` +
+                (hasLive(s) ? LIVE_FLAG : '') +
+                (s.beta ? BETA_FLAG : '') +
+                `<span class="card-body">` +
+                    `<span class="title">${s.title}</span>` +
+                    `<span class="sim-example">${s.example}</span>` +
+                `</span>`;
+            btn.addEventListener('click', () => openFor(s));
+            li.appendChild(btn);
+            wrap.appendChild(li);
+        });
+
+        // ---- launcher modal -----------------------------------------------
+        const backdrop = document.getElementById('simModal');
+        const dialog = backdrop.querySelector('.lesson-modal');
+        const titleEl = document.getElementById('simModalTitle');
+        const exampleEl = document.getElementById('simModalExample');
+        const bodyEl = document.getElementById('simModalBody');
+        const launchEl = document.getElementById('simModalLaunch');
+        const editEl = document.getElementById('simModalEdit');
+        const closeEl = document.getElementById('simModalClose');
+        const STUDIO_HREF = 'writer-studio-v2.html?type=';
+
+        let current = null;   // current schema
+        let ctxIdx = 0;       // chosen context (two-axis schemas)
+        let verIdx = 0;       // chosen version within the active list
+        let lastFocused = null;
+
+        // The version list currently in play (depends on the chosen context).
+        const activeList = () => current.contexts ? current.contexts[ctxIdx].versions : current.versions;
+
+        function openFor(schema) {
+            current = schema;
+            ctxIdx = 0;
+            verIdx = defaultIdx(activeList());
+
+            titleEl.innerHTML = schema.title +
+                (schema.beta ? '<span class="beta-chip"><i class="fa-solid fa-flask"></i>BETA</span>' : '');
+            exampleEl.textContent = schema.example;
+            renderBody();
+
+            lastFocused = document.activeElement;
+            backdrop.classList.add('open');
+            backdrop.inert = false;
+            window.setTimeout(() => launchEl.focus(), 60);
+        }
+
+        function renderBody() {
+            bodyEl.replaceChildren();
+
+            // Description paragraphs
+            current.desc.forEach((para) => {
+                const p = document.createElement('p');
+                p.textContent = para;
+                bodyEl.appendChild(p);
+            });
+
+            // BETA work-in-progress note (POC cards only). The "authoring tool
+            // comes later" tail only applies to types that aren't Studio-authorable
+            // yet — drop it once a type has an editor (e.g. Scene Sweep).
+            if (current.beta) {
+                const note = document.createElement('div');
+                note.className = 'beta-note';
+                const tail = current.studioType
+                    ? ' expect rough edges.'
+                    : ' expect rough edges, and the authoring tool for it comes later.';
+                note.innerHTML = '<i class="fa-solid fa-flask"></i><span><b>Beta — a proof of concept, not a finished build.</b> This scenario type is still being validated;' + tail + '</span>';
+                bodyEl.appendChild(note);
+            }
+
+            // Source POC deck link (opens the original design PDF in a new tab).
+            if (current.poc) {
+                const a = document.createElement('a');
+                a.className = 'poc-link';
+                a.href = current.poc;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.innerHTML = '<i class="fa-solid fa-file-pdf"></i><span>Source POC deck <span class="poc-sub">— the original design document (PDF)</span></span>';
+                bodyEl.appendChild(a);
+            }
+
+            const panel = document.createElement('div');
+            panel.className = 'launch-panel';
+
+            // Context picker (two-axis schemas only)
+            if (current.contexts) {
+                const group = document.createElement('div');
+                group.className = 'launch-group';
+                group.innerHTML = '<p class="launch-label">Set the scene with</p>';
+                const seg = document.createElement('div');
+                seg.className = 'ctx-seg';
+                current.contexts.forEach((c, i) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = c.label;
+                    b.className = i === ctxIdx ? 'is-active' : '';
+                    b.addEventListener('click', () => {
+                        ctxIdx = i;
+                        verIdx = defaultIdx(activeList());
+                        renderBody();
+                    });
+                    seg.appendChild(b);
+                });
+                group.appendChild(seg);
+                panel.appendChild(group);
+            }
+
+            // Version picker — hidden when there's a single build and no contexts
+            const list = activeList();
+            const showVersions = current.contexts || list.length > 1;
+            if (showVersions) {
+                const group = document.createElement('div');
+                group.className = 'launch-group';
+                group.innerHTML = '<p class="launch-label">Version</p>';
+                const vl = document.createElement('div');
+                vl.className = 'ver-list';
+                list.forEach((v, i) => {
+                    const opt = document.createElement('button');
+                    opt.type = 'button';
+                    opt.className = 'ver-opt' + (i === verIdx ? ' is-selected' : '');
+                    if (v.planned) opt.disabled = true;
+                    const tags =
+                        (v.latest ? '<span class="ver-badge latest">Latest</span>' : '') +
+                        (v.live && !v.planned ? LIVE_FLAG : '') +
+                        (v.planned ? '<span class="ver-badge planned">Planned</span>' : '');
+                    opt.innerHTML =
+                        `<span class="ver-radio"></span>` +
+                        (v.version ? `<span class="ver-num">${v.version}</span>` : '') +
+                        `<span class="ver-name">${v.label}</span>` +
+                        `<span class="ver-tags">${tags}</span>`;
+                    if (!v.planned) {
+                        opt.addEventListener('click', () => {
+                            verIdx = i;
+                            renderBody();
+                        });
+                    }
+                    vl.appendChild(opt);
+                });
+                group.appendChild(vl);
+                panel.appendChild(group);
+            }
+
+            bodyEl.appendChild(panel);
+            syncLaunch();
+        }
+
+        // Keep the footer CTAs in sync with the selected version.
+        function syncLaunch() {
+            const v = activeList()[verIdx];
+            const launchable = v && v.href && !v.planned;
+            launchEl.disabled = !launchable;
+            launchEl.classList.toggle('live-cta', !!(launchable && v.live));
+            launchEl.textContent = launchable ? 'Launch' : 'Not available yet';
+            // "Edit in Writer Studio" shows only when the picked version is
+            // Studio-authorable and its schema declares a Studio type.
+            editEl.hidden = !(v && v.authorable && current.studioType);
+        }
+
+        function close() {
+            backdrop.classList.remove('open');
+            backdrop.inert = true;
+            if (lastFocused && lastFocused.focus) lastFocused.focus();
+        }
+
+        launchEl.addEventListener('click', () => {
+            const v = activeList()[verIdx];
+            if (v && v.href && !v.planned) window.location.href = v.href;
+        });
+        editEl.addEventListener('click', () => {
+            if (current && current.studioType) {
+                window.location.href = STUDIO_HREF + encodeURIComponent(current.studioType);
+            }
+        });
+        closeEl.addEventListener('click', close);
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && backdrop.classList.contains('open')) close();
+        });
+
+        // Focus trap (same pattern as the details modal above).
+        backdrop.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || !backdrop.classList.contains('open')) return;
+            const focusables = Array.from(
+                dialog.querySelectorAll('button, vaadin-button, [href]')
+            ).filter((el) => !el.hidden && !el.disabled);
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault(); last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault(); first.focus();
+            }
+        });
+    })();
+    </script>
+
+    <script>
+    /* "Updated <date>" stamps — one per card, from updated.json.
+       That file is regenerated by CI on every push (scripts/build-updated-stamps.js),
+       so the date reflects when each experiment file last actually CHANGED.
+       We can't use the server's Last-Modified headers for this: GitHub Pages
+       re-stamps every file on every deploy, so they'd all show the same date.
+       If updated.json is missing or a card's file isn't in it, the card simply
+       shows no stamp. */
+    fetch('updated.json', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+            if (!data || !data.files) return;
+            const now = Date.now();
+            // Static cards key off their own href; the Scenario Simulator's schema
+            // cards are buttons with no href, so they key off data-latest (their
+            // recommended/latest build) instead.
+            document.querySelectorAll('a.card[href], button.schema-card[data-latest]').forEach((card) => {
+                const key = card.getAttribute('href') || card.getAttribute('data-latest');
+                const iso = data.files[key];
+                if (!iso) return;
+                const d = new Date(iso);
+                if (isNaN(d)) return;
+                const stamp = document.createElement('span');
+                stamp.className = 'updated';
+                // fresh in the last 3 days → highlight, so new pushes stand out
+                if (now - d.getTime() < 3 * 24 * 60 * 60 * 1000) stamp.classList.add('is-recent');
+                stamp.innerHTML = '<i class="fa-regular fa-clock"></i>Updated ' +
+                    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                (card.querySelector('.card-body') || card).appendChild(stamp);
+            });
+        })
+        .catch(() => { /* no stamps offline — cards are fine without them */ });
+    </script>
+</body>
+</html>

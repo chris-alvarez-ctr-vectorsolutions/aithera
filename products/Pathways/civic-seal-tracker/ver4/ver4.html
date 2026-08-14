@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seal Tracker · NY Seal of Civic Readiness · V4</title>
+
+    <!--
+    ══════════════════════════════════════════════════════════════════════════
+    PathwayOS · Student seal tracker detail page (/student/civic-seal) · V4
+    RULE OF THIS VERSION: the page structure does NOT change. Navy banner,
+    donut summary card, requirements accordion, category sections of
+    criterion rows, right-aligned points column: all preserved. Every
+    improvement is ADDITIVE, layered onto the existing containers plus one
+    new overlay: the stacked-navigation side panel.
+
+    CONCEPTUAL HIERARCHY SURFACED (not restructured):
+      Seal → top-level badges (the category sections) → row badges → each
+      composed of child badges + activities (the things students actually
+      self-report on). Rows stay summaries; the side panel is the drill-in.
+
+    SIDE PANEL (the one new component):
+    - Opens from a row title or an "also earn via badge" chip. Contents are
+      CARDS based on the existing badge-modal card pattern (name link,
+      colored left edge, status label), upgraded from binary green/red to
+      the three-state system + pending.
+    - BADGE cards push a new "page" in the panel; breadcrumbs at the top
+      track the path (each crumb clickable); nesting is arbitrarily deep.
+    - ACTIVITY cards self-report inline ("I completed this") for simple
+      attestations, or push a FORM page (description, file upload, rubric
+      download) for evidence-based ones. Submissions go to admin approval
+      and every surface showing that requirement flips to Pending approval.
+
+    ASSUMPTIONS ABOUT THE CURRENT IMPLEMENTATION (flagged for the team):
+    1. Page composition: SealHeaderBanner, SealSummaryCard (ring counters),
+       RequirementsAccordion, per-category stacks of CriterionRow (StatusIcon,
+       title/limit block, EvidenceList, HowToEarnPanel, PointsColumn).
+    2. The badge modal's criteria-card grid is a reusable component; the
+       side panel reuses that card, not a new invention.
+    3. Badge→child-badge→activity relationships are queryable to any depth
+       (the breadcrumb path is data, not hardcoded).
+    4. Progress increments already exist as discrete records (evidence
+       bullets render per increment today); counts reuse those records.
+    5. An activity upload/attest + admin approval flow exists; the panel's
+       inline attest and form both route into it unchanged.
+    6. District flag for student self-reporting exists (mock assumes ON,
+       approval required on every path).
+    AMBIGUOUS / TO CONFIRM:
+    - Whether every activity supports one-click attest vs. requiring
+      evidence is per-activity configuration; the mock shows both.
+    - Rubric/resource downloads per activity: assumed available as static
+      files; links here are non-functional placeholders.
+    - Category structure is data-driven (NY=2, Indiana=3); nothing below
+      is hardcoded to two sections.
+    ══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+    <!-- Roboto: PathwayOS's existing type family (keeping the page's current look) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"/>
+    <!-- Font Awesome 6 Icons -->
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
+<style>
+/* ─── Tokens (existing PathwayOS palette, unchanged) ─────────────────── */
+:root{
+  --navy:#1c2b4a;
+  --ink:#1f2937;
+  --body:#4b5563;
+  --muted:#6b7280;
+  --line:#e5e7eb;
+  --panel:#f4f5f7;
+  --page:#f6f7f9;
+  --green:#2e7d32;
+  --green-soft:#e8f5e9;
+  --blue:#3949ab;
+  --blue-soft:#eef2ff;
+  --blue-line:#c7d2fe;
+  --gold:#d4a72c;
+  --gold-soft:#ecdcae;       /* partial progress, not yet awarded */
+  --gold-ink:#8a6116;
+  --amber:#d97706;           /* pending approval */
+  --amber-ink:#92500a;
+  --amber-soft:#fef3e2;
+  --amber-line:#f3d9ae;
+  --track:#e0e3e8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Roboto','Open Sans',sans-serif;background:var(--page);color:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.page{max-width:1120px;margin:0 auto;padding:20px 24px 64px}
+h1,h2,h3{color:var(--ink)}
+button{font:inherit;cursor:pointer;background:none;border:none;color:inherit}
+
+/* ─── Wayfinding above the title (existing) ──────────────────────────── */
+.backlink{display:inline-flex;align-items:center;gap:8px;color:var(--blue);font-size:13px;font-weight:500;text-decoration:none;margin-bottom:6px;border-radius:4px;padding:2px 4px 2px 0}
+.backlink:hover{text-decoration:underline}
+.page-title{font-size:20px;font-weight:500;margin-bottom:14px}
+
+/* ─── SealHeaderBanner · unchanged ───────────────────────────────────── */
+.banner{background:var(--navy);border-radius:8px;display:flex;align-items:center;gap:16px;padding:20px 24px;margin-bottom:16px}
+.banner .emblem{width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:#cfd8e6;font-size:20px;flex-shrink:0}
+.banner .who{color:#fff}
+.banner .who .name{font-size:19px;font-weight:700;letter-spacing:.2px}
+.banner .who .sub{font-size:12.5px;color:#b9c4d6;margin-top:2px}
+
+/* ─── SealSummaryCard · same card, donuts gain a light-gold segment for
+       partial progress + a flag line + a legend (Improvement 1.6) ────── */
+.summary{background:#fff;border:1px solid var(--line);border-radius:8px;padding:26px 24px 20px;margin-bottom:16px;display:flex;justify-content:center;gap:24px 72px;flex-wrap:wrap}
+.donut{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:150px}
+.donut .ring{position:relative;width:84px;height:84px}
+.donut .ring svg{width:84px;height:84px;display:block}
+.donut .ring .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:700;color:var(--ink)}
+.donut .label{font-weight:700;color:var(--ink);font-size:14px;margin-top:10px}
+.donut .status{font-size:13px;color:var(--muted);margin-top:2px}
+.donut .flag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gold-ink);margin-top:5px;background:#faf4e2;border-radius:999px;padding:2px 10px}
+.donut .flag.pend{color:var(--amber-ink);background:var(--amber-soft)}
+.donut .flag .dotring{width:9px;height:9px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;transform:rotate(45deg);flex-shrink:0}
+.donut-legend{width:100%;display:flex;justify-content:center;gap:26px;margin-top:2px;padding-top:14px;border-top:1px solid #f0f1f4;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.donut-legend .sw{display:inline-block;width:16px;height:7px;border-radius:3.5px;margin-right:7px;vertical-align:middle}
+
+/* ─── RequirementsAccordion · unchanged pattern ──────────────────────── */
+.reqcard{background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:26px;overflow:hidden}
+.reqcard>button{display:flex;align-items:center;gap:14px;width:100%;padding:16px 20px;text-align:left}
+.reqcard>button:hover{background:#fafbfc}
+.reqcard .emblem{width:38px;height:38px;border-radius:50%;background:var(--navy);color:#d9c789;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.reqcard .t{font-weight:700;color:var(--ink);font-size:15px}
+.reqcard .d{font-size:13px;color:var(--muted)}
+.reqcard .chev{margin-left:auto;color:var(--muted);transition:transform .15s}
+.reqcard.open .chev{transform:rotate(90deg)}
+.reqcard .reqbody{display:none;border-top:1px solid var(--line);padding:16px 20px 18px;font-size:13.5px}
+.reqcard.open .reqbody{display:block}
+.reqcard .reqbody ul{margin:8px 0 0 18px}
+.reqcard .reqbody li{margin-top:4px}
+
+/* ─── Category sections · unchanged headers (render per category) ────── */
+.cat{margin-bottom:30px}
+.cat-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.cat-head h2{font-size:19px;font-weight:500}
+.cat-head .cat-sub{font-size:12.5px;color:var(--muted)}
+
+/* ─── CriterionRow · same container; additive pieces inside ─────────── */
+.crit{background:#fff;border:1px solid var(--line);border-left:4px solid transparent;border-radius:8px;padding:14px 18px 14px 16px;margin-bottom:10px}
+.crit[data-state="complete"]{border-left-color:var(--green)}
+.crit[data-state="repeat-earned"]{border-left-color:var(--green)}
+.crit[data-state="pending"]{border-left-color:var(--amber)}
+.crit-head{display:flex;align-items:flex-start;gap:12px}
+.crit-main{flex:1;min-width:0}
+.crit-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.crit-title{font-size:15px;font-weight:700}
+.crit-limit{font-size:12.5px;color:var(--muted);margin-top:2px}
+.crit-points{text-align:right;flex-shrink:0;min-width:172px}
+.crit-points .p1{font-weight:700;font-size:13.5px;color:var(--ink)}
+.crit-points .p1.earned{color:var(--green)}
+.crit-points .p1.pending{color:var(--amber-ink)}
+.crit-points .p2{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* Clickable badge names (Improvement 2.1): the row title opens the side
+   panel. Interactive things look interactive; hover = blue + underline. */
+.tlink{display:inline-flex;align-items:center;gap:8px;font:inherit;color:inherit;text-align:left;padding:0;border-radius:4px}
+.tlink:hover{color:var(--blue);text-decoration:underline}
+.tchev{font-size:10px;color:#b6bcc6;transition:transform .12s;flex-shrink:0}
+.tlink:hover .tchev{transform:translateX(2px);color:var(--blue)}
+
+/* StatusIcon · three-state + pending (Improvement 1.2). Read-only: no
+   hover, default cursor, so it stops reading as a checkbox. */
+.sicon{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;margin-top:1px;cursor:default}
+.sicon.none{border:2px solid #b6bcc6;border-radius:50%}
+.sicon.done{background:var(--green);border-radius:50%;color:#fff;font-size:11px}
+.sicon.pend{border:2px solid var(--amber);border-radius:50%;background:var(--amber-soft);color:var(--amber-ink);font-size:10px}
+.sicon.ringy svg{display:block}
+
+/* ProgressCount + SegmentTicks (Improvement 1.1) */
+.pcount{font-size:12.5px;font-weight:500;color:var(--body);background:var(--panel);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.ticks{display:inline-flex;gap:3px;align-items:center}
+.ticks i{width:18px;height:6px;border-radius:3px;background:var(--track)}
+.ticks i.done{background:var(--green)}
+.ticks i.pend{background:repeating-linear-gradient(45deg,var(--amber),var(--amber) 3px,#f6c98a 3px,#f6c98a 6px)}
+
+/* Pending-approval chip (matches the existing "In Progress" chip family) */
+.chip-pend{display:none;font-size:11.5px;font-weight:500;color:var(--amber-ink);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:1px 9px;white-space:nowrap}
+.crit[data-state="pending"] .chip-pend{display:inline-block}
+
+/* EvidenceList · unchanged; on multi-part rows it is the itemized
+   progress log under the count (Improvement 1.4) */
+.evid{list-style:none;margin-top:6px;padding-left:34px}
+.evid li{display:flex;align-items:baseline;gap:8px;font-size:13px;margin-top:3px}
+.evid li::before{content:"";width:5px;height:5px;border-radius:50%;background:#4c3a8f;flex-shrink:0;transform:translateY(-2px)}
+.evid b{color:var(--ink);font-weight:500}
+.evid li.mutedline::before{background:#b6bcc6}
+.evid li.mutedline{color:var(--muted)}
+
+/* HowToEarnPanel · unchanged container; gains the regulation microcopy
+   (Improvement 1.3) and the actionable badge chip (Improvement 2.2) */
+.howto{background:var(--panel);border-radius:8px;padding:11px 14px;margin:10px 0 0 34px;font-size:13px}
+.howto .lbl{color:var(--blue);font-weight:700}
+.howto .regnote{display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:var(--body)}
+.howto .regnote i{color:var(--gold-ink);margin-top:2px}
+.howto .regnote b{color:var(--ink);font-weight:500}
+.badge-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.badge-chip{display:inline-flex;align-items:center;gap:7px;background:var(--blue-soft);border:1px solid var(--blue-line);color:var(--blue);border-radius:999px;padding:3px 11px;font-size:12.5px;font-weight:500}
+.badge-chip:hover{background:#e3e9ff}
+.badge-chip .fa-chevron-right{font-size:9px}
+
+/* State-dependent bits: [data-when] lists the states an element shows in;
+   the demo script toggles them when a container's data-state changes. */
+
+/* ─── Side panel · stacked navigation drawer (the core new component) ── */
+.panel-scrim{position:fixed;inset:0;background:rgba(17,24,39,.45);opacity:0;visibility:hidden;transition:opacity .18s ease;z-index:50}
+.panel-scrim.open{opacity:1;visibility:visible}
+.side-panel{position:fixed;top:0;right:0;bottom:0;width:min(540px,94vw);background:#fff;box-shadow:-12px 0 34px rgba(0,0,0,.18);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .22s ease}
+.panel-scrim.open .side-panel{transform:none}
+.sp-top{display:flex;align-items:flex-start;gap:12px;padding:14px 20px 0}
+.sp-top h3{font-size:16.5px;flex:1;line-height:1.35;padding-top:3px}
+.sp-x{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;flex-shrink:0}
+.sp-x:hover{background:var(--panel);color:var(--ink)}
+/* Breadcrumbs: every crumb but the last is clickable and jumps back */
+.sp-crumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 20px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.sp-crumbs .crumb{color:var(--blue);font-weight:500;padding:1px 2px;border-radius:3px}
+.sp-crumbs .crumb:hover{text-decoration:underline}
+.sp-crumbs .cur{color:var(--muted)}
+.sp-crumbs .sep{color:#c4c9d2;font-size:10px}
+.sp-body{flex:1;overflow-y:auto;padding:16px 20px 24px}
+.sp-note{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.sp-note b{color:var(--ink);font-weight:500}
+.regbox{background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:8px;padding:9px 13px;font-size:12.5px;color:#2c3a8c;margin-bottom:14px}
+.regbox i{margin-right:6px}
+
+/* Panel cards · based on the EXISTING badge-modal card pattern (name as
+   link, colored left edge, status label), upgraded to three-state +
+   pending. Green/red binary edges are retired. */
+.card{background:#fff;border:1px solid var(--line);border-left:4px solid #d6dae1;border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.card[data-state="complete"]{border-left-color:var(--green)}
+.card[data-state="in-progress"],.card[data-state="repeat-earned"]{border-left-color:var(--gold)}
+.card[data-state="pending"]{border-left-color:var(--amber)}
+.card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-head .sicon{width:20px;height:20px}
+.card-name{font-size:13.5px;font-weight:700;color:var(--ink)}
+.ctag{font-size:10.5px;font-weight:500;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 8px;white-space:nowrap}
+.cstatus{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);white-space:nowrap;padding-left:10px}
+.cstatus b{display:block;font-weight:700;font-size:12.5px;color:var(--ink)}
+.cstatus b.earned{color:var(--green)}
+.cstatus b.pending{color:var(--amber-ink)}
+.card-meta{font-size:12.5px;color:var(--muted);margin:5px 0 0 30px}
+.card-meta b{color:var(--ink);font-weight:500}
+.card-actions{margin:9px 0 2px 30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn-evidence{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:500;background:#fff}
+.btn-evidence:hover{background:var(--blue-soft)}
+.pn{font-size:12.5px;color:var(--amber-ink)}
+.pn i{margin-right:6px}
+.card .ticks i{width:14px}
+.card .pcount{font-size:11.5px;padding:1px 8px}
+
+/* Form page inside the panel (evidence-based self-report) */
+.fform .fintro{font-size:13px;margin-bottom:12px}
+.fform .rubric{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:8px;padding:10px 13px;font-size:13px;margin-bottom:12px}
+.fform .rubric i{color:var(--blue);font-size:15px}
+.fform .rubric a{color:var(--blue);font-weight:500;text-decoration:none}
+.fform .rubric a:hover{text-decoration:underline}
+.fform .flabel{font-size:12.5px;font-weight:500;color:var(--ink);margin:12px 0 5px}
+.fform textarea{width:100%;border:1px solid var(--line);border-radius:6px;padding:9px 11px;font:inherit;font-size:13px;resize:vertical;min-height:76px}
+.fform .drop{border:1.5px dashed #b6bcc6;border-radius:8px;padding:20px 16px;text-align:center;color:var(--muted);font-size:13px;background:#fafbfc}
+.fform .drop i{font-size:18px;color:var(--blue);display:block;margin-bottom:6px}
+.fform .attest{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;margin-top:12px;color:var(--body)}
+.fform .attest input{margin-top:3px}
+.fform .factions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.btn-plain{color:var(--body);padding:7px 14px;border-radius:6px;font-weight:500;font-size:13px}
+.btn-plain:hover{background:var(--panel)}
+.btn-primary{background:var(--blue);color:#fff;border-radius:6px;padding:7px 16px;font-weight:500;font-size:13px}
+.btn-primary:hover{background:#303f9f}
+
+/* ─── Demo divider + dashboard widget strip + notes ──────────────────── */
+.demo-div{display:flex;align-items:center;gap:12px;margin:44px 0 14px;color:var(--muted);font-size:12px;font-weight:500}
+.demo-div::before,.demo-div::after{content:"";flex:1;border-top:1px dashed #c9ced6}
+.dash{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.dash .emblem{width:40px;height:40px;border-radius:50%;background:#eceef1;color:#9aa2ad;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash .dt{font-weight:700;color:var(--ink);font-size:15px;min-width:210px}
+.dash .bars{display:flex;gap:26px;flex:1;min-width:420px;flex-wrap:wrap}
+.dash .bar-group{flex:1;min-width:120px}
+.dash .bar-lbl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+.dash .bar-lbl b{color:var(--ink);font-weight:500}
+.dash .bar{height:6px;border-radius:3px;background:var(--track);overflow:hidden;display:flex}
+.dash .bar .fill{background:var(--gold)}
+.dash .bar .soon{background:var(--gold-soft)}
+.dash .right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-left:auto}
+.dash .chip-prog{font-size:11.5px;font-weight:500;color:var(--amber-ink);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:2px 10px}
+.dash .btn-view{border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:5px 14px;font-size:13px;font-weight:500;background:#fff}
+.dash .btn-view:hover{background:var(--blue-soft)}
+.dash-legend{font-size:11.5px;color:var(--muted);margin-top:8px}
+.dash-legend .sw{display:inline-block;width:16px;height:7px;border-radius:3.5px;vertical-align:middle;margin:0 5px 0 12px}
+.notes{background:#fffdf5;border:1px dashed #d9c789;border-radius:8px;padding:18px 22px;font-size:13px}
+.notes h2{font-size:14px;margin-bottom:8px}
+.notes ol{margin-left:18px}
+.notes li{margin-top:7px}
+.notes b{color:var(--ink);font-weight:500}
+.notes .small{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);background:var(--navy);color:#fff;font-size:13px;border-radius:999px;padding:9px 18px;opacity:0;pointer-events:none;transition:all .25s;z-index:60}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:760px){
+  .summary{gap:24px 36px}
+  .crit-points{min-width:120px}
+  .dash .bars{min-width:0;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a class="backlink" href="#"><i class="fa-solid fa-arrow-left"></i> Achievements</a>
+  <h1 class="page-title">NY Seal of Civic Readiness</h1>
+
+  <!-- ═ 1 · SealHeaderBanner · unchanged ═ -->
+  <header class="banner">
+    <div class="emblem"><i class="fa-solid fa-landmark-dome"></i></div>
+    <div class="who">
+      <div class="name">Emily Growler</div>
+      <div class="sub">Grade 11 · NY Seal of Civic Readiness</div>
+    </div>
+  </header>
+
+  <!-- ═ 2 · SealSummaryCard · same structure; each ring gains a light-gold
+       segment (partial progress, not yet awarded) + a flag line + legend ═ -->
+  <section class="summary" aria-label="Progress summary">
+    <div class="donut">
+      <div class="ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="106.8 213.6" transform="rotate(-90 42 42)"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold-soft)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="100 213.6" transform="rotate(92 42 42)"/>
+        </svg>
+        <div class="num">1</div>
+      </div>
+      <div class="label">Civic Knowledge</div>
+      <div class="status">1 more needed</div>
+      <span class="flag"><span class="dotring"></span> 1 pt in progress</span>
+    </div>
+
+    <div class="donut">
+      <div class="ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="160.2 213.6" transform="rotate(-90 42 42)"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold-soft)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="49 213.6" transform="rotate(182 42 42)"/>
+        </svg>
+        <div class="num">1.5</div>
+      </div>
+      <div class="label">Civic Participation</div>
+      <div class="status">0.5 more needed</div>
+      <span class="flag pend"><span class="dotring"></span> 1 pt pending approval</span>
+    </div>
+
+    <div class="donut">
+      <div class="ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="89 213.6" transform="rotate(-90 42 42)"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold-soft)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="67 213.6" transform="rotate(62 42 42)"/>
+        </svg>
+        <div class="num">2.5</div>
+      </div>
+      <div class="label">Total Points</div>
+      <div class="status">3.5 more needed</div>
+      <span class="flag"><span class="dotring"></span> 2 pts in progress</span>
+    </div>
+
+    <div class="donut-legend">
+      <span><i class="sw" style="background:var(--gold)"></i>Points earned</span>
+      <span><i class="sw" style="background:var(--gold-soft)"></i>In progress · not yet awarded</span>
+      <span><i class="sw" style="background:var(--track)"></i>Remaining</span>
+    </div>
+  </section>
+
+  <!-- ═ 3 · RequirementsAccordion · unchanged ═ -->
+  <section class="reqcard" id="reqcard">
+    <button type="button" aria-expanded="false" onclick="toggleReq(this)">
+      <span class="emblem"><i class="fa-solid fa-stamp"></i></span>
+      <span>
+        <span class="t">NY Seal of Civic Readiness Requirements</span><br>
+        <span class="d">Criteria and point requirements for this seal</span>
+      </span>
+      <i class="fa-solid fa-chevron-right chev"></i>
+    </button>
+    <div class="reqbody">
+      To earn the NY Seal of Civic Readiness you need <b>6 total points</b>, with minimums in each area:
+      <ul>
+        <li>At least <b>2 points</b> in Civic Knowledge</li>
+        <li>At least <b>2 points</b> in Civic Participation</li>
+        <li><b>6 points</b> overall</li>
+      </ul>
+      <p style="margin-top:10px">Per New York State regulation, each criterion awards its points only when it is fully complete. Partial work is tracked on this page so you always know where you stand, but the points land all at once.</p>
+    </div>
+  </section>
+
+  <!-- ═ 4 · Category sections · unchanged structure. Conceptually each
+       section is a top-level badge of the seal; its rows are the badges
+       that compose it. Rows are summaries; titles open the side panel. ═ -->
+  <section class="cat" aria-label="Civic Knowledge">
+    <div class="cat-head">
+      <h2>Civic Knowledge</h2>
+      <span class="cat-sub">Minimum 2 points · 1 pt earned · 1 pt in progress</span>
+    </div>
+
+    <!-- ─ CriterionRow · IN PROGRESS multi-part (Improvement 1) ─ -->
+    <article class="crit" data-state="in-progress" id="crit-credits">
+      <div class="crit-head">
+        <span class="sicon ringy" data-when="in-progress pending" role="img" aria-label="In progress: 3 of 4 credits">
+          <svg width="22" height="22" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--track)" stroke-width="2.5"/>
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                    stroke-linecap="round" stroke-dasharray="42.4 56.5" transform="rotate(-90 11 11)"/>
+          </svg>
+        </span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-knowledge','pg-credits'])" title="View badge details">4 Credits of Social Studies <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+            <span class="pcount countv" data-when="in-progress">3 of 4 credits</span>
+            <span class="pcount countv" data-when="pending" style="display:none">3 of 4 credits · 1 pending</span>
+            <span class="ticks" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="tick-next"></i></span>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1">0 pts earned</div>
+          <div class="p2">1 pt at completion</div>
+        </div>
+      </div>
+      <!-- EvidenceList = itemized progress log per increment -->
+      <ul class="evid">
+        <li><b>Jun 2024</b> · 9th grade credit · Global History &amp; Geography I</li>
+        <li><b>Jun 2025</b> · 10th grade credit · Global History &amp; Geography II</li>
+        <li><b>Jan 2026</b> · 11th grade credit · US History &amp; Government · self-reported, approved</li>
+        <li class="mutedline">12th grade credit · not yet earned · scheduled spring 2027</li>
+      </ul>
+      <ul class="evid evid-live" style="display:none"></ul>
+      <div class="howto">
+        <span class="lbl">How to earn:</span> Complete 4 credits of high school social studies coursework, one per school year.
+        <!-- Regulation microcopy (Improvement 1.3): a state rule, not a
+             system limitation -->
+        <div class="regnote">
+          <i class="fa-solid fa-circle-info"></i>
+          <span><b>Points are awarded only when all 4 credits are complete. You have 3 of 4.</b> This all-or-nothing scoring comes from New York State's Seal of Civic Readiness regulations, so partial credits show progress here but no points yet.</span>
+        </div>
+        <div class="badge-line">
+          <span>You may also earn this credit by earning the badge:</span>
+          <button class="badge-chip" onclick="openPath(['pg-knowledge','pg-credits'])">
+            <i class="fa-solid fa-medal"></i> Social Studies Credits · 1 pt <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · NOT STARTED, repeatable ─ -->
+    <article class="crit" data-state="not-started" id="crit-mastery">
+      <div class="crit-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-knowledge','pg-mastery'])" title="View badge details">Mastery Level on Social Studies Regents Exam <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 pointsv" data-when="not-started">1.5 pts available</div>
+          <div class="p1 pending pointsv" data-when="pending" style="display:none">1.5 pts pending review</div>
+          <div class="p2 pointsv" data-when="not-started">Can earn multiple times</div>
+          <div class="p2 pointsv" data-when="pending" style="display:none">0 pts earned until approved</div>
+        </div>
+      </div>
+      <ul class="evid evid-live" style="display:none"></ul>
+      <div class="howto">
+        <span class="lbl">How to earn:</span> Score at the mastery level (85+) on any Social Studies Regents exam.
+        <div class="badge-line">
+          <span>You may also earn this credit by earning the badge:</span>
+          <button class="badge-chip" onclick="openPath(['pg-knowledge','pg-mastery'])">
+            <i class="fa-solid fa-medal"></i> Mastery Level Regents Exam · 1.5 pts <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · NOT STARTED ─ -->
+    <article class="crit" data-state="not-started" id="crit-prof">
+      <div class="crit-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-knowledge','pg-prof'])" title="View badge details">Proficiency Level on Social Studies Regents Exam <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 pointsv" data-when="not-started">1 pt available</div>
+          <div class="p1 pending pointsv" data-when="pending" style="display:none">1 pt pending review</div>
+          <div class="p2 pointsv" data-when="not-started">Can earn multiple times</div>
+          <div class="p2 pointsv" data-when="pending" style="display:none">0 pts earned until approved</div>
+        </div>
+      </div>
+      <ul class="evid evid-live" style="display:none"></ul>
+      <div class="howto">
+        <span class="lbl">How to earn:</span> Score at the proficiency level (65+) on any Social Studies Regents exam.
+        <div class="badge-line">
+          <span>You may also earn this credit by earning the badge:</span>
+          <button class="badge-chip" onclick="openPath(['pg-knowledge','pg-prof'])">
+            <i class="fa-solid fa-medal"></i> Proficiency Level Regents Exam · 1 pt <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · COMPLETE (presentation unchanged) ─ -->
+    <article class="crit" data-state="complete">
+      <div class="crit-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-knowledge','pg-research'])" title="View badge details">Research Project <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 earned">1 pt earned</div>
+        </div>
+      </div>
+      <ul class="evid">
+        <li>Completed activity: <b>Research Project · Marivette</b></li>
+      </ul>
+    </article>
+  </section>
+
+  <section class="cat" aria-label="Civic Participation">
+    <div class="cat-head">
+      <h2>Civic Participation</h2>
+      <span class="cat-sub">Minimum 2 points · 1.5 pts earned · 1 pt pending approval</span>
+    </div>
+
+    <!-- ─ CriterionRow · REPEATABLE, 1 of 2 (Improvement 1.5) ─ -->
+    <article class="crit" data-state="repeat-earned" id="crit-civics">
+      <div class="crit-head">
+        <span class="sicon ringy" data-when="repeat-earned pending" role="img" aria-label="1 of 2 earned">
+          <svg width="22" height="22" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--track)" stroke-width="2.5"/>
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                    stroke-linecap="round" stroke-dasharray="28.3 56.5" transform="rotate(-90 11 11)"/>
+          </svg>
+        </span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-participation','pg-civics'])" title="View badge details">High School Civics Project <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+            <span class="pcount countv" data-when="repeat-earned">1 of 2 earned (max 2)</span>
+            <span class="pcount countv" data-when="pending" style="display:none">1 of 2 earned · 1 pending</span>
+            <span class="ticks" aria-hidden="true"><i class="done"></i><i class="tick-next"></i></span>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+          <div class="crit-limit">Limit 2x during grades 9-12</div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 earned">1.5 pts earned</div>
+          <div class="p2 pointsv" data-when="repeat-earned">1.5 more available</div>
+          <div class="p2 pointsv" data-when="pending" style="display:none;color:var(--amber-ink)">+1.5 pts pending review</div>
+        </div>
+      </div>
+      <ul class="evid">
+        <li><b>Nov 2025</b> · Voter registration drive · approved by Ms. Alvarez</li>
+      </ul>
+      <ul class="evid evid-live" style="display:none"></ul>
+      <div class="howto">
+        <span class="lbl">How to earn:</span> Complete a civics project such as a voter registration drive, town hall simulation, or civic action campaign.
+        <div class="badge-line">
+          <span>You may also earn this credit by earning the badge:</span>
+          <button class="badge-chip" onclick="openPath(['pg-participation','pg-civics'])">
+            <i class="fa-solid fa-medal"></i> H.S. Civics Project · 1.5 pts <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · PENDING APPROVAL ─ -->
+    <article class="crit" data-state="pending">
+      <div class="crit-head">
+        <span class="sicon pend" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-participation','pg-service'])" title="View badge details">Service-Learning Project <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+          <div class="crit-limit">Min 25 hrs + reflective essay/presentation/product</div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 pending">1 pt pending review</div>
+          <div class="p2">0 pts earned until approved</div>
+        </div>
+      </div>
+      <ul class="evid">
+        <li><b>Jul 10, 2026</b> · Submitted: 26 hrs at Northside Food Bank + reflective essay · awaiting counselor review</li>
+      </ul>
+    </article>
+
+    <!-- ─ CriterionRow · NOT STARTED ─ -->
+    <article class="crit" data-state="not-started" id="crit-wbl">
+      <div class="crit-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title"><button class="tlink" onclick="openPath(['pg-participation','pg-wbl'])" title="View badge details">Extracurricular Program or Work-Based Learning Experience <i class="fa-solid fa-chevron-right tchev"></i></button></h3>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+          <div class="crit-limit">Min 40 hrs</div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 pointsv" data-when="not-started">0.5 pts available</div>
+          <div class="p1 pending pointsv" data-when="pending" style="display:none">0.5 pts pending review</div>
+          <div class="p2 pointsv" data-when="not-started">Can earn multiple times</div>
+          <div class="p2 pointsv" data-when="pending" style="display:none">0 pts earned until approved</div>
+        </div>
+      </div>
+      <ul class="evid evid-live" style="display:none"></ul>
+      <div class="howto">
+        <span class="lbl">How to earn:</span> Participate in a school extracurricular program or a work-based learning experience for at least 40 hours.
+      </div>
+    </article>
+  </section>
+
+  <!-- ═ Companion change: dashboard "Achievements You Are Working On"
+       widget seal row: bars gain the light-gold in-flight segment ═ -->
+  <div class="demo-div">Companion change · student dashboard widget (seal rows only)</div>
+  <section class="dash" aria-label="Dashboard widget preview">
+    <div class="emblem"><i class="fa-solid fa-landmark-dome"></i></div>
+    <div class="dt">NY Seal of Civic Readiness</div>
+    <div class="bars">
+      <div class="bar-group">
+        <div class="bar-lbl"><span>Knowledge</span><b>1/2</b></div>
+        <div class="bar"><span class="fill" style="width:50%"></span><span class="soon" style="width:50%"></span></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-lbl"><span>Participation</span><b>1.5/2</b></div>
+        <div class="bar"><span class="fill" style="width:75%"></span><span class="soon" style="width:25%"></span></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-lbl"><span>Total</span><b>2.5/6</b></div>
+        <div class="bar"><span class="fill" style="width:42%"></span><span class="soon" style="width:33%"></span></div>
+      </div>
+    </div>
+    <div class="right">
+      <span class="chip-prog">In Progress</span>
+      <button class="btn-view">View Details</button>
+    </div>
+  </section>
+  <div class="dash-legend">
+    Bar segments:<span class="sw" style="background:var(--gold)"></span>earned
+    <span class="sw" style="background:var(--gold-soft)"></span>in progress · not yet awarded
+    <span class="sw" style="background:var(--track)"></span>remaining
+  </div>
+
+  <!-- ═ Annotation only · not product UI ═ -->
+  <div class="demo-div">Implementation notes for the team · not part of the product UI</div>
+  <section class="notes">
+    <h2>V4 · what changed, mapped to existing components (all additive)</h2>
+    <ol>
+      <li><b>StatusIcon (CriterionRow)</b>: two states become four: empty circle, partial ring (echoes the summary donuts), amber pending, green check. Read-only styling (no hover, default cursor) so it stops reading as a checkbox. Small effort.</li>
+      <li><b>CriterionRow title row</b>: ProgressCount pill ("3 of 4 credits", "1 of 2 earned (max 2)") + SegmentTicks, driven by the increment records that already power evidence bullets. The title itself becomes a link that opens the side panel; the row stays a summary. Small-medium effort.</li>
+      <li><b>PointsColumn</b>: adds in-progress ("0 pts earned · 1 pt at completion") and pending ("pending review · 0 pts earned until approved") states. The all-or-nothing point rule is unchanged. Small effort.</li>
+      <li><b>EvidenceList</b>: unchanged component; on multi-part rows it is the itemized per-increment progress log under the count. No effort.</li>
+      <li><b>HowToEarnPanel</b>: same gray panel; gains the regulation microcopy slot (framed as NY State regulation) and the "also earn via badge" line becomes a chip that opens that badge in the side panel: no dead text, and no separate competing badge modal. Small effort.</li>
+      <li><b>Side panel (new overlay; the only new component)</b>: a stacked-navigation drawer. Its content reuses the EXISTING badge-modal criteria-card pattern (name link, colored left edge, status label), upgraded from binary green/red to the three-state + pending system. Badge cards push a nested panel page; breadcrumbs at the top track the path and every crumb is clickable; nesting is arbitrarily deep. Medium-large effort, mostly composition of existing pieces.</li>
+      <li><b>Activity cards</b>: simple attestations submit inline on the card ("I completed this"); evidence-based ones push a form page in the panel (description, file upload, rubric download) that submits into the existing upload/attest + admin approval flow. After either, every surface showing that requirement (card, nested badge card, seal-page row) flips to Pending approval because they read one record. Medium effort.</li>
+      <li><b>SummaryDonut + DashboardSealRow</b>: structure unchanged; rings and bars gain a light-gold segment for in-flight points plus a legend and a small flag line ("1 pt in progress"), so partial work never displays as a flat zero. Small effort.</li>
+      <li><b>Removed from student view</b>: the separate badge modal for seal-linked badges (its card pattern lives on inside the panel). Non-seal badges are untouched.</li>
+    </ol>
+    <p class="small">Try it: click "4 Credits of Social Studies" to open its badge in the side panel, click "12th Grade Social Studies" to push a nested page (breadcrumbs jump back to any level), then "Report this credit" for the evidence form: submitting flips the card, its parents, and the seal-page row to Pending approval. For the one-click path, open "High School Civics Project" and use "I completed this" on the 2nd-project activity card. Escape or X closes the panel.</p>
+  </section>
+</div>
+
+<!-- ═ Side panel shell: one drawer, stacked pages, breadcrumb navigation ═ -->
+<div class="panel-scrim" id="scrim">
+  <aside class="side-panel" role="dialog" aria-modal="true" aria-labelledby="sp-title">
+    <div class="sp-top">
+      <h3 id="sp-title">Details</h3>
+      <button class="sp-x" onclick="closePanel()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="sp-crumbs" id="sp-crumbs"></div>
+    <div class="sp-body" id="sp-body"></div>
+  </aside>
+</div>
+
+<!-- ═ Panel page store (hidden; pages are moved into the shell so their
+     state, e.g. pending flips, persists across navigation) ═ -->
+<div id="panel-store" hidden>
+
+  <!-- Top-level badge page · Civic Knowledge -->
+  <section class="ppage" id="pg-knowledge" data-crumb="Civic Knowledge">
+    <div class="sp-note"><b>Top-level badge</b> · minimum 2 points · 1 pt earned · 1 pt in progress. These badges compose it:</div>
+
+    <div class="card" data-state="in-progress" id="card-k-credits">
+      <div class="card-head">
+        <span class="sicon ringy" data-when="in-progress pending" role="img" aria-label="In progress">
+          <svg width="20" height="20" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--track)" stroke-width="2.5"/>
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                    stroke-linecap="round" stroke-dasharray="42.4 56.5" transform="rotate(-90 11 11)"/>
+          </svg>
+        </span>
+        <button class="tlink card-name" onclick="pushPage('pg-credits')">Social Studies Credits <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus">
+          <b class="countv" data-when="in-progress">3 of 4 credits</b>
+          <b class="pending countv" data-when="pending" style="display:none">3 of 4 · 1 pending</b>
+          0 pts earned · 1 pt at completion
+        </div>
+      </div>
+      <div class="card-meta">One credit per school year. Points land when all 4 are complete (NY State rule).</div>
+    </div>
+
+    <div class="card" data-state="not-started" id="card-k-mastery">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-mastery')">Mastery Level Regents Exam <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          1.5 pts each · repeatable
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-state="not-started" id="card-k-prof">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-prof')">Proficiency Level Regents Exam <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          1 pt each · repeatable
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-research')">Research Project <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus"><b class="earned">1 pt earned</b>Complete</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top-level badge page · Civic Participation -->
+  <section class="ppage" id="pg-participation" data-crumb="Civic Participation">
+    <div class="sp-note"><b>Top-level badge</b> · minimum 2 points · 1.5 pts earned · 1 pt pending approval. These badges compose it:</div>
+
+    <div class="card" data-state="repeat-earned" id="card-p-civics">
+      <div class="card-head">
+        <span class="sicon ringy" data-when="repeat-earned pending" role="img" aria-label="1 of 2 earned">
+          <svg width="20" height="20" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--track)" stroke-width="2.5"/>
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                    stroke-linecap="round" stroke-dasharray="28.3 56.5" transform="rotate(-90 11 11)"/>
+          </svg>
+        </span>
+        <button class="tlink card-name" onclick="pushPage('pg-civics')">H.S. Civics Project <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus">
+          <b class="earned countv" data-when="repeat-earned">1 of 2 earned (max 2)</b>
+          <b class="pending countv" data-when="pending" style="display:none">1 of 2 · 1 pending</b>
+          1.5 pts earned · 1.5 more available
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-state="pending">
+      <div class="card-head">
+        <span class="sicon pend" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-service')">Service-Learning Project <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus"><b class="pending">1 pt pending review</b>0 pts earned until approved</div>
+      </div>
+      <div class="card-meta">Submitted Jul 10, 2026 · awaiting counselor review.</div>
+    </div>
+
+    <div class="card" data-state="not-started" id="card-p-wbl">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-wbl')">Extracurricular or Work-Based Learning <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          0.5 pts each · repeatable
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Badge page · Social Studies Credits (4 child badges) -->
+  <section class="ppage" id="pg-credits" data-crumb="Social Studies Credits">
+    <div class="regbox"><i class="fa-solid fa-circle-info"></i>Points are awarded only when all 4 credits are complete: you have 3 of 4 (New York State rule). Report each credit as you earn it.</div>
+
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-gr9')">9th Grade Social Studies <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus"><b class="earned">Credit earned</b>Jun 2024</div>
+      </div>
+    </div>
+
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-gr10')">10th Grade Social Studies <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus"><b class="earned">Credit earned</b>Jun 2025</div>
+      </div>
+    </div>
+
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-gr11')">11th Grade Social Studies <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus"><b class="earned">Credit earned</b>Jan 2026 · self-reported</div>
+      </div>
+    </div>
+
+    <div class="card" data-state="not-started" id="card-credits-gr12">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <button class="tlink card-name" onclick="pushPage('pg-gr12')">12th Grade Social Studies <i class="fa-solid fa-chevron-right tchev"></i></button>
+        <span class="ctag">Badge</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not yet earned</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          Scheduled spring 2027
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nested badge pages · per-grade credits (activities inside) -->
+  <section class="ppage" id="pg-gr9" data-crumb="9th Grade Social Studies">
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <span class="card-name">Global History &amp; Geography I · course credit</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus"><b class="earned">Complete</b>From transcript</div>
+      </div>
+      <div class="card-meta">School year 2023-24 · credit posted <b>Jun 2024</b> · final grade 91 · recorded automatically from the district transcript.</div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-gr10" data-crumb="10th Grade Social Studies">
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <span class="card-name">Global History &amp; Geography II · course credit</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus"><b class="earned">Complete</b>From transcript</div>
+      </div>
+      <div class="card-meta">School year 2024-25 · credit posted <b>Jun 2025</b> · final grade 88 · recorded automatically from the district transcript.</div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-gr11" data-crumb="11th Grade Social Studies">
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <span class="card-name">US History &amp; Government · course credit</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus"><b class="earned">Complete</b>Self-reported</div>
+      </div>
+      <div class="card-meta">School year 2025-26 · self-reported and approved by <b>Ms. Alvarez · Jan 2026</b> · final grade 94.</div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-gr12" data-crumb="12th Grade Social Studies">
+    <div class="card" data-state="not-started" id="card-gov-act">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <span class="card-name">Participation in Government &amp; Economics · course credit</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not yet earned</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          Scheduled spring 2027
+        </div>
+      </div>
+      <div class="card-meta">Finished this course early, or earned the credit somewhere else? Report it with your documentation and your counselor will review.</div>
+      <div class="card-actions">
+        <!-- Evidence-based self-report: opens a FORM page in the panel -->
+        <button class="btn-evidence" data-when="not-started" onclick="openForm('Report credit · Participation in Government &amp; Economics','crit-credits card-k-credits card-credits-gr12 card-gov-act','Credit documentation guidelines (PDF)')">
+          <i class="fa-solid fa-arrow-up-from-bracket"></i> Report this credit
+        </button>
+        <span class="pn" data-when="pending" style="display:none"><i class="fa-solid fa-clock"></i>Submitted for review · your counselor will approve or return it.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Badge page · Mastery Level Regents Exam (fulfillment path for the
+       seal criterion: one requirement, one status, never a duplicate) -->
+  <section class="ppage" id="pg-mastery" data-crumb="Mastery Level Regents Exam">
+    <div class="sp-note">This badge fulfills the <b>Mastery Level on Social Studies Regents Exam</b> criterion on the seal page. One requirement, one status: earning it here updates the seal automatically. Can be earned multiple times (1.5 pts each).</div>
+    <div class="card" data-state="not-started" id="card-mastery-act">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <span class="card-name">Social Studies Regents exam · score 85 or higher</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+        </div>
+      </div>
+      <div class="card-meta">Scores usually post automatically when Regents results are released. Earned a qualifying score elsewhere? Submit the score report.</div>
+      <div class="card-actions">
+        <button class="btn-evidence" data-when="not-started" onclick="openForm('Submit a score report · Mastery Level Regents Exam','crit-mastery card-k-mastery card-mastery-act','Regents score report guidelines (PDF)')">
+          <i class="fa-solid fa-arrow-up-from-bracket"></i> Submit a score report
+        </button>
+        <span class="pn" data-when="pending" style="display:none"><i class="fa-solid fa-clock"></i>Submitted for review · points are added once approved.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-prof" data-crumb="Proficiency Level Regents Exam">
+    <div class="sp-note">This badge fulfills the <b>Proficiency Level on Social Studies Regents Exam</b> criterion on the seal page. One requirement, one status. Can be earned multiple times (1 pt each).</div>
+    <div class="card" data-state="not-started" id="card-prof-act">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <span class="card-name">Social Studies Regents exam · score 65 or higher</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+        </div>
+      </div>
+      <div class="card-meta">Scores usually post automatically when Regents results are released. Earned a qualifying score elsewhere? Submit the score report.</div>
+      <div class="card-actions">
+        <button class="btn-evidence" data-when="not-started" onclick="openForm('Submit a score report · Proficiency Level Regents Exam','crit-prof card-k-prof card-prof-act','Regents score report guidelines (PDF)')">
+          <i class="fa-solid fa-arrow-up-from-bracket"></i> Submit a score report
+        </button>
+        <span class="pn" data-when="pending" style="display:none"><i class="fa-solid fa-clock"></i>Submitted for review · points are added once approved.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-research" data-crumb="Research Project">
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <span class="card-name">Research Project · Marivette</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus"><b class="earned">1 pt earned</b>Complete</div>
+      </div>
+      <div class="card-meta">Completed and recorded by your school · counts toward Civic Knowledge.</div>
+    </div>
+  </section>
+
+  <!-- Badge page · H.S. Civics Project (mix: earned activity + inline
+       one-click attest on the open slot) -->
+  <section class="ppage" id="pg-civics" data-crumb="H.S. Civics Project">
+    <div class="sp-note">Each approved civics project earns 1.5 pts, up to twice during grades 9-12. <b>1 of 2 earned.</b></div>
+
+    <div class="card" data-state="complete">
+      <div class="card-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <span class="card-name">Voter registration drive</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus"><b class="earned">1.5 pts earned</b>Nov 2025</div>
+      </div>
+      <div class="card-meta">Approved by <b>Ms. Alvarez</b> · Nov 2025.</div>
+    </div>
+
+    <div class="card" data-state="not-started" id="card-civics2">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <span class="card-name">2nd civics project</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          1.5 pts available
+        </div>
+      </div>
+      <div class="card-meta">A second qualifying project (town hall simulation, civic action campaign, another drive). Simple attestation: your counselor already has the project record.</div>
+      <div class="card-actions">
+        <!-- Simple attestation: INLINE self-report, no navigation -->
+        <button class="btn-evidence" data-when="not-started" onclick="inlineAttest('crit-civics card-p-civics card-civics2')">
+          <i class="fa-solid fa-check"></i> I completed this
+        </button>
+        <span class="pn" data-when="pending" style="display:none"><i class="fa-solid fa-clock"></i>Attested · awaiting counselor approval.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-service" data-crumb="Service-Learning Project">
+    <div class="card" data-state="pending">
+      <div class="card-head">
+        <span class="sicon pend" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <span class="card-name">Service-learning · Northside Food Bank</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus"><b class="pending">1 pt pending review</b>Submitted Jul 10, 2026</div>
+      </div>
+      <div class="card-meta">26 hrs + reflective essay · awaiting counselor review. You will see the result here and on the seal page.</div>
+    </div>
+  </section>
+
+  <section class="ppage" id="pg-wbl" data-crumb="Extracurricular or Work-Based Learning">
+    <div class="card" data-state="not-started" id="card-wbl-act">
+      <div class="card-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <span class="card-name">40+ hour extracurricular or WBL experience</span>
+        <span class="ctag">Activity</span>
+        <div class="cstatus">
+          <b class="countv" data-when="not-started">Not started</b>
+          <b class="pending countv" data-when="pending" style="display:none">Pending approval</b>
+          0.5 pts each
+        </div>
+      </div>
+      <div class="card-meta">Describe the experience and attach your hour log; your counselor reviews the submission.</div>
+      <div class="card-actions">
+        <button class="btn-evidence" data-when="not-started" onclick="openForm('Report your experience · Extracurricular or WBL','crit-wbl card-p-wbl card-wbl-act','WBL hour log template (XLSX)')">
+          <i class="fa-solid fa-arrow-up-from-bracket"></i> Report your experience
+        </button>
+        <span class="pn" data-when="pending" style="display:none"><i class="fa-solid fa-clock"></i>Submitted for review · points are added once approved.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORM page (evidence-based self-report; pushed onto the stack with
+       the same breadcrumb navigation) -->
+  <section class="ppage fform" id="pg-form" data-crumb="Report">
+    <div class="fintro">Your submission goes to your counselor for approval. It will show as <b style="color:var(--amber-ink)">Pending approval</b> everywhere this requirement appears until it is reviewed.</div>
+    <div class="rubric">
+      <i class="fa-solid fa-file-arrow-down"></i>
+      <span>Resource: <a href="#" onclick="return false" id="form-rubric">Guidelines (PDF)</a></span>
+    </div>
+    <div class="flabel">What did you complete?</div>
+    <textarea placeholder="Describe what you completed, where, and when."></textarea>
+    <div class="flabel">Evidence</div>
+    <div class="drop"><i class="fa-solid fa-arrow-up-from-bracket"></i>Drag a file here or <b style="color:var(--blue)">browse</b> to upload (log, transcript, certificate, score report)</div>
+    <label class="attest"><input type="checkbox"> I attest that this evidence is accurate and my own work.</label>
+    <div class="factions">
+      <button class="btn-plain" onclick="popPage()">Cancel</button>
+      <button class="btn-primary" onclick="submitForm()">Submit for approval</button>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast">Submitted · pending counselor approval</div>
+
+<script>
+// ── Requirements accordion (existing pattern) ──
+function toggleReq(btn){
+  const card = btn.closest('.reqcard');
+  const open = card.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open);
+}
+
+// ── Side panel: stacked pages + breadcrumb navigation ──
+// Stack entries: {id, crumb}. Pages are MOVED between #panel-store and the
+// shell (never cloned) so state changes persist wherever a page lives.
+let stack = [];
+function renderPanel(){
+  const body = document.getElementById('sp-body');
+  const store = document.getElementById('panel-store');
+  while(body.firstChild) store.appendChild(body.firstChild);
+  if(!stack.length){
+    document.getElementById('scrim').classList.remove('open');
+    return;
+  }
+  const top = stack[stack.length - 1];
+  body.appendChild(document.getElementById(top.id));
+  document.getElementById('sp-title').textContent = top.crumb;
+  // Breadcrumbs: every crumb but the last jumps back to that level
+  const bar = document.getElementById('sp-crumbs');
+  bar.innerHTML = '';
+  stack.forEach((entry, i) => {
+    if(i > 0){
+      const sep = document.createElement('i');
+      sep.className = 'fa-solid fa-chevron-right sep';
+      bar.appendChild(sep);
+    }
+    if(i < stack.length - 1){
+      const b = document.createElement('button');
+      b.className = 'crumb';
+      b.textContent = entry.crumb;
+      b.addEventListener('click', () => { stack = stack.slice(0, i + 1); renderPanel(); });
+      bar.appendChild(b);
+    }else{
+      const s = document.createElement('span');
+      s.className = 'cur';
+      s.textContent = entry.crumb;
+      bar.appendChild(s);
+    }
+  });
+  document.getElementById('scrim').classList.add('open');
+  body.scrollTop = 0;
+}
+function crumbOf(id, override){
+  return override || document.getElementById(id).getAttribute('data-crumb');
+}
+// Open from the seal page: seed the whole path (category badge → badge) so
+// the first crumb gives context and navigates UP the hierarchy
+function openPath(ids){
+  stack = ids.map(id => ({ id, crumb: crumbOf(id) }));
+  renderPanel();
+}
+// Badge cards push one level deeper
+function pushPage(id, crumbOverride){
+  stack.push({ id, crumb: crumbOf(id, crumbOverride) });
+  renderPanel();
+}
+function popPage(){
+  stack.pop();
+  renderPanel();
+}
+function closePanel(){
+  stack = [];
+  renderPanel();
+}
+document.getElementById('scrim').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closePanel();
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closePanel();
+});
+
+// ── Self-reporting → existing upload/attest + admin approval flow ──
+// Targets: space-separated ids of every surface showing the requirement
+// (seal-page row, parent badge cards, the activity card). All flip to
+// pending together because they read one record.
+function applyPending(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.dataset.state = 'pending';
+  el.querySelectorAll('[data-when]').forEach(node => {
+    const show = node.getAttribute('data-when').split(' ').includes('pending');
+    if(show) node.style.removeProperty('display');
+    else node.style.display = 'none';
+  });
+  const tick = el.querySelector('.tick-next');
+  if(tick) tick.className = 'pend';
+  const evid = el.querySelector('.evid-live');
+  if(evid){
+    evid.style.display = '';
+    evid.innerHTML = '<li><b>Aug 11, 2026</b> · Submitted for approval · awaiting counselor review</li>';
+  }
+}
+function showToast(msg){
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+// Simple attestation: inline on the activity card, no navigation
+function inlineAttest(ids){
+  ids.split(' ').filter(Boolean).forEach(applyPending);
+  showToast('Attested · pending counselor approval');
+}
+
+// Evidence-based self-report: push the form page onto the stack
+let formTargets = '';
+function openForm(title, ids, rubricLabel){
+  formTargets = ids;
+  document.getElementById('form-rubric').textContent = rubricLabel || 'Guidelines (PDF)';
+  pushPage('pg-form', title);
+}
+function submitForm(){
+  formTargets.split(' ').filter(Boolean).forEach(applyPending);
+  popPage(); // back to the parent page, now showing Pending approval
+  showToast('Submitted · pending counselor approval');
+}
+</script>
+
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

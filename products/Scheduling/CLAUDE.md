@@ -49,15 +49,31 @@ Mockups in this directory split into two architectures. Match the existing style
 |---|---|---|
 | `Event Indicator: UX-2474/` | Standard repo style | Vector web components + vanilla JS + Open Sans |
 | `theme-colors/` | Standard repo style | Vector web components + vanilla JS + Open Sans |
-| `rules-engine-only/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
+| `rules-engine-only/` | Standard repo style (converted from React 2026-07-28) | Vector web components + vanilla JS + Open Sans |
 | `ai-search-engine-dashboard/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
 | `advance-scheduling/` | empty placeholder | — |
 
-The CallBack prototypes predate the repo-wide vanilla/Vector convention and use Lumo CSS variables (`--lumo-primary-color`, etc.) rather than Vector theme tokens. Treat them as a legacy island — when starting a *new* Scheduling mock, scaffold the versioned feature structure per the parent CLAUDE.md ("For a NEW mock"): copy `base-template/index.html` (the loader) to the feature root untouched, add `versions.json`, and do the design in `ver1/index.html` copied from `base-template/version.html` (the blank Vector canvas), using Vector components.
+The CallBack React prototype predates the repo-wide vanilla/Vector convention and uses Lumo CSS variables (`--lumo-primary-color`, etc.) rather than Vector theme tokens. Treat it as a legacy island — when starting a *new* Scheduling mock, scaffold the versioned feature structure per the parent CLAUDE.md ("For a NEW mock"): copy `base-template/index.html` (the loader) to the feature root untouched, add `versions.json`, and do the design in `ver1/index.html` copied from `base-template/version.html` (the blank Vector canvas), using Vector components.
+
+## Rules Engine (converted mock) architecture
+
+`rules-engine-only/index.html` was converted from the CallBack React prototype to the standard stack (vanilla JS + Vector components + Open Sans + Font Awesome) on 2026-07-28, preserving every screen, flow, and line of copy. Its structure:
+
+- **One `<script>` block**, ordered: carried-over pure-JS data/logic (FLOWS, rosters, rankers — copied verbatim from the React version), helpers + app shell, page views, rule-builder chat engine, rule-builder rendering, simulator, boot.
+- **Rendering pattern:** each view is a template function returning an HTML string; per-view `render*()` repaints its region and a hydrate step wires `vaadin-*` properties (e.g. `vaadin-select.items`) and listeners. Interactions dispatch through delegated `data-action` / `data-rb` / `data-sim` click handlers.
+- **State:** `app` (router/flows), `bld` (rule builder), `sim` (simulator), plus small per-page objects. Text inputs update state on `input` without re-render so focus is never lost; discrete actions re-render.
+- **Semantic colors** map to the Vector theme's Lumo tokens (`--ink`, `--primary`, `--error`…); the purple `--ai` palette is a deliberate accent for AI-driven surfaces.
+- **Single "Approaches & Rules" flow + flow map (2026-08-10).** The old in-page FLOW switcher pill (`.version-switcher`, with "Rules engine" / "First setup" / "Rule step" variants) was **removed** in favor of the Design Toolbox **flow map** (🗺 in the toolbox dock). One flow lane, named **"Approaches & Rules"**, with four screens driven by `window.applyFlowState(id)` + `#fm=<state>` hash boot, configured in `window.TOOLBOX_CONFIG.flowMap` right before the `toolbox.js` include:
+  - `firstSetup` — **Step 1**, fresh account with no approaches yet (`app.flowVersion = 'v1'`, `approachesCreated = false`); create your first approach.
+  - `approaches` — **Step 2 / ENTRY** (`entry: true`), approaches now exist (`app.flowVersion = 'v2'`); create your first rule. **The mock boots here** (no `#fm` hash → default `app.flowVersion 'v2'`).
+  - `builder` — dual-screen AI rule builder (`startBuilder({})`).
+  - `preview` — ranking simulator (`ar.previewMode = true`).
+
+  The `engine` flow branch remains in the render logic but is no longer reachable from the UI.
 
 ## CallBack React prototype architecture
 
-The `rules-engine-only/index.html` and `ai-search-engine-dashboard/index.html` files share an authoring pattern that is non-obvious from reading any single block:
+The `ai-search-engine-dashboard/index.html` file uses an authoring pattern that is non-obvious from reading any single block:
 
 - **Multi-block `<script type="text/babel">` layout.** The file is split into ~5–10 separate Babel script blocks (PRIMITIVES, SHELL, view-specific blocks, app entry). Each block ends with `Object.assign(window, { ... })` to publish its components onto `window`, which is how later blocks consume them. There are no imports — components must be defined in an earlier block and re-published to `window`.
 - **`useAppSt` is just an alias for `useState`.** Different blocks alias `useState` with different local names (`useStateW`, `useAppSt`) to avoid re-declaration errors across blocks. The aliasing is cosmetic, not semantic.

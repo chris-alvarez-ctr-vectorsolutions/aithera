@@ -49,6 +49,16 @@
     // narration beat must paint this so no one steps into an empty stage.
     openingImage: '{{character}} under the covers, bottles on the nightstand, blinds down',
 
+    // The pre-entry ESTABLISHING CARD — the beat shown before the learner
+    // steps in ("The scene / Kendra's room / …"). Authored content: the live
+    // pages render these fields verbatim; only the "with {{character}}" line
+    // is automatic. Supports {{character}}/{{learner}} tokens.
+    establishing: {
+      eyebrow: 'The scene',
+      title: '{{character}}’s room',
+      sub: '{{character}}’s been drinking alone since she lost her Nona. You’re about to check on her.',
+    },
+
     // SILENT ASSESSMENT — what the AI scores each scene line on.
     // "strong" = what a good line does; "weak" = what a weak line does
     // (the MCQ writer's distractors, reborn).
@@ -444,6 +454,11 @@
     if (!Array.isArray(out.playbook)) out.playbook = clone(DEFAULT_SCENARIO.playbook);
     if (!out.resources || !Array.isArray(out.resources.items)) out.resources = clone(DEFAULT_SCENARIO.resources);
     if (!Array.isArray(out.references)) out.references = [];
+    // Establishing card: back-fill a NEUTRAL shape, never the shipped copy —
+    // a pre-field draft must show a bare card, not another scenario's room.
+    out.establishing = (out.establishing && typeof out.establishing === 'object')
+      ? { eyebrow: 'The scene', title: '', sub: '', ...out.establishing }
+      : { eyebrow: 'The scene', title: '', sub: '' };
 
     // Intro-module migration: pre-intro scenarios carried a flat
     // introCaptions[] (fixed six video assets). Rebuild that as
@@ -701,6 +716,7 @@
     if (empty(s.openingQuestion)) add('err', 'opening', 'Write the coach\'s opening question.');
     else if (!/\?\s*$/.test(s.openingQuestion.trim())) add('info', 'opening', 'The opening line isn\'t a question.', 'An opening question invites reflection before the learner commits to a move.');
     if (empty(s.openingImage)) add('warn', 'opening', 'No opening image — the learner may step into an empty stage.', 'The scene\'s first narration paints this picture.');
+    if (empty((s.establishing || {}).title) && empty((s.establishing || {}).sub)) add('info', 'opening', 'The establishing card is bare — no place line or teaser on the pre-entry screen.', 'The card learners see before stepping in. Only "with {{character}}" is automatic — set the place and teaser in Opening & intro.');
 
     const intro = s.intro || {};
     if (intro.type === 'video') {
@@ -769,11 +785,11 @@
     // ② Interaction — ENGAGE (a line) → the character REACTs → the coach reads &
     // nudges → a GATE holds or advances → completion EXITs to the debrief.
     { id: 'character', group: 'interaction', stage: 'REACT', icon: 'fa-masks-theater', title: 'Character card',
-      lead: 'Who the character is — the one artifact that drives every REACT: their situation, how they react, and how they talk.',
+      lead: 'Who the character is — their situation, how they react, and how they talk.',
       bridgeTitle: 'From your old craft: this replaces per-answer feedback',
       bridge: 'The character’s believable reaction <b>is</b> the feedback; the coach names the lesson after.' },
     { id: 'dimensions', group: 'interaction', stage: 'COACH', icon: 'fa-scale-balanced', title: 'Assessment dimensions',
-      lead: '2–4 things each line is silently scored on — they steer the character and aim the coach. Never shown to the learner.',
+      lead: '2–4 things each line is silently scored on. Never shown to the learner.',
       bridgeTitle: 'From your old craft: right answers and distractors',
       bridge: '“Strong” is the right answer; <b>“weak” is your distractors</b> — name the tempting mistakes and the AI spots them in free text.' },
     { id: 'misconceptions', group: 'interaction', stage: 'COACH', icon: 'fa-lightbulb', title: 'Misconceptions',
@@ -1003,6 +1019,18 @@
       box.append(rNote);
       box.append(tf('openingImage', 'What the learner sees walking in', {
         helper: 'The physical opening image, e.g. "{{character}} under the covers, bottles on the nightstand, blinds down". The scene\'s first narration must paint this.' }));
+
+      // —— The pre-entry establishing card ("The scene / Kendra's room / …").
+      //    Rendered verbatim by the live page; "with {{character}}" is automatic.
+      box.append(
+        tf('establishing.title', 'Establishing card — the place', {
+          placeholder: 'e.g. {{character}}’s room',
+          helper: 'The big line on the card shown just before the learner steps in. {{character}}/{{learner}} tokens work here.' }),
+        tf('establishing.sub', 'Establishing card — the teaser', { area: true, minRows: 2,
+          helper: 'One or two short lines under the place: what\'s true, and what the learner is about to do.' }),
+        tf('establishing.eyebrow', 'Establishing card — eyebrow', { placeholder: 'The scene',
+          helper: 'The small label over the place. Leave as "The scene" unless the format calls for something else.' }),
+      );
 
       // —— Intro type picker + per-type fields ——
       const rg = document.createElement('vaadin-radio-group');
@@ -1324,17 +1352,26 @@
             p.innerHTML = `<div class="who">Learner</div><div class="bubble pt-splitting">splitting say/do<span></span><span></span><span></span></div>`;
             log.appendChild(p); return;
           }
-          const disp = m._display;
-          disp.filter((b) => b.kind === 'narration').forEach((b) => {
-            const n = document.createElement('div'); n.className = 'pt-you-narration';
-            n.textContent = b.text; log.appendChild(n);
+          // Render the split move IN ORDER: each action → its own centered
+          // narration line, each run of consecutive speech → one "Learner"
+          // bubble stack. Interleaving is preserved, so "punch / say / run"
+          // shows do → say → do, never all-actions-then-all-speech.
+          let bubbleStack = null;
+          m._display.forEach((b) => {
+            if (b.kind === 'narration') {
+              bubbleStack = null;
+              const n = document.createElement('div'); n.className = 'pt-you-narration';
+              n.textContent = b.text; log.appendChild(n);
+            } else {
+              if (!bubbleStack) {
+                bubbleStack = document.createElement('div'); bubbleStack.className = 'pt-msg you';
+                bubbleStack.innerHTML = `<div class="who">Learner</div>`;
+                log.appendChild(bubbleStack);
+              }
+              const bub = document.createElement('div'); bub.className = 'bubble';
+              bub.textContent = b.text; bubbleStack.appendChild(bub);
+            }
           });
-          const speech = disp.filter((b) => b.kind === 'dialogue');
-          if (speech.length) {
-            const sp = document.createElement('div'); sp.className = 'pt-msg you';
-            sp.innerHTML = `<div class="who">Learner</div>` + speech.map((b) => `<div class="bubble">${esc(b.text)}</div>`).join('');
-            log.appendChild(sp);
-          }
           return;
         }
         const d = document.createElement('div');
@@ -1424,6 +1461,7 @@
       title: '', learnerName: 'Learner', characterName: '', courseContext: '',
       contextSource: 'in-scenario', previousLO: { title: '', covered: '', handoff: '' },
       setup: '', openingImage: '',
+      establishing: { eyebrow: 'The scene', title: '', sub: '' },
       openingQuestion: '', reflectionFocus: [''],
       pacing: { sceneLines: '4-6', duration: '10-minute' },
       dimensions: [{ name: '', strong: '', weak: '' }],
@@ -1451,6 +1489,9 @@
     id: 'action-practice',
     label: 'Roleplay',
     icon: 'fa-comments',
+    // One-line description for the studio's mode chooser (the type owns its
+    // own copy — the shell no longer hardcodes a per-type blurb map).
+    blurb: 'Rehearse a hard conversation with a simulated person.',
     DEFAULT: DEFAULT_SCENARIO,
     ENGINE_SECTIONS,
     CRISIS_FLOOR,

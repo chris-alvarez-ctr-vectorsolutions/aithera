@@ -51,6 +51,13 @@ present (a mock that includes `feedback-widget.js` directly, without
 `toolbox.js`), the comment widget falls back to its original floating bubble and
 the flow map to its own standalone pill — so those mocks are unaffected.
 
+**Version order (versioned-loader mocks):** the feature-root loader
+(`base-template/index.html`) sorts the entries of `versions.json` **ascending —
+V1, V2, V2.x, V10…** — regardless of how the manifest is ordered, and **always
+opens V1 (the lowest version) by default**. The dock's version buttons appear in
+that same order. To land a reviewer on a later version, share a `?v=<id>` deep
+link (e.g. `?v=ver2`); manifest order alone can't change the default.
+
 ---
 
 ## Flow Map
@@ -72,10 +79,14 @@ into labelled lanes (flows).
 - **📝 Dev notes.** Read-only developer notes — *"be careful: this list can be
   hundreds long, virtualize it."* Notes live in a committed **`DEV-NOTES.md`**
   next to the mock (so the whole team sees the same notes — no `localStorage`,
-  no per-browser state). Click **"Dev notes"** on a node (or the 📝 chip) to read
-  them in the drawer; the badge count is the number of notes for that step.
-  Authoring is done in the Markdown file, not in the browser — see *Dev notes
-  file format* below.
+  no per-browser state). Click the prominent **"Dev notes"** badge on a node to
+  read them in the drawer. Authoring is done in the Markdown file, not in the
+  browser — see *Dev notes file format* below. **Notes are a dev-ready
+  affordance:** they render **only in a dev-handoff build** (comments off). While
+  a mock is still in progress the flow map shows no notes — the running change log
+  for that phase is the **dashboard's recent-changes + GitHub commit history**.
+  You can still author `DEV-NOTES.md` incrementally (jotting client feedback and
+  decisions as they land); it just stays hidden until the mock is dev-ready.
 
 ### Dev notes file format
 
@@ -89,15 +100,23 @@ parser). Every `-`/`*` bullet under a heading becomes one dev note and counts
 toward the node's 📝 badge. An optional `> author: <name>` line sets the
 attribution shown on notes (default: *Design handoff*).
 
+**Optional scannable header.** A bullet may lead with a **bold header that ends
+in a colon inside the `** **`** — `- **Short header:** the description follows.`
+The header then renders as its own heading line above the description, an
+optional aid to keep a dev note skimmable (header the developer scans, detail
+underneath). It's opt-in: a bullet without that exact form (the colon must sit
+*inside* the bold) renders as plain prose, so freeform dev notes are unaffected.
+Use it where it helps; write everything else however developers read best.
+
 ```markdown
 > author: Design handoff
 
 ## n2 — Details + qualifiers
-- Open slots are generated from qualifiers, not entered manually.
-- Total shared qualifiers can never exceed total primary qualifiers.
+- **Qualifiers drive slots:** open slots are generated from qualifiers, not entered manually.
+- **Shared ≤ primary:** total shared qualifiers can never exceed total primary qualifiers.
 
 ## n3 — Select Employee
-- Employees are ranked, not filtered: full match = Recommended.
+- Employees are ranked, not filtered: full match = Recommended.   (plain prose — still fine)
 ```
 
 Notes for a `## <id>` that doesn't match any node are simply ignored, so the
@@ -302,10 +321,20 @@ code changes — the card rendering keys off `dashboardHref`.
 ## Product dashboard (shared + auto-updating)
 
 `dashboard.js` is the **single shared implementation** of the per-product
-"Design Lab" — the status board a product links its index card to (above). It
-renders cards for every prototype in a product, each with its **GitHub Pages
-URL, GitHub source link, dev-handoff build, status, and Jira ticket**, plus a
-recent-activity log. SafeLMS and Scheduling are the first two consumers.
+"Design Dashboard" — the status board a product links its index card to
+(above). The banner leads with the **product identity**: the SAME icon tile
+the landing page card shows (Font Awesome icon on the product's brand color,
+carried into meta.json as `product.icon`/`product.color` from products.json)
+plus the product's landing `label` as the headline in the section-title face
+(Fraunces italic) with a per-theme **gradient** whose stops are all verified
+≥ 4.5:1 on white, under a small solid-color "Design Dashboard" eyebrow. The
+freshness meta + "Bookmark this page…" note sit under the name; the global
+search is alone on the right. Header, content, and footer all share the same
+max-width + 32px gutter so every edge aligns.
+It renders cards for every prototype in a product, each with its **GitHub
+Pages URL, GitHub source link, dev-handoff build, status, and Jira ticket**,
+plus a recent-activity log. SafeLMS and Scheduling were the first two
+consumers.
 
 ### How a product enrolls (two files, no rebuild)
 
@@ -335,6 +364,53 @@ The only product-specific data is `dashboard/meta.json` next to the shell — an
 Improve `dashboard.js` once and **every** product's dashboard updates — no more
 copy-paste drift between product dashboards.
 
+### Folders, scope, and favorites
+
+Curated `{ "folder": "Group Name", "items": [ … ] }` groups in `products.json`
+render as **real folders on the dashboard**: a left "Folders" rail (sticky,
+independently scrollable) listing **Main** (the product's top-level mocks) and
+one entry per folder, each with per-status pill counts. The selected entry is
+the **scope** — the status chips and their counts apply within it. The banner
+search is the opposite: it's **global**, looking across every folder (the rail
+dims while a query is active; picking a folder exits the search into it).
+
+- **Nesting (n levels)** — `folder` groups can contain further `folder`
+  groups; the rail renders them as a collapsible **tree** (chevron per branch,
+  collapsed branches saved per browser in
+  `localStorage["designlab-closed-folders:<Product>"]`). A parent folder's
+  pill counts cover its **whole subtree**, and selecting it scopes to every
+  mock beneath it; the content column shows a clickable **breadcrumb** of the
+  active path. The build script carries the path into `meta.json` as an
+  **array of names** (`"folder": ["Phase 2", "Content Workflow"]`) — never a
+  joined string, because a folder name may itself contain `" / "` (e.g.
+  "AI Chat Widget (Vectoria / Fin)").
+- **Favorites** — hovering a folder row reveals a star; starring pins the
+  folder above the tree (nested pins show their full "A / B" path; the folder
+  also stays in the tree, star filled). Saved per browser per product in
+  `localStorage["designlab-fav-folders:<Product>"]` — personal, not shared.
+- **Card favorites** — every card (and list row) has its own hover star;
+  pinning HOISTS the mock into a collapsible **Favorites** section that
+  renders above the status sections (no duplicate below — the card keeps its
+  status badge). Favorites are **cross-folder**: pins follow you into every
+  scope (including Main), each showing a clickable home-folder chip; search
+  and status filters still apply, the folder scope does not. Sorts by the
+  active sort; open/closed state persists. Stored in
+  `localStorage["designlab-fav-mocks:<Product>"]` (pins, keyed by `rel`) and
+  `"designlab-favs-open:<Product>"` (section state).
+- **Narrow widths** — the rail becomes a wrapping row above the content
+  (tree indent/chevrons drop; every folder shows as a flat chip), and
+  the status chips collapse into one multi-select "Status: …" dropdown the
+  moment they can't share a line with the sort/view controls (measured, not a
+  fixed breakpoint).
+- **Tabs variant** — a complete alternative presentation (folder tabs on the
+  header baseline with a "N more ⌄" overflow) is kept working behind the
+  `FOLDER_NAV_STYLE` constant at the top of `dashboard.js` ('sidebar' | 'tabs').
+  Tabs can't nest, so nested paths aggregate into their top-level folder's tab.
+  Don't delete it as dead code.
+
+So: to give a set of related mocks this experience, just group them under a
+`folder` in `products.json` — no dashboard changes needed.
+
 ### Auto-updating meta.json (nobody maintains it)
 
 `meta.json` is regenerated on every push by `scripts/build-dashboards.js`
@@ -362,3 +438,33 @@ re-trigger itself.
 
 The generator output is exact: regenerate locally with
 `node scripts/build-dashboards.js` and commit the result, or let the push do it.
+
+### Renames self-heal — you never have to touch `products.json`
+
+A card's link comes from its `rel` in `products.json` (and, for a versioned
+feature, the `path` in `versions.json`). When a mock file is **renamed or
+moved**, those entries would point at the old path and the card would 404 —
+so the catalog **follows the rename automatically**, in two places, and a
+rename **never blocks a commit**:
+
+- **On commit** — the local pre-commit hook (Guard A2) runs
+  [`scripts/relink-catalog.js`](../scripts/relink-catalog.js)` --staged`: it
+  sees the staged rename, rewrites the `rel` / `versions.json` path to the new
+  location, and `git add`s the fix **into the commit you're making**. Then
+  [`scripts/check-catalog-links.js`](../scripts/check-catalog-links.js)`
+  --warn-only` prints — but never blocks on — any link a rename can't explain.
+  (Needs `node` locally; without it the hook skips and the push step below
+  still covers you.)
+- **On push** — the same `relink-catalog.js` runs in
+  [`dashboards.yml`](../.github/workflows/dashboards.yml) over the pushed range
+  and commits the fix on the silent `[skip ci]` bot commit. This covers pushes
+  from any machine — including GitHub Desktop with no hook / no `node`.
+
+> This is git/CI plumbing, **not** browser toolbox code — the drop-in
+> `toolbox.js` can't see git renames. It lives in the two scripts above; this
+> note just documents it where you'd look.
+
+**Two things it deliberately does NOT auto-fix** (a human must): a mock moved
+to a **different `products/<Product>/` folder** (cross-product move) — fix its
+`rel` by hand; and **URLs already shared** in Slack/Jira — they still 404 for
+whoever holds them, so re-share the new link after a move.

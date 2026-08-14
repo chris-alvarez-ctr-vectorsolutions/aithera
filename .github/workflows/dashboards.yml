@@ -1,19 +1,41 @@
 name: Build product dashboards
 
 # Regenerates each enrolled product's dashboard/meta.json (folder list, dev-handoff
-# flags, recent-activity log) whenever mocks change, and commits the result back.
-# This is what makes the product dashboards "auto-update on push" — nobody edits
-# meta.json by hand. See scripts/build-dashboards.js and designtoolbox/dashboard.js.
+# flags, recent-activity log) and commits the result back — nobody edits meta.json
+# by hand. See scripts/build-dashboards.js and designtoolbox/dashboard.js.
+#
+# DESIGNER PUSHES ARE PRIORITISED OVER THIS BOT. A designer's mock push
+# (products/**) deliberately does NOT trigger this job. Here's why: the site
+# deploys from the branch, so every push kicks off a GitHub Pages deploy — and
+# a newer push CANCELS the in-progress one. When this bot pushed a meta.json
+# commit seconds after every designer push, it (a) doubled the Pages deploys and
+# (b) cancelled the designer's own in-flight deploy, so their mock took an extra
+# bot-cycle to go live. Now a mock push deploys straight to Pages on its own,
+# uncontested; this job catches up that mock's dashboard metadata (activity log,
+# dev-handoff flip, rename relink) on the 15-minute schedule below instead.
+#
+# Immediate rebuild still happens for the things that change dashboard STRUCTURE
+# or code (products.json curation, the build scripts, dashboard.js) — those are
+# rare and worth deploying at once. Anyone can also force a rebuild now via the
+# "Run workflow" button (workflow_dispatch).
 
 on:
   push:
     branches: [main]
     paths:
-      - 'products/**'
+      # NOTE: 'products/**' is intentionally ABSENT — see the header comment.
+      - 'products.json'
       - 'scripts/build-dashboards.js'
       - 'scripts/build-updated-stamps.js'
+      - 'scripts/relink-catalog.js'
       - 'designtoolbox/dashboard.js'
       - '.github/workflows/dashboards.yml'
+  schedule:
+    # Every 15 min: fold in the mock pushes that no longer trigger this job —
+    # refresh each card's activity log, flip dev-handoff cards to Ready for Dev,
+    # and relink any rename a local hook didn't already fix. Idempotent: it only
+    # commits (and only then re-deploys) when something actually changed.
+    - cron: '*/15 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -28,14 +50,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for the changelog)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
+
+      - name: Follow renames in the catalog (self-healing dashboard links)
+        # If this push renamed/moved a mock file, rewrite the products.json rel
+        # / versions.json path that pointed at it so the dashboard card never
+        # goes dead. The change rides the same silent bot commit below.
+        run: |
+          set -euo pipefail
+          BASE='${{ github.event.before }}'
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            # cron / workflow_dispatch have no push range — relink over every
+            # rename in the last ~2h (comfortably longer than the 15-min cadence,
+            # so nothing slips through a gap). Relink is idempotent, so the
+            # overlap between runs is harmless. Fall back to HEAD~1 on a young repo.
+            BASE=$(git rev-list -1 --before='2 hours ago' HEAD 2>/dev/null || true)
+            [ -z "$BASE" ] && BASE=$(git rev-parse HEAD~1 2>/dev/null || echo '')
+          fi
+          if [ -n "$BASE" ]; then
+            # '|| echo' so a throw here (e.g. transient git error) can never
+            # fail the step and email the actor — the heal pass below is the
+            # real safety net anyway.
+            node scripts/relink-catalog.js "$BASE" "${{ github.sha }}" || echo "range relink skipped — non-fatal."
+          else
+            echo "no usable base ref — skipping relink."
+          fi
+
+      - name: Heal any dangling catalog links (full-history safety net)
+        # Belt-and-suspenders for the range relink above. The range/staged modes
+        # only follow a rename Git pairs within the scanned commits; a Finder
+        # rename Git didn't detect, or one outside the range, can still leave a
+        # dead card. --heal walks the FULL git rename history and fixes any
+        # products.json rel / versions.json path that no longer resolves on disk
+        # (only broken links, only to a git-recorded destination — it can't
+        # mis-link a working card). It runs BEFORE meta.json regen so the fix
+        # flows into the dashboards in the same job. Exits 0 no matter what and
+        # emits at most ::notice::, so it never reddens the run or emails anyone.
+        run: node scripts/relink-catalog.js --heal || true
 
       - name: Regenerate dashboard meta.json
         run: node scripts/build-dashboards.js
@@ -45,13 +103,26 @@ jobs:
 
       - name: Commit if anything changed
         run: |
-          git add products/*/dashboard/meta.json products/aithera/lesson-presentation/updated.json
+          # meta.json + updated stamps from the build steps, plus any
+          # products.json / versions.json rewrites from the relink step.
+          git add products.json
+          git add -A products/
           if git diff --cached --quiet; then
             echo "No dashboard changes to commit."
           else
             git config user.name  "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             # [skip ci] prevents this commit from re-triggering the workflow.
-            git commit -m "chore(dashboards): regenerate meta.json [skip ci]"
-            git push
+            git commit -m "chore(dashboards): regenerate meta.json + relink renamed mocks [skip ci]"
+            # main moves fast here (designers push in bursts, and this job takes
+            # minutes on the full-history checkout) — a plain push loses the race
+            # and fails the run. Rebase the bot commit onto whatever landed in
+            # the meantime and retry instead of failing.
+            for attempt in 1 2 3 4 5; do
+              if git push; then exit 0; fi
+              echo "push rejected (main moved during the run) — rebasing and retrying ($attempt/5)…"
+              git pull --rebase
+            done
+            echo "::error::Could not push dashboard regeneration after 5 rebase retries."
+            exit 1
           fi
