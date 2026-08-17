@@ -181,16 +181,17 @@ reading `data-locking` and `data-draw`:
 touches only the block's own DOM — there is no read-only enforcement after
 signing. The lock is **copy only** in this prototype and must be built.
 
-**Share opt-in** (`shareOnSignHtml`, ~9918):
+**Share opt-in** (`shareOnSignHtml`, ~9910):
 
-- `vaadin-checkbox#sigShareOptIn` — **default `checked`**, no fill/border.
+- `vaadin-checkbox#sigShareOptIn` — **defaults to UNCHECKED**, no fill/border.
+  Sharing is irreversible, so opting in must be a deliberate act rather than the
+  path of least resistance.
 - Returns `''` when `formShared` is already true, so the opt-in only appears when
   it can do something and callers can concatenate unconditionally.
 - Appended to **all three** confirmations.
-- ⚠️ Because it defaults to checked, the **warning banner is visible by default**
-  and hides when the user opts *out*. One consistent banner, shown only when it
-  applies (comment ~9921). Banner copy matches the Share dialog verbatim: *"**This
-  can't be undone.** Once shared, access is permanent — it cannot be revoked."*
+- The **warning banner starts hidden** and appears only once the user opts *in*.
+  Banner copy matches the Share dialog verbatim: *"**This can't be undone.** Once
+  shared, access is permanent — it cannot be revoked."*
 - `wireShareOnSign()` binds **both** `checked-changed` (the DS contract) and native
   `change`, and seeds `warn.hidden` from the **attribute**, not the property,
   because the element may not have upgraded yet.
@@ -206,6 +207,23 @@ hardcoded `nameMap`. **No identity binding and no signer-turn gating** — any u
 can sign any block.
 
 Change Log writes share as `SHARE` (type 1), `int_value==1` → "On".
+
+## Form action cluster (Pass all / Clear all / Privacy / Share)
+
+- **Privacy toggle**: plain `<button role="radio">` in a `role="radiogroup"` — *not*
+  `vwc-toggle-button-group`, which behaves additively outside a form context.
+  - **Off is first and is the default.** On = visible only to the author.
+  - **No icons, no hint text** — the On/Off labels carry the meaning.
+  - 🔴 **Privacy stays toggleable after the form is shared.** Sharing grants access
+    but must not freeze this setting; `setSharedState()` deliberately does **not**
+    disable or lock the control. (An earlier build disabled it — don't reintroduce.)
+- **Secondary buttons in the form carry no icons.** Only two icons remain on
+  secondary buttons anywhere: the toolbar **Compare Forms** glyph + caret (which
+  collapse to icon-only at narrow widths, so they're load-bearing) and the
+  icon-only `⋯` menu. The two **Add Tags** buttons keep just their
+  `slot="suffix"` dropdown caret — a control affordance, not decoration.
+- `passAll()` sets every rating to its top level and every pass/fail to Pass.
+  `clearAll()` confirms first.
 
 ## Deleted / restore state
 

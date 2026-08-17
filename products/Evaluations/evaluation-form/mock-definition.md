@@ -134,8 +134,11 @@ confirmation.
   currently enforce a lock either. Deleted records stay visible and listed with a
   *deleted* status.
 - **Sharing is irreversible by design**: "Once shared, access is permanent — it
-  cannot be revoked." `setSharedState()` is idempotent and also locks the privacy
-  toggle. The share opt-in on signature modals **defaults to checked**.
+  cannot be revoked." `setSharedState()` is idempotent. The share opt-in on
+  signature modals **defaults to unchecked** — opting in is deliberate.
+- **Privacy remains toggleable after sharing.** Sharing grants access; it does not
+  freeze the privacy setting, so the author can still change it afterward. The
+  control is deliberately not disabled on share.
 - **Interactions / navigation**: the toolbar **Back** button has no destination
   wired — hook it to the evaluations list. All dialogs are in-page. Compare mode
   renders a second form read-only beside the first.
