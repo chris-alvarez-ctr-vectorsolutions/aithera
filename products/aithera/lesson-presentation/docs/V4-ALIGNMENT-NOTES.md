@@ -5,7 +5,14 @@ for **UX Universal**, replacing its per-type shapes. Kept next to
 `SCENE-SWEEP-CONVERGENCE-PLAN.md` because it is the same kind of document: a
 plan you can pick up cold three weeks later.
 
-**Status:** in progress. Stages 1–3 done, Stages 4–5 open.
+**Status:** ALL FIVE STAGES BUILT AND VERIFIED (2026-08-17). `?type=v4-universal`
+plays POC V4 documents through the existing universal-player resolver; the Studio
+authors them; the prompt harness holds all invariants across the 7 types and all
+7 templates boot in the browser. What remains is not code: the §7 talking points
+with the dev team, the 64 genuine authoring fields, and the decision to flip v4
+to the DEFAULT source (gated on §7-A). Play it:
+`scenario-live.html?type=v4-universal&observe=text` · verify:
+`node prompt-diff.js` + `node regenerate-templates.js` (scratchpad).
 **Last updated:** 2026-08-17
 
 ### Naming
