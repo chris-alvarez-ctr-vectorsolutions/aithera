@@ -101,6 +101,7 @@ display — it constrains nothing.
 | D5 | **Build an explicit `answer_shape` marker**, don't bridge | Chris, 2026-08-17: "otherwise it's just temporary bridges." See §3. |
 | D6 | **The converter omits what it cannot source** instead of seeding placeholder prose | Validation errors then *are* the authoring worklist, and nothing half-written can reach a handoff looking finished. |
 | D7 | **Scenario types become templates** (§1) | Preserves the LXD workflow with no format support needed. |
+| D8 | **Default the mechanical fields POC V4 requires that no deck provides**; never default teaching prose | Chris, 2026-08-17. Blocking fields 131 → 64. Which fields qualify was decided by measuring the 11 POC V4 scenarios (§7-A2). `final_word` stays authored — it is the last thing a learner hears. |
 
 ### Deliberately NOT bundled
 
@@ -296,10 +297,13 @@ Counts still blocking in our ports: `phases[].purpose` 18, `practice.purpose` 18
    `involvesMinors` / `threatContent`. **v4 has no field for any of it.** This is a
    safety capability for harassment, workplace violence, bullying and minors
    content, not a nicety.
-3. **Watch-and-discuss.** Their `observe_react` is specifically *spot what's wrong*
-   — a fixed rubric with crediting ids. Our mix-arc observe beat is *watch a clip
-   and react*, a different interaction. The WPV deck has zero rubric language
-   because no deck asked for one. **v4 has no mode for watch-and-discuss.**
+3. ~~**Watch-and-discuss.**~~ **WITHDRAWN 2026-08-17 — this was wrong.**
+   `coachInteraction.media` accepts `type: "video"` and is explicitly *"never
+   graded"*, so a coach step with a clip pinned above the conversation IS
+   watch-and-discuss. No new mode needed; our mix-arc observe beat maps to
+   `coach_inquiry` + `media`, not to `observe_react`. Worth telling them their
+   spec prose says "reference **image**" while the schema allows video — a small
+   spec/schema disagreement, the kind their own alignment audit tracks.
 
 ### C. `practice.answer_shape` — the marker we built (§3)
 
@@ -351,6 +355,23 @@ Two ways out, and this needs a decision before the cutover:
    description vs learner-facing situation), not prompt text.
 
 Option 1 is the better alignment; option 2 preserves current behavior exactly.
+
+### A2. Button labels — the inconsistency is real, and it splits in two
+
+Chris's hypothesis was that making button labels a field opened up inconsistency.
+Measured across the 11 POC V4 scenarios: **63 labels, 27 distinct (43% unique)**.
+But the two slots behave differently, which is why D8 treats them differently:
+
+| Slot | Authored | Distinct | Reading |
+|---|---|---|---|
+| practice → debrief | 29 | **7** — 23 of them `"Talk it through"` | The button always does the same thing. Exceptions include `"Talk it out"`, the same words rearranged. **Drift.** |
+| debrief → next step | 29 | **17** — `"Sit down with Bianca"`, `"Find Marco"` | These name what happens next. **Design.** |
+| opening | 5 | 4 | Thin sample. |
+
+Also: `"Begin practicing"` is used as **both** an opening and a debrief label across
+scenarios — a genuine collision. Ask them to pick a house convention for the
+practice button (their own punch list already flags the sibling problem: *"Last-debrief
+transition text splits 3-3 across the family… SME/LED to pick the house convention"*).
 
 ### F. Smaller items
 
