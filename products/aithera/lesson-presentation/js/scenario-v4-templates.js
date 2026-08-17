@@ -7,12 +7,13 @@
    that binds the scenario to one engine path (decision D7).
 
    Each entry carries a complete POC V4 document, ported from that type's shipped
-   exemplar.  is how many required fields the template still needs a
+   exemplar. `toFill` is how many required fields the template still needs a
    human to author — deliberately non-zero: the porting tool omits what it
    cannot source rather than seeding placeholder prose (D6), so these are honest
    starting points, not finished scenarios.
 
-   GENERATED from the shipped type DEFAULTs. Re-run the port tool to refresh.
+   GENERATED — do not hand-edit. Regenerate with the scratchpad tool
+   regenerate-templates.js after any port change.
    ========================================================================== */
 
 (function (root, factory) {
@@ -34,7 +35,7 @@
           "schema_version": "4.0",
           "content": {
                 "title": "Reading the Warning Signs",
-                "narrative": "Ray is one of yours — twelve years on the job. Lately, something’s off. How you read the early signs decides how far this goes.",
+                "narrative": "You are a shift supervisor at a public-sector agency — Ray’s direct supervisor, the person positioned to notice, address, and escalate. You run a shift at the agency, and Ray is one of yours — twelve years on the job, knows the work cold. A few weeks ago a lead assignment opened up, and it went to Marcus, someone newer. Ray wanted it. Since then, something’s been off.\n\nIt’s been small things, but they’re adding up. Last week he snapped at a newer colleague on shift — sharper than the moment called for. You’ve heard him mutter that “management has it out for me.” And a couple of days ago he flat refused to hand a task off to Marcus, the new lead. Any one of these you might let go. All three, in two weeks, from a steady twelve-year veteran?\n\nHe hasn’t done anything you could write up as a violation. But you know your people, and this isn’t Ray. You’re his supervisor — you’re the one positioned to notice this, deal with it, and pull in help if it needs it. The question sitting in front of you is what to do now, before it becomes something bigger.",
                 "scene_world": {
                       "canon": {
                             "facts": [
@@ -365,7 +366,8 @@
                                   }
                             ]
                       }
-                }
+                },
+                "elevated_stakes": true
           }
     },
   },
@@ -379,7 +381,7 @@
           "schema_version": "4.0",
           "content": {
                 "title": "The Call from Home",
-                "narrative": "A worried parent, a hallway you turn into, the student who did it, and the loop only you can close. How you treat each person decides how much they trust you with.",
+                "narrative": "You are Sofia’s 7th-grade teacher — the same adult across all four phases, the one who has to carry this from the first report to the follow-through. You teach 7th grade at Pleasant Street Middle School. Sofia joined your class this year — quiet, a little shy, happiest with a sketchbook open. For the first few months she seemed to be settling in. Lately, though, something’s off. She’s stopped raising her hand. She eats lunch alone. Last week you found her lingering in your room during passing period, like she didn’t want to go back out into the hall.\n\nYou told yourself you’d keep an eye on it. Then this morning you got a message: Sofia’s mother has asked to meet with you before first period. She took time off work to come in.\n\nNow she’s sitting across from you. She looks tired, and worried, and like she’s been holding something in for a while. You can tell this isn’t a small thing.",
                 "scene_world": {
                       "canon": {
                             "facts": [
@@ -715,7 +717,9 @@
                                   }
                             ]
                       }
-                }
+                },
+                "elevated_stakes": true,
+                "involves_minors": true
           }
     },
   },
@@ -729,7 +733,7 @@
           "schema_version": "4.0",
           "content": {
                 "title": "Bystander Intervention: The Marshall Scenario",
-                "narrative": "You’ve watched it build for eight months. Today you decide what your role in it is.",
+                "narrative": "You are a CO-WORKER who has witnessed incidents involving a colleague named Marshall — an administrative assistant, eight months into the job. You’ve been working alongside Marshall for about eight months. He’s an administrative assistant — organized, a good communicator, clearly someone who takes his job seriously. But lately, he’s not himself.\n\nIt started with Ethan, the project manager. He’d greet Marshall with “Hey Marsha!” in the hallway. A couple of times he asked if Marshall had a skirt on “under that desk.” Marshall let it go. He thought some joking might come with the job — especially given the way he dresses. So he tried not to make it a thing.\n\nThen Jake started. A junior engineer, hired not long after Marshall. He’d ask if the coffee was made whenever he passed Marshall’s desk. He’d refer to Marshall’s role as a “cozy lady job.” What started as occasional became almost daily. The kind of remark that gets a few laughs and then everyone moves on — except Marshall doesn’t move on. He carries it.\n\nWhat Marshall didn’t know, not at first, was that there was a group chat. Someone eventually showed him: sexist memes, jokes. And two altered images — one with his face on a woman in a frilly princess dress, another with his face on a lingerie model’s body, captioned “Marsha’s true calling.”\n\nHe was going to try to let it go. Until those images ended up on public social media — shareable, commentable, out there.\n\nYou’ve seen most of the day-to-day. Marshall has gotten quieter — he keeps his head down, doesn’t linger. You’re not sure what to call any of it, or what your role is.",
                 "scene_world": {
                       "characters": [
                             {
@@ -952,7 +956,7 @@
           "schema_version": "4.0",
           "content": {
                 "title": "Speaking Up in the Moment",
-                "narrative": "You saw it happen. Now decide what it was, watch it again, and step in before the room forgets.",
+                "narrative": "You are the team lead — the person in the room with the standing to say something. You lead a small team. In this morning's stand-up, Dana — one of your senior engineers — cut off Priya twice while she was walking through her design, then re-explained her own point back to the room as if it were his. Priya went quiet for the rest of the meeting. A couple of people noticed; nobody said anything. Now the room is clearing out, and Dana is still at the table, packing up his laptop.",
                 "scene_world": {
                       "characters": [
                             {
@@ -1297,14 +1301,14 @@
   "scene-sweep": {
     label: "Scene Sweep", icon: "fa-magnifying-glass",
     blurb: "Study a scene, spot what is wrong, then act on it.",
-    shape: "OC", toFill: 19,
+    shape: "OC", toFill: 16,
     doc: {
           "implementation_id": "spot-the-hazard",
           "modality": "ai-conversational",
           "schema_version": "4.0",
           "content": {
                 "title": "Spot the Hazard",
-                "narrative": "You just finished the training. Now you’re standing on the floor. Don’t recite it — spot what’s wrong.",
+                "narrative": "You are THEMSELVES — a worker who just finished the HazCom course, looking at their own work area. There is no character to play and no one to talk to but you, the coach. You’ve just finished your hazard communication training — and now you’re standing at the finishing bench on the floor, where product gets wiped down, touched up, and boxed.\n\nA coworker is working right next to you. There’s a chemical drum to your right, a jug and some parts on the bench, the usual clutter of a shift in progress.\n\nNothing’s on fire. Everybody’s just working. But you finished that training for a reason — take a slow look around, and see what your eye catches.",
                 "coach_persona": "a knowledgeable, plain-spoken safety trainer with real floor time — authority and genuine concern, never a quiz machine",
                 "opening": {
                       "id": "opening_reflection",
@@ -1333,6 +1337,46 @@
                                   },
                                   "answer_shape": "open",
                                   "interaction": {
+                                        "exhibit": {
+                                              "type": "image",
+                                              "src": "assets/hazcom-scene.jpg",
+                                              "alt": "A finishing area on a shop floor. On the metal bench in front of you, to the left, a half-full clear plastic jug with no label sits beside a row of metal parts. Your coworker stands at the bench in a short-sleeve shirt, wiping a part with a rag, bare-handed — no gloves and no eye protection. To your right stands a chemical drum: a Safety Data Sheet taped to it is dated decades ago, and the drum’s own hazard label is torn and peeling, so its pictogram and signal word can’t be read.",
+                                              "facts": [
+                                                    "A finishing area on a shop floor, where product gets wiped down and boxed.",
+                                                    "A metal workbench sits in front of you: on it, to the left, a half-full clear plastic jug with no label — nothing written on it — beside a row of metal parts.",
+                                                    "Your coworker stands at the bench in a short-sleeve shirt, wiping a part with a rag, bare-handed — no gloves and no eye protection.",
+                                                    "To your right stands a chemical drum.",
+                                                    "Taped to the drum is a Safety Data Sheet whose printed date is years out of date, and the drum’s own hazard label is torn and peeling, so the pictogram and signal word can’t be read.",
+                                                    "Nothing is actively on fire or spilling — the hazards are the everyday, easy-to-walk-past kind."
+                                              ]
+                                        },
+                                        "rubric": [
+                                              {
+                                                    "id": "jug",
+                                                    "name": "Unlabeled secondary container",
+                                                    "standard_term": "A jug decanted from a drum with nothing written on it — a secondary container that must be labeled. You can’t tell what chemical is in it.",
+                                                    "nudge": "on the bench in front of you, to the left"
+                                              },
+                                              {
+                                                    "id": "ppe",
+                                                    "name": "No PPE in use",
+                                                    "standard_term": "A coworker handling chemical bare-handed — no gloves and no goggles the task and the label call for.",
+                                                    "nudge": "your coworker at the bench, wiping a part with his bare hands"
+                                              },
+                                              {
+                                                    "id": "sds",
+                                                    "name": "Out-of-date SDS",
+                                                    "standard_term": "The safety data sheet on hand is years out of date — a current SDS is required whenever the hazard information changes.",
+                                                    "nudge": "the Safety Data Sheet taped to the drum on your right"
+                                              },
+                                              {
+                                                    "id": "label",
+                                                    "name": "Unreadable drum label",
+                                                    "standard_term": "A drum whose label is torn and peeling — you can’t read the pictogram or signal word to identify the hazard.",
+                                                    "nudge": "the drum on your right — its own label, torn and peeling near the top"
+                                              }
+                                        ],
+                                        "spot_target": 3,
                                         "brief": [
                                               {
                                                     "text": "Let’s take a closer look and walk the area properly. Take your time."

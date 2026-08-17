@@ -265,8 +265,74 @@
       teachingByTopic[key] = arr(topic.points).map(str).filter(Boolean).join(' ');
     });
 
+    const runtimeSpot = {};   // hazards/coverage/scene/observe — filled below when a spot phase exists
+
     const rungs = phases.map(function (p, i) {
       return phaseToRung(p, i, phases, sceneWorld, teachingByTopic);
+    });
+
+    /* ---- the spot surface (observe_react with an exhibit + rubric) --------
+       POC V4's observe_react contract — the learner jots findings, the model
+       credits them against rubric ids — is exactly the shipped text-observation
+       surface (js/sim-observe-text.js). That surface mounts for a kind:'spot'
+       phase and reads a TOP-LEVEL contract (hazards/coverage/scene/observe), a
+       shape scene-sweep established: one observed scene per scenario. So the
+       FIRST qualifying observe practice becomes the spot phase; any later
+       observe practice stays conversational (coach-voiced review of the
+       exhibit), which is also what mix-arc's observe beat always was.
+
+       Field mapping, kept name-compatible with scene-sweep's hazards so every
+       existing reader (the surface, the rail, the grader) works unchanged:
+         rubric[].id            → hazards[].id       (the crediting key)
+         rubric[].name          → hazards[].short    (the scorecard chip)
+         rubric[].standard_term → hazards[].full     (the creditable phrasing)
+         rubric[].nudge         → hazards[].zone     (where to look, never the answer)
+         exhibit.src / .alt     → scene.src / .alt
+         exhibit.facts          → scene.canonDescription (the model's ground truth)
+         spot_target            → coverage.required;  rubric length → coverage.total
+
+       No geometry exists in POC V4 (a rubric item has no x/y), so the photo/
+       hotspot canvas cannot hit-test — the preview URL must carry ?observe=text,
+       which routes kind:'spot' to the text surface. v4-universal.previewUrl
+       does exactly that. */
+    let spotAssigned = false;
+    phases.forEach(function (p, i) {
+      if (spotAssigned) return;
+      const practice = obj(obj(p).practice);
+      if (practice.mode !== 'observe_react') return;
+      const it = obj(practice.interaction);
+      const exhibit = obj(it.exhibit);
+      const rubric = arr(it.rubric).filter(function (r) { return obj(r).id; });
+      if (!exhibit.src || !rubric.length) return;
+      spotAssigned = true;
+      rungs[i].kind = 'spot';
+      runtimeSpot.hazards = rubric.map(function (r) {
+        const item = obj(r);
+        return {
+          id: str(item.id),
+          short: str(item.name),
+          full: str(item.standard_term),
+          zone: str(item.nudge),
+          synonyms: '',
+          alt: str(item.name),
+        };
+      });
+      runtimeSpot.coverage = {
+        total: rubric.length,
+        required: typeof it.spot_target === 'number' ? it.spot_target : rubric.length,
+      };
+      runtimeSpot.scene = {
+        src: str(exhibit.src),
+        alt: str(exhibit.alt),
+        canonDescription: arr(exhibit.facts).map(str).filter(Boolean).join(' ') || str(exhibit.alt),
+      };
+      runtimeSpot.observe = {
+        surface: 'text',
+        inputMode: 'sweep',
+        slotsPrompt: '',
+        slotCount: rubric.length,
+        placeholder: str(it.jot_placeholder) || 'Describe what looks unsafe',
+      };
     });
 
     /* v4's narrative is ONE text serving as both the coach's ground truth and
@@ -283,9 +349,15 @@
       course: '',
       learnerName: 'you',
       characterName: firstCharacterName(sceneWorld),
-      elevatedStakes: false,
-      involvesMinors: false,
-      threatContent: false,
+      /* The content-safety triggers — UX Universal extension fields (see
+         EXTENSIONS in scenario-v4.js). These are the whole reason the extensions
+         exist: mix-arc's compile arms the 988 crisis floor off elevatedStakes and
+         the locked threat-content section off threatContent. Hardcoding false
+         here (as an earlier build did) meant an authored threat_content: true
+         never armed anything — the exact silent regression the flags prevent. */
+      elevatedStakes: content.elevated_stakes === true,
+      involvesMinors: content.involves_minors === true,
+      threatContent: content.threat_content === true,
       /* POC V4 §4.1 keeps ONE `narrative`, in the learner's register: second
          person, present tense, ending where the experience begins. It is the
          situation, not a description of the experience — so it belongs in the
@@ -333,6 +405,11 @@
         items: arr(obj(obj(content.closing).ideal_response).source_references)
           .map(str).filter(Boolean).map(function (ref) { return { title: ref, body: '' }; }),
       },
+      /* spot contract — present only when an observe practice qualifies */
+      hazards: runtimeSpot.hazards || [],
+      coverage: runtimeSpot.coverage || null,
+      scene: runtimeSpot.scene || null,
+      observe: runtimeSpot.observe || null,
       phases: rungs,
       beats: rungs,          // mix-arc surfaces read `beats`; same objects
       opening: arr(opening.opening_messages).map(function (m) { return str(obj(m).text); }).filter(Boolean),

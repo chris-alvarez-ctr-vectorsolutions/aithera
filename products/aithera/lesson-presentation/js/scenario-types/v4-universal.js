@@ -158,12 +158,53 @@
      deliberate: the runtime compiler emits the field names it already reads, so
      the prompt is built by shipped, exercised code rather than a second
      implementation that could drift. */
+  /* toRuntime — the player contract. scenario-live.html's resolver calls
+     PLAY_TYPE.toRuntime(PLAY_SRC) on whatever ?type= resolves to, so exposing
+     this is what makes ?type=v4-universal play with ZERO resolver edits. */
+  function toRuntime(s) {
+    const rt = V4RT();
+    if (!rt) throw new Error('scenario-v4-runtime.js must load before v4-universal.js');
+    return rt.compile(normalize(s));
+  }
+
+  /* The observe rubric, as a prompt section. mix-arc's compile knows nothing
+     about hazards — the crediting INSTRUCTIONS come per turn from the spot
+     surface (sim-observe-text's coverageBlock), but the rubric DEFINITIONS must
+     already be in the system prompt or the model is told to credit ids it has
+     never seen. Modeled on scene-sweep's compiled rubric section, the shipped
+     and proven wording. */
+  function rubricBlock(runtime) {
+    const hazards = arr(obj(runtime).hazards).filter(function (h) { return obj(h).id; });
+    if (!hazards.length) return '';
+    const cov = obj(runtime.coverage);
+    const scene = obj(runtime.scene);
+    const parts = [];
+    if (str(scene.canonDescription)) {
+      parts.push('THE OBSERVED SCENE (what you are grounded to — the learner sees an image of exactly this; you do not):\n'
+        + str(scene.canonDescription));
+    }
+    parts.push('THE OBSERVABLE RUBRIC — the ONLY findable items in the scene and the ONLY ones you credit. '
+      + 'For each: its id, what it is, and where to nudge (never naming what is there):\n\n'
+      + hazards.map(function (h) {
+        return '· "' + h.id + '" — ' + (str(h.full) || str(h.short))
+          + (str(h.zone) ? ' (nudge toward: ' + str(h.zone) + ')' : '');
+      }).join('\n'));
+    parts.push('SPOTTED FIELD — on every turn during the Observe step, set "spotted" to the array of rubric ids the '
+      + 'learner has now CLEARLY named, CUMULATIVELY across the step. Valid ids: '
+      + hazards.map(function (h) { return '"' + h.id + '"'; }).join(', ')
+      + '. Credit generously in any phrasing; never credit or invent an item outside the rubric. '
+      + 'The step completes at ' + (cov.required || hazards.length) + ' of ' + hazards.length
+      + ' catches. Outside the Observe step, omit "spotted".');
+    return '\n\n' + parts.join('\n\n');
+  }
+
   function compile(s) {
     const rt = V4RT();
     const mix = MIX();
     if (!rt || !mix) return 'Cannot compile: scenario-v4-runtime.js and mix-arc.js must load first.';
     try {
-      return mix.compile(rt.compile(normalize(s)));
+      const runtime = rt.compile(normalize(s));
+      return mix.compile(runtime) + rubricBlock(runtime);
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
     }
@@ -935,9 +976,15 @@
     compile,
     fill,
     highlightStrings,
-    /* Stage 5 adds the ?schema=v4 route; until then the preview button lands on
-       the universal player, which still boots the native path. */
-    previewUrl: () => 'scenario-live.html?schema=v4',
+    toRuntime,
+    /* The universal player resolves ?type= from the Studio registry, so this
+       type plays through the EXISTING resolver — no new route needed.
+       ?observe=text routes any kind:'spot' phase to the text-observation
+       surface, the faithful POC V4 observe_react loop (a v4 rubric carries no
+       geometry, so the photo/hotspot canvas cannot hit-test). Harmless when the
+       scenario has no observe step — the flag gates a surface that only mounts
+       for kind:'spot'. */
+    previewUrl: () => 'scenario-live.html?type=v4-universal&observe=text',
     sections,
     renderFields,
     lints,
