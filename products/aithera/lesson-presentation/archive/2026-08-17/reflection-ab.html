@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Reflection B — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- Shared lesson shell (frame, tokens, chat-msg styles) -->
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+
+    <!-- ====================================================================
+         Page-scoped styles. Everything unique to this A/B experiment lives
+         here: the internal test harness strip, the persistent "AI orb" and
+         its docked panel (variant B), the blocking scrim modal (variant A),
+         the faux video stage, and the step-cleared overlay. The shared frame
+         (header / footer / chat bubbles) comes from css/lesson.css.
+         ==================================================================== -->
+    <style>
+      :root { --harness-h: 46px; }
+
+      /* Visually-hidden but screen-reader available (page h1, live region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+
+      /* The internal test harness sits ABOVE the lesson header. Nudge the
+         fixed header down by its height and pad the shell to match, so the
+         shared frame keeps working untouched. */
+      .lesson-header { top: var(--harness-h); }
+      .lesson-shell  { padding-top: calc(var(--header-h) + var(--harness-h)); }
+
+      /* ---- internal test harness (clearly scaffolding, not the product) -- */
+      .exp-harness {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: var(--harness-h);
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+        background: #0f172a;
+        color: #cbd5e1;
+        font-size: 12px;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .exp-harness .h-title {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: #94a3b8;
+      }
+      .exp-seg {
+        display: inline-flex;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: inset 0 0 0 1px #334155;
+      }
+      .exp-seg button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: #cbd5e1;
+        font: inherit;
+        font-weight: 600;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+      }
+      .exp-seg button:hover { background: #1e293b; }
+      .exp-seg button.active { background: #14b8a6; color: #fff; }
+      .exp-hint { color: #94a3b8; }
+      .exp-spacer { margin-left: auto; }
+      .ai-chip {
+        border-radius: 999px;
+        padding: 2px 9px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
+      .ai-chip.live { background: rgba(20,184,166,.2); color: #5eead4; }
+      .ai-chip.demo { background: rgba(245,158,11,.2); color: #fcd34d; }
+      .exp-reset {
+        appearance: none; border: 0; background: transparent;
+        color: #94a3b8; font: inherit; cursor: pointer;
+      }
+      .exp-reset:hover { color: #e2e8f0; }
+      @media (max-width: 640px) {
+        .exp-hint { display: none; }
+      }
+
+      /* ---- "now reflect" caption above the video ------------------------ */
+      .stage-caption {
+        margin: 0 0 18px;
+        font-size: 13px;
+        color: var(--ink-faint);
+        text-align: center;
+      }
+
+      /* ---- faux video stage --------------------------------------------- */
+      .vid-wrap { width: 100%; max-width: 640px; }
+      .vid-eyebrow {
+        margin: 0 0 12px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+      .vid-frame {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #0f172a;
+      }
+      .vid-grad {
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(120% 90% at 20% 10%, #134e4a 0%, transparent 55%),
+          radial-gradient(120% 90% at 90% 100%, #312e81 0%, transparent 55%),
+          linear-gradient(140deg, #0f172a, #1e293b);
+      }
+      .vid-center {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .vid-play {
+        appearance: none; border: 0; cursor: pointer;
+        width: 64px; height: 64px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.92);
+        color: #1e293b;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 22px;
+        box-shadow: 0 12px 28px -6px rgba(0,0,0,.5);
+        transition: transform .2s ease, background .2s ease;
+      }
+      .vid-play:hover { transform: scale(1.06); background: #fff; }
+      .vid-play i { margin-left: 4px; }
+      .vid-playing {
+        display: flex; flex-direction: column; align-items: center; gap: 12px;
+        color: rgba(255,255,255,.9);
+        font-size: 13px; font-weight: 600;
+      }
+      .sound-bars { display: flex; gap: 5px; align-items: flex-end; height: 34px; }
+      .sound-bars i {
+        width: 5px; border-radius: 3px; background: rgba(255,255,255,.85);
+        animation: eq 1s ease-in-out infinite;
+      }
+      .sound-bars i:nth-child(1) { height: 40%; animation-delay: 0s; }
+      .sound-bars i:nth-child(2) { height: 80%; animation-delay: .15s; }
+      .sound-bars i:nth-child(3) { height: 55%; animation-delay: .3s; }
+      .sound-bars i:nth-child(4) { height: 95%; animation-delay: .45s; }
+      .sound-bars i:nth-child(5) { height: 60%; animation-delay: .6s; }
+      @keyframes eq { 0%,100% { transform: scaleY(.5); } 50% { transform: scaleY(1); } }
+
+      .vid-watched {
+        position: absolute; right: 12px; top: 12px;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(0,0,0,.4);
+        color: #fff; font-size: 12px; font-weight: 600;
+        backdrop-filter: blur(4px);
+      }
+      .vid-watched[hidden] { display: none; }
+      .vid-scrub {
+        position: absolute; inset-inline: 0; bottom: 0;
+        height: 6px; background: rgba(255,255,255,.2);
+      }
+      .vid-scrub span {
+        display: block; height: 100%; width: 0%;
+        background: #2dd4bf;
+        transition: width .1s linear;
+      }
+      .vid-meta {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-top: 8px;
+      }
+      .vid-meta p { margin: 0; font-size: 12px; color: var(--ink-faint); }
+      .vid-skip {
+        appearance: none; border: 0; background: transparent;
+        font: inherit; font-size: 12px; font-weight: 600;
+        color: var(--ink-faint); cursor: pointer;
+      }
+      .vid-skip:hover { color: var(--ink-soft); text-decoration: underline; }
+
+      /* ---- shared chat surface (used by both variants) ------------------ */
+      .chat-surface {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--line);
+      }
+      .cs-head {
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .cs-head-id { display: flex; align-items: center; gap: 10px; }
+      .cs-title { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+      .cs-note  { font-size: 12px; color: var(--ink-faint); line-height: 1.2; }
+      .cs-min {
+        appearance: none; border: 0; background: transparent; cursor: pointer;
+        width: 32px; height: 32px; border-radius: 999px;
+        color: var(--ink-faint); font-size: 16px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .cs-min:hover { background: var(--canvas); color: var(--ink-soft); }
+      .cs-thread {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 14px;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      .cs-foot { flex-shrink: 0; padding: 12px; border-top: 1px solid var(--line); }
+      .cs-composer { display: flex; align-items: flex-end; gap: 8px; }
+      .cs-composer textarea {
+        flex: 1;
+        resize: none;
+        min-height: 44px; max-height: 112px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 11px 14px;
+        font: inherit; font-size: 14px; color: var(--ink);
+        outline: none;
+      }
+      .cs-composer textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);   /* visible focus, not just a hue shift */
+      }
+      .cs-composer textarea:disabled { background: var(--canvas); opacity: .7; }
+      .cs-send {
+        flex-shrink: 0;
+        width: 44px; height: 44px;
+        border: 0; border-radius: 999px;
+        background: var(--accent); color: #fff;
+        font-size: 16px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background .15s ease;
+      }
+      .cs-send:hover:not(:disabled) { background: var(--accent-strong); }
+      .cs-send:disabled { opacity: .4; cursor: default; }
+      /* completion state */
+      .cs-done {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+      }
+      .cs-done-label {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 14px; font-weight: 600; color: var(--accent-strong);
+      }
+      .cs-done-cta {
+        appearance: none; border: 0; cursor: pointer;
+        border-radius: 10px;
+        padding: 8px 14px;
+        background: var(--accent); color: #fff;
+        font: inherit; font-size: 14px; font-weight: 600;
+        transition: background .15s ease;
+      }
+      .cs-done-cta:hover { background: var(--accent-strong); }
+
+      /* ---- the AI orb (variant B) --------------------------------------- */
+      .orb-btn {
+        position: fixed;
+        right: 24px;
+        bottom: calc(var(--footer-h) + 24px);
+        z-index: 28;
+        width: 56px; height: 56px;
+        border: 0; padding: 0; cursor: pointer;
+        background: transparent;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .3s ease, opacity .3s ease;
+      }
+      .orb-btn[hidden] { display: none; }
+      .orb-btn.is-hidden { transform: scale(.75); opacity: 0; pointer-events: none; }
+      .orb-core {
+        position: relative;
+        width: 56px; height: 56px;
+        border-radius: 999px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 22px;
+        background: radial-gradient(circle at 32% 28%, #123047 0%, #0a1826 48%, #050d16 100%);
+        box-shadow:
+          inset 0 1px 2px rgba(255,255,255,.55),
+          inset 0 -8px 14px rgba(49,46,129,.45),
+          0 6px 18px -4px rgba(13,148,136,.55),
+          0 0 30px -2px rgba(79,70,229,.45);
+        overflow: hidden;
+      }
+      .orb-core::after {
+        content: ""; position: absolute; inset: 0; border-radius: 999px;
+        background: radial-gradient(circle at 70% 80%, rgba(99,102,241,.55), transparent 60%);
+        mix-blend-mode: screen;
+      }
+      .orb-core i { position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
+      /* the animated Möbius loader fills the orb; the check sits on top when done */
+      .orb-core .orb-loader { position: absolute; inset: 4px; transition: opacity .3s ease; }
+      .orb-check[hidden] { display: none; }  /* beat Font Awesome's forced display */
+      /* the chat-header "AI Helper" mark also hosts the Möbius loader */
+      /* .orb-mark.cs-head-orb beats the base .orb-mark (teal gradient + teal glow) */
+      .orb-mark.cs-head-orb { position: relative; overflow: hidden;
+        background: radial-gradient(circle at 32% 28%, #123047 0%, #0a1826 48%, #050d16 100%);
+        box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 2px 8px -2px rgba(5,13,22,.5); }
+      .cs-head-orb .cs-orb-loader { position: absolute; inset: 2px; }
+      .orb-calm { animation: breathe 5.5s ease-in-out infinite; filter: saturate(.9) brightness(.96); }
+      .orb-live { animation: breathe 3.4s ease-in-out infinite; }
+      @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+      .orb-ring {
+        position: absolute; inset: -6px; border-radius: 999px;
+        box-shadow: 0 0 0 2px rgba(45,212,191,.55);
+        animation: ring 2s ease-out infinite;
+      }
+      @keyframes ring {
+        0%   { transform: scale(.85); opacity: .9; }
+        100% { transform: scale(1.5); opacity: 0; }
+      }
+      .orb-dot {
+        position: absolute; right: -2px; top: -2px;
+        width: 14px; height: 14px;
+        border-radius: 999px;
+        border: 2px solid #fff;
+        background: #f43f5e;
+      }
+      .orb-flash { animation: orbflash .6s ease; }
+      @keyframes orbflash {
+        0%,100% { transform: scale(1); }
+        25% { transform: scale(1.15) rotate(-4deg); }
+        60% { transform: scale(1.08) rotate(4deg); }
+      }
+      /* the small sparkle mark reused in chat header + cleared overlay */
+      .orb-mark {
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 999px;
+        color: #fff;
+        background: radial-gradient(circle at 32% 28%, #2dd4bf, #0d9488 55%, #4f46e5 130%);
+        box-shadow: 0 2px 8px -1px rgba(13,148,136,.5);
+      }
+
+      /* ---- docked panel (variant B) ------------------------------------- */
+      .dock-panel {
+        position: fixed;
+        z-index: 29;
+        top: calc(var(--header-h) + var(--harness-h) + 16px);
+        right: 24px;
+        bottom: calc(var(--footer-h) + 16px);
+        width: 380px;
+        transform-origin: bottom right;
+        transition: transform .3s cubic-bezier(.2,.8,.2,1), opacity .3s ease;
+      }
+      .dock-panel.is-closed {
+        transform: scale(.9) translateY(16px);
+        opacity: 0;
+        pointer-events: none;
+      }
+      @media (max-width: 560px) {
+        .dock-panel { left: 16px; right: 16px; width: auto; }
+      }
+
+      /* ---- blocking scrim modal (variant A) ----------------------------- */
+      .scrim-modal {
+        position: fixed; inset: 0;
+        z-index: 50;
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px;
+      }
+      .scrim-modal[hidden] { display: none; }
+      .scrim-modal .scrim {
+        position: absolute; inset: 0;
+        background: rgba(15,23,42,.6);
+        animation: scrim-fade .25s ease;
+      }
+      .modal-card {
+        position: relative;
+        z-index: 1;
+        width: 100%; max-width: 440px;
+        height: 32rem; max-height: 100%;
+        display: flex; flex-direction: column;
+        animation: modal-pop .28s cubic-bezier(.2,.8,.2,1);
+      }
+      .modal-card.shake { animation: modal-shake .5s ease; }
+      @keyframes scrim-fade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes modal-pop {
+        from { opacity: 0; transform: translateY(12px) scale(.96); }
+        to   { opacity: 1; transform: none; }
+      }
+      @keyframes modal-shake {
+        0%,100% { transform: translateX(0); }
+        20% { transform: translateX(-7px); } 40% { transform: translateX(7px); }
+        60% { transform: translateX(-5px); } 80% { transform: translateX(5px); }
+      }
+
+      /* ---- locked-continue tooltip in the footer ------------------------ */
+      .nav-tip { position: relative; display: inline-flex; }
+      .nav-tip .tip {
+        position: absolute;
+        bottom: calc(100% + 8px); right: 0;
+        white-space: nowrap;
+        background: #1e293b; color: #fff;
+        font-size: 12px; font-weight: 600;
+        padding: 6px 10px; border-radius: 8px;
+        box-shadow: var(--shadow-md);
+        opacity: 0; pointer-events: none;
+        transition: opacity .15s ease;
+      }
+      .nav-tip:hover .tip.locked,
+      .nav-tip:focus-within .tip.locked { opacity: 1; }   /* keyboard users get the tip too */
+
+      /* ---- step-cleared overlay ----------------------------------------- */
+      .step-cleared {
+        position: fixed; inset: 0;
+        z-index: 60;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center;
+        gap: 6px;
+        padding: 24px;
+        background: var(--surface);
+      }
+      .step-cleared[hidden] { display: none; }
+      .step-cleared .mark { width: 56px; height: 56px; font-size: 26px; margin-bottom: 12px; }
+      .step-cleared h2 { margin: 0; font-size: 22px; color: var(--ink); }
+      .step-cleared p { margin: 4px 0 0; max-width: 40ch; font-size: 14px; color: var(--ink-soft); }
+      .step-cleared .restart {
+        appearance: none; cursor: pointer;
+        margin-top: 22px;
+        border: 1px solid var(--line); border-radius: 10px;
+        background: var(--surface); color: var(--ink-soft);
+        font: inherit; font-size: 14px; font-weight: 600;
+        padding: 9px 16px;
+      }
+      .step-cleared .restart:hover { background: var(--canvas); color: var(--ink); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .orb-calm, .orb-live, .orb-ring, .orb-flash, .sound-bars i,
+        .scrim-modal .scrim, .modal-card, .modal-card.shake { animation: none !important; }
+        * { transition-duration: .01ms !important; }
+      }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Internal A/B test harness (scaffolding, not the product) ===== -->
+    <div class="exp-harness" role="region" aria-label="A/B test controls">
+        <a href="index.html" class="exp-reset" style="font-weight:600;">&larr; Experiments</a>
+        <span class="h-title">Reflection A/B</span>
+        <div class="exp-seg" role="group" aria-label="Presentation variant">
+            <button type="button" data-variant="A">A · Blocking modal</button>
+            <button type="button" data-variant="B" class="active">B · Persistent orb</button>
+        </div>
+        <span class="exp-hint" id="variantHint"></span>
+        <span class="exp-spacer"></span>
+        <span class="ai-chip demo" id="aiChip">Demo AI</span>
+        <button type="button" class="exp-reset" id="resetBtn"><i class="fa-solid fa-rotate-right"></i> Reset</button>
+    </div>
+
+    <!-- Page name for screen readers (the visual design carries it in the
+         breadcrumb; the only visible heading lives inside the completion overlay) -->
+    <h1 class="sr-only">Why Do Some Students Drink? — video reflection</h1>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Making Smart Choices About Alcohol</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Why Do Some Students Drink?</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 4 of 9</span>
+            <vaadin-progress-bar value="0.44" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+            <p class="stage-caption" id="stageCaption">Press play to begin.</p>
+
+            <!-- ----- Faux video stage ---------------------------------- -->
+            <div class="vid-wrap">
+                <p class="vid-eyebrow">Watch · 0:45</p>
+                <div class="vid-frame" id="vidFrame">
+                    <div class="vid-grad"></div>
+                    <div class="vid-center" id="vidCenter">
+                        <button class="vid-play" id="vidPlay" type="button" aria-label="Play clip">
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                    </div>
+                    <div class="vid-watched" id="vidWatched" hidden>
+                        <i class="fa-solid fa-circle-check"></i> Watched
+                    </div>
+                    <div class="vid-scrub"><span id="vidScrub"></span></div>
+                </div>
+                <div class="vid-meta">
+                    <p>&ldquo;Why Do Some Students Drink?&rdquo; — student voices</p>
+                    <button class="vid-skip" id="vidSkip" type="button" hidden>Skip to end ▸▸</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions">
+            Press play to watch the clip, then reflect to continue.
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <span class="nav-tip" id="navTip">
+                <span class="tip locked" id="navTipText">Finish your reflection to continue</span>
+                <vaadin-button theme="primary" id="continueBtn" aria-describedby="navTipText" disabled>Continue</vaadin-button>
+            </span>
+        </div>
+    </footer>
+
+    <!-- ===== Variant B: persistent orb ==================================== -->
+    <button class="orb-btn is-hidden" id="orb" type="button" aria-label="Open AI helper">
+        <span class="orb-ring" id="orbRing" hidden></span>
+        <span class="orb-core orb-calm" id="orbCore"><span class="orb-loader" id="orbLoader" data-mobius-loader></span><i class="fa-solid fa-check orb-check" id="orbCheck" hidden></i></span>
+        <span class="orb-dot" id="orbDot" hidden></span>
+    </button>
+
+    <!-- Mount point for the docked panel (variant B) -->
+    <div class="dock-panel is-closed" id="dockPanel" role="dialog" aria-label="CLARA"></div>
+
+    <!-- ===== Variant A: blocking scrim modal ============================== -->
+    <div class="scrim-modal" id="scrimModal" role="dialog" aria-modal="true" aria-label="CLARA" hidden>
+        <div class="scrim"></div>
+        <div class="modal-card" id="modalCard"></div>
+    </div>
+
+    <!-- ===== Step-cleared overlay ========================================= -->
+    <div class="step-cleared" id="stepCleared" role="dialog" aria-labelledby="stepClearedTitle" hidden>
+        <span class="orb-mark mark"><i class="fa-solid fa-check"></i></span>
+        <h2 id="stepClearedTitle" tabindex="-1">Step 4 cleared</h2>
+        <p>In the live course, Step 5 of 9 would load here. This is the end of the prototype.</p>
+        <button class="restart" id="restartBtn" type="button"><i class="fa-solid fa-rotate-right"></i> Restart demo</button>
+    </div>
+
+    <!-- A11y live region -->
+    <span aria-live="polite" class="sr-only" id="liveRegion"
+          style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></span>
+
+    <script src="js/lesson.js?v=5"></script>
+    <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+    <!-- Möbius "AI is thinking" loader — replaces the orb's wand icon (experiment) -->
+    <script src="experiments/mobius-loader.js?v=4"></script>
+    <script>
+    /* ========================================================================
+       Reflection A/B — two presentations of ONE post-video reflection gate.
+
+         A · Blocking modal   — scrim, centered, non-dismissable (control).
+         B · Persistent orb    — glowing orb in the corner; the panel morphs
+                                 out beside the still-visible video, minimizes
+                                 back into the orb. No scrim.
+
+       Both share one engine: same chat, same sufficiency check, same gating,
+       same safety ceiling. Only the presentation differs — the whole point of
+       the test. Ported from a React prototype to vanilla JS/CSS to live in
+       the Lesson Presentation gallery.
+       ====================================================================== */
+
+    /* ------------------------------------------------------------------ AI */
+    /* GitHub Pages / static hosting can't hold an API key, so this runs in a
+       self-contained DEMO mode by default: a scripted helper that mirrors the
+       real flow (probe on the first answer, close the loop on the second
+       substantive one). To talk to real Claude, point WORKER_URL at a proxy
+       Worker that injects the key and forwards to the Anthropic Messages API;
+       the chip then flips from "Demo AI" to "Live AI". */
+    const WORKER_URL = '';                         // e.g. 'https://reflect-proxy.<you>.workers.dev'
+    const REFLECT_MODEL = 'claude-sonnet-4-6';
+    const IS_LIVE = Boolean(WORKER_URL);
+
+    const SYSTEM_PROMPT = `You are CLARA, a warm AI reflection guide inside a college-level alcohol awareness micro-lesson called "Making Smart Choices About Alcohol." The learner just watched a short clip about why some students choose to drink. You already opened the conversation by asking them: "What do you think is the top reason given by students who choose to drink?"
+
+Your job is to help them REFLECT — not to lecture, quiz, or hand them a verdict.
+
+Voice:
+- Warm, grounded, peer-like. Talk like a thoughtful older student, not a health pamphlet.
+- 2-3 sentences max per reply. No bullet points, no statistics, no moralizing.
+- Never say there is a "correct" answer. Never tell them they are right or wrong.
+
+How to respond:
+- Acknowledge what they actually said in a specific way (reflect a word or idea back).
+- Then ask ONE genuine follow-up that nudges them a little deeper.
+- If they give a low-effort answer, gently draw them out with a concrete, easy question.
+
+Deciding when reflection is sufficient:
+- Mark sufficient ONLY after the learner has shared a genuine thought AND engaged with at least one follow-up beyond their first answer.
+- A single short answer is NOT sufficient on its own.
+
+Output format — CRITICAL:
+Respond with ONLY a JSON object, no markdown fences:
+{"reply": "<your message>", "sufficient": <true or false>}`;
+
+    function parseReflect(raw) {
+      try {
+        const obj = JSON.parse(String(raw).replace(/```json|```/g, '').trim());
+        return {
+          reply: obj.reply || 'Say a little more about that — what makes you land there?',
+          sufficient: Boolean(obj.sufficient),
+        };
+      } catch {
+        return { reply: raw || 'Say a little more about that — what makes you land there?', sufficient: false };
+      }
+    }
+
+    async function liveReflect(messages) {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: REFLECT_MODEL, max_tokens: 1000, system: SYSTEM_PROMPT, messages }),
+      });
+      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
+      const data = await res.json();
+      const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+      return parseReflect(raw);
+    }
+
+    // Scripted stand-in: mirrors the real flow using only the learner's turns.
+    const PROBES = [
+      'how it tends to play out in real life',
+      'whether that reason is the one people admit to, or the one underneath it',
+      'how it might feel different at a small gathering versus a big party',
+    ];
+    function demoReflect(messages) {
+      const userTurns = messages.filter((m) => m.role === 'user');
+      const last = (userTurns[userTurns.length - 1]?.content || '').trim();
+      const turnNo = userTurns.length;
+      const lowEffort = last.length < 12 || /^(idk|dunno|fun|lol|nope|yes|no|maybe)\.?$/i.test(last);
+
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          if (turnNo <= 1 && lowEffort) {
+            resolve({ reply: "Fair — but give me a little more. If you had to guess the one reason that comes up most, what would it be?", sufficient: false });
+          } else if (turnNo <= 1) {
+            const snip = last.length > 48 ? last.slice(0, 45).trim() + '…' : last;
+            resolve({ reply: `"${snip}" — that's a real one. Push on it with me for a sec: think about ${PROBES[0]}.`, sufficient: false });
+          } else if (turnNo === 2 && lowEffort) {
+            resolve({ reply: `No rush. Even a sentence is fine — what's the first thing that comes to mind about ${PROBES[1]}?`, sufficient: false });
+          } else {
+            resolve({ reply: "That's exactly the kind of thinking this is for — you're connecting the reason to the moment, not just naming it. Nice reflecting. You're good to move on.", sufficient: true });
+          }
+        }, 650 + Math.random() * 500); // feel of a real round-trip
+      });
+    }
+
+    function reflect(messages) {
+      return IS_LIVE ? liveReflect(messages) : demoReflect(messages);
+    }
+
+    /* --------------------------------------------------------------- App */
+    (function () {
+      'use strict';
+
+      const OPENING =
+        "You just watched a short clip on why people drink. Quick gut-check before we go deeper.\n\nHere's my question: what do you think is the top reason given by students who choose to drink?";
+      const MAX_EXCHANGES = 4;   // safety ceiling — never gate-lock an engaged learner
+
+      const VARIANT_HINTS = {
+        A: 'Scrim, centered, must answer before anything else is reachable.',
+        B: 'Orb lives in the corner; panel docks beside the video; minimize to proceed at your own pace.',
+      };
+
+      // --- elements ---
+      const harnessBtns = document.querySelectorAll('.exp-seg button');
+      const variantHint = document.getElementById('variantHint');
+      const aiChip      = document.getElementById('aiChip');
+      const resetBtn    = document.getElementById('resetBtn');
+      const stageCaption= document.getElementById('stageCaption');
+      const instructions= document.getElementById('instructions');
+      const continueBtn = document.getElementById('continueBtn');
+      const backBtn     = document.getElementById('backBtn');
+      const navTip      = document.getElementById('navTip');
+      const live        = document.getElementById('liveRegion');
+
+      const vidPlay   = document.getElementById('vidPlay');
+      const vidCenter = document.getElementById('vidCenter');
+      const vidSkip   = document.getElementById('vidSkip');
+      const vidScrub  = document.getElementById('vidScrub');
+      const vidWatched= document.getElementById('vidWatched');
+
+      const orb     = document.getElementById('orb');
+      const orbCore = document.getElementById('orbCore');
+      const orbLoader = document.getElementById('orbLoader');
+      const orbCheck  = document.getElementById('orbCheck');
+      const orbRing = document.getElementById('orbRing');
+      const orbDot  = document.getElementById('orbDot');
+
+      const dockPanel  = document.getElementById('dockPanel');
+      const scrimModal = document.getElementById('scrimModal');
+      const modalCard  = document.getElementById('modalCard');
+      const stepCleared= document.getElementById('stepCleared');
+      const restartBtn = document.getElementById('restartBtn');
+
+      const reduceMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // --- state ---
+      let variant   = 'B';     // 'A' | 'B'
+      let videoDone = false;
+      let messages  = [];
+      let loading   = false;
+      let sufficient= false;
+      let turns     = 0;
+      let open      = false;   // panel (B) / modal (A) visible
+      let vidPhase  = 'idle';  // idle | playing | done
+      let vidRaf    = null;
+      let surfaceRefs = null;  // live references to the current chat-surface DOM
+      let headMarkLoader = null;  // Möbius loader inside the chat-header "AI Helper" mark
+
+      // ====== chat-surface (single source of truth, reparented per variant) ======
+      const surface = document.createElement('div');
+      surface.className = 'chat-surface';
+
+      function buildSurface() {
+        // surface.innerHTML is about to be replaced — tear down the old header loader
+        if (headMarkLoader) { headMarkLoader.destroy(); headMarkLoader = null; }
+        const showMin = variant === 'B';
+        surface.innerHTML =
+          '<div class="cs-head">' +
+            '<div class="cs-head-id">' +
+              '<span class="orb-mark cs-head-orb" style="width:28px;height:28px;">' +
+                '<span class="cs-orb-loader" id="csHeadLoader"></span></span>' +
+              '<div><div class="cs-title">CLARA</div>' +
+              '<div class="cs-note">Reflecting on the clip</div></div>' +
+            '</div>' +
+            (showMin ? '<button class="cs-min" id="csMin" type="button" aria-label="Minimize helper"><i class="fa-solid fa-chevron-down"></i></button>' : '') +
+          '</div>' +
+          '<div class="cs-thread" id="csThread" aria-live="polite"></div>' +
+          '<div class="cs-foot" id="csFoot"></div>';
+
+        surfaceRefs = {
+          thread: surface.querySelector('#csThread'),
+          foot:   surface.querySelector('#csFoot'),
+          min:    surface.querySelector('#csMin'),
+        };
+        if (surfaceRefs.min) surfaceRefs.min.addEventListener('click', closePanel);
+        const headLoaderEl = surface.querySelector('#csHeadLoader');
+        if (headLoaderEl && window.initMobiusLoader) headMarkLoader = initMobiusLoader(headLoaderEl);
+        renderThread();
+        renderFoot();
+      }
+
+      function renderThread() {
+        const t = surfaceRefs.thread;
+        t.replaceChildren();
+        messages.forEach((m) => {
+          const b = document.createElement('div');
+          b.className = 'chat-msg ' + (m.role === 'user' ? 'user' : 'bot');
+          b.textContent = m.content;
+          t.appendChild(b);
+        });
+        if (loading) {
+          const typing = document.createElement('div');
+          typing.className = 'chat-typing';
+          typing.setAttribute('aria-hidden', 'true');   // decorative dots — keep out of the live thread
+          typing.innerHTML = '<span></span><span></span><span></span>';
+          t.appendChild(typing);
+        }
+        t.scrollTop = t.scrollHeight;
+      }
+
+      function renderFoot() {
+        const f = surfaceRefs.foot;
+        f.replaceChildren();
+        if (sufficient) {
+          const done = document.createElement('div');
+          done.className = 'cs-done';
+          done.innerHTML =
+            '<span class="cs-done-label"><i class="fa-solid fa-check"></i> Reflection complete</span>' +
+            '<button class="cs-done-cta" type="button">Continue →</button>';
+          done.querySelector('button').addEventListener('click', handleContinue);
+          f.appendChild(done);
+          return;
+        }
+        const composer = document.createElement('div');
+        composer.className = 'cs-composer';
+        composer.innerHTML =
+          '<textarea rows="1" placeholder="Type your answer…" aria-label="Type your answer"></textarea>' +
+          '<button class="cs-send" type="button" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>';
+        const ta  = composer.querySelector('textarea');
+        const snd = composer.querySelector('.cs-send');
+        ta.disabled = loading;
+        snd.disabled = loading;
+        const sync = () => { snd.disabled = loading || !ta.value.trim(); };
+        ta.addEventListener('input', () => {
+          ta.style.height = 'auto';
+          ta.style.height = Math.min(ta.scrollHeight, 112) + 'px';
+          sync();
+        });
+        ta.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(ta.value); }
+        });
+        snd.addEventListener('click', () => send(ta.value));
+        sync();
+        f.appendChild(composer);
+        surfaceRefs.input = ta;
+      }
+
+      function focusInput() {
+        setTimeout(() => surfaceRefs && surfaceRefs.input && surfaceRefs.input.focus(), 220);
+      }
+
+      // ====== the engine: the one place that talks to the model ======
+      async function send(rawText) {
+        const text = (rawText || '').trim();
+        if (!text || loading) return;
+
+        messages.push({ role: 'user', content: text });
+        loading = true;
+        const turnNo = ++turns;
+        renderThread();
+        renderFoot();
+
+        // drop the seeded opening so the payload starts with a user turn
+        const firstUser = messages.findIndex((m) => m.role === 'user');
+        const apiMessages = messages.slice(firstUser).map((m) => ({ role: m.role, content: m.content }));
+
+        try {
+          const { reply, sufficient: ok } = await reflect(apiMessages);
+          messages.push({ role: 'assistant', content: reply });
+          if (ok || turnNo >= MAX_EXCHANGES) markSufficient('Reflection complete. You can now continue.');
+        } catch (e) {
+          messages.push({
+            role: 'assistant',
+            content: "Hmm, I'm having trouble connecting right now — but what you shared counts. Let's keep going.",
+          });
+          if (text.length >= 40 || turnNo >= 2) markSufficient('Reflection saved. You can now continue.');
+        } finally {
+          loading = false;
+          renderThread();
+          renderFoot();
+          if (!sufficient) focusInput();
+        }
+      }
+
+      function markSufficient(announce) {
+        sufficient = true;
+        continueBtn.disabled = false;
+        navTip.querySelector('.tip').classList.remove('locked');
+        instructions.textContent = "Nice reflecting. You're good to move on.";
+        if (live) live.textContent = announce;
+      }
+
+      // ====== presentation: orb / panel (B) and modal (A) ======
+      function refreshOrb() {
+        const state = !videoDone ? 'idle' : sufficient ? 'done' : 'pending';
+        orbCore.classList.toggle('orb-calm', state === 'idle');
+        orbCore.classList.toggle('orb-live', state !== 'idle');
+        orbCheck.hidden = state !== 'done';
+        if (orbLoader) orbLoader.style.opacity = state === 'done' ? '0' : '1';
+        orbRing.hidden = state !== 'pending';
+        orbDot.hidden  = state !== 'pending';
+        // orb is only present in B, and hides while the panel is open
+        const showOrb = variant === 'B';
+        orb.hidden = !showOrb;
+        orb.classList.toggle('is-hidden', !showOrb || open);
+      }
+
+      function mountSurface() {
+        buildSurface();
+        if (variant === 'B') dockPanel.appendChild(surface);
+        else modalCard.appendChild(surface);
+      }
+
+      // Page chrome that sits behind the variant-A modal / the cleared overlay.
+      // (The A/B harness strip is review scaffolding and stays reachable.)
+      const pageRegions = () =>
+        ['.lesson-header', '.lesson-shell', '.lesson-footer']
+          .map((sel) => document.querySelector(sel)).filter(Boolean);
+      function setPageInert(on) {
+        pageRegions().forEach((el) => el.toggleAttribute('inert', on));
+      }
+
+      function openHelper() {
+        open = true;
+        if (variant === 'B') {
+          mountSurface();
+          dockPanel.classList.remove('is-closed');
+        } else {
+          mountSurface();
+          scrimModal.hidden = false;
+          setPageInert(true);   // the modal blocks the page — keep AT/keyboard inside it
+        }
+        refreshOrb();
+        focusInput();
+      }
+
+      function closePanel() {
+        if (variant !== 'B') return;  // A is the blocking control — no minimize
+        open = false;
+        dockPanel.classList.add('is-closed');
+        refreshOrb();
+        orb.focus();                  // hand focus back to the control that reopens it
+      }
+
+      function flashOrb() {
+        orb.classList.add('orb-flash');
+        setTimeout(() => orb.classList.remove('orb-flash'), 600);
+      }
+
+      function shakeModal() {
+        modalCard.classList.add('shake');
+        setTimeout(() => modalCard.classList.remove('shake'), 500);
+      }
+
+      // tapping continue while locked: nudge the learner toward the reflection
+      function nudge() {
+        if (!videoDone) { if (variant === 'B') flashOrb(); return; }
+        if (!open) openHelper();
+        if (variant === 'B') flashOrb();
+        else shakeModal();
+        focusInput();
+      }
+
+      // ====== video stage ======
+      function playVideo() {
+        if (vidPhase === 'playing') return;
+        vidPhase = 'playing';
+        vidCenter.innerHTML =
+          '<div class="vid-playing"><div class="sound-bars"><i></i><i></i><i></i><i></i><i></i></div>' +
+          '<span>Playing clip…</span></div>';
+        vidSkip.hidden = false;
+        const start = performance.now();
+        const DUR = 4500;
+        const tick = (t) => {
+          const p = Math.min(1, (t - start) / DUR);
+          vidScrub.style.width = (p * 100) + '%';
+          if (p < 1) vidRaf = requestAnimationFrame(tick);
+          else finishVideo();
+        };
+        vidRaf = requestAnimationFrame(tick);
+      }
+
+      function skipVideo() {
+        if (vidRaf) cancelAnimationFrame(vidRaf);
+        vidScrub.style.width = '100%';
+        finishVideo();
+      }
+
+      function finishVideo() {
+        vidPhase = 'done';
+        vidSkip.hidden = true;
+        vidWatched.hidden = false;
+        vidCenter.innerHTML =
+          '<button class="vid-play" type="button" aria-label="Replay clip"><i class="fa-solid fa-play"></i></button>';
+        vidCenter.querySelector('.vid-play').addEventListener('click', playVideo);
+
+        stageCaption.textContent = 'Now reflect on what you saw.';
+        if (!videoDone) {
+          videoDone = true;
+          refreshOrb();
+          instructions.textContent =
+            variant === 'A'
+              ? 'Answer the helper to continue — the step unlocks once you’ve reflected.'
+              : 'Answer in the chat to continue — the step unlocks once you’ve reflected.';
+          if (live) live.textContent = 'Your AI helper has a question about the clip you just watched.';
+          // auto-surface the reflection a beat after the clip ends
+          setTimeout(openHelper, reduceMotion ? 150 : 750);
+        }
+      }
+
+      // ====== continue / cleared ======
+      function handleContinue() {
+        if (!sufficient) return;
+        stepCleared.hidden = false;
+        // the overlay covers everything — inert the page AND the helper surfaces
+        setPageInert(true);
+        [orb, dockPanel, scrimModal].forEach((el) => el.setAttribute('inert', ''));
+        document.getElementById('stepClearedTitle').focus();
+      }
+
+      // ====== reset / variant switch ======
+      function resetEngine() {
+        if (vidRaf) cancelAnimationFrame(vidRaf);
+        videoDone = false; messages = [{ role: 'assistant', content: OPENING }];
+        loading = false; sufficient = false; turns = 0; open = false;
+        vidPhase = 'idle';
+
+        // video back to idle
+        vidScrub.style.width = '0%';
+        vidWatched.hidden = true;
+        vidSkip.hidden = true;
+        vidCenter.innerHTML =
+          '<button class="vid-play" type="button" aria-label="Play clip"><i class="fa-solid fa-play"></i></button>';
+        vidCenter.querySelector('.vid-play').addEventListener('click', playVideo);
+
+        // surfaces closed + emptied
+        dockPanel.classList.add('is-closed');
+        dockPanel.replaceChildren();
+        scrimModal.hidden = true;
+        modalCard.replaceChildren();
+        stepCleared.hidden = true;
+
+        // lift any inert left by the modal / cleared overlay
+        setPageInert(false);
+        [orb, dockPanel, scrimModal].forEach((el) => el.removeAttribute('inert'));
+
+        // footer + caption
+        stageCaption.textContent = 'Press play to begin.';
+        continueBtn.disabled = true;
+        navTip.querySelector('.tip').classList.add('locked');
+        instructions.textContent = 'Press play to watch the clip, then reflect to continue.';
+
+        refreshOrb();
+      }
+
+      function switchVariant(v) {
+        if (v === variant) return;
+        variant = v;
+        harnessBtns.forEach((b) => b.classList.toggle('active', b.dataset.variant === v));
+        variantHint.textContent = VARIANT_HINTS[v];
+        resetEngine();
+      }
+
+      // ====== wiring ======
+      harnessBtns.forEach((b) => b.addEventListener('click', () => switchVariant(b.dataset.variant)));
+      resetBtn.addEventListener('click', resetEngine);
+      restartBtn.addEventListener('click', resetEngine);
+      vidPlay.addEventListener('click', playVideo);
+      vidSkip.addEventListener('click', skipVideo);
+
+      continueBtn.addEventListener('click', () => sufficient ? handleContinue() : nudge());
+      backBtn.addEventListener('click', () => { /* prototype: a real player would step back */ });
+
+      orb.addEventListener('click', () => {
+        if (!videoDone) { flashOrb(); return; }
+        open ? closePanel() : openHelper();
+      });
+
+      // ESC collapses the panel in B (A stays — it's the blocking control)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && variant === 'B' && open) closePanel();
+      });
+
+      // Variant A's blocking modal: keep Tab cycling inside the modal card
+      // while it's up (it's non-dismissable by design, so no Escape here).
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab' || scrimModal.hidden || !stepCleared.hidden) return;
+        const focusables = Array.from(
+          modalCard.querySelectorAll('button, textarea, input, select, [href], [tabindex]:not([tabindex="-1"])')
+        ).filter((n) => !n.disabled && n.offsetParent !== null);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last  = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        } else if (!modalCard.contains(document.activeElement)) {
+          e.preventDefault(); first.focus();   // focus escaped somehow — pull it back in
+        }
+      });
+
+      // ----- boot -----
+      aiChip.className = 'ai-chip ' + (IS_LIVE ? 'live' : 'demo');
+      aiChip.textContent = IS_LIVE ? 'Live AI' : 'Demo AI';
+      variantHint.textContent = VARIANT_HINTS[variant];
+      resetEngine();
+    })();
+    </script>
+</body>
+</html>

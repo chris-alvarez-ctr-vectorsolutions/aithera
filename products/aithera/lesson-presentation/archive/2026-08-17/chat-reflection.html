@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Reflection A — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Making Smart Choices About Alcohol</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Why Do Some Students Drink?</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 4 of 9</span>
+            <vaadin-progress-bar value="0.44" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <!-- ----- Screen a: the video that just finished ---------------- -->
+            <section class="disc-screen video-screen" id="videoScreen" aria-label="Lesson video">
+                <p class="disc-eyebrow">
+                    <i class="fa-solid fa-circle-play"></i> Lesson video
+                </p>
+
+                <div class="video-frame">
+                    <div class="video-overlay">
+                        <span class="video-done-pill">
+                            <i class="fa-solid fa-circle-check"></i> Video complete
+                        </span>
+                        <h1 class="video-title">The Real Reasons People Drink</h1>
+                        <button class="video-replay" type="button" id="replayBtn">
+                            <i class="fa-solid fa-rotate-left"></i> Replay video
+                        </button>
+                    </div>
+                    <div class="video-scrubber" aria-hidden="true">
+                        <i class="fa-solid fa-play"></i>
+                        <div class="video-track"><span></span></div>
+                        <span>3:42 / 3:42</span>
+                    </div>
+                </div>
+
+                <p class="video-caption">
+                    Now that you&rsquo;ve watched the clip, let&rsquo;s talk it through. Select
+                    <strong>Continue</strong> and the AI helper will ask you one quick question about it.
+                </p>
+            </section>
+
+            <!-- ----- Screen b: AI chat as the main content ----------------- -->
+            <section class="disc-screen discussion" id="discussionScreen" aria-label="Reflect with the AI helper" hidden>
+                <p class="disc-eyebrow">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Reflection
+                </p>
+                <h1 class="disc-prompt" tabindex="-1">Let&rsquo;s talk about what you just watched.</h1>
+                <p class="disc-lead">There are no wrong answers. Share what you really think.</p>
+
+                <div class="disc-thread" id="thread" aria-live="polite"></div>
+
+                <div class="disc-composer">
+                    <textarea id="composerInput" rows="1"
+                        placeholder="Type your answer…" aria-label="Type your answer"></textarea>
+                    <button class="disc-send" id="sendBtn" type="button" aria-label="Send">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions" aria-live="polite">
+            You&rsquo;ve finished the video. Select Continue when you&rsquo;re ready.
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="continueBtn">Continue</vaadin-button>
+        </div>
+    </footer>
+
+    <script src="js/lesson.js?v=5"></script>
+    <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+    <script>
+    /* ========================================================================
+       Chat Reflection — a finished-video screen that hands off to an inline
+       AI chat. The chat IS the main content (not the slide-in side panel).
+
+       Simulated assistant: it asks the lesson question, reflects on whatever
+       the learner types, probes once for more, then decides the answers are
+       "sufficient" and unlocks the Continue CTA. No network calls.
+       ====================================================================== */
+    (function () {
+        'use strict';
+
+        // ----- Elements ----------------------------------------------------
+        const videoScreen  = document.getElementById('videoScreen');
+        const discScreen   = document.getElementById('discussionScreen');
+        const thread       = document.getElementById('thread');
+        const input        = document.getElementById('composerInput');
+        const sendBtn      = document.getElementById('sendBtn');
+        const continueBtn  = document.getElementById('continueBtn');
+        const backBtn      = document.getElementById('backBtn');
+        const instructions = document.getElementById('instructions');
+        const replayBtn    = document.getElementById('replayBtn');
+
+        // ----- State -------------------------------------------------------
+        let screen   = 'video';   // 'video' | 'discussion'
+        let started  = false;     // chat seeded?
+        let busy     = false;     // a reply is "typing"
+        let finished = false;     // AI satisfied → Continue unlocked
+        let answers  = 0;         // substantive learner replies analyzed
+
+        const THE_QUESTION =
+            'What do you think is the top reason given by students who choose to drink?';
+
+        // ----- Tiny chat helpers (reuse .chat-msg / .chat-typing styles) ---
+        function addMsg(who, text) {
+            const m = document.createElement('div');
+            m.className = 'chat-msg ' + who;
+            m.textContent = text;
+            thread.appendChild(m);
+            thread.scrollTop = thread.scrollHeight;
+            return m;
+        }
+
+        function showTyping() {
+            const t = document.createElement('div');
+            t.className = 'chat-typing';
+            t.setAttribute('aria-hidden', 'true'); // decorative dots — keep out of the live thread
+            t.innerHTML = '<span></span><span></span><span></span>';
+            thread.appendChild(t);
+            thread.scrollTop = thread.scrollHeight;
+            return t;
+        }
+
+        // Bot "speaks" after a human-feeling pause, then runs an optional cb.
+        function botSays(text, after) {
+            busy = true;
+            setInputEnabled(false);
+            const typing = showTyping();
+            const delay = 600 + Math.min(text.length * 12, 1200);
+            setTimeout(() => {
+                typing.remove();
+                addMsg('bot', text);
+                busy = false;
+                if (!finished) setInputEnabled(true);
+                if (typeof after === 'function') after();
+            }, delay);
+        }
+
+        function setInputEnabled(on) {
+            input.disabled = !on;
+            sendBtn.disabled = !on;
+            if (on) setTimeout(() => input.focus(), 30);
+        }
+
+        // ----- The "analysis": tailor a reflection to what they wrote ------
+        const REFLECTIONS = [
+            { test: /(stress|anxiet|cope|coping|pressure|escape|forget|relax|unwind)/i,
+              say: 'Using alcohol to take the edge off stress comes up a lot — ' +
+                   'and it’s worth noticing, because it can quietly become a habit.' },
+            { test: /(friend|social|fit in|peer|belong|connect|accept|left out|everyone)/i,
+              say: 'That’s a sharp observation. Wanting to connect and feel like ' +
+                   'you belong is right at the heart of why a lot of students drink.' },
+            { test: /(fun|good time|party|enjoy|loosen|confiden|exciting)/i,
+              say: 'Having a good time is a big one — and notice it’s usually ' +
+                   'about the people and the moment, not the alcohol itself.' },
+            { test: /(drunk|wasted|buzz|high|hammered|smashed|tipsy)/i,
+              say: 'Interesting — “to get drunk” is the reason most people ' +
+                   'assume is #1, but it actually lands lower than you’d expect.' },
+            { test: /(celebr|birthday|win|holiday|occasion)/i,
+              say: 'Celebrating is a really common answer — alcohol gets tied to ' +
+                   'almost every milestone, which is part of why it feels so normal.' },
+            { test: /(bored|boredom|nothing to do|something to do)/i,
+              say: 'Boredom is an honest answer most people don’t say out loud — ' +
+                   'good for naming it.' },
+        ];
+
+        function reflect(text) {
+            const hit = REFLECTIONS.find((r) => r.test.test(text));
+            return hit
+                ? hit.say
+                : 'Got it — that’s a real reason, and you’re clearly ' +
+                  'thinking it through rather than guessing.';
+        }
+
+        // Did the learner signal they're out of ideas?
+        function saysNoMore(text) {
+            return /\b(no|nope|nah|none|nothing( else)?|that('?s| is) (it|all|everything)|can'?t think|i'?m (good|done)|done|no more|that'?s it)\b/i
+                .test(text.trim());
+        }
+
+        const WRAP_UP =
+            'This is exactly the kind of thinking the research backs up: students most ' +
+            'often point to connection — fitting in and feeling part of the group — ' +
+            'more than “to get drunk.” Nice reflecting. Okay, let’s continue the lesson.';
+
+        // ----- Conversation flow ------------------------------------------
+        function handleAnswer(text) {
+            addMsg('user', text);
+            input.value = '';
+            autosize();
+
+            const noMore = saysNoMore(text);
+            // Count it as substantive only if it's more than a "no".
+            if (!noMore) answers += 1;
+
+            // Reflect first, then either probe once more or wrap up.
+            if (noMore || answers >= 2) {
+                botSays(reflect(text), () => {
+                    if (noMore && answers === 0) {
+                        // They opted out immediately — give the answer anyway.
+                        botSays(WRAP_UP, completeDiscussion);
+                    } else {
+                        botSays(WRAP_UP, completeDiscussion);
+                    }
+                });
+            } else {
+                botSays(reflect(text), () => {
+                    botSays(
+                        'Before we move on — can you think of any other reason someone ' +
+                        'your age might choose to drink?'
+                    );
+                });
+            }
+        }
+
+        function completeDiscussion() {
+            finished = true;
+            setInputEnabled(false);
+            input.placeholder = 'You can continue now.';
+
+            const done = document.createElement('div');
+            done.className = 'disc-done';
+            done.innerHTML = '<i class="fa-solid fa-circle-check"></i> Reflection complete';
+            thread.appendChild(done);
+            thread.scrollTop = thread.scrollHeight;
+
+            continueBtn.disabled = false;
+            instructions.textContent =
+                'Great reflection — select Continue to move on.';
+
+            // The composer is now disabled — hand focus to the unlocked CTA.
+            continueBtn.focus();
+        }
+
+        // ----- Composer behavior ------------------------------------------
+        function autosize() {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+        }
+
+        function submit() {
+            const val = input.value.trim();
+            if (!val || busy || finished) return;
+            handleAnswer(val);
+        }
+
+        input.addEventListener('input', autosize);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+            }
+        });
+        sendBtn.addEventListener('click', submit);
+
+        // ----- Screen transitions -----------------------------------------
+        function showDiscussion() {
+            screen = 'discussion';
+            videoScreen.hidden = true;
+            discScreen.hidden = false;
+            document.body.classList.add('disc-mode');   // lock body; thread scrolls
+
+            // Move focus to the new screen's heading so the change is announced.
+            discScreen.querySelector('.disc-prompt').focus();
+
+            // Continue locks until the AI is satisfied.
+            continueBtn.disabled = true;
+            instructions.textContent =
+                'Answer in the chat to continue — the lesson unlocks once you’ve reflected.';
+
+            if (!started) {
+                started = true;
+                botSays(
+                    'You just watched a short clip on why people drink.',
+                    () => botSays(
+                        'Before we go deeper, I have a question…',
+                        () => botSays(THE_QUESTION)
+                    )
+                );
+            } else {
+                setInputEnabled(!finished);
+            }
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+
+        function showVideo() {
+            screen = 'video';
+            discScreen.hidden = true;
+            videoScreen.hidden = false;
+            document.body.classList.remove('disc-mode');
+            continueBtn.disabled = false;
+            instructions.textContent =
+                'You’ve finished the video. Select Continue when you’re ready.';
+        }
+
+        // ----- Footer / replay --------------------------------------------
+        continueBtn.addEventListener('click', () => {
+            if (continueBtn.disabled) return;
+            if (screen === 'video') {
+                showDiscussion();
+            } else {
+                console.log('Continue — lesson reflection complete');
+            }
+        });
+
+        backBtn.addEventListener('click', () => {
+            if (screen === 'discussion') showVideo();
+            else console.log('Back');
+        });
+
+        replayBtn.addEventListener('click', () => {
+            // Prototype: a real player would restart the clip here.
+            console.log('Replay video');
+        });
+    })();
+    </script>
+</body>
+</html>

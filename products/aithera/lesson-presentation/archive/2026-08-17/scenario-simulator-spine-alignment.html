@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario Simulator — Scenario CML v4 &amp; Our Engine</title>
+<style>
+  :root {
+    --paper:      #f3f6f4;
+    --panel:      #eef2f0;
+    --panel-2:    #e6ece9;
+    --ink:        #12181b;
+    --ink-2:      #43514f;
+    --ink-3:      #6c7a76;
+    --line:       #d3ddd9;
+    --line-2:     #b3c1bc;
+    --accent:     #0b8f78;
+    --accent-ink: #06614f;
+    --accent-soft:#d9efe9;
+    --warn:       #9a5f18;
+    --warn-soft:  #f3e8d6;
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+
+    --measure: 66ch;
+    --wrap: 940px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0d1315;
+      --panel:      #141d20;
+      --panel-2:    #182326;
+      --ink:        #e7ece9;
+      --ink-2:      #a8b7b2;
+      --ink-3:      #7a8a85;
+      --line:       #253230;
+      --line-2:     #35443f;
+      --accent:     #4adebe;
+      --accent-ink: #8ef0da;
+      --accent-soft:#123029;
+      --warn:       #e2ad64;
+      --warn-soft:  #2b2312;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#f3f6f4; --panel:#eef2f0; --panel-2:#e6ece9;
+    --ink:#12181b; --ink-2:#43514f; --ink-3:#6c7a76;
+    --line:#d3ddd9; --line-2:#b3c1bc;
+    --accent:#0b8f78; --accent-ink:#06614f; --accent-soft:#d9efe9;
+    --warn:#9a5f18; --warn-soft:#f3e8d6;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1315; --panel:#141d20; --panel-2:#182326;
+    --ink:#e7ece9; --ink-2:#a8b7b2; --ink-3:#7a8a85;
+    --line:#253230; --line-2:#35443f;
+    --accent:#4adebe; --accent-ink:#8ef0da; --accent-soft:#123029;
+    --warn:#e2ad64; --warn-soft:#2b2312;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.62;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: clamp(28px, 5vw, 72px) clamp(20px, 5vw, 56px) 96px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-ink); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 700;
+    font-size: clamp(30px, 5.4vw, 50px); line-height: 1.06;
+    letter-spacing: -.012em; text-wrap: balance; margin: 0 0 22px; max-width: 20ch;
+  }
+  h1 em { font-style: italic; color: var(--accent-ink); }
+  .lede { font-size: clamp(17px, 2.1vw, 20px); color: var(--ink-2); max-width: 62ch; margin: 0 0 26px; }
+  .lede code { font-size: .82em; }
+  .meta {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-3);
+    letter-spacing: .01em; padding-top: 20px; border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+  .meta b { color: var(--accent-ink); font-weight: 600; }
+
+  section { margin-top: clamp(46px, 6.5vw, 76px); }
+
+  h2 {
+    font-family: var(--sans); font-weight: 700; font-size: clamp(21px, 2.8vw, 27px);
+    letter-spacing: -.01em; line-height: 1.2; margin: 0 0 10px; text-wrap: balance;
+  }
+  h3.sub {
+    font-family: var(--sans); font-weight: 700; font-size: 17px;
+    letter-spacing: -.005em; margin: 30px 0 6px; color: var(--ink);
+  }
+  .sec-kicker {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent-ink); display: block; margin-bottom: 10px;
+  }
+  p { max-width: var(--measure); margin: 0 0 16px; }
+  strong { font-weight: 650; }
+  code, .k {
+    font-family: var(--mono); font-size: .86em; background: var(--panel-2);
+    color: var(--accent-ink); padding: .08em .38em; border-radius: 4px;
+    border: 1px solid var(--line); white-space: nowrap;
+  }
+
+  .callout {
+    border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
+    background: var(--panel); border-radius: 0 10px 10px 0; padding: 18px 22px; margin: 22px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout h3 {
+    margin: 0 0 8px; font-size: 15px; font-family: var(--mono); letter-spacing: .02em;
+    color: var(--accent-ink); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .callout.warn h3 { color: var(--warn); }
+  .callout p { margin: 0; max-width: 64ch; color: var(--ink-2); }
+  .callout p + p { margin-top: 10px; }
+  .callout ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); max-width: 64ch; }
+  .callout li { margin: 4px 0; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--paper); background: var(--accent); padding: 2px 7px; border-radius: 999px;
+  }
+  .tag.pending  { background: var(--warn); }
+  .tag.resolved { background: var(--accent); }
+  .tag.ours     { background: var(--accent-ink); }
+  .tag.theirs   { background: var(--ink-3); }
+
+  .panel {
+    margin: 30px 0 8px; padding: 24px clamp(16px, 3vw, 30px);
+    border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel);
+  }
+  .code-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 10px;
+  }
+  .shape-scroll { overflow-x: auto; }
+  pre.shape {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.72; margin: 0;
+    padding: 16px 18px; min-width: 520px; white-space: pre; tab-size: 2;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; color: var(--ink);
+  }
+  pre.shape .cmt { color: var(--ink-3); }
+  pre.shape .hi  { color: var(--accent-ink); }
+  pre.shape .add { color: var(--warn); }
+
+  ul.plain { margin: 0 0 16px; padding-left: 0; list-style: none; display: grid; gap: 11px; max-width: var(--measure); }
+  ul.plain li { padding-left: 26px; position: relative; color: var(--ink-2); }
+  ul.plain li::before {
+    content: ""; position: absolute; left: 3px; top: .58em; width: 8px; height: 8px;
+    border-radius: 2px; background: var(--accent); transform: rotate(45deg);
+  }
+  ul.plain li b, ul.plain li strong { color: var(--ink); font-weight: 650; }
+
+  .table-scroll { overflow-x: auto; margin: 20px 0 6px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; border-bottom: 1px solid var(--line-2); }
+  td:first-child { font-weight: 600; color: var(--ink); }
+  td code { white-space: nowrap; }
+  td .sub { display:block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; font-family: var(--mono); margin-top:3px; }
+  .fit { width: 1%; white-space: nowrap; }
+  .dot { font-family: var(--mono); font-size: 12px; }
+  .dot.ok  { color: var(--accent); }
+  .dot.gap { color: var(--warn); }
+
+  .divergence { margin: 26px 0; padding: 20px 24px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); }
+  .divergence .num { font-family: var(--serif); font-size: 30px; font-weight: 700; color: var(--accent-ink); line-height: 1; float: left; margin: 2px 16px 0 0; }
+  .divergence h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -.005em; }
+  .divergence p { margin: 0 0 10px; max-width: 60ch; color: var(--ink-2); }
+  .divergence .fix { font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--accent-soft); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 13px; max-width: 60ch; }
+  .divergence .fix b { color: var(--accent-ink); }
+  .clearfix::after { content: ""; display: block; clear: both; }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  .footer-links { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 14px; max-width: 66ch; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .k, code { white-space: normal; }
+    .divergence .num { float: none; margin: 0 0 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Aithera · Scenario Simulator</p>
+    <h1>Scenario&nbsp;CML&nbsp;v4, <em>our engine</em> — where they meet.</h1>
+    <p class="lede">v4 is no longer a spec on paper — it's <b>realized end to end</b> in the dev repo: an enforced JSON Schema, a turn engine, a wire contract, and eleven live-verified scenarios. This note is now reconciled against that repo, not the spec PDF. The headline holds and gets sharper: two teams built the same machine. What's new below is the <b>output/wire contract</b> we'd never mapped (§C), and an honest read of <b>where the spec and the shipped engine still disagree</b> (§E) — because that's what "align to v4" now has to choose between.</p>
+    <div class="meta">
+      <span><b>Their side</b> VectorLearning/scenario-simulator-poc · lo_cml_v4.schema.json + app/schemas</span>
+      <span><b>Our side</b> scenario-simulator-runtime.schema.json · js/sim-player.js</span>
+      <span><b>Reconciled</b> against the repo, 2026-08-17</span>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <div class="callout">
+    <h3>What this revision is grounded in <span class="tag">repo, not PDF</span></h3>
+    <p>Read from a clone of <code>VectorLearning/scenario-simulator-poc</code>: the authoritative schema (<code>app/lo_schema/lo_cml_v4.schema.json</code>), the turn/wire models (<code>app/schemas/conversation.py</code>), and the dev team's own <code>v4-migration-report.md</code> + <code>spec-alignment-audit.md</code>. Every field name in the crosswalk below is verified against the schema. The v4 realization also <b>landed a recommendation from the earlier version of this note</b>: the schema selects one mode-shaped <code>interaction</code> via a <code>oneOf</code> on <code>mode</code> — a true discriminated union, "no forbid-lists anywhere" — exactly the shape we argued for over a bag of optionals.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§A · The map</span>
+    <h2>Their <code>practice</code> is our rung; their <code>phase</code> is a layer above</h2>
+    <p>The v4 <code>phase</code> is a story segment shown to the learner as "Phase 2 of 3" — a grouping of exactly one <code>practice</code> and one <code>debrief</code>. Our ladder has no such grouping (our <code>level</code> is a cosmetic label). Their <b><code>practice</code> is the turn-owning rung — that's our <code>phase</code></b>. Their <code>debrief</code> is a second rung we express as fields today (§D-2).</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Scenario CML v4</th><th>Is</th><th>Our engine</th></tr></thead>
+        <tbody>
+          <tr><td><code>content.phases[]</code></td><td>Story segments, "Phase 2 of 3" — grouping</td><td class="theirs">— no equivalent (flat; <code>level</code> is a label) —</td></tr>
+          <tr><td><code>phase.practice</code></td><td>Where the learner acts — the turn-owning rung</td><td><code>phase</code> <span class="sub">(one ladder rung)</span></td></tr>
+          <tr><td><code>phase.debrief</code></td><td>Where the coach teaches against the attempt</td><td><code>phase.debrief</code> <span class="sub">(fields today — see §D-2)</span></td></tr>
+          <tr><td><code>practice.mode: coach_inquiry</code></td><td>Reason it through with the coach</td><td><code>type: coach-led</code> → <code>world: coaching</code></td></tr>
+          <tr><td><code>practice.mode: roleplay</code></td><td>Act in a scene, as themselves</td><td><code>type: roleplay</code> → <code>world: scene</code></td></tr>
+          <tr><td><code>practice.mode: observe_react</code></td><td>Study an exhibit, spot what's wrong</td><td><code>type: observe</code> / scene-sweep</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Their <code>practice.mode</code> triple is our mix-arc <code>type</code> triple; their <code>observe_react</code> (<code>exhibit.facts</code> / <code>rubric</code> / <code>spot_target</code> / <code>nudge</code>) is our scene-sweep (<code>scene.canonDescription</code> / <code>hazards</code> / <code>coverage.required</code> / <code>zone</code>), down to a cumulative <code>[[spotted:…]]</code> crediting marker that mirrors our coverage rail.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§B · The crosswalk</span>
+    <h2>Field for field <span class="tag resolved">verified vs schema</span></h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Scenario CML v4</th><th>Our engine</th><th class="fit">Fit</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td colspan="4" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);border-bottom:1px solid var(--line-2);">§4 · content — the world</td></tr>
+          <tr><td><code>narrative</code> <span class="sub">coach-scoped ground truth</span></td><td><code>framing</code> · <code>establishing</code> · <code>intro</code></td><td class="fit"><span class="dot ok">●</span></td><td>World split by audience — coach sees <code>narrative</code>, scenes see <code>scene_world</code>.</td></tr>
+          <tr><td><code>scene_world</code> <span class="sub">{ setting, canon, characters }</span></td><td><code>canon[]</code> · <code>cast[]</code> · setting</td><td class="fit"><span class="dot ok">●</span></td><td>Scene-scoped; the coach never sees it.</td></tr>
+          <tr><td><code>characters[]</code> <span class="sub">{ behavior, canon_facts.reveal_when }</span></td><td><code>cast[]</code> <span class="sub">(minus reactions)</span></td><td class="fit"><span class="dot ok">●</span></td><td>Reactions live in <code>levels</code>; <code>reveal_when</code> = our ensemble <code>disclosures</code>.</td></tr>
+          <tr><td><code>coach_persona</code> · <code>tone_guidelines[]</code></td><td><code>voice.persona</code> · <code>voice.guidance</code></td><td class="fit"><span class="dot ok">●</span></td><td>Direct.</td></tr>
+          <tr><td><code>teaching_points[]</code> · <code>misconceptions[]</code></td><td>per-phase <code>throughLine</code> + prompt</td><td class="fit"><span class="dot ok">●</span></td><td>Debrief-scoped by spec (§E-4 caveat).</td></tr>
+
+          <tr><td colspan="4" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);border-bottom:1px solid var(--line-2);">§6 / §7 · opening, practice, debrief</td></tr>
+          <tr><td><code>practice</code> spine + <code>oneOf</code> <code>interaction</code></td><td><code>phase</code> + per-<code>type</code> fields</td><td class="fit"><span class="dot ok">●</span></td><td>Discriminated union on <code>mode</code> — the shape we recommended.</td></tr>
+          <tr><td><code>interaction.opening_messages[]</code> / observe <code>brief</code></td><td><code>phase.entry.beats[]</code></td><td class="fit"><span class="dot ok">●</span></td><td>Locked opener; practice requires one, debrief forbids it.</td></tr>
+          <tr><td><code>roleplay</code> <span class="sub">{ setting, character_id | null, emotion_hint }</span></td><td><code>counterpart</code> + <code>character</code></td><td class="fit"><span class="dot ok">●</span></td><td><code>character_id: null</code> = narrator-driven = our <code>counterpart: "Narrator"</code>.</td></tr>
+          <tr><td><code>practice.exit.when</code> <span class="sub">{ turns, requirement }</span> · <code>final_word</code></td><td><code>maxTurns</code> + forced resolution + <code>exitCriteria</code></td><td class="fit"><span class="dot ok">●</span></td><td>Never-dangle = our "force resolve at the cap." (impl caveat §E-2.)</td></tr>
+          <tr><td><code>levels</code> <span class="sub">{ unthoughtful, neutral, strong }</span></td><td><code>calibration[]</code> <span class="sub">{ tier, guidance }</span></td><td class="fit"><span class="dot gap">◆</span></td><td>Fixed 3-level set, all required — §D-4.</td></tr>
+          <tr><td><code>carryover[]</code> <span class="sub">{ from } — verbatim transcript</span></td><td><code>transitions[].set</code> <span class="sub">disposition string</span></td><td class="fit"><span class="dot gap">◆</span></td><td>Verbatim vs summary — §D-3.</td></tr>
+          <tr><td><code>debrief</code> <span class="sub">{ key_points, levels, probe, follow_up_turns }</span></td><td><code>debrief</code> <span class="sub">{ talkItThrough, points }</span></td><td class="fit"><span class="dot gap">◆</span></td><td>First-class unit vs fields — §D-2.</td></tr>
+
+          <tr><td colspan="4" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);border-bottom:1px solid var(--line-2);">§8 · closing · root</td></tr>
+          <tr><td><code>closing.ideal_response</code> <span class="sub">component_groups / summary / source_references</span></td><td><code>playbook</code> / <code>resources</code> + debrief screen</td><td class="fit"><span class="dot ok">●</span></td><td>Shipped verbatim, server-composed.</td></tr>
+          <tr><td><code>implementation_id</code> · <code>modality</code> · <code>schema_version</code></td><td class="theirs">— no equivalent —</td><td class="fit"><span class="dot gap">◆</span></td><td>The thin v4 root. LO identity lives outside — §F.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§C · The output contract</span>
+    <h2>The wire — the surface we never mapped <span class="tag">new</span></h2>
+    <p>The earlier note aligned the <em>authored</em> shape. The dev repo also fixes the <em>runtime</em> shape: <code>POST /api/v1/conversations/{id}/messages</code> (<code>app/schemas/conversation.py</code>). This is the integration surface a player consumes, and it's where two of our "deltas" become concrete rather than aspirational.</p>
+
+    <div class="panel">
+      <p class="code-label">Turn request / response — the shapes that matter</p>
+      <div class="shape-scroll"><pre class="shape"><span class="cmt">// REQUEST — the service is STATELESS: every call carries the whole state</span>
+{ scenario_id, model_id, input, active_phase_id,
+  <span class="hi">history</span>: ThreadedHistory | HistoryEntry[],   <span class="cmt">// dual-history preferred</span>
+  invoke_closing: bool,   <span class="cmt">// the "see my feedback" tap — not a stage, no id, no turn</span>
+  coach_help: bool }      <span class="cmt">// sidebar "ask the coach" mid-scene; budget- + advancement-inert</span>
+
+<span class="hi">ThreadedHistory</span> = { coach: [...], practice: { &lt;phase_id&gt;: [...] } }   <span class="cmt">// two-conversation model, ON THE WIRE</span>
+
+<span class="cmt">// RESPONSE</span>
+{ history, phase_id, category, conversation_ended, ready_for_closure,
+  <span class="hi">next_phase_id</span>,           <span class="cmt">// SERVER's advance signal; may be a phase BEHIND (retry route)</span>
+  next_practice_phase_id,     <span class="cmt">// where "Continue practicing" re-enters</span>
+  <span class="hi">spotted</span>: [rubricId…],     <span class="cmt">// observe only — cumulative coverage = our rail</span>
+  threads,
+  closure: <span class="hi">ClosureBlock</span>? }     <span class="cmt">// only when conversation_ended</span>
+
+ClosureBlock = { final_feedback:[{label,body}]?,   <span class="cmt">// model recap/strengths/growth</span>
+                 component_groups, summary, source_references,  <span class="cmt">// ideal_response, VERBATIM</span>
+                 <span class="add">score?</span> }                          <span class="cmt">// present on topic_match — see §E-5</span>
+<span class="cmt">// Streaming mirrors this: SSE delta events + a done event = the buffered response.</span></pre></div>
+    </div>
+
+    <ul class="plain">
+      <li><b>Stateless, client-held history</b> — the service holds no session; <code>scenario_id</code> + <code>history</code> ride every call. That's <em>our</em> model too (the player holds state client-side), so we align on the hardest-to-retrofit property for free.</li>
+      <li><b><code>ThreadedHistory {coach, practice}</code> is delta #1 made real</b> — the two-conversation isolation isn't just prose in §2, it's the wire's history shape, <code>practice</code> keyed by phase id.</li>
+      <li><b>Advancement is a returned signal, not a client decision</b> — <code>next_phase_id</code> is the server's stay/advance verdict. And it "<em>may be a phase behind</em>" for a debrief→retry route — a backward edge (§E-1).</li>
+      <li><b><code>spotted</code> is our coverage rail</b>, and <b><code>closure</code> is our results screen + playbook</b> — <code>ideal_response</code> shipped verbatim, per-learner feedback as labeled sections.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§D · What differs — our side</span>
+    <h2>Four sharper calls, now confirmed in shipped v4</h2>
+    <p>These are the gaps between our reference and v4 — the ones our engine is closing in the current update. All four are confirmed in the schema/wire, not just the spec.</p>
+
+    <div class="divergence clearfix">
+      <span class="num">1</span>
+      <h3>Two threaded conversations. <span class="tag ours">they're ahead</span> <span class="tag resolved">on the wire</span></h3>
+      <p>Confirmed by <code>ThreadedHistory {coach, practice}</code> (§C): the practice runs as its own history the coach prompt never sees. Teaching (<code>teaching_points</code>, <code>misconceptions</code>, <code>key_points</code>, <code>ideal_response</code>) is debrief-/closing-scoped; a scene sees only its thread plus authored <code>carryover</code>. We run one static compiled prompt and keep teaching out of scenes by instruction.</p>
+      <p class="fix"><b>Adopting.</b> The stronger anti-leak guarantee — and because it's on the wire, our <code>promptHash</code> can't equal theirs per-run: conformance must hash <b>per-scope</b> (§G).</p>
+    </div>
+
+    <div class="divergence clearfix">
+      <span class="num">2</span>
+      <h3>The debrief is a first-class unit; ours is two fields.</h3>
+      <p>The v4 <code>debrief</code> (<code>{phase_id}.debrief</code>) owns turns via <code>follow_up_turns</code> (schema enforces <code>0</code> ⇒ delivery-only: <code>final_word</code> required, <code>probe</code>/<code>requirement</code>/<code>input_placeholder</code> forbidden), carries <code>key_points</code>, its own <code>levels</code>, and an optional locked <code>probe</code>. Ours is <code>talkItThrough</code> + <code>points</code>, one teach turn.</p>
+      <p class="fix"><b>Low-cost, and it unlocks #1.</b> Promoting our debrief to its own rung is a normalize-time transform, and an independently-scopeable debrief is what makes the two-conversation split buildable.</p>
+    </div>
+
+    <div class="divergence clearfix">
+      <span class="num">3</span>
+      <h3>Cross-scene memory is a <em>verbatim transcript</em>, not a summary. <span class="tag ours">they're ahead</span></h3>
+      <p>Scene-scoped <code>carryover: [{from}]</code> grants a later scene the earlier practice's verbatim transcript — "never a summary." Our <code>transitions[].set</code> writes exactly that summary (a disposition string). Same goal, opposite mechanism; they rejected ours on purpose.</p>
+      <p class="fix"><b>Adopting.</b> No shipped scenario of ours routes on tier — every <code>transitions[]</code> converges on one <code>next</code>, varying only <code>set</code> — so <code>set</code> is only ever carry-forward, which a transcript does better.</p>
+    </div>
+
+    <div class="divergence clearfix">
+      <span class="num">4</span>
+      <h3>A fixed 3-level scale vs our open tier vocabulary. <span class="tag pending">decision</span></h3>
+      <p>The schema fixes the scale: <code>levels</code> requires <code>unthoughtful</code> / <code>neutral</code> / <code>strong</code>, author writes only <code>look_for</code> / <code>response</code>. Our <code>calibration[].tier</code> is author-defined; mix-arc ships <code>CONNECTS</code> / <code>VAGUE</code> / <code>CONFRONTS</code> — which won't port to the fixed set.</p>
+      <p class="fix"><b>Our call — and the recommendation stands: don't push for more.</b> A level is a trace-only response-selector, not a learner grade; three coaching moves (redirect / nudge / affirm) cover it, and more buckets degrade classifier reliability. Concede the custom names (cosmetic; the model classifies on <code>look_for</code>), and bring a single un-authorable scenario if one truly exists rather than an abstract ask.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§E · Spec vs implementation</span>
+    <h2>Where the v4 target is still settling <span class="tag pending">align to spec, verify vs build</span></h2>
+    <p>The realization is real, but the dev team's own <code>spec-alignment-audit</code> and <code>v4-migration-report</code> record places the <em>engine</em> hasn't caught up to the <em>spec</em> we aligned to. This matters directly: if our reference conforms to the spec and the shipped engine does something else, "matching v4" has to name which. These are the contract-level ones — stated neutrally, not as their bug list.</p>
+    <ul class="plain">
+      <li><b>Forward-only vs a backward retry edge.</b> The spec says no route backward; the wire's <code>next_phase_id</code> is documented to "<em>may be a phase behind</em>" so a debrief/gate can send the learner back to re-attempt a failed practice. So there <em>is</em> a retry edge — which actually maps to a retry concept we could adopt, but it contradicts the flat "forward-only" framing both docs used.</li>
+      <li><b>Server-owned advancement vs reply-shape advancement (coach units).</b> Spec: the server decides from the declared <code>exit.requirement</code> + budget. Today a coach unit advances on the reply's punctuation/intent marker and the <code>requirement</code> isn't consulted — it's authored-but-not-yet-enforced on coach turns. If we honor <code>requirement</code> in our engine, we'll be stricter than the current build.</li>
+      <li><b><code>spot_target</code> gating.</b> Spec: "the target only gates completion." Today scene/observe advancement is model-marker-driven; <code>spot_target</code> bounds the rubric and the meter but has no server-side completion gate yet.</li>
+      <li><b>Prompt scoping at the opening.</b> Spec §2: teaching withheld from practice/opening prompts. Today <code>teaching_points</code> / <code>misconceptions</code> render into the opening prompt. The isolation we're adopting (§D-1) should follow the spec here, not the current build.</li>
+      <li><b>Trace-only assessment vs a learner-facing <code>score</code>.</b> Spec §2 / §8: internal assessment never reaches the learner and the close authors no score. The output <code>ClosureBlock</code> carries an optional <code>score</code> (topic-match) a surface can render. If we mirror the output shape, don't surface <code>score</code>.</li>
+    </ul>
+    <div class="callout warn">
+      <h3>The one operational takeaway</h3>
+      <p>Align our reference to the <b>spec</b> (the stable target), but <b>pin the build</b> when we run conformance — because a snapshot taken against today's engine encodes these in-flight divergences, not the contract. When the engine closes them, re-pin.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§F · The envelope &amp; the layers</span>
+    <h2>Both settled in our favor</h2>
+    <p><b>Envelope:</b> v4's root is <code>{ implementation_id, modality, schema_version, content }</code> — the <code>learning_objective</code>/<code>implementations[]</code> wrapper is gone; the schema title even reads "implementation-root," and LO identity "belongs to the surrounding content system." Our scenario object <em>is</em> their <code>content</code>; we stay the payload. The only design question left is the <b>picker UX</b> for choosing among implementations, which <code>marshall-mode-select</code> already prototypes — a mock, not an engine change.</p>
+    <p><b>Layers:</b> v4's design constraint 1 — "content carries no prompt text; deterministic serializers render prompts" — is our authored-source → <code>toRuntime</code> / <code>compile</code> split, stated as a hard rule and enforced by a lint. Same three layers; v4 polices the data/prompt seam harder than we do.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§G · Conformance</span>
+    <h2>Proving the two engines agree</h2>
+    <p>There are now <b>two</b> contracts to conform to, not one: the authored schema (<code>lo_cml_v4.schema.json</code>) and the turn/wire shape (<code>conversation.py</code>). <code>js/sim-snapshot.js</code> already hashes the authored→runtime→prompt derivation; the wire adds a second checkpoint — same authored source should produce the same <code>next_phase_id</code> / <code>spotted</code> / <code>closure</code> decisions.</p>
+    <p>Two caveats, both from above: adopting two-conversation scoping (§D-1) means a whole-run <code>promptHash</code> is meaningless — hash <b>per-scope</b> (coach prompt and each scene prompt separately). And because spec and engine diverge (§E), a conformance run must <b>pin the engine build</b> it targets, or it will encode in-flight divergences as if they were the contract.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§H · Decisions</span>
+    <h2>What's on us now</h2>
+    <ul class="plain">
+      <li><b>Adopt the two-conversation model</b> (§D-1) — now confirmed as the wire's <code>ThreadedHistory</code>, not just spec prose. Changes what conformance means.</li>
+      <li><b>Promote the debrief to a first-class unit</b> (§D-2) — low-cost, and the enabler for the split.</li>
+      <li><b>Swap disposition summaries for verbatim <code>carryover</code></b> (§D-3) — clean upgrade; our <code>set</code> is only ever carry-forward.</li>
+      <li><b>Fixed 3-level scale</b> (§D-4) — my read: concede it; bring one un-authorable scenario if it exists, not an abstract ask.</li>
+      <li><b>Align to the spec, pin the build for conformance</b> (§E) — the divergences are the engine's to close; our reference should track the contract, not today's build.</li>
+    </ul>
+
+    <p class="footer-links">Companion docs: <a href="scenario-simulator-json-contract.html">The JSON Contract &amp; Engine Read-Model</a> · <a href="scenario-simulator-convergence-onepager.html">One Engine, Typed Plugins</a> · <a href="scenario-simulator-player-convergence.html">Player convergence</a> · <a href="scenario-simulator-type-crosswalk.html">Type crosswalk</a> · <a href="scenario-simulator-runtime.schema.json">Runtime JSON Schema</a>. Reference: <code>js/sim-player.js</code>, <code>js/sim-snapshot.js</code>, <code>scenario-live.html</code>. Their side: <code>VectorLearning/scenario-simulator-poc</code> — <code>lo_cml_v4.schema.json</code>, <code>app/schemas/conversation.py</code>.</p>
+  </section>
+
+</div>
+</body>
+</html>
