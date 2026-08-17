@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario Simulator — Scenario CML v4 &amp; Our Engine</title>
+<style>
+  :root {
+    --paper:      #f3f6f4;
+    --panel:      #eef2f0;
+    --panel-2:    #e6ece9;
+    --ink:        #12181b;
+    --ink-2:      #43514f;
+    --ink-3:      #6c7a76;
+    --line:       #d3ddd9;
+    --line-2:     #b3c1bc;
+    --accent:     #0b8f78;
+    --accent-ink: #06614f;
+    --accent-soft:#d9efe9;
+    --warn:       #9a5f18;
+    --warn-soft:  #f3e8d6;
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+
+    --measure: 66ch;
+    --wrap: 940px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0d1315;
+      --panel:      #141d20;
+      --panel-2:    #182326;
+      --ink:        #e7ece9;
+      --ink-2:      #a8b7b2;
+      --ink-3:      #7a8a85;
+      --line:       #253230;
+      --line-2:     #35443f;
+      --accent:     #4adebe;
+      --accent-ink: #8ef0da;
+      --accent-soft:#123029;
+      --warn:       #e2ad64;
+      --warn-soft:  #2b2312;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#f3f6f4; --panel:#eef2f0; --panel-2:#e6ece9;
+    --ink:#12181b; --ink-2:#43514f; --ink-3:#6c7a76;
+    --line:#d3ddd9; --line-2:#b3c1bc;
+    --accent:#0b8f78; --accent-ink:#06614f; --accent-soft:#d9efe9;
+    --warn:#9a5f18; --warn-soft:#f3e8d6;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1315; --panel:#141d20; --panel-2:#182326;
+    --ink:#e7ece9; --ink-2:#a8b7b2; --ink-3:#7a8a85;
+    --line:#253230; --line-2:#35443f;
+    --accent:#4adebe; --accent-ink:#8ef0da; --accent-soft:#123029;
+    --warn:#e2ad64; --warn-soft:#2b2312;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.62;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: clamp(28px, 5vw, 72px) clamp(20px, 5vw, 56px) 96px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-ink); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 700;
+    font-size: clamp(30px, 5.4vw, 50px); line-height: 1.06;
+    letter-spacing: -.012em; text-wrap: balance; margin: 0 0 22px; max-width: 20ch;
+  }
+  h1 em { font-style: italic; color: var(--accent-ink); }
+  .lede { font-size: clamp(17px, 2.1vw, 20px); color: var(--ink-2); max-width: 62ch; margin: 0 0 26px; }
+  .lede code { font-size: .82em; }
+  .meta {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-3);
+    letter-spacing: .01em; padding-top: 20px; border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+  .meta b { color: var(--accent-ink); font-weight: 600; }
+
+  section { margin-top: clamp(46px, 6.5vw, 76px); }
+
+  h2 {
+    font-family: var(--sans); font-weight: 700; font-size: clamp(21px, 2.8vw, 27px);
+    letter-spacing: -.01em; line-height: 1.2; margin: 0 0 10px; text-wrap: balance;
+  }
+  h3.sub {
+    font-family: var(--sans); font-weight: 700; font-size: 17px;
+    letter-spacing: -.005em; margin: 30px 0 6px; color: var(--ink);
+  }
+  .sec-kicker {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent-ink); display: block; margin-bottom: 10px;
+  }
+  p { max-width: var(--measure); margin: 0 0 16px; }
+  strong { font-weight: 650; }
+  code, .k {
+    font-family: var(--mono); font-size: .86em; background: var(--panel-2);
+    color: var(--accent-ink); padding: .08em .38em; border-radius: 4px;
+    border: 1px solid var(--line); white-space: nowrap;
+  }
+
+  .callout {
+    border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
+    background: var(--panel); border-radius: 0 10px 10px 0; padding: 18px 22px; margin: 22px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout h3 {
+    margin: 0 0 8px; font-size: 15px; font-family: var(--mono); letter-spacing: .02em;
+    color: var(--accent-ink); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .callout.warn h3 { color: var(--warn); }
+  .callout p { margin: 0; max-width: 64ch; color: var(--ink-2); }
+  .callout p + p { margin-top: 10px; }
+  .callout ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); max-width: 64ch; }
+  .callout li { margin: 4px 0; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--paper); background: var(--accent); padding: 2px 7px; border-radius: 999px;
+  }
+  .tag.pending  { background: var(--warn); }
+  .tag.resolved { background: var(--accent); }
+  .tag.ours     { background: var(--accent-ink); }
+  .tag.theirs   { background: var(--ink-3); }
+
+  .panel {
+    margin: 30px 0 8px; padding: 24px clamp(16px, 3vw, 30px);
+    border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel);
+  }
+  .code-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 10px;
+  }
+  .shape-scroll { overflow-x: auto; }
+  pre.shape {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.72; margin: 0;
+    padding: 16px 18px; min-width: 520px; white-space: pre; tab-size: 2;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; color: var(--ink);
+  }
+  pre.shape .cmt { color: var(--ink-3); }
+  pre.shape .hi  { color: var(--accent-ink); }
+  pre.shape .add { color: var(--warn); }
+
+  ul.plain { margin: 0 0 16px; padding-left: 0; list-style: none; display: grid; gap: 11px; max-width: var(--measure); }
+  ul.plain li { padding-left: 26px; position: relative; color: var(--ink-2); }
+  ul.plain li::before {
+    content: ""; position: absolute; left: 3px; top: .58em; width: 8px; height: 8px;
+    border-radius: 2px; background: var(--accent); transform: rotate(45deg);
+  }
+  ul.plain li b, ul.plain li strong { color: var(--ink); font-weight: 650; }
+
+  .table-scroll { overflow-x: auto; margin: 20px 0 6px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; border-bottom: 1px solid var(--line-2); }
+  td:first-child { font-weight: 600; color: var(--ink); }
+  td code { white-space: nowrap; }
+  td .sub { display:block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; font-family: var(--mono); margin-top:3px; }
+  .fit { width: 1%; white-space: nowrap; }
+  .dot { font-family: var(--mono); font-size: 12px; }
+  .dot.ok  { color: var(--accent); }
+  .dot.gap { color: var(--warn); }
+
+  .divergence { margin: 26px 0; padding: 20px 24px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); }
+  .divergence .num { font-family: var(--serif); font-size: 30px; font-weight: 700; color: var(--accent-ink); line-height: 1; float: left; margin: 2px 16px 0 0; }
+  .divergence h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -.005em; }
+  .divergence p { margin: 0 0 10px; max-width: 60ch; color: var(--ink-2); }
+  .divergence .fix { font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--accent-soft); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 13px; max-width: 60ch; }
+  .divergence .fix b { color: var(--accent-ink); }
+  .clearfix::after { content: ""; display: block; clear: both; }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  .footer-links { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 14px; max-width: 66ch; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .k, code { white-space: normal; }
+    .divergence .num { float: none; margin: 0 0 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Aithera · Scenario Simulator</p>
+    <h1>Scenario&nbsp;CML&nbsp;v4, <em>our engine</em> — where they meet.</h1>
+    <p class="lede">With the full v4 spec in hand, the picture is clearer than any screenshot showed: two teams that hadn't seen each other's work built the same machine. Their §2 runtime contract is our conformance guarantees; their "a scenario has no type field" is our structural discriminator; their growth rule is our <em>typed plugins</em>. We are not coarser anywhere. The honest deltas are four places <b>v4 made a sharper call than our reference</b> — three worth adopting, one a decision. And the boundary holds: <b>our scenario object is their <code>content</code></b>.</p>
+    <div class="meta">
+      <span><b>Their side</b> Scenario CML v4 — Data Specification (26pp)</span>
+      <span><b>Our side</b> scenario-simulator-runtime.schema.json · js/sim-player.js</span>
+      <span><b>Status</b> authoritative spec reconciled</span>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <div class="callout">
+    <h3>v4 supersedes the walkthrough screenshots <span class="tag">read first</span></h3>
+    <p>The earlier call captures were an <em>older draft</em>. v4 moved three things, and each moves toward what we already recommended:</p>
+    <ul>
+      <li><b>Terminology:</b> the draft's <code>stage</code> (kind <code>interact</code>/<code>evaluate</code>) is gone. A <code>phase</code> is now exactly <code>{ practice, debrief }</code> — <code>practice</code> is where the learner acts, <code>debrief</code> is its own first-class unit.</li>
+      <li><b>Version + root:</b> <code>schema_version</code> is <code>"4.0"</code>; the document root is <code>{ implementation_id, modality, schema_version, content }</code>. The draft's <code>learning_objective</code>/<code>implementations[]</code>/<code>is_default</code> wrapper is <b>removed</b> — LO identity now lives in "the surrounding content system" (§F).</li>
+      <li><b>No scenario type field:</b> §1.1 states it outright — what a scenario <em>is</em> emerges from its parts. That is our runtime schema's <code>x-discriminator</code>, verbatim in spirit.</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§A · The map</span>
+    <h2>Their <code>practice</code> is our rung; their <code>phase</code> is a layer above</h2>
+    <p>The v4 <code>phase</code> is a story segment shown to the learner as "Phase 2 of 3" — a grouping of exactly one <code>practice</code> and one <code>debrief</code>. Our ladder has no such grouping (our <code>level</code> is a cosmetic label). Their <b><code>practice</code> is the turn-owning rung — that's our <code>phase</code></b>. Their <code>debrief</code> is a second rung we express as fields today (§C-2).</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Scenario CML v4</th><th>Is</th><th>Our engine</th></tr></thead>
+        <tbody>
+          <tr><td><code>content.phases[]</code></td><td>Story segments, "Phase 2 of 3" — grouping</td><td class="theirs">— no equivalent (flat; <code>level</code> is a label) —</td></tr>
+          <tr><td><code>phase.practice</code></td><td>Where the learner acts — the turn-owning rung</td><td><code>phase</code> <span class="sub">(one ladder rung)</span></td></tr>
+          <tr><td><code>phase.debrief</code></td><td>Where the coach teaches against the attempt</td><td><code>phase.debrief</code> <span class="sub">(fields today — see §C-2)</span></td></tr>
+          <tr><td><code>practice.mode: coach_inquiry</code></td><td>Reason it through with the coach</td><td><code>type: coach-led</code> → <code>world: coaching</code></td></tr>
+          <tr><td><code>practice.mode: roleplay</code></td><td>Act in a scene, as themselves</td><td><code>type: roleplay</code> → <code>world: scene</code></td></tr>
+          <tr><td><code>practice.mode: observe_react</code></td><td>Study an exhibit, spot what's wrong</td><td><code>type: observe</code> / scene-sweep</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Their <code>practice.mode</code> triple is our mix-arc <code>type</code> triple; their <code>observe_react</code> (<code>exhibit.facts</code> / <code>rubric</code> / <code>spot_target</code> / <code>nudge</code>) is our scene-sweep (<code>scene.canonDescription</code> / <code>hazards</code> / <code>coverage.required</code> / <code>zone</code>), down to the <code>[[spotted:…]]</code> crediting marker matching our coverage rail. And v4's §7.2 growth rule — <em>"a new practice type is one new <code>mode</code> value plus one new interaction shape; the spine never changes"</em> — is precisely our "One Engine, Typed Plugins."</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§B · The crosswalk</span>
+    <h2>Field for field</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Scenario CML v4</th><th>Our engine</th><th class="fit">Fit</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td colspan="4" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);border-bottom:1px solid var(--line-2);">§4 · content — the world</td></tr>
+          <tr><td><code>narrative</code> <span class="sub">coach-scoped ground truth</span></td><td><code>framing</code> · <code>establishing</code> · <code>intro</code></td><td class="fit"><span class="dot ok">●</span></td><td>v4 splits world by audience — see §C-nuance.</td></tr>
+          <tr><td><code>scene_world</code> <span class="sub">{ setting, canon, characters }</span></td><td><code>canon[]</code> · <code>cast[]</code> · setting</td><td class="fit"><span class="dot ok">●</span></td><td>Scene-scoped; the coach never sees it.</td></tr>
+          <tr><td><code>scene_world.canon.facts[]</code></td><td><code>canon[]</code></td><td class="fit"><span class="dot ok">●</span></td><td>Layer 1 of their 4-layer canon (see below).</td></tr>
+          <tr><td><code>scene_world.characters[]</code> <span class="sub">{ behavior, canon_facts.reveal_when }</span></td><td><code>cast[]</code> <span class="sub">(minus reactions)</span></td><td class="fit"><span class="dot ok">●</span></td><td>Reactions move to <code>levels</code>; <code>reveal_when</code> = our ensemble <code>disclosures</code>.</td></tr>
+          <tr><td><code>coach_persona</code> · <code>tone_guidelines[]</code></td><td><code>voice.persona</code> · <code>voice.guidance</code></td><td class="fit"><span class="dot ok">●</span></td><td>Direct.</td></tr>
+          <tr><td><code>teaching_points[]</code> · <code>misconceptions[]</code></td><td>per-phase <code>throughLine</code> + prompt</td><td class="fit"><span class="dot ok">●</span></td><td>Debrief-scoped in v4 (§C-1).</td></tr>
+
+          <tr><td colspan="4" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);border-bottom:1px solid var(--line-2);">§6 / §7 · opening, practice, debrief</td></tr>
+          <tr><td><code>opening</code> <span class="sub">{ opening_messages, levels, exit, conditional_probes }</span></td><td><code>reflection</code> + <code>opening[]</code></td><td class="fit"><span class="dot ok">●</span></td><td>Un-graded warm-up; restricted <code>levels</code> (no <code>progression</code>).</td></tr>
+          <tr><td><code>practice.interaction.opening_messages[]</code> / observe <code>brief</code></td><td><code>phase.entry.beats[]</code></td><td class="fit"><span class="dot ok">●</span></td><td>Locked opener; practice requires one, debrief forbids it.</td></tr>
+          <tr><td><code>roleplay</code> <span class="sub">{ setting, character_id | null, emotion_hint }</span></td><td><code>counterpart</code> + <code>character</code></td><td class="fit"><span class="dot ok">●</span></td><td><code>character_id: null</code> = narrator-driven = our <code>counterpart: "Narrator"</code>.</td></tr>
+          <tr><td><code>practice.exit.when</code> <span class="sub">{ turns, requirement }</span> · <code>final_word</code></td><td><code>maxTurns</code> + forced resolution + <code>exitCriteria</code></td><td class="fit"><span class="dot ok">●</span></td><td>Never-dangle = our "force resolve at the cap."</td></tr>
+          <tr><td><code>levels</code> <span class="sub">{ look_for, response, progression, example }</span></td><td><code>calibration[]</code> <span class="sub">{ tier, guidance }</span></td><td class="fit"><span class="dot gap">◆</span></td><td>Theirs richer, and a <b>fixed</b> 3-level set — §C-4.</td></tr>
+          <tr><td><code>carryover[]</code> <span class="sub">{ from } — verbatim transcript</span></td><td><code>transitions[].set</code> <span class="sub">disposition string</span></td><td class="fit"><span class="dot gap">◆</span></td><td>Verbatim vs summary — §C-3.</td></tr>
+          <tr><td><code>debrief</code> <span class="sub">{ key_points, levels, probe, follow_up_turns }</span></td><td><code>debrief</code> <span class="sub">{ talkItThrough, points }</span></td><td class="fit"><span class="dot gap">◆</span></td><td>First-class unit vs fields — §C-2.</td></tr>
+
+          <tr><td colspan="4" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);border-bottom:1px solid var(--line-2);">§8 · closing · root</td></tr>
+          <tr><td><code>closing.ideal_response</code> <span class="sub">component_groups / summary / source_references</span></td><td><code>playbook</code> / <code>resources</code> + debrief screen</td><td class="fit"><span class="dot ok">●</span></td><td>Verbatim, server-composed; <code>source_references</code> = external authorities only.</td></tr>
+          <tr><td><code>implementation_id</code> · <code>modality</code> · <code>schema_version</code></td><td class="theirs">— no equivalent —</td><td class="fit"><span class="dot gap">◆</span></td><td>The (thin) v4 root. LO identity lives outside — §F.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h3>Their §2 runtime contract IS our conformance guarantees</h3>
+      <p>Advancement is server-owned and forward-only; the model's <code>[[phase:…]]</code> marker is advisory (our <code>action</code>/<code>tier</code>). The never-dangle rule. Prompt scoping is "discipline, not secrecy." Internal assessment is trace-only. The close fires 100%, verified piece-by-piece against the authored <code>ideal_response</code>. Two independent specs landed on the same invariants — the strongest possible confirmation the shared runtime is the right shape.</p>
+    </div>
+
+    <div class="panel">
+      <p class="code-label">The 4-layer canon model (§4.2) ↔ our engine</p>
+      <div class="shape-scroll"><pre class="shape">1  Global canon        (time-invariant world truth)   → <span class="hi">scene_world.canon.facts[]</span>   ≈ our canon[]
+2  Story events         (happens later in the arc)     → <span class="hi">the locked opener of that unit</span>  ≈ our entry.beats
+3  Learner aftermath    (differs per learner)          → <span class="hi">carryover transcript</span>          ≈ our transitions[].set  <span class="add">(but verbatim, not a summary — §C-3)</span>
+4  Secrets              (character-held, earned)        → <span class="hi">characters[].canon_facts.reveal_when</span> ≈ our ensemble disclosures</pre></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§C · What genuinely differs</span>
+    <h2>Four sharper calls — three worth adopting, one a decision</h2>
+    <p>None of these is us being coarser. Each is a place v4 committed to a stricter choice than our reference did.</p>
+
+    <div class="divergence clearfix">
+      <span class="num">1</span>
+      <h3>Prompt isolation via two threaded conversations. <span class="tag ours">they're ahead</span></h3>
+      <p>v4 runs one continuous <b>coach</b> conversation plus short-lived <b>scenes</b>, carried as threaded <code>{coach, practice}</code> histories keyed by phase id. A practice prompt never contains <code>teaching_points</code>, <code>misconceptions</code>, a debrief's <code>key_points</code>, or <code>ideal_response</code> — those reach the coach only on debrief/closing turns, and <code>ideal_response</code> reaches no prompt at all (composed server-side). Even mid-scene help is scope-clean and budget-inert. We run one static compiled prompt for the whole run and keep teaching out of scenes by instruction.</p>
+      <p class="fix"><b>Consider adopting.</b> It's a stronger anti-leak guarantee than ours. It's an engine change, and it means our <code>promptHash</code> can't equal theirs by construction — conformance (§G) must compare <b>per-scope</b>, not per-run.</p>
+    </div>
+
+    <div class="divergence clearfix">
+      <span class="num">2</span>
+      <h3>The debrief is a first-class unit; ours is two fields.</h3>
+      <p>A v4 <code>debrief</code> (<code>{phase_id}.debrief</code>) owns turns via <code>follow_up_turns</code> (<code>0</code> = delivery-only, the default; <code>≥1</code> = interactive), carries <code>key_points</code> (statements to land regardless), its own <code>levels</code> grading the practice attempt, an optional locked <code>probe</code> (verbatim question + its own <code>levels</code> grading answers), and a <code>final_word</code>. Ours is <code>talkItThrough</code> + <code>points</code>, delivered as one teach turn.</p>
+      <p class="fix"><b>Low-cost to align, and it unlocks #1.</b> Promoting our debrief to its own rung is a normalize-time transform. The independently-scopeable debrief is exactly what makes the two-conversation model buildable.</p>
+    </div>
+
+    <div class="divergence clearfix">
+      <span class="num">3</span>
+      <h3>Cross-scene memory is a <em>verbatim transcript</em>, not a summary. <span class="tag ours">they're ahead</span></h3>
+      <p>Their <code>carryover</code> grants a later scene the earlier practice's verbatim transcript — explicitly <em>"never a summary, because summarising is where a model starts inventing."</em> Our <code>transitions[].set</code> writes exactly that summary: a disposition string like <code>"steadied — heard, with limits he accepted"</code>. Same goal (their canon layer 3: learner-dependent aftermath); they deliberately rejected the mechanism we use.</p>
+      <p class="fix"><b>Consider adopting.</b> Since no shipped scenario routes on tier (every <code>transitions[]</code> converges on one <code>next</code>, varying only <code>set</code>), our whole use of <code>set</code> is this carry-forward — which v4 does better with a transcript. Swapping the disposition summary for a carryover transcript is a clean upgrade.</p>
+    </div>
+
+    <div class="divergence clearfix">
+      <span class="num">4</span>
+      <h3>A fixed 3-level scale vs our open tier vocabulary. <span class="tag pending">decision</span></h3>
+      <p>v4 fixes the quality scale at three — <code>unthoughtful</code> / <code>neutral</code> / <code>strong</code> — set by the engine's templates; the author writes only each level's <code>look_for</code> / <code>response</code>. Our <code>calibration[].tier</code> is author-defined per phase: mix-arc ships <code>CONNECTS</code> / <code>VAGUE</code> / <code>CONFRONTS</code>. A scenario with custom tier labels does not port to their fixed set.</p>
+      <p class="fix"><b>Our call to make.</b> Our own contract already warns against a second tier list; their fixed-3 is the strict form of that discipline. Either normalize our custom tiers onto the three, or make the case to them for an extensible scale. Not a blocker either way — but it decides whether a mix-arc export loads unchanged.</p>
+    </div>
+
+    <h3 class="sub">Nuances worth noting, not acting on</h3>
+    <ul class="plain">
+      <li><b>Content-only, lint-enforced.</b> v4 content carries <em>zero</em> prompt text; a prompt-smell lint rejects strings like "the ai will" or "the model does not". Some of our authored guidance ("CALIBRATION ONLY, do not evaluate…") would fail it — a stricter data/prompt separation than ours.</li>
+      <li><b>World split by audience.</b> <code>narrative</code> is the coach's ground truth; <code>scene_world</code> is the scenes'. The coach never sees <code>scene_world</code>; scenes never see <code>narrative</code>. We keep one world scope.</li>
+      <li><b>Reactions factored per-practice.</b> Character cards hold identity only; how a character reacts lives in each practice's <code>levels</code> "because reactions differ per scene." We bundle reactions on the <code>cast</code> card.</li>
+      <li><b>Provenance points outward.</b> <code>source_references</code> are external authorities only (OSHA, Title VII) — never an internal course/slide id. Our <code>playbook[].source</code> cites internal objects (<code>RVCT-479 P017</code>) — a different, audit-facing purpose; don't conflate them.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§D · The layers</span>
+    <h2>Both sides think in the same three layers</h2>
+    <p>v4's design constraint 1 — <em>"Content-only. Scenario data carries no prompt text; deterministic serializers render prompts"</em> — is our authored-source → <code>toRuntime</code> / <code>compile</code> split, stated as a hard rule and enforced by a lint. Their <code>content</code> is one authored document, but §2 shows it reaches the model in scoped slices (teaching withheld mid-attempt, released at debrief). The seam between authored data and rendered prompt is real on both sides; v4 simply polices it harder than we do.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§E · The envelope</span>
+    <h2>LO identity moved out — exactly where we said it belonged</h2>
+    <p>The draft's <code>learning_objective</code> / <code>implementations[]</code> / <code>is_default</code> wrapper is gone from v4. The document is now <b>one implementation</b>; §3 states "LO-level identity, revisioning, and catalog metadata belong to the surrounding content system, which selects an implementation and hands it to this service." So the boundary we drew is now their architecture: <b>our scenario object is their <code>content</code></b>, and the only thing above it in the document is a thin root.</p>
+    <div class="panel">
+      <p class="code-label">v4 document root — and the matching passthrough in normalize()</p>
+      <div class="shape-scroll"><pre class="shape"><span class="cmt">// v4 root — LO/implementations[] no longer here; that's the content system's</span>
+{ <span class="hi">"implementation_id"</span>: "…", <span class="hi">"modality"</span>: "ai-conversational", <span class="hi">"schema_version"</span>: "4.0", "content": { … } }
+
+<span class="cmt">// optional self-describing export — engine ignores it, export preserves it</span>
+source.meta = source.meta || {};
+source.meta.implementation_id = source.meta.implementation_id || "";
+source.meta.modality          = "ai-conversational";
+source.meta.schema_version    = source.meta.schema_version || "4.0";</pre></div>
+    </div>
+    <p>The one genuine design question the envelope still raises is the <b>picker UX</b> — when a learner or admin chooses among implementations of one objective — which <code>marshall-mode-select</code> already prototypes (AI vs no-AI = two implementations of one LO). That's a mock, not an engine change.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§F · Conformance</span>
+    <h2>Proving the two engines agree</h2>
+    <p>Once the port has <code>toRuntime</code> / <code>compile</code> equivalents, agreement is a hash: <code>js/sim-snapshot.js</code> emits a <code>runtimeHash</code> + <code>promptHash</code>; same source, both engines, equal hashes ⇒ they conform.</p>
+    <p><strong>One caveat from §C-1:</strong> v4's two-conversation scoping means the model sees a different prompt at a scene turn than at a debrief turn, so a single whole-run <code>promptHash</code> stops being meaningful. If we adopt scoping, conformance must hash <b>per-scope</b> — the coach-conversation prompt and each scene prompt separately. Worth agreeing on snapshot granularity before either side hardens it.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <span class="sec-kicker">§G · Decisions</span>
+    <h2>What's actually on us now</h2>
+    <p>No blockers remain — the spec is complete. What's left are four choices, all ours to make deliberately:</p>
+    <ul class="plain">
+      <li><b>Adopt two-conversation prompt scoping?</b> (§C-1.) The one place they're clearly ahead; it changes what conformance means.</li>
+      <li><b>Adopt verbatim <code>carryover</code> over our disposition summary?</b> (§C-3.) A clean upgrade — our <code>set</code> is only ever used as carry-forward, which a transcript does better.</li>
+      <li><b>Promote the debrief to a first-class unit?</b> (§C-2.) Low-cost, and the enabler for scoping.</li>
+      <li><b>Fixed 3-level scale, or keep our open tier vocabulary?</b> (§C-4.) Decides whether a custom-tier mix-arc export loads unchanged.</li>
+    </ul>
+    <p>The envelope (§E) needs nothing from us; the identity passthrough is optional. My lean: hold all engine changes and take #1–#3 as one coordinated pass, since they touch the same code — then settle #4 with the dev team rather than in the engine.</p>
+
+    <p class="footer-links">Companion docs: <a href="scenario-simulator-json-contract.html">The JSON Contract &amp; Engine Read-Model</a> · <a href="scenario-simulator-convergence-onepager.html">One Engine, Typed Plugins</a> · <a href="scenario-simulator-player-convergence.html">Player convergence</a> · <a href="scenario-simulator-type-crosswalk.html">Type crosswalk</a> · <a href="scenario-simulator-runtime.schema.json">Runtime JSON Schema</a>. Reference: <code>js/sim-player.js</code>, <code>js/sim-snapshot.js</code>, <code>scenario-live.html</code>.</p>
+  </section>
+
+</div>
+</body>
+</html>
