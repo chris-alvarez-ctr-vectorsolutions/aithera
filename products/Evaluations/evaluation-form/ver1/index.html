@@ -40,6 +40,11 @@
             --notice: var(--vwc-notification-color);
             --notice-text: var(--vwc-notification-text-color);
             --notice-tint: var(--vwc-notification-color-10pct);
+            /* Deleted-state wash — derived from the error token rather than a
+               hardcoded rgba (the literal 216,62,56 IS --lumo-error-color
+               #d83e38). 6% is lighter than --lumo-error-color-10pct, which is too
+               strong for a full-page backdrop. */
+            --deleted-tint: color-mix(in srgb, var(--lumo-error-color) 6%, transparent);
             /* Course-recommendations accent — pink/purple to match the feature's
                original theme (distinct from the form's blue --brand). */
             --rec-accent: #8b5cf6;
@@ -236,7 +241,10 @@
            that would still SUGGEST editability — pointer cursors and hover lifts —
            without ever touching `user-select`. */
         .form-list.is-readonly .rubric-tile,
-        .form-list.is-readonly .q-choice,
+        /* Choice groups are DS components now — target the option hosts, not the
+           removed .q-choice row wrapper. */
+        .form-list.is-readonly vaadin-radio-button,
+        .form-list.is-readonly vaadin-checkbox,
         .form-list.is-readonly button,
         .form-list.is-readonly input,
         .form-list.is-readonly select,
@@ -412,12 +420,32 @@
             min-width: 0;
             flex: 1;
         }
+        /* `center`, not `baseline`. Baseline lined up the text baselines of the
+           title and the share pill, which was fine when they were the only
+           children — but with the taller Back button in the block it dragged the
+           title off the toolbar's vertical centre. Centring keeps every child
+           (button, title, pill) centred in the toolbar row. */
         .topbar-title-block {
             display: flex;
-            align-items: baseline;
+            align-items: center;
             gap: 10px;
             min-width: 0;
         }
+        /* Back button sits left of the page title. */
+        .topbar-back-tertiary {
+            flex-shrink: 0;
+            margin: 0 2px 0 0;
+            font-size: 13px;
+        }
+        /* The Vector theme underlines tertiary labels; a chevron + "Back" reads as
+           a button, not a link, so suppress it. This must out-specify the theme,
+           which is injected via adoptedStyleSheets (applied after every <style>
+           element) — hence the element+attribute qualifier. */
+        vaadin-button.topbar-back-tertiary[theme~="tertiary"]::part(label),
+        vaadin-button.topbar-back-tertiary::part(label) {
+            text-decoration: none !important;
+        }
+        .topbar-back-tertiary i { font-size: 11px; }
         .topbar-title {
             font-size: 15px;
             font-weight: 700;
@@ -437,6 +465,91 @@
         }
         .topbar-share-pill[hidden] { display: none; }
         .topbar-share-pill i { font-size: 10px; }
+
+        /* ─── Deleted state ───
+           A deleted evaluation is still VIEWABLE and restorable, so it can't just
+           vanish. The signal has to be unmissable at a glance (nobody should edit
+           a deleted record thinking it's live) without hiding the content the user
+           came to read. Three layers do that: a page-wide banner, a red status
+           pill in the topbar, and a desaturated + hatched form surface. */
+        .topbar-deleted-pill {
+            align-self: center; flex-shrink: 0;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; line-height: 1.4;
+            background: var(--lumo-error-color-10pct);
+            color: var(--lumo-error-text-color);
+        }
+        .topbar-deleted-pill[hidden] { display: none; }
+        .topbar-deleted-pill i { font-size: 10px; }
+
+        /* Full-width banner directly under the topbar — the primary explanation
+           plus the Restore action, which is the main action in this state. */
+        .deleted-banner {
+            position: sticky;
+            /* Sits immediately below the sticky topbar so it never scrolls away:
+               a deleted record must stay flagged at any scroll position. */
+            top: calc(var(--topnav-h, 56px) + 57px);
+            z-index: 49;
+            display: flex; align-items: center; gap: 14px;
+            padding: 12px 24px;
+            background: var(--lumo-error-color-10pct);
+            border-bottom: 1px solid var(--lumo-error-color-50pct);
+            /* Opaque backstop — the error tint is translucent rgba, so without a
+               solid layer scrolling content shows through a sticky bar. */
+            background-image: linear-gradient(var(--lumo-error-color-10pct), var(--lumo-error-color-10pct)),
+                              linear-gradient(var(--surface-opaque), var(--surface-opaque));
+        }
+        .deleted-banner[hidden] { display: none; }
+        .deleted-banner-icon {
+            flex-shrink: 0;
+            width: 30px; height: 30px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--lumo-error-color); color: #fff; font-size: 13px;
+        }
+        .deleted-banner-text { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; }
+        .deleted-banner-title {
+            display: block; font-weight: 700; color: var(--lumo-error-text-color);
+        }
+        .deleted-banner-sub { display: block; color: var(--text-strong); }
+        .deleted-banner-actions { flex-shrink: 0; display: inline-flex; gap: 8px; align-items: center; }
+
+        /* Deleted state, form surface: tint the WRAPPER — the grey area behind the
+           form sections — a very light warning red. The form card itself
+           (.form-list) keeps its white surface and normal colour, so the content
+           stays fully legible; only the backdrop carries the state. No overlay or
+           filter, so nothing is desaturated, dimmed, or obscured.
+           `.app` is the right layer: .form-list is the white card, body supplies
+           the page grey, and .app is the transparent wrapper between them. */
+        /* Applied to the PANE, not .app: .app is max-width:1200px and centred, so
+           tinting it would leave untinted grey gutters either side of the form.
+           The pane spans the full column, so the wash covers the whole backdrop. */
+        /* Pane only — NOT also .app. Stacking the wash on both would double the
+           tint where they overlap and leave the gutters a different shade. */
+        body.is-deleted .split-pane-primary {
+            /* Very light red over an opaque backstop — --deleted-tint is
+               translucent (derived from --lumo-error-color), so the solid layer
+               underneath keeps it consistent against the page grey. */
+            background-image: linear-gradient(var(--deleted-tint), var(--deleted-tint)),
+                              linear-gradient(var(--page-bg), var(--page-bg));
+            /* Fill the viewport so a short form doesn't leave untinted grey below
+               the content (the pane is only as tall as its children otherwise). */
+            min-height: 100vh;
+        }
+        /* Restore is the ONLY action on a deleted record, so every other action
+           surface is removed rather than disabled — a row of dead controls reads as
+           broken, and leaving them present invites clicks that silently do nothing.
+           `.topbar-actions` covers Cancel / Compare / Save / the ⋯ menu; the form
+           action cluster carries Pass all, Clear all, Privacy and Share. */
+        body.is-deleted .topbar-actions { display: none; }
+        body.is-deleted #formActions { display: none; }
+        /* Same reasoning per question: the Add tags / Add attachment triggers are
+           edit affordances, and the event guard already makes them inert — leaving
+           them visible would just be a row of buttons that ignore clicks. Existing
+           tag chips and attachment cards STAY, since they're content to be read. */
+        body.is-deleted .q-actionbar-actions { display: none; }
+        /* Back stays — leaving the record is still valid — and so does the deleted
+           banner's own Restore button. */
         .topbar-sub {
             font-size: 11px;
             color: var(--text-muted);
@@ -628,21 +741,13 @@
             color: var(--text-muted);
         }
         .privacy-opt + .privacy-opt { border-left: 1px solid var(--border-soft); }
-        .privacy-opt i { font-size: 10px; }
         .privacy-opt:hover:not(.active) { background: var(--page-bg); color: var(--text-strong); }
         .privacy-opt.active { background: var(--brand); color: var(--lumo-base-color); }
-        .privacy-hint {
-            font-size: 11px; color: var(--text-muted); font-style: italic;
-            white-space: nowrap;
-        }
         /* ── Post-share treatment ──
            This replaced the old full-bleed blue banner on the header card. The
            cluster keeps its normal neutral chrome — the solid blue "Shared" pill
            (below) is the whole signal, which reads clearly without tinting the
            entire strip. `.is-shared` stays on the container as a state hook. */
-        /* Privacy is locked once shared (the parties already have access). */
-        .privacy-toggle.is-locked { opacity: 0.55; }
-        .privacy-toggle.is-locked .privacy-opt { cursor: default; }
         /* Solid pill — the cluster's primary "Shared" signal. */
         .form-actions-shared-mark {
             display: inline-flex; align-items: center; gap: 7px;
@@ -658,7 +763,6 @@
         @media (max-width: 860px) {
             .form-actions-divider { display: none; }
             .form-actions-share { margin-left: 0; }
-            .privacy-hint { display: none; }
         }
 
         /* ─── Flat form question list ───
@@ -1513,24 +1617,20 @@
         .q-duration-fields .sep { color: var(--text-muted); font-size: 12px; }
 
         /* ── Choice questions (Choose One, Choose Any, Pass/Fail) ── */
-        .q-choices {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        /* Choice questions are now BOTH design-system groups — "choose one" is a
+           vaadin-radio-group and "choose any" a vaadin-checkbox-group, each with
+           theme="vertical". They lay their own options out, so the old flex
+           container and the per-row .q-choice / .q-choice input rules are gone
+           (nothing rendered them any more). These rules only strip the field
+           chrome: no host padding, no reserved label slot (the question title
+           lives in the step header), and no forced default field width. */
+        vaadin-radio-group.q-choices,
+        vaadin-checkbox-group.q-choices {
+            padding: 0;
+            --vaadin-field-default-width: auto;
         }
-        .q-choices.horizontal {
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-        .q-choice {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            cursor: pointer;
-        }
-        .q-choice input { accent-color: var(--brand); }
+        vaadin-radio-group.q-choices::part(label),
+        vaadin-checkbox-group.q-choices::part(label) { display: none; }
 
         /* Space between details body and the control beneath it */
         .q-input .q-details,
@@ -1627,11 +1727,12 @@
         }
         .q-video-thumb i { opacity: 0.95; }
         .q-video-attachment-meta { flex: 1; min-width: 0; }
+        /* Filename only — no file-type icon (the thumbnail already signals it's a
+           video, so the glyph was redundant). No `gap` needed with one child. */
         .q-video-attachment-name {
-            display: flex; align-items: center; gap: 7px;
+            display: flex; align-items: center;
             font-size: 14px; font-weight: 600; color: var(--text-strong);
         }
-        .q-video-attachment-name i { color: var(--text-muted); font-size: 12px; }
         .q-video-attachment-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .q-video-attachment-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
         /* Action group — mirrors .q-attachment-actions on the attachment cards
@@ -1688,15 +1789,15 @@
             font-size: 12px; font-weight: 700; text-transform: uppercase;
             letter-spacing: 0.4px; color: var(--text-muted);
         }
+        /* Text-only link-style action — no icon, so no `gap` and no icon rule. */
         .q-video-summary-open {
             flex-shrink: 0;
             background: none; border: none; cursor: pointer;
-            display: inline-flex; align-items: center; gap: 5px;
+            display: inline-flex; align-items: center;
             font-family: inherit; font-size: 12px; font-weight: 600; color: var(--brand);
             padding: 2px 4px;
         }
         .q-video-summary-open:hover { text-decoration: underline; }
-        .q-video-summary-open i { font-size: 10px; }
         /* The scroll area */
         .q-video-summary-body { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; }
         .q-video-summary-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -2132,9 +2233,8 @@
             position: absolute; top: calc(100% + 6px); left: 0;
             width: 100%; z-index: 5;
         }
-        /* Size the FA slot icons in the panel's Add Tags button to sit with the
-           label (matches the header's secondary buttons). */
-        .attach-add-tags-btn i[slot="prefix"] { font-size: 12px; }
+        /* Size the dropdown caret to sit with the label. (The leading tag glyph
+           was removed with the other secondary-button icons.) */
         .attach-add-tags-btn i[slot="suffix"] { font-size: 11px; }
         .attach-panel-actions {
             display: flex; align-items: center; justify-content: flex-end; gap: 8px;
@@ -2243,10 +2343,9 @@
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         }
         .q-actionbar-wrap { position: relative; }
-        /* Both triggers are design-system secondary vaadin-buttons — size their
-           FA slot icons to sit with the label so the two buttons match. */
-        .q-add-tags-btn i[slot="prefix"],
-        .q-add-attachment i[slot="prefix"] { font-size: 13px; }
+        /* Both triggers are design-system secondary vaadin-buttons. Only Add Tags
+           keeps an icon — its dropdown caret; the leading glyphs were removed with
+           the other secondary-button icons. */
         .q-add-tags-btn i[slot="suffix"] { font-size: 11px; }
 
         /* ── Add Tags: search dropdown + chips below the button row ── */
@@ -2517,12 +2616,45 @@
         .q-video-note-body { flex: 1; min-width: 0; }
         .q-video-note-text { font-size: 13px; color: var(--text-strong); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
         .q-video-note-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+        /* Note actions — edit + delete, grouped at the note's trailing edge. */
+        .q-video-note-actions {
+            flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px;
+        }
+        .q-video-note-edit,
         .q-video-note-delete {
             flex-shrink: 0;
             background: none; border: none; cursor: pointer;
             color: var(--text-muted); font-size: 12px; padding: 4px;
         }
+        .q-video-note-edit:hover { color: var(--brand); }
         .q-video-note-delete:hover { color: var(--lumo-error-text-color); }
+
+        /* ── Inline edit form for a saved annotation ── */
+        /* Replaces the note's text while editing. The row keeps its timestamp chip
+           so the moment stays visible; only the text is editable (the timestamp is
+           the anchor the annotation was recorded at). */
+        .q-video-note.editing { cursor: default; background: var(--lumo-base-color); }
+        .q-video-note-edit-form { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .q-video-note-edit-input {
+            width: 100%; resize: vertical; min-height: 52px;
+            font-family: inherit; font-size: 13px; line-height: 1.5;
+            color: var(--text-strong);
+            border: 1px solid var(--brand); border-radius: 6px; padding: 6px 8px;
+            outline: none;
+            box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+        }
+        .q-video-note-edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
+        .q-video-note-edit-btn {
+            background: var(--lumo-base-color);
+            border: 1px solid var(--border-soft); border-radius: 6px;
+            padding: 4px 10px; cursor: pointer;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            color: var(--text-strong);
+        }
+        .q-video-note-edit-btn.save {
+            background: var(--brand); border-color: var(--brand); color: var(--lumo-base-color);
+        }
+        .q-video-note-edit-btn.save:disabled { opacity: 0.5; cursor: default; }
 
         /* ── Timer (live readout the proctor starts/pauses) ── */
         .q-timer-readout {
@@ -2533,9 +2665,50 @@
             color: var(--text-strong);
             margin: 8px 0 12px;
         }
+        /* Running: tint the readout so it's obvious the clock is live on BOTH the
+           start and stop halves, which may be far apart on screen. */
+        .q-timer.is-running .q-timer-readout { color: var(--brand); }
+        /* Stopped with a recorded value — the result is now editable. */
+        .q-timer.is-stopped .q-timer-readout { color: var(--text-strong); }
         .q-timer-controls {
             display: flex;
             gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        /* Paired-timer status line: says which half you're looking at and what the
+           other half will do, since the two steps are separated by questions. */
+        .q-timer-hint {
+            font-size: 11px; color: var(--text-muted);
+            margin-top: 8px; line-height: 1.5;
+        }
+        .q-timer-hint strong { color: var(--text-strong); font-weight: 700; }
+        /* Live pulse dot beside a running readout. */
+        .q-timer-dot {
+            display: none;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--brand); flex-shrink: 0;
+            animation: q-timer-pulse 1.4s ease-in-out infinite;
+        }
+        .q-timer.is-running .q-timer-dot { display: inline-block; }
+        @keyframes q-timer-pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.25; }
+        }
+        .q-timer-readout-row { display: flex; align-items: center; gap: 10px; }
+
+        /* ── Editable result (after stopping) ──
+           The recorded elapsed time can be overridden with a custom value: the
+           readout swaps for three number fields (h/m/s) so an evaluator can correct
+           a mistimed observation without re-running the clock. */
+        .q-timer-edit { display: none; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
+        .q-timer.is-editing .q-timer-edit { display: flex; }
+        .q-timer.is-editing .q-timer-readout-row { display: none; }
+        .q-timer-edit vaadin-number-field { width: 84px; }
+        .q-timer-edit-sep {
+            font-family: 'SF Mono', 'Courier New', monospace;
+            font-size: 20px; font-weight: 700; color: var(--text-muted);
+            padding-bottom: 6px;
         }
 
         /* ── Computed / Computed Value (read-only, system-derived) ──
@@ -2853,8 +3026,13 @@
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         /* The control row — speaker pill + input + tag/send icons. */
+        /* `flex-end` so the field's LAST line sits level with the icon buttons: at
+           one line that reads as centred against them, and as the textarea grows
+           the buttons stay pinned to the bottom edge rather than floating beside
+           the first line. (Was flex-start, which pinned the field to the top and
+           left short text riding high in the box.) */
         .q-script-composer-row {
-            display: flex; align-items: flex-start; gap: 8px;
+            display: flex; align-items: flex-end; gap: 8px;
         }
         /* Staged chips along the bottom of the field. Only takes space when
            tags exist (`:empty` collapses, and the margin lives here not on the
@@ -2902,11 +3080,28 @@
         .q-script-input::part(input-field) {
             background: transparent; box-shadow: none; padding: 0;
             max-height: 120px; overflow-y: auto;
-            /* The speaker pill sits in the `prefix` slot inside this container;
-               align to the top so it tracks the first text line, and add a gap so
-               it doesn't butt against the note text. */
+            /* Match the 30px icon buttons so a single line of text sits centred
+               against them instead of riding the top of the row. */
+            min-height: 30px;
+            /* The speaker pill sits in the `prefix` slot inside this container.
+               `align-items: flex-start` keeps the pill on the FIRST text line as
+               the field grows — but it also top-aligned the text itself, which is
+               why a one-line note looked stuck to the top left. The textarea now
+               centres its own content within the 30px min-height (below), so the
+               pill still tracks line one and short text reads as centred. */
             align-items: flex-start;
             gap: 8px;
+        }
+        /* The native <textarea> is LIGHT DOM — vaadin-text-area renders
+           <slot name="textarea">, so the element is a direct child of the host and
+           a plain descendant selector reaches it (a ::part() descendant would not).
+           `align-self: center` centres it in the 30px row while one line tall;
+           once the content wraps the textarea grows and fills the row, so
+           multi-line notes still read from the top. */
+        .q-script-input > textarea {
+            align-self: center;
+            padding: 0; margin: 0;
+            line-height: 1.5;
         }
         /* Kill the DS focus ring — the wrapping .q-script-composer paints the
            focused state for the whole field (see .q-script-composer.focused). */
@@ -2932,6 +3127,25 @@
 
         /* ─── Signature "question" (builder-supported step type) ─── */
         .q-signature {}
+
+        /* ── Share-on-signature opt-in (signature confirmation modals) ──
+           Offered only when the form isn't already shared. A plain inline
+           checkbox + label: no surface fill or border, so it reads as part of the
+           modal body rather than a nested card. The warning banner below carries
+           the emphasis. */
+        /* vaadin-checkbox supplies its own box, label, and hit target — this only
+           positions it. No native-input or label-span rules needed. */
+        .sig-share-optin { margin-top: 14px; }
+        .sig-share-optin vaadin-checkbox { margin: 0; }
+        /* Match the modal body's emphasis on the label text. */
+        .sig-share-optin vaadin-checkbox::part(label) {
+            font-size: 13px; font-weight: 700; color: var(--text-strong);
+        }
+        /* The consequence banner sits under the checkbox, not inside the label, so
+           it isn't part of the click target. `display:flex` from
+           .share-modal-warning beats the [hidden] UA rule, so restore it. */
+        .sig-share-warning { margin-top: 10px; }
+        .sig-share-warning[hidden] { display: none; }
         .sig-block { display: block; }
         /* Unsigned: just a Sign action button */
         .sig-block .sig-sign-btn {
@@ -3128,17 +3342,13 @@
 
         /* ─── Share dialog (content styles; shell is vaadin-dialog) ─── */
         .share-modal-body { padding: 4px 4px 8px; }
-        .share-modal-intro { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); }
-        .share-party-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-        .share-party { display: flex; align-items: center; gap: 12px; }
-        .share-party-avatar {
-            width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-            display: inline-flex; align-items: center; justify-content: center;
-            color: var(--lumo-base-color); font-size: 14px; background: var(--p-accent, var(--text-muted));
+        /* One statement of the access rule — no named-user list and no role
+           breakdown (recipients aren't fetched at share time). Body text rather
+           than muted meta, since this is now the modal's only explanation. */
+        .share-modal-intro {
+            margin: 0 0 16px; font-size: 13px;
+            color: var(--text-strong); line-height: 1.5;
         }
-        .share-party-meta { display: flex; flex-direction: column; }
-        .share-party-name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
-        .share-party-role { font-size: 12px; color: var(--text-muted); }
         .share-modal-warning {
             display: flex; align-items: flex-start; gap: 10px;
             background: var(--notice-tint); border: 1px solid var(--notice); border-radius: 10px;
@@ -3596,12 +3806,23 @@
             border-bottom: 1px solid var(--border-soft); white-space: nowrap;
         }
         table.qs-table thead th.qs-th-select { width: 40px; text-align: center; }
+        /* vwc-sortable-header. The component supplies the button, the asc/desc/
+           no-sort indicators, and aria-sort on the parent <th>.
+           IMPORTANT: its internal sort button is hardcoded `height: 56px;
+           width: 100%`, which would grow this compact header row. Override via
+           ::part(sort-button) to keep the previous cell height. */
         .qs-sort-btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: none; border: none; cursor: pointer; padding: 0;
             font: inherit; font-weight: 700; color: var(--text-strong);
+            --vwc-sortable-header-indicator-color: var(--text-muted);
         }
-        .qs-sort-btn i { font-size: 11px; color: var(--text-muted); }
+        .qs-sort-btn::part(sort-button) {
+            height: auto;
+            width: auto;
+            gap: 6px;
+        }
+        .qs-sort-btn::part(asc-icon),
+        .qs-sort-btn::part(desc-icon),
+        .qs-sort-btn::part(no-sort-icon) { font-size: 11px; }
         table.qs-table tbody td {
             padding: 11px 12px; border-bottom: 1px solid #eef0f3;
             vertical-align: top;
@@ -3727,19 +3948,37 @@
 
         /* Tab strip — plain buttons (no vaadin-tabs) to avoid the reset/padding
            quirk; matches the app's tab look with a blue active underline. */
-        .cl-tabs {
-            display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft);
+        /* vaadin-tabs. Two Vector-theme defaults must be undone to keep the previous
+           compact look:
+             1. `vaadin-tab { flex: 1 1 0; min-width: 56px }` — tabs would stretch to
+                fill the row instead of hugging their labels.
+             2. `vaadin-tab[selected]::before/::after { width: 90% }` — the theme
+                draws its own indicator, which would sit alongside ours.
+           The underline stays ours (2px brand, flush with the container border) so
+           the dialog's tab treatment is visually unchanged. */
+        vaadin-tabs.cl-tabs {
+            border-bottom: 1px solid var(--border-soft);
             margin-bottom: 14px;
+            box-shadow: none;               /* theme adds a bottom shadow on the host */
         }
-        .cl-tab {
-            background: none; border: none; cursor: pointer;
+        vaadin-tabs.cl-tabs vaadin-tab {
+            flex: 0 0 auto;                 /* undo the theme's flex:1 stretch */
+            min-width: 0;                   /* undo min-width:56px */
             font-family: inherit; font-size: 14px; font-weight: 600;
-            color: var(--text-muted); padding: 10px 16px;
-            border-bottom: 2px solid transparent; margin-bottom: -1px;
+            color: var(--text-muted);
+            padding: 10px 16px;
             display: inline-flex; align-items: center; gap: 8px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
         }
-        .cl-tab:hover { color: var(--text-strong); }
-        .cl-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+        /* Suppress the theme's own selected indicator; ours is the border-bottom. */
+        vaadin-tabs.cl-tabs vaadin-tab::before,
+        vaadin-tabs.cl-tabs vaadin-tab::after { display: none; }
+        vaadin-tabs.cl-tabs vaadin-tab:hover { color: var(--text-strong); }
+        vaadin-tabs.cl-tabs vaadin-tab[selected] {
+            color: var(--brand);
+            border-bottom-color: var(--brand);
+        }
 
         /* Panel flexes to fill the remaining fixed body height and scrolls
            internally, so tab content — however tall or short — never changes the
@@ -4224,6 +4463,15 @@
             Evaluation Users
         </button>
         <div class="topbar-title-block">
+            <!-- Back — DS tertiary button with a left chevron, immediately left of
+                 the page title. Distinct from #topbarBackBtn above, which is the
+                 conditional "named destination" crumb shown only when we arrive
+                 with a known ?from= param; this one is always present. -->
+            <vaadin-button theme="tertiary" class="topbar-back-tertiary" id="topbarBackTertiary"
+                    aria-label="Back">
+                <i class="fa-solid fa-chevron-left" slot="prefix"></i>
+                Back
+            </vaadin-button>
             <h1 class="topbar-title">Evaluation Form</h1>
             <!-- Share-status pill — hidden until the form is shared, then revealed
                  (blue) by setSharedState(). Sits in the sticky topbar so it stays
@@ -4231,6 +4479,11 @@
             <span class="topbar-share-pill shared" id="topbarSharedStatus" aria-live="polite" hidden>
                 <i class="fa-solid fa-circle-check"></i>
                 <span class="topbar-share-text">Shared</span>
+            </span>
+            <!-- Deleted status pill — revealed by setDeletedState(). -->
+            <span class="topbar-deleted-pill" id="topbarDeletedStatus" aria-live="polite" hidden>
+                <i class="fa-solid fa-trash"></i>
+                <span>Deleted</span>
             </span>
         </div>
     </div>
@@ -4345,6 +4598,24 @@
             </template>
         </div>
     </div>
+</div>
+
+<!-- Deleted-state banner. A deleted evaluation stays viewable and restorable, so
+     rather than removing the record this flags it unmissably and makes Restore the
+     primary action. Sticky under the topbar so the flag never scrolls out of view.
+     Revealed by setDeletedState(); hidden again by restoreForm(). -->
+<div class="deleted-banner" id="deletedBanner" role="status" hidden>
+    <span class="deleted-banner-icon" aria-hidden="true"><i class="fa-solid fa-trash"></i></span>
+    <span class="deleted-banner-text">
+        <span class="deleted-banner-title">This evaluation is deleted</span>
+        <span class="deleted-banner-sub">It's read-only. Restore it to continue editing.</span>
+    </span>
+    <span class="deleted-banner-actions">
+        <vaadin-button theme="primary" id="restoreFormBtn">
+            <i class="fa-solid fa-rotate-right" slot="prefix"></i>
+            Restore
+        </vaadin-button>
+    </span>
 </div>
 
 <!-- Copy Form dialog — the Vector design-system dialog (vaadin-dialog). Its
@@ -4477,30 +4748,9 @@
 </template>
 <template id="shareDialogBody">
     <div class="share-modal-body">
-        <p class="share-modal-intro">Sharing gives the following people access to this evaluation:</p>
-        <ul class="share-party-list">
-            <li class="share-party">
-                <span class="share-party-avatar" style="--p-accent:var(--lumo-primary-color);"><i class="fa-solid fa-clipboard-user"></i></span>
-                <span class="share-party-meta">
-                    <span class="share-party-name">Vincent Martinez</span>
-                    <span class="share-party-role">Evaluator</span>
-                </span>
-            </li>
-            <li class="share-party">
-                <span class="share-party-avatar" style="--p-accent:var(--notice-text);"><i class="fa-solid fa-user"></i></span>
-                <span class="share-party-meta">
-                    <span class="share-party-name">Austin Smith</span>
-                    <span class="share-party-role">Evaluee</span>
-                </span>
-            </li>
-            <li class="share-party">
-                <span class="share-party-avatar" style="--p-accent:#6d28d9;"><i class="fa-solid fa-user-tie"></i></span>
-                <span class="share-party-meta">
-                    <span class="share-party-name">Dana Whitfield</span>
-                    <span class="share-party-role">Reviewer / Supervisor</span>
-                </span>
-            </li>
-        </ul>
+        <!-- No named-user list and no role breakdown: recipients aren't fetched at
+             share time, so the modal states the rule rather than enumerating people. -->
+        <p class="share-modal-intro">This will grant access to all users with the appropriate permissions.</p>
         <div class="share-modal-warning">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span><strong>This can't be undone.</strong> Once shared, access is permanent — it cannot be revoked.</span>
@@ -4679,14 +4929,13 @@
         </div>
 
         <!-- Tabs -->
-        <div class="cl-tabs" role="tablist">
-            <button type="button" class="cl-tab active" data-cl-tab="edits" role="tab">
-                <i class="fa-solid fa-pen"></i> Edits
-            </button>
-            <button type="button" class="cl-tab" data-cl-tab="access" role="tab">
-                <i class="fa-solid fa-eye"></i> Access
-            </button>
-        </div>
+        <!-- vaadin-tabs owns the tablist/tab roles and selection, so no role= or
+             .active class here. Order matters: the handler maps tab INDEX to a
+             panel (0 = Edits, 1 = Access). -->
+        <vaadin-tabs class="cl-tabs" selected="0">
+            <vaadin-tab data-cl-tab="edits"><i class="fa-solid fa-pen"></i> Edits</vaadin-tab>
+            <vaadin-tab data-cl-tab="access"><i class="fa-solid fa-eye"></i> Access</vaadin-tab>
+        </vaadin-tabs>
 
         <!-- Panels -->
         <div class="cl-panel" id="clPanelEdits" role="tabpanel"></div>
@@ -4789,7 +5038,6 @@
                  topbar's Save stays the page's single primary CTA. -->
             <div class="form-actions" id="formActions">
                 <div class="form-actions-group">
-                    <span class="form-actions-label">Bulk actions</span>
                     <vaadin-button theme="secondary" id="passAllBtn">
                         Pass all
                     </vaadin-button>
@@ -4802,25 +5050,26 @@
 
                 <!-- Privacy: On = visible only to the author until shared. Plain
                      buttons rather than vwc-toggle-button-group, which behaves
-                     additively outside a form context. -->
+                     additively outside a form context.
+                     Off is first and is the default. No icons and no hint text —
+                     the On/Off labels carry the meaning on their own. Privacy
+                     stays toggleable after the form is shared. -->
                 <div class="form-actions-group">
                     <span class="form-actions-label" id="privacyLabel">Privacy</span>
                     <div class="privacy-toggle" role="radiogroup" aria-labelledby="privacyLabel">
-                        <button type="button" class="privacy-opt active" data-privacy="on" role="radio" aria-checked="true">
-                            <i class="fa-solid fa-lock"></i> On
+                        <button type="button" class="privacy-opt active" data-privacy="off" role="radio" aria-checked="true">
+                            Off
                         </button>
-                        <button type="button" class="privacy-opt" data-privacy="off" role="radio" aria-checked="false">
-                            <i class="fa-solid fa-lock-open"></i> Off
+                        <button type="button" class="privacy-opt" data-privacy="on" role="radio" aria-checked="false">
+                            On
                         </button>
                     </div>
-                    <span class="privacy-hint" id="privacyHint">Visible only to you until shared</span>
                 </div>
 
                 <!-- Share — right-aligned, still irreversible and still gated by
                      the confirmation modal, which flips the form to "Shared". -->
                 <div class="form-actions-share">
-                    <vaadin-button theme="secondary" id="shareFormBtn">
-                        <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share
+                    <vaadin-button theme="secondary" id="shareFormBtn"> Share
                     </vaadin-button>
                 </div>
             </div>
@@ -5038,8 +5287,10 @@
                 <!-- Reuses the question-level Add Tags search dropdown + chips -->
                 <div class="attach-tags" id="attachTags">
                     <div class="q-actionbar-wrap">
-                        <vaadin-button theme="secondary" class="attach-add-tags-btn" id="attachAddTagsBtn" aria-haspopup="true" aria-expanded="false">
-                            <i class="fa-solid fa-tag" slot="prefix"></i> Add Tags
+                        <!-- Leading tag glyph removed with the other secondary-button
+                             icons; the caret stays because it's a dropdown
+                             affordance, not decoration. -->
+                        <vaadin-button theme="secondary" class="attach-add-tags-btn" id="attachAddTagsBtn" aria-haspopup="true" aria-expanded="false">Add Tags
                             <i class="fa-solid fa-caret-down" slot="suffix"></i>
                         </vaadin-button>
                         <!-- vaadin-popover: renders in a top-level overlay, which
@@ -5094,6 +5345,17 @@
         <button class="proto-btn danger" id="protoClearBtn" type="button">
             <i class="fa-solid fa-trash"></i>
             Clear all
+        </button>
+    </div>
+    <!-- Deleted-state toggle: the real entry point is ⋯ → Delete, but that
+         requires the form to be "created" first, so this exposes the state
+         directly for review. -->
+    <div class="proto-btn-row">
+        <button class="proto-btn" id="protoDeletedBtn" type="button">
+            <!-- fa-trash-restore, not fa-trash-can-arrow-up (Pro-only on this
+                 Free-CDN page — it would render as an invisible glyph). -->
+            <i class="fa-solid fa-trash-restore"></i>
+            Toggle deleted state
         </button>
     </div>
 </div>
@@ -5705,8 +5967,7 @@ function actionBarHtml(extrasId) {
             <!-- Button row: Add Tags + Add attachment, side by side -->
             <div class="q-actionbar-actions">
                 <div class="q-actionbar-wrap">
-                    <vaadin-button theme="secondary" class="q-add-tags-btn" id="addTagsBtn-${extrasId}" aria-haspopup="true" aria-expanded="false">
-                        <i class="fa-solid fa-tag" slot="prefix"></i> Add Tags
+                    <vaadin-button theme="secondary" class="q-add-tags-btn" id="addTagsBtn-${extrasId}" aria-haspopup="true" aria-expanded="false">Add Tags
                         <i class="fa-solid fa-caret-down" slot="suffix"></i>
                     </vaadin-button>
                     <!-- Add Tags dropdown is a vaadin-popover (search + checkable
@@ -5717,8 +5978,7 @@ function actionBarHtml(extrasId) {
                 </div>
 
                 <div class="q-actionbar-wrap">
-                    <vaadin-button theme="secondary" class="q-add-attachment" aria-haspopup="true" aria-expanded="false">
-                        <i class="fa-solid fa-paperclip" slot="prefix"></i> Add attachment
+                    <vaadin-button theme="secondary" class="q-add-attachment" aria-haspopup="true" aria-expanded="false"> Add attachment
                     </vaadin-button>
                     <!-- Same file/Google Drive source menu as the video step -->
                     <div class="q-video-upload-menu q-attach-menu" role="menu" hidden>
@@ -5952,12 +6212,46 @@ function renderFormList() {
         detailsHtml: `<p>Combined date + time picker.</p>`
     });
 
+    // ── Paired timer: Start … questions … Stop ──
+    // Both halves share timerId 'timer-1', so the two readouts are one clock.
+    // The questions in between are the point of the split: the evaluator starts
+    // the clock, works through them, then stops it at the end.
     items.push({
-        type: 'timer',
+        type: 'timer-start',
+        timerId: 'timer-1',
         divided: true,
         layout: 'under',
-        title: 'Timer',
-        detailsHtml: `<p>Live-counting timer the evaluator starts and pauses. Captures elapsed time at submit.</p>`
+        title: 'Timer — Start',
+        detailsHtml: `<p>Starts the observation clock. Both timer steps run as one clock, so starting here also starts the end timer.</p>`
+    });
+
+    items.push({
+        type: 'choose-one',
+        divided: true,
+        layout: 'under',
+        title: 'Observation focus',
+        detailsHtml: `<p>Recorded while the timer runs — an example of a question sitting between the start and end timers.</p>`,
+        name: 'timed-focus',
+        choices: ['Whole-group instruction', 'Small-group work', 'Independent practice']
+    });
+
+    items.push({
+        type: 'text-entry',
+        variant: 'multi',
+        divided: true,
+        layout: 'under',
+        title: 'Notes during the timed segment',
+        detailsHtml: `<p>Another in-between question. The clock keeps running while these are answered.</p>`,
+        placeholder: 'What did you observe during this segment?'
+    });
+
+    items.push({
+        type: 'timer-stop',
+        timerId: 'timer-1',
+        divided: true,
+        layout: 'under',
+        title: 'Timer — End',
+        detailsHtml: `<p>Stops the observation clock (and the start timer with it). After stopping, the elapsed time can be overridden with a custom result.</p>`
     });
 
     items.push({
@@ -6115,10 +6409,16 @@ function renderFormList() {
             const block = btn.closest('.sig-block');
             const isLocking = block.dataset.locking === 'true';
             const isDraw = block.dataset.draw === 'true';
+            // All three signature flows offer to share the evaluation on signing
+            // (when it isn't already shared) — signing is the moment the record is
+            // released, so the opt-in belongs in the confirmation, not a separate step.
             if (isDraw) {
                 // Non-locking, draw-your-own signature: open the canvas modal.
                 showSignaturePad({
-                    onApply: (dataUrl) => applySignature(block, { ink: dataUrl })
+                    onApply: (dataUrl, padRoot) => {
+                        applySignature(block, { ink: dataUrl });
+                        applyShareOnSign(padRoot);
+                    }
                 });
             } else if (isLocking) {
                 showValidationModal({
@@ -6126,14 +6426,27 @@ function renderFormList() {
                     title: 'Sign and lock?',
                     bodyHtml: `
                         <p>Signing here will <strong>lock the form from further edits</strong>. Once signed, ratings, responses, and other answers in this form can no longer be changed.</p>
-                        <p style="margin-bottom:0;">Make sure all responses are complete and accurate before continuing.</p>
+                        <p>Make sure all responses are complete and accurate before continuing.</p>
+                        ${shareOnSignHtml()}
                     `,
                     confirmLabel: 'Sign and lock',
                     cancelLabel: 'Cancel',
-                    onConfirm: () => applySignature(block)
+                    onConfirm: (bodyRoot) => { applySignature(block); applyShareOnSign(bodyRoot); }
                 });
             } else {
-                applySignature(block);
+                // Non-locking, type-to-sign. Previously signed with NO confirmation;
+                // it needs one now so the share opt-in has somewhere to live.
+                showValidationModal({
+                    tone: 'warn',
+                    title: 'Add your signature?',
+                    bodyHtml: `
+                        <p>Your name and the current date will be recorded on this step. This signature <strong>does not lock the form</strong> — you can clear it and sign again.</p>
+                        ${shareOnSignHtml()}
+                    `,
+                    confirmLabel: 'Sign',
+                    cancelLabel: 'Cancel',
+                    onConfirm: (bodyRoot) => { applySignature(block); applyShareOnSign(bodyRoot); }
+                });
             }
         });
     });
@@ -6151,6 +6464,9 @@ function renderFormList() {
 
     // Script steps — tagged-speaker conversational transcript
     formList.querySelectorAll('.q-script').forEach(wireScriptStep);
+
+    // Paired timers — every half sharing a timerId is driven by one clock.
+    formList.querySelectorAll('.q-timer').forEach(wireTimerStep);
 
     // Step action bars — Add tag / Add attachment (Rating, Text Entry)
     formList.querySelectorAll('.q-actionbar').forEach(wireActionBar);
@@ -6217,22 +6533,29 @@ function renderQuestion(item) {
                 </select>
             `);
         }
-        const opts = (item.choices || []).map(c => `
-            <label class="q-choice">
-                <input type="radio" name="${escapeHtml(item.name || ('co-' + Math.random()))}" value="${escapeHtml(c)}">
-                <span>${escapeHtml(c)}</span>
-            </label>
-        `).join('');
-        return wrapStandard(item, `<div class="q-choices">${opts}</div>`);
+        // vaadin-radio-group + vaadin-radio-button, matching the choose-any
+        // checkbox-group. The group owns the selection (single `value`) and the
+        // fieldset semantics, so the per-option `name` attribute is no longer
+        // needed. Per core CONTEXT.md, radio-group does NOT take theme="outlined".
+        const opts = (item.choices || []).map(c =>
+            `<vaadin-radio-button value="${escapeHtml(c)}" label="${escapeHtml(c)}"></vaadin-radio-button>`
+        ).join('');
+        return wrapStandard(item, `
+            <vaadin-radio-group class="q-choices" theme="vertical">${opts}</vaadin-radio-group>
+        `);
     }
     if (item.type === 'choose-any') {
-        const opts = (item.choices || []).map(c => `
-            <label class="q-choice">
-                <input type="checkbox" value="${escapeHtml(c)}">
-                <span>${escapeHtml(c)}</span>
-            </label>
-        `).join('');
-        return wrapStandard(item, `<div class="q-choices">${opts}</div>`);
+        // vaadin-checkbox-group + vaadin-checkbox, not native inputs. The group
+        // owns the selection as a single `value` array (rather than N loose
+        // checkboxes) and supplies the fieldset semantics. Per core CONTEXT.md,
+        // checkbox-group does NOT take theme="outlined" — that attribute is for
+        // text-input-style fields only.
+        const opts = (item.choices || []).map(c =>
+            `<vaadin-checkbox value="${escapeHtml(c)}" label="${escapeHtml(c)}"></vaadin-checkbox>`
+        ).join('');
+        return wrapStandard(item, `
+            <vaadin-checkbox-group class="q-choices" theme="vertical">${opts}</vaadin-checkbox-group>
+        `);
     }
     if (item.type === 'date') {
         return wrapStandard(item, `<vaadin-date-picker theme="outlined" placeholder="Pick a date"></vaadin-date-picker>`);
@@ -6243,13 +6566,50 @@ function renderQuestion(item) {
     if (item.type === 'datetime') {
         return wrapStandard(item, `<vaadin-date-time-picker theme="outlined"></vaadin-date-time-picker>`);
     }
-    if (item.type === 'timer') {
+    // Paired timer. `item.type` is 'timer-start' or 'timer-stop'; both halves share
+    // one clock via `item.timerId`, so questions can sit BETWEEN them and the two
+    // readouts always agree. Starting on either half starts both; stopping stops
+    // both. After stopping, the recorded time becomes editable.
+    if (item.type === 'timer-start' || item.type === 'timer-stop') {
+        const tid = item.timerId || 'timer-1';
+        const isStart = item.type === 'timer-start';
+        // Both halves get "Edit time" — the clock is shared, so a correction made
+        // on either one applies to both. Reset is gone: with edit available on both
+        // halves, zeroing is just Edit → 00:00:00, and a destructive Reset sitting
+        // next to Start invited mis-clicks.
+        const controls = isStart
+            ? `<vaadin-button theme="primary" data-timer-act="start">
+                   <i class="fa-solid fa-play" slot="prefix"></i>Start
+               </vaadin-button>
+               <vaadin-button theme="tertiary" data-timer-act="edit">
+                   <i class="fa-solid fa-pen" slot="prefix"></i>Edit time
+               </vaadin-button>`
+            : `<vaadin-button theme="secondary" data-timer-act="stop">Stop
+               </vaadin-button>
+               <vaadin-button theme="tertiary" data-timer-act="edit">
+                   <i class="fa-solid fa-pen" slot="prefix"></i>Edit time
+               </vaadin-button>`;
+        const hint = isStart
+            ? `Starting here also starts the <strong>end timer</strong> — answer the questions below, then stop it there. <strong>Edit time</strong> sets a custom result on both timers.`
+            : `Stopping here also stops the <strong>start timer</strong>. Once stopped you can <strong>Edit time</strong> to record a custom result.`;
         return wrapStandard(item, `
-            <div class="q-timer-readout">00:00:00</div>
-            <div class="q-timer-controls">
-                <vaadin-button theme="primary"><i class="fa-solid fa-play" style="margin-right:6px;"></i>Start</vaadin-button>
-                <vaadin-button theme="secondary"><i class="fa-solid fa-pause" style="margin-right:6px;"></i>Pause</vaadin-button>
-                <vaadin-button theme="tertiary"><i class="fa-solid fa-arrow-rotate-left" style="margin-right:6px;"></i>Reset</vaadin-button>
+            <div class="q-timer" data-timer-id="${escapeHtml(tid)}" data-timer-half="${isStart ? 'start' : 'stop'}">
+                <div class="q-timer-readout-row">
+                    <span class="q-timer-dot" aria-hidden="true"></span>
+                    <div class="q-timer-readout" aria-live="off">00:00:00</div>
+                </div>
+                <!-- Custom-result editor, revealed by "Edit time" after stopping -->
+                <div class="q-timer-edit">
+                    <vaadin-number-field theme="outlined" label="Hours" min="0" max="99" data-timer-unit="h"></vaadin-number-field>
+                    <span class="q-timer-edit-sep">:</span>
+                    <vaadin-number-field theme="outlined" label="Minutes" min="0" max="59" data-timer-unit="m"></vaadin-number-field>
+                    <span class="q-timer-edit-sep">:</span>
+                    <vaadin-number-field theme="outlined" label="Seconds" min="0" max="59" data-timer-unit="s"></vaadin-number-field>
+                    <vaadin-button theme="primary" data-timer-act="apply">Apply</vaadin-button>
+                    <vaadin-button theme="tertiary" data-timer-act="cancel-edit">Cancel</vaadin-button>
+                </div>
+                <div class="q-timer-controls">${controls}</div>
+                <div class="q-timer-hint">${hint}</div>
             </div>
         `, 'q-input');
     }
@@ -6268,7 +6628,6 @@ function renderQuestion(item) {
                     ${item.detailsHtml ? `<div class="q-details" style="margin-bottom:10px;">${item.detailsHtml}</div>` : ''}
                     <div class="sig-block" data-signer="${item.signer}" data-locking="${isLocking}" data-draw="${item.draw ? 'true' : 'false'}">
                         <vaadin-button theme="secondary" class="sig-sign-btn">
-                            <i class="fa-solid fa-signature" style="margin-right:6px;"></i>
                             Sign
                         </vaadin-button>
                         <div class="sig-signed">
@@ -6342,7 +6701,7 @@ function renderQuestion(item) {
                     <div class="q-script-log-head">
                         <span class="q-script-log-title">
                             <i class="fa-solid fa-comments"></i>
-                            Transcript (<span class="q-script-count">0</span>)
+                            Transcript
                         </span>
                         <span class="q-script-legend">${legend}</span>
                     </div>
@@ -6470,7 +6829,6 @@ function renderQuestion(item) {
                             </div>
                             <div class="q-video-attachment-meta">
                                 <div class="q-video-attachment-name">
-                                    <i class="fa-solid fa-film"></i>
                                     <span class="q-video-attachment-title">observation-recording.mp4</span>
                                 </div>
                                 <div class="q-video-attachment-sub">
@@ -6506,7 +6864,7 @@ function renderQuestion(item) {
                                     Annotations (<span class="q-video-summary-count">0</span>)
                                 </span>
                                 <button type="button" class="q-video-summary-open">
-                                    Review in panel <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    Review in panel
                                 </button>
                             </div>
                             <div class="q-video-summary-body">
@@ -7078,7 +7436,6 @@ function renderAssignDefaultsBlock() {
                     </vaadin-radio-group>
                 </div>
                 <vaadin-button theme="secondary" id="applyDefaultsBtn">
-                    <i class="fa-solid fa-arrows-rotate" style="margin-right:6px;"></i>
                     Re-apply defaults to all courses
                 </vaadin-button>
             </div>
@@ -7473,9 +7830,17 @@ function showValidationModal({ tone = 'warn', title, bodyHtml, confirmLabel = 'C
             </span>
             <h3 class="v-modal-title" id="vModalTitle">${title}</h3>`;
     };
+    // Body root is captured so the confirm handler can read form controls the
+    // caller embedded in bodyHtml (e.g. the share-on-sign checkbox) BEFORE the
+    // dialog closes and its DOM is torn down.
+    let bodyRoot = null;
     dialog.renderer = (root) => {
         if (root.firstChild) return;
         root.innerHTML = `<div class="v-modal-body">${bodyHtml}</div>`;
+        bodyRoot = root;
+        // If the caller embedded the share-on-sign opt-in, wire its warning
+        // banner. No-op when the markup isn't present.
+        wireShareOnSign(root);
     };
     dialog.footerRenderer = (root) => {
         if (root.firstChild) return;
@@ -7484,7 +7849,13 @@ function showValidationModal({ tone = 'warn', title, bodyHtml, confirmLabel = 'C
             ${onConfirm ? `<vaadin-button theme="primary" id="vModalConfirm">${confirmLabel}</vaadin-button>` : ''}`;
         root.querySelector('#vModalCancel').addEventListener('click', close);
         const confirmBtn = root.querySelector('#vModalConfirm');
-        if (confirmBtn) confirmBtn.addEventListener('click', () => { close(); onConfirm && onConfirm(); });
+        if (confirmBtn) confirmBtn.addEventListener('click', () => {
+            // Read the body BEFORE closing — onConfirm receives it so callers
+            // don't have to race the teardown.
+            const captured = bodyRoot;
+            close();
+            onConfirm && onConfirm(captured);
+        });
     };
     dialog.addEventListener('opened-changed', (e) => {
         if (e.detail.value) { ModalScrollLock.push(); }
@@ -7770,6 +8141,119 @@ function renderCustomTagChips(bar) {
 //     side; General notes render as a centered full-width aside). Shift+Enter
 //     inserts a newline. After saving, the composer RESETS (speaker + text
 //     cleared) so alternating T/S turns need no manual clearing.
+// ─── Paired timer steps (Start … questions … End) ───
+// One clock per `timerId`, shared by every half that references it. The two halves
+// are deliberately separated by questions in the form, so a single source of truth
+// is what keeps their readouts identical — each half only renders this state.
+// Shape: { [timerId]: { elapsed (seconds), running, tickId } }
+const formTimers = {};
+
+function timerState(tid) {
+    formTimers[tid] = formTimers[tid] || { elapsed: 0, running: false, tickId: null };
+    return formTimers[tid];
+}
+function formatTimerClock(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const h = String(Math.floor(s / 3600)).padStart(2, '0');
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const sec = String(s % 60).padStart(2, '0');
+    return `${h}:${m}:${sec}`;
+}
+// Repaint EVERY half of this timer — that's what keeps start/end in sync.
+function paintTimer(tid) {
+    const st = timerState(tid);
+    document.querySelectorAll(`.q-timer[data-timer-id="${tid}"]`).forEach(el => {
+        const readout = el.querySelector('.q-timer-readout');
+        if (readout) readout.textContent = formatTimerClock(st.elapsed);
+        el.classList.toggle('is-running', st.running);
+        // "Stopped" = not running but time was recorded; only then is Edit useful.
+        el.classList.toggle('is-stopped', !st.running && st.elapsed > 0);
+        // Start is pointless while running; Stop/Edit are pointless before there's
+        // anything to stop or edit. Disable rather than hide so the layout is stable.
+        const btn = (act) => el.querySelector(`[data-timer-act="${act}"]`);
+        if (btn('start')) btn('start').disabled = st.running;
+        if (btn('stop'))  btn('stop').disabled  = !st.running;
+        // Edit is available on BOTH halves; only meaningful once the clock has
+        // stopped with a value (mid-run edits would be overwritten by the tick).
+        if (btn('edit'))  btn('edit').disabled  = st.running || st.elapsed === 0;
+    });
+}
+function startTimer(tid) {
+    const st = timerState(tid);
+    if (st.running) return;
+    st.running = true;
+    // setInterval on a 1s tick is enough for a prototype readout.
+    st.tickId = setInterval(() => { st.elapsed += 1; paintTimer(tid); }, 1000);
+    paintTimer(tid);
+}
+function stopTimer(tid) {
+    const st = timerState(tid);
+    if (!st.running) return;
+    st.running = false;
+    if (st.tickId) { clearInterval(st.tickId); st.tickId = null; }
+    paintTimer(tid);
+}
+function resetTimer(tid) {
+    const st = timerState(tid);
+    stopTimer(tid);
+    st.elapsed = 0;
+    // Leaving edit mode too — there's no longer a result to edit.
+    document.querySelectorAll(`.q-timer[data-timer-id="${tid}"]`)
+        .forEach(el => el.classList.remove('is-editing'));
+    paintTimer(tid);
+}
+
+function wireTimerStep(el) {
+    const tid = el.dataset.timerId;
+    timerState(tid);
+
+    el.querySelectorAll('[data-timer-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const act = btn.dataset.timerAct;
+            if (act === 'start') { startTimer(tid); return; }
+            if (act === 'stop')  { stopTimer(tid);  return; }
+            // No 'reset' action — the button was removed; resetTimer() survives for
+            // the prototype's "Clear all", which still needs to zero every clock.
+            // ── Custom result editing (stop half only) ──
+            if (act === 'edit') {
+                const st = timerState(tid);
+                // Both halves can open the editor, but only ONE at a time — two
+                // open editors setting the same shared value is just confusing.
+                document.querySelectorAll(`.q-timer[data-timer-id="${tid}"]`)
+                    .forEach(other => other.classList.remove('is-editing'));
+                // Seed the fields from the recorded elapsed time.
+                const s = Math.max(0, Math.floor(st.elapsed));
+                const set = (u, v) => {
+                    const f = el.querySelector(`[data-timer-unit="${u}"]`);
+                    if (f) f.value = String(v);
+                };
+                set('h', Math.floor(s / 3600));
+                set('m', Math.floor((s % 3600) / 60));
+                set('s', s % 60);
+                el.classList.add('is-editing');
+                return;
+            }
+            if (act === 'cancel-edit') { el.classList.remove('is-editing'); return; }
+            if (act === 'apply') {
+                const num = (u) => {
+                    const f = el.querySelector(`[data-timer-unit="${u}"]`);
+                    const n = parseInt(f && f.value, 10);
+                    return Number.isFinite(n) && n > 0 ? n : 0;
+                };
+                const total = num('h') * 3600 + num('m') * 60 + num('s');
+                const st = timerState(tid);
+                stopTimer(tid);              // a custom result implies the clock is done
+                st.elapsed = total;
+                el.classList.remove('is-editing');
+                paintTimer(tid);             // repaints BOTH halves with the custom value
+                return;
+            }
+        });
+    });
+
+    paintTimer(tid);
+}
+
 // One message label chip. `removable` adds the × (only shown while editing).
 function labelChipHtml(tag, removable) {
     return `<span class="q-script-label">
@@ -8282,10 +8766,7 @@ function renderScriptLog(stepEl) {
     const editingId = stepEl.dataset.editingId || null;
     const replyingId = stepEl.dataset.replyingId || null;
     const body = stepEl.querySelector('.q-script-log-body');
-    const countEl = stepEl.querySelector('.q-script-count');
-    // Count top-level messages only — replies live under a parent and aren't
-    // separate transcript entries.
-    countEl.textContent = lines.length;
+    // No message count on the transcript label — messages aren't counted.
 
     if (!lines.length) {
         body.innerHTML = `<div class="q-script-empty">No notes yet — start typing below to build the transcript.</div>`;
@@ -8312,10 +8793,10 @@ function renderScriptLog(stepEl) {
                             <span class="q-script-reply-actions">
                                 <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-reply-del"
                                         id="scr-${r.id}-del" data-parent-id="${l.id}" data-reply-id="${r.id}"
-                                        aria-label="Delete reply">
+                                        aria-label="Delete comment">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </vaadin-button>
-                                <vaadin-tooltip for="scr-${r.id}-del" text="Delete reply" position="top"></vaadin-tooltip>
+                                <vaadin-tooltip for="scr-${r.id}-del" text="Delete comment" position="top"></vaadin-tooltip>
                             </span>
                         </div>
                         <div class="q-script-reply-text">${escapeHtml(r.text)}</div>
@@ -8327,9 +8808,9 @@ function renderScriptLog(stepEl) {
     const replyFormHtml = `
         <div class="q-script-reply-form">
             <vaadin-text-area theme="outlined" class="q-script-reply-input" rows="1"
-                placeholder="Write a reply…" aria-label="Write a reply"></vaadin-text-area>
+                placeholder="Write a comment…" aria-label="Write a comment"></vaadin-text-area>
             <vaadin-button theme="tertiary" class="q-script-edit-btn q-script-reply-cancel">Cancel</vaadin-button>
-            <vaadin-button theme="primary" class="q-script-edit-btn save q-script-reply-save">Reply</vaadin-button>
+            <vaadin-button theme="primary" class="q-script-edit-btn save q-script-reply-save">Comment</vaadin-button>
         </div>`;
 
     body.innerHTML = lines.map(l => {
@@ -8382,10 +8863,10 @@ function renderScriptLog(stepEl) {
                         <span class="q-script-time">${escapeHtml(l.time)}</span>
                         <span class="q-script-row-actions">
                             <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-row-reply"
-                                    id="scr-${l.id}-reply" data-row-id="${l.id}" aria-label="Reply to note">
+                                    id="scr-${l.id}-reply" data-row-id="${l.id}" aria-label="Comment on note">
                                 <i class="fa-solid fa-reply"></i>
                             </vaadin-button>
-                            <vaadin-tooltip for="scr-${l.id}-reply" text="Reply" position="top"></vaadin-tooltip>
+                            <vaadin-tooltip for="scr-${l.id}-reply" text="Comment" position="top"></vaadin-tooltip>
                             <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-row-edit"
                                     id="scr-${l.id}-edit" data-row-id="${l.id}" aria-label="Edit note">
                                 <i class="fa-solid fa-pen"></i>
@@ -8803,7 +9284,33 @@ function renderVideoNotes(root, videoId, seek, onChange) {
         list.innerHTML = `<li style="font-size:12px; color:var(--text-muted); padding:4px 2px;">No notes yet — pause the video and add one.</li>`;
         return;
     }
-    list.innerHTML = notes.map(n => `
+    // Which note (if any) is open for inline editing. Stored on the panel root so
+    // it survives the re-renders that playback/seek trigger.
+    const editingId = root.dataset.editingNoteId || null;
+
+    list.innerHTML = notes.map(n => {
+        const isEditing = n.id === editingId;
+        // Editing row: the timestamp chip stays (the moment is the anchor and isn't
+        // editable) and the text is swapped for a textarea + Save/Cancel.
+        if (isEditing) {
+            return `
+        <li class="q-video-note editing" data-note-id="${escapeHtml(n.id)}" data-t="${n.t}">
+            <span class="q-video-note-live" aria-hidden="true"></span>
+            <span class="q-video-note-seek" aria-hidden="true">
+                <i class="fa-solid fa-play"></i>${formatVideoTime(n.t)}
+            </span>
+            <div class="q-video-note-body">
+                <div class="q-video-note-edit-form">
+                    <textarea class="q-video-note-edit-input" aria-label="Edit annotation">${escapeHtml(n.text)}</textarea>
+                    <div class="q-video-note-edit-actions">
+                        <button type="button" class="q-video-note-edit-btn q-video-note-edit-cancel">Cancel</button>
+                        <button type="button" class="q-video-note-edit-btn save q-video-note-edit-save">Save</button>
+                    </div>
+                </div>
+            </div>
+        </li>`;
+        }
+        return `
         <li class="q-video-note" data-note-id="${escapeHtml(n.id)}" data-t="${n.t}" role="button" tabindex="0"
             title="Jump to ${formatVideoTime(n.t)}">
             <span class="q-video-note-live" aria-hidden="true"></span>
@@ -8814,21 +9321,72 @@ function renderVideoNotes(root, videoId, seek, onChange) {
                 <div class="q-video-note-text">${escapeHtml(n.text)}</div>
                 <div class="q-video-note-meta">Added ${escapeHtml(n.addedAt)}</div>
             </div>
-            <button type="button" class="q-video-note-delete" aria-label="Delete note" title="Delete note">
-                <i class="fa-solid fa-trash"></i>
-            </button>
-        </li>
-    `).join('');
+            <span class="q-video-note-actions">
+                <button type="button" class="q-video-note-edit" aria-label="Edit note" title="Edit note">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button type="button" class="q-video-note-delete" aria-label="Delete note" title="Delete note">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </span>
+        </li>`;
+    }).join('');
 
     // Clicking anywhere on the note (or its seek chip) jumps the playhead there.
-    list.querySelectorAll('.q-video-note').forEach(li => {
+    // The editing row is excluded — it's a form, not a seek target.
+    list.querySelectorAll('.q-video-note:not(.editing)').forEach(li => {
         const go = () => seek(parseFloat(li.dataset.t));
         li.addEventListener('click', (e) => {
-            if (e.target.closest('.q-video-note-delete')) return; // delete handled separately
+            // Action buttons handle themselves; don't also seek.
+            if (e.target.closest('.q-video-note-actions')) return;
             go();
         });
         li.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+        });
+    });
+    // ── Edit: open the inline form on this note ──
+    list.querySelectorAll('.q-video-note-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            root.dataset.editingNoteId = btn.closest('.q-video-note').dataset.noteId;
+            renderVideoNotes(root, videoId, seek, onChange);
+            const ta = list.querySelector('.q-video-note-edit-input');
+            if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+        });
+    });
+    const closeEdit = () => {
+        delete root.dataset.editingNoteId;
+        renderVideoNotes(root, videoId, seek, onChange);
+    };
+    list.querySelectorAll('.q-video-note-edit-cancel').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); closeEdit(); });
+    });
+    list.querySelectorAll('.q-video-note-edit-save').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const li = btn.closest('.q-video-note');
+            const ta = li.querySelector('.q-video-note-edit-input');
+            const text = (ta.value || '').trim();
+            if (!text) return;                 // don't allow emptying an annotation
+            const note = (videoNotes[videoId] || []).find(n => n.id === li.dataset.noteId);
+            if (note) note.text = text;
+            delete root.dataset.editingNoteId;
+            renderVideoNotes(root, videoId, seek, onChange);
+            if (onChange) onChange();          // refresh the step's summary column
+        });
+    });
+    // Enter saves (Shift+Enter = newline); Esc cancels.
+    list.querySelectorAll('.q-video-note-edit-input').forEach(ta => {
+        ta.addEventListener('click', (e) => e.stopPropagation());
+        ta.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                ta.closest('.q-video-note').querySelector('.q-video-note-edit-save').click();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeEdit();
+            }
         });
     });
     list.querySelectorAll('.q-video-note-delete').forEach(btn => {
@@ -8836,6 +9394,8 @@ function renderVideoNotes(root, videoId, seek, onChange) {
             e.stopPropagation();
             const id = btn.closest('.q-video-note').dataset.noteId;
             videoNotes[videoId] = videoNotes[videoId].filter(n => n.id !== id);
+            // If the deleted note was the one open for editing, close the form.
+            if (root.dataset.editingNoteId === id) delete root.dataset.editingNoteId;
             renderVideoNotes(root, videoId, seek, onChange);
             if (onChange) onChange();
         });
@@ -8852,17 +9412,23 @@ function updateActiveVideoNote(root, current) {
     notes.forEach((li, i) => {
         if (current + 0.001 >= parseFloat(li.dataset.t)) activeIdx = i;
     });
-    notes.forEach((li, i) => li.classList.toggle('active', i === activeIdx));
+    // Skip the row being edited: its playhead highlight would fight the edit
+    // form's own surface. (Only a class toggle, so it never destroys the form.)
+    notes.forEach((li, i) => li.classList.toggle(
+        'active', i === activeIdx && !li.classList.contains('editing')));
 }
 
 // ─── Draw-signature modal ───
 // Opens a canvas the user draws on with mouse/touch. Reuses the .v-modal
-// shell. Calls opts.onApply(dataUrl) with a trimmed PNG of the drawn ink.
+// shell. Calls opts.onApply(dataUrl, bodyRoot) with a trimmed PNG of the drawn ink
+// and the modal's body element (so the caller can read the share-on-sign opt-in).
 function showSignaturePad({ onApply }) {
     const dialog = document.createElement('vaadin-dialog');
     dialog.setAttribute('theme', 'v-dialog sig-dialog');
     document.body.appendChild(dialog);
     function close() { dialog.opened = false; }
+    // Captured so Apply can read the share-on-sign checkbox before teardown.
+    let padBodyRoot = null;
 
     dialog.headerRenderer = (root) => {
         if (root.firstChild) return;
@@ -8892,7 +9458,10 @@ function showSignaturePad({ onApply }) {
                     <span>Your drawn signature is applied to this step only.</span>
                     <button type="button" class="sig-pad-clear" id="sigPadClear">Clear</button>
                 </div>
+                ${shareOnSignHtml()}
             </div>`;
+        padBodyRoot = root;
+        wireShareOnSign(root);
         // Canvas sizing needs the element laid out; run after the overlay paints.
         requestAnimationFrame(setupPad);
     };
@@ -8976,8 +9545,12 @@ function showSignaturePad({ onApply }) {
     // vaadin-dialog. Apply exports the trimmed ink and closes.
     applyBtn.addEventListener('click', () => {
         if (!hasInk) return;
+        // Export the ink and capture the body root BEFORE closing — the dialog's
+        // DOM (including the share-on-sign checkbox) is torn down on close.
+        const ink = trimCanvas();
+        const captured = padBodyRoot;
         close();
-        onApply && onApply(trimCanvas());
+        onApply && onApply(ink, captured);
     });
 
     // Export just the inked region (with a little padding) as a PNG data URL so
@@ -9115,10 +9688,13 @@ document.getElementById('saveFormBtn').addEventListener('click', handleSaveDraft
             showValidationModal({
                 tone: 'error',
                 title: 'Delete this evaluation?',
-                bodyHtml: '<p style="margin-bottom:0;">This permanently deletes the evaluation and all of its content. This cannot be undone.</p>',
+                // Deleting is now RECOVERABLE — the record enters a deleted state
+                // that stays viewable and can be restored, so the copy no longer
+                // claims it's permanent.
+                bodyHtml: '<p style="margin-bottom:0;">This marks the evaluation as deleted and makes it read-only. It stays visible in the evaluation list with a Deleted status, and you can restore it later.</p>',
                 confirmLabel: 'Delete',
                 cancelLabel: 'Keep editing',
-                onConfirm: () => { window.location.href = (window.__returnHref || 'evaluation-users.html'); }
+                onConfirm: () => { setDeletedState(); }
             });
         });
 
@@ -9209,12 +9785,8 @@ function markFormCreated() {
     cluster.querySelector('#passAllBtn')?.addEventListener('click', passAll);
     cluster.querySelector('#clearAllBtn')?.addEventListener('click', clearAll);
 
-    // Privacy On/Off — segmented radio behavior.
-    const hint = document.getElementById('privacyHint');
-    const HINTS = {
-        on: 'Visible only to you until shared',
-        off: 'Visible to anyone with form access'
-    };
+    // Privacy On/Off — segmented radio behavior. Defaults to Off (first option).
+    // No hint text: the labels carry the meaning.
     cluster.querySelectorAll('.privacy-opt').forEach(opt => {
         opt.addEventListener('click', () => {
             if (opt.disabled || opt.classList.contains('active')) return;
@@ -9223,7 +9795,6 @@ function markFormCreated() {
                 o.classList.toggle('active', on);
                 o.setAttribute('aria-checked', on ? 'true' : 'false');
             });
-            if (hint) hint.textContent = HINTS[opt.dataset.privacy] || '';
             markFormCreated();
         });
     });
@@ -9265,7 +9836,117 @@ function markFormCreated() {
 // (full blue). Sharing is one-way, so the Share action is replaced by a static
 // "Shared" marker in the action cluster. Save stays the page's primary CTA
 // throughout (it never changes theme). A toast confirms the share.
+// ─── Deleted state ───
+// A deleted evaluation is NOT destroyed: it stays viewable, goes read-only, and
+// can be restored. Restore is the primary action in this state. Text must remain
+// selectable/copyable (it's an archive you read), so interaction is blocked by
+// intercepting mutating events rather than with `inert` or pointer-events:none —
+// both of those would also kill text selection. Same approach as the compare pane.
+let formDeleted = false;
+const DELETED_BLOCKED_EVENTS = ['click', 'keydown', 'keypress', 'input', 'change', 'beforeinput', 'paste', 'cut', 'drop'];
+const DELETED_NAV_KEYS = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown','Tab','Shift'];
+
+function deletedGuard(e) {
+    if (!formDeleted) return;
+    // Never block the banner's own controls — Restore has to work. It's the only
+    // action in this state (the topbar actions and the form action cluster are
+    // hidden by CSS), so there's nothing else to exempt.
+    if (e.target.closest && e.target.closest('#deletedBanner')) return;
+    if (e.type === 'keydown' || e.type === 'keypress') {
+        // Let copy/select-all and pure navigation through.
+        if (e.ctrlKey || e.metaKey || DELETED_NAV_KEYS.includes(e.key)) return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function setDeletedState() {
+    if (formDeleted) return;
+    formDeleted = true;
+    document.body.classList.add('is-deleted');
+    document.getElementById('topbarDeletedStatus')?.removeAttribute('hidden');
+    document.getElementById('deletedBanner')?.removeAttribute('hidden');
+    // Delete is a no-op once already deleted.
+    const del = document.getElementById('deleteFormItem');
+    if (del) del.disabled = true;
+    // Capture phase on the form region only — the topbar/banner stay usable.
+    const app = document.querySelector('.split-pane-primary .app') || document.querySelector('.app');
+    if (app) DELETED_BLOCKED_EVENTS.forEach(t => app.addEventListener(t, deletedGuard, true));
+    document.querySelector('.deleted-banner')?.scrollIntoView({ block: 'nearest' });
+    showToast('Evaluation deleted — you can restore it from the banner.', { tone: 'error' });
+}
+
+function restoreForm() {
+    if (!formDeleted) return;
+    formDeleted = false;
+    document.body.classList.remove('is-deleted');
+    document.getElementById('topbarDeletedStatus')?.setAttribute('hidden', '');
+    document.getElementById('deletedBanner')?.setAttribute('hidden', '');
+    const del = document.getElementById('deleteFormItem');
+    if (del) del.disabled = !formCreated;
+    const app = document.querySelector('.split-pane-primary .app') || document.querySelector('.app');
+    if (app) DELETED_BLOCKED_EVENTS.forEach(t => app.removeEventListener(t, deletedGuard, true));
+    showToast('Evaluation restored.', { tone: 'success' });
+}
+
+// ─── Share-on-signature ───
+// Signing is the natural moment to release the evaluation, so every signature
+// confirmation offers to share it — but only when it ISN'T already shared, since
+// sharing is irreversible and re-offering it would be noise.
+let formShared = false;
+
+// Markup for the opt-in checkbox, appended to a signature modal's body. Returns
+// '' when the form is already shared, so callers can concatenate unconditionally.
+function shareOnSignHtml() {
+    if (formShared) return '';
+    // Label only — the consequence is carried by the same .share-modal-warning
+    // banner the Share confirmation dialog uses, revealed only once the user opts
+    // IN. One consistent warning, and it only appears when it actually applies.
+    // Defaults to UNCHECKED: sharing is irreversible, so opting in is a deliberate
+    // act, never the path of least resistance.
+    // vaadin-checkbox (not a native input) — matches every other checkbox in this
+    // form. It supplies its own label, so no wrapping <label> is needed.
+    return `
+        <div class="sig-share-optin">
+            <vaadin-checkbox id="sigShareOptIn"
+                label="Share this evaluation when signed"></vaadin-checkbox>
+        </div>
+        <div class="share-modal-warning sig-share-warning" id="sigShareWarning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span><strong>This can't be undone.</strong> Once shared, access is permanent — it cannot be revoked.</span>
+        </div>`;
+}
+// Wire the opt-in checkbox to show/hide its warning banner. Called after a
+// signature modal renders (the markup comes from shareOnSignHtml above).
+function wireShareOnSign(rootEl) {
+    const box = (rootEl || document).querySelector('#sigShareOptIn');
+    const warn = (rootEl || document).querySelector('#sigShareWarning');
+    if (!box || !warn) return;
+    // vaadin-checkbox emits `checked-changed`; it also fires a native `change`
+    // from its inner input, but the DS event is the component's contract.
+    const sync = () => { warn.hidden = !box.checked; };
+    box.addEventListener('checked-changed', sync);
+    box.addEventListener('change', sync);
+    // The element may not have upgraded yet when this runs, so seed the banner
+    // from the attribute rather than the (possibly undefined) property.
+    warn.hidden = !box.hasAttribute('checked');
+}
+// Read the checkbox out of a just-closed modal and apply it. Called from the
+// confirm handler; safe to call when the checkbox wasn't rendered.
+function applyShareOnSign(rootEl) {
+    if (formShared) return;
+    const box = (rootEl || document).querySelector('#sigShareOptIn');
+    if (!box) return;
+    // Prefer the upgraded property; fall back to the attribute if the component
+    // hasn't upgraded (the modal can be confirmed before Vaadin finishes).
+    const checked = (typeof box.checked === 'boolean') ? box.checked : box.hasAttribute('checked');
+    if (checked) setSharedState();
+}
+
 function setSharedState() {
+    // Idempotent, and an early return keeps a second call from re-toasting.
+    if (formShared) return;
+    formShared = true;
     document.getElementById('topbarSharedStatus')?.removeAttribute('hidden');
 
     // The action cluster carries the shared signal now (no header banner): tint
@@ -9278,15 +9959,10 @@ function setSharedState() {
             '<span class="form-actions-shared-mark" aria-live="polite">' +
             '<i class="fa-solid fa-circle-check"></i> Shared</span>';
     }
-    // Privacy is moot once shared — the parties already have access.
-    const privacy = cluster?.querySelector('.privacy-toggle');
-    if (privacy) {
-        privacy.querySelectorAll('.privacy-opt').forEach(b => { b.disabled = true; });
-        privacy.classList.add('is-locked');
-        const hint = document.getElementById('privacyHint');
-        if (hint) hint.textContent = 'Locked — the form has been shared';
-    }
-    showToast('Evaluation shared with the evaluator, evaluee, and reviewer.');
+    // Privacy stays toggleable after sharing — sharing grants access, but the
+    // author can still change the privacy setting afterward, so this control is
+    // deliberately NOT disabled or locked here.
+    showToast('Evaluation shared with everyone assigned to it.');
 }
 
 // ─── Copy Form dialog (Vector design-system vaadin-dialog) ───
@@ -9946,16 +10622,15 @@ function setSharedState() {
             return;
         }
 
-        const caret = (key) => sortKey === key
-            ? (sortDir === 'asc' ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short')
-            : 'fa-sort';
+        // vwc-sortable-header renders its own asc/desc indicator, so there is no
+        // caret() helper any more — the component's `sortDirection` drives it.
+        const sortDirFor = (key) => (sortKey === key ? sortDir : null);
 
         host.innerHTML = `
             <div class="qs-results-head">
                 <span class="qs-results-count"><strong>${rows.length}</strong> result${rows.length === 1 ? '' : 's'}</span>
                 <div class="qs-copy-wrap">
-                    <vaadin-button theme="secondary" id="qsCopyBtn">
-                        <i class="fa-solid fa-clipboard" slot="prefix"></i> Copy to Clipboard
+                    <vaadin-button theme="secondary" id="qsCopyBtn"> Copy to Clipboard
                     </vaadin-button>
                     <div class="qs-copy-menu" id="qsCopyMenu" hidden>
                         <p class="qs-copy-menu-title">Fields to copy</p>
@@ -9978,8 +10653,15 @@ function setSharedState() {
                             <th class="qs-th-select"><input type="checkbox" id="qsSelectAll" aria-label="Select all rows"></th>
                             <th>Form / Question / Author / Educator</th>
                             <th>Content</th>
-                            <th><button type="button" class="qs-sort-btn" data-sort="tags">Tags <i class="fa-solid ${caret('tags')}"></i></button></th>
-                            <th><button type="button" class="qs-sort-btn" data-sort="date">Date <i class="fa-solid ${caret('date')}"></i></button></th>
+                            <!-- vwc-sortable-header must sit INSIDE the <th>: it walks up to
+                                 the parent cell to set aria-sort, and its single-sort mode
+                                 clears sibling headers in the same row.
+                                 NB: no backticks in this comment — it is inside a JS
+                                 template literal, where a backtick ends the string. -->
+                            <th><vwc-sortable-header class="qs-sort-btn" data-sort="tags"
+                                    accessible-name="Sort by tags">Tags</vwc-sortable-header></th>
+                            <th><vwc-sortable-header class="qs-sort-btn" data-sort="date"
+                                    accessible-name="Sort by date">Date</vwc-sortable-header></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -10013,12 +10695,22 @@ function setSharedState() {
             });
         });
 
-        // Sortable headers (Tags / Date).
-        host.querySelectorAll('.qs-sort-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const key = btn.dataset.sort;
-                if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-                else { sortKey = key; sortDir = 'asc'; }
+        // Sortable headers (Tags / Date) — vwc-sortable-header.
+        // `sortDirection` is a PROPERTY ('asc' | 'desc' | null), so seed it after
+        // render rather than as an attribute (an empty attribute is not null).
+        // The component cycles null → asc → desc → null and emits
+        // sort-direction-change with detail.direction; the old button toggled only
+        // asc ⇄ desc, so the null step is new — treat it as "back to default sort".
+        host.querySelectorAll('vwc-sortable-header.qs-sort-btn').forEach(hdr => {
+            hdr.sortDirection = sortDirFor(hdr.dataset.sort);
+            hdr.addEventListener('sort-direction-change', (e) => {
+                const dir = e.detail && e.detail.direction;
+                if (!dir) {
+                    // Cycled back to unsorted — fall back to the default (date desc).
+                    sortKey = 'date'; sortDir = 'desc';
+                } else {
+                    sortKey = hdr.dataset.sort; sortDir = dir;
+                }
                 renderResults();
             });
         });
@@ -10350,15 +11042,23 @@ function setSharedState() {
         accessPanel.innerHTML = accessHtml;
 
         // Tab switching.
-        const tabs = root.querySelectorAll('.cl-tab');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.toggle('active', t === tab));
-                const which = tab.dataset.clTab;
+        // vaadin-tabs manages selection itself (and the aria-selected state), so we
+        // only react to `selected-changed` and map the index to a panel. Reading
+        // the tab's own data-cl-tab keeps the mapping tied to markup order rather
+        // than a hardcoded index.
+        const tabsEl = root.querySelector('vaadin-tabs.cl-tabs');
+        if (tabsEl) {
+            const showPanel = (which) => {
                 editsPanel.hidden = which !== 'edits';
                 accessPanel.hidden = which !== 'access';
+            };
+            tabsEl.addEventListener('selected-changed', (e) => {
+                const idx = (e.detail && typeof e.detail.value === 'number')
+                    ? e.detail.value : tabsEl.selected;
+                const tab = tabsEl.querySelectorAll('vaadin-tab')[idx];
+                showPanel((tab && tab.dataset.clTab) || 'edits');
             });
-        });
+        }
     }
 
     dialog.headerRenderer = (root) => {
@@ -11254,23 +11954,32 @@ function fillExampleQuestions() {
     };
     requestAnimationFrame(setVaadinValues);
 
-    // Plain-DOM controls can be set immediately.
-    // Choose One (radio) — pick the first option in each radio group
-    const radioGroups = new Set();
-    scope.querySelectorAll('.q-choices input[type="radio"]').forEach(r => {
-        if (radioGroups.has(r.name)) return;
-        radioGroups.add(r.name);
-        r.checked = true;
+    // Choose One (radio) — vaadin-radio-group: set the group's `value` (the DS way)
+    // rather than checking an individual input. Deferred a frame so the component
+    // has upgraded before `value` is assigned, same as the checkbox-group below.
+    requestAnimationFrame(() => {
+        scope.querySelectorAll('vaadin-radio-group.q-choices').forEach(group => {
+            const first = group.querySelector('vaadin-radio-button');
+            const v = first && first.getAttribute('value');
+            if (v) group.value = v;
+        });
     });
     // Choose One (dropdown) — select the first real option
     scope.querySelectorAll('select.q-dropdown').forEach(sel => {
         const opt = Array.from(sel.options).find(o => o.value);
         if (opt) sel.value = opt.value;
     });
-    // Choose Any (checkboxes) — check the first two
-    scope.querySelectorAll('.q-choices').forEach(group => {
-        const boxes = group.querySelectorAll('input[type="checkbox"]');
-        boxes.forEach((b, i) => { if (i < 2) b.checked = true; });
+    // Choose Any — vaadin-checkbox-group: set the group's `value` array (the DS
+    // way) rather than poking individual boxes. Deferred with the other Vaadin
+    // writes below, since the group must upgrade before `value` sticks.
+    requestAnimationFrame(() => {
+        scope.querySelectorAll('vaadin-checkbox-group.q-choices').forEach(group => {
+            const vals = Array.from(group.querySelectorAll('vaadin-checkbox'))
+                .map(b => b.getAttribute('value'))
+                .filter(Boolean)
+                .slice(0, 2);              // first two options, as before
+            group.value = vals;
+        });
     });
 
     // Pass/Fail — select Pass
@@ -11299,6 +12008,9 @@ function protoClearAll() {
     Object.keys(ratings).forEach(k => delete ratings[k]);
     Object.keys(videoNotes).forEach(k => { videoNotes[k] = []; });
     Object.keys(scriptLogs).forEach(k => { scriptLogs[k] = []; });
+    // Stop and zero every paired timer — a running interval would otherwise keep
+    // ticking straight through a "Clear all".
+    Object.keys(formTimers).forEach(resetTimer);
     Object.keys(stepExtras).forEach(k => delete stepExtras[k]);
     Object.keys(attachmentsById).forEach(k => delete attachmentsById[k]);
     recommendationsGenerated = false;
@@ -11308,6 +12020,13 @@ function protoClearAll() {
     updateProgress();
     renderRecommendations();
 }
+// Restore is the primary action while deleted.
+document.getElementById('restoreFormBtn')?.addEventListener('click', restoreForm);
+// Prototype-only toggle for reviewing the deleted state without first creating
+// the form (⋯ → Delete is the real entry point).
+document.getElementById('protoDeletedBtn')?.addEventListener('click', () => {
+    formDeleted ? restoreForm() : setDeletedState();
+});
 document.getElementById('protoFillBtn').addEventListener('click', protoFillAll);
 document.getElementById('protoClearBtn').addEventListener('click', () => {
     if (confirm('Clear all ratings and notes?')) protoClearAll();
@@ -11445,6 +12164,12 @@ renderRecommendations();
                 backBtn.addEventListener('click', () => { window.location.href = returnHref; });
             }
         }
+        // The always-visible Back button beside the title routes to the same place
+        // (the resolved ?from= destination, else the users list).
+        const backTertiary = document.getElementById('topbarBackTertiary');
+        if (backTertiary) {
+            backTertiary.addEventListener('click', () => { window.location.href = returnHref; });
+        }
         // Cancel (pre-creation escape hatch) always routes back.
         const cancelBtn = document.getElementById('cancelFormBtn');
         if (cancelBtn) {
@@ -11485,6 +12210,12 @@ renderRecommendations();
         update();
     })();
 </script>
+
+<!-- Design Toolbox — review/handoff tooling ONLY, not part of the product.
+     Supplies the pin-and-comment widget and the 🗺 Flow Map. Four levels up
+     because this file lives at products/<Product>/<feature>/verN/index.html.
+     DEVELOPERS: do not ship this script tag. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
 
 </body>
 </html>

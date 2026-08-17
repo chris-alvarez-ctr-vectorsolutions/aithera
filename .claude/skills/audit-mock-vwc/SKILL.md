@@ -1,5 +1,5 @@
 ---
-name: assess-mock-components
+name: audit-mock-vwc
 description: >
   Use to audit an EXISTING interactive HTML mock/prototype in this ux-mockups
   repo against the Vector Web Components library and confirm correct theme-token
@@ -12,14 +12,22 @@ description: >
   component-assessment.md report; it never edits the mock.
 ---
 
-# Assess Mock Components
+# Audit Mock VWC
 
 Audit an already-built HTML prototype in this repo against the Vector Web
 Components (VWC/Vaadin) library, and confirm its colors map to Vector theme
-tokens. The output is a `component-assessment.md` report that tells the UX team
-two things: **(1)** are the components used correctly and is anything reinvented
-in custom HTML/CSS that VWC already provides, and **(2)** do the hardcoded color
-values match semantic theme tokens.
+tokens. The report tells the UX team two things: **(1)** are the components used
+correctly and is anything reinvented in custom HTML/CSS that VWC already
+provides, and **(2)** do the hardcoded color values match semantic theme tokens.
+
+**Where the report lands depends on who invoked this skill** (see Step 6):
+
+- **Standalone (default)** — write a `component-assessment.md` file in the mock's
+  own folder.
+- **Embedded** — when the `ux-wrapup` skill invokes this audit, it does **not**
+  write a separate file; instead it produces the report body for `ux-wrapup` to
+  fold into `mock-definition.md` as its Component confirmation section, so the
+  handoff is one consolidated brief.
 
 This skill **reads and reports — it never edits the mock.** The team uses the
 report to decide what to change.
@@ -163,8 +171,29 @@ spec.
 
 ## Step 6 — Write the report
 
-Write to `component-assessment.md` **in the mock's own folder** (next to its
-`index.html`). Follow this structure:
+The report's **content** is identical in both cases; only where it goes differs.
+Choose the output target by how this skill was invoked:
+
+**Standalone (default) — write a file.** Write to `component-assessment.md`
+**in the mock's own folder** (next to its `index.html`), using the full
+structure below (H1 title, Source/Date block, all sections).
+
+**Embedded — invoked by `ux-wrapup` (it requested embedded output).** Do **not**
+write `component-assessment.md`. Instead produce the report body for `ux-wrapup`
+to place inside `mock-definition.md`, adapted to nest under that file's
+`## Component confirmation` heading:
+
+- **Drop** the `# Component Assessment` title and the `## <Mock> — <path>` /
+  `**Source**` / `**Date**` / `**Assessed against**` block — `mock-definition.md`
+  already carries that header info.
+- **Demote** every `## ` subsection below (Design Element Coverage, Design Token
+  Usage, Gap Component Requirements, Summary) to `### ` so they sit under the
+  Component confirmation section.
+- Lead with the Summary counts and key takeaways, then the full coverage and
+  token tables inline. `ux-wrapup` writes the actual file; you just hand it this
+  content.
+
+Standalone file structure:
 
 ```markdown
 # Component Assessment
@@ -206,11 +235,6 @@ Write to `component-assessment.md` **in the mock's own folder** (next to its
 **Key takeaways:** 3–5 bullets — what's solid, the most notable underused
 components, and any gaps worth a new component.
 ```
-
-A fully worked example of this exact format lives at
-`products/Evaluations/manage-events/component-assessment.md` — read it if you
-want a concrete reference for depth and tone. (It was generated against an older
-library version, so its specific gaps may now be covered — that's expected.)
 
 ## Common mistakes
 
