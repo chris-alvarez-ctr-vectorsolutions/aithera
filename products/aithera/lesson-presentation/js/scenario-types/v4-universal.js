@@ -101,6 +101,13 @@
       ph.debrief.transition = obj(ph.debrief.transition);
       if (typeof ph.debrief.follow_up_turns !== 'number') ph.debrief.follow_up_turns = 0;
     });
+
+    /* Fill the mechanical fields POC V4 requires that no LXD deck provides —
+       button labels and the model-facing purposes. Done here rather than at
+       export so the author SEES the default and can overwrite it; nothing
+       authored is ever replaced. Teaching prose (final_word) is untouched. */
+    const v4 = V4();
+    if (v4 && typeof v4.applyHouseDefaults === 'function') v4.applyHouseDefaults(d);
     return d;
   }
 
@@ -884,6 +891,24 @@
     report.warnings.forEach((w) => {
       add('warn', sectionFor(w.path), friendly(w.path) + ' — ' + w.message, '');
     });
+
+    /* Soft defaults: filled so the scenario loads, but a story label reads far
+       better on the button that leads INTO the next scene. Measured across the 11
+       POC V4 scenarios, 17 of 29 of those labels are distinct and diegetic
+       ("Sit down with Bianca", "Take the follow-up call") — that variation is
+       design, unlike the practice button where 23 of 29 are the same string. */
+    const houseDebrief = obj(v4.HOUSE).debriefButton;
+    if (houseDebrief) {
+      arr(obj(doc.content).phases).forEach(function (ph, i) {
+        const label = str(obj(obj(obj(ph).debrief).transition).button_label);
+        if (label !== houseDebrief) return;
+        add('info', 'phases', 'Step ' + (i + 1) + '\'s button into the next step is still the '
+          + 'house default "' + label + '".',
+          'This one leads into the next scene, so a label naming what happens next reads better — '
+          + '"Sit down with Bianca", "Take the follow-up call". (The practice button is different: '
+          + '23 of 29 POC V4 scenarios use the same string there, so its default is fine.)');
+      });
+    }
 
     /* A headline, so the author knows where they stand without counting rows. */
     if (!report.errors.length) {

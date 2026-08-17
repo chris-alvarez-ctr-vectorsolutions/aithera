@@ -89,6 +89,31 @@
       consequence: 'stripped, every practice reads as determinate — the coach delivers a '
         + 'verdict on reflection beats instead of deepening the learner\'s own answer.',
     },
+
+    /* --- content safety triggers -------------------------------------------
+       UX Universal runs content-triggered safety floors — CRISIS_FLOOR
+       (js/scenario.js), the branching threat floor, the ensemble minor floor.
+       Each is switched on by an authored flag on the scenario. POC V4 has no
+       field for any of them, so on a v4 document the floors never arm: the
+       scenario plays without them and nothing says so. That is the one gap in
+       this set that is a SILENT SAFETY REGRESSION rather than a lost nicety,
+       which is why the flags are declared here rather than waiting for the
+       format conversation. They are content classification, not prompt text. */
+    'content.elevated_stakes': {
+      type: 'boolean',
+      because: 'POC V4 has no field to declare that a scenario runs at elevated stakes.',
+      consequence: 'stripped, the crisis floor never arms on this scenario.',
+    },
+    'content.involves_minors': {
+      type: 'boolean',
+      because: 'POC V4 has no field to declare that a scenario involves minors.',
+      consequence: 'stripped, the minor-protection floor never arms on this scenario.',
+    },
+    'content.threat_content': {
+      type: 'boolean',
+      because: 'POC V4 has no field to declare that a scenario carries threat content.',
+      consequence: 'stripped, the threat floor never arms on this scenario.',
+    },
   };
 
   /* Set per validate() call; read by extension field validators. */
@@ -97,6 +122,10 @@
   function extensionField(key, opts) {
     const spec = EXTENSIONS[key];
     return function (rep, path, value) {
+      if (spec.type === 'boolean' && typeof value !== 'boolean') {
+        rep.err(path, 'must be true or false (got ' + describe(value) + ').');
+        return;
+      }
       if (spec.values && spec.values.indexOf(value) < 0) {
         rep.err(path, 'must be one of: ' + spec.values.join(', ') + ' (got ' + JSON.stringify(value) + ').');
         return;
@@ -712,6 +741,10 @@
         phases: function (r, pp, vv) { checkArray(r, pp, vv, { minItems: 1 }, vPhase); },
         closing: vClosing,
         landing_cta_label: str1,
+        /* UX Universal extensions — see EXTENSIONS above. */
+        elevated_stakes: extensionField('content.elevated_stakes'),
+        involves_minors: extensionField('content.involves_minors'),
+        threat_content: extensionField('content.threat_content'),
       },
     });
   }
@@ -972,6 +1005,95 @@
   }
 
   /* ==========================================================================
+     House defaults — for fields POC V4 requires that no LXD deck provides
+     --------------------------------------------------------------------------
+     Rather than have an author invent content to satisfy a schema slot (which is
+     how the POC V4 Marshall scenario ended up with an invented compliance claim),
+     fill the mechanical ones centrally, once.
+
+     WHICH FIELDS QUALIFY was decided by measuring the 11 POC V4 scenarios, and
+     the two transition slots turned out to behave differently:
+
+       practice → debrief   29 authored, 23 of them the identical string
+                            "Talk it through". This button always does the same
+                            thing — leave the attempt, hear the coach. The six
+                            exceptions include "Talk it out": the same words
+                            rearranged. That is drift, so it gets a default.
+
+       debrief → next step  29 authored, 17 distinct. "Sit down with Bianca",
+                            "Take the follow-up call", "Find Marco" — these name
+                            what happens next, so the label carries story. A
+                            default here would flatten real design, so it gets a
+                            neutral fallback and the report flags it as worth
+                            replacing.
+
+     WHAT IS DELIBERATELY NOT DEFAULTED: `final_word`, and any debrief teaching
+     content. A final word is the last thing a learner hears, authored prose in
+     the coach's voice — inventing it is precisely the failure this function
+     exists to avoid. It stays a real authoring task.
+     ====================================================================== */
+
+  const HOUSE = {
+    practiceButton: 'Talk it through',      // the POC V4 convention, 23 of 29
+    debriefButton: 'Continue',              // neutral fallback; a story label is better
+    openingButton: 'Begin practicing',      // the POC V4 convention, 2 of 5
+  };
+
+  /* A model-facing purpose is not learner-visible prose, so a formulaic sentence
+     is honest rather than invented — it states the unit's structural job, which
+     is all the field is read for. */
+  const PURPOSE_BY_MODE = {
+    coach_inquiry: 'The learner reasons this through with the coach before any teaching lands.',
+    roleplay: 'The learner acts in the scene and lives with how it reacts.',
+    observe_react: 'The learner studies the exhibit and is credited for what they spot.',
+  };
+
+  function applyHouseDefaults(doc) {
+    const filled = [];
+    const soft = [];        // defaulted, but a human should probably replace it
+    if (!isPlainObject(doc) || !isPlainObject(doc.content)) return { doc: doc, filled: filled, soft: soft };
+    const content = doc.content;
+    const set = (target, key, value, path, isSoft) => {
+      if (!isPlainObject(target)) return;
+      if (asStr(target[key])) return;               // never overwrite authored text
+      target[key] = value;
+      filled.push({ path: path, value: value });
+      if (isSoft) soft.push({ path: path, value: value });
+    };
+
+    const opening = content.opening;
+    if (isPlainObject(opening)) {
+      if (!isPlainObject(opening.transition)) opening.transition = {};
+      set(opening.transition, 'button_label', HOUSE.openingButton, 'content.opening.transition.button_label');
+    }
+
+    (Array.isArray(content.phases) ? content.phases : []).forEach(function (ph, i) {
+      if (!isPlainObject(ph)) return;
+      const at = 'content.phases[' + i + ']';
+      const practice = isPlainObject(ph.practice) ? ph.practice : null;
+      if (practice) {
+        if (!isPlainObject(practice.transition)) practice.transition = {};
+        set(practice.transition, 'button_label', HOUSE.practiceButton, at + '.practice.transition.button_label');
+        set(practice, 'purpose', PURPOSE_BY_MODE[practice.mode] || PURPOSE_BY_MODE.coach_inquiry,
+          at + '.practice.purpose');
+      }
+      const label = asStr(ph.label);
+      set(ph, 'purpose', label
+        ? 'This segment of the story covers "' + label + '".'
+        : 'A segment of the story the learner works through in order.', at + '.purpose');
+
+      const debrief = isPlainObject(ph.debrief) ? ph.debrief : null;
+      if (debrief) {
+        if (!isPlainObject(debrief.transition)) debrief.transition = {};
+        /* soft: this one leads into the next scene, so a story label beats "Continue". */
+        set(debrief.transition, 'button_label', HOUSE.debriefButton,
+          at + '.debrief.transition.button_label', true);
+      }
+    });
+    return { doc: doc, filled: filled, soft: soft };
+  }
+
+  /* ==========================================================================
      stripExtensions — produce a copy the POC V4 loader will accept
      Returns the cleaned document plus exactly what was removed and what that
      costs, so a handover is never silently lossy.
@@ -982,6 +1104,14 @@
     const removed = [];
     const content = isPlainObject(copy) ? copy.content : null;
     if (!isPlainObject(content)) return { doc: copy, removed: removed };
+
+    Object.keys(EXTENSIONS).forEach(function (key) {
+      if (key.indexOf('content.') !== 0) return;
+      const field = key.slice('content.'.length);
+      if (!(field in content)) return;
+      removed.push({ path: key, value: content[field], consequence: EXTENSIONS[key].consequence });
+      delete content[field];
+    });
 
     (Array.isArray(content.phases) ? content.phases : []).forEach(function (ph, i) {
       const practice = isPlainObject(ph) ? ph.practice : null;
@@ -1011,6 +1141,8 @@
     deriveCap: deriveCap,
     unitSequence: unitSequence,
     stripExtensions: stripExtensions,
+    applyHouseDefaults: applyHouseDefaults,
+    HOUSE: HOUSE,
   };
 }));
 
