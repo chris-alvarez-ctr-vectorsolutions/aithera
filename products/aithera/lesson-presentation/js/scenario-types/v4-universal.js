@@ -47,6 +47,20 @@
   const TPL = () => window.ScenarioV4Templates || null;
   const MIX = () => window.AitheraMixArc || null;
 
+  /* Keys the STUDIO SHELL writes onto every draft (ensureCtx() in
+     studio-shell.js: contextSource, previousLO — its platform-level context
+     plumbing). They are legitimate on the working draft, but they are not POC V4
+     fields: left in place they show up as bogus validation errors (the mystery
+     "+2" in the lints count) and would ride into a dev export and fail the
+     loader. So validation and export run on a copy with them removed; normalize
+     leaves them alone because the shell reads them off the live draft. */
+  const SHELL_KEYS = ['contextSource', 'previousLO'];
+  function withoutShellKeys(doc) {
+    const d = clone(doc);
+    SHELL_KEYS.forEach(function (k) { delete d[k]; });
+    return d;
+  }
+
   /* ---- the document skeleton -------------------------------------------
      normalize() must make a half-built draft SAFE TO RENDER without inventing
      content. Every container the editor binds into has to exist; not one string
@@ -68,26 +82,27 @@
     if (!Array.isArray(ir.component_groups)) ir.component_groups = [];
     if (typeof ir.summary !== 'string') ir.summary = '';
 
-    /* Optional blocks: create the container only when the author has started
-       one, so an untouched scenario does not ship empty arrays — POC V4 treats an
-       empty tone_guidelines as invalid rather than absent. */
-    if (c.scene_world !== undefined) {
-      c.scene_world = obj(c.scene_world);
-      if (c.scene_world.canon !== undefined) {
-        c.scene_world.canon = obj(c.scene_world.canon);
-        if (!Array.isArray(c.scene_world.canon.facts)) c.scene_world.canon.facts = [];
-      }
-      if (c.scene_world.characters !== undefined && !Array.isArray(c.scene_world.characters)) {
-        c.scene_world.characters = [];
-      }
-    }
-    if (c.opening !== undefined) {
-      c.opening = obj(c.opening);
-      if (!Array.isArray(c.opening.opening_messages)) c.opening.opening_messages = [];
-      c.opening.exit = obj(c.opening.exit);
-      c.opening.exit.when = obj(c.opening.exit.when);
-      c.opening.transition = obj(c.opening.transition);
-    }
+    /* UI SCAFFOLDING — every container a section binds into MUST exist, or the
+       shell's rowsBlock crashes on undefined and the whole page's form build
+       dies with it (found the hard way: the Debrief & Close page rendered zero
+       cards because source_references was absent). POC V4 treats an empty
+       optional array as INVALID rather than absent — that conflict is resolved
+       by prune() below, which strips empty scaffolding before anything
+       validates, exports, or plays. normalize scaffolds; prune unscaffolds. */
+    if (!Array.isArray(c.tone_guidelines)) c.tone_guidelines = [];
+    if (!Array.isArray(c.misconceptions)) c.misconceptions = [];
+    if (!Array.isArray(c.closing.ideal_response.source_references)) c.closing.ideal_response.source_references = [];
+    c.scene_world = obj(c.scene_world);
+    if (typeof c.scene_world.setting !== 'string') c.scene_world.setting = '';
+    c.scene_world.canon = obj(c.scene_world.canon);
+    if (!Array.isArray(c.scene_world.canon.facts)) c.scene_world.canon.facts = [];
+    if (!Array.isArray(c.scene_world.characters)) c.scene_world.characters = [];
+    c.opening = obj(c.opening);
+    if (typeof c.opening.id !== 'string' || !c.opening.id) c.opening.id = 'opening_reflection';
+    if (!Array.isArray(c.opening.opening_messages)) c.opening.opening_messages = [];
+    c.opening.exit = obj(c.opening.exit);
+    c.opening.exit.when = obj(c.opening.exit.when);
+    c.opening.transition = obj(c.opening.transition);
     arr(c.phases).forEach((p) => {
       const ph = obj(p);
       Object.keys(ph).forEach((k) => { if (k.indexOf('__') === 0) delete ph[k]; });
@@ -108,6 +123,114 @@
        authored is ever replaced. Teaching prose (final_word) is untouched. */
     const v4 = V4();
     if (v4 && typeof v4.applyHouseDefaults === 'function') v4.applyHouseDefaults(d);
+    return d;
+  }
+
+  /* prune — strip UI scaffolding so the document is honest POC V4 again.
+     The exact inverse of normalize's scaffolding: empty strings drop out of
+     string arrays; empty optional arrays drop entirely; an opening or scene
+     world that carries no authored text drops as a block. Runs on a COPY —
+     the live draft keeps its scaffolding for the editor to bind to. */
+  function prune(docIn) {
+    const d = clone(docIn);
+    const c = obj(d.content);
+    const cleanStrings = (a) => arr(a).map(str).filter((x) => x.trim());
+    const dropIfEmpty = (holder, key, val) => {
+      if (Array.isArray(val) ? !val.length : !val) delete holder[key];
+      else holder[key] = val;
+    };
+
+    dropIfEmpty(c, 'tone_guidelines', cleanStrings(c.tone_guidelines));
+    dropIfEmpty(c, 'misconceptions', arr(c.misconceptions).filter((m) =>
+      str(obj(m).misconception).trim() || str(obj(m).redirect).trim()));
+    c.teaching_points = arr(c.teaching_points).map((t) => {
+      const topic = obj(t);
+      return { topic: str(topic.topic), points: cleanStrings(topic.points) };
+    }).filter((t) => t.topic.trim() || t.points.length);
+
+    const ir = obj(obj(c.closing).ideal_response);
+    if (ir) {
+      dropIfEmpty(ir, 'source_references', cleanStrings(ir.source_references));
+      ir.component_groups = arr(ir.component_groups).map((g) => {
+        const group = obj(g);
+        const out = { components: cleanStrings(group.components) };
+        if (str(group.title).trim()) out.title = str(group.title);
+        return out;
+      }).filter((g) => g.components.length);
+      if (!ir.component_groups.length) delete ir.component_groups;
+    }
+
+    const sw = obj(c.scene_world);
+    const characters = arr(sw.characters).filter((ch) => str(obj(ch).name).trim() || str(obj(ch).id).trim());
+    const facts = cleanStrings(obj(sw.canon).facts);
+    const world = {};
+    if (str(sw.setting).trim()) world.setting = str(sw.setting);
+    if (facts.length) world.canon = { facts: facts };
+    if (characters.length) world.characters = characters;
+    if (Object.keys(world).length) c.scene_world = world; else delete c.scene_world;
+
+    const op = obj(c.opening);
+    const opMessages = arr(op.opening_messages).filter((m) => str(obj(m).text).trim());
+    const openingAuthored = opMessages.length || str(op.label).trim() || str(op.purpose).trim();
+    if (openingAuthored) {
+      op.opening_messages = opMessages;
+      if (!obj(obj(op.exit).when).turns) { op.exit = obj(op.exit); op.exit.when = { turns: 2 }; }
+    } else {
+      delete c.opening;
+    }
+
+    arr(c.phases).forEach((p) => {
+      const ph = obj(p);
+      const db = obj(ph.debrief);
+      if (Array.isArray(db.key_points)) db.key_points = cleanStrings(db.key_points);
+      const it = obj(obj(ph.practice).interaction);
+      ['opening_messages', 'brief'].forEach((k) => {
+        if (Array.isArray(it[k])) {
+          it[k] = it[k].filter((m) => str(obj(m).text).trim());
+          if (!it[k].length) delete it[k];
+        }
+      });
+      if (Array.isArray(it.carryover)) {
+        it.carryover = it.carryover.filter((cv) => str(obj(cv).from).trim());
+        if (!it.carryover.length) delete it.carryover;
+      }
+      if (Array.isArray(it.rubric)) {
+        it.rubric = it.rubric.filter((r) => str(obj(r).id).trim() || str(obj(r).name).trim());
+        if (!it.rubric.length) delete it.rubric;
+      }
+      const ex = obj(it.exhibit);
+      if (Array.isArray(ex.facts)) {
+        ex.facts = cleanStrings(ex.facts);
+        if (!ex.facts.length) delete ex.facts;
+      }
+      /* empty optional strings drop everywhere — "": is a minLength failure,
+         absent is legal */
+      const dropEmptyStr = (holder, keys) => keys.forEach((k) => {
+        if (k in holder && !str(holder[k]).trim() && holder[k] !== null) delete holder[k];
+      });
+      dropEmptyStr(it, ['setting', 'character_id', 'emotion_hint', 'partner_label', 'input_placeholder', 'jot_placeholder']);
+      dropEmptyStr(db, ['final_word', 'purpose', 'partner_label', 'requirement', 'input_placeholder']);
+      dropEmptyStr(obj(db.transition), ['text']);
+      dropEmptyStr(obj(ph.practice), ['label']);
+      dropEmptyStr(obj(obj(ph.practice).exit), ['final_word']);
+      dropEmptyStr(obj(obj(obj(ph.practice).exit).when), ['requirement']);
+      dropEmptyStr(obj(obj(ph.practice).transition), ['text']);
+      const probe = obj(db.probe);
+      if ('probe' in db && !str(probe.text).trim()) delete db.probe;
+      const media = obj(it.media);
+      if ('media' in it && !str(media.src).trim()) delete it.media;
+      const exhibit = obj(it.exhibit);
+      if ('exhibit' in it && !str(exhibit.src).trim()) delete it.exhibit;
+    });
+    if ('narrative' in c && !str(c.narrative).trim()) delete c.narrative;
+    if ('landing_cta_label' in c && !str(c.landing_cta_label).trim()) delete c.landing_cta_label;
+    const opn = obj(c.opening);
+    if (c.opening) {
+      ['label', 'purpose', 'input_placeholder'].forEach((k) => {
+        if (k in opn && !str(opn[k]).trim() && k !== 'label' && k !== 'purpose') delete opn[k];
+      });
+      if ('final_word' in obj(opn.exit) && !str(obj(opn.exit).final_word).trim()) delete opn.exit.final_word;
+    }
     return d;
   }
 
@@ -164,7 +287,9 @@
   function toRuntime(s) {
     const rt = V4RT();
     if (!rt) throw new Error('scenario-v4-runtime.js must load before v4-universal.js');
-    return rt.compile(normalize(s));
+    /* prune, so UI scaffolding never plays — an opening with no authored text
+       must not produce an empty reflection screen. */
+    return rt.compile(prune(withoutShellKeys(normalize(s))));
   }
 
   /* The observe rubric, as a prompt section. mix-arc's compile knows nothing
@@ -203,7 +328,7 @@
     const mix = MIX();
     if (!rt || !mix) return 'Cannot compile: scenario-v4-runtime.js and mix-arc.js must load first.';
     try {
-      const runtime = rt.compile(normalize(s));
+      const runtime = rt.compile(prune(withoutShellKeys(normalize(s))));
       return mix.compile(runtime) + rubricBlock(runtime);
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
@@ -276,6 +401,9 @@
       lead: 'The audit-defensible close. Shipped verbatim to every learner on every path.',
       bridgeTitle: 'External authorities only',
       bridge: '<b>Source references</b> take a regulation or standard (an OSHA clause, Title VII) — never an internal course or slide id, which means nothing outside the course.' },
+
+    { id: 'handoff', group: 'reference', icon: 'fa-file-export', title: 'Dev handoff',
+      lead: 'Export this scenario as a POC V4 content document (.lo.json) the production engine loads.' },
 
     { id: 'guardrails', group: 'reference', icon: 'fa-lock', title: 'System guardrails', locked: true,
       lead: 'The locked prompt sections the engine owns. Readable, not editable.' },
@@ -395,6 +523,10 @@
         tf(`content.closing.ideal_response.source_references.${i}`, 'External authority', {
           helper: 'A regulation, standard or statute — e.g. "29 CFR 1910.1200" or "Title VII". Never an internal course id.' }),
       ), 'Add reference', () => ''));
+    }
+
+    if (sec.id === 'handoff') {
+      box.append(buildHandoffPanel(H));
     }
 
     if (sec.id === 'guardrails') {
@@ -890,6 +1022,79 @@
     return d;
   }
 
+  /* =======================================================================
+     Dev handoff — export a document the POC V4 loader accepts
+     -----------------------------------------------------------------------
+     The shell's generic Export button dumps the raw draft, WITH our declared
+     extensions (answer_shape, the safety flags) — which the POC V4 loader
+     rejects outright (additionalProperties:false). This panel is the honest
+     path: strip the extensions, revalidate in strict mode (their loader,
+     exactly), say plainly what stripping cost, and only then hand over a file.
+     A handoff is never silently lossy.
+     ==================================================================== */
+  function buildHandoffPanel(H) {
+    const { guidance, esc } = H;
+    const v4 = V4();
+    const wrap = document.createElement('div');
+    if (!v4) { wrap.textContent = 'scenario-v4.js did not load.'; return wrap; }
+
+    const draft = prune(withoutShellKeys(normalize(H.getScenario ? H.getScenario() : {})));
+    const stripped = v4.stripExtensions(draft);
+    const strict = v4.validate(stripped.doc, { strict: true });
+
+    /* status card */
+    const ok = strict.errors.length === 0;
+    const status = document.createElement('div');
+    status.style.cssText = 'border:1px solid var(--line);border-left:4px solid '
+      + (ok ? 'var(--ok,#2e8b57)' : 'var(--danger,#c92626)') + ';border-radius:8px;padding:12px 14px;margin:10px 0';
+    status.innerHTML = ok
+      ? '<b>Loads in the production engine.</b> Strict validation — the POC V4 loader\'s own rules — passes. '
+        + 'Derived conversation cap: ' + strict.cap + ' learner turns.'
+      : '<b>' + strict.errors.length + ' field(s) still block the load.</b> These are the same items the '
+        + 'lints panel lists per section — authoring work, not export mechanics.';
+    wrap.append(status);
+
+    /* what stripping costs — shown whether or not it blocks */
+    if (stripped.removed.length) {
+      const byConsequence = {};
+      stripped.removed.forEach(function (r) {
+        (byConsequence[r.consequence] = byConsequence[r.consequence] || []).push(r.path);
+      });
+      wrap.append(guidance('What this export removes, and what that costs', 'fa-scissors',
+        '<p>The production format has not adopted our extension fields yet, so the export strips them. '
+        + 'Nothing else is changed.</p><ul>'
+        + Object.keys(byConsequence).map(function (c) {
+          return '<li><b>' + byConsequence[c].length + ' field(s):</b> ' + esc(c) + '</li>';
+        }).join('') + '</ul>'));
+    }
+
+    /* the file itself */
+    const btn = document.createElement('vaadin-button');
+    btn.textContent = ok ? 'Download .lo.json for dev' : 'Download anyway (will not load)';
+    btn.setAttribute('theme', ok ? 'primary' : 'tertiary');
+    btn.addEventListener('click', function () {
+      const stem = slugify(str(stripped.doc.implementation_id) || str(obj(stripped.doc.content).title) || 'scenario');
+      const blob = new Blob([JSON.stringify(stripped.doc, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      /* The file stem IS the scenario_id in their service — their routing key. */
+      a.download = stem + '.lo.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    wrap.append(btn);
+
+    wrap.append(guidance('Why not the toolbar\'s Export JSON button?', 'fa-circle-question',
+      '<p>That button exports the <b>working draft</b> — extensions included — for round-tripping between '
+      + 'Studio users. This panel produces the <b>handoff artifact</b>: extensions stripped, strict-validated, '
+      + 'named the way their service routes it (the file stem is the scenario id).</p>'));
+    return wrap;
+  }
+
+  function slugify(s) {
+    return str(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'scenario';
+  }
+
   /* ---- lints: the POC V4 validator, surfaced live ----------------------
      This is what makes the unfilled fields workable instead of daunting: an LXD
      sees the exact field POC V4 would reject, while they type, with extensions
@@ -922,7 +1127,7 @@
       return L;
     }
 
-    const doc = normalize(s);
+    const doc = prune(withoutShellKeys(normalize(s)));
     const report = v4.validate(doc);
 
     report.errors.forEach((e) => {
