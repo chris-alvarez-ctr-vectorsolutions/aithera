@@ -1084,6 +1084,27 @@
     });
     wrap.append(btn);
 
+    /* The PROPOSED wire shape — extensions folded into must-ignore envelopes
+       rather than stripped. Fails the current loader by exactly one key
+       (`extensions`), which is the size of the schema change being requested;
+       this download is the working exhibit for that conversation. */
+    if (stripped.removed.length) {
+      const btn2 = document.createElement('vaadin-button');
+      btn2.textContent = 'Download proposal sample (extensions kept, in envelopes)';
+      btn2.setAttribute('theme', 'tertiary');
+      btn2.addEventListener('click', function () {
+        const folded = v4.foldExtensions(draft);
+        const stem = slugify(str(draft.implementation_id) || str(obj(draft.content).title) || 'scenario');
+        const blob = new Blob([JSON.stringify(folded.doc, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = stem + '.proposed.lo.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      wrap.append(btn2);
+    }
+
     wrap.append(guidance('Why not the toolbar\'s Export JSON button?', 'fa-circle-question',
       '<p>That button exports the <b>working draft</b> — extensions included — for round-tripping between '
       + 'Studio users. This panel produces the <b>handoff artifact</b>: extensions stripped, strict-validated, '

@@ -416,6 +416,39 @@ contract, and treat the interaction surface as pluggable the way the format's
 `oneOf` already treats the interaction shape. This also future-proofs their own
 growth rule: today it is true of their schema and false of their engine.
 
+### H. How extensions should work — the mechanism ask (Chris, 2026-08-17)
+
+A document can never make a player DO anything: fields declare, engines
+implement. So "their player treats extensions the way ours does" splits into two
+asks with very different costs, and bundling them is the failure mode — if
+LOADING `answer_shape` requires first IMPLEMENTING `answer_shape`, every
+extension becomes a blocking negotiation.
+
+**Ask 1 — must-ignore extension envelopes (a schema policy, one key).** Keep
+`additionalProperties:false` everywhere EXCEPT one sanctioned `extensions`
+container on `content` and on each `practice`, holding namespaced keys
+(`vector:answer_shape`), under the rule *an engine MUST load what it does not
+implement and MUST ignore it* (the xAPI/FHIR/HTTP-headers pattern). Their
+typo-catching discipline survives — `final_wrod` still fails loudly, because
+there is exactly one place vendor data may live. Measured on their own marshall
+with our 5 extension values authored: flat fields → 4 scattered rejections;
+folded into envelopes → rejections at exactly ONE key kind (`extensions`). That
+is the whole schema change. `ScenarioV4.foldExtensions()` emits this shape; the
+Dev handoff panel downloads it as `<id>.proposed.lo.json` — the working exhibit.
+
+**Ask 2 — per-extension behavioral contracts, our player as the reference
+implementation.** For each extension the registry (`EXTENSIONS` in
+`js/scenario-v4.js`) already carries *why it exists* and *what ignoring it
+costs*; the UX Universal player carries the testable behavior (the 988 crisis
+floor off `elevated_stakes`, hedge-vs-land off `answer_shape`). Adoption is then
+per-extension at their pace: the field loads today, behaves when implemented,
+and behaves THE SAME because the reference implementation is runnable.
+
+**Until Ask 1 lands:** the Dev handoff panel keeps both profiles — strip (loads
+today, losses stated) and fold (the proposal). Internally we author flat fields;
+folding is an export projection, so nothing restructures whichever way they
+decide.
+
 ### F. Smaller items
 
 - **The mandatory third tier.** Most of our beats author two; v4 requires three,

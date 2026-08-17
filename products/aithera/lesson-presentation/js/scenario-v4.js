@@ -1094,6 +1094,53 @@
   }
 
   /* ==========================================================================
+     foldExtensions — the PROPOSED wire shape: must-ignore extension envelopes
+     --------------------------------------------------------------------------
+     The ask to the POC V4 team (notes §7-H): keep additionalProperties:false
+     everywhere EXCEPT one sanctioned `extensions` container on `content` and on
+     each `practice`, holding namespaced keys (`vector:answer_shape`), under
+     must-ignore semantics — an engine MUST load what it does not implement and
+     MUST ignore it. Strictness keeps catching typos (there is exactly one place
+     vendor data may live); adoption stops being binary (load now, honor when
+     implemented); and each extension ships with a behavioral contract whose
+     reference implementation is the UX Universal player.
+
+     This function emits that shape so a WORKING SAMPLE can sit in front of the
+     dev team: same document, extensions folded instead of stripped. It fails
+     their loader today by exactly ONE kind of key — `extensions` — which is the
+     size of the schema change being requested.
+     ====================================================================== */
+
+  function foldExtensions(doc) {
+    const copy = JSON.parse(JSON.stringify(doc));
+    const folded = [];
+    const content = isPlainObject(copy) ? copy.content : null;
+    if (!isPlainObject(content)) return { doc: copy, folded: folded };
+
+    const fold = (holder, key, holderPath) => {
+      if (!(key in holder)) return;
+      holder.extensions = holder.extensions || {};
+      holder.extensions['vector:' + key] = holder[key];
+      delete holder[key];
+      folded.push(holderPath + '.' + key + ' → ' + holderPath + '.extensions["vector:' + key + '"]');
+    };
+
+    Object.keys(EXTENSIONS).forEach(function (spec) {
+      const field = spec.split('.')[1];
+      if (spec.indexOf('content.') === 0) fold(content, field, 'content');
+    });
+    (Array.isArray(content.phases) ? content.phases : []).forEach(function (ph, i) {
+      const practice = isPlainObject(ph) ? ph.practice : null;
+      if (!isPlainObject(practice)) return;
+      Object.keys(EXTENSIONS).forEach(function (spec) {
+        const field = spec.split('.')[1];
+        if (spec.indexOf('practice.') === 0) fold(practice, field, 'content.phases[' + i + '].practice');
+      });
+    });
+    return { doc: copy, folded: folded };
+  }
+
+  /* ==========================================================================
      stripExtensions — produce a copy the POC V4 loader will accept
      Returns the cleaned document plus exactly what was removed and what that
      costs, so a handover is never silently lossy.
@@ -1141,6 +1188,7 @@
     deriveCap: deriveCap,
     unitSequence: unitSequence,
     stripExtensions: stripExtensions,
+    foldExtensions: foldExtensions,
     applyHouseDefaults: applyHouseDefaults,
     HOUSE: HOUSE,
   };
