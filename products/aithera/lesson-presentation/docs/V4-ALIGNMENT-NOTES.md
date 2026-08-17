@@ -258,6 +258,14 @@ repo-root Font Awesome at `../../../../../assets/`.
 
 ## 7. Talking points for the dev team
 
+> **The presentable form of this section is
+> `scenario-simulator-dev-conversation-guide.html`** — every point as a card
+> with the ask / evidence / expected pushback / fallback, plus the goodwill
+> opener, the do-not-raise list, and the night-before checklist. The extensions
+> ask additionally has its own deep-dive page,
+> `scenario-simulator-extensions-proposal.html`. This section stays the raw
+> evidence record behind both.
+
 Ordered by what costs us most if it goes unaddressed. Each is evidence-backed;
 where the POC V4 repo documents the problem, it is quoted, because a point they
 already wrote down is far easier to agree on.
