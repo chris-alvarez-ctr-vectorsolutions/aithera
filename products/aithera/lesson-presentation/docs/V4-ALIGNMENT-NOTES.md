@@ -1,46 +1,44 @@
 # Scenario CML v4 alignment — decisions, gaps, and state
 
 Working notes for the retrofit that makes **POC V4** the authored source of truth
-for **UX Universal**, replacing its per-type shapes. Kept next to
-`SCENE-SWEEP-CONVERGENCE-PLAN.md` because it is the same kind of document: a
-plan you can pick up cold three weeks later.
+for **UX Universal**, replacing its per-type shapes. Companion to
+`SCENE-SWEEP-CONVERGENCE-PLAN.md`.
 
 **Status:** ALL FIVE STAGES BUILT AND VERIFIED (2026-08-17). `?type=v4-universal`
 plays POC V4 documents through the existing universal-player resolver; the Studio
-authors them; the prompt harness holds all invariants across the 7 types and all
-7 templates boot in the browser. What remains is not code: the §7 talking points
-with the dev team, the 64 genuine authoring fields, and the decision to flip v4
-to the DEFAULT source (gated on §7-A). Play it:
-`scenario-live.html?type=v4-universal&observe=text` · verify:
-`node prompt-diff.js` + `node regenerate-templates.js` (scratchpad).
-**Last updated:** 2026-08-17
+authors them; all 7 templates boot in the browser. Remaining: the §7 alignment
+items, the 64 authoring fields, and the decision to flip v4 to the default
+source (gated on §7-A). Play: `scenario-live.html?type=v4-universal&observe=text`
+· verify: `node prompt-diff.js` + `node regenerate-templates.js` (scratchpad).
+**Last updated:** 2026-08-17 — reconciled against the `scenario-simulator-poc`
+repo, including its `spec-alignment-audit.md`, `v4-migration-report.md`, and
+`sme-punch-list.md`.
 
 ### Naming
-
-Two systems, named rather than possessive, so it stays clear which is which:
 
 | Name | What it is |
 |---|---|
 | **POC V4** | Scenario CML v4 — the content format and engine in `VectorLearning/scenario-simulator-poc`. The format we are aligning to. |
-| **UX Universal** | Our prototype authoring + player stack in this repo: Writer Studio, `js/sim-player.js`, the eight scenario types, `scenario-live.html`. |
+| **UX Universal** | Our prototype stack: Writer Studio, `js/sim-player.js`, the eight scenario types, `scenario-live.html`. |
 
-Both are real systems with real constraints. Where they disagree, the notes say
-which one is better on the merits rather than which one is ours.
+Recommendations below are argued from consequences, not from which system a
+behavior came from.
 
 ---
 
-## 0. What v4 is, and the one fact that reframes everything
+## 0. What v4 is
 
-POC V4 is defined by four things in `VectorLearning/scenario-simulator-poc`:
+POC V4 is defined by:
 
 - `app/lo_schema/lo_cml_v4.schema.json` — the enforced schema
-- `docs/authoring/scenario-cml-spec.md` — the 860-line spec (field meanings, §9 rules)
+- `docs/authoring/scenario-cml-spec.md` — the 860-line spec
 - `docs/authoring/scenario-authoring-guide.md` — craft guidance, drives Studio copy
-- `app/content/*.lo.json` — **11 real authored scenarios**, the best fixtures we have
+- `app/content/*.lo.json` — 11 authored scenarios. Per `GENERATED-DEMOS.md`,
+  5 of the 11 are generated demos, not SME-approved — useful as fixtures, weak
+  as precedent for authoring norms.
 
-**There is no scenario type field in v4.** §1.1 says it outright: what a scenario
-*is* emerges from its parts. A scenario is `phases[]`, and each phase's `practice`
-picks one `mode`:
+**There is no scenario type field.** A scenario is `phases[]`; each phase's
+`practice` picks one `mode`:
 
 | POC V4 mode | What the learner does | UX Universal beat kind |
 |---|---|---|
@@ -48,13 +46,17 @@ picks one `mode`:
 | `roleplay` | acts in a scene | `roleplay` |
 | `observe_react` | studies an exhibit, says what's wrong | `observe` |
 
-Every phase pairs one `practice` (learner acts) with one `debrief` (coach teaches
-against that attempt). That is the whole model.
+Every phase pairs one `practice` (learner acts) with one `debrief` (coach
+teaches against that attempt).
 
-### Independent convergence — why we trust the mapping
+**Both stacks normalize at the loader.** POC V4's `lo_v4.py` normalizes v4 into
+the internal shape its v3 builder consumes; `load_lo_file` dispatches on
+`schema_version` (2.2 / 3.0 / 4.x). UX Universal's `scenario-v4-runtime.js`
+compiles v4 into the runtime shape `sim-player.js` already reads. This shared
+precedent frames §7-H.
 
-The converter's output matched the POC V4 team's independent ports of the same
-decks, with neither side comparing notes:
+**Independent convergence.** The converter's output matched the POC V4 team's
+independent ports of the same decks, with neither side comparing notes:
 
 | UX Universal type | Ported modes | POC V4 counterpart | |
 |---|---|---|---|
@@ -66,34 +68,19 @@ decks, with neither side comparing notes:
 
 ---
 
-## 1. Scenario types survive as TEMPLATES (not as a declared field)
+## 1. Scenario types survive as templates
 
-**This is the important consequence of "no type field", and it is good news.**
+Removing the type declaration moves the eight types from the format to the
+authoring layer. A type is now a starting template — a v4 skeleton with the
+modes, budgets and structure that make that shape work. Adding a roleplay step
+to a coach-led template is adding a phase, not a type migration; templates
+change without engine edits, since nothing downstream reads a type; mixed
+shapes stop being a special case. Spec: *"A 'tutor scenario' is a description,
+not a declaration."*
 
-POC V4 removing the type declaration does **not** remove the eight UX Universal
-types. It moves them from the *format* to the *authoring* layer:
-
-- **Before:** `type` was a field in the file, and it bound the scenario to one
-  engine path. Changing a scenario's type meant switching engines.
-- **After:** a type is a **starting template** — a v4 skeleton with the modes,
-  turn budgets and structure that make that shape work. The LXD picks one and
-  customizes freely.
-
-Why this is an upgrade for LXDs:
-
-- A template is a starting point, not a contract. Adding a roleplay step to a
-  coach-led template is now just adding a phase, not a type migration.
-- Templates can be added, edited and retired without touching the engine or the
-  format, because nothing downstream reads a type.
-- Mixed shapes stop being a special case. Today "mix & match" is its own type;
-  in v4 every scenario is already mixed-capable.
-
-The spec agrees: *"A 'tutor scenario' is a description, not a declaration."*
-
-Where this lands in the build: **Writer Studio keeps its type gallery** as a
-template picker (Stage 4). `scenario-v4-runtime.js` still derives a *label* from
-the modes present (`derivedTypeLabel`) purely so our chrome has something to
-display — it constrains nothing.
+Writer Studio keeps its type gallery as a template picker (Stage 4).
+`derivedTypeLabel` in `scenario-v4-runtime.js` labels the chrome from the modes
+present; it constrains nothing.
 
 ---
 
@@ -101,37 +88,34 @@ display — it constrains nothing.
 
 | # | Decision | Rationale |
 |---|---|---|
-| D1 | **Full retrofit**: v4 becomes the authored source; Studio and player both move | Chris, 2026-08-17. Alternative (export adapter only) would emit hollow or invalid files, since the converter cannot invent a rubric or a purpose. |
+| D1 | **Full retrofit**: v4 becomes the authored source; Studio and player both move | Chris, 2026-08-17. An export adapter alone would emit hollow or invalid files — the converter cannot invent a rubric or a purpose. |
 | D2 | **All authorable types**, including scene-sweep | Chris. scene-sweep's hotspots are the one native source that maps cleanly to a v4 observe rubric. |
-| D3 | **Compile v4 → the existing runtime shape** rather than rewriting the player | Keeps `sim-player.js` and every module untouched, so the cutover is verifiable by direct comparison instead of hope. |
-| D4 | **Fixed 3-level quality scale** — UX Universal's custom tiers normalize onto `unthoughtful`/`neutral`/`strong` | Settled by evidence, not negotiation: it is baked into the POC V4 assessment schema and all 11 scenarios use it. UX Universal's `CONNECTS`/`VAGUE`/`CONFRONTS` do not port. |
+| D3 | **Compile v4 → the existing runtime shape** rather than rewriting the player | Keeps `sim-player.js` and every module untouched; the cutover is verifiable by direct comparison. |
+| D4 | **Fixed 3-level quality scale** — custom tiers normalize onto `unthoughtful`/`neutral`/`strong` | Baked into the POC V4 assessment schema; all 11 scenarios use it. `CONNECTS`/`VAGUE`/`CONFRONTS` do not port. |
 | D5 | **Build an explicit `answer_shape` marker**, don't bridge | Chris, 2026-08-17: "otherwise it's just temporary bridges." See §3. |
-| D6 | **The converter omits what it cannot source** instead of seeding placeholder prose | Validation errors then *are* the authoring worklist, and nothing half-written can reach a handoff looking finished. |
+| D6 | **The converter omits what it cannot source** — no placeholder prose | Validation errors are then the authoring worklist; nothing half-written reaches a handoff looking finished. |
 | D7 | **Scenario types become templates** (§1) | Preserves the LXD workflow with no format support needed. |
-| D8 | **Default the mechanical fields POC V4 requires that no deck provides**; never default teaching prose | Chris, 2026-08-17. Blocking fields 131 → 64. Which fields qualify was decided by measuring the 11 POC V4 scenarios (§7-A2). `final_word` stays authored — it is the last thing a learner hears. |
+| D8 | **Default the mechanical fields POC V4 requires that no deck provides**; never default teaching prose | Chris, 2026-08-17. Blocking fields 131 → 64; qualifying fields measured on the 11 scenarios (§7-A2). `final_word` stays authored. |
 
 ### Deliberately NOT bundled
 
-Three of the four calls in `scenario-simulator-spine-alignment.html` are engine
-changes that would alter learner-visible behavior. None is decided, and folding
-them into the data move would change pacing for every shipped scenario in the
-same commit:
+Two engine changes would alter learner-visible behavior and stay undecided:
 
-1. **Two-conversation prompt scoping** (POC V4 §2). A stronger anti-leak guarantee
-   than UX Universal's single compiled prompt, which stays for now.
+1. **Two-conversation prompt scoping** (POC V4 §2). UX Universal keeps its single
+   compiled prompt for now.
 2. **Debrief as its own turn-owning rung.** UX Universal keeps two fields on the
    rung (`debrief.talkItThrough` / `.points`).
-3. **`carryover` verbatim transcripts.** Carried through as data; nothing
-   consumes it yet — the runtime has no transcript channel.
+
+**`carryover`** is carried through as data; nothing consumes it yet (no
+transcript channel). The `narrative` placement call is resolved — §7-E2.
 
 ---
 
-## 3. UX Universal extensions — fields POC V4 does not have
+## 3. UX Universal extensions
 
-POC V4 sets `additionalProperties: false` **at every level**, so an added field is
-not an extension point: its loader rejects the whole document. Extensions are
-therefore declared explicitly in `js/scenario-v4.js` (`EXTENSIONS`), and the
-tooling is loud about the cost:
+POC V4 sets `additionalProperties: false` at every level, so an added field
+fails the whole load. Extensions are declared in `js/scenario-v4.js`
+(`EXTENSIONS`):
 
 ```
 V4.validate(doc)                 → extension valid, reported as a WARNING
@@ -141,105 +125,85 @@ V4.stripExtensions(doc)          → loadable copy + what was removed + what it 
 
 ### `practice.answer_shape: "determinate" | "open"`
 
-**What it is.** Does this practice have a right answer the coach must land, or is
-it open judgment where landing a verdict defeats the point?
+Does this practice have a right answer the coach must land, or is it open
+judgment? UX Universal has steered on this since guided-arc as `hasRightAnswer`
++ `throughLine` (`mix-arc.js:983`, `guided-arc.js:382`, `guided-arc.js:439`).
+POC V4 has no equivalent: content carries no prompt text (§9.2), coaching
+behavior is template-owned (§4), and `debrief.key_points` is required on every
+debrief, so its presence carries no signal. Stripped, every practice reads as
+determinate and the coach delivers a verdict on reflection steps. Proposal in
+§7-C; the nearest existing carrier, `levels.strong.look_for`, encodes this for
+a human reader but not machine-readably.
 
-**Why we need it.** UX Universal has steered on this since guided-arc, as
-`hasRightAnswer` + `throughLine`:
+### Content safety flags: `elevated_stakes`, `involves_minors`, `threat_content`
 
-- `mix-arc.js:983` — injects *"There IS a correct answer here — {throughLine}.
-  Hold it during Practice; state it plainly when you teach."*
-- `guided-arc.js:382` — teaching verb becomes *"land the point clearly… never
-  hedge"* instead of *"deepen what they said"*
-- `guided-arc.js:439` — labels the calibration block *"has a right answer"* vs
-  *"open, no wrong answer"*
-
-**Why POC V4 has no equivalent.** Two POC V4 constraints exclude it: content
-carries no prompt text (§9.2 lints for it), and universal coaching behavior is
-template-owned (§4: *"must not be authored"*). The field that inherits the
-*content* half is `debrief.key_points` — but that is **required on every
-debrief**, so its presence carries no signal about which kind of step this is.
-
-**Cost of stripping it.** Every practice reads as determinate, so the coach
-delivers a verdict on reflection steps instead of drawing the learner out.
-
-**The ask** (Chris to raise with the POC V4 team): add a per-practice marker. It is
-*content structure*, not prompt text, so it does not violate POC V4 constraint 1.
-Expect the pushback *"that's what `levels.strong.look_for` encodes"* — true for a
-human reader, not machine-readable.
+Booleans that arm UX Universal's safety floors (§7-B2). v4 has no field for
+them; on a stripped document the floors never arm and nothing reports it.
 
 ---
 
-## 4. Things POC V4 cannot express at all
+## 4. Capabilities without a v4 representation
 
-Not gaps to fill — capabilities that do not survive the move. `archive/2026-08-17`
-is the only place they still run.
+`archive/2026-08-17` is the only place these still run.
 
 | UX Universal | POC V4 status |
 |---|---|
 | `intro` — cold-open audio/video context (`js/scene-context.js`) | No equivalent. v4's landing is `narrative` text + `landing_cta_label`. |
-| **teach-back** (retrieval) | No mode for it. v4's only coverage-crediting mechanic is welded to `observe_react`'s required `exhibit`, so topic coverage cannot be expressed. |
+| **teach-back** (retrieval) | No mode for it; the only coverage-crediting mechanic is tied to `observe_react`'s required `exhibit`. |
 | `transitions[].onTier` tier-routed branching | Advancement is forward-only and server-owned; tier no longer routes. |
-| `elevatedStakes` / `involvesMinors` / `threatContent` | No fields. |
-| `playbook[].source` internal ids (`RVCT-479 P017`) | `source_references` takes **external authorities only** (OSHA, Title VII). Internal citations must split out. |
+| `elevatedStakes` / `involvesMinors` / `threatContent` | No fields (§3). |
+| `playbook[].source` internal ids (`RVCT-479 P017`) | `source_references` takes external authorities only (OSHA, Title VII). |
 | `course`, `learnerName`, `characterName`, `state` | Catalog metadata lives outside the implementation (§3); `state` is replaced by `carryover`. |
 
 ---
 
-## 5. Authoring gaps — roughly 155, and they are real writing
+## 5. Authoring gaps
 
-The converter leaves these empty on purpose (D6). **Per phase:**
+The converter leaves unsourceable fields empty (D6), so validation errors are
+the worklist:
 
-- `purpose` on the phase **and** the practice — its role in the coach's map of the arc
-- a `look_for` for each quality level — our single `guidance` string became
-  `response`; the "how to recognise this" half was never written
-- `debrief.label` — the decks name this unit ("Coach Debrief"); UX Universal never did
-- `debrief.transition.button_label`, and `final_word` for delivery-only debriefs
+- **~177** blocking errors at first port.
+- **→ 131** after recovering what our own prose could source (2026-08-17):
+  `look_for` split from guidance at an 89% rate (41 of 46 levels), debrief
+  labels set to the decks' own "Coach Debrief", turn budgets from
+  `guided-arc.js:1353`.
+- **→ 64** after D8 defaulted the mechanical fields.
 
-**Per scenario:** `closing.ideal_response.summary`, `misconceptions`,
-`teaching_points` regrouped by subject rather than by phase, character `role` lines.
-
-**Largest single item:** observe `rubric` entries (`id` / `name` /
-`standard_term` / `nudge`) plus `spot_target`. Only scene-sweep has any source.
-
-**Judgment call throughout:** most of our beats author **two** tiers; v4 requires
-**three**. The middle "well-intentioned but thin" tier must be written per beat.
+Remaining, deliberately unfilled pending §7-A: `purpose` on phase and practice
+(18 + 18), `debrief.transition` 18, `practice.transition` 9, `closing.summary`
+6, `characters[].role` 5, `interaction.setting` 8 — plus `look_for` where
+recovery fell short, `final_word` for delivery-only debriefs, `misconceptions`,
+`teaching_points` regrouped by subject, and roleplay `setting`s. Largest single
+item: observe `rubric` entries + `spot_target` — only scene-sweep has a source.
+Throughout: most of our beats author two tiers; v4 requires three.
 
 ---
 
-## 6. What is built, and how it was verified
+## 6. Built and verified
 
 | File | Job |
 |---|---|
-| `js/scenario-v4.js` | v4 shape + validator: schema, `additionalProperties:false`, the 7 §9.1 cross-field rules, the 8-needle §9.2 lint, derived cap, `EXTENSIONS`, `stripExtensions` |
+| `js/scenario-v4.js` | v4 shape + validator: schema, the 7 §9.1 cross-field rules, the 8-needle §9.2 lint, derived cap, `EXTENSIONS`, `stripExtensions`, `foldExtensions` |
 | `js/scenario-v4-runtime.js` | one compiler, v4 → today's runtime, replacing every per-type `toRuntime`/`toMixArc` |
-| scratchpad `port-to-v4.js` | migration tool, native → v4, with shape normalizers for guided-arc / observe-react / teach-back |
+| `js/scenario-v4-templates.js` | the 7 starting templates (§1) |
+| `js/scenario-types/v4-universal.js` | the one Studio editor + dev-handoff export (strip and fold profiles) |
+| scratchpad `port-to-v4.js` | migration tool, native → v4 |
 | scratchpad `roundtrip.js` | behavior comparison, baseline vs v4 path |
 | scratchpad `check-assets.js` | resolves every asset reference per tree |
 
-Verification standing:
+- **Validator:** all 11 POC V4 scenarios valid, zero warnings; 46/46 negative
+  tests fail at the right JSON path.
+- **Round-trip:** 263 of 338 field comparisons identical, no information loss.
+  Remainder: intentional (tier vocabulary ×14 per D4, `reactionGuidance` ×10
+  folded into `response`, `framing` ×4), additive ×23, placement-only ×11
+  (opener text identical on 13 of 14 phases, split differently).
+- `throughLine` (×14 → ×1) is recovered by matching a `teaching_points` topic to
+  the phase label; `hasRightAnswer` (×13 → ×0) reads `answer_shape` instead of
+  being guessed from the exit requirement.
+- **Assets:** live / `2026-08-04` / `2026-08-17` resolve identically. Pre-existing
+  404: `hazmat_scene_3.mp4` (`hazmat-scene-practice.html:1260`).
 
-- **Validator:** all 11 of the POC V4 scenarios valid, zero warnings. **46/46** negative
-  tests catch injected violations at the right JSON path.
-- **Round-trip:** **263 of 338** field comparisons identical, and **no outstanding
-  information loss**. The remainder breaks down as:
-  - *intentional* — tier vocabulary ×14 (D4), `reactionGuidance` ×10 (folded into
-    each level's `response`), `framing` ×4 (v4 merges situation into one `narrative`)
-  - *additive* ×23 — `type`, `character.name`, `counterpart`, `world`, `sayDoSplit`
-    on branching/ensemble/scene-sweep rungs, which never carried those fields
-  - *placement only* ×11 — `entry.signpost` / `entry.beats.len`. Verified
-    separately: concatenated opener text is **identical on 13 of 14 phases, with
-    0 text lost** — the same bubbles, split differently between signpost and
-    `beats[]`. Not a defect.
-- Two fixes worth remembering: `throughLine` (was ×14, now ×1) is recovered by
-  matching a `teaching_points` topic to the phase label, since v4 keeps teaching at
-  content level; and `hasRightAnswer` (was ×13, now ×0) reads the `answer_shape`
-  extension instead of being guessed from the exit requirement.
-- **Assets:** live / `2026-08-04` / `2026-08-17` all resolve identically. Note a
-  **pre-existing** 404: `hazmat_scene_3.mp4`, referenced by
-  `hazmat-scene-practice.html:1260`, missing from the shared tree.
-
-### Re-run everything
+### Re-run
 
 ```bash
 node js/scenario-v4.js <file.lo.json>          # validate a v4 document
@@ -248,239 +212,171 @@ node roundtrip.js                              # behavior diff vs today
 node check-assets.js                            # asset resolution, all trees
 ```
 
-Gotchas worth keeping: a relative path inside a `.js` file resolves against the
-**loading document**, not the script's folder (getting this wrong invented 38
-phantom breakages); and archive snapshots sit **two levels deeper**, so escaping
-paths gain two `../` segments — product videos land at `../../../assets/`, the
-repo-root Font Awesome at `../../../../../assets/`.
+Gotchas: a relative path inside a `.js` file resolves against the loading
+document, not the script's folder (this once invented 38 phantom breakages);
+archive snapshots sit two levels deeper, so escaping paths gain two `../`
+segments.
 
 ---
 
-## 7. Talking points for the dev team
+## 7. Open alignment items
 
-> **The presentable form of this section is
-> `scenario-simulator-dev-conversation-guide.html`** — every point as a card
-> with the ask / evidence / expected pushback / fallback, plus the goodwill
-> opener, the do-not-raise list, and the night-before checklist. The extensions
-> ask additionally has its own deep-dive page,
-> `scenario-simulator-extensions-proposal.html`. This section stays the raw
-> evidence record behind both.
+> Presentable form: `scenario-simulator-dev-conversation-guide.html` — per-point
+> cards with proposal, evidence, counterpoints, fallback. The extensions
+> proposal also has its own page, `scenario-simulator-extensions-proposal.html`.
+> This section is the raw evidence record behind both.
 
-Ordered by what costs us most if it goes unaddressed. Each is evidence-backed;
-where the POC V4 repo documents the problem, it is quoted, because a point they
-already wrote down is far easier to agree on.
+Ordered by impact.
 
-### A. POC V4 requires content the LXD decks never contained
+### A. Required fields with no source — and no consumer
 
-Searched the final WPV deck (36pp) for every field we were told to fill:
+The final WPV deck (36pp), searched for every field the ports must fill:
+`purpose` 0 occurrences, "final word" 0, `misconception` 0, `rubric` 0,
+"debrief" 32, "look for" 12.
 
-| Field | Occurrences in deck |
-|---|---|
-| `purpose` | **0** |
-| "final word" | **0** |
-| `misconception` | **0** |
-| `rubric` | **0** |
-| "debrief" | 32 (as *Coach Debrief*, *Final Feedback*, *Personalized Recap*) |
-| "look for" | 12 |
-
-Their own `docs/authoring/sme-punch-list.md` records what filling those slots did:
+`sme-punch-list.md` records what hand-filling those slots did during the POC
+ports:
 
 - *"several locked `final_word` lines across the LOs are authored (**spec-required**) with **no deck antecedent**."*
-- *"likely **filled to satisfy a schema slot**, not SME-authored"* — invented mid-scene dialogue, Marshall Phase 3
 - *"**Wholly synthesized** character behavior cards (jake/marshall/ethan) with **zero deck counterpart**"*
 - *"**Possible invented teaching point**… no counterpart anywhere in the 15-slide deck. **Compliance-relevant field.**"*
-- *"Added failure modes… the deck's only negative case is non-intervention"*
 
-**The ask:** for fields the POC V4 engine needs but no SME wrote (`purpose`, the two
-`transition.button_label`s, `final_word`), agree they are **generated at export
-time or defaulted by the engine**, not hand-authored. Hand-authoring them is what
-produced an invented compliance claim in the POC V4 Marshall scenario.
+`spec-alignment-audit.md` P5: *"`phase.purpose` is never rendered into any
+prompt… The only required spec field with a stated prompt consumer that has
+none."* That makes `purpose` — 36 of the 64 blocking slots — a documented
+spec/engine disagreement, not only an authoring burden.
 
-Counts still blocking in our ports: `phases[].purpose` 18, `practice.purpose` 18,
-`debrief.transition` 18, `practice.transition` 9, `closing.summary` 6,
-`characters[].role` 5, `interaction.setting` 8.
+**Proposal:** fields the engine requires but no SME wrote (`purpose`, the two
+`transition.button_label`s, `final_word`) are generated at export time or
+defaulted by the engine. For `purpose`: make it optional, or give it the
+consumer the spec describes.
 
-### B. Three capabilities UX Universal has and POC V4 cannot express
+### B. Three capability differences
 
-1. **A clarifying question should not cost a turn.** Ours rebates it
-   (`js/sim-core.js:517`: *"the runtime rebates the optimistic turn count… so a
-   redirect is free"*). v4 goes the other way explicitly — for a coach practice,
-   *"a clarifying question is just a turn."* A confused learner burns budget by
-   asking for help.
-2. **Safety floors.** `CRISIS_FLOOR` (`js/scenario.js:250`) plus the branching
-   threat floor and ensemble minor floor, driven by `elevatedStakes` /
-   `involvesMinors` / `threatContent`. **v4 has no field for any of it.** This is a
-   safety capability for harassment, workplace violence, bullying and minors
-   content, not a nicety.
-3. ~~**Watch-and-discuss.**~~ **WITHDRAWN 2026-08-17 — this was wrong.**
-   `coachInteraction.media` accepts `type: "video"` and is explicitly *"never
-   graded"*, so a coach step with a clip pinned above the conversation IS
-   watch-and-discuss. No new mode needed; our mix-arc observe beat maps to
-   `coach_inquiry` + `media`, not to `observe_react`. Worth telling them their
-   spec prose says "reference **image**" while the schema allows video — a small
-   spec/schema disagreement, the kind their own alignment audit tracks.
+1. **Cost of a clarifying question.** UX Universal rebates it
+   (`js/sim-core.js:517` — "a redirect is free"); in v4, *"a clarifying question
+   is just a turn."* Needs a product decision.
+2. **Safety floors.** `CRISIS_FLOOR` (`js/scenario.js:250`), the branching
+   threat floor and the ensemble minor floor arm off the §3 safety flags. v4 has
+   no field for them. Relevant to harassment, workplace violence, bullying and
+   minors content.
+3. ~~**Watch-and-discuss.**~~ WITHDRAWN 2026-08-17 — wrong.
+   `coachInteraction.media` accepts `type: "video"` and is *"never graded"*;
+   that is watch-and-discuss. Our mix-arc observe beat maps to `coach_inquiry` +
+   `media`. Residual: the spec prose says "reference **image**" while the schema
+   allows video.
 
-### C. `practice.answer_shape` — the marker we built (§3)
+### C. `practice.answer_shape` (§3)
 
-Determinate vs open judgment. Without it every practice reads as determinate and
-the coach delivers a verdict on reflection steps instead of drawing the learner
-out. Content structure, not prompt text. Built as a declared extension, which the
-POC V4 loader rejects until adopted.
+Built as a declared extension; the POC V4 loader rejects it until adopted.
 
-### D. Retry — the decks asked for it and the POC V4 engine dropped it
+### D. Retry
 
-Their punch list, on Kendra: the deck authors *"can trigger another scene
-progression to retry"* and *"the scenario continues until you see what works."*
-Their engine is deliberately forward-only, and they logged it as *"a real
-deviation from **authored deck intent**."* The LXD intent is on our side here.
+The POC punch list, on Kendra: the deck authors *"can trigger another scene
+progression to retry"*; the engine is forward-only, logged there as *"a real
+deviation from **authored deck intent**."* Open for both systems: does a bounded
+retry/mastery loop belong on the roadmap?
 
-### E. Teaching attached to the step, not the scenario
+### E. Teaching attached to the step vs the scenario
 
-v4 keeps `teaching_points` at content level grouped by subject; ours ties the
-teaching line to the step it belongs to. The content-level grouping forced the
-label-matching seam in `scenario-v4-runtime.js` (see §6). The per-step model is
-the better one — ask for a per-phase link, or agree `debrief.key_points` is the
-per-step carrier.
+v4 groups `teaching_points` at content level by subject; UX Universal ties the
+teaching line to its step. The grouping forced the label-matching seam in
+`scenario-v4-runtime.js` (§6), which silently misses if topics are regrouped by
+subject — the grouping the spec prefers. Resolutions: a per-phase link field, or
+`debrief.key_points` as the per-step carrier.
 
-### E2. One `narrative` cannot serve both registers — found at the prompt level
+### E2. `narrative` placement — RESOLVED 2026-08-17
 
-POC V4 §4.1 asserts `narrative` does two jobs: the coach's ground truth *and* what
-the learner is shown, deliberately one text so "the coach cannot know a richer
-version than the learner was shown."
+POC V4 keeps one `narrative` as both coach ground truth and learner-facing text
+(§4.1). Our prompt template spliced `framing` mid-sentence; feeding `narrative`
+into that slot produced *"You facilitate You saw it happen."* on every scenario —
+visible only in compiled prompts, not field diffs. Resolution: the compiler
+leaves `framing` empty and renders `narrative` as a labeled situation block,
+matching the POC V4 coach template. Verified by `prompt-diff.js`.
 
-In practice it broke the compiled prompt. UX Universal authored **two** texts —
-`framing`, an outside-in description of the experience, and `establishing.sub`,
-the learner-facing situation. The prompt template splices the first into a
-sentence. With only `narrative` available, that sentence becomes:
+### A2. Button labels
 
-> baseline: *"You facilitate **a short composed scenario on noticing and addressing disrespect at work**…"*
-> v4 path: *"You facilitate **You saw it happen. Now decide what it was**…"*
-
-Ungrammatical, on every scenario. Note the field-level round-trip could not catch
-this — it took comparing compiled prompts.
-
-Two ways out, and this needs a decision before the cutover:
-
-1. **Restructure our prompt's opening** to render `narrative` as a labeled
-   situation block rather than splicing it mid-sentence. This is what POC V4's own
-   coach template does, so it aligns us — but it changes prompt text for every
-   scenario, which is behavioral.
-2. **Add `framing` as a second UX Universal extension**, on the same precedent as
-   `answer_shape`: it is authored content with a distinct job (prompt-facing
-   description vs learner-facing situation), not prompt text.
-
-Option 1 is the better alignment; option 2 preserves current behavior exactly.
-
-### A2. Button labels — the inconsistency is real, and it splits in two
-
-Chris's hypothesis was that making button labels a field opened up inconsistency.
-Measured across the 11 POC V4 scenarios: **63 labels, 27 distinct (43% unique)**.
-But the two slots behave differently, which is why D8 treats them differently:
+Measured across the 11 scenarios: 63 labels, 27 distinct. The two slots behave
+differently, which is why D8 treats them differently:
 
 | Slot | Authored | Distinct | Reading |
 |---|---|---|---|
-| practice → debrief | 29 | **7** — 23 of them `"Talk it through"` | The button always does the same thing. Exceptions include `"Talk it out"`, the same words rearranged. **Drift.** |
+| practice → debrief | 29 | **7** — 23 of them `"Talk it through"` | The button always does the same thing. **Drift.** |
 | debrief → next step | 29 | **17** — `"Sit down with Bianca"`, `"Find Marco"` | These name what happens next. **Design.** |
 | opening | 5 | 4 | Thin sample. |
 
-Also: `"Begin practicing"` is used as **both** an opening and a debrief label across
-scenarios — a genuine collision. Ask them to pick a house convention for the
-practice button (their own punch list already flags the sibling problem: *"Last-debrief
-transition text splits 3-3 across the family… SME/LED to pick the house convention"*).
+`"Begin practicing"` is used as both an opening and a debrief label — a
+collision. A house convention for the practice button would resolve it; the
+punch list flags the sibling problem (*"Last-debrief transition text splits 3-3
+across the family… SME/LED to pick the house convention"*).
 
-### G. The surface-plugin layer — UX Universal's extension architecture (Chris, 2026-08-17)
+### G. Generalizing the typed-output pattern
 
-Not the schema extensions (§3) — the PLAYER architecture. In UX Universal, a
-custom interaction is a **surface plugin**: it registers into `SimSurfaces` keyed
-by phase kind, owns the whole activity (the perception canvas, the notes log, the
-teach-back tile board), and the ladder engine stays agnostic — one guarded seam
-(`ctx.coverageBlock` feeding the per-turn prompt) plus **typed outputs** the
-engine consumes (`turn.spotted` credited ids, completion). The engine never knows
-what a canvas is.
+In UX Universal a custom interaction is a surface plugin: it registers into
+`SimSurfaces` keyed by phase kind, owns the whole activity, and the engine
+consumes typed outputs (`turn.spotted`, completion) through one seam
+(`ctx.coverageBlock`). Shipped proof: scene-sweep's photo canvas (V1) and the
+text-observation log (V2) are two surfaces over the same scenario and output
+contract, swapped by URL flag; teach-back landed the same way (`ownsInput`).
 
-The proof this pattern works is already shipped: scene-sweep's photo/hotspot
-canvas (V1) and the text-observation log (V2) are **two surfaces over the same
-authored scenario and the same output contract**, swapped by a URL flag —
-`js/sim-observe-text.js` registered after `js/sim-perception.js`, "last
-registration wins," zero engine edits. Teach-back landed the same way
-(`js/sim-teachback.js`, owns its whole loop via `ownsInput`). Three interactions,
-no runner surgery.
+POC V4's `[[spotted:]]` contract is the same idea — the engine strips the
+marker, validates ids, *"the player's meter and scorecard read only this"* — but
+exists for `observe_react` only. Its growth rule covers the format side of a new
+interaction; the docs state no engine-side equivalent. Hence teach-back is
+inexpressible: the one output contract requires `observe_react`'s `exhibit`.
 
-**POC V4 half-built the same idea and then hard-wired it.** Their `[[spotted:]]`
-contract is exactly the typed-output pattern — the engine strips the marker,
-validates ids against the rubric, and the spec says *"the player's meter and
-scorecard read only this."* But it exists for `observe_react` ONLY. Their growth
-rule (*"a new practice type is one new mode value plus one new interaction
-shape"*) covers the FORMAT side of adding an interaction; there is no stated
-equivalent on the ENGINE side — every new mode is engine surgery for them.
+**Proposal:** a mode-agnostic credited-items output contract, and a pluggable
+interaction surface to match the format's `oneOf`.
 
-**The concrete cost is already visible: teach-back.** It is inexpressible in POC
-V4 precisely because their one output contract is welded to `observe_react`'s
-required `exhibit`. Generalize the contract — credited-items independent of what
-the learner is looking at — and retrieval becomes one new mode plus one surface.
+### H. Extension mechanism
 
-**The ask:** generalize `[[spotted:]]` into a mode-agnostic credited-items output
-contract, and treat the interaction surface as pluggable the way the format's
-`oneOf` already treats the interaction shape. This also future-proofs their own
-growth rule: today it is true of their schema and false of their engine.
+POC V4 documents no extension mechanism, no must-ignore semantics, and no
+deprecation policy beyond `^4\.` version dispatch; the spec's position is *"a
+field not in this spec is a load error, not an extension point."* Two proposals,
+deliberately separable — if loading a field required implementing it first,
+every extension would block:
 
-### H. How extensions should work — the mechanism ask (Chris, 2026-08-17)
+**Proposal 1 — must-ignore extension envelopes.** Keep
+`additionalProperties:false` everywhere except one `extensions` container on
+`content` and on each `practice`, holding namespaced keys
+(`vector:answer_shape`), under the rule: an engine MUST load what it does not
+implement and MUST ignore it (the xAPI/FHIR pattern). Typo-catching survives —
+`final_wrod` still fails. Measured on marshall with the 5 extension values:
+flat fields → 4 scattered rejections; enveloped → rejections at one key kind.
+`ScenarioV4.foldExtensions()` emits this shape; the Dev handoff panel downloads
+it as `<id>.proposed.lo.json`.
 
-A document can never make a player DO anything: fields declare, engines
-implement. So "their player treats extensions the way ours does" splits into two
-asks with very different costs, and bundling them is the failure mode — if
-LOADING `answer_shape` requires first IMPLEMENTING `answer_shape`, every
-extension becomes a blocking negotiation.
+**Proposal 2 — per-extension behavioral contracts.** The `EXTENSIONS` registry
+carries why each field exists and what ignoring it costs; the UX Universal
+player carries the testable behavior (crisis floor off `elevated_stakes`,
+hedge-vs-land off `answer_shape`). Adoption is per-extension: the field loads
+immediately and behaves identically once implemented, because the reference
+implementation is runnable.
 
-**Ask 1 — must-ignore extension envelopes (a schema policy, one key).** Keep
-`additionalProperties:false` everywhere EXCEPT one sanctioned `extensions`
-container on `content` and on each `practice`, holding namespaced keys
-(`vector:answer_shape`), under the rule *an engine MUST load what it does not
-implement and MUST ignore it* (the xAPI/FHIR/HTTP-headers pattern). Their
-typo-catching discipline survives — `final_wrod` still fails loudly, because
-there is exactly one place vendor data may live. Measured on their own marshall
-with our 5 extension values authored: flat fields → 4 scattered rejections;
-folded into envelopes → rejections at exactly ONE key kind (`extensions`). That
-is the whole schema change. `ScenarioV4.foldExtensions()` emits this shape; the
-Dev handoff panel downloads it as `<id>.proposed.lo.json` — the working exhibit.
-
-**Ask 2 — per-extension behavioral contracts, our player as the reference
-implementation.** For each extension the registry (`EXTENSIONS` in
-`js/scenario-v4.js`) already carries *why it exists* and *what ignoring it
-costs*; the UX Universal player carries the testable behavior (the 988 crisis
-floor off `elevated_stakes`, hedge-vs-land off `answer_shape`). Adoption is then
-per-extension at their pace: the field loads today, behaves when implemented,
-and behaves THE SAME because the reference implementation is runnable.
-
-**Until Ask 1 lands:** the Dev handoff panel keeps both profiles — strip (loads
-today, losses stated) and fold (the proposal). Internally we author flat fields;
-folding is an export projection, so nothing restructures whichever way they
-decide.
+Until Proposal 1 lands, the Dev handoff export keeps both profiles — strip
+(loads today, losses stated) and fold (the proposal). Internal authoring stays
+flat; folding is an export projection.
 
 ### F. Smaller items
 
-- **The mandatory third tier.** Most of our beats author two; v4 requires three,
-  and the POC V4 authors *"synthesized"* the missing one. Either a partial scale is
-  allowed (as the opening's `levels` already is) or every author invents a middle.
-- **`help_turns` default is a trap.** `DEFAULT_HELP_TURNS = 2` turns the affordance
-  ON for any scenario that doesn't author the field; the POC V4 audit had to write
-  `0` everywhere because *"no deck contemplates it."*
-- **`teach-back` maxTurns 99.** Our retrieval loop is effectively uncapped, and v4
-  derives the conversation cap by summing budgets — so it produces a nonsensical
-  cap. A symptom of retrieval having no v4 mode (§4).
+- **Mandatory third tier.** Most of our beats author two; v4 requires three; the
+  POC ports *"synthesized"* the missing one. Allow a partial scale (as the
+  opening's `levels` already is), or every author invents a middle.
+- **`help_turns` defaults on.** `DEFAULT_HELP_TURNS = 2` (`lo_loader.py:426`);
+  the POC audit wrote `0` everywhere because *"no deck contemplates it."*
+- **`spot_target` gating is unimplemented** in the POC engine (its audit); UX
+  Universal's observe surfaces do gate on coverage. Confirm intended behavior
+  before either implementation is treated as the reference.
+- **teach-back maxTurns 99.** v4 derives the cap by summing budgets, so an
+  uncapped retrieval loop produces a nonsensical cap — a symptom of retrieval
+  having no mode (§4).
 
 ---
 
 ## 8. Open questions — UX Universal side
 
-1. **`branching-arc` is live-only**, dropped from the Studio registry in July. Does
-   it earn a template again, or stay live-only?
-2. **teach-back's future** — inexpressible in v4 (§4). Keep as a non-v4 local type,
-   or propose a fourth mode?
+1. **`branching-arc` is live-only**, dropped from the Studio registry in July.
+   Template again, or stay live-only?
+2. **teach-back** — inexpressible in v4 (§4). Non-v4 local type, or propose a
+   fourth mode (§7-G)?
 3. **`hazmat_scene_3.mp4`** — fix the missing video or drop the reference.
-4. **The ~30 recoverable gaps are DONE** (2026-08-17): `look_for` split out of our
-   guidance prose at an **89% recovery rate** (41 of 46 quality levels), debrief
-   labels set to the decks' own *"Coach Debrief"*, and turn budgets sourced from
-   our own engine (guided-arc 2, from `guided-arc.js:1353`). Blocking errors
-   177 → 131. What remains is bucket A above — deliberately unfilled pending the
-   dev-team conversation.
