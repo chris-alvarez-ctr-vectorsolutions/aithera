@@ -241,7 +241,10 @@
            that would still SUGGEST editability — pointer cursors and hover lifts —
            without ever touching `user-select`. */
         .form-list.is-readonly .rubric-tile,
-        .form-list.is-readonly .q-choice,
+        /* Choice groups are DS components now — target the option hosts, not the
+           removed .q-choice row wrapper. */
+        .form-list.is-readonly vaadin-radio-button,
+        .form-list.is-readonly vaadin-checkbox,
         .form-list.is-readonly button,
         .form-list.is-readonly input,
         .form-list.is-readonly select,
@@ -1623,38 +1626,20 @@
         .q-duration-fields .sep { color: var(--text-muted); font-size: 12px; }
 
         /* ── Choice questions (Choose One, Choose Any, Pass/Fail) ── */
-        /* Choose One (native radios) still uses a plain flex container.
-           `:not(vaadin-checkbox-group)` keeps these rules off the Choose Any
-           group, which is a DS component that lays its own options out via
-           theme="vertical" — forcing display:flex on that host fights its
-           internal grid and drops the fieldset spacing. */
-        .q-choices:not(vaadin-checkbox-group) {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .q-choices:not(vaadin-checkbox-group).horizontal {
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-        /* Choose Any — the DS group host. It supplies its own option layout; this
-           only removes the label slot's reserved space (these questions carry their
-           title in the step header, not on the group). */
+        /* Choice questions are now BOTH design-system groups — "choose one" is a
+           vaadin-radio-group and "choose any" a vaadin-checkbox-group, each with
+           theme="vertical". They lay their own options out, so the old flex
+           container and the per-row .q-choice / .q-choice input rules are gone
+           (nothing rendered them any more). These rules only strip the field
+           chrome: no host padding, no reserved label slot (the question title
+           lives in the step header), and no forced default field width. */
+        vaadin-radio-group.q-choices,
         vaadin-checkbox-group.q-choices {
             padding: 0;
             --vaadin-field-default-width: auto;
         }
+        vaadin-radio-group.q-choices::part(label),
         vaadin-checkbox-group.q-choices::part(label) { display: none; }
-        /* Choose One option rows (native radio + text). */
-        .q-choice {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            cursor: pointer;
-        }
-        .q-choice input { accent-color: var(--brand); }
 
         /* Space between details body and the control beneath it */
         .q-input .q-details,
@@ -3832,12 +3817,23 @@
             border-bottom: 1px solid var(--border-soft); white-space: nowrap;
         }
         table.qs-table thead th.qs-th-select { width: 40px; text-align: center; }
+        /* vwc-sortable-header. The component supplies the button, the asc/desc/
+           no-sort indicators, and aria-sort on the parent <th>.
+           IMPORTANT: its internal sort button is hardcoded `height: 56px;
+           width: 100%`, which would grow this compact header row. Override via
+           ::part(sort-button) to keep the previous cell height. */
         .qs-sort-btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: none; border: none; cursor: pointer; padding: 0;
             font: inherit; font-weight: 700; color: var(--text-strong);
+            --vwc-sortable-header-indicator-color: var(--text-muted);
         }
-        .qs-sort-btn i { font-size: 11px; color: var(--text-muted); }
+        .qs-sort-btn::part(sort-button) {
+            height: auto;
+            width: auto;
+            gap: 6px;
+        }
+        .qs-sort-btn::part(asc-icon),
+        .qs-sort-btn::part(desc-icon),
+        .qs-sort-btn::part(no-sort-icon) { font-size: 11px; }
         table.qs-table tbody td {
             padding: 11px 12px; border-bottom: 1px solid #eef0f3;
             vertical-align: top;
@@ -3963,19 +3959,37 @@
 
         /* Tab strip — plain buttons (no vaadin-tabs) to avoid the reset/padding
            quirk; matches the app's tab look with a blue active underline. */
-        .cl-tabs {
-            display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft);
+        /* vaadin-tabs. Two Vector-theme defaults must be undone to keep the previous
+           compact look:
+             1. `vaadin-tab { flex: 1 1 0; min-width: 56px }` — tabs would stretch to
+                fill the row instead of hugging their labels.
+             2. `vaadin-tab[selected]::before/::after { width: 90% }` — the theme
+                draws its own indicator, which would sit alongside ours.
+           The underline stays ours (2px brand, flush with the container border) so
+           the dialog's tab treatment is visually unchanged. */
+        vaadin-tabs.cl-tabs {
+            border-bottom: 1px solid var(--border-soft);
             margin-bottom: 14px;
+            box-shadow: none;               /* theme adds a bottom shadow on the host */
         }
-        .cl-tab {
-            background: none; border: none; cursor: pointer;
+        vaadin-tabs.cl-tabs vaadin-tab {
+            flex: 0 0 auto;                 /* undo the theme's flex:1 stretch */
+            min-width: 0;                   /* undo min-width:56px */
             font-family: inherit; font-size: 14px; font-weight: 600;
-            color: var(--text-muted); padding: 10px 16px;
-            border-bottom: 2px solid transparent; margin-bottom: -1px;
+            color: var(--text-muted);
+            padding: 10px 16px;
             display: inline-flex; align-items: center; gap: 8px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
         }
-        .cl-tab:hover { color: var(--text-strong); }
-        .cl-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+        /* Suppress the theme's own selected indicator; ours is the border-bottom. */
+        vaadin-tabs.cl-tabs vaadin-tab::before,
+        vaadin-tabs.cl-tabs vaadin-tab::after { display: none; }
+        vaadin-tabs.cl-tabs vaadin-tab:hover { color: var(--text-strong); }
+        vaadin-tabs.cl-tabs vaadin-tab[selected] {
+            color: var(--brand);
+            border-bottom-color: var(--brand);
+        }
 
         /* Panel flexes to fill the remaining fixed body height and scrolls
            internally, so tab content — however tall or short — never changes the
@@ -4926,14 +4940,13 @@
         </div>
 
         <!-- Tabs -->
-        <div class="cl-tabs" role="tablist">
-            <button type="button" class="cl-tab active" data-cl-tab="edits" role="tab">
-                <i class="fa-solid fa-pen"></i> Edits
-            </button>
-            <button type="button" class="cl-tab" data-cl-tab="access" role="tab">
-                <i class="fa-solid fa-eye"></i> Access
-            </button>
-        </div>
+        <!-- vaadin-tabs owns the tablist/tab roles and selection, so no role= or
+             .active class here. Order matters: the handler maps tab INDEX to a
+             panel (0 = Edits, 1 = Access). -->
+        <vaadin-tabs class="cl-tabs" selected="0">
+            <vaadin-tab data-cl-tab="edits"><i class="fa-solid fa-pen"></i> Edits</vaadin-tab>
+            <vaadin-tab data-cl-tab="access"><i class="fa-solid fa-eye"></i> Access</vaadin-tab>
+        </vaadin-tabs>
 
         <!-- Panels -->
         <div class="cl-panel" id="clPanelEdits" role="tabpanel"></div>
@@ -6530,13 +6543,16 @@ function renderQuestion(item) {
                 </select>
             `);
         }
-        const opts = (item.choices || []).map(c => `
-            <label class="q-choice">
-                <input type="radio" name="${escapeHtml(item.name || ('co-' + Math.random()))}" value="${escapeHtml(c)}">
-                <span>${escapeHtml(c)}</span>
-            </label>
-        `).join('');
-        return wrapStandard(item, `<div class="q-choices">${opts}</div>`);
+        // vaadin-radio-group + vaadin-radio-button, matching the choose-any
+        // checkbox-group. The group owns the selection (single `value`) and the
+        // fieldset semantics, so the per-option `name` attribute is no longer
+        // needed. Per core CONTEXT.md, radio-group does NOT take theme="outlined".
+        const opts = (item.choices || []).map(c =>
+            `<vaadin-radio-button value="${escapeHtml(c)}" label="${escapeHtml(c)}"></vaadin-radio-button>`
+        ).join('');
+        return wrapStandard(item, `
+            <vaadin-radio-group class="q-choices" theme="vertical">${opts}</vaadin-radio-group>
+        `);
     }
     if (item.type === 'choose-any') {
         // vaadin-checkbox-group + vaadin-checkbox, not native inputs. The group
@@ -10629,9 +10645,9 @@ function setSharedState() {
             return;
         }
 
-        const caret = (key) => sortKey === key
-            ? (sortDir === 'asc' ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short')
-            : 'fa-sort';
+        // vwc-sortable-header renders its own asc/desc indicator, so there is no
+        // caret() helper any more — the component's `sortDirection` drives it.
+        const sortDirFor = (key) => (sortKey === key ? sortDir : null);
 
         host.innerHTML = `
             <div class="qs-results-head">
@@ -10661,8 +10677,15 @@ function setSharedState() {
                             <th class="qs-th-select"><input type="checkbox" id="qsSelectAll" aria-label="Select all rows"></th>
                             <th>Form / Question / Author / Educator</th>
                             <th>Content</th>
-                            <th><button type="button" class="qs-sort-btn" data-sort="tags">Tags <i class="fa-solid ${caret('tags')}"></i></button></th>
-                            <th><button type="button" class="qs-sort-btn" data-sort="date">Date <i class="fa-solid ${caret('date')}"></i></button></th>
+                            <!-- vwc-sortable-header must sit INSIDE the <th>: it walks up to
+                                 the parent cell to set aria-sort, and its single-sort mode
+                                 clears sibling headers in the same row.
+                                 NB: no backticks in this comment — it is inside a JS
+                                 template literal, where a backtick ends the string. -->
+                            <th><vwc-sortable-header class="qs-sort-btn" data-sort="tags"
+                                    accessible-name="Sort by tags">Tags</vwc-sortable-header></th>
+                            <th><vwc-sortable-header class="qs-sort-btn" data-sort="date"
+                                    accessible-name="Sort by date">Date</vwc-sortable-header></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -10696,12 +10719,22 @@ function setSharedState() {
             });
         });
 
-        // Sortable headers (Tags / Date).
-        host.querySelectorAll('.qs-sort-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const key = btn.dataset.sort;
-                if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-                else { sortKey = key; sortDir = 'asc'; }
+        // Sortable headers (Tags / Date) — vwc-sortable-header.
+        // `sortDirection` is a PROPERTY ('asc' | 'desc' | null), so seed it after
+        // render rather than as an attribute (an empty attribute is not null).
+        // The component cycles null → asc → desc → null and emits
+        // sort-direction-change with detail.direction; the old button toggled only
+        // asc ⇄ desc, so the null step is new — treat it as "back to default sort".
+        host.querySelectorAll('vwc-sortable-header.qs-sort-btn').forEach(hdr => {
+            hdr.sortDirection = sortDirFor(hdr.dataset.sort);
+            hdr.addEventListener('sort-direction-change', (e) => {
+                const dir = e.detail && e.detail.direction;
+                if (!dir) {
+                    // Cycled back to unsorted — fall back to the default (date desc).
+                    sortKey = 'date'; sortDir = 'desc';
+                } else {
+                    sortKey = hdr.dataset.sort; sortDir = dir;
+                }
                 renderResults();
             });
         });
@@ -11033,15 +11066,23 @@ function setSharedState() {
         accessPanel.innerHTML = accessHtml;
 
         // Tab switching.
-        const tabs = root.querySelectorAll('.cl-tab');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.toggle('active', t === tab));
-                const which = tab.dataset.clTab;
+        // vaadin-tabs manages selection itself (and the aria-selected state), so we
+        // only react to `selected-changed` and map the index to a panel. Reading
+        // the tab's own data-cl-tab keeps the mapping tied to markup order rather
+        // than a hardcoded index.
+        const tabsEl = root.querySelector('vaadin-tabs.cl-tabs');
+        if (tabsEl) {
+            const showPanel = (which) => {
                 editsPanel.hidden = which !== 'edits';
                 accessPanel.hidden = which !== 'access';
+            };
+            tabsEl.addEventListener('selected-changed', (e) => {
+                const idx = (e.detail && typeof e.detail.value === 'number')
+                    ? e.detail.value : tabsEl.selected;
+                const tab = tabsEl.querySelectorAll('vaadin-tab')[idx];
+                showPanel((tab && tab.dataset.clTab) || 'edits');
             });
-        });
+        }
     }
 
     dialog.headerRenderer = (root) => {
@@ -11937,13 +11978,15 @@ function fillExampleQuestions() {
     };
     requestAnimationFrame(setVaadinValues);
 
-    // Plain-DOM controls can be set immediately.
-    // Choose One (radio) — pick the first option in each radio group
-    const radioGroups = new Set();
-    scope.querySelectorAll('.q-choices input[type="radio"]').forEach(r => {
-        if (radioGroups.has(r.name)) return;
-        radioGroups.add(r.name);
-        r.checked = true;
+    // Choose One (radio) — vaadin-radio-group: set the group's `value` (the DS way)
+    // rather than checking an individual input. Deferred a frame so the component
+    // has upgraded before `value` is assigned, same as the checkbox-group below.
+    requestAnimationFrame(() => {
+        scope.querySelectorAll('vaadin-radio-group.q-choices').forEach(group => {
+            const first = group.querySelector('vaadin-radio-button');
+            const v = first && first.getAttribute('value');
+            if (v) group.value = v;
+        });
     });
     // Choose One (dropdown) — select the first real option
     scope.querySelectorAll('select.q-dropdown').forEach(sel => {
@@ -12196,11 +12239,7 @@ renderRecommendations();
      Supplies the pin-and-comment widget and the 🗺 Flow Map. Four levels up
      because this file lives at products/<Product>/<feature>/verN/index.html.
      DEVELOPERS: do not ship this script tag. -->
-<!-- Comments OFF for the dev build: hides the pin-and-comment widget and the
-     flow map's comment-count chips, while KEEPING the flow map itself so
-     developers get screens, thumbnails, and the DEV-NOTES annotations. -->
-<script>window.TOOLBOX = { comments: false };</script>
-<!-- One level shallower than verN/ — three ../ not four. -->
+<script>window.TOOLBOX = { comments: false, flowMap: false };</script>
 <script src="../../../designtoolbox/toolbox.js"></script>
 
 </body>
