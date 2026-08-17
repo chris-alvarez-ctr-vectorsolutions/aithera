@@ -380,6 +380,42 @@ scenarios — a genuine collision. Ask them to pick a house convention for the
 practice button (their own punch list already flags the sibling problem: *"Last-debrief
 transition text splits 3-3 across the family… SME/LED to pick the house convention"*).
 
+### G. The surface-plugin layer — UX Universal's extension architecture (Chris, 2026-08-17)
+
+Not the schema extensions (§3) — the PLAYER architecture. In UX Universal, a
+custom interaction is a **surface plugin**: it registers into `SimSurfaces` keyed
+by phase kind, owns the whole activity (the perception canvas, the notes log, the
+teach-back tile board), and the ladder engine stays agnostic — one guarded seam
+(`ctx.coverageBlock` feeding the per-turn prompt) plus **typed outputs** the
+engine consumes (`turn.spotted` credited ids, completion). The engine never knows
+what a canvas is.
+
+The proof this pattern works is already shipped: scene-sweep's photo/hotspot
+canvas (V1) and the text-observation log (V2) are **two surfaces over the same
+authored scenario and the same output contract**, swapped by a URL flag —
+`js/sim-observe-text.js` registered after `js/sim-perception.js`, "last
+registration wins," zero engine edits. Teach-back landed the same way
+(`js/sim-teachback.js`, owns its whole loop via `ownsInput`). Three interactions,
+no runner surgery.
+
+**POC V4 half-built the same idea and then hard-wired it.** Their `[[spotted:]]`
+contract is exactly the typed-output pattern — the engine strips the marker,
+validates ids against the rubric, and the spec says *"the player's meter and
+scorecard read only this."* But it exists for `observe_react` ONLY. Their growth
+rule (*"a new practice type is one new mode value plus one new interaction
+shape"*) covers the FORMAT side of adding an interaction; there is no stated
+equivalent on the ENGINE side — every new mode is engine surgery for them.
+
+**The concrete cost is already visible: teach-back.** It is inexpressible in POC
+V4 precisely because their one output contract is welded to `observe_react`'s
+required `exhibit`. Generalize the contract — credited-items independent of what
+the learner is looking at — and retrieval becomes one new mode plus one surface.
+
+**The ask:** generalize `[[spotted:]]` into a mode-agnostic credited-items output
+contract, and treat the interaction surface as pluggable the way the format's
+`oneOf` already treats the interaction shape. This also future-proofs their own
+growth rule: today it is true of their schema and false of their engine.
+
 ### F. Smaller items
 
 - **The mandatory third tier.** Most of our beats author two; v4 requires three,
