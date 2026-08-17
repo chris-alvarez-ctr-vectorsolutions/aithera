@@ -25,9 +25,13 @@
        → ScenarioV4Runtime.compile()  the runtime shape sim-player already reads
        → AitheraMixArc.compile()      the system prompt (same builder as before)
 
-   Pass A (this file, today): the contract, live validation, and the
-   scenario-level editors. The per-phase editor — mode selector, the three-tier
-   quality block, the observe rubric — is Pass B and marked below.
+   ONE RULE WORTH KNOWING BEFORE EDITING THIS FILE
+   POC V4 sets additionalProperties:false at every level, so ANY key this editor
+   writes into the document must be a real v4 field. UI state (which step cards
+   are expanded) therefore lives in a module-level Set, never on the phase —
+   a stray `__open` would fail the production loader. normalize() also strips any
+   `__`-prefixed key, so a draft saved by an older build cannot smuggle one into
+   an export.
    ========================================================================= */
 (function () {
   'use strict';
@@ -86,6 +90,7 @@
     }
     arr(c.phases).forEach((p) => {
       const ph = obj(p);
+      Object.keys(ph).forEach((k) => { if (k.indexOf('__') === 0) delete ph[k]; });
       ph.practice = obj(ph.practice);
       ph.practice.exit = obj(ph.practice.exit);
       ph.practice.exit.when = obj(ph.practice.exit.when);
@@ -322,33 +327,7 @@
     }
 
     if (sec.id === 'phases') {
-      /* Pass B builds the real per-step editor. Until then, show the arc that is
-         authored so the section is honest rather than empty, and say plainly
-         where to edit. */
-      const s = H.getScenario ? H.getScenario() : {};
-      const phases = arr(obj(obj(s).content).phases);
-      const MODE = {
-        coach_inquiry: { label: 'Coach', icon: 'fa-comments' },
-        roleplay: { label: 'Roleplay', icon: 'fa-masks-theater' },
-        observe_react: { label: 'Observe', icon: 'fa-eye' },
-      };
-      const wrap = document.createElement('div');
-      wrap.className = 'v4-arc';
-      wrap.innerHTML = phases.length
-        ? '<ol class="v4-arc-list">' + phases.map((p, i) => {
-          const ph = obj(p);
-          const m = MODE[obj(ph.practice).mode] || { label: obj(ph.practice).mode || '—', icon: 'fa-question' };
-          const turns = obj(obj(obj(ph.practice).exit).when).turns;
-          const fut = obj(ph.debrief).follow_up_turns;
-          return '<li><b>' + esc(ph.label || ph.id || 'Step ' + (i + 1)) + '</b>'
-            + ' <span class="v4-mode"><i class="fa-solid ' + m.icon + '"></i> ' + m.label + '</span>'
-            + ' <span class="v4-meta">practice ' + esc(String(turns == null ? '—' : turns)) + ' turns · debrief '
-            + esc(String(fut === 0 ? 'delivery-only' : fut + ' turns')) + '</span></li>';
-        }).join('') + '</ol>'
-        : '<p class="v4-empty">No steps yet.</p>';
-      box.append(wrap);
-      box.append(guidance('Per-step editing is the next build (Pass B)', 'fa-screwdriver-wrench',
-        '<p>The step editor — mode selector, the three quality levels with <b>look for</b> and <b>response</b> separated, the observe rubric, and the debrief block — lands next. Until then a step can be edited by loading a template and using the JSON export, and the lints panel still names every field that needs authoring.</p>'));
+      box.append(buildPhasesEditor(H));
     }
 
     if (sec.id === 'closing') {
@@ -382,6 +361,485 @@
     }
 
     return box;
+  }
+
+  /* =======================================================================
+     The step editor (Pass B)
+     -----------------------------------------------------------------------
+     One card per phase. The mode selector RETYPES the step — it swaps which
+     interaction shape is authored, because POC V4 selects the interaction from
+     `practice.mode` (a real discriminated union, not a bag of optionals). So
+     changing the mode is a structural edit, and the editor rebuilds the body
+     rather than showing three sets of fields and hoping the author picks the
+     right one.
+     ==================================================================== */
+
+  const MODES = [
+    { id: 'coach_inquiry', label: 'Coach', icon: 'fa-comments',
+      hint: 'The learner reasons it through with the coach. No scene.' },
+    { id: 'roleplay', label: 'Roleplay', icon: 'fa-masks-theater',
+      hint: 'The learner acts in a scene. The coach never interrupts mid-scene.' },
+    { id: 'observe_react', label: 'Observe', icon: 'fa-eye',
+      hint: 'The learner studies an exhibit and is credited for what they spot.' },
+  ];
+  const modeMeta = (id) => MODES.find((m) => m.id === id) || { label: id || '—', icon: 'fa-question', hint: '' };
+
+  /* Which step cards are expanded. Deliberately module-level rather than a field
+     on the phase: POC V4 sets additionalProperties:false everywhere, so a stray
+     `__open` key on a phase would fail the load. UI state never touches the
+     document. */
+  const openSteps = new Set();
+
+  const LEVEL_COPY = {
+    unthoughtful: { title: 'Unthoughtful', hint: 'Misses the point, minimises, or actively goes wrong.' },
+    neutral: { title: 'Neutral', hint: 'Well-intentioned and partly right; thin, or missing something important.' },
+    strong: { title: 'Strong', hint: 'What an expert would recognise as handling it well.' },
+  };
+
+  function buildPhasesEditor(H) {
+    const { tf, rowsBlock, rowCard, guidance, esc, scheduleUpdate } = H;
+    const wrap = document.createElement('div');
+
+    /* Read the draft FRESH on every paint, never captured once.
+       normalize() clones, and the shell re-normalizes on each update — so a
+       reference captured at build time goes stale the first time anything saves.
+       Capturing it meant the second retype mutated an orphaned object while the
+       shell rendered from a newer one, and the section came back empty. */
+    let s, phases;
+    function readDraft() {
+      s = normalizeInPlace(H.getScenario ? H.getScenario() : {});
+      phases = arr(obj(obj(s).content).phases);
+    }
+
+    /* Local render, so retyping a step or toggling a debrief's interactivity
+       repaints just this section. Same approach mix-arc uses for its beats. */
+    function paint() {
+      readDraft();
+      wrap.innerHTML = '';
+      if (!phases.length) {
+        const p = document.createElement('p');
+        p.textContent = 'No steps yet — add the first one below.';
+        p.style.cssText = 'color:var(--ink-soft);margin:8px 0';
+        wrap.append(p);
+      }
+      phases.forEach((phase, i) => wrap.append(phaseCard(obj(phase), i)));
+
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.innerHTML = '<i class="fa-solid fa-plus" style="margin-right:6px"></i>Add step';
+      add.style.cssText = 'display:inline-flex;align-items:center;padding:8px 14px;margin-top:12px;border-radius:8px;'
+        + 'font:600 13px inherit;cursor:pointer;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)';
+      add.addEventListener('click', () => {
+        openSteps.add(phases.length);          // open the one just added
+        phases.push(newPhase(phases.length + 1));
+        scheduleUpdate(); paint();
+      });
+      wrap.append(add);
+    }
+
+    function phaseCard(ph, i) {
+      const card = document.createElement('div');
+      card.style.cssText = 'border:1px solid var(--line);border-radius:10px;margin:10px 0;background:var(--surface)';
+
+      const practice = obj(ph.practice);
+      const m = modeMeta(practice.mode);
+      const turns = obj(obj(practice.exit).when).turns;
+      const fut = obj(ph.debrief).follow_up_turns;
+
+      /* Header — the arc stays scannable when every step is collapsed. */
+      const head = document.createElement('div');
+      head.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer';
+      const isOpen = openSteps.has(i);
+      head.innerHTML = '<i class="fa-solid fa-chevron-' + (isOpen ? 'down' : 'right') + '" style="color:var(--ink-soft);width:12px"></i>'
+        + '<b style="flex:0 0 auto">' + esc(ph.label || ph.id || 'Step ' + (i + 1)) + '</b>'
+        + '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;'
+        + 'background:var(--surface-2);border:1px solid var(--line);font:600 12px inherit;color:var(--ink-soft)">'
+        + '<i class="fa-solid ' + m.icon + '"></i>' + esc(m.label) + '</span>'
+        + '<span style="margin-left:auto;font:12px inherit;color:var(--ink-soft)">practice '
+        + esc(String(turns == null ? '—' : turns)) + ' turns · debrief '
+        + esc(fut === 0 ? 'delivery-only' : fut + ' turns') + '</span>';
+      head.addEventListener('click', () => {
+        if (isOpen) openSteps.delete(i); else openSteps.add(i);
+        paint();
+      });
+      card.append(head);
+
+      if (!isOpen) return card;
+
+      const body = document.createElement('div');
+      body.style.cssText = 'padding:2px 14px 16px;border-top:1px solid var(--line)';
+
+      /* --- the mode selector: retypes the step ------------------------- */
+      const modeRow = document.createElement('div');
+      modeRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:14px 0';
+      MODES.forEach((mode) => {
+        const active = practice.mode === mode.id;
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.title = mode.hint;
+        btn.innerHTML = '<i class="fa-solid ' + mode.icon + '" style="margin-right:6px"></i>' + mode.label;
+        btn.style.cssText = 'display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:600 13px inherit;'
+          + 'cursor:' + (active ? 'default' : 'pointer') + ';'
+          + (active ? 'background:var(--accent);color:var(--on-accent);border:1px solid var(--accent)'
+            : 'background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line)');
+        if (!active) {
+          btn.addEventListener('click', () => {
+            practice.mode = mode.id;
+            /* Retyping means a different interaction shape. Seed the new shape's
+               required containers and drop keys the new mode rejects, so the
+               document never sits in a state POC V4 would refuse. */
+            practice.interaction = seedInteraction(mode.id, obj(practice.interaction));
+            scheduleUpdate(); paint();
+          });
+        }
+        modeRow.append(btn);
+      });
+      body.append(modeRow);
+
+      /* --- identity + framing ----------------------------------------- */
+      body.append(
+        tf(`content.phases.${i}.label`, 'Step name', {
+          helper: 'Learner-facing. Use the source material\'s own name — do not restate the position ("Phase 1 —"), the player renders that from the order.' }),
+        tf(`content.phases.${i}.id`, 'Step id', {
+          helper: 'Referenced by carryover. Lowercase, no dots — "." is reserved for the derived debrief id.' }),
+        tf(`content.phases.${i}.purpose`, 'Purpose of the step', { area: true, minRows: 2,
+          helper: 'Model-facing: this step\'s role in the coach\'s map of the arc. Not shown to the learner.' }),
+      );
+
+      /* --- practice spine --------------------------------------------- */
+      body.append(guidance('The practice — where the learner acts', 'fa-hand-pointer',
+        '<p>A practice always opens with <b>locked</b> content, because it asks the learner for something. It ends when the exit requirement is met <b>or</b> the turn budget runs out, whichever comes first — advancement is server-owned and forward-only, so there is no way back.</p>'));
+      body.append(
+        tf(`content.phases.${i}.practice.purpose`, 'Purpose of the practice', { area: true, minRows: 2,
+          helper: 'Model-facing: the practice\'s job.' }),
+        numField('Turn budget — learner turns before the practice must close',
+          () => Math.max(1, obj(obj(practice.exit).when).turns || 2),
+          (n) => { obj(obj(practice.exit).when).turns = n; }, { min: 1 }, scheduleUpdate),
+        tf(`content.phases.${i}.practice.exit.when.requirement`, 'Exit requirement (optional)', { area: true, minRows: 2,
+          helper: 'What the learner must observably demonstrate to end this early. Omit when the step\'s job is simply to be had.' }),
+        tf(`content.phases.${i}.practice.exit.final_word`, 'Final word (optional)', { area: true, minRows: 2,
+          helper: 'The locked closing line, delivered verbatim by either route. Author it as a statement, never a question.' }),
+        tf(`content.phases.${i}.practice.transition.button_label`, 'Button into the debrief'),
+        tf(`content.phases.${i}.practice.transition.text`, 'Handoff line (optional)', { area: true, minRows: 2,
+          helper: 'Appended as a locked line once the step advances.' }),
+      );
+
+      /* answer_shape — a declared UX Universal extension, labelled as such so an
+         author knows it is not yet part of POC V4. */
+      const det = document.createElement('vaadin-checkbox');
+      det.label = 'This step has a right answer the coach must land plainly';
+      det.checked = practice.answer_shape === 'determinate';
+      const onDet = () => {
+        practice.answer_shape = det.checked ? 'determinate' : 'open';
+        scheduleUpdate();
+      };
+      det.addEventListener('change', onDet);
+      det.addEventListener('checked-changed', onDet);
+      body.append(det);
+      body.append(guidance('Why this one is flagged in the lints', 'fa-flask',
+        '<p>Leave it off for a judgment or reflection step, where delivering a verdict defeats the point — the coach deepens what the learner said instead.</p>'
+        + '<p>POC V4 has no field for this distinction yet, so it is carried as a declared extension: the scenario will not load in the production engine until the field is adopted, and the export can strip it (which makes every step read as having a right answer).</p>'));
+
+      /* --- the interaction, per mode ---------------------------------- */
+      body.append(interactionFields(practice.mode, i, practice, s, H));
+
+      /* --- quality levels: fixed at three ----------------------------- */
+      body.append(guidance('Quality levels — fixed at three', 'fa-gauge',
+        '<p>The vocabulary is set by the engine, not the author: <b>unthoughtful</b>, <b>neutral</b>, <b>strong</b>. You write each level\'s criteria. A level is never shown to the learner and never gates progress — it selects what happens next.</p>'
+        + '<p><b>Look for</b> is how to recognise the level in what the learner wrote. <b>Response</b> is what the AI then does'
+        + (practice.mode === 'roleplay' ? ' in scene, and <b>progression</b> is how far the scene gets and how it resolves.' : '.') + '</p>'));
+      const levels = obj(practice.interaction).levels
+        || (obj(practice.interaction).levels = { unthoughtful: {}, neutral: {}, strong: {} });
+      Object.keys(LEVEL_COPY).forEach((key) => {
+        if (!levels[key]) levels[key] = {};
+        const c = LEVEL_COPY[key];
+        const kids = [
+          tf(`content.phases.${i}.practice.interaction.levels.${key}.look_for`, 'Look for', { area: true, minRows: 2,
+            helper: c.hint }),
+          tf(`content.phases.${i}.practice.interaction.levels.${key}.response`, 'Response', { area: true, minRows: 2,
+            helper: practice.mode === 'roleplay' ? 'What the world or counterpart does. The character never coaches.'
+              : practice.mode === 'observe_react' ? 'Credit generously; nudge only by the authored cue, and never name an item the learner has not found.'
+                : 'Coach-voiced — a probe or acknowledgement at this level.' }),
+        ];
+        if (practice.mode === 'roleplay') {
+          kids.push(tf(`content.phases.${i}.practice.interaction.levels.${key}.progression`, 'Progression', { area: true, minRows: 2,
+            helper: 'How far the scene gets and how it resolves at this level. Legal only on a roleplay step.' }));
+        }
+        kids.push(
+          tf(`content.phases.${i}.practice.interaction.levels.${key}.example.learner`, 'Example — what the learner says', { area: true, minRows: 2,
+            helper: 'Optional. One short worked exchange calibrating the register.' }),
+          tf(`content.phases.${i}.practice.interaction.levels.${key}.example.reply`, 'Example — the reply', { area: true, minRows: 2 }),
+        );
+        body.append(rowCard(c.title, null, ...kids));
+      });
+
+      /* --- the debrief ------------------------------------------------ */
+      body.append(guidance('The debrief — where the coach teaches', 'fa-comment-dots',
+        '<p>It reacts to the attempt, so it has <b>no locked opener</b> — a canned greeting here would be structurally backwards. Key points are delivered whether or not the learner got there.</p>'
+        + '<p><b>Delivery-only is the default posture.</b> Set follow-up turns to 0 and the debrief speaks its key points then its final word, opening no composer. Give it turns only when the source material genuinely has the coach asking the learner something here.</p>'));
+      const debrief = obj(ph.debrief);
+      body.append(
+        tf(`content.phases.${i}.debrief.label`, 'Debrief name', {
+          helper: 'Learner-facing. Use the source deck\'s own name for it, e.g. "Coach Debrief".' }),
+        tf(`content.phases.${i}.debrief.purpose`, 'Purpose (optional)', { area: true, minRows: 2 }),
+      );
+      body.append(rowsBlock(`content.phases.${i}.debrief.key_points`, (kp, k, onDel) => rowCard(
+        `Key point ${k + 1}`, onDel,
+        tf(`content.phases.${i}.debrief.key_points.${k}`, 'Statement', { area: true, minRows: 2,
+          helper: 'Authored as a statement, not a topic. Landed regardless of how the learner did.' }),
+      ), 'Add key point', () => ''));
+      body.append(numField('Follow-up turns (0 = delivery-only)',
+        () => Math.max(0, debrief.follow_up_turns || 0),
+        (n) => {
+          debrief.follow_up_turns = n;
+          /* At 0, POC V4 forbids a probe, a requirement and a placeholder, and
+             requires a final word. Enforce it here so the author cannot build an
+             invalid step by lowering the budget. */
+          if (n === 0) { delete debrief.probe; delete debrief.requirement; delete debrief.input_placeholder; }
+        }, { min: 0 }, () => { scheduleUpdate(); paint(); }));
+
+      if ((debrief.follow_up_turns || 0) >= 1) {
+        if (!debrief.probe) debrief.probe = { text: '' };
+        body.append(
+          tf(`content.phases.${i}.debrief.probe.text`, 'Locked follow-up question (optional)', { area: true, minRows: 2,
+            helper: 'Delivered verbatim on the debrief\'s first turn, after the feedback on the attempt. Use it when the source scripts an exact question and paraphrase would lose its precision.' }),
+          tf(`content.phases.${i}.debrief.requirement`, 'Early-exit requirement (optional)', { area: true, minRows: 2 }),
+          tf(`content.phases.${i}.debrief.input_placeholder`, 'Composer placeholder'),
+        );
+      }
+      body.append(
+        tf(`content.phases.${i}.debrief.final_word`, 'Final word'
+          + ((debrief.follow_up_turns || 0) === 0 ? ' (required — this is a delivery-only debrief)' : ' (optional)'),
+          { area: true, minRows: 2,
+            helper: 'The locked closing line, delivered verbatim when the debrief ends.' }),
+        tf(`content.phases.${i}.debrief.transition.button_label`, 'Button into the next step'),
+      );
+
+      /* --- remove ------------------------------------------------------ */
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.innerHTML = '<i class="fa-solid fa-trash" style="margin-right:6px"></i>Remove this step';
+      del.style.cssText = 'display:inline-flex;align-items:center;padding:7px 12px;margin-top:14px;border-radius:8px;'
+        + 'font:600 12px inherit;cursor:pointer;background:transparent;color:var(--danger,#c92626);border:1px solid var(--line)';
+      del.addEventListener('click', () => {
+        phases.splice(i, 1);
+        openSteps.clear();                     // indices shifted; collapse rather than mislabel
+        scheduleUpdate(); paint();
+      });
+      body.append(del);
+
+      card.append(body);
+      return card;
+    }
+
+    paint();
+    return wrap;
+  }
+
+  /* Per-mode interaction fields. Each mode gets only its own shape — POC V4
+     rejects a key that belongs to another mode. */
+  function interactionFields(mode, i, practice, s, H) {
+    const { tf, rowsBlock, rowCard, guidance, scheduleUpdate } = H;
+    const base = `content.phases.${i}.practice.interaction`;
+    const it = obj(practice.interaction);
+    const holder = document.createElement('div');
+
+    if (mode === 'roleplay') {
+      holder.append(guidance('The scene', 'fa-masks-theater',
+        '<p>Leave the counterpart blank for <b>narrator-driven</b> roleplay — a first-class pattern for a step about what the learner <i>does</i> rather than what they say to someone ("you round the corner; what do you do?").</p>'));
+      const declared = arr(obj(obj(obj(s).content).scene_world).characters)
+        .map((c) => obj(c).id).filter(Boolean);
+      holder.append(
+        tf(`${base}.setting`, 'Setting', { helper: 'Where and when this scene takes place.' }),
+        tf(`${base}.character_id`, 'Counterpart character id (blank = narrator-driven)', {
+          helper: declared.length ? 'Declared characters: ' + declared.join(', ') : 'No characters declared yet — add them under Situation & world.' }),
+        tf(`${base}.emotion_hint`, 'Entering emotional state (optional)'),
+        tf(`${base}.partner_label`, 'Chat header name', {
+          helper: 'The character\'s name, "Narrator" on a narrator-driven scene, or a scene label when several characters share the thread.' }),
+        tf(`${base}.input_placeholder`, 'Composer placeholder'),
+        numField('Mid-scene coach help turns (0 hides the affordance)',
+          () => (typeof it.help_turns === 'number' ? it.help_turns : 2),
+          (n) => { it.help_turns = n; }, { min: 0 }, scheduleUpdate),
+      );
+      holder.append(rowsBlock(`${base}.opening_messages`, (m, k, onDel) => rowCard(
+        `Opening line ${k + 1}`, onDel,
+        tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
+          helper: 'Locked scene-setting, delivered verbatim. One message per step of the establishing sequence.' }),
+        tf(`${base}.opening_messages.${k}.character_id`, 'Spoken by (blank = narrator)'),
+      ), 'Add opening line', () => ({ text: '' })));
+      holder.append(carryoverBlock(base, i, s, H));
+      return holder;
+    }
+
+    if (mode === 'observe_react') {
+      holder.append(guidance('The exhibit and its rubric', 'fa-eye',
+        '<p>The rubric is the fixed set of findable items. Each needs a stable <b>id</b> (the engine\'s crediting key), the <b>creditable phrasing</b> a learner\'s catch is matched against, and a <b>nudge</b> that says where to look — <b>never</b> the answer.</p>'
+        + '<p>The learner\'s meter always shows the full rubric; <b>spot target</b> only decides how many catches complete the step.</p>'));
+      holder.append(
+        tf(`${base}.exhibit.src`, 'Exhibit source', { helper: 'Path relative to the media root.' }),
+        tf(`${base}.exhibit.alt`, 'Exhibit description', { area: true, minRows: 3,
+          helper: 'The full visual description. It must describe the exhibit well enough for the step to work without the image.' }),
+        tf(`${base}.jot_placeholder`, 'Jot input placeholder'),
+        tf(`${base}.partner_label`, 'Chat header name', {
+          helper: 'Defaults to "Narrator". Author "Narrator / Coach" when the mixed voice is worth naming — the brief narrates, the crediting is coach-voiced.' }),
+        numField('Spot target — catches needed to complete',
+          () => Math.max(1, it.spot_target || 1),
+          (n) => { it.spot_target = n; }, { min: 1 }, scheduleUpdate),
+        numField('Mid-scene coach help turns (0 hides the affordance)',
+          () => (typeof it.help_turns === 'number' ? it.help_turns : 2),
+          (n) => { it.help_turns = n; }, { min: 0 }, scheduleUpdate),
+      );
+      holder.append(rowsBlock(`${base}.rubric`, (r, k, onDel) => rowCard(
+        `Findable item ${k + 1}`, onDel,
+        tf(`${base}.rubric.${k}.id`, 'Id', { helper: 'Stable crediting key. Unique within this rubric.' }),
+        tf(`${base}.rubric.${k}.name`, 'Short name', { helper: 'Shown on the learner\'s coverage scorecard.' }),
+        tf(`${base}.rubric.${k}.standard_term`, 'Creditable phrasing', { area: true, minRows: 2,
+          helper: 'What a learner\'s catch is matched against, and the language the coach credits in.' }),
+        tf(`${base}.rubric.${k}.nudge`, 'Nudge', { area: true, minRows: 2,
+          helper: 'A cue toward where to look. Never the answer.' }),
+      ), 'Add findable item', () => ({ id: '', name: '', standard_term: '', nudge: '' })));
+      holder.append(rowsBlock(`${base}.brief`, (m, k, onDel) => rowCard(
+        `Briefing line ${k + 1}`, onDel,
+        tf(`${base}.brief.${k}.text`, 'Line', { area: true, minRows: 2,
+          helper: 'Locked, narrator-voiced, shown over the exhibit before the learner starts looking. Not chat bubbles.' }),
+      ), 'Add briefing line', () => ({ text: '' })));
+      holder.append(rowsBlock(`${base}.exhibit.facts`, (f, k, onDel) => rowCard(
+        `Exhibit fact ${k + 1}`, onDel,
+        tf(`${base}.exhibit.facts.${k}`, 'Ground truth', { area: true, minRows: 2,
+          helper: 'What may be asserted as true about what the exhibit shows. Model grounding, not learner text — it keeps the exhibit\'s contents out of scenes that cannot see it.' }),
+      ), 'Add exhibit fact', () => ''));
+      holder.append(carryoverBlock(base, i, s, H));
+      return holder;
+    }
+
+    /* coach_inquiry */
+    holder.append(guidance('The coach exchange', 'fa-comments',
+      '<p>This step runs in the coach conversation, so it needs no apparatus — it is the conversation itself. The coach may probe to sharpen but does <b>not</b> teach here; teaching is the debrief.</p>'
+      + '<p>There is no help budget: the learner is already talking to the coach, so a clarifying question is just a turn.</p>'));
+    holder.append(
+      tf(`${base}.input_placeholder`, 'Composer placeholder'),
+      tf(`${base}.partner_label`, 'Chat header name', { helper: 'Defaults to the coach label.' }),
+      tf(`${base}.media.src`, 'Ambient reference image (optional)', {
+        helper: 'Pinned above the conversation for the whole step — e.g. the scene being remediated. Never graded.' }),
+      tf(`${base}.media.alt`, 'Image description (optional)', { area: true, minRows: 2 }),
+    );
+    holder.append(rowsBlock(`${base}.opening_messages`, (m, k, onDel) => rowCard(
+      `Opening bubble ${k + 1}`, onDel,
+      tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
+        helper: 'The coach\'s locked opener, delivered verbatim in order.' }),
+    ), 'Add opening bubble', () => ({ text: '' })));
+    return holder;
+  }
+
+  /* carryover — only EARLIER steps are offerable, because a later step has no
+     transcript yet (POC V4 §9.1 rule 3). */
+  function carryoverBlock(base, i, s, H) {
+    const { tf, rowsBlock, rowCard, guidance } = H;
+    const holder = document.createElement('div');
+    const earlier = arr(obj(obj(s).content).phases).slice(0, i).map((p) => obj(p).id).filter(Boolean);
+    holder.append(guidance('Carryover — what this scene has already witnessed', 'fa-clock-rotate-left',
+      '<p>A fresh scene starts blank. Naming an <b>earlier</b> step hands this one the <b>verbatim transcript</b> of that attempt — never a summary, because summarising is where a model starts inventing.</p>'
+      + (earlier.length ? '<p>Available: <b>' + earlier.join('</b>, <b>') + '</b></p>'
+        : '<p>Nothing to carry yet — this is the first step.</p>')));
+    if (earlier.length) {
+      holder.append(rowsBlock(`${base}.carryover`, (c, k, onDel) => rowCard(
+        `Carryover ${k + 1}`, onDel,
+        tf(`${base}.carryover.${k}.from`, 'From step id', { helper: 'Must be an earlier step: ' + earlier.join(', ') }),
+      ), 'Add carryover', () => ({ from: earlier[earlier.length - 1] })));
+    }
+    return holder;
+  }
+
+  /* Seed a mode's required containers when a step is retyped, and drop the keys
+     the new mode does not have — an interaction carrying another mode's fields is
+     a load error, not an ignored extra. */
+  function seedInteraction(mode, prev) {
+    /* Only genuinely shared keys survive a retype. `levels` and `partner_label`
+       exist on all three interactions; the composer placeholder does NOT — coach
+       and roleplay call it `input_placeholder`, observe calls it
+       `jot_placeholder`, and carrying the wrong one across is a load error, not
+       a harmless extra. (Caught by our own validator during Pass B testing.) */
+    const carry = { levels: prev.levels, partner_label: prev.partner_label };
+    const keep = {};
+    Object.keys(carry).forEach((k) => { if (carry[k] !== undefined) keep[k] = carry[k]; });
+    /* Rename the placeholder to whatever the destination mode calls it. */
+    const placeholder = str(prev.input_placeholder) || str(prev.jot_placeholder);
+    if (placeholder) {
+      if (mode === 'observe_react') keep.jot_placeholder = placeholder;
+      else keep.input_placeholder = placeholder;
+    }
+
+    if (mode === 'roleplay') {
+      return Object.assign({
+        setting: '', partner_label: keep.partner_label || 'Narrator',
+        opening_messages: arr(prev.opening_messages).length ? prev.opening_messages : [{ text: '' }],
+      }, keep);
+    }
+    if (mode === 'observe_react') {
+      return Object.assign({
+        exhibit: obj(prev.exhibit).src ? prev.exhibit : { type: 'image', src: '', alt: '' },
+        rubric: arr(prev.rubric).length ? prev.rubric : [{ id: '', name: '', standard_term: '', nudge: '' }],
+        spot_target: typeof prev.spot_target === 'number' ? prev.spot_target : 1,
+        brief: arr(prev.brief).length ? prev.brief
+          : (arr(prev.opening_messages).length ? prev.opening_messages.map((m) => ({ text: str(obj(m).text) })) : [{ text: '' }]),
+      }, keep);
+    }
+    return Object.assign({
+      opening_messages: arr(prev.opening_messages).length ? prev.opening_messages
+        : (arr(prev.brief).length ? prev.brief.map((m) => ({ text: str(obj(m).text) })) : [{ text: '' }]),
+    }, keep);
+  }
+
+  function newPhase(n) {
+    return {
+      id: 'step' + n, label: '', purpose: '',
+      practice: {
+        mode: 'coach_inquiry', purpose: '', answer_shape: 'open',
+        exit: { when: { turns: 2 } },
+        transition: { button_label: '' },
+        interaction: { opening_messages: [{ text: '' }] },
+      },
+      debrief: { label: 'Coach Debrief', key_points: [''], follow_up_turns: 0, final_word: '', transition: { button_label: '' } },
+    };
+  }
+
+  /* A bound number input. studioApi's tf() is for text, and a turn budget that
+     silently accepts "two" would fail the load with a type error. */
+  function numField(label, get, set, opts, onChange) {
+    const f = document.createElement('vaadin-integer-field');
+    f.label = label;
+    f.stepButtonsVisible = true;
+    if (opts && typeof opts.min === 'number') f.min = opts.min;
+    f.value = String(get());
+    const apply = () => {
+      const n = parseInt(f.value, 10);
+      if (Number.isNaN(n)) return;
+      const min = opts && typeof opts.min === 'number' ? opts.min : 0;
+      set(Math.max(min, n));
+      if (typeof onChange === 'function') onChange();
+    };
+    f.addEventListener('change', apply);
+    f.addEventListener('value-changed', apply);
+    return f;
+  }
+
+  /* The editor mutates the live draft, so make sure the containers it writes into
+     exist first — without inventing any authored text. */
+  function normalizeInPlace(s) {
+    const d = obj(s);
+    d.content = obj(d.content);
+    if (!Array.isArray(d.content.phases)) d.content.phases = [];
+    d.content.phases.forEach((p) => {
+      const ph = obj(p);
+      ph.practice = obj(ph.practice);
+      ph.practice.exit = obj(ph.practice.exit);
+      ph.practice.exit.when = obj(ph.practice.exit.when);
+      ph.practice.transition = obj(ph.practice.transition);
+      ph.practice.interaction = obj(ph.practice.interaction);
+      ph.debrief = obj(ph.debrief);
+      ph.debrief.transition = obj(ph.debrief.transition);
+      if (!Array.isArray(ph.debrief.key_points)) ph.debrief.key_points = [];
+    });
+    return d;
   }
 
   /* ---- lints: the POC V4 validator, surfaced live ----------------------
