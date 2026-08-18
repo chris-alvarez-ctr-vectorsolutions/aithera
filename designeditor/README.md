@@ -121,7 +121,7 @@ hand-dialed values shouldn't become magic numbers. So:
 
 - **Pixel properties snap to design-system tokens.** Drag padding to ~17px and it
   snaps to the 16px step and exports `var(--lumo-space-m)`. Claude applies the
-  token, never `17px`. (Scales from `THEMES-CONTEXT.md`: `--lumo-space-*`,
+  token, never `17px`. (Scales from the themes CONTEXT.md: `--lumo-space-*`,
   `--lumo-border-radius-*`, `--lumo-font-size-*`.)
 - **Colors come from the palette first.** The color control shows semantic theme
   swatches (Primary, Success, Warning, Error, text greys, base). Picking one

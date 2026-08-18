@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Möbius loader — usage</title>
+
+<style>
+  :root {
+    --bg: #0b0e13; --panel: #12161d; --panel-light: #f4f6f8;
+    --text: #e7ecf2; --muted: #9aa7b4; --text-dark: #1a2129; --muted-dark: #5b6672;
+    --line: rgba(255,255,255,0.08); --line-dark: rgba(10,20,30,0.10);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 32px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin: 34px 0 12px; font-weight: 600; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .panel.light { background: var(--panel-light); color: var(--text-dark); border-color: var(--line-dark); }
+  .panel.light .cap { color: var(--muted-dark); }
+
+  /* inline usage: the loader sits in a line of text */
+  .line { display: flex; align-items: center; gap: 12px; font-size: 15px; }
+  .inline-loader { width: 26px; height: 26px; flex: 0 0 auto; }
+
+  /* size row */
+  .sizes { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; }
+  .sizes figure { margin: 0; text-align: center; }
+  .cap { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+  /* thinking card */
+  .card { display: flex; align-items: center; gap: 16px; }
+  .card .txt b { display: block; font-size: 15px; }
+  .card .txt span { font-size: 13px; color: var(--muted); }
+
+  /* light-surface chip (loader given its own dark backdrop) */
+  .chip { border-radius: 10px; }
+
+  .btn { font: inherit; font-size: 14px; color: #04121b; background: #1CC5C0; border: 0; border-radius: 9px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+  .btn:hover { filter: brightness(1.06); }
+
+  /* centered "thinking" overlay */
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+             background: rgba(6,9,13,0.72); backdrop-filter: blur(3px); z-index: 50; }
+  .overlay.on { display: flex; }
+  .overlay .ol { width: 120px; height: 120px; }
+  .overlay p { color: #dfe6ee; font-size: 15px; letter-spacing: 0.02em; margin: 0; }
+  .overlay small { color: #8b97a4; }
+</style>
+
+<div class="wrap">
+  <h1>Möbius loader</h1>
+  <p class="sub">A brand-colored "AI is thinking" indicator. Self-contained WebGL, no libraries. The loader fills its container — you set the size in CSS.</p>
+
+  <!-- ON A DARK SURFACE -->
+  <div class="panel">
+    <h2 style="margin-top:0">Inline · dark surface</h2>
+    <div class="line">
+      <span class="inline-loader" id="inline"></span>
+      <span>Aithera is thinking&hellip; drafting the next scenario beat.</span>
+    </div>
+
+    <h2>Sizes</h2>
+    <div class="sizes">
+      <figure><div id="s24" style="width:24px;height:24px;margin:auto"></div><span class="cap">24</span></figure>
+      <figure><div id="s40" style="width:40px;height:40px;margin:auto"></div><span class="cap">40</span></figure>
+      <figure><div id="s64" style="width:64px;height:64px;margin:auto"></div><span class="cap">64</span></figure>
+      <figure><div id="s96" style="width:96px;height:96px;margin:auto"></div><span class="cap">96</span></figure>
+    </div>
+
+    <h2>"Thinking" card</h2>
+    <div class="card">
+      <div id="card" style="width:56px;height:56px"></div>
+      <div class="txt"><b>Generating feedback</b><span>Analyzing the learner's response&hellip;</span></div>
+    </div>
+  </div>
+
+  <!-- ON A LIGHT SURFACE -->
+  <div class="panel light" style="margin-top:22px">
+    <h2 style="margin-top:0">Light surface</h2>
+    <div class="line">
+      <span class="inline-loader chip" id="light1" style="width:30px;height:30px"></span>
+      <span>The strip is tuned for dark backdrops, so on light UI give it its own chip
+        (<code>background</code> option) — or a dark container.</span>
+    </div>
+  </div>
+
+  <!-- OVERLAY -->
+  <div class="panel" style="margin-top:22px">
+    <h2 style="margin-top:0">Centered overlay</h2>
+    <button class="btn" id="showOverlay">Show "thinking" overlay</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="ol" id="overlayLoader"></div>
+  <p>Thinking&hellip; <small>(tap anywhere to dismiss)</small></p>
+</div>
+
+<script src="mobius-loader.js"></script>
+<script>
+  // Inline + fixed sizes via the JS API.
+  initMobiusLoader('#inline');
+  initMobiusLoader('#s24');
+  initMobiusLoader('#s40');
+  initMobiusLoader('#s64');
+  initMobiusLoader('#s96');
+  initMobiusLoader('#card');
+
+  // Light surface: give the loader its own dark rounded chip.
+  initMobiusLoader('#light1', { background: '#0c1017' });
+
+  // Overlay: create on open, destroy on close (shows lifecycle + cleanup).
+  const overlay = document.getElementById('overlay');
+  let overlayLoader = null;
+  document.getElementById('showOverlay').addEventListener('click', () => {
+    overlay.classList.add('on');
+    overlayLoader = initMobiusLoader('#overlayLoader', { speed: 1.1 });
+  });
+  overlay.addEventListener('click', () => {
+    overlay.classList.remove('on');
+    if (overlayLoader) { overlayLoader.destroy(); overlayLoader = null; }
+  });
+</script>
+</html>

@@ -11,24 +11,12 @@ This project is used by the **UX team** to generate quick HTML/CSS prototypes fo
 - **Skill Level**: Team understands HTML/CSS but may not be familiar with advanced build tools or modern JavaScript frameworks
 
 ## Quick Reference
-- **Component Reference**: See @CORE-CONTEXT.md for complete list of Vector components with HTML tags, props, and usage examples
-- **Component Lookup**: Use the reference file for quick offline access to component tags and attributes
-
-Claude will:
-1. Fetch the latest component list from Storybook
-2. Extract current component tags from the CDN
-3. Query component props and attributes
-4. Update the reference file with new information
-
-**Last Updated:** The reference file shows its last update date at the bottom
+- **Component Reference**: The local `context/` directory caches CONTEXT.md files from the CDN. Check there first; if the version you need isn't present, fetch it directly from the CDN (see lookup pattern below).
+- **CDN base**: `https://cdn.vsp-prod.com/web-components/@vector-web-components/`
 
 ## Vector Web Components
 
-**CRITICAL: Always use Vector web components from Storybook when designing UX or creating prototypes.**
-
-This project has access to the Vector Web Components library via Storybook MCP server:
-- **Storybook URL**: https://cdn.staging.vsp-nonprod.com/web-components/@vector-web-components/storybook/latest/index.html
-- The MCP connection always uses the latest version automatically
+**CRITICAL: Always use Vector web components when designing UX or creating prototypes.**
 
 ### Available Packages
 
@@ -65,28 +53,42 @@ Design assets including:
 
 ### Using Vector Components
 
-#### 1. Check Component Reference First
-**Quick Lookup Process:**
-1. Check `CORE-CONTEXT.md` for component HTML tags and common props
-2. Use Storybook MCP tools for detailed component information if needed:
-   - `mcp__storybook__getComponentList` - List all available components
-   - `mcp__storybook__getComponentsProps` - Get props/attributes for specific components
+#### 1. Resolve the component version and fetch context
 
-The reference file provides faster lookup for common components and usage patterns.
+**When working on an existing mock:**
+1. Read the mock's `index.html` and extract the core and themes versions from its CDN `<script>` tags:
+   ```html
+   <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/<ver>/core.iife.js"></script>
+   <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/<ver>/styles.js"></script>
+   ```
+2. Check whether `context/core/<ver>/CONTEXT.md` and `context/themes/<ver>/CONTEXT.md` already exist locally. If they do, use them.
+3. If not present locally, fetch them from the CDN:
+   - `https://cdn.vsp-prod.com/web-components/@vector-web-components/core/<ver>/CONTEXT.md`
+   - `https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/<ver>/CONTEXT.md`
+
+**When creating a new mock** (or when no mock exists yet), use the version from `base-template/index.html` the same way.
+
+**Minimum version fallback:** CONTEXT.md files were not published before certain library versions. If the version in the mock is older than the minimum, fall back to the minimum and note it.
+
+| Package | Minimum version with CONTEXT.md |
+|---|---|
+| `@vector-web-components/core` | `v1.22.1` |
+| `@vector-web-components/themes` | `v1.9.3` |
+
+**NEVER use component tag names, props, or token values from memory.** Always quote them from a fetched or locally-cached CONTEXT.md. Confidently wrong values are worse than admitting uncertainty.
 
 #### 2. Component Integration
 - Web components use **Vaadin** custom element tags (e.g., `<vaadin-text-area>`, `<vaadin-button>`)
 - Components work directly in HTML without build tools
 - Most Vector components use either `vaadin-` or `vwc-` prefix
-- Set attributes and properties as documented in `CORE-CONTEXT.md`
+- Set attributes and properties as documented in the fetched CONTEXT.md for the version in use
 
 **IMPORTANT:**
-- **Always refer to `CORE-CONTEXT.md`** for correct component tag names
-- **NEVER fabricate or assume component tag names**
-- If a component is not in the reference file, check Storybook or ask the user
+- **Always verify component tag names against the fetched CONTEXT.md** — never fabricate or assume them
+- If a tag or prop cannot be confirmed from the fetched CONTEXT.md, flag it as unverified rather than guessing
 - Do NOT use placeholder names like `<vector-component>` or `<vsp-component>` in code
 
-**Quick Component Tag Reference:**
+**Quick Component Tag Reference** (verify in CONTEXT.md before use):
 - Form Controls: `vaadin-text-field`, `vaadin-text-area`, `vaadin-password-field`, `vaadin-number-field`, `vaadin-checkbox`, `vaadin-radio-button`, `vaadin-select`, `vaadin-date-picker`
 - Buttons: `vaadin-button`
 - Layout: `vwc-card`, `vaadin-details`, `vaadin-accordion`, `vaadin-tabs`
@@ -94,7 +96,7 @@ The reference file provides faster lookup for common components and usage patter
 - Data Display: `vwc-icon`, `vwc-badge`, `vaadin-progress-bar`, `vwc-spinner`
 - Other: `vwc-switch`, `vwc-divider`, `vwc-headline`
 
-For the complete list with props and examples, see `CORE-CONTEXT.md`
+For the complete list with props and examples, fetch the CONTEXT.md for the version in use (see lookup pattern above).
 
 #### 3. For a NEW mock
 
@@ -118,9 +120,9 @@ products/<Product>/<feature>/
 2. Copy **`base-template/index.html`** (the loader) to the feature root as `index.html`. **Do not modify it** — it is identical across every feature; only `versions.json` differs.
 3. Create **`versions.json`** with the single `ver1` entry shown above.
 4. Create the **`ver1/`** folder and copy **`base-template/version.html`** (the blank Vector canvas) to `ver1/index.html`. **Do all design work here, not in the root loader `index.html`.**
-   - **Every new mock, in every product, gets the Design Toolbox with comments ENABLED — no exceptions.** `base-template/version.html` already carries the `designtoolbox/toolbox.js` include; keep it, and never add `window.TOOLBOX = { comments: false }` to a design file (that override belongs ONLY in `dev_handoff.html` builds). If a mock has multiple pages in its `verN/` folder, every page gets the same toolbox include. This applies to all products — not just SafeLMS/Scheduling.
+   - **Every new mock is scaffolded WITH the Design Toolbox (comments enabled) by default — but the toolbox, comments, and flow map are OPTIONAL, never enforced.** `base-template/version.html` already carries the `designtoolbox/toolbox.js` include; keep it so designers get comments + flow map for free, and don't add `window.TOOLBOX = { comments: false }` to a design file (that override belongs in `dev_handoff.html` builds). If a mock has multiple pages in its `verN/` folder, give each page the same include. This is the recommended default for all products — but a mock without the toolbox (or without versioning) is fine: nothing checks for it on commit, so it will **never block or nag**. `scripts/check-mock-structure.sh` still exists as a **manual, opt-in advisory** you can run by hand, but it is not wired into the commit flow. Removing or skipping the toolbox is a legitimate choice; the review/handoff tooling is opt-in.
    - **The flow map is scaffolded too — every new mock ships with version + flow map + comments.** `base-template/version.html` now carries a starter flow-map config (`window.TOOLBOX_CONFIG.flowMap` + `applyFlowState` + `#fm=` hash boot) with ONE entry node, so the 🗺 Flow Map button is live from the first commit. As you build: rename `flowMap.title` to `"<Feature> — Flow Map"`, and for each screen add a `node` (+ an `applyFlowState` case + an `edge`). Keep `applyFlowState` driving real screen states so the live thumbnails and `#fm=` deep links work.
-   - **Notes live in `verN/`, next to the design file.** The flow map fetches `DEV-NOTES.md` **relative to the page**, so for a versioned mock it must sit at `verN/DEV-NOTES.md` (not the feature root). Format: one `## <node-id>` section per flow-map node, with `- bullet` notes under it; an optional `> date: YYYY-MM-DD` line (redeclarable partway down) stamps the notes below it, and a bullet may start with `(YYYY-MM-DD)` to override. A bullet may also lead with a **bold header ending in a colon inside the `** **`** — `- **Short header:** description follows.` — which renders the header as its own line above the description, an optional aid to keep a dev note skimmable (opt-in: the colon must sit *inside* the bold, so plain-prose bullets are unaffected). **Notes are a dev-ready affordance only.** While a mock is **in progress** the flow map shows **no notes** — the running "what changed" log for that phase is the **dashboard's recent-changes + the GitHub commit history** (write good commit messages and they become the changelog; nothing to hand-author in the flow map). Notes render **only in the `dev_handoff.html` build** (comments OFF), where they ARE the **Dev notes** developers read, and the GitHub link to `DEV-NOTES.md` appears. You can still author `DEV-NOTES.md` incrementally while in progress — jot down **client feedback and decisions as they land** so they surface as Dev notes at handoff — it just stays hidden until dev-ready. So: **in progress → commits tell the story; dev-ready → the flow map surfaces the dev notes.**
+   - **Notes are fetched relative to the page that renders them.** `flow-map.js` resolves `TOOLBOX_CONFIG.flowMap.devNotes || <folder of the current page> + 'DEV-NOTES.md'`, so `DEV-NOTES.md` must sit beside **whichever page will show it** — `verN/DEV-NOTES.md` for the design file, the **feature root** for `dev_handoff.html` (which lives one folder up). Since notes only actually render in the dev build, the feature root is the placement that matters at handoff; if one file must serve both, keep the single copy at the feature root and point the design file at it with `devNotes: '../DEV-NOTES.md'` in its `flowMap` config rather than duplicating the file. Format: one `## <node-id>` section per flow-map node, with `- bullet` notes under it; an optional `> date: YYYY-MM-DD` line (redeclarable partway down) stamps the notes below it, and a bullet may start with `(YYYY-MM-DD)` to override. A bullet may also lead with a **bold header ending in a colon inside the `** **`** — `- **Short header:** description follows.` — which renders the header as its own line above the description, an optional aid to keep a dev note skimmable (opt-in: the colon must sit *inside* the bold, so plain-prose bullets are unaffected). **Notes are a dev-ready affordance only.** While a mock is **in progress** the flow map shows **no notes** — the running "what changed" log for that phase is the **dashboard's recent-changes + the GitHub commit history** (write good commit messages and they become the changelog; nothing to hand-author in the flow map). Notes render **only in the `dev_handoff.html` build** (comments OFF), where they ARE the **Dev notes** developers read, and the GitHub link to `DEV-NOTES.md` appears. You can still author `DEV-NOTES.md` incrementally while in progress — jot down **client feedback and decisions as they land** so they surface as Dev notes at handoff — it just stays hidden until dev-ready. So: **in progress → commits tell the story; dev-ready → the flow map surfaces the dev notes.**
 5. If no mock description is given, scaffold these files and then ask where to start with the design in `ver1/index.html`.
 6. **Always add the new prototype to `products.json`** (repo root) — the single curated source for BOTH the landing index and every product dashboard. Add an item under the correct product's `items`, pointing `rel` at the **feature folder** (the loader), relative to `products/<Product>/`:
 
@@ -167,87 +169,32 @@ As a backstop, a rename now **self-heals automatically** — nobody's commit is 
 
 So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
 
-## Dev Handoff Process
+## Dev Handoff / Wrap-Up
 
-**This is the standardized process for every dev handoff — it is the same for every designer and every mock.** When a designer says any of *"this is ready for dev,"* *"ready for handoff,"* *"it's dev-handoff time,"* *"hand this off,"* or similar, run these steps in order. Do not improvise a different flow per request.
+When a designer says the mock is done — *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill.
 
-The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev handoff build") for the toolbox/dashboard details referenced below.
+**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the three-way reconciliation, the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
 
-### Step 0 — Pick the version FIRST (before anything else)
+Two consequences worth knowing before the handoff starts, because they change what you do *during* design:
 
-Feature folders are versioned: the design lives in separate **`verN/index.html`** files, listed in **`versions.json`**, behind the feature-root loader `index.html`. **Read `versions.json` to see which versions exist**, then:
+- **The component audit is not a separate step you run.** `ux-wrapup` invokes **`audit-mock-vwc`** itself, in embedded mode, and folds the report into `mock-definition.md`'s Component confirmation section. Run `audit-mock-vwc` **on its own only** when someone asks for a component audit outside a handoff — that standalone mode is the only one that writes `component-assessment.md`.
+- **Legacy flat mocks stay flat until handoff.** Many older mocks predate the versioned-folder structure and live as loose `.html` files in the product folder, often without the Design Toolbox. **Leave them alone while design iterates — never retrofit versioning or the toolbox onto an old mock outside a handoff, and never flag a designer for it.** Folding one into a feature folder is a handoff-time step that `ux-wrapup` owns; it is not something to do (or suggest) mid-design.
 
-- **Exactly ONE version (or a legacy flat mock, which becomes `ver1`): do NOT ask — proceed silently with that version.** One version means the choice is already made; asking "which version?" when there's only one is noise. This is the common case — most mocks launch a single version — so the handoff should run start-to-finish without a version question.
-- **More than one version: STOP and ask** which to hand off (name them by their `label`, e.g. "V1 or V2?"), so the handoff doesn't carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
+## Style Guidelines
 
-Details for the two cases:
-- If they keep **one** version, build the handoff from that version's file.
-- If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
-- Never guess which version to keep or what to call them.
+Use the themes CONTEXT.md for the version in use (see CDN lookup pattern above) as the reference for design tokens and theming. Always quote token values from the fetched file — never recall them from memory.
 
-### Step 0.5 — Legacy flat mock? Fold it into a feature folder NOW (not before)
-
-Many older mocks predate the versioned-folder structure: they live as loose `.html` files directly in the product folder, often without the Design Toolbox. **Leave them alone while design iterates — never retrofit versioning/toolbox onto an old mock outside a handoff, and never flag them for it.** But the moment one is declared ready for dev, it gets the standard shape first, because the dashboard automation (Step 5) only detects a `dev_handoff.html` beside a feature's `index.html` — it can NEVER flip the card for a flat file, and hand-approximating it loses the flow map and the GitHub dev links (this is exactly how the EHS "Mobile App — Main" handoff went wrong in Jul 2026):
-
-1. Scaffold the feature folder exactly as for a new mock (see "For a NEW mock"): `products/<Product>/<feature>/` with the loader `index.html` (copied verbatim from `base-template/index.html`), a single-entry `versions.json`, and the design file **moved** to `ver1/index.html`.
-2. Add the Design Toolbox include to the design file (comments **enabled**), and fix any repo-root-relative asset paths for the new depth (`../../../../…`).
-3. Update the mock's `rel` in `products.json` in the **same commit** (Guard A2 enforces), and **re-share the new URL** — the old flat-file link 404s for anyone holding it.
-4. Continue with Steps 1–6 exactly as for any other mock. The `dev_handoff.html` goes at the new feature root — **never floating loose in the product folder**.
-
-**Never** add a separate dashboard card that points at a dev build, and **never** hand-pin `"status": "ready-for-dev"` on a flat-file mock — a handoff is a *state* of the existing mock's card, not a new card. `scripts/check-dev-handoff.js` (pre-commit Guard A3 + the check-mock-structure CI workflow) blocks all of this for NEW handoffs; handoffs that predate the guard are grandfathered silently.
-
-### Step 1 — Component assessment
-
-Run the **`assess-mock-components`** skill on the **chosen version's file** (`verN/index.html`) — not the feature-root loader `index.html`, which has no design in it. This audits every element against the Vector Web Components library (correct `vaadin-*` / `vwc-*` usage, `theme="outlined"` on inputs, button variants) and confirms theme-token usage. It produces `component-assessment.md` and never edits the mock.
-
-### Step 2 — Write the dev notes (`DEV-NOTES.md`)
-
-Author or refresh **`DEV-NOTES.md`** next to the mock (the flow map reads it — see the toolbox README's "Dev notes file format"). For **every node/screen** in the flow map, write the developer annotations: what each element is, **the VWC/Vaadin component it maps to** (fold in the Step 1 findings), states, edge cases, and — critically — **every place a change was made on the page that a developer needs to build.**
-
-- **Annotations live ONLY inside the flow map's dev notes — never as added elements on the page.** The design stays clean and uncluttered; developers drill into the flow map to see every detail per screen, while still seeing the full picture (the whole flow) in one place.
-- Include the **"do not ship the toolbox" warning** from Step 4 in `DEV-NOTES.md` too.
-
-### Step 3 — Duplicate the HTML into a dev-handoff build
-
-Copy the **chosen version's file** (`verN/index.html`) to **`dev_handoff.html`** at the **feature root** — next to the loader `index.html`, NOT inside the `verN/` folder. That placement is required: `scripts/build-dashboards.js` only detects a dev build named `dev_handoff.html` (or a custom name set via `meta.json`) sitting beside the feature's `index.html`. Produce one per kept version, named per Step 0 (e.g. `dev_handoff_alpha.html`).
-
-Because the copy moves **up one folder** (from `verN/` to the feature root), **fix any repo-root-relative paths by removing one `../`** — most importantly the toolbox include changes from `../../../../designtoolbox/toolbox.js` to `../../../designtoolbox/toolbox.js`. Then, in the copy, **before the `toolbox.js` include**, add:
-
-```html
-<script>window.TOOLBOX = { comments: false };</script>
-```
-
-This **hides the entire comment feature** (the pin-and-comment widget *and* the flow map's 💬 comment-count chips) while **keeping the flow map on** so developers still get the screens, live thumbnails, and dev-note annotations. Keep the mock's `applyFlowState` / `bootFromHash` so the flow map and thumbnails work. **Do not hand-rewrite the design** — the dev build is a copy of the chosen version, only with comments off.
-
-### Step 4 — The toolbox dock is NOT part of the product
-
-The bottom-center **toolbox pill** and its **🗺 Flow Map button are review/handoff tooling only — they are not part of the actual product design.** State this prominently in `DEV-NOTES.md` (and anywhere a developer will look): **developers must NOT ship the `toolbox.js` include, the dock pill, or the flow map button** — strip that one `<script src=".../toolbox.js">` line for production.
-
-### Step 5 — Dashboard (automatic)
-
-No manual dashboard edit is needed. On push, `scripts/build-dashboards.js` detects `dev_handoff.html` and flips the product-dashboard card to **Ready for Dev**: the card's **status pill updates to "Ready for Dev"**, the **Dev Page + Dev HTML (GitHub) links render first** with a **"View Dev Build"** primary button, and the **original design links collapse into a "Designer file" drawer**. (For a non-default filename like `dev_handoff_alpha.html`, set `devHandoff: "dev_handoff_alpha.html"` in the mock's `meta.json` entry.)
-
-The dev-handoff file **drives the "Ready for Dev" status pill** — so at handoff either leave the mock's `status` unset in `meta.json` (the file alone flips it) or set `"status": "ready-for-dev"` explicitly. Don't leave a stale `status` like `"in-progress"` pinned, or the pill won't update to Ready for Dev.
-
-### Step 6 — Commit and share
-
-Commit the new files, then give the designer the dev build's **GitHub Pages URL** (the "Dev Page" link).
-
-### Style Guidelines
-
-Use THEMES-CONTEXT.md as the reference for design tokens and themeing provided from the themes bundle in styles.js.
-
-#### Colors (Styleguide/Colors)
+### Colors (Styleguide/Colors)
 - Use semantic color tokens from Vector theme rather than specific color hex values
-- Check Storybook for primary, secondary, accent, neutral colors
+- Token values live in the themes CONTEXT.md for the version in use — fetch it to look up exact values
 - Follow accessibility guidelines for contrast ratios
 
-#### Typography (Styleguide/Typography)
+### Typography (Styleguide/Typography)
 - Use Vector's typography scale for consistency
 - Font families, sizes, and weights are defined in theme
 - Follow heading hierarchy (h1-h6)
 
-#### Icons
+### Icons
 
 **Default Icon Library: Font Awesome 6 PRO — self-hosted**
 
@@ -318,7 +265,7 @@ as before. Swap one to the self-hosted Pro path only if that mock needs a Pro ic
 - **Font Awesome** (recommended): Use for standard UI icons (user, home, search, settings, etc.)
 - **vwc-icon**: Use when required by Vector component slots or for custom SVG graphics
 
-#### Elevations (Styleguide/Elevations)
+### Elevations (Styleguide/Elevations)
 - Use predefined shadow levels for depth
 - Consistent elevation creates visual hierarchy
 

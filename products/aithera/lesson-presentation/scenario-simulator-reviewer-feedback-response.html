@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reviewer Feedback — V4 POC vs UX Universal</title>
+<style>
+  :root {
+    /* neutrals biased slightly toward the teal accent — chosen, not defaulted */
+    --paper:      #f3f6f4;
+    --panel:      #eef2f0;
+    --panel-2:    #e6ece9;
+    --ink:        #12181b;
+    --ink-2:      #43514f;
+    --ink-3:      #6c7a76;
+    --line:       #d3ddd9;
+    --line-2:     #b3c1bc;
+    /* the one signal color — a deep, legible cousin of the scene-sweep pin (#4adebe) */
+    --accent:     #0b8f78;
+    --accent-ink: #06614f;
+    --accent-soft:#d9efe9;
+    /* semantic caveat / watch-item — NOT the accent */
+    --warn:       #9a5f18;
+    --warn-soft:  #f3e8d6;
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+
+    --measure: 66ch;
+    --wrap: 940px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0d1315;
+      --panel:      #141d20;
+      --panel-2:    #182326;
+      --ink:        #e7ece9;
+      --ink-2:      #a8b7b2;
+      --ink-3:      #7a8a85;
+      --line:       #253230;
+      --line-2:     #35443f;
+      --accent:     #4adebe;   /* the actual scene-sweep pin color — glows on dark */
+      --accent-ink: #8ef0da;
+      --accent-soft:#123029;
+      --warn:       #e2ad64;
+      --warn-soft:  #2b2312;
+    }
+  }
+  /* explicit theme override (harmless as a standalone page; honored if embedded) */
+  :root[data-theme="light"] {
+    --paper:#f3f6f4; --panel:#eef2f0; --panel-2:#e6ece9;
+    --ink:#12181b; --ink-2:#43514f; --ink-3:#6c7a76;
+    --line:#d3ddd9; --line-2:#b3c1bc;
+    --accent:#0b8f78; --accent-ink:#06614f; --accent-soft:#d9efe9;
+    --warn:#9a5f18; --warn-soft:#f3e8d6;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1315; --panel:#141d20; --panel-2:#182326;
+    --ink:#e7ece9; --ink-2:#a8b7b2; --ink-3:#7a8a85;
+    --line:#253230; --line-2:#35443f;
+    --accent:#4adebe; --accent-ink:#8ef0da; --accent-soft:#123029;
+    --warn:#e2ad64; --warn-soft:#2b2312;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap {
+    max-width: var(--wrap);
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 72px) clamp(20px, 5vw, 56px) 96px;
+  }
+
+  /* ---- typography roles -------------------------------------------------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: clamp(30px, 5.4vw, 50px);
+    line-height: 1.06;
+    letter-spacing: -.012em;
+    text-wrap: balance;
+    margin: 0 0 22px;
+    max-width: 20ch;
+  }
+  h1 em { font-style: italic; color: var(--accent-ink); }
+  .lede {
+    font-size: clamp(17px, 2.1vw, 20px);
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin: 0 0 26px;
+  }
+  .meta {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .01em;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+  .meta b { color: var(--accent-ink); font-weight: 600; }
+
+  section { margin-top: clamp(48px, 7vw, 82px); }
+
+  h2 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: clamp(21px, 2.8vw, 27px);
+    letter-spacing: -.01em;
+    line-height: 1.2;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .sec-kicker {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    display: block;
+    margin-bottom: 10px;
+  }
+  p { max-width: var(--measure); margin: 0 0 16px; }
+  strong { font-weight: 650; }
+  code, .k {
+    font-family: var(--mono);
+    font-size: .86em;
+    background: var(--panel-2);
+    color: var(--accent-ink);
+    padding: .08em .38em;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  /* ---- figures ----------------------------------------------------------- */
+  figure {
+    margin: 30px 0 8px;
+    padding: 22px clamp(14px, 3vw, 28px) 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .svg-scroll { overflow-x: auto; }
+  figure svg { display: block; width: 100%; height: auto; min-width: 660px; color: var(--ink-2); }
+  figcaption {
+    font-size: 14px;
+    color: var(--ink-2);
+    max-width: var(--measure);
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  figcaption b { color: var(--ink); font-weight: 650; }
+
+  /* ---- diagram theming: classes, NOT var() in presentation attributes ---- */
+  figure svg text { font-family: var(--mono); fill: var(--ink-2); }
+  .d-ink   { fill: var(--ink); }
+  .d-ink3  { fill: var(--ink-3); }
+  .d-acc   { fill: var(--accent-ink); }
+  .d-b     { fill: var(--panel);   stroke: var(--line-2); }
+  .d-b2    { fill: var(--panel-2); stroke: var(--line-2); }
+  .d-acbox { fill: var(--accent-soft); stroke: var(--accent); }
+  .d-acbox2{ fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+  .d-btab  { fill: var(--panel); stroke: var(--accent); }
+  .d-dash  { fill: none; stroke: var(--line-2); stroke-dasharray: 4 3; }
+  .d-acdash{ fill: none; stroke: var(--accent); stroke-dasharray: 5 4; }
+  .d-edge  { fill: none; stroke: var(--line-2); }
+  .d-acedge{ fill: none; stroke: var(--accent); }
+  .d-div   { stroke: var(--line); }
+  .d-arrow { fill: currentColor; }
+  .d-acarrow { fill: var(--accent); }
+
+  /* ---- callouts ---------------------------------------------------------- */
+  .callout {
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    margin: 22px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-family: var(--mono);
+    letter-spacing: .02em;
+    color: var(--accent-ink);
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .callout.warn h3 { color: var(--warn); }
+  .callout p { margin: 0; max-width: 62ch; color: var(--ink-2); }
+  .callout p + p { margin-top: 10px; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--paper); background: var(--warn);
+    padding: 2px 7px; border-radius: 999px;
+  }
+  .callout:not(.warn) .tag { background: var(--accent); }
+
+  /* ---- "what the registry buys" panel ------------------------------------ */
+  .panel {
+    margin: 34px 0 8px;
+    padding: 26px clamp(16px, 3vw, 30px);
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    background: var(--panel);
+  }
+  .panel h3 {
+    font-family: var(--sans); font-weight: 700;
+    font-size: clamp(19px, 2.4vw, 23px); letter-spacing: -.01em;
+    margin: 4px 0 8px; text-wrap: balance;
+  }
+  .panel-lead { font-size: 16.5px; color: var(--ink); max-width: 62ch; margin: 0 0 20px; }
+  .panel-lead b { color: var(--accent-ink); font-weight: 650; }
+
+  .shape-scroll { overflow-x: auto; margin: 0 0 22px; }
+  pre.shape {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+    margin: 0; padding: 16px 18px; min-width: 520px; white-space: pre;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; color: var(--ink);
+  }
+  pre.shape .cmt { color: var(--ink-3); }
+  pre.shape .hi  { color: var(--accent-ink); }
+
+  ul.gains {
+    margin: 0 0 18px; padding-left: 0; list-style: none;
+    display: grid; gap: 13px; max-width: var(--measure);
+  }
+  ul.gains li { padding-left: 28px; position: relative; color: var(--ink-2); }
+  ul.gains li::before {
+    content: ""; position: absolute; left: 3px; top: .55em;
+    width: 9px; height: 9px; border-radius: 2px; background: var(--accent);
+    transform: rotate(45deg);
+  }
+  ul.gains li b { color: var(--ink); font-weight: 650; }
+
+  .timing {
+    font-size: 14.5px; color: var(--ink-2); max-width: 62ch; margin: 0;
+    padding: 14px 16px; border-left: 3px solid var(--warn);
+    background: var(--warn-soft); border-radius: 0 8px 8px 0;
+  }
+  .timing b { color: var(--warn); font-weight: 650; }
+
+  /* ---- build table ------------------------------------------------------- */
+  .table-scroll { overflow-x: auto; margin: 24px 0 6px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14.5px; }
+  caption { text-align: left; font-family: var(--mono); font-size: 11.5px; letter-spacing:.14em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 12px; }
+  th, td { text-align: left; padding: 12px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; border-bottom: 1px solid var(--line-2); }
+  td:first-child { font-weight: 600; color: var(--ink); width: 30%; }
+  td .sub { display:block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; font-family: var(--mono); margin-top:3px; }
+  .verdict { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; white-space: nowrap; }
+  .verdict.ok  { color: var(--accent-ink); }
+  .verdict.mid { color: var(--ink-2); }
+  .verdict.no  { color: var(--warn); }
+
+  /* ---- bottom line ------------------------------------------------------- */
+  .verdict-card {
+    margin-top: 40px; padding: 26px clamp(18px,3vw,30px);
+    border: 1px solid var(--line-2); border-radius: 14px;
+    background: linear-gradient(180deg, var(--panel), var(--paper));
+  }
+  .verdict-card h2 { margin-bottom: 14px; }
+  .verdict-card ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 14px; max-width: var(--measure); }
+  .verdict-card li { padding-left: 30px; position: relative; color: var(--ink-2); }
+  .verdict-card li::before {
+    content: ""; position: absolute; left: 4px; top: .55em;
+    width: 9px; height: 9px; border-radius: 2px; background: var(--accent);
+    transform: rotate(45deg);
+  }
+  .verdict-card li.watch::before { background: var(--warn); }
+  .verdict-card li b { color: var(--ink); }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .k, code { white-space: normal; }
+  }
+
+  /* ---- composed-prompt file list ----------------------------------------- */
+  ul.dumps {
+    margin: 16px 0 0; padding: 0; list-style: none;
+    display: grid; gap: 9px; max-width: 62ch;
+  }
+  ul.dumps li {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+    padding: 9px 12px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  }
+  ul.dumps a { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  ul.dumps span { font-size: 13px; color: var(--ink-3); }
+</style></head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Aithera · Scenario Simulator · Response to the reviewer-feedback audit</p>
+    <h1>Same two scenarios, two engines. <em>Which findings can't happen on our side, and why.</em></h1>
+    <p class="lede">The dev team's SME review of the V4 POC engine surfaced 15 recurring issues across 782 turn generations. Nine of them touch behavior our engine owns differently. This is the crosswalk — what's structurally prevented, what's prompted against, what we share, and the three places the audit found something real in ours too. Plus the thing neither team had until now: the actual composed prompts, dumped and diffable.</p>
+    <div class="meta">
+      <span><b>Responds to</b> Reviewer Feedback Audit, 2026-08-16 → 18</span>
+      <span><b>Our side</b> UX Universal player (scenario-live.html)</span>
+      <span><b>Shared scenarios</b> WPV · Bullying</span>
+    </div>
+  </header>
+
+  <section>
+    <span class="sec-kicker">The shape of it</span>
+    <h2>One failure family, and it's an architecture question</h2>
+    <p>Themes 1, 3, 4, 9 and 10 are the same defect wearing five hats: <b>the debrief fires unconditionally, so when the learner gives it nothing, the coach invents something to praise.</b> The audit's own root-cause table says it plainly — the identical affirmation appears verbatim against gibberish, hostility, and injection attempts. That single family carries the large majority of 1★ ratings.</p>
+    <p>The remaining findings split cleanly: two are engine state defects (a phase served twice, endings the engine didn't honor), and the rest are authored-content problems that belong to the content, not the engine — and therefore <b>belong to us too</b>, because we author the same WPV and Bullying scenarios from the same source decks.</p>
+
+    <div class="callout">
+      <h3><span class="tag">Read this first</span> These are architecture claims, not measurements</h3>
+      <p>They have 782 generations, 62 conversations and 1,555 ratings from deliberate adversarial archetypes. We have nothing at that scale. Everything marked <span class="verdict ok">STRUCTURAL</span> below is a claim about what our engine <i>can represent</i>, verified by reading the code — not a claim that we ran the same battery and passed. Closing that gap is the ask at the bottom.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="sec-kicker">Part 1</span>
+    <h2>All 15 findings, crosswalked</h2>
+    <p><span class="verdict ok">STRUCTURAL</span> the engine cannot represent the failure. <span class="verdict ok">PROMPTED</span> an explicit rule compiled into every prompt. <span class="verdict mid">PARTIAL</span> bounded, but not fully addressed. <span class="verdict no">SHARED</span> same exposure, same fix. <span class="verdict no">OPEN</span> a real gap on our side.</p>
+
+    <div class="table-scroll">
+    <table>
+      <caption>Audit finding → UX Universal status → the mechanism</caption>
+      <thead><tr><th>Finding</th><th>Status</th><th>How, on our side</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>6 · Repeated phase<span class="sub">10 inst · worst phase 2.92</span></td>
+          <td><span class="verdict ok">STRUCTURAL</span></td>
+          <td><code>closePhase()</code> in <code>sim-player.js</code> sets <code>state.phaseIdx</code> itself, and <code>turn.deliver</code> is app-authoritative — it overrides whatever the model asked for. The model reports intent; it never serves a phase. A load-time <code>lint()</code> also warns on self-routing transitions, unreachable phases, and tier routes with no default.</td>
+        </tr>
+        <tr>
+          <td>12 · Endings not honored<span class="sub">4 inst · "I have not exited"</span></td>
+          <td><span class="verdict ok">STRUCTURAL</span></td>
+          <td>Same root the audit names — <i>"the end decision and the end text are produced independently."</i> Ours can't diverge: the app emits <code>[SYSTEM STATE — the ladder is complete. You MUST set complete:true]</code>, and the close (playbook + resources) is page-guaranteed, not model-written. The prompt also says outright: <i>"the app then advances the ladder — you never choose or announce what comes next."</i></td>
+        </tr>
+        <tr>
+          <td>1 · False credit on off-script<span class="sub">31 inst · avg 1.42 · largest theme</span></td>
+          <td><span class="verdict mid">PARTIAL</span></td>
+          <td>Mostly structural: <code>action:"redirect"</code> means <b>no tier recorded, no advance, and the turn is rebated against the phase cap</b>. A gibberish / injection / echo turn is not gradeable by construction, so there is no debrief to hallucinate into. Reported tiers are also validated against that phase's own vocabulary — an off-vocabulary label records <code>(unreported)</code> and takes the default route instead of firing a phantom branch. <b>The gap:</b> if a learner stonewalls to the cap, the app force-closes and <i>requires</i> a tier — and at that moment our only anti-invention rule lives in the COMPLETION block, not the per-debrief instructions.</td>
+        </tr>
+        <tr>
+          <td>3 · Over-credit of one-word answers<span class="sub">15 inst · avg 2.35</span></td>
+          <td><span class="verdict ok">PROMPTED</span></td>
+          <td>NON-ANSWERS case 2 is a deliberate two-strike rule: the first <i>"I don't know"</i> in a phase is normalized, given the smallest concrete foothold, and re-asked for free. Deflect <i>again</i> in the same phase and it is treated as their real, weak answer — <i>"it is no longer free."</i> Prevents both the over-credit and the infinite-nudge loop.</td>
+        </tr>
+        <tr>
+          <td>4 · Echoed-input incoherence<span class="sub">14 inst · avg 1.63</span></td>
+          <td><span class="verdict mid">PARTIAL</span></td>
+          <td>NON-ANSWERS case 3 covers gibberish, trolling, derailing and rule-breaking attempts, and the scene clause adds <i>"never narrate them doing something they did not choose."</i> But we have <b>no echo-specific detection</b> — nothing that recognizes learner text ≈ scenario text or ≈ the model's own last output. Their P1 backlog item applies to us unchanged.</td>
+        </tr>
+        <tr>
+          <td>9 · Debrief ignores what the learner did<span class="sub">6 inst · avg 2.70</span></td>
+          <td><span class="verdict ok">STRUCTURAL</span></td>
+          <td>Their P1 asks whether the debrief prompt even carries the full practice thread. Ours does, by design: <code>scenario-v4-scopes.js</code> keeps <b>full chronological history on every coach turn</b>, and scopes scenes to their own rung slice plus explicitly granted carryover — verbatim, never summarized. The serialization branch of their open question is already answered here. Prompt side also carries <i>"Reflect the learner's OWN words back."</i></td>
+        </tr>
+        <tr>
+          <td>7 · Character repetition loop<span class="sub">5 inst · avg 1.75 · 4 turns identical</span></td>
+          <td><span class="verdict mid">PARTIAL</span></td>
+          <td>Bounded, not solved. Every phase has a <code>maxTurns</code> cap and the state line force-closes at it, so a character physically cannot stall for four turns and then keep going. But we carry <b>no explicit "never repeat your previous line" rule</b> in the scene prompt. Worth taking their P2 verbatim.</td>
+        </tr>
+        <tr>
+          <td>13 · Scene-character vs. coach boundary<span class="sub">4 inst · avg 2.00</span></td>
+          <td><span class="verdict mid">PARTIAL</span></td>
+          <td>The learner always knows <i>who</i> they're addressing: <code>inputTarget</code> is an explicit <code>coach</code> / <code>character</code> state that re-skins the composer (placeholder, icon, and the send button reading "Respond"). What we do <b>not</b> have is a standing mid-scene "step out to your coach" affordance — our return CTA is a phase-crossing button, not an escape hatch. Their P2 contract question is open for us too.</td>
+        </tr>
+        <tr>
+          <td>10 · Crisis signals, harm-to-others<span class="sub">7 inst · avg 2.00</span></td>
+          <td><span class="verdict no">OPEN</span></td>
+          <td>Two verified gaps, both cheap. <b>(a)</b> Our LEARNER SAFETY floor is self-focused — <i>"that THEY are in distress or danger"</i> — so a learner describing a plan to harm <i>others</i> isn't covered by the engine floor. <b>(b)</b> <code>mix-arc.js</code> — and therefore the entire v4-universal route that funnels through it — appends only the 988 resource sentence when <code>elevatedStakes</code> is set, and <b>never compiles the behavioral directive at all</b>. Branching-arc, ensemble-arc and guided-arc all do. See Part 3.</td>
+        </tr>
+        <tr>
+          <td>2 · US-only localization<span class="sub">19 inst · avg 3.20</span></td>
+          <td><span class="verdict no">SHARED</span></td>
+          <td>988 is hardcoded in <code>scenario.js</code>'s <code>CRISIS_FLOOR</code>; 911 and the agency's WVPP are hardcoded in our WPV canon. Ours is at least one string per type compiler rather than scattered through content, so parameterizing it is a smaller job — but it is the same defect and it blocks the same non-US deployment.</td>
+        </tr>
+        <tr>
+          <td>5 · Internal jargon leakage<span class="sub">12 inst · avg 2.86</span></td>
+          <td><span class="verdict no">SHARED</span></td>
+          <td>This one is ours verbatim. <code>branching-arc.js</code> and <code>mix-arc.js</code> use <i>"Level 2 escalation markers"</i>, <i>"the agency's WVPP"</i> and <i>"violent-incident log"</i> in exit criteria and teaching points. Same source decks, same problem. Their SME decision — teach the levels or strip the labels — applies to us with no translation.</td>
+        </tr>
+        <tr>
+          <td>8 · Profanity in character dialogue<span class="sub">7 inst · avg 3.25</span></td>
+          <td><span class="verdict no">SHARED</span></td>
+          <td>We compile a locked CHARACTER CONDUCT FLOOR into every scene, but it has <b>no language-intensity dial</b>. Their per-LO setting is the right shape and we'd want the same field.</td>
+        </tr>
+        <tr>
+          <td>11 · Realism / authority assumptions<span class="sub">5 inst · avg 2.50</span></td>
+          <td><span class="verdict no">SHARED</span></td>
+          <td>Authored content. "Not your call to terminate" and "public safety professionals" are audience assumptions in the shared source material, not model improvisation.</td>
+        </tr>
+        <tr>
+          <td>14 · Non-English input &amp; learner role-play<span class="sub">2 inst · avg 3.50</span></td>
+          <td><span class="verdict no">OPEN</span></td>
+          <td>Unaddressed on both sides. Our NON-ANSWERS policy would classify broken English as a derail and redirect it — which is <i>better</i> than in-character bafflement, but it is accommodation by accident, not by design.</td>
+        </tr>
+        <tr>
+          <td>15 · Message clarity / ordering<span class="sub">2 inst · avg 3.50</span></td>
+          <td><span class="verdict no">SHARED</span></td>
+          <td>Authored polish. Note our engine does split coaching into 2–3 short bubbles by contract, which is the same instinct as their ordering fix.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="callout">
+      <h3><span class="tag">The takeaway</span> Two of their P0s aren't bugs to patch</h3>
+      <p>Their engineering backlog opens with two P0s: fix the phase re-entry loop, and make endings binding. Both are consequences of letting the model own advancement and ending. In our split — <b>the model classifies, the app routes</b> — neither state is reachable, so there is nothing to fix and nothing to regression-test. That's the single strongest argument this audit makes for the app-owns-advancement design, and it's worth saying to the dev team as a design choice rather than a scoreboard.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="sec-kicker">Part 2</span>
+    <h2>How our prompts differ once composed</h2>
+    <p>Nobody on either team had actually looked at this, because our prompts are not authored as templates — there is no file you can open and read. Each scenario type has a <code>compile(s)</code> function that <b>assembles one system-prompt string at runtime</b> from the authored document plus shared engine sections. So we dumped them.</p>
+
+    <div class="callout">
+      <h3><span class="tag">New</span> The composed prompts are now in the repo</h3>
+      <p>Seven files under <code>docs/composed-prompts/</code>, plus <code>dump-composed-prompts.js</code> — a small Node harness that loads the browser-only compilers under a shimmed global and re-dumps every one. Regenerate any time a compiler changes; diff against the V4 POC's <code>scenario-coach</code> / <code>scenario-scene</code> templates directly. <b>Open any of them right here:</b></p>
+      <ul class="dumps">
+        <li><a href="docs/composed-prompts/composed-branching-arc.txt">composed-branching-arc.txt</a> <span>WPV — the audit's main workflow · ~8.2k tok</span></li>
+        <li><a href="docs/composed-prompts/composed-ensemble-arc.txt">composed-ensemble-arc.txt</a> <span>Bullying — the audit's second workflow · ~9.5k tok</span></li>
+        <li><a href="docs/composed-prompts/composed-mix-arc.txt">composed-mix-arc.txt</a> <span>the composed-beat base the v4 route funnels through · ~4.6k tok</span></li>
+        <li><a href="docs/composed-prompts/composed-v4-1-coach-practice-scope.txt">composed-v4-1-coach-practice-scope.txt</a> <span>v4 scope 1 — teaching withheld · ~4.7k tok</span></li>
+        <li><a href="docs/composed-prompts/composed-v4-2-coach-debrief-scope.txt">composed-v4-2-coach-debrief-scope.txt</a> <span>v4 scope 2 — teaching released · ~5.0k tok</span></li>
+        <li><a href="docs/composed-prompts/composed-v4-3-scene-watch-it.txt">composed-v4-3-scene-watch-it.txt</a> <span>v4 scope 3 — sees 2 beats, not 6 · ~2.8k tok</span></li>
+        <li><a href="docs/composed-prompts/composed-v4-4-scene-step-in.txt">composed-v4-4-scene-step-in.txt</a> <span>v4 scope 4 — sees 2 beats, not 6 · ~3.4k tok</span></li>
+        <li><a href="docs/composed-prompts/dump-composed-prompts.js">dump-composed-prompts.js</a> <span>the harness that regenerates all seven</span></li>
+      </ul>
+    </div>
+
+    <div class="table-scroll">
+    <table>
+      <caption>What each compiler actually produces (from the shipped DEFAULT scenario)</caption>
+      <thead><tr><th>Composed prompt</th><th>Size</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>branching-arc <span class="sub">WPV — the audit's main workflow</span></td><td class="verdict">32.7k chars<br>~8.2k tok</td><td>The heaviest. Carries the 4-phase ladder, full cast models, per-phase calibration tiers, and both locked floors (conduct + threat-content).</td></tr>
+        <tr><td>ensemble-arc <span class="sub">Bullying — the audit's second workflow</span></td><td class="verdict">38.2k chars<br>~9.5k tok</td><td>Largest, because a multi-character cast and cross-phase state each add a block.</td></tr>
+        <tr><td>mix-arc <span class="sub">the composed-beat base</span></td><td class="verdict">18.4k chars<br>~4.6k tok</td><td>The compiler the v4 route funnels through.</td></tr>
+        <tr><td>v4 · coach / practice scope</td><td class="verdict">18.8k chars<br>~4.7k tok</td><td>Teaching withheld.</td></tr>
+        <tr><td>v4 · coach / debrief scope</td><td class="verdict">20.0k chars<br>~5.0k tok</td><td>Teaching released.</td></tr>
+        <tr><td>v4 · scene / "Watch it again"</td><td class="verdict">11.3k chars<br>~2.8k tok</td><td>Sees 2 beats, not 6.</td></tr>
+        <tr><td>v4 · scene / "Step in"</td><td class="verdict">13.5k chars<br>~3.4k tok</td><td>Sees 2 beats, not 6.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 style="font-family:var(--sans);font-weight:700;font-size:20px;margin:38px 0 8px;">The structural difference: one prompt, or four?</h3>
+    <p>The POC runs <b>two engine-owned templates</b> — <code>scenario-coach</code> and <code>scenario-scene</code>. We run <b>four scopes</b>, and they are not four hand-written templates: each is the <i>same</i> string builder run over a <b>redacted copy of the document</b>. Because the scopes differ by input rather than by prompt code, the JSON turn contract is identical in every scope by construction, and verification reduces to presence/absence assertions.</p>
+    <p>Here are those assertions, run against the dumps:</p>
+
+    <div class="table-scroll">
+    <table>
+      <caption>Redaction, verified — teaching content by scope</caption>
+      <thead><tr><th>Scope</th><th>Teaching points</th><th>Closing playbook</th><th>Beats visible</th><th>Non-answers policy</th></tr></thead>
+      <tbody>
+        <tr><td>coach / practice</td><td class="verdict no">absent</td><td class="verdict no">absent</td><td class="verdict mid">all 6</td><td class="verdict ok">present</td></tr>
+        <tr><td>coach / debrief</td><td class="verdict ok">present</td><td class="verdict ok">present</td><td class="verdict mid">all 6</td><td class="verdict ok">present</td></tr>
+        <tr><td>scene / watch-it</td><td class="verdict no">absent</td><td class="verdict no">absent</td><td class="verdict ok">2 only</td><td class="verdict ok">present</td></tr>
+        <tr><td>scene / step-in</td><td class="verdict no">absent</td><td class="verdict no">absent</td><td class="verdict ok">2 only</td><td class="verdict ok">present</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p>That matters for one audit finding in particular. A coach that structurally cannot see the answer key during practice cannot leak it — which is a different, stronger guarantee than instructing it not to.</p>
+
+    <h3 style="font-family:var(--sans);font-weight:700;font-size:20px;margin:38px 0 8px;">The three blocks worth putting side by side</h3>
+    <p>If the dev team reads nothing else from the dumps, these are the sections that carry the behavior the audit is about. All three are compiled into <i>every</i> scope.</p>
+
+    <div class="shape-scroll">
+<pre class="shape"><span class="cmt">// 1. ACTION FIELD — the model declares intent; the app decides what happens.</span>
+<span class="hi">"action":"continue"</span> → the phase is still live. Stay in the phase.
+<span class="hi">"action":"teach"</span>    → you are CLOSING the phase. The app then advances the
+                       ladder — <span class="hi">you never choose or announce what comes next.</span>
+<span class="hi">"action":"redirect"</span> → the input is NOT an answer. Stay put, report no tier,
+                       do not advance.
+
+<span class="cmt">// 2. STATE LINE — appended by the app to every single call.</span>
+[SYSTEM STATE — Phase 3/4: It Escalates (SCENE · Ray).
+ Learner turns used: 2/4. THE LADDER so far: notice_assess = STRONG, …
+ Session state — Ray's disposition: hardened · Level 1 groundwork: missing.
+ <span class="hi">THE CAP IS REACHED — you MUST set "action":"teach" on this turn.</span>]
+
+<span class="cmt">// 3. NON-ANSWERS — the block the gibberish/echo/hostility archetypes hit.</span>
+A turn is the learner's ANSWER only when they actually attempt the task.
+When they do NOT: <span class="hi">never grade it, never advance, and never count it
+against the cap</span> — set "action":"redirect" and stay put. Three cases:
+  1) A QUESTION, NOT AN ANSWER   → answer it, re-pose the SAME prompt
+  2) STUCK, NOT REFUSING         → free once per phase, then it's a real answer
+  3) GIBBERISH / TROLLING / DERAIL → absorb without shaming, re-ask
+     IN A SCENE: the moment passes WITHOUT the learner having acted.
+     <span class="hi">Never narrate them doing something they did not choose.</span></pre>
+    </div>
+
+    <p style="margin-top:22px;">The last line is the one that maps most directly onto the audit's largest theme. And the cap rebate underneath it is the piece the POC has no analog for: <b>in their engine an off-script turn still consumes the phase</b>, pushing the learner toward a forced close built on nothing. In ours it costs nothing, so the coach can keep re-asking without the ladder advancing on an answer that was never given.</p>
+  </section>
+
+  <section>
+    <span class="sec-kicker">Part 3</span>
+    <h2>What the audit found in us</h2>
+    <p>Reading their findings against our code turned up three things worth fixing here, two of which we would not have gone looking for. Listing them because a crosswalk that only scores wins isn't worth sending.</p>
+
+    <div class="callout warn">
+      <h3><span class="tag">P0</span> The v4 route compiles no learner-safety directive</h3>
+      <p><code>mix-arc.js</code> appends only the 988 <i>resource sentence</i> when <code>elevatedStakes</code> is set — it never compiles the <b>LEARNER SAFETY</b> behavioral block that branching-arc, ensemble-arc and guided-arc all carry (<i>drop the exercise, set redirect, acknowledge with zero assessment, ask nothing probing</i>). Because v4-universal funnels through mix-arc's compiler, <b>all four v4 scopes inherit the omission</b>. Verified by presence assertion across every dump.</p>
+      <p>Fix is one <code>parts.push()</code> in mix-arc's compile, using the block the other three types already share.</p>
+    </div>
+
+    <div class="callout warn">
+      <h3><span class="tag">P0</span> Our safety floor doesn't cover harm-to-others</h3>
+      <p>Every type's floor keys on the learner disclosing that <i>they</i> are in distress or danger. The audit's worst crisis case was a reviewer describing a plan to harm other people — which our wording does not reach either. The WPV canon happens to cover real workplace violence, but that's authored content doing the engine's job. Their P0 carve-out language is better than ours and I'd take it close to verbatim.</p>
+    </div>
+
+    <div class="callout warn">
+      <h3><span class="tag">P1</span> Evidence-gating is scoped too narrowly</h3>
+      <p>We have <i>"Never invent something the learner didn't do"</i> — but only inside the COMPLETION/report block. The forced close at the turn cap is exactly the moment a stonewalled debrief has to say something, and at that moment the rule isn't in scope. Their P0 prompt block belongs in our per-debrief instructions.</p>
+    </div>
+
+    <p>Three smaller ones, all confirmed above: no echo detection, no anti-repetition rule in the scene prompt, no language-intensity dial. And the two shared content problems — the US-only resources and the Level 1/2/3 jargon — are in our authored scenarios verbatim, because we built from the same decks.</p>
+  </section>
+
+  <section>
+    <div class="verdict-card">
+      <h2>What I'd propose next</h2>
+      <ul>
+        <li><b>Send them the composed prompts.</b> <code>docs/composed-prompts/</code> is the first time either team can lay the two prompt architectures side by side. The four-scope redaction table is the part most worth their attention — it's a stronger guarantee than an instruction, and it's cheap to adopt.</li>
+        <li><b>Take their P0 prompt blocks.</b> The evidence-gating rule and the crisis carve-out are better written than ours and address gaps we've now verified. No reason to write our own version.</li>
+        <li><b>Give them the two P0 engineering findings as design notes, not fixes.</b> Phase re-entry and non-binding endings are both downstream of who owns advancement. Worth framing that way — it's the reusable lesson, and patching the symptoms won't reach it.</li>
+        <li class="watch"><b>Run their archetype battery against our player.</b> Same two scenarios, identical inputs — hostile, minimal, echo, injection, crisis. That converts every <span class="verdict ok">STRUCTURAL</span> above from a code-reading claim into evidence, and it would tell us fast whether the redirect rebate holds against the copy-paste-echo archetype specifically. That's the one I'd least trust untested.</li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

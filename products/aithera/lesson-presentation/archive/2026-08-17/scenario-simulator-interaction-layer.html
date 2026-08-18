@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Interaction Layer — Modes, Components &amp; Prompts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F8F4EA;
+    --cream-deep:#F1EADA;
+    --navy:#1B2A4A;
+    --navy-ink:#141F38;
+    --amber:#E8A33D;
+    --amber-deep:#C9861F;
+    --rule:#D8D0BE;
+    --authored:#D9D5CA;
+    --authored-edge:#B8B2A2;
+    --generated:#F6BFDE;
+    --generated-deep:#C9578F;
+    --locked:#C7D0E4;
+    --locked-deep:#5A6C97;
+    /* mode accents */
+    --m-roleplay:#8E7DC6;   --m-roleplay-band:#F0EDF9;   --m-roleplay-edge:#A99BD6;
+    --m-arc:#3E9E90;        --m-arc-band:#E3F5F2;        --m-arc-edge:#7FC9BE;
+    --m-observe:#C9861F;    --m-observe-band:#FBF3DC;    --m-observe-edge:#E0C167;
+    --m-teach:#C9578F;      --m-teach-band:#FBEAF3;      --m-teach-edge:#E39CC1;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    background:var(--cream);
+    color:var(--navy-ink);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.6;
+  }
+  a{color:var(--navy);text-decoration-color:var(--amber)}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 32px}
+
+  /* ---------- header ---------- */
+  header{border-bottom:3px solid var(--navy);padding:56px 0 40px;position:relative;overflow:hidden}
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--amber-deep);margin-bottom:14px;font-weight:500;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:700;font-size:clamp(34px,5vw,52px);
+    line-height:1.05;letter-spacing:-.01em;color:var(--navy);max-width:18ch;
+  }
+  .lede{max-width:64ch;margin-top:20px;font-size:16.5px;color:#3A4358}
+  .lede strong{color:var(--navy)}
+  .starburst{position:absolute;right:-40px;top:20px;width:220px;height:220px;opacity:.9;pointer-events:none}
+  @media(max-width:760px){.starburst{width:130px;height:130px;right:-30px;top:10px;opacity:.55}}
+  .meta-row{display:flex;gap:28px;flex-wrap:wrap;margin-top:28px;font-family:var(--mono);font-size:12px;color:#5A6376}
+  .meta-row b{color:var(--navy);font-weight:500}
+  .companion{margin-top:18px;font-size:13.5px;color:#5A6376;font-family:var(--mono);
+    background:var(--cream-deep);border:1px solid var(--rule);border-radius:8px;padding:10px 14px;display:inline-block}
+  .companion b{color:var(--navy);font-weight:500}
+
+  /* ---------- section scaffolding ---------- */
+  section{padding:52px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+  .sec-num{
+    font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--cream);
+    background:var(--navy);width:34px;height:34px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;flex:none;transform:translateY(4px);
+  }
+  h2{font-family:'Fraunces',serif;font-size:clamp(24px,3.2vw,32px);font-weight:600;color:var(--navy);line-height:1.15}
+  .sec-intro{max-width:72ch;margin:14px 0 26px;color:#3A4358}
+  h3{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--navy);margin:30px 0 8px}
+  p{max-width:74ch}
+
+  /* ---------- badges (cardinality + optionality) ---------- */
+  .b{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;padding:2px 7px;
+    border-radius:99px;font-weight:500;vertical-align:middle;white-space:nowrap;line-height:1.5}
+  .b-card{background:var(--navy);color:var(--cream)}
+  .b-req{background:#E7ECF6;color:#3A4A6B;border:1px solid #C3CEE4}
+  .b-opt{background:#F5EED9;color:#8A6D2E;border:1px solid #E0CF9E}
+  .b-uniq{background:#F6E6EF;color:#9E3D6E;border:1px solid #E3AFCB}
+  .badge-key{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px;align-items:center}
+  .badge-key .b{margin:0}
+  .badge-key span.lbl{font-size:12.5px;color:#5A6376}
+
+  /* ---------- sandwich diagram ---------- */
+  .sandwich{display:flex;flex-direction:column;gap:10px;margin:26px 0 10px}
+  .slab{border-radius:12px;padding:16px 20px;border:1.5px solid;display:flex;gap:16px;align-items:flex-start}
+  .slab .tagcol{flex:none;width:132px}
+  .slab .tag-phase{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:500}
+  .slab h4{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--navy);margin:2px 0 4px}
+  .slab p{font-size:13.5px;color:#3A4358;max-width:none;margin:0}
+  .slab.open{background:#EFEAF7;border-color:#C9BEE6}
+  .slab.mid{background:#fff;border-color:var(--amber);border-width:2px;box-shadow:0 4px 16px rgba(232,163,61,.16)}
+  .slab.closed{background:var(--cream-deep);border-color:var(--rule)}
+  .slab .pin{font-family:var(--mono);font-size:10px;color:var(--amber-deep);font-weight:500}
+  .slab.mid h4{color:var(--amber-deep)}
+
+  /* ---------- skeleton chips ---------- */
+  .skeleton{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:22px 0 8px;font-family:var(--mono)}
+  .sk{display:inline-flex;flex-direction:column;align-items:center;gap:3px;padding:10px 14px;border-radius:10px;
+    background:#fff;border:1.5px solid var(--rule);font-size:12px;font-weight:600;color:var(--navy)}
+  .sk small{font-family:'Inter';font-weight:400;font-size:10.5px;color:#6B7280;text-transform:none;letter-spacing:0}
+  .sk.loop{border-color:var(--amber);background:#FEFBF3}
+  .sk-arrow{color:#8A93A8;font-size:18px;padding:0 8px}
+  .sk-loopwrap{display:inline-flex;align-items:center;gap:0;border:1.5px dashed var(--amber);border-radius:12px;padding:6px;background:rgba(232,163,61,.05)}
+  .sk-cap{font-family:var(--mono);font-size:11px;color:var(--amber-deep);margin:12px 0 0;max-width:74ch;text-align:left}
+  .loopbox{position:relative;border:1.5px dashed var(--amber);border-radius:12px;padding:19px 10px 10px;
+    background:rgba(232,163,61,.06);display:inline-flex}
+  .loopbox-lbl{position:absolute;top:-9px;left:12px;background:var(--cream);padding:0 8px;
+    font-family:var(--mono);font-size:10px;color:var(--amber-deep);font-weight:500;white-space:nowrap}
+  .loopbox-row{display:flex;align-items:center}
+  .sk.gate{border-color:var(--generated-deep);background:#FBEDF4;color:#9E3D6E;border-style:solid}
+  .sk.gate small{color:#B06788}
+  .loopback-note{font-size:13.5px;color:#3A4358;max-width:76ch;margin:16px 0 0;background:var(--cream-deep);
+    border-radius:8px;padding:12px 15px;border-left:3px solid var(--amber)}
+  .loopback-note b{color:var(--navy)}
+
+  /* ---------- tables ---------- */
+  .tbl-scroll{overflow-x:auto;margin:22px 0 8px;border-radius:12px;border:1px solid var(--rule)}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:13px;min-width:760px}
+  th{background:var(--navy);color:var(--cream);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;font-weight:500;text-align:left;padding:11px 14px;vertical-align:bottom}
+  td{padding:11px 14px;border-top:1px solid var(--rule);vertical-align:top;color:#2A3348;line-height:1.5}
+  td b{color:var(--navy)}
+  tr.group td{background:var(--cream-deep);font-family:'Fraunces',serif;font-weight:600;color:var(--navy);font-size:14px}
+  .rowhead{background:var(--cream-deep);font-weight:600;color:var(--navy);white-space:nowrap;position:sticky;left:0}
+  th.axis{width:150px}
+  .col-roleplay{background:rgba(169,155,214,.09)}
+  .col-arc{background:rgba(127,201,190,.10)}
+  .col-observe{background:rgba(224,193,103,.12)}
+  .col-teach{background:rgba(227,156,193,.11)}
+
+  /* ---------- legend / chips ---------- */
+  .legend{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0 6px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--rule);
+    border-radius:99px;padding:6px 14px 6px 8px;font-size:12.5px;font-weight:500;color:var(--navy)}
+  .swatch{width:14px;height:14px;border-radius:4px;flex:none}
+  .sw-authored{background:var(--authored);border:1px solid var(--authored-edge)}
+  .sw-generated{background:var(--generated)}
+  .sw-locked{background:var(--locked);border:1px solid var(--locked-deep)}
+  .legend-note{font-size:13px;color:#5A6376;max-width:72ch;margin-top:10px}
+
+  /* ---------- mode cards ---------- */
+  .mode{border:1px solid var(--rule);border-radius:14px;background:#fff;margin:28px 0;overflow:hidden;
+    box-shadow:0 2px 10px rgba(27,42,74,.05)}
+  .mode-head{padding:20px 26px 16px;border-bottom:1px solid var(--rule);border-left:6px solid}
+  .mode-head .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-bottom:5px}
+  .mode-head h3{margin:0;font-size:22px}
+  .mode-head .who{font-size:13.5px;color:#4A5568;margin-top:4px;max-width:70ch}
+  .mode-head .schema-id{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:3px 10px;border-radius:99px;
+    font-weight:500;margin-top:10px;background:var(--cream-deep);border:1px solid var(--rule);color:#4A5568}
+  .mr .mode-head{border-color:var(--m-roleplay-edge)} .mr .kicker{color:var(--m-roleplay)}
+  .ma .mode-head{border-color:var(--m-arc-edge)}      .ma .kicker{color:var(--m-arc)}
+  .mo .mode-head{border-color:var(--m-observe-edge)}  .mo .kicker{color:var(--m-observe)}
+  .mt .mode-head{border-color:var(--m-teach-edge)}    .mt .kicker{color:var(--m-teach)}
+  .mode-body{padding:22px 26px 26px}
+  .slotgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px;margin-bottom:8px}
+  @media(max-width:720px){.slotgrid{grid-template-columns:1fr}}
+  .slot h5{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;
+    color:#4A5568;margin-bottom:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .slot p{font-size:13.5px;color:#2A3348;max-width:none;margin:0}
+  .slot code{font-family:var(--mono);font-size:12px;background:var(--cream-deep);padding:1px 5px;border-radius:4px;color:var(--navy)}
+  .why{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;color:#3A4358;
+    border-top:1px dashed var(--rule);padding-top:14px}
+  .why b{color:var(--navy)}
+  .why .arrow-ico{color:var(--amber-deep);font-weight:700;flex:none;font-family:var(--mono)}
+
+  /* ---------- schema / code ---------- */
+  .schema{background:var(--navy);color:#E8EAF2;border-radius:10px;padding:18px 20px;margin:18px 0 8px;
+    font-family:var(--mono);font-size:12px;line-height:1.65;overflow-x:auto}
+  .schema .cm{color:#8FA0C4}
+  .schema .k{color:#F0C674}
+  .schema .s{color:#A8D8B9}
+  .schema .lk{color:#9FB6E8}
+  .schema .op{color:#E6B89C}
+  .schema-label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--amber-deep);font-weight:500;margin:22px 0 0}
+
+  /* ---------- callouts ---------- */
+  .note{border-left:4px solid var(--amber);border-radius:0 8px 8px 0;background:var(--cream-deep);
+    padding:14px 18px;margin:18px 0 4px;font-size:13.5px;color:#3A4358}
+  .note b{color:var(--navy)}
+  .note.locked{border-color:var(--locked-deep);background:#EEF1F8}
+  .note.locked b{color:var(--locked-deep)}
+
+  .why-box{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:18px 22px;margin:20px 0}
+  .why-box h4{font-family:'Fraunces',serif;font-size:16px;color:var(--navy);margin-bottom:6px}
+  .why-box ul{margin:6px 0 0 0;padding-left:0;list-style:none}
+  .why-box li{position:relative;padding-left:26px;margin:12px 0;font-size:14px;color:#2A3348}
+  .why-box li b{color:var(--navy)}
+  .why-box li::before{content:attr(data-n);position:absolute;left:0;top:1px;font-family:var(--mono);font-size:11px;
+    background:var(--navy);color:var(--cream);width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+  /* ---------- phase deep-dive ---------- */
+  .phase-detail{border:1px solid var(--rule);border-radius:14px;background:#fff;margin:22px 0;
+    padding:20px 24px 24px;box-shadow:0 2px 10px rgba(27,42,74,.05)}
+  .pd-head{display:flex;gap:14px;align-items:flex-start;border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:16px}
+  .pd-letter{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--cream);background:var(--navy);
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+  .pd-letter.loop{background:var(--amber);color:var(--navy-ink)}
+  .pd-head h3{margin:0;font-size:19px}
+  .pd-count{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--amber-deep);letter-spacing:0}
+  .pd-def{font-size:13.5px;color:#4A5568;margin-top:2px;max-width:none}
+  .pd-grid{display:grid;grid-template-columns:1fr 330px;gap:28px}
+  @media(max-width:760px){.pd-grid{grid-template-columns:1fr}}
+  .pd-vars h5,.pd-example h5{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:#4A5568;font-weight:500;margin-bottom:6px}
+  .varlist{list-style:none;margin:6px 0 0}
+  .varlist li{position:relative;padding-left:19px;margin:9px 0;font-size:13px;color:#2A3348;line-height:1.5}
+  .varlist li::before{content:'';position:absolute;left:2px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--amber)}
+  .varlist li b{color:var(--navy)}
+  .mock-cap{font-size:12px;color:#5A6376;margin-top:10px;line-height:1.45}
+  .mock-cap b{color:var(--navy)}
+
+  /* ---------- mini UI mockups ---------- */
+  .mock{background:#F4F1FB;border:1px solid #E2DAF0;border-radius:12px;padding:13px;font-size:12px;line-height:1.45;color:#2A3348}
+  .mock-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#8E7DC6;font-weight:600}
+  .mock-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--navy);margin:3px 0}
+  .mock-sub{font-size:11px;color:#5A6376}
+  .bubble{border-radius:12px;padding:9px 12px;margin-top:9px;font-size:11.5px}
+  .bubble .who{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;display:block;margin-bottom:3px;opacity:.85}
+  .bubble.coach{background:#2C2350;color:#EDEAF7}
+  .bubble.coach .who{color:#B9AEE6}
+  .bubble.char{background:#fff;border:1px solid #E2DAF0;color:#2A3348}
+  .bubble.char .who{color:#8E7DC6}
+  .tag-emote{display:inline-block;font-family:var(--mono);font-size:8.5px;padding:1px 7px;border-radius:99px;background:#EFEAF7;color:#8E7DC6;margin-top:6px}
+  .mock-input{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #E2DAF0;border-radius:99px;padding:6px 7px 6px 13px;margin-top:9px}
+  .mock-input .ph{flex:1;font-size:11px;color:#9AA0B0}
+  .mock-input .snd{width:24px;height:24px;border-radius:50%;background:var(--amber);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex:none}
+  .mock-toggle{display:inline-flex;border:1px solid #E2DAF0;border-radius:99px;overflow:hidden;font-size:10px;margin-top:9px;background:#fff}
+  .mock-toggle span{padding:4px 13px;color:#5A6376}
+  .mock-toggle .on{background:var(--navy);color:var(--cream)}
+  .gate-strip{display:flex;align-items:center;gap:8px;background:#FBEDEC;border:1px solid #E3B7B2;border-radius:8px;padding:8px 11px;font-size:11px;color:#9A3B3B;margin-top:9px}
+  .gate-strip.soft{background:#EFF6F3;border-color:#B7D9CF;color:#2E6B5C}
+  .filmstrip{display:flex;gap:4px;margin-top:9px}
+  .filmstrip i{flex:1;height:32px;border-radius:5px;background:linear-gradient(135deg,#3a4a6b,#1B2A4A);display:flex;align-items:center;justify-content:center;color:#8FA0C4;font-size:11px}
+  .res-chips{display:flex;gap:8px;margin-top:4px}
+  .res-chip{flex:1;border-radius:9px;padding:8px 10px;font-size:10.5px;line-height:1.4}
+  .res-chip.str{background:#EAF5EF;border:1px solid #BDE0CD}
+  .res-chip.grw{background:#F0EDF9;border:1px solid #D3C9EC}
+  .res-chip b{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px;color:var(--navy)}
+  .meter{margin-top:10px}
+  .meter-bar{height:7px;border-radius:99px;background:#E2DAF0;overflow:hidden}
+  .meter-bar i{display:block;height:100%;width:60%;background:var(--m-teach)}
+  .meter-lbl{font-family:var(--mono);font-size:9px;color:#5A6376;margin-top:4px}
+
+  footer{border-top:3px solid var(--navy);margin-top:56px;padding:26px 0 48px;
+    font-family:var(--mono);font-size:12px;color:#5A6376}
+  footer .frow{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1080px;margin:0 auto;padding:0 32px}
+  footer b{color:var(--navy);font-weight:500}
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="starburst" viewBox="0 0 200 200" aria-hidden="true">
+    <g transform="translate(100,100)">
+      <g fill="none" stroke="#E8A33D" stroke-width="2.5">
+        <line x1="0" y1="-88" x2="0" y2="-46"/><line x1="0" y1="88" x2="0" y2="46"/>
+        <line x1="-88" y1="0" x2="-46" y2="0"/><line x1="88" y1="0" x2="46" y2="0"/>
+        <line x1="-62" y1="-62" x2="-33" y2="-33"/><line x1="62" y1="62" x2="33" y2="33"/>
+        <line x1="-62" y1="62" x2="-33" y2="33"/><line x1="62" y1="-62" x2="33" y2="-33"/>
+      </g>
+      <circle r="14" fill="#1B2A4A"/>
+    </g>
+  </svg>
+  <div class="wrap">
+    <div class="eyebrow">Scenario Simulator · Part 2 — The Interaction Layer</div>
+    <h1>Interaction Modes, Components &amp; Prompts</h1>
+    <p class="lede">A scenario has three parts: an <strong>open-ended context intro</strong>, an <strong>interaction layer</strong> where the learning happens, and a <strong>structured debrief</strong>. This document specifies the middle. It defines the interaction layer as a set of <strong>modes</strong> and states, for each, what a writer authors, what the platform provides, and which prompts run when.</p>
+    <div class="companion">Companion to the <b>Build &amp; Authoring Specification</b> (<a href="scenario-simulator-build-spec.html">end-to-end flow</a>) and the <b>Type Crosswalk</b> (<a href="scenario-simulator-type-crosswalk.html">interaction types ↔ engines</a>).</div>
+    <div class="meta-row">
+      <span><b>Status</b> — For product + engineering</span>
+      <span><b>Scenario types</b> — 7 shipped: 4 core modes + 3 specialized engines</span>
+      <span><b>Authoring tool</b> — Writer Studio</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 1. THE INTERACTION LAYER ============ -->
+<section id="layer">
+  <div class="sec-head"><span class="sec-num">1</span><h2>The interaction layer</h2></div>
+  <p class="sec-intro">Every scenario is the same three-part shape. The first part sets the scene and the third part evaluates and closes — both are standardized. The middle is where a learner acts and the system responds, and it takes a different form depending on what is being taught. That form is the scenario’s <b>mode</b>.</p>
+
+  <div class="sandwich">
+    <div class="slab open">
+      <div class="tagcol"><span class="tag-phase" style="color:#8E7DC6">Part 1 · open</span></div>
+      <div>
+        <h4>Context intro — a chosen modality</h4>
+        <p>Exactly one intro modality per scenario, selected from a fixed set: video, story-highlight, narrated audio, reading, or none. Sets the scene, then hands off. Delivered by the shared <code style="font-family:var(--mono)">SceneContext</code> player via one <code style="font-family:var(--mono)">intro.type</code> field.</p>
+      </div>
+    </div>
+    <div class="slab mid">
+      <div class="tagcol"><span class="tag-phase">Part 2 · interaction</span><div class="pin">▲ this document</div></div>
+      <div>
+        <h4>The interaction layer</h4>
+        <p>Where the learner acts and the system responds. Its form is set by the mode — Roleplay, Guided Arc, Observe/React, or Teach-Back. This is the part that varies per scenario and carries the learning.</p>
+      </div>
+    </div>
+    <div class="slab closed">
+      <div class="tagcol"><span class="tag-phase" style="color:#5A6376">Part 3 · close</span></div>
+      <div>
+        <h4>Debrief &amp; close — evaluated and structured</h4>
+        <p>A separate evaluation engine scores the session against the authored rubric and produces the results surface, followed by the exit. Standardized across all modes (§7).</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>One skeleton, filled per mode</h3>
+  <p>Every mode is built from the same sub-phases. <b>Engage, React and Coach form the loop</b> — the three things authored per turn — and <b>Gate</b> is the hinge that runs the loop again or advances. <b>Enter</b> and <b>Exit</b> are the transitions in and out. Naming these gives writers and developers one vocabulary and a precise unit for “which prompt runs when.”</p>
+
+  <div class="skeleton" aria-label="Interaction skeleton: Enter, then a repeating Engage, React, Coach loop, a Gate decision, then Exit">
+    <span class="sk">ENTER<small>the way in</small></span>
+    <span class="sk-arrow">→</span>
+    <div class="loopbox">
+      <span class="loopbox-lbl">↺ the loop · repeats 1–N</span>
+      <div class="loopbox-row">
+        <span class="sk loop">ENGAGE<small>learner moves</small></span>
+        <span class="sk-arrow">→</span>
+        <span class="sk loop">REACT<small>system responds</small></span>
+        <span class="sk-arrow">→</span>
+        <span class="sk loop">COACH<small>reads &amp; nudges</small></span>
+      </div>
+    </div>
+    <span class="sk-arrow">→</span>
+    <span class="sk gate">GATE<small>repeat or advance?</small></span>
+    <span class="sk-arrow">→</span>
+    <span class="sk">EXIT<small>the way out</small></span>
+  </div>
+  <p class="loopback-note">↺ <b>Gate</b> is the hinge: while its condition isn’t met, it sends the learner back to <b>Engage</b> for another pass — Engage&nbsp;1 → React&nbsp;1 → Coach&nbsp;1, then Engage&nbsp;2 → React&nbsp;2 → Coach&nbsp;2, and so on. When the condition is met, it advances to <b>Exit</b>.</p>
+  <p class="sk-cap">How many times the loop runs is set by the mode: a conversation runs ~4–6 turns; a guided arc runs a fixed beat sequence; observe/react runs once per media segment (1+); teach-back runs one long pass with grading in the background.</p>
+
+  <h3>The transitions the author shapes</h3>
+  <p>Three boundaries move the learner between phases. <b>Gate</b> is the one with real logic — requirements and conditions; the other two are handoffs the author still shapes with a line of copy. Modes with an ordered set add one more: the sequence itself.</p>
+  <div class="tbl-scroll">
+    <table style="min-width:620px">
+      <thead><tr><th style="width:24%">Transition</th><th>What it is</th><th style="width:34%">What the author sets</th></tr></thead>
+      <tbody>
+        <tr><td><b>Enter → Loop</b></td><td>The way in from context to the first pass</td><td>Opening question / reflection; the CTA that starts practice</td></tr>
+        <tr><td><b>Gate</b> <span class="b b-card">every pass</span></td><td>The hinge — repeat the loop or advance</td><td>Requirement, nudge cap, fallback, completion condition (hard or soft)</td></tr>
+        <tr><td><b>Loop → Exit</b></td><td>The way out to the debrief</td><td>The “Analyzing…” handoff copy</td></tr>
+        <tr><td><b>Sequencing</b> <span class="b b-opt">some modes</span></td><td>Which phase, beat, or segment comes next inside the loop</td><td>The order of phases/beats (Guided Arc) or media segments (Observe/React). In Guided Arc, the phase-to-phase hand-off is a <b>locked verbatim signpost</b>, delivered word-for-word — not free coach copy</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 2. THE SIX PHASES ============ -->
+<section id="phases">
+  <div class="sec-head"><span class="sec-num">2</span><h2>The six phases, up close</h2></div>
+  <p class="sec-intro">The skeleton is more than a diagram — each phase is a distinct authoring surface with its own decisions. Across the six, a scenario carries roughly three dozen variables that an author sets (with engineering on the locked pieces). This section takes each phase in turn: what it does, what must be decided, and an example.</p>
+
+  <!-- ENTER -->
+  <div class="phase-detail">
+    <div class="pd-head">
+      <span class="pd-letter">1</span>
+      <div><h3>Enter <span class="pd-count">· 6 decisions</span></h3><p class="pd-def">Orient the learner and move them into the interaction.</p></div>
+    </div>
+    <div class="pd-grid">
+      <div class="pd-vars">
+        <h5>What the author decides</h5>
+        <ul class="varlist">
+          <li><b>Intro modality</b> — one of video, story-highlight, narrated audio, reading, or none</li>
+          <li><b>Intro content</b> — the assets for that modality (clips + captions, story text + highlight anchors, or a narration script)</li>
+          <li><b>Establishing card</b> — eyebrow, title, and the one-line framing</li>
+          <li><b>Opening image</b> — what the learner sees on entry, so no one lands on an empty stage</li>
+          <li><b>Opening question</b> — the coach’s first prompt</li>
+          <li><b>Opening reflection</b> — whether there is one, and the ideas it must draw out (in-context, not a barrier)</li>
+        </ul>
+      </div>
+      <div class="pd-example">
+        <h5>Example</h5>
+        <div class="mock">
+          <div class="mock-eyebrow">Scenario · Check-in</div>
+          <div class="mock-title">Kendra’s Room</div>
+          <div class="mock-sub">A hard conversation with a friend who’s been struggling.</div>
+          <div class="bubble coach"><span class="who">Coach</span>Before you go in — what do you want this conversation to actually do?</div>
+        </div>
+        <p class="mock-cap"><b>Kendra (video intro):</b> establishing card, then the coach’s opening reflection — surfaced in-context.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENGAGE -->
+  <div class="phase-detail">
+    <div class="pd-head">
+      <span class="pd-letter loop">2</span>
+      <div><h3>Engage <span class="pd-count">· 6 decisions</span></h3><p class="pd-def">The learner’s move — the thing they actually do.</p></div>
+    </div>
+    <div class="pd-grid">
+      <div class="pd-vars">
+        <h5>What the author decides</h5>
+        <ul class="varlist">
+          <li><b>Engage type</b> — speak in character, answer the coach, react to media, or teach a topic (set by the mode)</li>
+          <li><b>Input modality</b> — type, talk (speech-to-text), or both</li>
+          <li><b>Affordance &amp; placeholder</b> — the prompt copy in the input bar</li>
+          <li><b>Turn shape</b> — a single line versus a free response; length expectations</li>
+          <li><b>Repetition</b> — how many times Engage runs (turns, beats, segments, or one continuous pass)</li>
+          <li><b>Off-script tolerance</b> — how empty or curveball input is handled</li>
+        </ul>
+      </div>
+      <div class="pd-example">
+        <h5>Example</h5>
+        <div class="mock">
+          <div class="bubble char"><span class="who">Kendra</span>It’s fine, seriously. I just needed to unwind.</div>
+          <div class="mock-input"><span class="ph">Say something to Kendra…</span><span class="snd">&uarr;</span></div>
+          <div class="mock-toggle"><span class="on">Type</span><span>Talk</span></div>
+        </div>
+        <p class="mock-cap"><b>Kendra</b> takes a typed line in character; <b>Teach-Back</b> adds a Talk / Type choice.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- REACT -->
+  <div class="phase-detail">
+    <div class="pd-head">
+      <span class="pd-letter loop">3</span>
+      <div><h3>React <span class="pd-count">· 6 decisions</span></h3><p class="pd-def">The system’s response to the learner’s move.</p></div>
+    </div>
+    <div class="pd-grid">
+      <div class="pd-vars">
+        <h5>What the author decides</h5>
+        <ul class="varlist">
+          <li><b>Response source</b> — a model-voiced character, the next authored beat, the next media segment, or a live grade</li>
+          <li><b>Character</b> (if any) — voice, backstory, what they know, and what they’ll never do</li>
+          <li><b>Reaction map</b> — when/then rules that steer how the response lands</li>
+          <li><b>Emotional state</b> — the character’s mood, shown and shifting across the scene</li>
+          <li><b>Sequencing</b> — single-shot versus multi; which beat or segment comes next</li>
+          <li><b>Constraints</b> — length, tone, and what the response must never reveal</li>
+        </ul>
+      </div>
+      <div class="pd-example">
+        <h5>Example</h5>
+        <div class="mock">
+          <div class="bubble char"><span class="who">Kendra</span>Why does everyone keep making this a thing? I’m handling it.<span class="tag-emote">emotional state → defensive</span></div>
+          <div class="filmstrip"><i>&#9654;</i><i>&#9654;</i><i>&#9654;</i></div>
+        </div>
+        <p class="mock-cap"><b>Varies by mode:</b> a model-voiced character reply (Kendra) — or the next authored media segment (HazMat).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- COACH -->
+  <div class="phase-detail">
+    <div class="pd-head">
+      <span class="pd-letter loop">4</span>
+      <div><h3>Coach <span class="pd-count">· 7 decisions</span></h3><p class="pd-def">The coach reads the exchange and nudges.</p></div>
+    </div>
+    <div class="pd-grid">
+      <div class="pd-vars">
+        <h5>What the author decides</h5>
+        <ul class="varlist">
+          <li><b>Persona &amp; voice</b> — who the coach is and how they sound</li>
+          <li><b>Feedback shape</b> — length and structure (e.g. a short read plus one question)</li>
+          <li><b>What it reads against</b> — the assessment dimensions or rubric</li>
+          <li><b>When it speaks</b> — every turn, in the same turn as React, or only when the learner stalls</li>
+          <li><b>Nudge style</b> — an open nudge versus a concrete one</li>
+          <li><b>Right-answer delivery</b> — for a knowledge check, stating the correct answer plainly</li>
+          <li><b>Safety overrides</b> — a crisis or safety floor that supersedes everything else <span class="b b-opt">optional</span></li>
+        </ul>
+      </div>
+      <div class="pd-example">
+        <h5>Example</h5>
+        <div class="mock">
+          <div class="bubble coach"><span class="who">Coach</span>You kept it warm and didn’t push — good. She’s not ready to admit much yet.<br><br>Who in her life could you point her toward?</div>
+        </div>
+        <p class="mock-cap"><b>Kendra:</b> a read on the exchange plus one concrete nudge, aimed at the learner’s weakest dimension.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GATE -->
+  <div class="phase-detail">
+    <div class="pd-head">
+      <span class="pd-letter loop">5</span>
+      <div><h3>Gate <span class="pd-count">· 6 decisions</span></h3><p class="pd-def">Decide whether to advance — and on what terms.</p></div>
+    </div>
+    <div class="pd-grid">
+      <div class="pd-vars">
+        <h5>What the author decides</h5>
+        <ul class="varlist">
+          <li><b>Hard or soft</b> — a blocking requirement versus always-advance (author’s choice; a scenario may use both)</li>
+          <li><b>The requirement</b> — what the learner must do to clear a hard gate</li>
+          <li><b>Nudge cap</b> — how many nudges before the gate relents</li>
+          <li><b>Fallback</b> — what happens at the cap (teach the point, then move on)</li>
+          <li><b>Soft advance condition</b> — learner-driven, a coverage count, or automatic</li>
+          <li><b>Completion condition</b> — what ends the interaction as a whole</li>
+        </ul>
+      </div>
+      <div class="pd-example">
+        <h5>Example</h5>
+        <div class="mock">
+          <div class="gate-strip">&#128274;&nbsp; Required move not reached — connect Kendra to real help · nudge 1 of 2</div>
+          <div class="gate-strip soft">&#10003;&nbsp; Soft gate — nudge given, advancing</div>
+        </div>
+        <p class="mock-cap"><b>Author’s choice:</b> a hard gate holds until the required move (Kendra); a soft gate nudges once, then moves on (HazMat).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXIT -->
+  <div class="phase-detail">
+    <div class="pd-head">
+      <span class="pd-letter">6</span>
+      <div><h3>Exit <span class="pd-count">· 7 decisions</span></h3><p class="pd-def">Close the interaction and hand off to evaluation.</p></div>
+    </div>
+    <div class="pd-grid">
+      <div class="pd-vars">
+        <h5>What the author decides</h5>
+        <ul class="varlist">
+          <li><b>Completion trigger</b> — what hands off to the close</li>
+          <li><b>Progress summary</b> — which signals are emitted (moves, coverage, dimension results)</li>
+          <li><b>Evaluation rubric</b> — the competencies measured and what strong and weak look like</li>
+          <li><b>Output shape</b> — strengths + growth, or a coverage score</li>
+          <li><b>Playbook</b> — guaranteed takeaways, identical for every learner <span class="b b-opt">optional</span></li>
+          <li><b>Resources</b> — domain-specific support for the subject <span class="b b-opt">optional</span></li>
+          <li><b>Proficiency record</b> — the exit signal’s contents and the next learning object</li>
+        </ul>
+      </div>
+      <div class="pd-example">
+        <h5>Example</h5>
+        <div class="mock">
+          <div class="res-chips">
+            <div class="res-chip str"><b>Strengths</b>Led with empathy; stayed non-judgmental.</div>
+            <div class="res-chip grw"><b>Growth</b>Name the specific risk sooner.</div>
+          </div>
+          <div class="meter"><div class="meter-bar"><i></i></div><div class="meter-lbl">Teach-Back · 6 of 10 topics covered</div></div>
+        </div>
+        <p class="mock-cap"><b>Output shape varies:</b> strengths + growth (Kendra), or a coverage score (HazCom) — both from the evaluation engine.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="legend-note">The phases are the authoring checklist: six surfaces, each with its own decisions, before a single line of the scenario is generated. A mode fixes some of these (Roleplay always has a character; Teach-Back never does); the rest are the author’s to set per scenario.</p>
+</section>
+
+<!-- ============ 3. THE MODE SET ============ -->
+<section id="modes-matrix">
+  <div class="sec-head"><span class="sec-num">3</span><h2>The scenario types</h2></div>
+  <p class="sec-intro"><b>Seven scenario types ship today</b> — the four <b>core modes</b> in the first table, plus three <b>specialized engines</b> (added as stakeholder POCs) that follow the same contract (§5). New pedagogies are built against that contract, not improvised per scenario. Each differing cell is a property the type owns, not the shell.</p>
+
+  <div class="note"><b>A note on names — read this before comparing to the content team's &ldquo;interaction types.&rdquo;</b> Those name the <i>per-beat</i> act (Roleplay · Coach-Led Inquiry · Observe/React); the types here name the <i>whole-scenario engine</i> that sequences those beats. They stack — they don't compete. Two collisions to watch: the content team's <b>Observe/React</b> (spotting issues in a still image) is our <b>Scene-Sweep</b>, <i>not</i> the <code>observe-react</code> mode below (which is video footage); and their <b>&ldquo;Mix &amp; Match&rdquo;</b> is simply what the three sequencer engines already do across their phases. Full mapping in the <a href="scenario-simulator-type-crosswalk.html">Type Crosswalk</a>.</div>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th class="axis">Axis</th>
+          <th class="col-roleplay">Roleplay<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. Kendra</span></th>
+          <th class="col-arc">Guided Arc<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. Marshall</span></th>
+          <th class="col-observe">Observe / React<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. HazMat</span></th>
+          <th class="col-teach">Teach-Back<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. HazCom</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Learner’s act</td>
+          <td class="col-roleplay">Speaks a line <i>in character</i>, inside the scene</td>
+          <td class="col-arc">Answers the coach through the arc — then, in the closing scene, decides what to <i>do</i> in the moment</td>
+          <td class="col-observe">Reacts, as themselves, to footage just watched</td>
+          <td class="col-teach">Teaches a topic in their own words</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Input</td>
+          <td class="col-roleplay">Type</td>
+          <td class="col-arc">Type</td>
+          <td class="col-observe">Type</td>
+          <td class="col-teach">Talk (speech-to-text) or type</td>
+        </tr>
+        <tr>
+          <td class="rowhead">System’s response (REACT)</td>
+          <td class="col-roleplay">An in-character reply from the scenario’s character</td>
+          <td class="col-arc">The next authored beat — or, in the closing scene, the consequence of what the learner did</td>
+          <td class="col-observe">The next authored media segment</td>
+          <td class="col-teach">A live rubric grade; covered topics resolve</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Cycle count</td>
+          <td class="col-roleplay">~4–6 turns <span class="b b-card">1+</span></td>
+          <td class="col-arc">Fixed <b>phased</b> sequence: reflect → law → empathy → live scene</td>
+          <td class="col-observe">1 per segment <span class="b b-card">1+</span></td>
+          <td class="col-teach">1 continuous ENGAGE over all topics</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Character</td>
+          <td class="col-roleplay"><b>Yes</b>, model-voiced</td>
+          <td class="col-arc">Only in the closing scene, where scene characters appear</td>
+          <td class="col-observe">No</td>
+          <td class="col-teach">No</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Gate <span class="b b-opt">author-set</span></td>
+          <td class="col-roleplay">Hard action-gate (must reach the required move)</td>
+          <td class="col-arc">Mixed — the right-answer phase (law) gates on the point; open phases always advance</td>
+          <td class="col-observe">Soft — nudge, then advance</td>
+          <td class="col-teach">Coverage target, or learner ends</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Scoring</td>
+          <td class="col-roleplay">Silent, per authored dimension</td>
+          <td class="col-arc">Calibrated delivery against fixed answers; the closing scene grades the chosen action against outcome tiers</td>
+          <td class="col-observe">Per authored dimension</td>
+          <td class="col-teach">Explicit coverage score (N of total)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Prompts <span class="b b-opt">system-set</span></td>
+          <td class="col-roleplay">One system prompt</td>
+          <td class="col-arc">One system prompt</td>
+          <td class="col-observe">One system prompt</td>
+          <td class="col-teach">Three (calibrate · grade · close)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Debrief output</td>
+          <td class="col-roleplay">Strengths + growth</td>
+          <td class="col-arc">Strengths + growth</td>
+          <td class="col-observe">Strengths + growth</td>
+          <td class="col-teach">Score + short note</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="legend-note">Two axes are configuration, not fixed traits: <b>gating</b> is the author’s choice per scenario (hard or soft, and a scenario may use both), and <b>prompt count</b> is decided by the platform based on what the mode needs — an author never manages it.</p>
+
+  <h3>The three specialized engines</h3>
+  <p>Added as stakeholder POCs on the same spine and contract. Two are <b>sequencers</b> — they run an ordered set of phases where each phase carries its own interaction type (a literal <code>world: 'scene' | 'coaching'</code> field), which is the content team's &ldquo;Mix &amp; Match&rdquo; made concrete. Scene-Sweep is a single-beat perception type — and it is what the content team calls &ldquo;Observe/React.&rdquo;</p>
+  <div class="tbl-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th class="axis">Axis</th>
+          <th class="col-observe">Scene-Sweep<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. HazCom · Spot the Hazard</span></th>
+          <th class="col-arc">Branching Arc<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. WPV · Warning Signs</span></th>
+          <th class="col-arc">Ensemble Arc<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#C9C3E0">e.g. Bullying · Call from Home</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Learner’s act</td>
+          <td class="col-observe">Free-writes what’s wrong in a persistent scene, then how to fix it</td>
+          <td class="col-arc">Talks to the character at Level 1, then decides against artifacts as it escalates</td>
+          <td class="col-arc">Talks to different characters in some phases; reacts to a witnessed scene in others</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Interaction types used</td>
+          <td class="col-observe">Observe/React → Coach-Led (one beat each)</td>
+          <td class="col-arc">Roleplay + Coach-Led, across the ladder</td>
+          <td class="col-arc">Roleplay + Coach-Led, across the case</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Cycle count</td>
+          <td class="col-observe">2 beats — Observe, then Diagnose &amp; Remediate</td>
+          <td class="col-arc">Fixed ladder: Notice → Conversation → Escalates → Emergency</td>
+          <td class="col-arc">Fixed set: Report → Hallway → Follow-Up → Close the Loop</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Character</td>
+          <td class="col-observe">No — the scene is the stimulus</td>
+          <td class="col-arc">In the scene rungs only (Ray)</td>
+          <td class="col-arc">Yes — multiple, with earned disclosure (Reyes, Bianca)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Routing / Gate</td>
+          <td class="col-observe">Soft — nudge toward uncaught hazards, then advance</td>
+          <td class="col-arc">Tier-gated ladder — the classified tier picks the next phase (app-routed)</td>
+          <td class="col-arc">Per-phase tiers; a minor-safeguarding floor overrides</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Scoring</td>
+          <td class="col-observe">Per-hazard coverage (catch · fix · prevent)</td>
+          <td class="col-arc">Per-phase competency tiers</td>
+          <td class="col-arc">Per-phase tiers + cross-phase state</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Locked floors</td>
+          <td class="col-observe">Scene-grounding</td>
+          <td class="col-arc">Conduct + threat-content</td>
+          <td class="col-arc">Conduct + minor-safeguarding</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Studio-authorable</td>
+          <td class="col-observe"><b>Yes</b> — photo + hotspots by hand</td>
+          <td class="col-arc"><b>No</b> — live-only, hand-authored</td>
+          <td class="col-arc"><b>Yes</b></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 3. THE UNIVERSAL SPINE ============ -->
+<section id="spine">
+  <div class="sec-head"><span class="sec-num">4</span><h2>The spine — shared by every mode</h2></div>
+  <p class="sec-intro">These components are identical across every mode. A mode inherits all of them and implements none; it supplies only its own content and its slot-filling logic.</p>
+
+  <div class="why-box">
+    <ul>
+      <li data-n="1"><b>The coach.</b> One AI coach — a voice in a panel that rises over the stage — is present in every mode. Feedback always lives here. A character is separate and optional; the coach is not.</li>
+      <li data-n="2"><b>The stage + coach-panel shell.</b> Topbar, the stage/coach two-surface layout, and the input-bar states. A mode supplies content into this chassis and never rebuilds layout.</li>
+      <li data-n="3"><b>The per-turn JSON contract.</b> Every model response is strict typed JSON, never prose. The contract, off-script handling, learner-safety floor, and source grounding are pinned in <code>ENGINE_SECTIONS</code> and are read-only to authors — the boundary between authoring and runtime.</li>
+      <li data-n="4"><b>Parse, repair, or fall back.</b> <code>repairJson</code> corrects format slips without a second call; <code>parseTurn</code> validates and, on failure, returns a safe coach line so the session never breaks.</li>
+      <li data-n="5"><b>The proxy Worker.</b> One Cloudflare Worker holds the API key and enforces a model allowlist, token cap, and CORS allowlist. Every mode posts the same <code>{model, system, messages}</code> shape. Conversation and evaluation run on <code>claude-opus-4-8</code>; fast grading runs on <code>claude-haiku-4-5</code>.</li>
+      <li data-n="6"><b>The context player.</b> <code>SceneContext</code> renders the chosen intro modality (audio, reading; video has its own cold-open player), switchable by one field.</li>
+      <li data-n="7"><b>The authoring registry &amp; store.</b> <code>AitheraStudio</code> — <code>register / get / list</code> plus per-mode namespaced storage (draft / published / library). A mode publishes here and its learner page reads it on load.</li>
+    </ul>
+  </div>
+  <p class="legend-note">The spine is type-agnostic by design: the Writer Studio shell reads only a mode’s public surface and holds no knowledge of any specific pedagogy.</p>
+</section>
+
+<!-- ============ 4. THE MODE CONTRACT ============ -->
+<section id="contract">
+  <div class="sec-head"><span class="sec-num">5</span><h2>The mode contract</h2></div>
+  <p class="sec-intro">A mode is a single object implementing the surface below, registered once. This is the contract every mode conforms to — the definition of what a mode owes the platform in exchange for the spine.</p>
+
+  <div class="badge-key">
+    <span class="b b-req">every mode</span><span class="lbl">universal</span>
+    <span class="b b-opt">optional</span><span class="lbl">present only if the scenario needs it</span>
+    <span class="b b-uniq">mode-specific</span><span class="lbl">unique to one schema</span>
+    <span class="b b-card">1+</span><span class="lbl">repeatable — count is authored</span>
+  </div>
+
+  <p class="schema-label">The mode surface — what <code>AitheraStudio.register()</code> takes</p>
+  <pre class="schema"><span class="cm">// a mode = a scenario type. One object, registered once.</span>
+{
+  <span class="k">id</span>, <span class="k">label</span>, <span class="k">icon</span>,               <span class="cm">// identity + switcher display</span>
+
+  <span class="cm">// ---- WHAT THE WRITER FILLS ----</span>
+  <span class="k">DEFAULT</span>,                        <span class="cm">// the scenario schema, expressed as data</span>
+  <span class="k">sections</span>, <span class="k">renderFields</span>(sec, H),   <span class="cm">// the Writer Studio form: groups + field rendering</span>
+  <span class="k">lints</span>(s),                        <span class="cm">// authoring checks surfaced before publish</span>
+
+  <span class="cm">// ---- HOW DATA BECOMES PROMPTS ----</span>
+  <span class="k">compile</span>(s),                      <span class="cm">// scenario data → the prompt(s) the platform will run</span>
+  <span class="lk">ENGINE_SECTIONS</span>,                <span class="cm">// locked output contracts — read-only to authors</span>
+  <span class="k">highlightStrings</span>(s),           <span class="cm">// maps prompt text back to the field it came from</span>
+
+  <span class="cm">// ---- PERSISTENCE + RUNTIME WIRING ----</span>
+  <span class="k">normalize</span>(s), <span class="k">isValid</span>(s), <span class="k">merge</span>(draft),  <span class="cm">// schema migration + validation</span>
+  <span class="k">store</span>,                          <span class="cm">// draft/published/library (shared machinery)</span>
+  <span class="k">previewUrl</span>(),                    <span class="cm">// the learner page that renders this mode</span>
+  <span class="k">playtest</span>,                       <span class="cm">// optional in-studio dry run</span>
+}</pre>
+
+  <div class="note locked"><b><code>ENGINE_SECTIONS</code> are locked.</b> An author writes a scenario’s content — the situation, character, rubric, takeaways — never the output-format contract, off-script handling, or safety floor. This is what lets authors work in plain language without being able to break the runtime.</div>
+
+  <div class="note"><b>Prompt count is the platform’s decision.</b> Most modes compile to a single prompt. When a mode’s work genuinely splits — as with teach-back’s separate calibration, grading, and closing — the platform compiles the additional prompts and wires them. Authors are not asked to reason about this; the system is opinionated about when it applies and can surface the compiled prompts for reference.</div>
+
+  <h3>Where each contract slot lands in the skeleton</h3>
+  <div class="tbl-scroll">
+    <table style="min-width:640px">
+      <thead><tr><th style="width:22%">Sub-phase</th><th>Driven by</th><th style="width:26%">Owner</th></tr></thead>
+      <tbody>
+        <tr><td><b>ENTER</b></td><td><code>DEFAULT.intro</code> + shared SceneContext; the mode’s opening/framing fields</td><td>Author writes · shell renders</td></tr>
+        <tr><td><b>ENGAGE</b></td><td>The mode’s input affordance (scene line / coach reply / react / teach)</td><td>Mode defines · author fills copy</td></tr>
+        <tr><td><b>REACT</b></td><td><code>compile()</code> → prompt(s); <code>ENGINE_SECTIONS</code>; the response source (character / beat / segment / grade)</td><td>Mode (locked) + author (content)</td></tr>
+        <tr><td><b>COACH</b></td><td>Coach-voice fields + the rubric/dimensions the coach reads against</td><td>Author writes voice + rubric</td></tr>
+        <tr><td><b>GATE</b></td><td>The advance rule — hard or soft, chosen per scenario</td><td>Author selects · mode enforces</td></tr>
+        <tr><td><b>EXIT</b></td><td>Completion signal + the evaluation handoff (§7)</td><td>Author writes rubric · platform runs</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 5. THE MODES IN DETAIL ============ -->
+<section id="modes">
+  <div class="sec-head"><span class="sec-num">6</span><h2>The modes in detail</h2></div>
+  <p class="sec-intro">Each card fills the skeleton, lists the authored inputs with their cardinality and scope, and states why each piece exists. Field names are the real schema fields. Swatch legend:</p>
+  <div class="legend">
+    <span class="chip"><span class="swatch sw-authored"></span>Authored by a content writer</span>
+    <span class="chip"><span class="swatch sw-generated"></span>Generated live by the model</span>
+    <span class="chip"><span class="swatch sw-locked"></span>Locked platform contract</span>
+  </div>
+
+  <!-- ROLEPLAY -->
+  <div class="mode mr">
+    <div class="mode-head">
+      <div class="kicker">Mode A</div>
+      <h3>Roleplay</h3>
+      <p class="who">The learner enters a scene and speaks as themselves to a model-voiced character, one line at a time, while the coach reads each exchange and nudges. Example: <b>Kendra</b> — checking on a friend showing signs of a drinking problem.</p>
+      <span class="schema-id">schema: action-practice</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter <span class="b b-req">every mode</span></h5><p>Chosen intro modality → establishing card → the coach’s <code>openingQuestion</code>. An optional opening reflection can draw out required framing in-context.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">~4–6×</span></h5><p>The learner types one scene line, in character, across a natural conversation of roughly 4–6 turns (<code>pacing.sceneLines</code>).</p></div>
+        <div class="slot"><h5>React</h5><p>The character replies once — narration + dialogue with an <code>emotionalState</code> — steered by the <code>reactions</code> map and <code>styleNotes</code>.</p></div>
+        <div class="slot"><h5>Coach</h5><p>In the same turn, the coach debriefs the exchange and aims its nudge at the weakest scored <code>dimension</code>.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">optional</span></h5><p>Configured here as a <b>hard gate</b>: the scene cannot resolve until the learner reaches the required move (<code>gate.requirement</code>).</p></div>
+        <div class="slot"><h5>Exit</h5><p>Hands the full transcript and dimension results to the evaluation engine (§7).</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>action-practice</code> schema</p>
+      <pre class="schema">{
+  <span class="k">title</span>, <span class="k">learnerName</span>, <span class="k">characterName</span>, <span class="k">courseContext</span>,   <span class="cm">// required</span>
+  <span class="k">setup</span>,                                <span class="cm">// the character card = setup + reactions + styleNotes</span>
+  <span class="k">pacing</span>: { sceneLines:<span class="s">'4-6'</span>, duration },   <span class="cm">// tunes the conversation length</span>
+  <span class="k">openingImage</span>, <span class="k">openingQuestion</span>,
+  <span class="k">dimensions</span>: [{ name, strong, weak }],    <span class="cm">// the silent rubric</span>       <span class="op">// 1+ (Kendra: 3)</span>
+  <span class="k">reactions</span>:  [{ when, then }],            <span class="cm">// character reaction map</span>    <span class="op">// 0+</span>
+  <span class="k">misconceptions</span>: [{ belief, consequence }],                              <span class="op">// 0+ · optional</span>
+  <span class="k">gate</span>: { requirement, notSuccess, teach, nudgeOpen, nudgeConcrete, fallback },  <span class="op">// optional</span>
+  <span class="k">coachVoice</span>: { persona, guidance },
+  <span class="k">completion</span>: { condition, resolutionExample },
+  <span class="k">intro</span>: { type, … },                     <span class="cm">// one modality</span>
+  <span class="op">elevatedStakes</span>: true,                  <span class="cm">// OPTIONAL · Kendra-specific: locks a crisis-line floor</span>
+  <span class="op">playbook</span>: [{ title, body }],            <span class="cm">// OPTIONAL guaranteed takeaways</span>   <span class="op">// 0+ (Kendra: 7)</span>
+  <span class="op">resources</span>, <span class="op">references</span>              <span class="cm">// OPTIONAL · domain content (Kendra: substance-use + crisis support)</span>
+}</pre>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> a single prompt keeps the character consistent and lets the model carry turn-to-turn memory. Silent dimensions let the coach target the right weakness without turning practice into a visible test. The hard gate names the one behaviour the scenario refuses to let a learner skip. When present, the playbook and resources are guaranteed and identical for every learner — content too important to leave to generation, and specific to the scenario’s subject.</span></div>
+    </div>
+  </div>
+
+  <!-- GUIDED ARC -->
+  <div class="mode ma">
+    <div class="mode-head">
+      <div class="kicker">Mode B</div>
+      <h3>Guided Arc</h3>
+      <p class="who">An authored, <b>phased</b> arc with a live coach throughout. The learner moves through an ordered sequence of phases — reflect, then reason about the law, then step into the person's experience — alternating <b>Practice</b> (the learner reasons; the coach withholds teaching) and <b>Learn</b> (the coach lands the point), and finishing in a <b>live scene</b> where they decide what to <i>do</i>. Fixed verbatim signposts carry the hand-off between phases; a guaranteed SME playbook closes it. Example — and current build: <b>Marshall</b> (bystander intervention), authored in the Studio and run by the generic <code>guided-arc-live.html</code>.</p>
+      <span class="schema-id">schema: guided-arc</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter</h5><p>Chosen intro modality (Marshall: a video cold-open with a read-along transcript) → the coach’s opening reflection, which is <b>calibration only, not evaluated</b>.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">per phase</span></h5><p>The learner answers the coach through each phase — as themselves. In the <b>closing scene</b> they instead act: input widens from “what do you say” to <b>“what do you do?”</b></p></div>
+        <div class="slot"><h5>React</h5><p>The coach advances to the next phase on a verbatim signpost cue. In the closing scene, the <b>consequence</b> of the learner’s action plays back in an emphasized narration tier before the coach debriefs it.</p></div>
+        <div class="slot"><h5>Coach</h5><p>Alternates <b>Practice</b> (teaching withheld to a single Socratic probe) and <b>Learn</b> (the coach opens with a fixed “talk it through” line, then lands the point). The <b>law</b> phase carries an authored right answer the coach states plainly.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">mixed</span></h5><p>The <b>law</b> phase gates on reaching the correct legal conclusion; the open phases (reflect, empathy) always advance.</p></div>
+        <div class="slot"><h5>Exit</h5><p>After exactly two scene actions (with a scripted escalation between them), the arc closes on a <b>guaranteed 9-component SME playbook</b> shown identically to every learner.</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>guided-arc</code> schema (v3)</p>
+      <pre class="schema">{
+  <span class="k">title</span>, <span class="k">course</span>, <span class="k">learnerName</span>, <span class="k">characterName</span>,     <span class="cm">// required</span>
+  <span class="k">framing</span>, <span class="k">learnerRole</span>,                     <span class="cm">// the premise + the role the learner plays</span>
+  <span class="k">establishing</span>: { eyebrow, title, sub }, <span class="k">intro</span>: { type, … },  <span class="cm">// one modality</span>
+  <span class="k">reflection</span>: { prompt, feedbackGuidance },   <span class="cm">// non-evaluated warm-up (verbatim prompt)</span>
+  <span class="k">phases</span>: [                              <span class="cm">// 1..N Practice→Learn phases, reorderable</span>
+    { id, label, <span class="lk">signpost</span>, <span class="lk">prompt</span>,          <span class="cm">// signpost + task shown VERBATIM</span>
+      hasRightAnswer, <span class="lk">talkItThrough</span>,         <span class="cm">// verbatim opener of the teaching turn</span>
+      calibration:[{ tier, guidance }], throughLine },  <span class="cm">// tiers + the graded conclusion</span>
+  ],
+  <span class="op">scene</span>: {                               <span class="op">// OPTIONAL live action console</span>
+    <span class="lk">pivot</span>, <span class="lk">setup</span>:[{ speaker, kind, text }],    <span class="cm">// verbatim pivot + break-room beats</span>
+    sayDoSplit, actionCount, outcomes:[{ tier, narration }],  <span class="cm">// consequence tiers</span>
+    debrief:{ <span class="lk">talkItThrough</span>, points } },
+  <span class="op">playbook</span>: [{ title, body }],            <span class="cm">// guaranteed takeaways</span>   <span class="op">// (Marshall: 9)</span>
+  <span class="op">resources</span>, <span class="op">elevatedStakes</span>                 <span class="cm">// OPTIONAL · domain content · crisis floor</span>
+}</pre>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Reference build:</b> Marshall <b>v3</b> is this schema's shipped <b>DEFAULT</b> — the Studio authors it, and it runs on the generic <code>guided-arc-live.html</code> (with nothing published, that page plays the Marshall default). The hand-coded <code>marshall-scenario-v3.js</code> remains only as the frozen validation oracle: <code>compile(DEFAULT)</code> reproduces its hand-tuned system prompt.</span></div>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> some content is a guided lesson with decision points, not an open roleplay — the arc must land specific points in a specific order, and a live coach fills the gaps so the path stays responsive without losing its authored precision. Note that Guided Arc now <b>borrows from Roleplay</b> at the finish: its optional closing scene is a genuine in-character moment, which is why the two modes overlap where they used to be distinct.</span></div>
+    </div>
+  </div>
+
+  <!-- OBSERVE / REACT -->
+  <div class="mode mo">
+    <div class="mode-head">
+      <div class="kicker">Mode C</div>
+      <h3>Observe / React</h3>
+      <p class="who">The learner watches authored footage and the coach probes what they saw and felt. Media segments are the spine; the coach fills the gaps. Example: <b>HazMat</b> — reading a scene from footage of a hazardous-materials call, across watch-then-react chapters.</p>
+      <span class="schema-id">schema: observe-react</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter</h5><p>Establishing card → the first segment plays as the cold open.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">1+ per segment</span></h5><p>The learner reacts, as themselves, to what they just watched.</p></div>
+        <div class="slot"><h5>React</h5><p>The next authored segment advances the scene; a chapter-advance signal returns the learner to Observe.</p></div>
+        <div class="slot"><h5>Coach</h5><p>Probes against the authored structure. An <b>affective beat</b> — “how did that make you feel?” — validates instinct before asking what should have happened.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">optional</span></h5><p>Configured here as <b>soft</b>: a weak answer draws a nudge, then advances.</p></div>
+        <div class="slot"><h5>Exit</h5><p>A synthesis beat closes the run; results hand off to evaluation.</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>observe-react</code> schema</p>
+      <pre class="schema">{
+  <span class="k">title</span>,                                <span class="cm">// required</span>
+  <span class="k">segments</span>: [{ src, label, caption }],     <span class="cm">// the media spine + narration</span>   <span class="op">// 1+ (HazMat: 3)</span>
+  <span class="k">openers</span>: [{ segment, line }],           <span class="cm">// scripted coach line returning from a segment</span>  <span class="op">// 0+</span>
+  <span class="k">dimensions</span>: [{ name, strong, weak }],    <span class="cm">// the rubric</span>              <span class="op">// 1+</span>
+  <span class="k">openingQuestion</span>,
+  <span class="op">gate</span>                                    <span class="cm">// OPTIONAL advance rule</span>
+  <span class="cm">// no character; the media is the stimulus the coach reacts to</span>
+}</pre>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> some skills are about reading a situation, not conversing in one. Authored media is the stimulus the coach reacts to — it takes the place of a character while the coach stays constant. The affective beat is deliberate: naming a gut reaction before analysis is the pedagogy, so it is authored as its own step.</span></div>
+    </div>
+  </div>
+
+  <!-- TEACH-BACK -->
+  <div class="mode mt">
+    <div class="mode-head">
+      <div class="kicker">Mode D</div>
+      <h3>Teach-Back</h3>
+      <p class="who">The learner teaches a subject back in their own words while a live rubric grades coverage. The learner produces and the system assesses — the inverse of being coached. Example: <b>HazCom</b> — teaching a Hazard Communication course back across its topics.</p>
+      <span class="schema-id">schema: teach-back</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter</h5><p>Title → a brief calibration chat that gauges readiness and unlocks teaching. No scoring here.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">continuous</span></h5><p>The learner teaches topics in any order, by voice or text — one long move rather than discrete turns.</p></div>
+        <div class="slot"><h5>React</h5><p>A live grade decides which topics an utterance covered; covered topics resolve and the coverage meter updates.</p></div>
+        <div class="slot"><h5>Coach</h5><p>Speaks only when the learner stalls: a category-level hint that never names the topic.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">optional</span></h5><p>Ends on full coverage, or when the learner chooses to finish. Framed by count, never by omission.</p></div>
+        <div class="slot"><h5>Exit</h5><p>Coverage results hand off for the closing score and note.</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>teach-back</code> schema</p>
+      <pre class="schema">{
+  <span class="k">title</span>, <span class="k">subject</span>,                        <span class="cm">// required</span>
+  <span class="k">topics</span>: [{ short, full, synonyms }],      <span class="cm">// the rubric — full = matched against; synonyms = accepted phrasings</span>  <span class="op">// 1+ (HazCom: 10)</span>
+  <span class="k">calibrate</span>: { openingQuestion, coachGuidance },
+  <span class="k">grade</span>: { rules },                        <span class="cm">// grading judgment / disambiguation</span>
+  <span class="k">close</span>: { guidance }
+}
+<span class="lk">// compiles to THREE prompts: calibration · live grading · closing</span></pre>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> teaching to learn is a different act than being coached, so the mechanics invert — the learner produces and the system assesses. Grading runs on a fast model so a correct sentence resolves a topic within about a second, while calibration and closing use the stronger model. Coverage is stated as a count because a legible score is the point. This is the template for any mode that assesses what a learner produces.</span></div>
+    </div>
+  </div>
+
+  <!-- SCENE-SWEEP -->
+  <div class="mode mo">
+    <div class="mode-head">
+      <div class="kicker">Mode E · specialized</div>
+      <h3>Scene-Sweep</h3>
+      <p class="who">The learner studies one persistent illustrated scene and free-writes what's wrong — then what to do about it — graded for <b>coverage</b> against a fixed, authored hazard rubric the coach never departs from. Two beats: Observe, then Diagnose &amp; Remediate. <b>This is what the content team calls &ldquo;Observe/React.&rdquo;</b> Example: <b>HazCom</b> — Spot the Hazard.</p>
+      <span class="schema-id">schema: scene-sweep</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter</h5><p>Establishing card → the illustrated work area appears and <b>stays on screen</b> for the whole interaction.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">2 beats</span></h5><p>The learner free-writes catches (Observe), then a right-now fix for each (Diagnose &amp; Remediate). Each beat is Practice then Learn.</p></div>
+        <div class="slot"><h5>React</h5><p>The coach credits catches against the <b>fixed hazard rubric</b> and never invents a hazard outside it — a locked <b>scene-grounding floor</b> (the model can't see the picture).</p></div>
+        <div class="slot"><h5>Coach</h5><p>Works the learner first, then lands the standard in the Learn half of each beat. No character, no role-play.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">soft</span></h5><p>Coverage — nudge toward hazards not yet caught, then advance.</p></div>
+        <div class="slot"><h5>Exit</h5><p>Per-hazard coverage plus strengths + growth hand off to evaluation.</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>scene-sweep</code> schema</p>
+      <pre class="schema">{
+  <span class="k">title</span>,
+  <span class="k">scene</span>: { <span class="k">alt</span>, <span class="k">canonDescription</span>,        <span class="cm">// the fixed scene the model reasons over (it can't see pixels)</span>
+           <span class="k">hazards</span>:[{ id, short, zone, <span class="k">fix</span>, <span class="k">prevent</span> }] },  <span class="op">// 1+ (HazCom: 4)</span>
+  <span class="k">phases</span>: [ Observe, <span class="s">'Diagnose &amp; Remediate'</span> ],   <span class="cm">// two Practice⇄Learn beats</span>
+  <span class="k">dimensions</span>, <span class="op">playbook</span>,                   <span class="cm">// coverage rubric + guaranteed SME close</span>
+  <span class="lk">GROUNDING_SECTION</span>                       <span class="cm">// LOCKED — the rubric hazards are the ONLY ones that exist</span>
+}</pre>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> perception — seeing what's wrong — is the skill, so the scene persists and the score is coverage, not conversation. The fixed rubric plus the grounding floor are what stop the model from inventing hazards; the photo and hotspots are placed by hand in the editor (the wizard can't see pixels).</span></div>
+    </div>
+  </div>
+
+  <!-- ENSEMBLE ARC -->
+  <div class="mode ma">
+    <div class="mode-head">
+      <div class="kicker">Mode F · specialized · sequencer</div>
+      <h3>Ensemble Arc</h3>
+      <p class="who">A multi-character case that moves through an ordered set of phases — some are in-character scenes, some are coach-led or witnessed. Characters <b>remember across phases</b> (earned disclosure: they open up or harden based on how they were handled), and a <b>minor-safeguarding floor</b> sits over everything. Each phase carries its own interaction type — the content team's &ldquo;Mix &amp; Match,&rdquo; made concrete. Example: <b>Bullying</b> — The Call from Home.</p>
+      <span class="schema-id">schema: ensemble-arc</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter</h5><p>Chosen intro modality → an opening reflection, then the first phase.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">per phase</span></h5><p>Per phase, the learner either speaks to a character (<code>world: 'scene'</code>) or reasons/reacts to a witnessed moment (<code>world: 'coaching'</code>).</p></div>
+        <div class="slot"><h5>React</h5><p>An in-character reply or a narrator-driven scene, per phase; <b>cross-phase state</b> updates so later characters reflect earlier choices.</p></div>
+        <div class="slot"><h5>Coach</h5><p>Reads each exchange and nudges; the <b>character conduct floor</b> and <b>minor floor</b> are locked on top of whatever is authored.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">tiered</span></h5><p>Per-phase tier-gated, on the shared ladder runtime; the minor-safeguarding floor overrides.</p></div>
+        <div class="slot"><h5>Exit</h5><p>Per-phase competency tiers + state resolve into strengths + growth.</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>ensemble-arc</code> schema</p>
+      <pre class="schema">{
+  <span class="k">title</span>, <span class="k">characters</span>: [{ name, baseline, driver, reactions }],  <span class="op">// 1+ (Reyes, Bianca…)</span>
+  <span class="k">state</span>: [{ key, label, initial }],           <span class="cm">// carries across phases (trust, promises kept)</span>
+  <span class="k">phases</span>: [{ id, label, <span class="k">world</span>:<span class="s">'scene'|'coaching'</span>, counterpart, maxTurns,
+            entry:{ <span class="lk">signpost</span>, <span class="lk">prompt</span>, cta }, calibration, transitions }],  <span class="op">// 1+</span>
+  <span class="lk">CONDUCT_SECTION</span>, <span class="lk">MINOR_SECTION</span>            <span class="cm">// LOCKED floors</span>
+}</pre>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> some topics need more than one relationship and a memory that runs across them. It reuses <b>Branching Arc's ladder runtime</b> unchanged — the differences live in the type, not the runner — and the per-phase <code>world</code> tag is exactly the beat-level interaction type the content mapping names.</span></div>
+    </div>
+  </div>
+
+  <!-- BRANCHING ARC -->
+  <div class="mode ma">
+    <div class="mode-head">
+      <div class="kicker">Mode G · specialized · sequencer · live-only</div>
+      <h3>Branching Arc</h3>
+      <p class="who">An escalating <b>competency ladder</b>: the learner talks to the character at the first level, then faces artifacts and decision points as the situation escalates and the character is deliberately removed. <b>The app routes between phases by the learner's classified tier</b> — the model only classifies and voices; it never decides the path. Example: <b>Workplace Violence</b> — Reading the Warning Signs.</p>
+      <span class="schema-id">schema: branching-arc</span>
+    </div>
+    <div class="mode-body">
+      <div class="slotgrid">
+        <div class="slot"><h5>Enter</h5><p>Chosen intro modality → a non-scored gut-read reflection, then Level 1.</p></div>
+        <div class="slot"><h5>Engage <span class="b b-card">per rung</span></h5><p>Per phase, the learner speaks to the character (scene) or reasons about a stimulus/decision (coaching).</p></div>
+        <div class="slot"><h5>React</h5><p>An in-character reply or a coach probe; the <b>app routes to the next rung</b> by the learner's classified tier — routing is deterministic, not model-driven.</p></div>
+        <div class="slot"><h5>Coach</h5><p>Reads against the phase's tiers; the <b>threat-content floor</b> and <b>conduct floor</b> are locked on top.</p></div>
+        <div class="slot"><h5>Gate <span class="b b-opt">tiered ladder</span></h5><p>The classified tier <i>is</i> the transition — it selects which phase comes next.</p></div>
+        <div class="slot"><h5>Exit</h5><p>Per-phase competency tiers along the ladder resolve into strengths + growth.</p></div>
+      </div>
+
+      <p class="schema-label">Authored inputs — <code>branching-arc</code> schema</p>
+      <pre class="schema">{
+  <span class="k">title</span>, <span class="k">state</span>: [{ key, label, initial }],      <span class="cm">// disposition, groundwork…</span>
+  <span class="k">phases</span>: [{ id, label, level, <span class="k">world</span>, maxTurns,
+            entry:{ <span class="lk">signpost</span>, <span class="lk">prompt</span>, cta }, calibration,
+            <span class="k">transitions</span>:[{ onTier, next }] }],        <span class="cm">// the ladder wiring — app-routed</span>
+  <span class="lk">CONDUCT_SECTION</span>, <span class="lk">THREAT_SECTION</span>           <span class="cm">// LOCKED floors</span>
+}</pre>
+
+      <div class="note locked" style="margin-top:16px"><b>Live-only.</b> Branching Arc is hand-authored in its <code>DEFAULT</code> and run directly by <code>branching-arc-live.html</code>; it is <b>not</b> registered in the Writer Studio (no editor or wizard yet). It still wires its store so publish→live works. Give it <code>sections</code>/<code>renderFields</code>/<code>lints</code> to bring it into the studio.</div>
+
+      <div class="why"><span class="arrow-ico">→</span><span><b>Why this shape:</b> some skills are a graded escalation where the wrong move changes what happens next. Keeping the routing in the app rather than the model makes the ladder deterministic and safe — the model's only jobs are to voice the character and classify the learner's tier.</span></div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ 6. EVALUATION & CLOSE ============ -->
+<section id="close">
+  <div class="sec-head"><span class="sec-num">7</span><h2>Evaluation &amp; close</h2></div>
+  <p class="sec-intro">The interaction layer hands off to a standardized close. Evaluation is deliberately separate from the in-scene coach: the coach guides during practice, and an independent engine judges the result. This keeps assessment objective and consistent across every mode.</p>
+
+  <div class="why-box">
+    <h4>The evaluation engine</h4>
+    <ul>
+      <li data-n="1"><b>Summarized progress in.</b> Each part of the interaction contributes a compact record of what the learner did — moves, coverage, dimension results — not raw transcript. The engine reads this summary, keeping the evaluation prompt separate from and lighter than the coach prompt.</li>
+      <li data-n="2"><b>Judged against an authored rubric.</b> The author defines what the scenario measures and what strong and weak look like. The engine evaluates the summarized progress against that rubric — the author shapes the rubric, not the phrasing of the verdict.</li>
+      <li data-n="3"><b>Objective guidance out.</b> The engine returns learner-facing results: strengths and growth areas, or a coverage score, grounded in the rubric and the learner’s own actions.</li>
+    </ul>
+  </div>
+
+  <p class="sec-intro" style="margin-top:26px">The close then renders standard surfaces. Two are universal; two are optional and authored per scenario:</p>
+  <div class="tbl-scroll">
+    <table style="min-width:640px">
+      <thead><tr><th style="width:26%">Element</th><th>What it is</th><th style="width:16%">Scope</th></tr></thead>
+      <tbody>
+        <tr><td><b>Results surface</b></td><td>Strengths + growth, or a coverage score with a short note — the evaluation output</td><td><span class="b b-req">every mode</span></td></tr>
+        <tr><td><b>Exit</b></td><td>Emits a proficiency record and advances to the next learning object</td><td><span class="b b-req">every mode</span></td></tr>
+        <tr><td><b>Playbook</b></td><td>Guaranteed takeaways, identical for every learner regardless of path</td><td><span class="b b-opt">optional</span></td></tr>
+        <tr><td><b>Resources</b></td><td>Domain-specific support and references for the scenario’s subject</td><td><span class="b b-opt">optional</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="legend-note">The proficiency record — competencies with evidence, or a score — is the single output that makes any scenario, in any mode, composable as a learning object downstream.</p>
+
+  <div class="note"><b>The whole system in one line:</b> a scenario is an authored context intro, an interaction layer in one of seven scenario types (four core modes plus three specialized engines), and an evaluated close. The context and the close are shared and standardized; a type differs only in how it fills the skeleton — ENTER → ( ENGAGE · REACT · COACH ) × N ↺ GATE → EXIT — and everything under the spine is inherited.</div>
+</section>
+
+</main>
+
+<footer>
+  <div class="frow">
+    <span><b>Scenario Simulator — Part 2 · The Interaction Layer</b> · Modes, Components &amp; Prompts</span>
+    <span>Updated · August 2026 (all 7 types)</span>
+  </div>
+</footer>
+
+</body>
+</html>

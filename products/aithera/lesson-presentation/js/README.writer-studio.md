@@ -59,13 +59,16 @@ compose their prompts.
 | 2 | **`studio-engine.js`** | the type **registry** + per-type store. Must load first. |
 | 3 | `say-do-split.js` | learner-move say/do splitter (playtest + sandbox) |
 | 4 | **`scenario.js`** | the **action-practice** TYPE. Also exposes `window.AitheraScenario` — the shared base every other type reads (`ENGINE_SECTIONS`, `CRISIS_FLOOR`). Load before the other types. |
-| 5 | `scenario-types/{guided-arc,observe-react,teach-back,scene-sweep,ensemble-arc}.js` | the other TYPE modules. Registration order = mode-picker order. |
+| 5 | `scenario-types/{guided-arc,teach-back,scene-sweep,ensemble-arc,mix-arc}.js` | the other TYPE modules. Registration order = mode-picker order. `observe-react.js` still exists but is **no longer loaded** — retired 2026-08-05, its one experience now a Mix & Match example. |
+| 5b | `scenario-v4.js` · `scenario-v4-runtime.js` · `scenario-v4-scopes.js` · `scenario-v4-templates.js` | the POC V4 layer: schema + loader rules + content lint; the single V4→runtime compiler; per-scope prompt compilation; the seven V4 starting templates. |
+| 5c | `scenario-types/v4-universal.js` | the **v4-universal** TYPE — authors Scenario CML v4 directly and owns the Dev handoff export. Reads all four V4 modules plus mix-arc's prompt builder, so it loads after them. |
 | 6 | **`studio-wizard-craft.js`** | shared wizard helpers + the invariant coach-voice atoms. Before the wizard engine + specs. |
 | 7 | `studio-wizard.js` | the wizard **engine** (`window.AitheraStudioWizard`). |
 | 8 | `studio-v2-guided-arc.js` | guided-arc's V2 re-presentation (Learn/Practice rail) **and** its wizard spec. |
-| 9 | `studio-v2-wizards.js` | wizard specs for action-practice, teach-back, observe-react. |
+| 9 | `studio-v2-wizards.js` | wizard specs for action-practice, teach-back, observe-react (the observe-react spec is inert while the type is unloaded). |
 | 10 | `studio-v2-ensemble-wizard.js` | the ensemble wizard spec (its own module — the richest schema). |
 | 11 | `studio-v2-scene-sweep-wizard.js` | the scene-sweep wizard spec (its own module — a visual scene + perception rubric; photo/hotspots stay a manual editor step). |
+| 11b | `studio-v2-mix-arc-wizard.js` | the Mix & Match wizard spec (composed beats, one interaction type per beat). |
 | 12 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
 
 `writer-studio.html` (V1) is **retired** — a thin redirect to
@@ -120,6 +123,20 @@ pedagogy changes.
   the scenario."
 - `fill` is a real substituter on most types but an **identity stub** on
   teach-back / observe-react (no placeholders). This is correct, not a bug.
+- `goForward: true` — **the go-forward-format flag.** Set on `v4-universal`
+  only. Both the shell and the wizard read it the same way: a type WITHOUT it is
+  presented as *"Legacy — for editing existing scenarios."* The wizard's step-0
+  grid sorts go-forward types first (`byFreshness`, a stable sort, so
+  registration order survives within each group), draws one rule ahead of the
+  first legacy card, and badges every legacy card; the shell badges the
+  read-only current-type card the same way. Deliberately a **type-supplied
+  flag**, like `blurb` — the shell and wizard stay free of per-type branches, so
+  marking a future format go-forward is one line on that type, not an edit here.
+- A go-forward type **without a `wizard`** is still pickable in step 0. There is
+  no interview spec for `v4-universal` yet, so its card navigates to
+  `writer-studio-v2.html?type=<id>` — the Universal editor's own template
+  gallery is the starting point. (A legacy type without a `wizard` stays
+  disabled, as before.)
 
 ### 3c. Registration + storage idiom
 
@@ -309,6 +326,19 @@ you.
 
 ---
 
-_Last mapped: 2026-07-31. Six authorable types (action-practice, guided-arc,
-observe-react, teach-back, scene-sweep, ensemble-arc), all six now
-wizard-enabled (start-from-scratch), + branching-arc (live-only, hand-authored)._
+_Last mapped: 2026-08-18. Seven registered types — action-practice, guided-arc,
+teach-back, scene-sweep, ensemble-arc, mix-arc, and **v4-universal** (which
+authors Scenario CML v4 directly). All but v4-universal are wizard-enabled
+(start-from-scratch). `branching-arc` stays live-only and hand-authored;
+`observe-react` was retired from the registry on 2026-08-05._
+
+_As of 2026-08-18 the picker is no longer flat: `v4-universal` carries
+`goForward: true` (§3b) and leads both the wizard's step-0 grid and the shell's
+current-type card; **the other six are badged "Legacy — for editing existing
+scenarios."** New scenarios are steered to Universal Scenario, and the legacy
+types stay first-class for editing what already exists — nothing about their
+contract or their editors changed._
+
+_This document maps the Studio's own architecture. It is deliberately silent on
+the POC V4 alignment — what V4 changed, what is still open, and who owns each
+open decision live in `docs/V4-ALIGNMENT-NOTES.md`._

@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Summary — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+
+    <!-- =====================================================================
+         Narrated Presentation — presentation-specific styles.
+
+         Reuses the shared lesson shell (header / footer / nav) from lesson.css.
+         Everything below styles the "video stage": a branded slide that the
+         browser narrates aloud, highlighting each word as it's spoken, with a
+         per-word highlighting and a stylized, audio-reactive waveform — no video.
+    ===================================================================== -->
+    <style>
+        /* This content type reuses the shell's tokens (--accent, --ink, --line,
+           --surface, shadows) so it sits naturally beside the other experiments:
+           a clean white prose card with an audio player beneath it. */
+
+        /* Centered content column, same feel as the other content types. */
+        .np-wrap {
+            width: min(640px, 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        /* Eyebrow — matches the Terms/Quick Question treatment. */
+        .np-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+        }
+        .np-eyebrow i { color: var(--accent); font-size: 12px; }
+
+        /* One card = one media object: the narrated text and its player live
+           together, with a progress bar flush along the bottom edge (like a
+           video). Reads as a single thing to play, not two tasks to complete. */
+        .np-card {
+            position: relative;
+            overflow: hidden;          /* clips the bottom scrubber to the radius */
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            padding: clamp(24px, 4vw, 38px) clamp(22px, 4vw, 40px) clamp(16px, 3vw, 22px);
+        }
+        .np-text {
+            margin: 0;
+            max-width: 60ch;
+            font-size: clamp(17px, 2vw, 21px);
+            line-height: 1.65;
+            color: var(--ink);
+            text-align: left;          /* prose stays left-aligned */
+        }
+
+        /* Each spoken word is its own span so we can highlight it in place. */
+        .np-text .w {
+            border-radius: 5px;
+            padding: 0 .08em;
+            transition: color .15s ease, background-color .18s ease;
+        }
+        /* The marker highlight is background + color only (no weight/size change),
+           so the word never grows and the paragraph never reflows. While reading,
+           upcoming words sit back and spoken words return to full ink.
+           (--ink-soft, not --ink-faint: the dim stays subtle but the unspoken
+           words keep ≥4.5:1 contrast while playback runs.) */
+        .np-card.reading .np-text .w      { color: var(--ink-soft); }
+        .np-card.reading .np-text .w.read { color: var(--ink); }
+        .np-card.reading .np-text .w.now {
+            color: var(--accent-strong);
+            background: var(--accent-soft);
+            box-shadow: 0 0 0 2px var(--accent-soft);
+        }
+
+        /* ---- Player controls, inside the same card ----------------------- */
+        .np-controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: clamp(18px, 3vw, 26px);
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+        }
+        .np-play {
+            flex: 0 0 auto;
+            width: 44px; height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: background-color .15s ease, transform .1s ease;
+        }
+        .np-play:hover  { background: var(--accent-strong); }
+        .np-play:active { transform: scale(.94); }
+
+        /* Compact "now playing" waveform — a thin equalizer, not a full-width
+           bar. The scrubber below is the real progress indicator. */
+        .wave {
+            flex: 0 0 auto;
+            width: 120px;
+            height: 28px;
+            display: block;
+        }
+        .np-time {
+            flex: 0 0 auto;
+            margin-left: auto;          /* push elapsed + replay to the right */
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            color: var(--ink-soft);
+        }
+        .np-replay {
+            flex: 0 0 auto;
+            width: 38px; height: 38px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--ink-soft);
+            font-size: 14px;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: background-color .15s ease, color .15s ease;
+        }
+        .np-replay:hover { background: var(--accent-soft); color: var(--accent-strong); }
+
+        /* Progress scrubber — flush along the card's bottom edge, like a video
+           player's seek bar. Accent fill mirrors the header progress bar. */
+        .np-scrubber {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            height: 4px;
+            background: var(--line);
+        }
+        .np-scrubber-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            transition: width .25s linear;
+        }
+
+        /* A small "speaker not supported" note, shown only if TTS is absent. */
+        .tts-note {
+            margin: 2px 0 0;
+            font-size: 13px;
+            color: var(--ink-soft);
+            display: none;
+        }
+        .tts-note.show { display: block; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .np-text .w, .np-scrubber-fill { transition: none; }
+        }
+
+        /* Visually hidden but screen-reader available (h1 + playback status) */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Alcohol &amp; You</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Hearing from Your Peers</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 2 of 8</span>
+            <vaadin-progress-bar value="0.25" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <div class="np-wrap">
+
+                <!-- Page heading for screen readers — the slide is eyebrow +
+                     prose with no visible heading, so this names the step
+                     without changing the layout. -->
+                <h1 class="sr-only">Audio summary: Hearing from Your Peers</h1>
+
+                <p class="np-eyebrow">
+                    <i class="fa-solid fa-headphones"></i> Narrated
+                </p>
+
+                <!-- One card: the narrated text + its player controls + a
+                     bottom-edge scrubber. Each word is wrapped in a span at runtime. -->
+                <div class="np-card" id="slideCard">
+                    <p class="np-text" id="slideText">Most students who choose to drink do so safely and nearly half of entering first year students choose not to drink at all. Regardless of your situation, a student perspective can be helpful. Listen to what some of your peers have to say about alcohol use and non-use in college.</p>
+
+                    <!-- Player controls: play/pause · waveform · elapsed · replay -->
+                    <div class="np-controls">
+                        <button class="np-play" id="playPause" aria-label="Play narration">
+                            <i class="fa-solid fa-play" id="playIcon"></i>
+                        </button>
+                        <canvas class="wave" id="wave" aria-hidden="true"></canvas>
+                        <span class="np-time" id="time">0%</span>
+                        <button class="np-replay" id="replay" aria-label="Replay from the start" title="Replay">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+
+                    <!-- Progress scrubber, flush along the bottom edge.
+                         aria-valuenow is updated coarsely (10% steps) by the
+                         script so assistive tech isn't flooded per word. -->
+                    <div class="np-scrubber" id="scrubber" role="progressbar" aria-label="Narration progress"
+                         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="np-scrubber-fill" id="scrubFill"></div></div>
+                </div>
+
+                <!-- Playback state announcements: started / paused / finished,
+                     once each — never streaming percent updates. -->
+                <div class="sr-only" id="playbackStatus" aria-live="polite"></div>
+
+                <p class="tts-note" id="ttsNote">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Your browser doesn’t support speech narration, so the words are
+                    being highlighted on an estimated timeline instead.
+                </p>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions">
+            Press play to hear this slide narrated. Follow along — each word
+            highlights as it’s spoken.
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="continueBtn" disabled>Continue</vaadin-button>
+        </div>
+    </footer>
+
+    <script>
+    /* ========================================================================
+       Narrated Presentation
+
+       Goal: take a static "video" slide (text on a background + narration) and
+       reproduce it with NO video — using the browser's Web Speech API to speak
+       the text, highlighting each word as it's spoken, with a stylized waveform
+       that signals audio is playing.
+
+       Pieces:
+         1. Tokenize the slide text into words (each gets its char offset).
+         2. Speak it with speechSynthesis; the `boundary` event tells us which
+            word is being spoken (by character index) so we can highlight it.
+         3. Fallback: some browsers don't fire word boundaries — if none arrive,
+            advance the highlight on an estimated timeline instead.
+         4. A canvas waveform animates while speaking and freezes on pause.
+    ===================================================================== */
+    (function () {
+        'use strict';
+
+        const slideText   = document.getElementById('slideText');
+        const slideCard   = document.getElementById('slideCard');
+        const playPause   = document.getElementById('playPause');
+        const playIcon    = document.getElementById('playIcon');
+        const replayBtn   = document.getElementById('replay');
+        const scrubFill   = document.getElementById('scrubFill');
+        const scrubber    = document.getElementById('scrubber');
+        const playbackStatus = document.getElementById('playbackStatus');
+        const timeLabel   = document.getElementById('time');
+        const instructions = document.getElementById('instructions');
+        const continueBtn = document.getElementById('continueBtn');
+        const ttsNote     = document.getElementById('ttsNote');
+        const canvas      = document.getElementById('wave');
+
+        const FULL_TEXT   = slideText.textContent.replace(/\s+/g, ' ').trim();
+        const ttsOK       = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+        const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const INSTR_IDLE  = instructions.textContent.replace(/\s+/g, ' ').trim();
+
+        /* ---- 1. Tokenize into words -------------------------------------- */
+        // Walk the text, capturing each word and its starting character index
+        // (so we can map a boundary `charIndex` back to a word).
+        const words = [];                 // { text, start, el }
+        let m;
+        const re = /\S+/g;
+        while ((m = re.exec(FULL_TEXT)) !== null) {
+            words.push({ text: m[0], start: m.index, el: null });
+        }
+
+        // Rebuild the slide text with each word wrapped in a <span class="w">.
+        slideText.innerHTML = words
+            .map((w, i) => `<span class="w" data-i="${i}">${escapeHtml(w.text)}</span>`)
+            .join(' ');
+        slideText.querySelectorAll('.w').forEach((el, i) => { words[i].el = el; });
+
+        function escapeHtml(s) {
+            return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+        }
+
+        /* ---- Highlight state -------------------------------------------- */
+        let current = -1;      // index of the currently spoken word
+
+        function highlight(i) {
+            if (i === current) return;
+            i = Math.max(0, Math.min(words.length - 1, i));
+            if (current >= 0 && words[current].el) {
+                words[current].el.classList.remove('now');
+                words[current].el.classList.add('read');
+            }
+            current = i;
+            const w = words[i];
+            if (w.el) w.el.classList.add('now');
+            // Mark everything before as read (covers any skipped boundaries).
+            for (let k = 0; k < i; k++) words[k].el && words[k].el.classList.add('read');
+
+            const pct = Math.round(((i + 1) / words.length) * 100);
+            scrubFill.style.width = pct + '%';
+            timeLabel.textContent = pct + '%';
+            setScrubberValue(pct);
+            bumpEnergy();   // give the waveform a little kick on each new word
+        }
+
+        // Coarse progressbar updates — only when the percent crosses a 10%
+        // step, so assistive tech isn't re-announcing on every word.
+        let scrubberStep = 0;
+        function setScrubberValue(pct) {
+            const step = Math.floor(pct / 10) * 10;
+            if (step === scrubberStep) return;
+            scrubberStep = step;
+            scrubber.setAttribute('aria-valuenow', String(step));
+        }
+
+        function resetHighlight() {
+            current = -1;
+            words.forEach(w => w.el && w.el.classList.remove('now', 'read'));
+            scrubFill.style.width = '0%';
+            timeLabel.textContent = '0%';
+            scrubberStep = 0;
+            scrubber.setAttribute('aria-valuenow', '0');
+        }
+
+        /* ---- 2 & 3. Playback: speech synthesis + fallback timeline ------- */
+        let state = 'idle';        // idle | playing | paused | done
+        let chosenVoice = null;
+        let boundarySeen = false;  // did a word-boundary event ever fire?
+        let fallbackTimer = null;  // estimated-timeline ticker
+        let fallbackIdx = 0;
+        let keepAlive = null;      // works around Chrome's long-utterance pause bug
+
+        function pickVoice() {
+            const voices = speechSynthesis.getVoices() || [];
+            if (!voices.length) return null;
+            const prefer = [
+                'Google US English', 'Samantha', 'Microsoft Aria', 'Microsoft Jenny',
+                'Microsoft Zira', 'Natural', 'en-US'
+            ];
+            for (const name of prefer) {
+                const v = voices.find(v =>
+                    v.name.includes(name) || v.lang === name || v.lang.startsWith('en-US'));
+                if (v) return v;
+            }
+            return voices.find(v => v.lang && v.lang.startsWith('en')) || voices[0];
+        }
+
+        // Split into sentences (keeping each one's global char offset). We speak
+        // them one at a time: Chrome cuts off utterances longer than ~15s and
+        // fires `end` early — which would prematurely "finish" and restart the
+        // narration. Short, per-sentence utterances sidestep that entirely.
+        const sentences = [];
+        {
+            const sre = /[^.!?]+[.!?]*\s*/g, sm = [];
+            let mm;
+            while ((mm = sre.exec(FULL_TEXT)) !== null) {
+                if (mm[0].trim()) sentences.push({ text: mm[0], start: mm.index });
+            }
+            if (!sentences.length) sentences.push({ text: FULL_TEXT, start: 0 });
+        }
+
+        // Map a character index in FULL_TEXT to the word that starts at/before it.
+        function wordIndexAtChar(ci) {
+            let idx = 0;
+            for (let k = 0; k < words.length; k++) {
+                if (words[k].start <= ci) idx = k; else break;
+            }
+            return idx;
+        }
+
+        function startSpeech() {
+            boundarySeen = false;
+            speechSynthesis.cancel();          // clear any queued utterance
+            chosenVoice = chosenVoice || pickVoice();
+            let remaining = sentences.length;
+
+            sentences.forEach((s) => {
+                const u = new SpeechSynthesisUtterance(s.text);
+                if (chosenVoice) u.voice = chosenVoice;
+                u.rate = 0.96;
+                u.pitch = 1.0;
+                u.onboundary = (e) => {
+                    if (e.name && e.name !== 'word' && e.name !== 'sentence') return;
+                    boundarySeen = true;
+                    stopFallback();
+                    highlight(wordIndexAtChar(s.start + e.charIndex));
+                };
+                // finish() only once the LAST sentence has actually ended.
+                u.onend   = () => { if (--remaining <= 0) finish(); };
+                u.onerror = () => { if (--remaining <= 0) finish(); };
+                speechSynthesis.speak(u);      // queued; plays in order
+            });
+
+            // If no boundary arrives quickly, fall back to an estimated timeline.
+            setTimeout(() => { if (state === 'playing' && !boundarySeen) startFallback(0); }, 600);
+
+            // Safety net in case a single sentence ever runs long (the ~15s bug).
+            keepAlive = setInterval(() => {
+                if (state === 'playing' && speechSynthesis.speaking) {
+                    speechSynthesis.resume();
+                }
+            }, 9000);
+        }
+
+        // Estimated per-word duration (used when boundary events aren't fired,
+        // or when there's no speech synthesis at all).
+        function wordDuration(w) {
+            return Math.max(180, w.text.length * 62);   // ms, ~ proportional to length
+        }
+        function startFallback(fromIdx) {
+            if (!ttsOK) ttsNote.classList.add('show');
+            stopFallback();
+            fallbackIdx = fromIdx;
+            const tick = () => {
+                if (state !== 'playing') return;
+                highlight(fallbackIdx);
+                if (fallbackIdx >= words.length - 1) { finish(); return; }
+                const d = wordDuration(words[fallbackIdx]);
+                fallbackIdx++;
+                fallbackTimer = setTimeout(tick, d);
+            };
+            tick();
+        }
+        function stopFallback() {
+            if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        }
+
+        /* ---- Screen-reader playback status --------------------------------
+           One announcement per state CHANGE (started / paused / finished) —
+           never streaming percent updates. The guard stops repeats. */
+        let lastStatus = '';
+        function announceStatus(msg) {
+            if (msg === lastStatus) return;
+            lastStatus = msg;
+            playbackStatus.textContent = msg;
+        }
+
+        /* ---- Transport controls ------------------------------------------ */
+        function play() {
+            if (state === 'done') { resetHighlight(); state = 'idle'; }
+            if (state === 'paused') {
+                state = 'playing';
+                if (ttsOK && speechSynthesis.paused) speechSynthesis.resume();
+                else if (!ttsOK || !boundarySeen) startFallback(Math.max(0, current));
+                onPlayingUI();
+                announceStatus('Narration resumed.');
+                return;
+            }
+            // fresh start
+            state = 'playing';
+            resetHighlight();
+            slideCard.classList.add('reading');
+            instructions.textContent = 'Listen along — each word highlights as it’s spoken.';
+            onPlayingUI();
+            announceStatus('Narration started.');
+            if (ttsOK) startSpeech();
+            else startFallback(0);
+        }
+
+        // Best-effort autoplay on load. Browsers block audio without a user
+        // gesture, so we start optimistically and, if no audio actually begins,
+        // quietly reset to idle and wait for the play button — no fake playback.
+        function tryAutoplay() {
+            if (!ttsOK) return;            // never auto-run the silent fallback
+            play();
+            setTimeout(() => {
+                if (state === 'playing' && !boundarySeen && !speechSynthesis.speaking) {
+                    speechSynthesis.cancel();
+                    stopFallback();
+                    clearInterval(keepAlive);
+                    state = 'idle';
+                    resetHighlight();
+                    slideCard.classList.remove('reading');
+                    onPausedUI();
+                    instructions.textContent = INSTR_IDLE;
+                    // autoplay was blocked — retract the "started" announcement
+                    lastStatus = '';
+                    playbackStatus.textContent = '';
+                }
+            }, 450);                       // before play()'s 600ms fallback kicks in
+        }
+
+        function pause() {
+            if (state !== 'playing') return;
+            state = 'paused';
+            if (ttsOK) speechSynthesis.pause();
+            stopFallback();
+            clearInterval(keepAlive);
+            onPausedUI();
+            announceStatus('Narration paused.');
+        }
+
+        function finish() {
+            state = 'done';
+            stopFallback();
+            clearInterval(keepAlive);
+            highlight(words.length - 1);
+            words.forEach(w => w.el && w.el.classList.add('read'));
+            scrubFill.style.width = '100%';
+            timeLabel.textContent = '100%';
+            setScrubberValue(100);
+            onPausedUI();
+            playIcon.className = 'fa-solid fa-play';
+            // Narration complete — let the learner continue.
+            continueBtn.disabled = false;
+            instructions.textContent =
+                'Finished — you can replay the narration, or continue when you’re ready.';
+            announceStatus('Finished — you can replay the narration or continue.');
+        }
+
+        function onPlayingUI() {
+            playIcon.className = 'fa-solid fa-pause';
+            playPause.setAttribute('aria-label', 'Pause narration');
+            if (reduceMotion) requestAnimationFrame(drawWave);   // one static redraw (color change)
+        }
+        function onPausedUI() {
+            playIcon.className = 'fa-solid fa-play';
+            playPause.setAttribute('aria-label', 'Play narration');
+            if (reduceMotion) requestAnimationFrame(drawWave);   // one static redraw (color change)
+        }
+
+        /* ---- 4. Stylized, audio-reactive waveform ------------------------ */
+        const ctx = canvas.getContext('2d');
+        let phase = 0;
+        let energy = 0.16;          // baseline; rises while speaking
+        let energyTarget = 0.16;
+
+        function bumpEnergy() { energyTarget = 0.95; }   // kick on each new word
+
+        function sizeCanvas() {
+            const r = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width  = Math.max(1, Math.round(r.width * dpr));
+            canvas.height = Math.max(1, Math.round(r.height * dpr));
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function drawWave() {
+            const r = canvas.getBoundingClientRect();
+            const w = r.width, h = r.height, mid = h / 2;
+            ctx.clearRect(0, 0, w, h);
+
+            const speaking = state === 'playing';
+            if (reduceMotion) {
+                // No animation: fixed phase and a calm, constant amplitude —
+                // the bars are drawn once per state change (see below), so the
+                // only visible difference while speaking is the accent color.
+                energy = 0.16;
+            } else {
+                // Ease the energy envelope toward its target.
+                energyTarget += (0.16 - energyTarget) * 0.04;      // decay toward idle
+                if (!speaking) energyTarget = 0.05;
+                energy += (energyTarget - energy) * 0.15;
+                phase += speaking ? 0.30 : 0.03;
+            }
+
+            // Thin, evenly spaced bars of varying height — reads as a voice
+            // waveform rather than a progress meter. Count derives from width.
+            const barW = 2, gap = 2.5, pitch = barW + gap;
+            const count = Math.max(1, Math.floor((w + gap) / pitch));
+            // Teal accent while speaking; faint grey when idle/paused.
+            ctx.fillStyle = speaking ? 'rgba(15,158,142,0.95)' : 'rgba(156,163,175,0.5)';
+            for (let i = 0; i < count; i++) {
+                // Two summed sines per bar → smooth, non-repeating motion.
+                const seed = i * 12.9898;
+                const n = Math.sin(phase + seed) * 0.5
+                        + Math.sin(phase * 0.47 + seed * 1.7) * 0.5;
+                const amp = (0.10 + 0.90 * Math.abs(n)) * energy;
+                const bh = Math.max(2, amp * (h - 2));
+                roundRect(i * pitch, mid - bh / 2, barW, bh, barW / 2);
+                ctx.fill();
+            }
+            // Under reduced motion the loop stops here: the wave is a static
+            // drawing, redrawn only on play/pause/resize.
+            if (!reduceMotion) requestAnimationFrame(drawWave);
+        }
+        function roundRect(x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+        }
+
+        /* ---- Wire up ----------------------------------------------------- */
+        // Clicking play is the user gesture that lets the browser start audio.
+        playPause.addEventListener('click', () => {
+            if (state === 'playing') pause();
+            else play();
+        });
+        replayBtn.addEventListener('click', () => {
+            if (ttsOK) speechSynthesis.cancel();
+            stopFallback();
+            clearInterval(keepAlive);
+            state = 'idle';
+            play();
+        });
+
+        // Voices load asynchronously in some browsers.
+        if (ttsOK) {
+            chosenVoice = pickVoice();
+            speechSynthesis.onvoiceschanged = () => { chosenVoice = pickVoice(); };
+            // Stop narration if the learner navigates away.
+            window.addEventListener('beforeunload', () => speechSynthesis.cancel());
+        } else {
+            ttsNote.classList.add('show');
+        }
+
+        window.addEventListener('resize', () => {
+            sizeCanvas();
+            if (reduceMotion) requestAnimationFrame(drawWave);   // static wave needs a manual redraw
+        });
+        sizeCanvas();
+        requestAnimationFrame(drawWave);   // animates, or draws once under reduced motion
+
+        // Try to start automatically; falls back to the play button if blocked.
+        tryAutoplay();
+
+        /* ---- Footer navigation (prototype: visual only) ------------------ */
+        document.getElementById('backBtn').addEventListener('click', () => console.log('Back'));
+        continueBtn.addEventListener('click', () => {
+            if (!continueBtn.disabled) console.log('Continue');
+        });
+    })();
+    </script>
+    <!-- Course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+</body>
+</html>

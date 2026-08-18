@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coach-affordance placement — 5 options</title>
+  <link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+  <style>
+    :root{
+      /* player palette (cribbed from scenario-live.html + frame.css) */
+      --c-bg:#f5f7fb; --c-surface:#fff; --c-surface-2:#eef1f7;
+      --c-ink:#1a2030; --c-ink-soft:#5a6379; --c-ink-faint:#67718a; --c-line:#e3e7f0;
+      --c-accent:#0271ce; --c-accent-strong:#015aa8; --c-accent-soft:#e6f1fb; --c-on-accent:#fff;
+      --band:linear-gradient(100deg,#0d2b52 0%,#17457f 48%,#2664c4 100%);
+      --s-ink:#f3ede5; --s-ink-soft:#c3b6a8; --s-you:#f1b34a; --s-you-soft:rgba(241,179,74,.16);
+      --scene:radial-gradient(120% 80% at 80% 0%,rgba(241,179,74,.10),transparent 60%),
+              radial-gradient(120% 90% at 10% 100%,rgba(199,155,255,.10),transparent 55%),
+              linear-gradient(170deg,#1a1410 0%,#120d0a 100%);
+      --scene-chrome:#15100c;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0; background:var(--c-bg); color:var(--c-ink);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      line-height:1.5; -webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:1120px; margin:0 auto; padding:40px 24px 96px;}
+    header.top{max-width:70ch;}
+    .eyebrow{font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--c-accent);}
+    h1{font-size:28px; line-height:1.2; margin:.3em 0 .35em;}
+    .lede{font-size:15.5px; color:var(--c-ink-soft); margin:0 0 6px;}
+    .insight{
+      margin:22px 0 34px; max-width:78ch; padding:14px 16px; border-radius:12px;
+      background:var(--c-accent-soft); border:1px solid #cfe4f7; font-size:14.5px; color:#0b3d68;
+    }
+    .insight b{color:#062843;}
+
+    /* ---- option row ---- */
+    .opt{
+      display:grid; grid-template-columns:minmax(0,520px) 1fr; gap:34px;
+      align-items:start; padding:26px 0; border-top:1px solid var(--c-line);
+    }
+    .opt.ref{border-top:0;}
+    @media (max-width:860px){ .opt{grid-template-columns:1fr;} }
+    .notes h2{font-size:19px; margin:2px 0 4px; display:flex; align-items:center; gap:10px;}
+    .onum{
+      flex:0 0 auto; width:26px; height:26px; border-radius:8px; display:inline-grid; place-items:center;
+      background:var(--c-accent); color:#fff; font-size:13px; font-weight:800;
+    }
+    .opt.ref .onum{background:#b23b3b;}
+    .how{font-size:14.5px; color:var(--c-ink); margin:8px 0 12px;}
+    .meta{display:flex; flex-direction:column; gap:7px; font-size:13.5px;}
+    .meta div{display:flex; gap:8px; align-items:baseline;}
+    .meta .k{flex:0 0 74px; font-weight:700; color:var(--c-ink-faint); font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; padding-top:1px;}
+    .pro::before{content:"\f058"; font-family:"Font Awesome 6 Pro"; font-weight:900; color:#1f9d55; margin-right:7px;}
+    .con::before{content:"\f057"; font-family:"Font Awesome 6 Pro"; font-weight:900; color:#c9772b; margin-right:7px;}
+    .tag{display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px;}
+    .tag.keep{background:#e6f1fb; color:#0b3d68;}
+    .tag.drop{background:#f1ece4; color:#7a5a2a;}
+
+    /* =====================================================================
+       MOCKUP FRAME — a compact, faithful rendition of the player "scene" state
+       ===================================================================== */
+    .frame{
+      width:100%; max-width:520px; border-radius:14px; overflow:hidden;
+      border:1px solid var(--c-line); box-shadow:0 10px 30px rgba(16,26,48,.12);
+      background:#fff; user-select:none;
+    }
+    .f-osbar{height:22px; background:#fff; border-bottom:1px solid #eef1f7; display:flex; align-items:center; gap:5px; padding:0 9px;}
+    .f-osbar i{font-size:9px; color:#c2c8d4;}
+    .f-osbar .sp{flex:1;}
+    /* white product bar (logo) */
+    .f-logobar{height:26px; background:#fff; display:flex; align-items:center; gap:6px; padding:0 12px; border-bottom:1px solid #eef1f7;}
+    .f-logo{font-size:10px; font-weight:800; color:#1f3f7a; letter-spacing:.02em;}
+    .f-logo span{color:#2664c4;}
+    /* blue course band */
+    .f-band{
+      background:var(--band); color:#fff; height:40px; display:flex; align-items:center;
+      justify-content:space-between; padding:0 12px; gap:10px;
+    }
+    .f-band .ttl{display:flex; flex-direction:column; line-height:1.1; min-width:0;}
+    .f-band .ttl small{font-size:8px; opacity:.8; letter-spacing:.04em;}
+    .f-band .ttl b{font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .f-band .right{display:flex; align-items:center; gap:7px; flex:0 0 auto;}
+    .pill-restart{font-size:9.5px; color:#fff; border:1px solid rgba(255,255,255,.5); border-radius:999px; padding:3px 8px; display:inline-flex; gap:4px; align-items:center; white-space:nowrap;}
+
+    /* the secondary strip (what we're trying to remove) */
+    .f-strip{
+      height:34px; background:var(--scene-chrome); display:flex; align-items:center; justify-content:center; gap:9px;
+      border-bottom:1px solid #2c2118;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:800; letter-spacing:.05em;
+      text-transform:uppercase; padding:3px 9px; border-radius:999px; background:#221a13; border:1px solid #3a2f28; color:#c3b6a8;
+    }
+    .badge.light{background:#eef1f7; border-color:#e3e7f0; color:#5a6379;}
+    .esc{
+      display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:800; letter-spacing:.02em;
+      padding:4px 10px; border-radius:999px; background:transparent; border:1px solid rgba(255,255,255,.24); color:#f3ede5; white-space:nowrap;
+    }
+    .esc.accent{border-color:var(--c-accent); color:var(--c-accent); background:#fff;}
+
+    /* stage */
+    .f-stage{position:relative; background:var(--scene); min-height:150px; padding:16px; display:flex; align-items:center; justify-content:center;}
+    .f-card{
+      width:100%; max-width:340px; border:1px solid rgba(241,179,74,.28); border-radius:12px; padding:12px 14px;
+      background:rgba(20,15,10,.5);
+    }
+    .f-card .ceyebrow{font-size:9px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:#f1b34a; display:flex; align-items:center; gap:6px; margin-bottom:7px;}
+    .f-card .ceyebrow::before{content:""; width:6px; height:6px; border-radius:50%; background:#f1b34a; display:inline-block;}
+    .f-card p{margin:0; font-size:11.5px; font-style:italic; color:#d8cdbf; line-height:1.45;}
+
+    /* composer */
+    .f-compose{background:#fff; padding:9px 12px 8px; border-top:1px solid #eef1f7;}
+    .f-input{display:flex; align-items:center; gap:8px;}
+    .f-field{flex:1; height:30px; border:1px solid #e3e7f0; border-radius:9px; display:flex; align-items:center; padding:0 10px; color:#9aa3b8; font-size:11px; background:#fff;}
+    .f-field .mic{margin-left:auto; color:#b6bccb;}
+    .f-respond{height:30px; border-radius:9px; background:#f1b34a; color:#2a1d08; font-size:10.5px; font-weight:800; display:inline-flex; align-items:center; gap:5px; padding:0 12px; white-space:nowrap;}
+    .f-help{font-size:9px; color:#aeb5c5; margin-top:5px;}
+
+    /* per-option overlays / bits */
+    .fab{
+      position:absolute; left:14px; bottom:14px; z-index:5;
+      display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:999px;
+      background:var(--c-accent); color:#fff; font-size:10px; font-weight:800; box-shadow:0 6px 18px rgba(2,113,206,.45);
+    }
+    .peek{
+      background:#fff; border-top:1px solid #e3e7f0; padding:8px 12px; display:flex; align-items:center; gap:8px;
+      box-shadow:0 -6px 16px rgba(16,26,48,.06);
+    }
+    .peek .pc{width:20px; height:20px; border-radius:50%; background:var(--c-accent); color:#fff; display:grid; place-items:center; font-size:9px; flex:0 0 auto;}
+    .peek .plab{font-size:10.5px; font-weight:800; color:var(--c-ink); letter-spacing:.02em;}
+    .peek .pprev{font-size:10px; color:var(--c-ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; font-style:italic;}
+    .peek .pchev{color:var(--c-accent); font-size:11px;}
+    .esc-inline{
+      display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:var(--c-accent);
+      border:1px solid var(--c-accent-soft); background:var(--c-accent-soft); border-radius:8px; padding:5px 9px; white-space:nowrap;
+    }
+    .esc-corner{
+      position:absolute; top:12px; right:12px; z-index:5;
+      display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; color:#e9dccb;
+      border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:4px 10px; background:rgba(20,15,10,.4);
+    }
+    .chip-scene{
+      position:absolute; top:12px; left:12px; z-index:5;
+      display:inline-flex; align-items:center; gap:5px; font-size:9px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+      color:#c3b6a8; background:rgba(34,26,19,.7); border:1px solid #3a2f28; border-radius:999px; padding:3px 9px;
+    }
+    .callout{outline:2px dashed rgba(2,113,206,.8); outline-offset:2px; border-radius:6px;}
+    .rec{margin-top:40px; padding:20px 22px; border-radius:14px; background:#0d2b52; color:#dce8f7; max-width:82ch;}
+    .rec h3{margin:0 0 8px; color:#fff; font-size:17px;}
+    .rec p{margin:0 0 10px; font-size:14.5px;}
+    .rec b{color:#fff;}
+    .foot{margin-top:34px; font-size:12.5px; color:var(--c-ink-faint); max-width:78ch;}
+    code{background:#eef1f7; padding:1px 6px; border-radius:5px; font-size:12.5px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="eyebrow">Scenario Player · UX exploration</div>
+      <h1>Where should the "step out to coach" affordance live?</h1>
+      <p class="lede">The label-mode prototype parks a passive mode badge + an escape button on a full-width secondary strip. In the scene that strip carries one pill and one button — it reads as an empty bar. Five directions for re-homing it, including the "peek the coach" idea.</p>
+    </header>
+
+    <div class="insight">
+      <b>The key realization:</b> the only thing that truly needs a persistent home is the <b>escape hatch</b>. Which mode you're in is already obvious from context — the dark scene with a "What do you do or say?" composer vs. the coach sheet. So most options below can <b>drop the standalone label entirely</b> and only keep a way out. The return trip (coach → scene) already has its own CTA ("Back to practice"), so we're only placing one control.
+    </div>
+
+    <!-- ============ CURRENT / PROBLEM ============ -->
+    <section class="opt ref">
+      <div class="frame">
+        <div class="f-osbar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span class="sp"></span></div>
+        <div class="f-logobar"><span class="f-logo">Vector<span>Solutions</span></span></div>
+        <div class="f-band">
+          <div class="ttl"><small>Bystander Intervention</small><b>The Marshall Scenario</b></div>
+          <div class="right"><span class="pill-restart"><i class="fa-solid fa-rotate-left"></i> Restart</span></div>
+        </div>
+        <div class="f-strip callout">
+          <span class="badge"><i class="fa-solid fa-door-open"></i> Practice</span>
+          <span class="esc"><i class="fa-solid fa-chalkboard-user"></i> Step out to coach</span>
+        </div>
+        <div class="f-stage">
+          <div class="f-card"><div class="ceyebrow">Scene</div><p>You step in. The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.</p></div>
+        </div>
+        <div class="f-compose">
+          <div class="f-input"><span class="f-field">What do you do or say?<i class="fa-solid fa-microphone mic"></i></span><span class="f-respond">Respond <i class="fa-solid fa-arrow-right"></i></span></div>
+          <div class="f-help">Enter to send · Shift+Enter for a new line</div>
+        </div>
+      </div>
+      <div class="notes">
+        <h2><span class="onum"><i class="fa-solid fa-triangle-exclamation"></i></span>Current — the problem</h2>
+        <p class="how">A whole full-width strip (dashed) exists just to hold one badge + one button. It looks like leftover chrome and pushes the scene down.</p>
+        <div class="meta">
+          <div><span class="k">Verdict</span> <span>This is what every option below is trying to dissolve.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OPTION 1 — HEADER ============ -->
+    <section class="opt">
+      <div class="frame">
+        <div class="f-osbar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span class="sp"></span></div>
+        <div class="f-logobar"><span class="f-logo">Vector<span>Solutions</span></span></div>
+        <div class="f-band">
+          <div class="ttl"><small>Bystander Intervention</small><b>The Marshall Scenario</b></div>
+          <div class="right callout">
+            <span class="badge light" style="background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.4);color:#fff;"><i class="fa-solid fa-door-open"></i> Practice</span>
+            <span class="esc"><i class="fa-solid fa-chalkboard-user"></i> Coach</span>
+            <span class="pill-restart"><i class="fa-solid fa-rotate-left"></i></span>
+          </div>
+        </div>
+        <div class="f-stage">
+          <div class="f-card"><div class="ceyebrow">Scene</div><p>You step in. The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.</p></div>
+        </div>
+        <div class="f-compose">
+          <div class="f-input"><span class="f-field">What do you do or say?<i class="fa-solid fa-microphone mic"></i></span><span class="f-respond">Respond <i class="fa-solid fa-arrow-right"></i></span></div>
+          <div class="f-help">Enter to send · Shift+Enter for a new line</div>
+        </div>
+      </div>
+      <div class="notes">
+        <h2><span class="onum">1</span>Fold it into the course header</h2>
+        <p class="how">Put the mode tag and a compact "Coach" button into the blue band you already have, beside Restart. The secondary strip is deleted; the scene rises to meet the header.</p>
+        <div class="meta">
+          <div class="pro"><span>Zero new chrome — reuses a bar that's always there. Cleanest de-dupe.</span></div>
+          <div class="con"><span>The band is production frame chrome (frame.css); wiring player controls into it couples the two. Space is tight next to Restart on narrow screens.</span></div>
+          <div><span class="k">Label</span> <span class="tag keep">keeps a small tag</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OPTION 2 — PEEK ============ -->
+    <section class="opt">
+      <div class="frame">
+        <div class="f-osbar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span class="sp"></span></div>
+        <div class="f-logobar"><span class="f-logo">Vector<span>Solutions</span></span></div>
+        <div class="f-band">
+          <div class="ttl"><small>Bystander Intervention</small><b>The Marshall Scenario</b></div>
+          <div class="right"><span class="pill-restart"><i class="fa-solid fa-rotate-left"></i> Restart</span></div>
+        </div>
+        <div class="f-stage" style="min-height:134px;">
+          <div class="f-card"><div class="ceyebrow">Scene</div><p>You step in. The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.</p></div>
+        </div>
+        <div class="peek callout">
+          <span class="pc"><i class="fa-solid fa-chalkboard-user"></i></span>
+          <span class="plab">AI&nbsp;Coach</span>
+          <span class="pprev">"Tap up any time — I'm right here."</span>
+          <span class="pchev"><i class="fa-solid fa-chevron-up"></i></span>
+        </div>
+        <div class="f-compose">
+          <div class="f-input"><span class="f-field">What do you do or say?<i class="fa-solid fa-microphone mic"></i></span><span class="f-respond">Respond <i class="fa-solid fa-arrow-right"></i></span></div>
+        </div>
+      </div>
+      <div class="notes">
+        <h2><span class="onum">2</span>Peek the coach at the bottom <span style="font-size:12px;color:var(--c-ink-faint);font-weight:600;">(your idea)</span></h2>
+        <p class="how">The coach panel never fully leaves — a slim lip stays docked above the composer. Tap or swipe it up to step out; it collapses back when you return. Collapsed = practice, expanded = coaching, so the state <em>is</em> the label.</p>
+        <div class="meta">
+          <div class="pro"><span>Co-locates "go to coach" with the coach itself; feels like a familiar chat drawer. No top chrome at all.</span></div>
+          <div class="con"><span>Two stacked elements compete for the bottom (peek + composer); a persistent lip eats a little scene height. Needs a real collapsed-coach state built.</span></div>
+          <div><span class="k">Label</span> <span class="tag drop">dropped — state shows it</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OPTION 3 — FAB ============ -->
+    <section class="opt">
+      <div class="frame">
+        <div class="f-osbar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span class="sp"></span></div>
+        <div class="f-logobar"><span class="f-logo">Vector<span>Solutions</span></span></div>
+        <div class="f-band">
+          <div class="ttl"><small>Bystander Intervention</small><b>The Marshall Scenario</b></div>
+          <div class="right"><span class="pill-restart"><i class="fa-solid fa-rotate-left"></i> Restart</span></div>
+        </div>
+        <div class="f-stage">
+          <span class="fab callout"><i class="fa-solid fa-chalkboard-user"></i> Coach</span>
+          <div class="f-card"><div class="ceyebrow">Scene</div><p>You step in. The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.</p></div>
+        </div>
+        <div class="f-compose">
+          <div class="f-input"><span class="f-field">What do you do or say?<i class="fa-solid fa-microphone mic"></i></span><span class="f-respond">Respond <i class="fa-solid fa-arrow-right"></i></span></div>
+          <div class="f-help">Enter to send · Shift+Enter for a new line</div>
+        </div>
+      </div>
+      <div class="notes">
+        <h2><span class="onum">3</span>Floating "Coach" button on the scene</h2>
+        <p class="how">A single soft-shadowed button hovers over a scene corner. Tap to step out. No strip, no badge — the scene's own look tells you where you are.</p>
+        <div class="meta">
+          <div class="pro"><span>Minimal, always reachable, one tap. Removes all top chrome. Familiar pattern.</span></div>
+          <div class="con"><span>A floating bubble can read as a generic help/chatbot widget, and it sits on top of scene content — placement has to dodge the scene card.</span></div>
+          <div><span class="k">Label</span> <span class="tag drop">dropped</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OPTION 4 — COMPOSER ROW ============ -->
+    <section class="opt">
+      <div class="frame">
+        <div class="f-osbar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span class="sp"></span></div>
+        <div class="f-logobar"><span class="f-logo">Vector<span>Solutions</span></span></div>
+        <div class="f-band">
+          <div class="ttl"><small>Bystander Intervention</small><b>The Marshall Scenario</b></div>
+          <div class="right"><span class="pill-restart"><i class="fa-solid fa-rotate-left"></i> Restart</span></div>
+        </div>
+        <div class="f-stage">
+          <span class="chip-scene"><i class="fa-solid fa-clapperboard" style="font-size:8px;"></i> Scene</span>
+          <div class="f-card"><div class="ceyebrow">Scene</div><p>You step in. The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.</p></div>
+        </div>
+        <div class="f-compose">
+          <div class="f-input callout">
+            <span class="esc-inline"><i class="fa-solid fa-chalkboard-user"></i> Coach</span>
+            <span class="f-field">What do you do or say?<i class="fa-solid fa-microphone mic"></i></span>
+            <span class="f-respond">Respond <i class="fa-solid fa-arrow-right"></i></span>
+          </div>
+          <div class="f-help">Enter to send · Shift+Enter · tap Coach to step out</div>
+        </div>
+      </div>
+      <div class="notes">
+        <h2><span class="onum">4</span>Tuck it into the composer row</h2>
+        <p class="how">A quiet "Coach" button sits at the left of the input row, where the learner's hands and eyes already are. Orientation rides the scene card's existing "Scene" eyebrow (echoed as a small corner chip).</p>
+        <div class="meta">
+          <div class="pro"><span>The escape is exactly where you'd reach for it mid-answer. No extra chrome above the stage.</span></div>
+          <div class="con"><span>Slightly crowds the composer; as a mode control it's less self-evident than a dedicated button. Needs the scene chip to carry orientation.</span></div>
+          <div><span class="k">Label</span> <span class="tag drop">reuses card eyebrow</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OPTION 5 — EYEBROW + CORNER ============ -->
+    <section class="opt">
+      <div class="frame">
+        <div class="f-osbar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span class="sp"></span></div>
+        <div class="f-logobar"><span class="f-logo">Vector<span>Solutions</span></span></div>
+        <div class="f-band">
+          <div class="ttl"><small>Bystander Intervention</small><b>The Marshall Scenario</b></div>
+          <div class="right"><span class="pill-restart"><i class="fa-solid fa-rotate-left"></i> Restart</span></div>
+        </div>
+        <div class="f-stage">
+          <span class="esc-corner callout"><i class="fa-solid fa-chalkboard-user"></i> Step out to coach</span>
+          <div class="f-card"><div class="ceyebrow">Scene · you're in it</div><p>You step in. The break room. Marshall is at the coffee machine; Jake is pouring a cup, grinning.</p></div>
+        </div>
+        <div class="f-compose">
+          <div class="f-input"><span class="f-field">What do you do or say?<i class="fa-solid fa-microphone mic"></i></span><span class="f-respond">Respond <i class="fa-solid fa-arrow-right"></i></span></div>
+          <div class="f-help">Enter to send · Shift+Enter for a new line</div>
+        </div>
+      </div>
+      <div class="notes">
+        <h2><span class="onum">5</span>Lean on the scene card + a quiet corner link</h2>
+        <p class="how">Delete the badge outright — the scene card's eyebrow already names the mode ("Scene · you're in it"). Keep only a low-key "Step out to coach" link pinned to the stage's top corner.</p>
+        <div class="meta">
+          <div class="pro"><span>The least chrome of any option; leans fully on context that already exists.</span></div>
+          <div class="con"><span>The escape is quiet — easy to miss for a learner who wants help. The eyebrow scrolls with content, so it isn't a fixed status line.</span></div>
+          <div><span class="k">Label</span> <span class="tag drop">dropped — card eyebrow</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="rec">
+      <h3>My lean</h3>
+      <p><b>Option 2 (peek the coach)</b> is the most promising and it's your instinct — it kills the top strip, and it's honest about the interaction: the coach is a place you rise into and fall back from, so a docked lip you pull up matches the mental model better than an abstract control. The build cost (a real collapsed-coach state) is the only catch.</p>
+      <p>If we want something we can ship this week with near-zero risk, <b>Option 3 (floating Coach button)</b> or <b>Option 4 (composer row)</b> get 90% of the win by just relocating the button off the strip and dropping the label — both are small, local changes to the prototype.</p>
+      <p style="margin-bottom:0;">Point me at one or two and I'll wire them into the live prototype so you can actually feel them, same as before.</p>
+    </div>
+
+    <p class="foot">Static mockups — faithful to the player's palette but not the live engine. Interactive versions of your favorites come next. This file is an uncatalogued scratch doc; nothing is committed or on the dashboard.</p>
+  </div>
+</body>
+</html>

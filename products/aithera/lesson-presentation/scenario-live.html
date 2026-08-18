@@ -705,6 +705,18 @@
       }
       .marks-row + .marks-row { border-top: 1px solid rgba(128,148,178,.20); }
       .marks-row i { color: var(--c-accent); font-size: 12.5px; margin-top: 3px; flex: 0 0 auto; }
+      /* Coach-graded verdicts: a HIT flips the flag to a green "Found" check; a
+         CLOSE reads amber; ungraded/other items keep the neutral flag. Greens
+         match the coverage rail (#2ecc71 / #1f9d57). */
+      .marks-row.hit   i { color: #2ecc71; font-size: 13.5px; }
+      .marks-row.close i { color: var(--s-you); }
+      .marks-row.off { opacity: .72; }
+      .marks-row.off i { color: var(--c-ink-faint); }
+      .marks-tag { margin-left: auto; align-self: center; flex: 0 0 auto;
+        font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+        padding: 2px 8px; border-radius: 999px; }
+      .marks-tag.found { color: #1f9d57; background: color-mix(in srgb, #2ecc71 16%, transparent); }
+      .marks-tag.close { color: var(--s-you); background: color-mix(in srgb, var(--s-you) 16%, transparent); }
 
       /* ===================================================================
          6. STAGE CARD  — wraps a contiguous run of SCENE messages.
@@ -1548,8 +1560,8 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=7"></script>
-    <script src="js/sim-player.js?v=7"></script>
+    <script src="js/sim-core.js?v=10"></script>
+    <script src="js/sim-player.js?v=8"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
          calls polymorphically for custom-interaction surfaces (scene-sweep,
@@ -1579,6 +1591,20 @@
     <script src="js/scenario-types/ensemble-arc.js?v=12"></script>
     <script src="js/scenario-types/scene-sweep.js?v=17"></script>
     <script src="js/scenario-types/teach-back.js?v=2"></script>
+    <!-- [POC V4] the Universal Scenario type — authored directly in Scenario CML
+         v4, the format the production engine runs. It registers into the Studio
+         registry like every other type, so ?type=v4-universal plays through the
+         EXISTING resolver: no toMixArc (plays native), toRuntime = the one v4
+         compiler, compile = mix-arc's prompt builder + a rubric block for observe
+         steps. A v4 rubric carries no hotspot geometry, so an observe step needs
+         ?observe=text (the text-observation surface); the type's previewUrl
+         carries the flag. Loads after mix-arc.js (its prompt builder) and before
+         the surfaces. -->
+    <script src="js/scenario-v4.js?v=2"></script>
+    <script src="js/scenario-v4-runtime.js?v=3"></script>
+    <script src="js/scenario-v4-scopes.js?v=1"></script>
+    <script src="js/scenario-v4-templates.js?v=2"></script>
+    <script src="js/scenario-types/v4-universal.js?v=4"></script>
     <!-- [Option B] the OPT-IN perception layer: the photo/hotspot "spot the
          hazard" Observe canvas + coverage rail. Registers itself as the 'spot'
          SURFACE (js/sim-surfaces.js). Mounts ONLY for a scenario with a kind:'spot'
@@ -1591,7 +1617,7 @@
          part dev balked at). It SELF-GATES on ?observe=text, so it registers and
          overrides the canvas ONLY for the text version (V2); V1 stays byte-
          identical. Loads AFTER sim-perception.js so "last registration wins". -->
-    <script src="js/sim-observe-text.js?v=11"></script>
+    <script src="js/sim-observe-text.js?v=14"></script>
     <!-- [Option B] surface #2: teach-back (retrieval). Registers the 'teach' SURFACE
          (js/sim-surfaces.js). Owns its whole loop — framing calibration chat, the
          10-tile board + live grader, the N/10 close — via ownsInput/onInput; the
@@ -1686,6 +1712,12 @@
     const PLAY_TYPE = IS_RECIPE ? BA_TYPE : (REQ_TYPE || BA_TYPE);
     const PLAY_SRC  = IS_RECIPE ? REQ_TYPE.toMixArc(REQ_SRC) : REQ_SRC;
     const ACTIVE_SCENARIO = PLAY_TYPE.toRuntime(PLAY_SRC);
+    /* [POC V4 scoping] The two-conversation model (their spec §2), v4 route only:
+       a type exposing compileScopes gets per-turn scope-selected system prompts
+       and scene-filtered history. Every native type lacks the hook — null here
+       means every line below behaves exactly as before. */
+    const SCOPES = (PLAY_TYPE && typeof PLAY_TYPE.compileScopes === 'function')
+      ? PLAY_TYPE.compileScopes(PLAY_SRC, { runtime: ACTIVE_SCENARIO }) : null;
     const fillT = (t) => PLAY_TYPE.fill(t, ACTIVE_SCENARIO);
     // The say/do split (a learner's scene move → DO narration + SAY bubble) is an
     // AUTHORED, opt-in property of a scene phase (phase.sayDoSplit), never a global.
@@ -1841,7 +1873,9 @@
     const _LADDER = window.SimPlayer.makeLadder({ scenario: ACTIVE_SCENARIO, state, fillT,
       // the active surface folds its per-phase OUTCOME line into [SYSTEM STATE]
       // (scene-sweep's COVERAGE, teach-back's N-of-10); null for the conversational types.
-      outcomeBlock: SURFACE ? SURFACE.outcomeBlock : null });
+      outcomeBlock: SURFACE ? SURFACE.outcomeBlock : null,
+      // [POC V4 scoping] rung-boundary recorder — non-null only on the v4 route.
+      onRungEnter: SCOPES ? SCOPES.onRungEnter : null });
     const arcStateBlock = _LADDER.arcStateBlock;
     const runArcEngine  = _LADDER.runArcEngine;
     const applyDeliver  = _LADDER.applyDeliver;
@@ -1960,10 +1994,17 @@
       // static compiled arc + the coupler's context addenda + the per-turn state
       // line. The big arc stays byte-identical across turns (prompt cache stays
       // warm); only the short [SYSTEM STATE] tail changes.
-      system: () => SYSTEM_PROMPT + arcStateBlock(),
+      /* [POC V4 scoping] On the v4 route the system prompt is selected PER TURN
+         by the active rung's scope (coach-practice / coach-debrief / scene) —
+         the two-conversation model. Native routes keep the single prompt. */
+      system: () => (SCOPES ? SCOPES.systemFor(state) : SYSTEM_PROMPT) + arcStateBlock(),
       maxTokens: 1600,
       parser: TURN_PARSER,
-      history: SimCore.turnHistory({ name: true, owner: true }),
+      /* [POC V4 scoping] A scene turn's history is its own rung slice plus any
+         granted carryover slices, verbatim; coach turns keep the full brief. */
+      history: (function (base) {
+        return SCOPES ? function (msgs) { return base(SCOPES.filterHistory(msgs, state)); } : base;
+      }(SimCore.turnHistory({ name: true, owner: true }))),
       scripted: scriptedTurn,        // "coach unreachable" stub — this arc is live end to end
     });
     const getTurn = TURN_ENGINE.getTurn;
@@ -2241,9 +2282,21 @@
       const wrap = el('div', 'you-coach you-marks' + ec(m));
       wrap.appendChild(el('div', 'cap', 'You flagged'));
       const card = el('div', 'marks-card');
-      card.innerHTML = items.map((it) =>
-        `<div class="marks-row"><i class="fa-solid fa-flag"></i><span>${esc(it)}</span></div>`
-      ).join('');
+      // Once the coach grades this batch, each flagged item carries a verdict
+      // (m._markVerdicts, keyed by its 1-based number): a HIT turns the blue flag
+      // into a green "Found" check; a CLOSE reads amber; anything else stays a
+      // muted flag. Until grading lands (or in the tap version, which has no
+      // verdicts) every item shows the neutral blue flag — no regression.
+      const vmap = Object.create(null);
+      (Array.isArray(m._markVerdicts) ? m._markVerdicts : []).forEach((e) => { if (e && e.n) vmap[e.n] = e.v; });
+      card.innerHTML = items.map((it, i) => {
+        const v = vmap[i + 1];
+        const icon = v === 'hit' ? 'fa-circle-check'
+          : v === 'close' ? 'fa-circle-dot' : 'fa-flag';
+        const tag = v === 'hit' ? '<span class="marks-tag found">Found</span>'
+          : v === 'close' ? '<span class="marks-tag close">Close</span>' : '';
+        return `<div class="marks-row${v ? ' ' + v : ''}"><i class="fa-solid ${icon}"></i><span>${esc(it)}</span>${tag}</div>`;
+      }).join('');
       wrap.appendChild(card);
       return wrap;
     }
@@ -2898,7 +2951,8 @@
         stampScene(m);            // tag with the live conversation (per-counterpart window)
         state.messages.push(m);
         render();
-        await wait(reducedMotion() ? 140 : 700);      // settle so it reads before the next beat
+        await wait(settleTime(m.text || ''));         // settle — scaled to this beat, so a long
+                                                      // narration isn't cut off by the next dots
         if (dead && dead()) return;
       }
     }
@@ -3271,6 +3325,7 @@
       }
 
       let youMsg = null;
+      let marksMsg = null;   // scene-sweep text mode: the "You flagged" card we repaint with verdicts once the coach grades
       if (state.mode === 'scene') {
         // The learner's move renders SPLIT (what they DO vs what they SAY). While
         // that split resolves we stand in a "considering…" loader and render the
@@ -3301,6 +3356,7 @@
         if (state.pendingMarkCard) {
           youC.variant = 'marks';
           youC._marks = state.pendingMarkCard.items;
+          marksMsg = youC;   // remember it so grading verdicts can turn its flags into checks
           state.pendingMarkCard = null;
         }
         state.messages.push(youC);
@@ -3358,6 +3414,17 @@
       // it (scene-sweep: credit turn.spotted into coverage).
       if (SURFACE && SURFACE.onTurn) SURFACE.onTurn(turn);
 
+      // scene-sweep text mode: paint the coach's per-note verdicts onto the "You
+      // flagged" card so its flags become green "Found" checks. The card first
+      // showed neutral flags at send; this is the "flagged → then confirmed
+      // correct" beat the learner asked to see. reconcileCoachBody caches one node
+      // per message, so drop the stale cached node — the next render rebuilds it
+      // through youMarksNode with the verdicts.
+      if (marksMsg && Array.isArray(turn.marks)) {
+        marksMsg._markVerdicts = turn.marks;
+        coachNodeMap.delete(marksMsg);
+      }
+
       // LOCKED (grey) beats: the model only writes the dynamic feedback, then
       // asks us to show the next app-owned beat via turn.deliver. We append that
       // beat VERBATIM to this turn's messages so it renders right after the
@@ -3394,11 +3461,14 @@
        "Analyzing response…" leads into the coaching layer with the scene line
        animating across — so coaching and scene stay two distinct moments that
        are visually connected. */
-    // Shared pacing (js/sim-core.js): wait/reducedMotion plus thinkingTime —
-    // the coach "thinks" long enough for the learner to read the PREVIOUS
-    // message; the very first line gets a short opening beat. One rhythm
-    // across every simulator page.
-    const { wait, reducedMotion, thinkingTime } = SimCore;
+    // Shared pacing (js/sim-core.js): wait/reducedMotion plus the two halves of
+    // the between-messages beat — settleTime, a SILENT hold scaled to the line
+    // that just landed (the thread sits still so the learner can read it and
+    // find their place), then dotsTime, the typing indicator signalling more is
+    // coming. Their sum is the old thinkingTime, so a burst is paced exactly as
+    // before — the dots just no longer pounce the instant a message arrives.
+    // One rhythm across every simulator page.
+    const { wait, reducedMotion, settleTime, dotsTime } = SimCore;
 
     // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
     let deliverSeq = 0;
@@ -3424,15 +3494,16 @@
           const m = coachingItems[ci];
           const prev = ci > 0 ? coachingItems[ci - 1] : null;
           hideTyping();
-          // Dots scaled to the PREVIOUS line's length (thinkingTime) rather than a
+          // Dots scaled to the PREVIOUS line's length (dotsTime) rather than a
           // flat beat — so a burst of coach messages leaves the learner room to
           // start reading each one before the next composes.
-          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+          showTyping(); await wait(dotsTime(prev ? prev.text : '')); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
-          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 700);
+          // silent breath BEFORE the next dots, scaled to what just landed
+          if (ci < coachingItems.length - 1) await wait(settleTime(m.text || ''));
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -3485,14 +3556,14 @@
         while (i < items.length) {                     // reveal the acknowledgment at live-reply pace
           const m = items[i];
           hideTyping();
-          showTyping(); await wait(thinkingTime(prevC)); hideTyping();
+          showTyping(); await wait(dotsTime(prevC)); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
           prevC = m.text || '';
           i++;
-          if (i < items.length) await wait(reducedMotion() ? 80 : 700);
+          if (i < items.length) await wait(settleTime(prevC));   // breath, then the next dots
           if (dead()) return;
         }
         // The reply is on screen — now offer results. pendingDebrief is empty, so
@@ -3542,16 +3613,16 @@
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        // Dots scaled to what was just shown (thinkingTime) instead of a flat beat,
+        // Dots scaled to what was just shown (dotsTime) instead of a flat beat,
         // so consecutive coach lines give the learner room to start reading.
-        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
+        showTyping(); await wait(dotsTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
         prevText = m.text || '';
         i++;
-        if (i < items.length) await wait(reducedMotion() ? 80 : 700);
+        if (i < items.length) await wait(settleTime(prevText));   // breath, then the next dots
         if (dead()) return;
       }
 
@@ -3652,13 +3723,13 @@
       for (let k = 0; k < coachPart.length; k++) {
         const m = coachPart[k];
         hideTyping();
-        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
+        showTyping(); await wait(dotsTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
         prevText = m.text || '';
-        if (k < coachPart.length - 1) await wait(reducedMotion() ? 80 : 700);
+        if (k < coachPart.length - 1) await wait(settleTime(prevText));   // breath, then the next dots
         if (dead()) return;
       }
       state.delivering = false;
@@ -3793,7 +3864,7 @@
       // arrives here as ONE normalized ContextRecord (js/sim-context.js) —
       // the same coupler every simulator page flows through.
       SimContext.apply(context, {
-        appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
+        appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; if (SCOPES) SCOPES.appendAddendum(t); },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
       });
       // A surface may DIVERGE startSession: rather than raising the coach with a
@@ -3842,13 +3913,14 @@
         // The dominant beat: "thinking" long enough to read the previous message,
         // with the typing dots signalling that more is on the way.
         hideTyping();
-        showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        showTyping(); await wait(dotsTime(prev ? prev.text : '')); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
-        // just a short settle so the next "thinking" doesn't start the same instant
-        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
+        // hold the thread still first — the next "thinking" must not start the
+        // same instant this line lands, or the eye chases the dots off it
+        if (i < opening.length - 1) await wait(settleTime(m.text || ''));
         if (dead()) return;
       }
       state.delivering = false;

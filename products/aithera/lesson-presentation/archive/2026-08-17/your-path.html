@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation Step-In — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+
+    <style>
+    /* =====================================================================
+       Your Path — page-specific styling. Everything else (frame, chat
+       bubbles, composer) is inherited from lesson.css so this reads as a
+       sibling of the other experiments.
+       ===================================================================== */
+
+    /* --- Intro screen: a short roleplay set-up before the conversation --- */
+    .yp-setup {
+        margin: 4px 0 0;
+        padding: 18px 20px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow-sm);
+        max-width: 60ch;
+    }
+    .yp-setup p { margin: 0; color: var(--ink-soft); font-size: 14.5px; line-height: 1.6; }
+    .yp-setup p + p { margin-top: 10px; }
+    .yp-setup strong { color: var(--ink); font-weight: 600; }
+
+    /* --- Conversation participants header (above the thread) --- */
+    .yp-people {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 2px 12px;
+    }
+    .yp-person { display: inline-flex; align-items: center; gap: 9px; }
+    .yp-avatar {
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .yp-avatar.jordan { background: var(--accent); }
+    .yp-avatar.you    { background: var(--ink); }
+    .yp-name  { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.1; }
+    .yp-pres  {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11px; color: var(--accent-strong); margin-top: 2px;
+    }
+    .yp-pres .dot {
+        width: 6px; height: 6px; border-radius: 50%;
+        background: var(--accent); display: inline-block;
+    }
+    .yp-person.is-you { flex-direction: row-reverse; text-align: right; }
+    .yp-person.is-you .yp-label { font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+
+    /* --- Guided-reveal progress dots --- */
+    .yp-dots {
+        display: flex; align-items: center; justify-content: center;
+        gap: 6px; margin: 2px 0 12px;
+    }
+    .yp-dot {
+        width: 6px; height: 6px; border-radius: 99px;
+        background: var(--line);
+        transition: width .3s ease, background .3s ease;
+    }
+    .yp-dot.on { width: 16px; background: var(--accent); }
+
+    /* --- "Your turn" cue shown the moment the learner takes over --- */
+    .yp-turn {
+        display: inline-flex; align-items: center; gap: 7px;
+        align-self: center;
+        margin: 0 0 10px;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: .1em; text-transform: uppercase;
+        color: var(--accent-strong);
+    }
+
+    /* Soft glow on the composer at the handoff, so the eye lands on the input */
+    .disc-composer textarea.glow { border-color: var(--accent); animation: yp-glow 2.2s ease-in-out infinite; }
+    @keyframes yp-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(15, 158, 142, 0); }
+        50%      { box-shadow: 0 0 0 4px var(--accent-soft); }
+    }
+
+    /* --- Footer micro-actions inside the composer area --- */
+    .yp-composer-foot {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-top: 8px; min-height: 18px;
+    }
+    .yp-hint { font-size: 12px; color: var(--ink-faint); }
+    .yp-finish {
+        display: inline-flex; align-items: center; gap: 6px;
+        border: 0; background: none; cursor: pointer;
+        font: inherit; font-size: 13px; font-weight: 600;
+        color: var(--accent-strong);
+        padding: 2px 0;
+    }
+    .yp-finish:hover { text-decoration: underline; }
+    .yp-finish[hidden] { display: none; }
+
+    /* Right-align the Next button during the guided read */
+    .yp-next-row { display: flex; justify-content: flex-end; padding-top: 4px; }
+
+    /* --- Wrap-up takeaways (rendered into the thread at the end) --- */
+    .yp-wrap {
+        align-self: stretch;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow-sm);
+        padding: 20px 22px;
+        margin-top: 4px;
+    }
+    .yp-wrap-eyebrow {
+        font-size: 11px; font-weight: 700; letter-spacing: .1em;
+        text-transform: uppercase; color: var(--accent-strong);
+    }
+    .yp-wrap h2 { margin: 6px 0 6px; font-size: 19px; font-weight: 700; color: var(--ink); }
+    .yp-wrap > p { margin: 0 0 14px; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+    .yp-takeaways { display: grid; gap: 12px; }
+    .yp-takeaway { display: flex; gap: 12px; }
+    .yp-num {
+        flex: 0 0 auto;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: var(--accent-soft); color: var(--accent-strong);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700; margin-top: 2px;
+    }
+    .yp-takeaway h3 { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .yp-takeaway p  { margin: 2px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); }
+
+    @media (max-width: 600px) {
+        .yp-setup { font-size: 14px; }
+    }
+
+    /* Visually hidden but screen-reader available (progress-dot status) */
+    .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Finding Your Place at College</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Your Path: Building Your Circle</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 6 of 9</span>
+            <vaadin-progress-bar value="0.66" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <!-- ----- Screen a: roleplay set-up ---------------------------- -->
+            <section class="disc-screen" id="introScreen" aria-label="Set the scene">
+                <p class="disc-eyebrow">
+                    <i class="fa-solid fa-comments"></i> Your Path
+                </p>
+                <h1 class="disc-prompt">Conversations are how you find your people.</h1>
+                <p class="disc-lead">
+                    Read through one — then step in and take it from there yourself.
+                </p>
+
+                <div class="yp-setup">
+                    <p>
+                        It&rsquo;s your first week on campus. <strong>Jordan</strong>, someone you just met
+                        at orientation, has been texting you about ways to get involved.
+                    </p>
+                    <p>
+                        Follow along for a moment&hellip; then the reply becomes yours.
+                    </p>
+                </div>
+            </section>
+
+            <!-- ----- Screen b: the conversation --------------------------- -->
+            <section class="disc-screen discussion" id="convoScreen" aria-label="Conversation with Jordan" hidden>
+                <p class="disc-eyebrow">
+                    <i class="fa-solid fa-comment-dots"></i> Conversation
+                </p>
+
+                <!-- who's in the thread -->
+                <div class="yp-people">
+                    <div class="yp-person">
+                        <span class="yp-avatar jordan">J</span>
+                        <span>
+                            <span class="yp-name">Jordan</span>
+                            <span class="yp-pres"><span class="dot"></span> active now</span>
+                        </span>
+                    </div>
+                    <div class="yp-person is-you">
+                        <span class="yp-avatar you"><i class="fa-solid fa-user"></i></span>
+                        <span class="yp-label">You</span>
+                    </div>
+                </div>
+
+                <!-- the scrolling conversation -->
+                <div class="disc-thread" id="thread" aria-live="polite"></div>
+
+                <!-- guided phase: progress dots + Next -->
+                <div id="guidedControls">
+                    <div class="yp-dots" id="dots" aria-hidden="true"></div>
+                    <!-- text equivalent of the decorative dots above -->
+                    <span class="sr-only" id="dotsStatus"></span>
+                    <div class="yp-next-row">
+                        <vaadin-button theme="primary" id="nextBtn">
+                            Next
+                            <i class="fa-solid fa-arrow-right" slot="suffix" aria-hidden="true"></i>
+                        </vaadin-button>
+                    </div>
+                </div>
+
+                <!-- handoff phase: the learner takes over the reply -->
+                <div id="liveControls" hidden>
+                    <span class="yp-turn" id="turnCue">
+                        <i class="fa-solid fa-star"></i> Your turn
+                    </span>
+                    <div class="disc-composer">
+                        <textarea id="composerInput" rows="1"
+                            placeholder="Type your reply to Jordan…" aria-label="Type your reply to Jordan"></textarea>
+                        <button class="disc-send" id="sendBtn" type="button" aria-label="Send">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="yp-composer-foot">
+                        <span class="yp-hint" id="composerHint">Reply however feels natural — there&rsquo;s no wrong answer.</span>
+                        <button class="yp-finish" id="finishBtn" type="button" hidden>
+                            Finish conversation <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <!-- aria-live so each phase change (read along → your turn → finish)
+             is announced as the text swaps -->
+        <p class="lesson-instructions" id="instructions" aria-live="polite">
+            Select Continue to open the conversation.
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="continueBtn">Continue</vaadin-button>
+        </div>
+    </footer>
+
+    <script src="js/lesson.js?v=5"></script>
+    <!-- Builds the course-delivery frame; auto-reads the .lesson-header above. -->
+    <script src="js/frame.js?v=3"></script>
+    <script>
+    /* ========================================================================
+       Your Path — "conversation takeover."
+
+       A short scripted text thread that the learner reads, then steps into:
+       at the party invite (the one beat that takes real social skill) the
+       reply becomes theirs, and a peer named Jordan answers in character.
+       Jordan is warm and never grades — he accepts a graceful decline, gets
+       enthusiastic about an alternative, and never raises drinking on his own.
+
+       Simulated peer: a small keyword responder, no network calls — so the
+       prototype works offline like its siblings. (The original React version
+       could proxy a live model through a Worker; the scripted responder here
+       mirrors that fallback exactly.)
+       ====================================================================== */
+    (function () {
+        'use strict';
+
+        // ----- Elements ----------------------------------------------------
+        const introScreen   = document.getElementById('introScreen');
+        const convoScreen    = document.getElementById('convoScreen');
+        const thread         = document.getElementById('thread');
+        const guidedControls = document.getElementById('guidedControls');
+        const liveControls   = document.getElementById('liveControls');
+        const dotsEl         = document.getElementById('dots');
+        const dotsStatus     = document.getElementById('dotsStatus');
+        const nextBtn        = document.getElementById('nextBtn');
+        const turnCue        = document.getElementById('turnCue');
+        const input          = document.getElementById('composerInput');
+        const sendBtn        = document.getElementById('sendBtn');
+        const composerHint   = document.getElementById('composerHint');
+        const finishBtn      = document.getElementById('finishBtn');
+        const continueBtn    = document.getElementById('continueBtn');
+        const backBtn        = document.getElementById('backBtn');
+        const instructions   = document.getElementById('instructions');
+
+        // ----- Scripted opening -------------------------------------------
+        // Low-stakes beats first (study group, film club — saying yes takes no
+        // skill), so the handoff lands on the party invite.
+        const SCRIPT = [
+            { who: 'bot',  text: 'Hey! Glad you made it to orientation 🙌 A few of us are doing a biology study group tonight — want to come? There’ll be snacks.' },
+            { who: 'user', text: 'Oh nice — bio has honestly been kicking my butt, so yes please. Count me in.' },
+            { who: 'bot',  text: 'Amazing, we’re a pretty chill group. Random question — are you into film at all? Some of us just started a film-making club.' },
+            { who: 'user', text: 'Wait, a film-making club? That’s awesome. I’ve always wondered what it’d be like to direct something.' },
+            { who: 'bot',  text: 'You’d love it, everyone’s super into it. Hey — also, a bunch of us are heading to a party this Friday. You in?' },
+        ];
+
+        // ----- State -------------------------------------------------------
+        let screen    = 'intro';   // 'intro' | 'convo'
+        let revealed  = 0;         // scripted beats shown so far
+        let exchanges = 0;         // completed learner⇄Jordan exchanges
+        let busy      = false;     // Jordan is "typing"
+        let finished  = false;     // wrap-up reached → Continue unlocked
+
+        const guided = () => revealed < SCRIPT.length;
+
+        // ----- Tiny chat helpers (reuse .chat-msg / .chat-typing) ----------
+        function addMsg(who, text) {
+            const m = document.createElement('div');
+            m.className = 'chat-msg ' + who;   // 'bot' (Jordan) | 'user' (you)
+            m.textContent = text;
+            thread.appendChild(m);
+            thread.scrollTop = thread.scrollHeight;
+            return m;
+        }
+
+        function showTyping() {
+            const t = document.createElement('div');
+            t.className = 'chat-typing';
+            t.innerHTML = '<span></span><span></span><span></span>';
+            thread.appendChild(t);
+            thread.scrollTop = thread.scrollHeight;
+            return t;
+        }
+
+        // Jordan "speaks" after a human-feeling pause, then runs an optional cb.
+        function jordanSays(text, after) {
+            busy = true;
+            setInputEnabled(false);
+            const typing = showTyping();
+            const delay = 650 + Math.min(text.length * 12, 1300);
+            setTimeout(() => {
+                typing.remove();
+                addMsg('bot', text);
+                busy = false;
+                if (!finished) setInputEnabled(true);
+                if (typeof after === 'function') after();
+            }, delay);
+        }
+
+        function setInputEnabled(on) {
+            input.disabled = !on;
+            sendBtn.disabled = !on;
+            if (on) setTimeout(() => input.focus(), 30);
+        }
+
+        // ----- Scripted Jordan: warm peer, never grades --------------------
+        function jordanReply(text) {
+            const t = text.toLowerCase();
+            const has = (...words) => words.some((w) => t.includes(w));
+
+            // Suggests another way to hang out → make a real plan.
+            if (has('frisbee', 'coffee', 'study', 'lunch', 'dinner', 'hang',
+                    'instead', 'tomorrow', 'another', 'walk', 'grab', 'hike',
+                    'movie', 'game night', 'club')) {
+                return 'Oh nice, I’m in! Honestly that sounds way more my speed anyway — text me when and where.';
+            }
+            // Declines the party / drinking → completely cool, zero pressure.
+            if (has("don't drink", 'dont drink', 'not drinking', 'sober', 'pass',
+                    "can't make", 'cant make', 'busy', 'not really my',
+                    'not my thing', 'rain check', 'sit this', 'skip',
+                    'no thanks', "i'll pass", 'maybe not', 'rather not')) {
+                return 'Totally fair, no pressure at all. There’s always something going on, so I’ll keep you in the loop — glad you’re coming tonight though!';
+            }
+            // Says yes → happy, one small detail.
+            if (has('yes', 'yeah', 'sure', 'count me in', "i'm in", 'im in',
+                    'sounds fun', 'sounds good', 'down', 'for sure',
+                    'definitely', "i'd love", 'id love')) {
+                return 'Sweet! It’s pretty chill — I’ll send you the details. Glad you’re coming.';
+            }
+            // Anything else → warm, keeps the door open.
+            return 'Haha for sure. Either way, I’m really glad we ran into each other — this is gonna be a fun year.';
+        }
+
+        // ----- Guided reveal ----------------------------------------------
+        function renderDots() {
+            dotsEl.innerHTML = '';
+            for (let i = 0; i < SCRIPT.length; i++) {
+                const d = document.createElement('span');
+                d.className = 'yp-dot' + (i < revealed ? ' on' : '');
+                dotsEl.appendChild(d);
+            }
+            // keep the screen-reader text equivalent in step with the dots
+            dotsStatus.textContent = 'Part ' + revealed + ' of ' + SCRIPT.length;
+        }
+
+        function revealNext() {
+            if (revealed >= SCRIPT.length) return;
+            const beat = SCRIPT[revealed];
+            addMsg(beat.who, beat.text);
+            revealed += 1;
+            renderDots();
+            if (!guided()) enterHandoff();
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+
+        // ----- Handoff: the seat the learner was watching becomes theirs ---
+        function enterHandoff() {
+            guidedControls.hidden = true;
+            liveControls.hidden = false;
+            input.classList.add('glow');
+            instructions.textContent = 'Your turn — type how you’d reply to Jordan.';
+            setInputEnabled(true);
+        }
+
+        function send() {
+            const text = input.value.trim();
+            if (!text || busy || finished) return;
+
+            addMsg('user', text);
+            input.value = '';
+            input.classList.remove('glow');   // glow only needed for the first reply
+            turnCue.style.display = 'none';
+            autosize();
+
+            jordanSays(jordanReply(text), () => {
+                exchanges += 1;
+                // After the first full exchange, let them wrap up whenever.
+                if (exchanges >= 1) {
+                    finishBtn.hidden = false;
+                    composerHint.textContent = 'Reply again, or finish up whenever you’re ready.';
+                    instructions.textContent = 'Keep the conversation going, or finish when you’re ready.';
+                }
+            });
+        }
+
+        // ----- Wrap-up: fold the lesson’s ideas into plain takeaways -------
+        const TAKEAWAYS = [
+            { h: 'Shared interests open doors.',
+              b: 'Study groups, clubs, anything you’re curious about — they’re the easiest way to meet people who turn into friends.' },
+            { h: 'You can say no and keep the yes.',
+              b: 'Passing on a party, or on drinking, doesn’t have to end a connection. Offering another way to hang out keeps it alive.' },
+            { h: 'Keep your circle open.',
+              b: 'Some of the friendships that change you most come from people whose backgrounds and views aren’t like your own.' },
+        ];
+
+        function finishConversation() {
+            if (finished) return;
+            finished = true;
+
+            setInputEnabled(false);
+            input.classList.remove('glow');
+            finishBtn.hidden = true;
+            composerHint.textContent = 'You can continue the lesson now.';
+
+            const wrap = document.createElement('div');
+            wrap.className = 'yp-wrap';
+            let items = '';
+            TAKEAWAYS.forEach((t, i) => {
+                items +=
+                    '<div class="yp-takeaway">' +
+                        '<span class="yp-num">' + (i + 1) + '</span>' +
+                        '<div><h3>' + t.h + '</h3><p>' + t.b + '</p></div>' +
+                    '</div>';
+            });
+            wrap.innerHTML =
+                '<div class="yp-wrap-eyebrow">Nice work</div>' +
+                '<h2 tabindex="-1">That’s how a new community starts.</h2>' +
+                '<p>You read the moment, kept it warm, and left room for the friendship no ' +
+                'matter how Friday night plays out. A few things worth carrying with you:</p>' +
+                '<div class="yp-takeaways">' + items + '</div>';
+            thread.appendChild(wrap);
+            thread.scrollTop = thread.scrollHeight;
+
+            // The composer just went disabled under the keyboard user — land
+            // focus on the wrap-up heading so the ending is read out.
+            wrap.querySelector('h2').focus();
+
+            continueBtn.disabled = false;
+            instructions.textContent = 'Great conversation — select Continue to move on.';
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+
+        // ----- Composer behavior ------------------------------------------
+        function autosize() {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+        }
+        input.addEventListener('input', autosize);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+            }
+        });
+        sendBtn.addEventListener('click', send);
+        nextBtn.addEventListener('click', revealNext);
+        finishBtn.addEventListener('click', finishConversation);
+
+        // ----- Screen transitions -----------------------------------------
+        function showConversation() {
+            screen = 'convo';
+            introScreen.hidden = true;
+            convoScreen.hidden = false;
+            document.body.classList.add('disc-mode');   // lock body; thread scrolls
+
+            // Continue locks until the conversation wraps up.
+            continueBtn.disabled = true;
+
+            // Seed the conversation with Jordan's opener (first scripted beat).
+            if (revealed === 0) {
+                addMsg(SCRIPT[0].who, SCRIPT[0].text);
+                revealed = 1;
+                renderDots();
+                instructions.textContent = 'Read along — select Next to continue the conversation.';
+            }
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+
+        function showIntro() {
+            screen = 'intro';
+            convoScreen.hidden = true;
+            introScreen.hidden = false;
+            document.body.classList.remove('disc-mode');
+            continueBtn.disabled = false;
+            instructions.textContent = 'Select Continue to open the conversation.';
+        }
+
+        function resetConversation() {
+            revealed = 0;
+            exchanges = 0;
+            busy = false;
+            finished = false;
+            thread.innerHTML = '';
+            input.value = '';
+            input.classList.remove('glow');
+            autosize();
+            guidedControls.hidden = false;
+            liveControls.hidden = true;
+            turnCue.style.display = '';
+            finishBtn.hidden = true;
+            composerHint.textContent = 'Reply however feels natural — there’s no wrong answer.';
+        }
+
+        // ----- Footer navigation ------------------------------------------
+        continueBtn.addEventListener('click', () => {
+            if (continueBtn.disabled) return;
+            if (screen === 'intro') {
+                showConversation();
+            } else {
+                console.log('Continue — Your Path conversation complete');
+            }
+        });
+
+        backBtn.addEventListener('click', () => {
+            if (screen === 'convo') {
+                resetConversation();
+                showIntro();
+            } else {
+                console.log('Back');
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
