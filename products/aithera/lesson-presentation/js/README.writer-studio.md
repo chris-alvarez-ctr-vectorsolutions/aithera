@@ -123,6 +123,20 @@ pedagogy changes.
   the scenario."
 - `fill` is a real substituter on most types but an **identity stub** on
   teach-back / observe-react (no placeholders). This is correct, not a bug.
+- `goForward: true` — **the go-forward-format flag.** Set on `v4-universal`
+  only. Both the shell and the wizard read it the same way: a type WITHOUT it is
+  presented as *"Legacy — for editing existing scenarios."* The wizard's step-0
+  grid sorts go-forward types first (`byFreshness`, a stable sort, so
+  registration order survives within each group), draws one rule ahead of the
+  first legacy card, and badges every legacy card; the shell badges the
+  read-only current-type card the same way. Deliberately a **type-supplied
+  flag**, like `blurb` — the shell and wizard stay free of per-type branches, so
+  marking a future format go-forward is one line on that type, not an edit here.
+- A go-forward type **without a `wizard`** is still pickable in step 0. There is
+  no interview spec for `v4-universal` yet, so its card navigates to
+  `writer-studio-v2.html?type=<id>` — the Universal editor's own template
+  gallery is the starting point. (A legacy type without a `wizard` stays
+  disabled, as before.)
 
 ### 3c. Registration + storage idiom
 
@@ -317,6 +331,13 @@ teach-back, scene-sweep, ensemble-arc, mix-arc, and **v4-universal** (which
 authors Scenario CML v4 directly). All but v4-universal are wizard-enabled
 (start-from-scratch). `branching-arc` stays live-only and hand-authored;
 `observe-react` was retired from the registry on 2026-08-05._
+
+_As of 2026-08-18 the picker is no longer flat: `v4-universal` carries
+`goForward: true` (§3b) and leads both the wizard's step-0 grid and the shell's
+current-type card; **the other six are badged "Legacy — for editing existing
+scenarios."** New scenarios are steered to Universal Scenario, and the legacy
+types stay first-class for editing what already exists — nothing about their
+contract or their editors changed._
 
 _This document maps the Studio's own architecture. It is deliberately silent on
 the POC V4 alignment — what V4 changed, what is still open, and who owns each

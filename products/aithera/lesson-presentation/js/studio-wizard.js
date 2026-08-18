@@ -211,6 +211,19 @@
   .wiz-typecard .nm { display: block; font-size: 14px; font-weight: 700; }
   .wiz-typecard .tg { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 2px; line-height: 1.45; }
   .wiz-typecard .ck { margin-left: auto; color: var(--accent); font-size: 14px; align-self: center; }
+  /* Legacy marking (step 0) — the classic shapes stay pickable for editing
+     existing scenarios, but new builds are steered to Universal Scenario */
+  .wiz-lgc {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+    vertical-align: 1px; background: var(--surface-2); color: var(--ink-faint); border: 1px solid var(--line);
+  }
+  .wiz-legacy-div {
+    grid-column: 1 / -1; margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--ink-faint);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .wiz-legacy-div::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--line); }
+  .wiz-legacy-note { max-width: 680px; margin: 10px 0 0; font-size: 12px; color: var(--ink-faint); }
 
   /* Templates / Custom toggle (step 0) — segmented pill over the card grid */
   .wiz-typetabs {
@@ -361,8 +374,16 @@
        (the only compose-your-own type). Kept in sync with `chosen`. If no
        custom composer is registered we fall back to the flat grid of all types. */
     const CUSTOM_TYPE_ID = 'mix-arc';
+    /* The go-forward format (type-supplied `goForward` flag, like blurb): NEW
+       scenarios are steered to it — it leads the grid, and every classic type
+       wears a "Legacy — for editing existing scenarios" badge. Picking a
+       go-forward type without an interview spec navigates to its editor
+       (Universal Scenario's template gallery is its starting point). */
+    const isLegacyType = (t) => t && !t.goForward;
+    // stable sort: Universal first, classic shapes after, registration order kept within each group
+    const byFreshness = (a, b) => (isLegacyType(a) ? 1 : 0) - (isLegacyType(b) ? 1 : 0);
     const customType = registry.find((t) => t && t.id === CUSTOM_TYPE_ID && t.wizard) || null;
-    const templateTypes = registry.filter((t) => t && t.id !== CUSTOM_TYPE_ID);
+    const templateTypes = registry.filter((t) => t && t.id !== CUSTOM_TYPE_ID).sort(byFreshness);
     let typeTab = (customType && chosen.id === CUSTOM_TYPE_ID) ? 'custom' : 'templates';
     // The last TEMPLATE the author picked — flipping Custom→Templates restores
     // their shape instead of resetting to the first card.
@@ -459,7 +480,7 @@
       const body = $w('#wizBody');
       body.innerHTML = `<h2 class="wiz-step-title">What are you building?</h2>
         <p class="wiz-step-sub">${esc(customType
-          ? 'Start from a ready-made shape, or compose your own beat by beat. Switch anytime — nothing’s lost.'
+          ? 'New scenarios start as a Universal Scenario. The classic shapes below stay available for editing existing ones. Switch anytime — nothing’s lost.'
           : 'Pick the core interaction. You can switch between types without losing progress.')}</p>`;
 
       // No dedicated custom composer → the original flat grid of every type.
@@ -491,11 +512,15 @@
         card.type = 'button';
         card.className = 'wiz-typecard wiz-customcard is-on';
         card.innerHTML = `<span class="ic"><i class="fa-solid ${esc(customType.icon || 'fa-shapes')}"></i></span>
-          <span class="tx"><span class="nm">${esc(customType.label)}</span>
+          <span class="tx"><span class="nm">${esc(customType.label)}<span class="wiz-lgc">Legacy</span></span>
           <span class="tg">${esc((customType.wizard && (customType.wizard.tagline || customType.wizard.intro)) || customType.blurb || '')}</span></span>
           <span class="ck"><i class="fa-solid fa-circle-check"></i></span>`;
         card.addEventListener('click', () => { stepIdx = 1; renderAll(); });
         body.appendChild(card);
+        const legacyNote = document.createElement('p');
+        legacyNote.className = 'wiz-legacy-note';
+        legacyNote.textContent = 'Legacy — for editing existing scenarios. New scenarios start as a Universal Scenario (first card under Templates).';
+        body.appendChild(legacyNote);
       } else {
         renderTypeGrid(body, templateTypes);
       }
@@ -506,21 +531,41 @@
     function renderTypeGrid(body, list) {
       const grid = document.createElement('div');
       grid.className = 'wiz-types';
-      list.forEach((t) => {
-        if (!t) return;
+      let divided = false;
+      list.filter(Boolean).sort(byFreshness).forEach((t) => {
+        const fresh = !isLegacyType(t);
+        // one full-width rule ahead of the first classic card — names the group once
+        if (!fresh && !divided) {
+          divided = true;
+          const div = document.createElement('p');
+          div.className = 'wiz-legacy-div';
+          div.textContent = 'Legacy — for editing existing scenarios';
+          grid.appendChild(div);
+        }
         const has = !!t.wizard;
+        const pickable = has || fresh;
         const card = document.createElement('button');
         card.type = 'button';
-        card.className = 'wiz-typecard' + (t.id === chosen.id ? ' is-on' : '') + (has ? '' : ' is-off');
-        card.disabled = !has;
+        card.className = 'wiz-typecard' + (t.id === chosen.id ? ' is-on' : '') + (pickable ? '' : ' is-off');
+        card.disabled = !pickable;
+        const tag = has ? (t.wizard.tagline || t.wizard.intro || '')
+                  : fresh ? (t.blurb || '')
+                  : 'Guided setup isn’t ready for this type yet.';
         card.innerHTML = `<span class="ic"><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i></span>
-          <span class="tx"><span class="nm">${esc(t.label)}</span>
-          <span class="tg">${esc(has ? (t.wizard.tagline || t.wizard.intro || '') : 'Guided setup isn’t ready for this type yet.')}</span></span>
+          <span class="tx"><span class="nm">${esc(t.label)}${fresh ? '' : '<span class="wiz-lgc">Legacy</span>'}</span>
+          <span class="tg">${esc(tag)}</span></span>
           ${t.id === chosen.id ? '<span class="ck"><i class="fa-solid fa-circle-check"></i></span>' : ''}`;
         if (has) card.addEventListener('click', () => {
           if (t.id !== chosen.id) loadChosen(t);
           lastTemplate = t;
           renderAll();
+        });
+        else if (fresh) card.addEventListener('click', () => {
+          // No interview spec — the Universal editor IS the starting point
+          // (template gallery inside). Same reload-with-?type= move the shell's
+          // own type switching uses.
+          if ((gen.running || outlining) && !confirm('Generation is still running — leave anyway?')) return;
+          location.href = 'writer-studio-v2.html?type=' + encodeURIComponent(t.id);
         });
         grid.appendChild(card);
       });

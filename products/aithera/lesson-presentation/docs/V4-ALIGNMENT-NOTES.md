@@ -895,6 +895,8 @@ Once §9.1 is settled, finish the remaining 61 fields and re-run the verificatio
 
 The compile-fidelity blocker is cleared — worked examples, disclosure facts and their reveal timing now reach the model, so the Editor's fields do what they appear to do. What remains gating this is the alignment decisions and the authoring gap.
 
+**The Editor already steers new work to V4, ahead of the flip.** `v4-universal` carries a `goForward` flag: it leads the wizard's "What are you building?" grid and the shell's current-type card, and the other six registered types are badged *"Legacy — for editing existing scenarios."* Existing content keeps a fully first-class editing path; only the default for *new* scenarios moved. Two things are deliberately not done yet: the URL is still an opt-in (`?type=v4-universal`), and V4 has no start-from-scratch interview, so picking Universal Scenario opens the editor on its template gallery rather than an interview. Contract detail: `js/README.writer-studio.md` §3b.
+
 Once the alignment decisions are resolved and the authoring gaps are closed, make V4 the default authored source rather than requiring:
 
 ```text

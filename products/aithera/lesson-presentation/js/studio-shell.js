@@ -269,9 +269,15 @@
 
     const card = document.createElement('div');
     card.className = 'mode-card is-active mode-current';
+    // Every type not flagged goForward (a type-supplied flag, like blurb — the
+    // shell stays free of per-type branches) is marked legacy here: new
+    // scenarios are steered to the go-forward format (the wizard's first card);
+    // the classics stay first-class for editing what already exists.
+    const legacyChip = type.goForward ? ''
+      : '<span class="mc-legacy">Legacy — for editing existing scenarios</span>';
     card.innerHTML =
       `<span class="mci"><i class="fa-solid ${esc(type.icon || 'fa-cube')}"></i></span>` +
-      `<span class="mcb"><span class="mcn">${esc(type.label)}</span><span class="mcd">${esc(type.blurb || '')}</span></span>`;
+      `<span class="mcb"><span class="mcn">${esc(type.label)}${legacyChip}</span><span class="mcd">${esc(type.blurb || '')}</span></span>`;
     const change = document.createElement('button');
     change.type = 'button';
     change.className = 'mode-change';
