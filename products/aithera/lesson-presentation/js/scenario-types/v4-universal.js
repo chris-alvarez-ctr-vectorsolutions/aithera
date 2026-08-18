@@ -1221,9 +1221,22 @@
     return 'basics';
   }
 
-  /* Trim the path to something an author can act on. */
-  function friendly(path) {
-    return String(path || '').replace(/^content\./, '').replace(/\[(\d+)\]/g, (m, n) => ' ' + (Number(n) + 1));
+  /* Trim the path to something an author can act on.
+     A phase-scoped path is rewritten to NAME the step rather than index it:
+     "phases 2.practice.interaction.exhibit" tells an author nothing about which
+     card to open, and in a five-step arc that is a hunt. `doc` is optional so
+     the function still works on a bare path. */
+  function friendly(path, doc) {
+    const raw = String(path || '');
+    const m = raw.match(/^content\.phases\[(\d+)\]\.?(.*)$/);
+    if (m) {
+      const idx = Number(m[1]);
+      const ph = obj(arr(obj(obj(doc).content).phases)[idx]);
+      const name = str(ph.label).trim() || str(ph.id).trim();
+      const rest = m[2] ? ' · ' + m[2] : '';
+      return 'Step ' + (idx + 1) + (name ? ' \u201c' + name + '\u201d' : '') + rest;
+    }
+    return raw.replace(/^content\./, '').replace(/\[(\d+)\]/g, (mm, n) => ' ' + (Number(n) + 1));
   }
 
   function lints(s) {
@@ -1240,11 +1253,11 @@
     const report = v4.validate(doc);
 
     report.errors.forEach((e) => {
-      add('err', sectionFor(e.path), friendly(e.path) + ' — ' + e.message,
+      add('err', sectionFor(e.path), friendly(e.path, doc) + ' — ' + e.message,
         'POC V4 rejects the document until this is authored.');
     });
     report.warnings.forEach((w) => {
-      add('warn', sectionFor(w.path), friendly(w.path) + ' — ' + w.message, '');
+      add('warn', sectionFor(w.path), friendly(w.path, doc) + ' — ' + w.message, '');
     });
 
     /* Soft defaults: filled so the scenario loads, but a story label reads far

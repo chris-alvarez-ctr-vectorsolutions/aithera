@@ -51,7 +51,13 @@
   function setByPath(obj, path, value) {
     const keys = path.split('.');
     const last = keys.pop();
-    const target = keys.reduce((o, k) => o[k], obj);
+    /* Create missing intermediates rather than throwing. A type may bind to a
+       path whose parent is itself optional (an observe exhibit's `facts`), and
+       the write only ever happens because the author asked for the row. */
+    const target = keys.reduce((o, k) => {
+      if (o[k] == null) o[k] = {};
+      return o[k];
+    }, obj);
     target[last] = value;
   }
 
@@ -103,9 +109,22 @@
     const wrap = document.createElement('div');
     wrap.className = 'rows';
     wrap.dataset.list = listPath;
+    /* An OPTIONAL list is simply ABSENT from the draft, not empty — and a type
+       binding to one used to take the entire form down with it: getByPath
+       returned undefined, .forEach threw, and because the throw escaped
+       mid-loop every card after it never got appended. On screen that reads as
+       "the steps vanished when I expanded one", which is a long way from the
+       actual cause. Absent and empty now render identically, and the array is
+       created lazily on Add so a document never carries an empty one it never
+       asked for (several formats, v4 among them, treat an empty optional array
+       as invalid). */
+    const readList = () => {
+      const list = getByPath(scenario, listPath);
+      return Array.isArray(list) ? list : null;
+    };
     const render = () => {
       wrap.innerHTML = '';
-      const list = getByPath(scenario, listPath);
+      const list = readList() || [];
       list.forEach((item, i) => wrap.appendChild(renderRow(item, i, () => {
         list.splice(i, 1);
         render();
@@ -115,7 +134,12 @@
       add.className = 'addrow';
       add.innerHTML = `<i class="fa-solid fa-plus"></i> ${esc(addLabel)}`;
       add.addEventListener('click', () => {
-        list.push(makeItem ? makeItem() : {});
+        let target = readList();
+        if (!target) {
+          setByPath(scenario, listPath, []);
+          target = readList() || [];
+        }
+        target.push(makeItem ? makeItem() : {});
         render();
         scheduleUpdate();
       });
