@@ -168,12 +168,9 @@
     const map = RUNTIME_BY_MODE[practice.mode] || RUNTIME_BY_MODE.coach_inquiry;
     const when = obj(obj(practice.exit).when);
 
-    /* v4 is forward-only: advancement is server-owned and there is no way back,
-       so the ladder is a straight line. Tier no longer routes — the old
-       transitions[].onTier fan-out collapses to one unconditional next. */
-    const next = obj(phases[index + 1]).id || '';
-
     const keyPoints = arr(debrief.key_points).map(str).filter(Boolean);
+    const followUps = typeof debrief.follow_up_turns === 'number' ? debrief.follow_up_turns : 0;
+    const isLast = index === phases.length - 1;
 
     return {
       id: str(ph.id),
@@ -214,11 +211,22 @@
       media: mediaFromInteraction(interaction),
       calibration: calibrationFromLevels(interaction.levels),
       debrief: {
-        /* A locked probe is the scripted coach question our debrief used to ask. */
-        talkItThrough: str(obj(debrief.probe).text),
+        /* §5 change #1 — the debrief is now split out of this rung. The fused
+           close-teach that ends THIS rung is v4's debrief TURN 1: feedback on
+           the attempt plus the key points, which is exactly what a
+           delivery-only debrief is. An interactive debrief continues in its own
+           rung (built by debriefRungFor below); a probe belongs to that rung's
+           locked entry, no longer here. talkItThrough carries the final word
+           ONLY on a terminal delivery-only phase, where there is no next rung
+           to deliver it as a locked bridge — the teach turn opens with it
+           near-verbatim, the closest the fused turn gets to "delivered
+           verbatim". */
+        talkItThrough: (isLast && followUps === 0) ? str(debrief.final_word) : '',
         points: keyPoints.join(' '),
       },
-      transitions: [{ onTier: '', next: next, set: {} }],
+      /* next is wired during assembly in compile() — a phase may be followed by
+         its own debrief rung rather than the next phase. */
+      transitions: [{ onTier: '', next: '', set: {} }],
 
       /* --- carried through, not yet consumed by the engine --------------- */
       exitFinalWord: str(obj(practice.exit).final_word),
@@ -243,6 +251,75 @@
       exhibitFacts: arr(obj(interaction.exhibit).facts).map(str).filter(Boolean),
       purpose: str(ph.purpose),
       practicePurpose: str(practice.purpose),
+    };
+  }
+
+  /* ------------------------------------------------------------------------
+     an INTERACTIVE debrief (follow_up_turns >= 1) as its own rung — §5 change #1
+     --------------------------------------------------------------------------
+     v4's debrief is a turn-owning unit. The practice rung's fused close-teach
+     already plays debrief turn 1 (feedback + key points), so this rung is the
+     FOLLOW-UP space that today's player gave no home: the locked probe (v4
+     delivers it verbatim after the turn-1 feedback → here it is the locked
+     entry signpost, landing right after the close-teach), the follow-up budget,
+     the early-exit requirement, and levels grading the ANSWERS
+     (probe.levels when authored, else debrief.levels).
+
+     Delivery-only debriefs (follow_up_turns 0 — 19 of POC V4's own 29) get NO
+     rung: the fused close-teach IS that debrief, and the runner has no
+     zero-turn rung anyway. Their final_word is delivered verbatim as the NEXT
+     rung's locked entry bridge during assembly.
+
+     A debrief rung has no v4 authored id — the id is DERIVED, "{phase_id}.debrief",
+     exactly as the v4 spec derives it (authored phase ids may not contain "."
+     for precisely this reason, which our validator enforces). */
+  function debriefRungFor(phase) {
+    const ph = obj(phase);
+    const debrief = obj(ph.debrief);
+    const practice = obj(ph.practice);
+    const probe = obj(debrief.probe);
+    const followUps = typeof debrief.follow_up_turns === 'number' ? debrief.follow_up_turns : 0;
+    if (followUps < 1) return null;
+    return {
+      id: str(ph.id) + '.debrief',
+      label: str(debrief.label) || 'Coach Debrief',
+      level: '',
+      type: 'coach-led',
+      world: 'coaching',
+      counterpart: str(debrief.partner_label) || 'Coach',
+      maxTurns: followUps,
+      entry: {
+        bridgesByTier: {},
+        bridge: '',
+        /* The locked probe, verbatim — "delivered on the debrief's first turn,
+           after that turn's feedback", which in the split model is immediately
+           after the practice rung's close-teach. A probe-less interactive
+           debrief legally has no locked opener (v4: a debrief never opens with
+           canned content) — the composer simply opens. */
+        signpost: str(probe.text),
+        prompt: '',
+        beats: [],
+        cta: str(obj(practice.transition).button_label),
+      },
+      inputPlaceholder: str(debrief.input_placeholder),
+      sayDoSplit: false,
+      exitCriteria: str(debrief.requirement),
+      reactionGuidance: '',
+      hasRightAnswer: false,
+      throughLine: '',
+      character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+      media: { segments: [], affectiveBeat: false, openingReaction: '' },
+      /* probe.levels grade the ANSWER to the probe (a distinct judgment from
+         debrief.levels, which graded the attempt and informed the close-teach). */
+      calibration: calibrationFromLevels(probe.levels || debrief.levels),
+      debrief: {
+        /* The rung's own close opens with the final word near-verbatim. */
+        talkItThrough: str(debrief.final_word),
+        points: '',
+      },
+      transitions: [{ onTier: '', next: '', set: {} }],
+      purpose: str(debrief.purpose),
+      isDebriefRung: true,
     };
   }
 
@@ -335,6 +412,59 @@
       };
     });
 
+    /* ---- ladder assembly (§5 change #1) ------------------------------------
+       Interleave each phase's practice rung with its debrief rung (interactive
+       debriefs only), then wire the straight-line ladder:
+
+         practice ──▶ [its debrief rung] ──▶ next phase's practice ──▶ …
+
+       Also fixes a button mislabeling the fused model forced: entry.cta is the
+       button INTO a rung, so a practice rung's cta is the PREVIOUS debrief's
+       transition label (or the opening's / the landing CTA for the first), and
+       a debrief rung's cta is its own practice's transition label. The port had
+       flagged exactly this ambiguity ("verify it reads as a handoff INTO the
+       debrief").
+
+       A delivery-only debrief emits no rung; its final_word is delivered
+       VERBATIM as the next rung's locked entry bridge (the terminal
+       delivery-only case rides the close-teach opener instead — see
+       phaseToRung). Note the model-facing "[SYSTEM STATE — Phase N/M]" line now
+       counts rungs, not v4 phases; that line is engine telemetry for pacing,
+       not learner copy. */
+    const ladder = [];
+    phases.forEach(function (p, i) {
+      const ph = obj(p);
+      const practiceRung = rungs[i];
+      const debriefRung = debriefRungFor(ph);
+      const nextPracticeId = obj(phases[i + 1]).id ? str(obj(phases[i + 1]).id) : '';
+
+      if (i === 0) {
+        practiceRung.entry.cta = str(obj(opening.transition).button_label)
+          || str(content.landing_cta_label) || practiceRung.entry.cta;
+      } else {
+        const prevDebrief = obj(obj(phases[i - 1]).debrief);
+        practiceRung.entry.cta = str(obj(prevDebrief.transition).button_label) || practiceRung.entry.cta;
+      }
+
+      practiceRung.transitions = [{ onTier: '', next: debriefRung ? debriefRung.id : nextPracticeId, set: {} }];
+      ladder.push(practiceRung);
+      if (debriefRung) {
+        debriefRung.transitions = [{ onTier: '', next: nextPracticeId, set: {} }];
+        ladder.push(debriefRung);
+      }
+    });
+    /* Deliver every non-terminal delivery-only final word as the FOLLOWING
+       rung's locked bridge — verbatim, app-owned, exactly one bubble. */
+    phases.forEach(function (p, i) {
+      const debrief = obj(obj(p).debrief);
+      const followUps = typeof debrief.follow_up_turns === 'number' ? debrief.follow_up_turns : 0;
+      const finalWord = str(debrief.final_word);
+      if (followUps !== 0 || !finalWord) return;
+      const at = ladder.findIndex(function (r) { return r.id === str(obj(p).id); });
+      const following = ladder[at + 1];
+      if (following && !following.entry.bridge) following.entry.bridge = finalWord;
+    });
+
     /* v4's narrative is ONE text serving as both the coach's ground truth and
        what the learner is shown, so it fills both of our fields rather than us
        inventing a second, richer version for the prompt. */
@@ -410,8 +540,8 @@
       coverage: runtimeSpot.coverage || null,
       scene: runtimeSpot.scene || null,
       observe: runtimeSpot.observe || null,
-      phases: rungs,
-      beats: rungs,          // mix-arc surfaces read `beats`; same objects
+      phases: ladder,
+      beats: ladder,         // mix-arc surfaces read `beats`; same objects
       opening: arr(opening.opening_messages).map(function (m) { return str(obj(m).text); }).filter(Boolean),
       sceneLineCaption: '',
 

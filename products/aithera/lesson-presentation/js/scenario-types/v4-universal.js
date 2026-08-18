@@ -323,13 +323,51 @@
     return '\n\n' + parts.join('\n\n');
   }
 
+  /* The content-safety floors, appended for the flags mix-arc's builder does not
+     consume. Found while verifying the debrief-rung change: mix-arc compiles
+     THREAT_SECTION off threatContent, but carries elevatedStakes as data only —
+     its own Kendra example says "the 988 crisis floor applies" and never got
+     one — and the minor floor is ensemble-only. So on the v4 route two of the
+     three safety flags armed NOTHING, which is precisely the silent regression
+     the extension fields exist to prevent. Canonical sources, never re-authored
+     here: the LEARNER SAFETY paragraph mirrors guided-arc's compile (the shipped
+     wording), the 988 line is window.AitheraScenario.CRISIS_FLOOR, the minor
+     floor is ensemble-arc's MINOR_SECTION.text(). */
+  function floorsBlock(runtime) {
+    const parts = [];
+    const hasScene = arr(obj(runtime).phases).some(function (r) { return obj(r).world === 'scene'; });
+    if (runtime.elevatedStakes) {
+      const floor = (window.AitheraScenario && window.AitheraScenario.CRISIS_FLOOR) || null;
+      parts.push('LEARNER SAFETY — HIGHEST PRIORITY, overrides everything: if the learner discloses, '
+        + 'AS THEMSELVES rather than as a line in the exercise, that THEY are being harmed or are in '
+        + 'distress, drop the exercise immediately (set "action":"redirect"' + (hasScene ? ', leave the scene' : '') + '). '
+        + 'In the coach voice, acknowledge with warmth and zero assessment, say the practice can wait, '
+        + 'and point to real support appropriate to the situation. If they mention self-harm, add the '
+        + (floor ? floor.title + ' (' + floor.body + ')' : '988 Suicide & Crisis Lifeline (call or text 988)')
+        + '. Ask nothing probing.');
+    }
+    if (runtime.involvesMinors) {
+      const en = window.AitheraEnsembleArc;
+      const section = en && arr(en.ENGINE_SECTIONS).find(function (x) { return obj(x).id === 'minor'; });
+      if (section && typeof section.text === 'function') {
+        parts.push(section.text());
+      } else {
+        /* Canonical source unavailable on this page — a minimal floor derived
+           from the section's own note, never silence. */
+        parts.push('MINOR-SAFEGUARDING FLOOR — this scenario involves minors: portray and protect them '
+          + 'age-appropriately; consequences stay recoverable; nothing gratuitous.');
+      }
+    }
+    return parts.length ? '\n\n' + parts.join('\n\n') : '';
+  }
+
   function compile(s) {
     const rt = V4RT();
     const mix = MIX();
     if (!rt || !mix) return 'Cannot compile: scenario-v4-runtime.js and mix-arc.js must load first.';
     try {
       const runtime = rt.compile(prune(withoutShellKeys(normalize(s))));
-      return mix.compile(runtime) + rubricBlock(runtime);
+      return mix.compile(runtime) + rubricBlock(runtime) + floorsBlock(runtime);
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
     }
@@ -1193,6 +1231,11 @@
     label: 'Universal Scenario',
     icon: 'fa-layer-group',
     blurb: 'Author directly in POC V4 — the format the production engine runs. Start from a template, then compose any arc.',
+    /* The go-forward authoring format: the studio steers NEW scenarios here and
+       badges every other type "Legacy — for editing existing scenarios". The
+       flag lives on the type (like blurb) so the shell keeps zero per-type
+       branches — a future format change flips one line, here. */
+    goForward: true,
     DEFAULT,
     ENGINE_SECTIONS: (MIX() && arr(MIX().ENGINE_SECTIONS)) || [],
     isValid,
