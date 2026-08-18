@@ -69,6 +69,18 @@
          scene gets at this tier, which our scene prompt wants alongside the
          reaction. */
       if (level.progression) parts.push(str(level.progression));
+      /* The worked example: a concrete learner utterance at this tier and the
+         reply it should draw. v4 authors one per tier (156 of them across the
+         POC's eleven scenarios) and we dropped every one until 2026-08-18 —
+         the round-trip test that validated this compiler compares v4 output
+         against our NATIVE types, so a field with no native counterpart could
+         never show up as a diff. Labelled, because an unlabelled example
+         reads as more criteria. */
+      const ex = obj(level.example);
+      if (str(ex.learner)) {
+        parts.push('For example, a learner might say: "' + str(ex.learner).trim() + '"');
+        if (str(ex.reply)) parts.push('A good reply: "' + str(ex.reply).trim() + '"');
+      }
       out.push({ tier: key, guidance: parts.join(' ') });
     });
     return out;
@@ -185,9 +197,14 @@
       inputPlaceholder: str(interaction.input_placeholder || interaction.jot_placeholder),
       sayDoSplit: practice.mode === 'roleplay',
       exitCriteria: str(when.requirement),
-      /* Reaction guidance used to be a free-standing instruction; in v4 the same
-         direction lives inside each tier's response, which calibration carries. */
-      reactionGuidance: '',
+      /* Reaction guidance used to be a free-standing instruction; in v4 most of
+         that direction lives inside each tier's response, which calibration
+         carries. `emotion_hint` is the part that does NOT: it is the character's
+         emotional starting state for the scene, not a per-tier reaction, so
+         calibration never carried it and it was silently lost. */
+      reactionGuidance: str(interaction.emotion_hint)
+        ? 'The character enters this scene ' + str(interaction.emotion_hint).trim().replace(/\.$/, '') + '.'
+        : '',
       /* Read from the answer_shape marker (a declared Vector extension — see
          EXTENSIONS in scenario-v4.js), NOT guessed from the exit requirement.
          Deriving it from "does this practice have a requirement" was wrong on 13

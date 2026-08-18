@@ -361,13 +361,43 @@
     return parts.length ? '\n\n' + parts.join('\n\n') : '';
   }
 
+  /* ------------------------------------------------------------------------
+     PROGRESSIVE DISCLOSURE — v4 `characters[].canon_facts[]`
+     ------------------------------------------------------------------------
+     v4's canon_facts are exactly our earned disclosures: a fact the character
+     holds back, plus `reveal_when` — the condition that earns it. We shipped
+     this mechanic first (ensemble-arc's `cast[].disclosures[]`, its headline
+     capability) and then never wired v4's field to it, so every canon_fact in
+     the POC's content was dropped on our route.
+
+     Appended here rather than taught to the mix-arc builder, which has no
+     disclosure concept — the same shape the safety floors already use, with
+     ensemble-arc's canonical wording so both routes instruct identically.
+     --------------------------------------------------------------------- */
+  function disclosuresBlock(runtime) {
+    const chars = arr(obj(obj(runtime).sceneWorld).characters).filter(function (c) {
+      return arr(obj(c).canon_facts).some(function (f) { return str(obj(f).fact).trim(); });
+    });
+    if (!chars.length) return '';
+    return '\n\nPROGRESSIVE DISCLOSURE — the heart of this scenario. Each character holds parts of their story back and reveals a piece ONLY when the learner earns it. Never volunteer these in an opening turn, and never dump them all at once — a character gives up one thing at a time, in response to how they\u2019re being treated. If the learner doesn\u2019t earn a disclosure, the character KEEPS it; the debrief still makes sure the learner leaves knowing what mattered.\n\n' +
+      chars.map(function (c) {
+        return str(obj(c).name || obj(c).id) + ':\n' +
+          arr(obj(c).canon_facts).filter(function (f) { return str(obj(f).fact).trim(); })
+            .map(function (f) {
+              return '- Holds back: ' + str(obj(f).fact).trim() +
+                '\n  Earned by: ' + (str(obj(f).reveal_when).trim() ||
+                  'the learner treating them with genuine care.');
+            }).join('\n');
+      }).join('\n\n');
+  }
+
   function compileString(s) {
     const rt = V4RT();
     const mix = MIX();
     if (!rt || !mix) return 'Cannot compile: scenario-v4-runtime.js and mix-arc.js must load first.';
     try {
       const runtime = rt.compile(prune(withoutShellKeys(normalize(s))));
-      return mix.compile(runtime) + rubricBlock(runtime) + floorsBlock(runtime);
+      return mix.compile(runtime) + rubricBlock(runtime) + floorsBlock(runtime) + disclosuresBlock(runtime);
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
     }

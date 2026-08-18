@@ -87,7 +87,7 @@ Listed for transparency, not for discussion.
 | UX Universal | Whether teach-back stays a local type | §14 |
 | UX Universal | The missing `hazmat_scene_3.mp4` reference | §14 |
 | UX Universal | Finishing the remaining authoring fields | §8 |
-| UX Universal | Compile fidelity — 184 authored values the V4 compiler drops | *Compile Fidelity* |
+| UX Universal | Compile fidelity — 184 dropped values (fixed 2026-08-18) | *Compile Fidelity* |
 
 ### Jointly owned — product or content policy
 
@@ -377,29 +377,29 @@ Playbook entries can cite internal course material (for example, `RVCT-479 P017`
 
 ---
 
-## Compile Fidelity — What We Drop
+## Compile Fidelity — Found and Fixed
 
-Every version of this document has described the gap in one direction: things UX Universal needs that V4 cannot express (§6, §7). Running the POC's own eleven scenarios through our V4 compiler shows the other direction, and it is larger.
+Every earlier revision of this document described the gap in one direction: things UX Universal needs that V4 cannot express (§6, §7). Running the POC's own eleven scenarios through our V4 compiler on 2026-08-18 showed the other direction — **184 authored values that never reached the model** — and it was ours to fix. It is fixed; this section is the record.
 
-**Method.** Compile each of the eleven documents with `v4-universal.compile`, then test whether each authored value appears in the resulting prompt. Verbatim-carried controls (`look_for`, `response`, `narrative`, `coach_persona`) confirm the method — all four are present.
+**What was lost, and why nothing caught it.** The compiler was validated by a round-trip: does a V4 document produce the same runtime our native types produce (§17)? That test is blind by construction to fields V4 has and our native types do not — which is precisely the set that was dropped. They could not appear as a diff, so they appeared as nothing.
 
-| Authored field | Values in the 11 | Reaching the prompt |
-| --- | ---: | ---: |
-| `levels[].example.learner` | 78 | 1 |
-| `levels[].example.reply` | 78 | 5 |
-| `characters[].canon_facts.fact` | 9 | 0 |
-| `characters[].canon_facts.reveal_when` | 9 | 0 |
-| `roleplay.emotion_hint` | 10 | 0 |
+| Authored field | Values in the 11 | Before | After |
+| --- | ---: | ---: | ---: |
+| `levels[].example.learner` | 78 | 0 | 78 |
+| `levels[].example.reply` | 78 | 0 | 78 |
+| `characters[].canon_facts.fact` | 9 | 0 | 9 |
+| `characters[].canon_facts.reveal_when` | 9 | 0 | 9 |
+| `roleplay.emotion_hint` | 10 | 0 | 10 |
 
-The handful of `example.reply` matches are incidental: 6 of the 78 repeat a sentence that also appears in the tier's own `response`, which the compiler does carry. The examples themselves never arrive.
+**The fixes.**
 
-**What each loss costs.**
+* **Worked examples** — `calibrationFromLevels` now appends each tier's example learner utterance and the reply it should draw, labelled, so an example never reads as more criteria.
+* **Earned disclosure** — `canon_facts` *is* our own mechanic: a fact a character holds back plus `reveal_when`, the condition that earns it. We shipped it first as ensemble-arc's `cast[].disclosures[]` and never wired V4's field to it. Now emitted by `disclosuresBlock` in `v4-universal.js`, appended after the builder in the same shape the safety floors use, carrying ensemble-arc's canonical wording so both routes instruct identically. The mix-arc builder has no disclosure concept, which is why this is appended rather than taught to it.
+* **Emotional direction** — `emotion_hint` is the character's opening emotional state, not a per-tier reaction, so the existing "direction lives in each tier's `response`" reasoning never covered it. It now populates `reactionGuidance`.
 
-* **Worked examples (156 values).** Each tier authors a concrete learner utterance and the reply it should draw. The model receives the abstract criteria (`look_for`) and the coaching intent (`response`), but not the calibration sample. This is the single largest body of authored content we ignore.
-* **Character disclosure facts and their timing (18 values).** `canon_facts.reveal_when` is *earned disclosure* — the mechanic our own ensemble-arc pioneered and implements natively as `cast[].disclosures[]`, compiled into a dedicated prompt block. We built the feature and never wired their field to it. The compiler mentions neither `canon_facts` nor `example` anywhere, so this is unimplemented rather than declined.
-* **Roleplay emotional direction (10 values).** Partly defensible: the compiler documents a decision that reaction direction "lives inside each tier's `response`, which calibration carries," and sets `reactionGuidance` to empty on that basis. Whether that reasoning extends to `emotion_hint` specifically was never stated.
+**Verification.** All 184 values reach the compiled prompt across all eleven scenarios. All eleven still validate; all seven of our templates still compile; Marshall still expands to 6 rungs. The change touches only the V4 route — the native per-type routes are untouched.
 
-**Why this matters to the alignment.** It changes the shape of the conversation from *what should V4 add* to *what does each side owe the other*, and it is ours to fix, not an ask. It also gates §15 Priority 6: V4 cannot become the default authored source while the compiler silently discards 184 authored values. An author would fill in worked examples in the Editor and see no effect on play.
+*One methodological note worth keeping.* The first re-measurement reported 176 of 184 and named eight stragglers. All eight were false negatives from a minimum-length guard in the test itself: values like `"anxious"`, `"grief"` and `"I'll call 911."` fall below it. The test was wrong, not the fix — a reminder that a measurement needs checking before its number is quoted.
 
 ---
 
@@ -893,7 +893,7 @@ Once §9.1 is settled, finish the remaining 61 fields and re-run the verificatio
 
 ### Priority 6 — Flip V4 to the default source · UX Universal
 
-Blocked on compile fidelity as well as on the alignment decisions: while the compiler discards worked examples, disclosure facts and their reveal timing, an author editing those fields in the Editor sees no change in play. Close that first.
+The compile-fidelity blocker is cleared — worked examples, disclosure facts and their reveal timing now reach the model, so the Editor's fields do what they appear to do. What remains gating this is the alignment decisions and the authoring gap.
 
 Once the alignment decisions are resolved and the authoring gaps are closed, make V4 the default authored source rather than requiring:
 
