@@ -6,6 +6,8 @@ This document is the shared record of the alignment between **POC V4 (Scenario C
 
 The work it describes makes POC V4 the authored source of truth for UX Universal. Previously, each UX Universal scenario type carried its own internal shape and conversion logic. The retrofit replaces those per-type shapes with the POC V4 format while keeping the existing player.
 
+**Who owns which decision** is the first thing to establish, and it has its own section immediately below — the POC V4 team's decisions are called out separately from ours, so a reader can find their own calls without reading past ours.
+
 This document records:
 
 * what has been decided;
@@ -14,7 +16,7 @@ This document records:
 * what remains to be authored or aligned; and
 * which product and format questions are still open.
 
-**Status (2026-08-17):** The retrofit is implemented and verified. In concrete terms:
+**Status (2026-08-18):** The retrofit is implemented and verified. In concrete terms:
 
 * V4 documents play through the existing UX Universal player (`scenario-live.html?type=v4-universal`);
 * the Editor authors V4 directly; and
@@ -23,14 +25,14 @@ This document records:
 The remaining work is decisions and authoring, not infrastructure:
 
 1. resolving the alignment questions in §9;
-2. completing the remaining 64 authoring fields; and
+2. completing the remaining 61 authoring fields; and
 3. deciding whether to make V4 the default authored source, which is gated on §9.1.
 
 The current state has been reconciled against the `scenario-simulator-poc` repository, including `spec-alignment-audit.md`, `v4-migration-report.md`, and `sme-punch-list.md`.
 
 Implementation and verification detail — what was built, the test results, and how to reproduce the checks — is collected in the appendix (§17).
 
-**Last updated:** 2026-08-17
+**Last updated:** 2026-08-18
 
 ---
 
@@ -45,6 +47,64 @@ Implementation and verification detail — what was built, the test results, and
 | **Surface**      | A pluggable interaction module in the UX Universal player (§9.8). A player concept. Surfaces are not extensions, and neither requires the other. |
 
 The recommendations in this document are based on the resulting behavior and consequences, rather than on which system originally implemented a behavior.
+
+---
+
+## Who Decides What
+
+The alignment work produced two very different kinds of open item, and reading them as one list is what makes this document hard to act on.
+
+**Ours alone.** How UX Universal authors, compiles and plays a scenario — the decisions in §4 and the three questions in §14. They are recorded here so the POC V4 team can see what we did and why. Nothing in §4 is an ask; none of it needs their sign-off.
+
+**Theirs.** Changes to the Scenario CML v4 format or to the POC V4 engine. Every one is an ask, and each carries its evidence, its likely counterpoint and a fallback in the conversation guide. **This is the list to bring to the meeting.**
+
+**Jointly owned.** Learner-experience behavior that would be wrong to settle differently in the two players, or content policy that binds both authoring paths.
+
+### Asks on POC V4 — the format or the engine
+
+| Owner | Item | Where | The ask, in one line |
+| --- | --- | --- | --- |
+| POC V4 | Extension envelopes | §10 | Allow one `extensions` key on `content` and on each `practice` — namespaced, must-ignore. One allowlisted key is the whole change. |
+| POC V4 | Safety flags | §6, §9.2 | With no way to declare crisis / threat / minors content, a handed-over document loses its safety floor and leaves no trace one existed. |
+| POC V4 | `practice.answer_shape` | §9.3 | A machine-readable graded-vs-open marker. `levels.strong.look_for` carries it to a human reader, not to a parser. |
+| POC V4 | `purpose` as a required field | §9.1 | Required by the schema, never rendered into a prompt. Make it optional, or give it the consumer the spec describes. |
+| POC V4 | Partial quality scales | §11 | Allow two authored levels the way `opening.levels` already does — otherwise every author invents a middle tier indefinitely. |
+| POC V4 | `help_turns` default | §11 | The loader defaults it to 2, which arms the mid-scene help affordance for any scenario that omits the field. Confirm, or default it off. |
+| POC V4 | `spot_target` gating | §11 | The spec says the target gates completion; the shipped engine does not gate on it. Confirm which is the contract. |
+| POC V4 | Clarifying-question cost | §9.2 | Adopt the redirect rebate so a clarifying turn does not spend practice budget. Engine behavior on their side; reference implementation on ours. |
+| POC V4 | Generalized credited-items output | §9.8 | Lift the `[[spotted:]]` contract off `observe_react` so a new interaction is one mode plus one surface rather than engine surgery. Its own session. |
+| POC V4 | Spec-versus-build divergences | spine §E | Five places the v4 specification and the shipped v4 engine disagree. Ours to report, theirs to reconcile. |
+
+### Ours — no POC V4 input needed
+
+Listed for transparency, not for discussion.
+
+| Owner | Item | Where |
+| --- | --- | --- |
+| UX Universal | D1–D8 — the authored format, the runtime strategy, adopting the fixed scale, the conversion policy, templates, mechanical defaults | §4 |
+| UX Universal | The three shipped engine changes — debrief rung, prompt scoping, carryover consumption | §5 |
+| UX Universal | Where `narrative` renders in the compiled prompt | §9.6 |
+| UX Universal | Whether `branching-arc` returns as an Editor template | §14 |
+| UX Universal | Whether teach-back stays a local type | §14 |
+| UX Universal | The missing `hazmat_scene_3.mp4` reference | §14 |
+| UX Universal | Finishing the remaining authoring fields | §8 |
+
+### Jointly owned — product or content policy
+
+| Owner | Item | Where | Why it needs both |
+| --- | --- | --- | --- |
+| Joint | Retry / mastery loops | §9.4 | Neither engine has it and the decks asked for it. A roadmap call, not a format tweak. |
+| Joint | House button-label convention | §9.7 | Content policy that binds both authoring paths. |
+| Joint | Where teaching attaches — per phase, or grouped by subject | §9.5 | Accepted as-is for now; a per-phase link would change both sides. |
+| Joint | Teach-back and the derived turn cap | §11 | Only bites if a retrieval-style mode lands (§9.8). |
+
+### Already closed — recorded so they are not re-raised
+
+| Owner | Item | Resolution |
+| --- | --- | --- |
+| Closed | Watch-and-discuss | Withdrawn 2026-08-17. `coachInteraction.media` accepts video and is explicitly ungraded; a coach step with a pinned clip *is* watch-and-discuss. |
+| Closed | Narrative placement | §9.6 — resolved on the UX Universal side, no proposal needed. |
+| Closed | The four data-model divergences | All four closed; what resolved each is in the spine-alignment note, §D. |
 
 ---
 
@@ -110,7 +170,9 @@ The important part is that the final step does **not** require rewriting the UX 
 
 ---
 
-## 4. Decisions
+## 4. Decisions — UX Universal, already taken
+
+**These are UX Universal decisions, made and shipped.** They are recorded so the POC V4 team can see what the prototype does and why; none of them is an ask, and none needs their sign-off. The asks are the POC V4 rows in *Who Decides What* above.
 
 | #  | Concerns                    | Decision                                                                                      | Rationale                                                                                                                                                                                                     |
 | -- | --------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -123,7 +185,7 @@ The important part is that the final step does **not** require rewriting the UX 
 | D7 | The authoring workflow      | **Keep scenario types as Editor templates.**                                                  | This preserves the existing LXD workflow without making scenario type part of the V4 format.                                                                                                                  |
 | D8 | Required-field defaults     | **Default mechanical fields where V4 requires them and the decks provide no authored value.** | This reduces the authoring burden without inventing teaching content. Teaching prose remains authored. `final_word` remains authored.                                                                         |
 
-The mechanical defaults reduced the initial blocking field count from **131 to 64**. The remaining fields are being evaluated separately in §9.1.
+The mechanical defaults cover every `transition.button_label` and both `purpose` slots. Measured against the current templates and validator, they take the blocking field count from **128 to 61** — the 67 they fill are 31 button labels and 36 purposes. The 61 that remain are real authoring work; §9.1 asks whether some of them should be required at all.
 
 ---
 
@@ -142,7 +204,7 @@ migration would have poisoned the attribution. That reason is retired — the
 retrofit is committed and baselined. What still stands is that these are RUNNER
 changes with learner-visible consequences, and they are interdependent.
 
-### Debrief ownership — SHIPPED (d397bea, confirmed 2026-08-17)
+### Debrief ownership — SHIPPED (05150b5, confirmed 2026-08-17)
 
 The debrief is now its own rung on the V4 route, with native types untouched —
 and the implementation needed **zero runner edits**, landing smaller than the
@@ -313,34 +375,36 @@ Playbook entries can cite internal course material (for example, `RVCT-479 P017`
 
 The migration tooling converts each existing UX Universal scenario type into a V4 document. Per D6, it does not fabricate missing instructional content, so validation errors are the authoring worklist.
 
-That worklist has moved in three steps:
+That worklist moved in three steps during the migration: **177** blocking errors on first conversion; **131** after recovering what existing prose could legitimately source (`look_for` split from guidance where the source supported it, debrief labels set to the decks' existing “Coach Debrief” language, turn budgets recovered from the existing implementation); then the D8 mechanical defaults.
 
-* **177** blocking errors on first conversion.
-* **131** after recovering what existing prose could legitimately source: `look_for` split from guidance where the source supported it, debrief labels set to the decks' existing “Coach Debrief” language, and turn budgets recovered from the existing implementation.
-* **64** after applying the mechanical defaults agreed in D8.
+Re-measured against the current templates and validator, the live figures are **128 blocking fields raw, 61 after the mechanical defaults**. Those 61 are the actual remaining authoring work. The figures are reproducible — see §17.
 
-Those 64 are the actual remaining authoring/alignment work.
+What the defaults cover, and what is left:
 
-The largest categories, as measured before the defaults were applied:
+| Field | Raw | After defaults |
+| --- | ---: | ---: |
+| `phase.purpose` | 18 | 0 — defaulted |
+| `practice.purpose` | 18 | 0 — defaulted |
+| `debrief.transition` | 18 | 0 — defaulted |
+| `practice.transition` | 9 | 0 — defaulted |
+| `opening.transition` | 4 | 0 — defaulted |
+| `practice.interaction.setting` | 8 | 8 |
+| `closing.ideal_response.summary` | 6 | 6 |
+| `characters[].role` | 5 | 5 |
+| `interaction.levels.neutral` | 5 | 5 |
+| `opening.label` / `purpose` / `exit` | 12 | 12 |
+| `look_for` (neutral, unthoughtful, strong) | 9 | 9 |
+| `teaching_points` | 4 | 4 |
+| `debrief.final_word` | 2 | 2 |
+| `coach_persona` | 2 | 2 |
+| `practice.exit.when.turns` | 2 | 2 |
+| observe `exhibit` / `rubric` / `spot_target` | 3 | 3 |
+| `debrief.key_points`, `opening_messages`, `closing.ideal_response` | 3 | 3 |
+| **Total** | **128** | **61** |
 
-* `phase.purpose` — 18
-* `practice.purpose` — 18
-* `debrief.transition` — 18
-* `practice.transition` — 9
-* `closing.summary` — 6
-* `characters[].role` — 5
-* `interaction.setting` — 8
+Note what the defaults do and do not settle. They fill `purpose` on our side with generated stub prose, which unblocks our ports but does not answer whether the field should be required at all — that question is §9.1 and it is POC V4's to decide.
 
-The transition-label portion of that list is now covered by the mechanical defaults; the rest remains open.
-
-There are also unresolved instances of:
-
-* `look_for`;
-* `final_word`;
-* `misconceptions`;
-* teaching points that need to be regrouped by subject;
-* roleplay settings; and
-* observe rubrics and `spot_target`.
+Beyond the counted fields there is unfinished work the validator cannot see: teaching points that need regrouping by subject, and observe rubrics that need an authoritative source.
 
 The largest single gap is the observe rubric. Only scene-sweep currently has an authoritative source for the required rubric entries and `spot_target` values.
 
@@ -350,7 +414,7 @@ A recurring issue is that most existing UX Universal beats have **two quality ti
 
 ## 9. Alignment Questions
 
-The following are the remaining issues that need a decision. They are ordered roughly by impact.
+The following are the remaining issues that need a decision. They are ordered roughly by impact, and each heading names the side that owns it — §9.1 through §9.4 and §9.8 are asks on POC V4; §9.5 and §9.7 are joint; §9.6 was ours and is closed.
 
 The detailed evidence is captured in:
 
@@ -368,7 +432,7 @@ Those documents contain the per-question proposal, evidence, counterpoints, and 
 
 ---
 
-### 9.1 Required fields with no authoritative source
+### 9.1 Required fields with no authoritative source — POC V4 decides
 
 The final WPV deck was searched for every field that the V4 port requires.
 
@@ -397,9 +461,9 @@ The strongest example is `phase.purpose`.
 
 The spec describes a prompt consumer for `phase.purpose`, but the audit found that it is never actually rendered into a prompt.
 
-There are **36 `purpose` slots among the current 64 blocking fields**.
+`purpose` is the clearest case. Across the seven ported scenarios it accounts for **36 of the 128 raw required-field gaps** — the single largest category. UX Universal has already defaulted all 36 with generated stub prose (D8), so they no longer block our authoring; that is a workaround, not an answer. The question of whether a field the engine never reads should be required at all is unresolved and belongs to POC V4.
 
-#### Proposed direction
+#### Proposed direction — the ask on POC V4
 
 Fields that the engine requires but the SME did not author should not automatically become SME authoring work.
 
@@ -411,7 +475,7 @@ In particular:
 
 ---
 
-### 9.2 Three major capability differences
+### 9.2 Three major capability differences — POC V4 decides
 
 #### Clarifying questions
 
@@ -445,7 +509,7 @@ The remaining discrepancy is only in the specification wording: the prose refers
 
 ---
 
-### 9.3 `practice.answer_shape`
+### 9.3 `practice.answer_shape` — POC V4 decides
 
 The extension is already implemented in UX Universal.
 
@@ -460,7 +524,7 @@ The current V4 structure does not express that distinction reliably.
 
 ---
 
-### 9.4 Retry and mastery loops
+### 9.4 Retry and mastery loops — jointly owned
 
 The POC punch list records an authoring expectation that learners can trigger another scene progression to retry.
 
@@ -472,7 +536,7 @@ The open question is whether a bounded retry/mastery loop belongs on the roadmap
 
 ---
 
-### 9.5 Where teaching belongs
+### 9.5 Where teaching belongs — jointly owned
 
 V4 groups `teaching_points` at the content level, organized by subject.
 
@@ -491,7 +555,7 @@ The second option is closer to the existing V4 structure.
 
 ---
 
-### 9.6 Narrative placement — resolved
+### 9.6 Narrative placement — resolved (was UX Universal's)
 
 This issue is closed.
 
@@ -511,7 +575,7 @@ This was verified with `prompt-diff.js`.
 
 ---
 
-### 9.7 Button labels
+### 9.7 Button labels — jointly owned (content policy)
 
 The 11 V4 scenarios contain:
 
@@ -536,7 +600,7 @@ There is also a collision where `"Begin practicing"` is used both as an opening 
 
 ---
 
-### 9.8 Generalizing typed interaction outputs
+### 9.8 Generalizing typed interaction outputs — POC V4 decides
 
 A terminology note before the substance: this section is about **interaction surfaces** in the player, not the schema **extensions** of §6 and §10. An extension is a field added to a document; a surface is a module added to a player. The two are independent — scene-sweep needs a surface but no extension, and `answer_shape` is an extension that needs no surface.
 
@@ -563,7 +627,9 @@ A new interaction type then becomes one new `mode` value plus one registered sur
 
 ---
 
-## 10. Extension Strategy
+## 10. Extension Strategy — POC V4 decides
+
+This is the single largest ask on the POC V4 team, and the one to raise first.
 
 POC V4 currently has no formal extension mechanism.
 
@@ -632,7 +698,7 @@ Internal authoring remains flat. Folding is an export projection.
 
 ## 11. Smaller Alignment Issues
 
-Several lower-priority questions remain.
+Several lower-priority questions remain. The third quality tier, `help_turns` and `spot_target` are POC V4's calls; the teach-back cap only matters if a retrieval mode lands and is joint.
 
 ### Third quality tier
 
@@ -712,7 +778,7 @@ The V4 compiler can remain the compatibility boundary between content and the ex
 
 ## 14. Remaining UX Universal Decisions
 
-Three questions remain specifically on the UX Universal side.
+Three questions remain specifically on the UX Universal side. **None of them is an ask on the POC V4 team**; they are listed so the record is complete. The one with a downstream consequence is teach-back: if we choose the second direction below, it turns into the §9.8 ask, which is already on their list.
 
 ### 1. What happens to `branching-arc`?
 
@@ -746,7 +812,7 @@ Decision:
 
 The implementation work is substantially complete. The next phase should focus on decisions rather than further infrastructure.
 
-### Priority 1 — Resolve §9.1
+### Priority 1 — Resolve §9.1 · POC V4
 
 Determine which required V4 fields represent genuine authoring requirements and which are artifacts of the spec/engine mismatch.
 
@@ -756,15 +822,15 @@ In particular:
 * transition labels; and
 * `final_word`.
 
-This is the main blocker to reducing the 64 remaining fields.
+This is the main blocker to reducing the 61 remaining fields.
 
-### Priority 2 — Decide the extension model
+### Priority 2 — Decide the extension model · POC V4
 
 Resolve whether V4 should support a namespaced extension envelope.
 
 If adopted, formalize `answer_shape` and the safety flags as the first extensions.
 
-### Priority 3 — Resolve behavioral differences
+### Priority 3 — Resolve behavioral differences · POC V4 and joint
 
 Make explicit product decisions about:
 
@@ -775,17 +841,17 @@ Make explicit product decisions about:
 * help turns; and
 * `spot_target` behavior.
 
-### Priority 4 — Decide the future of teach-back
+### Priority 4 — Decide the future of teach-back · UX Universal, then POC V4
 
 This is the largest remaining mismatch between the two models.
 
 The cleanest long-term architecture is likely a generalized interaction/output contract rather than continuing to special-case teach-back.
 
-### Priority 5 — Complete authoring
+### Priority 5 — Complete authoring · UX Universal
 
-Once §9.1 is settled, finish the remaining 64 fields and re-run the verification checks described in the appendix (§17).
+Once §9.1 is settled, finish the remaining 61 fields and re-run the verification checks described in the appendix (§17).
 
-### Priority 6 — Flip V4 to the default source
+### Priority 6 — Flip V4 to the default source · UX Universal
 
 Once the alignment decisions are resolved and the authoring gaps are closed, make V4 the default authored source rather than requiring:
 
@@ -821,6 +887,8 @@ The remaining work is therefore not “make V4 work.”
 
 It is to decide **what V4 should require, what UX Universal-specific behavior belongs in extensions, and which genuine product behaviors should be standardized rather than silently preserved from the old implementation.**
 
+Most of those calls are POC V4's to make. *Who Decides What*, near the top, is the routed list — ten asks on the format or the engine, four joint, the rest ours.
+
 Once those decisions are made, the remaining authoring work is finite and the system is in a position to make V4 the default authored source.
 
 ---
@@ -841,11 +909,11 @@ Supplemental detail on how the conversion effort went — what was built, how it
 | `roundtrip.js` (scratchpad)         | Compares behavior between the current implementation and the V4 path.                                  |
 | `check-assets.js` (scratchpad)      | Verifies asset references across the scenario trees.                                                   |
 
-The old per-type `toRuntime` / `toMixArc` conversion paths are replaced by the single V4 compiler.
+On the V4 route this single compiler replaces what would otherwise have been a per-type conversion path. The native per-type `toRuntime` / `toMixArc` paths are untouched and still ship — `?type=v4-universal` selects the V4 compiler, every other `?type=` still runs its own.
 
 ### V4 validation
 
-All 11 existing POC V4 scenarios validate successfully:
+The 11 scenarios live in `VectorLearning/scenario-simulator-poc`, not in this repository, so this check is reproducible only with that repo checked out alongside. All 11 validate successfully against our port of the schema:
 
 * zero warnings;
 * zero validation errors;
@@ -893,6 +961,16 @@ Validate a V4 document (this tool is in the repository):
 
 ```bash
 node js/scenario-v4.js <file.lo.json>
+```
+
+Reproduce the blocking-field counts in §8 — 128 raw, 61 after the D8 defaults:
+
+```bash
+node -e "const V4=require('./js/scenario-v4.js'),T=require('./js/scenario-v4-templates.js');
+let raw=0,def=0;for(const t of T.list()){const d=T.get(t.id);
+raw+=V4.validate(d).errors.length;
+def+=V4.validate(V4.applyHouseDefaults(JSON.parse(JSON.stringify(d))).doc).errors.length;}
+console.log(raw,def);"
 ```
 
 The remaining tools — `port-to-v4.js`, `roundtrip.js`, `check-assets.js`, `prompt-diff.js`, and `regenerate-templates.js` — live in the working session's scratchpad rather than the repository, so they are recorded here as part of the effort rather than as commands others can run.

@@ -10,6 +10,9 @@
    and inline bold / italic / `code` / [text](url). It is NOT a general
    markdown parser — if a doc grows a construct this misses, extend it here.
 
+   One house convention on top of markdown: a table cell whose whole text is
+   an owner label (POC V4 / UX Universal / Joint / Closed) renders as a badge.
+
    API:
      MdDocView.render(md)       → html string
      MdDocView.mount(el, path)  → fetch path, render into el, set the document
@@ -34,6 +37,24 @@
     s = s.replace(/(^|[\s(—·"“])\*([^*\n]+)\*(?=[\s)—·.,;:"”]|$)/g, '$1<em>$2</em>');
     s = s.replace(/\u0000(\d+)\u0000/g, function (_, i) { return stash[+i]; });
     return s;
+  }
+
+  /* Owner badges. The alignment notes route every open item to the side that
+     owns the decision, and a reader scanning for "what do WE have to decide"
+     needs that to be findable, not read for. A table cell whose ENTIRE text is
+     one of these labels renders as a badge — exact match only, so ordinary
+     prose that happens to start with "POC V4" is never touched, and the
+     markdown stays plain-readable on GitHub. */
+  const OWNERS = {
+    'POC V4':       'v4',
+    'UX Universal': 'ux',
+    'Joint':        'joint',
+    'Closed':       'closed'
+  };
+  function ownerCell(text) {
+    const key = text.trim();
+    if (!Object.prototype.hasOwnProperty.call(OWNERS, key)) return null;
+    return '<span class="owner owner-' + OWNERS[key] + '">' + key + '</span>';
   }
 
   function slug(text) {
@@ -78,7 +99,11 @@
         t += '</tr></thead><tbody>';
         body.forEach((r) => {
           t += '<tr>';
-          cells(r).forEach((c) => { t += '<td>' + inline(c) + '</td>'; });
+          cells(r).forEach((c) => {
+            const badge = ownerCell(c);
+            t += badge ? '<td class="owner-cell">' + badge + '</td>'
+                       : '<td>' + inline(c) + '</td>';
+          });
           t += '</tr>';
         });
         t += '</tbody></table></div>';

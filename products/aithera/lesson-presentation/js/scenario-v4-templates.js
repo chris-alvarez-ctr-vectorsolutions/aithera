@@ -2,7 +2,7 @@
    scenario-v4-templates.js — the Writer Studio template gallery
    ----------------------------------------------------------------------------
    POC V4 has no scenario type field: what a scenario IS emerges from the modes
-   its steps use. So the eight UX Universal types live on here as TEMPLATES —
+   its steps use. So seven of the UX Universal types live on here as TEMPLATES —
    starting points an LXD picks and then edits freely, rather than a declaration
    that binds the scenario to one engine path (decision D7).
 

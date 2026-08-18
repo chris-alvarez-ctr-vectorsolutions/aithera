@@ -66,11 +66,14 @@ the shell.)
 
 1. **Action Practice** — the original; roleplay or story.
 2. **Guided Arc** — Learn → Practice arc (the flagship; splits the rail into Learn / Practice / Voice & Tone).
-3. **Observe & React**
-4. **Teach-Back**
-5. **Scene Sweep** — "spot the hazard" visual perception grading.
-6. **Ensemble Arc** — multi-character, richest schema.
-7. **Branching Arc** — *live-only, hand-authored*; not in the studio registry (no in-studio editor yet).
+3. **Teach-Back**
+4. **Scene Sweep** — "spot the hazard" visual perception grading.
+5. **Ensemble Arc** — multi-character, richest schema.
+6. **Mix & Match** — composed beats, one interaction type per beat.
+7. **Universal Scenario (v4)** — authors **Scenario CML v4** directly and owns the Dev handoff export.
+
+Two types are no longer in the registry: **Observe & React** (retired 2026-08-05 — its one
+experience is now a Mix & Match example) and **Branching Arc** (*live-only, hand-authored*).
 
 **What a "type" must provide** (the contract the shell relies on): an `id/label/icon/blurb`,
 a shipped `DEFAULT` exemplar, the locked `ENGINE_SECTIONS`, validation/normalize/merge
@@ -177,4 +180,6 @@ Call this out early in the review so nobody mistakes scaffolding for architectur
 | Open pages | Auth + per-user/org scoping |
 | `?v=` hand cache-busting | Build pipeline |
 
-_Last updated: 2026-08-03. Source of truth: `js/README.writer-studio.md`._
+_Last updated: 2026-08-18. Source of truth: `js/README.writer-studio.md`. For the POC V4
+alignment — what V4 changed, what is still open, and who owns each open decision — see
+`docs/V4-ALIGNMENT-NOTES.md`._
