@@ -68,7 +68,6 @@ The alignment work produced two very different kinds of open item, and reading t
 | POC V4 | Safety flags | §6, §9.2 | With no way to declare crisis / threat / minors content, a handed-over document loses its safety floor and leaves no trace one existed. |
 | POC V4 | `practice.answer_shape` | §9.3 | A machine-readable graded-vs-open marker. `levels.strong.look_for` carries it to a human reader, not to a parser. |
 | POC V4 | `purpose` as a required field | §9.1 | Required by the schema, never rendered into a prompt. Make it optional, or give it the consumer the spec describes. |
-| POC V4 | Partial quality scales | §11 | Allow two authored levels the way `opening.levels` already does — otherwise every author invents a middle tier indefinitely. |
 | POC V4 | `help_turns` default | §11 | The loader defaults it to 2, which arms the mid-scene help affordance for any scenario that omits the field. Confirm, or default it off. |
 | POC V4 | `spot_target` gating | §11 | The spec says the target gates completion; the shipped engine does not gate on it. Confirm which is the contract. |
 | POC V4 | Clarifying-question cost | §9.2 | Adopt the redirect rebate so a clarifying turn does not spend practice budget. Engine behavior on their side; reference implementation on ours. |
@@ -414,7 +413,7 @@ Beyond the counted fields there is unfinished work the validator cannot see: tea
 
 The largest single gap is the observe rubric. Only scene-sweep currently has an authoritative source for the required rubric entries and `spot_target` values.
 
-A recurring issue is that most existing UX Universal beats have **two quality tiers**, while V4 requires **three**. The V4 ports therefore currently synthesize the missing middle tier. Whether that should remain a format requirement is an open question (§11).
+This document previously recorded that most UX Universal beats author two quality tiers against V4's required three, and treated the gap as a candidate format change. **Measurement reversed it.** Of the 17 ported practices that carry a `levels` block, 12 already have all three; the 5 that do not are all `unthoughtful` + `strong`, a deliberate two-pole shape. And every source deck authors all three abundantly — bullying 14 / 14 / 16, WPV 8 / 11 / 15, HazCom 6 / 6 / 12 by tier-label count. No LXD source is constrained to two tiers, so the missing middles are a porting artifact and finishing them is UX Universal authoring work (§8), not a V4 requirement to relax.
 
 ---
 
@@ -590,11 +589,13 @@ The 11 V4 scenarios contain:
 
 The two main transition slots behave very differently.
 
-| Slot                | Authored | Distinct | Interpretation                                                                               |
-| ------------------- | -------: | -------: | -------------------------------------------------------------------------------------------- |
-| Practice → debrief  |       29 |        7 | Mostly “Talk it through”; the button performs the same action.                               |
-| Debrief → next step |       29 |       17 | Labels such as “Sit down with Bianca” or “Find Marco”; the text describes what happens next. |
-| Opening             |        5 |        4 | Too small a sample to establish a strong convention.                                         |
+| Slot | Authored | Distinct | All 11 | Interpretation |
+| --- | ---: | ---: | --- | --- |
+| Practice → debrief | 17 | 2 | 29 / 7 | 16 of 17 are “Talk it through”. An unwritten default, not drift. |
+| Debrief → next step | 17 | 10 | 29 / 17 | “Sit down with Bianca”, “Find Marco” — the text describes what happens next. |
+| Opening | 3 | 3 | 5 / 4 | Too small a sample to establish a convention. |
+
+The **Authored / Distinct** columns count the six SME scenarios only, which is the right basis for an authoring convention: `GENERATED-DEMOS.md` marks the other five as Claude-authored spec exercisers with no source-deck traceability. The all-11 figures are given alongside because earlier revisions of this document quoted them; the shape is the same, diluted.
 
 The practice-to-debrief button is therefore mostly stylistic drift rather than meaningful content.
 
@@ -706,23 +707,27 @@ Internal authoring remains flat. Folding is an export projection.
 
 Several lower-priority questions remain. The third quality tier, `help_turns` and `spot_target` are POC V4's calls; the teach-back cap only matters if a retrieval mode lands and is joint.
 
-### Third quality tier
+### Third quality tier — withdrawn
 
-Most UX Universal beats currently author two tiers, while V4 requires three.
+Previously raised as an ask on V4: allow a partial scale on practices, the way `opening.levels` already works, on the premise that source material often defines only two meaningful levels.
 
-The current ports synthesize the missing tier.
+**Withdrawn 2026-08-18, on measurement.** All three source decks author all three tiers, and abundantly:
 
-One option is to allow a partial scale, similar to the way the opening's `levels` structure already works.
+| Deck | `unthoughtful` | `neutral` / average | `strong` / ideal |
+| --- | ---: | ---: | ---: |
+| Workplace violence (final) | 8 | 11 | 15 |
+| Bullying | 14 | 14 | 16 |
+| HazCom | 6 | 6 | 12 |
 
-Otherwise every author will have to invent a middle tier even when the source material only defines two meaningful levels.
+No source is constrained to two levels. Of our 17 ported practices, 5 carry only `unthoughtful` + `strong`; that is our porting shape, not the deck's. The middles are ours to author.
 
 ### `help_turns`
 
-The V4 loader defaults `help_turns` to 2.
+The V4 loader defaults `help_turns` to 2 (`DEFAULT_HELP_TURNS`), which arms the mid-scene help affordance for any scene interaction that omits the field. The spec notes `coach_inquiry` has no such field — there, the learner is already talking to the coach.
 
-The POC audit set this to 0 everywhere because the decks do not explicitly contemplate help turns.
+The authored split is the evidence: **all six SME scenarios set it to 0** (nine instances). Every `2` is in one of the five Claude-generated demos. An earlier revision of this document said the POC audit "set this to 0 everywhere"; that is true of the SME content and not of the repository as a whole.
 
-This should be confirmed as an intentional product default rather than a value inferred from the decks.
+The default should be confirmed as an intentional product choice rather than inherited.
 
 ### `spot_target`
 
