@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Object Manager — Phase 1 (Title Scene)</title>
+  <title>System Maintenance Banner — Phase 1</title>
 
   <!-- Vector Web Components -->
   <script
@@ -18,9 +18,9 @@
   <link rel="stylesheet"
     href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
 
-  <!-- Font Awesome 6 -->
+  <!-- Font Awesome 6 PRO — self-hosted so icons render on file:// too -->
   <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+    href="../../../../../assets/fontawesome/css/all.min.css" />
 
   <style>
     :root {
@@ -533,11 +533,96 @@
     .btn-primary { background: var(--brand-2); color: #fff; }
     .btn-primary:hover { background: var(--brand); }
 
+    /* ---- Row 0: system maintenance notice ------------------------------
+       Full-bleed warning banner pinned above all app chrome. Colors come
+       from the Vector/Lumo warning tokens so it matches
+       vaadin-notification theme="warning" rather than a one-off yellow.
+       Fallbacks are the literal token values in case styles.js is slow to
+       apply its custom properties. */
+    .sys-notice {
+      flex: 0 0 auto;                 /* never compresses when the page is short */
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 22px;
+      /* 10pct warning tint over white -> the soft yellow notice surface */
+      background: var(--lumo-warning-color-10pct, #ffcc001a);
+      /* Solid bottom rule, not a translucent token, so the header below
+         stays visually separate while scrolling content passes under. */
+      border-bottom: 1px solid #f0d48a;
+      color: var(--lumo-warning-text-color, #995211);
+      font-size: 13.5px;
+      line-height: 19px;
+    }
+
+    /* Hidden via a class rather than removed, so the dismiss can be re-run
+       and the layout reflows cleanly (flex item drops out of the column). */
+    .sys-notice.dismissed { display: none; }
+
+    .sys-notice-icon {
+      flex: 0 0 auto;
+      font-size: 15px;
+      color: var(--lumo-warning-color, #e0782e);
+    }
+
+    .sys-notice-text {
+      flex: 1 1 auto;
+      margin: 0;
+      min-width: 0;                   /* lets long copy wrap instead of pushing actions off */
+    }
+
+    /* The window itself leads — bolded so the "when" scans first */
+    .sys-notice-text strong { font-weight: 700; }
+
+    /* The consequence users must act on: forced sign-out + lost work.
+       Kept inline (not a second line) so the banner stays one row on
+       desktop, but it carries its own weight to stand out from the copy. */
+    .sys-notice-emphasis { font-weight: 700; }
+
+    .sys-notice-dismiss {
+      flex: 0 0 auto;
+      width: 28px; height: 28px;
+      border: none; border-radius: 6px;
+      background: transparent; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      color: var(--lumo-warning-text-color, #995211);
+    }
+    .sys-notice-dismiss:hover { background: rgba(153, 82, 17, .12); }
+
+    /* Narrow viewports: let the notice wrap to two rows and drop the copy
+       to a full-width line so the action + dismiss stay reachable. */
+    @media (max-width: 900px) {
+      .sys-notice { flex-wrap: wrap; padding: 10px 16px; }
+      .sys-notice-text { flex: 1 1 100%; order: 3; }
+    }
+
     :focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
   </style>
 </head>
 <body>
   <div class="app">
+    <!-- ===== Row 0: system maintenance notice =====
+         Sits above every other chrome row (including the accent strip) so it
+         reads as system-level, not app-level. In the flex column shell it
+         pushes the whole UI down rather than overlaying it — the notice must
+         never cover the header it warns about.
+         Uses the design system's warning tokens (--lumo-warning-*), matching
+         vaadin-notification theme="warning" position="top-stretch". -->
+    <div class="sys-notice" role="alert" id="sys-notice">
+      <i class="fa-solid fa-triangle-exclamation sys-notice-icon"></i>
+
+      <p class="sys-notice-text">
+        <strong>Scheduled system maintenance — Saturday, August 15, 11:00&nbsp;PM–3:00&nbsp;AM ET.</strong>
+        Learning Studio will be unavailable during this window.
+        <span class="sys-notice-emphasis">You will be signed out automatically and any unsaved work will be lost.</span>
+      </p>
+
+      <button class="sys-notice-dismiss" type="button" title="Dismiss" aria-label="Dismiss maintenance notice">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
     <div class="accent-strip"></div>
 
     <!-- ===== Row 1: global header ===== -->
@@ -745,9 +830,17 @@
   </div>
 
   <!-- Design Toolbox (review/handoff tooling — not part of the product) -->
-  <script src="../../../../designtoolbox/toolbox.js"></script>
+  <script src="../../../../../designtoolbox/toolbox.js"></script>
 
   <script>
+    // --- System maintenance notice: dismiss ---
+    // Hiding the flex item lets the rest of the shell reclaim the height,
+    // so the header slides back up to the top of the viewport.
+    const sysNotice = document.getElementById('sys-notice');
+    sysNotice.querySelector('.sys-notice-dismiss').addEventListener('click', () => {
+      sysNotice.classList.add('dismissed');
+    });
+
     // --- Minor functionality: segmented tab selection ---
     const segTabs = document.getElementById('segTabs');
     segTabs.addEventListener('click', (e) => {
