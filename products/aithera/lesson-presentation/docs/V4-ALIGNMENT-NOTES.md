@@ -159,7 +159,7 @@ committed and baselined. What still stands is that these are RUNNER changes with
 learner-visible consequences, and they are interdependent (see the sequencing
 note at the end of this section).
 
-**Decision (Chris, 2026-08-17): go ahead, sequenced.**
+**Recommendation (2026-08-17, awaiting Chris's confirmation): go ahead, sequenced.**
 
 1. **Debrief rung first, scoped to the v4 route only** — ScenarioV4Runtime emits
    the debrief rungs; native types' toRuntime untouched, so shipped demos keep
