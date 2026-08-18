@@ -87,6 +87,7 @@ Listed for transparency, not for discussion.
 | UX Universal | Whether teach-back stays a local type | §14 |
 | UX Universal | The missing `hazmat_scene_3.mp4` reference | §14 |
 | UX Universal | Finishing the remaining authoring fields | §8 |
+| UX Universal | Compile fidelity — 184 authored values the V4 compiler drops | *Compile Fidelity* |
 
 ### Jointly owned — product or content policy
 
@@ -373,6 +374,32 @@ Playbook entries can cite internal course material (for example, `RVCT-479 P017`
 
 **Presentation and session fields.**
 `course`, `learnerName`, `characterName`, and `state`. In V4, catalog metadata lives outside the scenario document, and `state` is replaced by `carryover`.
+
+---
+
+## Compile Fidelity — What We Drop
+
+Every version of this document has described the gap in one direction: things UX Universal needs that V4 cannot express (§6, §7). Running the POC's own eleven scenarios through our V4 compiler shows the other direction, and it is larger.
+
+**Method.** Compile each of the eleven documents with `v4-universal.compile`, then test whether each authored value appears in the resulting prompt. Verbatim-carried controls (`look_for`, `response`, `narrative`, `coach_persona`) confirm the method — all four are present.
+
+| Authored field | Values in the 11 | Reaching the prompt |
+| --- | ---: | ---: |
+| `levels[].example.learner` | 78 | 1 |
+| `levels[].example.reply` | 78 | 5 |
+| `characters[].canon_facts.fact` | 9 | 0 |
+| `characters[].canon_facts.reveal_when` | 9 | 0 |
+| `roleplay.emotion_hint` | 10 | 0 |
+
+The handful of `example.reply` matches are incidental: 6 of the 78 repeat a sentence that also appears in the tier's own `response`, which the compiler does carry. The examples themselves never arrive.
+
+**What each loss costs.**
+
+* **Worked examples (156 values).** Each tier authors a concrete learner utterance and the reply it should draw. The model receives the abstract criteria (`look_for`) and the coaching intent (`response`), but not the calibration sample. This is the single largest body of authored content we ignore.
+* **Character disclosure facts and their timing (18 values).** `canon_facts.reveal_when` is *earned disclosure* — the mechanic our own ensemble-arc pioneered and implements natively as `cast[].disclosures[]`, compiled into a dedicated prompt block. We built the feature and never wired their field to it. The compiler mentions neither `canon_facts` nor `example` anywhere, so this is unimplemented rather than declined.
+* **Roleplay emotional direction (10 values).** Partly defensible: the compiler documents a decision that reaction direction "lives inside each tier's `response`, which calibration carries," and sets `reactionGuidance` to empty on that basis. Whether that reasoning extends to `emotion_hint` specifically was never stated.
+
+**Why this matters to the alignment.** It changes the shape of the conversation from *what should V4 add* to *what does each side owe the other*, and it is ours to fix, not an ask. It also gates §15 Priority 6: V4 cannot become the default authored source while the compiler silently discards 184 authored values. An author would fill in worked examples in the Editor and see no effect on play.
 
 ---
 
@@ -865,6 +892,8 @@ The cleanest long-term architecture is likely a generalized interaction/output c
 Once §9.1 is settled, finish the remaining 61 fields and re-run the verification checks described in the appendix (§17).
 
 ### Priority 6 — Flip V4 to the default source · UX Universal
+
+Blocked on compile fidelity as well as on the alignment decisions: while the compiler discards worked examples, disclosure facts and their reveal timing, an author editing those fields in the Editor sees no change in play. Close that first.
 
 Once the alignment decisions are resolved and the authoring gaps are closed, make V4 the default authored source rather than requiring:
 
