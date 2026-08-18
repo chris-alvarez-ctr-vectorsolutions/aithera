@@ -1560,8 +1560,8 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=8"></script>
-    <script src="js/sim-player.js?v=7"></script>
+    <script src="js/sim-core.js?v=9"></script>
+    <script src="js/sim-player.js?v=8"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
          calls polymorphically for custom-interaction surfaces (scene-sweep,
@@ -1602,8 +1602,9 @@
          the surfaces. -->
     <script src="js/scenario-v4.js?v=2"></script>
     <script src="js/scenario-v4-runtime.js?v=3"></script>
+    <script src="js/scenario-v4-scopes.js?v=1"></script>
     <script src="js/scenario-v4-templates.js?v=2"></script>
-    <script src="js/scenario-types/v4-universal.js?v=3"></script>
+    <script src="js/scenario-types/v4-universal.js?v=4"></script>
     <!-- [Option B] the OPT-IN perception layer: the photo/hotspot "spot the
          hazard" Observe canvas + coverage rail. Registers itself as the 'spot'
          SURFACE (js/sim-surfaces.js). Mounts ONLY for a scenario with a kind:'spot'
@@ -1711,6 +1712,12 @@
     const PLAY_TYPE = IS_RECIPE ? BA_TYPE : (REQ_TYPE || BA_TYPE);
     const PLAY_SRC  = IS_RECIPE ? REQ_TYPE.toMixArc(REQ_SRC) : REQ_SRC;
     const ACTIVE_SCENARIO = PLAY_TYPE.toRuntime(PLAY_SRC);
+    /* [POC V4 scoping] The two-conversation model (their spec §2), v4 route only:
+       a type exposing compileScopes gets per-turn scope-selected system prompts
+       and scene-filtered history. Every native type lacks the hook — null here
+       means every line below behaves exactly as before. */
+    const SCOPES = (PLAY_TYPE && typeof PLAY_TYPE.compileScopes === 'function')
+      ? PLAY_TYPE.compileScopes(PLAY_SRC, { runtime: ACTIVE_SCENARIO }) : null;
     const fillT = (t) => PLAY_TYPE.fill(t, ACTIVE_SCENARIO);
     // The say/do split (a learner's scene move → DO narration + SAY bubble) is an
     // AUTHORED, opt-in property of a scene phase (phase.sayDoSplit), never a global.
@@ -1866,7 +1873,9 @@
     const _LADDER = window.SimPlayer.makeLadder({ scenario: ACTIVE_SCENARIO, state, fillT,
       // the active surface folds its per-phase OUTCOME line into [SYSTEM STATE]
       // (scene-sweep's COVERAGE, teach-back's N-of-10); null for the conversational types.
-      outcomeBlock: SURFACE ? SURFACE.outcomeBlock : null });
+      outcomeBlock: SURFACE ? SURFACE.outcomeBlock : null,
+      // [POC V4 scoping] rung-boundary recorder — non-null only on the v4 route.
+      onRungEnter: SCOPES ? SCOPES.onRungEnter : null });
     const arcStateBlock = _LADDER.arcStateBlock;
     const runArcEngine  = _LADDER.runArcEngine;
     const applyDeliver  = _LADDER.applyDeliver;
@@ -1985,10 +1994,17 @@
       // static compiled arc + the coupler's context addenda + the per-turn state
       // line. The big arc stays byte-identical across turns (prompt cache stays
       // warm); only the short [SYSTEM STATE] tail changes.
-      system: () => SYSTEM_PROMPT + arcStateBlock(),
+      /* [POC V4 scoping] On the v4 route the system prompt is selected PER TURN
+         by the active rung's scope (coach-practice / coach-debrief / scene) —
+         the two-conversation model. Native routes keep the single prompt. */
+      system: () => (SCOPES ? SCOPES.systemFor(state) : SYSTEM_PROMPT) + arcStateBlock(),
       maxTokens: 1600,
       parser: TURN_PARSER,
-      history: SimCore.turnHistory({ name: true, owner: true }),
+      /* [POC V4 scoping] A scene turn's history is its own rung slice plus any
+         granted carryover slices, verbatim; coach turns keep the full brief. */
+      history: (function (base) {
+        return SCOPES ? function (msgs) { return base(SCOPES.filterHistory(msgs, state)); } : base;
+      }(SimCore.turnHistory({ name: true, owner: true }))),
       scripted: scriptedTurn,        // "coach unreachable" stub — this arc is live end to end
     });
     const getTurn = TURN_ENGINE.getTurn;
@@ -3843,7 +3859,7 @@
       // arrives here as ONE normalized ContextRecord (js/sim-context.js) —
       // the same coupler every simulator page flows through.
       SimContext.apply(context, {
-        appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
+        appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; if (SCOPES) SCOPES.appendAddendum(t); },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
       });
       // A surface may DIVERGE startSession: rather than raising the coach with a

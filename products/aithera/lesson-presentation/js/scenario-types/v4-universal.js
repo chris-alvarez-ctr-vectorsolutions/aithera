@@ -361,7 +361,7 @@
     return parts.length ? '\n\n' + parts.join('\n\n') : '';
   }
 
-  function compile(s) {
+  function compileString(s) {
     const rt = V4RT();
     const mix = MIX();
     if (!rt || !mix) return 'Cannot compile: scenario-v4-runtime.js and mix-arc.js must load first.';
@@ -371,6 +371,32 @@
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
     }
+  }
+
+  /* The two-conversation scoping contract (§5 change #2) — the player calls
+     this once and then asks it, per turn, for the active scope's system prompt
+     and the scope-filtered history. Scopes are the SAME string builder above
+     run over redacted copies of the document (see scenario-v4-scopes.js), so
+     the engine contract is identical in every scope by construction. */
+  function compileScopes(s, opts) {
+    const scopes = window.ScenarioV4Scopes;
+    if (!scopes) return null;
+    return scopes.create(prune(withoutShellKeys(normalize(s))), {
+      compile: compileString,
+      toRuntime: toRuntime,
+      runtime: opts && opts.runtime,
+    });
+  }
+
+  /* The inspector's view: the ordered per-scope prompts (the shell's
+     compiled-prompt tab renders {role,label,text} arrays — the teach-back
+     precedent). Falls back to the monolith string when the scopes module is
+     not loaded on a page. */
+  function compile(s) {
+    const scoped = compileScopes(s);
+    if (!scoped) return compileString(s);
+    try { return scoped.prompts(); }
+    catch (e) { return compileString(s); }
   }
 
   /* POC V4 content carries no {{placeholders}} — the learner is always "you"
@@ -1246,6 +1272,7 @@
     fill,
     highlightStrings,
     toRuntime,
+    compileScopes,
     /* The universal player resolves ?type= from the Studio registry, so this
        type plays through the EXISTING resolver — no new route needed.
        ?observe=text routes any kind:'spot' phase to the text-observation

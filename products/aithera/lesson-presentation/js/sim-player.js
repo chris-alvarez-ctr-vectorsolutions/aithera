@@ -306,6 +306,12 @@
       const phases = scenario.phases || [];
       const p = phases.find((x) => x.id === turn.deliver);
       if (!p) return;
+      // GUARDED HOOK (the outcomeBlock idiom): a page that scopes prompts and
+      // history per rung (the v4 route's two-conversation model) needs to know
+      // where each rung's slice of the message list begins. Recorded BEFORE the
+      // locked entry beats append, so the slice includes them. Absent on every
+      // native page — zero behavior change there.
+      if (typeof ctx.onRungEnter === 'function') ctx.onRungEnter(p.id, (state.messages || []).length);
       const beat = entryBeatsFor(p, state.lastTier).map((m) => ({ ...m, locked: true }));
 
       // The model is told the locked text but sometimes reproduces it anyway;
