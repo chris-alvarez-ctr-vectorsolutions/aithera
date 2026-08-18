@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controlled Substances — Preserved IA (V2)</title>
+
+<!--
+  CONTROLLED SUBSTANCES — V2 "PRESERVED"
+  ======================================
+  The contrasting proposal to V1 (../ver1/). Same PRD requirements, same domain
+  rules, same data — but the EXISTING tab structure is kept and the new
+  requirements are fitted into it with the smallest defensible change.
+
+  This is deliberately the conservative option, and it is NOT a straw man. Its
+  real arguments:
+    • Nobody has to relearn the module. Drug Boxes, Master Supply and On Hand
+      keep their names and their muscle memory.
+    • A station officer who only ever opens "Drug Boxes" still lands there in one
+      click, with no scope concept to learn.
+    • It ships incrementally — one new tab and two sub-tabs is a scopeable
+      increment; V1's consolidation is a rewrite of the module's navigation.
+    • It matches how the PM already socialised the work, so the team is
+      reacting to something familiar.
+
+  WHAT IT COSTS (state plainly so the comparison is honest)
+  ---------------------------------------------------------
+    • Three container-shaped tabs remain three tabs, so the same substance is
+      still reachable only by way of whichever container view you happen to be
+      in. Substances stay non-addressable.
+    • Discrepancies stays a peer tab, so an undispositioned discrepancy is only
+      visible if you go looking for it. This version puts a COUNT on the tab and
+      a banner on entry, but the alert is not domain-level and does not persist
+      across tabs the way V1's attention layer does.
+    • Compliance data (registration topology, biennial status, authorizations)
+      lives inside Reports as read-only artifacts, so the obligations with clocks
+      have nowhere active to surface.
+    • The tab bar reaches 8 items, which is close to its practical width limit.
+
+  STRUCTURE
+  ---------
+    Drug Boxes | Master Supply | On Hand | Audit | Orders* | Compliance* | Reports | Discrepancies
+                                            └ Movements · Consumption* · Chain of Custody
+
+  PRD COVERAGE (identical to V1, different placement)
+  ---------------------------------------------------
+    5.1 Registered/designated locations ....... Compliance tab
+    5.2 Per-dose administration & disposal .... Audit › Consumption
+    5.3 Acquisition / restock / delivery ...... Audit › Movements
+    5.4 Standing & verbal orders .............. Orders tab
+    5.5 Registrant authorizations ............. Compliance tab
+    5.6 Biennial inventory .................... Compliance tab
+    5.7 DEA/PPAEMA report set ................. Reports tab
+
+  The DOMAIN RULES are identical to V1 and are not re-argued here — see the
+  header of ../ver1/index.html for the full derivation. In brief: consumption is
+  recorded outside CS (review-only here); "usage" is a TYPE not a category, so
+  type is a facet; administered and wasted live on ONE record; registered and
+  designated locations are siblings and stations/apparatus are parallel; a
+  restock cannot be "late", only its entry can.
+-->
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 PRO — self-hosted at the repo root, four levels up. -->
+<link
+rel="stylesheet"
+href="../../../../assets/fontawesome/css/all.min.css"
+/>
+
+<style>
+  /* ====================================================================
+     SHELL TOKENS — identical to V1, so the two versions differ only in the
+     content window and a reviewer is comparing IA, not chrome.
+     ==================================================================== */
+  :root {
+    --ci-topbar-bg:  #1b3b5f;
+    --ci-surface:    #ffffff;
+    --ci-hairline:   #dcdcdc;
+    --ci-ink-900:    #2f2f2f;
+    --ci-ink-700:    #444444;
+    --ci-ink-500:    #6b6b6b;
+    --ci-navy:       #16416b;
+    --ci-nav-active: #e4e4e4;
+    --ci-alert-bg:   #fdeaea;
+    --ci-alert-fg:   #d32f2f;
+    --ci-sidebar-w:  233px;
+    --ci-topbar-h:   70px;
+
+    --cs-page-bg:    #f5f7f9;
+    --cs-card-bg:    #ffffff;
+    --cs-line:       #e3e7ec;
+    --cs-line-soft:  #eef1f4;
+    --cs-zebra:      #f8fafb;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--ci-ink-900);
+    background: var(--ci-surface);
+  }
+  :focus-visible { outline: 2px solid #4a90d9; outline-offset: 2px; }
+
+  .ci-app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---------------------------- TOP BAR ---------------------------- */
+  .ci-topbar {
+    height: var(--ci-topbar-h); flex-shrink: 0;
+    background: var(--ci-topbar-bg); color: #fff;
+    display: flex; align-items: center; padding: 0 22px;
+  }
+  .ci-logo { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .ci-logo-lockup { height: 30px; width: auto; display: block; }
+  .ci-logo-sub { margin-left: 34px; font-size: 9.5px; color: #b6c6d6; letter-spacing: .4px; }
+  .ci-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .ci-avatar {
+    width: 42px; height: 42px; border-radius: 50%; background: #22b14c;
+    display: grid; place-items: center; font-size: 18px; color: #0d5c25;
+    border: 2px solid #d6f0dd; flex-shrink: 0;
+  }
+  .ci-username { font-size: 16px; color: #fff; white-space: nowrap; }
+
+  /* ---------------------------- SIDEBAR ---------------------------- */
+  .ci-body { flex: 1; display: flex; min-height: 0; }
+  .ci-sidebar {
+    width: var(--ci-sidebar-w); flex-shrink: 0;
+    background: var(--ci-surface); border-right: 1px solid var(--ci-hairline);
+    display: flex; flex-direction: column;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .ci-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+  .ci-search { padding: 14px 12px 10px; }
+  .ci-search .box {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #b9b9b9; border-radius: 6px; padding: 8px 10px;
+    font-size: 13px; color: var(--ci-ink-700);
+  }
+  .ci-search .box span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ci-search .box i { color: var(--ci-ink-900); font-size: 14px; }
+
+  .ci-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 24px; }
+  .ci-nav-item {
+    width: 100%; border: 0; background: transparent; font: inherit; font-size: 14.5px;
+    color: var(--ci-ink-900); text-align: left;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px; border-radius: 6px; cursor: default;
+  }
+  .ci-nav-item .ci-nav-icon { width: 22px; font-size: 17px; text-align: center; flex-shrink: 0; }
+  .ci-nav-item .ci-nav-label { flex: 1; line-height: 1.25; }
+  .ci-nav-item .ci-nav-caret { font-size: 12px; color: var(--ci-ink-500); flex-shrink: 0; }
+  .ci-nav-item[aria-current="page"] { background: var(--ci-nav-active); font-weight: 600; }
+  .ci-nav-item.is-alert { background: var(--ci-alert-bg); color: var(--ci-alert-fg); }
+  .ci-nav-item.is-alert .ci-nav-icon,
+  .ci-nav-item.is-alert .ci-nav-caret { color: var(--ci-alert-fg); }
+
+  /* ====================================================================
+     CONTENT WINDOW
+     ==================================================================== */
+  .ci-content {
+    flex: 1; min-width: 0; overflow-y: auto;
+    background: var(--cs-page-bg);
+    padding: 22px 26px 60px;
+  }
+
+  .cs-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+  .cs-title { margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -.01em; }
+  .cs-sub { margin: 5px 0 0; font-size: 13.5px; color: var(--ci-ink-500); }
+  .cs-head-actions { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+
+  /* ====================================================================
+     SUMMARY PANELS — today's Escalation Summary, kept, now paired with a
+     Discrepancies panel. This is V2's answer to surfacing urgency: it lives on
+     the page, NOT above the tabs, and it does not persist once you navigate to
+     another tab. That difference is the point of the comparison.
+     ==================================================================== */
+  .cs-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  @media (max-width: 1000px) { .cs-panels { grid-template-columns: 1fr; } }
+
+  .cs-panel {
+    background: var(--cs-card-bg); border: 1px solid var(--cs-line);
+    border-radius: var(--lumo-border-radius-m, .5em); padding: 14px 16px;
+  }
+  .cs-panel-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .cs-panel-empty {
+    background: var(--cs-zebra); border-radius: 6px; padding: 12px 14px;
+    font-size: 13px; color: var(--ci-ink-700);
+  }
+  .cs-panel-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--cs-line-soft);
+  }
+  .cs-panel-row:last-child { border-bottom: 0; }
+  .cs-panel-row i.lead { color: var(--ci-ink-500); font-size: 13px; flex-shrink: 0; }
+  .cs-panel-link {
+    font-size: 13px; font-weight: 600; color: var(--lumo-primary-text-color, #0271ce);
+    background: none; border: 0; font-family: inherit; padding: 0; cursor: pointer; text-align: left;
+  }
+  .cs-panel-link:hover { text-decoration: underline; }
+  .cs-panel-sub { font-size: 11.5px; color: var(--ci-ink-500); margin-top: 1px; }
+
+  /* ====================================================================
+     TAB BAR — eight items. Close to the practical width limit, which is
+     itself part of what this version is testing.
+     ==================================================================== */
+  vaadin-tabs { margin-bottom: 16px; }
+  vaadin-tab { padding: 8px 14px; }  /* re-granted after the * reset */
+  .cs-tab-new {
+    margin-left: 7px; font-size: 9px; font-weight: 700; letter-spacing: .5px;
+    padding: 1px 5px; border-radius: 999px;
+    background: var(--lumo-success-color, #158444); color: #fff;
+  }
+  .cs-tab-count {
+    margin-left: 7px; font-size: 10.5px; font-weight: 700;
+    padding: 1px 6px; border-radius: 999px;
+    background: var(--lumo-error-color, #d83e38); color: #fff;
+  }
+
+  /* ====================================================================
+     SHARED PRIMITIVES — same as V1 so the versions are visually comparable.
+     ==================================================================== */
+  .cs-card {
+    background: var(--cs-card-bg); border: 1px solid var(--cs-line);
+    border-radius: var(--lumo-border-radius-m, .5em);
+    box-shadow: 0 1px 2px rgba(16,24,40,.04);
+  }
+  .cs-card + .cs-card { margin-top: 14px; }
+  .cs-card-head {
+    padding: 13px 16px; border-bottom: 1px solid var(--cs-line-soft);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .cs-card-title { font-size: 15px; font-weight: 700; }
+  .cs-card-sub { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 2px; }
+  .cs-card-acts { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+  .cs-card-body { padding: 15px 16px; }
+  .cs-card-body.is-flush { padding: 0; }
+
+  .cs-cite { font-size: 11.5px; color: var(--ci-ink-500); font-variant-numeric: tabular-nums; }
+
+  .cs-view { display: none; }
+  .cs-main[data-tab="boxes"]      #v-boxes,
+  .cs-main[data-tab="master"]     #v-master,
+  .cs-main[data-tab="onhand"]     #v-onhand,
+  .cs-main[data-tab="audit"]      #v-audit,
+  .cs-main[data-tab="orders"]     #v-orders,
+  .cs-main[data-tab="compliance"] #v-compliance,
+  .cs-main[data-tab="reports"]    #v-reports,
+  .cs-main[data-tab="disc"]       #v-disc { display: block; }
+
+  .cs-sub { display: none; }
+  #v-audit[data-sub="movements"]   #s-movements,
+  #v-audit[data-sub="consumption"] #s-consumption,
+  #v-audit[data-sub="coc"]         #s-coc { display: block; }
+
+  .cs-subnav { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--cs-line); }
+  .cs-subnav button {
+    border: 0; background: transparent; font: inherit; font-size: 13.5px;
+    color: var(--ci-ink-700); padding: 9px 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .cs-subnav button:hover { color: var(--ci-ink-900); }
+  .cs-subnav button[aria-selected="true"] {
+    color: var(--lumo-primary-text-color, #0271ce); font-weight: 700;
+    border-bottom-color: var(--lumo-primary-color, #0271ce);
+  }
+
+  /* ---- Tables --------------------------------------------------------- */
+  .cs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cs-table th {
+    text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ci-ink-500);
+    padding: 10px 14px; border-bottom: 1px solid var(--cs-line);
+    background: var(--cs-zebra); white-space: nowrap;
+  }
+  .cs-table td { padding: 11px 14px; border-bottom: 1px solid var(--cs-line-soft); vertical-align: middle; }
+  .cs-table tbody tr:last-child td { border-bottom: 0; }
+  .cs-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cs-table .cs-row-click { cursor: pointer; }
+  .cs-table .cs-row-click:hover { background: var(--cs-zebra); }
+
+  .cs-strong { font-weight: 700; }
+  .cs-dim { color: var(--ci-ink-500); }
+  .cs-tiny { font-size: 11.5px; color: var(--ci-ink-500); margin-top: 2px; }
+
+  /* ---- Pills ---------------------------------------------------------- */
+  .cs-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .cs-pill--reg  { background: var(--ci-navy); color: #fff; }
+  .cs-pill--desg { background: #e6ecf3; color: #2c4a6b; }
+  .cs-pill--ok   { background: var(--lumo-success-color-10pct, #1688461a); color: var(--lumo-success-text-color, #0a7637); }
+  .cs-pill--warn { background: var(--vwc-notification-color-10pct, #ffc7001a); color: var(--lumo-warning-text-color, #995211); }
+  .cs-pill--err  { background: var(--lumo-error-color-10pct, #e71d131a); color: var(--lumo-error-text-color, #ca150c); }
+  .cs-pill--neut { background: #eef1f4; color: var(--ci-ink-700); }
+  .cs-pill--type { background: #eaf3fb; color: #1b5a8f; }
+
+  .cs-note {
+    padding: 10px 13px; border-radius: 6px; font-size: 12.5px;
+    background: var(--vwc-notification-color-10pct, #ffc7001a);
+    border-left: 3px solid var(--vwc-notification-color, #ffc700);
+    color: #7a5510; margin-bottom: 14px;
+  }
+  .cs-note-info { background: #eef4fa; border-left-color: #7ba7d0; color: #2c4a6b; }
+  .cs-note-err {
+    background: var(--lumo-error-color-10pct, #e71d131a);
+    border-left-color: var(--lumo-error-color, #d83e38);
+    color: var(--lumo-error-text-color, #ca150c);
+  }
+
+  /* ====================================================================
+     DRUG BOXES — today's card grid, unchanged in shape.
+     ==================================================================== */
+  .cs-dept { font-size: 17px; font-weight: 700; margin: 4px 0 12px; letter-spacing: .01em; }
+  .cs-box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 13px; }
+  .cs-box {
+    background: #fff; border: 1px solid var(--cs-line);
+    border-radius: var(--lumo-border-radius-m, .5em); padding: 14px 15px;
+  }
+  .cs-box-top { display: flex; align-items: flex-start; gap: 10px; }
+  .cs-box-name { font-size: 15px; font-weight: 700; flex: 1; }
+  .cs-box-more {
+    border: 0; background: #f1f3f6; border-radius: 5px; width: 30px; height: 26px;
+    cursor: pointer; color: var(--ci-ink-700); flex-shrink: 0;
+  }
+  .cs-box-loc { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 3px; }
+  .cs-box-pol {
+    font-size: 12.5px; color: var(--ci-ink-500);
+    padding: 10px 0; margin-top: 10px; border-top: 1px solid var(--cs-line-soft);
+  }
+  .cs-box-stat { display: flex; align-items: center; gap: 9px; font-size: 13.5px; margin-top: 2px; }
+  .cs-box-dot {
+    width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 10px; flex-shrink: 0; background: #e6e8eb; color: #6b7280;
+  }
+  .cs-box-dot.is-ok { background: var(--lumo-success-color-10pct, #1688461a); color: var(--lumo-success-text-color, #0a7637); }
+  .cs-box-dot.is-err { background: var(--lumo-error-color-10pct, #e71d131a); color: var(--lumo-error-text-color, #ca150c); }
+
+  /* ====================================================================
+     MASTER SUPPLY — today's accordion.
+     ==================================================================== */
+  .cs-acc { border: 1px solid var(--cs-line); border-radius: var(--lumo-border-radius-m, .5em); overflow: hidden; }
+  .cs-acc-head {
+    display: flex; align-items: center; gap: 11px; padding: 13px 15px;
+    background: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+    border: 0; width: 100%; text-align: left; font-family: inherit;
+  }
+  .cs-acc-head i.chev { margin-left: auto; color: var(--ci-ink-500); font-size: 13px; }
+  .cs-drug-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 15px;
+    background: var(--lumo-error-color, #d83e38); color: #fff; font-weight: 700; font-size: 14px;
+  }
+  .cs-drug-row .amt {
+    margin-left: auto; background: #fff; color: var(--lumo-error-text-color, #ca150c);
+    border-radius: 999px; padding: 2px 11px; font-size: 12px;
+  }
+  .cs-sub-drug {
+    display: flex; align-items: center; gap: 12px; padding: 12px 15px;
+    background: #fff; border: 1px solid var(--cs-line); border-radius: 6px; margin: 9px 15px 0;
+  }
+  .cs-sub-drug .n { font-size: 14px; font-weight: 700; }
+  .cs-sub-drug .w { font-size: 12px; color: var(--ci-ink-500); margin-top: 2px; }
+  .cs-sub-drug .amt {
+    margin-left: auto; background: #eef1f4; color: var(--ci-ink-700);
+    border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 700;
+  }
+  .cs-lots { display: flex; gap: 9px; flex-wrap: wrap; padding: 9px 15px 15px; }
+  .cs-lot-tile {
+    background: #fff; border: 1px solid var(--cs-line); border-radius: 6px;
+    padding: 9px 13px; display: flex; align-items: center; gap: 14px; min-width: 190px;
+  }
+  .cs-lot-tile .d { font-size: 13.5px; font-weight: 700; }
+  .cs-lot-tile .m { font-size: 11.5px; color: var(--ci-ink-500); margin-top: 1px; }
+  .cs-lot-tile .c {
+    margin-left: auto; background: #eef1f4; border-radius: 999px;
+    padding: 2px 9px; font-size: 12px; font-weight: 700;
+  }
+
+  /* ====================================================================
+     AUDIT — expandable consumption rows, same as V1.
+     ==================================================================== */
+  .cs-filters {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
+    padding: 13px 16px; border-bottom: 1px solid var(--cs-line-soft); background: var(--cs-zebra);
+  }
+  .cs-filters vaadin-select, .cs-filters vaadin-date-picker { width: 168px; }
+
+  .cs-facets { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .cs-facet {
+    border: 1px solid var(--cs-line); background: #fff; border-radius: 999px;
+    font: inherit; font-size: 12px; padding: 4px 12px; cursor: pointer; color: var(--ci-ink-700);
+  }
+  .cs-facet:hover { border-color: #b9c6d4; }
+  .cs-facet[aria-pressed="true"] {
+    background: var(--ci-navy); border-color: var(--ci-navy); color: #fff; font-weight: 700;
+  }
+  .cs-scope-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ci-ink-500);
+  }
+
+  .cs-exp { display: none; background: var(--cs-zebra); }
+  tr.cs-exp.is-open { display: table-row; }
+  .cs-exp td { padding: 0; border-bottom: 1px solid var(--cs-line); }
+  .cs-exp-inner { padding: 16px 18px; }
+  .cs-fields {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px 22px; margin-bottom: 14px;
+  }
+  .cs-field-k {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ci-ink-500); margin-bottom: 3px;
+  }
+  .cs-field-v { font-size: 13px; }
+  .cs-exp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cs-seal {
+    margin-bottom: 14px; padding: 9px 12px; border-radius: 6px;
+    background: #eef4fa; border-left: 3px solid #7ba7d0; font-size: 12.5px; color: #2c4a6b;
+  }
+  .cs-caret { color: var(--ci-ink-500); font-size: 12px; transition: transform .15s ease; }
+  tr.is-expanded .cs-caret { transform: rotate(90deg); }
+
+  /* Chain of custody as a full SUB-TAB here rather than V1's action-triggered
+     drawer — the other side of that open question, so the team can compare. */
+  .cs-timeline { position: relative; padding-left: 26px; }
+  .cs-timeline::before {
+    content: ""; position: absolute; left: 8px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--cs-line);
+  }
+  .cs-tl { position: relative; padding-bottom: 18px; }
+  .cs-tl::before {
+    content: ""; position: absolute; left: -22px; top: 4px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--lumo-primary-color, #0271ce);
+  }
+  .cs-tl.is-consume::before { border-color: var(--lumo-success-color, #158444); }
+  .cs-tl.is-flag::before { border-color: var(--lumo-error-color, #d83e38); }
+  .cs-tl-when { font-size: 11.5px; color: var(--ci-ink-500); font-variant-numeric: tabular-nums; }
+  .cs-tl-what { font-size: 13.5px; font-weight: 700; margin-top: 1px; }
+  .cs-tl-who { font-size: 12.5px; color: var(--ci-ink-700); margin-top: 2px; }
+
+  /* ====================================================================
+     ORDERS — the one new tab in this version.
+     ==================================================================== */
+  .cs-split { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 1100px) { .cs-split { grid-template-columns: 1fr; } }
+
+  .cs-order {
+    display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left;
+    border: 1px solid var(--cs-line); background: #fff; font: inherit;
+    border-radius: var(--lumo-border-radius-m, .5em); padding: 12px 13px; cursor: pointer;
+  }
+  .cs-order + .cs-order { margin-top: 9px; }
+  .cs-order:hover { border-color: #b9c6d4; }
+  .cs-order[aria-pressed="true"] {
+    border-color: var(--lumo-primary-color, #0271ce);
+    box-shadow: 0 0 0 1px var(--lumo-primary-color, #0271ce);
+  }
+  .cs-order-doc {
+    width: 38px; height: 46px; border-radius: 4px; flex-shrink: 0;
+    background: #f3f5f8; border: 1px solid var(--cs-line);
+    display: grid; place-items: center; font-size: 9px; font-weight: 700;
+    color: #b23b3b; letter-spacing: .04em;
+  }
+  .cs-order-main { flex: 1; min-width: 0; }
+  .cs-order-name { font-size: 13.5px; font-weight: 700; }
+  .cs-order-meta { font-size: 12px; color: var(--ci-ink-500); margin-top: 2px; }
+  .cs-order-tags { display: flex; gap: 6px; align-items: center; margin-top: 7px; flex-wrap: wrap; }
+  .cs-doc-att {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border: 1px solid var(--cs-line); border-radius: 6px;
+    background: var(--cs-zebra); margin-bottom: 15px;
+  }
+  .cs-doc-att .cs-order-doc { width: 34px; height: 42px; }
+  .cs-ver { display: flex; gap: 11px; font-size: 12.5px; padding: 8px 0; border-bottom: 1px solid var(--cs-line-soft); }
+  .cs-ver:last-child { border-bottom: 0; }
+
+  /* ====================================================================
+     COMPLIANCE
+     ==================================================================== */
+  .cs-agency {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px 24px; padding: 15px 16px;
+    background: var(--cs-zebra); border-bottom: 1px solid var(--cs-line-soft);
+  }
+  .cs-agency-k {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ci-ink-500); margin-bottom: 3px;
+  }
+  .cs-agency-v { font-size: 14px; font-weight: 700; }
+
+  /* ====================================================================
+     REPORTS
+     ==================================================================== */
+  .cs-rep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 13px; }
+  .cs-rep {
+    text-align: left; border: 1px solid var(--cs-line); background: #fff; font: inherit;
+    border-radius: var(--lumo-border-radius-m, .5em); padding: 15px 16px 13px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .cs-rep:hover { border-color: #b9c6d4; box-shadow: 0 2px 8px rgba(16,24,40,.07); }
+  .cs-rep-name {
+    font-size: 14.5px; font-weight: 700; color: var(--lumo-primary-text-color, #0271ce);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cs-rep-desc { font-size: 12.5px; color: var(--ci-ink-700); line-height: 1.45; flex: 1; }
+  .cs-rep-foot { display: flex; align-items: center; gap: 8px; }
+  .cs-rep-new {
+    font-size: 9px; font-weight: 700; letter-spacing: .5px; padding: 1px 6px; border-radius: 999px;
+    background: var(--lumo-success-color, #158444); color: #fff;
+  }
+  .cs-stub { padding: 44px 20px; text-align: center; color: var(--ci-ink-500); font-size: 13px; }
+  .cs-stub i { font-size: 26px; display: block; margin-bottom: 11px; opacity: .4; }
+</style>
+</head>
+<body>
+
+<div class="ci-app">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <header class="ci-topbar">
+    <div class="ci-logo">
+      <img class="ci-logo-lockup" src="../../../../assets/vector-solutions-logo-white.svg" alt="Vector Solutions">
+      <span class="ci-logo-sub">Vector Check It</span>
+    </div>
+    <div class="ci-topbar-right">
+      <div class="ci-avatar"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+      <span class="ci-username">Austin Smith</span>
+    </div>
+  </header>
+
+  <div class="ci-body">
+
+    <!-- ============================ SIDEBAR ============================ -->
+    <aside class="ci-sidebar">
+      <div class="ci-search">
+        <div class="box">
+          <span>Search equipment / Apparatus</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </div>
+      </div>
+      <nav class="ci-nav" aria-label="Main">
+        <span class="ci-nav-item"><i class="fa-solid fa-house ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Home</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-truck-front ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Fleet</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-warehouse ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Store Rooms</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-gear ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Equipment</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-box ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Inventory</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item" aria-current="page"><i class="fa-solid fa-syringe ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Controlled Substances</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-table-columns ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Tickets</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-wrench ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Service Tasks</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-list-check ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Checklist Library</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-gauge ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Dashboards</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-chart-column ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Reports</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-users ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Users</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item is-alert"><i class="fa-solid fa-triangle-exclamation ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Department</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-square-check ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Fleet Summary</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-circle-question ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Support Center</span></span>
+      </nav>
+    </aside>
+
+    <!-- ======================= CONTENT WINDOW ======================= -->
+    <main class="ci-content">
+      <div class="cs-main" data-tab="boxes" id="cs-main">
+
+        <div class="cs-head">
+          <div>
+            <h1 class="cs-title">Controlled Substances</h1>
+            <p class="cs-sub">Riverside County EMS &middot; DEA FR7419283 &middot; 2 registered, 4 designated locations</p>
+          </div>
+          <div class="cs-head-actions">
+            <vaadin-button theme="secondary" onclick="return false">Configure</vaadin-button>
+          </div>
+        </div>
+
+        <!-- ============ SUMMARY PANELS ============
+             Escalation Summary kept as-is, paired with a Discrepancies panel.
+             Note what this ISN'T: it does not persist above the tabs, so once a
+             user moves to another tab the urgency is out of sight. That is the
+             deliberate trade against V1's domain-level attention layer. -->
+        <div class="cs-panels">
+          <div class="cs-panel">
+            <div class="cs-panel-title">Escalation Summary</div>
+            <div class="cs-panel-empty">2 of 6 drug boxes checked today</div>
+          </div>
+          <div class="cs-panel">
+            <div class="cs-panel-title">Discrepancies</div>
+            <div class="cs-panel-row">
+              <i class="fa-solid fa-flask lead" aria-hidden="true"></i>
+              <div>
+                <button class="cs-panel-link" onclick="csTab('disc')">MIDAZOLAM (VERSED), 10 mg in 2 mL vial</button>
+                <div class="cs-panel-sub">Medic 12 &middot; &minus;1 unit &middot; open</div>
+              </div>
+            </div>
+            <div class="cs-panel-row">
+              <i class="fa-solid fa-flask lead" aria-hidden="true"></i>
+              <div>
+                <button class="cs-panel-link" onclick="csTab('disc')">FENTANYL CITRATE (SUBLIMAZE), 100 mcg in 2 mL vial</button>
+                <div class="cs-panel-sub">Riverside HQ &middot; &minus;2 units &middot; open</div>
+              </div>
+            </div>
+            <div class="cs-panel-row">
+              <i class="fa-solid fa-flask lead" aria-hidden="true"></i>
+              <div>
+                <button class="cs-panel-link" onclick="csTab('disc')">MORPHINE SULFATE, 10 mg in 1 mL vial</button>
+                <div class="cs-panel-sub">Medic 07 &middot; +1 unit &middot; open</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====================== TAB BAR — 8 items ====================== -->
+        <vaadin-tabs id="cs-tabs" selected="0">
+          <vaadin-tab data-tab="boxes">Drug Boxes</vaadin-tab>
+          <vaadin-tab data-tab="master">Master Supply</vaadin-tab>
+          <vaadin-tab data-tab="onhand">On Hand</vaadin-tab>
+          <vaadin-tab data-tab="audit">Audit</vaadin-tab>
+          <vaadin-tab data-tab="orders">Orders<span class="cs-tab-new">NEW</span></vaadin-tab>
+          <vaadin-tab data-tab="compliance">Compliance<span class="cs-tab-new">NEW</span></vaadin-tab>
+          <vaadin-tab data-tab="reports">Reports</vaadin-tab>
+          <vaadin-tab data-tab="disc">Discrepancies<span class="cs-tab-count">3</span></vaadin-tab>
+        </vaadin-tabs>
+
+
+        <!-- ==================== DRUG BOXES — unchanged ==================== -->
+        <section class="cs-view" id="v-boxes" aria-label="Drug Boxes">
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Drug Boxes</div>
+                <div class="cs-card-sub">Unchanged from today &mdash; this version preserves the existing container-scoped view.</div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="secondary" onclick="return false">Manage Policies</vaadin-button>
+                <vaadin-button theme="primary" onclick="return false">+ New Box</vaadin-button>
+              </div>
+            </div>
+            <div class="cs-card-body">
+              <div class="cs-dept">RIVERSIDE COUNTY EMS</div>
+              <div class="cs-box-grid">
+                <div class="cs-box">
+                  <div class="cs-box-top">
+                    <div class="cs-box-name">Drug Box 7227</div>
+                    <button class="cs-box-more" onclick="return false" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="cs-box-loc">Medic 12 &middot; Northside Station 12</div>
+                  <div class="cs-box-pol">Daily rig check &mdash; C-II</div>
+                  <div class="cs-box-stat">
+                    <span class="cs-box-dot is-err"><i class="fa-solid fa-xmark" aria-hidden="true"></i></span>
+                    Discrepancy &minus;1 unit
+                  </div>
+                </div>
+                <div class="cs-box">
+                  <div class="cs-box-top">
+                    <div class="cs-box-name">Drug Box 5510</div>
+                    <button class="cs-box-more" onclick="return false" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="cs-box-loc">Medic 07 &middot; Tumbleweed Station 51</div>
+                  <div class="cs-box-pol">Daily rig check &mdash; C-II</div>
+                  <div class="cs-box-stat">
+                    <span class="cs-box-dot is-err"><i class="fa-solid fa-xmark" aria-hidden="true"></i></span>
+                    Discrepancy +1 unit
+                  </div>
+                </div>
+                <div class="cs-box">
+                  <div class="cs-box-top">
+                    <div class="cs-box-name">Safe 2</div>
+                    <button class="cs-box-more" onclick="return false" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="cs-box-loc">Northside Station 12 &middot; Store Room B</div>
+                  <div class="cs-box-pol">Master supply weekly</div>
+                  <div class="cs-box-stat">
+                    <span class="cs-box-dot is-ok"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+                    Checked 6:04 am &middot; A. Reyes
+                  </div>
+                </div>
+                <div class="cs-box">
+                  <div class="cs-box-top">
+                    <div class="cs-box-name">Store Room A</div>
+                    <button class="cs-box-more" onclick="return false" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="cs-box-loc">Riverside HQ</div>
+                  <div class="cs-box-pol">Master supply weekly</div>
+                  <div class="cs-box-stat">
+                    <span class="cs-box-dot"><i class="fa-solid fa-xmark" aria-hidden="true"></i></span>
+                    Not checked yet
+                  </div>
+                </div>
+                <div class="cs-box">
+                  <div class="cs-box-top">
+                    <div class="cs-box-name">Eastgate Compartment 1</div>
+                    <button class="cs-box-more" onclick="return false" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="cs-box-loc">Eastgate Station 22</div>
+                  <div class="cs-box-pol">No escalation policy</div>
+                  <div class="cs-box-stat">
+                    <span class="cs-box-dot"><i class="fa-solid fa-xmark" aria-hidden="true"></i></span>
+                    Not checked yet
+                  </div>
+                </div>
+                <div class="cs-box">
+                  <div class="cs-box-top">
+                    <div class="cs-box-name">Westfield Master</div>
+                    <button class="cs-box-more" onclick="return false" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="cs-box-loc">Westfield Operations Center</div>
+                  <div class="cs-box-pol">Master supply weekly</div>
+                  <div class="cs-box-stat">
+                    <span class="cs-box-dot is-ok"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+                    Checked 7:15 am &middot; M. Okonjo
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== MASTER SUPPLY — unchanged ==================== -->
+        <section class="cs-view" id="v-master" aria-label="Master Supply">
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Master Supply</div>
+                <div class="cs-card-sub">Unchanged from today &mdash; bulk storage, scoped by location.</div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="secondary" onclick="return false">Master supply manage page</vaadin-button>
+              </div>
+            </div>
+            <div class="cs-card-body">
+              <div class="cs-acc">
+                <button class="cs-acc-head" onclick="return false">
+                  <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                  Riverside HQ &mdash; Schedule II
+                  <i class="fa-solid fa-chevron-up chev" aria-hidden="true"></i>
+                </button>
+
+                <div class="cs-drug-row">
+                  MORPHINE SULFATE
+                  <span class="amt">12 / 57 units</span>
+                </div>
+
+                <div class="cs-sub-drug">
+                  <div>
+                    <div class="n">Morphine sulfate 10 mg / 1 mL</div>
+                    <div class="w">Warning at 15 units and below</div>
+                  </div>
+                  <span class="amt">12 units @ 120 mg</span>
+                </div>
+                <div class="cs-lots">
+                  <div class="cs-lot-tile">
+                    <div><div class="d">#MS-11902</div><div class="m">Exp 09/02/2026</div></div>
+                    <span class="c">4</span>
+                  </div>
+                  <div class="cs-lot-tile">
+                    <div><div class="d">#MS-12440</div><div class="m">Exp 02/14/2027</div></div>
+                    <span class="c">8</span>
+                  </div>
+                </div>
+
+                <div class="cs-sub-drug">
+                  <div>
+                    <div class="n">Fentanyl citrate 100 mcg / 2 mL</div>
+                    <div class="w">Warning at 10 units and below</div>
+                  </div>
+                  <span class="amt">28 units @ 2800 mcg</span>
+                </div>
+                <div class="cs-lots">
+                  <div class="cs-lot-tile">
+                    <div><div class="d">#FN-23409</div><div class="m">Exp 03/14/2027</div></div>
+                    <span class="c">16</span>
+                  </div>
+                  <div class="cs-lot-tile">
+                    <div><div class="d">#FN-24011</div><div class="m">Exp 08/30/2027</div></div>
+                    <span class="c">12</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== ON HAND — unchanged ==================== -->
+        <section class="cs-view" id="v-onhand" aria-label="On Hand">
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Controlled Substances On Hand</div>
+                <div class="cs-card-sub">Unchanged from today &mdash; flat tabular view across all locations.</div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-export" style="margin-right:6px" aria-hidden="true"></i>Export</vaadin-button>
+              </div>
+            </div>
+            <div class="cs-card-body is-flush">
+              <table class="cs-table">
+                <thead>
+                  <tr>
+                    <th>Location</th><th>Station</th><th>Lot #</th><th>Drug</th>
+                    <th class="num">Quantity</th><th class="num">Volume</th><th>Expiration date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Medic 12</td><td>Northside Station 12</td><td>MZ-88421</td><td>Midazolam (Versed)</td><td class="num">6</td><td class="num">2 mL</td><td>11/30/2026</td></tr>
+                  <tr><td>Medic 12</td><td>Northside Station 12</td><td>FN-23409</td><td>Fentanyl citrate</td><td class="num">4</td><td class="num">2 mL</td><td>03/14/2027</td></tr>
+                  <tr><td>Medic 07</td><td>Tumbleweed Station 51</td><td>MS-11902</td><td>Morphine sulfate</td><td class="num">5</td><td class="num">1 mL</td><td>09/02/2026</td></tr>
+                  <tr><td>Medic 07</td><td>Tumbleweed Station 51</td><td>KT-40118</td><td>Ketamine HCl</td><td class="num">3</td><td class="num">10 mL</td><td>06/21/2027</td></tr>
+                  <tr><td>Riverside HQ</td><td>Riverside HQ</td><td>FN-23409</td><td>Fentanyl citrate</td><td class="num">16</td><td class="num">2 mL</td><td>03/14/2027</td></tr>
+                  <tr><td>Riverside HQ</td><td>Riverside HQ</td><td>LZ-77320</td><td>Lorazepam (Ativan)</td><td class="num">9</td><td class="num">1 mL</td><td>01/18/2027</td></tr>
+                  <tr><td>Northside Station 12</td><td>Northside Station 12</td><td>MS-12440</td><td>Morphine sulfate</td><td class="num">8</td><td class="num">1 mL</td><td>02/14/2027</td></tr>
+                  <tr><td>Westfield Ops</td><td>Westfield Ops</td><td>MZ-89003</td><td>Midazolam (Versed)</td><td class="num">14</td><td class="num">2 mL</td><td>05/22/2027</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== AUDIT ====================
+             Two new sub-tabs added under the existing tab. Consumption is one
+             sub-tab (not one per type) because a record can carry both an
+             administered and a wasted quantity. -->
+        <section class="cs-view" id="v-audit" data-sub="consumption" aria-label="Audit">
+          <div class="cs-subnav" role="tablist">
+            <button role="tab" aria-selected="false" onclick="csSub(this,'movements')">Movements</button>
+            <button role="tab" aria-selected="true"  onclick="csSub(this,'consumption')">Consumption</button>
+            <button role="tab" aria-selected="false" onclick="csSub(this,'coc')">Chain of Custody</button>
+          </div>
+
+          <!-- MOVEMENTS (5.3) -->
+          <div class="cs-sub" id="s-movements">
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Movements</div>
+                  <div class="cs-card-sub">Acquisitions, inter-location deliveries and post-run restocks &middot; <span class="cs-cite">21 CFR 1304.27(b), 1307.14</span></div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
+                </div>
+              </div>
+              <div class="cs-filters">
+                <vaadin-select theme="outlined" label="Location" value="all" id="mv-loc"></vaadin-select>
+                <vaadin-select theme="outlined" label="Movement type" value="all" id="mv-type"></vaadin-select>
+                <vaadin-date-picker theme="outlined" label="From" value="2026-07-18"></vaadin-date-picker>
+                <vaadin-date-picker theme="outlined" label="To" value="2026-08-18"></vaadin-date-picker>
+              </div>
+              <div class="cs-card-body is-flush">
+                <table class="cs-table">
+                  <thead>
+                    <tr><th>Date / time</th><th>Type</th><th>Substance &amp; lot</th><th class="num">Qty</th><th>From &rarr; to</th><th>Personnel</th><th>Record</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>08/17/2026<div class="cs-tiny">7:52 pm</div></td>
+                      <td><span class="cs-pill cs-pill--type">Hospital restock</span></td>
+                      <td>FENTANYL CITRATE (SUBLIMAZE)<div class="cs-tiny">Lot #FN-23409</div></td>
+                      <td class="num">2</td>
+                      <td>Riverside General ED<div class="cs-tiny">&rarr; Medic 12</div></td>
+                      <td>K. Znilek</td>
+                      <td><span class="cs-pill cs-pill--ok">Logged on run</span></td>
+                    </tr>
+                    <tr>
+                      <td>08/16/2026<div class="cs-tiny">2:31 pm</div></td>
+                      <td><span class="cs-pill cs-pill--type">Inter-location</span></td>
+                      <td>MORPHINE SULFATE<div class="cs-tiny">Lot #MS-11902</div></td>
+                      <td class="num">12</td>
+                      <td>Riverside HQ<div class="cs-tiny">&rarr; Northside Station 12</div></td>
+                      <td>K. Znilek</td>
+                      <td><span class="cs-pill cs-pill--ok">Logged same day</span></td>
+                    </tr>
+                    <tr>
+                      <td>08/14/2026<div class="cs-tiny">11:04 am</div></td>
+                      <td><span class="cs-pill cs-pill--type">Hospital restock</span></td>
+                      <td>MIDAZOLAM (VERSED)<div class="cs-tiny">Lot #MZ-88421</div></td>
+                      <td class="num">4</td>
+                      <td>St. Anne's Medical<div class="cs-tiny">&rarr; Medic 07</div></td>
+                      <td>T. Hartley</td>
+                      <td><span class="cs-pill cs-pill--warn">Entered 4 days late</span><div class="cs-tiny">Restocked 08/10, logged 08/14</div></td>
+                    </tr>
+                    <tr>
+                      <td>08/11/2026<div class="cs-tiny">2:46 pm</div></td>
+                      <td><span class="cs-pill cs-pill--type">Acquisition</span></td>
+                      <td>KETAMINE HCL<div class="cs-tiny">Lot #KT-40118</div></td>
+                      <td class="num">20</td>
+                      <td>Cardinal Health<div class="cs-tiny">&rarr; Riverside HQ</div></td>
+                      <td>K. Znilek</td>
+                      <td><span class="cs-pill cs-pill--ok">Logged same day</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONSUMPTION (5.2) -->
+          <div class="cs-sub" id="s-consumption">
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Consumption</div>
+                  <div class="cs-card-sub">Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span></div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
+                </div>
+              </div>
+              <div class="cs-filters">
+                <vaadin-select theme="outlined" label="Location" value="all" id="cn-loc"></vaadin-select>
+                <vaadin-select theme="outlined" label="Substance" value="all" id="cn-sub"></vaadin-select>
+                <vaadin-select theme="outlined" label="Personnel" value="all" id="cn-per"></vaadin-select>
+                <vaadin-date-picker theme="outlined" label="From" value="2026-07-18"></vaadin-date-picker>
+                <vaadin-date-picker theme="outlined" label="To" value="2026-08-18"></vaadin-date-picker>
+              </div>
+
+              <div style="padding:12px 16px; border-bottom:1px solid var(--cs-line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+                <span class="cs-scope-label">Type</span>
+                <div class="cs-facets">
+                  <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
+                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Usage</button>
+                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Waste</button>
+                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Disposal</button>
+                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Expiry</button>
+                </div>
+              </div>
+
+              <div class="cs-card-body is-flush">
+                <table class="cs-table">
+                  <thead>
+                    <tr>
+                      <th style="width:34px"></th><th>Date / time</th><th>Substance, lot &amp; dose</th>
+                      <th>Type</th><th>Patient / incident</th><th>Order</th><th>Personnel</th><th>Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="cs-row-click" onclick="csExpand(this)">
+                      <td><i class="fa-solid fa-chevron-right cs-caret" aria-hidden="true"></i></td>
+                      <td>08/17/2026<div class="cs-tiny">5:41 pm</div></td>
+                      <td><div class="cs-strong">FENTANYL CITRATE (SUBLIMAZE)</div><div class="cs-tiny">Lot #FN-23409 &middot; 75 mcg administered, 25 mcg wasted</div></td>
+                      <td><span class="cs-pill cs-pill--type">Usage</span> <span class="cs-pill cs-pill--type">Waste</span></td>
+                      <td>PCR 26-04412</td>
+                      <td><span class="cs-pill cs-pill--neut">Standing &middot; SO-14</span></td>
+                      <td>K. Znilek<div class="cs-tiny">Witness: A. Reyes</div></td>
+                      <td>Medic 12</td>
+                    </tr>
+                    <tr class="cs-exp">
+                      <td colspan="8">
+                        <div class="cs-exp-inner">
+                          <div class="cs-seal">
+                            <i class="fa-solid fa-vial-circle-check" style="margin-right:7px" aria-hidden="true"></i>
+                            <strong>Sealed container, full-use rule.</strong> A 100 mcg / 2 mL vial cannot be resealed, so the 25 mcg remainder was wasted with a witness.
+                          </div>
+                          <div class="cs-fields">
+                            <div><div class="cs-field-k">Substance &amp; finished form</div><div class="cs-field-v">Fentanyl citrate 100 mcg / 2 mL solution</div></div>
+                            <div><div class="cs-field-k">Quantity administered</div><div class="cs-field-v">75 mcg</div></div>
+                            <div><div class="cs-field-k">Quantity wasted</div><div class="cs-field-v">25 mcg</div></div>
+                            <div><div class="cs-field-k">Waste witness</div><div class="cs-field-v">A. Reyes &middot; Paramedic #P-3140</div></div>
+                            <div><div class="cs-field-k">Administering professional</div><div class="cs-field-v">Kevin Znilek &middot; Paramedic #P-2291</div></div>
+                            <div><div class="cs-field-k">Authorizing professional</div><div class="cs-field-v">Dr. R. Halvorsen, MD</div></div>
+                            <div><div class="cs-field-k">Order</div><div class="cs-field-v">Standing order SO-14 (v3)</div></div>
+                            <div><div class="cs-field-k">Patient identifier</div><div class="cs-field-v">PCR 26-04412</div></div>
+                            <div><div class="cs-field-k">Source location</div><div class="cs-field-v">Medic 12 &middot; Drug Box 7227</div></div>
+                            <div><div class="cs-field-k">Audit record</div><div class="cs-field-v">AUD-40912 &middot; v1 (no corrections)</div></div>
+                            <div><div class="cs-field-k">Retention</div><div class="cs-field-v">Held at Riverside HQ until 08/2028</div></div>
+                          </div>
+                          <div class="cs-exp-acts">
+                            <vaadin-button theme="secondary" onclick="event.stopPropagation();csSubJump('coc')">
+                              <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
+                            </vaadin-button>
+                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('orders')">View order SO-14</vaadin-button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr class="cs-row-click" onclick="csExpand(this)">
+                      <td><i class="fa-solid fa-chevron-right cs-caret" aria-hidden="true"></i></td>
+                      <td>08/17/2026<div class="cs-tiny">3:12 pm</div></td>
+                      <td><div class="cs-strong">MIDAZOLAM (VERSED)</div><div class="cs-tiny">Lot #MZ-88421 &middot; 10 mg administered</div></td>
+                      <td><span class="cs-pill cs-pill--type">Usage</span></td>
+                      <td>PCR 26-04408</td>
+                      <td><span class="cs-pill cs-pill--neut">Standing &middot; SO-07</span></td>
+                      <td>A. Reyes<div class="cs-tiny">Witness: none required</div></td>
+                      <td>Medic 12</td>
+                    </tr>
+                    <tr class="cs-exp">
+                      <td colspan="8">
+                        <div class="cs-exp-inner">
+                          <div class="cs-seal">
+                            <i class="fa-solid fa-vial-circle-check" style="margin-right:7px" aria-hidden="true"></i>
+                            <strong>Full dose = container amount.</strong> The entire vial was administered, so there is no remainder and no witness is required.
+                          </div>
+                          <div class="cs-fields">
+                            <div><div class="cs-field-k">Substance &amp; finished form</div><div class="cs-field-v">Midazolam 10 mg / 2 mL solution</div></div>
+                            <div><div class="cs-field-k">Quantity administered</div><div class="cs-field-v">10 mg</div></div>
+                            <div><div class="cs-field-k">Quantity wasted</div><div class="cs-field-v">&mdash;</div></div>
+                            <div><div class="cs-field-k">Waste witness</div><div class="cs-field-v">n/a &mdash; full dose administered</div></div>
+                            <div><div class="cs-field-k">Administering professional</div><div class="cs-field-v">Alicia Reyes &middot; Paramedic #P-3140</div></div>
+                            <div><div class="cs-field-k">Authorizing professional</div><div class="cs-field-v">Dr. R. Halvorsen, MD</div></div>
+                            <div><div class="cs-field-k">Order</div><div class="cs-field-v">Standing order SO-07 (v2)</div></div>
+                            <div><div class="cs-field-k">Patient identifier</div><div class="cs-field-v">PCR 26-04408</div></div>
+                            <div><div class="cs-field-k">Source location</div><div class="cs-field-v">Medic 12 &middot; Drug Box 7227</div></div>
+                            <div><div class="cs-field-k">Audit record</div><div class="cs-field-v">AUD-40907 &middot; v1 (no corrections)</div></div>
+                            <div><div class="cs-field-k">Retention</div><div class="cs-field-v">Held at Riverside HQ until 08/2028</div></div>
+                          </div>
+                          <div class="cs-exp-acts">
+                            <vaadin-button theme="secondary" onclick="event.stopPropagation();csSubJump('coc')">
+                              <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
+                            </vaadin-button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr class="cs-row-click" onclick="csExpand(this)">
+                      <td><i class="fa-solid fa-chevron-right cs-caret" aria-hidden="true"></i></td>
+                      <td>08/16/2026<div class="cs-tiny">10:26 am</div></td>
+                      <td><div class="cs-strong">MORPHINE SULFATE</div><div class="cs-tiny">Lot #MS-11902 &middot; 10 mg wasted, none administered</div></td>
+                      <td><span class="cs-pill cs-pill--type">Waste</span></td>
+                      <td><span class="cs-dim">&mdash;</span></td>
+                      <td><span class="cs-dim">&mdash;</span></td>
+                      <td>T. Hartley<div class="cs-tiny">Witness: M. Okonjo</div></td>
+                      <td>Medic 07</td>
+                    </tr>
+                    <tr class="cs-exp">
+                      <td colspan="8">
+                        <div class="cs-exp-inner">
+                          <div class="cs-seal">
+                            <i class="fa-solid fa-triangle-exclamation" style="margin-right:7px" aria-hidden="true"></i>
+                            <strong>Accidental seal break, no administration.</strong> The full 10 mg was wasted with a witness. No patient identifier and no order, because nothing was administered.
+                          </div>
+                          <div class="cs-fields">
+                            <div><div class="cs-field-k">Substance &amp; finished form</div><div class="cs-field-v">Morphine sulfate 10 mg / 1 mL solution</div></div>
+                            <div><div class="cs-field-k">Quantity administered</div><div class="cs-field-v">&mdash;</div></div>
+                            <div><div class="cs-field-k">Quantity wasted</div><div class="cs-field-v">10 mg (full container)</div></div>
+                            <div><div class="cs-field-k">Waste witness</div><div class="cs-field-v">M. Okonjo &middot; Paramedic #P-2884</div></div>
+                            <div><div class="cs-field-k">Recording professional</div><div class="cs-field-v">Tom Hartley &middot; Paramedic #P-1755</div></div>
+                            <div><div class="cs-field-k">Order</div><div class="cs-field-v">n/a &mdash; no administration</div></div>
+                            <div><div class="cs-field-k">Source location</div><div class="cs-field-v">Medic 07 &middot; Drug Box 5510</div></div>
+                            <div><div class="cs-field-k">Audit record</div><div class="cs-field-v">AUD-40881 &middot; v1 (no corrections)</div></div>
+                          </div>
+                          <div class="cs-exp-acts">
+                            <vaadin-button theme="secondary" onclick="event.stopPropagation();csSubJump('coc')">
+                              <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
+                            </vaadin-button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr class="cs-row-click" onclick="csExpand(this)">
+                      <td><i class="fa-solid fa-chevron-right cs-caret" aria-hidden="true"></i></td>
+                      <td>08/15/2026<div class="cs-tiny">11:58 pm</div></td>
+                      <td><div class="cs-strong">KETAMINE HCL</div><div class="cs-tiny">Lot #KT-40118 &middot; 350 mg administered, 150 mg wasted</div></td>
+                      <td><span class="cs-pill cs-pill--type">Usage</span> <span class="cs-pill cs-pill--type">Waste</span></td>
+                      <td>PCR 26-04390</td>
+                      <td><span class="cs-pill cs-pill--warn">Verbal &middot; VO-2211</span></td>
+                      <td>M. Okonjo<div class="cs-tiny">Witness: K. Znilek</div></td>
+                      <td>Medic 07</td>
+                    </tr>
+                    <tr class="cs-exp">
+                      <td colspan="8">
+                        <div class="cs-exp-inner">
+                          <div class="cs-seal">
+                            <i class="fa-solid fa-vial-circle-check" style="margin-right:7px" aria-hidden="true"></i>
+                            <strong>Sealed container, full-use rule.</strong> 500 mg / 10 mL vial; 350 mg administered and the 150 mg remainder wasted with a witness.
+                          </div>
+                          <div class="cs-fields">
+                            <div><div class="cs-field-k">Substance &amp; finished form</div><div class="cs-field-v">Ketamine HCl 500 mg / 10 mL solution</div></div>
+                            <div><div class="cs-field-k">Quantity administered</div><div class="cs-field-v">350 mg</div></div>
+                            <div><div class="cs-field-k">Quantity wasted</div><div class="cs-field-v">150 mg</div></div>
+                            <div><div class="cs-field-k">Waste witness</div><div class="cs-field-v">K. Znilek &middot; Paramedic #P-2291</div></div>
+                            <div><div class="cs-field-k">Administering professional</div><div class="cs-field-v">Marcus Okonjo &middot; Paramedic #P-2884</div></div>
+                            <div><div class="cs-field-k">Order</div><div class="cs-field-v">Verbal order VO-2211 &middot; recorded at point of use</div></div>
+                            <div><div class="cs-field-k">Patient identifier</div><div class="cs-field-v">PCR 26-04390</div></div>
+                            <div><div class="cs-field-k">Source location</div><div class="cs-field-v">Medic 07 &middot; Drug Box 5510</div></div>
+                            <div><div class="cs-field-k">Audit record</div><div class="cs-field-v">AUD-40855 &middot; v2 (1 correction)</div></div>
+                          </div>
+                          <div class="cs-exp-acts">
+                            <vaadin-button theme="secondary" onclick="event.stopPropagation();csSubJump('coc')">
+                              <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
+                            </vaadin-button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr class="cs-row-click" onclick="csExpand(this)">
+                      <td><i class="fa-solid fa-chevron-right cs-caret" aria-hidden="true"></i></td>
+                      <td>08/12/2026<div class="cs-tiny">9:05 am</div></td>
+                      <td><div class="cs-strong">LORAZEPAM (ATIVAN)</div><div class="cs-tiny">Lot #LZ-77320 &middot; 3 units removed at expiry</div></td>
+                      <td><span class="cs-pill cs-pill--type">Expiry</span></td>
+                      <td><span class="cs-dim">&mdash;</span></td>
+                      <td><span class="cs-dim">&mdash;</span></td>
+                      <td>K. Znilek</td>
+                      <td>Riverside HQ</td>
+                    </tr>
+                    <tr class="cs-exp">
+                      <td colspan="8">
+                        <div class="cs-exp-inner">
+                          <div class="cs-fields">
+                            <div><div class="cs-field-k">Substance &amp; finished form</div><div class="cs-field-v">Lorazepam 2 mg / 1 mL solution</div></div>
+                            <div><div class="cs-field-k">Units removed</div><div class="cs-field-v">3 (6 mg total)</div></div>
+                            <div><div class="cs-field-k">Expiration date</div><div class="cs-field-v">08/11/2026</div></div>
+                            <div><div class="cs-field-k">Recording professional</div><div class="cs-field-v">Kevin Znilek &middot; Paramedic #P-2291</div></div>
+                            <div><div class="cs-field-k">Source location</div><div class="cs-field-v">Riverside HQ &middot; Master Supply</div></div>
+                            <div><div class="cs-field-k">Audit record</div><div class="cs-field-v">AUD-40802 &middot; v1 (no corrections)</div></div>
+                          </div>
+                          <div class="cs-note cs-note-info" style="margin-bottom:0">
+                            Removal at expiry is recorded here. Destruction under <span class="cs-cite">21 CFR Part 1317</span> is a separate process, out of scope for this module.
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- CHAIN OF CUSTODY as a sub-tab — the other side of the open
+               question. Here it is a place you navigate to and then choose a
+               lot; in V1 it is an action on a record that builds itself. -->
+          <div class="cs-sub" id="s-coc">
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Chain of Custody</div>
+                  <div class="cs-card-sub">Select a lot to build its lifecycle &mdash; acquisition through disposition.</div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="tertiary" onclick="return false">Export PDF</vaadin-button>
+                </div>
+              </div>
+              <div class="cs-filters">
+                <vaadin-select theme="outlined" label="Substance" value="kt" id="coc-sub"></vaadin-select>
+                <vaadin-select theme="outlined" label="Lot" value="kt40118" id="coc-lot"></vaadin-select>
+              </div>
+              <div class="cs-card-body">
+                <div class="cs-note cs-note-info">
+                  <i class="fa-solid fa-circle-info" style="margin-right:7px" aria-hidden="true"></i>
+                  <strong>Open question.</strong> As a sub-tab you must pick a substance and lot first. V1 makes this an action on a record so it builds automatically &mdash; worth testing which reads better to an inspector-facing user.
+                </div>
+                <div class="cs-timeline">
+                  <div class="cs-tl">
+                    <div class="cs-tl-when">08/11/2026 &middot; 2:46 pm</div>
+                    <div class="cs-tl-what">Acquired from Cardinal Health</div>
+                    <div class="cs-tl-who">20 units received at Riverside HQ &middot; K. Znilek &middot; <span class="cs-cite">1304.27(b)</span></div>
+                  </div>
+                  <div class="cs-tl">
+                    <div class="cs-tl-when">08/12/2026 &middot; 8:15 am</div>
+                    <div class="cs-tl-what">Inter-location delivery</div>
+                    <div class="cs-tl-who">6 units &rarr; Northside Station 12 &middot; K. Znilek</div>
+                  </div>
+                  <div class="cs-tl">
+                    <div class="cs-tl-when">08/12/2026 &middot; 9:02 am</div>
+                    <div class="cs-tl-what">Loaded to apparatus</div>
+                    <div class="cs-tl-who">4 units &rarr; Medic 12 &middot; Drug Box 7227 &middot; A. Reyes</div>
+                  </div>
+                  <div class="cs-tl is-consume">
+                    <div class="cs-tl-when">08/15/2026 &middot; 11:58 pm</div>
+                    <div class="cs-tl-what">Administered &middot; 350 mg, 150 mg wasted</div>
+                    <div class="cs-tl-who">PCR 26-04390 &middot; M. Okonjo &middot; witness K. Znilek &middot; verbal order VO-2211</div>
+                  </div>
+                  <div class="cs-tl">
+                    <div class="cs-tl-when">08/16/2026 &middot; 6:12 am</div>
+                    <div class="cs-tl-what">Blind apparatus count</div>
+                    <div class="cs-tl-who">Expected 19, counted 18 &middot; A. Reyes</div>
+                  </div>
+                  <div class="cs-tl is-flag">
+                    <div class="cs-tl-when">08/16/2026 &middot; 6:12 am</div>
+                    <div class="cs-tl-what">Discrepancy raised &middot; &minus;1 unit</div>
+                    <div class="cs-tl-who">Open &mdash; awaiting disposition</div>
+                  </div>
+                  <div class="cs-tl">
+                    <div class="cs-tl-when">08/17/2026 &middot; 7:52 pm</div>
+                    <div class="cs-tl-what">Hospital restock</div>
+                    <div class="cs-tl-who">2 units from Riverside General ED &rarr; Medic 12 &middot; <span class="cs-cite">1307.14</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== ORDERS (5.4) — the one new tab ==================== -->
+        <section class="cs-view" id="v-orders" aria-label="Orders">
+          <div class="cs-split">
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Orders</div>
+                  <div class="cs-card-sub">Standing orders held at a registered location &middot; <span class="cs-cite">21 CFR 1306.07(g)</span></div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="primary" onclick="return false">New</vaadin-button>
+                </div>
+              </div>
+              <div class="cs-card-body">
+                <button class="cs-order" aria-pressed="true" onclick="csOrder(this)">
+                  <span class="cs-order-doc">PDF</span>
+                  <span class="cs-order-main">
+                    <span class="cs-order-name">SO-14 &middot; Fentanyl Citrate &mdash; Adult Pain</span>
+                    <span class="cs-order-meta">Dr. R. Halvorsen &middot; Riverside HQ</span>
+                    <span class="cs-order-tags">
+                      <span class="cs-pill cs-pill--neut">v3</span>
+                      <span class="cs-pill cs-pill--ok">Active</span>
+                      <span class="cs-tiny" style="margin-top:0">42 linked records</span>
+                    </span>
+                  </span>
+                </button>
+                <button class="cs-order" aria-pressed="false" onclick="csOrder(this)">
+                  <span class="cs-order-doc">PDF</span>
+                  <span class="cs-order-main">
+                    <span class="cs-order-name">SO-07 &middot; Midazolam &mdash; Seizure</span>
+                    <span class="cs-order-meta">Dr. R. Halvorsen &middot; Riverside HQ</span>
+                    <span class="cs-order-tags">
+                      <span class="cs-pill cs-pill--neut">v2</span>
+                      <span class="cs-pill cs-pill--ok">Active</span>
+                      <span class="cs-tiny" style="margin-top:0">27 linked records</span>
+                    </span>
+                  </span>
+                </button>
+                <button class="cs-order" aria-pressed="false" onclick="csOrder(this)">
+                  <span class="cs-order-doc">PDF</span>
+                  <span class="cs-order-main">
+                    <span class="cs-order-name">SO-22 &middot; Morphine Sulfate &mdash; Pain</span>
+                    <span class="cs-order-meta">Dr. M. Okonjo &middot; Riverside HQ</span>
+                    <span class="cs-order-tags">
+                      <span class="cs-pill cs-pill--neut">v1</span>
+                      <span class="cs-pill cs-pill--warn">Pending signature</span>
+                      <span class="cs-tiny" style="margin-top:0">Not yet effective</span>
+                    </span>
+                  </span>
+                </button>
+                <button class="cs-order" aria-pressed="false" onclick="csOrder(this)">
+                  <span class="cs-order-doc">PDF</span>
+                  <span class="cs-order-main">
+                    <span class="cs-order-name">SO-03 &middot; Ketamine &mdash; Agitation</span>
+                    <span class="cs-order-meta">Dr. R. Halvorsen &middot; Riverside HQ</span>
+                    <span class="cs-order-tags">
+                      <span class="cs-pill cs-pill--neut">v2</span>
+                      <span class="cs-pill cs-pill--neut">Retired</span>
+                      <span class="cs-tiny" style="margin-top:0">61 linked records</span>
+                    </span>
+                  </span>
+                </button>
+
+                <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--cs-line-soft)">
+                  <div class="cs-card-title" style="font-size:13.5px; margin-bottom:3px">Recent verbal orders</div>
+                  <div class="cs-card-sub" style="margin-bottom:10px">Recorded at the point of use, linked to their administration record.</div>
+                  <table class="cs-table">
+                    <tbody>
+                      <tr>
+                        <td>VO-2211<div class="cs-tiny">08/15/2026 11:58 pm</div></td>
+                        <td>Ketamine HCl<div class="cs-tiny">Dr. R. Halvorsen</div></td>
+                        <td><span class="cs-pill cs-pill--warn">Verbal</span></td>
+                      </tr>
+                      <tr>
+                        <td>VO-2208<div class="cs-tiny">08/11/2026 3:31 am</div></td>
+                        <td>Morphine sulfate<div class="cs-tiny">Dr. M. Okonjo</div></td>
+                        <td><span class="cs-pill cs-pill--warn">Verbal</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">SO-14 &middot; Fentanyl Citrate &mdash; Adult Pain Management</div>
+                  <div class="cs-card-sub">Held at Riverside HQ (registered) &middot; current v3</div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="secondary" onclick="return false">Open PDF</vaadin-button>
+                </div>
+              </div>
+              <div class="cs-card-body">
+                <div class="cs-doc-att">
+                  <span class="cs-order-doc">PDF</span>
+                  <div>
+                    <div class="cs-strong" style="font-size:13.5px; color:var(--lumo-primary-text-color,#0271ce)">SO-14_Adult_Pain_Management_v3.pdf</div>
+                    <div class="cs-tiny">2 pages &middot; uploaded 02/26/2026 &middot; signed</div>
+                  </div>
+                </div>
+                <div class="cs-fields">
+                  <div><div class="cs-field-k">Order number</div><div class="cs-field-v">SO-14</div></div>
+                  <div><div class="cs-field-k">Issuing medical director</div><div class="cs-field-v">Dr. R. Halvorsen, MD</div></div>
+                  <div><div class="cs-field-k">Held at</div><div class="cs-field-v">Riverside HQ &mdash; registered</div></div>
+                  <div><div class="cs-field-k">Effective</div><div class="cs-field-v">03/01/2026 &ndash; present</div></div>
+                  <div><div class="cs-field-k">Review due</div><div class="cs-field-v">03/01/2027</div></div>
+                  <div><div class="cs-field-k">Substances covered</div><div class="cs-field-v">Fentanyl citrate 100 mcg / 2 mL</div></div>
+                  <div><div class="cs-field-k">Dose limit</div><div class="cs-field-v">100 mcg single &middot; 200 mcg total</div></div>
+                  <div><div class="cs-field-k">Linked records</div><div class="cs-field-v">42</div></div>
+                </div>
+                <div style="margin-top:16px">
+                  <div class="cs-card-title" style="font-size:13.5px; margin-bottom:6px">Version history</div>
+                  <div class="cs-ver"><span class="cs-pill cs-pill--ok">v3</span><span>Effective 03/01/2026 &middot; dose limit raised to 200 mcg total</span></div>
+                  <div class="cs-ver"><span class="cs-pill cs-pill--neut">v2</span><span>Effective 06/14/2025 &middot; added weight-based pediatric exclusion</span></div>
+                  <div class="cs-ver"><span class="cs-pill cs-pill--neut">v1</span><span>Effective 01/02/2025 &middot; initial protocol</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== COMPLIANCE (5.1, 5.5, 5.6) ==================== -->
+        <section class="cs-view" id="v-compliance" aria-label="Compliance">
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Agency registration</div>
+                <div class="cs-card-sub">Registered and designated locations &middot; <span class="cs-cite">21 CFR 1301.20, 1304.04(a)(5)</span></div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="tertiary" onclick="return false">CSV</vaadin-button>
+                <vaadin-button theme="primary" onclick="return false">Export PDF</vaadin-button>
+              </div>
+            </div>
+            <div class="cs-agency">
+              <div><div class="cs-agency-k">Agency</div><div class="cs-agency-v">Riverside County EMS</div></div>
+              <div><div class="cs-agency-k">DEA registration</div><div class="cs-agency-v">FR7419283</div></div>
+              <div><div class="cs-agency-k">Category</div><div class="cs-agency-v">EMS Agency (Schedule II&ndash;V)</div></div>
+              <div><div class="cs-agency-k">Expires</div><div class="cs-agency-v">04/30/2028</div></div>
+              <div><div class="cs-agency-k">Locations</div><div class="cs-agency-v">2 registered &middot; 4 designated</div></div>
+            </div>
+            <div class="cs-card-body">
+              <div class="cs-note" style="margin-bottom:0">
+                <i class="fa-solid fa-clock" style="margin-right:7px" aria-hidden="true"></i>
+                <strong>Lakeview Station 07</strong> is inside its 30-day window before first delivery &mdash; eligible 09/04/2026 (18 days).
+              </div>
+            </div>
+            <div class="cs-card-body is-flush">
+              <table class="cs-table">
+                <thead>
+                  <tr><th>Location</th><th>Kind</th><th>Type</th><th>DEA registration</th><th>Identified to DEA</th><th>First delivery eligible</th><th>Records on site</th><th>Last inventory</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><div class="cs-strong">Riverside HQ</div><div class="cs-tiny">1400 Mercer Ave</div></td>
+                    <td>Station</td><td><span class="cs-pill cs-pill--reg">Registered</span></td>
+                    <td>FR7419283</td><td class="cs-dim">&mdash;</td>
+                    <td><span style="color:var(--lumo-success-text-color,#0a7637);font-weight:700">Registered</span></td>
+                    <td>On site</td><td>05/02/2026 biennial</td>
+                  </tr>
+                  <tr>
+                    <td><div class="cs-strong">Westfield Operations Center</div><div class="cs-tiny">88 Depot Rd</div></td>
+                    <td>Station</td><td><span class="cs-pill cs-pill--reg">Registered</span></td>
+                    <td>FR7419305</td><td class="cs-dim">&mdash;</td>
+                    <td><span style="color:var(--lumo-success-text-color,#0a7637);font-weight:700">Registered</span></td>
+                    <td>On site</td><td>05/02/2026 biennial</td>
+                  </tr>
+                  <tr>
+                    <td><div class="cs-strong">Northside Station 12</div><div class="cs-tiny">230 Loomis St</div></td>
+                    <td>Station</td><td><span class="cs-pill cs-pill--desg">Designated</span></td>
+                    <td>Under FR7419283</td><td>01/14/2026</td>
+                    <td><span style="color:var(--lumo-success-text-color,#0a7637);font-weight:700">Eligible 02/13/2026</span></td>
+                    <td>On site</td><td>05/04/2026</td>
+                  </tr>
+                  <tr>
+                    <td><div class="cs-strong">Tumbleweed Station 51</div><div class="cs-tiny">9 Canyon Way</div></td>
+                    <td>Station</td><td><span class="cs-pill cs-pill--desg">Designated</span></td>
+                    <td>Under FR7419283</td><td>11/02/2025</td>
+                    <td><span style="color:var(--lumo-success-text-color,#0a7637);font-weight:700">Eligible 12/02/2025</span></td>
+                    <td>On site</td><td>05/04/2026</td>
+                  </tr>
+                  <tr>
+                    <td><div class="cs-strong">Lakeview Station 07</div><div class="cs-tiny">512 Shoreline Dr</div></td>
+                    <td>Station</td><td><span class="cs-pill cs-pill--desg">Designated</span></td>
+                    <td>Under FR7419283</td><td>08/05/2026</td>
+                    <td><span class="cs-pill cs-pill--warn">Eligible 09/04/2026 (18 d)</span></td>
+                    <td>Pending first delivery</td><td class="cs-dim">&mdash;</td>
+                  </tr>
+                  <tr>
+                    <td><div class="cs-strong">Medic 12</div><div class="cs-tiny">Apparatus &middot; based at Northside Station 12</div></td>
+                    <td>Apparatus</td><td><span class="cs-pill cs-pill--desg">Designated</span></td>
+                    <td>Under FR7419283</td><td>01/14/2026</td>
+                    <td><span style="color:var(--lumo-success-text-color,#0a7637);font-weight:700">Eligible 02/13/2026</span></td>
+                    <td>On site</td><td>05/04/2026</td>
+                  </tr>
+                  <tr>
+                    <td><div class="cs-strong">Medic 07</div><div class="cs-tiny">Apparatus &middot; based at Tumbleweed Station 51</div></td>
+                    <td>Apparatus</td><td><span class="cs-pill cs-pill--desg">Designated</span></td>
+                    <td>Under FR7419283</td><td>11/02/2025</td>
+                    <td><span style="color:var(--lumo-success-text-color,#0a7637);font-weight:700">Eligible 12/02/2025</span></td>
+                    <td>On site</td><td>05/04/2026</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Registrant authorizations</div>
+                <div class="cs-card-sub">Every professional authorized to handle controlled substances &middot; <span class="cs-cite">21 CFR 1304.03(i)</span></div>
+              </div>
+            </div>
+            <div class="cs-card-body is-flush">
+              <table class="cs-table">
+                <thead>
+                  <tr><th>Professional</th><th>Credential</th><th>Authorized for</th><th>Home location</th><th>Effective</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td class="cs-strong">Kevin Znilek</td><td>Paramedic #P-2291</td><td>Handle &middot; administer &middot; witness</td><td>Riverside HQ</td><td>01/12/2025 &ndash; 01/12/2027</td><td><span class="cs-pill cs-pill--ok">Current</span></td></tr>
+                  <tr><td class="cs-strong">Alicia Reyes</td><td>Paramedic #P-3140</td><td>Handle &middot; administer &middot; witness</td><td>Northside Station 12</td><td>04/03/2025 &ndash; 04/03/2027</td><td><span class="cs-pill cs-pill--ok">Current</span></td></tr>
+                  <tr><td class="cs-strong">Tom Hartley</td><td>Paramedic #P-1755</td><td>Handle &middot; administer &middot; witness</td><td>Tumbleweed Station 51</td><td>10/20/2024 &ndash; 10/20/2026</td><td><span class="cs-pill cs-pill--warn">Expires in 63 days</span></td></tr>
+                  <tr><td class="cs-strong">Marcus Okonjo</td><td>Paramedic #P-2884</td><td>Handle &middot; administer &middot; witness</td><td>Westfield Operations Center</td><td>09/30/2024 &ndash; 09/30/2026</td><td><span class="cs-pill cs-pill--warn">Expires in 43 days</span></td></tr>
+                  <tr><td class="cs-strong">Dr. R. Halvorsen</td><td>MD &middot; Medical Director</td><td>Authorize &middot; issue standing orders</td><td>Riverside HQ</td><td>01/01/2025 &ndash; 12/31/2027</td><td><span class="cs-pill cs-pill--ok">Current</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Biennial inventory</div>
+                <div class="cs-card-sub">Dated, signed, location-scoped &middot; two-year retention &middot; <span class="cs-cite">21 CFR 1304.04</span></div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="secondary" onclick="return false">Start inventory</vaadin-button>
+              </div>
+            </div>
+            <div class="cs-card-body">
+              <div class="cs-fields" style="margin-bottom:0">
+                <div><div class="cs-field-k">Last completed</div><div class="cs-field-v">05/02/2026 &middot; all 7 locations</div></div>
+                <div><div class="cs-field-k">Next due</div><div class="cs-field-v">05/02/2028</div></div>
+                <div><div class="cs-field-k">Signed by</div><div class="cs-field-v">K. Znilek &middot; Dr. R. Halvorsen</div></div>
+                <div><div class="cs-field-k">Retention through</div><div class="cs-field-v">05/02/2028 minimum</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== REPORTS (5.7) ==================== -->
+        <section class="cs-view" id="v-reports" aria-label="Reports">
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Reports</div>
+                <div class="cs-card-sub">Inspection-ready, location-scoped. PDF for inspection, CSV/XLSX for reconciliation.</div>
+              </div>
+            </div>
+            <div class="cs-card-body">
+              <div class="cs-rep-grid">
+                <button class="cs-rep" onclick="return false">
+                  <span class="cs-rep-name">Registered &amp; Designated Locations <span class="cs-rep-new">NEW</span></span>
+                  <span class="cs-rep-desc">Every registered and designated location with its DEA identifier, identification date and record status.</span>
+                  <span class="cs-rep-foot"><span class="cs-cite">1301.20 &middot; 1304.04(a)(5)</span></span>
+                </button>
+                <button class="cs-rep" onclick="return false">
+                  <span class="cs-rep-name">PPAEMA Administration Record <span class="cs-rep-new">NEW</span></span>
+                  <span class="cs-rep-desc">Per-dose administration and disposal records matching the 1304.27(a) field set, including waste and witness.</span>
+                  <span class="cs-rep-foot"><span class="cs-cite">1304.27(a)</span></span>
+                </button>
+                <button class="cs-rep" onclick="return false">
+                  <span class="cs-rep-name">Per-Location Lifecycle</span>
+                  <span class="cs-rep-desc">Acquisition, administration, waste, transfer and disposition &mdash; chain of custody with no gaps.</span>
+                  <span class="cs-rep-foot"><span class="cs-cite">1304.27</span></span>
+                </button>
+                <button class="cs-rep" onclick="return false">
+                  <span class="cs-rep-name">Acquisition &amp; Delivery <span class="cs-rep-new">NEW</span></span>
+                  <span class="cs-rep-desc">Receipts from other registrants, inter-location deliveries and post-run hospital restocks with entry latency.</span>
+                  <span class="cs-rep-foot"><span class="cs-cite">1304.27(b) &middot; 1307.14</span></span>
+                </button>
+                <button class="cs-rep" onclick="return false">
+                  <span class="cs-rep-name">Biennial Inventory</span>
+                  <span class="cs-rep-desc">Dated, signed, location-scoped inventory record for the two-year retention standard.</span>
+                  <span class="cs-rep-foot"><span class="cs-cite">1304.04</span></span>
+                </button>
+                <button class="cs-rep" onclick="return false">
+                  <span class="cs-rep-name">Audit Log Export</span>
+                  <span class="cs-rep-desc">Full append-only movement log including corrected versions and disposition history.</span>
+                  <span class="cs-rep-foot"><span class="cs-cite">1304.04</span></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ==================== DISCREPANCIES — still a peer tab ====================
+             One list, every state, as agreed. What differs from V1 is only WHERE
+             the urgency lives: here it is behind a tab you must visit, with a
+             count on the tab and a banner on arrival. -->
+        <section class="cs-view" id="v-disc" aria-label="Discrepancies">
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title">Discrepancies</div>
+                <div class="cs-card-sub">Every discrepancy in one list &mdash; open, mistakes and possible diversions.</div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
+              </div>
+            </div>
+
+            <div class="cs-card-body">
+              <div class="cs-note cs-note-err" id="cs-disc-banner" style="margin-bottom:0">
+                <i class="fa-solid fa-triangle-exclamation" style="margin-right:7px" aria-hidden="true"></i>
+                <strong><span id="cs-disc-count">3</span> discrepancies</strong> are open and need disposition as a mistake or a possible diversion.
+              </div>
+            </div>
+
+            <div style="padding:12px 16px; border-bottom:1px solid var(--cs-line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+              <span class="cs-scope-label">State</span>
+              <div class="cs-facets">
+                <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Open</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Possible diversion</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Mistake</button>
+              </div>
+            </div>
+
+            <div class="cs-card-body is-flush">
+              <table class="cs-table">
+                <thead>
+                  <tr><th>Detected</th><th>Substance &amp; lot</th><th class="num">Delta</th><th>Source</th><th>Personnel</th><th>State</th><th style="width:210px"></th></tr>
+                </thead>
+                <tbody>
+                  <tr data-disc-row="d1">
+                    <td>08/16/2026<div class="cs-tiny">6:12 am</div></td>
+                    <td>MIDAZOLAM (VERSED)<div class="cs-tiny">Lot #MZ-88421</div></td>
+                    <td class="num" style="color:var(--lumo-error-text-color,#ca150c);font-weight:700">&minus;1</td>
+                    <td>Apparatus count<div class="cs-tiny">Medic 12</div></td>
+                    <td>A. Reyes</td>
+                    <td><span class="cs-pill cs-pill--err" data-state-pill>Open</span></td>
+                    <td><div style="display:flex;gap:6px;justify-content:flex-end" data-row-acts>
+                      <vaadin-button theme="tertiary" onclick="csDispose('d1','mistake')">Mistake</vaadin-button>
+                      <vaadin-button theme="error primary" onclick="csDispose('d1','diversion')">Diversion</vaadin-button>
+                    </div></td>
+                  </tr>
+                  <tr data-disc-row="d2">
+                    <td>08/15/2026<div class="cs-tiny">4:47 pm</div></td>
+                    <td>FENTANYL CITRATE (SUBLIMAZE)<div class="cs-tiny">Lot #FN-23409</div></td>
+                    <td class="num" style="color:var(--lumo-error-text-color,#ca150c);font-weight:700">&minus;2</td>
+                    <td>Store room count<div class="cs-tiny">Riverside HQ</div></td>
+                    <td>K. Znilek</td>
+                    <td><span class="cs-pill cs-pill--err" data-state-pill>Open</span></td>
+                    <td><div style="display:flex;gap:6px;justify-content:flex-end" data-row-acts>
+                      <vaadin-button theme="tertiary" onclick="csDispose('d2','mistake')">Mistake</vaadin-button>
+                      <vaadin-button theme="error primary" onclick="csDispose('d2','diversion')">Diversion</vaadin-button>
+                    </div></td>
+                  </tr>
+                  <tr data-disc-row="d3">
+                    <td>08/14/2026<div class="cs-tiny">7:03 am</div></td>
+                    <td>MORPHINE SULFATE<div class="cs-tiny">Lot #MS-11902</div></td>
+                    <td class="num" style="color:var(--lumo-error-text-color,#ca150c);font-weight:700">+1</td>
+                    <td>Apparatus count<div class="cs-tiny">Medic 07</div></td>
+                    <td>T. Hartley</td>
+                    <td><span class="cs-pill cs-pill--err" data-state-pill>Open</span></td>
+                    <td><div style="display:flex;gap:6px;justify-content:flex-end" data-row-acts>
+                      <vaadin-button theme="tertiary" onclick="csDispose('d3','mistake')">Mistake</vaadin-button>
+                      <vaadin-button theme="error primary" onclick="csDispose('d3','diversion')">Diversion</vaadin-button>
+                    </div></td>
+                  </tr>
+                  <tr>
+                    <td>07/30/2026<div class="cs-tiny">11:01 am</div></td>
+                    <td>MORPHINE SULFATE<div class="cs-tiny">Lot #MS-10884</div></td>
+                    <td class="num" style="font-weight:700">&minus;4</td>
+                    <td>Store room count<div class="cs-tiny">Westfield Operations Center</div></td>
+                    <td>K. Znilek</td>
+                    <td><span class="cs-pill cs-pill--err">Possible diversion</span><div class="cs-tiny">Under investigation</div></td>
+                    <td><div style="display:flex;gap:6px;justify-content:flex-end"><vaadin-button theme="tertiary" onclick="return false">Open case</vaadin-button></div></td>
+                  </tr>
+                  <tr>
+                    <td>07/22/2026<div class="cs-tiny">8:40 am</div></td>
+                    <td>FENTANYL CITRATE (SUBLIMAZE)<div class="cs-tiny">Lot #FN-22771</div></td>
+                    <td class="num" style="font-weight:700">&minus;1</td>
+                    <td>Apparatus count<div class="cs-tiny">Medic 12</div></td>
+                    <td>A. Reyes</td>
+                    <td><span class="cs-pill cs-pill--neut">Mistake</span><div class="cs-tiny">Miscount, corrected</div></td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td>07/18/2026<div class="cs-tiny">2:26 pm</div></td>
+                    <td>MIDAZOLAM (VERSED)<div class="cs-tiny">Lot #MZ-87004</div></td>
+                    <td class="num" style="font-weight:700">&minus;1</td>
+                    <td>Store room count<div class="cs-tiny">Riverside HQ</div></td>
+                    <td>K. Znilek</td>
+                    <td><span class="cs-pill cs-pill--neut">Mistake</span><div class="cs-tiny">Entry error, corrected</div></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<script>
+  /* ==================================================================
+     Interactions. Vanilla JS, no framework.
+     ================================================================== */
+  var main = document.getElementById('cs-main');
+  var tabs = document.getElementById('cs-tabs');
+  var tabNames = ['boxes','master','onhand','audit','orders','compliance','reports','disc'];
+
+  tabs.addEventListener('selected-changed', function (e) {
+    var i = e.detail.value;
+    if (typeof i === 'number' && tabNames[i]) main.setAttribute('data-tab', tabNames[i]);
+  });
+
+  function csTab(name) {
+    var i = tabNames.indexOf(name);
+    if (i > -1) { tabs.selected = i; main.setAttribute('data-tab', name); }
+    window.scrollTo(0, 0);
+  }
+
+  function csSub(btn, name) {
+    var v = document.getElementById('v-audit');
+    v.setAttribute('data-sub', name);
+    btn.parentNode.querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b === btn));
+    });
+  }
+  /* Jump to a sub-tab without a button reference (used by row actions). */
+  function csSubJump(name) {
+    var v = document.getElementById('v-audit');
+    var order = ['movements','consumption','coc'];
+    var btns = v.querySelectorAll('.cs-subnav button');
+    csSub(btns[order.indexOf(name)], name);
+    window.scrollTo(0, 0);
+  }
+
+  function csFacet(btn) {
+    btn.parentNode.querySelectorAll('.cs-facet').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b === btn));
+    });
+  }
+
+  function csExpand(row) {
+    var exp = row.nextElementSibling;
+    if (!exp || !exp.classList.contains('cs-exp')) return;
+    var open = exp.classList.toggle('is-open');
+    row.classList.toggle('is-expanded', open);
+  }
+
+  function csOrder(btn) {
+    btn.parentNode.querySelectorAll('.cs-order').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b === btn));
+    });
+  }
+
+  /* ---- Discrepancy disposition ----
+     Same single-state model as V1 (open -> mistake | possible diversion), but
+     with only ONE view of the object, because there is no persistent attention
+     layer to keep in sync. The tab count and the on-page banner update. */
+  var openDiscrepancies = { d1: true, d2: true, d3: true };
+
+  function csDispose(id, how) {
+    if (!openDiscrepancies[id]) return;
+    openDiscrepancies[id] = false;
+
+    var row = document.querySelector('[data-disc-row="' + id + '"]');
+    if (row) {
+      var pill = row.querySelector('[data-state-pill]');
+      var acts = row.querySelector('[data-row-acts]');
+      if (how === 'diversion') {
+        pill.className = 'cs-pill cs-pill--err';
+        pill.textContent = 'Possible diversion';
+        pill.insertAdjacentHTML('afterend', '<div class="cs-tiny">Under investigation</div>');
+        if (acts) acts.innerHTML = '<vaadin-button theme="tertiary" onclick="return false">Open case</vaadin-button>';
+      } else {
+        pill.className = 'cs-pill cs-pill--neut';
+        pill.textContent = 'Mistake';
+        pill.insertAdjacentHTML('afterend', '<div class="cs-tiny">Dispositioned 08/18/2026</div>');
+        if (acts) acts.remove();
+      }
+      row.removeAttribute('data-disc-row');
+    }
+
+    var n = Object.keys(openDiscrepancies).filter(function (k) { return openDiscrepancies[k]; }).length;
+    var countEl = document.getElementById('cs-disc-count');
+    if (countEl) countEl.textContent = n;
+
+    var tabCount = document.querySelector('.cs-tab-count');
+    if (tabCount) { tabCount.textContent = n; tabCount.style.display = n ? '' : 'none'; }
+
+    var banner = document.getElementById('cs-disc-banner');
+    if (banner && !n) banner.style.display = 'none';
+  }
+
+  /* ---- Vaadin selects need their items set as a property ---- */
+  function csSelect(id, items) {
+    var el = document.getElementById(id);
+    if (el) el.items = items;
+  }
+  var locItems = [
+    { label: 'All locations', value: 'all' },
+    { label: 'Riverside HQ', value: 'hq' },
+    { label: 'Westfield Operations Center', value: 'wo' },
+    { label: 'Northside Station 12', value: 'n12' },
+    { label: 'Medic 12', value: 'm12' },
+    { label: 'Medic 07', value: 'm07' }
+  ];
+  csSelect('mv-loc', locItems);
+  csSelect('cn-loc', locItems);
+  csSelect('mv-type', [
+    { label: 'All types', value: 'all' },
+    { label: 'Acquisition', value: 'acq' },
+    { label: 'Hospital restock', value: 'restock' },
+    { label: 'Inter-location', value: 'inter' }
+  ]);
+  var subItems = [
+    { label: 'All substances', value: 'all' },
+    { label: 'FENTANYL CITRATE (SUBLIMAZE)', value: 'fn' },
+    { label: 'MIDAZOLAM (VERSED)', value: 'mz' },
+    { label: 'MORPHINE SULFATE', value: 'ms' },
+    { label: 'KETAMINE HCL', value: 'kt' },
+    { label: 'LORAZEPAM (ATIVAN)', value: 'lz' }
+  ];
+  csSelect('cn-sub', subItems);
+  csSelect('coc-sub', subItems);
+  csSelect('cn-per', [
+    { label: 'All personnel', value: 'all' },
+    { label: 'K. Znilek', value: 'kz' },
+    { label: 'A. Reyes', value: 'ar' },
+    { label: 'T. Hartley', value: 'th' },
+    { label: 'M. Okonjo', value: 'mo' }
+  ]);
+  csSelect('coc-lot', [
+    { label: 'Lot #KT-40118', value: 'kt40118' },
+    { label: 'Lot #KT-39880', value: 'kt39880' }
+  ]);
+</script>
+
+
+<!-- ── Design Toolbox: Flow Map ────────────────────────────────────────────── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'boxes':       csTab('boxes'); break;
+      case 'master':      csTab('master'); break;
+      case 'onhand':      csTab('onhand'); break;
+      case 'consumption': csTab('audit'); csSubJump('consumption'); break;
+      case 'movements':   csTab('audit'); csSubJump('movements'); break;
+      case 'coc':         csTab('audit'); csSubJump('coc'); break;
+      case 'orders':      csTab('orders'); break;
+      case 'compliance':  csTab('compliance'); break;
+      case 'reports':     csTab('reports'); break;
+      case 'disc':        csTab('disc'); break;
+      default: break;
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Controlled Substances (Preserved) — Flow Map',
+      applyState: 'applyFlowState',
+      devNotes: '../DEV-NOTES.md',
+      canvas: { w: 1320, h: 620 },
+      flows: [
+        { id: 'exist', name: 'Existing tabs (unchanged)', pill: 'A', color: '#d5dbe3',
+          lane: { x: 20, y: 20, w: 1280, h: 150 }, labelXY: { x: 40, y: 40 } },
+        { id: 'audit', name: 'Audit (new sub-tabs)', pill: 'B', color: '#c9b8f0',
+          lane: { x: 20, y: 190, w: 1280, h: 150 }, labelXY: { x: 40, y: 210 } },
+        { id: 'new',   name: 'New tabs & outputs', pill: 'C', color: '#b8e0cf',
+          lane: { x: 20, y: 360, w: 1280, h: 230 }, labelXY: { x: 40, y: 380 } }
+      ],
+      nodes: [
+        { id: 'boxes', flow: 'exist', entry: true, x: 60, y: 80,
+          step: 'Entry', name: 'Drug Boxes', state: 'boxes',
+          desc: 'Unchanged. A station officer keeps their one-click landing with no scope concept to learn — the main argument for this version.' },
+        { id: 'master', flow: 'exist', x: 400, y: 80,
+          step: 'Existing', name: 'Master Supply', state: 'master',
+          desc: 'Unchanged bulk-storage accordion.' },
+        { id: 'onhand', flow: 'exist', x: 740, y: 80,
+          step: 'Existing', name: 'On Hand', state: 'onhand',
+          desc: 'Unchanged flat table. Note Location and Station remain separate columns.' },
+
+        { id: 'consumption', flow: 'audit', x: 60, y: 250,
+          step: 'New sub-tab', name: 'Audit › Consumption', state: 'consumption',
+          desc: 'Per-dose administration & disposal (1304.27(a)) fitted under the existing Audit tab. One record carries both administered and wasted quantities.' },
+        { id: 'movements', flow: 'audit', x: 400, y: 250,
+          step: 'New sub-tab', name: 'Audit › Movements', state: 'movements',
+          desc: 'Acquisitions, deliveries and restocks. Late ENTRY flagged; no "notification overdue" state.' },
+        { id: 'coc', flow: 'audit', x: 740, y: 250,
+          step: 'New sub-tab', name: 'Audit › Chain of Custody', state: 'coc',
+          desc: 'Chain of custody as a destination you navigate to and then filter — the contrast with V1, where it is an action on a record.' },
+
+        { id: 'orders', flow: 'new', x: 60, y: 430,
+          step: 'New tab', name: 'Orders', state: 'orders',
+          desc: 'Standing & verbal orders (5.4) — the single new tab in this version.' },
+        { id: 'compliance', flow: 'new', x: 400, y: 430,
+          step: 'New tab', name: 'Compliance', state: 'compliance',
+          desc: 'Registration topology (5.1), authorizations (5.5) and biennial inventory (5.6) stacked on one tab.' },
+        { id: 'reports', flow: 'new', x: 740, y: 430,
+          step: 'Output', name: 'Reports', state: 'reports',
+          desc: 'The PRD report set (5.7), extending the existing tab.' },
+        { id: 'disc', flow: 'new', x: 1080, y: 430,
+          step: 'Existing', name: 'Discrepancies', state: 'disc',
+          desc: 'Still a peer tab. One list, every state — but urgency lives behind a tab rather than in a persistent domain-level layer. This is the sharpest contrast with V1.' }
+      ],
+      edges: [
+        ['boxes', 'master'],
+        ['master', 'onhand'],
+        ['consumption', 'movements'],
+        ['movements', 'coc'],
+        ['orders', 'compliance'],
+        ['compliance', 'reports'],
+        ['reports', 'disc']
+      ]
+    }
+  };
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
