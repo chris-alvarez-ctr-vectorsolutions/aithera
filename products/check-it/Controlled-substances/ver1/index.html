@@ -840,11 +840,12 @@ href="../../../../assets/fontawesome/css/all.min.css"
              everywhere" and "everything at Medic 12" are each one control, and
              they compose: drug boxes + Medic 12 narrows to that rig's box.
              ========================================================== -->
-        <section class="cs-view" id="v-inventory" aria-label="Inventory">
+        <section class="cs-view" id="v-inventory" data-view="loc" aria-label="Inventory">
 
           <div class="cs-scope">
-            <!-- Axis 1: container type. Generic levels, fixed set, multi-select.
-                 Nothing to save or star — the types are known. -->
+            <!-- Axis 1: CONTAINER TYPE — a generic level, fixed set, multi-select.
+                 Nothing saved or starred; the types are known. This axis means
+                 the same thing in both views: which container types count. -->
             <div class="cs-scope-row">
               <span class="cs-scope-label">Containers</span>
               <div class="cs-facets" id="cs-inv-types">
@@ -859,24 +860,101 @@ href="../../../../assets/fontawesome/css/all.min.css"
               </div>
             </div>
 
-            <!-- Axis 2: location. Independent of type, so the two compose.
-                 Topology note: stations and apparatus are PARALLEL, and
-                 "registered" is a badge on a station, not a level — so this is
-                 a flat list, not a tree. -->
+            <!-- Axis 2: NARROW THE ROW AXIS. This control is POSITIONAL, not
+                 fixed: it always narrows whatever a row currently is. By
+                 location → pick a location. By substance → pick a substance.
+                 Swapping the toggle swaps this control with it, so the pair
+                 always reads as "these rows, narrowed to this one". -->
             <div class="cs-scope-row" style="margin-top:11px; padding-top:11px; border-top:1px solid var(--cs-line-soft)">
-              <span class="cs-scope-label">Location</span>
+              <span class="cs-scope-label" id="cs-narrow-label">Location</span>
               <vaadin-select theme="outlined" value="all" id="inv-loc" style="width:260px"></vaadin-select>
-              <span class="cs-scope-summary" id="cs-scope-summary">6 locations &middot; 14 containers &middot; 815 units</span>
+              <vaadin-select theme="outlined" value="all" id="inv-sub" style="width:260px; display:none"></vaadin-select>
+              <span class="cs-scope-summary" id="cs-scope-summary"></span>
             </div>
           </div>
 
-          <!-- BY LOCATION ------------------------------------------------ -->
+          <!-- ================= BY LOCATION =================
+               A row is a LOCATION. The container-type filter drives the ROW
+               SHAPE, not just which rows show, because drug boxes and master
+               supplies answer different questions in the product today:
+                 • a drug box is a sealed unit with a check ceremony
+                     → "was it checked, and is it intact?"
+                 • a master supply is a stockroom
+                     → "what is on the shelf, and how much?"
+               Flattening both into one row shape (which an earlier revision of
+               this mock did) invents a container-level roll-up for drug boxes
+               that does not exist today AND demotes the box's check status —
+               the entire point of the Drug Boxes tab — to one column among many.
+               So each type keeps its native shape and they stack when both are
+               in scope.
+               ============================================== -->
           <div id="inv-by-loc">
-            <div class="cs-card">
+
+            <!-- Drug boxes: container-level only. No contents here — nothing in
+                 the PRD asks for a persistent item-level box view, and today's
+                 product does not show one. Contents come from By substance or
+                 from drilling into a box. -->
+            <div class="cs-card" id="inv-boxes-card">
               <div class="cs-card-head">
                 <div>
-                  <div class="cs-card-title">Locations &amp; containers</div>
-                  <div class="cs-card-sub">Stations and apparatus are parallel designated locations. Registration is an attribute, not a tier.</div>
+                  <div class="cs-card-title">Drug boxes</div>
+                  <div class="cs-card-sub">Sealed units on a check cadence. Container-level: status, not contents.</div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-export" style="margin-right:6px" aria-hidden="true"></i>Export</vaadin-button>
+                </div>
+              </div>
+              <div class="cs-card-body is-flush">
+                <table class="cs-table">
+                  <thead>
+                    <tr>
+                      <th>Box</th>
+                      <th>Location</th>
+                      <th>Escalation policy</th>
+                      <th>Last check</th>
+                      <th>Check status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="cs-row-click" data-loc="m12" onclick="csDrillContainer('Drug Box 7227','Medic 12')">
+                      <td><div class="cs-strong">Drug Box 7227</div><div class="cs-tiny">Sealed &middot; seal #S-44120</div></td>
+                      <td>Medic 12<div class="cs-tiny">Apparatus &middot; based at Northside Station 12</div></td>
+                      <td>Daily rig check &mdash; C-II</td>
+                      <td>08/16/2026<div class="cs-tiny">6:12 am &middot; A. Reyes</div></td>
+                      <td><span class="cs-pill cs-pill--err">Discrepancy</span><div class="cs-tiny">&minus;1 unit, open</div></td>
+                    </tr>
+                    <tr class="cs-row-click" data-loc="m07" onclick="csDrillContainer('Drug Box 5510','Medic 07')">
+                      <td><div class="cs-strong">Drug Box 5510</div><div class="cs-tiny">Sealed &middot; seal #S-44087</div></td>
+                      <td>Medic 07<div class="cs-tiny">Apparatus &middot; based at Tumbleweed Station 51</div></td>
+                      <td>Daily rig check &mdash; C-II</td>
+                      <td>08/14/2026<div class="cs-tiny">7:03 am &middot; T. Hartley</div></td>
+                      <td><span class="cs-pill cs-pill--err">Discrepancy</span><div class="cs-tiny">+1 unit, open</div></td>
+                    </tr>
+                    <tr class="cs-row-click" data-loc="n12" onclick="csDrillContainer('Safe 2','Northside Station 12')">
+                      <td><div class="cs-strong">Safe 2</div><div class="cs-tiny">Sealed &middot; seal #S-43990</div></td>
+                      <td>Northside Station 12<div class="cs-tiny">Station &middot; Store Room B</div></td>
+                      <td>Master supply weekly</td>
+                      <td>08/16/2026<div class="cs-tiny">6:04 am &middot; A. Reyes</div></td>
+                      <td><span class="cs-pill cs-pill--ok">Checked</span></td>
+                    </tr>
+                    <tr class="cs-row-click" data-loc="eg22" onclick="csDrillContainer('Eastgate Compartment 1','Eastgate Station 22')">
+                      <td><div class="cs-strong">Eastgate Compartment 1</div><div class="cs-tiny">Sealed &middot; seal #S-44201</div></td>
+                      <td>Eastgate Station 22<div class="cs-tiny">Station</div></td>
+                      <td><span class="cs-dim">No escalation policy</span></td>
+                      <td><span class="cs-dim">&mdash;</span></td>
+                      <td><span class="cs-pill cs-pill--neut">Not checked yet</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Master supply: shelf/item level, as today's accordion is. -->
+            <div class="cs-card" id="inv-master-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Master supply</div>
+                  <div class="cs-card-sub">Bulk stock by location. Shelf level: substance, lot and quantity.</div>
                 </div>
                 <div class="cs-card-acts">
                   <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-export" style="margin-right:6px" aria-hidden="true"></i>Export</vaadin-button>
@@ -887,95 +965,85 @@ href="../../../../assets/fontawesome/css/all.min.css"
                   <thead>
                     <tr>
                       <th>Location</th>
-                      <th>Type</th>
-                      <th>Containers</th>
-                      <th class="num">Units on hand</th>
-                      <th>Last count</th>
-                      <th>Status</th>
+                      <th>Substance &amp; finished form</th>
+                      <th>Lot</th>
+                      <th class="num">Qty</th>
+                      <th>Expires</th>
+                      <th>Stock</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr class="cs-row-click" data-loc="hq" data-types="master" data-containers="2" data-units="412" onclick="csLocationRow('hq')">
-                      <td>
-                        <div class="cs-strong">Riverside HQ</div>
-                        <div class="cs-tiny">1400 Mercer Ave &middot; Riverside</div>
-                      </td>
-                      <td><span class="cs-pill cs-pill--reg">Registered</span></td>
-                      <td>Master Supply, Store Room A</td>
-                      <td class="num">412</td>
-                      <td>08/15/2026</td>
-                      <td><span class="cs-pill cs-pill--err">1 discrepancy</span></td>
+                    <tr data-loc="hq">
+                      <td><div class="cs-strong">Riverside HQ</div><div class="cs-tiny">Master Supply</div></td>
+                      <td>FENTANYL CITRATE (SUBLIMAZE)<div class="cs-tiny">100 mcg / 2 mL vial</div></td>
+                      <td>#FN-23409</td>
+                      <td class="num">16</td>
+                      <td>03/14/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">In stock</span></td>
                     </tr>
-                    <tr class="cs-row-click" data-loc="wo" data-types="master" data-containers="1" data-units="268" onclick="csLocationRow('wo')">
-                      <td>
-                        <div class="cs-strong">Westfield Operations Center</div>
-                        <div class="cs-tiny">88 Depot Rd &middot; Westfield</div>
-                      </td>
-                      <td><span class="cs-pill cs-pill--reg">Registered</span></td>
-                      <td>Master Supply</td>
-                      <td class="num">268</td>
-                      <td>08/15/2026</td>
-                      <td><span class="cs-pill cs-pill--ok">Clear</span></td>
+                    <tr data-loc="hq">
+                      <td><div class="cs-strong">Riverside HQ</div><div class="cs-tiny">Master Supply</div></td>
+                      <td>MORPHINE SULFATE<div class="cs-tiny">10 mg / 1 mL vial</div></td>
+                      <td>#MS-11902</td>
+                      <td class="num">4</td>
+                      <td>09/02/2026</td>
+                      <td><span class="cs-pill cs-pill--warn">Low &middot; expiring</span></td>
                     </tr>
-                    <tr class="cs-row-click" data-loc="n12" data-types="master" data-containers="2" data-units="96" onclick="csLocationRow('n12')">
-                      <td>
-                        <div class="cs-strong">Northside Station 12</div>
-                        <div class="cs-tiny">230 Loomis St &middot; Northside</div>
-                      </td>
-                      <td><span class="cs-pill cs-pill--desg">Designated</span></td>
-                      <td>Store Room B, Safe 2</td>
-                      <td class="num">96</td>
-                      <td>08/16/2026</td>
-                      <td><span class="cs-pill cs-pill--ok">Clear</span></td>
+                    <tr data-loc="hq">
+                      <td><div class="cs-strong">Riverside HQ</div><div class="cs-tiny">Store Room A</div></td>
+                      <td>LORAZEPAM (ATIVAN)<div class="cs-tiny">2 mg / 1 mL vial</div></td>
+                      <td>#LZ-77320</td>
+                      <td class="num">9</td>
+                      <td>01/18/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">In stock</span></td>
                     </tr>
-                    <tr class="cs-row-click" data-loc="m12" data-types="box" data-containers="1" data-units="18" onclick="csLocationRow('m12')">
-                      <td>
-                        <div class="cs-strong">Medic 12</div>
-                        <div class="cs-tiny">Apparatus &middot; based at Northside Station 12</div>
-                      </td>
-                      <td><span class="cs-pill cs-pill--desg">Designated</span></td>
-                      <td>Drug Box 7227</td>
-                      <td class="num">18</td>
-                      <td>08/16/2026</td>
-                      <td><span class="cs-pill cs-pill--err">1 discrepancy</span></td>
+                    <tr data-loc="wo">
+                      <td><div class="cs-strong">Westfield Operations Center</div><div class="cs-tiny">Master Supply</div></td>
+                      <td>MIDAZOLAM (VERSED)<div class="cs-tiny">10 mg / 2 mL vial</div></td>
+                      <td>#MZ-89003</td>
+                      <td class="num">14</td>
+                      <td>05/22/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">In stock</span></td>
                     </tr>
-                    <tr class="cs-row-click" data-loc="m07" data-types="box" data-containers="1" data-units="21" onclick="csLocationRow('m07')">
-                      <td>
-                        <div class="cs-strong">Medic 07</div>
-                        <div class="cs-tiny">Apparatus &middot; based at Tumbleweed Station 51</div>
-                      </td>
-                      <td><span class="cs-pill cs-pill--desg">Designated</span></td>
-                      <td>Drug Box 5510</td>
-                      <td class="num">21</td>
-                      <td>08/14/2026</td>
-                      <td><span class="cs-pill cs-pill--err">1 discrepancy</span></td>
-                    </tr>
-                    <tr class="cs-row-click" data-loc="lv07" data-types="" data-containers="0" data-units="0" onclick="csLocationRow('lv07')">
-                      <td>
-                        <div class="cs-strong">Lakeview Station 07</div>
-                        <div class="cs-tiny">512 Shoreline Dr &middot; Lakeview</div>
-                      </td>
-                      <td><span class="cs-pill cs-pill--desg">Designated</span></td>
-                      <td>&mdash;</td>
-                      <td class="num">0</td>
-                      <td>&mdash;</td>
-                      <td><span class="cs-pill cs-pill--warn">Pending first delivery</span></td>
+                    <tr data-loc="n12">
+                      <td><div class="cs-strong">Northside Station 12</div><div class="cs-tiny">Store Room B</div></td>
+                      <td>MORPHINE SULFATE<div class="cs-tiny">10 mg / 1 mL vial</div></td>
+                      <td>#MS-12440</td>
+                      <td class="num">8</td>
+                      <td>02/14/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">In stock</span></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
+
+            <!-- Shown only when the location filter resolves to nothing. -->
+            <div class="cs-card" id="inv-loc-empty" style="display:none">
+              <div class="cs-stub">
+                <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+                No containers of the selected type at this location.
+              </div>
+            </div>
           </div>
 
-          <!-- BY SUBSTANCE ----------------------------------------------- -->
-          <!-- The biggest departure from current-state: a substance is directly
-               addressable rather than reachable only through a container. -->
+          <!-- ================= BY SUBSTANCE =================
+               A row is a SUBSTANCE (item level) rather than a location — the
+               lineage here is today's On Hand tab, re-presented as a real
+               substance → finished form → lot → unit drill rather than a flat
+               list. The container-type filter still means the same thing (which
+               container types are counted), and the narrowing control becomes a
+               SUBSTANCE picker, because it always narrows the row axis.
+               ================================================ -->
           <div id="inv-by-sub" style="display:none">
             <div class="cs-card">
               <div class="cs-card-head">
                 <div>
-                  <div class="cs-card-title">Substances</div>
-                  <div class="cs-card-sub">Substance &rarr; finished form &rarr; lot &rarr; unit, aggregated across every container in scope.</div>
+                  <div class="cs-card-title">Substances on hand</div>
+                  <div class="cs-card-sub">Aggregated across every container in scope. Drill a row for its lots, units and locations.</div>
+                </div>
+                <div class="cs-card-acts">
+                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-export" style="margin-right:6px" aria-hidden="true"></i>Export</vaadin-button>
                 </div>
               </div>
               <div class="cs-card-body is-flush">
@@ -991,73 +1059,70 @@ href="../../../../assets/fontawesome/css/all.min.css"
                     </tr>
                   </thead>
                   <tbody>
-                    <tr class="cs-row-click" onclick="csCoc('FENTANYL CITRATE (SUBLIMAZE)','FN-23409')">
+                    <tr class="cs-row-click" data-sub="fn" data-types="master box" onclick="csCoc('FENTANYL CITRATE (SUBLIMAZE)','FN-23409')">
                       <td>
                         <div class="cs-strong">FENTANYL CITRATE (SUBLIMAZE)</div>
                         <div class="cs-tiny">100 mcg / 2 mL vial</div>
                       </td>
                       <td><span class="cs-pill cs-pill--neut">C-II</span></td>
                       <td class="num">64</td>
-                      <td>
-                        <div class="cs-lot"><span class="cs-lot-bar"><span style="width:72%"></span></span> 4 lots</div>
-                      </td>
+                      <td><div class="cs-lot"><span class="cs-lot-bar"><span style="width:72%"></span></span> 4 lots</div></td>
                       <td>5</td>
                       <td>03/14/2027</td>
                     </tr>
-                    <tr class="cs-row-click" onclick="csCoc('MIDAZOLAM (VERSED)','MZ-88421')">
+                    <tr class="cs-row-click" data-sub="mz" data-types="master box" onclick="csCoc('MIDAZOLAM (VERSED)','MZ-88421')">
                       <td>
                         <div class="cs-strong">MIDAZOLAM (VERSED)</div>
                         <div class="cs-tiny">10 mg / 2 mL vial</div>
                       </td>
                       <td><span class="cs-pill cs-pill--neut">C-IV</span></td>
                       <td class="num">88</td>
-                      <td>
-                        <div class="cs-lot"><span class="cs-lot-bar"><span style="width:84%"></span></span> 3 lots</div>
-                      </td>
+                      <td><div class="cs-lot"><span class="cs-lot-bar"><span style="width:84%"></span></span> 3 lots</div></td>
                       <td>6</td>
                       <td>11/30/2026</td>
                     </tr>
-                    <tr class="cs-row-click" onclick="csCoc('MORPHINE SULFATE','MS-11902')">
+                    <tr class="cs-row-click" data-sub="ms" data-types="master box" onclick="csCoc('MORPHINE SULFATE','MS-11902')">
                       <td>
                         <div class="cs-strong">MORPHINE SULFATE</div>
                         <div class="cs-tiny">10 mg / 1 mL vial</div>
                       </td>
                       <td><span class="cs-pill cs-pill--neut">C-II</span></td>
                       <td class="num">142</td>
-                      <td>
-                        <div class="cs-lot"><span class="cs-lot-bar is-low"><span style="width:26%"></span></span> 6 lots</div>
-                      </td>
+                      <td><div class="cs-lot"><span class="cs-lot-bar is-low"><span style="width:26%"></span></span> 6 lots</div></td>
                       <td>7</td>
                       <td>09/02/2026</td>
                     </tr>
-                    <tr class="cs-row-click" onclick="csCoc('KETAMINE HCL','KT-40118')">
+                    <tr class="cs-row-click" data-sub="kt" data-types="box" onclick="csCoc('KETAMINE HCL','KT-40118')">
                       <td>
                         <div class="cs-strong">KETAMINE HCL</div>
                         <div class="cs-tiny">500 mg / 10 mL vial</div>
                       </td>
                       <td><span class="cs-pill cs-pill--neut">C-III</span></td>
                       <td class="num">37</td>
-                      <td>
-                        <div class="cs-lot"><span class="cs-lot-bar"><span style="width:61%"></span></span> 2 lots</div>
-                      </td>
+                      <td><div class="cs-lot"><span class="cs-lot-bar"><span style="width:61%"></span></span> 2 lots</div></td>
                       <td>4</td>
                       <td>06/21/2027</td>
                     </tr>
-                    <tr class="cs-row-click" onclick="csCoc('LORAZEPAM (ATIVAN)','LZ-77320')">
+                    <tr class="cs-row-click" data-sub="lz" data-types="master" onclick="csCoc('LORAZEPAM (ATIVAN)','LZ-77320')">
                       <td>
                         <div class="cs-strong">LORAZEPAM (ATIVAN)</div>
                         <div class="cs-tiny">2 mg / 1 mL vial</div>
                       </td>
                       <td><span class="cs-pill cs-pill--neut">C-IV</span></td>
                       <td class="num">54</td>
-                      <td>
-                        <div class="cs-lot"><span class="cs-lot-bar"><span style="width:48%"></span></span> 3 lots</div>
-                      </td>
+                      <td><div class="cs-lot"><span class="cs-lot-bar"><span style="width:48%"></span></span> 3 lots</div></td>
                       <td>3</td>
                       <td>01/18/2027</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <div class="cs-card" id="inv-sub-empty" style="display:none">
+              <div class="cs-stub">
+                <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+                No substances match the selected container types.
               </div>
             </div>
           </div>
@@ -2316,35 +2381,94 @@ href="../../../../assets/fontawesome/css/all.min.css"
                   boxes). Multi-select, because combinations are real views.
      csLocation — WHICH place. Independent of type; the two compose.
      Both feed one summary line so the current scope is always stated.
+  /* ---- Inventory: a row-axis toggle plus two filters -----------------
+
+     THE TOGGLE CHANGES WHAT A ROW *IS*, not just how it is presented:
+       By location  → a row is a LOCATION (or a container at one)
+       By substance → a row is a SUBSTANCE (item level)
+
+     That makes the second filter POSITIONAL rather than fixed — it always
+     narrows the row axis, so it swaps with the toggle:
+       By location  → Location picker
+       By substance → Substance picker
+
+     The container-type filter means the same thing in both views (which
+     container types are counted), and in By location it additionally drives
+     the ROW SHAPE: drug boxes render container-level with a check status,
+     master supplies render shelf-level with substance/lot/qty, because those
+     are genuinely different questions in the product today.
      -------------------------------------------------------------------- */
-  var invScope = { types: ['all'], loc: 'all' };
+  var invScope = { view: 'loc', types: ['all'], loc: 'all', sub: 'all' };
 
-  /* Row-level filtering: each location row carries the container types it
-     holds, so the type filter hides rows with nothing matching. */
+  function csHasType(t) {
+    return invScope.types.indexOf('all') > -1 || invScope.types.indexOf(t) > -1;
+  }
+
   function csApplyInvFilters() {
-    var rows = document.querySelectorAll('#inv-by-loc tbody tr[data-types]');
-    var showAll = invScope.types.indexOf('all') > -1;
-    var locs = 0, containers = 0, units = 0;
+    if (invScope.view === 'loc') csApplyByLocation();
+    else csApplyBySubstance();
+  }
 
-    rows.forEach(function (r) {
-      var rowTypes = (r.getAttribute('data-types') || '').split(' ').filter(Boolean);
-      var typeOk = showAll || rowTypes.some(function (t) { return invScope.types.indexOf(t) > -1; });
-      var locOk  = invScope.loc === 'all' || r.getAttribute('data-loc') === invScope.loc;
-      var show = typeOk && locOk;
+  /* BY LOCATION — type drives which card (row shape) is present; the location
+     filter narrows rows inside each card. */
+  function csApplyByLocation() {
+    var boxesCard  = document.getElementById('inv-boxes-card');
+    var masterCard = document.getElementById('inv-master-card');
+    var wantBoxes  = csHasType('box');
+    var wantMaster = csHasType('master');
+
+    var boxRows = 0, masterRows = 0, units = 0;
+
+    document.querySelectorAll('#inv-boxes-card tbody tr').forEach(function (r) {
+      var show = wantBoxes && (invScope.loc === 'all' || r.getAttribute('data-loc') === invScope.loc);
+      r.style.display = show ? '' : 'none';
+      if (show) boxRows++;
+    });
+    document.querySelectorAll('#inv-master-card tbody tr').forEach(function (r) {
+      var show = wantMaster && (invScope.loc === 'all' || r.getAttribute('data-loc') === invScope.loc);
       r.style.display = show ? '' : 'none';
       if (show) {
-        locs++;
-        containers += parseInt(r.getAttribute('data-containers') || '0', 10);
-        units += parseInt(r.getAttribute('data-units') || '0', 10);
+        masterRows++;
+        var q = r.querySelector('td.num');
+        units += q ? parseInt(q.textContent, 10) || 0 : 0;
       }
     });
 
-    var s = document.getElementById('cs-scope-summary');
-    if (s) {
-      s.innerHTML = locs + (locs === 1 ? ' location' : ' locations') +
-                    ' · ' + containers + (containers === 1 ? ' container' : ' containers') +
-                    ' · ' + units + ' units';
-    }
+    boxesCard.style.display  = (wantBoxes  && boxRows)    ? '' : 'none';
+    masterCard.style.display = (wantMaster && masterRows) ? '' : 'none';
+    document.getElementById('inv-loc-empty').style.display =
+      (!boxRows && !masterRows) ? '' : 'none';
+
+    var parts = [];
+    if (boxRows)    parts.push(boxRows + (boxRows === 1 ? ' drug box' : ' drug boxes'));
+    if (masterRows) parts.push(masterRows + ' master-supply ' + (masterRows === 1 ? 'line' : 'lines') +
+                               ' · ' + units + ' units');
+    document.getElementById('cs-scope-summary').textContent =
+      parts.length ? parts.join('  ·  ') : 'Nothing in scope';
+  }
+
+  /* BY SUBSTANCE — rows are substances; the substance filter narrows them, and
+     the type filter still limits which containers are counted. */
+  function csApplyBySubstance() {
+    var rows = document.querySelectorAll('#inv-by-sub tbody tr[data-sub]');
+    var shown = 0, units = 0;
+    rows.forEach(function (r) {
+      var rowTypes = (r.getAttribute('data-types') || '').split(' ').filter(Boolean);
+      var typeOk = invScope.types.indexOf('all') > -1 ||
+                   rowTypes.some(function (t) { return invScope.types.indexOf(t) > -1; });
+      var subOk = invScope.sub === 'all' || r.getAttribute('data-sub') === invScope.sub;
+      var show = typeOk && subOk;
+      r.style.display = show ? '' : 'none';
+      if (show) {
+        shown++;
+        var q = r.querySelector('td.num');
+        units += q ? parseInt(q.textContent, 10) || 0 : 0;
+      }
+    });
+    document.getElementById('inv-sub-empty').style.display = shown ? 'none' : '';
+    document.getElementById('cs-scope-summary').textContent = shown
+      ? shown + (shown === 1 ? ' substance' : ' substances') + ' · ' + units + ' units'
+      : 'Nothing in scope';
   }
 
   function csType(btn, key) {
@@ -2357,14 +2481,12 @@ href="../../../../assets/fontawesome/css/all.min.css"
       var next = invScope.types.filter(function (t) { return t !== 'all'; });
       var i = next.indexOf(key);
       if (i > -1) next.splice(i, 1); else next.push(key);
-      /* Deselecting everything means "no filter", which is All. And selecting
-         every type individually is the same view as All, so collapse to it. */
+      /* Nothing selected means "no filter" = All; selecting every type
+         individually is the same view as All, so collapse to it. */
       invScope.types = (next.length === 0 || next.length === btns.length - 1) ? ['all'] : next;
     }
-
     btns.forEach(function (b) {
-      var k = b.getAttribute('data-type');
-      b.setAttribute('aria-pressed', String(invScope.types.indexOf(k) > -1));
+      b.setAttribute('aria-pressed', String(invScope.types.indexOf(b.getAttribute('data-type')) > -1));
     });
     csApplyInvFilters();
   }
@@ -2376,26 +2498,40 @@ href="../../../../assets/fontawesome/css/all.min.css"
     csApplyInvFilters();
   }
 
-  /* Clicking a location row scopes to it — the same state the dropdown sets,
-     so the two controls never disagree.
-
-     It also CLEARS the type filter, because the intent of clicking a place is
-     "show me everything here". Without this, clicking Riverside HQ while
-     "Drug Boxes" is active empties the table: HQ holds no drug boxes, so the
-     row filters itself out and the click is a dead end. */
-  function csLocationRow(loc) {
-    var all = document.querySelector('#cs-inv-types [data-type="all"]');
-    if (all && invScope.types.indexOf('all') === -1) csType(all, 'all');
-    csLocation(loc);
+  function csSubstance(value) {
+    invScope.sub = value || 'all';
+    var sel = document.getElementById('inv-sub');
+    if (sel && sel.value !== invScope.sub) sel.value = invScope.sub;
+    csApplyInvFilters();
   }
 
+  /* Clicking a drug-box row drills into that container — the only place box
+     contents appear, since there is no persistent item-level box view. */
+  function csDrillContainer(container, location) {
+    csCoc(container, location);
+  }
+
+  /* Swap the row axis. The narrowing control swaps with it, and its previous
+     value is dropped so the two never disagree about what is being narrowed. */
   function csInvView(btn, which) {
-    btn.parentNode.querySelectorAll('.cs-seg').forEach(function (b) {
+    invScope.view = which;
+    var root = document.getElementById('v-inventory');
+    root.setAttribute('data-view', which);
+    root.querySelectorAll('.cs-seg').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b === btn));
     });
     document.getElementById('inv-by-loc').style.display = (which === 'loc') ? 'block' : 'none';
     document.getElementById('inv-by-sub').style.display = (which === 'sub') ? 'block' : 'none';
+
+    document.getElementById('cs-narrow-label').textContent = (which === 'loc') ? 'Location' : 'Substance';
+    document.getElementById('inv-loc').style.display = (which === 'loc') ? '' : 'none';
+    document.getElementById('inv-sub').style.display = (which === 'sub') ? '' : 'none';
+
+    /* Reset the axis being left, so switching back is a clean slate. */
+    if (which === 'loc') csSubstance('all'); else csLocation('all');
+    csApplyInvFilters();
   }
+
 
   /* ---- Generic facet chips ---- */
   function csFacet(btn) {
@@ -2518,21 +2654,36 @@ href="../../../../assets/fontawesome/css/all.min.css"
   ];
   csSelect('mv-loc', locItems);
 
-  /* Inventory's location axis. Flat list — stations and apparatus are parallel,
-     so this is not a tree. Change fires the filter. */
+  /* Inventory's TWO narrowing controls — only one is visible at a time, chosen
+     by the row-axis toggle, because the control always narrows whatever a row
+     currently is. Location list is flat: stations and apparatus are parallel. */
   csSelect('inv-loc', [
     { label: 'All locations', value: 'all' },
     { label: 'Riverside HQ', value: 'hq' },
     { label: 'Westfield Operations Center', value: 'wo' },
     { label: 'Northside Station 12', value: 'n12' },
-    { label: 'Lakeview Station 07', value: 'lv07' },
+    { label: 'Eastgate Station 22', value: 'eg22' },
     { label: 'Medic 12', value: 'm12' },
     { label: 'Medic 07', value: 'm07' }
   ]);
+  csSelect('inv-sub', [
+    { label: 'All substances', value: 'all' },
+    { label: 'FENTANYL CITRATE (SUBLIMAZE)', value: 'fn' },
+    { label: 'MIDAZOLAM (VERSED)', value: 'mz' },
+    { label: 'MORPHINE SULFATE', value: 'ms' },
+    { label: 'KETAMINE HCL', value: 'kt' },
+    { label: 'LORAZEPAM (ATIVAN)', value: 'lz' }
+  ]);
   var invLocSel = document.getElementById('inv-loc');
   if (invLocSel) invLocSel.addEventListener('value-changed', function (e) {
-    csLocation(e.detail.value);
+    if (invScope.view === 'loc') csLocation(e.detail.value);
   });
+  var invSubSel = document.getElementById('inv-sub');
+  if (invSubSel) invSubSel.addEventListener('value-changed', function (e) {
+    if (invScope.view === 'sub') csSubstance(e.detail.value);
+  });
+  /* Initial render so the summary line is populated on load. */
+  csApplyInvFilters();
   csSelect('cn-loc', locItems);
   csSelect('mv-type', [
     { label: 'All types', value: 'all' },
@@ -2568,6 +2719,11 @@ href="../../../../assets/fontawesome/css/all.min.css"
       case 'substances':
         csTab('inventory');
         csInvView(document.querySelectorAll('#v-inventory .cs-seg')[1], 'sub');
+        break;
+      case 'boxes':
+        csTab('inventory');
+        csInvView(document.querySelectorAll('#v-inventory .cs-seg')[0], 'loc');
+        csType(document.querySelector('#cs-inv-types [data-type=\"box\"]'), 'box');
         break;
       case 'consumption':
         csTab('activity');
@@ -2620,7 +2776,11 @@ href="../../../../assets/fontawesome/css/all.min.css"
           desc: 'One surface replacing Drug Boxes + Master Supply + On Hand. The old tabs were container TYPES, not places, so they become a multi-select type filter; location is a separate axis and the two compose.' },
         { id: 'substances', flow: 'inv', x: 400, y: 80,
           step: 'Scope', name: 'Inventory — by substance', state: 'substances',
-          desc: 'Substances directly addressable rather than reachable only through a container. Biggest departure from current-state.' },
+          desc: 'A row is a SUBSTANCE, not a location — the lineage is today\'s On Hand, re-presented as a real substance drill. The narrowing control becomes a substance picker, because it always narrows the row axis.' },
+
+        { id: 'boxes', flow: 'inv', x: 740, y: 80,
+          step: 'Filter', name: 'Inventory — drug boxes', state: 'boxes',
+          desc: 'Container type drives the ROW SHAPE: drug boxes render container-level with a check status and no contents, because that is the question a sealed box answers. Master supply renders shelf-level.' },
 
         { id: 'consumption', flow: 'act', x: 60, y: 250,
           step: 'Log', name: 'Consumption', state: 'consumption',
@@ -2650,6 +2810,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
       ],
       edges: [
         ['inventory', 'substances'],
+        ['substances', 'boxes'],
         ['consumption', 'movements'],
         ['movements', 'discrepancies'],
         ['discrepancies', 'coc'],
