@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document describes the work to make **POC V4 (Scenario CML v4)** the authored source of truth for **UX Universal**.
+This document is the shared record of the alignment between **POC V4 (Scenario CML v4)** and **UX Universal**. It is written for both teams — the team building the V4 format and engine, and the team building the UX prototypes — and its job is to make the remaining decisions easy to see and act on.
 
-Today, UX Universal has several scenario types with their own internal shapes and conversion logic. The retrofit replaces those per-type authored shapes with the POC V4 format while preserving the existing player wherever possible.
+The work it describes makes POC V4 the authored source of truth for UX Universal. Previously, each UX Universal scenario type carried its own internal shape and conversion logic. The retrofit replaces those per-type shapes with the POC V4 format while keeping the existing player.
 
 This document records:
 
@@ -14,45 +14,23 @@ This document records:
 * what remains to be authored or aligned; and
 * which product and format questions are still open.
 
-It is the companion to `SCENE-SWEEP-CONVERGENCE-PLAN.md`.
+**Status (2026-08-17):** The retrofit is implemented and verified. In concrete terms:
 
-**Current status:** All five implementation stages are built and verified as of **2026-08-17**.
+* V4 documents play through the existing UX Universal player (`scenario-live.html?type=v4-universal`);
+* the Editor authors V4 directly; and
+* all seven starting templates boot in the browser.
 
-The `?type=v4-universal` path can now play POC V4 documents through the existing universal-player resolver. Writer Studio can author them, and all seven templates boot successfully in the browser.
+The remaining work is decisions and authoring, not infrastructure:
 
-The remaining work is primarily:
-
-1. resolving the alignment questions in §14;
+1. resolving the alignment questions in §9;
 2. completing the remaining 64 authoring fields; and
-3. deciding whether to make V4 the default authored source, which is gated on §14.1.
+3. deciding whether to make V4 the default authored source, which is gated on §9.1.
 
-### Useful commands
+The current state has been reconciled against the `scenario-simulator-poc` repository, including `spec-alignment-audit.md`, `v4-migration-report.md`, and `sme-punch-list.md`.
 
-Play a V4 scenario:
-
-```text
-scenario-live.html?type=v4-universal&observe=text
-```
-
-Verify prompt alignment (session scratchpad, not committed):
-
-```bash
-node prompt-diff.js
-```
-
-Regenerate the templates (session scratchpad, not committed):
-
-```bash
-node regenerate-templates.js
-```
+Implementation and verification detail — what was built, the test results, and how to reproduce the checks — is collected in the appendix (§17).
 
 **Last updated:** 2026-08-17
-
-The current state has been reconciled against the `scenario-simulator-poc` repository, including:
-
-* `spec-alignment-audit.md`
-* `v4-migration-report.md`
-* `sme-punch-list.md`
 
 ---
 
@@ -61,7 +39,10 @@ The current state has been reconciled against the `scenario-simulator-poc` repos
 | Term             | Meaning                                                                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **POC V4**       | Scenario CML v4, the content format and engine in `VectorLearning/scenario-simulator-poc`. This is the format UX Universal is aligning to. |
-| **UX Universal** | Our prototype stack: Writer Studio, `js/sim-player.js`, the scenario types, and `scenario-live.html`.                                      |
+| **UX Universal** | The UX prototyping stack: the Editor, `js/sim-player.js`, the scenario types, and `scenario-live.html`.                                    |
+| **Editor**       | The UX Universal authoring tool (`writer-studio-v2.html`). Called “Editor” throughout to avoid confusion with Learning Studio, a separate product. |
+| **Extension**    | A schema field added to a V4 document that the V4 format does not define (§6, §10). A data concept.                                        |
+| **Surface**      | A pluggable interaction module in the UX Universal player (§9.8). A player concept. Surfaces are not extensions, and neither requires the other. |
 
 The recommendations in this document are based on the resulting behavior and consequences, rather than on which system originally implemented a behavior.
 
@@ -107,9 +88,9 @@ For example, adding a roleplay phase to a previously coach-led scenario is simpl
 
 This means mixed scenarios become normal rather than exceptional, and templates can evolve without requiring engine changes.
 
-Writer Studio therefore keeps its type gallery as a **template picker**.
+The Editor therefore keeps its type gallery as a **template picker**.
 
-`derivedTypeLabel` in `scenario-v4-runtime.js` can still describe the resulting scenario in the Studio/player UI, but it does not constrain the document.
+`derivedTypeLabel` in `scenario-v4-runtime.js` can still describe the resulting scenario in the Editor and player UI, but it does not constrain the document.
 
 This is consistent with the V4 spec's position that a “tutor scenario” is a description, not a declaration.
 
@@ -123,98 +104,101 @@ An export-only solution would leave the existing authoring model intact and atte
 
 The retrofit therefore moves both sides of the stack:
 
-**Writer Studio → V4 → V4 runtime compiler → existing universal player**
+**Editor → V4 → V4 runtime compiler → existing UX Universal player**
 
-The important part is that the final step does **not** require rewriting the player.
+The important part is that the final step does **not** require rewriting the UX Universal player.
 
 ---
 
 ## 4. Decisions
 
-| #  | Decision                                                                                      | Rationale                                                                                                                                                                                                     |
-| -- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 | **Use V4 as the authored source of truth.**                                                   | An export adapter cannot reliably invent missing instructional content. Studio and the player therefore move to V4 together.                                                                                  |
-| D2 | **Support all authorable scenario shapes, including scene-sweep.**                            | Scene-sweep's hotspots provide a clean source for a V4 `observe_react` rubric.                                                                                                                                |
-| D3 | **Compile V4 into the existing runtime shape.**                                               | This allows us to keep `sim-player.js` and the existing modules intact and compare behavior directly before and after the migration.                                                                          |
-| D4 | **Normalize all quality scales to three levels: `unthoughtful`, `neutral`, `strong`.**        | This is the assessment model built into V4, and all 11 current V4 scenarios use it. Existing `CONNECTS` / `VAGUE` / `CONFRONTS` vocabulary does not carry over.                                               |
-| D5 | **Represent answer shape explicitly.**                                                        | `answer_shape` is needed to distinguish practices with a definite answer from practices where judgment is intentionally open. We should not infer this indirectly.                                            |
-| D6 | **Do not invent missing prose during conversion.**                                            | If the source does not contain a field, the converter leaves it empty. Validation errors then become the authoring worklist instead of producing documents that look complete but contain fabricated content. |
-| D7 | **Keep scenario types as Studio templates.**                                                  | This preserves the existing LXD workflow without making scenario type part of the V4 format.                                                                                                                  |
-| D8 | **Default mechanical fields where V4 requires them and the decks provide no authored value.** | This reduces the authoring burden without inventing teaching content. Teaching prose remains authored. `final_word` remains authored.                                                                         |
+| #  | Concerns                    | Decision                                                                                      | Rationale                                                                                                                                                                                                     |
+| -- | --------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 | The authored format         | **Use V4 as the authored source of truth.**                                                   | An export adapter cannot reliably invent missing instructional content. The Editor and the UX Universal player therefore move to V4 together.                                                                  |
+| D2 | Which types are authorable  | **Support all authorable scenario shapes, including scene-sweep.**                            | Scene-sweep's hotspots provide a clean source for a V4 `observe_react` rubric.                                                                                                                                |
+| D3 | The runtime strategy        | **Compile V4 into the existing runtime shape.**                                               | This keeps `sim-player.js` and the existing modules intact and allows behavior to be compared directly before and after the migration.                                                                          |
+| D4 | The assessment scale        | **Normalize all quality scales to three levels: `unthoughtful`, `neutral`, `strong`.**        | This is the assessment model built into V4, and all 11 current V4 scenarios use it. Existing `CONNECTS` / `VAGUE` / `CONFRONTS` vocabulary does not carry over.                                               |
+| D5 | Graded vs. open practices   | **Represent answer shape explicitly.**                                                        | `answer_shape` is needed to distinguish practices with a definite answer from practices where judgment is intentionally open. This should not be inferred indirectly.                                            |
+| D6 | Conversion policy           | **Do not invent missing prose during conversion.**                                            | If the source does not contain a field, the converter leaves it empty. Validation errors then become the authoring worklist instead of producing documents that look complete but contain fabricated content. |
+| D7 | The authoring workflow      | **Keep scenario types as Editor templates.**                                                  | This preserves the existing LXD workflow without making scenario type part of the V4 format.                                                                                                                  |
+| D8 | Required-field defaults     | **Default mechanical fields where V4 requires them and the decks provide no authored value.** | This reduces the authoring burden without inventing teaching content. Teaching prose remains authored. `final_word` remains authored.                                                                         |
 
-The mechanical defaults reduced the initial blocking field count from **131 to 64**. The remaining fields are being evaluated separately in §14.1.
+The mechanical defaults reduced the initial blocking field count from **131 to 64**. The remaining fields are being evaluated separately in §9.1.
 
 ---
 
-## 5. What We Are Not Changing Yet
+## 5. Deferred Engine Changes — One Shipped, One Remaining
 
 Three interrelated engine changes were deliberately kept out of the retrofit.
 
 **Why they waited (and which reason has expired).** The original reason was
 verifiability: the compiler's job was to produce the SAME runtime from V4 input,
 so every behavior difference could be attributed to a bug or a documented choice
-(the 264/338 baseline). Deliberate behavior changes bundled into that migration
-would have poisoned the attribution. That reason is now RETIRED — Stages 1–5 are
-committed and baselined. What still stands is that these are RUNNER changes with
-learner-visible consequences, and they are interdependent (see the sequencing
-note at the end of this section).
+(the round-trip baseline, §17). Deliberate behavior changes bundled into that
+migration would have poisoned the attribution. That reason is retired — the
+retrofit is committed and baselined. What still stands is that these are RUNNER
+changes with learner-visible consequences, and they are interdependent.
 
-**Recommendation (2026-08-17, awaiting Chris's confirmation): go ahead, sequenced.**
+### Debrief ownership — SHIPPED (d397bea, confirmed 2026-08-17)
 
-1. **Debrief rung first, scoped to the v4 route only** — ScenarioV4Runtime emits
-   the debrief rungs; native types' toRuntime untouched, so shipped demos keep
-   their exact behavior. Sizing honesty: the runner has no zero-turn rung
-   (`cap = Math.max(1, …)`), so delivery-only debriefs need play-locked-and-
-   auto-advance machinery, and the "Phase N of M" display must count V4 phases,
-   not rungs. The real fidelity gap is the **10 of 29 interactive debriefs** in
-   the POC V4 content — today a probe is asked but the answer has nowhere to
-   live, and follow_up_turns / final_word / probe are carried but unconsumed.
-   (Today's close-teach already approximates a delivery-only debrief, so those
-   19 are roughly right already.)
-2. **Scoping + carryover together, AFTER the dev conversation** — partly size
-   (it deserves its own prompt-diff-per-scope verification round), partly
-   strategy: if the meeting concludes production owns the engine from here, the
-   ROI of rebuilding scoping in the prototype drops sharply.
+The debrief is now its own rung on the V4 route, with native types untouched —
+and the implementation needed **zero runner edits**, landing smaller than the
+sizing estimate predicted (no zero-turn machinery was required):
 
-**Carryover alone is a no-op** — in the single-conversation player the model
-already sees every earlier turn, so carryover is trivially over-satisfied. The
-field only becomes meaningful once scoping exists for it to punch through; it is
-part of change #2, not a third change.
+* An **interactive** debrief (`follow_up_turns >= 1`) becomes a real coach rung
+  with the derived id `{phase_id}.debrief`: cap = `follow_up_turns`, the locked
+  `probe` delivered verbatim as the entry (immediately after the practice rung's
+  closing feedback, matching V4's ordering), `probe.levels` grading the answers,
+  `requirement` as the early exit, and `final_word` opening the rung's own close.
+* A **delivery-only** debrief (`follow_up_turns: 0` — 19 of the 29 in the V4
+  content) emits no rung: the practice rung's fused close-teach already is that
+  debrief, and its `final_word` is now delivered verbatim as the following
+  rung's locked entry bridge (terminal phases ride the close-teach opener).
+* Ladder assembly also fixed the `entry.cta` off-by-one the conversion had
+  flagged: a practice rung's button is the previous debrief's transition label;
+  a debrief rung's button is its own practice's transition label.
 
-### Prompt scoping
+Verified on the V4 content: marshall expands to 6 rungs (interactive caps
+1/2/2), wpv stays 4 rungs with final words as bridges, floor-lead's and kendra's
+probes ride their debrief rungs verbatim; live boot confirmed in the player.
 
-POC V4 supports two conversation scopes. UX Universal currently compiles everything into a single prompt.
+**Found and fixed during verification:** mix-arc's compile never consumed
+`elevatedStakes` (its own Kendra example promises a 988 floor it never
+delivered), and the minor floor existed only in ensemble-arc — so on the V4
+route two of the three safety flags armed nothing. `v4-universal.compile` now
+appends the floors from canonical text (guided-arc's LEARNER SAFETY wording +
+`CRISIS_FLOOR` verbatim; ensemble's `MINOR_SECTION.text()` verbatim). A
+methodological note worth keeping: the earlier floor check had passed on
+authored prose that coincidentally contained the word "crisis" — safety
+assertions are verified by reading the compiled prompt, not by keyword match.
 
-That behavior remains unchanged for now.
+### Prompt scoping — remains unchanged, deliberately
 
-### Debrief ownership
+POC V4 runs two conversation scopes (the persistent coach thread; short-lived
+scenes with teaching content withheld). UX Universal still compiles a single
+prompt. Scheduled AFTER the dev conversation: it is the largest remaining
+engine change, deserves its own per-scope verification round, and its ROI
+depends directly on the meeting's outcome about who owns the engine going
+forward.
 
-V4 treats debrief as a separate turn-owning structure. UX Universal currently keeps:
+### Carryover — part of scoping, not a third change
 
-```text
-debrief.talkItThrough
-debrief.points
-```
+`carryover` is preserved in the V4 data but not consumed. Alone it is a no-op:
+in a single-conversation player the model already sees every earlier turn, so
+carryover is trivially over-satisfied. The field only becomes meaningful once
+scoping exists for it to punch through.
 
-on the rung.
-
-That also remains unchanged for now.
-
-### Carryover
-
-`carryover` is preserved in the V4 data but is not currently consumed by the UX Universal player because there is no transcript channel for it yet.
-
-The `narrative` placement question has been resolved; see §14.6.
+The `narrative` placement question has been resolved; see §9.6.
 
 ---
 
 ## 6. UX Universal Extensions
 
-POC V4 uses `additionalProperties: false` throughout its schema. That means a UX Universal-specific field cannot simply be added to a V4 document: the document becomes invalid.
+UX Universal needs a small number of fields that the V4 format does not define: an answer-shape marker and three content safety flags. This section explains how those fields are handled so that authored documents stay compatible with the V4 engine. Whether V4 should adopt the fields themselves is queued as alignment questions — §9.2 for the safety floors, §9.3 for answer shape — and the general mechanism question is §10.
 
-UX Universal therefore has an explicit extension mechanism in `js/scenario-v4.js`.
+“Extension” here always means a schema field. The player's pluggable interaction modules are a separate concept — surfaces — covered in §9.8.
 
-The validator supports three operations:
+Because V4 uses `additionalProperties: false` throughout its schema, an unrecognized field invalidates the whole document. The extra fields are therefore registered as **declared extensions** in `js/scenario-v4.js`, and the tooling keeps their status explicit:
 
 ```text
 V4.validate(doc)
@@ -233,6 +217,8 @@ V4.stripExtensions(doc)
 ```
 
 Produces a loadable V4 document, along with a record of what was removed and what behavior that removal costs.
+
+The practical consequence: internally authored documents carry the extension fields, and the development handoff produces a V4-compliant document by stripping them — with an explicit record of which behavior is lost. Nothing UX-specific reaches a handoff unannounced.
 
 ### `practice.answer_shape`
 
@@ -275,54 +261,41 @@ Without them, a stripped V4 document cannot activate the corresponding safety fl
 
 ## 7. Capabilities That V4 Does Not Currently Represent
 
-Some UX Universal capabilities do not have a direct V4 equivalent.
+Some UX Universal capabilities have no direct V4 equivalent. They currently run only in the archived `2026-08-17` implementation.
 
-| UX Universal capability                           | V4 status                                                                                                         |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `intro` — cold-open audio/video context           | No direct equivalent. V4 uses `narrative` plus `landing_cta_label`.                                               |
-| **Teach-back / retrieval**                        | No dedicated V4 mode. The only coverage-crediting mechanic is tied to `observe_react` and its required `exhibit`. |
-| `transitions[].onTier` branching                  | V4 advancement is forward-only and server-owned; tiers do not route progression.                                  |
-| Safety flags                                      | No V4 fields for `elevatedStakes`, `involvesMinors`, or `threatContent`.                                          |
-| `playbook[].source` internal IDs                  | V4 `source_references` is intended for external authorities such as OSHA or Title VII.                            |
-| `course`, `learnerName`, `characterName`, `state` | These are catalog/session metadata rather than scenario content. `state` is replaced by V4's `carryover`.         |
+**Cold-open context (`intro`).**
+A narrated audio or video scene that plays before the conversation begins, setting the situation cinematically (`js/scene-context.js`). V4's landing experience is `narrative` text plus a `landing_cta_label`; there is no media cold-open.
 
-These capabilities currently exist only in the archived `2026-08-17` implementation.
+**Teach-back (retrieval practice).**
+The learner explains the material back in their own words, and the runtime credits them as they cover the required topics. V4 has no mode for this; its only coverage-crediting mechanic is tied to `observe_react` and its required `exhibit`.
 
----
+**Tier-routed branching (`transitions[].onTier`).**
+The quality tier of the learner's response selects the next phase and can set scenario state, producing different paths through the same scenario. V4 advancement is forward-only and server-owned; tiers never route progression.
 
-## 8. Migration Results
+**Safety flags.**
+`elevatedStakes`, `involvesMinors`, and `threatContent` — authored booleans that arm the runtime safety floors described in §6. V4 has no fields for them.
 
-The migration tooling converts the existing UX Universal scenario types into V4 documents.
+**Internal source citations (`playbook[].source`).**
+Playbook entries can cite internal course material (for example, `RVCT-479 P017`). V4's `source_references` is intended for external authorities such as OSHA or Title VII, so internal citations have no home.
 
-The converter intentionally does not fabricate missing instructional content.
-
-### Initial authoring gap
-
-The first conversion produced approximately:
-
-**177 blocking validation errors.**
-
-After recovering information that could legitimately be sourced from existing UX Universal prose, this fell to:
-
-**131 blocking errors.**
-
-The recovery included:
-
-* splitting `look_for` from guidance where the source clearly supported it;
-* setting debrief labels to the decks' existing “Coach Debrief” language;
-* recovering turn budgets from the existing implementation.
-
-The current implementation then applies the agreed mechanical defaults, reducing the remaining blocking fields to:
-
-**64.**
-
-These 64 are the actual authoring/alignment work still to be resolved.
+**Presentation and session fields.**
+`course`, `learnerName`, `characterName`, and `state`. In V4, catalog metadata lives outside the scenario document, and `state` is replaced by `carryover`.
 
 ---
 
-## 9. What Remains to Be Authored
+## 8. The Authoring Gap
 
-The largest blocking-field categories, as measured during the ports (before the mechanical defaults were applied):
+The migration tooling converts each existing UX Universal scenario type into a V4 document. Per D6, it does not fabricate missing instructional content, so validation errors are the authoring worklist.
+
+That worklist has moved in three steps:
+
+* **177** blocking errors on first conversion.
+* **131** after recovering what existing prose could legitimately source: `look_for` split from guidance where the source supported it, debrief labels set to the decks' existing “Coach Debrief” language, and turn budgets recovered from the existing implementation.
+* **64** after applying the mechanical defaults agreed in D8.
+
+Those 64 are the actual remaining authoring/alignment work.
+
+The largest categories, as measured before the defaults were applied:
 
 * `phase.purpose` — 18
 * `practice.purpose` — 18
@@ -343,130 +316,13 @@ There are also unresolved instances of:
 * roleplay settings; and
 * observe rubrics and `spot_target`.
 
-The largest single gap is the observe rubric.
+The largest single gap is the observe rubric. Only scene-sweep currently has an authoritative source for the required rubric entries and `spot_target` values.
 
-Only scene-sweep currently has an authoritative source for the required rubric entries and `spot_target` values.
-
-A recurring issue is that most existing UX Universal beats have **two quality tiers**, while V4 requires **three**.
-
-The V4 ports therefore currently synthesize the missing middle tier. Whether that should remain the format requirement is an open alignment question.
+A recurring issue is that most existing UX Universal beats have **two quality tiers**, while V4 requires **three**. The V4 ports therefore currently synthesize the missing middle tier. Whether that should remain a format requirement is an open question (§11).
 
 ---
 
-## 10. Implementation Completed
-
-The five implementation stages are complete.
-
-| File                                | Purpose                                                                                                |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `js/scenario-v4.js`                 | V4 schema, validator, cross-field rules, linting, extension registry, and extension folding/stripping. |
-| `js/scenario-v4-runtime.js`         | Single V4 compiler that converts V4 into the runtime shape consumed by the existing player.            |
-| `js/scenario-v4-templates.js`       | Seven starting templates representing the existing authoring shapes.                                   |
-| `js/scenario-types/v4-universal.js` | V4 Studio editor and development handoff/export support.                                               |
-| `port-to-v4.js` (scratchpad)        | Migration tool for converting existing scenario types to V4.                                           |
-| `roundtrip.js` (scratchpad)         | Compares behavior between the current implementation and the V4 path.                                  |
-| `check-assets.js` (scratchpad)      | Verifies asset references across the scenario trees.                                                   |
-
-The old per-type `toRuntime` / `toMixArc` conversion paths are replaced by the single V4 compiler.
-
-The three scratchpad tools live in the working session's scratchpad rather than the repository.
-
----
-
-## 11. Verification
-
-### V4 validation
-
-All 11 existing POC V4 scenarios validate successfully:
-
-* zero warnings;
-* zero validation errors;
-* 46/46 negative tests fail at the expected JSON path.
-
-One caveat when treating those 11 scenarios as authoring precedent: `GENERATED-DEMOS.md` marks 5 of the 11 as generated demos rather than SME-approved content. They exercise the spec, but they are weaker evidence for authoring norms.
-
-### Round-trip comparison
-
-The migration comparison currently reports:
-
-**263 of 338 field comparisons identical.**
-
-The differences are understood and intentional:
-
-* 14 differences from the V4 three-tier vocabulary;
-* 10 `reactionGuidance` values folded into `response`;
-* 4 `framing` differences;
-* 23 additive fields;
-* 11 placement-only differences.
-
-The opener text is identical for 13 of 14 phases; the remaining difference is a structural placement change rather than a content change.
-
-### Recovered semantics
-
-`throughLine` is reduced from 14 occurrences to one by matching a `teaching_points` topic to the phase label.
-
-`hasRightAnswer` is no longer guessed from the exit requirement. It is represented by the explicit `answer_shape` extension.
-
----
-
-## 12. Asset Verification
-
-Asset resolution is identical across the live tree and the archive snapshots from:
-
-* 2026-08-04
-* 2026-08-17
-
-There is one pre-existing missing asset:
-
-```text
-hazmat_scene_3.mp4
-```
-
-Referenced from:
-
-```text
-hazmat-scene-practice.html:1260
-```
-
-This is not a V4 migration regression.
-
----
-
-## 13. Reproducing the Checks
-
-Validate a V4 document:
-
-```bash
-node js/scenario-v4.js <file.lo.json>
-```
-
-The remaining tools run from the session scratchpad.
-
-Port all existing scenario types:
-
-```bash
-node port-to-v4.js all v4-out
-```
-
-Compare behavior against the current implementation:
-
-```bash
-node roundtrip.js
-```
-
-Check asset resolution:
-
-```bash
-node check-assets.js
-```
-
-One implementation gotcha is worth documenting: a relative path inside a `.js` file is resolved relative to the loading document, not the script's own directory. This previously created 38 false breakages.
-
-Archive snapshots are also two levels deeper than the live tree, so their relative paths require two additional `../` segments.
-
----
-
-## 14. Alignment Questions
+## 9. Alignment Questions
 
 The following are the remaining issues that need a decision. They are ordered roughly by impact.
 
@@ -486,7 +342,7 @@ Those documents contain the per-question proposal, evidence, counterpoints, and 
 
 ---
 
-### 14.1 Required fields with no authoritative source
+### 9.1 Required fields with no authoritative source
 
 The final WPV deck was searched for every field that the V4 port requires.
 
@@ -529,7 +385,7 @@ In particular:
 
 ---
 
-### 14.2 Three major capability differences
+### 9.2 Three major capability differences
 
 #### Clarifying questions
 
@@ -563,7 +419,7 @@ The remaining discrepancy is only in the specification wording: the prose refers
 
 ---
 
-### 14.3 `practice.answer_shape`
+### 9.3 `practice.answer_shape`
 
 The extension is already implemented in UX Universal.
 
@@ -578,7 +434,7 @@ The current V4 structure does not express that distinction reliably.
 
 ---
 
-### 14.4 Retry and mastery loops
+### 9.4 Retry and mastery loops
 
 The POC punch list records an authoring expectation that learners can trigger another scene progression to retry.
 
@@ -590,7 +446,7 @@ The open question is whether a bounded retry/mastery loop belongs on the roadmap
 
 ---
 
-### 14.5 Where teaching belongs
+### 9.5 Where teaching belongs
 
 V4 groups `teaching_points` at the content level, organized by subject.
 
@@ -609,7 +465,7 @@ The second option is closer to the existing V4 structure.
 
 ---
 
-### 14.6 Narrative placement — resolved
+### 9.6 Narrative placement — resolved
 
 This issue is closed.
 
@@ -629,7 +485,7 @@ This was verified with `prompt-diff.js`.
 
 ---
 
-### 14.7 Button labels
+### 9.7 Button labels
 
 The 11 V4 scenarios contain:
 
@@ -654,41 +510,34 @@ There is also a collision where `"Begin practicing"` is used both as an opening 
 
 ---
 
-### 14.8 Generalizing typed interaction outputs
+### 9.8 Generalizing typed interaction outputs
 
-UX Universal already has a useful architectural pattern for custom interactions.
+A terminology note before the substance: this section is about **interaction surfaces** in the player, not the schema **extensions** of §6 and §10. An extension is a field added to a document; a surface is a module added to a player. The two are independent — scene-sweep needs a surface but no extension, and `answer_shape` is an extension that needs no surface.
 
-A custom interaction:
+The UX Universal player treats a custom interaction as a surface: a module that registers into a registry (`SimSurfaces.register({ kind, install })` in `js/sim-surfaces.js`), keyed by the phase kind it owns. The surface owns the whole activity — the canvas, the log, the tile board — and reports back to the engine through typed outputs.
 
-1. registers a surface plugin;
-2. owns the interaction;
-3. produces typed outputs; and
-4. hands those outputs back to the engine through a common seam.
+That output contract is declared, not hard-coded. A surface registers `turnFields` with validators — for example `turnFields: { spotted: … }` — and the engine parses the model's turn, validates the referenced IDs, and hands the credited values back to the surface. The engine consumes typed data; it never knows what a canvas is.
 
-Scene-sweep demonstrates this with two different surfaces:
+The pattern is proven in shipped code:
 
-* the V1 photo canvas; and
-* the V2 text observation log.
+* Spot the Hazard (`kind: 'spot'`) has **two interchangeable surfaces** — the photo/hotspot canvas (`js/sim-perception.js`) and the text observation log (`js/sim-observe-text.js`). Same authored scenario, same output contract, swapped by a URL flag, zero engine edits.
+* Teach-back (`kind: 'teach'`, `js/sim-teachback.js`) goes further: it declares `ownsInput`, so the surface takes over the composer entirely while it runs.
 
-Both use the same scenario/output contract and can be swapped by URL flag.
+Adding a surface is additive — register it and include its script. No runner changes.
 
-Teach-back followed the same general `ownsInput` pattern.
+V4 has the same idea in its `[[spotted:...]]` contract: the engine strips the marker, validates the referenced IDs against the rubric, and uses the result for scoring and coverage. The limitation is that this contract exists only for `observe_react` and is tied to its required `exhibit`.
 
-V4 has a similar concept with its `[[spotted:...]]` contract. The engine strips the marker, validates the referenced IDs, and uses the resulting values for scoring and coverage.
-
-The limitation is that V4 currently ties this mechanism specifically to `observe_react`.
-
-That makes teach-back difficult to represent because its interaction contract is not an `observe_react` exhibit.
+That is exactly what makes teach-back hard to represent: its surface exists and runs today, but there is no V4 mode to trigger it and no mode-independent way to carry its credited-items output.
 
 #### Proposed direction
 
-Define a **mode-independent credited-items output contract**, paired with a pluggable interaction surface.
+Define a **mode-independent credited-items output contract**, paired with a pluggable interaction surface. The V4 schema's `oneOf` already treats the interaction *shape* as pluggable; this extends the same idea to the engine.
 
-That would allow new interaction types to be added without tying their scoring/output semantics to a particular practice mode.
+A new interaction type then becomes one new `mode` value plus one registered surface, with no change to existing modes.
 
 ---
 
-## 15. Extension Strategy
+## 10. Extension Strategy
 
 POC V4 currently has no formal extension mechanism.
 
@@ -755,7 +604,7 @@ Internal authoring remains flat. Folding is an export projection.
 
 ---
 
-## 16. Smaller Alignment Issues
+## 11. Smaller Alignment Issues
 
 Several lower-priority questions remain.
 
@@ -797,7 +646,7 @@ This is another symptom of teach-back having no dedicated V4 mode.
 
 ---
 
-## 17. Independent Convergence
+## 12. Independent Convergence
 
 One of the strongest arguments for the V4 alignment is that the two systems independently arrived at nearly the same scenario structures.
 
@@ -817,7 +666,7 @@ The remaining problems are primarily around missing metadata, extensions, and a 
 
 ---
 
-## 18. Loader Architecture
+## 13. Loader Architecture
 
 Both systems independently use the same general architectural pattern:
 
@@ -835,17 +684,17 @@ The V4 compiler can remain the compatibility boundary between content and the ex
 
 ---
 
-## 19. Remaining UX Universal Decisions
+## 14. Remaining UX Universal Decisions
 
 Three questions remain specifically on the UX Universal side.
 
 ### 1. What happens to `branching-arc`?
 
-`branching-arc` is currently live-only and was removed from the Studio registry in July.
+`branching-arc` is currently live-only and was removed from the Editor registry in July.
 
 Question:
 
-**Should it return as a Studio template, or remain live-only?**
+**Should it return as an Editor template, or remain live-only?**
 
 ### 2. What happens to teach-back?
 
@@ -854,7 +703,7 @@ Teach-back cannot currently be expressed naturally in V4.
 There are two likely directions:
 
 * keep it as a UX Universal-specific local type; or
-* propose a fourth V4 mode through the generalized interaction/output model described above.
+* propose a fourth V4 mode through the generalized interaction/output model described in §9.8.
 
 ### 3. What happens to `hazmat_scene_3.mp4`?
 
@@ -867,11 +716,11 @@ Decision:
 
 ---
 
-## 20. Recommended Next Steps
+## 15. Recommended Next Steps
 
 The implementation work is substantially complete. The next phase should focus on decisions rather than further infrastructure.
 
-### Priority 1 — Resolve §14.1
+### Priority 1 — Resolve §9.1
 
 Determine which required V4 fields represent genuine authoring requirements and which are artifacts of the spec/engine mismatch.
 
@@ -908,13 +757,7 @@ The cleanest long-term architecture is likely a generalized interaction/output c
 
 ### Priority 5 — Complete authoring
 
-Once §14.1 is settled, finish the remaining 64 fields and re-run (from the session scratchpad):
-
-```bash
-node roundtrip.js
-node check-assets.js
-node prompt-diff.js
-```
+Once §9.1 is settled, finish the remaining 64 fields and re-run the verification checks described in the appendix (§17).
 
 ### Priority 6 — Flip V4 to the default source
 
@@ -924,24 +767,24 @@ Once the alignment decisions are resolved and the authoring gaps are closed, mak
 ?type=v4-universal
 ```
 
-The existing universal player can remain the runtime target behind the V4 compiler.
+The existing UX Universal player can remain the runtime target behind the V4 compiler.
 
 ---
 
-## 21. Bottom Line
+## 16. Bottom Line
 
 The V4 retrofit is no longer an experimental conversion path. The core architecture is built and verified.
 
 The current model is:
 
 ```text
-Writer Studio
+Editor
      ↓
 Scenario CML V4
      ↓
 V4 runtime compiler
      ↓
-existing universal player
+existing UX Universal player
 ```
 
 The existing scenario types survive as **recipes, not as fields on the dish** — authoring templates rather than competing content formats.
@@ -953,3 +796,79 @@ The remaining work is therefore not “make V4 work.”
 It is to decide **what V4 should require, what UX Universal-specific behavior belongs in extensions, and which genuine product behaviors should be standardized rather than silently preserved from the old implementation.**
 
 Once those decisions are made, the remaining authoring work is finite and the system is in a position to make V4 the default authored source.
+
+---
+
+## 17. Appendix: The Conversion Record
+
+Supplemental detail on how the conversion effort went — what was built, how it was verified, and how to reproduce the checks.
+
+### What was built
+
+| File                                | Purpose                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `js/scenario-v4.js`                 | V4 schema, validator, cross-field rules, linting, extension registry, and extension folding/stripping. |
+| `js/scenario-v4-runtime.js`         | Single V4 compiler that converts V4 into the runtime shape consumed by the existing player.            |
+| `js/scenario-v4-templates.js`       | Seven starting templates representing the existing authoring shapes.                                   |
+| `js/scenario-types/v4-universal.js` | The V4 Editor surface and development handoff/export support.                                          |
+| `port-to-v4.js` (scratchpad)        | Migration tool for converting existing scenario types to V4.                                           |
+| `roundtrip.js` (scratchpad)         | Compares behavior between the current implementation and the V4 path.                                  |
+| `check-assets.js` (scratchpad)      | Verifies asset references across the scenario trees.                                                   |
+
+The old per-type `toRuntime` / `toMixArc` conversion paths are replaced by the single V4 compiler.
+
+### V4 validation
+
+All 11 existing POC V4 scenarios validate successfully:
+
+* zero warnings;
+* zero validation errors;
+* 46/46 negative tests fail at the expected JSON path.
+
+One caveat when treating those 11 scenarios as authoring precedent: `GENERATED-DEMOS.md` marks 5 of the 11 as generated demos rather than SME-approved content. They exercise the spec, but they are weaker evidence for authoring norms.
+
+### Round-trip comparison
+
+The migration comparison currently reports:
+
+**263 of 338 field comparisons identical.**
+
+The differences are understood and intentional:
+
+* 14 differences from the V4 three-tier vocabulary;
+* 10 `reactionGuidance` values folded into `response`;
+* 4 `framing` differences;
+* 23 additive fields;
+* 11 placement-only differences.
+
+The opener text is identical for 13 of 14 phases; the remaining difference is a structural placement change rather than a content change.
+
+### Recovered semantics
+
+`throughLine` is reduced from 14 occurrences to one by matching a `teaching_points` topic to the phase label.
+
+`hasRightAnswer` is no longer guessed from the exit requirement. It is represented by the explicit `answer_shape` extension.
+
+### Asset verification
+
+Asset resolution is identical across the live tree and the archive snapshots from 2026-08-04 and 2026-08-17.
+
+There is one pre-existing missing asset — `hazmat_scene_3.mp4`, referenced from `hazmat-scene-practice.html:1260`. This is not a V4 migration regression.
+
+### Reproducing the checks
+
+Play a V4 scenario in the browser:
+
+```text
+scenario-live.html?type=v4-universal&observe=text
+```
+
+Validate a V4 document (this tool is in the repository):
+
+```bash
+node js/scenario-v4.js <file.lo.json>
+```
+
+The remaining tools — `port-to-v4.js`, `roundtrip.js`, `check-assets.js`, `prompt-diff.js`, and `regenerate-templates.js` — live in the working session's scratchpad rather than the repository, so they are recorded here as part of the effort rather than as commands others can run.
+
+Two path gotchas worth documenting: a relative path inside a `.js` file is resolved relative to the loading document, not the script's own directory (this previously created 38 false breakages); and archive snapshots are two levels deeper than the live tree, so their relative paths require two additional `../` segments.
