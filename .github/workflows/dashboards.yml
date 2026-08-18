@@ -12,7 +12,8 @@ name: Build product dashboards
 # (b) cancelled the designer's own in-flight deploy, so their mock took an extra
 # bot-cycle to go live. Now a mock push deploys straight to Pages on its own,
 # uncontested; this job catches up that mock's dashboard metadata (activity log,
-# dev-handoff flip, rename relink) on the 15-minute schedule below instead.
+# dev-handoff flip, rename relink) on the schedule below instead (every 30 min,
+# tightened to every 15 min during the Mon–Fri 6–9pm ET peak).
 #
 # Immediate rebuild still happens for the things that change dashboard STRUCTURE
 # or code (products.json curation, the build scripts, dashboard.js) — those are
@@ -31,11 +32,28 @@ on:
       - 'designtoolbox/dashboard.js'
       - '.github/workflows/dashboards.yml'
   schedule:
-    # Every 15 min: fold in the mock pushes that no longer trigger this job —
-    # refresh each card's activity log, flip dev-handoff cards to Ready for Dev,
-    # and relink any rename a local hook didn't already fix. Idempotent: it only
-    # commits (and only then re-deploys) when something actually changed.
-    - cron: '*/15 * * * *'
+    # Fold in the mock pushes that no longer trigger this job — refresh each
+    # card's activity log, flip dev-handoff cards to Ready for Dev, and relink
+    # any rename a local hook didn't already fix. Idempotent: it only commits
+    # (and only then re-deploys) when something actually changed.
+    #
+    # Cadence is TIERED to cut the overnight/off-hours no-op runs while keeping
+    # the busy evening window fresh:
+    #   • Baseline — every 30 min, around the clock. No timezone ever goes dark:
+    #     an overseas or after-hours make-up-time push is always caught within
+    #     30 min. (And anyone can force an instant refresh via "Run workflow".)
+    #   • Peak boost — Mon–Fri 6–9pm ET, add ONLY the :15 and :45 ticks. Together
+    #     with the baseline's :00/:30 that makes the window every 15 min, with no
+    #     double-fires (the boost never lands on a minute the baseline already
+    #     runs), so peak stays fast without extra wasted runs.
+    #
+    # GitHub cron is UTC and does NOT follow DST. The peak lines are set for
+    # Eastern DAYLIGHT time (EDT = UTC-4). When clocks fall back to standard time
+    # (EST = UTC-5, early Nov–mid Mar), shift the peak lines one hour later:
+    #     '15,45 23 * * 1-5'  and  '15,45 0-1 * * 2-6'
+    - cron: '*/30 * * * *'          # baseline: every 30 min, 24/7
+    - cron: '15,45 22-23 * * 1-5'   # peak +:15/:45 — Mon–Fri 6:00–7:59pm ET
+    - cron: '15,45 0 * * 2-6'       # peak +:15/:45 — Mon–Fri 8:00–8:59pm ET
   workflow_dispatch: {}
 
 permissions:
@@ -68,7 +86,7 @@ jobs:
           BASE='${{ github.event.before }}'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
             # cron / workflow_dispatch have no push range — relink over every
-            # rename in the last ~2h (comfortably longer than the 15-min cadence,
+            # rename in the last ~2h (comfortably longer than the 30-min cadence,
             # so nothing slips through a gap). Relink is idempotent, so the
             # overlap between runs is harmless. Fall back to HEAD~1 on a young repo.
             BASE=$(git rev-list -1 --before='2 hours ago' HEAD 2>/dev/null || true)
