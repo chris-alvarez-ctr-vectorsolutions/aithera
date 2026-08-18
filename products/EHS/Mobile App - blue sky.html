@@ -2505,19 +2505,12 @@
         /* A conflict the user skipped / has not decided yet */
         .badge-conflict { background: rgba(224,83,61,0.14); color:#b23a26; font-weight:600; }
         /* Conflict stepper strip (multi-record resolution) */
-        /* Conflict stepper (multi-record resolution): same visual pattern as the
-           JSA form stepper (.jsa-stepper white strip + progress track); the step
-           circles reuse the step-nav-num treatment. Resolved circles are locked. */
-        .cr-step-circles { display:flex; gap:8px; margin-left:auto; }
-        .cr-step-circle {
-            width:30px; height:30px; border-radius:50%; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-size:13px; font-weight:700; font-family:inherit; padding:0;
-            border:1.5px solid #d1d5db; color:rgba(0,0,0,0.6); background:white; cursor:pointer;
-        }
-        .cr-step-circle.current { background:#0271ce; color:white; border-color:#0271ce; }
-        .cr-step-circle.done { background:#dcfce7; color:#166534; border-color:#bbf7d0; cursor:default; }
-        .cr-step-circle.skipped { border-color:#e0533d; color:#b23a26; }
+        /* Conflict stepper (multi-record resolution): same pattern as the JSA form
+           stepper — step name + chevron opens the step-nav drawer as a table of
+           contents. Resolved records render done and are locked (disabled). */
+        .step-nav-item:disabled { cursor:default; }
+        .step-nav-item:disabled:active { background:none; }
+        .step-nav-item:disabled .step-nav-arrow { visibility:hidden; }
         /* Offline lists reuse the online record card, so they need the same gutters */
         .offline-card-list { display:flex; flex-direction:column; gap:10px; padding:8px 12px 0; }
         .offline-card-list .rec-card-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 2px rgba(28,48,74,0.06); overflow:hidden; }
@@ -2611,13 +2604,12 @@
         .cr-ctx-arrow { font-size:10px; color:rgba(0,0,0,0.3); flex-shrink:0; }
         .cr-ctx-field { font-size:15px; font-weight:600; color:rgba(0,0,0,0.5); }
         /* Sticky resolve footer - matches the app's standard action footer */
-        .cr-footer { position:absolute; bottom:0; left:0; right:0; background:white; padding:12px 16px 28px; box-shadow:0 -2px 12px rgba(28,55,90,0.12); display:flex; gap:8px; z-index:20; }
-        .cr-footer > button { flex:1 1 0; width:auto; min-width:0; height:46px; border-radius:10px; font-size:13px; font-weight:700; white-space:nowrap; padding:0 8px; display:flex; align-items:center; justify-content:center; text-align:center; }
-        .cr-footer .cr-resolve-alt { flex:0 0 auto; }   /* Save as New sizes to its text; the dynamic action button takes the rest */
+        /* Footer actions stack vertically: primary on top, secondary below, equal width */
+        .cr-footer { position:absolute; bottom:0; left:0; right:0; background:white; padding:12px 16px 28px; box-shadow:0 -2px 12px rgba(28,55,90,0.12); display:flex; flex-direction:column; gap:8px; z-index:20; }
+        .cr-footer > button { width:100%; height:46px; border-radius:10px; font-size:14px; font-weight:700; white-space:nowrap; padding:0 8px; display:flex; align-items:center; justify-content:center; text-align:center; }
         #screen-offline-overview .screen-body { padding-bottom: 116px; }
-        /* The post-sync alert footer is tall; give the sync screen enough bottom
-           padding that the whole queue can scroll clear of it */
-        #screen-offline-syncing .screen-body { padding-bottom: 270px; }
+        /* Bottom padding so the queue scrolls clear of the action footer */
+        #screen-offline-syncing .screen-body { padding-bottom: 140px; }
         #screen-offline-overview .merge-intro h3 { font-size:18px; }
         #screen-offline-overview .merge-intro p { font-size:13.5px; line-height:1.5; }
         .cr-resolve-alt { background:white; border:1.5px solid #d1d5db; color:rgba(0,0,0,0.7); font-family:inherit; cursor:pointer; }
@@ -2848,7 +2840,6 @@
             <option value="offline-overview">Conflict: Resolve (all)</option>
             <option value="offline-resolve-each">Conflict: Resolve (per item)</option>
             <option value="offline-done">Conflict: Complete</option>
-            <option value="offline-history">Conflict: Version History</option>
         </optgroup>
     </select>
 </div>
@@ -3521,7 +3512,7 @@
             </div>
 
             <button class="records-fab" id="records-submit-all-btn">
-                Upload All (<span id="records-pending-count">3</span>)
+                Sync and upload (<span id="records-pending-count">3</span>)
             </button>
 
             <!-- Remove-download confirmation (record is kept, only the offline copy is cleared) -->
@@ -6349,16 +6340,9 @@
             </div>
 
             <!-- Post-sync notice: revealed by runSyncSequence() once the sync finishes -->
-            <div class="sticky-cta" id="conflictAlert" style="display:none;">
-                <div class="sync-note">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <div>
-                        <div class="sn-title">2 records have sync conflicts</div>
-                        <div class="sn-sub">Changes saved on the server while you were offline overlap with some of your edits. Your other changes synced normally — only the overlapping records need a decision, one at a time.</div>
-                    </div>
-                </div>
-                <button class="btn-primary" onclick="crOpenQueue()"><i class="fa-solid fa-triangle-exclamation"></i> Resolve conflicts</button><!-- was: View conflicts via records filter; the stepper is now the primary path -->
-                <button class="btn-ghost" style="margin-top:8px;" onclick="showScreen('home')">Return to home</button>
+            <div class="cr-footer" id="conflictAlert" style="display:none;">
+                <button class="btn-primary" id="sync-resolve-btn" onclick="crOpenQueue()">Resolve 2 conflicts</button>
+                <button class="cr-resolve-alt" onclick="showScreen('home')">Return to home</button>
             </div>
         </div>
 
@@ -6383,8 +6367,10 @@
             <!-- Conflict stepper: which of the conflicted records is being decided -->
             <div class="jsa-stepper" id="cr-stepper">
                 <div class="stepper-row">
-                    <span class="stepper-step-name" id="cr-step-count">Conflict 1 of 2</span>
-                    <span class="cr-step-circles" id="cr-step-dots"></span>
+                    <div class="stepper-step-info" onclick="crOpenStepNav()">
+                        <span class="stepper-step-name" id="cr-step-count">Conflict 1 of 2</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
                 </div>
                 <div class="stepper-progress-track">
                     <div class="stepper-progress-fill" id="cr-step-fill" style="width:50%;"></div>
@@ -6394,7 +6380,7 @@
             <div class="screen-body no-nav">
                 <div class="merge-intro">
                     <h3 id="cr-record-title">Roof Access – Maintenance Crew</h3>
-                    <p id="cr-intro-text">J. Okafor changed this record on the server before your offline edits were uploaded, and some of your edits touch the same fields. Choose whose version wins <b>for those conflicting fields only</b>. Everything else you changed is kept either way.</p>
+                    <p id="cr-intro-text">Select <b>which version</b> of <b>those conflicting fields only</b> to commit. You may also save your version as a new record.</p>
                 </div>
                 <span class="section-label" style="margin-top:14px;">Conflicting versions</span>
                 <div class="cr-vcards">
@@ -6414,7 +6400,6 @@
                     </button>
                 </div>
 
-                <p class="cr-helper">Your choice applies only to the fields that actually conflict. Every other edit you made to this record is applied regardless of which version you pick, so nothing you changed is thrown away.</p>
                 <!-- This screen is shown ONLY for genuine conflicts: server-side changes that
                      landed before your edits were uploaded and that touch the same fields. If
                      your edits do not overlap, sync just proceeds and this screen never opens. -->
@@ -6426,8 +6411,8 @@
 
             <!-- Sticky resolve footer -->
             <div class="cr-footer">
-                <button class="cr-resolve-alt" onclick="resolveConflict('new')">Save as New</button>
                 <button class="btn-primary" id="cr-apply-btn" disabled onclick="crApplyVersion()">Select a version</button>
+                <button class="cr-resolve-alt" onclick="resolveConflict('new')">Save as New</button>
             </div>
 
             <!-- Resolution confirmation (lightweight sheet) -->
@@ -6537,8 +6522,8 @@
             </div>
 
             <div class="cr-footer">
-                <button class="btn-ghost" onclick="showScreen('offline-records')">Cancel</button>
                 <button class="btn-primary" id="cr-each-submit" disabled onclick="crEachSubmit()">Resolve 3 to submit</button>
+                <button class="btn-ghost" onclick="showScreen('offline-records')">Cancel</button>
             </div>
         </div>
 
@@ -6576,90 +6561,18 @@
                     </div>
                 </div>
 
-                <div style="padding:20px 16px 0;display:flex;flex-direction:column;gap:10px;">
-                    <button class="btn-ghost" onclick="showScreen('offline-history')"><i class="fa-solid fa-clock-rotate-left"></i> View version history</button>
-                    <button class="btn-primary" onclick="showScreen('offline-home')"><i class="fa-solid fa-house"></i> Back to home</button>
-                </div>
+            </div>
+
+            <!-- Version history is removed from the prototype for now.
+                 Bottom-aligned action, standard stacked footer. -->
+            <div class="cr-footer">
+                <button class="btn-primary" onclick="showScreen('offline-home')"><i class="fa-solid fa-house"></i> Back to home</button>
             </div>
         </div>
 
         <!-- ══════════════════════════════════════════════════ -->
         <!-- 10 · VERSION HISTORY (timeline)                      -->
         <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-history">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:32 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-done')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title" style="font-size:17px;">Version History</span>
-                </div>
-            </div>
-
-            <div class="offline-banner is-online" style="background:#eef1f4;color:#50616f;border-bottom:1px solid #e0e4e8;">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                <span>Every version is kept. Nothing is overwritten or lost.</span>
-            </div>
-
-            <div class="screen-body no-nav">
-                <div class="timeline">
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot merge"><i class="fa-solid fa-check"></i></div><div class="tl-line"></div></div>
-                        <div class="tl-card" style="border-color:#bcdcfa;">
-                            <div class="tl-when">9:32 PM · Today · CURRENT</div>
-                            <div class="tl-who">Resolved version</div>
-                            <div class="tl-what" id="cr-hist-what">You resolved this sync conflict. This version is current.</div>
-                            <div class="tl-chips" id="cr-hist-chips">
-                                <span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">Conflict resolved</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot mine"><i class="fa-solid fa-mobile-screen"></i></div><div class="tl-line"></div></div>
-                        <div class="tl-card">
-                            <div class="tl-when">2:14 PM · synced 9:31 PM</div>
-                            <div class="tl-who">Your offline edits</div>
-                            <div class="tl-what">Edited on device without a connection, then synced on reconnect.</div>
-                            <div class="tl-chips">
-                                <span class="tl-chip">Status → In Review</span>
-                                <span class="tl-chip">+ wind-speed note</span>
-                                <span class="tl-chip">Start Date</span>
-                                <span class="tl-chip">Location</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot theirs"><i class="fa-solid fa-cloud"></i></div><div class="tl-line"></div></div>
-                        <div class="tl-card">
-                            <div class="tl-when">2:08 PM · Today</div>
-                            <div class="tl-who">Online edits — another user</div>
-                            <div class="tl-what">This record was edited on the web while you were offline.</div>
-                            <div class="tl-chips">
-                                <span class="tl-chip">Status → Approved</span>
-                                <span class="tl-chip">+ load-rating note</span>
-                                <span class="tl-chip">Review Cycle</span>
-                                <span class="tl-chip">Supervisor</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot base"><i class="fa-solid fa-flag"></i></div></div>
-                        <div class="tl-card">
-                            <div class="tl-when">Yesterday · 4:30 PM</div>
-                            <div class="tl-who">Original version</div>
-                            <div class="tl-what">The shared starting point both of you edited from.</div>
-                            <div class="tl-chips"><span class="tl-chip">Status: Draft</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- ══════════════════════════════════════ -->
         <!-- BLUE-SKY SCREEN: CREATE (module stub)  -->
         <!-- (Editing a submitted record reuses the JSA stepper screens,
@@ -8542,9 +8455,14 @@ function refreshRecordsFab() {
     /* Count only pending cards that are currently visible (filters can hide them) */
     const count = [...document.querySelectorAll('#screen-records .rec-card-wrap')]
         .filter(w => w.style.display !== 'none' && rcIsPending(w.querySelector('.record-card-row'))).length;
+    /* The button is always available: with pending work it uploads and then syncs
+       ("Sync and upload (N)"); with nothing left to upload it plain-syncs ("Sync"),
+       refreshing every record from the server. */
     const fab = document.getElementById('records-submit-all-btn');
-    fab.style.display = count > 0 ? '' : 'none';
-    document.getElementById('records-pending-count').textContent = count;
+    fab.style.display = '';
+    fab.innerHTML = count > 0
+        ? 'Sync and upload (<span id="records-pending-count">' + count + '</span>)'
+        : 'Sync';
 }
 
 function hideToast() {
@@ -8958,12 +8876,20 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
     }
 });
 
+let fabSyncTimer = null;
 document.getElementById('records-submit-all-btn').addEventListener('click', () => {
-    document.querySelectorAll('#screen-records .rec-card-wrap').forEach(wrap => {
-        if (wrap.style.display === 'none') return;            /* skip cards hidden by a filter */
-        const row = wrap.querySelector('.record-card-row');
-        if (rcIsPending(row)) submitRecordCard(row);
-    });
+    const pending = [...document.querySelectorAll('#screen-records .rec-card-wrap')]
+        .filter(w => w.style.display !== 'none')              /* skip cards hidden by a filter */
+        .map(w => w.querySelector('.record-card-row'))
+        .filter(row => rcIsPending(row));
+    /* Nothing to upload: plain sync — every record refreshes from the server */
+    if (!pending.length) { runRecordsSync('manual'); return; }
+    /* Sync and upload: push the pending work up, then sync everything */
+    pending.forEach(row => submitRecordCard(row));
+    if (typeof appOffline === 'undefined' || !appOffline) {
+        clearTimeout(fabSyncTimer);
+        fabSyncTimer = setTimeout(() => runRecordsSync('manual'), 3000);
+    }
 });
 
 document.getElementById('records-toast-dismiss').addEventListener('click', () => {
@@ -9313,23 +9239,10 @@ function crRenderStepper() {
     const rec = crQueue[crIndex];
     const count = document.getElementById('cr-step-count');
     if (count) count.textContent = 'Conflict ' + (crIndex + 1) + ' of ' + crQueue.length;
-    /* Step circles: resolved = green check and locked (disabled, no jump);
-       open/skipped are clickable to move between records that still need a decision */
-    const dots = document.getElementById('cr-step-dots');
-    if (dots) dots.innerHTML = crQueue.map((q, i) => {
-        const cls = 'cr-step-circle' + (q.status === 'resolved' ? ' done' : i === crIndex ? ' current' : q.status === 'skipped' ? ' skipped' : '');
-        const inner = q.status === 'resolved' ? '<i class="fa-solid fa-check"></i>' : (i + 1);
-        const attrs = q.status === 'resolved'
-            ? ' disabled aria-label="Conflict ' + (i + 1) + ' resolved"'
-            : ' onclick="crJumpTo(' + i + ')" aria-label="Go to conflict ' + (i + 1) + '"';
-        return '<button type="button" class="' + cls + '"' + attrs + '>' + inner + '</button>';
-    }).join('');
     const fill = document.getElementById('cr-step-fill');
     if (fill) fill.style.width = Math.round(((crIndex + 1) / crQueue.length) * 100) + '%';
     const t = document.getElementById('cr-record-title');
     if (t) t.textContent = rec.title;
-    const intro = document.getElementById('cr-intro-text');
-    if (intro) intro.innerHTML = 'J. Okafor changed this record on the server before your offline edits were uploaded, and some of your edits touch the same fields. Choose whose version wins <b>for those conflicting fields only</b>. Everything else you changed is kept either way.';
     const whens = document.querySelectorAll('#screen-offline-overview .cr-vcard-when');
     if (whens[0]) whens[0].innerHTML = '<i class="fa-regular fa-clock"></i> ' + rec.theirs;
     if (whens[1]) whens[1].innerHTML = '<i class="fa-regular fa-clock"></i> ' + rec.mine;
@@ -9340,8 +9253,8 @@ function crRenderStepper() {
     if (btn) { btn.disabled = true; btn.textContent = 'Select a version'; }
 }
 
-/* Jump to another conflict from the stepper circles. Resolved records are locked
-   (their circle is disabled); revisiting a skipped record reopens it. */
+/* Jump to another conflict from the stepper drawer. Resolved records are locked;
+   revisiting a skipped record reopens it. */
 function crJumpTo(i) {
     const rec = crQueue[i];
     if (!rec || rec.status === 'resolved') return;
@@ -9350,24 +9263,47 @@ function crJumpTo(i) {
     crRenderStepper();
 }
 
-/* Mark the matching records-list card as unresolved (red Conflict pill) or clear it */
+/* "Table of contents" drawer for the conflict stepper — the same step-nav drawer
+   the JSA edit form uses. Resolved records are locked (no navigating back). */
+function crOpenStepNav() {
+    document.querySelector('#stepNavDrawer .step-nav-title').textContent = 'Conflicts';
+    const list = document.getElementById('stepNavList');
+    list.innerHTML = '';
+    crQueue.forEach((rec, i) => {
+        const isDone = rec.status === 'resolved';
+        const isSkipped = rec.status === 'skipped';
+        const btn = document.createElement('button');
+        btn.className = 'step-nav-item' + (i === crIndex ? ' active-step' : '') + (isDone ? ' done-step' : '') + (isSkipped ? ' has-error' : '');
+        const infoHtml = isSkipped
+            ? '<div class="step-nav-info"><span class="step-nav-label">' + rec.title + '</span><span class="step-nav-error">Skipped, still needs a decision</span></div>'
+            : '<span class="step-nav-label">' + rec.title + '</span>';
+        btn.innerHTML = '<div class="step-nav-num">' + (i + 1) + '</div>' + infoHtml +
+            '<i class="fa-solid fa-check step-nav-check"></i>' +
+            '<i class="fa-solid fa-chevron-right step-nav-arrow"></i>';
+        if (isDone) btn.disabled = true;
+        else btn.addEventListener('click', () => { closeStepNavDrawer(); crJumpTo(i); });
+        list.appendChild(btn);
+    });
+    document.getElementById('stepNavOverlay').classList.add('active');
+    document.getElementById('stepNavDrawer').classList.add('open');
+}
+
+/* Mark the matching records-list card's UPLOAD STATUS with a "Conflict unresolved"
+   pill (or clear it). The flag persists on the wrap so rcSetUpload re-renders of
+   the upload pills keep the conflict pill. */
 function crMarkCardConflict(title, unresolved) {
     document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
         const t = wrap.querySelector('.record-title');
         if (!t || t.textContent.trim() !== title) return;
-        const badges = wrap.querySelector('.record-badges');
-        const pills = wrap.querySelector('.rc-sec.rc-first .rc-pills');
-        [badges, pills].forEach(host => {
-            if (!host) return;
-            const old = host.querySelector('.badge-conflict');
-            if (old) old.remove();
-            if (unresolved) {
-                const b = document.createElement('span');
-                b.className = 'badge badge-conflict';
-                b.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict unresolved';
-                host.appendChild(b);
-            }
-        });
+        if (unresolved) wrap.dataset.conflict = 'true'; else delete wrap.dataset.conflict;
+        wrap.querySelectorAll('.badge-conflict').forEach(b => b.remove());
+        const pills = wrap.querySelector('.rc-upstatus-pills');
+        if (pills && unresolved) {
+            const b = document.createElement('span');
+            b.className = 'badge badge-conflict';
+            b.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict unresolved';
+            pills.appendChild(b);
+        }
     });
 }
 
@@ -9447,7 +9383,14 @@ function crSelectVersion(card) {
     crSelectedSide = card.dataset.crSide;
     document.querySelectorAll('#screen-offline-overview .cr-vcard').forEach(c => c.classList.toggle('selected', c === card));
     const btn = document.getElementById('cr-apply-btn');
-    if (btn) { btn.disabled = false; btn.textContent = crSelectedSide === 'mine' ? 'Override with My Changes' : 'Keep Their Changes'; }
+    if (btn) {
+        btn.disabled = false;
+        /* Name the other editor in the CTA, e.g. "Keep J. Okafor's changes" */
+        const whoEl = document.querySelector('#screen-offline-overview .cr-vcard[data-cr-side="theirs"] .cr-vcard-name');
+        btn.textContent = crSelectedSide === 'mine'
+            ? 'Override with my changes'
+            : (whoEl ? 'Keep ' + whoEl.textContent.trim() + '’s changes' : 'Keep their changes');
+    }
 }
 function crApplyVersion() {
     if (crSelectedSide) resolveConflict(crSelectedSide);
@@ -9485,17 +9428,6 @@ function confirmConflictResolution() {
         const h = hero.querySelector('h2'); if (h) h.textContent = m.doneTitle;
         const p = hero.querySelector('p');  if (p) p.innerHTML = m.doneBody;
     }
-    /* Keep the version-history top entry consistent with the chosen outcome */
-    const histWhat = {
-        theirs: `You kept the other user's version as the source of truth.`,
-        mine:   `You overwrote the server with your version.`,
-        new:    `You saved your work as a new record; the original keeps the other user's version.`
-    };
-    const histChip = { theirs: 'Using their version', mine: 'Your version kept', new: 'Saved as new record' };
-    const hw = document.getElementById('cr-hist-what');
-    if (hw) hw.textContent = histWhat[pendingConflictChoice];
-    const hc = document.getElementById('cr-hist-chips');
-    if (hc) hc.innerHTML = '<span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">' + histChip[pendingConflictChoice] + '</span>';
     const rec = crQueue[crIndex];
     rec.status = 'resolved';
     crMarkCardConflict(rec.title, false);
@@ -9582,8 +9514,8 @@ function runSyncSequence() {
             }
         });
         if (queue) queue.style.display = '';
-        const alertTitle = alertEl ? alertEl.querySelector('.sn-title') : null;
-        if (alertTitle) alertTitle.textContent = crOpen === 1 ? '1 record has a sync conflict' : crOpen + ' records have sync conflicts';
+        const resolveBtn = alertEl ? alertEl.querySelector('#sync-resolve-btn') : null;
+        if (resolveBtn) resolveBtn.textContent = crOpen === 1 ? 'Resolve 1 conflict' : 'Resolve ' + crOpen + ' conflicts';
         if (alertEl) alertEl.style.display = crOpen === 0 ? 'none' : '';
     }, 1900);
 }
@@ -10207,6 +10139,7 @@ const roStepDefs = [
     { key: 'signature',  label: 'Signature Collection', screen: 'ro-signature' },
 ];
 function openRoStepNav(activeKey) {
+    document.querySelector('#stepNavDrawer .step-nav-title').textContent = 'Steps';
     const list = document.getElementById('stepNavList');
     list.innerHTML = '';
     const activeIdx = roStepDefs.findIndex(s => s.key === activeKey);
@@ -11044,7 +10977,13 @@ function rcSetUpload(row, state, newId) {
         } else if (state !== 'uploaded' && existing) existing.remove();
     }
     const pills = row.querySelector('.rc-upstatus-pills');
-    if (pills) pills.innerHTML = '<span class="badge rc-up-pill ' + m.cls + '"><i class="' + m.icon + '" style="font-size:10px;"></i> ' + m.label + '</span>';
+    if (pills) {
+        pills.innerHTML = '<span class="badge rc-up-pill ' + m.cls + '"><i class="' + m.icon + '" style="font-size:10px;"></i> ' + m.label + '</span>';
+        /* An unresolved sync conflict lives in Upload status, next to the upload pill */
+        const cw = row.closest('.rec-card-wrap');
+        if (cw && cw.dataset.conflict === 'true') pills.insertAdjacentHTML('beforeend',
+            '<span class="badge badge-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict unresolved</span>');
+    }
     const ar = row.querySelector('.rec-action-row');
     if (ar) {
         if (m.cta === 'cancel') ar.innerHTML = '<button class="rec-btn-cancel" data-action="cancel-submit"><i class="fa-solid fa-xmark" style="font-size:12px;"></i> Cancel</button>';

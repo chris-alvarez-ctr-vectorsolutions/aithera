@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Investigation FY26-00004 — Guided checklist</title>
+
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css"/>
+<link rel="stylesheet" href="../_shared/base.css"/>
+
+<style>
+/* ============================================================================
+   V1 — Guided checklist
+   ============================================================================
+   Reference pattern: tax preparation software (TurboTax / H&R Block) and payroll
+   onboarding (Gusto). The form stays ONE scrolling document, because EHS users
+   jump around as facts arrive. What changes is that a persistent rail always
+   answers three questions: what is left, where is it, and can I submit yet.
+
+   The two-tier gate is the important idea. "Required to save a draft" is a tiny
+   set; "required to submit" is the full set. Today's form treats both the same,
+   so users think they are blocked when they are not.
+   ========================================================================== */
+
+.layout {
+  display: grid;
+  grid-template-columns: 304px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 24px;
+  padding-bottom: 96px;
+}
+@media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } }
+
+/* ── The rail ───────────────────────────────────────────────────────────── */
+.rail { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 16px; }
+
+.progress-card { padding: 20px; }
+.progress-top { display: flex; align-items: center; gap: 16px; }
+.progress-figure { flex: 0 0 auto; }
+.progress-read { min-width: 0; }
+.progress-count { font-size: 15px; font-weight: 700; color: var(--ink); }
+.progress-sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+.gates { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.gate {
+  display: flex; align-items: flex-start; gap: 9px;
+  border-radius: 7px; padding: 9px 11px; font-size: 12px;
+  border: 1px solid transparent;
+}
+.gate i { margin-top: 1px; font-size: 12px; }
+.gate.ok { background: var(--st-complete-bg); color: #0f6f4d; border-color: #c9ebdd; }
+.gate.blocked { background: var(--st-empty-bg); color: #97302a; border-color: #f6d3d0; }
+.gate strong { display: block; font-weight: 700; }
+
+.rail-cta { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.cta-btn {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 7px; padding: 10px 12px;
+  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: var(--brand); color: #fff;
+}
+.cta-btn:hover { background: var(--brand-dark); }
+.cta-btn.ghost { background: #fff; color: var(--ink-2); border: 1px solid var(--line-strong); font-weight: 600; }
+.cta-btn.ghost:hover { background: #f4f8fc; }
+.cta-btn .count {
+  background: rgba(255,255,255,.22); border-radius: 999px;
+  padding: 1px 8px; font-size: 11.5px;
+}
+
+/* ── Checklist ──────────────────────────────────────────────────────────── */
+.checklist-card { padding: 0; overflow: hidden; }
+.checklist-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.checklist-head .card-title { flex: 1; }
+.only-left {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: var(--ink-3); cursor: pointer; user-select: none;
+}
+.only-left input { accent-color: var(--brand); width: 13px; height: 13px; cursor: pointer; }
+
+.check-list { padding: 8px; max-height: calc(100vh - 420px); overflow: auto; }
+.check-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  border: 0; background: none; font-family: inherit;
+  border-radius: 7px; padding: 9px 10px;
+  cursor: pointer; color: var(--ink-2);
+  border-left: 3px solid transparent;
+}
+.check-item:hover { background: #f4f8fc; }
+.check-item.active { background: #eef4fb; border-left-color: var(--brand); }
+.check-item .ci-icon { width: 16px; text-align: center; font-size: 13px; flex: 0 0 auto; }
+.ci-icon.complete { color: var(--st-complete); }
+.ci-icon.partial  { color: var(--st-partial); }
+.ci-icon.empty    { color: var(--st-empty); }
+.ci-icon.optional, .ci-icon.na, .ci-icon.system { color: var(--st-na); }
+.ci-icon.waiting  { color: #6f7fd8; }
+.check-item .ci-title { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.check-item.dimmed .ci-title { color: #8a95a3; font-weight: 400; }
+.check-item .ci-count { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.check-item .ci-count.needs { color: #b03227; font-weight: 700; }
+.check-sub { font-size: 11px; color: var(--ink-3); margin-left: 26px; margin-top: -4px; margin-bottom: 4px; }
+
+.legend {
+  padding: 12px 16px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 11px; color: var(--ink-3);
+}
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ── Document column ────────────────────────────────────────────────────── */
+.doc-intro {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 20px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.doc-intro .di-icon {
+  width: 36px; height: 36px; border-radius: 9px; flex: 0 0 auto;
+  background: #eef4fb; color: #2c5b86;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.doc-intro .di-title { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.doc-intro .di-body { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+.doc-intro .di-action { margin-left: auto; }
+
+/* Per-section "what is left here" strip, above the fields */
+.sec-strip {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border: 1px solid #f2dfc0; background: #fdf8ef;
+  border-radius: 7px; padding: 9px 12px; margin-bottom: 18px;
+  font-size: 12px; color: #8a6216;
+}
+.sec-strip.done { border-color: #c9ebdd; background: var(--st-complete-bg); color: #0f6f4d; }
+.sec-strip.waiting { border-color: #d5dbf5; background: #f0f2fd; color: #414e9c; }
+.sec-strip .ss-actions { margin-left: auto; display: flex; gap: 8px; }
+
+.waiting-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: #f0f2fd; border: 1px solid #d5dbf5; color: #414e9c;
+  border-radius: 7px; padding: 10px 13px; margin-bottom: 16px; font-size: 12.5px;
+}
+.waiting-banner .wb-actions { margin-left: auto; }
+
+/* ── Sticky action bar ──────────────────────────────────────────────────── */
+.action-bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: #fff; border-top: 1px solid var(--line);
+  box-shadow: 0 -2px 12px rgba(16,32,56,.06);
+  padding: 10px 24px 14px;
+  display: flex; align-items: center; gap: 12px;
+  z-index: 250;
+}
+.action-bar .ab-status { font-size: 12px; color: var(--ink-3); }
+.action-bar .ab-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.ab-bar-track { width: 180px; height: 6px; border-radius: 999px; background: #e8eef5; overflow: hidden; }
+.ab-bar-fill { height: 100%; background: var(--st-complete); transition: width .35s ease; }
+
+/* Review modal rows reuse .out-item from base.css */
+.review-summary {
+  display: flex; align-items: center; gap: 12px;
+  background: #f6faff; border: 1px solid #dbe8f5;
+  border-radius: 8px; padding: 12px 14px; margin-bottom: 18px;
+  font-size: 12.5px; color: #2c5b86;
+}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div class="scrim" id="reviewScrim" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="reviewTitle">Review before you submit</div>
+      <div class="modal-sub">Everything still outstanding on this report, grouped by section. Select any item to jump straight to it.</div>
+    </div>
+    <div class="modal-body" id="reviewBody"></div>
+    <div class="modal-foot">
+      <button class="mini-btn" type="button" id="reviewClose">Keep editing</button>
+      <span class="spacer"></span>
+      <span class="ab-status" id="reviewFootNote"></span>
+      <button class="mini-btn primary" type="button" id="reviewSubmit">Submit report</button>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/model.js"></script>
+<script src="../_shared/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.EHS_FORM, U = window.EHS_UI, esc = U.esc;
+  var app = document.getElementById('app');
+
+  /* View state that belongs to this concept only. */
+  var view = { onlyLeft: false, active: 'basic' };
+
+  /* ── Shell ─────────────────────────────────────────────────────────────── */
+  function shell() {
+    var r = M.record;
+    app.innerHTML =
+      U.topnav() +
+      U.ribbon('V1 · Guided checklist',
+        'One scrolling form plus a rail that always answers: what is left, where is it, can I submit yet.',
+        ['Reference: tax software', 'Two-tier gate', 'Pre-submit review']) +
+      '<div class="record-head">' + U.crumbs() +
+        '<div class="record-title-row">' +
+          '<div>' +
+            '<div class="record-title">Incident investigation ' + esc(r.id) + '</div>' +
+            '<div class="record-sub">' + esc(r.subtype) + ' &middot; ' + esc(r.facility) + ' &middot; occurred ' + esc(r.occurred) + '</div>' +
+          '</div>' +
+          '<div class="record-actions">' +
+            '<span class="chip chip-draft"><i class="fa-solid fa-pen-to-square"></i>Draft</span>' +
+            '<span class="chip chip-due"><i class="fa-regular fa-clock"></i>Due ' + esc(r.dueDate) + ' &middot; ' + r.daysToDue + ' days</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="layout">' +
+        '<aside class="rail" id="rail"></aside>' +
+        '<main class="doc" id="doc"></main>' +
+      '</div>' +
+      '<div class="action-bar" id="actionBar"></div>';
+  }
+
+  /* ── Rail ──────────────────────────────────────────────────────────────── */
+  function renderRail() {
+    var s = M.summary();
+    var rail = document.getElementById('rail');
+    var left = s.reqTotal - s.reqDone;
+
+    var gateHTML = s.gateMissing.length
+      ? '<div class="gate blocked"><i class="fa-solid fa-circle-exclamation"></i><span>' +
+          '<strong>Cannot save a draft yet</strong>' + s.gateMissing.length +
+          ' field' + (s.gateMissing.length === 1 ? '' : 's') + ' must be filled before this record will save.</span></div>'
+      : '<div class="gate ok"><i class="fa-solid fa-circle-check"></i><span>' +
+          '<strong>Safe to save and come back</strong>Your draft keeps everything you have entered so far.</span></div>';
+
+    gateHTML += left
+      ? '<div class="gate blocked"><i class="fa-solid fa-list-check"></i><span>' +
+          '<strong>' + left + ' field' + (left === 1 ? '' : 's') + ' left before you can submit</strong>' +
+          'Across ' + countSectionsWithWork(s) + ' section' + (countSectionsWithWork(s) === 1 ? '' : 's') + '.</span></div>'
+      : '<div class="gate ok"><i class="fa-solid fa-paper-plane"></i><span>' +
+          '<strong>Ready to submit</strong>Every required field on this report is filled in.</span></div>';
+
+    rail.innerHTML =
+      '<div class="card progress-card">' +
+        '<div class="progress-top">' +
+          '<div class="progress-figure">' + U.ring(s.pct, { size: 78, stroke: 9, label: s.pct + '%', color: left ? '#e09a2c' : '#17a673' }) + '</div>' +
+          '<div class="progress-read">' +
+            '<div class="progress-count">' + s.reqDone + ' of ' + s.reqTotal + ' required fields</div>' +
+            '<div class="progress-sub">' + (left ? 'About ' + s.minutesLeft + ' minutes of work left' : 'Nothing required is outstanding') + '</div>' +
+            '<div class="progress-sub">Saved ' + esc(M.record.lastSaved) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="gates">' + gateHTML + '</div>' +
+        '<div class="rail-cta">' +
+          '<button class="cta-btn" type="button" id="railReview">' +
+            '<i class="fa-solid fa-clipboard-check"></i>Review and submit' +
+            (left ? '<span class="count">' + left + '</span>' : '') +
+          '</button>' +
+          '<button class="cta-btn ghost" type="button" id="railNext">' +
+            '<i class="fa-solid fa-arrow-down"></i>Go to next thing needed</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="card checklist-card">' +
+        '<div class="checklist-head">' +
+          '<div class="card-title"><i class="fa-solid fa-list-check"></i>Sections</div>' +
+          '<label class="only-left"><input type="checkbox" id="onlyLeft"' + (view.onlyLeft ? ' checked' : '') + '>Only what is left</label>' +
+        '</div>' +
+        '<div class="check-list" id="checkList">' + checklistItems(s) + '</div>' +
+        '<div class="legend">' +
+          '<span><i class="fa-solid fa-circle-check" style="color:var(--st-complete)"></i>Done</span>' +
+          '<span><i class="fa-solid fa-circle-half-stroke" style="color:var(--st-partial)"></i>Started</span>' +
+          '<span><i class="fa-solid fa-circle" style="color:var(--st-empty)"></i>Not started</span>' +
+          '<span><i class="fa-solid fa-clock" style="color:#6f7fd8"></i>Waiting on someone</span>' +
+          '<span><i class="fa-solid fa-ban" style="color:var(--st-na)"></i>Not applicable</span>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('onlyLeft').addEventListener('change', function (e) {
+      view.onlyLeft = e.target.checked;
+      renderRail();
+    });
+    document.getElementById('railReview').addEventListener('click', openReview);
+    document.getElementById('railNext').addEventListener('click', gotoNext);
+    wireChecklist();
+  }
+
+  function countSectionsWithWork(s) {
+    return s.sections.filter(function (st) { return st.missing && st.missing.length; }).length;
+  }
+
+  function checklistItems(s) {
+    var rows = s.sections.map(function (st) {
+      var sec = st.section;
+      var waiting = sec.waiting;
+      var iconState = waiting ? 'waiting' : st.state;
+      var icon = waiting ? 'fa-clock' : U.stateIcon(st.state);
+
+      var count = '', cls = '';
+      if (waiting) { count = esc(waiting.split(' ')[0]); }
+      else if (st.state === 'complete') { count = 'Done'; }
+      else if (st.state === 'na') { count = 'Not applicable'; }
+      else if (st.state === 'system') { count = ''; }
+      else if (st.reqTotal) { count = (st.reqTotal - st.reqDone) + ' left'; cls = ' needs'; }
+      else { count = 'Optional'; }
+
+      var dim = (st.state === 'na' || st.state === 'system' || st.state === 'optional') ? ' dimmed' : '';
+      var hide = view.onlyLeft && (waiting || st.state === 'complete' || st.state === 'na' || st.state === 'system');
+      if (hide) return '';
+
+      return '<button class="check-item' + dim + (view.active === sec.id ? ' active' : '') + '" type="button" data-jump="' + sec.id + '">' +
+        '<span class="ci-icon ' + iconState + '"><i class="fa-solid ' + icon + '"></i></span>' +
+        '<span class="ci-title">' + esc(sec.title) + '</span>' +
+        '<span class="ci-count' + cls + '">' + count + '</span>' +
+      '</button>' +
+      (waiting ? '<div class="check-sub">Requested from ' + esc(waiting) + '</div>' : '');
+    }).join('');
+
+    if (!rows.trim()) {
+      rows = '<div class="empty-state"><i class="fa-solid fa-circle-check"></i>Nothing outstanding. Clear the filter to see finished sections.</div>';
+    }
+    return rows;
+  }
+
+  function wireChecklist() {
+    document.querySelectorAll('[data-jump]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        view.active = b.dataset.jump;
+        U.jumpTo('sec-' + b.dataset.jump);
+        renderRail();
+      });
+    });
+  }
+
+  /* ── Document ──────────────────────────────────────────────────────────── */
+  function renderDoc() {
+    var doc = document.getElementById('doc');
+    var s = M.summary();
+
+    doc.innerHTML =
+      '<div class="doc-intro">' +
+        '<div class="di-icon"><i class="fa-solid fa-route"></i></div>' +
+        '<div>' +
+          '<div class="di-title">Fill this in whatever order suits you</div>' +
+          '<div class="di-body">The rail tracks what is still needed, so you can start with what you know and come back. ' +
+            'Answers in Basic information decide which later sections apply.</div>' +
+        '</div>' +
+        '<div class="di-action"><button class="mini-btn primary" type="button" id="introNext">' +
+          '<i class="fa-solid fa-arrow-down"></i> Next thing needed</button></div>' +
+      '</div>' +
+      M.sections.map(function (sec) { return U.sectionHTML(sec, railMeta); }).join('');
+
+    /* Insert the per-section strip at the top of each section body. */
+    M.sections.forEach(function (sec) {
+      var body = document.querySelector('#sec-' + sec.id + ' .fs-body');
+      if (!body) return;
+      var strip = document.createElement('div');
+      strip.className = 'sec-strip-host';
+      body.insertBefore(strip, body.firstChild);
+    });
+    renderStrips();
+
+    document.getElementById('introNext').addEventListener('click', gotoNext);
+    U.mountInputs(doc, onEdit);
+    observeSections();
+  }
+
+  function railMeta(st, sec) {
+    if (sec.waiting) {
+      return '<span class="pill" style="background:#f0f2fd;color:#414e9c">' +
+        '<i class="fa-solid fa-clock"></i>Waiting on ' + esc(sec.waiting) + '</span>';
+    }
+    return U.defaultMeta(st);
+  }
+
+  /* The strip is the in-context echo of the rail: it repeats, at the point of
+     work, exactly how much is left here and offers the two escape hatches. */
+  function renderStrips() {
+    M.sections.forEach(function (sec) {
+      var host = document.querySelector('#sec-' + sec.id + ' .sec-strip-host');
+      if (!host) return;
+      var st = M.statusOf(sec);
+
+      if (sec.waiting) {
+        host.innerHTML = '<div class="sec-strip waiting">' +
+          '<i class="fa-solid fa-clock"></i>' +
+          '<span>You asked <strong>' + esc(sec.waiting) + '</strong> to complete this section. ' +
+            'It will not block your progress while you wait.</span>' +
+          '<span class="ss-actions"><button class="mini-btn" type="button" data-unwait="' + sec.id + '">Take it back</button></span>' +
+        '</div>';
+      } else if (st.state === 'na' || st.state === 'system') {
+        host.innerHTML = '';
+      } else if (st.missing.length) {
+        host.innerHTML = '<div class="sec-strip">' +
+          '<i class="fa-solid fa-triangle-exclamation"></i>' +
+          '<span><strong>' + st.missing.length + ' required field' + (st.missing.length === 1 ? '' : 's') + ' left here.</strong> ' +
+            esc(st.missing.slice(0, 3).map(function (f) { return f.label; }).join(', ')) +
+            (st.missing.length > 3 ? ' and ' + (st.missing.length - 3) + ' more' : '') + '.</span>' +
+          '<span class="ss-actions">' +
+            '<button class="mini-btn" type="button" data-secnext="' + sec.id + '"><i class="fa-solid fa-arrow-down"></i> First one</button>' +
+            '<button class="mini-btn" type="button" data-wait="' + sec.id + '"><i class="fa-solid fa-user-clock"></i> Ask someone else</button>' +
+          '</span>' +
+        '</div>';
+      } else if (st.state === 'complete') {
+        host.innerHTML = '<div class="sec-strip done">' +
+          '<i class="fa-solid fa-circle-check"></i><span>This section is complete. Nothing here is holding up submission.</span></div>';
+      } else {
+        host.innerHTML = '<div class="sec-strip done">' +
+          '<i class="fa-solid fa-circle-info"></i><span>Optional section. Add detail if you have it.</span></div>';
+      }
+    });
+
+    document.querySelectorAll('[data-secnext]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var sec = byId(b.dataset.secnext);
+        var st = M.statusOf(sec);
+        if (st.missing[0]) U.jumpTo('fld-' + st.missing[0].id);
+      });
+    });
+    document.querySelectorAll('[data-wait]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var sec = byId(b.dataset.wait);
+        sec.waiting = 'Marta Reyes';
+        U.toast('Asked Marta Reyes to complete ' + sec.title.toLowerCase() + '. It is now tracked separately from your own items.', 'info');
+        refresh();
+      });
+    });
+    document.querySelectorAll('[data-unwait]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var sec = byId(b.dataset.unwait);
+        delete sec.waiting;
+        refresh();
+      });
+    });
+  }
+
+  function byId(id) { return M.sections.filter(function (s) { return s.id === id; })[0]; }
+
+  /* ── Action bar ────────────────────────────────────────────────────────── */
+  function renderBar() {
+    var s = M.summary();
+    var left = s.reqTotal - s.reqDone;
+    document.getElementById('actionBar').innerHTML =
+      '<div class="ab-bar-track"><div class="ab-bar-fill" style="width:' + s.pct + '%;background:' + (left ? '#e09a2c' : '#17a673') + '"></div></div>' +
+      '<span class="ab-status"><strong>' + s.pct + '%</strong> of required fields complete' +
+        (left ? ' &middot; ' + left + ' left' : ' &middot; ready to submit') + '</span>' +
+      '<span class="ab-right">' +
+        '<span class="ab-status">Saved ' + esc(M.record.lastSaved) + '</span>' +
+        '<button class="mini-btn" type="button" id="barSave"><i class="fa-regular fa-floppy-disk"></i> Save draft</button>' +
+        '<button class="mini-btn" type="button" id="barClose">Close</button>' +
+        '<button class="mini-btn primary" type="button" id="barReview">' +
+          '<i class="fa-solid fa-clipboard-check"></i> Review and submit' + (left ? ' (' + left + ')' : '') + '</button>' +
+      '</span>';
+    document.getElementById('barReview').addEventListener('click', openReview);
+    document.getElementById('barSave').addEventListener('click', function () {
+      var g = M.summary().gateMissing;
+      if (g.length) U.toast('Cannot save yet: ' + g[0].field.label + ' is needed first.', 'warn');
+      else U.toast('Draft saved. You can close this and come back to it.', 'good');
+    });
+  }
+
+  /* ── Review modal — the pattern lifted straight from tax software ──────── */
+  function openReview() {
+    var s = M.summary();
+    var body = document.getElementById('reviewBody');
+    var groups = {};
+    s.missing.forEach(function (m) {
+      if (m.section.waiting) return;                 // tracked as someone else's work
+      (groups[m.section.id] = groups[m.section.id] || { sec: m.section, items: [] }).items.push(m.field);
+    });
+    var keys = Object.keys(groups);
+    var waitingSecs = M.sections.filter(function (x) { return x.waiting; });
+
+    var html = '<div class="review-summary"><i class="fa-solid fa-circle-info"></i><span>' +
+      (keys.length
+        ? 'This report cannot be submitted until <strong>' + s.missing.length + ' field' +
+          (s.missing.length === 1 ? '' : 's') + '</strong> across <strong>' + keys.length +
+          ' section' + (keys.length === 1 ? '' : 's') + '</strong> are filled in.'
+        : 'Everything required is filled in. Give it a last look and submit.') +
+      '</span></div>';
+
+    if (!keys.length && !waitingSecs.length) {
+      html += '<div class="empty-state"><i class="fa-solid fa-circle-check"></i>' +
+        'No outstanding items. Optional sections can stay empty.</div>';
+    }
+
+    keys.forEach(function (k) {
+      var g = groups[k];
+      html += '<div class="out-group">' +
+        '<div class="out-group-head"><i class="fa-solid ' + g.sec.icon + '" style="color:#6b7684"></i>' +
+          esc(g.sec.title) + '<span class="pill empty">' + g.items.length + ' needed</span></div>' +
+        g.items.map(function (f) {
+          return '<button class="out-item" type="button" data-goto="' + f.id + '">' +
+            '<span class="dot empty"></span>' +
+            '<span class="oi-label">' + esc(f.label) + '</span>' +
+            U.srcTag(f) +
+            '<i class="fa-solid fa-arrow-right"></i></button>';
+        }).join('') +
+      '</div>';
+    });
+
+    if (waitingSecs.length) {
+      html += '<div class="out-group">' +
+        '<div class="out-group-head"><i class="fa-solid fa-user-clock" style="color:#6f7fd8"></i>Waiting on other people</div>' +
+        waitingSecs.map(function (sec) {
+          return '<div class="out-item" style="cursor:default">' +
+            '<span class="dot" style="background:#6f7fd8"></span>' +
+            '<span class="oi-label">' + esc(sec.title) + '</span>' +
+            '<span class="pill" style="background:#f0f2fd;color:#414e9c">' + esc(sec.waiting) + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+
+    body.innerHTML = html;
+    body.querySelectorAll('[data-goto]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        closeReview();
+        U.jumpTo('fld-' + b.dataset.goto);
+      });
+    });
+
+    var can = s.canSubmit;
+    document.getElementById('reviewSubmit').disabled = !can;
+    document.getElementById('reviewSubmit').style.opacity = can ? '1' : '.45';
+    document.getElementById('reviewSubmit').style.cursor = can ? 'pointer' : 'not-allowed';
+    document.getElementById('reviewFootNote').textContent = can
+      ? 'This will notify the safety manager for review.'
+      : 'Fix the items above to enable submission.';
+    document.getElementById('reviewScrim').classList.add('open');
+  }
+  function closeReview() { document.getElementById('reviewScrim').classList.remove('open'); }
+
+  /* ── Behaviour ─────────────────────────────────────────────────────────── */
+  function gotoNext() {
+    var s = M.summary();
+    var next = s.missing.filter(function (m) { return !m.section.waiting; })[0];
+    if (!next) { U.toast('Nothing required is left. Open Review and submit to finish.', 'good'); return; }
+    view.active = next.section.id;
+    U.jumpTo('fld-' + next.field.id);
+    renderRail();
+  }
+
+  function onEdit(id) {
+    var f = M.fieldById(id);
+    /* Branch fields change which sections exist — say so out loud. */
+    if (id === 'vehicleInvolved' || id === 'employeeInjured' || id === 'retrainingRequired') {
+      var added = f.value === 'Yes';
+      var names = { vehicleInvolved: 'Vehicle sections', employeeInjured: 'Injury and OSHA recordability', retrainingRequired: 'Training assignments' };
+      U.toast(names[id] + (added ? ' added to this report.' : ' no longer apply, so they are excluded from your progress.'), added ? 'info' : 'good');
+      renderDoc();
+    }
+    refresh();
+  }
+
+  function refresh() {
+    U.refreshFieldChrome(document);
+    renderStrips();
+    renderRail();
+    renderBar();
+  }
+
+  /* Scrollspy: keeps the rail's highlight on whatever section is in view. */
+  function observeSections() {
+    if (window.__spy) window.__spy.disconnect();
+    window.__spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          view.active = e.target.dataset.section;
+          document.querySelectorAll('.check-item').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.jump === view.active);
+          });
+        }
+      });
+    }, { rootMargin: '-120px 0px -60% 0px' });
+    document.querySelectorAll('.form-section').forEach(function (el) { window.__spy.observe(el); });
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────────────────── */
+  shell();
+  renderDoc();
+  renderRail();
+  renderBar();
+  document.getElementById('reviewClose').addEventListener('click', closeReview);
+  document.getElementById('reviewScrim').addEventListener('click', function (e) {
+    if (e.target.id === 'reviewScrim') closeReview();
+  });
+  document.getElementById('reviewSubmit').addEventListener('click', function () {
+    if (!M.summary().canSubmit) return;
+    closeReview();
+    U.toast('Report FY26-00004 submitted for review.', 'good');
+  });
+
+  /* ── Flow map states ───────────────────────────────────────────────────── */
+  function fillAllRequired() {
+    M.sections.forEach(function (sec) {
+      if (!M.isActive(sec) || sec.system) return;
+      (sec.fields || []).forEach(function (f) {
+        if (!f.req || M.isFilled(f)) return;
+        f.value = f.opts ? f.opts[0] : (f.type === 'number' ? '0'
+          : f.type === 'date' ? '2026-05-11'
+          : f.type === 'textarea' ? 'Completed during the investigation walkthrough on 5/12/2026.'
+          : 'Recorded');
+      });
+    });
+  }
+  function resetModel() { location.reload(); }
+
+  window.applyFlowState = function (id, opts) {
+    opts = opts || {};
+    closeReview();
+    switch (id) {
+      case 'start':
+        break;
+      case 'onlyleft':
+        view.onlyLeft = true;
+        renderRail();
+        break;
+      case 'waiting':
+        byId('analysis').waiting = 'Marta Reyes';
+        refresh();
+        break;
+      case 'review':
+        openReview();
+        break;
+      case 'ready':
+        fillAllRequired();
+        renderDoc(); refresh();
+        break;
+      case 'readyreview':
+        fillAllRequired();
+        renderDoc(); refresh();
+        openReview();
+        break;
+      default: break;
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  };
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { window.applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Record form workflow V1 — Guided checklist',
+      applyState: 'applyFlowState',
+      canvas: { w: 1280, h: 520 },
+      flows: [
+        { id: 'main', name: 'Fill and submit', pill: 'A', color: '#c9d8f0',
+          lane: { x: 20, y: 20, w: 1240, h: 230 }, labelXY: { x: 40, y: 42 } },
+        { id: 'aside', name: 'Focus and delegation', pill: 'B', color: '#d8ecdf',
+          lane: { x: 20, y: 270, w: 1240, h: 230 }, labelXY: { x: 40, y: 292 } }
+      ],
+      nodes: [
+        { id: 'start', flow: 'main', entry: true, x: 60, y: 110, step: 'Entry', name: 'Draft, partly filled',
+          state: 'start', desc: 'How a real half-finished report looks: rail shows 16 of 23 required fields, two-tier gate says the draft is safe to save but not to submit.' },
+        { id: 'review', flow: 'main', x: 400, y: 110, step: 'Check', name: 'Review before submit',
+          state: 'review', desc: 'Every outstanding field grouped by section, each row jumping straight to the field. Submit stays disabled with the reason stated.' },
+        { id: 'ready', flow: 'main', x: 740, y: 110, step: 'Complete', name: 'All required done',
+          state: 'ready', desc: 'The same page once nothing is outstanding: ring at 100 percent, gate flips to Ready to submit.' },
+        { id: 'readyreview', flow: 'main', x: 1050, y: 110, step: 'Submit', name: 'Clean review',
+          state: 'readyreview', desc: 'Review modal with nothing to fix, so Submit is live.' },
+        { id: 'onlyleft', flow: 'aside', x: 60, y: 360, step: 'Focus', name: 'Only what is left',
+          state: 'onlyleft', desc: 'Filter hides finished, not-applicable and delegated sections so the rail is a pure to-do list.' },
+        { id: 'waiting', flow: 'aside', x: 420, y: 360, step: 'Delegate', name: 'Waiting on someone',
+          state: 'waiting', desc: 'A section handed to another person: it leaves your outstanding count and is tracked separately in the review.' }
+      ],
+      edges: [
+        ['start', 'review'], ['review', 'ready'], ['ready', 'readyreview'],
+        ['start', 'onlyleft'], ['onlyleft', 'waiting']
+      ]
+    }
+  };
+})();
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

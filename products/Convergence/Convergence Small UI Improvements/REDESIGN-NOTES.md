@@ -449,6 +449,16 @@ Verified headlessly: 30x30 at radius 15/0/0/15 with a 0px edge gap, badge at top
 120px drag that does not open the chat and persists, a plain click opening the window beside
 the launcher, and the 40px gutter applied.
 
+## Round 6: on-screen CSS spec strips
+
+Every screen now ends with a collapsed **CSS spec for this screen** line: a native
+`<details>` that is a single muted 12px line when closed (29px tall) and expands to a
+key/value sheet of that screen's important CSS values, keys in gray, values in monospace,
+with a pointer to the token block. One per view (guide, home, training, details, catalog,
+wizard), aligned to the view's content width. The strips are a dev reference, not product
+UI, and are labelled as such in the sheet; the values live in `SPECS` in `shared/chrome.js`
+and mirror `shared/styles.css`, so a value change updates both.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

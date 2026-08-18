@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Investigation FY26-00004 — Guided steps</title>
+
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css"/>
+<link rel="stylesheet" href="../_shared/base.css"/>
+
+<style>
+/* ============================================================================
+   V2 — Guided steps
+   ============================================================================
+   Reference pattern: incident management tools (ServiceNow, Jira Service
+   Management) and claims intake. The long form is cut into a handful of steps,
+   and the stepper itself is the answer to "what do I need to complete".
+
+   Two ideas carry this concept:
+     1. The step list is LIVE. Answering "was a vehicle involved" inserts or
+        removes whole steps in front of the user, so the shape of the work is
+        never a surprise discovered three screens later.
+     2. "Skip for now" is a first-class action. EHS reporters frequently do not
+        have every fact at the time of reporting, so a wizard that refuses to
+        advance gets abandoned. Skipping is allowed, recorded, and surfaced.
+   ========================================================================== */
+
+/* ── Stepper ────────────────────────────────────────────────────────────── */
+.stepper-wrap {
+  position: sticky; top: 48px; z-index: 200;
+  background: #fff; border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(16,32,56,.05);
+}
+.stepper {
+  display: flex; align-items: stretch; gap: 0;
+  padding: 0 24px; overflow-x: auto; max-width: 1520px; margin: 0 auto;
+}
+.step {
+  display: flex; align-items: center; gap: 10px;
+  border: 0; background: none; font-family: inherit;
+  padding: 14px 18px 12px; cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap; position: relative;
+  transition: background .15s ease;
+}
+.step:hover { background: #f6faff; }
+.step.current { border-bottom-color: var(--brand); background: #f6faff; }
+.step + .step::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  width: 1px; height: 22px; background: var(--line); transform: translateY(-50%);
+}
+.step-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700; flex: 0 0 auto;
+  border: 1.5px solid var(--line-strong); color: var(--ink-3); background: #fff;
+}
+.step.s-complete .step-num { background: var(--st-complete); border-color: var(--st-complete); color: #fff; }
+.step.s-partial  .step-num { background: var(--st-partial-bg); border-color: var(--st-partial); color: #97650f; }
+.step.s-empty    .step-num { background: #fff; border-color: var(--line-strong); color: var(--ink-3); }
+.step.s-skipped  .step-num { background: #fff; border-color: #6f7fd8; color: #414e9c; border-style: dashed; }
+.step.current .step-num { box-shadow: 0 0 0 3px rgba(2,103,188,.14); }
+.step-text { text-align: left; display: flex; flex-direction: column; }
+.step-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.step.current .step-name { color: var(--brand-dark); }
+.step-meta { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.step-meta.needs { color: #b03227; font-weight: 600; }
+.step.just-added { animation: step-pop .9s ease; }
+@keyframes step-pop {
+  0%   { background: #fff6df; box-shadow: inset 0 0 0 2px #e9b64b; }
+  70%  { background: #fff6df; box-shadow: inset 0 0 0 2px #e9b64b; }
+  100% { background: transparent; box-shadow: none; }
+}
+.step-added-tag {
+  position: absolute; top: 3px; right: 8px;
+  font-size: 9.5px; font-weight: 700; color: #97650f;
+  background: #fdf3e2; border-radius: 999px; padding: 1px 6px;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.layout {
+  display: grid; grid-template-columns: minmax(0,1fr) 300px;
+  gap: 20px; align-items: start;
+  max-width: 1520px; margin: 0 auto; padding: 24px; padding-bottom: 104px;
+}
+@media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
+
+.step-head {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px 24px; margin-bottom: 16px;
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.step-head .sh-icon {
+  width: 40px; height: 40px; border-radius: 10px; flex: 0 0 auto;
+  background: #eef4fb; color: #2c5b86;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.step-head .sh-kicker { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+.step-head .sh-title { font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: -.2px; }
+.step-head .sh-blurb { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; max-width: 68ch; }
+.step-head .sh-right { margin-left: auto; text-align: right; flex: 0 0 auto; }
+.sh-progress { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+
+.branch-note {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: #f0f6fd; border: 1px solid #d3e3f5; color: #2c5b86;
+  border-radius: 7px; padding: 11px 14px; margin-bottom: 16px; font-size: 12.5px;
+}
+.skip-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: #f0f2fd; border: 1px solid #d5dbf5; color: #414e9c;
+  border-radius: 7px; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px;
+}
+.skip-banner .sb-actions { margin-left: auto; }
+
+/* ── Outstanding tray ───────────────────────────────────────────────────── */
+.tray { position: sticky; top: 132px; display: flex; flex-direction: column; gap: 16px; }
+.tray-card { padding: 0; overflow: hidden; }
+.tray-head { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.tray-total { font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.tray-total-sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.tray-bar-track { height: 6px; border-radius: 999px; background: #e8eef5; margin-top: 12px; overflow: hidden; }
+.tray-bar-fill { height: 100%; background: var(--st-partial); transition: width .35s ease; }
+.tray-body { padding: 10px; max-height: calc(100vh - 400px); overflow: auto; }
+.tray-group-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 700; color: var(--ink);
+  padding: 8px 6px 5px;
+}
+.tray-group-head .tgh-count {
+  margin-left: auto; font-size: 10.5px; font-weight: 700;
+  background: var(--st-empty-bg); color: #b03227; border-radius: 999px; padding: 1px 7px;
+}
+.tray-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  border: 0; background: none; font-family: inherit;
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--ink-2);
+  cursor: pointer;
+}
+.tray-item:hover { background: #f4f8fc; color: var(--brand-dark); }
+.tray-item .ti-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tray-foot { padding: 12px 16px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--ink-3); }
+
+/* ── Review step ────────────────────────────────────────────────────────── */
+.review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.review-tile {
+  border: 1px solid var(--line); border-left: 3px solid var(--line-strong);
+  border-radius: 8px; padding: 14px; background: #fff;
+}
+.review-tile.state-complete { border-left-color: var(--st-complete); }
+.review-tile.state-partial  { border-left-color: var(--st-partial); }
+.review-tile.state-empty    { border-left-color: var(--st-empty); }
+.review-tile.state-skipped  { border-left-color: #6f7fd8; }
+.review-tile .rt-title { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.review-tile .rt-meta { font-size: 11.5px; color: var(--ink-3); margin: 5px 0 9px; }
+.blocker-box {
+  border: 1px solid #f6d3d0; background: var(--st-empty-bg);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 18px;
+}
+.blocker-box .bb-title { font-size: 13px; font-weight: 700; color: #97302a; margin-bottom: 8px; }
+.blocker-box ul { margin: 0 0 0 18px; font-size: 12.5px; color: #97302a; }
+.blocker-box li { margin-bottom: 3px; }
+
+/* ── Footer nav ─────────────────────────────────────────────────────────── */
+.step-nav {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: #fff; border-top: 1px solid var(--line);
+  box-shadow: 0 -2px 12px rgba(16,32,56,.06);
+  padding: 12px 24px 16px; z-index: 250;
+  display: flex; align-items: center; gap: 12px;
+}
+.step-nav .sn-hint { font-size: 12px; color: var(--ink-3); }
+.step-nav .sn-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.big-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line-strong); background: #fff; color: var(--ink-2);
+  border-radius: 7px; padding: 9px 16px; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.big-btn:hover { background: #f4f8fc; }
+.big-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
+.big-btn.primary:hover { background: var(--brand-dark); }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="../_shared/model.js"></script>
+<script src="../_shared/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.EHS_FORM, U = window.EHS_UI, esc = U.esc;
+  var app = document.getElementById('app');
+
+  /* ── Step definitions ──────────────────────────────────────────────────── */
+  /* A step is a named bundle of sections. Steps whose sections are all
+     inactive disappear from the stepper entirely — that is the branching. */
+  var STEPS = [
+    { id: 'report',   name: 'The report',      icon: 'fa-circle-info',
+      blurb: 'Who is filing, who was involved, and the answers that decide what else this report needs.',
+      sections: ['basic'] },
+    { id: 'where',    name: 'Where and when',  icon: 'fa-location-dot',
+      blurb: 'Location, reporting chain, and the conditions at the time of the incident.',
+      sections: ['details'] },
+    { id: 'vehicle',  name: 'Vehicles',        icon: 'fa-truck',
+      blurb: 'The company vehicle involved, plus any third-party vehicles.',
+      sections: ['vehicle', 'otherVehicle'],
+      because: 'You answered yes to "Was a vehicle involved?"' },
+    { id: 'injury',   name: 'Injury and OSHA', icon: 'fa-notes-medical',
+      blurb: 'Case details that decide whether this incident lands on the OSHA 300 log.',
+      sections: ['injury'],
+      because: 'You answered yes to "Was an employee or directly supervised contractor injured?"' },
+    { id: 'people',   name: 'People on scene', icon: 'fa-user-group',
+      blurb: 'Witnesses and any outside agencies that responded.',
+      sections: ['witnesses', 'responders'] },
+    { id: 'analysis', name: 'Analysis',        icon: 'fa-magnifying-glass-chart',
+      blurb: 'Root cause, corrective action, and what will prevent a repeat.',
+      sections: ['analysis'] },
+    { id: 'training', name: 'Training',        icon: 'fa-graduation-cap',
+      blurb: 'Courses assigned as a result of this investigation.',
+      sections: ['training'],
+      because: 'You answered yes to "Is retraining required?"' },
+    { id: 'evidence', name: 'Evidence',        icon: 'fa-paperclip',
+      blurb: 'Photos, statements, and supporting documents.',
+      sections: ['attachments', 'history'] },
+    { id: 'review',   name: 'Review',          icon: 'fa-clipboard-check',
+      blurb: 'A last look at every step before this report goes to the safety manager.',
+      sections: [], review: true }
+  ];
+
+  var view = { step: 'report', skipped: {}, lastAdded: null };
+
+  function sectionsOf(step) {
+    return step.sections.map(function (id) {
+      return M.sections.filter(function (s) { return s.id === id; })[0];
+    }).filter(Boolean);
+  }
+
+  /* A step exists only when at least one of its sections is applicable. */
+  function activeSteps() {
+    return STEPS.filter(function (st) {
+      if (st.review) return true;
+      return sectionsOf(st).some(function (sec) { return M.isActive(sec); });
+    });
+  }
+
+  function stepStatus(step) {
+    if (step.review) {
+      var s = M.summary();
+      return { state: s.canSubmit ? 'complete' : 'empty', reqTotal: 0, reqDone: 0, missing: [] };
+    }
+    var out = { reqTotal: 0, reqDone: 0, missing: [], state: 'empty' };
+    sectionsOf(step).forEach(function (sec) {
+      if (!M.isActive(sec)) return;
+      var st = M.statusOf(sec);
+      out.reqTotal += st.reqTotal;
+      out.reqDone += st.reqDone;
+      st.missing.forEach(function (f) { out.missing.push({ section: sec, field: f }); });
+    });
+    if (view.skipped[step.id] && out.missing.length) out.state = 'skipped';
+    else if (out.reqTotal && out.reqDone === out.reqTotal) out.state = 'complete';
+    else if (out.reqDone > 0) out.state = 'partial';
+    else if (out.reqTotal === 0) out.state = 'complete';
+    else out.state = 'empty';
+    return out;
+  }
+
+  function currentStep() {
+    var list = activeSteps();
+    return list.filter(function (s) { return s.id === view.step; })[0] || list[0];
+  }
+
+  /* ── Shell ─────────────────────────────────────────────────────────────── */
+  function shell() {
+    var r = M.record;
+    app.innerHTML =
+      U.topnav() +
+      U.ribbon('V2 · Guided steps',
+        'The step list is the answer. It grows and shrinks as answers change, and skipping is allowed and tracked.',
+        ['Reference: incident management', 'Live branching', 'Skip for now']) +
+      '<div class="record-head" style="padding-bottom:14px">' + U.crumbs() +
+        '<div class="record-title-row">' +
+          '<div>' +
+            '<div class="record-title">Incident investigation ' + esc(r.id) + '</div>' +
+            '<div class="record-sub">' + esc(r.subtype) + ' &middot; ' + esc(r.facility) + ' &middot; occurred ' + esc(r.occurred) + '</div>' +
+          '</div>' +
+          '<div class="record-actions">' +
+            '<span class="chip chip-draft"><i class="fa-solid fa-pen-to-square"></i>Draft</span>' +
+            '<span class="chip chip-due"><i class="fa-regular fa-clock"></i>Due ' + esc(r.dueDate) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="stepper-wrap"><div class="stepper" id="stepper"></div></div>' +
+      '<div class="layout">' +
+        '<main id="stepPane"></main>' +
+        '<aside class="tray" id="tray"></aside>' +
+      '</div>' +
+      '<div class="step-nav" id="stepNav"></div>';
+  }
+
+  /* ── Stepper ───────────────────────────────────────────────────────────── */
+  function renderStepper() {
+    var list = activeSteps();
+    document.getElementById('stepper').innerHTML = list.map(function (step, i) {
+      var st = stepStatus(step);
+      var isCur = step.id === currentStep().id;
+      var meta, needs = false;
+      if (step.review) meta = st.state === 'complete' ? 'Ready' : 'Blocked';
+      else if (st.state === 'skipped') meta = 'Skipped for now';
+      else if (st.state === 'complete') meta = 'Complete';
+      else if (st.reqTotal) { meta = (st.reqTotal - st.reqDone) + ' of ' + st.reqTotal + ' required'; needs = st.reqDone < st.reqTotal; }
+      else meta = 'Optional';
+
+      var inner = st.state === 'complete' && !step.review
+        ? '<i class="fa-solid fa-check"></i>'
+        : (step.review ? '<i class="fa-solid fa-flag-checkered"></i>' : String(i + 1));
+
+      return '<button class="step s-' + st.state + (isCur ? ' current' : '') +
+          (view.lastAdded === step.id ? ' just-added' : '') + '" type="button" data-step="' + step.id + '">' +
+        (view.lastAdded === step.id ? '<span class="step-added-tag">Added</span>' : '') +
+        '<span class="step-num">' + inner + '</span>' +
+        '<span class="step-text"><span class="step-name">' + esc(step.name) + '</span>' +
+        '<span class="step-meta' + (needs ? ' needs' : '') + '">' + esc(meta) + '</span></span>' +
+      '</button>';
+    }).join('');
+
+    document.querySelectorAll('[data-step]').forEach(function (b) {
+      b.addEventListener('click', function () { go(b.dataset.step); });
+    });
+  }
+
+  /* ── Step pane ─────────────────────────────────────────────────────────── */
+  function renderPane() {
+    var step = currentStep();
+    var pane = document.getElementById('stepPane');
+    var list = activeSteps();
+    var idx = list.indexOf(step);
+    var st = stepStatus(step);
+
+    var head =
+      '<div class="step-head">' +
+        '<div class="sh-icon"><i class="fa-solid ' + step.icon + '"></i></div>' +
+        '<div>' +
+          '<div class="sh-kicker">Step ' + (idx + 1) + ' of ' + list.length + '</div>' +
+          '<div class="sh-title">' + esc(step.name) + '</div>' +
+          '<div class="sh-blurb">' + esc(step.blurb) + '</div>' +
+        '</div>' +
+        '<div class="sh-right">' +
+          (step.review ? '' :
+            '<span class="pill ' + (st.state === 'skipped' ? 'na' : st.state) + '">' +
+              '<i class="fa-solid ' + (st.state === 'skipped' ? 'fa-clock' : U.stateIcon(st.state)) + '"></i>' +
+              (st.state === 'complete' ? 'Complete'
+                : st.reqTotal ? (st.reqTotal - st.reqDone) + ' required left' : 'Optional') +
+            '</span>' +
+            '<div class="sh-progress">' + st.reqDone + ' of ' + st.reqTotal + ' required fields on this step</div>') +
+        '</div>' +
+      '</div>';
+
+    var body = '';
+    if (step.because) {
+      body += '<div class="branch-note"><i class="fa-solid fa-circle-info" style="margin-top:1px"></i>' +
+        '<span><strong>This step was added because of an answer you gave.</strong> ' + esc(step.because) +
+        ' Change that answer and this step drops off the list.</span></div>';
+    }
+    if (view.skipped[step.id]) {
+      body += '<div class="skip-banner"><i class="fa-solid fa-clock"></i>' +
+        '<span>You skipped this step for now. It stays on your outstanding list until it is finished.</span>' +
+        '<span class="sb-actions"><button class="mini-btn" type="button" id="unskip">Unskip</button></span></div>';
+    }
+
+    if (step.review) body += reviewHTML();
+    else body += sectionsOf(step).filter(function (sec) { return M.isActive(sec); })
+      .map(function (sec) { return U.sectionHTML(sec, U.defaultMeta); }).join('');
+
+    pane.innerHTML = head + body;
+    U.mountInputs(pane, onEdit);
+
+    var un = document.getElementById('unskip');
+    if (un) un.addEventListener('click', function () {
+      delete view.skipped[step.id];
+      refresh();
+    });
+    pane.querySelectorAll('[data-goto-step]').forEach(function (b) {
+      b.addEventListener('click', function () { go(b.dataset.gotoStep); });
+    });
+  }
+
+  /* ── Review step ───────────────────────────────────────────────────────── */
+  function reviewHTML() {
+    var s = M.summary();
+    var list = activeSteps().filter(function (st) { return !st.review; });
+    var out = '';
+
+    if (!s.canSubmit) {
+      out += '<div class="blocker-box"><div class="bb-title">' +
+        '<i class="fa-solid fa-circle-exclamation"></i> This report cannot be submitted yet</div><ul>' +
+        list.map(function (step) {
+          var st = stepStatus(step);
+          if (!st.missing.length) return '';
+          return '<li><strong>' + esc(step.name) + '</strong>: ' + st.missing.length +
+            ' required field' + (st.missing.length === 1 ? '' : 's') + ' (' +
+            esc(st.missing.slice(0, 2).map(function (m) { return m.field.label; }).join(', ')) +
+            (st.missing.length > 2 ? ', and more' : '') + ')</li>';
+        }).join('') + '</ul></div>';
+    } else {
+      out += '<div class="sec-strip done" style="margin-bottom:18px;border:1px solid #c9ebdd;background:#e8f7f0;color:#0f6f4d;display:flex;gap:10px;padding:12px 14px;border-radius:8px;font-size:12.5px">' +
+        '<i class="fa-solid fa-circle-check"></i><span><strong>Every step is complete.</strong> ' +
+        'Submitting sends this to the safety manager for review.</span></div>';
+    }
+
+    out += '<div class="card card-pad"><div class="card-title" style="margin-bottom:14px">' +
+      '<i class="fa-solid fa-list-check"></i>Every step at a glance</div><div class="review-grid">' +
+      list.map(function (step) {
+        var st = stepStatus(step);
+        var label = st.state === 'skipped' ? 'Skipped, ' + st.missing.length + ' left'
+          : st.state === 'complete' ? 'Complete'
+          : st.reqTotal ? st.reqDone + ' of ' + st.reqTotal + ' required done' : 'Optional';
+        return '<div class="review-tile state-' + st.state + '">' +
+          '<div class="rt-title">' + esc(step.name) + '</div>' +
+          '<div class="rt-meta">' + esc(label) + '</div>' +
+          '<button class="link-btn" type="button" data-goto-step="' + step.id + '">' +
+            (st.state === 'complete' ? 'Review this step' : 'Finish this step') + ' <i class="fa-solid fa-arrow-right" style="font-size:10px"></i></button>' +
+        '</div>';
+      }).join('') +
+    '</div></div>';
+    return out;
+  }
+
+  /* ── Outstanding tray ──────────────────────────────────────────────────── */
+  function renderTray() {
+    var s = M.summary();
+    var left = s.reqTotal - s.reqDone;
+    var list = activeSteps().filter(function (st) { return !st.review; });
+
+    var groups = list.map(function (step) {
+      var st = stepStatus(step);
+      if (!st.missing.length) return '';
+      return '<div class="tray-group-head">' +
+          '<i class="fa-solid ' + step.icon + '" style="color:#6b7684;font-size:11px"></i>' + esc(step.name) +
+          (view.skipped[step.id] ? '<i class="fa-solid fa-clock" style="color:#6f7fd8;font-size:10px"></i>' : '') +
+          '<span class="tgh-count">' + st.missing.length + '</span></div>' +
+        st.missing.map(function (m) {
+          return '<button class="tray-item" type="button" data-jump-step="' + step.id + '" data-jump-field="' + m.field.id + '">' +
+            '<span class="dot empty"></span><span class="ti-label">' + esc(m.field.label) + '</span></button>';
+        }).join('');
+    }).join('');
+
+    document.getElementById('tray').innerHTML =
+      '<div class="card tray-card">' +
+        '<div class="tray-head">' +
+          '<div class="tray-total">' + left + '</div>' +
+          '<div class="tray-total-sub">required field' + (left === 1 ? '' : 's') + ' still outstanding across ' +
+            (function (n) { return n + ' step' + (n === 1 ? '' : 's'); })(
+              list.filter(function (st) { return stepStatus(st).missing.length; }).length) + '</div>' +
+          '<div class="tray-bar-track"><div class="tray-bar-fill" style="width:' + s.pct + '%;background:' +
+            (left ? '#e09a2c' : '#17a673') + '"></div></div>' +
+          '<div class="tray-total-sub" style="margin-top:7px">' + s.reqDone + ' of ' + s.reqTotal + ' done</div>' +
+        '</div>' +
+        '<div class="tray-body">' +
+          (groups.trim() ? groups : '<div class="empty-state"><i class="fa-solid fa-circle-check"></i>Nothing outstanding.</div>') +
+        '</div>' +
+        '<div class="tray-foot"><i class="fa-solid fa-lightbulb"></i> Select any item to jump to that step and field.</div>' +
+      '</div>' +
+      '<div class="card card-pad">' +
+        '<div class="card-title"><i class="fa-solid fa-diagram-project"></i>Steps on this report</div>' +
+        '<div class="card-note">' + activeSteps().length + ' steps apply. ' +
+          (STEPS.length - activeSteps().length) + ' more would appear if your answers changed, for example if someone had been injured.</div>' +
+      '</div>';
+
+    document.querySelectorAll('[data-jump-step]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        go(b.dataset.jumpStep, b.dataset.jumpField);
+      });
+    });
+  }
+
+  /* ── Footer nav ────────────────────────────────────────────────────────── */
+  function renderNav() {
+    var list = activeSteps();
+    var step = currentStep();
+    var idx = list.indexOf(step);
+    var st = stepStatus(step);
+    var prev = list[idx - 1], next = list[idx + 1];
+    var left = st.missing.length;
+
+    document.getElementById('stepNav').innerHTML =
+      (prev ? '<button class="big-btn" type="button" id="navBack"><i class="fa-solid fa-arrow-left"></i> ' + esc(prev.name) + '</button>' : '') +
+      '<span class="sn-hint">' +
+        (step.review ? 'Last step.'
+          : left ? '<strong>' + left + '</strong> required field' + (left === 1 ? '' : 's') + ' left on this step. You can continue anyway.'
+          : 'This step is done.') +
+      '</span>' +
+      '<span class="sn-right">' +
+        '<button class="mini-btn" type="button" id="navSave"><i class="fa-regular fa-floppy-disk"></i> Save draft</button>' +
+        (!step.review && left ? '<button class="big-btn" type="button" id="navSkip"><i class="fa-regular fa-clock"></i> Skip for now</button>' : '') +
+        (next
+          ? '<button class="big-btn primary" type="button" id="navNext">Continue <i class="fa-solid fa-arrow-right"></i></button>'
+          : '<button class="big-btn primary" type="button" id="navSubmit"' + (M.summary().canSubmit ? '' : ' style="opacity:.45;cursor:not-allowed"') + '>' +
+            '<i class="fa-solid fa-paper-plane"></i> Submit report</button>') +
+      '</span>';
+
+    if (prev) document.getElementById('navBack').addEventListener('click', function () { go(prev.id); });
+    if (next) document.getElementById('navNext').addEventListener('click', function () { go(next.id); });
+    var skip = document.getElementById('navSkip');
+    if (skip) skip.addEventListener('click', function () {
+      view.skipped[step.id] = true;
+      U.toast('Skipped ' + step.name.toLowerCase() + '. The ' + left + ' outstanding field' +
+        (left === 1 ? '' : 's') + ' stay on your list.', 'info');
+      if (next) go(next.id); else refresh();
+    });
+    document.getElementById('navSave').addEventListener('click', function () {
+      var g = M.summary().gateMissing;
+      if (g.length) U.toast('Cannot save yet: ' + g[0].field.label + ' is needed first.', 'warn');
+      else U.toast('Draft saved.', 'good');
+    });
+    var sub = document.getElementById('navSubmit');
+    if (sub) sub.addEventListener('click', function () {
+      if (!M.summary().canSubmit) { U.toast('Some required fields are still outstanding. See the list above.', 'warn'); return; }
+      U.toast('Report FY26-00004 submitted for review.', 'good');
+    });
+  }
+
+  /* ── Behaviour ─────────────────────────────────────────────────────────── */
+  function go(stepId, fieldId) {
+    view.step = stepId;
+    view.lastAdded = null;
+    renderStepper(); renderPane(); renderTray(); renderNav();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (fieldId) setTimeout(function () { U.jumpTo('fld-' + fieldId); }, 220);
+  }
+
+  function onEdit(id) {
+    var f = M.fieldById(id);
+    if (id === 'vehicleInvolved' || id === 'employeeInjured' || id === 'retrainingRequired') {
+      var map = { vehicleInvolved: 'vehicle', employeeInjured: 'injury', retrainingRequired: 'training' };
+      var stepId = map[id];
+      var nowOn = activeSteps().some(function (s) { return s.id === stepId; });
+      var step = STEPS.filter(function (s) { return s.id === stepId; })[0];
+      view.lastAdded = nowOn ? stepId : null;
+      renderStepper(); renderTray(); renderNav();
+      U.toast(nowOn
+        ? 'Added a step: ' + step.name + '. ' + stepStatus(step).reqTotal + ' more required fields now apply.'
+        : 'Removed the ' + step.name + ' step. Those fields no longer count against this report.',
+        nowOn ? 'info' : 'good');
+      if (nowOn) setTimeout(function () { view.lastAdded = null; renderStepper(); }, 2600);
+      return;
+    }
+    refresh();
+  }
+
+  function refresh() {
+    U.refreshFieldChrome(document);
+    renderStepper(); renderTray(); renderNav();
+    var step = currentStep();
+    if (step.review) renderPane();
+    else {
+      /* Keep the step header's counters live without rebuilding the inputs. */
+      var st = stepStatus(step);
+      var pill = document.querySelector('.step-head .pill');
+      if (pill) {
+        pill.className = 'pill ' + (st.state === 'skipped' ? 'na' : st.state);
+        pill.innerHTML = '<i class="fa-solid ' + (st.state === 'skipped' ? 'fa-clock' : U.stateIcon(st.state)) + '"></i>' +
+          (st.state === 'complete' ? 'Complete' : st.reqTotal ? (st.reqTotal - st.reqDone) + ' required left' : 'Optional');
+      }
+      var prog = document.querySelector('.sh-progress');
+      if (prog) prog.textContent = st.reqDone + ' of ' + st.reqTotal + ' required fields on this step';
+    }
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────────────────── */
+  shell();
+  renderStepper(); renderPane(); renderTray(); renderNav();
+
+  /* ── Flow map states ───────────────────────────────────────────────────── */
+  function fillStep(stepId) {
+    var step = STEPS.filter(function (s) { return s.id === stepId; })[0];
+    if (!step) return;
+    sectionsOf(step).forEach(function (sec) {
+      (sec.fields || []).forEach(function (f) {
+        if (f.req && !M.isFilled(f)) {
+          f.value = f.opts ? f.opts[0] : f.type === 'number' ? '0'
+            : f.type === 'date' ? '2026-05-11'
+            : f.type === 'textarea' ? 'Completed during the investigation walkthrough.' : 'Recorded';
+        }
+      });
+    });
+  }
+  function fillAll() { STEPS.forEach(function (s) { fillStep(s.id); }); }
+
+  window.applyFlowState = function (id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'step1': view.step = 'report'; break;
+      case 'branch':
+        M.setValue('employeeInjured', 'Yes');
+        view.lastAdded = 'injury';
+        view.step = 'report';
+        break;
+      case 'injurystep':
+        M.setValue('employeeInjured', 'Yes');
+        view.step = 'injury';
+        break;
+      case 'skipped':
+        view.skipped.analysis = true;
+        view.step = 'analysis';
+        break;
+      case 'review':
+        view.step = 'review';
+        break;
+      case 'ready':
+        fillAll();
+        view.skipped = {};
+        view.step = 'review';
+        break;
+      default: break;
+    }
+    renderStepper(); renderPane(); renderTray(); renderNav();
+    if (!opts.instant) window.scrollTo(0, 0);
+  };
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { window.applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Record form workflow V2 — Guided steps',
+      applyState: 'applyFlowState',
+      canvas: { w: 1280, h: 520 },
+      flows: [
+        { id: 'main', name: 'Step through the report', pill: 'A', color: '#c9d8f0',
+          lane: { x: 20, y: 20, w: 1240, h: 230 }, labelXY: { x: 40, y: 42 } },
+        { id: 'branch', name: 'Branching and skipping', pill: 'B', color: '#f0e0c9',
+          lane: { x: 20, y: 270, w: 1240, h: 230 }, labelXY: { x: 40, y: 292 } }
+      ],
+      nodes: [
+        { id: 'step1', flow: 'main', entry: true, x: 60, y: 110, step: 'Step 1', name: 'The report',
+          state: 'step1', desc: 'Entry step. The stepper shows every step that applies, each with its own required-field count, and the tray totals the whole report.' },
+        { id: 'review', flow: 'main', x: 430, y: 110, step: 'Last step', name: 'Review, blocked',
+          state: 'review', desc: 'Review step listing exactly which steps block submission and why, with a tile per step.' },
+        { id: 'ready', flow: 'main', x: 800, y: 110, step: 'Submit', name: 'Review, ready',
+          state: 'ready', desc: 'Same review step once every required field is filled: submission unblocked.' },
+        { id: 'branch', flow: 'branch', x: 60, y: 360, step: 'Branch', name: 'A step gets added',
+          state: 'branch', desc: 'Answering yes to the injury question inserts the Injury and OSHA step into the stepper, highlighted as Added, with a toast naming how many fields that costs.' },
+        { id: 'injurystep', flow: 'branch', x: 430, y: 360, step: 'New work', name: 'Injury and OSHA step',
+          state: 'injurystep', desc: 'The added step, which explains why it exists and what would remove it.' },
+        { id: 'skipped', flow: 'branch', x: 800, y: 360, step: 'Skip', name: 'Skipped for now',
+          state: 'skipped', desc: 'Skipping is allowed because reporters rarely have every fact at once. The step is marked, and its fields stay in the outstanding tray.' }
+      ],
+      edges: [
+        ['step1', 'review'], ['review', 'ready'],
+        ['step1', 'branch'], ['branch', 'injurystep'], ['injurystep', 'skipped']
+      ]
+    }
+  };
+})();
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

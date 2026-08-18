@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Investigation FY26-00004 — Shared ownership</title>
+
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css"/>
+<link rel="stylesheet" href="../_shared/base.css"/>
+
+<style>
+/* ============================================================================
+   V4 — Shared ownership
+   ============================================================================
+   Reference pattern: e-signature routing (DocuSign), audit workpapers, and
+   multi-party claims intake. The premise: on a real investigation the preparer
+   is NOT the right person for every section — the supervisor knows the
+   analysis, the fleet manager knows the vehicle, HR owns the injury case.
+
+   So the organizing question changes from "what is left" to "WHOSE move is
+   it". The board groups sections into three swimlanes: Yours to do, Waiting
+   on others, and Done. Progress is a single bar segmented by owner, and every
+   section card carries its owner, due date, and a one-click reassign.
+   ========================================================================== */
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 24px; padding-bottom: 64px; }
+
+/* ── The relay bar: one bar, segmented by owner ─────────────────────────── */
+.relay-card { padding: 20px 24px; margin-bottom: 20px; }
+.relay-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.relay-title { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.relay-sub { font-size: 12px; color: var(--ink-3); }
+.relay-legend { margin-left: auto; display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-2); }
+.relay-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.relay-legend .sw { width: 10px; height: 10px; border-radius: 3px; }
+
+.relay-bar {
+  display: flex; height: 26px; border-radius: 7px; overflow: hidden;
+  margin-top: 14px; border: 1px solid var(--line);
+}
+.relay-seg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 700; color: #fff;
+  min-width: 0; white-space: nowrap; overflow: hidden;
+  cursor: pointer; transition: filter .15s ease;
+}
+.relay-seg:hover { filter: brightness(1.08); }
+.relay-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
+
+/* ── Swimlanes ──────────────────────────────────────────────────────────── */
+.lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-bottom: 26px; }
+@media (max-width: 1150px) { .lanes { grid-template-columns: 1fr; } }
+
+.lane { min-width: 0; }
+.lane-head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 4px 10px;
+}
+.lane-head .lh-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+}
+.lane-yours .lh-icon { background: #fdf3e2; color: #97650f; }
+.lane-others .lh-icon { background: #f0f2fd; color: #414e9c; }
+.lane-done .lh-icon { background: var(--st-complete-bg); color: #0f7c56; }
+.lane-head .lh-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.lane-head .lh-count {
+  margin-left: auto; font-size: 11.5px; font-weight: 700;
+  background: #eef1f5; color: #4c5866; border-radius: 999px; padding: 2px 9px;
+}
+.lane-body { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+.lane-empty {
+  border: 1.5px dashed var(--line-strong); border-radius: 8px;
+  padding: 18px; text-align: center; font-size: 12px; color: #8a95a3; background: #fbfcfe;
+}
+
+/* Section card in a lane */
+.sec-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow-1);
+  padding: 13px 15px;
+  border-left: 3px solid var(--line-strong);
+}
+.sec-card.state-complete { border-left-color: var(--st-complete); }
+.sec-card.state-partial  { border-left-color: var(--st-partial); }
+.sec-card.state-empty    { border-left-color: var(--st-empty); }
+.sec-card.waiting        { border-left-color: #6f7fd8; }
+.sc-top { display: flex; align-items: flex-start; gap: 9px; }
+.sc-title { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.sc-sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.sc-open {
+  margin-left: auto; flex: 0 0 auto;
+  border: 0; background: none; color: var(--brand); cursor: pointer;
+  font-family: inherit; font-size: 11.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.sc-open:hover { text-decoration: underline; }
+.sc-bottom { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.owner-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f4f6f9; border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 9px 2px 3px;
+  font-size: 11px; font-weight: 600; color: var(--ink-2);
+  cursor: pointer;
+}
+.owner-chip:hover { border-color: var(--brand); }
+.avatar {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 8.5px; font-weight: 800; color: #fff; flex: 0 0 auto;
+}
+.due-chip { font-size: 11px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 5px; }
+.due-chip.overdue { color: #b03227; font-weight: 700; }
+.sc-progress { margin-left: auto; font-size: 11px; color: var(--ink-3); }
+.sc-progress strong { color: var(--ink); }
+.nudge-btn {
+  border: 0; background: none; color: #414e9c; cursor: pointer;
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 4px; padding: 0;
+}
+.nudge-btn:hover { text-decoration: underline; }
+
+/* ── Assign popover ─────────────────────────────────────────────────────── */
+.assign-pop {
+  position: absolute; z-index: 500;
+  background: #fff; border: 1px solid var(--line-strong); border-radius: 10px;
+  box-shadow: var(--shadow-2); width: 260px; padding: 8px;
+}
+.assign-pop .ap-title { font-size: 11.5px; font-weight: 700; color: var(--ink-3); padding: 6px 8px 4px; }
+.assign-row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  border: 0; background: none; font-family: inherit; text-align: left;
+  padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--ink-2);
+}
+.assign-row:hover { background: #f4f8fc; }
+.assign-row .ar-role { font-size: 10.5px; color: var(--ink-3); }
+.assign-row .fa-check { margin-left: auto; color: var(--st-complete); }
+
+/* ── Detail drawer with the actual form section ─────────────────────────── */
+.drawer-scrim {
+  position: fixed; inset: 0; background: rgba(20,30,45,.35);
+  display: none; z-index: 2147481000;
+}
+.drawer-scrim.open { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(760px, 94vw);
+  background: var(--canvas);
+  box-shadow: -12px 0 40px rgba(10,20,35,.25);
+  display: none; flex-direction: column;
+  z-index: 2147481001;
+}
+.drawer.open { display: flex; }
+.drawer-head {
+  background: #fff; border-bottom: 1px solid var(--line);
+  padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+}
+.drawer-head .dh-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.drawer-head .dh-sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.drawer-close {
+  margin-left: auto; border: 0; background: #f1f4f8; color: var(--ink-2);
+  width: 30px; height: 30px; border-radius: 7px; cursor: pointer; font-size: 13px;
+}
+.drawer-close:hover { background: #e4eaf1; }
+.drawer-body { flex: 1; overflow: auto; padding: 20px 24px; }
+.drawer-foot {
+  background: #fff; border-top: 1px solid var(--line);
+  padding: 12px 24px; display: flex; align-items: center; gap: 10px;
+}
+.drawer-foot .df-note { font-size: 12px; color: var(--ink-3); }
+.drawer-foot .df-right { margin-left: auto; display: flex; gap: 8px; }
+
+/* Activity feed */
+.feed-card { padding: 20px 24px; }
+.feed-row { display: flex; gap: 11px; padding: 9px 0; border-bottom: 1px solid #f0f4f8; font-size: 12.5px; }
+.feed-row:last-child { border-bottom: 0; }
+.feed-row .fr-text { color: var(--ink-2); }
+.feed-row .fr-text strong { color: var(--ink); }
+.feed-row .fr-when { margin-left: auto; font-size: 11.5px; color: #8a95a3; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div class="drawer-scrim" id="drawerScrim"></div>
+<div class="drawer" id="drawer" role="dialog" aria-modal="true">
+  <div class="drawer-head">
+    <div>
+      <div class="dh-title" id="drawerTitle"></div>
+      <div class="dh-sub" id="drawerSub"></div>
+    </div>
+    <button class="drawer-close" id="drawerClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <span class="df-note" id="drawerNote"></span>
+    <span class="df-right">
+      <button class="mini-btn" type="button" id="drawerDone">Close</button>
+      <button class="mini-btn primary" type="button" id="drawerNext">Next section of mine <i class="fa-solid fa-arrow-right"></i></button>
+    </span>
+  </div>
+</div>
+
+<script src="../_shared/model.js"></script>
+<script src="../_shared/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.EHS_FORM, U = window.EHS_UI, esc = U.esc;
+  var app = document.getElementById('app');
+
+  /* ── People ────────────────────────────────────────────────────────────── */
+  var PEOPLE = {
+    me:    { id: 'me',    name: 'Andy Xia',     initials: 'AX', role: 'Preparer, Maintenance', color: '#0267bc' },
+    marta: { id: 'marta', name: 'Marta Reyes',  initials: 'MR', role: 'Supervisor',            color: '#7c6ce0' },
+    fleet: { id: 'fleet', name: 'Sam Ortiz',    initials: 'SO', role: 'Fleet manager',         color: '#0e8a74' },
+    hr:    { id: 'hr',    name: 'Priya Nair',   initials: 'PN', role: 'HR case manager',       color: '#c2611e' }
+  };
+
+  /* Ownership + due date per section. This is the concept's own state. */
+  var own = {
+    basic:        { owner: 'me',    due: '5/13/2026', overdue: false },
+    details:      { owner: 'me',    due: '5/13/2026', overdue: false },
+    vehicle:      { owner: 'fleet', due: '5/14/2026', overdue: false, requested: '2 days ago' },
+    otherVehicle: { owner: 'fleet', due: '5/14/2026', overdue: false, requested: '2 days ago' },
+    witnesses:    { owner: 'me',    due: '5/15/2026', overdue: false },
+    responders:   { owner: 'me',    due: '5/15/2026', overdue: false },
+    injury:       { owner: 'hr',    due: '5/14/2026', overdue: false },
+    analysis:     { owner: 'marta', due: '5/12/2026', overdue: true, requested: '3 days ago' },
+    training:     { owner: 'marta', due: '5/16/2026', overdue: false },
+    attachments:  { owner: 'me',    due: '5/15/2026', overdue: false },
+    history:      { owner: 'me' }
+  };
+
+  var feed = [
+    { who: 'marta', text: '<strong>Marta Reyes</strong> was asked to complete <strong>Incident analysis</strong>', when: '3 days ago' },
+    { who: 'fleet', text: '<strong>Sam Ortiz</strong> was asked to complete the <strong>vehicle sections</strong>', when: '2 days ago' },
+    { who: 'fleet', text: '<strong>Sam Ortiz</strong> filled in <strong>Driver employee ID</strong>', when: 'yesterday' },
+    { who: 'me',   text: '<strong>You</strong> added 3 attachments', when: 'yesterday' }
+  ];
+
+  var view = { drawerSec: null };
+
+  /* ── Helpers ───────────────────────────────────────────────────────────── */
+  function secById(id) { return M.sections.filter(function (s) { return s.id === id; })[0]; }
+  function ownerOf(sec) { return PEOPLE[(own[sec.id] || {}).owner || 'me']; }
+
+  function laneOf(sec) {
+    var st = M.statusOf(sec);
+    if (st.state === 'na' || st.state === 'system') return null;      // not on the board
+    if (st.state === 'complete' || (st.state === 'optional' && st.reqTotal === 0 && st.done > 0)) return 'done';
+    if (st.state === 'optional') return ownerOf(sec).id === 'me' ? 'yours' : 'others';
+    return ownerOf(sec).id === 'me' ? 'yours' : 'others';
+  }
+
+  function avatarHTML(p, size) {
+    return '<span class="avatar" style="background:' + p.color + (size ? ';width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * .42) + 'px' : '') + '">' + p.initials + '</span>';
+  }
+
+  /* ── Shell ─────────────────────────────────────────────────────────────── */
+  function shell() {
+    var r = M.record;
+    app.innerHTML =
+      U.topnav() +
+      U.ribbon('V4 · Shared ownership',
+        'The organizing question changes from "what is left" to "whose move is it": three lanes, owners, due dates, and nudges.',
+        ['Reference: e-signature routing', 'Swimlanes', 'Owner-segmented progress']) +
+      '<div class="record-head">' + U.crumbs() +
+        '<div class="record-title-row">' +
+          '<div>' +
+            '<div class="record-title">Incident investigation ' + esc(r.id) + '</div>' +
+            '<div class="record-sub">' + esc(r.subtype) + ' &middot; ' + esc(r.facility) + ' &middot; occurred ' + esc(r.occurred) + '</div>' +
+          '</div>' +
+          '<div class="record-actions">' +
+            '<span class="chip chip-draft"><i class="fa-solid fa-pen-to-square"></i>Draft</span>' +
+            '<span class="chip chip-due"><i class="fa-regular fa-clock"></i>Due ' + esc(r.dueDate) + ' &middot; ' + r.daysToDue + ' days</span>' +
+            '<button class="mini-btn primary" type="button" id="hdSubmit"><i class="fa-solid fa-paper-plane"></i> Submit</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wrap">' +
+        '<div class="card relay-card" id="relay"></div>' +
+        '<div class="lanes" id="lanes"></div>' +
+        '<div class="card feed-card">' +
+          '<div class="card-title" style="margin-bottom:8px"><i class="fa-solid fa-wave-square"></i>Activity on this record</div>' +
+          '<div id="feed"></div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('hdSubmit').addEventListener('click', function () {
+      var s = M.summary();
+      if (s.canSubmit) { U.toast('Report FY26-00004 submitted for review.', 'good'); return; }
+      var waitingOn = othersWithWork();
+      U.toast(s.missing.length + ' required fields are still open' +
+        (waitingOn.length ? ', including sections with ' + waitingOn.map(function (p) { return p.name; }).join(' and ') : '') + '.', 'warn');
+    });
+  }
+
+  function othersWithWork() {
+    var seen = {};
+    M.sections.forEach(function (sec) {
+      if (laneOf(sec) === 'others' && M.statusOf(sec).missing.length) seen[ownerOf(sec).id] = ownerOf(sec);
+    });
+    return Object.keys(seen).map(function (k) { return seen[k]; });
+  }
+
+  /* ── Relay bar ─────────────────────────────────────────────────────────── */
+  function renderRelay() {
+    var s = M.summary();
+    /* Required fields grouped by owner: done (green), then open by owner. */
+    var per = {};
+    Object.keys(PEOPLE).forEach(function (k) { per[k] = 0; });
+    var done = 0;
+    M.sections.forEach(function (sec) {
+      if (!M.isActive(sec) || sec.system) return;
+      var st = M.statusOf(sec);
+      done += st.reqDone;
+      per[ownerOf(sec).id] += (st.reqTotal - st.reqDone);
+    });
+
+    var segs = [{ label: 'Done', value: done, color: '#17a673', title: done + ' required fields already filled' }];
+    Object.keys(per).forEach(function (k) {
+      if (!per[k]) return;
+      var p = PEOPLE[k];
+      segs.push({ label: (k === 'me' ? 'You' : p.name.split(' ')[0]) + ' · ' + per[k], value: per[k], color: k === 'me' ? '#e09a2c' : p.color,
+        title: per[k] + ' required fields waiting on ' + (k === 'me' ? 'you' : p.name) });
+    });
+    var total = segs.reduce(function (a, x) { return a + x.value; }, 0) || 1;
+
+    var mine = per.me;
+    var theirs = total - done - mine;
+
+    document.getElementById('relay').innerHTML =
+      '<div class="relay-top">' +
+        '<div>' +
+          '<div class="relay-title">Whose move is it?</div>' +
+          '<div class="relay-sub">' + s.reqDone + ' of ' + s.reqTotal + ' required fields done &middot; ' +
+            '<strong style="color:#97650f">' + mine + ' on you</strong> &middot; ' + theirs + ' on other people</div>' +
+        '</div>' +
+        '<div class="relay-legend">' + segs.map(function (x) {
+          return '<span><span class="sw" style="background:' + x.color + '"></span>' + esc(x.label.split(' · ')[0]) + '</span>';
+        }).join('') + '</div>' +
+      '</div>' +
+      '<div class="relay-bar">' + segs.map(function (x) {
+        var w = (x.value / total * 100).toFixed(1);
+        return '<div class="relay-seg" style="width:' + w + '%;background:' + x.color + '" title="' + esc(x.title) + '">' +
+          (x.value / total > .07 ? esc(x.label) : '') + '</div>';
+      }).join('') + '</div>' +
+      '<div class="relay-caption"><span>Each segment is required fields, colored by who they are waiting on.</span>' +
+        '<span>' + s.pct + '% complete</span></div>';
+  }
+
+  /* ── Lanes ─────────────────────────────────────────────────────────────── */
+  function renderLanes() {
+    var lanes = { yours: [], others: [], done: [] };
+    M.sections.forEach(function (sec) {
+      var lane = laneOf(sec);
+      if (lane) lanes[lane].push(sec);
+    });
+
+    document.getElementById('lanes').innerHTML =
+      laneHTML('yours', 'Yours to do', 'fa-user-pen', lanes.yours,
+        'Nothing is waiting on you right now.') +
+      laneHTML('others', 'Waiting on others', 'fa-user-clock', lanes.others,
+        'Nothing is delegated at the moment.') +
+      laneHTML('done', 'Done', 'fa-circle-check', lanes.done,
+        'Nothing finished yet.');
+
+    wireCards();
+  }
+
+  function laneHTML(id, name, icon, secs, emptyText) {
+    return '<div class="lane lane-' + id + '">' +
+      '<div class="lane-head"><span class="lh-icon"><i class="fa-solid ' + icon + '"></i></span>' +
+        '<span class="lh-name">' + esc(name) + '</span><span class="lh-count">' + secs.length + '</span></div>' +
+      '<div class="lane-body">' +
+        (secs.length ? secs.map(function (sec) { return cardHTML(sec, id); }).join('')
+          : '<div class="lane-empty">' + esc(emptyText) + '</div>') +
+      '</div></div>';
+  }
+
+  function cardHTML(sec, lane) {
+    var st = M.statusOf(sec);
+    var o = own[sec.id] || {};
+    var p = ownerOf(sec);
+    var stateCls = lane === 'others' ? 'waiting' : 'state-' + st.state;
+
+    var subtitle;
+    if (st.state === 'complete') subtitle = 'All required fields done';
+    else if (sec.repeat) subtitle = (st.rowCount || 0) + ' entr' + (st.rowCount === 1 ? 'y' : 'ies') + ' · optional';
+    else if (st.reqTotal) subtitle = (st.reqTotal - st.reqDone) + ' of ' + st.reqTotal + ' required left';
+    else subtitle = 'Optional';
+
+    return '<div class="sec-card ' + stateCls + '" data-sec="' + sec.id + '">' +
+      '<div class="sc-top">' +
+        '<div class="fs-icon" style="width:26px;height:26px;font-size:11px"><i class="fa-solid ' + sec.icon + '"></i></div>' +
+        '<div><div class="sc-title">' + esc(sec.title) + '</div>' +
+        '<div class="sc-sub">' + esc(subtitle) + '</div></div>' +
+        '<button class="sc-open" type="button" data-open="' + sec.id + '">Open <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px"></i></button>' +
+      '</div>' +
+      '<div class="sc-bottom">' +
+        '<span class="owner-chip" data-assign="' + sec.id + '" title="Reassign this section">' +
+          avatarHTML(p) + (p.id === 'me' ? 'You' : esc(p.name)) +
+          ' <i class="fa-solid fa-chevron-down" style="font-size:8px;color:#8a95a3"></i></span>' +
+        (o.due ? '<span class="due-chip' + (o.overdue && st.state !== 'complete' ? ' overdue' : '') + '">' +
+          '<i class="fa-regular fa-clock"></i>' + (o.overdue && st.state !== 'complete' ? 'Was due ' : 'Due ') + esc(o.due) + '</span>' : '') +
+        (lane === 'others'
+          ? '<button class="nudge-btn" type="button" data-nudge="' + sec.id + '"><i class="fa-solid fa-bell"></i> Nudge</button>'
+          : '') +
+        (st.reqTotal && lane !== 'others'
+          ? '<span class="sc-progress"><strong>' + st.reqDone + '</strong>/' + st.reqTotal + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function wireCards() {
+    document.querySelectorAll('[data-open]').forEach(function (b) {
+      b.addEventListener('click', function () { openDrawer(b.dataset.open); });
+    });
+    document.querySelectorAll('.sec-card').forEach(function (c) {
+      c.addEventListener('dblclick', function () { openDrawer(c.dataset.sec); });
+    });
+    document.querySelectorAll('[data-nudge]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var sec = secById(b.dataset.nudge);
+        U.toast('Reminded ' + ownerOf(sec).name + ' about ' + sec.title.toLowerCase() + '.', 'info');
+      });
+    });
+    document.querySelectorAll('[data-assign]').forEach(function (chip) {
+      chip.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openAssign(chip, chip.dataset.assign);
+      });
+    });
+  }
+
+  /* ── Assign popover ────────────────────────────────────────────────────── */
+  var pop = null;
+  function closeAssign() { if (pop) { pop.remove(); pop = null; } }
+  function openAssign(anchor, secId) {
+    closeAssign();
+    var sec = secById(secId);
+    pop = document.createElement('div');
+    pop.className = 'assign-pop';
+    pop.innerHTML = '<div class="ap-title">Who should complete ' + esc(sec.title.toLowerCase()) + '?</div>' +
+      Object.keys(PEOPLE).map(function (k) {
+        var p = PEOPLE[k];
+        var cur = ownerOf(sec).id === k;
+        return '<button class="assign-row" type="button" data-person="' + k + '">' +
+          avatarHTML(p, 24) +
+          '<span><div>' + (k === 'me' ? 'You' : esc(p.name)) + '</div><div class="ar-role">' + esc(p.role) + '</div></span>' +
+          (cur ? '<i class="fa-solid fa-check"></i>' : '') +
+        '</button>';
+      }).join('');
+    document.body.appendChild(pop);
+    var rect = anchor.getBoundingClientRect();
+    pop.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
+    pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+
+    pop.querySelectorAll('[data-person]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.dataset.person;
+        own[secId] = own[secId] || {};
+        var was = ownerOf(sec);
+        own[secId].owner = k;
+        if (k !== 'me' && !own[secId].requested) own[secId].requested = 'just now';
+        closeAssign();
+        var p = PEOPLE[k];
+        feed.unshift({ who: k, text: '<strong>' + (k === 'me' ? 'You' : esc(p.name)) + '</strong> ' +
+          (k === 'me' ? 'took back' : 'was asked to complete') + ' <strong>' + esc(sec.title) + '</strong>', when: 'just now' });
+        U.toast(k === 'me'
+          ? 'You took ' + sec.title.toLowerCase() + ' back from ' + was.name + '.'
+          : 'Asked ' + p.name + ' to complete ' + sec.title.toLowerCase() + '. It moves to Waiting on others.', 'info');
+        refresh();
+      });
+    });
+  }
+  document.addEventListener('click', function (e) {
+    if (pop && !pop.contains(e.target) && !e.target.closest('[data-assign]')) closeAssign();
+  });
+
+  /* ── Drawer: the actual form section ───────────────────────────────────── */
+  function openDrawer(secId) {
+    var sec = secById(secId);
+    if (!sec) return;
+    view.drawerSec = secId;
+    var st = M.statusOf(sec);
+    var p = ownerOf(sec);
+    document.getElementById('drawerTitle').textContent = sec.title;
+    document.getElementById('drawerSub').textContent = sec.blurb;
+    document.getElementById('drawerNote').innerHTML =
+      p.id === 'me'
+        ? (st.reqTotal ? '<strong>' + (st.reqTotal - st.reqDone) + '</strong> required field' + ((st.reqTotal - st.reqDone) === 1 ? '' : 's') + ' left in this section.' : 'Optional section.')
+        : 'Assigned to <strong>' + esc(p.name) + '</strong>. You can still edit it yourself.';
+    document.getElementById('drawerBody').innerHTML = U.sectionHTML(sec, U.defaultMeta);
+    var head = document.querySelector('#drawer .form-section .fs-head');
+    if (head) head.style.cursor = 'default';
+    U.mountInputs(document.getElementById('drawerBody'), function () { refresh(); refreshDrawerNote(); });
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawerScrim').classList.add('open');
+  }
+  function refreshDrawerNote() {
+    if (!view.drawerSec) return;
+    var sec = secById(view.drawerSec);
+    var st = M.statusOf(sec);
+    var p = ownerOf(sec);
+    document.getElementById('drawerNote').innerHTML =
+      p.id === 'me'
+        ? (st.reqTotal ? (st.reqDone === st.reqTotal ? 'This section is complete.' : '<strong>' + (st.reqTotal - st.reqDone) + '</strong> required left.') : 'Optional section.')
+        : 'Assigned to <strong>' + esc(p.name) + '</strong>.';
+  }
+  function closeDrawer() {
+    view.drawerSec = null;
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerScrim').classList.remove('open');
+  }
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  document.getElementById('drawerDone').addEventListener('click', closeDrawer);
+  document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
+  document.getElementById('drawerNext').addEventListener('click', function () {
+    var mine = M.sections.filter(function (sec) {
+      return laneOf(sec) === 'yours' && M.statusOf(sec).missing.length && sec.id !== view.drawerSec;
+    });
+    if (mine.length) openDrawer(mine[0].id);
+    else { closeDrawer(); U.toast('Nothing else is waiting on you. The rest is on other people.', 'good'); }
+  });
+
+  /* ── Feed ──────────────────────────────────────────────────────────────── */
+  function renderFeed() {
+    document.getElementById('feed').innerHTML = feed.map(function (f) {
+      return '<div class="feed-row">' + avatarHTML(PEOPLE[f.who], 22) +
+        '<span class="fr-text">' + f.text + '</span><span class="fr-when">' + esc(f.when) + '</span></div>';
+    }).join('');
+  }
+
+  function refresh() {
+    renderRelay(); renderLanes(); renderFeed();
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────────────────── */
+  shell();
+  refresh();
+
+  /* ── Flow map states ───────────────────────────────────────────────────── */
+  window.applyFlowState = function (id, opts) {
+    opts = opts || {};
+    closeDrawer(); closeAssign();
+    switch (id) {
+      case 'board': break;
+      case 'drawer':
+        openDrawer('details');
+        break;
+      case 'assign': {
+        var chip = document.querySelector('[data-assign="responders"]');
+        if (chip) openAssign(chip, 'responders');
+        break;
+      }
+      case 'delegated':
+        own.responders.owner = 'marta';
+        own.responders.requested = 'just now';
+        refresh();
+        break;
+      case 'ready':
+        M.sections.forEach(function (sec) {
+          if (!M.isActive(sec) || sec.system) return;
+          (sec.fields || []).forEach(function (f) {
+            if (f.req && !M.isFilled(f)) {
+              f.value = f.opts ? f.opts[0] : f.type === 'number' ? '0'
+                : f.type === 'date' ? '2026-05-11'
+                : f.type === 'textarea' ? 'Completed during the investigation walkthrough.' : 'Recorded';
+            }
+          });
+        });
+        refresh();
+        break;
+      default: break;
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  };
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { window.applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Record form workflow V4 — Shared ownership',
+      applyState: 'applyFlowState',
+      canvas: { w: 1280, h: 520 },
+      flows: [
+        { id: 'main', name: 'The board', pill: 'A', color: '#c9d8f0',
+          lane: { x: 20, y: 20, w: 1240, h: 230 }, labelXY: { x: 40, y: 42 } },
+        { id: 'delegate', name: 'Delegation', pill: 'B', color: '#e3d9f0',
+          lane: { x: 20, y: 270, w: 1240, h: 230 }, labelXY: { x: 40, y: 292 } }
+      ],
+      nodes: [
+        { id: 'board', flow: 'main', entry: true, x: 60, y: 110, step: 'Entry', name: 'Whose move is it',
+          state: 'board', desc: 'Three swimlanes: Yours to do, Waiting on others, Done. The relay bar segments required fields by owner, and the overdue delegate is flagged.' },
+        { id: 'drawer', flow: 'main', x: 500, y: 110, step: 'Work', name: 'Section drawer',
+          state: 'drawer', desc: 'Opening a card slides in the real form section; the footer offers "Next section of mine" so the preparer can chain their own work.' },
+        { id: 'ready', flow: 'main', x: 940, y: 110, step: 'Done', name: 'All fields in',
+          state: 'ready', desc: 'Everything complete: lanes drain into Done and the relay bar goes solid green.' },
+        { id: 'assign', flow: 'delegate', x: 60, y: 360, step: 'Assign', name: 'Reassign popover',
+          state: 'assign', desc: 'The owner chip opens a people picker with roles, so sections route to whoever actually knows the answer.' },
+        { id: 'delegated', flow: 'delegate', x: 500, y: 360, step: 'Handed off', name: 'Moved to Waiting',
+          state: 'delegated', desc: 'A reassigned section leaves Yours to do, joins Waiting on others with a Nudge action, and the activity feed records the handoff.' }
+      ],
+      edges: [
+        ['board', 'drawer'], ['drawer', 'ready'],
+        ['board', 'assign'], ['assign', 'delegated']
+      ]
+    }
+  };
+})();
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

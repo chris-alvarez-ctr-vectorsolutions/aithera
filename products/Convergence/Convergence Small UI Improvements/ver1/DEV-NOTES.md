@@ -19,6 +19,7 @@
 - Fin drag: the launcher drags up and down the edge (pointer drag; Arrow Up/Down in 24px steps when focused). A drag never toggles the chat (a >4px move swallows the following click), and the position persists in localStorage (`fin-dock-top`). Server-side persistence is a logic item.
 - Fin window: opens at right 12px, vertically beside wherever the launcher currently sits, clamped to the viewport.
 - Fin gutter contract (rollout rule): `--fin-gutter: 40px` pads the right of every non-flush scroll area so content never sits under the launcher.
+- CSS spec strips: every screen ends with a collapsed "CSS spec for this screen" line (a native <details>, 29px closed) that expands to a key/value sheet of that screen's important CSS values, with monospace values. Dev reference only, NOT product UI: do not ship. Content lives in SPECS in shared/chrome.js and mirrors shared/styles.css; when a value changes, update BOTH.
 - The bottom-centre toolbox dock and the flow map are review tooling. Do NOT ship the `designtoolbox/toolbox.js` include.
 
 ## loc - Location tree open (Area 2)

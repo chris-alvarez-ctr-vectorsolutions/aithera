@@ -30,26 +30,61 @@ A fourth tile, **Insights**, appears in switchers as a not-licensed app to show 
 - Same design tokens in every file (colors, spacing, radius, type scale) so versions differ
   in structure only. Dark theme (V4) changes token values, not component rules.
 - Switching ≠ navigating: other products never appear inside the current product's nav tree.
+- Menu items keep this exploration's own visual style, but borrow two things from the
+  shipping products (see below): the trailing disclosure chevron and the menu vocabulary.
 - Depth is carried by indentation and guide lines, never longer labels. Visible depth caps at 3.
 - Landmarks (`banner` / `nav` / `main`), `aria-current`, visible `:focus-visible` rings,
   skip link, and no hover-only destinations (flyouts/tooltips also open on keyboard focus;
   every rail icon is itself a clickable landing-page link).
 
+## What the menus borrow from Convergence + EHS
+
+Per design review, the VISUAL style of menu rows is this exploration's own (rounded inset
+rows, soft accent tint for the active item, indented accordion children with a 1px guide
+line). Two things are deliberately taken from the shipping products:
+
+1. **Trailing disclosure chevron** (Convergence `.sn-row .sn-chevron`, EHS `.sb-chevron`):
+   the expand/collapse chevron sits at the row's right edge and flips 180° when open. With a
+   leading caret, an expandable row's label sits further right than a plain row's, so plain
+   items read as living at a higher level; trailing chevrons put every same-level item on one
+   icon x and one label x. Count badges sit inline after the label on every row, so plain
+   rows and expandable rows read the same and the right edge belongs to the chevron alone.
+2. **Menu vocabulary and structure**: nav content echoes the real products' IA rather than
+   invented labels.
+   - **Learn = Convergence.** V1's Admin mode carries the full Convergence admin NAV_TREE
+     as accordions with their actual children: Dashboard · Organization (Users / Teams /
+     Departments / Sites / Regions / Groups) · Training import and creation (Content wizard /
+     Quizzes / Surveys / Tasklists / Signatures / Classes) · Files · Activities ·
+     Qualifications · Reports (My recents / Frequently used / All reports / Activity /
+     Qualification / User / Organizational / Scheduled) · Assets · Security (Roles / Copy
+     roles / Assign roles / Role assignments) · System (Jobs / Configuration / Notifications /
+     User connections). Other Learn menus (V2, V3, Training Plan / Reporting modes) use the
+     same vocabulary.
+   - **Comply = EHS.** V1's Comply pane is the real EHS sidebar structure: Safety management
+     is a SECTION header whose items are plain links except where EHS itself nests them, so
+     Inspections (Summary / Scheduled), Observations (Summary / Scheduled), Risk management
+     (Claims / Payments) and Industrial hygiene (Sampling / Exposure assessments / Exposure
+     groups / Agents) are accordions while Incidents, Hazards, Corrective actions, JSA, SDS,
+     Tasks, Events, Document library, Supporting documents and Customer service stay flat;
+     Training and Analytics are further sections with their EHS children. In V5/V6 the big
+     modules are tabs and the long tail forms a side-nav group; in V2 they are sections in
+     the module column.
+
 ## Version matrix
 
 | # | File | App switcher | Side-nav hierarchy | Top tabs | Theme / density | What it tests |
 |---|---|---|---|---|---|---|
-| V1 | `v1-launcher-tabs.html` | 9-dot grid launcher (top-left) | Nested accordion, 2 levels | **In the top bar**, top-right | Light / comfortable | Modes as tabs without a second chrome row; tabs live-swap the side nav; nav open/close toggle |
+| V1 | `v1-launcher-tabs.html` | Waffle launcher (vwc-app-switcher-menu anatomy), **working**: switches Learn ↔ Comply | Nested accordion, 2 levels | **In the top bar**, top-right | Light / comfortable | Modes as tabs without a second chrome row; tabs live-swap the side nav; Admin mode = the full Convergence NAV_TREE; Comply pane = the real EHS sidebar structure (sections + EHS's actual sub-group accordions); nav open/close toggle |
 | V2 | `v2-rail-twopane.html` | Far-left icon rail, always visible | Two-pane: icon sections + items column | None | Light / comfortable | Physical separation of switch vs navigate; "one shell, many products" (rail click swaps everything) |
 | V3 | `v3-sidebar-dropdown-tree.html` | Dropdown in the sidebar header | Nested tree, full 3 levels | None | Light / comfortable | The hierarchy requirement (Training → Compliance courses → OSHA 10 · 2024); chrome-minimal switcher |
-| V4 | `v4-dense-dark-flyout.html` | 9-dot grid launcher | Collapsed 56px icon rail + flyout submenus | None | **Dark / compact** | Collapse as a designed state; density for data-heavy screens; token-only re-theming |
+| V4 | `v4-dense-dark-flyout.html` | Waffle launcher (vwc-app-switcher-menu anatomy) | Collapsed 56px icon rail + flyout submenus | None | **Dark / compact** | Collapse as a designed state; density for data-heavy screens; token-only re-theming |
 | V5 | `v5-topbar-switcher-tabs.html` | Named product dropdown in the top bar | Shallow flat list + saved views | **Dedicated row** under the top bar | Light / comfortable | The Convergence/Salesforce analog; contrast with V1 (same tab philosophy, two rows vs one) |
 | V6 | `v6-synthesis.html` | Far-left icon rail | Flat list per mode, collapses to icon rail | **Per-product optional** (Learn/Comply yes, Schedule no) | Light / comfortable | The recommended synthesis; tabs as an opt-in layer; responsive auto-collapse below 1120px |
 
 ### Axis coverage
 
-- **Switcher patterns:** grid launcher (V1, V4) · persistent rail (V2, V6) · sidebar-header
-  dropdown (V3) · top-bar named dropdown (V5).
+- **Switcher patterns:** waffle launcher matched to vwc-app-switcher-menu (V1, V4) ·
+  persistent rail (V2, V6) · sidebar-header dropdown (V3) · top-bar named dropdown (V5).
 - **Hierarchy patterns:** accordion (V1, V3) · two-pane (V2) · flyout-from-rail (V4) ·
   shallow flat (V5, V6).
 - **Tabs philosophy:** tabs-in-bar (V1) · tabs-own-row (V5) · no tabs (V2, V3, V4) ·
@@ -57,14 +92,43 @@ A fourth tile, **Insights**, appears in switchers as a not-licensed app to show 
 - **Density & collapse:** compact + dark (V4) · collapse-to-rail with tooltips (V4, V6) ·
   hide/show toggle (V1, V5) · responsive auto-collapse (V6).
 
+## Customer logo slot (platform customization)
+
+Orgs can surface their own branding at the top of the side nav, above the menu items: a
+customer logo image (here a placeholder "Northline Utilities" lockup) renders in a bordered
+slot at the top of the nav. It is customer CONTENT, not shell UI, so it is exempt from the
+neutral token palette. Present in V1 (all five navs, both products), V2 (items column), V3
+(below the product switcher), V5 and V6; V4's nav is a permanently collapsed icon rail, so
+its logo would live in the top bar instead. Toggle it with the **Logo** button in the
+bottom-left review pill (customers would configure this in admin settings) or deep-link the
+hidden state with `?logo=off`.
+
+## App switcher, matched to the design system
+
+The launcher popover in V1 and V4 follows the anatomy of `vwc-app-switcher-menu` from
+@vector-web-components/core (extracted from the v1.19.0 bundle):
+
+- Trigger: the MDI "apps" **waffle icon (3×3 squares)**, exactly the component's toggle icon;
+  every version's switcher affordance now uses it.
+- Popover: 360px wide, anchored under the trigger, with a backdrop scrim.
+- Content: a products title ("Your Atlas products", standing in for the component's "Your
+  Vector Solutions Products"), then full-bleed product rows at the component's `vwc-item`
+  metrics (48px min-height, 16px gaps, 12px/16px padding): product logo at start, name as the
+  headline, end slot + the component's **open-in-new icon**.
+- A divider, then **unlicensed products** on a tinted ground with a "Learn more" end slot
+  (Insights plays this role), matching the component's licensed/unlicensed split.
+- The current product carries a small "Current" tag in the end slot (mock-only affordance so
+  reviewers can see state; the real component treats all rows as external product links).
+
 ## Version switcher (review tooling, not part of the design)
 
 Every version file carries a small dark pill in the **bottom-left corner**: `All` (back to the
 gallery) followed by V1 to V6, with the current version highlighted and each button titled with
 its pattern. It exists so reviewers can flip between explorations in place instead of returning
-to the gallery each time. It is a single self-contained block at the end of each file (one
-`<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE PRODUCT
-DESIGN`; delete that block to remove it.
+to the gallery each time. Versions with a side nav also carry a **Logo** button here that
+toggles the customer logo slot. It is a single self-contained block at the end of each file
+(one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE
+PRODUCT DESIGN`; delete that block to remove it.
 
 ## Demo states (URL params)
 
@@ -73,12 +137,12 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 
 | File | Params |
 |---|---|
-| V1 | `?launcher` opens the app grid · `?mode=home\|admin\|trainplan\|reporting` selects a tab (side nav + content swap) · `?nav=closed` starts with the side nav closed |
-| V2 | `?app=learn\|comply\|schedule` selects the rail product |
-| V3 | `?switcher` opens the product menu |
+| V1 | `?launcher` opens the app grid · `?app=comply` switches to the Comply product (EHS-style accordion nav; the launcher tiles do the same on click) · `?mode=home\|admin\|trainplan\|reporting` selects a Learn tab (side nav + content swap) · `?nav=closed` starts with the side nav closed · `?logo=off` hides the customer logo |
+| V2 | `?app=learn\|comply\|schedule` selects the rail product · `?logo=off` |
+| V3 | `?switcher` opens the product menu · `?logo=off` |
 | V4 | `?launcher` opens the app grid · `?fly` pins the Shifts flyout open (it otherwise opens on hover/keyboard focus) |
-| V5 | `?switcher` opens the product menu · `?nav=closed` |
-| V6 | `?app=…` selects the rail product · `?collapsed` collapses the side nav (also auto-collapses below 1120px) |
+| V5 | `?switcher` opens the product menu · `?nav=closed` · `?logo=off` |
+| V6 | `?app=…` selects the rail product · `?collapsed` collapses the side nav (also auto-collapses below 1120px) · `?logo=off` |
 
 ## Review feedback incorporated
 
@@ -89,6 +153,15 @@ No storage, no frameworks, no build step; every file opens directly from disk.
   collapse-to-icon-rail in V4 and V6.
 - V1's tabs are live and reconfigure the side nav per mode, making "tabs switch mode, side
   nav navigates within the mode" observable rather than described.
+- Per review, V1 drops the global search field and the + New action from its top bar; the
+  other versions keep the full slot set for comparison.
+- Rows briefly adopted Convergence/EHS visual styling (full-bleed rows, left accent bar,
+  tinted accordion band); review preferred the original open-accordion look, so the visuals
+  reverted while keeping the trailing chevron and adopting the products' menu vocabulary.
+- Count badges sit inline after the label on EVERY row (they were right-aligned on plain
+  rows and inline on expandable ones, which read as two different patterns in one list;
+  right-aligning them all was not an option because the right edge belongs to the chevron
+  on expandable rows).
 
 ## Recommendation
 

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Investigation FY26-00004 — Maintenance dashboard</title>
+
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css"/>
+<link rel="stylesheet" href="../_shared/base.css"/>
+
+<style>
+/* ============================================================================
+   V3 — Maintenance dashboard (Ardent Sky inspired)
+   ============================================================================
+   Direct translation of the referenced compliance-tracker design onto a single
+   EHS record. Its three moves, re-aimed at one form instead of 75 screens:
+
+   1. "6 of 75 screens maintained" panel  →  completion card: ring + count +
+      status filter pills (All / Complete / Partial / Incomplete) that filter a
+      section TREE with per-branch fractions (4/15 style).
+   2. The two donuts → "Fields by status" center-count donut with leader-line
+      labels, and "Required by" donut splitting requirements by their source
+      (OSHA 301 / OSHA 300 / workers comp / policy).
+   3. The compliance-calendar grid → "Open items" table: every outstanding
+      required field as a row with section, source, and a jump link, sortable
+      and filterable by source.
+
+   The dashboard sits ABOVE the form and is a lens onto it: every count is a
+   link into the document below.
+   ========================================================================== */
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 24px; padding-bottom: 60px; }
+
+.dash {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+@media (max-width: 1280px) { .dash { grid-template-columns: 1fr 1fr; } .dash > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 860px)  { .dash { grid-template-columns: 1fr; } }
+
+.dash-card { display: flex; flex-direction: column; min-width: 0; }
+.dash-title {
+  text-align: center;
+  font-size: 12.5px; font-weight: 700; color: #26417c;
+  padding: 14px 16px 10px;
+}
+.dash-body { padding: 0 20px 20px; flex: 1; display: flex; flex-direction: column; }
+
+/* ── Card 1: completion + tree ──────────────────────────────────────────── */
+.comp-top { display: flex; align-items: center; gap: 16px; }
+.comp-read .cr-big { font-size: 15px; font-weight: 700; color: var(--ink); }
+.comp-read .cr-sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.comp-read .cr-hint { font-size: 11.5px; color: #8a95a3; margin-top: 6px; font-style: italic; }
+
+.filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 12px; }
+.f-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line-strong); background: #fff;
+  border-radius: 999px; padding: 4px 12px;
+  font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--ink-2);
+  cursor: pointer;
+}
+.f-pill:hover { background: #f4f8fc; }
+.f-pill.on { background: #26417c; border-color: #26417c; color: #fff; }
+.f-pill .fp-dot { width: 8px; height: 8px; border-radius: 50%; }
+.f-pill .fp-n { font-weight: 400; opacity: .85; }
+
+.tree { flex: 1; overflow: auto; max-height: 380px; font-size: 12.5px; }
+.tree-row {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; text-align: left; border: 0; background: none; font-family: inherit;
+  padding: 5px 6px; border-radius: 5px; cursor: pointer; color: var(--ink-2);
+}
+.tree-row:hover { background: #f4f8fc; }
+.tree-row .tr-caret { width: 12px; font-size: 9px; color: var(--ink-3); flex: 0 0 auto; }
+.tree-row .tr-name { font-weight: 700; color: var(--ink); }
+.tree-row.leaf .tr-name { font-weight: 400; color: #2a5db0; }
+.tree-row.leaf:hover .tr-name { text-decoration: underline; }
+.tree-row .tr-frac { font-size: 11px; color: var(--ink-3); margin-left: 2px; }
+.tree-kids { margin-left: 19px; border-left: 1px dotted #d5dee8; padding-left: 8px; }
+.tree-row.dim { opacity: .5; }
+
+/* ── Cards 2 & 3: donuts ────────────────────────────────────────────────── */
+.donut-host { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 230px; }
+.donut-foot {
+  border-top: 1px solid var(--line);
+  padding: 10px 16px; font-size: 11.5px; color: var(--ink-3);
+  display: flex; align-items: center; gap: 8px;
+}
+.donut-foot .link-btn { font-size: 11.5px; }
+
+/* ── Open items table ───────────────────────────────────────────────────── */
+.items-card { margin-bottom: 20px; overflow: hidden; }
+.items-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); background: #fbfcfe;
+}
+.items-toolbar .it-label { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+.items-search { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.items-search input {
+  border: 1px solid var(--line-strong); border-radius: 6px;
+  padding: 5px 10px; font-family: inherit; font-size: 12px; width: 190px;
+}
+.src-filter {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--line-strong); background: #fff; border-radius: 999px;
+  padding: 3px 10px; font-family: inherit; font-size: 11px; font-weight: 700;
+  cursor: pointer; color: var(--ink-2);
+}
+.src-filter.on { color: #fff; }
+
+.items-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.items-table th {
+  text-align: left; padding: 9px 14px;
+  background: #eef2f7; color: #33445c; font-size: 11.5px; font-weight: 700;
+  border-bottom: 1px solid var(--line-strong);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+.items-table th .fa-sort, .items-table th .fa-arrow-up, .items-table th .fa-arrow-down {
+  font-size: 10px; margin-left: 5px; color: #7a8aa0;
+}
+.items-table td { padding: 9px 14px; border-bottom: 1px solid #eef2f7; color: var(--ink-2); }
+.items-table tr:hover td { background: #f6faff; }
+.items-table .it-field { font-weight: 600; color: var(--ink); }
+.items-table .go-btn { white-space: nowrap; }
+.items-empty { padding: 26px; text-align: center; color: var(--ink-3); font-size: 12.5px; }
+.items-empty i { color: var(--st-complete); margin-right: 7px; }
+
+/* ── Form area ──────────────────────────────────────────────────────────── */
+.form-head-row {
+  display: flex; align-items: center; gap: 12px; margin: 26px 0 14px;
+}
+.form-head-row h2 { font-size: 15px; font-weight: 700; color: var(--ink); }
+.form-head-row .fh-note { font-size: 12px; color: var(--ink-3); }
+.form-head-row .fh-actions { margin-left: auto; display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="../_shared/model.js"></script>
+<script src="../_shared/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.EHS_FORM, U = window.EHS_UI, esc = U.esc;
+  var app = document.getElementById('app');
+
+  var STATUS_COLORS = { complete: '#17a673', partial: '#e09a2c', empty: '#d94f45', na: '#9aa5b1' };
+  var view = {
+    filter: 'all',            // all | complete | partial | empty
+    srcFilter: null,          // requirement-source id or null
+    sort: { key: 'section', dir: 1 },
+    search: '',
+    open: {}                  // tree expansion; default all closed except partial/empty
+  };
+
+  /* ── Tree grouping: sections into the same buckets the record uses ─────── */
+  var GROUPS = [
+    { id: 'g-report', name: 'Report', secs: ['basic', 'details'] },
+    { id: 'g-veh', name: 'Vehicles', secs: ['vehicle', 'otherVehicle'] },
+    { id: 'g-people', name: 'People and response', secs: ['witnesses', 'responders', 'injury'] },
+    { id: 'g-follow', name: 'Analysis and follow-up', secs: ['analysis', 'training'] },
+    { id: 'g-record', name: 'Record', secs: ['attachments', 'history'] }
+  ];
+
+  function secById(id) { return M.sections.filter(function (s) { return s.id === id; })[0]; }
+
+  /* ── Shell ─────────────────────────────────────────────────────────────── */
+  function shell() {
+    var r = M.record;
+    app.innerHTML =
+      U.topnav() +
+      U.ribbon('V3 · Maintenance dashboard',
+        'The Ardent Sky pattern pointed at one record: donuts, a status-filtered tree, and an open-items table, all lenses onto the form below.',
+        ['Reference: Ardent Sky tracker', 'Filter then jump', 'Requirement sources']) +
+      '<div class="record-head">' + U.crumbs() +
+        '<div class="record-title-row">' +
+          '<div>' +
+            '<div class="record-title">Incident investigation ' + esc(r.id) + '</div>' +
+            '<div class="record-sub">' + esc(r.subtype) + ' &middot; ' + esc(r.facility) + ' &middot; occurred ' + esc(r.occurred) + '</div>' +
+          '</div>' +
+          '<div class="record-actions">' +
+            '<span class="chip chip-draft"><i class="fa-solid fa-pen-to-square"></i>Draft</span>' +
+            '<span class="chip chip-due"><i class="fa-regular fa-clock"></i>Due ' + esc(r.dueDate) + ' &middot; ' + r.daysToDue + ' days</span>' +
+            '<button class="mini-btn" type="button" id="hdSave"><i class="fa-regular fa-floppy-disk"></i> Save draft</button>' +
+            '<button class="mini-btn primary" type="button" id="hdSubmit"><i class="fa-solid fa-paper-plane"></i> Submit</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wrap">' +
+        '<div class="dash">' +
+          '<div class="card dash-card"><div class="dash-title">Record completion</div><div class="dash-body" id="compBody"></div></div>' +
+          '<div class="card dash-card"><div class="dash-title">Fields by status</div><div class="dash-body" style="padding:0"><div class="donut-host" id="donutStatus"></div><div class="donut-foot" id="donutStatusFoot"></div></div></div>' +
+          '<div class="card dash-card"><div class="dash-title">Required by</div><div class="dash-body" style="padding:0"><div class="donut-host" id="donutSrc"></div><div class="donut-foot"><i class="fa-solid fa-circle-info"></i>Outstanding required fields, grouped by which regulation or policy demands them.</div></div></div>' +
+        '</div>' +
+        '<div class="card items-card" id="itemsCard"></div>' +
+        '<div class="form-head-row">' +
+          '<h2>The form</h2>' +
+          '<span class="fh-note">Everything above is a lens onto this document. Jumping from a count lands here.</span>' +
+          '<span class="fh-actions">' +
+            '<button class="mini-btn" type="button" id="expandAll">Expand all</button>' +
+            '<button class="mini-btn" type="button" id="collapseAll">Collapse all</button>' +
+          '</span>' +
+        '</div>' +
+        '<div id="doc"></div>' +
+      '</div>';
+
+    document.getElementById('hdSave').addEventListener('click', function () {
+      U.toast('Draft saved.', 'good');
+    });
+    document.getElementById('hdSubmit').addEventListener('click', function () {
+      var s = M.summary();
+      if (s.canSubmit) U.toast('Report FY26-00004 submitted for review.', 'good');
+      else U.toast(s.missing.length + ' required fields are still open. The table above lists each one.', 'warn');
+    });
+    document.getElementById('expandAll').addEventListener('click', function () {
+      document.querySelectorAll('.form-section').forEach(function (el) { el.classList.remove('collapsed'); });
+    });
+    document.getElementById('collapseAll').addEventListener('click', function () {
+      document.querySelectorAll('.form-section').forEach(function (el) { el.classList.add('collapsed'); });
+    });
+  }
+
+  /* ── Card 1: completion + filter pills + tree ──────────────────────────── */
+  function renderComp() {
+    var s = M.summary();
+    var states = { complete: 0, partial: 0, empty: 0 };
+    s.sections.forEach(function (st) {
+      if (st.state === 'complete') states.complete++;
+      else if (st.state === 'partial') states.partial++;
+      else if (st.state === 'empty') states.empty++;
+    });
+    var countable = states.complete + states.partial + states.empty;
+
+    document.getElementById('compBody').innerHTML =
+      '<div class="comp-top">' +
+        U.ring(s.pct, { size: 86, stroke: 10, label: s.pct + '%', color: s.pct === 100 ? '#17a673' : '#26417c', fontSize: 16 }) +
+        '<div class="comp-read">' +
+          '<div class="cr-big">' + states.complete + ' of ' + countable + ' sections complete</div>' +
+          '<div class="cr-sub">' + s.reqDone + ' of ' + s.reqTotal + ' required fields filled</div>' +
+          '<div class="cr-hint">Filter by status, then jump to any section to update it.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="filter-row">' +
+        pillHTML('all', 'All', countable, null) +
+        pillHTML('complete', 'Complete', states.complete, STATUS_COLORS.complete) +
+        pillHTML('partial', 'Partial', states.partial, STATUS_COLORS.partial) +
+        pillHTML('empty', 'Incomplete', states.empty, STATUS_COLORS.empty) +
+      '</div>' +
+      '<div class="tree" id="tree">' + treeHTML() + '</div>';
+
+    document.querySelectorAll('.f-pill').forEach(function (p) {
+      p.addEventListener('click', function () {
+        view.filter = p.dataset.filter;
+        renderComp();
+      });
+    });
+    wireTree();
+  }
+
+  function pillHTML(id, label, n, color) {
+    return '<button class="f-pill' + (view.filter === id ? ' on' : '') + '" type="button" data-filter="' + id + '">' +
+      (color ? '<span class="fp-dot" style="background:' + color + '"></span>' : '') +
+      esc(label) + ' <span class="fp-n">' + n + '</span></button>';
+  }
+
+  function matchesFilter(st) {
+    if (view.filter === 'all') return true;
+    return st.state === view.filter;
+  }
+
+  function treeHTML() {
+    return GROUPS.map(function (g) {
+      var secs = g.secs.map(secById).filter(Boolean);
+      var stats = secs.map(function (sec) { var st = M.statusOf(sec); st.sec = sec; return st; });
+      var visible = stats.filter(matchesFilter);
+      var reqDone = 0, reqTotal = 0, worst = 'complete';
+      stats.forEach(function (st) {
+        reqDone += st.reqDone; reqTotal += st.reqTotal;
+        if (st.state === 'empty') worst = 'empty';
+        else if (st.state === 'partial' && worst !== 'empty') worst = 'partial';
+      });
+      if (!visible.length && view.filter !== 'all') return '';
+
+      var open = view.open[g.id] !== false;   // default open
+      var kids = !open ? '' :
+        '<div class="tree-kids">' + visible.map(function (st) {
+          var na = st.state === 'na', sys = st.state === 'system';
+          return '<button class="tree-row leaf' + (na || sys ? ' dim' : '') + '" type="button" data-jump="' + st.sec.id + '">' +
+            '<span class="tr-caret"></span>' +
+            '<span class="dot ' + st.state + '"></span>' +
+            '<span class="tr-name">' + esc(st.sec.title) + '</span>' +
+            '<span class="tr-frac">' +
+              (na ? 'n/a' : sys ? 'read only' : st.reqTotal ? st.reqDone + '/' + st.reqTotal : 'optional') +
+            '</span>' +
+          '</button>';
+        }).join('') + '</div>';
+
+      return '<button class="tree-row" type="button" data-toggle="' + g.id + '">' +
+          '<span class="tr-caret"><i class="fa-solid ' + (open ? 'fa-caret-down' : 'fa-caret-right') + '"></i></span>' +
+          '<span class="dot ' + (reqTotal && reqDone === reqTotal ? 'complete' : worst) + '"></span>' +
+          '<span class="tr-name">' + esc(g.name) + '</span>' +
+          '<span class="tr-frac">' + reqDone + '/' + reqTotal + '</span>' +
+        '</button>' + kids;
+    }).join('');
+  }
+
+  function wireTree() {
+    document.querySelectorAll('[data-toggle]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.toggle;
+        view.open[id] = view.open[id] === false;
+        renderComp();
+      });
+    });
+    document.querySelectorAll('.tree [data-jump]').forEach(function (b) {
+      b.addEventListener('click', function () { U.jumpTo('sec-' + b.dataset.jump); });
+    });
+  }
+
+  /* ── Card 2: fields-by-status donut ────────────────────────────────────── */
+  function renderStatusDonut() {
+    var done = 0, started = 0, open = 0, na = 0;
+    M.sections.forEach(function (sec) {
+      if (sec.system) return;
+      var active = M.isActive(sec);
+      (sec.fields || []).forEach(function (f) {
+        if (f.type === 'readonly') return;
+        if (!active) { na++; return; }
+        if (M.isFilled(f)) done++;
+        else if (f.req) open++;
+        else started++;   // empty but optional
+      });
+    });
+    var segs = [
+      { label: 'Filled', value: done, color: '#17a673' },
+      { label: 'Required, still open', value: open, color: '#d94f45' },
+      { label: 'Optional, blank', value: started, color: '#cfd8e3' },
+      { label: 'Not applicable', value: na, color: '#eef1f5' }
+    ].filter(function (x) { return x.value > 0; });
+
+    document.getElementById('donutStatus').innerHTML =
+      U.donutLabeled(segs, {
+        width: 470, height: 260, r: 62, stroke: 30,
+        centerValue: String(done + open + started), centerSub: 'fields on this record',
+        aria: 'Fields by status'
+      });
+    document.getElementById('donutStatusFoot').innerHTML =
+      '<i class="fa-solid fa-circle-info"></i><span>The red slice is what stands between this draft and submission. </span>' +
+      '<button class="link-btn" type="button" id="footJump">Show the ' + open + ' open items</button>';
+    var j = document.getElementById('footJump');
+    if (j) j.addEventListener('click', function () {
+      document.getElementById('itemsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  /* ── Card 3: required-by donut ─────────────────────────────────────────── */
+  function renderSrcDonut() {
+    var rows = M.bySource();
+    var segs = rows.map(function (r) {
+      return { label: r.src.label, value: r.total, color: r.src.color };
+    });
+    var totalOpen = rows.reduce(function (a, r) { return a + (r.total - r.done); }, 0);
+    document.getElementById('donutSrc').innerHTML =
+      U.donutLabeled(segs, {
+        width: 470, height: 260, r: 62, stroke: 30,
+        centerValue: String(totalOpen), centerSub: 'still required',
+        aria: 'Required fields by source'
+      });
+  }
+
+  /* ── Open items table ──────────────────────────────────────────────────── */
+  function itemsData() {
+    var s = M.summary();
+    var rows = s.missing.map(function (m) {
+      var src = M.SOURCES.filter(function (x) { return x.id === m.field.src; })[0] || M.SOURCES[4];
+      return { field: m.field, section: m.section, src: src };
+    });
+    if (view.srcFilter) rows = rows.filter(function (r) { return r.src.id === view.srcFilter; });
+    if (view.search) {
+      var q = view.search.toLowerCase();
+      rows = rows.filter(function (r) {
+        return (r.field.label + ' ' + r.section.title + ' ' + r.src.label).toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    rows.sort(function (a, b) {
+      var k = view.sort.key, va, vb;
+      if (k === 'field') { va = a.field.label; vb = b.field.label; }
+      else if (k === 'src') { va = a.src.label; vb = b.src.label; }
+      else { va = a.section.title; vb = b.section.title; }
+      return va.localeCompare(vb) * view.sort.dir;
+    });
+    return rows;
+  }
+
+  function renderItems() {
+    var s = M.summary();
+    var rows = itemsData();
+    var srcs = {};
+    s.missing.forEach(function (m) {
+      var id = (M.SOURCES.filter(function (x) { return x.id === m.field.src; })[0] || M.SOURCES[4]).id;
+      srcs[id] = (srcs[id] || 0) + 1;
+    });
+
+    var sortIcon = function (k) {
+      if (view.sort.key !== k) return '<i class="fa-solid fa-sort"></i>';
+      return view.sort.dir === 1 ? '<i class="fa-solid fa-arrow-up"></i>' : '<i class="fa-solid fa-arrow-down"></i>';
+    };
+
+    document.getElementById('itemsCard').innerHTML =
+      '<div class="dash-title">Open items &middot; ' + s.missing.length + ' required field' + (s.missing.length === 1 ? '' : 's') + ' before submission</div>' +
+      '<div class="items-toolbar">' +
+        '<span class="it-label">Required by:</span>' +
+        M.SOURCES.filter(function (x) { return srcs[x.id]; }).map(function (x) {
+          var on = view.srcFilter === x.id;
+          return '<button class="src-filter' + (on ? ' on' : '') + '" type="button" data-src="' + x.id + '"' +
+            ' style="' + (on ? 'background:' + x.color + ';border-color:' + x.color : 'color:' + x.color) + '">' +
+            esc(x.label) + ' (' + srcs[x.id] + ')</button>';
+        }).join('') +
+        (view.srcFilter ? '<button class="link-btn" type="button" id="clearSrc">Clear</button>' : '') +
+        '<span class="items-search"><i class="fa-solid fa-magnifying-glass" style="color:#7a8aa0;font-size:11px"></i>' +
+          '<input type="text" id="itemsSearch" placeholder="Search open items" value="' + esc(view.search) + '"></span>' +
+      '</div>' +
+      (rows.length
+        ? '<div style="overflow-x:auto"><table class="items-table"><thead><tr>' +
+            '<th data-sort="field">Field ' + sortIcon('field') + '</th>' +
+            '<th data-sort="section">Section ' + sortIcon('section') + '</th>' +
+            '<th data-sort="src">Required by ' + sortIcon('src') + '</th>' +
+            '<th></th></tr></thead><tbody>' +
+            rows.map(function (r) {
+              return '<tr>' +
+                '<td class="it-field">' + esc(r.field.label) + '</td>' +
+                '<td>' + esc(r.section.title) + '</td>' +
+                '<td><span class="src-tag src-' + r.src.id + '">' + esc(r.src.label) + '</span></td>' +
+                '<td style="text-align:right"><button class="mini-btn go-btn" type="button" data-go="' + r.field.id + '">' +
+                  'Fill in <i class="fa-solid fa-arrow-right" style="font-size:10px"></i></button></td>' +
+              '</tr>';
+            }).join('') +
+          '</tbody></table></div>'
+        : '<div class="items-empty"><i class="fa-solid fa-circle-check"></i>' +
+            (s.missing.length ? 'No open items match this filter.' : 'Nothing is outstanding. This record is ready to submit.') + '</div>');
+
+    document.querySelectorAll('[data-src]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        view.srcFilter = view.srcFilter === b.dataset.src ? null : b.dataset.src;
+        renderItems();
+      });
+    });
+    var clr = document.getElementById('clearSrc');
+    if (clr) clr.addEventListener('click', function () { view.srcFilter = null; renderItems(); });
+    document.querySelectorAll('.items-table th[data-sort]').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var k = th.dataset.sort;
+        if (view.sort.key === k) view.sort.dir *= -1;
+        else view.sort = { key: k, dir: 1 };
+        renderItems();
+      });
+    });
+    document.querySelectorAll('[data-go]').forEach(function (b) {
+      b.addEventListener('click', function () { U.jumpTo('fld-' + b.dataset.go); });
+    });
+    var search = document.getElementById('itemsSearch');
+    search.addEventListener('input', function () {
+      view.search = search.value;
+      var pos = search.selectionStart;
+      renderItems();
+      var again = document.getElementById('itemsSearch');
+      again.focus(); again.setSelectionRange(pos, pos);
+    });
+  }
+
+  /* ── Form ──────────────────────────────────────────────────────────────── */
+  function renderDoc() {
+    var doc = document.getElementById('doc');
+    doc.innerHTML = M.sections.map(function (sec) { return U.sectionHTML(sec, U.defaultMeta); }).join('');
+    U.mountInputs(doc, onEdit);
+    /* Dashboard-first page: start with complete/na sections collapsed so the
+       open work is what the eye lands on. */
+    M.sections.forEach(function (sec) {
+      var st = M.statusOf(sec);
+      if (st.state === 'complete' || st.state === 'na' || st.state === 'system') {
+        var el = document.getElementById('sec-' + sec.id);
+        if (el) el.classList.add('collapsed');
+      }
+    });
+  }
+
+  function onEdit(id) {
+    if (id === 'vehicleInvolved' || id === 'employeeInjured' || id === 'retrainingRequired') {
+      renderDoc();
+    }
+    refreshDash();
+  }
+
+  function refreshDash() {
+    U.refreshFieldChrome(document);
+    renderComp(); renderStatusDonut(); renderSrcDonut(); renderItems();
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────────────────── */
+  shell();
+  renderDoc();
+  refreshDash();
+
+  /* ── Flow map states ───────────────────────────────────────────────────── */
+  function fillAllRequired() {
+    M.sections.forEach(function (sec) {
+      if (!M.isActive(sec) || sec.system) return;
+      (sec.fields || []).forEach(function (f) {
+        if (f.req && !M.isFilled(f)) {
+          f.value = f.opts ? f.opts[0] : f.type === 'number' ? '0'
+            : f.type === 'date' ? '2026-05-11'
+            : f.type === 'textarea' ? 'Completed during the investigation walkthrough.' : 'Recorded';
+        }
+      });
+    });
+  }
+
+  window.applyFlowState = function (id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'dash': break;
+      case 'incomplete':
+        view.filter = 'empty';
+        renderComp();
+        break;
+      case 'osha':
+        view.srcFilter = 'osha301';
+        renderItems();
+        setTimeout(function () {
+          document.getElementById('itemsCard').scrollIntoView({ block: 'start' });
+        }, 60);
+        break;
+      case 'jump': {
+        var s = M.summary();
+        if (s.missing[0]) U.jumpTo('fld-' + s.missing[0].field.id);
+        break;
+      }
+      case 'ready':
+        fillAllRequired();
+        renderDoc(); refreshDash();
+        break;
+      default: break;
+    }
+    if (!opts.instant && id !== 'osha' && id !== 'jump') window.scrollTo(0, 0);
+  };
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { window.applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Record form workflow V3 — Maintenance dashboard',
+      applyState: 'applyFlowState',
+      canvas: { w: 1280, h: 520 },
+      flows: [
+        { id: 'main', name: 'Dashboard as a lens', pill: 'A', color: '#c9d8f0',
+          lane: { x: 20, y: 20, w: 1240, h: 230 }, labelXY: { x: 40, y: 42 } },
+        { id: 'filters', name: 'Filter, then jump', pill: 'B', color: '#f0d9c9',
+          lane: { x: 20, y: 270, w: 1240, h: 230 }, labelXY: { x: 40, y: 292 } }
+      ],
+      nodes: [
+        { id: 'dash', flow: 'main', entry: true, x: 60, y: 110, step: 'Entry', name: 'Dashboard over the form',
+          state: 'dash', desc: 'Ardent Sky translated: completion ring with section tree, fields-by-status donut with leader-line labels, required-by donut, and the open-items table. The form scrolls below with finished sections pre-collapsed.' },
+        { id: 'jump', flow: 'main', x: 500, y: 110, step: 'Work', name: 'Jump to a field',
+          state: 'jump', desc: 'Every count is a link. A Fill in button lands on the exact field, expanded and focused.' },
+        { id: 'ready', flow: 'main', x: 940, y: 110, step: 'Done', name: 'All clear',
+          state: 'ready', desc: 'Every donut and count at 100 percent; the open-items table becomes an all-clear.' },
+        { id: 'incomplete', flow: 'filters', x: 60, y: 360, step: 'Filter', name: 'Only incomplete sections',
+          state: 'incomplete', desc: 'The Incomplete pill filters the tree to just sections with nothing entered, mirroring the reference design status pills.' },
+        { id: 'osha', flow: 'filters', x: 500, y: 360, step: 'Slice', name: 'Only OSHA 301 items',
+          state: 'osha', desc: 'The open-items table sliced to one requirement source, for the "what does OSHA actually need from me" question.' }
+      ],
+      edges: [
+        ['dash', 'jump'], ['jump', 'ready'],
+        ['dash', 'incomplete'], ['incomplete', 'osha']
+      ]
+    }
+  };
+})();
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

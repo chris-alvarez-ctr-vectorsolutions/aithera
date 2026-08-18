@@ -1,3 +1,85 @@
+/* ---------------------------------------------------------------------------
+   CSS spec strips: the key CSS values for each screen, as a collapsed
+   one-line <details> at the foot of the view. Dev reference, not product UI.
+   Values mirror shared/styles.css; update BOTH when a value changes.
+   ------------------------------------------------------------------------ */
+const SPEC_NOTE = 'Dev reference (not product UI). Tokens: shared/styles.css §1 · type 22/18/16/14/12 · spacing 4-40 · radius 4/6/8/12/pill.';
+function specHTML(rows) {
+  return `<details class="spec">
+    <summary><i class="fa-solid fa-chevron-right caret" aria-hidden="true"></i><i class="fa-solid fa-code" aria-hidden="true"></i>CSS spec for this screen</summary>
+    <div class="spec-body">
+      <div class="spec-grid">${rows.map(r => `<div class="spec-row"><span class="spec-k">${r[0]}</span><span class="spec-v">${r[1]}</span></div>`).join('')}</div>
+      <p class="spec-note">${SPEC_NOTE}</p>
+    </div>
+  </details>`;
+}
+const SPECS = {
+  guide: specHTML([
+    ['Top nav height', '60px (--h-topnav)'],
+    ['Page header', 'min 72px · title 22/600 · crumb 14'],
+    ['Side nav width', '268px open · 58px rail'],
+    ['Nav rows', 'min 44px parent · 38px child · radius 6'],
+    ['Nav selected', '3px left rail + --c-primary-soft'],
+    ['Nav icon column', '20px · 15px glyph · label clamp 2'],
+    ['Location panel', '380px · radius 12 · --e-3'],
+    ['Fin launcher', '30x30 · radius 15 0 0 15 · gutter 40px'],
+  ]),
+  home: specHTML([
+    ['Dashboard grid', '12 cols · 24px gutters · spans 8+4, 4+8'],
+    ['Card header', 'pad 16 20 · title 18/600 · icon --c-primary'],
+    ['Card footer', 'pad 8 16 on --c-surface-alt'],
+    ['Progress ring', '132px · stroke 12 · fill --c-primary'],
+    ['Ring caption', 'count 14 · bold remainder on line 2'],
+    ['Upcoming rows', 'min 52px · header 14/600 on --c-surface-alt'],
+    ['News feed', 'date 12 · title 16/600 · excerpt 14 clamp 2'],
+    ['Empty state', 'icon 44px circle · title 16/600 · body 14'],
+  ]),
+  training: specHTML([
+    ['List columns', 'minmax(0,1fr) 248 96 96 108 84 · gap 12'],
+    ['Depth indents', '16 / 32 / 40 / 56px'],
+    ['Depth bands', '--c-surface-alt2 · -alt · #fbfcfe · --c-surface'],
+    ['Activity rows', 'min 52px · hairline --c-line-soft'],
+    ['Status pills', 'h 24 · text 12/600 · status tokens'],
+    ['Progress meter', 'bar 72x6 · label 14'],
+    ['Banners', 'pad 8 8 8 16 · radius 8 · stack gap 12 · max 3'],
+    ['Cards (small)', 'tracks 184-224 · title 14/600'],
+    ['Cards (large)', 'tracks 256-312 · title 16/600'],
+    ['Card grid', 'gap 16 · thumb 16:9 · shadow --e-xs, no border'],
+    ['Card badges', 'status top-left · duration bottom-right'],
+    ['Row actions', 'info leftmost · icon-btn 34 · column 84'],
+  ]),
+  details: specHTML([
+    ['Hero thumbnail', '232px wide · 16:9 · radius 8'],
+    ['Kind chip', 'text 12/600 on --c-primary-soft'],
+    ['Title', '20/600 · meta row 14'],
+    ['Child rows', 'minmax(0,1fr) 168 84 100 22 · min 52px'],
+    ['Nested indent', '+28px on activity rows'],
+    ['Completions table', 'cols 130 90 120 1fr · rows min 40'],
+    ['Back control', '16/500 --c-primary · hover soft fill'],
+    ['Section titles', '18/600 · body pad 20'],
+  ]),
+  catalog: specHTML([
+    ['Category module', 'pad 20 · radius 12 · --e-1 · gap 24'],
+    ['Module header', 'title 18/600 · View all 14/600'],
+    ['Arrow controls', '36px circles · border --c-line · top right'],
+    ['Cards', '.tcard 208 wide · strip gap 16 · title clamp 2'],
+    ['Elective tag', '22px square · radius 4 · --c-ink · top right'],
+    ['Assigned badge', 'solid --c-ok-ink · white 12/600 · top left'],
+    ['Table rows', '56px · edge cells pad 24'],
+    ['Table header', '14/600 on --c-surface-alt · sticky'],
+  ]),
+  wizard: specHTML([
+    ['Panel', 'max 780px · radius 12 · --e-1'],
+    ['Stepper circles', '34px · border 1.5 · line 1.5'],
+    ['Stepper states', 'active --c-primary · complete --c-ok-dot'],
+    ['Tiles', 'radius 12 · icon 46px sq radius 8'],
+    ['Tile selected', '--c-primary border + soft fill + check'],
+    ['Body / footer', 'pad 24 24 32 · footer 16 24 on --c-surface-alt'],
+    ['Form', 'max 480px · field gap 20 · label 16/600'],
+    ['Required mark', '* in --c-err-ink'],
+  ]),
+};
+
 /* ===========================================================================
    Convergence Small UI Improvements - app shell
    ---------------------------------------------------------------------------
@@ -221,6 +303,7 @@
                 </div>
               </div>
             </div>
+            ${SPECS.guide}
           </div>
         </section>
 
@@ -263,6 +346,7 @@
                 </footer>
               </section>
 
+            ${SPECS.home}
             </div>
           </div>
         </section>
@@ -310,6 +394,7 @@
                  renderBanners() in views.js; variants share one construction. -->
             <div class="banner-stack" id="tpBanners"></div>
             <div class="panel tp" id="tp"></div>
+            ${SPECS.training}
           </div>
         </section>
 
@@ -317,6 +402,7 @@
         <section class="view" id="view-details">
           <div class="view-scroll">
             <div class="details" id="detailsRoot"></div>
+            ${SPECS.details}
           </div>
         </section>
 
@@ -329,6 +415,7 @@
             <div class="panel" id="catTableWrap" hidden>
               <table class="cat-table" id="catTable"></table>
             </div>
+            ${SPECS.catalog}
           </div>
         </section>
 
@@ -348,6 +435,7 @@
               <div class="wz-body" id="wzBody"></div>
               <div class="wz-foot" id="wzFoot"></div>
             </div>
+            ${SPECS.wizard}
           </div>
         </section>
 
