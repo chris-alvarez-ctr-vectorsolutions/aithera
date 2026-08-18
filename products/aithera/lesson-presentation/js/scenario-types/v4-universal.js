@@ -496,9 +496,6 @@
       bridgeTitle: 'External authorities only',
       bridge: '<b>Source references</b> take a regulation or standard (an OSHA clause, Title VII) — never an internal course or slide id, which means nothing outside the course.' },
 
-    { id: 'handoff', group: 'reference', icon: 'fa-file-export', title: 'Dev handoff',
-      lead: 'Export this scenario as a POC V4 content document (.lo.json) the production engine loads.' },
-
     { id: 'guardrails', group: 'reference', icon: 'fa-lock', title: 'System guardrails', locked: true,
       lead: 'The locked prompt sections the engine owns. Readable, not editable.' },
   ];
@@ -617,10 +614,6 @@
         tf(`content.closing.ideal_response.source_references.${i}`, 'External authority', {
           helper: 'A regulation, standard or statute — e.g. "29 CFR 1910.1200" or "Title VII". Never an internal course id.' }),
       ), 'Add reference', () => ''));
-    }
-
-    if (sec.id === 'handoff') {
-      box.append(buildHandoffPanel(H));
     }
 
     if (sec.id === 'guardrails') {
@@ -1199,10 +1192,11 @@
       wrap.append(btn2);
     }
 
-    wrap.append(guidance('Why not the toolbar\'s Export JSON button?', 'fa-circle-question',
-      '<p>That button exports the <b>working draft</b> — extensions included — for round-tripping between '
-      + 'Studio users. This panel produces the <b>handoff artifact</b>: extensions stripped, strict-validated, '
-      + 'named the way their service routes it (the file stem is the scenario id).</p>'));
+    wrap.append(guidance('How this differs from the working draft', 'fa-circle-question',
+      '<p>The <b>working draft</b> above is this tool\'s own format — extensions included, nothing '
+      + 'stripped — for round-tripping between Studio users. <b>This</b> is the handoff artifact: '
+      + 'extensions stripped, strict-validated against the POC V4 loader\'s own rules, and named the '
+      + 'way their service routes it (the file stem becomes the scenario id).</p>'));
     return wrap;
   }
 
@@ -1311,6 +1305,19 @@
        scenario has no observe step — the flag gates a surface that only mounts
        for kind:'spot'. */
     previewUrl: () => 'scenario-live.html?type=v4-universal&observe=text',
+    /* The production handoff artifact, surfaced by the shell's Export flow
+       (`type.handoff` — optional, so types without one keep a plain download).
+       It used to be a form section on the last page of the editor, which put the
+       one export a developer actually receives three clicks behind the one they
+       don't. Same panel, same builder — reachable from where an author looks for
+       an export. */
+    handoff: {
+      label: 'Dev handoff — POC V4 content document',
+      lead: 'What the production engine loads: our extension fields stripped, then '
+        + 'revalidated under the POC V4 loader\'s own rules, and named the way their '
+        + 'service routes it. Not the same file as the working draft.',
+      build: (H) => buildHandoffPanel(H),
+    },
     sections,
     renderFields,
     lints,
