@@ -351,14 +351,20 @@ Without them, a stripped V4 document cannot activate the corresponding safety fl
 
 Some UX Universal capabilities have no direct V4 equivalent. They currently run only in the archived `2026-08-17` implementation.
 
+This is an inventory, not a list of asks — none of these appear in *Who Decides What* except the safety flags, which are there on their own evidence. Each entry says what is actually exercised today, because a capability the schema permits and no scenario uses is not a gap in V4.
+
 **Cold-open context (`intro`).**
 A narrated audio or video scene that plays before the conversation begins, setting the situation cinematically (`js/scene-context.js`). V4's landing experience is `narrative` text plus a `landing_cta_label`; there is no media cold-open.
 
 **Teach-back (retrieval practice).**
 The learner explains the material back in their own words, and the runtime credits them as they cover the required topics. V4 has no mode for this; its only coverage-crediting mechanic is tied to `observe_react` and its required `exhibit`.
 
-**Tier-routed branching (`transitions[].onTier`).**
-The quality tier of the learner's response selects the next phase and can set scenario state, producing different paths through the same scenario. V4 advancement is forward-only and server-owned; tiers never route progression.
+**Tier-conditioned transitions (`transitions[].onTier`).**
+The quality tier the model reports at a phase close selects a transition record, which writes scenario state and names the next phase. V4 advancement is forward-only and server-owned; tiers never participate in it.
+
+Read the scope carefully before treating this as a gap, because the mechanism is broader than anything authored on it. The schema permits a fork — different tiers naming different `next` phases — but **no shipped scenario forks**: across all five types, 24 of 24 authored tier-transition blocks converge on the same next phase, and the tier varies only the `set` payload. What tiers actually do today is carry learner-dependent *aftermath* forward as state ("hardened — shut down, the grievance curdling" versus "steadied — heard, with limits he accepted"), which is the same job V4 gives `carryover`, by a different mechanism (spine note §D-3, closed).
+
+The provenance matters too, and cuts against raising this at all. Tier routing was built for the workplace-violence POC because that deck asked for it in as many words — "branches on the learner's handling," "a genuinely branching scenario," "the evolution is contingent on the learner, not scripted." **The final version of that deck reversed it**: "branch" and "contingent" appear nowhere in it, and the arc slide now reads "One fixed arc: the situation escalates through every level; the learner's handling shapes the response, not the path." So the authored source retired the requirement before any scenario exercised it. Treat the forking capability as unexercised and unrequested rather than as something V4 is missing.
 
 **Safety flags.**
 `elevatedStakes`, `involvesMinors`, and `threatContent` — authored booleans that arm the runtime safety floors described in §6. V4 has no fields for them.
@@ -784,9 +790,11 @@ Three questions remain specifically on the UX Universal side. **None of them is 
 
 `branching-arc` is currently live-only and was removed from the Editor registry in July.
 
+The §7 finding sharpens this question rather than answering it. The type's distinguishing feature was tier-routed forking; its own source deck withdrew that requirement, and its shipped scenario converges on one path like every other type. What is left that is genuinely its own is the escalation ladder and the cast/canon primitives — which mix-arc and ensemble-arc already carry.
+
 Question:
 
-**Should it return as an Editor template, or remain live-only?**
+**Should it return as an Editor template, remain live-only, or fold into mix-arc?**
 
 ### 2. What happens to teach-back?
 
