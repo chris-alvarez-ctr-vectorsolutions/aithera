@@ -127,9 +127,12 @@ The mechanical defaults reduced the initial blocking field count from **131 to 6
 
 ---
 
-## 5. Deferred Engine Changes — One Shipped, One Remaining
+## 5. Deferred Engine Changes — All Three Now Shipped
 
-Three interrelated engine changes were deliberately kept out of the retrofit.
+Three interrelated engine changes were deliberately kept out of the initial
+retrofit, and all three have since shipped. This section records what each one
+was, why it waited, and what it now does — the sequencing mattered, and the
+reasons a change waited are worth keeping alongside the change itself.
 
 **Why they waited (and which reason has expired).** The original reason was
 verifiability: the compiler's job was to produce the SAME runtime from V4 input,
@@ -172,21 +175,44 @@ methodological note worth keeping: the earlier floor check had passed on
 authored prose that coincidentally contained the word "crisis" — safety
 assertions are verified by reading the compiled prompt, not by keyword match.
 
-### Prompt scoping — remains unchanged, deliberately
+### Prompt scoping — SHIPPED (f49cf79, 2026-08-17)
 
-POC V4 runs two conversation scopes (the persistent coach thread; short-lived
-scenes with teaching content withheld). UX Universal still compiles a single
-prompt. Scheduled AFTER the dev conversation: it is the largest remaining
-engine change, deserves its own per-scope verification round, and its ROI
-depends directly on the meeting's outcome about who owns the engine going
-forward.
+Originally deferred pending the alignment conversation. That reasoning was
+retired once the prototype was confirmed as the **preview environment for
+Editor output**: without scoping, an author signs off content against a coach
+that structurally knows more than the production engine's ever will, so every
+preview-based sign-off carried a fidelity gap.
 
-### Carryover — part of scoping, not a third change
+Implemented as **redaction-recompile** (`js/scenario-v4-scopes.js`): each scope's
+prompt is the same shipped builder run over a redacted copy of the document, so
+the engine's JSON-turn contract is identical in every scope by construction.
 
-`carryover` is preserved in the V4 data but not consumed. Alone it is a no-op:
-in a single-conversation player the model already sees every earlier turn, so
-carryover is trivially over-satisfied. The field only becomes meaningful once
-scoping exists for it to punch through.
+| Scope | Sees |
+| --- | --- |
+| coach / practice | the arc, not the answers — `teaching_points`, `misconceptions`, `key_points`, probes and the closing answer all absent |
+| coach / debrief | everything, plus a serialized teaching-points and misconceptions block |
+| scene / *rung* | one phase plus `scene_world` — no narrative, no opening, no teaching, no other phases |
+
+Verified across all 11 V4 scenarios × every phase: teaching and playbook absent
+from every practice and scene scope, released at debrief. Compiled sizes on the
+Marshall arc: scene 11.3k < practice 18.8k < debrief 20k characters.
+
+Three deltas from full V4 fidelity are recorded in the module header: the
+closing answer stays in the debrief scope (our close is model-written there,
+where V4 composes it server-side); a delivery-only carryover slice includes its
+fused close-teach; context addenda reach coach scopes only.
+
+### Carryover — SHIPPED with scoping (f49cf79)
+
+Carryover consumption was never a separable change. In a single-conversation
+player it is a no-op — the model already sees every earlier turn, so carryover
+is trivially over-satisfied. It became meaningful only once scopes existed for
+it to punch through.
+
+Now: a scene turn's history is its own rung slice plus the **verbatim** slices
+of the phases its `carryover` grants (V4 §7.2.5 — "never a summary"); coach
+turns keep the full brief. Slice boundaries are recorded through a guarded
+`onRungEnter` hook in `sim-player.applyDeliver`, inert on every native route.
 
 The `narrative` placement question has been resolved; see §9.6.
 
