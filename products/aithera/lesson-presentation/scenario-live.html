@@ -1560,7 +1560,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=9"></script>
+    <script src="js/sim-core.js?v=10"></script>
     <script src="js/sim-player.js?v=8"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
@@ -2951,7 +2951,8 @@
         stampScene(m);            // tag with the live conversation (per-counterpart window)
         state.messages.push(m);
         render();
-        await wait(reducedMotion() ? 140 : 700);      // settle so it reads before the next beat
+        await wait(settleTime(m.text || ''));         // settle — scaled to this beat, so a long
+                                                      // narration isn't cut off by the next dots
         if (dead && dead()) return;
       }
     }
@@ -3460,11 +3461,14 @@
        "Analyzing response…" leads into the coaching layer with the scene line
        animating across — so coaching and scene stay two distinct moments that
        are visually connected. */
-    // Shared pacing (js/sim-core.js): wait/reducedMotion plus thinkingTime —
-    // the coach "thinks" long enough for the learner to read the PREVIOUS
-    // message; the very first line gets a short opening beat. One rhythm
-    // across every simulator page.
-    const { wait, reducedMotion, thinkingTime } = SimCore;
+    // Shared pacing (js/sim-core.js): wait/reducedMotion plus the two halves of
+    // the between-messages beat — settleTime, a SILENT hold scaled to the line
+    // that just landed (the thread sits still so the learner can read it and
+    // find their place), then dotsTime, the typing indicator signalling more is
+    // coming. Their sum is the old thinkingTime, so a burst is paced exactly as
+    // before — the dots just no longer pounce the instant a message arrives.
+    // One rhythm across every simulator page.
+    const { wait, reducedMotion, settleTime, dotsTime } = SimCore;
 
     // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
     let deliverSeq = 0;
@@ -3490,15 +3494,16 @@
           const m = coachingItems[ci];
           const prev = ci > 0 ? coachingItems[ci - 1] : null;
           hideTyping();
-          // Dots scaled to the PREVIOUS line's length (thinkingTime) rather than a
+          // Dots scaled to the PREVIOUS line's length (dotsTime) rather than a
           // flat beat — so a burst of coach messages leaves the learner room to
           // start reading each one before the next composes.
-          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+          showTyping(); await wait(dotsTime(prev ? prev.text : '')); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
-          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 700);
+          // silent breath BEFORE the next dots, scaled to what just landed
+          if (ci < coachingItems.length - 1) await wait(settleTime(m.text || ''));
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -3551,14 +3556,14 @@
         while (i < items.length) {                     // reveal the acknowledgment at live-reply pace
           const m = items[i];
           hideTyping();
-          showTyping(); await wait(thinkingTime(prevC)); hideTyping();
+          showTyping(); await wait(dotsTime(prevC)); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
           prevC = m.text || '';
           i++;
-          if (i < items.length) await wait(reducedMotion() ? 80 : 700);
+          if (i < items.length) await wait(settleTime(prevC));   // breath, then the next dots
           if (dead()) return;
         }
         // The reply is on screen — now offer results. pendingDebrief is empty, so
@@ -3608,16 +3613,16 @@
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        // Dots scaled to what was just shown (thinkingTime) instead of a flat beat,
+        // Dots scaled to what was just shown (dotsTime) instead of a flat beat,
         // so consecutive coach lines give the learner room to start reading.
-        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
+        showTyping(); await wait(dotsTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
         prevText = m.text || '';
         i++;
-        if (i < items.length) await wait(reducedMotion() ? 80 : 700);
+        if (i < items.length) await wait(settleTime(prevText));   // breath, then the next dots
         if (dead()) return;
       }
 
@@ -3718,13 +3723,13 @@
       for (let k = 0; k < coachPart.length; k++) {
         const m = coachPart[k];
         hideTyping();
-        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
+        showTyping(); await wait(dotsTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
         prevText = m.text || '';
-        if (k < coachPart.length - 1) await wait(reducedMotion() ? 80 : 700);
+        if (k < coachPart.length - 1) await wait(settleTime(prevText));   // breath, then the next dots
         if (dead()) return;
       }
       state.delivering = false;
@@ -3908,13 +3913,14 @@
         // The dominant beat: "thinking" long enough to read the previous message,
         // with the typing dots signalling that more is on the way.
         hideTyping();
-        showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        showTyping(); await wait(dotsTime(prev ? prev.text : '')); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
-        // just a short settle so the next "thinking" doesn't start the same instant
-        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 700);
+        // hold the thread still first — the next "thinking" must not start the
+        // same instant this line lands, or the eye chases the dots off it
+        if (i < opening.length - 1) await wait(settleTime(m.text || ''));
         if (dead()) return;
       }
       state.delivering = false;

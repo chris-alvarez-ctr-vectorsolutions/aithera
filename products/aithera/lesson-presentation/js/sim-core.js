@@ -78,6 +78,24 @@
     : prevText ? Math.min(3800, 1000 + String(prevText).length * 15)
                : 950;
 
+  // SPLIT of that same budget into two halves: a SILENT settle, then the dots.
+  // Dots appearing the instant a message lands turns a coach burst into a game of
+  // "follow the chat bubble" — the eye is yanked to the new indicator before it
+  // has settled on the line that just arrived. So hold the thread STILL first,
+  // for a beat scaled to what was just delivered (that's what's being read), and
+  // only then start the dots.
+  //
+  // The breath is carved OUT of thinkingTime, not added on top:
+  //   settleTime(prev) + dotsTime(prev) === thinkingTime(prev)
+  // so a burst takes exactly as long as before — it just breathes in the right
+  // place. Both floors stay generous enough to register as a pause.
+  const settleTime = (prevText) =>
+    reducedMotion() ? 120
+    : prevText ? Math.min(1300, 380 + String(prevText).length * 6)
+               : 380;
+  const dotsTime = (prevText) =>
+    Math.max(reducedMotion() ? 130 : 420, thinkingTime(prevText) - settleTime(prevText));
+
   // Dots-before-a-message beat. The FIRST bubble in a burst appears FAST —
   // the model round-trip (or the closing stepper) already served as the
   // "thinking". Later bubbles get a beat scaled to THEIR OWN length, on a
@@ -522,6 +540,8 @@
     wait,
     reducedMotion,
     thinkingTime,
+    settleTime,
+    dotsTime,
     typingTime,
     repairJson,
     parseJson,
