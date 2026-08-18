@@ -40,7 +40,11 @@
   STRUCTURE
   ---------
     Drug Boxes | Master Supply | On Hand | Audit | Orders* | Compliance* | Reports | Discrepancies
-                                            └ Movements · Consumption* · Chain of Custody
+
+  Audit's record classes (Movements · Consumption · Chain of Custody) are a
+  SEGMENTED VIEW SELECTOR on the table card, not a second tab row — two stacked
+  horizontal tab bars is a rejected pattern, and it is rejected in both versions
+  so the V1/V2 comparison stays about IA rather than one version's pattern flaw.
 
   PRD COVERAGE (identical to V1, different placement)
   ---------------------------------------------------
@@ -270,16 +274,30 @@ href="../../../../assets/fontawesome/css/all.min.css"
   #v-audit[data-sub="consumption"] #s-consumption,
   #v-audit[data-sub="coc"]         #s-coc { display: block; }
 
-  .cs-subnav { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--cs-line); }
-  .cs-subnav button {
-    border: 0; background: transparent; font: inherit; font-size: 13.5px;
-    color: var(--ci-ink-700); padding: 9px 14px; cursor: pointer;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  /* ---- Record-class selector (Audit) ----
+     Same fix as V1: a segmented control on the table card, NOT a second tab
+     row. V2 keeps today's tab structure, but the stacked-bar pattern is
+     rejected in both versions so the V1/V2 comparison stays about IA. */
+  .cs-classbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 0 16px 13px;
   }
-  .cs-subnav button:hover { color: var(--ci-ink-900); }
-  .cs-subnav button[aria-selected="true"] {
-    color: var(--lumo-primary-text-color, #0271ce); font-weight: 700;
-    border-bottom-color: var(--lumo-primary-color, #0271ce);
+  .cs-classbar .lab {
+    font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ci-ink-500);
+  }
+  .cs-classes { display: inline-flex; }
+  .cs-class {
+    border: 1px solid var(--cs-line); background: #fff; font: inherit; font-size: 12.5px;
+    padding: 6px 15px; cursor: pointer; color: var(--ci-ink-700);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .cs-class:first-child { border-radius: 6px 0 0 6px; }
+  .cs-class:last-child  { border-radius: 0 6px 6px 0; }
+  .cs-class + .cs-class { border-left: 0; }
+  .cs-class:hover { background: var(--cs-zebra); }
+  .cs-class[aria-pressed="true"] {
+    background: var(--ci-navy); border-color: var(--ci-navy); color: #fff; font-weight: 700;
   }
 
   /* ---- Tables --------------------------------------------------------- */
@@ -837,28 +855,35 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
 
         <!-- ==================== AUDIT ====================
-             Two new sub-tabs added under the existing tab. Consumption is one
-             sub-tab (not one per type) because a record can carry both an
-             administered and a wasted quantity. -->
+             Two new record classes added under the existing tab, as a SEGMENTED
+             VIEW SELECTOR on the table card rather than a second tab row.
+             Consumption is one class (not one per type) because a record can
+             carry both an administered and a wasted quantity. -->
         <section class="cs-view" id="v-audit" data-sub="consumption" aria-label="Audit">
-          <div class="cs-subnav" role="tablist">
-            <button role="tab" aria-selected="false" onclick="csSub(this,'movements')">Movements</button>
-            <button role="tab" aria-selected="true"  onclick="csSub(this,'consumption')">Consumption</button>
-            <button role="tab" aria-selected="false" onclick="csSub(this,'coc')">Chain of Custody</button>
-          </div>
+
+          <div class="cs-card">
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title" id="cs-act-title">Consumption</div>
+                <div class="cs-card-sub" id="cs-act-sub">Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span></div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
+              </div>
+            </div>
+
+            <div class="cs-classbar">
+              <span class="lab">Records</span>
+              <div class="cs-classes" role="group" aria-label="Record class">
+                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'movements')">Movements</button>
+                <button class="cs-class" aria-pressed="true"  onclick="csSub(this,'consumption')">Consumption</button>
+                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'coc')">Chain of Custody</button>
+              </div>
+            </div>
 
           <!-- MOVEMENTS (5.3) -->
           <div class="cs-sub" id="s-movements">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Movements</div>
-                  <div class="cs-card-sub">Acquisitions, inter-location deliveries and post-run restocks &middot; <span class="cs-cite">21 CFR 1304.27(b), 1307.14</span></div>
-                </div>
-                <div class="cs-card-acts">
-                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
-                </div>
-              </div>
+            <div>
               <div class="cs-filters">
                 <vaadin-select theme="outlined" label="Location" value="all" id="mv-loc"></vaadin-select>
                 <vaadin-select theme="outlined" label="Movement type" value="all" id="mv-type"></vaadin-select>
@@ -915,16 +940,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
           <!-- CONSUMPTION (5.2) -->
           <div class="cs-sub" id="s-consumption">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Consumption</div>
-                  <div class="cs-card-sub">Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span></div>
-                </div>
-                <div class="cs-card-acts">
-                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
-                </div>
-              </div>
+            <div>
               <div class="cs-filters">
                 <vaadin-select theme="outlined" label="Location" value="all" id="cn-loc"></vaadin-select>
                 <vaadin-select theme="outlined" label="Substance" value="all" id="cn-sub"></vaadin-select>
@@ -1142,16 +1158,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                question. Here it is a place you navigate to and then choose a
                lot; in V1 it is an action on a record that builds itself. -->
           <div class="cs-sub" id="s-coc">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Chain of Custody</div>
-                  <div class="cs-card-sub">Select a lot to build its lifecycle &mdash; acquisition through disposition.</div>
-                </div>
-                <div class="cs-card-acts">
-                  <vaadin-button theme="tertiary" onclick="return false">Export PDF</vaadin-button>
-                </div>
-              </div>
+            <div>
               <div class="cs-filters">
                 <vaadin-select theme="outlined" label="Substance" value="kt" id="coc-sub"></vaadin-select>
                 <vaadin-select theme="outlined" label="Lot" value="kt40118" id="coc-lot"></vaadin-select>
@@ -1201,6 +1208,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
               </div>
             </div>
           </div>
+
+          </div><!-- /.cs-card wrapping the whole Audit log -->
         </section>
 
 
@@ -1639,19 +1648,35 @@ href="../../../../assets/fontawesome/css/all.min.css"
     window.scrollTo(0, 0);
   }
 
+  /* Record-class selector — a view selector on the card, not navigation.
+     The card title/subtitle swap so the header always describes the table. */
+  var ACT_LABELS = {
+    movements: ['Movements',
+      'Acquisitions, inter-location deliveries and post-run restocks &middot; <span class="cs-cite">21 CFR 1304.27(b), 1307.14</span>'],
+    consumption: ['Consumption',
+      'Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span>'],
+    coc: ['Chain of Custody',
+      'Select a lot to build its lifecycle &mdash; acquisition through disposition.']
+  };
+
   function csSub(btn, name) {
     var v = document.getElementById('v-audit');
     v.setAttribute('data-sub', name);
-    btn.parentNode.querySelectorAll('button').forEach(function (b) {
-      b.setAttribute('aria-selected', String(b === btn));
+    v.querySelectorAll('.cs-class').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b === btn));
     });
+    var lab = ACT_LABELS[name];
+    if (lab) {
+      document.getElementById('cs-act-title').innerHTML = lab[0];
+      document.getElementById('cs-act-sub').innerHTML = lab[1];
+    }
   }
-  /* Jump to a sub-tab without a button reference (used by row actions). */
+  /* Select a record class by name, without needing a button reference. */
   function csSubJump(name) {
-    var v = document.getElementById('v-audit');
     var order = ['movements','consumption','coc'];
-    var btns = v.querySelectorAll('.cs-subnav button');
-    csSub(btns[order.indexOf(name)], name);
+    var btns = document.querySelectorAll('#v-audit .cs-class');
+    var i = order.indexOf(name);
+    if (i > -1 && btns[i]) csSub(btns[i], name);
     window.scrollTo(0, 0);
   }
 

@@ -67,13 +67,33 @@
     data-quality flag, not a notification failure. Shown as such below and called
     out as an open question — it is not in the PRD.
 
+  NO SECOND TAB ROW — ANYWHERE
+  ----------------------------
+  Two stacked horizontal tab bars is a rejected pattern: the secondary row reads
+  as navigation competing with the primary one. Both places that used one are
+  gone, and they were resolved DIFFERENTLY because they were different problems:
+
+    Activity's four record classes were never navigation — they are one query
+    narrowed four ways. They became a SEGMENTED VIEW SELECTOR on the table card,
+    a peer of the filter row beneath it. The card's title and subtitle swap with
+    the selection so the header always describes the table.
+
+    Authorities' three members WERE different objects (a document library with
+    PDFs, a personnel table, a rules table), so a view selector would have
+    misrepresented them as views of one thing. The grouping was dissolved
+    instead: Orders — the one with its own workflow and shape — was promoted to
+    a top-level tab, and authorizations + escalation policies moved to
+    Compliance as stacked cards alongside the other governing reference data.
+
+  Result: five tabs, zero sub-navigation.
+
   PRD COVERAGE
   ------------
     5.1 Registered/designated locations ....... Compliance
     5.2 Per-dose administration & disposal .... Activity › Consumption
     5.3 Acquisition / restock / delivery ...... Activity › Movements (+ Reports)
-    5.4 Standing & verbal orders .............. Authorities
-    5.5 Registrant authorizations ............. Authorities
+    5.4 Standing & verbal orders .............. Orders
+    5.5 Registrant authorizations ............. Compliance
     5.6 Biennial inventory .................... Compliance (+ attention layer)
     5.7 DEA/PPAEMA report set ................. Reports
 
@@ -321,7 +341,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cs-view { display: none; }
   .cs-main[data-tab="inventory"]   #v-inventory,
   .cs-main[data-tab="activity"]    #v-activity,
-  .cs-main[data-tab="authorities"] #v-authorities,
+  .cs-main[data-tab="orders"]      #v-orders,
   .cs-main[data-tab="compliance"]  #v-compliance,
   .cs-main[data-tab="reports"]     #v-reports { display: block; }
 
@@ -332,26 +352,42 @@ href="../../../../assets/fontawesome/css/all.min.css"
   #v-activity[data-sub="counts"]      #s-counts,
   #v-activity[data-sub="discrepancies"] #s-discrepancies { display: block; }
 
-  /* Sub-nav under a tab (Activity's record classes) */
-  .cs-subnav {
-    display: flex; gap: 4px; margin-bottom: 14px;
-    border-bottom: 1px solid var(--cs-line);
+  /* ---- Record-class selector (Activity) --------------------------------
+     A SEGMENTED CONTROL INSIDE THE TABLE CARD, not a second tab row.
+     Two stacked horizontal tab bars is a rejected pattern: the secondary row
+     reads as navigation competing with the primary one, when what it actually
+     does is choose WHICH RECORDS the table below shows. The four record
+     classes are one query narrowed four ways, so the control belongs with the
+     other things that narrow the table — a peer of the filter row beneath it,
+     sitting on the card rather than above it.
+     ---------------------------------------------------------------------- */
+  .cs-classbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 0 16px 13px;
   }
-  .cs-subnav button {
-    border: 0; background: transparent; font: inherit; font-size: 13.5px;
-    color: var(--ci-ink-700); padding: 9px 14px; cursor: pointer;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  .cs-classbar .lab {
+    font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ci-ink-500);
   }
-  .cs-subnav button:hover { color: var(--ci-ink-900); }
-  .cs-subnav button[aria-selected="true"] {
-    color: var(--lumo-primary-text-color, #0271ce); font-weight: 700;
-    border-bottom-color: var(--lumo-primary-color, #0271ce);
+  .cs-classes { display: inline-flex; }
+  .cs-class {
+    border: 1px solid var(--cs-line); background: #fff; font: inherit; font-size: 12.5px;
+    padding: 6px 15px; cursor: pointer; color: var(--ci-ink-700);
+    display: inline-flex; align-items: center; gap: 7px;
   }
-  .cs-subnav .cs-sn-count {
-    margin-left: 6px; font-size: 11px; font-weight: 700;
-    padding: 1px 6px; border-radius: 999px;
+  .cs-class:first-child { border-radius: 6px 0 0 6px; }
+  .cs-class:last-child  { border-radius: 0 6px 6px 0; }
+  .cs-class + .cs-class { border-left: 0; }
+  .cs-class:hover { background: var(--cs-zebra); }
+  .cs-class[aria-pressed="true"] {
+    background: var(--ci-navy); border-color: var(--ci-navy); color: #fff; font-weight: 700;
+  }
+  .cs-class .cs-sn-count {
+    font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
     background: var(--lumo-error-color, #d83e38); color: #fff;
   }
+  /* On the dark selected segment the red count would vibrate, so invert it. */
+  .cs-class[aria-pressed="true"] .cs-sn-count { background: #fff; color: var(--ci-navy); }
 
   /* ---- Tables --------------------------------------------------------- */
   .cs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -804,7 +840,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
         <vaadin-tabs id="cs-tabs" selected="0">
           <vaadin-tab data-tab="inventory">Inventory</vaadin-tab>
           <vaadin-tab data-tab="activity">Activity</vaadin-tab>
-          <vaadin-tab data-tab="authorities">Authorities</vaadin-tab>
+          <vaadin-tab data-tab="orders">Orders</vaadin-tab>
           <vaadin-tab data-tab="compliance">Compliance</vaadin-tab>
           <vaadin-tab data-tab="reports">Reports</vaadin-tab>
         </vaadin-tabs>
@@ -1059,30 +1095,41 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
         <!-- ==========================================================
              ACTIVITY — the unified append-only event log.
-             Absorbs Audit + Discrepancies. Record CLASS is the sub-nav;
-             consumption TYPE is a facet inside Consumption.
+             Absorbs Audit + Discrepancies.
+
+             NO SUB-TAB ROW. The four record classes are one query narrowed
+             four ways, so they are a VIEW SELECTOR on the table card, not a
+             second navigation level. Consumption TYPE remains a facet inside
+             the Consumption view — type and class are different axes.
              ========================================================== -->
         <section class="cs-view" id="v-activity" data-sub="consumption" aria-label="Activity">
 
-          <div class="cs-subnav" role="tablist">
-            <button role="tab" aria-selected="false" onclick="csSub(this,'movements')">Movements</button>
-            <button role="tab" aria-selected="true"  onclick="csSub(this,'consumption')">Consumption</button>
-            <button role="tab" aria-selected="false" onclick="csSub(this,'counts')">Counts &amp; corrections</button>
-            <button role="tab" aria-selected="false" onclick="csSub(this,'discrepancies')">Discrepancies<span class="cs-sn-count" id="cs-sn-disc">3</span></button>
-          </div>
+          <div class="cs-card">
+            <!-- Shared header: the title/subtitle swap with the selected class,
+                 so the card always describes what is actually in the table. -->
+            <div class="cs-card-head">
+              <div>
+                <div class="cs-card-title" id="cs-act-title">Consumption</div>
+                <div class="cs-card-sub" id="cs-act-sub">Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span></div>
+              </div>
+              <div class="cs-card-acts">
+                <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
+              </div>
+            </div>
+
+            <div class="cs-classbar">
+              <span class="lab">Records</span>
+              <div class="cs-classes" role="group" aria-label="Record class">
+                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'movements')">Movements</button>
+                <button class="cs-class" aria-pressed="true"  onclick="csSub(this,'consumption')">Consumption</button>
+                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'counts')">Counts &amp; corrections</button>
+                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'discrepancies')">Discrepancies<span class="cs-sn-count" id="cs-sn-disc">3</span></button>
+              </div>
+            </div>
 
           <!-- ---- MOVEMENTS (5.3) ---- -->
           <div class="cs-sub" id="s-movements">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Movements</div>
-                  <div class="cs-card-sub">Acquisitions, inter-location deliveries and post-run restocks &middot; <span class="cs-cite">21 CFR 1304.27(b), 1307.14</span></div>
-                </div>
-                <div class="cs-card-acts">
-                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
-                </div>
-              </div>
+            <div>
 
               <div class="cs-filters">
                 <vaadin-select theme="outlined" label="Location" value="all" id="mv-loc"></vaadin-select>
@@ -1173,19 +1220,11 @@ href="../../../../assets/fontawesome/css/all.min.css"
           </div>
 
           <!-- ---- CONSUMPTION (5.2) ----
-               ONE sub-tab, not one per type, because a single record can carry
-               both an administered and a wasted quantity. Type is a facet. -->
+               ONE record class, not one per type, because a single record can
+               carry both an administered and a wasted quantity. Type is a facet
+               below — a different axis from the record-class selector above. -->
           <div class="cs-sub" id="s-consumption">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Consumption</div>
-                  <div class="cs-card-sub">Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span></div>
-                </div>
-                <div class="cs-card-acts">
-                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
-                </div>
-              </div>
+            <div>
 
               <div class="cs-filters">
                 <vaadin-select theme="outlined" label="Location" value="all" id="cn-loc"></vaadin-select>
@@ -1269,7 +1308,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                             <vaadin-button theme="secondary" onclick="event.stopPropagation();csCoc('FENTANYL CITRATE (SUBLIMAZE)','FN-23409')">
                               <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
                             </vaadin-button>
-                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('authorities')">View order SO-14</vaadin-button>
+                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('orders')">View order SO-14</vaadin-button>
                           </div>
                         </div>
                       </td>
@@ -1314,7 +1353,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                             <vaadin-button theme="secondary" onclick="event.stopPropagation();csCoc('MIDAZOLAM (VERSED)','MZ-88421')">
                               <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
                             </vaadin-button>
-                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('authorities')">View order SO-07</vaadin-button>
+                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('orders')">View order SO-07</vaadin-button>
                           </div>
                         </div>
                       </td>
@@ -1406,7 +1445,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                             <vaadin-button theme="secondary" onclick="event.stopPropagation();csCoc('KETAMINE HCL','KT-40118')">
                               <i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>View chain of custody
                             </vaadin-button>
-                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('authorities')">View order VO-2211</vaadin-button>
+                            <vaadin-button theme="tertiary" onclick="event.stopPropagation();csTab('orders')">View order VO-2211</vaadin-button>
                           </div>
                         </div>
                       </td>
@@ -1451,13 +1490,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
           <!-- ---- COUNTS & CORRECTIONS ---- -->
           <div class="cs-sub" id="s-counts">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Counts &amp; corrections</div>
-                  <div class="cs-card-sub">Blind counts, reconciliations and append-only corrections. A correction never overwrites the original.</div>
-                </div>
-              </div>
+            <div>
               <div class="cs-card-body is-flush">
                 <table class="cs-table">
                   <thead>
@@ -1533,17 +1566,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                list, filterable, because "show me discrepancies" must have a
                single answer regardless of who is asking. -->
           <div class="cs-sub" id="s-discrepancies">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Discrepancies</div>
-                  <div class="cs-card-sub">Every discrepancy in one list &mdash; open, mistakes and possible diversions.</div>
-                </div>
-                <div class="cs-card-acts">
-                  <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-csv" style="margin-right:6px" aria-hidden="true"></i>Export CSV</vaadin-button>
-                </div>
-              </div>
-
+            <div>
               <div style="padding:12px 16px; border-bottom:1px solid var(--cs-line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap">
                 <span class="cs-scope-label">State</span>
                 <div class="cs-facets">
@@ -1646,25 +1669,22 @@ href="../../../../assets/fontawesome/css/all.min.css"
               </div>
             </div>
           </div>
+
+          </div><!-- /.cs-card wrapping the whole Activity log -->
         </section>
 
-
         <!-- ==========================================================
-             AUTHORITIES — everything that PERMITS. A genuine gap in
-             current-state: escalation policies exist today only buried inside
-             Drug Boxes, and orders/authorizations are not modelled at all.
+             ORDERS (5.4) — promoted to a top-level tab.
+             Authorities was dissolved: its three members are different OBJECTS
+             (a document library, a personnel table, a rules table), not views
+             of one thing, so a view selector would have misrepresented them and
+             a second tab row was not an acceptable pattern. Orders is the one
+             with its own workflow and its own shape, so it stands alone;
+             authorizations and escalation policies moved to Compliance, where
+             the other governing reference data already lives.
              ========================================================== -->
-        <section class="cs-view" id="v-authorities" aria-label="Authorities">
+        <section class="cs-view" id="v-orders" aria-label="Orders">
 
-          <div class="cs-subnav" role="tablist">
-            <button role="tab" aria-selected="true"  onclick="csAuth(this,'orders')">Standing &amp; verbal orders</button>
-            <button role="tab" aria-selected="false" onclick="csAuth(this,'auth')">Registrant authorizations</button>
-            <button role="tab" aria-selected="false" onclick="csAuth(this,'policies')">Escalation policies</button>
-          </div>
-
-          <!-- ORDERS (5.4) — light reference record, per the PRD's own v1
-               recommendation: store, version, link. Not protocol authoring. -->
-          <div class="cs-auth" id="a-orders">
             <div class="cs-split">
               <div>
                 <div class="cs-card">
@@ -1790,138 +1810,25 @@ href="../../../../assets/fontawesome/css/all.min.css"
                 </div>
               </div>
             </div>
-          </div>
 
           <!-- REGISTRANT AUTHORIZATIONS (5.5) -->
-          <div class="cs-auth" id="a-auth" style="display:none">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Registrant authorizations</div>
-                  <div class="cs-card-sub">Every professional authorized to handle controlled substances &middot; <span class="cs-cite">21 CFR 1304.03(i)</span></div>
-                </div>
-              </div>
-              <div class="cs-card-body">
-                <div class="cs-note cs-note-info">
-                  <i class="fa-solid fa-circle-info" style="margin-right:7px" aria-hidden="true"></i>
-                  <strong>Open question.</strong> Personnel and credentials are platform primitives owned outside CS. This surface reads through to them and adds only the CS-specific authorization. Whether it should also <em>edit</em> is unresolved &mdash; see the flow-map notes.
-                </div>
-              </div>
-              <div class="cs-card-body is-flush">
-                <table class="cs-table">
-                  <thead>
-                    <tr>
-                      <th>Professional</th>
-                      <th>Credential</th>
-                      <th>Authorized for</th>
-                      <th>Home location</th>
-                      <th>Effective</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td class="cs-strong">Kevin Znilek</td>
-                      <td>Paramedic #P-2291</td>
-                      <td>Handle &middot; administer &middot; witness</td>
-                      <td>Riverside HQ</td>
-                      <td>01/12/2025 &ndash; 01/12/2027</td>
-                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Alicia Reyes</td>
-                      <td>Paramedic #P-3140</td>
-                      <td>Handle &middot; administer &middot; witness</td>
-                      <td>Northside Station 12</td>
-                      <td>04/03/2025 &ndash; 04/03/2027</td>
-                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Tom Hartley</td>
-                      <td>Paramedic #P-1755</td>
-                      <td>Handle &middot; administer &middot; witness</td>
-                      <td>Tumbleweed Station 51</td>
-                      <td>10/20/2024 &ndash; 10/20/2026</td>
-                      <td><span class="cs-pill cs-pill--warn">Expires in 63 days</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Marcus Okonjo</td>
-                      <td>Paramedic #P-2884</td>
-                      <td>Handle &middot; administer &middot; witness</td>
-                      <td>Westfield Operations Center</td>
-                      <td>09/30/2024 &ndash; 09/30/2026</td>
-                      <td><span class="cs-pill cs-pill--warn">Expires in 43 days</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Dr. R. Halvorsen</td>
-                      <td>MD &middot; Medical Director</td>
-                      <td>Authorize &middot; issue standing orders</td>
-                      <td>Riverside HQ</td>
-                      <td>01/01/2025 &ndash; 12/31/2027</td>
-                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Dr. M. Okonjo</td>
-                      <td>MD &middot; Assoc. Medical Director</td>
-                      <td>Authorize &middot; issue standing orders</td>
-                      <td>Riverside HQ</td>
-                      <td>03/15/2026 &ndash; 03/15/2028</td>
-                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- ESCALATION POLICIES — exists today, but buried inside Drug Boxes.
-               It belongs with the other things that govern. -->
-          <div class="cs-auth" id="a-policies" style="display:none">
-            <div class="cs-card">
-              <div class="cs-card-head">
-                <div>
-                  <div class="cs-card-title">Escalation policies</div>
-                  <div class="cs-card-sub">Today these live inside Drug Boxes. They govern what happens when a check is missed, so they sit with the other authorities.</div>
-                </div>
-              </div>
-              <div class="cs-card-body is-flush">
-                <table class="cs-table">
-                  <thead>
-                    <tr><th>Policy</th><th>Applies to</th><th>Trigger</th><th>Escalates to</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td class="cs-strong">Daily rig check &mdash; C-II</td>
-                      <td>All apparatus drug boxes</td>
-                      <td>Not checked by 08:00</td>
-                      <td>Station officer &rarr; CS coordinator</td>
-                      <td><span class="cs-pill cs-pill--ok">Active</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Master supply weekly</td>
-                      <td>Riverside HQ, Westfield Ops</td>
-                      <td>Not counted in 7 days</td>
-                      <td>CS coordinator</td>
-                      <td><span class="cs-pill cs-pill--ok">Active</span></td>
-                    </tr>
-                    <tr>
-                      <td class="cs-strong">Discrepancy &mdash; immediate</td>
-                      <td>All locations</td>
-                      <td>Any undispositioned discrepancy</td>
-                      <td>CS coordinator &rarr; medical director</td>
-                      <td><span class="cs-pill cs-pill--ok">Active</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
         </section>
 
 
+
         <!-- ==========================================================
-             COMPLIANCE — the registration topology and the obligations with
-             clocks. Not the leftovers bin: this is the DEA's own structure.
+             COMPLIANCE — the registration topology, the obligations with
+             clocks, and the governing reference data. Not the leftovers bin:
+             this is the DEA's own structure.
+
+             Registrant authorizations and escalation policies moved here when
+             Authorities was dissolved. They fit: both are low-frequency
+             reference data that GOVERNS what may happen, maintained by the same
+             compliance admin who maintains the registration topology — and
+             neither needed a surface of its own.
+
+             Stacked cards, no selector — these are different objects, so a view
+             selector would have implied they were views of one thing.
              ========================================================== -->
         <section class="cs-view" id="v-compliance" aria-label="Compliance">
 
@@ -2078,6 +1985,128 @@ href="../../../../assets/fontawesome/css/all.min.css"
               </div>
             </div>
           </div>
+
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Registrant authorizations</div>
+                  <div class="cs-card-sub">Every professional authorized to handle controlled substances &middot; <span class="cs-cite">21 CFR 1304.03(i)</span></div>
+                </div>
+              </div>
+              <div class="cs-card-body">
+                <div class="cs-note cs-note-info">
+                  <i class="fa-solid fa-circle-info" style="margin-right:7px" aria-hidden="true"></i>
+                  <strong>Open question.</strong> Personnel and credentials are platform primitives owned outside CS. This surface reads through to them and adds only the CS-specific authorization. Whether it should also <em>edit</em> is unresolved &mdash; see the flow-map notes.
+                </div>
+              </div>
+              <div class="cs-card-body is-flush">
+                <table class="cs-table">
+                  <thead>
+                    <tr>
+                      <th>Professional</th>
+                      <th>Credential</th>
+                      <th>Authorized for</th>
+                      <th>Home location</th>
+                      <th>Effective</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="cs-strong">Kevin Znilek</td>
+                      <td>Paramedic #P-2291</td>
+                      <td>Handle &middot; administer &middot; witness</td>
+                      <td>Riverside HQ</td>
+                      <td>01/12/2025 &ndash; 01/12/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Alicia Reyes</td>
+                      <td>Paramedic #P-3140</td>
+                      <td>Handle &middot; administer &middot; witness</td>
+                      <td>Northside Station 12</td>
+                      <td>04/03/2025 &ndash; 04/03/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Tom Hartley</td>
+                      <td>Paramedic #P-1755</td>
+                      <td>Handle &middot; administer &middot; witness</td>
+                      <td>Tumbleweed Station 51</td>
+                      <td>10/20/2024 &ndash; 10/20/2026</td>
+                      <td><span class="cs-pill cs-pill--warn">Expires in 63 days</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Marcus Okonjo</td>
+                      <td>Paramedic #P-2884</td>
+                      <td>Handle &middot; administer &middot; witness</td>
+                      <td>Westfield Operations Center</td>
+                      <td>09/30/2024 &ndash; 09/30/2026</td>
+                      <td><span class="cs-pill cs-pill--warn">Expires in 43 days</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Dr. R. Halvorsen</td>
+                      <td>MD &middot; Medical Director</td>
+                      <td>Authorize &middot; issue standing orders</td>
+                      <td>Riverside HQ</td>
+                      <td>01/01/2025 &ndash; 12/31/2027</td>
+                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Dr. M. Okonjo</td>
+                      <td>MD &middot; Assoc. Medical Director</td>
+                      <td>Authorize &middot; issue standing orders</td>
+                      <td>Riverside HQ</td>
+                      <td>03/15/2026 &ndash; 03/15/2028</td>
+                      <td><span class="cs-pill cs-pill--ok">Current</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          <!-- ESCALATION POLICIES — exists today, but buried inside Drug Boxes.
+               It belongs with the other things that govern. -->
+
+            <div class="cs-card">
+              <div class="cs-card-head">
+                <div>
+                  <div class="cs-card-title">Escalation policies</div>
+                  <div class="cs-card-sub">Today these live inside Drug Boxes. They govern what happens when a check is missed, so they sit with the other authorities.</div>
+                </div>
+              </div>
+              <div class="cs-card-body is-flush">
+                <table class="cs-table">
+                  <thead>
+                    <tr><th>Policy</th><th>Applies to</th><th>Trigger</th><th>Escalates to</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="cs-strong">Daily rig check &mdash; C-II</td>
+                      <td>All apparatus drug boxes</td>
+                      <td>Not checked by 08:00</td>
+                      <td>Station officer &rarr; CS coordinator</td>
+                      <td><span class="cs-pill cs-pill--ok">Active</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Master supply weekly</td>
+                      <td>Riverside HQ, Westfield Ops</td>
+                      <td>Not counted in 7 days</td>
+                      <td>CS coordinator</td>
+                      <td><span class="cs-pill cs-pill--ok">Active</span></td>
+                    </tr>
+                    <tr>
+                      <td class="cs-strong">Discrepancy &mdash; immediate</td>
+                      <td>All locations</td>
+                      <td>Any undispositioned discrepancy</td>
+                      <td>CS coordinator &rarr; medical director</td>
+                      <td><span class="cs-pill cs-pill--ok">Active</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
         </section>
 
 
@@ -2257,7 +2286,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
   /* ---- Top-level tabs ---- */
   var tabs = document.getElementById('cs-tabs');
-  var tabNames = ['inventory','activity','authorities','compliance','reports'];
+  var tabNames = ['inventory','activity','orders','compliance','reports'];
 
   tabs.addEventListener('selected-changed', function (e) {
     var i = e.detail.value;
@@ -2273,30 +2302,42 @@ href="../../../../assets/fontawesome/css/all.min.css"
   /* Jump straight to the discrepancy list from the attention layer. */
   function csGoDiscrepancies() {
     csTab('activity');
-    var act = document.getElementById('v-activity');
-    act.setAttribute('data-sub', 'discrepancies');
-    act.querySelectorAll('.cs-subnav button').forEach(function (b) {
-      b.setAttribute('aria-selected', String(b.textContent.indexOf('Discrepancies') === 0));
-    });
+    csClass('discrepancies');
   }
 
-  /* ---- Activity sub-nav ---- */
+  /* Select a record class by name, without needing a button reference. */
+  function csClass(name) {
+    var btns = document.querySelectorAll('#v-activity .cs-class');
+    var order = ['movements','consumption','counts','discrepancies'];
+    var i = order.indexOf(name);
+    if (i > -1 && btns[i]) csSub(btns[i], name);
+  }
+
+  /* ---- Activity record-class selector ----
+     Not navigation: it chooses which records the table shows. The card's
+     title/subtitle swap with it so the header always describes the table. */
+  var ACT_LABELS = {
+    movements: ['Movements',
+      'Acquisitions, inter-location deliveries and post-run restocks &middot; <span class="cs-cite">21 CFR 1304.27(b), 1307.14</span>'],
+    consumption: ['Consumption',
+      'Administration and disposal records &middot; <span class="cs-cite">21 CFR 1304.27(a)</span>'],
+    counts: ['Counts &amp; corrections',
+      'Blind counts, reconciliations and append-only corrections. A correction never overwrites the original.'],
+    discrepancies: ['Discrepancies',
+      'Every discrepancy in one list &mdash; open, mistakes and possible diversions.']
+  };
+
   function csSub(btn, name) {
     var act = document.getElementById('v-activity');
     act.setAttribute('data-sub', name);
-    btn.parentNode.querySelectorAll('button').forEach(function (b) {
-      b.setAttribute('aria-selected', String(b === btn));
+    act.querySelectorAll('.cs-class').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b === btn));
     });
-  }
-
-  /* ---- Authorities sub-nav ---- */
-  function csAuth(btn, name) {
-    btn.parentNode.querySelectorAll('button').forEach(function (b) {
-      b.setAttribute('aria-selected', String(b === btn));
-    });
-    ['orders','auth','policies'].forEach(function (k) {
-      document.getElementById('a-' + k).style.display = (k === name) ? 'block' : 'none';
-    });
+    var lab = ACT_LABELS[name];
+    if (lab) {
+      document.getElementById('cs-act-title').innerHTML = lab[0];
+      document.getElementById('cs-act-sub').innerHTML = lab[1];
+    }
   }
 
   /* ---- Inventory scope ---- */
@@ -2500,19 +2541,19 @@ href="../../../../assets/fontawesome/css/all.min.css"
         break;
       case 'consumption':
         csTab('activity');
-        csSub(document.querySelectorAll('#v-activity .cs-subnav button')[1], 'consumption');
+        csClass('consumption');
         break;
       case 'movements':
         csTab('activity');
-        csSub(document.querySelectorAll('#v-activity .cs-subnav button')[0], 'movements');
+        csClass('movements');
         break;
       case 'discrepancies': csGoDiscrepancies(); break;
       case 'coc':
         csTab('activity');
-        csSub(document.querySelectorAll('#v-activity .cs-subnav button')[1], 'consumption');
+        csClass('consumption');
         csCoc('KETAMINE HCL', 'KT-40118');
         break;
-      case 'authorities':  csTab('authorities'); break;
+      case 'orders':       csTab('orders'); break;
       case 'compliance':   csTab('compliance'); break;
       case 'reports':      csTab('reports'); csReport(null); break;
       case 'report-loc':   csTab('reports'); csReport('locations'); break;
@@ -2540,7 +2581,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
           lane: { x: 20, y: 20, w: 1280, h: 150 }, labelXY: { x: 40, y: 40 } },
         { id: 'act',  name: 'Activity',    pill: 'B', color: '#c9b8f0',
           lane: { x: 20, y: 190, w: 1280, h: 190 }, labelXY: { x: 40, y: 210 } },
-        { id: 'gov',  name: 'Authorities & Compliance', pill: 'C', color: '#b8e0cf',
+        { id: 'gov',  name: 'Orders, Compliance & Reports', pill: 'C', color: '#b8e0cf',
           lane: { x: 20, y: 400, w: 1280, h: 190 }, labelXY: { x: 40, y: 420 } }
       ],
       nodes: [
@@ -2564,9 +2605,9 @@ href="../../../../assets/fontawesome/css/all.min.css"
           step: 'Drill', name: 'Chain of custody', state: 'coc',
           desc: 'Action-triggered from a record, built automatically. Open question: promote to top level, or keep as a drill-in?' },
 
-        { id: 'authorities', flow: 'gov', x: 60, y: 460,
-          step: 'Govern', name: 'Authorities', state: 'authorities',
-          desc: 'Standing & verbal orders (5.4), registrant authorizations (5.5), escalation policies. A genuine gap in current-state.' },
+        { id: 'orders', flow: 'gov', x: 60, y: 460,
+          step: 'Govern', name: 'Orders', state: 'orders',
+          desc: 'Standing & verbal orders (5.4), promoted to a top-level tab when Authorities was dissolved. Authorizations and escalation policies moved to Compliance.' },
         { id: 'compliance', flow: 'gov', x: 400, y: 460,
           step: 'Govern', name: 'Compliance', state: 'compliance',
           desc: 'Registration topology (5.1) and obligations with clocks (5.6). Registered/designated are siblings, not a hierarchy.' },
@@ -2582,7 +2623,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
         ['consumption', 'movements'],
         ['movements', 'discrepancies'],
         ['discrepancies', 'coc'],
-        ['authorities', 'compliance'],
+        ['orders', 'compliance'],
         ['compliance', 'reports'],
         ['reports', 'report-loc']
       ]
