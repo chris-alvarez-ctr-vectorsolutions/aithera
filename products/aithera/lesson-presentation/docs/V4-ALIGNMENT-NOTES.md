@@ -331,6 +331,8 @@ The nearest existing V4 representation is `levels.strong.look_for`, but that is 
 
 The proposal is therefore to make answer shape an explicit extension and eventually a V4-supported field.
 
+**On quantifying the failed inference — don't.** The converter did once guess `hasRightAnswer` from the exit requirement, and that guess was replaced by the explicit field (§17, *Recovered semantics*). There is **no measurement of how often the guess was wrong**, so no hit-rate should be quoted for it. A "wrong on 13 of 14 beats" figure reached the talking points page and was removed on 2026-08-18: the only 13-of-14 in this document is the round-trip finding that *opener text is identical for 13 of 14 phases* (§17), an unrelated comparison. The qualitative argument needs no number — an `exit.requirement` states what the learner must do, not whether a conclusion is correct.
+
 ### Safety flags
 
 UX Universal also needs three flags that V4 currently does not represent:
