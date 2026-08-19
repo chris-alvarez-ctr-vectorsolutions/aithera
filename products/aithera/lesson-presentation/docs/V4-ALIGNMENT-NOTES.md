@@ -381,6 +381,8 @@ Playbook entries can cite internal course material (for example, `RVCT-479 P017`
 
 Every earlier revision of this document described the gap in one direction: things UX Universal needs that V4 cannot express (§6, §7). Running the POC's own eleven scenarios through our V4 compiler on 2026-08-18 showed the other direction — **184 authored values that never reached the model** — and it was ours to fix. It is fixed; this section is the record.
 
+**Read the 184 correctly, because it is a leaf-value count and reads bigger than it is.** It is **three fields**, not a broad sweep, and the table below counts each field's leaves separately: a worked example contributes two values (`learner` + `reply`), as does a disclosure (`fact` + `reveal_when`). So 184 leaf values = **97 authored items** = **3 fields** — 78 worked examples, 9 disclosure facts, 10 emotion hints — and `levels[].example` alone is 156 of the 184. All three framings are true; quoting 184 without the field count invites a recomputation that makes it look inflated. Two further scoping caveats: the measurement spans all eleven scenarios, of which `GENERATED-DEMOS.md` marks five as generated demos rather than SME-approved content (§17), and the SME/demo split of the 184 has **not** been measured. What is unqualified is that all three fields were dropped wherever they were authored.
+
 **What was lost, and why nothing caught it.** The compiler was validated by a round-trip: does a V4 document produce the same runtime our native types produce (§17)? That test is blind by construction to fields V4 has and our native types do not — which is precisely the set that was dropped. They could not appear as a diff, so they appeared as nothing.
 
 | Authored field | Values in the 11 | Before | After |
