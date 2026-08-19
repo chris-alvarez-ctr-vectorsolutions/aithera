@@ -281,44 +281,66 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
   .cs-attention.is-clear { display: none; }
 
-  .cs-att-urgent { padding: 13px 16px 14px; }
-  .cs-att-row { display: flex; align-items: center; gap: 11px; }
+  /* Collapsed roll-up: one clickable line. Padding is tighter than the old
+     triage block because this is a status strip, not a work surface. */
+  .cs-att-urgent { padding: 0; }
+  .cs-att-row {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 11px 16px; border: 0; background: transparent; font: inherit;
+    text-align: left; cursor: pointer;
+  }
+  .cs-att-row:hover { background: var(--lumo-error-color-10pct, #e71d131a); }
   .cs-att-icon {
-    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 13px;
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 11px;
     background: var(--lumo-error-color-10pct, #e71d131a);
     color: var(--lumo-error-text-color, #ca150c);
   }
-  .cs-att-title { font-size: 14.5px; font-weight: 700; }
+  .cs-att-title { font-size: 13.5px; font-weight: 700; }
   .cs-att-title em { font-style: normal; color: var(--lumo-error-text-color, #ca150c); }
-  .cs-att-note { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 1px; }
-  .cs-att-spacer { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+  .cs-att-sep { color: #c3cad2; }
+  .cs-att-note { font-size: 12.5px; color: var(--ci-ink-500); }
+  .cs-att-chev {
+    margin-left: auto; flex-shrink: 0; color: var(--ci-ink-500); font-size: 11px;
+    transition: transform .15s ease;
+  }
+  .cs-att-row[aria-expanded="true"] .cs-att-chev { transform: rotate(180deg); }
 
-  /* Each undispositioned discrepancy, inline. Dispositioning from here or from
-     the Activity row clears the same object — one state, two views. */
-  .cs-disc-list { margin-top: 11px; display: flex; flex-direction: column; gap: 7px; }
+  /* Expanded: a compact routing list — item, location, delta, and a chevron.
+     No disposition controls: resolving a discrepancy requires the full audit
+     item, so every row here NAVIGATES rather than resolves. */
+  .cs-disc-list {
+    padding: 2px 10px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .cs-disc-list[hidden] { display: none; }
   .cs-disc {
-    display: flex; align-items: center; gap: 13px; flex-wrap: wrap;
-    padding: 10px 12px; border-radius: 6px;
-    background: var(--lumo-error-color-10pct, #e71d131a);
+    display: flex; align-items: center; gap: 11px; width: 100%;
+    padding: 7px 10px; border: 0; border-radius: 5px; background: transparent;
+    font: inherit; text-align: left; cursor: pointer;
   }
-  .cs-disc.is-resolving { opacity: .45; transition: opacity .25s ease; }
-  .cs-disc-main { min-width: 210px; flex: 1 1 260px; }
-  .cs-disc-drug { font-size: 13.5px; font-weight: 700; }
-  .cs-disc-meta { font-size: 12px; color: var(--ci-ink-700); margin-top: 2px; }
+  .cs-disc:hover { background: var(--lumo-error-color-10pct, #e71d131a); }
+  .cs-disc-main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .cs-disc-drug { font-size: 12.5px; font-weight: 700; }
+  .cs-disc-meta { font-size: 11.5px; color: var(--ci-ink-500); }
   .cs-disc-delta {
-    font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
     color: var(--lumo-error-text-color, #ca150c); white-space: nowrap;
+    min-width: 26px; text-align: right; flex-shrink: 0;
   }
-  .cs-disc-acts { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
+  .cs-disc-go { color: var(--ci-ink-500); font-size: 10px; flex-shrink: 0; }
+  .cs-disc-foot {
+    display: flex; justify-content: flex-end;
+    padding: 4px 2px 0; margin-top: 4px;
+    border-top: 1px solid var(--cs-line-soft);
+  }
 
   /* Standing register — obligations. Quieter by design. */
   .cs-att-standing {
     border-top: 1px solid var(--cs-line-soft);
     background: var(--cs-zebra);
-    padding: 10px 16px;
+    padding: 8px 16px;
     display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-    font-size: 12.5px; color: var(--ci-ink-700);
+    font-size: 12px; color: var(--ci-ink-700);
   }
   .cs-oblig { display: flex; align-items: center; gap: 7px; }
   .cs-oblig i { color: var(--ci-ink-500); font-size: 12px; }
@@ -843,64 +865,76 @@ href="../../../../assets/fontawesome/css/all.min.css"
              two views.
              Standing register = obligations with clocks, deliberately quiet.
              Both empty -> .is-clear hides the element entirely. -->
+        <!-- ================== ATTENTION LAYER ==================
+             A ROLL-UP, not a triage surface.
+
+             This deliberately does NOT let you disposition a discrepancy. An
+             earlier revision listed every open one in full with Mistake /
+             Possible diversion buttons right here, which invited resolving a
+             possible-diversion finding from a summary line without ever opening
+             the record. Dispositioning is a judgement that needs the full audit
+             item — the count, the personnel, the surrounding movements — so
+             this element's whole job is to say WHAT IS OUTSTANDING and route
+             you to the record. Every action here navigates; none resolves.
+
+             Collapsed by default to a single line. Expanding shows a compact
+             list — item, location, delta — enough to decide which one to open,
+             and nothing more. Full detail lives in Activity › Discrepancies.
+
+             Obligation status rides in the same element in a quieter register.
+             When nothing is urgent and nothing is due the whole thing is absent
+             (.is-clear) — an alert that is always present stops being an alert.
+             ================================================== -->
         <section class="cs-attention" id="cs-attention" aria-label="Needs attention">
           <div class="cs-att-urgent">
-            <div class="cs-att-row">
+            <button class="cs-att-row" id="cs-att-toggle" onclick="csToggleAttention()"
+                    aria-expanded="false" aria-controls="cs-disc-list">
               <span class="cs-att-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
-              <div>
-                <div class="cs-att-title"><em id="cs-disc-count">3</em> discrepancies need disposition</div>
-                <div class="cs-att-note">Open until dispositioned as a mistake or a possible diversion. Also actionable from the event log.</div>
-              </div>
-              <div class="cs-att-spacer">
-                <vaadin-button theme="tertiary" onclick="csGoDiscrepancies()">View all discrepancies</vaadin-button>
-              </div>
-            </div>
+              <span class="cs-att-title"><em id="cs-disc-count">3</em> discrepancies awaiting review</span>
+              <span class="cs-att-sep" aria-hidden="true">·</span>
+              <span class="cs-att-note" id="cs-att-summary">oldest 08/14 &middot; 2 locations</span>
+              <span class="cs-att-chev"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span>
+            </button>
 
-            <div class="cs-disc-list" id="cs-disc-list">
-              <div class="cs-disc" data-disc="d1">
-                <div class="cs-disc-main">
-                  <div class="cs-disc-drug">MIDAZOLAM (VERSED) 10 mg / 2 mL vial</div>
-                  <div class="cs-disc-meta">Apparatus count &middot; Medic 12 &middot; Lot #MZ-88421 &middot; 08/16/2026 6:12 am &middot; A. Reyes</div>
-                </div>
-                <span class="cs-disc-delta">&minus;1 unit (10 mg)</span>
-                <div class="cs-disc-acts">
-                  <vaadin-button theme="tertiary" onclick="csDispose('d1','mistake')">Mistake</vaadin-button>
-                  <vaadin-button theme="error primary" onclick="csDispose('d1','diversion')">Possible diversion</vaadin-button>
-                </div>
-              </div>
-
-              <div class="cs-disc" data-disc="d2">
-                <div class="cs-disc-main">
-                  <div class="cs-disc-drug">FENTANYL CITRATE (SUBLIMAZE) 100 mcg / 2 mL vial</div>
-                  <div class="cs-disc-meta">Store room count &middot; Riverside HQ &middot; Lot #FN-23409 &middot; 08/15/2026 4:47 pm &middot; K. Znilek</div>
-                </div>
-                <span class="cs-disc-delta">&minus;2 units (200 mcg)</span>
-                <div class="cs-disc-acts">
-                  <vaadin-button theme="tertiary" onclick="csDispose('d2','mistake')">Mistake</vaadin-button>
-                  <vaadin-button theme="error primary" onclick="csDispose('d2','diversion')">Possible diversion</vaadin-button>
-                </div>
-              </div>
-
-              <div class="cs-disc" data-disc="d3">
-                <div class="cs-disc-main">
-                  <div class="cs-disc-drug">MORPHINE SULFATE 10 mg / 1 mL vial</div>
-                  <div class="cs-disc-meta">Apparatus count &middot; Medic 07 &middot; Lot #MS-11902 &middot; 08/14/2026 7:03 am &middot; T. Hartley</div>
-                </div>
-                <span class="cs-disc-delta">+1 unit (10 mg)</span>
-                <div class="cs-disc-acts">
-                  <vaadin-button theme="tertiary" onclick="csDispose('d3','mistake')">Mistake</vaadin-button>
-                  <vaadin-button theme="error primary" onclick="csDispose('d3','diversion')">Possible diversion</vaadin-button>
-                </div>
+            <!-- Expanded: just enough to choose which record to open. -->
+            <div class="cs-disc-list" id="cs-disc-list" hidden>
+              <button class="cs-disc" data-disc="d1" onclick="csGoDiscrepancies()">
+                <span class="cs-disc-delta">&minus;1</span>
+                <span class="cs-disc-main">
+                  <span class="cs-disc-drug">MIDAZOLAM (VERSED)</span>
+                  <span class="cs-disc-meta">Medic 12 &middot; 08/16/2026</span>
+                </span>
+                <span class="cs-disc-go"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+              </button>
+              <button class="cs-disc" data-disc="d2" onclick="csGoDiscrepancies()">
+                <span class="cs-disc-delta">&minus;2</span>
+                <span class="cs-disc-main">
+                  <span class="cs-disc-drug">FENTANYL CITRATE (SUBLIMAZE)</span>
+                  <span class="cs-disc-meta">Riverside HQ &middot; 08/15/2026</span>
+                </span>
+                <span class="cs-disc-go"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+              </button>
+              <button class="cs-disc" data-disc="d3" onclick="csGoDiscrepancies()">
+                <span class="cs-disc-delta">+1</span>
+                <span class="cs-disc-main">
+                  <span class="cs-disc-drug">MORPHINE SULFATE</span>
+                  <span class="cs-disc-meta">Medic 07 &middot; 08/14/2026</span>
+                </span>
+                <span class="cs-disc-go"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+              </button>
+              <div class="cs-disc-foot">
+                <vaadin-button theme="tertiary" onclick="csGoDiscrepancies()">
+                  Review all in Activity <i class="fa-solid fa-arrow-right" style="margin-left:6px" aria-hidden="true"></i>
+                </vaadin-button>
               </div>
             </div>
           </div>
 
-          <!-- Standing register: obligations with clocks. Informational only —
-               nothing here is a task with a button. -->
+          <!-- Standing register: obligations with clocks. Informational only. -->
           <div class="cs-att-standing">
             <span class="cs-oblig">
               <i class="fa-regular fa-calendar-check" aria-hidden="true"></i>
-              Biennial inventory due <b>05/02/2028</b> <span class="cs-dim">&middot; last completed 05/02/2026</span>
+              Biennial inventory due <b>05/02/2028</b>
             </span>
             <span class="cs-oblig is-soon">
               <i class="fa-regular fa-clock" aria-hidden="true"></i>
@@ -2856,11 +2890,13 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
 
   /* ---- Discrepancy disposition ------------------------------------
-     ONE state, TWO views. Dispositioning from the attention layer or from
-     the Activity row updates both, because they are the same object. The
-     alert clears only on disposition — there is no acknowledge step.
-     A possible diversion stays in the list for investigation: disposition
-     ROUTES it, it does not end it.
+     Dispositioning happens in Activity › Discrepancies, on the full audit
+     item — NOT from the roll-up above the tabs. That element only reports what
+     is outstanding and routes you to the record; resolving a possible-diversion
+     finding from a summary line would skip the review the decision requires.
+
+     So this updates the discrepancy row and the counts. The roll-up recounts
+     from the same state, which keeps one source of truth.
      ------------------------------------------------------------------ */
   var openDiscrepancies = { d1: true, d2: true, d3: true };
 
@@ -2868,14 +2904,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
     if (!openDiscrepancies[id]) return;
     openDiscrepancies[id] = false;
 
-    /* 1. Fade the alert entry out of the attention layer. */
-    var alertRow = document.querySelector('.cs-disc[data-disc="' + id + '"]');
-    if (alertRow) {
-      alertRow.classList.add('is-resolving');
-      setTimeout(function () { alertRow.remove(); csSyncAttention(); }, 260);
-    }
-
-    /* 2. Update the same object's row in the single discrepancy list. */
+    /* Update the object's row in the single discrepancy list. */
     var tableRow = document.querySelector('[data-disc-row="' + id + '"]');
     if (tableRow) {
       var pill = tableRow.querySelector('[data-state-pill]');
@@ -2888,17 +2917,31 @@ href="../../../../assets/fontawesome/css/all.min.css"
       } else {
         pill.className = 'cs-pill cs-pill--neut';
         pill.textContent = 'Mistake';
-        pill.insertAdjacentHTML('afterend', '<div class="cs-tiny">Dispositioned 08/18/2026</div>');
+        pill.insertAdjacentHTML('afterend', '<div class="cs-tiny">Dispositioned 08/19/2026</div>');
         if (acts) acts.remove();
       }
       tableRow.removeAttribute('data-disc-row');
     }
 
+    /* Drop it from the roll-up's routing list — it is no longer outstanding. */
+    var rollupRow = document.querySelector('.cs-disc[data-disc="' + id + '"]');
+    if (rollupRow) rollupRow.remove();
+
     csSyncAttention();
   }
 
-  /* Recount, and hide the whole attention element when nothing is urgent AND
-     nothing is due — the healthy state shows no alert furniture at all. */
+  /* Expand/collapse the roll-up. Collapsed is the default: this is a status
+     strip, and the detail it hides is one click away in Activity. */
+  function csToggleAttention() {
+    var btn = document.getElementById('cs-att-toggle');
+    var list = document.getElementById('cs-disc-list');
+    var open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!open));
+    list.hidden = open;
+  }
+
+  /* Recount, and hide the urgent register when nothing is outstanding — the
+     healthy state shows no alert furniture at all. */
   function csSyncAttention() {
     var n = Object.keys(openDiscrepancies).filter(function (k) { return openDiscrepancies[k]; }).length;
     var countEl = document.getElementById('cs-disc-count');
@@ -2906,11 +2949,24 @@ href="../../../../assets/fontawesome/css/all.min.css"
     if (countEl) countEl.textContent = n;
     if (snEl) { snEl.textContent = n; snEl.style.display = n ? '' : 'none'; }
 
+    /* Keep the one-line summary honest as the set shrinks. */
+    var rows = [].slice.call(document.querySelectorAll('#cs-disc-list .cs-disc'));
+    var summary = document.getElementById('cs-att-summary');
+    if (summary) {
+      var locs = {};
+      rows.forEach(function (r) {
+        var m = r.querySelector('.cs-disc-meta');
+        if (m) locs[m.textContent.split('·')[0].trim()] = 1;
+      });
+      var count = Object.keys(locs).length;
+      summary.innerHTML = count
+        ? count + (count === 1 ? ' location' : ' locations')
+        : '';
+    }
+
     var urgent = document.querySelector('.cs-att-urgent');
     if (urgent) urgent.style.display = n ? '' : 'none';
 
-    /* Obligations remain, so the element itself stays — but with the urgent
-       register gone it drops to the quiet border. */
     var att = document.getElementById('cs-attention');
     if (att) att.style.borderLeftColor = n
       ? 'var(--lumo-error-color, #d83e38)'
