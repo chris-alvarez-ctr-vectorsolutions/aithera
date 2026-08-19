@@ -286,7 +286,14 @@
   .sim-tab.active { border-bottom-color: var(--ai); color: var(--ai); font-weight: 600; }
   .sim-left-scroll { flex: 1; overflow-y: auto; padding: 16px 24px 320px; }
   .sim-right { width: 48%; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
-  .sim-right.full { width: 100%; }
+  /* Preview Mode panel (panelOnly) scrolls as one column when its content is taller than the pane. */
+  .sim-right.full { width: 100%; overflow-y: auto; }
+  /* Collapsible Rule Summary — collapses manually (chevron) or automatically once the panel is scrolled. */
+  .sum-collapsible .sum-body { overflow: hidden; max-height: 600px; opacity: 1; transition: max-height .28s ease, opacity .18s ease, padding .2s ease; }
+  .sum-collapsible.collapsed .sum-body { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
+  .sum-collapsible .sum-chev { transition: transform .25s ease; }
+  .sum-collapsible.collapsed .sum-chev { transform: rotate(180deg); }
+  .sum-head:hover .sum-chev { color: var(--ai); }
   .sim-section { background: #fff; border: 1px solid var(--hairline); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(28,48,74,.04); }
   .sim-section .ss-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 600; color: rgba(24,39,58,.9); }
   .sim-section .ss-head i { color: rgba(0,0,0,.5); font-size: 13px; }
@@ -1443,7 +1450,7 @@ function subSidebarHtml() {
       <i class="fa-solid fa-phone" style="color:var(--primary);font-size:16px"></i>
       <span class="sub-title">CallBack</span>
       <div style="flex:1"></div>
-      <button class="sub-new" aria-label="New"><i class="fa-solid fa-plus" style="font-size:12px"></i></button>
+      <button class="sub-new" aria-label="New" title="Add new CallBacks" data-action="new-callback"><i class="fa-solid fa-plus" style="font-size:12px"></i></button>
     </div>
     <nav class="sub-nav">
       ${SUB_NAV_ITEMS.map(it => `
@@ -1596,13 +1603,27 @@ const SETUP_STEPS = [
   { key: 'callback',   label: 'Ready to send out callbacks', helper: "Your rule is live and your roster is ranked. When a shift opens up, dispatch a callback and we'll work down the list in order." },
 ];
 
-const ar = { tab: 'active', methodologyOpen: true, previewMode: false, toastTimer: null };
+const ar = { tab: 'active', methodologyOpen: true, previewMode: false, newCallback: false, toastTimer: null };
 
 function aiBadgeHtml() {
   return `<span class="ai-badge" title="Created with AI">${sparkSvg(9, 'currentColor')} AI</span>`;
 }
 
 function renderApproachesRules(el) {
+  if (ar.newCallback) {
+    // "Add new CallBacks" page — reuses the Preview Mode simulator in callback mode
+    // (same shift/approach/rule/filter settings + a live ranking preview).
+    el.innerHTML = `
+      <div class="ar-page">
+        <div id="arSim" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+      </div>`;
+    renderSimulator(byId('arSim'), {
+      seed: {}, panelOnly: false, mode: 'callback', // truthy seed → opens with an approach + rule preset so the preview is live
+      onBack:  () => { ar.newCallback = false; renderMain(); },
+      onStart: () => { ar.newCallback = false; app.savedToast = { name: 'Your CallBack', kind: 'callback' }; renderMain(); },
+    });
+    return;
+  }
   if (ar.previewMode) {
     el.innerHTML = `
       <div class="ar-page">
@@ -1627,8 +1648,8 @@ function renderApproachesRules(el) {
       <div class="ar-toast" role="status">
         <span class="t-icon"><i class="fa-solid fa-check"></i></span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#0F5C30">${app.savedToast.kind === 'approach' ? 'Approach created' : app.savedToast.kind === 'updated' ? 'Rule updated' : 'Rule saved'}</div>
-          <div style="font-size:12px;color:rgba(15,92,48,.78);margin-top:2px"><b>${esc(app.savedToast.name)}</b> ${app.savedToast.kind === 'approach' ? 'has been added to your approaches list.' : app.savedToast.kind === 'updated' ? 'has been updated.' : 'has been added to your rules list.'}</div>
+          <div style="font-size:13px;font-weight:600;color:#0F5C30">${app.savedToast.kind === 'approach' ? 'Approach created' : app.savedToast.kind === 'updated' ? 'Rule updated' : app.savedToast.kind === 'callback' ? 'CallBack started' : 'Rule saved'}</div>
+          <div style="font-size:12px;color:rgba(15,92,48,.78);margin-top:2px"><b>${esc(app.savedToast.name)}</b> ${app.savedToast.kind === 'approach' ? 'has been added to your approaches list.' : app.savedToast.kind === 'updated' ? 'has been updated.' : app.savedToast.kind === 'callback' ? 'is dispatching down the ranked call order.' : 'has been added to your rules list.'}</div>
         </div>
         <button data-action="dismiss-toast" aria-label="Dismiss" style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:rgba(15,92,48,.6)"><i class="fa-solid fa-xmark" style="font-size:12px"></i></button>
       </div>
@@ -1678,11 +1699,11 @@ function renderApproachesRules(el) {
             : active
               ? `<span style="width:28px;height:28px;border-radius:50%;background:var(--ai-grad);display:inline-flex;align-items:center;justify-content:center;flex:none;box-shadow:0 0 0 4px rgba(124,58,237,.18), 0 2px 5px rgba(124,58,237,.32);color:#fff;font-size:12px;font-weight:700">${i + 1}</span>`
               : `<span style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none;color:rgba(0,0,0,.4);font-size:12px;font-weight:600">${i + 1}</span>`;
+          const clickable = s.key === 'callback';
           return `
-            <div style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0">
+            <div ${clickable ? 'data-action="new-callback" role="button" tabindex="0" title="Send out a new callback"' : ''} style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;${clickable ? 'cursor:pointer' : ''}">
               ${badge}
               <div style="text-align:center;font-size:11px;font-weight:${active ? 700 : 600};line-height:1.3;color:${done ? 'rgba(22,163,74,.85)' : active ? 'var(--ai-mid)' : 'rgba(0,0,0,.55)'};${done ? 'text-decoration:line-through;' : ''}padding-inline:2px">${esc(s.label)}</div>
-              ${active ? '<span style="font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--ai-grad);padding:3px 6px;border-radius:5px">Next</span>' : ''}
             </div>
             ${!isLast ? `<div style="flex:0 0 18px;height:28px;display:flex;align-items:center;justify-content:center"><div style="width:100%;height:2px;background:${done ? '#16A34A' : 'rgba(0,0,0,.12)'};border-radius:2px"></div></div>` : ''}`;
         }).join('')}
@@ -1690,7 +1711,7 @@ function renderApproachesRules(el) {
       ${activeStep && activeStep.helper ? `
         <div style="padding:12px 14px;background:linear-gradient(135deg, rgba(124,58,237,.07), rgba(99,102,241,.04));border:1px solid rgba(124,58,237,.18);border-radius:6px">
           <div style="font-size:11.5px;line-height:1.5;color:rgba(24,39,58,.72)">${esc(activeStep.helper)}</div>
-          ${activeStep.key === 'callback' ? '<button class="ai-primary-btn" style="margin-top:10px;height:32px;padding:0 14px;font-size:12.5px"><i class="fa-solid fa-plus" style="font-size:11px"></i> Send out new callback</button>' : ''}
+          ${activeStep.key === 'callback' ? '<button class="ai-primary-btn" data-action="new-callback" style="margin-top:10px;height:32px;padding:0 14px;font-size:12.5px"><i class="fa-solid fa-plus" style="font-size:11px"></i> Send out new callback</button>' : ''}
         </div>` : ''}
     </div>` : '';
 
@@ -1820,6 +1841,15 @@ document.addEventListener('click', (e) => {
   else if ((el = t('[data-action="dismiss-toast"]'))) { app.savedToast = null; renderMain(); }
   else if ((el = t('[data-action="add-approach"]')))  { app.creatingApproach = true; renderApp(); }
   else if ((el = t('[data-action="preview-mode"]')))  { ar.previewMode = true; renderMain(); }
+  else if ((el = t('[data-action="new-callback"]')))  {
+    // Send out a new callback. Acknowledging setup + collapsing the diagram means
+    // that returning to Approaches & Rules shows neither the wizard nor the open diagram.
+    app.setupAcknowledged = true;
+    ar.methodologyOpen = false;
+    app.subNav = 'approaches';
+    ar.newCallback = true;
+    renderMain();
+  }
   else if ((el = t('[data-action="new-rule"]')))      { startBuilder({}); }
   else if ((el = t('[data-action="edit-rule"]'))) {
     const rule = RULES_DATA.find(r => r.id === Number(el.dataset.id));
@@ -3495,7 +3525,7 @@ function initSimulator(opts) {
   }
   const baselineDate = new Date(2026, 4, 19, 8, 0, 0);
   sim = {
-    opts, seed, isFreshStart, panelOnly: !!opts.panelOnly, onBack: opts.onBack,
+    opts, seed, isFreshStart, panelOnly: !!opts.panelOnly, mode: opts.mode || 'preview', onBack: opts.onBack, onStart: opts.onStart,
     selectedRuleId, baselineDate,
     startDate: new Date(baselineDate.getTime() + 86400000),
     chainStart: null,
@@ -3510,6 +3540,7 @@ function initSimulator(opts) {
     chat: [], chatInput: '',
     injectedSummary: !isFreshStart,
     rsTab: 'preview', rsExpanded: false,
+    summaryCollapsed: false,
   };
   sim.chainStart = sim.startDate;
   const activeRule = simActiveRule();
@@ -3648,7 +3679,7 @@ function previewRankingListHtml(form, ranking, fill) {
   let leadTaken = false;
   return `
   <div style="${fill ? 'display:flex;flex-direction:column;height:100%;min-height:0' : ''}">
-    <div class="prl-list" style="${fill ? 'flex:1;min-height:180px;max-height:none;resize:none' : `height:${expanded ? 500 : 150}px;max-height:${expanded ? 600 : 300}px`}">
+    <div class="prl-list" style="${fill ? 'flex:1;min-height:180px;max-height:none;resize:none' : `height:${expanded ? 640 : 360}px;max-height:${expanded ? 760 : 520}px`}">
       ${rankedAll.map((emp, idx) => {
         const dim = live && (!emp.status.available || emp.status.code === 'on-shift');
         const lead = idx === 0 && !dim && !leadTaken;
@@ -3771,6 +3802,7 @@ function renderSimulator(el, opts, isRerender) {
   if (!isRerender || !sim) initSimulator(opts);
   sim.mountEl = el;
   const panelOnly = sim.panelOnly;
+  const isCallback = sim.mode === 'callback'; // "Add new CallBacks" page — same settings, callback chrome
   const activeRule = simActiveRule();
   const ruleForm = simRuleForm();
   const ranking = simRanking();
@@ -3961,6 +3993,25 @@ function renderSimulator(el, opts, isRerender) {
       ${bottomBarInner}
     </div>`;
 
+  // Callback mode right column: a PREVIEW panel (the live ranked call order) + a Start CallBack button.
+  // No chain stepper / who-accepts — this is a real "create a callback" form, not the hypothetical tester.
+  const callbackRightCol = `
+    <div class="sim-right" style="width:48%">
+      <div style="background:#192434;color:#fff;padding:13px 22px;display:flex;align-items:center;gap:10px;flex:none">
+        <i class="fa-regular fa-eye" style="font-size:14px"></i>
+        <span style="font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">Preview</span>
+      </div>
+      ${isReady ? rankingList : `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;text-align:center;gap:14px">
+        <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg, rgba(124,58,237,.12), rgba(91,33,182,.06));display:flex;align-items:center;justify-content:center">${sparkSvg(24, '#7C3AED')}</div>
+        <div style="font-size:13.5px;line-height:1.55;color:rgba(0,0,0,.5);max-width:320px">Fill out the form on the left to preview the CallBack — pick an <strong>approach</strong> and a <strong>rule</strong> and the ranked call order shows here.</div>
+      </div>`}
+      <div style="border-top:1px solid rgba(0,0,0,.07);padding:14px 22px;background:#FAFAFC;flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px">
+        ${isReady ? `<span style="font-size:12px;color:rgba(0,0,0,.5)">${ranking.length} ${ranking.length === 1 ? 'person' : 'people'} in the call order</span>` : ''}
+        <button data-sim="start-callback" ${isReady ? '' : 'disabled'} style="height:40px;padding:0 20px;border-radius:7px;border:none;background:${isReady ? 'var(--ai-grad)' : 'rgba(0,0,0,.14)'};color:#fff;font-size:14px;font-weight:600;cursor:${isReady ? 'pointer' : 'not-allowed'};display:inline-flex;align-items:center;gap:8px;box-shadow:${isReady ? '0 2px 6px rgba(124,58,237,.3)' : 'none'}"><i class="fa-solid fa-plus" style="font-size:12px"></i> Start CallBack</button>
+      </div>
+    </div>`;
+
   // Shared bits for the merged panel layout (Callback Settings + Rule Summary + merged chain).
   const cardStyle = 'background:#fff;border:1px solid var(--hairline);border-radius:8px;box-shadow:0 1px 3px rgba(28,48,74,.04)';
   const summaryText = buildSummary(ruleForm);
@@ -3991,24 +4042,29 @@ function renderSimulator(el, opts, isRerender) {
         </div>
       </div>` : `
       ${panelOnly ? `
-      <div style="flex:1;display:flex;flex-direction:column;min-height:0;gap:10px;padding:12px 14px;background:linear-gradient(180deg, #F3EEFD 0%, #FAF8FE 55%)">
-        <!-- Rule Summary — top, purple / highlighted -->
-        <div style="flex:none;background:linear-gradient(135deg, rgba(124,58,237,.11) 0%, rgba(99,102,241,.06) 100%);border:1px solid rgba(124,58,237,.30);border-radius:10px;box-shadow:0 1px 4px rgba(124,58,237,.12);padding:14px 16px">
-          <div class="muted-cap" style="color:var(--ai-mid);margin-bottom:12px">Rule Summary</div>
-          <div style="font-size:13px;line-height:1.6;color:rgba(24,39,58,.85)">${hasRuleDetails ? esc(summaryText) : '<span style="color:rgba(0,0,0,.4);font-style:italic">Answer the questions in chat to see your rule take shape…</span>'}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:12px 10px 56px;background:linear-gradient(180deg, #F3EEFD 0%, #FAF8FE 55%)">
+        <!-- Rule Summary — top, purple / highlighted. Collapses via the chevron or once the panel is scrolled. -->
+        <div id="simSummaryBox" class="sum-collapsible ${sim.summaryCollapsed ? 'collapsed' : ''}" style="flex:none;position:sticky;top:0;z-index:5;background:linear-gradient(135deg, rgba(124,58,237,.11) 0%, rgba(99,102,241,.06) 100%), #F3EEFD;border:1px solid rgba(124,58,237,.30);border-radius:10px;box-shadow:0 1px 4px rgba(124,58,237,.12);overflow:hidden">
+          <button type="button" data-sim="toggle-summary" class="sum-head" style="width:100%;display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:8px 14px;text-align:left;font-family:var(--font)">
+            <span class="muted-cap" style="color:var(--ai-mid);flex:1">Rule Summary</span>
+            <i class="fa-solid fa-chevron-up sum-chev" style="font-size:11px;color:var(--ai-mid)"></i>
+          </button>
+          <div class="sum-body" style="padding:0 14px 14px">
+            <div style="font-size:13px;line-height:1.6;color:rgba(24,39,58,.85)">${hasRuleDetails ? esc(summaryText) : '<span style="color:rgba(0,0,0,.4);font-style:italic">Answer the questions in chat to see your rule take shape…</span>'}</div>
+          </div>
         </div>
         <!-- Callback Settings — middle. Shift start + duration now live inside "Add details". -->
-        <div style="flex:none;${cardStyle};display:flex;flex-direction:column;gap:10px;padding:12px 14px">
+        <div style="flex:none;${cardStyle};display:flex;flex-direction:column;gap:10px;padding:12px">
           <div class="muted-cap">Callback Settings</div>
           ${callbackFiltersHtml(true, ranking, true, shiftLeadHtml)}
           <div style="border-top:1px solid var(--hairline);padding-top:12px">${bottomBarInner}</div>
         </div>
-        <!-- Callback chain — bottom, fills to the bottom; no header (the stepper carries it) -->
-        <div style="flex:1;min-height:0;${cardStyle};display:flex;flex-direction:column;padding:12px 14px">
+        <!-- Callback chain — bottom; the stepper carries the header. Sizes to content so the panel scrolls as one. -->
+        <div style="flex:none;${cardStyle};display:flex;flex-direction:column;padding:12px">
           ${stepperCompact}
           ${sim.stepHistory.length > 0 ? chainRows : ''}
           <div class="muted-cap" style="margin:${sim.stepHistory.length > 0 ? '12px' : '2px'} 0 8px;font-size:11px">${sim.stepHistory.length > 0 ? `Up next · call order for callback #${currentStepIdx + 1}` : 'Predicted call order'}</div>
-          <div style="flex:1;min-height:0">${previewRankingListHtml(ruleForm, ranking, true)}</div>
+          <div>${previewRankingListHtml(ruleForm, ranking)}</div>
         </div>
       </div>
       ` : `
@@ -4026,7 +4082,13 @@ function renderSimulator(el, opts, isRerender) {
 
   el.innerHTML = `
   <div class="sim">
-    ${!panelOnly ? `
+    ${!panelOnly ? (isCallback ? `
+    <div class="sim-topbar">
+      <button data-sim="back" aria-label="Back" title="Back" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,0,0,.18);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.7)"><i class="fa-solid fa-arrow-left" style="font-size:13px"></i></button>
+      <i class="fa-solid fa-phone-volume" style="font-size:17px;color:rgba(0,0,0,.7)"></i>
+      <h2 style="margin:0;font-size:19px;font-weight:600;color:var(--ink)">Add new CallBacks</h2>
+      <div style="flex:1"></div>
+    </div>` : `
     <div class="sim-topbar">
       <button data-sim="back" aria-label="Back" title="Back" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,0,0,.18);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.7)"><i class="fa-solid fa-arrow-left" style="font-size:13px"></i></button>
       <i class="fa-regular fa-eye" style="font-size:18px;color:rgba(0,0,0,.7)"></i>
@@ -4034,15 +4096,19 @@ function renderSimulator(el, opts, isRerender) {
       <span style="font-size:12px;color:rgba(0,0,0,.45);margin-left:6px">· Generic hypothetical — nothing dispatched live</span>
       <div style="flex:1"></div>
       <vaadin-button theme="secondary small" data-sim="reset"><i class="fa-solid fa-rotate-left" style="font-size:10px;margin-right:5px"></i> Reset simulation</vaadin-button>
-    </div>` : `
+    </div>`) : `
     <div class="sim-compact-head">
       <i class="fa-regular fa-eye" style="font-size:14px;flex:none"></i>
       <span style="font-size:13px;font-weight:700;flex:1">Preview Mode</span>
       <button data-sim="reset" title="Reset simulation" style="height:28px;padding:0 10px;border-radius:6px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:11.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px;flex:none"><i class="fa-solid fa-rotate-left" style="font-size:9px"></i> Reset</button>
-      <button data-sim="back" style="height:28px;padding:0 11px;border-radius:6px;border:none;background:#fff;color:var(--ai-mid);font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;flex:none"><i class="fa-solid fa-xmark" style="font-size:9px"></i> Exit preview</button>
     </div>`}
     <div class="sim-body">
-      ${!panelOnly ? `
+      ${!panelOnly ? (isCallback ? `
+      <div class="sim-left">
+        <div class="sim-left-scroll">
+          ${settingsTab}
+        </div>
+      </div>` : `
       <div class="sim-left">
         <div class="sim-tabbar">
           <button class="sim-tab ${sim.leftTab === 'chat' ? 'active' : ''}" data-sim="tab" data-tab="chat">${sparkSvg(12, 'currentColor')} AI Chat</button>
@@ -4051,8 +4117,8 @@ function renderSimulator(el, opts, isRerender) {
         <div class="sim-left-scroll">
           ${sim.leftTab === 'chat' ? chatCard : settingsTab}
         </div>
-      </div>` : ''}
-      ${rightCol}
+      </div>`) : ''}
+      ${isCallback ? callbackRightCol : rightCol}
     </div>
   </div>`;
 
@@ -4062,6 +4128,17 @@ function renderSimulator(el, opts, isRerender) {
 function hydrateSimulator(el) {
   const chatThread = byId('simChatThread');
   if (chatThread) chatThread.scrollTop = chatThread.scrollHeight;
+
+  // Preview Mode panel: auto-collapse the Rule Summary once the panel is scrolled down,
+  // freeing vertical room for the settings + chain. Manual chevron re-expands it.
+  const simScroller = el.querySelector('.sim-right.full');
+  if (simScroller) simScroller.addEventListener('scroll', () => {
+    const box = byId('simSummaryBox');
+    if (box && !sim.summaryCollapsed && simScroller.scrollTop > 12) {
+      sim.summaryCollapsed = true;
+      box.classList.add('collapsed');
+    }
+  });
 
   const chatInput = byId('simChatInput');
   if (chatInput) {
@@ -4182,6 +4259,7 @@ document.addEventListener('click', (e) => {
   const t = (sel) => e.target.closest(sel);
   let el;
   if ((el = t('[data-sim="back"]')))          { const cb = sim.onBack; sim = null; if (cb) cb(); }
+  else if ((el = t('[data-sim="start-callback"]'))) { const cb = sim.onStart; sim = null; if (cb) cb(); }
   else if ((el = t('[data-sim="reset"]')))    { simReset(); }
   else if ((el = t('[data-sim="tab"]')))      { sim.leftTab = el.dataset.tab; rerenderSim(); }
   else if ((el = t('[data-sim="chip"]')))     { simHandleChip(el.dataset.chip); }
@@ -4192,6 +4270,12 @@ document.addEventListener('click', (e) => {
   else if ((el = t('[data-sim="apply-filters"]')))  { sim.detailsOpen = false; rerenderSim(); }
   else if ((el = t('[data-sim="clear-filters"]')))  { sim.fClassifications = []; sim.fGroups = []; sim.qualAny = []; sim.qualAll = []; rerenderSim(); }
   else if ((el = t('[data-sim="group-mode"]')))     { sim.groupMode = el.dataset.mode; rerenderSim(); }
+  else if ((el = t('[data-sim="toggle-summary"]'))) {
+    // Manual collapse/expand — toggle the class in place so scroll position is preserved (no re-render).
+    sim.summaryCollapsed = !sim.summaryCollapsed;
+    const box = byId('simSummaryBox');
+    if (box) box.classList.toggle('collapsed', sim.summaryCollapsed);
+  }
   else if ((el = t('[data-sim="rs-tab"]')))   { sim.rsTab = el.dataset.tab; rerenderSim(); }
   else if ((el = t('[data-sim="rs-expand"]'))) { sim.rsExpanded = !sim.rsExpanded; rerenderSim(); }
   else if ((el = t('[data-sim-filter]'))) {
