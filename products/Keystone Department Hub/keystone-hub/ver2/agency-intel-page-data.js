@@ -255,6 +255,42 @@
     return (d && d.delivery && d.delivery.on) ? d.delivery : null;
   }
 
+  /* ---------- Static or dynamic access list? ----------
+     `titles` and AI `groups` are ATTRIBUTE-DRIVEN: a promotion, a transfer or a
+     shift change moves someone in or out of the audience with nobody editing the
+     dashboard. The audience picker already calls saved groups "live rules —
+     people who match later receive this automatically"; this is the same fact,
+     surfaced in the list so you can see it without opening the dashboard.
+     `individuals` are hand-picked and change only when a person edits the list.
+
+     Three modes, not two, because "rule plus a few named exceptions" is the
+     common real case — 23 of the 36 published dashboards — and folding it into
+     `dynamic` would label almost every published dashboard identically and say
+     nothing. */
+  const AUDIENCE_MODES = {
+    dynamic: { id: 'dynamic', label: 'Dynamic', dot: 'var(--lumo-primary-color)',
+      hint: 'Membership follows job titles and live rules. Promotions, transfers and shift changes update it automatically.' },
+    mixed:   { id: 'mixed',   label: 'Mixed',   dot: 'var(--amber-500)',
+      hint: 'Rule-driven membership plus named individuals. The rule part keeps itself current; the named people stay put until someone edits them.' },
+    static:  { id: 'static',  label: 'Static',  dot: 'var(--ink-400)',
+      hint: 'A fixed list of named people. It changes only when someone edits it — a promotion or shift change will not.' }
+  };
+
+  function audienceMode(d) {
+    const a = d && d.assignedTo;
+    if (!a) return null;
+    const byRule  = ((a.titles || []).length + (a.groups || []).length) > 0;
+    const byName  = (a.individuals || []).length > 0;
+    if (!byRule && !byName) return null;      // assigned to nobody — nothing to say
+    if (byRule && byName) return 'mixed';
+    return byRule ? 'dynamic' : 'static';
+  }
+
+  function audienceModeMeta(d) {
+    const m = audienceMode(d);
+    return m ? AUDIENCE_MODES[m] : null;
+  }
+
   function reportReach(dl) {
     if (!dl) return 0;
     const r = dl.recipients || {};
@@ -645,6 +681,13 @@
       let status;
       if (rnd() < 0.5) {
         assignedTo = { titles: pickN(titleIds, 1 + Math.floor(rnd() * 3)), individuals: rnd() < 0.55 ? pickN(indIds, 1 + Math.floor(rnd() * 4)) : [] };
+        // Every fourth published dashboard that already carries named people
+        // drops its titles and becomes a hand-picked list, so the management
+        // list shows Static beside Dynamic and Mixed instead of one value
+        // everywhere. Keyed off the loop index and NOT rnd(): rnd() is a seeded
+        // stream, so an extra draw here would reshuffle every dashboard's name,
+        // dates and widgets. Reusing individuals already drawn costs no draw.
+        if (i % 4 === 1 && assignedTo.individuals.length) assignedTo.titles = [];
         status = 'published';
       } else {
         status = rnd() < 0.5 ? 'draft' : 'private';
@@ -853,6 +896,9 @@
     STATUS_RANK: STATUS_RANK,
     dashStatusMeta: dashStatusMeta,
     statusOf: statusOf,
+    AUDIENCE_MODES: AUDIENCE_MODES,
+    audienceMode: audienceMode,
+    audienceModeMeta: audienceModeMeta,
     seedDashboards: seedDashboards,
     DATE_RANGES: DATE_RANGES,
     DEFAULT_RANGE: DEFAULT_RANGE,
