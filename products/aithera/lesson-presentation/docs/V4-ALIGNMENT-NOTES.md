@@ -67,7 +67,7 @@ The alignment work produced two very different kinds of open item, and reading t
 | POC V4 | Extension envelopes | §10 | Allow one `extensions` key on `content` and on each `practice` — namespaced, must-ignore. One allowlisted key is the whole change. |
 | POC V4 | Safety flags | §6, §9.2 | With no way to declare crisis / threat / minors content, a handed-over document loses its safety floor and leaves no trace one existed. |
 | POC V4 | `practice.answer_shape` | §9.3 | A machine-readable graded-vs-open marker. `levels.strong.look_for` carries it to a human reader, not to a parser. |
-| POC V4 | `purpose` as a required field | §9.1 | Required by the schema, never rendered into a prompt. Make it optional, or give it the consumer the spec describes. |
+| POC V4 | `phase.purpose` as a required field | §9.1 | The other three `purpose` fields render into the coach's arc map; `phase.purpose` is required, carried by the loader, and never rendered. Make it optional, or render it. |
 | POC V4 | `help_turns` default | §11 | The loader defaults it to 2, which arms the mid-scene help affordance for any scenario that omits the field. Confirm, or default it off. |
 | POC V4 | `spot_target` gating | §11 | The spec says the target gates completion; the shipped engine does not gate on it. Confirm which is the contract. |
 | POC V4 | Clarifying-question cost | §9.2 | Adopt the redirect rebate so a clarifying turn does not spend practice budget. Engine behavior on their side; reference implementation on ours. |
@@ -487,13 +487,16 @@ Examples recorded in `sme-punch-list.md` include:
 
 This is important because the problem is not simply “the decks need more authoring.”
 
-The V4 spec and engine themselves appear to disagree about some required fields.
+The V4 spec and engine disagree about one required field — narrower than first recorded here, verified against the engine code at the repo's current tip (2026-08-18).
 
-The strongest example is `phase.purpose`.
+Three of the four `purpose` fields DO render into the compiled prompt: `serialize_arc_roadmap` (`prompt_v3.py`) prints the opening's, each practice's, and each debrief's `purpose` as the lines of the coach's arc map. **`phase.purpose` is the exception**: the schema requires it, `lo_v4.py` carries it, and the roadmap prints only the phase label. The audit's P5 states exactly this.
 
-The spec describes a prompt consumer for `phase.purpose`, but the audit found that it is never actually rendered into a prompt.
+That splits the 36 purpose slots among the 128 raw required-field gaps in the ports:
 
-`purpose` is the clearest case. Across the seven ported scenarios it accounts for **36 of the 128 raw required-field gaps** — the single largest category. UX Universal has already defaulted all 36 with generated stub prose (D8), so they no longer block our authoring; that is a workaround, not an answer. The question of whether a field the engine never reads should be required at all is unresolved and belongs to POC V4.
+* `practice.purpose` × 18 — feeds a real consumer. Genuine authoring: a stubbed value degrades the arc map the model reasons from, so these should be written (or generated and reviewed), not left as filler.
+* `phase.purpose` × 18 — feeds nothing. Whether a field the engine never reads should be required at all is unresolved and belongs to POC V4.
+
+UX Universal has defaulted both sets with generated stub prose (D8), so neither blocks authoring — for `practice.purpose` that is a quality cost to pay down; for `phase.purpose` it is filler for an unread field.
 
 #### Proposed direction — the ask on POC V4
 
@@ -501,9 +504,9 @@ Fields that the engine requires but the SME did not author should not automatica
 
 In particular:
 
-* `purpose` should either become optional or acquire the consumer described by the spec;
+* `phase.purpose` should either become optional or be rendered into the arc roadmap alongside the other three `purpose` fields;
 * mechanical transition button labels can be defaulted;
-* `final_word` should not be silently invented if it is intended to contain teaching content.
+* `final_word` should not be silently invented if it is intended to contain teaching content (the schema requires it only on delivery-only debriefs — `follow_up_turns: 0`; the exit `final_word`s are optional).
 
 ---
 
