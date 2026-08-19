@@ -34,7 +34,7 @@
 
   Note what the three inventory tabs actually were: container TYPES, not places.
   "Drug Boxes" meant every drug box in the agency, not one box. So they become a
-  multi-select type filter (all / master supply / drug boxes), with LOCATION as a
+  single-select type filter (all / master supply / drug boxes), with LOCATION as a
   separate, independent axis — the two compose, so "all drug boxes everywhere"
   and "everything at Medic 12" are each one control.
 
@@ -435,9 +435,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
      The three old tabs were container TYPES, not places: "Drug Boxes" meant
      every drug box in the agency. So they collapse into a type filter (a
-     generic level), multi-select because combinations are real views. Location
-     is a separate axis, and the two compose. Nothing here is saved or starred
-     — the type set is fixed and known.
+     generic level) as an exclusive toggle — one active at a time, and "All" is
+     its own chip rather than the sum of the others. Location is a separate
+     axis, and the two compose. Nothing here is saved or starred — the type set
+     is fixed and known.
      ==================================================================== */
   .cs-scope {
     background: var(--cs-card-bg); border: 1px solid var(--cs-line);
@@ -834,9 +835,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
              instances ("Medic 12 · Drug Box"); that solved a different problem
              than the tabs did.
 
-             Type is multi-select because the useful states include combinations
-             — master supplies AND drug boxes together is a real view, and it is
-             what today's On Hand tab effectively shows.
+             Type is an exclusive toggle: one type at a time, with "All" as its
+             own chip. "Both types together" is exactly what All means, so it
+             needs no separate multi-select gesture — and that keeps the control
+             from ever reaching an empty or ambiguous state.
 
              Location is a SEPARATE, INDEPENDENT axis. "All drug boxes
              everywhere" and "everything at Medic 12" are each one control, and
@@ -847,15 +849,18 @@ href="../../../../assets/fontawesome/css/all.min.css"
           <div class="cs-scope">
             <!-- ONE control line, three parts, left to right:
 
-                 LOCATION TYPE — a generic level, fixed set, multi-select. The
-                   set is EXACTLY TWO: Check It 1 supports master supplies and
-                   drug boxes and nothing else, so a physical safe, cabinet or
-                   compartment is entered as ONE OF THE TWO and renamed. Names
-                   like "Safe 2" are labels, not types — do not infer a third
-                   type from one. Where a renamed container belongs is decided
-                   by how it behaves: a stationary stockroom counted on a
-                   schedule is a master supply; a sealed unit on a check cadence
-                   is a drug box. Means the same thing in both row views.
+                 LOCATION TYPE — a generic level, fixed set, EXCLUSIVE toggle:
+                   exactly one chip is active at a time, and "All" is reachable
+                   only by clicking All — never by accumulating the individual
+                   types. The underlying set is EXACTLY TWO: Check It 1 supports
+                   master supplies and drug boxes and nothing else, so a
+                   physical safe, cabinet or compartment is entered as ONE OF
+                   THE TWO and renamed. Names like "Safe 2" are labels, not
+                   types — do not infer a third type from one. Where a renamed
+                   container belongs is decided by how it behaves: a stationary
+                   stockroom counted on a schedule is a master supply; a sealed
+                   unit on a check cadence is a drug box. Means the same thing
+                   in both row views.
 
                  NARROWING SELECT — POSITIONAL, not fixed: it always narrows
                    whatever a row currently is. By location → a location picker.
@@ -2397,7 +2402,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
   /* ---- Inventory: two independent filter axes ------------------------
      csType     — container TYPE (generic level: all / master supply / drug
-                  boxes). Multi-select, because combinations are real views.
+                  boxes). Exclusive: one at a time, All is its own chip.
      csLocation — WHICH place. Independent of type; the two compose.
      Both feed one summary line so the current scope is always stated.
   /* ---- Inventory: a row-axis toggle plus two filters -----------------
@@ -2472,22 +2477,15 @@ href="../../../../assets/fontawesome/css/all.min.css"
     document.getElementById('inv-sub-empty').style.display = shown ? 'none' : '';
   }
 
+  /* Exclusive toggle: exactly one type is active at a time. Clicking a type
+     selects only that type; "All" is reachable only by clicking All, never by
+     accumulating the individual types. Re-clicking the active chip is a no-op
+     rather than a deselect, so the control can never reach an empty state. */
   function csType(btn, key) {
     var group = document.getElementById('cs-inv-types');
-    var btns = [].slice.call(group.querySelectorAll('.cs-facet'));
-
-    if (key === 'all') {
-      invScope.types = ['all'];
-    } else {
-      var next = invScope.types.filter(function (t) { return t !== 'all'; });
-      var i = next.indexOf(key);
-      if (i > -1) next.splice(i, 1); else next.push(key);
-      /* Nothing selected means "no filter" = All; selecting every type
-         individually is the same view as All, so collapse to it. */
-      invScope.types = (next.length === 0 || next.length === btns.length - 1) ? ['all'] : next;
-    }
-    btns.forEach(function (b) {
-      b.setAttribute('aria-pressed', String(invScope.types.indexOf(b.getAttribute('data-type')) > -1));
+    invScope.types = [key];
+    group.querySelectorAll('.cs-facet').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-type') === key));
     });
     csApplyInvFilters();
   }
@@ -2774,7 +2772,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
       nodes: [
         { id: 'inventory', flow: 'inv', entry: true, x: 60, y: 80,
           step: 'Entry', name: 'Inventory — by location', state: 'inventory',
-          desc: 'One surface replacing Drug Boxes + Master Supply + On Hand. The old tabs were container TYPES, not places, so they become a multi-select type filter; location is a separate axis and the two compose.' },
+          desc: 'One surface replacing Drug Boxes + Master Supply + On Hand. The old tabs were container TYPES, not places, so they become an exclusive type toggle; location is a separate axis and the two compose.' },
         { id: 'substances', flow: 'inv', x: 400, y: 80,
           step: 'Scope', name: 'Inventory — by substance', state: 'substances',
           desc: 'A row is a SUBSTANCE, not a location — the lineage is today\'s On Hand, re-presented as a real substance drill. The narrowing control becomes a substance picker, because it always narrows the row axis.' },
