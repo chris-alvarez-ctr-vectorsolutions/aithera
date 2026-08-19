@@ -671,11 +671,13 @@
       '<td><button class="kx-chevron" data-toggle="' + KX.attr(task.id) + '" aria-expanded="' + open + '" ' +
       'aria-label="' + (open ? 'Collapse details' : 'Expand details') + '">' + micon('chevron_right', { size: 20 }) + '</button></td>' +
       '<td><span class="kx-product">' + esc(KX.srcName(task.source)) + '</span></td>' +
-      '<td><div class="kx-task-cell">' + KX.typeIcon(task) +
+      // V2: the type reads as a named badge instead of an icon. The separate
+      // .kx-task-type line the comfortable density used to carry is gone with it
+      // — it would just repeat the badge — so MANDATORY now sits beside the
+      // title at BOTH densities rather than moving between the two rows.
+      '<td><div class="kx-task-cell">' + KX.typeBadge(task) +
       '<div style="min-width:0;flex:1"><div class="kx-task-title"><span>' + esc(task.title) + '</span>' +
-      (dense && task.meta && task.meta.mandatory ? '<span class="kx-mandatory">MANDATORY</span>' : '') + '</div>' +
-      (!dense ? '<div class="kx-task-type">' + esc(task.typeLabel) +
-        (task.meta && task.meta.mandatory ? '<span class="kx-mandatory" style="margin-left:6px">MANDATORY</span>' : '') + '</div>' : '') +
+      (task.meta && task.meta.mandatory ? '<span class="kx-mandatory">MANDATORY</span>' : '') + '</div>' +
       '</div></div></td>' +
       '<td>' + assigneeCell(task, dense) + '</td>' +
       '<td>' + KX.dueCell(task, dense) + '</td>' +
