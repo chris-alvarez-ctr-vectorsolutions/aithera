@@ -455,6 +455,46 @@ href="../../../../assets/fontawesome/css/all.min.css"
     width: 1px; align-self: stretch; background: var(--cs-line); margin: 0 4px;
   }
 
+  /* ---- Level transition ------------------------------------------------
+     Drilling into a container swaps the whole table, and a jump cut hides the
+     relationship between the two levels. A DIRECTIONAL slide makes the
+     hierarchy legible: going deeper moves left, coming back moves right — the
+     same spatial grammar as a mobile master/detail push.
+
+     Only one level is ever mounted, so the two do not need to slide past each
+     other in a viewport; the outgoing level fades out as the incoming one
+     slides in. That keeps the page height stable, which matters because the
+     two levels have very different row counts.
+
+     Kept short (180ms) — this fires on every drill, and anything slower starts
+     to feel like waiting rather than orientation.
+     ---------------------------------------------------------------------- */
+  @keyframes cs-slide-from-right {
+    from { opacity: 0; transform: translateX(26px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes cs-slide-from-left {
+    from { opacity: 0; transform: translateX(-26px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .cs-level-in-deeper  { animation: cs-slide-from-right 180ms ease-out both; }
+  .cs-level-in-shallow { animation: cs-slide-from-left  180ms ease-out both; }
+
+  /* Peer-to-peer swaps (Activity's record classes) fade instead of sliding —
+     none of those views is deeper than another, so directional travel would
+     imply a hierarchy that isn't there. */
+  @keyframes cs-fade-swap {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .cs-pane-swap { animation: cs-fade-swap 150ms ease-out both; }
+
+  /* Respect the OS setting — a full-table slide is exactly the motion this
+     preference exists to suppress. Content still swaps, just without travel. */
+  @media (prefers-reduced-motion: reduce) {
+    .cs-level-in-deeper, .cs-level-in-shallow, .cs-pane-swap { animation: none; }
+  }
+
   /* Internal breadcrumb for the in-place container drill-in. Sits inside the
      card header, so it reads as "where am I in this table" rather than as
      page-level navigation. */
@@ -2442,6 +2482,19 @@ href="../../../../assets/fontawesome/css/all.min.css"
       document.getElementById('cs-act-title').innerHTML = lab[0];
       document.getElementById('cs-act-sub').innerHTML = lab[1];
     }
+    /* A FADE, not a slide. These four record classes are peers — no one of them
+       is deeper than another — so directional travel would imply a hierarchy
+       that does not exist. Motion still signals "the table changed". */
+    var pane = document.getElementById('s-' + name);
+    if (pane) {
+      pane.classList.remove('cs-pane-swap');
+      void pane.offsetWidth;
+      pane.classList.add('cs-pane-swap');
+      pane.addEventListener('animationend', function handler() {
+        pane.classList.remove('cs-pane-swap');
+        pane.removeEventListener('animationend', handler);
+      });
+    }
   }
 
   /* ---- Inventory: two independent filter axes ------------------------
@@ -2651,15 +2704,37 @@ href="../../../../assets/fontawesome/css/all.min.css"
       }).join('');
     }
 
-    document.getElementById('inv-level-containers').style.display = 'none';
-    document.getElementById('inv-level-items').style.display = '';
-    window.scrollTo(0, 0);
+    csShowLevel('inv-level-items', 'deeper');
   }
 
   /* Back up a level, via the internal breadcrumb. */
   function csBackToContainers() {
-    document.getElementById('inv-level-items').style.display = 'none';
-    document.getElementById('inv-level-containers').style.display = '';
+    csShowLevel('inv-level-containers', 'shallow');
+  }
+
+  /* Swap which inventory level is mounted, with a directional slide so the
+     hierarchy reads: deeper moves left-to-right in, shallower the reverse.
+     One level is mounted at a time, so the page height never has to hold both.
+
+     The animation class is removed on completion — leaving it on would make a
+     re-drill silently no-op, since re-adding a class the element already has
+     does not restart a CSS animation. */
+  function csShowLevel(id, direction) {
+    var levels = ['inv-level-containers', 'inv-level-items'];
+    levels.forEach(function (l) {
+      var el = document.getElementById(l);
+      el.classList.remove('cs-level-in-deeper', 'cs-level-in-shallow');
+      el.style.display = (l === id) ? '' : 'none';
+    });
+    var shown = document.getElementById(id);
+    var cls = (direction === 'deeper') ? 'cs-level-in-deeper' : 'cs-level-in-shallow';
+    /* Force a reflow so the animation restarts even on a repeat drill. */
+    void shown.offsetWidth;
+    shown.classList.add(cls);
+    shown.addEventListener('animationend', function handler() {
+      shown.classList.remove(cls);
+      shown.removeEventListener('animationend', handler);
+    });
     window.scrollTo(0, 0);
   }
 
@@ -2672,8 +2747,31 @@ href="../../../../assets/fontawesome/css/all.min.css"
     root.querySelectorAll('.cs-seg').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b === btn));
     });
-    document.getElementById('inv-by-loc').style.display = (which === 'loc') ? 'block' : 'none';
-    document.getElementById('inv-by-sub').style.display = (which === 'sub') ? 'block' : 'none';
+
+    /* Leaving By location abandons any container drill, so reset to the list.
+       Without this the drill state survives the round trip and coming back
+       lands on a container's items rather than the container list. */
+    if (which !== 'loc') {
+      document.getElementById('inv-level-items').style.display = 'none';
+      document.getElementById('inv-level-containers').style.display = '';
+    }
+
+    var target = document.getElementById(which === 'loc' ? 'inv-by-loc' : 'inv-by-sub');
+    var other  = document.getElementById(which === 'loc' ? 'inv-by-sub' : 'inv-by-loc');
+    other.style.display = 'none';
+    target.style.display = 'block';
+
+    /* Same motion vocabulary as the container drill, so every content swap on
+       this surface animates the same way. By substance is the "deeper" grain
+       (items rather than places), so it enters from the right. */
+    var cls = (which === 'sub') ? 'cs-level-in-deeper' : 'cs-level-in-shallow';
+    target.classList.remove('cs-level-in-deeper', 'cs-level-in-shallow');
+    void target.offsetWidth;
+    target.classList.add(cls);
+    target.addEventListener('animationend', function handler() {
+      target.classList.remove(cls);
+      target.removeEventListener('animationend', handler);
+    });
 
     document.getElementById('cs-narrow-label').textContent = (which === 'loc') ? 'Location' : 'Substance';
     document.getElementById('inv-loc').style.display = (which === 'loc') ? '' : 'none';
