@@ -455,6 +455,27 @@ href="../../../../assets/fontawesome/css/all.min.css"
     width: 1px; align-self: stretch; background: var(--cs-line); margin: 0 4px;
   }
 
+  /* Internal breadcrumb for the in-place container drill-in. Sits inside the
+     card header, so it reads as "where am I in this table" rather than as
+     page-level navigation. */
+  .cs-inv-crumbs { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .cs-inv-crumb {
+    border: 0; background: transparent; font: inherit; font-size: 12.5px;
+    color: var(--lumo-primary-text-color, #0271ce); cursor: pointer;
+    padding: 2px 0; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .cs-inv-crumb:hover { text-decoration: underline; }
+  .cs-inv-crumb i { font-size: 10px; }
+  .cs-inv-crumb-sep { color: #b6bec8; }
+  .cs-inv-crumb-current { color: var(--ci-ink-500); }
+
+  /* Container facts, shown above its item rows. */
+  .cs-item-meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 22px; padding: 14px 16px;
+    background: var(--cs-zebra); border-bottom: 1px solid var(--cs-line-soft);
+  }
+
   /* Substance-first drill. The biggest departure from current-state: a substance
      is directly addressable, not reachable only by way of a container. */
   .cs-inv-tabs { display: flex; gap: 6px; margin-left: auto; }
@@ -544,14 +565,13 @@ href="../../../../assets/fontawesome/css/all.min.css"
     display: none; flex-direction: column;
   }
   .cs-coc.is-open { display: flex; }
-  /* Chain of custody can be opened from inside container contents, so it and
-     its scrim must stack above that drawer rather than beside it. */
-  #cs-coc-scrim { z-index: 402; }
-  #cs-coc { z-index: 403; }
   .cs-coc-head {
     padding: 17px 20px; border-bottom: 1px solid var(--cs-line);
-    display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
+    display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
   }
+  /* The title block keeps the full width; the export actions wrap beneath it
+     rather than squeezing a long substance name. */
+  .cs-coc-head > div:first-child { flex: 1 1 100%; margin-bottom: 4px; }
   .cs-coc-body { overflow-y: auto; padding: 18px 20px 30px; }
 
   .cs-timeline { position: relative; padding-left: 26px; }
@@ -913,6 +933,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
                ============================================== -->
           <div id="inv-by-loc">
 
+            <!-- LEVEL 1: the container list. Swapped out in place — not covered
+                 by a panel — when a container is opened, so a long item list
+                 gets the full width of the page rather than a 620px drawer. -->
+            <div id="inv-level-containers">
             <div class="cs-card">
               <div class="cs-card-head">
                 <div>
@@ -1007,6 +1031,52 @@ href="../../../../assets/fontawesome/css/all.min.css"
               <div class="cs-stub">
                 <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
                 No containers of the selected type at this location.
+              </div>
+            </div>
+            </div><!-- /#inv-level-containers -->
+
+            <!-- LEVEL 2: one container's contents, at item grain. Replaces the
+                 list above rather than covering it, because these lists can be
+                 long and a side panel is the wrong container for one. That also
+                 leaves the side panel free for chain of custody alone, so
+                 panels never layer. -->
+            <div id="inv-level-items" style="display:none">
+              <div class="cs-card">
+                <div class="cs-card-head" style="align-items:flex-start">
+                  <div style="flex:1; min-width:0">
+                    <!-- Internal breadcrumb — the way back up a level. -->
+                    <nav class="cs-inv-crumbs" aria-label="Breadcrumb">
+                      <button class="cs-inv-crumb" onclick="csBackToContainers()">
+                        <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Containers
+                      </button>
+                      <span class="cs-inv-crumb-sep" aria-hidden="true">/</span>
+                      <span class="cs-inv-crumb-current" id="cs-item-crumb">Container</span>
+                    </nav>
+                    <div class="cs-card-title" id="cs-item-title" style="margin-top:6px">Container</div>
+                    <div class="cs-card-sub" id="cs-item-sub"></div>
+                  </div>
+                  <div class="cs-card-acts">
+                    <vaadin-button theme="tertiary" onclick="return false"><i class="fa-solid fa-file-export" style="margin-right:6px" aria-hidden="true"></i>Export</vaadin-button>
+                  </div>
+                </div>
+
+                <div class="cs-item-meta" id="cs-item-meta"></div>
+
+                <div class="cs-card-body is-flush">
+                  <table class="cs-table">
+                    <thead>
+                      <tr>
+                        <th>Substance &amp; finished form</th>
+                        <th>Lot</th>
+                        <th class="num">Qty</th>
+                        <th>Expires</th>
+                        <th>Status</th>
+                        <th style="width:190px"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="cs-item-rows"></tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -2237,8 +2307,14 @@ href="../../../../assets/fontawesome/css/all.min.css"
 <!-- ====================== CHAIN OF CUSTODY DRAWER ======================
      Reached by an ACTION on a record — never assembled by hand-filtering.
      One lot, end to end, deep-linkable so it can be handed to an inspector.
-     Whether this should instead be a top-level tab is an open question for
-     team alignment / user testing. -->
+
+     This is now the ONLY side panel: the container drill happens inline in the
+     table, so panels never layer.
+
+     Export matters here specifically — a chain of custody is the artifact an
+     inspector asks to be handed, so PDF is the primary action (an inspection
+     document) with CSV alongside for reconciliation, matching how the Reports
+     tab treats the same pair. -->
 <div class="cs-coc-scrim" id="cs-coc-scrim" onclick="csCocClose()"></div>
 <aside class="cs-coc" id="cs-coc" aria-label="Chain of custody">
   <div class="cs-coc-head">
@@ -2246,6 +2322,13 @@ href="../../../../assets/fontawesome/css/all.min.css"
       <div class="cs-card-title" id="cs-coc-title">Chain of custody</div>
       <div class="cs-card-sub" id="cs-coc-sub">Lot lifecycle, built automatically</div>
     </div>
+    <vaadin-button theme="tertiary" onclick="return false" aria-label="Copy deep link" title="Copy link">
+      <i class="fa-solid fa-link" aria-hidden="true"></i>
+    </vaadin-button>
+    <vaadin-button theme="tertiary" onclick="return false">CSV</vaadin-button>
+    <vaadin-button theme="primary" onclick="return false">
+      <i class="fa-regular fa-file-pdf" style="margin-right:6px" aria-hidden="true"></i>Export PDF
+    </vaadin-button>
     <vaadin-button theme="tertiary" onclick="csCocClose()" aria-label="Close">
       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </vaadin-button>
@@ -2296,47 +2379,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
   </div>
 </aside>
 
-<!-- ====================== CONTAINER CONTENTS DRAWER ======================
-     What a CONTAINER row opens. Distinct from the chain-of-custody drawer
-     above, which is a LOT lifecycle reached from a RECORD — "the custody
-     history of Drug Box 7227" is not a meaningful thing, so a container row
-     must never open it.
-
-     This is where master supply's shelf view went when the two inventory
-     tables merged into one container-grain list, and it is also the only
-     place a drug box's contents appear (there is no persistent item-level
-     box view — nothing in the PRD asks for one).
-
-     From here, an individual lot CAN open chain of custody, because at that
-     point there is a lot to trace. -->
-<div class="cs-coc-scrim" id="cs-cont-scrim" onclick="csContClose()"></div>
-<aside class="cs-coc" id="cs-cont" aria-label="Container contents">
-  <div class="cs-coc-head">
-    <div style="flex:1">
-      <div class="cs-card-title" id="cs-cont-title">Container</div>
-      <div class="cs-card-sub" id="cs-cont-sub"></div>
-    </div>
-    <vaadin-button theme="tertiary" onclick="csContClose()" aria-label="Close">
-      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-    </vaadin-button>
-  </div>
-  <div class="cs-coc-body">
-    <div class="cs-fields" id="cs-cont-meta"></div>
-    <div class="cs-card-title" style="font-size:13.5px; margin-bottom:6px">Contents</div>
-    <div class="cs-card-sub" style="margin-bottom:10px">Substances and lots held in this container. Open a lot for its chain of custody.</div>
-    <table class="cs-table" style="border:1px solid var(--cs-line); border-radius:6px; overflow:hidden">
-      <thead>
-        <tr>
-          <th>Substance &amp; finished form</th>
-          <th>Lot</th>
-          <th class="num">Qty</th>
-          <th>Expires</th>
-        </tr>
-      </thead>
-      <tbody id="cs-cont-rows"></tbody>
-    </table>
-  </div>
-</aside>
 
 
 <script>
@@ -2558,13 +2600,20 @@ href="../../../../assets/fontawesome/css/all.min.css"
     }
   };
 
+  /* Drill IN PLACE: swap the container list for that container's item rows.
+     Not a side panel — these lists can be long, and a 620px drawer is the
+     wrong container for one. Keeping the drill inline also leaves the side
+     panel free for chain of custody alone, so panels never layer. */
   function csDrillContainer(container, location) {
-    var c = CONTAINER_CONTENTS[container] || { type: '—', policy: '—', lastCheck: '—', status: '—', items: [] };
-    document.getElementById('cs-cont-title').textContent = container;
-    document.getElementById('cs-cont-sub').textContent = location + ' · ' + c.type;
+    var c = CONTAINER_CONTENTS[container] ||
+            { type: '—', policy: '—', lastCheck: '—', status: '—', items: [] };
+
+    document.getElementById('cs-item-crumb').textContent = container;
+    document.getElementById('cs-item-title').textContent = container;
+    document.getElementById('cs-item-sub').textContent = location + ' · ' + c.type;
 
     var units = c.items.reduce(function (n, it) { return n + it[3]; }, 0);
-    document.getElementById('cs-cont-meta').innerHTML =
+    document.getElementById('cs-item-meta').innerHTML =
       '<div><div class="cs-field-k">Type</div><div class="cs-field-v">' + c.type + '</div></div>' +
       '<div><div class="cs-field-k">Location</div><div class="cs-field-v">' + location + '</div></div>' +
       '<div><div class="cs-field-k">Escalation policy</div><div class="cs-field-v">' + c.policy + '</div></div>' +
@@ -2573,27 +2622,45 @@ href="../../../../assets/fontawesome/css/all.min.css"
       '<div><div class="cs-field-k">On hand</div><div class="cs-field-v">' + units + ' units · ' +
         c.items.length + (c.items.length === 1 ? ' substance' : ' substances') + '</div></div>';
 
-    var body = document.getElementById('cs-cont-rows');
+    var body = document.getElementById('cs-item-rows');
     if (!c.items.length) {
-      body.innerHTML = '<tr><td colspan="4"><div class="cs-stub" style="padding:28px 12px">' +
+      body.innerHTML = '<tr><td colspan="6"><div class="cs-stub" style="padding:34px 12px">' +
         '<i class="fa-regular fa-folder-open" aria-hidden="true"></i>This container is empty.</div></td></tr>';
     } else {
       body.innerHTML = c.items.map(function (it) {
-        return '<tr class="cs-row-click" onclick="csCoc(\'' + it[0].replace(/'/g, "\\'") + '\',\'' + it[2] + '\')">' +
+        var sub = it[0].replace(/'/g, "\\'");
+        /* Parse MM/DD/YYYY properly — a string compare gets this wrong, because
+           "03/14/2027" sorts before "10/2026" character-by-character. Fixed
+           "today" so the mock reads the same on any day it is opened. */
+        var TODAY = new Date(2026, 7, 19);          // 08/19/2026
+        var parts = it[4].split('/');
+        var exp = new Date(+parts[2], +parts[0] - 1, +parts[1]);
+        var expiring = (exp - TODAY) / 86400000 <= 90;   // within 90 days
+        return '<tr>' +
           '<td><div class="cs-strong">' + it[0] + '</div><div class="cs-tiny">' + it[1] + '</div></td>' +
           '<td>#' + it[2] + '</td>' +
           '<td class="num">' + it[3] + '</td>' +
-          '<td>' + it[4] + '</td></tr>';
+          '<td>' + it[4] + '</td>' +
+          '<td>' + (expiring
+            ? '<span class="cs-pill cs-pill--warn">Expiring soon</span>'
+            : '<span class="cs-pill cs-pill--ok">In date</span>') + '</td>' +
+          '<td><div style="display:flex;gap:6px;justify-content:flex-end">' +
+            '<vaadin-button theme="tertiary" onclick="csCoc(\'' + sub + '\',\'' + it[2] + '\')">' +
+            '<i class="fa-solid fa-link" style="margin-right:6px" aria-hidden="true"></i>Chain of custody</vaadin-button>' +
+          '</div></td></tr>';
       }).join('');
     }
 
-    document.getElementById('cs-cont').classList.add('is-open');
-    document.getElementById('cs-cont-scrim').classList.add('is-open');
+    document.getElementById('inv-level-containers').style.display = 'none';
+    document.getElementById('inv-level-items').style.display = '';
+    window.scrollTo(0, 0);
   }
 
-  function csContClose() {
-    document.getElementById('cs-cont').classList.remove('is-open');
-    document.getElementById('cs-cont-scrim').classList.remove('is-open');
+  /* Back up a level, via the internal breadcrumb. */
+  function csBackToContainers() {
+    document.getElementById('inv-level-items').style.display = 'none';
+    document.getElementById('inv-level-containers').style.display = '';
+    window.scrollTo(0, 0);
   }
 
   /* Swap the row axis. The narrowing control swaps with it, and its previous
@@ -2713,12 +2780,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
     document.getElementById('cs-coc').classList.remove('is-open');
     document.getElementById('cs-coc-scrim').classList.remove('is-open');
   }
-  /* Escape closes the topmost drawer first: chain of custody can be opened
-     from inside container contents, so it must unwind in that order. */
+  /* Chain of custody is the ONLY side panel now — the container drill happens
+     inline — so Escape has just one thing to close. */
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape') return;
-    if (document.getElementById('cs-coc').classList.contains('is-open')) csCocClose();
-    else csContClose();
+    if (e.key === 'Escape') csCocClose();
   });
 
   /* ---- Reports drill-in ---- */
