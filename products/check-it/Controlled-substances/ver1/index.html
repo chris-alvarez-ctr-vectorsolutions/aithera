@@ -544,6 +544,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
     display: none; flex-direction: column;
   }
   .cs-coc.is-open { display: flex; }
+  /* Chain of custody can be opened from inside container contents, so it and
+     its scrim must stack above that drawer rather than beside it. */
+  #cs-coc-scrim { z-index: 402; }
+  #cs-coc { z-index: 403; }
   .cs-coc-head {
     padding: 17px 20px; border-bottom: 1px solid var(--cs-line);
     display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
@@ -2292,6 +2296,48 @@ href="../../../../assets/fontawesome/css/all.min.css"
   </div>
 </aside>
 
+<!-- ====================== CONTAINER CONTENTS DRAWER ======================
+     What a CONTAINER row opens. Distinct from the chain-of-custody drawer
+     above, which is a LOT lifecycle reached from a RECORD — "the custody
+     history of Drug Box 7227" is not a meaningful thing, so a container row
+     must never open it.
+
+     This is where master supply's shelf view went when the two inventory
+     tables merged into one container-grain list, and it is also the only
+     place a drug box's contents appear (there is no persistent item-level
+     box view — nothing in the PRD asks for one).
+
+     From here, an individual lot CAN open chain of custody, because at that
+     point there is a lot to trace. -->
+<div class="cs-coc-scrim" id="cs-cont-scrim" onclick="csContClose()"></div>
+<aside class="cs-coc" id="cs-cont" aria-label="Container contents">
+  <div class="cs-coc-head">
+    <div style="flex:1">
+      <div class="cs-card-title" id="cs-cont-title">Container</div>
+      <div class="cs-card-sub" id="cs-cont-sub"></div>
+    </div>
+    <vaadin-button theme="tertiary" onclick="csContClose()" aria-label="Close">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </vaadin-button>
+  </div>
+  <div class="cs-coc-body">
+    <div class="cs-fields" id="cs-cont-meta"></div>
+    <div class="cs-card-title" style="font-size:13.5px; margin-bottom:6px">Contents</div>
+    <div class="cs-card-sub" style="margin-bottom:10px">Substances and lots held in this container. Open a lot for its chain of custody.</div>
+    <table class="cs-table" style="border:1px solid var(--cs-line); border-radius:6px; overflow:hidden">
+      <thead>
+        <tr>
+          <th>Substance &amp; finished form</th>
+          <th>Lot</th>
+          <th class="num">Qty</th>
+          <th>Expires</th>
+        </tr>
+      </thead>
+      <tbody id="cs-cont-rows"></tbody>
+    </table>
+  </div>
+</aside>
+
 
 <script>
   /* ==================================================================
@@ -2449,8 +2495,105 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
   /* Clicking a drug-box row drills into that container — the only place box
      contents appear, since there is no persistent item-level box view. */
+  /* ---- Container contents ------------------------------------------
+     A container row opens ITS CONTENTS, never chain of custody. Chain of
+     custody is a lot lifecycle reached from a record; "the custody history
+     of Drug Box 7227" is not a meaningful thing. An individual lot inside
+     this drawer can open it, because at that point there is a lot to trace.
+     -------------------------------------------------------------------- */
+  var CONTAINER_CONTENTS = {
+    'Drug Box 7227': {
+      type: 'Drug Box', policy: 'Daily rig check — C-II',
+      lastCheck: '08/16/2026 6:12 am · A. Reyes', status: 'Discrepancy · −1 unit, open',
+      items: [
+        ['FENTANYL CITRATE (SUBLIMAZE)', '100 mcg / 2 mL vial', 'FN-23409', 4, '03/14/2027'],
+        ['MIDAZOLAM (VERSED)', '10 mg / 2 mL vial', 'MZ-88421', 6, '11/30/2026'],
+        ['MORPHINE SULFATE', '10 mg / 1 mL vial', 'MS-11902', 5, '09/02/2026'],
+        ['KETAMINE HCL', '500 mg / 10 mL vial', 'KT-40118', 3, '06/21/2027']
+      ]
+    },
+    'Drug Box 5510': {
+      type: 'Drug Box', policy: 'Daily rig check — C-II',
+      lastCheck: '08/14/2026 7:03 am · T. Hartley', status: 'Discrepancy · +1 unit, open',
+      items: [
+        ['MORPHINE SULFATE', '10 mg / 1 mL vial', 'MS-11902', 5, '09/02/2026'],
+        ['KETAMINE HCL', '500 mg / 10 mL vial', 'KT-40118', 3, '06/21/2027'],
+        ['MIDAZOLAM (VERSED)', '10 mg / 2 mL vial', 'MZ-88421', 4, '11/30/2026']
+      ]
+    },
+    'Eastgate Compartment 1': {
+      type: 'Drug Box', policy: 'No escalation policy',
+      lastCheck: '—', status: 'Not checked yet',
+      items: []
+    },
+    'Safe 2': {
+      type: 'Master Supply', policy: 'Master supply weekly',
+      lastCheck: '08/16/2026 6:04 am · A. Reyes', status: 'Reconciled',
+      items: [
+        ['MORPHINE SULFATE', '10 mg / 1 mL vial', 'MS-12440', 8, '02/14/2027'],
+        ['FENTANYL CITRATE (SUBLIMAZE)', '100 mcg / 2 mL vial', 'FN-24011', 12, '08/30/2027']
+      ]
+    },
+    'Master Supply': {
+      type: 'Master Supply', policy: 'Master supply weekly',
+      lastCheck: '08/15/2026 4:47 pm · K. Znilek', status: 'Discrepancy · −2 units, open',
+      items: [
+        ['FENTANYL CITRATE (SUBLIMAZE)', '100 mcg / 2 mL vial', 'FN-23409', 16, '03/14/2027'],
+        ['MORPHINE SULFATE', '10 mg / 1 mL vial', 'MS-11902', 4, '09/02/2026']
+      ]
+    },
+    'Store Room A': {
+      type: 'Master Supply', policy: 'Master supply weekly',
+      lastCheck: '08/15/2026 4:31 pm · K. Znilek', status: 'Reconciled',
+      items: [
+        ['LORAZEPAM (ATIVAN)', '2 mg / 1 mL vial', 'LZ-77320', 9, '01/18/2027']
+      ]
+    },
+    'Westfield Master': {
+      type: 'Master Supply', policy: 'Master supply weekly',
+      lastCheck: '08/15/2026 7:15 am · M. Okonjo', status: 'Reconciled',
+      items: [
+        ['MIDAZOLAM (VERSED)', '10 mg / 2 mL vial', 'MZ-89003', 14, '05/22/2027']
+      ]
+    }
+  };
+
   function csDrillContainer(container, location) {
-    csCoc(container, location);
+    var c = CONTAINER_CONTENTS[container] || { type: '—', policy: '—', lastCheck: '—', status: '—', items: [] };
+    document.getElementById('cs-cont-title').textContent = container;
+    document.getElementById('cs-cont-sub').textContent = location + ' · ' + c.type;
+
+    var units = c.items.reduce(function (n, it) { return n + it[3]; }, 0);
+    document.getElementById('cs-cont-meta').innerHTML =
+      '<div><div class="cs-field-k">Type</div><div class="cs-field-v">' + c.type + '</div></div>' +
+      '<div><div class="cs-field-k">Location</div><div class="cs-field-v">' + location + '</div></div>' +
+      '<div><div class="cs-field-k">Escalation policy</div><div class="cs-field-v">' + c.policy + '</div></div>' +
+      '<div><div class="cs-field-k">Last check</div><div class="cs-field-v">' + c.lastCheck + '</div></div>' +
+      '<div><div class="cs-field-k">Status</div><div class="cs-field-v">' + c.status + '</div></div>' +
+      '<div><div class="cs-field-k">On hand</div><div class="cs-field-v">' + units + ' units · ' +
+        c.items.length + (c.items.length === 1 ? ' substance' : ' substances') + '</div></div>';
+
+    var body = document.getElementById('cs-cont-rows');
+    if (!c.items.length) {
+      body.innerHTML = '<tr><td colspan="4"><div class="cs-stub" style="padding:28px 12px">' +
+        '<i class="fa-regular fa-folder-open" aria-hidden="true"></i>This container is empty.</div></td></tr>';
+    } else {
+      body.innerHTML = c.items.map(function (it) {
+        return '<tr class="cs-row-click" onclick="csCoc(\'' + it[0].replace(/'/g, "\\'") + '\',\'' + it[2] + '\')">' +
+          '<td><div class="cs-strong">' + it[0] + '</div><div class="cs-tiny">' + it[1] + '</div></td>' +
+          '<td>#' + it[2] + '</td>' +
+          '<td class="num">' + it[3] + '</td>' +
+          '<td>' + it[4] + '</td></tr>';
+      }).join('');
+    }
+
+    document.getElementById('cs-cont').classList.add('is-open');
+    document.getElementById('cs-cont-scrim').classList.add('is-open');
+  }
+
+  function csContClose() {
+    document.getElementById('cs-cont').classList.remove('is-open');
+    document.getElementById('cs-cont-scrim').classList.remove('is-open');
   }
 
   /* Swap the row axis. The narrowing control swaps with it, and its previous
@@ -2570,7 +2713,13 @@ href="../../../../assets/fontawesome/css/all.min.css"
     document.getElementById('cs-coc').classList.remove('is-open');
     document.getElementById('cs-coc-scrim').classList.remove('is-open');
   }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') csCocClose(); });
+  /* Escape closes the topmost drawer first: chain of custody can be opened
+     from inside container contents, so it must unwind in that order. */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('cs-coc').classList.contains('is-open')) csCocClose();
+    else csContClose();
+  });
 
   /* ---- Reports drill-in ---- */
   function csReport(which) {
