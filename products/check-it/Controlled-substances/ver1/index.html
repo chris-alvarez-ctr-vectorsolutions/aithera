@@ -449,8 +449,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
     font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
     color: var(--ci-ink-500); margin-right: 2px;
   }
-  /* Live count of what the two filters currently resolve to. */
-  .cs-scope-summary { font-size: 12.5px; color: var(--ci-ink-500); }
+  /* Separates the two filters on the single control line. */
+  .cs-scope-divider {
+    width: 1px; align-self: stretch; background: var(--cs-line); margin: 0 4px;
+  }
 
   /* Substance-first drill. The biggest departure from current-state: a substance
      is directly addressable, not reachable only by way of a container. */
@@ -843,42 +845,44 @@ href="../../../../assets/fontawesome/css/all.min.css"
         <section class="cs-view" id="v-inventory" data-view="loc" aria-label="Inventory">
 
           <div class="cs-scope">
-            <!-- Axis 1: CONTAINER TYPE — a generic level, fixed set, multi-select.
-                 Nothing saved or starred; the types are known. This axis means
-                 the same thing in both views: which container types count.
+            <!-- ONE control line, three parts, left to right:
 
-                 THE SET IS EXACTLY TWO. Check It 1 supports master supplies and
-                 drug boxes and nothing else, so a physical safe, cabinet or
-                 compartment is entered as ONE OF THE TWO and renamed. Names like
-                 "Safe 2" are therefore labels, not types — do not infer a third
-                 type from one. Where a renamed container belongs is decided by
-                 how it behaves: a stationary stockroom counted on a schedule is
-                 a master supply; a sealed unit on a check cadence is a drug box.
+                 LOCATION TYPE — a generic level, fixed set, multi-select. The
+                   set is EXACTLY TWO: Check It 1 supports master supplies and
+                   drug boxes and nothing else, so a physical safe, cabinet or
+                   compartment is entered as ONE OF THE TWO and renamed. Names
+                   like "Safe 2" are labels, not types — do not infer a third
+                   type from one. Where a renamed container belongs is decided
+                   by how it behaves: a stationary stockroom counted on a
+                   schedule is a master supply; a sealed unit on a check cadence
+                   is a drug box. Means the same thing in both row views.
+
+                 NARROWING SELECT — POSITIONAL, not fixed: it always narrows
+                   whatever a row currently is. By location → a location picker.
+                   By substance → a substance picker. It swaps with the toggle,
+                   so the line always reads as "these rows, narrowed to this one".
+
+                 ROW-AXIS TOGGLE — right-aligned, because it decides what the
+                   whole table is and reads as the mode switch it is.
                  -->
             <div class="cs-scope-row">
-              <span class="cs-scope-label">Containers</span>
+              <span class="cs-scope-label">Location Type</span>
               <div class="cs-facets" id="cs-inv-types">
                 <button class="cs-facet" data-type="all"    aria-pressed="true"  onclick="csType(this,'all')">All</button>
                 <button class="cs-facet" data-type="master" aria-pressed="false" onclick="csType(this,'master')">Master Supply</button>
                 <button class="cs-facet" data-type="box"    aria-pressed="false" onclick="csType(this,'box')">Drug Boxes</button>
               </div>
 
+              <span class="cs-scope-divider" aria-hidden="true"></span>
+
+              <span class="cs-scope-label" id="cs-narrow-label">Location</span>
+              <vaadin-select theme="outlined" value="all" id="inv-loc" style="width:230px"></vaadin-select>
+              <vaadin-select theme="outlined" value="all" id="inv-sub" style="width:230px; display:none"></vaadin-select>
+
               <div class="cs-inv-tabs">
                 <button class="cs-seg" aria-pressed="true"  onclick="csInvView(this,'loc')">By location</button>
                 <button class="cs-seg" aria-pressed="false" onclick="csInvView(this,'sub')">By substance</button>
               </div>
-            </div>
-
-            <!-- Axis 2: NARROW THE ROW AXIS. This control is POSITIONAL, not
-                 fixed: it always narrows whatever a row currently is. By
-                 location → pick a location. By substance → pick a substance.
-                 Swapping the toggle swaps this control with it, so the pair
-                 always reads as "these rows, narrowed to this one". -->
-            <div class="cs-scope-row" style="margin-top:11px; padding-top:11px; border-top:1px solid var(--cs-line-soft)">
-              <span class="cs-scope-label" id="cs-narrow-label">Location</span>
-              <vaadin-select theme="outlined" value="all" id="inv-loc" style="width:260px"></vaadin-select>
-              <vaadin-select theme="outlined" value="all" id="inv-sub" style="width:260px; display:none"></vaadin-select>
-              <span class="cs-scope-summary" id="cs-scope-summary"></span>
             </div>
           </div>
 
@@ -2432,7 +2436,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
     var wantBoxes  = csHasType('box');
     var wantMaster = csHasType('master');
 
-    var boxRows = 0, masterRows = 0, units = 0;
+    var boxRows = 0, masterRows = 0;
 
     document.querySelectorAll('#inv-boxes-card tbody tr').forEach(function (r) {
       var show = wantBoxes && (invScope.loc === 'all' || r.getAttribute('data-loc') === invScope.loc);
@@ -2442,31 +2446,20 @@ href="../../../../assets/fontawesome/css/all.min.css"
     document.querySelectorAll('#inv-master-card tbody tr').forEach(function (r) {
       var show = wantMaster && (invScope.loc === 'all' || r.getAttribute('data-loc') === invScope.loc);
       r.style.display = show ? '' : 'none';
-      if (show) {
-        masterRows++;
-        var q = r.querySelector('td.num');
-        units += q ? parseInt(q.textContent, 10) || 0 : 0;
-      }
+      if (show) masterRows++;
     });
 
     boxesCard.style.display  = (wantBoxes  && boxRows)    ? '' : 'none';
     masterCard.style.display = (wantMaster && masterRows) ? '' : 'none';
     document.getElementById('inv-loc-empty').style.display =
       (!boxRows && !masterRows) ? '' : 'none';
-
-    var parts = [];
-    if (boxRows)    parts.push(boxRows + (boxRows === 1 ? ' drug box' : ' drug boxes'));
-    if (masterRows) parts.push(masterRows + ' master-supply ' + (masterRows === 1 ? 'line' : 'lines') +
-                               ' · ' + units + ' units');
-    document.getElementById('cs-scope-summary').textContent =
-      parts.length ? parts.join('  ·  ') : 'Nothing in scope';
   }
 
   /* BY SUBSTANCE — rows are substances; the substance filter narrows them, and
      the type filter still limits which containers are counted. */
   function csApplyBySubstance() {
     var rows = document.querySelectorAll('#inv-by-sub tbody tr[data-sub]');
-    var shown = 0, units = 0;
+    var shown = 0;
     rows.forEach(function (r) {
       var rowTypes = (r.getAttribute('data-types') || '').split(' ').filter(Boolean);
       var typeOk = invScope.types.indexOf('all') > -1 ||
@@ -2474,16 +2467,9 @@ href="../../../../assets/fontawesome/css/all.min.css"
       var subOk = invScope.sub === 'all' || r.getAttribute('data-sub') === invScope.sub;
       var show = typeOk && subOk;
       r.style.display = show ? '' : 'none';
-      if (show) {
-        shown++;
-        var q = r.querySelector('td.num');
-        units += q ? parseInt(q.textContent, 10) || 0 : 0;
-      }
+      if (show) shown++;
     });
     document.getElementById('inv-sub-empty').style.display = shown ? 'none' : '';
-    document.getElementById('cs-scope-summary').textContent = shown
-      ? shown + (shown === 1 ? ' substance' : ' substances') + ' · ' + units + ' units'
-      : 'Nothing in scope';
   }
 
   function csType(btn, key) {
@@ -2697,7 +2683,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
   if (invSubSel) invSubSel.addEventListener('value-changed', function (e) {
     if (invScope.view === 'sub') csSubstance(e.detail.value);
   });
-  /* Initial render so the summary line is populated on load. */
+  /* Initial render so the filters are applied on load. */
   csApplyInvFilters();
   csSelect('cn-loc', locItems);
   csSelect('mv-type', [
