@@ -443,7 +443,6 @@
     // A hard-scoped role (a firefighter) has no other scope to switch to, so it
     // gets the label without the control.
     var canSwitchScope = !!currentUserId && !hardScoped;
-    var scopeOpen = state.openMenu === 'scope';
 
     // Counts for the menu, measured with every OTHER active filter still
     // applied — so the numbers describe what each choice would actually show.
@@ -457,27 +456,43 @@
       };
     }
 
-    var scopeName = myActive ? 'My tasks' : 'All tasks';
+    /* The title is a plain heading again. It used to double as the scope
+       dropdown, which tested poorly: people did not read a heading as something
+       clickable, so the second scope never got found. Scope is now an explicit
+       segmented control sitting between the title and the status buckets — the
+       same control the statuses already use, so it reads as a control on sight.
+
+       A hard-scoped role (the firefighter) has no second scope to offer, so it
+       gets no control — and keeps "My tasks" as its title, because with the
+       control gone the title is the only thing left that says whose list it is. */
     var scopeTitle = '<h2 class="kx-count">' +
-      (canSwitchScope
-        ? '<button class="kx-scope-btn" data-menu-toggle="scope" aria-haspopup="menu" ' +
-          'aria-expanded="' + scopeOpen + '" title="Switch between all tasks and your own">' +
-          '<span class="kx-scope-name">' + esc(scopeName) + '</span>' +
-          micon(scopeOpen ? 'expand_less' : 'expand_more', { size: 24, cls: 'kx-scope-caret' }) + '</button>'
-        : '<span class="kx-scope-name">' + esc(scopeName) + '</span>') +
-      // No count beside the title: the "All N" status bucket immediately to the
-      // right already reports it. The scope MENU still shows a count per choice,
-      // which is different information — what each scope WOULD show.
-      (scopeOpen ? scopeMenu(scopeCounts, myActive) : '') +
+      '<span class="kx-scope-name">' + esc(canSwitchScope ? 'Tasks' : 'My tasks') + '</span>' +
       '</h2>';
+
+    // Counts ride along per segment, the way the status buckets carry theirs —
+    // and they are what the old menu showed: what each scope WOULD display
+    // under the filters already applied.
+    var scopeSeg = canSwitchScope
+      ? '<vwc-toggle-button-group class="kx-buckets kx-scope-seg" id="kxScope" ' +
+        'aria-label="Show all tasks or only your own">' +
+        [['all', 'All tasks'], ['mine', 'My tasks']].map(function (o) {
+          var n = scopeCounts ? scopeCounts[o[0]] : null;
+          // data-scope is read by the existing scope click handler; `value` is
+          // what the group tracks. See syncScopeGroup for why selection is
+          // re-derived after every render rather than trusted from the event.
+          return '<vwc-toggle-button value="' + o[0] + '" data-scope="' + o[0] + '">' +
+            esc(o[1]) + (n != null ? '<span class="bn">' + n + '</span>' : '') +
+            '</vwc-toggle-button>';
+        }).join('') + '</vwc-toggle-button-group>'
+      : '';
 
     var sections = FILTER_SECTIONS().filter(function (s) { return flags.futureOn || !s.futureOnly; });
 
     return '<div class="kx-filterbar">' +
       '<div class="kx-filterbar-row">' +
-      // Scope is the task list's title — the only label between the hero and the
-      // table — so it is an h2, the rung below the greeting's h1.
-      scopeTitle + buckets +
+      // Title, then scope, then status: heading first, then the two segmented
+      // controls in order of how far each one narrows the list.
+      scopeTitle + scopeSeg + buckets +
       '<button class="kx-pill kx-btn-elev kx-desktop-only' + (state.filterOpen ? ' is-on' : '') + '" id="kxFilterToggle" ' +
       'aria-expanded="' + state.filterOpen + '">' + micon('tune', { size: 14 }) + 'Filter' +
       (chips.length ? '<span class="count">' + chips.length + '</span>' : '') +
@@ -513,25 +528,6 @@
           (!state.filterOpen ? '<button class="kx-clear-all" data-clear-all>' + micon('close', { size: 14 }) + ' Clear all</button>' : '') +
           '</div>'
         : '') +
-      '</div>';
-  }
-
-  /* The scope picker. Two mutually exclusive choices, each with the count it
-     would produce under the filters already applied. */
-  function scopeMenu(counts, mine) {
-    var row = function (id, icon, label, hint, n, active) {
-      return '<button class="kx-menu-row' + (active ? ' is-active' : '') + '" data-scope="' + id + '">' +
-        micon(icon, { size: 18, fill: active ? 1 : 0 }) +
-        '<span class="label">' + esc(label) +
-        '<span class="hint" style="display:block;font-style:normal">' + esc(hint) + '</span></span>' +
-        (n != null ? '<span class="kx-scope-n">' + n + '</span>' : '') + '</button>';
-    };
-    return '<div class="kx-menu kx-menu--left" style="min-width:270px">' +
-      '<div class="kx-menu-label">Show</div>' +
-      row('all', 'groups', 'All tasks', 'Everyone in your organization',
-          counts ? counts.all : null, !mine) +
-      row('mine', 'person', 'My tasks', 'Assigned to you only',
-          counts ? counts.mine : null, mine) +
       '</div>';
   }
 
@@ -940,6 +936,19 @@
     // dashboard's header instead — no in-page mount, no height cost.
     if (window.KXHero) KXHero.wire();
     syncBucketGroup();
+    syncScopeGroup();
+  }
+
+  /* Same contract as syncBucketGroup: app state is the source of truth and the
+     group's selection is re-derived after each render, so the component's own
+     transient toggle never becomes the state. */
+  function syncScopeGroup() {
+    var g = document.getElementById('kxScope');
+    if (!g) return;
+    var uid = K.ROLES[state.role] && K.ROLES[state.role].selfId;
+    var mine = Array.isArray(state.filter.assignees) &&
+      state.filter.assignees.length === 1 && state.filter.assignees[0] === uid;
+    KX.setToggleGroup(g, mine ? 'mine' : 'all');
   }
 
   function syncBucketGroup() {
