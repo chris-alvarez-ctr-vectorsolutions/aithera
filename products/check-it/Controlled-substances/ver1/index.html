@@ -396,42 +396,16 @@ href="../../../../assets/fontawesome/css/all.min.css"
   #v-activity[data-sub="counts"]      #s-counts,
   #v-activity[data-sub="discrepancies"] #s-discrepancies { display: block; }
 
-  /* ---- Record-class selector (Activity) --------------------------------
-     A SEGMENTED CONTROL INSIDE THE TABLE CARD, not a second tab row.
-     Two stacked horizontal tab bars is a rejected pattern: the secondary row
-     reads as navigation competing with the primary one, when what it actually
-     does is choose WHICH RECORDS the table below shows. The four record
-     classes are one query narrowed four ways, so the control belongs with the
-     other things that narrow the table — a peer of the filter row beneath it,
-     sitting on the card rather than above it.
-     ---------------------------------------------------------------------- */
-  .cs-classbar {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 0 16px 13px;
-  }
-  .cs-classbar .lab {
-    font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-    color: var(--ci-ink-500);
-  }
-  .cs-classes { display: inline-flex; }
-  .cs-class {
-    border: 1px solid var(--cs-line); background: #fff; font: inherit; font-size: 12.5px;
-    padding: 6px 15px; cursor: pointer; color: var(--ci-ink-700);
-    display: inline-flex; align-items: center; gap: 7px;
-  }
-  .cs-class:first-child { border-radius: 6px 0 0 6px; }
-  .cs-class:last-child  { border-radius: 0 6px 6px 0; }
-  .cs-class + .cs-class { border-left: 0; }
-  .cs-class:hover { background: var(--cs-zebra); }
-  .cs-class[aria-pressed="true"] {
-    background: var(--ci-navy); border-color: var(--ci-navy); color: #fff; font-weight: 700;
-  }
-  .cs-class .cs-sn-count {
-    font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+  /* The record-class selector reuses .cs-seg — the same segmented control as
+     Inventory's row-axis toggle — so both tabs express "what am I looking at"
+     with one component instead of two lookalikes. */
+  .cs-seg .cs-sn-count {
+    margin-left: 7px; font-size: 10.5px; font-weight: 700;
+    padding: 1px 6px; border-radius: 999px;
     background: var(--lumo-error-color, #d83e38); color: #fff;
   }
-  /* On the dark selected segment the red count would vibrate, so invert it. */
-  .cs-class[aria-pressed="true"] .cs-sn-count { background: #fff; color: var(--ci-navy); }
+  .cs-seg[aria-pressed="true"] .cs-sn-count { background: #fff; color: var(--ci-navy); }
+
 
   /* ---- Tables --------------------------------------------------------- */
   .cs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -506,6 +480,22 @@ href="../../../../assets/fontawesome/css/all.min.css"
     font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
     color: var(--ci-ink-500); margin-right: 2px;
   }
+  /* Activity: only the contextual filter row for the active record class is
+     shown. Shared filters above it are always present, so they persist. */
+  .cs-ctx { display: none; }
+  #v-activity[data-sub="movements"]     #ctx-movements,
+  #v-activity[data-sub="consumption"]   #ctx-consumption,
+  #v-activity[data-sub="counts"]        #ctx-counts,
+  #v-activity[data-sub="discrepancies"] #ctx-discrepancies { display: flex; }
+
+  /* Same compact sizing as Inventory's inline pickers. */
+  .cs-scope-row vaadin-date-picker,
+  .cs-ctx vaadin-combo-box {
+    --lumo-size-m: var(--lumo-size-s, 1.875rem);
+    --lumo-font-size-m: 13px;
+    padding-top: 0; padding-bottom: 0;
+  }
+
   /* Separates the two filters on the single control line. */
   .cs-scope-divider {
     width: 1px; align-self: stretch; background: var(--cs-line); margin: 0 4px;
@@ -1314,9 +1304,107 @@ href="../../../../assets/fontawesome/css/all.min.css"
              ========================================================== -->
         <section class="cs-view" id="v-activity" data-sub="consumption" aria-label="Activity">
 
+          <!-- ================== CONTROL BAR ==================
+               Same grammar as Inventory's .cs-scope bar, so both tabs read the
+               same way: stable axes first, then the thing that changes what a
+               row IS, then narrowing that swaps with it.
+
+               SHARED filters (location, date range) apply to every record class
+               and PERSIST across a class switch. Before this, each class had its
+               own ad-hoc filter set that reset on every switch — so "Riverside
+               HQ, last 30 days" had to be re-entered four times to look at one
+               location's activity from every angle, which is precisely the
+               investigation workflow this tab exists for.
+
+               The CONTEXTUAL row below swaps with the class, because those
+               filters are only meaningful for one record class each.
+               ================================================= -->
+          <div class="cs-scope">
+            <div class="cs-scope-row">
+              <span class="cs-scope-label">Location</span>
+              <vaadin-combo-box theme="outlined" id="act-loc" clear-button-visible
+                                placeholder="All locations"
+                                item-label-path="label" item-value-path="value"
+                                style="width:210px"></vaadin-combo-box>
+
+              <span class="cs-scope-divider" aria-hidden="true"></span>
+
+              <span class="cs-scope-label">Dates</span>
+              <vaadin-date-picker theme="outlined" id="act-from" value="2026-07-19"
+                                  style="width:150px"></vaadin-date-picker>
+              <span class="cs-dim" style="font-size:12.5px">to</span>
+              <vaadin-date-picker theme="outlined" id="act-to" value="2026-08-19"
+                                  style="width:150px"></vaadin-date-picker>
+
+              <div class="cs-inv-tabs" style="margin-left:auto">
+                <button class="cs-seg" aria-pressed="false" onclick="csSub(this,'movements')">Movements</button>
+                <button class="cs-seg" aria-pressed="true"  onclick="csSub(this,'consumption')">Consumption</button>
+                <button class="cs-seg" aria-pressed="false" onclick="csSub(this,'counts')">Counts</button>
+                <button class="cs-seg" aria-pressed="false" onclick="csSub(this,'discrepancies')">Discrepancies<span class="cs-sn-count" id="cs-sn-disc">3</span></button>
+              </div>
+            </div>
+
+            <!-- Contextual: only the controls that mean something for the
+                 active class. One row is visible at a time. -->
+            <div class="cs-scope-row cs-ctx" id="ctx-movements" style="margin-top:11px; padding-top:11px; border-top:1px solid var(--cs-line-soft)">
+              <span class="cs-scope-label">Movement type</span>
+              <div class="cs-facets">
+                <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Acquisition</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Hospital restock</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Inter-location</button>
+              </div>
+            </div>
+
+            <div class="cs-scope-row cs-ctx" id="ctx-consumption" style="margin-top:11px; padding-top:11px; border-top:1px solid var(--cs-line-soft)">
+              <span class="cs-scope-label">Type</span>
+              <!-- Plain chips rather than vwc-toggle-button-group, which behaves
+                   additively here. A record can contain more than one type, so
+                   "Waste" must also return partial-dose records — these filter
+                   records that CONTAIN a type, not exclusive buckets. -->
+              <div class="cs-facets">
+                <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Usage</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Waste</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Disposal</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Expiry</button>
+              </div>
+              <span class="cs-scope-divider" aria-hidden="true"></span>
+              <vaadin-combo-box theme="outlined" id="cn-sub" clear-button-visible
+                                placeholder="All items"
+                                item-label-path="label" item-value-path="value"
+                                style="width:200px"></vaadin-combo-box>
+              <vaadin-combo-box theme="outlined" id="cn-per" clear-button-visible
+                                placeholder="All personnel"
+                                item-label-path="label" item-value-path="value"
+                                style="width:170px"></vaadin-combo-box>
+              <span class="cs-tiny" style="margin-top:0; flex-basis:100%">A record may carry both an administered and a wasted quantity &mdash; filtering by <em>Waste</em> includes partial-dose records.</span>
+            </div>
+
+            <div class="cs-scope-row cs-ctx" id="ctx-counts" style="margin-top:11px; padding-top:11px; border-top:1px solid var(--cs-line-soft)">
+              <span class="cs-scope-label">Count type</span>
+              <div class="cs-facets">
+                <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Apparatus count</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Store room count</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Correction</button>
+              </div>
+            </div>
+
+            <div class="cs-scope-row cs-ctx" id="ctx-discrepancies" style="margin-top:11px; padding-top:11px; border-top:1px solid var(--cs-line-soft)">
+              <span class="cs-scope-label">State</span>
+              <div class="cs-facets">
+                <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Open</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Possible diversion</button>
+                <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Mistake</button>
+              </div>
+            </div>
+          </div>
+
           <div class="cs-card">
-            <!-- Shared header: the title/subtitle swap with the selected class,
-                 so the card always describes what is actually in the table. -->
+            <!-- The card now holds the table only. Its title/subtitle still swap
+                 with the class, so the header always describes what is below. -->
             <div class="cs-card-head">
               <div>
                 <div class="cs-card-title" id="cs-act-title">Consumption</div>
@@ -1327,26 +1415,9 @@ href="../../../../assets/fontawesome/css/all.min.css"
               </div>
             </div>
 
-            <div class="cs-classbar">
-              <span class="lab">Records</span>
-              <div class="cs-classes" role="group" aria-label="Record class">
-                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'movements')">Movements</button>
-                <button class="cs-class" aria-pressed="true"  onclick="csSub(this,'consumption')">Consumption</button>
-                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'counts')">Counts &amp; corrections</button>
-                <button class="cs-class" aria-pressed="false" onclick="csSub(this,'discrepancies')">Discrepancies<span class="cs-sn-count" id="cs-sn-disc">3</span></button>
-              </div>
-            </div>
-
           <!-- ---- MOVEMENTS (5.3) ---- -->
           <div class="cs-sub" id="s-movements">
             <div>
-
-              <div class="cs-filters">
-                <vaadin-combo-box theme="outlined" label="Location" placeholder="All locations" clear-button-visible id="mv-loc" item-label-path="label" item-value-path="value"></vaadin-combo-box>
-                <vaadin-select theme="outlined" label="Movement type" value="all" id="mv-type"></vaadin-select>
-                <vaadin-date-picker theme="outlined" label="From" value="2026-07-18"></vaadin-date-picker>
-                <vaadin-date-picker theme="outlined" label="To" value="2026-08-18"></vaadin-date-picker>
-              </div>
 
               <!-- The 72-hour question, handled honestly. Visibility is instant
                    because registered locations are staffed by system users, so a
@@ -1435,30 +1506,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
                below — a different axis from the record-class selector above. -->
           <div class="cs-sub" id="s-consumption">
             <div>
-
-              <div class="cs-filters">
-                <vaadin-combo-box theme="outlined" label="Location" placeholder="All locations" clear-button-visible id="cn-loc" item-label-path="label" item-value-path="value"></vaadin-combo-box>
-                <vaadin-combo-box theme="outlined" label="Item" placeholder="All items" clear-button-visible id="cn-sub" item-label-path="label" item-value-path="value"></vaadin-combo-box>
-                <vaadin-combo-box theme="outlined" label="Personnel" placeholder="All personnel" clear-button-visible id="cn-per" item-label-path="label" item-value-path="value"></vaadin-combo-box>
-                <vaadin-date-picker theme="outlined" label="From" value="2026-07-18"></vaadin-date-picker>
-                <vaadin-date-picker theme="outlined" label="To" value="2026-08-18"></vaadin-date-picker>
-              </div>
-
-              <div style="padding:12px 16px; border-bottom:1px solid var(--cs-line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap">
-                <span class="cs-scope-label">Type</span>
-                <!-- Plain chips rather than vwc-toggle-button-group, which behaves
-                     additively here. A record can contain more than one type, so
-                     "Waste" must also return partial-dose records — these facets
-                     filter records that CONTAIN a type, not exclusive buckets. -->
-                <div class="cs-facets">
-                  <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Usage</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Waste</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Disposal</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Expiry</button>
-                </div>
-                <span class="cs-tiny" style="margin-top:0; margin-left:4px">A record may carry both an administered and a wasted quantity &mdash; filtering by <em>Waste</em> includes partial-dose records.</span>
-              </div>
 
               <div class="cs-card-body is-flush">
                 <table class="cs-table">
@@ -1777,16 +1824,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
                single answer regardless of who is asking. -->
           <div class="cs-sub" id="s-discrepancies">
             <div>
-              <div style="padding:12px 16px; border-bottom:1px solid var(--cs-line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap">
-                <span class="cs-scope-label">State</span>
-                <div class="cs-facets">
-                  <button class="cs-facet" aria-pressed="true"  onclick="csFacet(this)">All</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Open</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Possible diversion</button>
-                  <button class="cs-facet" aria-pressed="false" onclick="csFacet(this)">Mistake</button>
-                </div>
-              </div>
-
               <div class="cs-card-body is-flush">
                 <table class="cs-table">
                   <thead>
@@ -2531,7 +2568,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
   /* Select a record class by name, without needing a button reference. */
   function csClass(name) {
-    var btns = document.querySelectorAll('#v-activity .cs-class');
+    var btns = document.querySelectorAll('#v-activity .cs-seg');
     var order = ['movements','consumption','counts','discrepancies'];
     var i = order.indexOf(name);
     if (i > -1 && btns[i]) csSub(btns[i], name);
@@ -2554,7 +2591,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
   function csSub(btn, name) {
     var act = document.getElementById('v-activity');
     act.setAttribute('data-sub', name);
-    act.querySelectorAll('.cs-class').forEach(function (b) {
+    act.querySelectorAll('.cs-seg').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b === btn));
     });
     var lab = ACT_LABELS[name];
@@ -3011,7 +3048,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
     { label: 'Medic 12', value: 'm12' },
     { label: 'Medic 07', value: 'm07' }
   ];
-  csSelect('mv-loc', locItems);
+  csSelect('act-loc', locItems);   /* one shared location axis for the whole tab */
 
   /* Inventory's TWO narrowing controls — only one is visible at a time, chosen
      by the row-axis toggle, because the control always narrows whatever a row
@@ -3069,13 +3106,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
   });
   /* Initial render so the filters are applied on load. */
   csApplyInvFilters();
-  csSelect('cn-loc', locItems);
-  csSelect('mv-type', [
-    { label: 'All types', value: 'all' },
-    { label: 'Acquisition', value: 'acq' },
-    { label: 'Hospital restock', value: 'restock' },
-    { label: 'Inter-location', value: 'inter' }
-  ]);
   csSelect('cn-sub', [
     { label: 'FENTANYL CITRATE (SUBLIMAZE)', value: 'fn' },
     { label: 'MIDAZOLAM (VERSED)', value: 'mz' },
