@@ -551,6 +551,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
     background: var(--cs-zebra);
   }
   .cs-filters vaadin-select,
+  .cs-filters vaadin-combo-box,
   .cs-filters vaadin-date-picker { width: 168px; }
 
   /* Type facet — plain chips, not vwc-toggle-button-group: that component
@@ -947,8 +948,17 @@ href="../../../../assets/fontawesome/css/all.min.css"
               <span class="cs-scope-divider" aria-hidden="true"></span>
 
               <span class="cs-scope-label" id="cs-narrow-label">Location</span>
-              <vaadin-select theme="outlined" value="all" id="inv-loc" style="width:230px"></vaadin-select>
-              <vaadin-select theme="outlined" value="all" id="inv-sub" style="width:230px; display:none"></vaadin-select>
+              <!-- Combo boxes, not selects: both lists grow past scrolling range
+                   in a real agency (dozens of stations and apparatus, and a
+                   formulary of items), so they must be type-to-filter. -->
+              <vaadin-combo-box theme="outlined" id="inv-loc" clear-button-visible
+                                placeholder="All locations"
+                                item-label-path="label" item-value-path="value"
+                                style="width:230px"></vaadin-combo-box>
+              <vaadin-combo-box theme="outlined" id="inv-sub" clear-button-visible
+                                placeholder="All items"
+                                item-label-path="label" item-value-path="value"
+                                style="width:230px; display:none"></vaadin-combo-box>
 
               <div class="cs-inv-tabs">
                 <button class="cs-seg" aria-pressed="true"  onclick="csInvView(this,'loc')">By location</button>
@@ -1264,7 +1274,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
             <div>
 
               <div class="cs-filters">
-                <vaadin-select theme="outlined" label="Location" value="all" id="mv-loc"></vaadin-select>
+                <vaadin-combo-box theme="outlined" label="Location" placeholder="All locations" clear-button-visible id="mv-loc" item-label-path="label" item-value-path="value"></vaadin-combo-box>
                 <vaadin-select theme="outlined" label="Movement type" value="all" id="mv-type"></vaadin-select>
                 <vaadin-date-picker theme="outlined" label="From" value="2026-07-18"></vaadin-date-picker>
                 <vaadin-date-picker theme="outlined" label="To" value="2026-08-18"></vaadin-date-picker>
@@ -1359,9 +1369,9 @@ href="../../../../assets/fontawesome/css/all.min.css"
             <div>
 
               <div class="cs-filters">
-                <vaadin-select theme="outlined" label="Location" value="all" id="cn-loc"></vaadin-select>
-                <vaadin-select theme="outlined" label="Item" value="all" id="cn-sub"></vaadin-select>
-                <vaadin-select theme="outlined" label="Personnel" value="all" id="cn-per"></vaadin-select>
+                <vaadin-combo-box theme="outlined" label="Location" placeholder="All locations" clear-button-visible id="cn-loc" item-label-path="label" item-value-path="value"></vaadin-combo-box>
+                <vaadin-combo-box theme="outlined" label="Item" placeholder="All items" clear-button-visible id="cn-sub" item-label-path="label" item-value-path="value"></vaadin-combo-box>
+                <vaadin-combo-box theme="outlined" label="Personnel" placeholder="All personnel" clear-button-visible id="cn-per" item-label-path="label" item-value-path="value"></vaadin-combo-box>
                 <vaadin-date-picker theme="outlined" label="From" value="2026-07-18"></vaadin-date-picker>
                 <vaadin-date-picker theme="outlined" label="To" value="2026-08-18"></vaadin-date-picker>
               </div>
@@ -2577,16 +2587,20 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
 
   function csLocation(value) {
+    /* '' (a cleared combo box) and 'all' are the same state: no narrowing. */
     invScope.loc = value || 'all';
     var sel = document.getElementById('inv-loc');
-    if (sel && sel.value !== invScope.loc) sel.value = invScope.loc;
+    var want = (invScope.loc === 'all') ? '' : invScope.loc;
+    if (sel && sel.value !== want) sel.value = want;
     csApplyInvFilters();
   }
 
   function csSubstance(value) {
+    /* '' (a cleared combo box) and 'all' are the same state: no narrowing. */
     invScope.sub = value || 'all';
     var sel = document.getElementById('inv-sub');
-    if (sel && sel.value !== invScope.sub) sel.value = invScope.sub;
+    var want = (invScope.sub === 'all') ? '' : invScope.sub;
+    if (sel && sel.value !== want) sel.value = want;
     csApplyInvFilters();
   }
 
@@ -2901,7 +2915,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
     if (el) el.items = items;
   }
   var locItems = [
-    { label: 'All locations', value: 'all' },
     { label: 'Riverside HQ', value: 'hq' },
     { label: 'Westfield Operations Center', value: 'wo' },
     { label: 'Northside Station 12', value: 'n12' },
@@ -2913,30 +2926,56 @@ href="../../../../assets/fontawesome/css/all.min.css"
   /* Inventory's TWO narrowing controls — only one is visible at a time, chosen
      by the row-axis toggle, because the control always narrows whatever a row
      currently is. Location list is flat: stations and apparatus are parallel. */
+  /* Deliberately longer than the seven locations that carry table rows: a real
+     agency has dozens of stations and apparatus, and a picker that fits on
+     screen would not show why search is needed. The extras have no rows, which
+     is realistic — most locations hold nothing on any given day. */
   csSelect('inv-loc', [
-    { label: 'All locations', value: 'all' },
     { label: 'Riverside HQ', value: 'hq' },
     { label: 'Westfield Operations Center', value: 'wo' },
     { label: 'Northside Station 12', value: 'n12' },
+    { label: 'Tumbleweed Station 51', value: 'tw51' },
+    { label: 'Lakeview Station 07', value: 'lv07' },
     { label: 'Eastgate Station 22', value: 'eg22' },
+    { label: 'Southgate Station 31', value: 'sg31' },
+    { label: 'Millbrook Station 44', value: 'mb44' },
+    { label: 'Harbor Station 09', value: 'hb09' },
+    { label: 'Medic 03', value: 'm03' },
+    { label: 'Medic 07', value: 'm07' },
     { label: 'Medic 12', value: 'm12' },
-    { label: 'Medic 07', value: 'm07' }
+    { label: 'Medic 15', value: 'm15' },
+    { label: 'Medic 21', value: 'm21' },
+    { label: 'Medic 28', value: 'm28' },
+    { label: 'Engine 4', value: 'e04' },
+    { label: 'Engine 11', value: 'e11' },
+    { label: 'Rescue 2', value: 'r02' },
+    { label: 'Supervisor 1', value: 's01' }
   ]);
+  /* Labels carry both the generic and the brand name (SUBLIMAZE, VERSED, …)
+     because searching a formulary by either is normal — typing "versed" must
+     find midazolam. Combo-box substring matching handles that for free once
+     both names are in the label. */
   csSelect('inv-sub', [
-    { label: 'All items', value: 'all' },
     { label: 'FENTANYL CITRATE (SUBLIMAZE)', value: 'fn' },
     { label: 'MIDAZOLAM (VERSED)', value: 'mz' },
     { label: 'MORPHINE SULFATE', value: 'ms' },
-    { label: 'KETAMINE HCL', value: 'kt' },
-    { label: 'LORAZEPAM (ATIVAN)', value: 'lz' }
+    { label: 'KETAMINE HCL (KETALAR)', value: 'kt' },
+    { label: 'LORAZEPAM (ATIVAN)', value: 'lz' },
+    { label: 'DIAZEPAM (VALIUM)', value: 'dz' },
+    { label: 'HYDROMORPHONE (DILAUDID)', value: 'hm' },
+    { label: 'PHENOBARBITAL', value: 'pb' },
+    { label: 'BUPRENORPHINE (BUPRENEX)', value: 'bp' },
+    { label: 'NALBUPHINE (NUBAIN)', value: 'nb' }
   ]);
+  /* A combo box clears to '' when the user empties the field (a select cannot),
+     so an empty value means "no narrowing" — i.e. back to All. */
   var invLocSel = document.getElementById('inv-loc');
   if (invLocSel) invLocSel.addEventListener('value-changed', function (e) {
-    if (invScope.view === 'loc') csLocation(e.detail.value);
+    if (invScope.view === 'loc') csLocation(e.detail.value || 'all');
   });
   var invSubSel = document.getElementById('inv-sub');
   if (invSubSel) invSubSel.addEventListener('value-changed', function (e) {
-    if (invScope.view === 'sub') csSubstance(e.detail.value);
+    if (invScope.view === 'sub') csSubstance(e.detail.value || 'all');
   });
   /* Initial render so the filters are applied on load. */
   csApplyInvFilters();
@@ -2948,7 +2987,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
     { label: 'Inter-location', value: 'inter' }
   ]);
   csSelect('cn-sub', [
-    { label: 'All items', value: 'all' },
     { label: 'FENTANYL CITRATE (SUBLIMAZE)', value: 'fn' },
     { label: 'MIDAZOLAM (VERSED)', value: 'mz' },
     { label: 'MORPHINE SULFATE', value: 'ms' },
@@ -2956,7 +2994,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
     { label: 'LORAZEPAM (ATIVAN)', value: 'lz' }
   ]);
   csSelect('cn-per', [
-    { label: 'All personnel', value: 'all' },
     { label: 'K. Znilek', value: 'kz' },
     { label: 'A. Reyes', value: 'ar' },
     { label: 'T. Hartley', value: 'th' },
