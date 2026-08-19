@@ -96,6 +96,22 @@
       micon(task.icon, { size: Math.round(px * 0.56), fill: 1 }) + '</span>';
   }
 
+  /* Text counterpart to typeIcon: names the task type outright instead of
+     asking the reader to decode a glyph. Keeps typeIcon's source tint, which is
+     the same colour language the source chips use elsewhere, so a row can still
+     be scanned by app at a glance.
+
+     V2 ONLY — V1 keeps the icons. This is the change under review; see
+     versions.json. Don't port it back into ver1.
+
+     Note it also ADDS information rather than restating it: in the compact
+     density the type name appears nowhere in the table today. */
+  function typeBadge(task) {
+    var s = window.KEYSTONE.SOURCES[task.source];
+    return '<span class="kx-type-badge" style="background:' + s.bg + ';color:' + s.color + '">' +
+      esc(task.typeLabel) + '</span>';
+  }
+
   /* ---------------------------------------------------------------------
      STATUS + PRIORITY
      --------------------------------------------------------------------- */
@@ -725,7 +741,7 @@
 
   window.KX = {
     esc: esc, attr: attr, micon: micon,
-    srcChip: srcChip, srcTile: srcTile, srcName: srcName, typeIcon: typeIcon,
+    srcChip: srcChip, srcTile: srcTile, srcName: srcName, typeIcon: typeIcon, typeBadge: typeBadge,
     statusText: statusText, STATUS_META: STATUS_META,
     prioBadge: prioBadge, prioBand: prioBand, paletteFor: paletteFor,
     BAND_TONES: BAND_TONES, DEFAULT_BAND_LIST: DEFAULT_BAND_LIST, PRIO_KEY: PRIO_KEY,
