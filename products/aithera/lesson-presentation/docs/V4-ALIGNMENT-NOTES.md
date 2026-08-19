@@ -93,7 +93,7 @@ Listed for transparency, not for discussion.
 
 | Owner | Item | Where | Why it needs both |
 | --- | --- | --- | --- |
-| Joint | Retry / mastery loops | §9.4 | Neither engine has it and the decks asked for it. A roadmap call, not a format tweak. |
+| Joint | Retry / mastery loops | §9.4 | The decks asked for it; the UX player ships a scene-response retry today; the POC engine is forward-only. A roadmap call, not a format tweak. |
 | Joint | House button-label convention | §9.7 | Content policy that binds both authoring paths. |
 | Joint | Where teaching attaches — per phase, or grouped by subject | §9.5 | Accepted as-is for now; a per-phase link would change both sides. |
 | Joint | Teach-back and the derived turn cap | §11 | Only bites if a retrieval-style mode lands (§9.8). |
@@ -567,11 +567,11 @@ The current V4 structure does not express that distinction reliably.
 
 The POC punch list records an authoring expectation that learners can trigger another scene progression to retry.
 
-The current engine is forward-only.
+The POC engine is forward-only. The UX Universal player, by contrast, **ships a scene-response retry today**: every learner scene line carries a "Try a different approach" control (`scenario-live.html`, `tryDifferentApproach`) that truncates the transcript back to that moment *and* rewinds the ladder state from a snapshot taken at send time — phase index, turn count, tier, scenario variables — so the model's `[SYSTEM STATE]` matches the truncated history. It applies to scene responses only, remains available until the scenario completes, and is currently uncapped.
 
-This is therefore a genuine behavioral difference between authored intent and engine behavior.
+So the behavioral difference is real and runs in one direction: authored deck intent and the shipped UX player have retry; the POC engine does not.
 
-The open question is whether a bounded retry/mastery loop belongs on the roadmap for either system.
+The open questions are whether the POC engine adopts it, and what the cap policy should be (each redo is a fresh model turn, and today nothing limits how many times a learner rewinds).
 
 ---
 

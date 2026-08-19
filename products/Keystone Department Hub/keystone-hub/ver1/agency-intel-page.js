@@ -251,7 +251,19 @@
       var p = CP.INDIVIDUALS.find(function (x) { return x.id === id; });
       return p ? p.name : ((RS && RS.personById(id)) || {}).name || id;
     })).join(', ');
-    return '<span style="display:inline-flex;align-items:center;gap:6px" title="' + KX.attr(tip) + '">' +
+    /* The mode leads, because "will this list keep itself current?" is the
+       question you scan for; the composition chips below are the detail behind
+       it. Deliberately a DIFFERENT shape from those chips — an outline pill with
+       a status dot, not another filled chip — so it doesn't read as a fourth
+       kind of audience. */
+    var mode = CP.audienceModeMeta(d);
+    var modePill = mode
+      ? '<span class="cp-aud-mode" title="' + KX.attr(mode.label + ' — ' + mode.hint) + '">' +
+        '<span class="dot" style="background:' + mode.dot + '"></span>' + esc(mode.label) + '</span>'
+      : '';
+
+    return '<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap" title="' + KX.attr(tip) + '">' +
+      modePill +
       (groups.length ? '<span class="cp-aud-title" style="background:var(--amber-50);' +
         'border-color:var(--amber-400);color:var(--amber-700)">' +
         micon('auto_awesome', { size: 12, fill: 1 }) + ' ' + groups.length +

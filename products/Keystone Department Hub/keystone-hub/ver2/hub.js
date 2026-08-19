@@ -673,11 +673,9 @@
       '<td><span class="kx-product">' + esc(KX.srcName(task.source)) + '</span></td>' +
       // V2: the type reads as a named badge instead of an icon. The separate
       // .kx-task-type line the comfortable density used to carry is gone with it
-      // — it would just repeat the badge — so MANDATORY now sits beside the
-      // title at BOTH densities rather than moving between the two rows.
+      // — it would only repeat the badge.
       '<td><div class="kx-task-cell">' + KX.typeBadge(task) +
-      '<div style="min-width:0;flex:1"><div class="kx-task-title"><span>' + esc(task.title) + '</span>' +
-      (task.meta && task.meta.mandatory ? '<span class="kx-mandatory">MANDATORY</span>' : '') + '</div>' +
+      '<div style="min-width:0;flex:1"><div class="kx-task-title"><span>' + esc(task.title) + '</span></div>' +
       '</div></div></td>' +
       '<td>' + assigneeCell(task, dense) + '</td>' +
       '<td>' + KX.dueCell(task, dense) + '</td>' +
