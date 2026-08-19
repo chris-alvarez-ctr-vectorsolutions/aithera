@@ -18,7 +18,7 @@ Tables use these status markers consistently:
 **Mock**: <relative path to the chosen verN/index.html>
 **Version handed off**: <label, e.g. V1 — or the name for a kept variant>
 **PRD source**: <file path / Confluence URL / Jira key / "pasted" / "none provided">
-**Date**: <YYYY-MM-DD>
+**Date**: <YYYY-MM-DDThh:mm:ssTZD>
 **Components confirmed against**: core <ver>, themes <ver>  <!-- omit if component confirmation was skipped -->
 
 > **Read this first.** This document captures what the visual mock cannot show on
