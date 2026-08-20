@@ -48,11 +48,50 @@
     };
   }
 
+  /* ---- CHANNEL — keeping an experiment off an author's real work ---------
+     localStorage is per ORIGIN, not per page, so two builds of the studio served
+     from the same host share every key by default. That is fine while there is
+     one studio and fatal the moment there are two: an experimental build writing
+     a half-finished draft, or a new wizard stomping the draft on open, reaches
+     straight into a scenario someone is actually authoring — and the browser
+     library is the only copy that scenario has.
+
+     A page declares its channel BEFORE loading this file:
+         <script>window.STUDIO_CHANNEL = 'sandbox';</script>
+     Absent or 'stable' means today's keys, unchanged — so the stable tool keeps
+     reading the drafts and libraries that already exist and nobody loses a
+     library on the day the second link appears.
+
+     Scoped deliberately to DRAFT and LIBRARY, the author's work product.
+     `published` stays shared: it is the transient publish→live handoff buffer
+     that the learner-facing pages read, and channelizing it would mean a
+     sandbox playtest silently publishing somewhere no player looks. A sandbox
+     publish overwriting that buffer costs a re-publish; a sandbox overwriting a
+     library costs the work. `workerUrl` is a machine-level setting and stays
+     shared for the same reason it is shared across types. */
+  const CHANNELED = ['draft', 'library'];
+  function channelize(keys) {
+    const ch = String((typeof window !== 'undefined' && window.STUDIO_CHANNEL) || '').trim();
+    if (!ch || ch === 'stable') return keys;
+    const out = {};
+    Object.keys(keys).forEach((k) => {
+      out[k] = CHANNELED.indexOf(k) >= 0 ? `${keys[k]}.ch-${ch}` : keys[k];
+    });
+    return out;
+  }
+
   /* ---- the store — draft/published/library over one key set ------------
      Lifted from the helpers that used to live inline in js/scenario.js,
      parameterized by `keys` and the type's own {isValid, normalize} so every
-     type gets identical persistence behavior. */
-  function makeStore(keys, hooks) {
+     type gets identical persistence behavior.
+
+     Channelized HERE rather than in makeKeys so the isolation covers every
+     caller — including js/scenario.js, which deliberately hand-passes the
+     original un-namespaced literals to keep its already-shipped live pages
+     reading the same keys, and would otherwise be the one type an experiment
+     could still clobber. */
+  function makeStore(keysIn, hooks) {
+    const keys = channelize(keysIn);
     const isValid = (hooks && hooks.isValid) || (() => true);
     const normalize = (hooks && hooks.normalize) || ((s) => s);
 
@@ -123,5 +162,10 @@
     };
   }
 
-  window.AitheraStudio = { register, get, list, makeKeys, makeStore };
+  window.AitheraStudio = {
+    register, get, list, makeKeys, makeStore,
+    /* what channel this page resolved to — a sandbox build reads this to label
+       itself, so an author can never be unsure which tool they are typing in */
+    channel: () => String((typeof window !== 'undefined' && window.STUDIO_CHANNEL) || 'stable').trim() || 'stable',
+  };
 })();

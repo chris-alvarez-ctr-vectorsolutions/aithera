@@ -89,9 +89,25 @@
        optional array as INVALID rather than absent — that conflict is resolved
        by prune() below, which strips empty scaffolding before anything
        validates, exports, or plays. normalize scaffolds; prune unscaffolds. */
-    if (!Array.isArray(c.tone_guidelines)) c.tone_guidelines = [];
-    if (!Array.isArray(c.misconceptions)) c.misconceptions = [];
-    if (!Array.isArray(c.closing.ideal_response.source_references)) c.closing.ideal_response.source_references = [];
+    /* PROVENANCE — normalize records which of these optional arrays IT invented,
+       so prune() can drop exactly those and leave an array the document ARRIVED
+       with alone. Without this, an edit-free round trip of a production document
+       silently loses `source_references: []`: their generator writes it, their
+       schema permits it (the field carries no minItems), and we deleted it on the
+       way back out — six of their eleven live documents differed by exactly that.
+       The marker is cumulative on purpose: normalize runs again on every edit, and
+       by the second pass the container already exists, so a fresh scan would find
+       nothing to record and the provenance would evaporate. */
+    const made = arr(d.__scaffolded).filter((x) => typeof x === 'string');
+    const scaffoldArray = (holder, key, path) => {
+      if (Array.isArray(holder[key])) return;
+      holder[key] = [];
+      if (made.indexOf(path) < 0) made.push(path);
+    };
+    scaffoldArray(c, 'tone_guidelines', 'tone_guidelines');
+    scaffoldArray(c, 'misconceptions', 'misconceptions');
+    scaffoldArray(c.closing.ideal_response, 'source_references', 'source_references');
+    if (made.length) d.__scaffolded = made; else delete d.__scaffolded;
     c.scene_world = obj(c.scene_world);
     if (typeof c.scene_world.setting !== 'string') c.scene_world.setting = '';
     c.scene_world.canon = obj(c.scene_world.canon);
@@ -135,14 +151,27 @@
     const d = clone(docIn);
     const c = obj(d.content);
     const cleanStrings = (a) => arr(a).map(str).filter((x) => x.trim());
-    const dropIfEmpty = (holder, key, val) => {
-      if (Array.isArray(val) ? !val.length : !val) delete holder[key];
+    /* Whether an empty array may survive is a question about THEIR schema, not a
+       matter of taste, and the schema answers it per field: sixteen arrays carry
+       `minItems: 1` (so `[]` is a hard load failure and must drop), and the rest
+       permit empty. For the ones that permit it, the only remaining question is
+       whose empty array it is — one the document ARRIVED with stays, one
+       normalize() invented goes, per the provenance marker above. That is the
+       whole difference between an edit-free export being byte-identical to its
+       import and being off by a field, which six of their eleven live documents
+       were. No marker means normalize invented nothing, so nothing is presumed
+       ours.  emptyLegal=false → always drop; true → drop only what we made. */
+    const scaffolded = arr(docIn.__scaffolded);
+    const dropIfEmpty = (holder, key, val, path, emptyLegal) => {
+      const isEmpty = Array.isArray(val) ? !val.length : !val;
+      const ours = scaffolded.indexOf(path) >= 0;
+      if (isEmpty && (!emptyLegal || ours)) delete holder[key];
       else holder[key] = val;
     };
 
-    dropIfEmpty(c, 'tone_guidelines', cleanStrings(c.tone_guidelines));
+    dropIfEmpty(c, 'tone_guidelines', cleanStrings(c.tone_guidelines), 'tone_guidelines', false);   // minItems: 1
     dropIfEmpty(c, 'misconceptions', arr(c.misconceptions).filter((m) =>
-      str(obj(m).misconception).trim() || str(obj(m).redirect).trim()));
+      str(obj(m).misconception).trim() || str(obj(m).redirect).trim()), 'misconceptions', true);
     c.teaching_points = arr(c.teaching_points).map((t) => {
       const topic = obj(t);
       return { topic: str(topic.topic), points: cleanStrings(topic.points) };
@@ -150,7 +179,7 @@
 
     const ir = obj(obj(c.closing).ideal_response);
     if (ir) {
-      dropIfEmpty(ir, 'source_references', cleanStrings(ir.source_references));
+      dropIfEmpty(ir, 'source_references', cleanStrings(ir.source_references), 'source_references', true);
       ir.component_groups = arr(ir.component_groups).map((g) => {
         const group = obj(g);
         const out = { components: cleanStrings(group.components) };
@@ -231,6 +260,7 @@
       });
       if ('final_word' in obj(opn.exit) && !str(obj(opn.exit).final_word).trim()) delete opn.exit.final_word;
     }
+    delete d.__scaffolded;   // ours, never theirs — never reaches validation or export
     return d;
   }
 
@@ -267,8 +297,23 @@
 
   function merge(draft) {
     const base = clone(DEFAULT);
+    delete base.__scaffolded;              // DEFAULT's provenance is not the draft's
     const d = obj(draft);
-    return normalize(Object.assign(base, d, { content: Object.assign(obj(base.content), obj(d.content)) }));
+    /* Provenance is decided HERE, from the incoming document, and it has to be:
+       the merge below fills these containers from DEFAULT, so once it has run an
+       empty array the document ARRIVED with is indistinguishable from one we
+       supplied. Deciding after the fact is what made the first attempt at this
+       drop `source_references` anyway. */
+    const dc = obj(d.content);
+    const dir = obj(obj(dc.closing).ideal_response);
+    const made = [];
+    if (!Array.isArray(dc.tone_guidelines)) made.push('tone_guidelines');
+    if (!Array.isArray(dc.misconceptions)) made.push('misconceptions');
+    if (!Array.isArray(dir.source_references)) made.push('source_references');
+    const out = normalize(Object.assign(base, d, { content: Object.assign(obj(base.content), obj(d.content)) }));
+    arr(out.__scaffolded).forEach((k) => { if (made.indexOf(k) < 0) made.push(k); });
+    if (made.length) out.__scaffolded = made; else delete out.__scaffolded;
+    return out;
   }
 
   function isValid(s) {
