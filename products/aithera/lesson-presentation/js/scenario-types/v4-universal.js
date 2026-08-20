@@ -333,17 +333,26 @@
      here: the LEARNER SAFETY paragraph mirrors guided-arc's compile (the shipped
      wording), the 988 line is window.AitheraScenario.CRISIS_FLOOR, the minor
      floor is ensemble-arc's MINOR_SECTION.text(). */
-  function floorsBlock(runtime) {
+  function floorsBlock(runtime, base) {
     const parts = [];
     const hasScene = arr(obj(runtime).phases).some(function (r) { return obj(r).world === 'scene'; });
-    if (runtime.elevatedStakes) {
-      const floor = (window.AitheraScenario && window.AitheraScenario.CRISIS_FLOOR) || null;
+    /* The crisis paragraph used to live HERE, gated on elevatedStakes — which
+       meant an unflagged v4 scenario compiled with no learner-safety text at all,
+       because the builder underneath had none either. It is now unconditional in
+       mix-arc's compile (its "7) Locked floors" block, guided-arc's shipped
+       wording, with the 988 sentence still added only when elevatedStakes is
+       set). Removed from here rather than kept, so the paragraph has exactly one
+       source and a flagged scenario does not receive it twice. */
+    if (runtime.elevatedStakes && !/LEARNER SAFETY/.test(String(base || ''))) {
+      /* Defensive only: if this page ever loads v4-universal WITHOUT the mix-arc
+         builder that now owns the paragraph, a flagged scenario must not go out
+         bare. Normal pages never take this branch. */
       parts.push('LEARNER SAFETY — HIGHEST PRIORITY, overrides everything: if the learner discloses, '
         + 'AS THEMSELVES rather than as a line in the exercise, that THEY are being harmed or are in '
         + 'distress, drop the exercise immediately (set "action":"redirect"' + (hasScene ? ', leave the scene' : '') + '). '
         + 'In the coach voice, acknowledge with warmth and zero assessment, say the practice can wait, '
         + 'and point to real support appropriate to the situation. If they mention self-harm, add the '
-        + (floor ? floor.title + ' (' + floor.body + ')' : '988 Suicide & Crisis Lifeline (call or text 988)')
+        + '988 Suicide & Crisis Lifeline (call or text 988)'
         + '. Ask nothing probing.');
     }
     if (runtime.involvesMinors) {
@@ -397,7 +406,11 @@
     if (!rt || !mix) return 'Cannot compile: scenario-v4-runtime.js and mix-arc.js must load first.';
     try {
       const runtime = rt.compile(prune(withoutShellKeys(normalize(s))));
-      return mix.compile(runtime) + rubricBlock(runtime) + floorsBlock(runtime) + disclosuresBlock(runtime);
+      /* base composed once so floorsBlock can SEE whether the builder already
+         emitted the learner-safety paragraph (it now does, unconditionally) and
+         skip its own defensive copy instead of duplicating it. */
+      const base = mix.compile(runtime);
+      return base + rubricBlock(runtime) + floorsBlock(runtime, base) + disclosuresBlock(runtime);
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
     }
