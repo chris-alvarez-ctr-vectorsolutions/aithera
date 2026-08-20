@@ -110,12 +110,39 @@
          backend would swap in here.)
          ==================================================================== -->
     <link rel="stylesheet" href="css/writer-studio.css?v=5" />
+    <style>
+      /* Build markers. Kept in the page rather than the shared stylesheet, because
+         the two builds are forks of this page and the shared CSS is loaded by both. */
+      .topbar .brand .v2tag[data-prototype] {
+        background: #3d2c00; color: #ffc233; border-color: #7a5c00;
+      }
+      /* `hidden` has to win: an id rule with display:flex outranks the UA
+         [hidden] rule, which left the stable build showing an empty amber
+         sliver under its header. */
+      #buildNotice[hidden] { display: none; }
+      #buildNotice {
+        flex: 0 0 auto; display: flex; align-items: flex-start; gap: 10px;
+        padding: 9px 18px;
+        background: #3d2c00; color: #ffe6a8;
+        border-bottom: 1px solid #7a5c00;
+        font: 400 12.5px/1.5 'Open Sans', system-ui, sans-serif;
+      }
+      #buildNotice i { color: #ffc233; font-size: 14px; margin-top: 2px; flex: 0 0 auto; }
+      #buildNotice span { max-width: 100ch; }
+      #buildNotice b { font-weight: 700; }
+      #buildNotice a { color: #ffc233; margin-left: auto; white-space: nowrap; flex: 0 0 auto; }
+    </style>
 </head>
 <body>
 
   <!-- ===== Top bar ====================================================== -->
   <header class="topbar">
-    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Writer Studio <span class="v2tag">V2</span></span>
+    <!-- The build a person is looking at has to be unmistakable from the header,
+         because the consequence is not cosmetic: work saved in the prototype build
+         is a separate set of drafts, and a change seen there is not in the editor
+         they will return to. The old "V2" tag was retired — it now collides with
+         ?v=2 meaning "the prototype", which is a different axis entirely. -->
+    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Scenario Editor <span class="v2tag" id="buildTag"></span></span>
     <span class="sub" id="subTitle">Conversation practice</span>
     <span class="spacer"></span>
     <span class="save-status" id="saveStatus"></span>
@@ -136,6 +163,11 @@
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
   </header>
+
+  <!-- Filled by the build-notice snippet at the end of the page. Sits under the
+       top bar rather than floating, so it is part of the page an author reads
+       instead of a decoration they learn to dismiss. -->
+  <div id="buildNotice" hidden></div>
 
   <!-- Published-state strip — also carries the publish + preview actions -->
   <div class="pubstrip" id="pubStrip">
@@ -279,5 +311,38 @@
 
   <!-- Studio shell app logic (extracted from this file). -->
   <script src="js/studio-shell.js?v=8"></script>
+  <!-- ===== BUILD NOTICE ==================================================
+       Identical in both builds ON PURPOSE — it reads the channel rather than
+       being hand-edited per file, so copying this block between the stable and
+       prototype pages can never leave the two describing themselves wrongly.
+       The wording states the CONSEQUENCE, not the label: which drafts you are
+       touching, and whether what you see will still be there when you come
+       back to edit a real scenario.
+       ==================================================================== -->
+  <script>
+    (function () {
+      var prototypeBuild = window.STUDIO_CHANNEL && window.STUDIO_CHANNEL !== 'stable';
+      var tag = document.getElementById('buildTag');
+      var note = document.getElementById('buildNotice');
+      if (tag) {
+        tag.textContent = prototypeBuild ? 'Prototype' : 'Current';
+        tag.title = prototypeBuild
+          ? 'A build for trying out changes. Not the editor your scenarios live in.'
+          : 'The editor your scenarios live in.';
+        if (prototypeBuild) tag.setAttribute('data-prototype', '');
+      }
+      if (note && prototypeBuild) {
+        note.hidden = false;
+        note.setAttribute('role', 'status');
+        note.innerHTML =
+          '<i class="fa-solid fa-flask" aria-hidden="true"></i>'
+          + '<span><b>Prototype build.</b> These are changes we are trying out — this is '
+          + '<b>not</b> the editor your scenarios live in. Drafts and library here are a '
+          + 'separate set, and nothing you see here shows up in the everyday editor until '
+          + 'we release it there.</span>'
+          + '<a href="scenario-editor/">Open the current editor</a>';
+      }
+    })();
+  </script>
 </body>
 </html>
