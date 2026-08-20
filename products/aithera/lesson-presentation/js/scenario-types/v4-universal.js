@@ -371,6 +371,47 @@
   }
 
   /* ------------------------------------------------------------------------
+     PRIOR LEARNING OBJECT — for the MODEL, never for the learner
+     ------------------------------------------------------------------------
+     Approved 2026-08-18: yes to carrying what the learner just completed, but
+     "only for the LLM to understand what the learner just learned (not
+     user-facing)" — and no media cold-open.
+
+     The awkward part, recorded because it is a real gap rather than an
+     oversight: v4 has NO field for this. The studio has had the authoring for a
+     while (`contextSource: 'previous-lo'` plus `previousLO {title, covered,
+     handoff}`) and observe-react and teach-back compile it, but this route
+     listed both keys in SHELL_KEYS and stripped them before validation AND
+     export — correctly, since the loader would reject them — with the result
+     that the one thing the meeting said yes to was the one thing the go-forward
+     path silently dropped.
+
+     So it is read off the LIVE DRAFT here and appended to the prompt only. The
+     stripping is unchanged: nothing about the exported document moves, so this
+     buys the approved behaviour without inventing a field the format has not
+     agreed to. If v4 later gains one, this block reads it instead and nothing
+     else changes.
+     --------------------------------------------------------------------- */
+  function priorLoBlock(draft) {
+    const d = obj(draft);
+    if (str(d.contextSource) !== 'previous-lo') return '';
+    const lo = obj(d.previousLO);
+    const title = str(lo.title).trim();
+    const covered = str(lo.covered).trim();
+    const handoff = str(lo.handoff).trim();
+    if (!title && !covered && !handoff) return '';
+    const lines = [];
+    if (title) lines.push('Just completed: ' + title);
+    if (covered) lines.push('What it covered: ' + covered);
+    if (handoff) lines.push('Where it left them: ' + handoff);
+    return '\n\nWHAT THE LEARNER JUST FINISHED — context for YOU, never recited back. '
+      + 'They arrive here straight from the material below, so treat it as already known: '
+      + 'build on it, and do not re-teach it as though it were new. It is background for your '
+      + 'judgement, NOT content to quote, summarise, or open with.\n'
+      + lines.join('\n');
+  }
+
+  /* ------------------------------------------------------------------------
      PROGRESSIVE DISCLOSURE — v4 `characters[].canon_facts[]`
      ------------------------------------------------------------------------
      v4's canon_facts are exactly our earned disclosures: a fact the character
@@ -410,7 +451,8 @@
          emitted the learner-safety paragraph (it now does, unconditionally) and
          skip its own defensive copy instead of duplicating it. */
       const base = mix.compile(runtime);
-      return base + rubricBlock(runtime) + floorsBlock(runtime, base) + disclosuresBlock(runtime);
+      return base + rubricBlock(runtime) + floorsBlock(runtime, base) + disclosuresBlock(runtime)
+        + priorLoBlock(s);
     } catch (e) {
       return 'Compile failed: ' + (e && e.message ? e.message : String(e));
     }
@@ -424,7 +466,13 @@
   function compileScopes(s, opts) {
     const scopes = window.ScenarioV4Scopes;
     if (!scopes) return null;
-    return scopes.create(prune(withoutShellKeys(normalize(s))), {
+    /* Shell keys are NOT stripped at this boundary, deliberately. The scope
+       module hands each redacted copy back to compileString, which is where the
+       prior-LO block reads them — strip here and the approved context never
+       reaches any scope's prompt. Nothing downstream is exposed to them:
+       `create` only reads content.phases and calls toRuntime, and toRuntime
+       strips them itself before the runtime compile, as do validate and export. */
+    return scopes.create(prune(normalize(s)), {
       compile: compileString,
       toRuntime: toRuntime,
       runtime: opts && opts.runtime,

@@ -103,17 +103,19 @@ The alignment work produced two very different kinds of open item, and reading t
 
 ### Asks on POC V4 — the format or the engine
 
-| Owner | Item | Where | The ask, in one line |
-| --- | --- | --- | --- |
-| POC V4 | Extension envelopes | §10 | Allow one `extensions` key on `content` and on each `practice` — namespaced, must-ignore. One allowlisted key is the whole change. |
-| POC V4 | Safety flags | §6, §9.2 | With no way to declare crisis / threat / minors content, a handed-over document loses its safety floor and leaves no trace one existed. |
-| POC V4 | `practice.answer_shape` | §9.3 | A machine-readable graded-vs-open marker. `levels.strong.look_for` carries it to a human reader, not to a parser. |
-| POC V4 | `phase.purpose` as a required field | §9.1 | The other three `purpose` fields render into the coach's arc map; `phase.purpose` is required, carried by the loader, and never rendered. Make it optional, or render it. |
-| POC V4 | `help_turns` default | §11 | The loader defaults it to 2, which arms the mid-scene help affordance for any scenario that omits the field. Confirm, or default it off. |
-| POC V4 | `spot_target` gating | §11 | The spec says the target gates completion; the shipped engine does not gate on it. Confirm which is the contract. |
-| POC V4 | Clarifying-question cost | §9.2 | Adopt the redirect rebate so a clarifying turn does not spend practice budget. Engine behavior on their side; reference implementation on ours. |
-| POC V4 | Generalized credited-items output | §9.8 | Lift the `[[spotted:]]` contract off `observe_react` so a new interaction is one mode plus one surface rather than engine surgery. Its own session. |
-| POC V4 | Spec-versus-build divergences | spine §E | Five places the v4 specification and the shipped v4 engine disagree. Ours to report, theirs to reconcile. |
+**Status as of the 2026-08-18 meeting is in the last column.** Seven of these nine were answered; the two `§11` defaults were not raised. Full consequences: *Meeting Outcomes*, above.
+
+| Owner | Item | Where | The ask, in one line | Status |
+| --- | --- | --- | --- | --- |
+| POC V4 | Extension envelopes | §10 | Allow one `extensions` key on `content` and on each `practice` — namespaced, must-ignore. One allowlisted key is the whole change. | **Declined for V1** — generic block instead |
+| POC V4 | Safety flags | §6, §9.2 | With no way to declare crisis / threat / minors content, a handed-over document loses its safety floor and leaves no trace one existed. | **Declined for V1** — generic trauma-informed block |
+| POC V4 | `practice.answer_shape` | §9.3 | A machine-readable graded-vs-open marker. `levels.strong.look_for` carries it to a human reader, not to a parser. | **Deferred** — test the `ideal_response` proxy first |
+| POC V4 | `phase.purpose` as a required field | §9.1 | The other three `purpose` fields render into the coach's arc map; `phase.purpose` is required, carried by the loader, and never rendered. Make it optional, or render it. | **Resolved against us** — it IS used; dev updating spec |
+| POC V4 | `help_turns` default | §11 | The loader defaults it to 2, which arms the mid-scene help affordance for any scenario that omits the field. Confirm, or default it off. | Not raised — still open |
+| POC V4 | `spot_target` gating | §11 | The spec says the target gates completion; the shipped engine does not gate on it. Confirm which is the contract. | Not raised — still open |
+| POC V4 | Clarifying-question cost | §9.2 | Adopt the redirect rebate so a clarifying turn does not spend practice budget. Engine behavior on their side; reference implementation on ours. | **Granted** — clarify free; refusal/gibberish cost |
+| POC V4 | Generalized credited-items output | §9.8 | Lift the `[[spotted:]]` contract off `observe_react` so a new interaction is one mode plus one surface rather than engine surgery. Its own session. | **Deferred** — revisit later |
+| POC V4 | Spec-versus-build divergences | spine §E | Five places the v4 specification and the shipped v4 engine disagree. Ours to report, theirs to reconcile. | Reported; theirs to reconcile |
 
 ### Ours — no POC V4 input needed
 
@@ -510,6 +512,10 @@ Those documents contain the per-question proposal, evidence, counterpoints, and 
 ---
 
 ### 9.1 Required fields with no authoritative source — POC V4 decides
+
+> **Outcome, 2026-08-18 — the `purpose` premise was resolved against us.** Dev states `phase.purpose` IS used, with one location in the spec where a `purpose` is not, and `practice.purpose` is used today; they are updating the spec to match the build. So the claim repeated below — sourced from *their* alignment audit (item P5), which called it the only required field with a stated prompt consumer and none — was accurate to that document and is no longer accurate to the engine. Treat the `purpose` line here as history, not as a live finding.
+>
+> The rest of this section stands: `final_word`, `misconception`, `help_turns` and `spot_target` were **not answered**, and the argument for them is unchanged — a required field no author writes gets carried through the editor and wizard as mandatory and then filled by the model, which is how generated prose reaches a compliance-relevant slot.
 
 The final WPV deck was searched for every field that the V4 port requires.
 

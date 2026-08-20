@@ -425,12 +425,22 @@
     };
   }
 
-  /* Full levels: all three tiers required when the block is present. */
+  /* Full levels: the two POLES are required; NEUTRAL is optional.
+     Decided 2026-08-18. The open-ended 1–9 form K&A proposed was declined for
+     complexity and prompt volume, but the middle tier becoming optional was
+     granted in the same breath — a binary step ("safe / unsafe") has no neutral
+     to author, and requiring one is how the POC's own port came to "invent
+     middle tiers just to satisfy the schema". Dev is updating the spec; this is
+     our side of it.
+     Nothing downstream needed changing: calibrationFromLevels already iterates
+     LEVELS and skips any tier with no look_for and no response, so an absent
+     neutral simply produces a two-rung calibration. Present-but-empty is still
+     caught, because `fields` keeps validating neutral whenever it appears. */
   function makeLevels(allowProgression) {
     const level = makeLevel(allowProgression);
     return function (rep, p, v) {
       validateObject(rep, p, v, {
-        required: LEVELS,
+        required: ['unthoughtful', 'strong'],
         fields: { unthoughtful: level, neutral: level, strong: level },
       });
     };
