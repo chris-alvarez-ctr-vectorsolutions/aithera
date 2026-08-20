@@ -456,7 +456,7 @@ FORMAT — every reply is the JSON object defined below and NOTHING else, on EVE
 `ACTION FIELD — on every turn set a top-level "action" that states your INTENT:
 - "action":"continue" → the phase is still live: a character reaction, or ONE short probing follow-up in a coaching phase. Stay in the phase.
 - "action":"teach" → you are CLOSING the phase (Learn): the debrief lands now. The app then advances the arc — you never choose or announce what comes next.
-- "action":"redirect" → the input is NOT an answer — a clarifying question, "wait, who am I here?", a first "I don't know", or off-script/gibberish/troll. Handle it per NON-ANSWERS below: stay put, report no tier, do not advance.
+- "action":"redirect" → the input is NOT an answer AND is free — a clarifying question, "wait, who am I here?", or a FIRST "I don't know". Handle it per NON-ANSWERS below: stay put, report no tier, do not advance. Refusal and gibberish are also non-answers but are NOT free: they stay put on "continue" (see NON-ANSWERS).
 TIER FIELD — whenever you set "action":"teach", ALSO set "tier" to the calibration tier that best matches the learner's overall handling of THIS phase — exactly one of: ${tierVocab.map((t) => `"${t}"`).join(', ')}. The app records it and writes the session state, so report it honestly; never inflate and never invent other labels.
 STATE LINE — every call ends with a "[SYSTEM STATE — …]" line: the live phase (its world and counterpart), learner turns used vs. that phase's cap, the tiers recorded so far, and the session state${stateVars.length ? ' (' + stateVars.map((v) => v.label || v.key).join(' · ') + ')' : ''}. It is the source of truth — obey it. When it says the cap is reached, you MUST set "action":"teach" this turn. Let the state SHAPE what you write — a returning character carries the history it records.
 
@@ -565,7 +565,7 @@ ${groundLines.join('\n')}`);
     // 8) Non-answers (shared policy) + safety.
     parts.push((window.SimCore && SimCore.nonAnswerPolicy)
       ? SimCore.nonAnswerPolicy({ hasScene: phases.some((p) => p.world === 'scene') })
-      : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, and do not grade or advance.');
+      : 'NON-ANSWERS — a clarifying question or a first "I don\'t know" is not an answer: answer it, set "action":"redirect" (free), stay put, do not grade or advance. Refusal or gibberish: stay put with "action":"continue" (it costs the turn), redirect gently without shaming, and never grade or advance.');
     /* The coach INTEGRITY floor — shared with every other type (SimCore).
        Sits beside NON-ANSWERS because both are floors on the model's own
        behavior rather than anything an author writes. */

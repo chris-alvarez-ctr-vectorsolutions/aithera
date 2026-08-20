@@ -365,7 +365,7 @@ FORMAT — every reply is the JSON object defined below and NOTHING else, on EVE
 ACTION FIELD — set "action" to your intent:
 - "action":"continue" → the beat is still live (crediting + one nudge, or one probing follow-up). Stay in the beat.
 - "action":"teach" → you are CLOSING the beat (Learn): the debrief lands now. The app advances to the next beat — you never choose or announce it.
-- "action":"redirect" → the input is NOT an answer — a clarifying question, a first "I don't know", or off-script/gibberish/troll. Handle it per NON-ANSWERS below: re-ask gently, stay put, credit nothing, and do not advance.
+- "action":"redirect" → the input is NOT an answer AND is free — a clarifying question or a FIRST "I don't know". Handle it per NON-ANSWERS below: re-ask gently, stay put, credit nothing, and do not advance. Refusal and gibberish are also non-answers but are NOT free: they stay put on "continue" (see NON-ANSWERS).
 TIER FIELD — whenever you "teach", also set "tier" to how the learner handled the beat overall: one of "UNTHOUGHTFUL", "NEUTRAL", "STRONG". Report it honestly; it feeds the debrief and the final report.
 STATE LINE — every call ends with a "[SYSTEM STATE — …]" line: the live beat, learner turns used vs. the cap, and — during Observe — the coverage so far (which hazard ids are spotted, which REMAIN and their zones). Obey it: nudge toward the remaining hazards’ zones, and when the cap is reached (or coverage is met) you MUST "teach".
 
@@ -460,7 +460,7 @@ FOR THIS MODULE:
     // 8) Non-answers (shared policy) + safety.
     parts.push((window.SimCore && SimCore.nonAnswerPolicy)
       ? SimCore.nonAnswerPolicy({ hasScene: false })
-      : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, credit nothing, and do not advance.');
+      : 'NON-ANSWERS — a clarifying question or a first "I don\'t know" is not an answer: answer it, set "action":"redirect" (free), stay put, credit nothing, do not advance. Refusal or gibberish: stay put with "action":"continue" (it costs the turn), redirect gently without shaming, credit nothing, and do not advance.');
     /* The coach INTEGRITY floor — shared with every other type (SimCore).
        Sits beside NON-ANSWERS because both are floors on the model's own
        behavior rather than anything an author writes. */

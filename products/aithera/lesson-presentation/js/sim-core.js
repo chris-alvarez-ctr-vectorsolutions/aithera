@@ -259,7 +259,9 @@
           // "action" is the coach's INTENT for a coaching turn:
           //   "teach"    — land the point; the app then advances to the next hand-off
           //   "probe"    — ONE Socratic question; stay in the phase (burns the probe)
-          //   "redirect" — off-script/troll input; stay and re-ask (does NOT burn it)
+          //   "redirect" — a clarifying question or a first "I don't know"; stay
+          //                  and re-ask (does NOT burn it). Off-script/troll and
+          //                  refusal are "continue" instead, which DOES burn it.
           // The app, not the model, owns WHEN to advance and WHICH locked beat to
           // show; action just tells it what the model meant. Item-level flags
           // hoist here too (a model sometimes puts it on the last bubble).

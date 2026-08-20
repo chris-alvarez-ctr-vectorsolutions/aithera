@@ -904,7 +904,7 @@ FORMAT — every reply is the JSON object defined below and NOTHING else, on EVE
 `ACTION FIELD — on every turn set a top-level "action" that states your INTENT:
 - "action":"continue" → the beat is still live: a character reaction, or ONE short probing follow-up in a coaching/observe beat. Stay in the beat.
 - "action":"teach" → you are CLOSING the beat (Learn): the debrief lands now. The app then advances — you never choose or announce what comes next.
-- "action":"redirect" → the input is NOT an answer — a clarifying question, "wait, who am I here?", a first "I don't know", or off-script/gibberish/troll. Handle it per NON-ANSWERS below: stay put, report no tier, do not advance.
+- "action":"redirect" → the input is NOT an answer AND is free — a clarifying question, "wait, who am I here?", or a FIRST "I don't know". Handle it per NON-ANSWERS below: stay put, report no tier, do not advance. Refusal and gibberish are also non-answers but are NOT free: they stay put on "continue" (see NON-ANSWERS).
 TIER FIELD — whenever you set "action":"teach", ALSO set "tier" to the calibration tier that best matches the learner's handling of THIS beat${tierVocab.length ? ' — exactly one of: ' + tierVocab.map((t) => `"${t}"`).join(', ') : ''}. The app records it; report it honestly, never inflate, never invent other labels.
 STATE LINE — every call ends with a "[SYSTEM STATE — …]" line: the live beat (its world and any counterpart), learner turns used vs. this beat's cap, tiers recorded so far${stateVars.length ? ', and the session state (' + stateVars.map((v) => v.label || v.key).join(' · ') + ')' : ''}. It is the source of truth — obey it. When it says the cap is reached, you MUST set "action":"teach" this turn.
 
