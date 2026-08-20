@@ -68,6 +68,9 @@ Newest first. `Contract` = what `tools/roundtrip-check.js` said.
 
 | Date | Build | Change | Why | Contract | State |
 | --- | --- | --- | --- | --- | --- |
+| 2026-08-20 | stable | Context is never set in-scenario: the choice is gone, the Start step just asks what ran before (coach-facing only) | The product will not set learner context inside a scenario — the surrounding learning object owns the run-up | green (11/11) | shipped |
+| 2026-08-20 | stable | The world step no longer disappears with inherited context, and is retitled **Situation & World** | Latent defect: that step also carries setting, canon and characters, so "inherited" made the scene world unauthorable — and "always inherited" would have hidden it for good | green (11/11) | shipped |
+| 2026-08-20 | stable | `help_turns` compiles to 2 when absent, matching the production loader (was `null`) | The two engines disagreed about an absent field. Note the affordance itself is not built in our player — this aligns the number, not the behaviour | green (11/11) | shipped |
 | 2026-08-20 | both | Header names the build: **Current** vs **Prototype**, with a notice in the prototype saying its changes are not in the everyday editor until released | An author had no way to tell which build they were in, and the old "V2" tag collided with `?v=2` meaning "prototype" | green (11/11) | shipped |
 | 2026-08-20 | stable | Editor moved to `scenario-editor/`; sandbox build added at `?v=2` with isolated drafts | Stable had to be the tool of record with a URL that never moves, and an experimental build must not be able to overwrite an author's only copy of a scenario | green (11/11) | shipped |
 | 2026-08-20 | stable | An edit-free export no longer drops `closing.ideal_response.source_references` | Six of the dev team's eleven live documents lost the field on a round trip; their schema permits an empty array there and ours deleted it | green (11/11), was 5/11 | shipped |

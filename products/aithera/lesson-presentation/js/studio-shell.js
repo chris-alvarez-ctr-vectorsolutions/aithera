@@ -201,9 +201,14 @@
       eyebrow: 'First — what are you building?',
       sub: 'Choose the core interaction, then the basics. This shapes every field that follows.',
       groups: ['meta'], isStart: true },
-    { id: 'context',     title: 'Scenario Context', rail: 'How the scene is set',
-      eyebrow: 'The learner’s opening',
-      sub: 'How the scene is set before the coaching begins — the intro modality.',
+    /* Was "Scenario Context — the intro modality". Context is never set inside a
+       scenario any more (the surrounding learning object owns that), so what is
+       left in this step is the WORLD the scenario happens in: setting, canon and
+       characters. Retitled to say so. This step used to disappear whenever the
+       context was inherited, which quietly took the scene world with it. */
+    { id: 'context',     title: 'Situation & World', rail: 'The scene and its canon',
+      eyebrow: 'Where this happens',
+      sub: 'The world the scenario plays out in — the setting, the facts that are true of it, and who is in it.',
       groups: ['context'] },
     { id: 'learn',       title: 'Learn',            rail: 'Warm-up + topic turns',
       eyebrow: 'The learner thinks it through',
@@ -233,17 +238,28 @@
   // Platform-level context fields live on the scenario; the shell owns their
   // authoring UI (the Start step) and defaults them so every mode inherits them.
   function ensureCtx() {
-    if (scenario.contextSource !== 'previous-lo') scenario.contextSource = 'in-scenario';
+    /* Context is ALWAYS inherited from whatever ran before. Setting it inside a
+       scenario — the old 'in-scenario' choice with its video / audio / reading
+       intro — is not something the product does: the surrounding learning object
+       owns the learner's run-up, and the only thing the scenario needs is a
+       coach-facing summary of it. Left as a field rather than deleted because the
+       three types that compile a previous-LO block read it, and because a legacy
+       scenario's own intro fields stay in its JSON untouched — nothing here
+       destroys them, and the player never read this key to decide what to show. */
+    scenario.contextSource = 'previous-lo';
     if (!scenario.previousLO || typeof scenario.previousLO !== 'object') scenario.previousLO = { title: '', covered: '', handoff: '' };
   }
 
-  // A phase shows only if this mode uses it (Start always shows). The Context
-  // phase also drops out when the context is INHERITED from a previous LO —
-  // there's nothing to author here, the handoff happens in Start.
+  /* A phase shows only if this mode uses it (Start always shows).
+     The Situation & World phase used to drop out whenever the context was
+     inherited, on the reasoning that there was nothing left to author. That was
+     wrong: this phase also carries the type's world section — setting, canon
+     facts, characters — so choosing "inherited" made the scene world
+     unreachable. Now that context is ALWAYS inherited, dropping it would have
+     hidden those fields permanently. The two were never the same question. */
   function computePhases() {
     return ALL_PHASES.filter((p) => {
       if (p.isStart) return true;
-      if (p.id === 'context' && scenario.contextSource === 'previous-lo') return false;
       return type.sections.some((s) => p.groups.includes(groupOf(s)));
     });
   }
@@ -319,66 +335,33 @@
     return wrap;
   }
 
-  /* ---- the Start step's context-source control ---------------------------
-     Universal, up-front decision: is the learner's context set inside this
-     scenario (an intro modality) or inherited from the previous learning
-     object? Choosing 'previous-lo' reveals the handoff metadata and drops the
-     ① Scenario Context phase (there's nothing to author there). */
+  /* ---- the Start step's previous-lesson handoff -------------------------
+     This used to be a choice: set the learner's context inside the scenario (an
+     intro modality) or inherit it from whatever ran before. The choice is gone —
+     the product never sets context in-scenario, so the surrounding learning
+     object owns the run-up and the only thing a scenario needs is a description
+     of it for the coach.
+
+     Note what this block is NOT: it is not learner-facing. Every field here
+     reaches the coach's prompt only, so it can avoid re-teaching what the learner
+     just saw. Nothing typed here is shown to anyone. */
   function buildContextSource() {
     ensureCtx();
     const card = document.createElement('section');
     card.className = 'card';
     card.id = 'sec-contextsource';
     card.innerHTML =
-      '<h2><i class="fa-solid fa-diagram-predecessor"></i> How is the context set?</h2>' +
-      '<p class="lead">Where the learner’s context comes from before this scenario begins.</p>';
+      '<h2><i class="fa-solid fa-diagram-predecessor"></i> What came before this scenario?</h2>' +
+      '<p class="lead">The learner arrives from something else — a video, a reading, a section of a course. Describe it so the coach knows what they have already seen.</p>';
     const box = document.createElement('div');
     box.className = 'fields';
-    const rg = document.createElement('vaadin-radio-group');
-    rg.setAttribute('theme', 'vertical');
-    [['in-scenario', 'Set it here — pick a video, audio, reading, or story intro next (or none)'],
-     ['previous-lo', 'Use the previous learning object — inherit context from whatever ran before']]
-      .forEach(([v, l]) => { const rb = document.createElement('vaadin-radio-button'); rb.value = v; rb.label = l; rg.appendChild(rb); });
-    rg.value = scenario.contextSource || 'in-scenario';
-    const detail = document.createElement('div');
-    const renderDetail = () => {
-      detail.innerHTML = '';
-      if ((scenario.contextSource || 'in-scenario') === 'previous-lo') {
-        const note = document.createElement('div');
-        note.className = 'fieldnote';
-        note.innerHTML = '<i class="fa-solid fa-diagram-project"></i><span>In production this is pulled in automatically. Enter it here so the AI can hand off cleanly — the <b>① Scenario Context</b> step is skipped. It reaches the <b>coach only</b>, never the learner: a description of the video, reading, or course section they just finished. A single block of prose in <b>What it covered</b> is a complete authoring.</span>';
-        detail.append(note,
-          tf('previousLO.title', 'What came just before', { helper: 'A video, a reading, or a section of a course — by name. Optional if you describe it below.' }),
-          tf('previousLO.covered', 'What it covered', { area: true, minRows: 3, helper: 'Plain prose is fine, and this field alone is enough — describe the video or the section so the coach knows what the learner already saw and doesn’t re-teach it.' }),
-          tf('previousLO.handoff', 'Where it left them', { area: true, minRows: 2, helper: 'Optional. The state they land in — what they just did or produced, and the thread this scenario picks up.' }));
-      } else {
-        const note = document.createElement('div');
-        note.className = 'fieldnote';
-        note.innerHTML = '<i class="fa-solid fa-arrow-right"></i><span>Next step — <b>① Scenario Context</b> — is where you choose how the scene is set.</span>';
-        detail.append(note);
-      }
-    };
-    const onSrc = () => {
-      const v = rg.value || 'in-scenario';
-      if (v === scenario.contextSource) return;   // ignore no-op / spurious fires
-      scenario.contextSource = v;
-      renderDetail();             // swap the previousLO fields in place
-      PHASES = computePhases();   // the ① Context phase appears/disappears
-      buildNav();                 // refresh the stepper
-      // Update the Next label WITHOUT calling buildForm() — rebuilding the form
-      // would re-create THIS radio-group and set its .value, which re-fires
-      // value-changed → onSrc → rebuild → infinite recursion (a Vaadin
-      // _valueToNodeAttribute stack overflow). Patch the label in place instead.
-      const nextBtn = $('.phase-foot .pf-btn.next');
-      if (nextBtn && activePhase < PHASES.length - 1) {
-        nextBtn.innerHTML = `Next: ${esc(PHASES[activePhase + 1].title)} <i class="fa-solid fa-arrow-right"></i>`;
-      }
-      scheduleUpdate();
-    };
-    rg.addEventListener('value-changed', onSrc);
-    rg.addEventListener('change', onSrc);
-    renderDetail();
-    box.append(rg, detail);
+    const note = document.createElement('div');
+    note.className = 'fieldnote';
+    note.innerHTML = '<i class="fa-solid fa-diagram-project"></i><span>In production this is pulled in automatically — you are filling it in here so the AI can hand off cleanly. It reaches the <b>coach only, never the learner</b>. A single block of prose in <b>What it covered</b> is a complete authoring; leave it all blank if nothing ran before.</span>';
+    box.append(note,
+      tf('previousLO.title', 'What came just before', { helper: 'A video, a reading, or a section of a course — by name. Optional if you describe it below.' }),
+      tf('previousLO.covered', 'What it covered', { area: true, minRows: 3, helper: 'Plain prose is fine, and this field alone is enough — describe the video or the section so the coach knows what the learner already saw and doesn\u2019t re-teach it.' }),
+      tf('previousLO.handoff', 'Where it left them', { area: true, minRows: 2, helper: 'Optional. The state they land in — what they just did or produced, and the thread this scenario picks up.' }));
     card.append(box);
     return card;
   }

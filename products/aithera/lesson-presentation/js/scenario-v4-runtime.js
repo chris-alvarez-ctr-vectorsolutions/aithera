@@ -252,7 +252,12 @@
       debriefFinalWord: str(debrief.final_word),
       debriefLabel: str(debrief.label),
       debriefTransition: obj(debrief.transition),
-      helpTurns: typeof interaction.help_turns === 'number' ? interaction.help_turns : null,
+      /* Default 2, matching the production loader. It used to compile to null,
+         so the two engines disagreed about an absent field — theirs arms two help
+         turns, ours armed none. Worth knowing that nothing in this player reads
+         helpTurns yet: the mid-scene help affordance is not built here, so this
+         aligns the NUMBER, not the behaviour. */
+      helpTurns: typeof interaction.help_turns === 'number' ? interaction.help_turns : 2,
       carryover: arr(interaction.carryover).map(function (c) { return str(obj(c).from); }).filter(Boolean),
       /* An observe rubric is the coverage contract sim-perception needs. */
       rubric: arr(interaction.rubric).map(function (r) {
