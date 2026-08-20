@@ -419,13 +419,6 @@
   .cert-link:hover { text-decoration: underline; }
   .cert-link i { color: #15803d; }
 
-  /* ── Multi-select (STRETCH) — row checkboxes + select-all highlight rows; no bulk bar ── */
-  .report-table th.col-expand { width: 36px; padding: 0; vertical-align: middle; }
-  .sel-cell { width: 36px; }
-  /* Align the select-all checkbox with the per-row checkboxes (row cells pad 9px left). */
-  th.col-expand vaadin-checkbox { margin-left: 9px; }
-  .report-table .data-row.row-selected td { background: #eff6ff; }
-  .report-table .data-row.row-selected:hover td { background: #e0ebff; }
 
   /* Bulk-step recipient list */
   .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
@@ -560,7 +553,7 @@
   .mod-item .mi-score { width: 52px; text-align: right; font-weight: 700; color: var(--ink); }
   .mod-item.failed-mod .mi-score { color: #b91c1c; }
   .mod-item .mi-score.dash { color: var(--muted-2); font-weight: 500; }
-  /* Explainer for the Waiting-on-Update status, shown under the module list when present. */
+  /* Explainer for the Pending status, shown under the module list when present. */
   .mod-note { margin-top: 10px; max-width: 700px; font-size: 12.5px; line-height: 1.5; color: var(--lumo-body-text-color); background: var(--lumo-contrast-5pct); border: 1px solid var(--lumo-contrast-20pct); border-radius: 8px; padding: 8px 12px; }
   .mod-note i { color: var(--lumo-secondary-text-color); margin-right: 2px; }
   .mod-note strong { color: var(--lumo-body-text-color); }
@@ -866,15 +859,11 @@
                • Course sort pill → column sorting / group ordering.
                • Search box → searchPanel.
                • Show/hide columns menu → built-in columnChooser (mode:'select').
-               • Row checkboxes + select-all → selection {mode:'multiple',
-                 showCheckBoxesMode:'always', selectAllMode:'page'} (respects the active filter).
                • Status badge, % Complete bar, Time Spent, Failure/Retry (eligible-to-retry =
                  failure date + cooldown via calculateCellValue), Certificate link, Action button
                  → cellTemplate / command "buttons" column.
-             NOT DataGrid config (app-level UI that drives the grid via its dataSource filter
-             and getSelectedRowsData()/selectedRowKeys APIs):
-               • the right-hand Report Filters panel,
-               • the bulk action bar + the grouped, stepped bulk modal.
+             NOT DataGrid config (app-level UI that drives the grid via its dataSource filter):
+               • the right-hand Report Filters panel.
              The Completion Status Overview above is a dxPieChart + dxChart (separate components),
              not part of the grid. -->
         <div class="report-card" id="qualReport">
@@ -897,17 +886,14 @@
             </div>
           </div>
 
-          <!-- DEV NOTE — the toolbar "Email Learners" button was removed per client feedback, so
-               there is no longer a send trigger at the top of the table. The row checkboxes +
-               select-all (a STRETCH multi-select path) still highlight rows but currently have no
-               send affordance; the per-row and action-tile email actions and the compose page are
-               untouched. Flag the multi-select path as a stretch at dev handoff. -->
+          <!-- DEV NOTE — email + table multi-select were removed from this phase per client
+               feedback. No row/select-all checkboxes and no bulk actions: this table is
+               read/filter/sort only. The per-learner row actions and compose page still exist
+               elsewhere for the retained single-learner flows. -->
           <div class="report-table-wrap">
             <table class="report-table" id="qualTable">
               <thead>
                 <tr id="headRow">
-                  <!-- STRETCH (want, not a must-have): select-all for the multi-select path -->
-                  <th class="col-expand" scope="col"><vaadin-checkbox id="selectAll" aria-label="Select all visible learners"></vaadin-checkbox></th>
                   <!-- data-column headers rendered by JS from the column model (order + visibility) -->
                 </tr>
               </thead>
@@ -987,7 +973,7 @@
 
           <!-- Extra options -->
           <div class="filter-section filter-extra">
-            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only learners in progress with course expiring ≤ 30 days</span></label>
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-due-soon"></vaadin-checkbox><span>Only learners in progress with course due ≤ 30 days</span></label>
             <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners with at least 1 failure within a module</span></label>
           </div>
         </div>
@@ -1162,6 +1148,11 @@
   // Shared labels + the plain-language reason behind the "Pending" status.
   const MOD_STATUS_LABEL = { complete:'Complete', failed:'Failed', pending:'Pending', 'in-progress':'In Progress', 'not-started':'Not Started' };
   const WAITING_TIP = 'Once a student attempts/completes a module quiz, this data will display.';
+  // Each Pending status shows a real styled <vaadin-tooltip> (not the native browser title). A
+  // tooltip needs a unique target id, so mint one per render with a monotonic counter — old
+  // anchors drop out of the DOM when the table/modal re-renders, so ids never collide live.
+  let _tipN = 0;
+  const pendingTip = (targetId) => `<vaadin-tooltip for="${targetId}" position="top" text="${WAITING_TIP}"></vaadin-tooltip>`;
   // Deterministic per-module attempt count. A passing module almost always takes one attempt;
   // a failed module burns through 2–3 (each retry re-sends a completion record — module-level attempts).
   function attemptsFor(ext, i, failed) {
@@ -1200,8 +1191,7 @@
   /* Action-needed group order (Not started → Behind → Failed). */
   const BULK_ORDER = ['intervene','nudge','retry'];
 
-  const rowKey = (gid, ext) => gid + '::' + ext;
-  const selectedRows = new Set();   // STRETCH multi-select — keys: "groupId::ext"
+  const rowKey = (gid, ext) => gid + '::' + ext;   // stable per-row key used for filter row lookup
 
   // Flat row list — every learner across all courses. Course is a column (not a grouping drawer).
   const rows = GROUPS.flatMap(g => g.rows.map(r => ({ r, course: g.course, gid: g.id })));
@@ -1277,11 +1267,12 @@
     return '<span class="muted-cell">—</span>';
   }
   // "Pending" takes over the Status column for a learner mid-course: we're waiting on
-  // the client to report their next module, so that amber status replaces "In Progress".
+  // the client to report their next module, so that gray status replaces "In Progress".
   function isPendingUpdate(r) { return r.status === 'in-progress' && r.mods < MOD_TOTAL; }
   function statusBadgeHTML(r) {
     if (isPendingUpdate(r)) {
-      return `<span class="status-badge pending" title="${WAITING_TIP}"><i class="fa-regular fa-clock"></i> Pending</span>`;
+      const tid = `pend-tip-${_tipN++}`;
+      return `<span class="status-badge pending" id="${tid}"><i class="fa-regular fa-clock"></i> Pending</span>${pendingTip(tid)}`;
     }
     return `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>`;
   }
@@ -1305,24 +1296,25 @@
   function moduleTableHTML(r, course) {
     const mods = learnerModules(r, course);
     const hasPending = mods.some(m => m.status === 'pending');
-    return `<div class="mods-list">
-      <div class="mod-item mod-head">
-        <div class="mi-num"></div>
-        <div class="mi-name">Module</div>
-        <div class="mi-status">Status</div>
-        <div class="mi-attempts">Attempts</div>
-        <div class="mi-score">Quiz</div>
-      </div>
-      ${mods.map((m, i) => {
+    // Pending module rows anchor a styled tooltip. The <vaadin-tooltip> anchors are collected
+    // here and emitted AFTER .mods-list — never inside a .mod-item / .mi-status, both of which
+    // are flex containers with a `gap`, where an extra child would add phantom spacing.
+    const tips = [];
+    const rows = mods.map((m, i) => {
         const cls = m.status === 'complete' ? 'done'
                   : m.status === 'failed'   ? 'failed-mod'
                   : m.status === 'pending'  ? 'pending' : '';
         const numInner = m.status === 'complete' ? '<i class="fa-solid fa-check"></i>'
                        : m.status === 'failed'   ? '<i class="fa-solid fa-xmark"></i>'
                        : m.status === 'pending'  ? '<i class="fa-regular fa-clock"></i>' : (i + 1);
-        const statusCell = m.status === 'pending'
-          ? `<div class="mi-status s-pending" title="${WAITING_TIP}">${MOD_STATUS_LABEL.pending}<i class="fa-solid fa-circle-info wait-i"></i></div>`
-          : `<div class="mi-status s-${m.status}">${MOD_STATUS_LABEL[m.status]}</div>`;
+        let statusCell;
+        if (m.status === 'pending') {
+          const tid = `mod-pend-tip-${_tipN++}`;
+          statusCell = `<div class="mi-status s-pending" id="${tid}">${MOD_STATUS_LABEL.pending}<i class="fa-solid fa-circle-info wait-i"></i></div>`;
+          tips.push(pendingTip(tid));
+        } else {
+          statusCell = `<div class="mi-status s-${m.status}">${MOD_STATUS_LABEL[m.status]}</div>`;
+        }
         const attempts = m.attempts != null
           ? (m.status === 'failed'
               ? `<span class="att-fail">${m.attempts}/3</span>`
@@ -1336,8 +1328,18 @@
           <div class="mi-attempts">${attempts}</div>
           <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
         </div>`;
-      }).join('')}
+      }).join('');
+    return `<div class="mods-list">
+      <div class="mod-item mod-head">
+        <div class="mi-num"></div>
+        <div class="mi-name">Module</div>
+        <div class="mi-status">Status</div>
+        <div class="mi-attempts">Attempts</div>
+        <div class="mi-score">Quiz</div>
+      </div>
+      ${rows}
     </div>
+    ${tips.join('')}
     ${hasPending ? `<div class="mod-note"><i class="fa-regular fa-clock"></i> <strong>Pending</strong> — ${WAITING_TIP}</div>` : ''}`;
   }
   // Assignment dates. ClickSafety reports these per enrollment; here they're derived
@@ -1358,22 +1360,20 @@
 
   function dataRowHTML(r, course, gid) {
     const key = rowKey(gid, r.ext);
-    const sel = selectedRows.has(key);
     const cells = visibleColumns().map(c => {
       const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
       return `<td${cls}>${c.render(r, course, gid)}</td>`;
     }).join('');
     return `
-      <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
-        <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${gid}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
+      <tr class="data-row" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
         ${cells}
       </tr>`;
   }
 
-  // Rebuild the data-column headers from the model (the leading select-all th stays in place).
+  // Rebuild the data-column headers from the model.
   function renderHead() {
     const row = document.getElementById('headRow');
-    while (row.children.length > 1) row.removeChild(row.lastChild);
+    while (row.children.length) row.removeChild(row.lastChild);
     visibleColumns().forEach(c => {
       const th = document.createElement('th');
       th.scope = 'col';
@@ -1538,25 +1538,25 @@
     renderTable();   // renderTable → renderHead → updateSortIndicators
   });
 
-  /* ═══════════════ Filters — status · course · learner · expiring · near-limit · search ═══════════════ */
+  /* ═══════════════ Filters — status · course · learner · due-soon · near-limit · search ═══════════════ */
   const searchInput = document.getElementById('qualSearch');
   const filters = {
     statuses: new Set(),   // empty = all statuses (check specific ones to narrow)
     courses:  new Set(),   // empty = all courses
     actions:  new Set(),   // action-needed groups: 'intervene' | 'nudge' | 'retry' (empty = all)
     groups:   new Set(),   // quick groups (saved learner cohorts): 'A' | 'B' | 'C' (empty = all)
-    expiringOnly: false,
+    dueSoonOnly: false,
     nearLimitOnly: false,
   };
   // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
-  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), groups: new Set(f.groups), expiringOnly: f.expiringOnly, nearLimitOnly: f.nearLimitOnly });
+  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), groups: new Set(f.groups), dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
   let draft = cloneFilters(filters);
   function commitDraft() {
     filters.statuses = new Set(draft.statuses);
     filters.courses = new Set(draft.courses);
     filters.actions = new Set(draft.actions);
     filters.groups = new Set(draft.groups);
-    filters.expiringOnly = draft.expiringOnly;
+    filters.dueSoonOnly = draft.dueSoonOnly;
     filters.nearLimitOnly = draft.nearLimitOnly;
   }
   // Quick Groups are saved learner cohorts; here each learner is assigned to one
@@ -1567,7 +1567,19 @@
     for (const ch of r.ext) h += ch.charCodeAt(0);
     return QUICK_GROUPS[h % 3];
   }
-  // "Base" filters — course · status · expiring · near-limit. These scope both the table
+  // "Due soon" quick filter = learner is IN PROGRESS and the course Due Date is within the next
+  // 30 days of the report's reference date (SORT_REF). Uses the Due Date — matching the Behind
+  // Pace formula — NOT the Expiration date. Overdue in-progress courses (negative days) also
+  // qualify, since a course past its due date is by definition behind pace.
+  const DUE_SOON_DAYS = 30;
+  function dueSoon(r) {
+    if (r.status !== 'in-progress') return false;
+    const d = mdyToDate(courseDates(r).due);
+    if (!d) return false;
+    const days = (d.getTime() - SORT_REF.getTime()) / 86400000;
+    return days <= DUE_SOON_DAYS;
+  }
+  // "Base" filters — course · status · due-soon · near-limit. These scope both the table
   // and the Action-Needed cards (the cards intentionally ignore the action-needed quick filter
   // so their counts stay meaningful).
   function passesBase(x) {
@@ -1575,7 +1587,7 @@
     if (filters.statuses.size && !filters.statuses.has(r.status)) return false;
     if (filters.courses.size && !filters.courses.has(x.course)) return false;
     if (filters.groups.size && !filters.groups.has(learnerGroup(r))) return false;
-    if (filters.expiringOnly && !r.expSoon) return false;
+    if (filters.dueSoonOnly && !dueSoon(r)) return false;
     if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
     return true;
   }
@@ -1605,7 +1617,6 @@
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
     if (typeof renderActionCards === 'function') renderActionCards();
     if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
-    if (typeof updateSelectAll === 'function') updateSelectAll();   // STRETCH multi-select
   }
   // Learners passing the applied filters (NOT the search box) — the data source for the pie.
   function scopedWrappers() { return rows.filter(passesFilters); }
@@ -1645,7 +1656,7 @@
       cb.checked ? draft.courses.add(c) : draft.courses.delete(c);
     });
   });
-  document.getElementById('chk-expiring').addEventListener('change', e => { draft.expiringOnly = e.target.checked; });
+  document.getElementById('chk-due-soon').addEventListener('change', e => { draft.dueSoonOnly = e.target.checked; });
   document.getElementById('chk-failed-limit').addEventListener('change', e => { draft.nearLimitOnly = e.target.checked; });
   // The table search box is separate from the panel filters and still applies live.
   searchInput.addEventListener('input', applyFilters);
@@ -1662,7 +1673,7 @@
     if (filters.statuses.size) n++;
     if (filters.actions.size) n += filters.actions.size;
     if (filters.groups.size) n += filters.groups.size;
-    if (filters.expiringOnly) n++;
+    if (filters.dueSoonOnly) n++;
     if (filters.nearLimitOnly) n++;
     return n;
   }
@@ -1681,7 +1692,7 @@
   }
   function syncAllChecks() {
     syncStatusChecks(); syncActionChecks(); syncGroupChecks(); syncCourseChecks();
-    const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = draft.expiringOnly;
+    const ce = document.getElementById('chk-due-soon'); if (ce) ce.checked = draft.dueSoonOnly;
     const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = draft.nearLimitOnly;
   }
   // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
@@ -1695,7 +1706,7 @@
     }
     filters.actions.forEach(a => chips.push({ k: 'Action needed', label: ACTION_FILTER_LABEL[a], remove: () => { filters.actions.delete(a); syncActionChecks(); } }));
     filters.groups.forEach(g => chips.push({ k: 'Quick group', label: `Group ${g}`, remove: () => { filters.groups.delete(g); syncGroupChecks(); } }));
-    if (filters.expiringOnly) chips.push({ k: '', label: 'Expiring ≤ 30 days', remove: () => { filters.expiringOnly = false; const e = document.getElementById('chk-expiring'); if (e) e.checked = false; } });
+    if (filters.dueSoonOnly) chips.push({ k: '', label: 'Due ≤ 30 days', remove: () => { filters.dueSoonOnly = false; const e = document.getElementById('chk-due-soon'); if (e) e.checked = false; } });
     if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
     appliedFilters.innerHTML = '';
     chips.forEach(c => {
@@ -1717,7 +1728,7 @@
   function clearAllFilters() {
     filters.statuses.clear();
     filters.courses.clear(); filters.actions.clear(); filters.groups.clear();
-    filters.expiringOnly = false; filters.nearLimitOnly = false;
+    filters.dueSoonOnly = false; filters.nearLimitOnly = false;
     draft = cloneFilters(filters);
     searchInput.value = '';
     syncAllChecks();
@@ -1841,51 +1852,6 @@
     toast.opened = true;
   }
 
-  /* ═══════════════ Multi-select (STRETCH — want, not must-have) ═══════════════ */
-  // Per-row + select-all checkboxes let an admin hand-pick recipients as an alternative to the
-  // filter-based path above. Flag as a stretch at dev handoff; the primary path is filter-based.
-  const selectAll = document.getElementById('selectAll');
-  function getRow(key) {
-    const [gid, ext] = key.split('::');
-    const g = GROUPS.find(x => x.id === gid);
-    const r = g && g.rows.find(x => x.ext === ext);
-    return r ? { r, g } : null;
-  }
-  function visibleDataRows() {
-    return Array.from(tbody.querySelectorAll('.data-row')).filter(tr => tr.style.display !== 'none');
-  }
-  // Keeps the header select-all in sync (checked / indeterminate) with the visible rows.
-  function updateSelectAll() {
-    const vis = visibleDataRows();
-    const selVis = vis.filter(tr => selectedRows.has(rowKey(tr.dataset.group, tr.dataset.ext))).length;
-    if (selectAll) {
-      selectAll.checked = vis.length > 0 && selVis === vis.length;
-      selectAll.indeterminate = selVis > 0 && selVis < vis.length;
-    }
-  }
-  // Checking a row highlights it (.row-selected) and adds it to the recipient set; the toolbar
-  // "Email Learners" button emails whatever is checked. No separate bulk-action bar.
-  tbody.addEventListener('change', e => {
-    const cb = e.target.closest('.row-sel');
-    if (!cb) return;
-    cb.closest('tr').classList.toggle('row-selected', cb.checked);
-    cb.checked ? selectedRows.add(rowKey(cb.dataset.group, cb.dataset.ext)) : selectedRows.delete(rowKey(cb.dataset.group, cb.dataset.ext));
-    updateSelectAll();
-  });
-  // Select-all applies to the currently visible (filtered) rows. This whole-page select-all is
-  // the riskiest piece of the stretch — call it out at dev handoff.
-  selectAll.addEventListener('change', () => {
-    const want = selectAll.checked;
-    visibleDataRows().forEach(tr => {
-      const key = rowKey(tr.dataset.group, tr.dataset.ext);
-      want ? selectedRows.add(key) : selectedRows.delete(key);
-      tr.classList.toggle('row-selected', want);
-      const cb = tr.querySelector('.row-sel');
-      if (cb) cb.checked = want;
-    });
-    updateSelectAll();
-  });
-
   /* ═══════════════ Email Learners page (a separate LMS page, not a modal) ═══════════════ */
   // #7: recipients are VIEW-ONLY here — we show a COUNT only (no name list). To change
   //     recipients, go back and re-filter.
@@ -1920,7 +1886,7 @@
 
   function showEmailPage(recipients, content, opts = {}) {
     recipients = recipients || [];
-    emailCtx = { recipients, fromSelection: !!opts.fromSelection };
+    emailCtx = { recipients };
     const n = recipients.length;
     // 1. Header — count (from the active filters) + the context that defined the group.
     emailRecipCount.textContent = n;
@@ -1946,11 +1912,8 @@
   document.getElementById('emailSend').addEventListener('click', () => {
     if (!emailCtx) return;
     const n = emailCtx.recipients.length;
-    const fromSelection = emailCtx.fromSelection;
     closeEmailPage();
     showToast(`Email sent to ${n} learner${n === 1 ? '' : 's'}`);
-    // Emailing a hand-picked selection consumes it (STRETCH path).
-    if (fromSelection) { selectedRows.clear(); renderTable(); }
   });
 
   /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
@@ -2035,7 +1998,7 @@
   }
 
   /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */
-  // The pie reflects the COURSE filter ONLY. Status, Action-Needed, expiring/near-limit,
+  // The pie reflects the COURSE filter ONLY. Status, Action-Needed, due-soon/near-limit,
   // and the table search box do NOT change it — only narrowing by course does.
   function courseScopedLearners() {
     return rows.filter(x => !filters.courses.size || filters.courses.has(x.course)).map(x => x.r);
