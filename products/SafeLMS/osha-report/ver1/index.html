@@ -349,10 +349,11 @@
   .data-row:hover td { background: #fafafa; }
   .data-row .l-name { font-weight: 600; color: var(--ink); }
   .data-row td.l-uname { color: var(--muted); }
-  .pct-cell { display: flex; align-items: center; gap: 6px; }
-  .pct-track { flex: 1; min-width: 24px; height: 7px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
-  .pct-fill { height: 100%; border-radius: 999px; }
-  .pct-num { font-size: 14px; font-weight: 600; color: var(--ink); flex-shrink: 0; }
+  /* Progress cell — % complete + a short fixed-width bar (matches the V2 report). */
+  .mod-cell { display: flex; align-items: center; gap: 8px; }
+  .mod-frac { flex: 0 0 auto; font-weight: 700; color: var(--ink); font-size: 14.5px; white-space: nowrap; }
+  .mod-bar { flex: 0 0 54px; width: 54px; height: 6px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
+  .mod-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--blue-primary); }
   /* "Never" = no activity yet — neutral placeholder, not alarm-red (Status column owns the "not started" signal) */
   .never { color: var(--muted); }
   .exp-soon { color: #b45309; font-weight: 600; }
@@ -391,12 +392,23 @@
   .filter-select-btn:hover { background: var(--hair-2); border-color: var(--muted-2); }
   .filter-checkboxes { display: flex; flex-direction: column; gap: 6px; }
   /* Position / Location launcher — shows the current pick, opens the folder-tree picker. */
-  .tree-launch { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  .tree-launch { width: 100%; display: flex; align-items: center; gap: 8px;
     border: 1px solid var(--hair); background: #fff; border-radius: 6px; padding: 8px 12px;
     font-family: inherit; font-size: 15px; color: var(--ink-2); cursor: pointer; text-align: left; }
   .tree-launch:hover { background: var(--hair-2); border-color: var(--muted-2); }
-  .tree-launch .fa-chevron-down { font-size: 12px; color: var(--muted-2); flex-shrink: 0; }
+  .tree-launch .fa-chevron-down { font-size: 12px; color: var(--muted-2); flex-shrink: 0; margin-left: auto; }
   .tree-launch-val { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Green-check badge on the Location launcher once a specific location is picked (design PNG). */
+  .loc-launch-check { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; background: #dcfce7;
+    color: #15803d; display: grid; place-items: center; font-size: 12px; }
+  .loc-launch-check[hidden] { display: none; }
+  /* ── Position: inline folder-tree dropdown (anchored under the launcher) ── */
+  .tree-drop-wrap { position: relative; }
+  .tree-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 70;
+    background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 10px;
+    box-shadow: 0 8px 28px -6px rgba(16,24,40,.28); }
+  .tree-dropdown[hidden] { display: none; }
+  .tree-dropdown .tm-tree { max-height: 300px; overflow-y: auto; }
   /* ── Folder-tree picker modal (Position / Location) ── */
   .tree-modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(16,24,40,.45);
     display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -433,9 +445,14 @@
   .tm-node.is-loc .tm-node-ico { background: #fdece4; color: #c2410c; }
   .tm-node-label { flex: 1; font-size: 14.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tm-node.selected .tm-node-label { color: var(--ink); font-weight: 600; }
-  .tm-count { flex-shrink: 0; font-size: 12px; color: var(--muted); background: var(--hair-2); border-radius: 999px; padding: 1px 9px; }
-  .tm-selected { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: #15803d; }
-  .tm-selected i { color: #15803d; }
+  /* Green-check badge marking the selected node (light-green rounded square, per design PNG). */
+  .tm-check { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; background: #dcfce7;
+    color: #15803d; display: grid; place-items: center; font-size: 11px; margin-left: 4px; }
+  .tm-count { flex-shrink: 0; font-size: 12px; color: var(--muted); background: var(--hair-2); border-radius: 999px; padding: 1px 9px; margin-left: 6px; }
+  /* Selected summary in the modal's right column — the green-check rounded square + label (PNG). */
+  .tm-selected { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .tm-selected i { width: 30px; height: 30px; border-radius: 8px; background: #dcfce7; color: #15803d;
+    display: grid; place-items: center; font-size: 14px; flex-shrink: 0; }
   .tm-empty { padding: 16px 10px; color: var(--muted); font-size: 14px; }
   .filter-check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; color: var(--ink-2); cursor: pointer; }
   /* Nudge the checkbox down a hair so it lines up with the first line of a wrapping label. */
@@ -953,13 +970,22 @@
 
           <div class="filter-divider"></div>
 
-          <!-- Position — hierarchical single-select folder tree (opens the tree picker modal) -->
+          <!-- Position — inline dropdown holding a single-select folder/subfolder tree -->
           <div class="filter-section">
             <label class="filter-label">Position</label>
-            <button type="button" class="tree-launch" id="posLaunch" aria-haspopup="dialog">
-              <span class="tree-launch-val" id="posLaunchVal">All Positions</span>
-              <i aria-hidden="true" class="fa-solid fa-chevron-down"></i>
-            </button>
+            <div class="tree-drop-wrap">
+              <button type="button" class="tree-launch" id="posLaunch" aria-haspopup="true" aria-expanded="false">
+                <span class="tree-launch-val" id="posLaunchVal">All Positions</span>
+                <i aria-hidden="true" class="fa-solid fa-chevron-down"></i>
+              </button>
+              <div class="tree-dropdown" id="posDropdown" hidden>
+                <div class="tm-search">
+                  <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
+                  <input type="text" id="posSearch" placeholder="Search positions…" aria-label="Search positions">
+                </div>
+                <div class="tm-tree" id="posTree"><!-- rendered by JS --></div>
+              </div>
+            </div>
           </div>
 
           <div class="filter-divider"></div>
@@ -968,6 +994,7 @@
           <div class="filter-section">
             <label class="filter-label">Location</label>
             <button type="button" class="tree-launch" id="locLaunch" aria-haspopup="dialog">
+              <span class="loc-launch-check" id="locLaunchCheck" hidden><i aria-hidden="true" class="fa-solid fa-check"></i></span>
               <span class="tree-launch-val" id="locLaunchVal">All Locations</span>
               <i aria-hidden="true" class="fa-solid fa-chevron-down"></i>
             </button>
@@ -1094,14 +1121,15 @@
 <vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
 
-<!-- Position / Location folder-tree picker (single-select, searchable). One modal, retargeted
-     to whichever filter launched it. Body rendered by JS from POSITION_TREE / LOCATION_TREE. -->
+<!-- Location folder-tree picker (single-select, searchable) — the pop-up modal variant with a
+     green-check "selected" badge. (Position uses an inline dropdown in the filter panel instead.)
+     Tree body rendered by JS from LOCATION_TREE. -->
 <div class="tree-modal-overlay" id="treeModal" hidden>
   <div class="tree-modal" role="dialog" aria-modal="true" aria-labelledby="tmTitle">
     <div class="tree-modal-head">
       <div>
-        <div class="tm-title" id="tmTitle">Select</div>
-        <div class="tm-sub">Pick one, or the top level to include all.</div>
+        <div class="tm-title" id="tmTitle">Select Location</div>
+        <div class="tm-sub">Pick one, or the top level to include all locations.</div>
       </div>
       <div class="tm-head-actions">
         <button type="button" class="tm-done" id="tmDone"><i aria-hidden="true" class="fa-solid fa-check"></i> Done</button>
@@ -1110,16 +1138,16 @@
     </div>
     <div class="tree-modal-body">
       <div class="tm-choose">
-        <div class="tm-col-title" id="tmChooseLabel">Choose</div>
+        <div class="tm-col-title" id="tmChooseLabel">Choose location</div>
         <div class="tm-search">
           <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="tmSearch" placeholder="Search…" aria-label="Search">
+          <input type="text" id="tmSearch" placeholder="Search locations…" aria-label="Search locations">
         </div>
         <div class="tm-tree" id="tmTree"><!-- rendered by JS --></div>
       </div>
       <div class="tm-selected-col">
-        <div class="tm-col-title">Selected</div>
-        <div class="tm-selected" id="tmSelected"><i aria-hidden="true" class="fa-solid fa-check"></i> <span id="tmSelectedVal">All</span></div>
+        <div class="tm-col-title">Selected location</div>
+        <div class="tm-selected" id="tmSelected"><i aria-hidden="true" class="fa-solid fa-check"></i> <span id="tmSelectedVal">All Locations</span></div>
       </div>
     </div>
   </div>
@@ -1345,9 +1373,8 @@
   }
   // Overall course progress bar, colored by status (gray at 0% for not-started).
   function progressCellHTML(r) {
-    const pct = r.pct;
-    const color = PCT_COLOR[r.status] || '#3b82f6';
-    return `<span class="pct-cell"><span class="pct-track"><span class="pct-fill" style="width:${pct}%; background:${color};"></span></span><span class="pct-num">${pct}%</span></span>`;
+    const color = PCT_COLOR[r.status] || 'var(--blue-primary)';
+    return `<span class="mod-cell"><span class="mod-frac">${r.pct}%</span><span class="mod-bar"><span style="width:${r.pct}%; background:${color};"></span></span></span>`;
   }
   // Assignment dates. ClickSafety reports these per enrollment; here they're derived
   // deterministically per learner so the columns stay stable across renders/sorts.
@@ -1735,70 +1762,105 @@
     });
   });
 
-  /* ═══════════════ Position / Location folder-tree picker (single-select, searchable) ═══════════════ */
+  /* ═══════════════ Position (inline dropdown) & Location (modal) folder-tree pickers ═══════════════
+     Both are single-select + searchable and share one tree renderer. Position uses an inline
+     dropdown; Location uses the pop-up modal with a green-check "selected" badge (per design). */
   const treeModal = document.getElementById('treeModal');
   const tmTree = document.getElementById('tmTree');
   const tmSearch = document.getElementById('tmSearch');
-  let tmDim = null, tmPick = 'all', tmExpanded = new Set(), tmQuery = '';
+  let tmPick = 'all', tmExpanded = new Set(), tmQuery = '';
   // Launcher buttons in the panel show the DRAFT selection (what you're editing).
   function updateTreeLaunchers() {
     const pv = document.getElementById('posLaunchVal'); if (pv) pv.textContent = posIndex.byId[draft.position].label;
     const lv = document.getElementById('locLaunchVal'); if (lv) lv.textContent = locIndex.byId[draft.location].label;
+    const lc = document.getElementById('locLaunchCheck'); if (lc) lc.hidden = (draft.location === 'all');  // green check once a location is picked
   }
   function tmMatches(node, q) {
     if (!q) return true;
     if (node.label.toLowerCase().includes(q)) return true;
     return (node.children || []).some(ch => tmMatches(ch, q));
   }
-  function updateTmSelected() {
-    const conf = treeConf[tmDim];
-    document.getElementById('tmSelectedVal').textContent = conf.index.byId[tmPick].label;
-  }
-  function renderTree() {
-    const conf = treeConf[tmDim], idx = conf.index;
-    const q = tmQuery.trim().toLowerCase();
+  // Shared tree → HTML. `dim` picks the icon set; `pick`/`expanded`/`query` are per-instance state.
+  // The selected node gets a green-check badge (matching the design PNG).
+  function treeRowsHTML(dim, pick, expanded, query) {
+    const conf = treeConf[dim], idx = conf.index;
+    const q = (query || '').trim().toLowerCase();
     const out = [];
     (function walk(node, depth) {
       if (!tmMatches(node, q)) return;
       const hasKids = !!(node.children && node.children.length);
-      const expanded = q ? true : tmExpanded.has(node.id);   // search auto-expands the whole path
+      const isOpen = q ? true : expanded.has(node.id);   // search auto-expands the whole path
       const caret = hasKids
-        ? `<span class="tm-caret" data-caret="${node.id}"><i aria-hidden="true" class="fa-solid fa-chevron-${expanded ? 'down' : 'right'}"></i></span>`
+        ? `<span class="tm-caret" data-caret="${node.id}"><i aria-hidden="true" class="fa-solid fa-chevron-${isOpen ? 'down' : 'right'}"></i></span>`
         : '<span class="tm-caret leaf"></span>';
       const ico = `<span class="tm-node-ico"><i aria-hidden="true" class="fa-solid ${hasKids ? conf.branchIcon : conf.leafIcon}"></i></span>`;
-      out.push(`<div class="tm-node${tmPick === node.id ? ' selected' : ''}${tmDim === 'location' ? ' is-loc' : ''}" data-node="${node.id}" style="padding-left:${10 + depth * 20}px">
-        ${caret}${ico}<span class="tm-node-label">${node.label}</span><span class="tm-count">${idx.counts[node.id]}</span>
+      const sel = pick === node.id;
+      // Green-check badge is the Location selected-indicator (per design); Position relies on the
+      // blue .selected row highlight instead.
+      const check = (sel && dim === 'location') ? '<span class="tm-check" aria-label="Selected"><i aria-hidden="true" class="fa-solid fa-check"></i></span>' : '';
+      out.push(`<div class="tm-node${sel ? ' selected' : ''}${dim === 'location' ? ' is-loc' : ''}" data-node="${node.id}" style="padding-left:${10 + depth * 20}px">
+        ${caret}${ico}<span class="tm-node-label">${node.label}</span>${check}<span class="tm-count">${idx.counts[node.id]}</span>
       </div>`);
-      if (hasKids && expanded) node.children.forEach(ch => walk(ch, depth + 1));
+      if (hasKids && isOpen) node.children.forEach(ch => walk(ch, depth + 1));
     })(idx.root, 0);
-    tmTree.innerHTML = out.length ? out.join('') : '<div class="tm-empty">No matches.</div>';
+    return out.length ? out.join('') : '<div class="tm-empty">No matches.</div>';
   }
-  function openTree(dim) {
-    tmDim = dim;
-    const conf = treeConf[dim];
-    tmPick = draft[dim];
+
+  /* ── Location: pop-up modal (Done commits to the draft) ── */
+  function renderLocModal() {
+    tmTree.innerHTML = treeRowsHTML('location', tmPick, tmExpanded, tmQuery);
+    const badge = document.getElementById('tmSelected');
+    document.getElementById('tmSelectedVal').textContent = locIndex.byId[tmPick].label;
+    if (badge) badge.classList.toggle('is-set', tmPick !== 'all');
+  }
+  function openLocModal() {
+    tmPick = draft.location;
     tmQuery = ''; tmSearch.value = '';
-    document.getElementById('tmTitle').textContent = conf.title;
-    document.getElementById('tmChooseLabel').textContent = conf.chooseLabel;
-    tmExpanded = new Set(['all', ...conf.index.ancestors(tmPick)]);
-    updateTmSelected();
-    renderTree();
+    tmExpanded = new Set(['all', ...locIndex.ancestors(tmPick)]);
+    renderLocModal();
     treeModal.hidden = false;
     tmSearch.focus();
   }
-  function closeTree() { treeModal.hidden = true; tmDim = null; }
+  function closeLocModal() { treeModal.hidden = true; }
   tmTree.addEventListener('click', (e) => {
     const caret = e.target.closest('.tm-caret');
-    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; tmExpanded.has(id) ? tmExpanded.delete(id) : tmExpanded.add(id); renderTree(); return; }
+    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; tmExpanded.has(id) ? tmExpanded.delete(id) : tmExpanded.add(id); renderLocModal(); return; }
     const node = e.target.closest('.tm-node');
-    if (node) { tmPick = node.dataset.node; updateTmSelected(); renderTree(); }
+    if (node) { tmPick = node.dataset.node; renderLocModal(); }
   });
-  tmSearch.addEventListener('input', () => { tmQuery = tmSearch.value; renderTree(); });
-  document.getElementById('tmDone').addEventListener('click', () => { if (tmDim) { draft[tmDim] = tmPick; updateTreeLaunchers(); } closeTree(); });
-  document.getElementById('tmClose').addEventListener('click', closeTree);
-  treeModal.addEventListener('click', (e) => { if (e.target === treeModal) closeTree(); });   // click backdrop to cancel
-  document.getElementById('posLaunch').addEventListener('click', () => openTree('position'));
-  document.getElementById('locLaunch').addEventListener('click', () => openTree('location'));
+  tmSearch.addEventListener('input', () => { tmQuery = tmSearch.value; renderLocModal(); });
+  document.getElementById('tmDone').addEventListener('click', () => { draft.location = tmPick; updateTreeLaunchers(); closeLocModal(); });
+  document.getElementById('tmClose').addEventListener('click', closeLocModal);
+  treeModal.addEventListener('click', (e) => { if (e.target === treeModal) closeLocModal(); });   // backdrop cancels
+  document.getElementById('locLaunch').addEventListener('click', openLocModal);
+  function closeTree() { closeLocModal(); closePosDropdown(); }   // used by flow-map reset
+
+  /* ── Position: inline dropdown (pick applies to the draft and closes) ── */
+  const posDropdown = document.getElementById('posDropdown');
+  const posLaunch = document.getElementById('posLaunch');
+  const posTree = document.getElementById('posTree');
+  const posSearch = document.getElementById('posSearch');
+  let posExpanded = new Set(), posQuery = '';
+  function renderPosTree() { posTree.innerHTML = treeRowsHTML('position', draft.position, posExpanded, posQuery); }
+  function openPosDropdown() {
+    posQuery = ''; posSearch.value = '';
+    posExpanded = new Set(['all', ...posIndex.ancestors(draft.position)]);
+    renderPosTree();
+    posDropdown.hidden = false;
+    posLaunch.setAttribute('aria-expanded', 'true');
+    posSearch.focus();
+  }
+  function closePosDropdown() { posDropdown.hidden = true; posLaunch.setAttribute('aria-expanded', 'false'); }
+  posLaunch.addEventListener('click', (e) => { e.stopPropagation(); posDropdown.hidden ? openPosDropdown() : closePosDropdown(); });
+  posTree.addEventListener('click', (e) => {
+    const caret = e.target.closest('.tm-caret');
+    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; posExpanded.has(id) ? posExpanded.delete(id) : posExpanded.add(id); renderPosTree(); return; }
+    const node = e.target.closest('.tm-node');
+    if (node) { draft.position = node.dataset.node; updateTreeLaunchers(); closePosDropdown(); }
+  });
+  posSearch.addEventListener('input', () => { posQuery = posSearch.value; renderPosTree(); });
+  posSearch.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', (e) => { if (!posDropdown.hidden && !posDropdown.contains(e.target) && e.target !== posLaunch) closePosDropdown(); });
 
   // OSHA Courses — inline checkbox multiselect, built from the data.
   const courseChecks = document.getElementById('courseChecks');
@@ -2197,7 +2259,7 @@
     window.scrollTo(0, 0);
 
     if (id === 'filters') { openPanel(); return; }
-    if (id === 'groups')  { openPanel(); try { openTree('position'); } catch (_) {} return; }  // Position/Location picker
+    if (id === 'groups')  { openPanel(); try { openPosDropdown(); } catch (_) {} return; }  // Position/Location picker (Position dropdown open)
     if (id === 'email') {
       // Open the Email Learners compose page with a representative selection.
       try {
