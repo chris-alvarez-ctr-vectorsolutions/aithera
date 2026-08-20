@@ -346,11 +346,11 @@
       if ((scenario.contextSource || 'in-scenario') === 'previous-lo') {
         const note = document.createElement('div');
         note.className = 'fieldnote';
-        note.innerHTML = '<i class="fa-solid fa-diagram-project"></i><span>In production this is pulled in automatically. Enter it here so the AI can hand off cleanly — the <b>① Scenario Context</b> step is skipped.</span>';
+        note.innerHTML = '<i class="fa-solid fa-diagram-project"></i><span>In production this is pulled in automatically. Enter it here so the AI can hand off cleanly — the <b>① Scenario Context</b> step is skipped. It reaches the <b>coach only</b>, never the learner: a description of the video, reading, or course section they just finished. A single block of prose in <b>What it covered</b> is a complete authoring.</span>';
         detail.append(note,
-          tf('previousLO.title', 'Previous learning object', { helper: 'What the learner just completed, by name.' }),
-          tf('previousLO.covered', 'What it covered', { area: true, minRows: 2, helper: 'What the learner arrives already knowing — so the coach doesn’t re-teach it.' }),
-          tf('previousLO.handoff', 'How it hands off', { area: true, minRows: 2, helper: 'The state they land in — what they just did or produced, and the thread this scenario picks up.' }));
+          tf('previousLO.title', 'What came just before', { helper: 'A video, a reading, or a section of a course — by name. Optional if you describe it below.' }),
+          tf('previousLO.covered', 'What it covered', { area: true, minRows: 3, helper: 'Plain prose is fine, and this field alone is enough — describe the video or the section so the coach knows what the learner already saw and doesn’t re-teach it.' }),
+          tf('previousLO.handoff', 'Where it left them', { area: true, minRows: 2, helper: 'Optional. The state they land in — what they just did or produced, and the thread this scenario picks up.' }));
       } else {
         const note = document.createElement('div');
         note.className = 'fieldnote';

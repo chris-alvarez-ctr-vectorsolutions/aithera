@@ -400,14 +400,21 @@
     const covered = str(lo.covered).trim();
     const handoff = str(lo.handoff).trim();
     if (!title && !covered && !handoff) return '';
+    /* Modality-neutral on purpose. What lands here is whatever came immediately
+       before the scenario — a video the learner watched, a reading, a section of
+       a course — so the labels must not assert "completed a module". Any one
+       field on its own is a valid authoring, which is what makes the current
+       "just a block of text" shape work: an author can describe a video in
+       `covered` alone and the block still reads correctly. */
     const lines = [];
-    if (title) lines.push('Just completed: ' + title);
+    if (title) lines.push('Just before this: ' + title);
     if (covered) lines.push('What it covered: ' + covered);
     if (handoff) lines.push('Where it left them: ' + handoff);
-    return '\n\nWHAT THE LEARNER JUST FINISHED — context for YOU, never recited back. '
-      + 'They arrive here straight from the material below, so treat it as already known: '
-      + 'build on it, and do not re-teach it as though it were new. It is background for your '
-      + 'judgement, NOT content to quote, summarise, or open with.\n'
+    return '\n\nWHAT THE LEARNER JUST SAW OR DID — context for YOU, never recited back. '
+      + 'Immediately before this scenario they watched, read, or worked through what is '
+      + 'described below, so treat it as already known: build on it, and do not re-teach it '
+      + 'as though it were new. It is background for your judgement, NOT content to quote, '
+      + 'summarise, or open with.\n'
       + lines.join('\n');
   }
 
