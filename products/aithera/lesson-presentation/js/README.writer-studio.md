@@ -69,6 +69,7 @@ compose their prompts.
 | 10 | `studio-v2-ensemble-wizard.js` | the ensemble wizard spec (its own module — the richest schema). |
 | 11 | `studio-v2-scene-sweep-wizard.js` | the scene-sweep wizard spec (its own module — a visual scene + perception rubric; photo/hotspots stay a manual editor step). |
 | 11b | `studio-v2-mix-arc-wizard.js` | the Mix & Match wizard spec (composed beats, one interaction type per beat). |
+| 11c | `studio-v2-v4-universal-wizard.js` | the **Universal Scenario** wizard spec — the go-forward format's own interview. Authors Scenario CML v4 directly; see 5c for the task ordering it is forced into. |
 | 12 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
 
 `writer-studio.html` (V1) is **retired** — a thin redirect to
@@ -112,6 +113,14 @@ A "scenario type" is a plain object a module registers with
 These exist because pedagogies genuinely differ. Leave them alone unless the
 pedagogy changes.
 
+- `handoff` — `{ label, lead, build(studioApi) → HTMLElement }`. Declares a
+  **production export artifact** distinct from the working draft. When a type has
+  one, the toolbar's **Export JSON** opens a dialog offering both side by side;
+  when it doesn't, Export stays a one-click `scenario.json` download. Only
+  `v4-universal` declares one today (the POC V4 `.lo.json`). It was previously a
+  form section on the editor's last page, which put the export a *developer*
+  receives three clicks behind the one they don't — the shell reads the contract
+  generically, so moving it added no per-type branch.
 - **Locked-section add-ons** folded into `ENGINE_SECTIONS` and/or surfaced as a
   field: `CONDUCT_SECTION` (branching-arc, ensemble-arc), `THREAT_SECTION`
   (branching-arc), `MINOR_SECTION` (ensemble-arc), `GROUNDING_SECTION`
@@ -242,6 +251,55 @@ fails at runtime inside the generation loop. `branching-arc` has **no** wizard
 card disabled ("Guided setup isn't ready for this type yet") for any registered
 type that lacks a `wizard`. `scene-sweep`'s wizard leaves the photo and hotspots
 unset — those are placed by hand in the editor (the wizard can't see pixels).
+
+Every registered type now carries a spec. The chooser's third state — a
+`goForward` type with no `wizard`, which navigated to that type's editor instead
+of advancing — is therefore unreachable, but the branch is kept: it is what any
+future go-forward format lands on before its interview exists. While
+`v4-universal` sat in that state it also skewed the DEFAULT selection, because
+`chosen` falls back to the first type that HAS a spec — so arriving at
+`?type=v4-universal` and opening the wizard pre-selected Roleplay under a grid
+that led with Universal. Attaching the spec fixed that as a side effect; the
+same skew will reappear for the next spec-less type.
+
+### 5c. The Universal Scenario spec — why its tasks run in that order
+
+`studio-v2-v4-universal-wizard.js` is the one spec whose task order is dictated
+by the *format* rather than by narrative convenience, because v4 has cross-field
+rules the JSON Schema cannot express (`scenario-v4.js` §9.1):
+
+| # | Task | Why it sits here |
+|---|------|------------------|
+| 1 | `foundation` | identity, `narrative`, `coach_persona` — everything downstream grounds in the narrative |
+| 2 | `world` | **before** the steps: §9.1 rule 4 requires a roleplay's `character_id` to name a character declared in `scene_world.characters`. The applied (slugified) ids are carried on `acc.cast`, so a step can only reference an id that really exists |
+| 3 | `opening` | conditional — skipped entirely when the warm-up toggle is off (`content.opening` is optional and `prune()` drops the scaffolding) |
+| 4 | `stepN` ×N | one task per step, branching on `practice.mode`, which also keeps each call inside the worker's token cap |
+| 5 | `teaching` | **after** the steps: the runtime resolves a graded step's conclusion by matching a `teaching_points.topic` to the phase **label** (`scenario-v4-runtime.js` `teachingByTopic`). Labels only exist once the steps are drafted, so this task is handed them and told to emit one topic named exactly for each `determinate` step — which closes the validator's "determinate practice with no conclusion" warning by construction |
+| 6 | `close` | `closing.ideal_response`, the audit-defensible close |
+
+Three shape rules the `apply()` functions enforce rather than trust the model on,
+because each one is a **load error** rather than a quality issue:
+
+- `progression` is written **only** on roleplay levels (§9.1 rule 5). A model
+  that returns it on a coach step has it dropped.
+- A debrief is either delivery-only (`follow_up_turns: 0` + a required
+  `final_word`) or interactive (`follow_up_turns: 1` + a `probe`). The forbidden
+  keys are never written in the first branch rather than written and pruned.
+- Rubric ids and phase ids are slugified and de-duplicated, and `spot_target` is
+  clamped to the rubric's length (§9.1 rule 6).
+
+The three **safety flags** (`elevated_stakes` / `involves_minors` /
+`threat_content`) are asked for outright, because they are declared Vector
+extensions and the only way the engine's floors arm on a v4 document — an unset
+flag is a silent regression, not a missing nicety. They are written only when
+true, so a false flag never adds a stripped-extension warning that buys nothing.
+
+One field is left **deliberately empty**: an observe step's `exhibit.src`. The
+wizard cannot see pixels (the same call `scene-sweep`'s spec makes), so it drafts
+the alt text and the exhibit's ground-truth `facts` and leaves the file path to
+the editor. Until it is set, `prune()` drops the exhibit and the lints name it —
+which is the honest state, and the only lint error a fully drafted arc with an
+observe step starts with.
 
 ### 5a. Attachment: reach-in patching
 

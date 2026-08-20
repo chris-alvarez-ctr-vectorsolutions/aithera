@@ -51,7 +51,13 @@
   function setByPath(obj, path, value) {
     const keys = path.split('.');
     const last = keys.pop();
-    const target = keys.reduce((o, k) => o[k], obj);
+    /* Create missing intermediates rather than throwing. A type may bind to a
+       path whose parent is itself optional (an observe exhibit's `facts`), and
+       the write only ever happens because the author asked for the row. */
+    const target = keys.reduce((o, k) => {
+      if (o[k] == null) o[k] = {};
+      return o[k];
+    }, obj);
     target[last] = value;
   }
 
@@ -103,9 +109,22 @@
     const wrap = document.createElement('div');
     wrap.className = 'rows';
     wrap.dataset.list = listPath;
+    /* An OPTIONAL list is simply ABSENT from the draft, not empty — and a type
+       binding to one used to take the entire form down with it: getByPath
+       returned undefined, .forEach threw, and because the throw escaped
+       mid-loop every card after it never got appended. On screen that reads as
+       "the steps vanished when I expanded one", which is a long way from the
+       actual cause. Absent and empty now render identically, and the array is
+       created lazily on Add so a document never carries an empty one it never
+       asked for (several formats, v4 among them, treat an empty optional array
+       as invalid). */
+    const readList = () => {
+      const list = getByPath(scenario, listPath);
+      return Array.isArray(list) ? list : null;
+    };
     const render = () => {
       wrap.innerHTML = '';
-      const list = getByPath(scenario, listPath);
+      const list = readList() || [];
       list.forEach((item, i) => wrap.appendChild(renderRow(item, i, () => {
         list.splice(i, 1);
         render();
@@ -115,7 +134,12 @@
       add.className = 'addrow';
       add.innerHTML = `<i class="fa-solid fa-plus"></i> ${esc(addLabel)}`;
       add.addEventListener('click', () => {
-        list.push(makeItem ? makeItem() : {});
+        let target = readList();
+        if (!target) {
+          setByPath(scenario, listPath, []);
+          target = readList() || [];
+        }
+        target.push(makeItem ? makeItem() : {});
         render();
         scheduleUpdate();
       });
@@ -867,7 +891,20 @@
   }
   $('#wizardBtn').addEventListener('click', openWizard);
 
-  $('#exportBtn').addEventListener('click', () => {
+  /* ---- Export ------------------------------------------------------------
+     A scenario can have TWO honest export artifacts: the working draft (this
+     tool's own round-trip format, extensions and all) and a production handoff
+     (whatever the target engine actually loads). They are not interchangeable,
+     and the moment an author clicks Export is exactly when the difference needs
+     stating — which it cannot be if one of them is a panel buried on the last
+     page of the form.
+
+     A type opts in by declaring `type.handoff = { label, lead, build(studioApi) }`.
+     When it does, Export opens a dialog offering both side by side; when it does
+     not, Export stays the one-click download it has always been. That keeps this
+     a generic capability of the TYPE contract rather than a per-type branch —
+     the shell still never asks which pedagogy it is editing. */
+  function downloadWorkingDraft() {
     const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -875,6 +912,73 @@
     a.click();
     URL.revokeObjectURL(a.href);
     toast('scenario.json downloaded');
+  }
+
+  let exportOverlay = null;
+  const onExportKey = (e) => { if (e.key === 'Escape') closeExport(); };
+  function closeExport() {
+    if (!exportOverlay) return;
+    exportOverlay.remove();
+    exportOverlay = null;
+    document.removeEventListener('keydown', onExportKey);
+  }
+
+  function openExport() {
+    closeExport();
+    const ho = type.handoff || {};
+    exportOverlay = document.createElement('div');
+    exportOverlay.className = 'exp-overlay';
+    exportOverlay.innerHTML = `
+      <div class="exp-modal" role="dialog" aria-modal="true" aria-label="Export scenario">
+        <div class="exp-head">
+          <div class="exp-titles">
+            <div class="exp-title"><i class="fa-solid fa-file-export"></i> Export</div>
+            <div class="exp-sub">Two artifacts, and they are not interchangeable — pick by who receives it.</div>
+          </div>
+          <button class="exp-close" type="button" aria-label="Close">Close</button>
+        </div>
+        <div class="exp-body">
+          <section class="exp-card">
+            <h3>Working draft <span class="exp-tag">.json</span></h3>
+            <p>The draft exactly as it sits here, nothing stripped — for round-tripping
+               between Studio users, or for a colleague to load with Import JSON.</p>
+            <div class="exp-act" id="expDraftAct"></div>
+          </section>
+          <section class="exp-card is-primary">
+            <h3>${esc(ho.label || 'Dev handoff')}</h3>
+            ${ho.lead ? `<p>${esc(ho.lead)}</p>` : ''}
+            <div class="exp-panel" id="expPanel"></div>
+          </section>
+        </div>
+      </div>`;
+
+    const draftBtn = document.createElement('vaadin-button');
+    draftBtn.textContent = 'Download scenario.json';
+    draftBtn.setAttribute('theme', 'tertiary');
+    draftBtn.addEventListener('click', downloadWorkingDraft);
+    $('#expDraftAct', exportOverlay).append(draftBtn);
+
+    /* The type builds its own handoff panel — the shell renders it and knows
+       nothing about what is inside. A panel that throws must not take the whole
+       dialog with it, so the working-draft path stays usable either way. */
+    try {
+      $('#expPanel', exportOverlay).append(ho.build(studioApi));
+    } catch (err) {
+      const oops = document.createElement('p');
+      oops.className = 'exp-err';
+      oops.textContent = 'This handoff panel failed to build: ' + String((err && err.message) || err);
+      $('#expPanel', exportOverlay).append(oops);
+    }
+
+    $('.exp-close', exportOverlay).addEventListener('click', closeExport);
+    exportOverlay.addEventListener('mousedown', (e) => { if (e.target === exportOverlay) closeExport(); });
+    document.addEventListener('keydown', onExportKey);
+    document.body.append(exportOverlay);
+  }
+
+  $('#exportBtn').addEventListener('click', () => {
+    if (type.handoff && typeof type.handoff.build === 'function') openExport();
+    else downloadWorkingDraft();
   });
 
   /* Import JSON — load a scenario file a colleague sent you into the editor.

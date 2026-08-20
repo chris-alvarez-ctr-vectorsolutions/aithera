@@ -496,9 +496,6 @@
       bridgeTitle: 'External authorities only',
       bridge: '<b>Source references</b> take a regulation or standard (an OSHA clause, Title VII) — never an internal course or slide id, which means nothing outside the course.' },
 
-    { id: 'handoff', group: 'reference', icon: 'fa-file-export', title: 'Dev handoff',
-      lead: 'Export this scenario as a POC V4 content document (.lo.json) the production engine loads.' },
-
     { id: 'guardrails', group: 'reference', icon: 'fa-lock', title: 'System guardrails', locked: true,
       lead: 'The locked prompt sections the engine owns. Readable, not editable.' },
   ];
@@ -525,6 +522,38 @@
         tf('content.scene_world.setting', 'Scene setting (one line)', {
           helper: 'Where and when scenes take place. Rendered at the top of every scene prompt.' }),
       );
+
+      /* --- content safety flags — declared UX Universal extensions --------
+         The same three toggles the wizard interview asks, with answer_shape's
+         extension treatment. Written only when true and deleted when switched
+         off, so an unset flag never adds a stripped-extension warning for
+         nothing. These are the only way the preview's safety floors arm on a
+         v4 document — an imported scenario's flags were invisible here before
+         this block existed. */
+      const SAFETY_FLAGS = [
+        { key: 'elevated_stakes', label: 'Crisis-adjacent topic — arm the crisis support floor' },
+        { key: 'involves_minors', label: 'A minor is involved — arm the minor-protection floor' },
+        { key: 'threat_content', label: 'Carries threat or violence content — arm the threat floor' },
+      ];
+      const sc = H.getScenario ? H.getScenario() : {};
+      sc.content = obj(sc.content);
+      SAFETY_FLAGS.forEach(function (f) {
+        const cb = document.createElement('vaadin-checkbox');
+        cb.label = f.label;
+        cb.checked = sc.content[f.key] === true;
+        const onFlip = function () {
+          const content = obj((H.getScenario ? H.getScenario() : sc).content);
+          if (cb.checked) content[f.key] = true; else delete content[f.key];
+          if (H.scheduleUpdate) H.scheduleUpdate();
+        };
+        cb.addEventListener('change', onFlip);
+        cb.addEventListener('checked-changed', onFlip);
+        box.append(cb);
+      });
+      box.append(guidance('Content safety — why these are flagged in the lints', 'fa-shield-halved',
+        '<p>These flags classify the content, and they are the only way the safety floors arm: <b>crisis support</b> (if the learner discloses real distress, the coach drops the exercise and points to real support, including the 988 line), <b>minor safeguarding</b>, and the <b>threat floor</b>. The preview honors whichever are on; off means the floor never arms.</p>'
+        + '<p>POC V4 has no fields for these yet, so they are carried as declared extensions: the Dev handoff export strips them to produce a loadable file and lists what each removal costs. A stripped scenario runs in the production engine with no floor and no trace one was declared — say so in the handoff.</p>'));
+
       box.append(guidance('What belongs in canon — and what does not', 'fa-circle-info',
         '<p>Canon facts are asserted as true in <b>every</b> scene, always. So canon carries background truth the learner could already know — never plot, never answers.</p>'
         + '<ul><li>Happens later in the story → write it into the opener of the step where it happens.</li>'
@@ -617,10 +646,6 @@
         tf(`content.closing.ideal_response.source_references.${i}`, 'External authority', {
           helper: 'A regulation, standard or statute — e.g. "29 CFR 1910.1200" or "Title VII". Never an internal course id.' }),
       ), 'Add reference', () => ''));
-    }
-
-    if (sec.id === 'handoff') {
-      box.append(buildHandoffPanel(H));
     }
 
     if (sec.id === 'guardrails') {
@@ -1199,10 +1224,11 @@
       wrap.append(btn2);
     }
 
-    wrap.append(guidance('Why not the toolbar\'s Export JSON button?', 'fa-circle-question',
-      '<p>That button exports the <b>working draft</b> — extensions included — for round-tripping between '
-      + 'Studio users. This panel produces the <b>handoff artifact</b>: extensions stripped, strict-validated, '
-      + 'named the way their service routes it (the file stem is the scenario id).</p>'));
+    wrap.append(guidance('How this differs from the working draft', 'fa-circle-question',
+      '<p>The <b>working draft</b> above is this tool\'s own format — extensions included, nothing '
+      + 'stripped — for round-tripping between Studio users. <b>This</b> is the handoff artifact: '
+      + 'extensions stripped, strict-validated against the POC V4 loader\'s own rules, and named the '
+      + 'way their service routes it (the file stem becomes the scenario id).</p>'));
     return wrap;
   }
 
@@ -1227,9 +1253,22 @@
     return 'basics';
   }
 
-  /* Trim the path to something an author can act on. */
-  function friendly(path) {
-    return String(path || '').replace(/^content\./, '').replace(/\[(\d+)\]/g, (m, n) => ' ' + (Number(n) + 1));
+  /* Trim the path to something an author can act on.
+     A phase-scoped path is rewritten to NAME the step rather than index it:
+     "phases 2.practice.interaction.exhibit" tells an author nothing about which
+     card to open, and in a five-step arc that is a hunt. `doc` is optional so
+     the function still works on a bare path. */
+  function friendly(path, doc) {
+    const raw = String(path || '');
+    const m = raw.match(/^content\.phases\[(\d+)\]\.?(.*)$/);
+    if (m) {
+      const idx = Number(m[1]);
+      const ph = obj(arr(obj(obj(doc).content).phases)[idx]);
+      const name = str(ph.label).trim() || str(ph.id).trim();
+      const rest = m[2] ? ' · ' + m[2] : '';
+      return 'Step ' + (idx + 1) + (name ? ' \u201c' + name + '\u201d' : '') + rest;
+    }
+    return raw.replace(/^content\./, '').replace(/\[(\d+)\]/g, (mm, n) => ' ' + (Number(n) + 1));
   }
 
   function lints(s) {
@@ -1246,11 +1285,11 @@
     const report = v4.validate(doc);
 
     report.errors.forEach((e) => {
-      add('err', sectionFor(e.path), friendly(e.path) + ' — ' + e.message,
+      add('err', sectionFor(e.path), friendly(e.path, doc) + ' — ' + e.message,
         'POC V4 rejects the document until this is authored.');
     });
     report.warnings.forEach((w) => {
-      add('warn', sectionFor(w.path), friendly(w.path) + ' — ' + w.message, '');
+      add('warn', sectionFor(w.path), friendly(w.path, doc) + ' — ' + w.message, '');
     });
 
     /* Soft defaults: filled so the scenario loads, but a story label reads far
@@ -1311,6 +1350,19 @@
        scenario has no observe step — the flag gates a surface that only mounts
        for kind:'spot'. */
     previewUrl: () => 'scenario-live.html?type=v4-universal&observe=text',
+    /* The production handoff artifact, surfaced by the shell's Export flow
+       (`type.handoff` — optional, so types without one keep a plain download).
+       It used to be a form section on the last page of the editor, which put the
+       one export a developer actually receives three clicks behind the one they
+       don't. Same panel, same builder — reachable from where an author looks for
+       an export. */
+    handoff: {
+      label: 'Dev handoff — POC V4 content document',
+      lead: 'What the production engine loads: our extension fields stripped, then '
+        + 'revalidated under the POC V4 loader\'s own rules, and named the way their '
+        + 'service routes it. Not the same file as the working draft.',
+      build: (H) => buildHandoffPanel(H),
+    },
     sections,
     renderFields,
     lints,

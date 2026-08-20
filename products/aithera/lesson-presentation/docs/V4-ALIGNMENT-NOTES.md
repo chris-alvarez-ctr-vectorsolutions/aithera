@@ -67,7 +67,7 @@ The alignment work produced two very different kinds of open item, and reading t
 | POC V4 | Extension envelopes | §10 | Allow one `extensions` key on `content` and on each `practice` — namespaced, must-ignore. One allowlisted key is the whole change. |
 | POC V4 | Safety flags | §6, §9.2 | With no way to declare crisis / threat / minors content, a handed-over document loses its safety floor and leaves no trace one existed. |
 | POC V4 | `practice.answer_shape` | §9.3 | A machine-readable graded-vs-open marker. `levels.strong.look_for` carries it to a human reader, not to a parser. |
-| POC V4 | `purpose` as a required field | §9.1 | Required by the schema, never rendered into a prompt. Make it optional, or give it the consumer the spec describes. |
+| POC V4 | `phase.purpose` as a required field | §9.1 | The other three `purpose` fields render into the coach's arc map; `phase.purpose` is required, carried by the loader, and never rendered. Make it optional, or render it. |
 | POC V4 | `help_turns` default | §11 | The loader defaults it to 2, which arms the mid-scene help affordance for any scenario that omits the field. Confirm, or default it off. |
 | POC V4 | `spot_target` gating | §11 | The spec says the target gates completion; the shipped engine does not gate on it. Confirm which is the contract. |
 | POC V4 | Clarifying-question cost | §9.2 | Adopt the redirect rebate so a clarifying turn does not spend practice budget. Engine behavior on their side; reference implementation on ours. |
@@ -93,7 +93,7 @@ Listed for transparency, not for discussion.
 
 | Owner | Item | Where | Why it needs both |
 | --- | --- | --- | --- |
-| Joint | Retry / mastery loops | §9.4 | Neither engine has it and the decks asked for it. A roadmap call, not a format tweak. |
+| Joint | Retry / mastery loops | §9.4 | The decks asked for it; the UX player ships a scene-response retry today; the POC engine is forward-only. A roadmap call, not a format tweak. |
 | Joint | House button-label convention | §9.7 | Content policy that binds both authoring paths. |
 | Joint | Where teaching attaches — per phase, or grouped by subject | §9.5 | Accepted as-is for now; a per-phase link would change both sides. |
 | Joint | Teach-back and the derived turn cap | §11 | Only bites if a retrieval-style mode lands (§9.8). |
@@ -331,6 +331,8 @@ The nearest existing V4 representation is `levels.strong.look_for`, but that is 
 
 The proposal is therefore to make answer shape an explicit extension and eventually a V4-supported field.
 
+**On quantifying the failed inference — don't.** The converter did once guess `hasRightAnswer` from the exit requirement, and that guess was replaced by the explicit field (§17, *Recovered semantics*). There is **no measurement of how often the guess was wrong**, so no hit-rate should be quoted for it. A "wrong on 13 of 14 beats" figure reached the talking points page and was removed on 2026-08-18: the only 13-of-14 in this document is the round-trip finding that *opener text is identical for 13 of 14 phases* (§17), an unrelated comparison. The qualitative argument needs no number — an `exit.requirement` states what the learner must do, not whether a conclusion is correct.
+
 ### Safety flags
 
 UX Universal also needs three flags that V4 currently does not represent:
@@ -380,6 +382,8 @@ Playbook entries can cite internal course material (for example, `RVCT-479 P017`
 ## Compile Fidelity — Found and Fixed
 
 Every earlier revision of this document described the gap in one direction: things UX Universal needs that V4 cannot express (§6, §7). Running the POC's own eleven scenarios through our V4 compiler on 2026-08-18 showed the other direction — **184 authored values that never reached the model** — and it was ours to fix. It is fixed; this section is the record.
+
+**Read the 184 correctly, because it is a leaf-value count and reads bigger than it is.** It is **three fields**, not a broad sweep, and the table below counts each field's leaves separately: a worked example contributes two values (`learner` + `reply`), as does a disclosure (`fact` + `reveal_when`). So 184 leaf values = **97 authored items** = **3 fields** — 78 worked examples, 9 disclosure facts, 10 emotion hints — and `levels[].example` alone is 156 of the 184. All three framings are true; quoting 184 without the field count invites a recomputation that makes it look inflated. Two further scoping caveats: the measurement spans all eleven scenarios, of which `GENERATED-DEMOS.md` marks five as generated demos rather than SME-approved content (§17), and the SME/demo split of the 184 has **not** been measured. What is unqualified is that all three fields were dropped wherever they were authored.
 
 **What was lost, and why nothing caught it.** The compiler was validated by a round-trip: does a V4 document produce the same runtime our native types produce (§17)? That test is blind by construction to fields V4 has and our native types do not — which is precisely the set that was dropped. They could not appear as a diff, so they appeared as nothing.
 
@@ -487,13 +491,16 @@ Examples recorded in `sme-punch-list.md` include:
 
 This is important because the problem is not simply “the decks need more authoring.”
 
-The V4 spec and engine themselves appear to disagree about some required fields.
+The V4 spec and engine disagree about one required field — narrower than first recorded here, verified against the engine code at the repo's current tip (2026-08-18).
 
-The strongest example is `phase.purpose`.
+Three of the four `purpose` fields DO render into the compiled prompt: `serialize_arc_roadmap` (`prompt_v3.py`) prints the opening's, each practice's, and each debrief's `purpose` as the lines of the coach's arc map. **`phase.purpose` is the exception**: the schema requires it, `lo_v4.py` carries it, and the roadmap prints only the phase label. The audit's P5 states exactly this.
 
-The spec describes a prompt consumer for `phase.purpose`, but the audit found that it is never actually rendered into a prompt.
+That splits the 36 purpose slots among the 128 raw required-field gaps in the ports:
 
-`purpose` is the clearest case. Across the seven ported scenarios it accounts for **36 of the 128 raw required-field gaps** — the single largest category. UX Universal has already defaulted all 36 with generated stub prose (D8), so they no longer block our authoring; that is a workaround, not an answer. The question of whether a field the engine never reads should be required at all is unresolved and belongs to POC V4.
+* `practice.purpose` × 18 — feeds a real consumer. Genuine authoring: a stubbed value degrades the arc map the model reasons from, so these should be written (or generated and reviewed), not left as filler.
+* `phase.purpose` × 18 — feeds nothing. Whether a field the engine never reads should be required at all is unresolved and belongs to POC V4.
+
+UX Universal has defaulted both sets with generated stub prose (D8), so neither blocks authoring — for `practice.purpose` that is a quality cost to pay down; for `phase.purpose` it is filler for an unread field.
 
 #### Proposed direction — the ask on POC V4
 
@@ -501,9 +508,9 @@ Fields that the engine requires but the SME did not author should not automatica
 
 In particular:
 
-* `purpose` should either become optional or acquire the consumer described by the spec;
+* `phase.purpose` should either become optional or be rendered into the arc roadmap alongside the other three `purpose` fields;
 * mechanical transition button labels can be defaulted;
-* `final_word` should not be silently invented if it is intended to contain teaching content.
+* `final_word` should not be silently invented if it is intended to contain teaching content (the schema requires it only on delivery-only debriefs — `follow_up_turns: 0`; the exit `final_word`s are optional).
 
 ---
 
@@ -560,11 +567,11 @@ The current V4 structure does not express that distinction reliably.
 
 The POC punch list records an authoring expectation that learners can trigger another scene progression to retry.
 
-The current engine is forward-only.
+The POC engine is forward-only. The UX Universal player, by contrast, **ships a scene-response retry today**: every learner scene line carries a "Try a different approach" control (`scenario-live.html`, `tryDifferentApproach`) that truncates the transcript back to that moment *and* rewinds the ladder state from a snapshot taken at send time — phase index, turn count, tier, scenario variables — so the model's `[SYSTEM STATE]` matches the truncated history. It applies to scene responses only, remains available until the scenario completes, and is currently uncapped.
 
-This is therefore a genuine behavioral difference between authored intent and engine behavior.
+So the behavioral difference is real and runs in one direction: authored deck intent and the shipped UX player have retry; the POC engine does not.
 
-The open question is whether a bounded retry/mastery loop belongs on the roadmap for either system.
+The open questions are whether the POC engine adopts it, and what the cap policy should be (each redo is a fresh model turn, and today nothing limits how many times a learner rewinds).
 
 ---
 
