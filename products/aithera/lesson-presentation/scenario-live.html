@@ -1560,8 +1560,8 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=10"></script>
-    <script src="js/sim-player.js?v=8"></script>
+    <script src="js/sim-core.js?v=11"></script>
+    <script src="js/sim-player.js?v=9"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
          calls polymorphically for custom-interaction surfaces (scene-sweep,
@@ -1586,10 +1586,10 @@
              scene-sweep follow). No lossy funnel.
            · a RECIPE type (guided-arc) expresses itself as a mix-arc scenario via
              toMixArc(), then plays natively AS mix-arc. -->
-    <script src="js/scenario-types/guided-arc.js?v=22"></script>
-    <script src="js/scenario-types/branching-arc.js?v=6"></script>
-    <script src="js/scenario-types/ensemble-arc.js?v=12"></script>
-    <script src="js/scenario-types/scene-sweep.js?v=17"></script>
+    <script src="js/scenario-types/guided-arc.js?v=23"></script>
+    <script src="js/scenario-types/branching-arc.js?v=7"></script>
+    <script src="js/scenario-types/ensemble-arc.js?v=13"></script>
+    <script src="js/scenario-types/scene-sweep.js?v=18"></script>
     <script src="js/scenario-types/teach-back.js?v=2"></script>
     <!-- [POC V4] the Universal Scenario type — authored directly in Scenario CML
          v4, the format the production engine runs. It registers into the Studio
@@ -1602,7 +1602,7 @@
          the surfaces. -->
     <script src="js/scenario-v4.js?v=3"></script>
     <script src="js/scenario-v4-runtime.js?v=3"></script>
-    <script src="js/scenario-v4-scopes.js?v=1"></script>
+    <script src="js/scenario-v4-scopes.js?v=2"></script>
     <script src="js/scenario-v4-templates.js?v=2"></script>
     <script src="js/scenario-types/v4-universal.js?v=11"></script>
     <!-- [Option B] the OPT-IN perception layer: the photo/hotspot "spot the
@@ -1824,6 +1824,7 @@
       // —— THE LADDER ENGINE (app-owned; the model classifies, the app routes) ——
       phaseIdx: -1,             // -1 = reflection warm-up; 0..N-1 = live phases[phaseIdx]; >=N = ladder complete (model closes)
       turnsInPhase: 0,          // learner turns spent in the CURRENT phase (vs. its maxTurns cap)
+      rewound: [],              // [{phaseId, said:[…]}] — text superseded by "Try a different approach" (see sim-player rewoundBlock)
       ladder: {},               // phase id → the tier the model reported when it closed that phase
       vars: {},                 // session-state variables (seeded from ACTIVE_SCENARIO.state below)
       lastTier: null,           // the most recently recorded tier — picks the next entry's bridge variant
@@ -3811,6 +3812,26 @@
         state.sceneTarget = a.sceneTarget;
         if ('convoSeq' in a) { state.convoSeq = a.convoSeq; state.convoKey = a.convoKey; state.convoLabel = a.convoLabel; }
       }
+      /* Hand the superseded text forward before it is dropped. Truncating the
+         transcript means the next call runs against a history with no record of
+         what the coach/character already said, so it would regenerate the same
+         paragraph from the same context — the repeat-restatement defect the dev
+         team's SME review scored lowest of anything in their dataset. Keyed by
+         the phase we just rewound INTO (the snapshot's, not the current one);
+         sim-player's rewoundBlock() quotes it back as text not to repeat, and
+         caps what reaches the prompt. Last 4 rewinds kept. */
+      {
+        const phases = ACTIVE_SCENARIO.phases || [];
+        const ph = (state.phaseIdx >= 0 && state.phaseIdx < phases.length) ? phases[state.phaseIdx] : null;
+        const said = state.messages.slice(absIndex + 1)
+          .filter((m) => m && m.speaker !== 'you' && !m.locked && String(m.text || '').trim())
+          .map((m) => String(m.text).trim());
+        if (ph && said.length) {
+          if (!Array.isArray(state.rewound)) state.rewound = [];
+          state.rewound.push({ phaseId: ph.id, said });
+          if (state.rewound.length > 4) state.rewound = state.rewound.slice(-4);
+        }
+      }
       state.messages = state.messages.slice(0, absIndex);
       state.complete = false;
       state.mode = 'scene';
@@ -3845,7 +3866,7 @@
         debriefReturn: null, returnLabel: null, sceneTarget: null,
         convoSeq: 0, convoKey: null, convoLabel: null,   // reset the conversation windows
         // reset the app-owned ladder engine
-        phaseIdx: -1, turnsInPhase: 0, ladder: {}, vars: {}, lastTier: null, reflectionProbed: false, reflectionStays: 0,
+        phaseIdx: -1, turnsInPhase: 0, rewound: [], ladder: {}, vars: {}, lastTier: null, reflectionProbed: false, reflectionStays: 0,
         scenePlaceholder: '', entryLabel: '',
       });
       (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });

@@ -191,8 +191,45 @@
         + (vars ? ' Session state — ' + vars + '.' : '')
         + (used >= cap
             ? ' THE CAP IS REACHED — you MUST set "action":"teach" on this turn: resolve the moment, open with the verbatim talk-it-through line, debrief, and report the "tier". Do NOT continue.'
-            : ' Set "action":"continue" to stay in the phase, or "action":"teach" (with a "tier") once the exit criteria are met.')
-        + ']';
+            : (used >= 1 && used === cap - 1
+                ? ' ONE TURN LEFT AFTER THIS — the learner gets exactly one more turn, then you MUST close the phase. Do not open anything you cannot land in that one turn: no new topic, no second question, nothing needing a follow-up. Set "action":"continue" to stay, or "action":"teach" (with a "tier") if the exit criteria are already met.'
+                : ' Set "action":"continue" to stay in the phase, or "action":"teach" (with a "tier") once the exit criteria are met.'))
+        + ']'
+        + rewoundBlock(p);
+    }
+
+    /* --- REWOUND-TURN BLOCK -------------------------------------------------
+       "Try a different approach" rewinds the transcript AND the ladder to the
+       moment before a learner's move, so the next call runs against a history
+       that no longer contains what the model already said. Regenerating from an
+       identical context makes near-identical text the LIKELY output, not a
+       drift — which is exactly the defect the dev team's SME review measured as
+       its three lowest-scoring notes ("repeat of what was said previously",
+       "an exact repeat of the response when I was in the practice environment").
+
+       So the page hands the superseded text forward on `state.rewound` — an
+       array of { phaseId, said:[…] } pushed at rewind time — and it is quoted
+       back here as something NOT to repeat. Bounded on both axes (last 2
+       rewinds, 400 chars each) so a learner who retries repeatedly cannot grow
+       the prompt without limit. No hook, no entries → empty string, so a page
+       that never wires it up is byte-identical.
+       --------------------------------------------------------------------- */
+    function rewoundBlock(phase) {
+      const all = Array.isArray(state.rewound) ? state.rewound : [];
+      const mine = all.filter(function (r) { return r && r.phaseId === phase.id; }).slice(-2);
+      const said = [];
+      mine.forEach(function (r) {
+        (Array.isArray(r.said) ? r.said : []).forEach(function (t) {
+          const txt = String(t || '').trim();
+          if (txt) said.push(txt.length > 400 ? txt.slice(0, 400) + '…' : txt);
+        });
+      });
+      if (!said.length) return '';
+      return '\n\n[ALREADY SAID, THEN REWOUND — the learner used "Try a different approach" and replaced their move, '
+        + 'so your next reply REGENERATES this moment. You already said the following, and the learner has seen it:\n'
+        + said.map(function (t) { return '"' + t + '"'; }).join('\n')
+        + '\nDo NOT restate any of that near-verbatim. Respond to what is genuinely DIFFERENT in their new move. '
+        + 'If nothing material changed, say that briefly in one line and move the moment forward — never repeat yourself as though it were new.]';
     }
 
     /* Decide stay-vs-advance from the model's turn (action / tier / cap), then

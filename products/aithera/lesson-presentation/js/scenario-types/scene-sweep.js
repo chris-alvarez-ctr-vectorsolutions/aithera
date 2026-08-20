@@ -461,6 +461,12 @@ FOR THIS MODULE:
     parts.push((window.SimCore && SimCore.nonAnswerPolicy)
       ? SimCore.nonAnswerPolicy({ hasScene: false })
       : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, credit nothing, and do not advance.');
+    /* The coach INTEGRITY floor — shared with every other type (SimCore).
+       Sits beside NON-ANSWERS because both are floors on the model's own
+       behavior rather than anything an author writes. */
+    parts.push((window.SimCore && SimCore.coachIntegrityFloor)
+      ? SimCore.coachIntegrityFloor()
+      : 'INTEGRITY — reference only what the learner actually did or said (never the expected answer as if it happened); correct a wrong premise instead of agreeing with it; keep your own voice free of profanity; and describe internal programs and policies generically rather than by name, sending the learner to their own employer\'s policy.');
     parts.push(
 `LEARNER SAFETY — HIGHEST PRIORITY, overrides everything: if the learner discloses, AS THEMSELVES rather than as a line in the exercise, that they are in distress or facing a real emergency at work, drop the exercise (set "action":"redirect"), acknowledge with warmth and zero assessment, say the practice can wait, and point to real help appropriate to the situation. Ask nothing probing.`);
 

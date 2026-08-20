@@ -542,6 +542,48 @@
       + 'THE ONE EXCEPTION — a turn that genuinely ATTEMPTS the task and also asks something on the side is a REAL answer: handle it as a normal working turn (probe it, or close the phase, as usual) and answer the aside inside your reply. Never downgrade a real attempt to a redirect.';
   }
 
+  /* ---- SHARED PROMPT FRAGMENT: the coach INTEGRITY floor -------------------
+     Four rules that are true of every scenario, so none of them belongs in
+     authored content. Compiled in beside nonAnswerPolicy() by every ladder
+     type (and therefore by the v4 route, whose prompt is mix-arc's plus its
+     own blocks). World-neutral — no scenario-schema coupling.
+
+     Each rule answers a defect the dev team's own SME review measured across
+     68 scored traces (2026-08-14→20), so the wording tracks what reviewers
+     actually caught rather than what seemed prudent:
+
+       1. NO INVENTED LEARNER STATE — 16 of 58 reviewer notes, the largest
+          cluster by a wide margin: a debrief asserting the learner confronted
+          a character, answered correctly, or promised a follow-up when they
+          did none of it. The mechanism is that a debrief turn can see the
+          expected answer, so an ambiguous, hostile or nonsense turn gets
+          narrated as the canonical path. Our native types carried a version
+          of this rule in the CLOSING REPORT block only; the v4 route had
+          nothing at all (the canon "never invent" line is scoped to facts
+          about the WORLD, which is a different axis).
+       2. NO RATIFYING A WRONG PREMISE — the same failure arriving from the
+          other direction: the coach agreeing with a learner's false claim
+          about the situation. Adopted from the dev POC's coach template,
+          which is the one rule there that protects authored canon FROM the
+          coach rather than from the learner.
+       3. REGISTER — reviewers logged four separate instances of profanity in
+          the coach's OWN generated voice (not quoted learner input) after
+          testing with hostile input. Neither engine constrained this.
+       4. NO INTERNAL PROGRAM NOUNS — four instances, and the lowest-scoring
+          theme in their dataset outside restatement: coach text naming "the
+          WVPP", "the violent-incident log", "the agency" as though the
+          learner already knows the program. Both engines ported the same
+          source deck, so both inherited the vocabulary; the fix is a
+          generation-side paraphrase rule, not a content edit. The
+          organization-policy half comes from the dev POC's template. */
+  function coachIntegrityFloor() {
+    return 'INTEGRITY — four hard rules on your own voice, above anything the scenario authored:\n'
+      + '1) ONLY WHAT ACTUALLY HAPPENED. Reference only what the learner genuinely did, said, or decided in the history you can see. You are shown what a strong answer WOULD look like so you can calibrate and teach it — never as a record of what occurred. If their turn was thin, ambiguous, off-topic, hostile, or nonsense, say so plainly and teach from there; never substitute the expected path, never credit a commitment they did not make, and never build a later turn on one you assumed earlier.\n'
+      + '2) DO NOT AGREE WITH A WRONG PREMISE. If the learner has a fact of the situation wrong — who someone is, what happened, when — correct it plainly before you build on anything else they said, then carry on warmly. "Exactly right" about a wrong fact teaches the wrong thing. Correct the fact, not the person, and make no more of it than it needs.\n'
+      + '3) YOUR REGISTER HOLDS. Your own text never contains profanity or crude language, whatever the learner types. If their tone is hostile or profane, you may name the tone; you never mirror it.\n'
+      + '4) NO INSIDER NOUNS. Do not name internal programs, plans, forms, or logs by their proper name or acronym, and do not say "the agency"/"the organization" as though the learner knows which one — unless the learner used that term first. Say it descriptively instead ("your workplace\'s violence-prevention plan", "your incident documentation"). Where the real answer is a specific employer\'s own policy or procedure, say what is generally true and send the learner to their own policy; never state what it says.';
+  }
+
   /* ---- EXPORT ----------------------------------------------------------- */
   window.SimCore = {
     WORKER_URL,
@@ -564,5 +606,6 @@
     callModel,
     makeTurnEngine,
     nonAnswerPolicy,
+    coachIntegrityFloor,
   };
 })();

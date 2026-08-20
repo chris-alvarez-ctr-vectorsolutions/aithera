@@ -85,6 +85,68 @@
     return d;
   }
 
+  /* Empty the OTHER phases' answer keys for a debrief turn.
+     ---------------------------------------------------------------------
+     The debrief scope legitimately sees teaching content — that is v4 §2's
+     own rule, and our close is model-written so it must also see the closing
+     playbook. What it does NOT need is the expected answer for phases it is
+     not debriefing. Leaving them in is the likeliest mechanism behind the
+     dev team's largest measured defect (16 of 58 reviewer notes): a debrief
+     narrating the learner as having done something they never did, and doing
+     it in another phase's words — "assumes my answer involved confronting
+     Ray" arrived in the EMERGENCY debrief, where confronting Ray is the
+     neighbouring phase's expected move, not this one's.
+
+     So: keep this phase's `exit.when.requirement` and `levels[].look_for` /
+     `.response` (the coach grades and teaches against them), keep every
+     phase's id, label, prompts and debrief key_points (the arc map and the
+     teaching stay intact), and empty the expectation text everywhere else.
+
+     The close is deliberately exempt: at completion there is no active rung,
+     the scope is fetched un-narrowed, and a closing report that reflects the
+     whole ladder needs the whole ladder. See systemFor(). */
+  const WITHHELD = '(criteria withheld — this is not the phase being debriefed)';
+
+  function narrowExpectations(doc, rungId) {
+    /* A debrief rung's id is "<phaseId>.debrief" (runtime debriefRungFor) — the
+       same notation the dev team's own trace names use (emergency.debrief). Map
+       it back to the phase whose answer key this debrief is entitled to see. */
+    const keepPhaseId = str(rungId).replace(/\.debrief$/, '');
+    const d = clone(doc);
+    arr(obj(d.content).phases).forEach(function (p) {
+      const phase = obj(p);
+      if (str(phase.id) === keepPhaseId) return;
+      const practice = obj(phase.practice);
+      const when = obj(obj(practice.exit).when);
+      if ('requirement' in when) when.requirement = '';
+      /* The answer key lives at practice.interaction.levels[tier] in v4 content;
+         the probe's own levels sit under debrief. Both are cleared — a phase we
+         are not debriefing contributes no expected answer. content.opening.levels
+         is deliberately untouched: the warm-up is calibration, never graded. */
+      const dbr = obj(phase.debrief);
+      [obj(practice.interaction).levels, practice.levels,
+       obj(dbr.probe).levels, dbr.levels].forEach(function (container) {
+        const levels = obj(container);
+        Object.keys(levels).forEach(function (k) {
+          const lv = obj(levels[k]);
+          if (!('look_for' in lv) && !('response' in lv)) return;
+          /* Replaced, not emptied. The runtime derives the prompt's TIER FIELD
+             vocabulary by unioning the tiers that have text (calibrationFromLevels
+             drops a level with neither look_for nor response), so blanking these
+             silently shrank the reportable tier list — a phase whose own levels
+             skip a bucket would lose that tier from the whole prompt. A short
+             uniform marker keeps every tier alive, carries no expected answer,
+             and reads as deliberately out of scope rather than as criteria. */
+          lv.look_for = WITHHELD;
+          if ('response' in lv) lv.response = '';
+          delete lv.example;          // a worked learner utterance at this tier
+          delete lv.progression;      // how far a scene gets at this tier
+        });
+      });
+    });
+    return d;
+  }
+
   const SCENE_MODES = { roleplay: true, observe_react: true };
 
   function create(doc, deps) {
@@ -142,14 +204,22 @@
     }
 
     const promptFor = {
-      coachDebrief: function () { return compileFull(doc) + teachingBlock(doc); },
+      coachDebrief: function (rungId) {
+        /* rungId absent = the close (no active rung) — see narrowExpectations. */
+        const d = rungId ? narrowExpectations(doc, rungId) : doc;
+        return compileFull(d) + teachingBlock(d);
+      },
       coachPractice: function () { return compileFull(redactTeaching(doc)); },
       scene: function (rungId) { return compileFull(sceneSubset(doc, rungId)); },
     };
     function get(scopeKey, rungId) {
+      /* Only the scene and debrief scopes vary by rung — a scene sees its own
+         thread, a debrief its own answer key. The practice scope is identical
+         for every rung, so it stays a single cache entry. */
+      if (scopeKey === 'coachPractice') rungId = null;
       const key = scopeKey + (rungId ? ':' + rungId : '');
       if (!(key in cache)) {
-        cache[key] = scopeKey === 'scene' ? promptFor.scene(rungId) : promptFor[scopeKey]();
+        cache[key] = scopeKey === 'scene' ? promptFor.scene(rungId) : promptFor[scopeKey](rungId);
         /* Context addenda are coach-register ground truth — coach scopes only. */
         if (scopeKey !== 'scene' && addenda) cache[key] += addenda;
       }
@@ -186,7 +256,11 @@
         return get(state && state.complete ? 'coachDebrief' : 'coachPractice');
       }
       const kind = rungKind[rung.id] || 'coachPractice';
-      return kind === 'scene' ? get('scene', rung.id) : get(kind);
+      /* Debrief scopes are per-rung so each one sees only its OWN answer key
+         (narrowExpectations). The practice scope ignores the rung id — its
+         redaction is the same for every rung — but passing it costs one
+         cache entry per rung and keeps the call site uniform. */
+      return kind === 'scene' ? get('scene', rung.id) : get(kind, rung.id);
     }
 
     function filterHistory(msgs, state) {
@@ -213,8 +287,18 @@
     function prompts() {
       const out = [
         { role: 'coach · practice scope', label: 'Coach — practice turns (teaching withheld)', text: get('coachPractice') },
-        { role: 'coach · debrief scope', label: 'Coach — debrief turns + close (teaching released)', text: get('coachDebrief') },
+        { role: 'coach · close scope', label: 'Coach — the closing report (whole ladder released)', text: get('coachDebrief') },
       ];
+      /* One entry per debrief rung: each sees its own phase's answer key and
+         not its neighbours'. The un-narrowed variant above is the close. */
+      arr(runtime.phases).forEach(function (r) {
+        if (rungKind[r.id] !== 'coachDebrief') return;
+        out.push({
+          role: 'coach · debrief · ' + r.id,
+          label: 'Coach — debrief of "' + (str(r.label) || r.id) + '" (this phase\'s answer key only)',
+          text: get('coachDebrief', r.id),
+        });
+      });
       arr(runtime.phases).forEach(function (r) {
         if (!sceneRungs[r.id]) return;
         out.push({

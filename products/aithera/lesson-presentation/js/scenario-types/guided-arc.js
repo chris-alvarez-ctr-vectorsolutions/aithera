@@ -461,6 +461,12 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     parts.push((window.SimCore && SimCore.nonAnswerPolicy)
       ? SimCore.nonAnswerPolicy({ hasScene })
       : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, and do not grade or advance.');
+    /* The coach INTEGRITY floor — shared with every other type (SimCore).
+       Sits beside NON-ANSWERS because both are floors on the model's own
+       behavior rather than anything an author writes. */
+    parts.push((window.SimCore && SimCore.coachIntegrityFloor)
+      ? SimCore.coachIntegrityFloor()
+      : 'INTEGRITY — reference only what the learner actually did or said (never the expected answer as if it happened); correct a wrong premise instead of agreeing with it; keep your own voice free of profanity; and describe internal programs and policies generically rather than by name, sending the learner to their own employer\'s policy.');
     parts.push(
 `LEARNER SAFETY — HIGHEST PRIORITY, overrides everything: if the learner discloses, AS THEMSELVES rather than as a line in the exercise, that THEY are being harmed or are in distress, drop the exercise immediately (set "action":"redirect"${hasScene ? ', leave the scene' : ''}). In the coach voice, acknowledge with warmth and zero assessment, say the practice can wait, and point to real support appropriate to the situation.${s.elevatedStakes ? ' If they mention self-harm, add the 988 Suicide & Crisis Lifeline (call or text 988).' : ''} Ask nothing probing.`);
 
