@@ -1,6 +1,6 @@
 /* =========================================================================
    WRITER STUDIO V2 — WIZARD SPEC FOR THE ENSEMBLE TYPE
-   Loaded ONLY by writer-studio-v2.html, AFTER the ensemble-arc type module
+   Loaded ONLY by scenario-editor/index.html, AFTER the ensemble-arc type module
    and after js/studio-v2-wizards.js. Attaches `ensemble-arc.wizard` so the
    wizard's "What are you building?" chooser can generate an Ensemble arc from
    scratch, exactly like the other studio-authorable types.

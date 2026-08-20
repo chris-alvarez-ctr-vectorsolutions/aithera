@@ -1,6 +1,6 @@
 /* =========================================================================
    WRITER STUDIO V2 — WIZARD SPEC FOR SCENE SWEEP
-   Loaded ONLY by writer-studio-v2.html, AFTER the scene-sweep type module
+   Loaded ONLY by scenario-editor/index.html, AFTER the scene-sweep type module
    (needs AitheraStudio.get('scene-sweep')) and AFTER studio-wizard-craft.js
    (needs AitheraWizardCraft). Its own module — parallel to the ensemble
    wizard — because Scene Sweep's schema is bespoke (a visual scene + a

@@ -1,6 +1,6 @@
 /* =========================================================================
    AITHERA WRITER STUDIO — GENERIC ENGINE
-   Loaded by the Writer Studio (writer-studio-v2.html) AND by the learner-facing
+   Loaded by the Writer Studio (scenario-editor/index.html) AND by the learner-facing
    live pages — the live pages use makeStore/makeKeys for the publish→live
    handoff, even though only the studio calls register/list. It provides the
    type-agnostic machinery the studio shell needs so a single studio can author

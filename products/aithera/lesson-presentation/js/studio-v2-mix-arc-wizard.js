@@ -1,6 +1,6 @@
 /* =========================================================================
    WRITER STUDIO V2 — WIZARD SPEC FOR THE MIX & MATCH TYPE
-   Loaded ONLY by writer-studio-v2.html, AFTER the mix-arc type module.
+   Loaded ONLY by scenario-editor/index.html, AFTER the mix-arc type module.
    Attaches `mix-arc.wizard` so the "What are you building?" chooser can
    generate a composed scenario from scratch.
 

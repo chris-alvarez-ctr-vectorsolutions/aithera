@@ -1,6 +1,6 @@
 /* =========================================================================
    AITHERA WRITER STUDIO — SHELL APP LOGIC
-   Extracted verbatim from writer-studio-v2.html (was an inline <script>).
+   Extracted verbatim from scenario-editor/index.html (was an inline <script>).
    The type-agnostic authoring shell: renders the phase rail, drives the
    type contract (type.sections / renderFields / lints / compile / previewUrl
    / playtest / wizard), and wires publish/export/import + the wizard.

@@ -1,6 +1,6 @@
 /* =========================================================================
    AITHERA WRITER STUDIO — "START FROM SCRATCH" WIZARD (generic engine)
-   Loaded ONLY by writer-studio-v2.html. Turns a scenario type's `wizard`
+   Loaded ONLY by scenario-editor/index.html. Turns a scenario type's `wizard`
    spec into a guided, multi-step intake (brief → interview → generate) that
    ends with an AI-DRAFTED scenario landing in the normal editor.
 
@@ -565,7 +565,7 @@
           // (template gallery inside). Same reload-with-?type= move the shell's
           // own type switching uses.
           if ((gen.running || outlining) && !confirm('Generation is still running — leave anyway?')) return;
-          location.href = 'writer-studio-v2.html?type=' + encodeURIComponent(t.id);
+          location.href = 'scenario-editor/index.html?type=' + encodeURIComponent(t.id);
         });
         grid.appendChild(card);
       });

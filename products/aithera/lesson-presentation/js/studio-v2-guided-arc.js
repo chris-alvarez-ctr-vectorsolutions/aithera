@@ -1,6 +1,6 @@
 /* =========================================================================
    WRITER STUDIO V2 — GUIDED-ARC PRESENTATION + "FROM SCRATCH" WIZARD SPEC
-   Loaded ONLY by writer-studio-v2.html, AFTER js/scenario-types/guided-arc.js.
+   Loaded ONLY by scenario-editor/index.html, AFTER js/scenario-types/guided-arc.js.
 
    This module does NOT fork the guided-arc type — same schema, same
    compiler, same store (a draft made here opens fine in V1 and publishes to

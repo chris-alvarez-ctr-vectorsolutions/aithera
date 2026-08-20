@@ -47,7 +47,7 @@ include line; the shell does not change. (Grep `studio-shell.js` for `type.id
 
 ---
 
-## 2. Script load order (writer-studio-v2.html)
+## 2. Script load order (scenario-editor/index.html)
 
 Order matters: the engine must exist before a TYPE registers; a TYPE must exist
 before its wizard spec patches it; the shared craft must exist before the specs
@@ -73,7 +73,7 @@ compose their prompts.
 | 12 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
 
 `writer-studio.html` (V1) is **retired** — a thin redirect to
-`writer-studio-v2.html` that preserves `?type=` / `?wizard=` deep-links. V2 is a
+`scenario-editor/index.html` that preserves `?type=` / `?wizard=` deep-links. V2 is a
 strict superset (the same engine/types/storage + the Learn/Practice rail + the
 wizard). There is one shell; edit it, not two.
 
@@ -143,7 +143,7 @@ pedagogy changes.
   marking a future format go-forward is one line on that type, not an edit here.
 - A go-forward type **without a `wizard`** is still pickable in step 0. There is
   no interview spec for `v4-universal` yet, so its card navigates to
-  `writer-studio-v2.html?type=<id>` — the Universal editor's own template
+  `scenario-editor/index.html?type=<id>` — the Universal editor's own template
   gallery is the starting point. (A legacy type without a `wizard` stays
   disabled, as before.)
 
@@ -339,7 +339,7 @@ only in the engine.
    `const SHARED = (window.AitheraScenario && window.AitheraScenario.ENGINE_SECTIONS) || []; const XX = SHARED.concat([MY_LOCKED_SECTION]);`
    Register with the idiom in §3c. Add a `blurb`. Expose a
    `window.AitheraXxx` global if the live page reads the type directly.
-2. **Add the include** to `writer-studio-v2.html`, after the other
+2. **Add the include** to `scenario-editor/index.html`, after the other
    `scenario-types/*.js` lines (registration order = picker order). Bump its
    `?v=` (see §7).
 3. *(Optional)* **Give it an editor** — real `sections` + `renderFields` +
@@ -352,7 +352,7 @@ only in the engine.
    `scenario.js` + your type module; read the type via its global or
    `AitheraStudio.get`; call `type.compile()` for the system prompt).
 6. **Register it in `index.html`** `SIM_SCHEMAS` with `studioType: '<id>'` so the
-   lesson index's "Edit in Writer Studio" deep-link (→ `writer-studio-v2.html?type=<id>`)
+   lesson index's "Edit in Writer Studio" deep-link (→ `scenario-editor/index.html?type=<id>`)
    appears.
 
 ---
@@ -369,7 +369,7 @@ you.
 
 ## 8. Where a real product slots in
 
-- **Auth** → gate `writer-studio-v2.html` and the live pages; scope the store
+- **Auth** → gate `scenario-editor/index.html` and the live pages; scope the store
   keys per user/org.
 - **LLM API** → today the wizard + playtest POST to a worker-proxy URL held in
   `localStorage` (`aithera.writerStudio.workerUrl`). Replace with a

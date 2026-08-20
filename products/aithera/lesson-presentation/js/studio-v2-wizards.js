@@ -1,6 +1,6 @@
 /* =========================================================================
    WRITER STUDIO V2 — WIZARD SPECS FOR THE OTHER THREE INTERACTION TYPES
-   Loaded ONLY by writer-studio-v2.html, AFTER the type modules (and after
+   Loaded ONLY by scenario-editor/index.html, AFTER the type modules (and after
    js/studio-v2-guided-arc.js, which owns the guided-arc spec).
 
    The generic wizard engine (js/studio-wizard.js) runs whatever spec a type

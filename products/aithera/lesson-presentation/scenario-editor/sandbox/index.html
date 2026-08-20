@@ -10,26 +10,31 @@
          previewUrl the shared scenario TYPES hand back, resolves against the product
          root. One <base> keeps all of them correct instead of rewriting each, and
          nothing here uses an in-page #anchor, which is the one thing <base> would
-         break. -->
-    <base href="../">
+         break. NOTE for forked surface files: because <base> points at the product
+         root, a copy living beside this page is referenced as
+         scenario-editor/sandbox/js/<file>.js — not js/<file>.js, which would load
+         the SHARED one. -->
+    <base href="../../">
 
-    <!-- CHANNEL ROUTER — /scenario-editor/ is always the STABLE editor. ?v=<n> hands
-         off to an in-progress build, forwarding every other parameter, because the
-         links people actually share carry ?type= and ?example= and must survive the
-         hop. Runs before anything loads so the stable app never boots first. -->
+    <!-- CHANNEL — declared BEFORE studio-engine.js loads, because the types build
+         their stores at registration time. This is what keeps an experiment here off
+         an author's real work: draft and library get their own localStorage keys, so
+         nothing typed in this build can overwrite a scenario someone is authoring in
+         the stable editor. The publish→live buffer stays shared on purpose, so the
+         playtest still opens in the player. See js/studio-engine.js. -->
     <script>
+      window.STUDIO_CHANNEL = 'sandbox';
+      // ?v=1 goes back to stable, carrying every other parameter with it
       (function () {
-        var v = new URLSearchParams(location.search).get('v');
-        if (!v || v === '1' || v === 'stable') return;      // bare URL = stable
         var q = new URLSearchParams(location.search);
+        var v = q.get('v');
+        if (v !== '1' && v !== 'stable') return;
         q.delete('v');
         var rest = q.toString();
-        // location-derived so it holds on file://, localhost and Pages alike
-        var dir = location.pathname.replace(/[^/]*$/, '');
-        location.replace(dir + 'sandbox/' + (rest ? '?' + rest : '') + location.hash);
+        location.replace('../' + (rest ? '?' + rest : '') + location.hash);
       })();
     </script>
-    <title>Scenario Editor — Stable</title>
+    <title>Scenario Editor — Sandbox</title>
 
     <!-- Vector Web Components: Core -->
     <script type="module"
@@ -279,5 +284,29 @@
 
   <!-- Studio shell app logic (extracted from this file). -->
   <script src="js/studio-shell.js?v=8"></script>
+
+  <!-- SANDBOX MARKER — the whole point is that this is unmistakable. Fixed and
+       bottom-left so it never collides with the editor toolbar (top) or the Design
+       Toolbox dock (bottom-centre), and it states the consequence rather than just
+       the label: the drafts here are a separate set. -->
+  <div id="sandboxMark" role="status">
+    <i class="fa-solid fa-flask" aria-hidden="true"></i>
+    <span><b>Sandbox build</b> — experimental UI. Drafts and library here are separate from the stable editor.</span>
+    <a href="scenario-editor/">Open stable</a>
+  </div>
+  <style>
+    #sandboxMark {
+      position: fixed; left: 14px; bottom: 14px; z-index: 9998;
+      display: flex; align-items: center; gap: 9px;
+      max-width: 44ch; padding: 9px 13px;
+      background: #3d2c00; color: #ffe6a8;
+      border: 1px solid #7a5c00; border-radius: 4px;
+      font: 400 12.5px/1.45 'Open Sans', system-ui, sans-serif;
+      box-shadow: 0 4px 14px rgba(0,0,0,.28);
+    }
+    #sandboxMark i { color: #ffc233; font-size: 14px; flex: 0 0 auto; }
+    #sandboxMark b { font-weight: 700; }
+    #sandboxMark a { color: #ffc233; text-decoration: underline; white-space: nowrap; flex: 0 0 auto; }
+  </style>
 </body>
 </html>

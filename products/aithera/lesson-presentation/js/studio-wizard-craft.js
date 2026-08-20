@@ -1,6 +1,6 @@
 /* =========================================================================
    AITHERA WRITER STUDIO — SHARED WIZARD CRAFT
-   Loaded by writer-studio-v2.html BEFORE js/studio-wizard.js and the per-type
+   Loaded by scenario-editor/index.html BEFORE js/studio-wizard.js and the per-type
    wizard spec files (studio-v2-wizards.js, studio-v2-guided-arc.js,
    studio-v2-ensemble-wizard.js). Exposes window.AitheraWizardCraft.
 

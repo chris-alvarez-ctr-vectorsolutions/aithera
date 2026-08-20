@@ -1,6 +1,6 @@
 /* =========================================================================
    WRITER STUDIO V2 — WIZARD SPEC FOR THE UNIVERSAL SCENARIO (Scenario CML v4)
-   Loaded ONLY by writer-studio-v2.html, AFTER js/scenario-types/v4-universal.js
+   Loaded ONLY by scenario-editor/index.html, AFTER js/scenario-types/v4-universal.js
    (and after the shared craft + the wizard engine). Attaches
    `v4-universal.wizard` so the go-forward format is buildable from scratch
    rather than dropping the author into an all-fields editor.
