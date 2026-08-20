@@ -1785,6 +1785,21 @@
       { speaker: 'coach', kind: 'coaching', text }
     ));
 
+    /* RETRY — OFF by default, and deliberately still here.
+       The 2026-08-18 decision was "do not include": a whole-scenario restart is
+       sufficient for V1, revisit later. This page is now the UX REFERENCE the dev
+       team builds V1 from, so an unadopted affordance sitting in it would read as
+       part of the spec — hence off. It is gated rather than deleted because the
+       early feedback on it was positive and the decision was explicitly "not now"
+       rather than "never": an interaction we can switch back on beats one that has
+       to be excavated from a commit. Opt in with window.SCENARIO_ALLOW_RETRY, or
+       ?retry=1 for a quick demo — the same default-off shape as
+       SCENARIO_ALLOW_DARK in the <head>. When it IS on, the cap question is still
+       open: the rewind itself is unlimited — only the prompt CARRY of superseded
+       text is capped, at the last 3 rewinds (see sim-player.js). */
+    const RETRY_ENABLED = window.SCENARIO_ALLOW_RETRY === true
+      || new URLSearchParams(location.search).get('retry') === '1';
+
     const state = {
       mode: 'coaching',          // 'coaching' | 'scene'
       inputTarget: 'coach',      // 'coach' | 'character'
@@ -2340,7 +2355,7 @@
       const disp = (Array.isArray(m._display) && m._display.length)
         ? m._display
         : [{ kind: (m.kind === 'narration' ? 'narration' : 'dialogue'), text: m.text }];
-      const showRetry = interactive && !state.complete;
+      const showRetry = RETRY_ENABLED && interactive && !state.complete;
       const retryNode = () => {
         const r = el('button', 'retry', '<i class="fa-solid fa-arrows-rotate"></i> Try a different approach');
         r.addEventListener('click', () => tryDifferentApproach(absIndex));
