@@ -50,6 +50,47 @@ The recommendations in this document are based on the resulting behavior and con
 
 ---
 
+## Meeting Outcomes — 2026-08-18
+
+The alignment meeting happened. Eight items were decided; this section is the authoritative record and **supersedes the open-question framing in the sections below** wherever the two disagree. *Who Decides What* still routes ownership; this says what the owners said.
+
+Read it for the consequences, not just the verdicts — five of the eight change something on our side, and two of them mean our shipped player now diverges from an agreed decision.
+
+| Item | Outcome | What it costs or changes here |
+| --- | --- | --- |
+| Safety flags (ask 01) | **Declined for V1.** A generic "trauma-informed response" block instead of three per-scenario booleans. | Tripwire is *broadened* — every scenario gets it, not just flagged ones. **The portrayal layer is the accepted gap.** |
+| `answer_shape` (ask 02) | **Deferred, not declined.** `ideal_response` is the proxy today; K&A want the option; evaluate the current state first. | Action is ours: test whether the proxy actually holds. Our extension stays internal meanwhile. |
+| Required fields (ask 03) | **Partly resolved — and our premise was wrong.** `phase.purpose` IS used; one spec location isn't; `practice.purpose` is used today. Dev is updating the spec. | Stop claiming "never rendered." `final_word`, `misconception`, `help_turns`, `spot_target` got **no answer** and stay open. |
+| Turn cost (ask 04) | **Granted for the case we asked about** — a clarifying question ideally does not cost a turn — **plus two new requirements.** | We already do the ideal for clarifying. Gibberish and apathy must now COUNT, and we give both a free redirect. See below. |
+| Pluggable surfaces | **Deferred — revisit later.** Reason given: avoid overloading prompts or over-fitting to unknown future types. | Park item, now with a real decision behind it. |
+| Prior-LO context | **Yes — for the LLM only, never learner-facing.** No media cold-open. | Built in authoring and two native types. **The v4 route strips it.** New gap — see below. |
+| Flexible 1–9 tiers | **Declined as open-ended, but the neutral tier becomes OPTIONAL.** Dev updating spec; the other two stay required. | This is the ask we withdrew, granted anyway. Our validator requires all three. |
+| Retry / rewind | **Do not include.** Whole-scenario restart is sufficient; revisit later. | **We ship it, uncapped.** Now an intentional divergence or a thing to gate. |
+
+### The three that need work on our side
+
+**1. Our turn-cost behavior now disagrees with an agreed decision.** `SimCore.nonAnswerPolicy` distinguishes three non-answers and makes *all* of them free (`action: "redirect"`, never counted). The decision splits them:
+
+* *Clarifying question* — free. **We match, and we match the preferred reading**, not the "acceptable in v1" fallback.
+* *Gibberish / trolling* — must count as a turn. **We give it a free redirect.** Direct conflict.
+* *Apathy / refusal* — must count as a turn, then probe and redirect with whatever turns remain; if none remain, address it in coach feedback and try to re-engage in the next phase. Our case 2 is explicitly scoped to "STUCK, NOT REFUSING" and gives the first instance a free nudge, so **active refusal is not cleanly handled at all**, and the feedback-carry plus next-phase re-engagement does not exist.
+
+The carry is buildable on existing machinery (`transitions[].set` already moves learner-dependent state across phases), but nothing populates it for disengagement today.
+
+**2. The one thing they said yes to is the one thing the go-forward format cannot carry.** Prior-LO context is approved for the model. It exists in the studio (`contextSource: 'previous-lo'` plus `previousLO {title, covered, handoff}`) and compiles into the prompt on `observe-react` and `teach-back`. But `v4-universal` lists both keys in `SHELL_KEYS` and **strips them before validation and export**, because V4 has no field for them — so on the path we are steering all new authoring toward, approved context silently does not reach the model. Needs a home in the format, which is awkward timing: the envelope mechanism that would have carried it was just declined for the safety flags.
+
+**3. Optional neutral is a validator change.** `scenario-v4.js` requires all three tiers when the block is present (`required: LEVELS`, the "all three tiers required" rule). Making neutral optional is a small, contained edit — and it retires the §11 "third quality tier — withdrawn" entry, since the thing we talked ourselves out of asking for was granted unprompted. Worth recording *why* that matters: our withdrawal rested on a deck-level tier count that never tested the beat-level claim, so the five two-pole practices were not simply a porting artifact after all.
+
+### On the safety-flag decision, stated fairly
+
+The generic block is a defensible V1 call and in one respect strictly better than what we asked for: a floor that arms on *every* scenario cannot be forgotten by an author who leaves a flag off. What it does not replace is the always-on portrayal layer, which is most of what our flags do and does not depend on any learner disclosing anything — `MINOR_SECTION` is six provisions and only the sixth is a tripwire; the other five constrain how minors are depicted on every turn (age-appropriate and never sexualized, a child who caused harm modeled as recoverable, the target never voiced and never placed with the bully, no invented abuse beyond canon).
+
+One routing detail is worth keeping visible regardless of V1 scope: our minors tripwire points to mandated reporting plus 911, not 988. A generic trauma-informed block that routes everything to a crisis line handles adult self-harm disclosure correctly and a child-safety disclosure incorrectly — different obligation, different destination.
+
+Our player keeps its flag-driven floors, so this is now a **documented intentional divergence** rather than a gap to close.
+
+---
+
 ## Who Decides What
 
 The alignment work produced two very different kinds of open item, and reading them as one list is what makes this document hard to act on.
@@ -573,6 +614,8 @@ So the behavioral difference is real and runs in one direction: authored deck in
 
 The open questions are whether the POC engine adopts it, and what the cap policy should be (each redo is a fresh model turn, and today nothing limits how many times a learner rewinds).
 
+> **Outcome, 2026-08-18: do not include.** The POC engine will not adopt retry; whole-scenario restart is considered sufficient, revisitable later. The first open question is therefore closed and the second is now entirely ours: our player keeps an uncapped rewind, which is a **documented intentional divergence** plus an unbounded model-cost surface. Deciding whether to cap it, gate it as prototype-only, or retire it is UX Universal's call.
+
 ---
 
 ### 9.5 Where teaching belongs — jointly owned
@@ -741,7 +784,11 @@ Internal authoring remains flat. Folding is an export projection.
 
 Several lower-priority questions remain. The third quality tier, `help_turns` and `spot_target` are POC V4's calls; the teach-back cap only matters if a retrieval mode lands and is joint.
 
-### Third quality tier — withdrawn
+### Third quality tier — withdrawn, then granted anyway
+
+> **Outcome, 2026-08-18: the neutral tier becomes OPTIONAL.** Decided in the alignment meeting off K&A's own proposal, after we had withdrawn the ask. The open-ended 1–9 form was declined (complexity and prompt volume); `unthoughtful` and `strong` stay required; dev is updating the spec. **Our validator still requires all three** (`scenario-v4.js`, `required: LEVELS`) and needs the edit.
+>
+> The withdrawal below was measured at the **deck** level — how often each tier label appears across a whole deck — and the ask was about the **beat** level: whether a given beat grounds three. Those are different questions, and the count never tested the one that mattered. K&A independently reported the same pressure from the other side: their port "had to invent middle tiers just to satisfy the schema," which is the required-field-with-no-author argument arriving on a field we had not applied it to. So our five two-pole practices were not simply a porting artifact. Kept below as the reasoning, not as a live position.
 
 Previously raised as an ask on V4: allow a partial scale on practices, the way `opening.levels` already works, on the premise that source material often defines only two meaningful levels.
 
