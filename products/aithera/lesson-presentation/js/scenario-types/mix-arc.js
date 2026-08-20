@@ -1023,11 +1023,12 @@ ${closer}`);
     }).filter(Boolean);
     if (calBlocks.length) parts.push('CALIBRATION — read the learner\'s handling of each beat against these tiers; they drive your within-beat reactions, your debrief, and the tier you report:\n\n' + calBlocks.join('\n\n'));
 
-    // 6b) Non-answers (shared policy) — a question / "I don't know" / off-script
-    //     input is not an answer: redirect (free), never grade or advance on it.
+    // 6b) Non-answers (shared policy) — a question or a first "I don't know" is
+    //     not an answer: redirect (free). Refusal and gibberish stay in the beat
+    //     on "continue", which costs the turn. Never grade or advance on any.
     parts.push((window.SimCore && SimCore.nonAnswerPolicy)
       ? SimCore.nonAnswerPolicy({ hasScene })
-      : 'NON-ANSWERS — a clarifying question, a first "I don\'t know", or off-script input is not an answer: answer/redirect gently, set "action":"redirect", stay put, and do not grade or advance.');
+      : 'NON-ANSWERS — a clarifying question or a first "I don\'t know" is not an answer: answer it, set "action":"redirect" (free), stay put, do not grade or advance. Refusal or gibberish: stay put with "action":"continue" (it costs the turn), redirect gently without shaming, and never grade or advance.');
     /* The coach INTEGRITY floor — shared with every other type (SimCore).
        Sits beside NON-ANSWERS because both are floors on the model's own
        behavior rather than anything an author writes. */

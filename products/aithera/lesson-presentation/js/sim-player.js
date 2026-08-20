@@ -216,7 +216,14 @@
         const cb = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
         const last = cb[cb.length - 1];
         const dangling = !!last && /\?\s*$/.test(String(last.text).trim());
-        const wantsStay = turn.action === 'redirect' || dangling;
+        /* 'continue' counts here too. It used to be enough to test 'redirect',
+           because every non-answer reported redirect. Now that refusal and
+           gibberish report 'continue' (they cost a turn — SimCore.nonAnswerPolicy),
+           testing only 'redirect' would CLOSE the ungraded warm-up on gibberish
+           instead of staying to re-ask. 'continue' means the beat is still live,
+           so staying is the correct reading regardless, and REFLECTION_STAY_CAP
+           still bounds it. */
+        const wantsStay = turn.action === 'redirect' || turn.action === 'continue' || dangling;
         state.reflectionStays = state.reflectionStays || 0;
         if (wantsStay && state.reflectionStays < REFLECTION_STAY_CAP) {
           state.reflectionStays++; state.reflectionProbed = true; turn.deliver = null; return;
