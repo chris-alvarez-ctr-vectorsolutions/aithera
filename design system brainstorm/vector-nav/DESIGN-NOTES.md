@@ -58,50 +58,46 @@ line). Two things are deliberately taken from the shipping products:
      Qualifications · Reports (My recents / Frequently used / All reports / Activity /
      Qualification / User / Organizational / Scheduled) · Assets · Security (Roles / Copy
      roles / Assign roles / Role assignments) · System (Jobs / Configuration / Notifications /
-     User connections). Other Learn menus (V2, V3, Training Plan / Reporting modes) use the
-     same vocabulary.
+     User connections). The Training Plan and Reporting modes use the same vocabulary;
+     V2 to V5 share V1's menus outright.
    - **Comply = EHS.** V1's Comply pane is the real EHS sidebar structure: Safety management
      is a SECTION header whose items are plain links except where EHS itself nests them, so
      Inspections (Summary / Scheduled), Observations (Summary / Scheduled), Risk management
      (Claims / Payments) and Industrial hygiene (Sampling / Exposure assessments / Exposure
      groups / Agents) are accordions while Incidents, Hazards, Corrective actions, JSA, SDS,
      Tasks, Events, Document library, Supporting documents and Customer service stay flat;
-     Training and Analytics are further sections with their EHS children. In V5/V6 the big
-     modules are tabs and the long tail forms a side-nav group; in V2 they are sections in
-     the module column.
+     Training and Analytics are further sections with their EHS children. V2 to V5 share
+     V1's EHS pane.
 
-## Version matrix
+## Version matrix (current set)
 
-| # | File | App switcher | Side-nav hierarchy | Top tabs | Theme / density | What it tests |
-|---|---|---|---|---|---|---|
-| V1 | `v1-launcher-tabs.html` | Waffle launcher (vwc-app-switcher-menu anatomy), **working**: switches Learn ↔ Comply | Nested accordion, 2 levels | **In the top bar**, top-right | Light / comfortable | Modes as tabs without a second chrome row; tabs live-swap the side nav; Admin mode = the full Convergence NAV_TREE; Comply pane = the real EHS sidebar structure (sections + EHS's actual sub-group accordions); nav open/close toggle |
-| V2 | `v2-rail-twopane.html` | Far-left icon rail, always visible | Two-pane: icon sections + items column | None | Light / comfortable | Physical separation of switch vs navigate; "one shell, many products" (rail click swaps everything) |
-| V3 | `v3-sidebar-dropdown-tree.html` | Dropdown in the sidebar header | Nested tree, full 3 levels | None | Light / comfortable | The hierarchy requirement (Training → Compliance courses → OSHA 10 · 2024); chrome-minimal switcher |
-| V4 | `v4-dense-dark-flyout.html` | Waffle launcher (vwc-app-switcher-menu anatomy) | Collapsed 56px icon rail + flyout submenus | None | **Dark / compact** | Collapse as a designed state; density for data-heavy screens; token-only re-theming |
-| V5 | `v5-topbar-switcher-tabs.html` | Named product dropdown in the top bar | Shallow flat list + saved views | **Dedicated row** under the top bar | Light / comfortable | The Convergence/Salesforce analog; contrast with V1 (same tab philosophy, two rows vs one) |
-| V6 | `v6-synthesis.html` | Far-left icon rail | Flat list per mode, collapses to icon rail | **Per-product optional** (Learn/Comply yes, Schedule no) | Light / comfortable | The recommended synthesis; tabs as an opt-in layer; responsive auto-collapse below 1120px |
+All five versions share the same shell: real Vector products, waffle/rail switcher with a
+cross-product Dashboard, Convergence-style location tree picker, scoped search, in-bar
+mode tabs, 3-level side nav, customer logo slot, and review toggles (Logo / Loc / Tabs)
+in the bottom-left pill.
 
-### Axis coverage
+| # | File | Differs from V1 by |
+|---|---|---|
+| V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
+| V2 | `v2-rail-twopane.html` | Switcher is a persistent left app rail (Dashboard on top, waffle at bottom for the catalog); search moves into the side nav, scoped to the current product, live-filtering the menu |
+| V3 | `v3-flyout-hierarchy.html` | Side-nav hierarchy only: children open in a flyout panel to the RIGHT of the nav; L3 nests inside the panel; one panel at a time |
+| V4 | `v4-text-hierarchy.html` | Side-nav hierarchy only: no guide lines; depth carried by typography (weight 650 → 500 → 400, ink → ink-2 → ink-3, 13 → 12.5 → 12px) |
+| V5 | `v5-color-hierarchy.html` | Side-nav hierarchy only: no guide lines, no containers; the OPEN accordion headers take color (soft accent tint at level 1, stronger tint at level 2), children simply indent |
 
-- **Switcher patterns:** waffle launcher matched to vwc-app-switcher-menu (V1, V4) ·
-  persistent rail (V2, V6) · sidebar-header dropdown (V3) · top-bar named dropdown (V5).
-- **Hierarchy patterns:** accordion (V1, V3) · two-pane (V2) · flyout-from-rail (V4) ·
-  shallow flat (V5, V6).
-- **Tabs philosophy:** tabs-in-bar (V1) · tabs-own-row (V5) · no tabs (V2, V3, V4) ·
-  optional per product (V6).
-- **Density & collapse:** compact + dark (V4) · collapse-to-rail with tooltips (V4, V6) ·
-  hide/show toggle (V1, V5) · responsive auto-collapse (V6).
+## Archived explorations
+
+The original six-version exploration (placeholder products, two-pane nav, dense dark
+flyout build, dedicated tab row, synthesis) moved to `archive/` when the brief was
+updated. Their review pills still reference the old set; they are kept for history only.
 
 ## Customer logo slot (platform customization)
 
 Orgs can surface their own branding at the top of the side nav, above the menu items: a
 customer logo image (here a placeholder "Northline Utilities" lockup) renders in a bordered
 slot at the top of the nav. It is customer CONTENT, not shell UI, so it is exempt from the
-neutral token palette. Present in V1 (all five navs, both products), V2 (items column), V3
-(below the product switcher), V5 and V6; V4's nav is a permanently collapsed icon rail, so
-its logo would live in the top bar instead. Toggle it with the **Logo** button in the
-bottom-left review pill (customers would configure this in admin settings) or deep-link the
-hidden state with `?logo=off`.
+neutral token palette. Present in every current version (every nav, including the Dashboard pane). Toggle it
+with the **Logo** button in the bottom-left review pill or deep-link the hidden state with
+`?logo=off`.
 
 ## App switcher, matched to the design system
 
@@ -120,13 +116,45 @@ The launcher popover in V1 and V4 follows the anatomy of `vwc-app-switcher-menu`
 - The current product carries a small "Current" tag in the end slot (mock-only affordance so
   reviewers can see state; the real component treats all rows as external product links).
 
+## V1 + V2 pilot the updated shell spec (real products, Dashboard, location, scoped search)
+
+Per the updated brief, V1 carries the revised shell and V2 is the same shell with the app
+rail as its only difference; V3 to V6 still show the earlier spec until the direction is
+confirmed. The location selector is the Convergence nested tree picker: chevron toggles,
+node name + level label (Organization / Region / Site), a check on the selected node, and
+selection allowed at any level. The scope control reads "All" or the current
+product's name (never the generic "This product"), and the placeholder mirrors it (Search
+all products / Search Convergence). In V2, search moves into the side nav and is scoped to
+the current product only, typing live-filters the menu. Per review, the top bar carries no
++ New action.
+
+- **Real Vector products.** Convergence and Vector EHS Management are fully built and
+  switchable; Vector Scheduling is pinned; Vector Check-It, Vector Evaluations, Vector PD
+  Tracking, Vector Pathways, Guardian Tracking, Acadis, Frontline Public Safety and
+  ArdentSky Compliance Suite (unlicensed, "Learn more") sit under an "All products"
+  expansion. The switcher scales: in-panel product search, pinned first.
+- **Cross-product Dashboard.** A distinct entry pinned above the switcher divider; not a
+  product. Selecting it swaps in cross-product side-nav groupings (My work / Reports /
+  Admin) and an overview aggregating KPIs across products (training completion, open
+  incidents, coverage gaps, overdue inspections, evaluations due, compliance status) plus
+  two simple charts.
+- **Location selector** (Convergence-style) in the top bar, replacing the static org text:
+  current location with a searchable dropdown of sites ("Showing 6 of 23").
+- **Scoped global search**: the field carries an explicit scope control, All products /
+  This product. Results are grouped by product under the all-products scope, with a note
+  that the other scope limits results to the current app.
+- **3-level side nav**: Convergence shows Curricula → Annual Compliance → OSHA 10 · 2024
+  (the expandable Annual Compliance row is itself the active destination); Vector EHS
+  shows Inspections → Scheduled inspections → Monthly fire extinguisher check. Depth is
+  carried by indentation only and capped at 3.
+
 ## Version switcher (review tooling, not part of the design)
 
 Every version file carries a small dark pill in the **bottom-left corner**: `All` (back to the
 gallery) followed by V1 to V6, with the current version highlighted and each button titled with
 its pattern. It exists so reviewers can flip between explorations in place instead of returning
-to the gallery each time. Versions with a side nav also carry a **Logo** button here that
-toggles the customer logo slot. It is a single self-contained block at the end of each file
+to the gallery each time. The pill also carries review toggles: **Logo** (customer logo slot), **Loc** (location
+picker) and **Tabs** (mode tabs), plus `?logo=off` / `?loc=off` / `?tabs=off` deep links. It is a single self-contained block at the end of each file
 (one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE
 PRODUCT DESIGN`; delete that block to remove it.
 
@@ -137,12 +165,8 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 
 | File | Params |
 |---|---|
-| V1 | `?launcher` opens the app grid · `?app=comply` switches to the Comply product (EHS-style accordion nav; the launcher tiles do the same on click) · `?mode=home\|admin\|trainplan\|reporting` selects a Learn tab (side nav + content swap) · `?nav=closed` starts with the side nav closed · `?logo=off` hides the customer logo |
-| V2 | `?app=learn\|comply\|schedule` selects the rail product · `?logo=off` |
-| V3 | `?switcher` opens the product menu · `?logo=off` |
-| V4 | `?launcher` opens the app grid · `?fly` pins the Shifts flyout open (it otherwise opens on hover/keyboard focus) |
-| V5 | `?switcher` opens the product menu · `?nav=closed` · `?logo=off` |
-| V6 | `?app=…` selects the rail product · `?collapsed` collapses the side nav (also auto-collapses below 1120px) · `?logo=off` |
+| V1, V3, V4, V5 | `?app=comply\|dashboard` · `?mode=home\|admin\|trainplan\|reporting` · `?launcher` · `?search` · `?location` (opens the picker) · `?nav=closed` · `?logo=off` · `?loc=off` (hides the picker) · `?tabs=off` (hides the mode tabs) |
+| V2 | Same minus `?search` (search is the side-nav filter) |
 
 ## Review feedback incorporated
 
@@ -158,6 +182,9 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 - Rows briefly adopted Convergence/EHS visual styling (full-bleed rows, left accent bar,
   tinted accordion band); review preferred the original open-accordion look, so the visuals
   reverted while keeping the trailing chevron and adopting the products' menu vocabulary.
+- The exploration was consolidated: V1/V2 are the live shell pair, the original V3 to V6
+  were archived, and three new versions (V3 flyout panels, V4 typography-only, V5 tinted
+  open groups) isolate the side-nav hierarchy treatment on V1's shell.
 - Count badges sit inline after the label on EVERY row (they were right-aligned on plain
   rows and inline on expandable ones, which read as two different patterns in one list;
   right-aligning them all was not an option because the right edge belongs to the chevron

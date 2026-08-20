@@ -459,6 +459,25 @@ wizard), aligned to the view's content width. The strips are a dev reference, no
 UI, and are labelled as such in the sheet; the values live in `SPECS` in `shared/chrome.js`
 and mirror `shared/styles.css`, so a value change updates both.
 
+## Round 7: collapse/expand all + show electives
+
+The filter panel's two placeholder toggles are now real controls, with Font Awesome Pro
+icons (the pages moved from the Free CDN to the repo's self-hosted Pro kit for these):
+
+- **Collapse/expand all**: one button, `fa-chevrons-up` ("Collapse all") flipping to
+  `fa-chevrons-down` ("Expand all"). It drives every accordion level at once; expand-all
+  also opens default-collapsed groups.
+- **Show electives**: `fa-square-star` (echoing the legacy Electives star-in-box glyph).
+  Elective activities are hidden from the plan by default; toggling reveals them with the
+  catalog's inline E tag on list rows, the corner E tag on cards, and an Elective marker in
+  the detail hero. Electives never count toward a requirement's x-of-y progress, and the
+  detail pages always list them (marked) regardless of the plan toggle.
+
+Two elective demo activities were added (PPE Selection Deep Dive; Crane Signals Refresher
+Lab). Verified headlessly: zero invisible icons after the Pro swap, collapse-all closes
+every disc, expand-all opens all groups, and the elective toggle adds/removes the two
+E-tagged rows with correct pressed states.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

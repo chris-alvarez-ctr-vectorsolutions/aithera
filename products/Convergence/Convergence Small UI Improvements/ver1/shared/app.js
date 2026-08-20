@@ -21,6 +21,8 @@ const state = {
   catalogView: 'cards',      // cards (category carousels) | table
   catalogCat: 'safety',      // category shown by the table view
   dismissedBanners: new Set(),   // banner ids dismissed this session
+  showElectives: false,          // filter-panel toggle: elective activities
+  allCollapsed: false,           // filter-panel toggle: collapse/expand all
   filterOpen: false,
   navOpen: new Set(['training']),
   navActive: 'dashboard',
@@ -364,6 +366,28 @@ function boot() {
   $$('#viewToggle button, #viewToggle2 button').forEach(b =>
     b.addEventListener('click', () => setTrainingView(b.dataset.view)));
   $('#filterToggle').addEventListener('click', () => setFilters(!state.filterOpen));
+  // Collapse/expand all: one control, icon and name follow its next action.
+  $('#fpToggleAll').addEventListener('click', () => {
+    state.allCollapsed = !state.allCollapsed;
+    setAllOpen(!state.allCollapsed);
+    const b = $('#fpToggleAll');
+    b.title = state.allCollapsed ? 'Expand all' : 'Collapse all';
+    b.setAttribute('aria-label', b.title);
+    b.setAttribute('aria-pressed', String(state.allCollapsed));
+    b.querySelector('i').className = state.allCollapsed
+      ? 'fa-solid fa-chevrons-down' : 'fa-solid fa-chevrons-up';
+  });
+
+  // Show electives: reveals elective activities (E-tagged) in the plan.
+  $('#fpElectives').addEventListener('click', () => {
+    state.showElectives = !state.showElectives;
+    const b = $('#fpElectives');
+    b.setAttribute('aria-pressed', String(state.showElectives));
+    b.title = state.showElectives ? 'Hide electives' : 'Show electives';
+    b.setAttribute('aria-label', b.title);
+    renderTraining();
+  });
+
   const ft = $('#fType'), fs = $('#fStatus');
   ft.items = ['All types', 'Tasklist', 'Video', 'Course', 'Quiz', 'Document'];
   fs.items = ['All statuses', 'In progress', 'Incomplete', 'Overdue', 'Complete'];

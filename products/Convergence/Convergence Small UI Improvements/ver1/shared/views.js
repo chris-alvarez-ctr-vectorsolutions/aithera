@@ -33,6 +33,21 @@ function wireOpenRefs(root) {
 
 /* state.collapsed holds USER-TOGGLED nodes, so a default-collapsed group
    opens on its first click instead of being forced shut forever. */
+/* Collapse or expand every accordion level at once (the filter-panel
+   chevrons control). Sets each node's toggle relative to its default. */
+function setAllOpen(open) {
+  const want = (id, dflt) => {
+    if ((dflt === open)) state.collapsed.delete(id);
+    else state.collapsed.add(id);
+  };
+  want('plan', true);
+  TRAINING.quals.forEach(q => {
+    want(q.id, q.open);
+    q.reqs.forEach(r => want(r.id, r.open));
+  });
+  renderTraining();
+}
+
 function isOpen(id, dflt) {
   return state.collapsed.has(id) ? !dflt : dflt;
 }
@@ -102,12 +117,13 @@ function renderTraining() {
       </div>`);
       if (!rOpen) return;
 
+      const acts = state.showElectives ? r.acts : r.acts.filter(a => !a.elective);
       if (cards) {
         out.push(`<div class="tp-cardwrap">
-          <div class="card-grid">${r.acts.map(cardHTML).join('')}</div>
+          <div class="card-grid">${acts.map(cardHTML).join('')}</div>
         </div>`);
       } else {
-        r.acts.forEach(a => out.push(rowHTML(a)));
+        acts.forEach(a => out.push(rowHTML(a)));
       }
     });
   });
@@ -126,6 +142,7 @@ function rowHTML(a) {
       <span class="tp-launch">${actionBtn(a)}</span>
       <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}"></i></span>
       <span class="tp-title" title="${esc(a.name)}">${esc(a.name)}</span>
+      ${a.elective ? '<span class="etag inline" title="Elective">E</span>' : ''}
     </span>
     <span>${pill(a.status)}</span>
     <span class="col-num col-dur">${esc(a.dur || '')}</span>
@@ -143,6 +160,7 @@ function cardHTML(a) {
       <i class="fa-solid ${t.icon}"></i>
       <span class="tcard-badge">${pill(a.status)}</span>
       ${a.dur ? `<span class="tcard-dur">${esc(a.dur)}</span>` : ''}
+      ${a.elective ? '<span class="etag" title="Elective">E</span>' : ''}
     </div>
     <div class="tcard-body">
       <h3 class="tcard-title">
@@ -565,6 +583,7 @@ function dActRow(a, indent) {
     <span class="d-name">
       <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}"></i></span>
       <span class="d-row-title">${esc(a.name)}</span>
+      ${a.elective ? '<span class="etag inline" title="Elective">E</span>' : ''}
       ${a.attachment ? '<i class="fa-solid fa-paperclip d-clip" title="Has attachments"></i>' : ''}
     </span>
     <span>${pill(a.status)}</span>
@@ -666,6 +685,7 @@ function renderDetails() {
     out.push(`<section class="panel">`);
     out.push(dHero(t.label, a,
       dMeta([pill(a.status),
+             a.elective ? '<span class="etag inline" title="Elective">E</span> Elective' : '',
              a.dur ? `<i class="fa-regular fa-clock"></i> ${esc(a.dur)}` : '',
              a.spent ? `${esc(a.spent)} spent` : '',
              a.due ? `<span class="${a.status === 'overdue' ? 'd-overdue' : ''}"><i class="fa-regular fa-calendar"></i> Due ${esc(a.due)}</span>` : '']),

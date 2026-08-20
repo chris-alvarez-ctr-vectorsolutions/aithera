@@ -152,6 +152,26 @@
     .row-dropdown-item.danger i { color:#dc2626; }
     .row-dropdown-divider { height:1px; background:#e5e9ef; margin:4px 0; }
 
+    /* Share popover (Direct Link + QR code) opened from a row's More-actions menu.
+       Anchored next to the kebab so it appears right where Share was clicked. */
+    .share-pop-catcher { position:fixed; inset:0; z-index:10000; background:transparent; }
+    .share-pop { position:fixed; z-index:10001; width:340px; max-width:92vw; background:#fff; border:1px solid #e5e9ef; border-radius:12px; box-shadow:0 18px 44px rgba(15,23,42,.20); overflow:hidden; animation:sharePopIn .12s ease-out; }
+    @keyframes sharePopIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+    .share-pop-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px; }
+    .share-pop-head h3 { font-size:15px; font-weight:700; color:#1a1a2e; }
+    .share-pop-close { border:none; background:none; color:#9ca3af; font-size:15px; cursor:pointer; width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; }
+    .share-pop-close:hover { background:#f3f4f6; color:#374151; }
+    .share-pop-body { padding:0 16px 14px; }
+    .share-pop-section { padding:13px 0; border-top:1px solid #eef1f5; }
+    .share-pop-section:first-child { border-top:none; }
+    .share-pop-section h4 { font-size:12.5px; font-weight:600; color:#1a1a2e; margin-bottom:3px; }
+    .share-pop-section p { font-size:11.5px; color:#6b7280; margin-bottom:10px; line-height:1.4; }
+    .share-pop .share-link-row { display:flex; gap:8px; align-items:center; }
+    .share-pop .share-link-row input { flex:1; min-width:0; border:1px solid #d1d5db; border-radius:7px; padding:7px 10px; font-family:inherit; font-size:12px; color:#374151; background:#f8fafc; outline:none; text-overflow:ellipsis; }
+    .share-pop .share-qr-row { display:flex; align-items:center; gap:14px; }
+    .share-pop .share-qr-box { width:104px; height:104px; border:1px solid #e5e9ef; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--vblue); font-size:60px; background:#fff; flex-shrink:0; }
+    .share-pop .btn { white-space:nowrap; }
+
     /* Bulk-actions bar (mail-client pattern) */
     .bulk-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:8px 10px 8px 14px; margin-bottom:12px; }
     .bulk-bar.hidden { display:none; }
@@ -599,6 +619,78 @@ function showDropdown(btn, items){
   setTimeout(() => document.addEventListener('click', closeDropdown, { once:true }), 0);
 }
 
+/* ─── Share popover: Direct Link + QR code, anchored beside the row's kebab ───
+   Opened from the More-actions menu so a user can grab the direct link without
+   opening the activity editor. Positioned next to the button it was launched
+   from, flipping above it if there is not enough room below. */
+let activeSharePop = null;
+function shareSlug(name){ return String(name||'activity').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function closeSharePopover(){
+  if (!activeSharePop) return;
+  activeSharePop.catcher.remove();
+  activeSharePop.pop.remove();
+  document.removeEventListener('keydown', activeSharePop.onKey);
+  activeSharePop = null;
+}
+function openSharePopover(anchorBtn, act){
+  closeSharePopover();
+  const url = 'https://university.convergencetraining.com/public/d/' + shareSlug(act.name);
+  const catcher = document.createElement('div');
+  catcher.className = 'share-pop-catcher';
+  catcher.addEventListener('click', closeSharePopover);
+  const pop = document.createElement('div');
+  pop.className = 'share-pop';
+  pop.addEventListener('click', e => e.stopPropagation());
+  pop.innerHTML =
+    `<div class="share-pop-head">
+       <h3>Share Activity</h3>
+       <button class="share-pop-close" title="Close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+     </div>
+     <div class="share-pop-body">
+       <div class="share-pop-section">
+         <h4>Direct Link</h4>
+         <p>You can share this direct link to this activity.</p>
+         <div class="share-link-row">
+           <input type="text" readonly value="${url}">
+           <button class="btn btn-secondary btn-sm share-copy-link"><i class="fa-solid fa-link"></i> Copy</button>
+         </div>
+       </div>
+       <div class="share-pop-section">
+         <h4>QR Code</h4>
+         <p>You can copy this QR code to this activity.</p>
+         <div class="share-qr-row">
+           <div class="share-qr-box"><i class="fa-solid fa-qrcode"></i></div>
+           <button class="btn btn-secondary btn-sm share-copy-qr"><i class="fa-solid fa-link"></i> Copy QR Code</button>
+         </div>
+       </div>
+     </div>`;
+  document.body.appendChild(catcher);
+  document.body.appendChild(pop);
+  const onKey = e => { if (e.key === 'Escape') closeSharePopover(); };
+  document.addEventListener('keydown', onKey);
+  activeSharePop = { catcher, pop, onKey };
+
+  // Position beside the launching button (right-aligned under it, flipping up if needed).
+  const r = anchorBtn.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
+  let top = r.bottom + 6;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+
+  pop.querySelector('.share-pop-close').addEventListener('click', closeSharePopover);
+  pop.querySelector('.share-copy-link').addEventListener('click', function(){ shareCopy(url, this, 'Copied', '<i class="fa-solid fa-link"></i> Copy'); });
+  pop.querySelector('.share-copy-qr').addEventListener('click', function(){ shareCopy(url, this, 'QR code copied', '<i class="fa-solid fa-link"></i> Copy QR Code'); });
+  pop.querySelector('input').addEventListener('focus', function(){ this.select(); });
+}
+function shareCopy(text, btn, doneLabel, restoreHtml){
+  try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch(e){}
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> ' + doneLabel;
+  btn.disabled = true;
+  setTimeout(() => { btn.innerHTML = restoreHtml; btn.disabled = false; }, 1400);
+}
+
 function actionsRenderer(p){
   const e = document.createElement('div');
   e.className = 'row-actions';
@@ -634,6 +726,8 @@ function actionsRenderer(p){
       // "Configure" is only available for configurable activities (mirrors the Configurability column).
       ...(p.data.configurable ? [{ iconHtml: gearsSvg(15, 'dd-gears'), label:'Configure', action: () => launchConfigure(p.data) }] : []),
       { icon:'fa-regular fa-eye', label:'Preview', action: () => alert('Preview "' + p.data.name + '" (prototype).') },
+      // Share opens the Direct Link + QR popover right beside the kebab (no need to edit the activity first).
+      { icon:'fa-solid fa-arrow-up-from-bracket', label:'Share', action: () => openSharePopover(moreBtn, p.data) },
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
       { divider: true },
       { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => openDeleteConfirm([p.data]) },

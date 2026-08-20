@@ -47,6 +47,8 @@ const SPECS = {
     ['Card grid', 'gap 16 · thumb 16:9 · shadow --e-xs, no border'],
     ['Card badges', 'status top-left · duration bottom-right'],
     ['Row actions', 'info leftmost · icon-btn 34 · column 84'],
+    ['Elective marker', '20px E tag inline · hidden until toggled'],
+    ['Panel toggles', 'chevrons-up/down = all · square-star = electives'],
   ]),
   details: specHTML([
     ['Hero thumbnail', '232px wide · 16:9 · radius 8'],
@@ -379,8 +381,10 @@ const SPECS = {
                   <button data-view="dense" aria-pressed="false" title="Compact cards"><i class="fa-solid fa-grip"></i></button>
                   <button data-view="large" aria-pressed="false" title="Large cards"><i class="fa-solid fa-table-cells-large"></i></button>
                 </div>
-                <button class="icon-btn bordered" title="Show hierarchy"><i class="fa-solid fa-sitemap"></i></button>
-                <button class="icon-btn bordered" title="Favourites only"><i class="fa-regular fa-star"></i></button>
+                <button class="icon-btn bordered" id="fpToggleAll" title="Collapse all" aria-label="Collapse all"
+                        aria-pressed="false"><i class="fa-solid fa-chevrons-up" aria-hidden="true"></i></button>
+                <button class="icon-btn bordered" id="fpElectives" title="Show electives" aria-label="Show electives"
+                        aria-pressed="false"><i class="fa-solid fa-square-star" aria-hidden="true"></i></button>
               </div>
               <vaadin-button theme="secondary" class="btn-compact" style="width:100%">
                 <i class="fa-solid fa-floppy-disk" style="margin-right:6px"></i>Set as default

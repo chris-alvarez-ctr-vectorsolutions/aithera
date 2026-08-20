@@ -59,7 +59,10 @@
 - The panel is part of the same system as the side nav: same rail-and-soft-fill selection state, same hover fill, same icon column width (18px).
 - "View by" rows are 36px with a 6px radius and no dividers.
 - Filters are `vaadin-combo-box theme="outlined"`: `theme="outlined"` is required on every Vector input or Vaadin renders the filled style.
-- The view toggle is the shared `.segmented` control, identical to the one in the page header; the hierarchy and favourites toggles are the shared bordered icon buttons.
+- The view toggle is the shared `.segmented` control, identical to the one in the page header.
+- Collapse/expand all: ONE bordered icon button whose icon and name follow its next action: `fa-chevrons-up` + "Collapse all", then `fa-chevrons-down` + "Expand all" after collapsing. It sets every accordion level at once, including default-collapsed groups, so expand-all can reveal more rows than the default view. aria-pressed tracks the collapsed state.
+- Show electives: bordered icon button with `fa-square-star` (the legacy Electives glyph is a star in a box). Toggling reveals elective activities in the plan: hidden by default, marked with the inline 20px E tag from the catalog, excluded from the requirement's x-of-y counts. Detail pages ALWAYS show electives (marked); only the plan lists filter them. aria-pressed + title flip (Show/Hide electives).
+- Both icons are Font Awesome PRO: this feature's pages link the self-hosted Pro kit (`../../../../assets/fontawesome/css/all.min.css`), not the Free CDN. A Pro icon on the Free CDN renders as an invisible zero-width glyph: run the icon check in the repo CLAUDE.md before adding icons.
 - "Set as default" is a full-width `vaadin-button theme="secondary"`.
 - Below 900px the OPEN panel overlays the content instead of squeezing it; the closed funnel rail stays in flow.
 

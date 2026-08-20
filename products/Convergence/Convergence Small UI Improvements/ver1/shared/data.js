@@ -108,6 +108,7 @@ const TRAINING = {
         { name:'01 Phil Knight Personal Protective Equipment Policy', type:'doc', status:'incomplete', dur:'30 mins', spent:'', due:'09-15-2026' },
         { name:'03 Phil Knight PPE CBT', type:'cbt', status:'incomplete', dur:'15 mins', spent:'', due:'09-15-2026' },
         { name:'PPE Quiz', type:'quiz', status:'incomplete', dur:'10 mins', spent:'', due:'09-15-2026' },
+        { name:'PPE Selection Deep Dive', type:'video', status:'incomplete', dur:'12 mins', spent:'', due:'', elective:true },
       ]},
     ]},
     { id:'q-hse', name:'RV - HSE Microlearning', open:true,
@@ -118,6 +119,7 @@ const TRAINING = {
         { name:'Microlearning Course - Overhead Crane Safe Loading', type:'cbt', status:'overdue', dur:'8 mins', spent:'', due:'04-08-2026' },
         { name:'Microlearning Course - Safety Inspections for Overhead Cranes', type:'cbt', status:'overdue', dur:'8 mins', spent:'', due:'04-08-2026' },
         { name:'Safety Case Study - Inspecting Rigging Components', type:'cbt', status:'overdue', dur:'5 mins', spent:'', due:'04-08-2026' },
+        { name:'Crane Signals Refresher Lab', type:'video', status:'incomplete', dur:'9 mins', spent:'', due:'', elective:true },
       ]},
       { id:'r-demo', name:'RV - HSEML - Site Hazards (12 activities)', open:true,
         progress:{ done:3, total:12, unit:'activities' }, acts:[

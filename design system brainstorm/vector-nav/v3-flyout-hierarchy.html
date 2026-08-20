@@ -3,38 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vector nav · V1: Grid launcher + in-bar mode tabs</title>
+<title>Vector nav · V3: Flyout hierarchy</title>
 <!--
   ============================================================================
-  V1 · GRID LAUNCHER + MODE TABS IN THE TOP BAR + 3-LEVEL ACCORDION SIDE NAV
+    V3 · HIERARCHY VIA FLYOUT PANELS (children open to the RIGHT of the nav)
   ============================================================================
-  Adjusted to the updated brief (real Vector products, cross-product
-  Dashboard, location selector, scoped search, 3-level depth).
+  Identical to V1 in every way except how the side nav shows depth: instead
+  of expanding inline under their parent, a group's children open in a
+  FLYOUT PANEL to the right of the side nav. Level 3 renders inside the
+  panel, indented, so the cap of 3 levels holds. Opening a group closes its
+  open siblings, so at most one panel shows at a time. Trade-off: children
+  are never visible alongside the rest of the tree, and the panel covers a
+  strip of content while open.
 
-  What this version tests
-  · REAL VECTOR PRODUCTS in the switcher: Convergence and Vector EHS
-    Management fully built (the launcher switches between them live), Vector
-    Scheduling pinned, and the rest of the suite (Check-It, Evaluations,
-    PD Tracking, Pathways, Guardian Tracking, Acadis, Frontline Public
-    Safety, ArdentSky) under an "All products" expansion. The switcher
-    scales: in-panel search, pinned products first, unlicensed row last.
-  · A CROSS-PRODUCT DASHBOARD as a distinct entry pinned above the divider
-    in the switcher: not a product, but the home for everything. Selecting
-    it swaps in a cross-product side nav (My work / Reports / Admin) and a
-    KPI + charts overview aggregating across products. ?app=dashboard.
-  · TOP BAR (shared spec): nav toggle · waffle switcher · product identity ·
-    LOCATION SELECTOR (Convergence-style dropdown with search, ?location
-    pre-opens it) · mode tabs · SCOPED GLOBAL SEARCH with an explicit
-    All products / This product scope control (?search pre-opens results
-    grouped by product) · + New · notifications · help · avatar.
-  · Mode tabs live in the top bar and live-swap the side nav per mode
-    (?mode=home|admin|trainplan|reporting). Tab sets change per product.
-  · 3-LEVEL side nav depth, carried by indentation only and capped at 3:
-    Convergence: Curricula → Annual Compliance → OSHA 10 · 2024.
-    Vector EHS: Inspections → Scheduled inspections → Monthly fire
-    extinguisher check.
-  · Side nav open/close from the far-left toggle (?nav=closed); customer
-    logo slot above the menu (?logo=off).
+  Deep links: same as V1 (?app= ?mode= ?launcher ?search ?location
+  ?nav=closed ?logo=off ?loc=off ?tabs=off).
   ============================================================================
 -->
 <style>
@@ -305,6 +288,24 @@ body[data-mode="dash"] .mode-pane[data-mode="dash"]{display:flex}
 body.loc-off .loc{display:none}
 body.tabs-off .tb-tabs[data-app]{display:none}
 body.tabs-off .tb-sep{display:none}
+/* ---- V3 DELTA: children open in a FLYOUT PANEL to the right of the side
+   nav instead of expanding inline. L3 renders inside the panel. ---- */
+.sidenav{overflow:visible}
+/* flyouts are positioned OUTSIDE the nav, so hide them when the nav is closed */
+body.nav-hidden .sidenav details.grp>.kids{display:none}
+details.grp{position:relative}
+details.grp>.kids{position:absolute;left:calc(100% + 12px);top:-6px;width:252px;margin:0;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-2);z-index:70}
+details.grp>.kids::before{content:"";position:absolute;left:-13px;top:0;bottom:0;width:13px}
+details.grp>.kids .nitem{height:30px}
+/* L3 nests INSIDE the panel, plainly indented */
+.kids details.grp{position:static}
+.kids details.grp>.kids{position:static;left:auto;top:auto;width:auto;margin:2px 0 4px 10px;padding:0 0 0 10px;background:none;border:0;box-shadow:none;border-left:1px solid var(--line)}
+/* top-level chevrons point right: the panel opens beside, not below */
+details.grp>summary svg.tw{transform:rotate(-90deg)}
+details[open]>summary svg.tw{transform:rotate(-90deg)}
+.kids details.grp>summary svg.tw{transform:none}
+.kids details[open]>summary svg.tw{transform:rotate(180deg)}
+details[open]>summary{background:var(--well);color:var(--ink)}
 </style>
 </head>
 <body data-app="learn" data-mode="trainplan">
@@ -1210,6 +1211,17 @@ lSearch.addEventListener('input',function(){
   });
 });
 
+  // Flyout hierarchy: opening a top-level group closes its open siblings,
+  // so only one panel shows at a time
+  document.querySelectorAll('.sidenav').forEach(function(nav){
+    nav.querySelectorAll(':scope > details.grp').forEach(function(d){
+      d.addEventListener('toggle',function(){
+        if(!d.open)return;
+        nav.querySelectorAll(':scope > details.grp[open]').forEach(function(o){if(o!==d)o.open=false;});
+      });
+    });
+  });
+
   var params=new URLSearchParams(location.search);
   var m=params.get('mode'); if(m&&modes.indexOf(m)>-1)setMode(m);
   if(params.get('app')==='comply')setApp('comply');
@@ -1246,9 +1258,9 @@ lSearch.addEventListener('input',function(){
   <a class="vs-all" href="index.html" title="Back to the gallery: all six versions with rationale and trade-offs">All</a>
   <span class="vs-div" aria-hidden="true"></span>
   <span class="vs-cap" aria-hidden="true">Version</span>
-  <a href="v1-launcher-tabs.html" aria-current="page" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
+  <a href="v1-launcher-tabs.html" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
   <a href="v2-rail-twopane.html" title="V2 · App rail + two-pane nav, no tabs">V2</a>
-  <a href="v3-flyout-hierarchy.html" title="V3 · Hierarchy via flyout panels: children open to the right of the side nav">V3</a>
+  <a href="v3-flyout-hierarchy.html" aria-current="page" title="V3 · Hierarchy via flyout panels: children open to the right of the side nav">V3</a>
   <a href="v4-text-hierarchy.html" title="V4 · Hierarchy via typography only: weight, size and color carry depth">V4</a>
   <a href="v5-color-hierarchy.html" title="V5 · Hierarchy via color: open accordion groups become tinted blocks">V5</a>
   <span class="vs-div" aria-hidden="true"></span>
