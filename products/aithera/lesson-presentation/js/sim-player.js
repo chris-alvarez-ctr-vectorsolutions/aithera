@@ -81,12 +81,24 @@
             + (declaredState.size ? ' Declared: [' + [...declaredState].join(', ') + '].' : ' (scenario.state[] is empty.)'));
         });
         if (t.next != null) {
-          if (!idSet.has(t.next)) {
+          /* A BLANK next is absence, not a broken id. The v4 compiler writes
+             next:'' on a terminal rung — the last debrief has no following
+             practice (scenario-v4-runtime.js) — and the engine already reads a
+             falsy next as "fall through to the end" (`trans.next ? findIndex :
+             curIdx + 1`). Only this lint disagreed, so every v4 scenario booted
+             with a red console error about a ladder that was in fact correct.
+             That is worse than a missing lint: it trains the real ones into
+             noise. The hasDefaultNext bookkeeping below is unchanged — a
+             terminal rung with no onTier IS an unconditional exit. */
+          const nextId = String(t.next).trim();
+          if (!nextId) {
+            /* terminal — nothing to resolve, nothing to report */
+          } else if (!idSet.has(nextId)) {
             errors.push('phase "' + p.id + '": transition next→"' + t.next
               + '" is not a phase id — the ladder would TERMINATE here instead of advancing.');
           } else {
-            if (t.next === p.id) warnings.push('phase "' + p.id + '": a transition routes the phase to itself — possible loop.');
-            successors[i].add(idxOf[t.next]);
+            if (nextId === p.id) warnings.push('phase "' + p.id + '": a transition routes the phase to itself — possible loop.');
+            successors[i].add(idxOf[nextId]);
           }
           if (!t.onTier) hasDefaultNext = true;
         }
