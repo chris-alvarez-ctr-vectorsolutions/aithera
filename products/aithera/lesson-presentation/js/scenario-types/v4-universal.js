@@ -295,22 +295,32 @@
     return normalize(doc || blank());
   }());
 
+  /* merge — bring an INCOMING document up to the current editor shape. Two
+     callers: restoring the saved draft on boot, and importing a file.
+
+     It deliberately does NOT start from DEFAULT. DEFAULT is the Mix & Match demo
+     template (see above), so basing the merge on it meant any document missing a
+     top-level `content` key silently INHERITED that demo's authored prose. Most
+     production scenarios have no opening reflection — bullying.lo.json does not —
+     so importing one grafted the template's "gut read: what just happened in that
+     stand-up" beat onto it, and the editor then reported three blocking errors
+     about an opening the document never had. Under "edit the JSON and upload it
+     back", that is one scenario's content shipped inside another.
+
+     normalize() already scaffolds every container the editor binds to without
+     authoring a single word, which is the whole job here. */
   function merge(draft) {
-    const base = clone(DEFAULT);
-    delete base.__scaffolded;              // DEFAULT's provenance is not the draft's
-    const d = obj(draft);
-    /* Provenance is decided HERE, from the incoming document, and it has to be:
-       the merge below fills these containers from DEFAULT, so once it has run an
-       empty array the document ARRIVED with is indistinguishable from one we
-       supplied. Deciding after the fact is what made the first attempt at this
-       drop `source_references` anyway. */
+    const d = obj(clone(draft));
+    /* Provenance is decided from the INCOMING document, before normalize scaffolds
+       these containers — afterwards an empty array it arrived with is
+       indistinguishable from one we supplied. */
     const dc = obj(d.content);
     const dir = obj(obj(dc.closing).ideal_response);
     const made = [];
     if (!Array.isArray(dc.tone_guidelines)) made.push('tone_guidelines');
     if (!Array.isArray(dc.misconceptions)) made.push('misconceptions');
     if (!Array.isArray(dir.source_references)) made.push('source_references');
-    const out = normalize(Object.assign(base, d, { content: Object.assign(obj(base.content), obj(d.content)) }));
+    const out = normalize(d);
     arr(out.__scaffolded).forEach((k) => { if (made.indexOf(k) < 0) made.push(k); });
     if (made.length) out.__scaffolded = made; else delete out.__scaffolded;
     return out;
@@ -1316,32 +1326,23 @@
     });
     wrap.append(btn);
 
-    /* The PROPOSED wire shape — extensions folded into must-ignore envelopes
-       rather than stripped. Fails the current loader by exactly one key
-       (`extensions`), which is the size of the schema change being requested;
-       this download is the working exhibit for that conversation. */
-    if (stripped.removed.length) {
-      const btn2 = document.createElement('vaadin-button');
-      btn2.textContent = 'Download proposal sample (extensions kept, in envelopes)';
-      btn2.setAttribute('theme', 'tertiary');
-      btn2.addEventListener('click', function () {
-        const folded = v4.foldExtensions(draft);
-        const stem = slugify(str(draft.implementation_id) || str(obj(draft.content).title) || 'scenario');
-        const blob = new Blob([JSON.stringify(folded.doc, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = stem + '.proposed.lo.json';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
-      wrap.append(btn2);
-    }
+    /* There used to be a second download here: the same document with our
+       extension fields folded into `extensions` envelopes instead of stripped —
+       the working exhibit for that schema request. The request was DECLINED for
+       V1 (a generic trauma-informed block instead), so the exhibit has no
+       audience, and leaving it would be actively unsafe now that the workflow is
+       "edit the JSON, upload it back into the system": it produced a file that
+       fails their loader, one button away from the file that does not, under a
+       near-identical name. What the export strips is still reported above — that
+       information was the useful half. See docs/V4-ALIGNMENT-NOTES.md. */
 
-    wrap.append(guidance('How this differs from the working draft', 'fa-circle-question',
-      '<p>The <b>working draft</b> above is this tool\'s own format — extensions included, nothing '
-      + 'stripped — for round-tripping between Studio users. <b>This</b> is the handoff artifact: '
-      + 'extensions stripped, strict-validated against the POC V4 loader\'s own rules, and named the '
-      + 'way their service routes it (the file stem becomes the scenario id).</p>'));
+    wrap.append(guidance('This is the file you upload back', 'fa-circle-question',
+      '<p>This is the document the production engine loads: our editor-only fields stripped, '
+      + 'strict-validated against its own loader rules, and named the way the service routes it — '
+      + 'the file stem becomes the scenario id. Download it and upload it back into the system.</p>'
+      + '<p>It is not the same file as the <b>working draft</b>, which is this editor\'s own format '
+      + 'and is only for passing a half-finished scenario to another editor user. If you are putting '
+      + 'a scenario back into production, it is this one.</p>'));
     return wrap;
   }
 

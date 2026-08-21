@@ -51,9 +51,30 @@ function loadType() {
   sandbox.window = sandbox;
   sandbox.ScenarioV4 = V4;
   const ctx = vm.createContext(sandbox);
+
+  /* Load exactly what the EDITOR PAGE loads, in the same order. This is not
+     tidiness — it is the difference between a real check and a green one.
+     The first version of this harness loaded only scenario-v4.js, so
+     ScenarioV4Templates was absent, so the type's DEFAULT fell back to blank()
+     instead of the Mix & Match demo template it is in a browser. It reported
+     11/11 while the real editor was grafting that template's prose onto every
+     imported document that omitted a content key. A harness that loads less than
+     the page can only tell you about a path nobody runs. */
+  ['js/scenario-v4-runtime.js', 'js/scenario-v4-templates.js', 'js/scenario-types/mix-arc.js']
+    .forEach(function (f) {
+      try { vm.runInContext(fs.readFileSync(path.join(HERE, f), 'utf8'), ctx); }
+      catch (e) { console.error('WARNING  could not load ' + f + ' — ' + String(e.message).split('\n')[0]); }
+    });
   vm.runInContext(patched, ctx);
   const T = sandbox.AitheraV4Universal;
   if (!T || !T.prune) { console.error('v4-universal.js did not load'); process.exit(2); }
+  /* Fail loudly rather than silently testing a blank-DEFAULT world. */
+  if (!sandbox.ScenarioV4Templates) {
+    console.error('Templates module did not register — DEFAULT would be blank here and populated in the browser. Refusing to report a result.');
+    process.exit(2);
+  }
+  const tplCount = (sandbox.ScenarioV4Templates.list() || []).length;
+  console.log('loaded ' + tplCount + ' templates; DEFAULT matches the browser\n');
   return T;
 }
 
