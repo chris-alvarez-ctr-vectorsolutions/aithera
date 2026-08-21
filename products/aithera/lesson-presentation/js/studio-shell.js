@@ -834,6 +834,20 @@
      entry point. Each type supplies a blank template; older types fall back
      to an emptied default. */
   $('#freshBtn').addEventListener('click', () => {
+    /* A blank canvas in a CLASSIC type is a dead end: those types have no V4
+       handoff build, so nothing authored there can be uploaded back into the
+       production system. Send the author to the go-forward editor instead of
+       letting them fill in a format that cannot leave. Deliberately does NOT
+       blank anything on arrival — that editor may hold a draft of its own, and
+       destroying it to save a click would be the worse trade. */
+    if (!type.goForward) {
+      const fwd = (window.AitheraStudio.list({ goForwardOnly: true })[0] || {}).id;
+      if (fwd && fwd !== type.id) {
+        if (!confirm('New scenarios are authored in the go-forward format, because that is the one that produces the file you upload back.\n\nOpen that editor? Nothing here is changed, and you click "Blank canvas" there to start.')) return;
+        location.href = location.pathname + '?type=' + encodeURIComponent(fwd);
+        return;
+      }
+    }
     if (!confirm('Start a brand-new scenario in this mode?\n\nThis clears every field so you can author from scratch. Your published copy and saved library entries are untouched — Export first if you want to keep the current draft.')) return;
     scenario = type.normalize(type.blank ? type.blank() : clone(type.DEFAULT));
     if (playtestHandle) playtestHandle.reset();

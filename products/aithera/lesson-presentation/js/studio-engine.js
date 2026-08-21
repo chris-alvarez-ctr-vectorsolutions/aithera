@@ -31,7 +31,22 @@
     return type;
   }
   function get(id) { return TYPES[id] || null; }
-  function list() { return Object.keys(TYPES).map((id) => TYPES[id]); }
+  /* list() — every registered type, in registration order.
+     list({ goForwardOnly: true }) — only types a NEW scenario may be authored in.
+
+     The distinction matters because of where the output goes. A scenario is
+     authored here and then uploaded back into the production system as a V4
+     document, and only the go-forward type can produce one: the classic types
+     have no handoff build at all. Offering them for new work lets someone spend
+     an afternoon in a format that cannot leave the tool. They stay registered —
+     existing links, saved drafts and the scenarios they already describe keep
+     working — they are just no longer on offer for something new. */
+  function list(opts) {
+    const all = Object.keys(TYPES).map((id) => TYPES[id]);
+    if (!opts || !opts.goForwardOnly) return all;
+    const fwd = all.filter((t) => t && t.goForward === true);
+    return fwd.length ? fwd : all;      // never leave the caller with nothing
+  }
 
   /* ---- per-type localStorage keys --------------------------------------
      Namespaced by type id so publishing one type never collides with

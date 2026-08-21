@@ -328,7 +328,12 @@
        author picks WHICH on the first step, exactly like the editor's
        core-interaction templates. The chosen type drives the interview,
        the generation plan, and where the draft lands. */
-    const registry = (window.AitheraStudio && window.AitheraStudio.list) ? window.AitheraStudio.list() : [ctx.type];
+    /* NEW scenarios only — the classic types are still registered and still
+       editable, but they cannot produce the V4 document that gets uploaded back,
+       so they are not offered as a starting point. */
+    const registry = (window.AitheraStudio && window.AitheraStudio.list)
+      ? window.AitheraStudio.list({ goForwardOnly: true })
+      : [ctx.type];
     if (!registry.some((t) => t && t.wizard)) return null;
 
     let chosen, spec, intakeKey, intake, gen, describeStep;
