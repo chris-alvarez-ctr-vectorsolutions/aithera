@@ -920,13 +920,17 @@
   }
 
   /* =======================================================================
-     THE ARC OVERVIEW — what the Steps section shows now
+     THE ARC SUMMARY — what is left of the Steps section
      -----------------------------------------------------------------------
-     Not an editor any more: the steps each have their own rail entry and their
-     own pane, so this card's job is the one thing the focus view cannot do —
-     show the whole arc at once, in order. A row is a way IN, plus the same ⋯
-     commands the rail offers, so an author reading the arc never has to travel
-     to the rail to act on what they just read.
+     This was a list of the steps. So is the rail, three levels of it, sitting
+     open on the same screen — and the same list twice is not an overview, it
+     is a second thing to keep in sync in the reader's head.
+
+     What survives is only what the rail CANNOT say: the order as one readable
+     line, and the arc's cost — every turn budget added up, which is the
+     conversation cap POC V4 derives (scenario-v4.js §2: the opening, every
+     practice, every debrief). Nothing else on screen carries that number, and
+     it is the one an author tunes pacing against.
      ==================================================================== */
   function buildPhasesEditor(H) {
     const { esc } = H;
@@ -935,34 +939,45 @@
 
     if (!phases.length) {
       const p = document.createElement('p');
+      p.className = 'arc-none';
       p.textContent = 'No steps yet — add the first one below, or from the list on the left.';
-      p.style.cssText = 'color:var(--ink-soft);margin:8px 0';
       wrap.append(p);
+    } else {
+      const box = document.createElement('div');
+      box.className = 'arc-line';
+
+      const seq = document.createElement('p');
+      seq.className = 'arc-seq';
+      phases.forEach((phase, i) => {
+        const ph = obj(phase);
+        if (i) {
+          const arrow = document.createElement('i');
+          arrow.className = 'fa-solid fa-arrow-right arc-arrow';
+          arrow.setAttribute('aria-hidden', 'true');
+          seq.append(arrow);
+        }
+        const m = modeMeta(obj(ph.practice).mode);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'arc-chip';
+        b.title = m.label + ' — open this step';
+        b.innerHTML = '<span class="arc-n">' + (i + 1) + '</span>'
+          + esc(str(ph.label).trim() || str(ph.id).trim() || 'Step ' + (i + 1));
+        b.addEventListener('click', () => H.goToItem('phases', i));
+        seq.append(b);
+      });
+      box.append(seq);
+
+      const v4 = V4();
+      const cap = v4 ? v4.validate(prune(withoutShellKeys(normalize(H.getScenario())))).cap : null;
+      const foot = document.createElement('p');
+      foot.className = 'arc-cost';
+      foot.innerHTML = '<b>' + phases.length + ' step' + (phases.length > 1 ? 's' : '') + '</b>'
+        + (cap == null ? '' : ' · <b>' + cap + ' learner turns</b> in total — the conversation cap the '
+          + 'production engine derives from these budgets, opening reflection included.');
+      box.append(foot);
+      wrap.append(box);
     }
-
-    phases.forEach((phase, i) => {
-      const ph = obj(phase);
-      const practice = obj(ph.practice);
-      const m = modeMeta(practice.mode);
-      const turns = obj(obj(practice.exit).when).turns;
-      const fut = obj(ph.debrief).follow_up_turns;
-
-      const row = document.createElement('div');
-      row.className = 'arc-row';
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'arc-open';
-      open.innerHTML = '<span class="arc-n">' + (i + 1) + '</span>'
-        + '<b class="arc-name">' + esc(str(ph.label).trim() || str(ph.id).trim() || 'Step ' + (i + 1)) + '</b>'
-        + '<span class="arc-mode"><i class="fa-solid ' + m.icon + '"></i>' + esc(m.label) + '</span>'
-        + '<span class="arc-turns">practice ' + esc(String(turns == null ? '—' : turns)) + ' turns · debrief '
-        + esc(fut === 0 ? 'delivery-only' : fut + ' turns') + '</span>'
-        + '<i class="fa-solid fa-angle-right arc-go" aria-hidden="true"></i>';
-      open.addEventListener('click', () => H.goToItem('phases', i));
-      row.append(open);
-      if (H.itemMenu) row.append(H.itemMenu('phases', i));
-      wrap.append(row);
-    });
 
     const add = document.createElement('button');
     add.type = 'button';
