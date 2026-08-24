@@ -1441,7 +1441,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     lints,
     highlightStrings,
     toMixArc,
-    previewUrl: () => 'scenario-live.html?type=guided-arc',   // [Option B] the converged universal player (guided-arc plays as a recipe via toMixArc); was guided-arc-live.html
+    previewUrl: () => 'composed-scenarios/index.html?type=guided-arc',   // [Option B] the converged universal player (guided-arc plays as a recipe via toMixArc); was guided-arc-live.html
     playtest: { presets: PT_PRESETS, build: buildPlaytest },
     store: S.makeStore(S.makeKeys('guided-arc'), { isValid, normalize }),
   };

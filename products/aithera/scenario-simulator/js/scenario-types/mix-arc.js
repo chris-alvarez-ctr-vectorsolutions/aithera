@@ -1694,7 +1694,7 @@ ${closer}`);
     toRuntime,
     fill,
     highlightStrings,
-    previewUrl: () => 'scenario-live.html?type=mix-arc',   // [Option B] the converged generic player (stable URL; survives the sim-player extraction)
+    previewUrl: () => 'composed-scenarios/index.html?type=mix-arc',   // [Option B] the converged generic player (stable URL; survives the sim-player extraction)
     sections,
     renderFields,
     lints,

@@ -762,7 +762,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
     // bespoke branching-arc-live.html; migrated onto the shared runtime with its
     // OWN toRuntime + compile (no toMixArc round-trip). branching-arc-live.html
     // is frozen in archive/2026-08-04/.
-    previewUrl: () => 'scenario-live.html?type=branching-arc',
+    previewUrl: () => 'composed-scenarios/index.html?type=branching-arc',
     // NOTE: no studio editor surface (sections / renderFields / lints /
     // playtest). Branching Arc is authored by hand in DEFAULT and run by its
     // live page — it is intentionally NOT registered into the studio, so it

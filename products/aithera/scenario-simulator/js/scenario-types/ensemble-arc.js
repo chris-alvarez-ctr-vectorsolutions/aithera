@@ -1274,7 +1274,7 @@ ${groundLines.join('\n')}`);
     // bespoke ensemble-arc-live.html; migrated onto the shared runtime with its
     // OWN toRuntime + compile (no toMixArc round-trip). ensemble-arc-live.html is
     // frozen in archive/2026-08-04/.
-    previewUrl: () => 'scenario-live.html?type=ensemble-arc',
+    previewUrl: () => 'composed-scenarios/index.html?type=ensemble-arc',
     sections,
     renderFields,
     lints,

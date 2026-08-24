@@ -10,31 +10,26 @@
          previewUrl the shared scenario TYPES hand back, resolves against the product
          root. One <base> keeps all of them correct instead of rewriting each, and
          nothing here uses an in-page #anchor, which is the one thing <base> would
-         break. NOTE for forked surface files: because <base> points at the product
-         root, a copy living beside this page is referenced as
-         scenario-editor/sandbox/js/<file>.js — not js/<file>.js, which would load
-         the SHARED one. -->
-    <base href="../../">
+         break. -->
+    <base href="../">
 
-    <!-- CHANNEL — declared BEFORE studio-engine.js loads, because the types build
-         their stores at registration time. This is what keeps an experiment here off
-         an author's real work: draft and library get their own localStorage keys, so
-         nothing typed in this build can overwrite a scenario someone is authoring in
-         the stable editor. The publish→live buffer stays shared on purpose, so the
-         playtest still opens in the player. See js/studio-engine.js. -->
+    <!-- CHANNEL ROUTER — /scenario-editor/ is always the STABLE editor. ?v=<n> hands
+         off to an in-progress build, forwarding every other parameter, because the
+         links people actually share carry ?type= and ?example= and must survive the
+         hop. Runs before anything loads so the stable app never boots first. -->
     <script>
-      window.STUDIO_CHANNEL = 'sandbox';
-      // ?v=1 goes back to stable, carrying every other parameter with it
       (function () {
+        var v = new URLSearchParams(location.search).get('v');
+        if (!v || v === '1' || v === 'stable') return;      // bare URL = stable
         var q = new URLSearchParams(location.search);
-        var v = q.get('v');
-        if (v !== '1' && v !== 'stable') return;
         q.delete('v');
         var rest = q.toString();
-        location.replace('../' + (rest ? '?' + rest : '') + location.hash);
+        // location-derived so it holds on file://, localhost and Pages alike
+        var dir = location.pathname.replace(/[^/]*$/, '');
+        location.replace(dir + 'sandbox/' + (rest ? '?' + rest : '') + location.hash);
       })();
     </script>
-    <title>Scenario Editor — Sandbox</title>
+    <title>Scenario Editor — Stable</title>
 
     <!-- Vector Web Components: Core -->
     <script type="module"
@@ -179,7 +174,7 @@
     <span class="dot"></span><span id="pubText">Not published yet — the learner prototype is running the shipped scenario.</span>
     <button class="unpub" id="unpublishBtn" hidden>Unpublish (revert prototype to shipped)</button>
     <div class="pubactions">
-      <a class="preview-link" id="previewLink" href="action-practice-live.html" target="_blank" rel="noopener">
+      <a class="preview-link" id="previewLink" href="composed-scenarios/index.html" target="_blank" rel="noopener">
         <i class="fa-solid fa-arrow-up-right-from-square"></i> Learner preview
       </a>
       <vaadin-button theme="primary" id="publishBtn"><i class="fa-solid fa-paper-plane" slot="prefix"></i> Publish to prototype</vaadin-button>
@@ -252,14 +247,6 @@
        registration order below is the order they appear in the mode picker.
        action-practice also keeps window.AitheraScenario for the live pages. -->
   <script src="js/scenario.js?v=16"></script>
-  <script src="js/scenario-types/guided-arc.js?v=24"></script>
-  <!-- observe-react RETIRED 2026-08-05: its one experience (the I-65 Tanker
-       scene size-up) is now the 'hazmat-scene-size-up' Mix & Match example, on
-       the universal engine. The type had no universal runtime, so it's no longer
-       offered for authoring; the standalone hazmat-scene-practice.html remains as
-       a dead legacy page. -->
-  <script src="js/scenario-types/teach-back.js?v=9"></script>
-  <script src="js/scenario-types/scene-sweep.js?v=19"></script>
   <script src="js/scenario-types/ensemble-arc.js?v=14"></script>
   <!-- [V2] Mix & Match — the composed-beat type: an ordered list of beats, one
        interaction type each (coach-led / roleplay / observe), riding the shared
@@ -280,6 +267,21 @@
   <script src="js/scenario-v4-runtime.js?v=4"></script>
   <script src="js/scenario-v4-scopes.js?v=2"></script>
   <script src="js/scenario-v4-templates.js?v=2"></script>
+  <!-- WHAT IS DELIBERATELY NOT LOADED HERE
+       The classic scenario types are no longer authored: content for them does not
+       matter any more, so the editor does not offer them and does not carry their
+       fields, lints or wizards. Removed from this page: guided-arc, scene-sweep and
+       teach-back, plus five studio modules that only ever supplied their "draft with
+       AI" interviews.
+
+       Three classic modules DO stay, as dependencies rather than as options:
+       mix-arc is the compiler the go-forward type funnels through, and
+       ensemble-arc and scenario.js (action-practice) supply prompt sections it
+       reads. They register as types, so an explicitly typed ?type= URL can still
+       reach them — nothing offers that path.
+
+       All of them are still loaded by the PLAYER, which is what runs the example
+       interactions the dev team references. -->
   <script src="js/scenario-types/v4-universal.js?v=13"></script>
   <!-- [V2] Shared wizard craft: intake helpers + the invariant coach-voice
        atoms (banned phrases, grounding, JSON-output rule). Loaded BEFORE the
@@ -290,23 +292,6 @@
        language, and the wizard's interview + generation spec). Loaded
        AFTER the type modules so they can re-present the registered type. -->
   <script src="js/studio-wizard.js?v=14"></script>
-  <script src="js/studio-v2-guided-arc.js?v=10"></script>
-  <!-- [V2] wizard specs for the OTHER three interaction types (Roleplay /
-       Teach-Back / Observe-React) — the wizard's "What are you building?"
-       step offers every type that has one. -->
-  <script src="js/studio-v2-wizards.js?v=8"></script>
-  <!-- [V2] the Ensemble wizard spec — its own module (the richest schema:
-       canon · cast + earned disclosures · cross-phase state · per-phase
-       generation). Loaded after the ensemble-arc type module. -->
-  <script src="js/studio-v2-ensemble-wizard.js?v=2"></script>
-  <!-- [V2] the Scene Sweep wizard spec — its own module (bespoke schema: a
-       visual scene + a perception rubric; the 2-beat Observe → Diagnose &
-       Remediate arc). The photo + hotspots stay a manual editor step.
-       Loaded after the scene-sweep type module. -->
-  <script src="js/studio-v2-scene-sweep-wizard.js?v=2"></script>
-  <!-- [V2] the Mix & Match wizard spec — generates an ordered beat list from a
-       one-line brief (one generation task per beat). Loaded after mix-arc.js. -->
-  <script src="js/studio-v2-mix-arc-wizard.js?v=2"></script>
   <!-- [V2] the Universal Scenario wizard spec — the go-forward format's own
        interview. Authors Scenario CML v4 directly: the scene world is drafted
        BEFORE the steps (a roleplay's character_id must name a declared
@@ -316,7 +301,6 @@
 
   <!-- Studio shell app logic (extracted from this file). -->
   <script src="js/studio-shell.js?v=10"></script>
-
   <!-- ===== BUILD NOTICE ==================================================
        Identical in both builds ON PURPOSE — it reads the channel rather than
        being hand-edited per file, so copying this block between the stable and

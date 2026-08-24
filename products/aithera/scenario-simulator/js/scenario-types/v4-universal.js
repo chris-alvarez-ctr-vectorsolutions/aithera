@@ -1463,7 +1463,7 @@
        geometry, so the photo/hotspot canvas cannot hit-test). Harmless when the
        scenario has no observe step — the flag gates a surface that only mounts
        for kind:'spot'. */
-    previewUrl: () => 'scenario-live.html?type=v4-universal&observe=text',
+    previewUrl: () => 'composed-scenarios/index.html?type=v4-universal&observe=text',
     /* The production handoff artifact, surfaced by the shell's Export flow
        (`type.handoff` — optional, so types without one keep a plain download).
        It used to be a form section on the last page of the editor, which put the

@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Scenario Player — PEEK-COACH prototype (docked coach lip; tap to step out)</title>
+
+    <!-- ARCHIVED. Base points at the simulator directory so this page still
+         opens: its js/ and ../assets/ paths resolve exactly as they did before
+         the move. Not maintained. -->
+    <base href="../">
+    <title>Scenario Player — LABEL-MODE prototype (no toggle; label + step-out)</title>
 
     <!-- Dark mode is OPT-IN. Vector products are light-only, so scenarios default to light
          regardless of the OS setting. Set window.SCENARIO_ALLOW_DARK = true (before this runs)
@@ -1054,62 +1059,6 @@
       .app.coach-up .coach-panel { transform: none; }
       @media (max-height: 620px) { .coach-panel { max-height: 62vh; } }
 
-      /* [peek prototype] Option 2 — the coach never fully leaves. In the scene a
-         slim docked lip sits right on top of the composer; tap it to rise into the
-         coach (step out / open a queued debrief). It hides once the full sheet is
-         up, and returns when you tap "Back to practice". Collapsed = practice,
-         expanded = coaching, so the state IS the label — no top strip needed. */
-      .mode-indicator { display: none !important; }   /* the empty status bar is gone in this variant */
-
-      /* [peek prototype v2] A floating, scene-toned coach dock. Two fixes over v1:
-         (1) it hovers CLEARLY above the composer instead of tucking behind it, and
-         (2) it wears the warm-dark practice palette so it belongs to the scene
-         rather than reading as a bright white slab. It only ever shows in scene
-         mode, so the dark treatment is the base. */
-      .coach-peek {
-        position: fixed; left: 0; right: 0; bottom: calc(var(--input-h) + 40px);
-        z-index: 52; margin-inline: auto;
-        width: calc(100% - 32px); max-width: 720px;   /* aligns to the composer's width */
-        display: flex; align-items: center; gap: 12px;
-        padding: 13px 16px;
-        background: linear-gradient(180deg, rgba(40, 31, 22, .97), rgba(31, 24, 17, .97));
-        border: 1px solid #3d3128;
-        border-radius: 14px;                            /* a self-contained floating card */
-        box-shadow: 0 12px 30px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .05);
-        cursor: pointer; text-align: left; font: inherit; color: var(--s-ink);
-        transition: transform .16s var(--ease), box-shadow .16s var(--ease), border-color .16s var(--ease);
-      }
-      .coach-peek[hidden] { display: none; }
-      .coach-peek:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(0, 0, 0, .5); border-color: #4a3d31; }
-      .coach-peek:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--s-you-soft), 0 12px 30px rgba(0, 0, 0, .42); }
-      /* drag grabber on the top edge — signals "pull me up" */
-      .coach-peek .grab {
-        position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-        width: 34px; height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .16);
-      }
-      .coach-peek .cp-avatar {
-        flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-        background: rgba(2, 113, 206, .92); color: #fff;   /* one small blue accent = the coach */
-        display: grid; place-items: center; font-size: 13px;
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
-      }
-      .coach-peek .cp-label {
-        flex: 0 0 auto; font-size: 12px; font-weight: 800; letter-spacing: .06em;
-        text-transform: uppercase; color: var(--s-ink-soft);
-      }
-      .coach-peek .cp-prev {
-        flex: 1 1 auto; min-width: 0;
-        font-size: 13px; color: var(--s-ink-faint); font-style: italic;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      .coach-peek .cp-chev {
-        flex: 0 0 auto; color: var(--s-you); font-size: 13px; font-weight: 700;   /* amber = "your move" */
-        display: inline-flex; align-items: center; gap: 7px;
-      }
-      /* a queued debrief warms the dock border to pull attention */
-      .coach-peek.has-feedback { border-color: var(--s-you); box-shadow: 0 12px 30px rgba(0, 0, 0, .42), 0 0 0 1px rgba(241, 179, 74, .4); }
-      .coach-peek.has-feedback .cp-prev { color: #f3ddb8; font-style: normal; font-weight: 600; }
-
       .coach-panel-head {
         flex: 0 0 auto;
         display: flex;
@@ -1538,16 +1487,6 @@
         </div>
         <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
       </aside>
-
-      <!-- [peek prototype] Docked coach lip — the collapsed coach dock shown in the
-           scene. Tapping it rises into the coach (step out). -->
-      <button class="coach-peek" id="coachPeek" type="button" hidden aria-label="Step out to your AI coach">
-        <span class="grab" aria-hidden="true"></span>
-        <span class="cp-avatar"><i class="fa-solid fa-chalkboard-user"></i></span>
-        <span class="cp-label">AI&nbsp;Coach</span>
-        <span class="cp-prev" id="coachPeekPrev">Need a hand? Tap to talk it through.</span>
-        <span class="cp-chev"><span id="coachPeekCta">Step out</span> <i class="fa-solid fa-chevron-up"></i></span>
-      </button>
 
       <!-- Input bar ----------------------------------------------------- -->
       <footer class="inputbar">
@@ -2113,9 +2052,6 @@
     const composer      = document.getElementById('composer');
     const sendBtn       = document.getElementById('sendBtn');
     const inputMain     = document.getElementById('inputMain');
-    const coachPeek     = document.getElementById('coachPeek');       // [peek] docked coach lip
-    const coachPeekPrev = document.getElementById('coachPeekPrev');
-    const coachPeekCta  = document.getElementById('coachPeekCta');
     const inputEntry    = document.getElementById('inputEntry');
     const inputAnalyzing= document.getElementById('inputAnalyzing');
     const inputWatching = document.getElementById('inputWatching');
@@ -2794,33 +2730,6 @@
              <i class="fa-solid ${curIcon}"></i> ${curLabel}
            </span>${escBtn}
          </div>`;
-
-      /* —— [peek prototype] The docked coach lip. Shown only while the learner is
-         in the scene and could step out; tapping it rises into the coach. The full
-         sheet (coach-up) hides it — the lip IS the collapsed sheet. Sweep keeps its
-         own on-canvas crossings, so the lip stays a conversational-scene affordance. —— */
-      const peekShow = !mtSpec && state.started && inScene && hasEnteredScene
-        && !complete && !busy && !state.videoPlaying && !state.audioIntroPlaying;
-      coachPeek.hidden = !peekShow;
-      if (peekShow) {
-        coachPeek.classList.toggle('has-feedback', !!state.awaitingDebrief);
-        if (state.awaitingDebrief) {
-          coachPeekPrev.textContent = 'Your coach has feedback — tap to hear it';
-          coachPeekPrev.style.fontStyle = 'normal';
-          coachPeekCta.textContent = 'See feedback';
-        } else {
-          const lastCoach = [...state.messages].reverse().find((m) => m.kind === 'coaching' && m.text);
-          if (lastCoach) {
-            const t = lastCoach.text.replace(/\s+/g, ' ').trim();
-            coachPeekPrev.textContent = '“' + (t.length > 80 ? t.slice(0, 80) + '…' : t) + '”';
-            coachPeekPrev.style.fontStyle = 'italic';
-          } else {
-            coachPeekPrev.textContent = 'Need a hand? Tap to talk it through.';
-            coachPeekPrev.style.fontStyle = 'italic';
-          }
-          coachPeekCta.textContent = 'Step out';
-        }
-      }
 
       /* —— Practice base (ALWAYS the base layer) ——
          Pre-entry → an establishing card; entered → the live scene. Dimmed,
@@ -4103,14 +4012,6 @@
       if (state.mode === 'coaching') return;           // already with the coach
       if (state.awaitingDebrief) openDebrief();         // open the queued debrief / results
       else stepOut();                                   // or take a manual timeout
-    });
-
-    /* [peek prototype] Tap the docked coach lip → rise into the coach. Same routing
-       as the old escape button: open a queued debrief, else a manual step-out. */
-    coachPeek.addEventListener('click', () => {
-      if (coachPeek.hidden || state.mode === 'coaching') return;
-      if (state.awaitingDebrief) openDebrief();
-      else stepOut();
     });
     document.getElementById('restartBtn').addEventListener('click', restart);
 

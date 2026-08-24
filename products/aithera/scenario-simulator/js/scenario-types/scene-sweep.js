@@ -1615,7 +1615,7 @@ Reveal the misses ONLY in the debrief, after the coverage target is met.`);
     // perception layer (js/sim-perception.js). Was the bespoke scene-sweep-live.html;
     // migrated onto the shared runtime with its OWN toRuntime + compile. The bespoke
     // page is frozen in archive/2026-08-04/.
-    previewUrl: (s) => 'scenario-live.html?type=scene-sweep' + (s && obj(s.observe).surface === 'text' ? '&observe=text' : ''),
+    previewUrl: (s) => 'composed-scenarios/index.html?type=scene-sweep' + (s && obj(s.observe).surface === 'text' ? '&observe=text' : ''),
     sections,
     renderFields,
     lints,
