@@ -830,14 +830,16 @@
     toast('Unpublished — prototype reverted to the shipped scenario');
   });
 
-  $('#resetBtn').addEventListener('click', () => {
-    if (!confirm('Reset your draft to the shipped default? This discards your edits (published copies are not affected).')) return;
-    scenario = type.normalize(clone(type.DEFAULT));
-    if (playtestHandle) playtestHandle.reset();
-    setPhase(0);
-    update();
-    toast('Draft reset to the shipped scenario');
-  });
+  /* "Reset to shipped" is gone. It restored type.DEFAULT — which IS one of the
+     seven templates (Mix & Match) — so once the New scenario panel offered every
+     template by name, this was a fourth way to start over wearing a label that
+     told an author nothing about what they would get. DEFAULT itself stays: it is
+     the boot fallback and the pristine-draft check.
+
+     Note it was never related to Unpublish above, despite both saying "shipped":
+     that one reverts the learner prototype, this one overwrote your draft. Two
+     different meanings of the same word in adjacent buttons, which is its own
+     argument for dropping one. */
 
   /* Start fresh — a blank canvas for authoring a NEW scenario in this mode.
      Non-destructive: the published copy and the library are untouched (this
