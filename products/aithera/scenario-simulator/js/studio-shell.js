@@ -991,116 +991,107 @@
     tplOverlay = document.createElement('div');
     tplOverlay.className = 'exp-overlay';
     tplOverlay.innerHTML = `
-      <div class="exp-modal" role="dialog" aria-modal="true" aria-label="New scenario">
+      <div class="exp-modal is-compact" role="dialog" aria-modal="true" aria-label="New scenario">
         <div class="exp-head">
           <div class="exp-titles">
             <div class="exp-title"><i class="fa-solid fa-plus"></i> New scenario</div>
-            <div class="exp-sub">Four ways in, same destination. Whatever is in the editor now is
-              snapshotted to your local drafts first, so nothing is lost by starting over.</div>
           </div>
           <button class="exp-close" type="button" aria-label="Close">Close</button>
         </div>
         <div class="exp-body" id="nsBody"></div>
+        <div class="ns-foot" id="nsFoot"></div>
       </div>`;
     const body = tplOverlay.querySelector('#nsBody');
 
-    const choice = (opts) => {
+    /* Each route is a ROW, not a block: icon + name + one terse line on the left,
+       the action on the right. The long explanation each of these used to carry
+       moved behind the ⓘ — it is worth reading once and never again, which is
+       exactly what a tooltip is for, and keeping it on screen pushed the routes
+       apart and buried the fourth one. */
+    const row = (opts) => {
       const card = document.createElement('section');
-      card.className = 'exp-card' + (opts.primary ? ' is-primary' : '');
+      card.className = 'exp-card ns-row';
       card.innerHTML =
-        `<h3><i class="fa-solid ${esc(opts.icon)}" style="margin-right:7px;color:var(--accent)"></i>${esc(opts.title)}`
-        + (opts.tag ? ` <span class="exp-tag">${esc(opts.tag)}</span>` : '') + `</h3>`
-        + `<p>${opts.html}</p><div class="exp-act"></div>`;
+        `<div class="ns-txt">`
+        + `<b><i class="fa-solid ${esc(opts.icon)}"></i> ${esc(opts.title)}`
+        + (opts.tag ? ` <span class="exp-tag">${esc(opts.tag)}</span>` : '')
+        + (opts.more ? ` <i class="fa-regular fa-circle-question ns-info" tabindex="0" role="img" aria-label="${esc(opts.more)}" title="${esc(opts.more)}"></i>` : '')
+        + `</b>`
+        + `<span class="ns-lede">${esc(opts.lede)}</span>`
+        + `</div><div class="ns-act"></div>`;
       const btn = document.createElement('vaadin-button');
-      btn.setAttribute('theme', opts.primary ? 'primary' : 'primary small');
+      btn.setAttribute('theme', 'primary small');
       btn.textContent = opts.cta;
       btn.addEventListener('click', opts.onClick);
-      card.querySelector('.exp-act').appendChild(btn);
+      card.querySelector('.ns-act').appendChild(btn);
       body.appendChild(card);
       return card;
     };
 
-    /* 1 — AI. Listed first because it is the fastest route to something worth
-       editing, and it is the only one that writes teaching content for you. */
     if (canWizard) {
-      choice({
+      row({
         icon: 'fa-wand-magic-sparkles', title: 'Draft it with AI',
-        html: 'Describe the situation in a sentence or two, answer a short interview, and the '
-            + 'wizard writes a complete first draft — beats, rubrics, coach guidance — for you to '
-            + 'refine.',
+        lede: 'A sentence or two in, a complete first draft out.',
+        more: 'Describe the situation, answer a short interview, and the wizard writes every beat, '
+            + 'rubric and piece of coach guidance for you to refine.',
         cta: 'Start the interview',
         onClick: () => { closeNewScenario(); openWizard(); }
       });
     }
 
-    /* 2 — templates. These were seven stacked rows, which made the shape visible
-       but made the modal long enough to scroll past the other three routes. A
-       select keeps the shape legible — the chain is in each option's label — while
-       collapsing the section to three lines. The description under it updates with
-       the choice, so nothing is hidden behind the dropdown that an author needs in
-       order to pick. */
     if (templates.length) {
-      const card = document.createElement('section');
-      card.className = 'exp-card';
-      card.innerHTML =
-        `<h3><i class="fa-solid fa-shapes" style="margin-right:7px;color:var(--accent)"></i>Start from a template`
-        + ` <span class="exp-tag">${templates.length} shapes</span></h3>`
-        + `<p>Each one is a complete, valid scenario with the teaching content left blank — the shape `
-        + `is decided, the writing is yours.</p>`
-        + `<div class="ns-pick"><select class="ns-select" id="nsTplSelect" aria-label="Template"></select>`
-        + `<span class="exp-act" id="nsTplAct"></span></div>`
-        + `<p class="ns-tpl-note" id="nsTplNote"></p>`;
-      body.appendChild(card);
-
-      const sel = card.querySelector('#nsTplSelect');
+      const card = row({
+        icon: 'fa-shapes', title: 'Start from a template',
+        tag: `${templates.length} shapes`,
+        lede: 'The shape is decided; the writing is yours.',
+        more: 'Each template is a complete, valid scenario with the teaching content left blank, so '
+            + 'the document loads in the production engine from the moment you start.',
+        cta: 'Use this',
+        onClick: () => {
+          const t = templates[Number(sel.value) || 0];
+          closeNewScenario();
+          startFromTemplate(t);
+        }
+      });
+      /* The select sits on its own line under the lede — it is the one route where
+         a decision happens INSIDE the panel rather than after it. */
+      const pick = document.createElement('div');
+      pick.className = 'ns-pick';
+      const sel = document.createElement('select');
+      sel.className = 'ns-select';
+      sel.setAttribute('aria-label', 'Template');
       templates.forEach((t, i) => {
         const opt = document.createElement('option');
         opt.value = String(i);
         const chain = shapeChain(t.shape);
-        opt.textContent = (t.label || t.id) + (chain ? '  —  ' + chain : '');
+        opt.textContent = (t.label || t.id) + (chain ? '  —  ' + chain : '')
+          + (typeof t.toFill === 'number' ? `  ·  ~${t.toFill} fields` : '');
         sel.appendChild(opt);
       });
-      const note = card.querySelector('#nsTplNote');
-      const describe = () => {
-        const t = templates[Number(sel.value) || 0];
-        note.innerHTML = esc(t.blurb || '')
-          + (typeof t.toFill === 'number' ? ` <b>~${t.toFill} fields to fill.</b>` : '');
-      };
-      sel.addEventListener('change', describe);
-      describe();
-
-      const use = document.createElement('vaadin-button');
-      use.setAttribute('theme', 'primary small');
-      use.textContent = 'Use this';
-      use.addEventListener('click', () => {
-        const t = templates[Number(sel.value) || 0];
-        closeNewScenario();
-        startFromTemplate(t);
-      });
-      card.querySelector('#nsTplAct').appendChild(use);
+      pick.appendChild(sel);
+      card.querySelector('.ns-txt').appendChild(pick);
     }
 
-    /* 3 — open an existing file. This was its own toolbar button next to Export,
-       which put the two halves of the same loop in the same place but hid the fact
-       that opening a file is one of the ways you START. It is the main route for a
-       production scenario, so it sits with the others. */
-    choice({
+    row({
       icon: 'fa-file-import', title: 'Open an existing scenario',
       tag: '.lo.json',
-      html: 'Pick a scenario file — one exported from the production system, or one a '
-          + 'colleague sent you. Edit it here, then Export and upload the file back.',
+      lede: 'Edit a production scenario, then export it back.',
+      more: 'Pick a scenario file — one exported from the production system, or one a colleague sent '
+          + 'you. Editing here and exporting produces the file you upload back.',
       cta: 'Choose a file',
       onClick: () => { closeNewScenario(); const f = $('#importFile'); if (f) f.click(); }
     });
 
-    /* 4 — blank, last: it is the right answer least often. */
-    choice({
-      icon: 'fa-file', title: 'Blank canvas',
-      html: 'An empty scenario. Every field is yours, and the guardrails panel tells you what the '
-          + 'production engine still needs before it will load.',
-      cta: 'Start blank',
-      onClick: () => { closeNewScenario(); startBlank(); }
-    });
+    /* Blank canvas is a link, not a card. It is the right answer rarely enough that
+       giving it equal weight to the three above misrepresented the choice. */
+    const foot = tplOverlay.querySelector('#nsFoot');
+    const blank = document.createElement('button');
+    blank.type = 'button';
+    blank.className = 'ns-blank';
+    blank.innerHTML = '<i class="fa-solid fa-file"></i> Or start from a blank canvas';
+    blank.title = 'An empty scenario. The guardrails panel lists what the production engine still needs.';
+    blank.addEventListener('click', () => { closeNewScenario(); startBlank(); });
+    foot.appendChild(blank);
 
     tplOverlay.querySelector('.exp-close').addEventListener('click', closeNewScenario);
     tplOverlay.addEventListener('click', (e) => { if (e.target === tplOverlay) closeNewScenario(); });
