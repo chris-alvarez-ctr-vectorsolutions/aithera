@@ -426,7 +426,9 @@
     // BASIC mode swaps the spec's steps for the describe step until the
     // outline lands — then they open, pre-filled, between the two.
     const steps = () => {
-      const head = [{ id: '__type', title: 'What are you building?', sub: '' }];
+      /* With one type on offer this step no longer asks what you are building — it
+         only asks HOW to start, so the rail should not promise a choice of type. */
+      const head = [{ id: '__type', title: registry.length > 1 ? 'What are you building?' : 'How to start', sub: '' }];
       const tail = [{ id: '__generate', title: 'Generate', sub: '' }];
       if (mode() === 'basic') return head.concat([describeStep], intake._outlined ? spec.steps : [], tail);
       return head.concat(spec.steps, tail);
@@ -483,6 +485,21 @@
        back to the flat grid of every type. */
     function renderTypeStep() {
       const body = $w('#wizBody');
+
+      /* ONE type on offer means the type "chooser" is a single card, pre-selected,
+         that cannot be deselected — it looks like a decision and is not one. Since
+         the editor went single-format that is the normal case, so the step drops
+         the gallery and asks the only question actually left: Basic or Advanced.
+         Conditional rather than deleted, so a second go-forward type brings the
+         chooser back on its own. */
+      if (registry.length < 2) {
+        body.innerHTML = `<h2 class="wiz-step-title">How do you want to start?</h2>
+          <p class="wiz-step-sub">You are authoring a ${esc((registry[0] || {}).label || 'scenario')}.
+             Both routes end in the same editor — this only decides how much of the first draft you write yourself.</p>`;
+        renderModePicker(body, { labelled: false });
+        return;
+      }
+
       body.innerHTML = `<h2 class="wiz-step-title">What are you building?</h2>
         <p class="wiz-step-sub">${esc(customType
           ? 'New scenarios start as a Universal Scenario. The classic shapes below stay available for editing existing ones. Switch anytime — nothing’s lost.'
@@ -579,10 +596,14 @@
 
     /* Basic / Advanced — how much of the interview the designer answers
        themselves. Remembered with the rest of this type's intake. */
-    function renderModePicker(body) {
+    /* `labelled: false` when the step heading already asks the question — otherwise
+       the standalone version of this step says "How do you want to start?" twice,
+       once as the title and once as the picker's own label. */
+    function renderModePicker(body, opts) {
       const modes = document.createElement('div');
       modes.className = 'wiz-chips wiz-modes';
-      modes.innerHTML = '<span class="wiz-chips-label">How do you want to start?</span>';
+      modes.innerHTML = (opts && opts.labelled === false)
+        ? '' : '<span class="wiz-chips-label">How do you want to start?</span>';
       const mrow = document.createElement('div');
       mrow.className = 'row';
       [{ id: 'basic', ic: 'fa-bolt', t: 'Basic — we draft it for you',
