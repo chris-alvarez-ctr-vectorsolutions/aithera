@@ -1212,11 +1212,12 @@
             index: i,
             total: widgets.length
           });
-        }).join('') + '</div>' +
-      (!locked
-        ? '<div style="margin-top:14px"><vaadin-button theme="secondary" id="cpAddWidget">' +
-          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add widget</span></vaadin-button></div>'
-        : '');
+        }).join('') +
+        // The add affordance is a tile INSIDE the grid, not a small button under
+        // it. As a real grid item, CSS auto-placement drops it beside the last
+        // card when that row still has room and below it when it doesn't — so
+        // "where the next widget goes" is always shown at widget scale.
+        (!locked ? addWidgetTile() : '') + '</div>';
     }
 
     return '<div class="cp-build">' + bar + previewBanner +
@@ -1224,6 +1225,20 @@
       '<div class="cp-canvas">' + canvas + '</div>' +
       (locked ? '' : agencyIntelPanel()) +
       '</div></div>';
+  }
+
+  // The empty "your next widget lands here" slot that sits in the canvas grid.
+  // It keeps the id #cpAddWidget so the existing click handler — and the builder
+  // dialog it opens — are unchanged. Deliberately NOT a .cpw-card: the drag,
+  // resize, keyboard-reorder and select handlers all key off that class and
+  // would otherwise try to treat this tile as a widget.
+  function addWidgetTile() {
+    return '<button type="button" class="cpw-add" id="cpAddWidget" ' +
+      'aria-label="Add a widget to this dashboard">' +
+      '<span class="cpw-add-mark" aria-hidden="true">' + micon('add', { size: 24 }) + '</span>' +
+      '<span class="cpw-add-title">Add widget</span>' +
+      '<span class="cpw-add-sub">Chart a metric, build a table, or ask Agency ' +
+      'Intelligence to draft one</span></button>';
   }
 
   // Export the whole dashboard — PDF (print) or CSV. Sits beside Publish.
