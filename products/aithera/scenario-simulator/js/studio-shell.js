@@ -18,9 +18,20 @@
      absent/unknown falls back to action-practice so old bookmarks keep
      working. Everything below talks to `type`, never to one pedagogy. */
   const TYPE_ID = new URLSearchParams(location.search).get('type');
-  // [V2] defaults to Guided Arc — the mode the Learn/Practice split and the
-  // start-from-scratch wizard are built for. ?type= still picks any mode.
-  const type = window.AitheraStudio.get(TYPE_ID) || window.AitheraStudio.get('guided-arc');
+  /* Resolve ?type=, and NEVER end up with null. The editor no longer loads the
+     retired types' modules, so a link someone bookmarked months ago —
+     ?type=guided-arc, ?type=scene-sweep, ?type=teach-back — asks for a type that
+     is not registered here any more. That used to hand back null and crash on the
+     next line, which is a hostile way to retire a format: a blank screen and a
+     console error, from a URL that worked yesterday.
+
+     Fall back to the go-forward type, and say so once the UI exists to say it in.
+     The old default was 'guided-arc', which is itself now one of the retired
+     ones. */
+  const RETIRED_TYPE = !!(TYPE_ID && !window.AitheraStudio.get(TYPE_ID));
+  const type = window.AitheraStudio.get(TYPE_ID)
+    || window.AitheraStudio.list({ goForwardOnly: true })[0]
+    || window.AitheraStudio.list()[0];
 
   /* ---- draft state ------------------------------------------------------ */
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -910,6 +921,99 @@
     URL.revokeObjectURL(a.href);
     toast('scenario.json downloaded');
   }
+
+  /* ---- START FROM A TEMPLATE --------------------------------------------
+     The type ships a gallery of starting points (type.templates() / .template(id),
+     the same optional-capability shape as type.handoff — the shell still never asks
+     which pedagogy it is editing). Nothing surfaced it, so in practice an author
+     got exactly ONE of them: whichever is the type's default document. The other six
+     were reachable only from code.
+
+     A template is a starting point, not an example to study: picking one REPLACES
+     the draft, so it confirms first. `.template(id)` already hands back a deep copy,
+     so the gallery can never be edited by accident. */
+  const SHAPE_STEP = { C: 'Coach', R: 'Roleplay', O: 'Observe' };
+  const shapeChain = (shape) => String(shape || '').split('')
+    .map((c) => SHAPE_STEP[c]).filter(Boolean).join(' → ');
+
+  let tplOverlay = null;
+  const onTplKey = (e) => { if (e.key === 'Escape') closeTemplates(); };
+  function closeTemplates() {
+    if (!tplOverlay) return;
+    tplOverlay.remove();
+    tplOverlay = null;
+    document.removeEventListener('keydown', onTplKey);
+  }
+
+  function openTemplates() {
+    closeTemplates();
+    const list = (typeof type.templates === 'function' && type.templates()) || [];
+    if (!list.length) { toast('This mode ships no templates'); return; }
+    tplOverlay = document.createElement('div');
+    tplOverlay.className = 'exp-overlay';
+    tplOverlay.innerHTML = `
+      <div class="exp-modal" role="dialog" aria-modal="true" aria-label="Start from a template">
+        <div class="exp-head">
+          <div class="exp-titles">
+            <div class="exp-title"><i class="fa-solid fa-shapes"></i> Start from a template</div>
+            <div class="exp-sub">Each one is a complete, valid scenario with the teaching content left
+              blank — the shape is decided, the writing is yours. Picking one replaces your current draft.</div>
+          </div>
+          <button class="exp-close" type="button" aria-label="Close">Close</button>
+        </div>
+        <div class="exp-body" id="tplBody"></div>
+      </div>`;
+    const body = tplOverlay.querySelector('#tplBody');
+    list.forEach((t) => {
+      const card = document.createElement('section');
+      card.className = 'exp-card';
+      const chain = shapeChain(t.shape);
+      card.innerHTML =
+        `<h3><i class="fa-solid ${esc(t.icon || 'fa-cube')}" style="margin-right:7px;color:var(--accent)"></i>`
+        + `${esc(t.label || t.id)}`
+        + (chain ? ` <span class="exp-tag">${esc(chain)}</span>` : '')
+        + `</h3>`
+        + `<p>${esc(t.blurb || '')}${typeof t.toFill === 'number'
+            ? ` <b>About ${t.toFill} fields to fill in.</b>` : ''}</p>`
+        + `<div class="exp-act"></div>`;
+      const btn = document.createElement('vaadin-button');
+      btn.setAttribute('theme', 'primary small');
+      btn.textContent = 'Start from this';
+      btn.addEventListener('click', () => {
+        if (!confirm(`Start from "${t.label || t.id}"?\n\nThis replaces your current draft. Your published copy and saved library entries are untouched — Export first if you want to keep what is here.`)) return;
+        const doc = typeof type.template === 'function' ? type.template(t.id) : null;
+        if (!doc) { toast('That template could not be loaded'); return; }
+        scenario = type.normalize(doc);
+        closeTemplates();
+        buildForm();
+        if (playtestHandle) playtestHandle.reset();
+        setPhase(0);
+        update();
+        toast(`Started from ${t.label || t.id} — fill it in from the top`);
+      });
+      card.querySelector('.exp-act').appendChild(btn);
+      body.appendChild(card);
+    });
+    tplOverlay.querySelector('.exp-close').addEventListener('click', closeTemplates);
+    tplOverlay.addEventListener('click', (e) => { if (e.target === tplOverlay) closeTemplates(); });
+    document.addEventListener('keydown', onTplKey);
+    document.body.append(tplOverlay);
+  }
+
+  /* The button only exists for a type that ships a gallery. */
+  /* Say what happened to a retired ?type= link, rather than silently showing a
+     different format than the URL asked for. */
+  if (RETIRED_TYPE) {
+    setTimeout(() => toast(`"${TYPE_ID}" is no longer authored here — opened ${type.label} instead. Existing scenarios of that shape still play in the player.`), 400);
+  }
+
+  (function wireTemplateBtn() {
+    const btn = $('#templateBtn');
+    if (!btn) return;
+    const has = typeof type.templates === 'function' && (type.templates() || []).length;
+    if (!has) { btn.hidden = true; return; }
+    btn.addEventListener('click', openTemplates);
+  }());
 
   let exportOverlay = null;
   const onExportKey = (e) => { if (e.key === 'Escape') closeExport(); };
