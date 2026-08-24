@@ -449,7 +449,7 @@
       next.addEventListener('click', () => setPhase(activePhase + 1));
     } else {
       next.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Ready to publish';
-      next.addEventListener('click', () => { const b = $('#publishBtn'); if (b) b.focus(); });
+      next.addEventListener('click', () => { const b = $('#previewBtn'); if (b) b.focus(); });
     }
     foot.append(back, spacer, next);
     form.appendChild(foot);
@@ -588,13 +588,12 @@
       dot.innerHTML = sev ? '<i class="fa-solid fa-circle"></i>' : '';
     });
 
-    /* Publish gating. The reason used to live ONLY in a title attribute, which is
-       a hover — and nobody hovers a control they cannot see. It now also goes into
-       the status line beside the button, which is the sentence an author is already
-       reading to find out whether they have published. */
-    const btn = $('#publishBtn');
-    btn.disabled = errs > 0;
-    btn.title = errs ? `${errs} blocking issue${errs > 1 ? 's' : ''} — see Guardrails` : '';
+    /* Preview is NOT gated on the guardrails. It used to be — it was Publish, and
+       publishing a document the engine would reject made no sense. But previewing
+       a half-built scenario is the main reason to preview at all, and the player
+       handles an incomplete draft (normalize scaffolds, prune strips, compile
+       runs). So the count is recorded for the status line and the toast, and the
+       button always works. */
     blockedCount = errs;
     renderPubState();
   }
@@ -661,11 +660,14 @@
     const unpub = $('#unpublishBtn');
     const pub = type.store.loadPublished();
     strip.classList.remove('is-live', 'is-stale');
+    /* Reworded away from publish vocabulary. An author does not care whether a
+       thing is "published"; they care whether the player is showing what they just
+       wrote, and whether the tab they already have open is stale. */
     const blocked = blockedCount > 0
-      ? ` ${blockedCount} field${blockedCount > 1 ? 's' : ''} still block${blockedCount > 1 ? '' : 's'} publishing — see Guardrails.`
+      ? ` ${blockedCount} field${blockedCount > 1 ? 's' : ''} still missing — see Guardrails.`
       : '';
     if (!pub) {
-      text.textContent = 'Not published — the learner prototype is running the shipped scenario.' + blocked;
+      text.textContent = 'The player is showing the shipped scenario. Preview to load this draft into it.' + blocked;
       unpub.hidden = true;
       return;
     }
@@ -673,10 +675,10 @@
     const when = pub.savedAt ? new Date(pub.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
     if (JSON.stringify(pub.scenario) === JSON.stringify(scenario)) {
       strip.classList.add('is-live');
-      text.textContent = `Published ${when} — the learner prototype (in this browser) is running this exact draft.` + blocked;
+      text.textContent = `The player is running this exact draft (loaded ${when}).` + blocked;
     } else {
       strip.classList.add('is-stale');
-      text.textContent = `Published ${when}, but your draft has unpublished changes.` + blocked;
+      text.textContent = `The player is running an older version of this draft (${when}) — preview again to update it.` + blocked;
     }
   }
 
@@ -688,8 +690,8 @@
     renderPubState();
     refreshGuardrailText();
     if (playtestHandle) playtestHandle.refreshTarget();
-    // The type decides which learner page the preview link points at.
-    $('#previewLink').href = type.previewUrl(scenario);
+    // The type still decides which learner page Preview opens; it is read at
+    // click time now rather than kept in an href.
   }
 
   /* =======================================================================
@@ -827,22 +829,29 @@
   studioApi.setAside = setAside;
 
   /* ---- top bar actions ----------------------------------------------------- */
-  $('#publishBtn').addEventListener('click', () => {
+  /* PREVIEW — one step, because the two it replaces were a trap. "Learner
+     preview" opened the player, and the player reads the PUBLISHED copy, not the
+     draft — so previewing without publishing first showed you the shipped
+     scenario and none of your work. The only way to find that out was to notice
+     your edits missing. Publishing is the mechanism, not the intent; the intent is
+     "let me see this". So: write the draft to the slot the player reads, then open
+     it, in one click. */
+  $('#previewBtn').addEventListener('click', () => {
     renderLints();
-    if (currentLints.some((l) => l.severity === 'err')) {
-      toast('Fix the blocking issues first — see Guardrails');
-      return;
-    }
     type.store.publish(scenario);
     renderPubState();
-    toast('Published — reload the learner preview to run it');
+    const url = type.previewUrl(scenario);
+    window.open(url, '_blank', 'noopener');
+    toast(blockedCount
+      ? `Previewing with ${blockedCount} field${blockedCount > 1 ? 's' : ''} still missing — it may not run cleanly`
+      : 'Preview opened in a new tab');
   });
 
   $('#unpublishBtn').addEventListener('click', () => {
-    if (!confirm('Unpublish? The learner prototype goes back to the shipped scenario. Your draft here is untouched.')) return;
+    if (!confirm('Clear this draft from the player? It goes back to the shipped scenario. Your draft here is untouched.')) return;
     type.store.clearPublished();
     renderPubState();
-    toast('Unpublished — prototype reverted to the shipped scenario');
+    toast('Cleared — the player is back on the shipped scenario');
   });
 
   /* "Reset to shipped" is gone. It restored type.DEFAULT — which IS one of the
@@ -1054,7 +1063,20 @@
       });
     }
 
-    /* 3 — blank, last: it is the right answer least often. */
+    /* 3 — open an existing file. This was its own toolbar button next to Export,
+       which put the two halves of the same loop in the same place but hid the fact
+       that opening a file is one of the ways you START. It is the main route for a
+       production scenario, so it sits with the others. */
+    choice({
+      icon: 'fa-file-import', title: 'Open an existing scenario',
+      tag: '.lo.json',
+      html: 'Pick a scenario file — one exported from the production system, or one a '
+          + 'colleague sent you. Edit it here, then Export and upload the file back.',
+      cta: 'Choose a file',
+      onClick: () => { closeNewScenario(); const f = $('#importFile'); if (f) f.click(); }
+    });
+
+    /* 4 — blank, last: it is the right answer least often. */
     choice({
       icon: 'fa-file', title: 'Blank canvas',
       html: 'An empty scenario. Every field is yours, and the guardrails panel tells you what the '
@@ -1149,7 +1171,9 @@
      partial or older-schema files still load. Replaces the draft after a
      confirm, exactly like loading from the library. */
   const importFile = $('#importFile');
-  $('#importBtn').addEventListener('click', () => importFile.click());
+  /* No toolbar button any more — "Open an existing scenario" in the New scenario
+     panel triggers this same input. Opening a file IS starting on a scenario, so
+     it belongs with the other ways to start rather than beside Export. */
   importFile.addEventListener('change', () => {
     const file = importFile.files && importFile.files[0];
     if (!file) return;
@@ -1168,18 +1192,12 @@
         importFile.value = '';
         return;
       }
+      /* Same contract as every other way of starting: snapshot whatever is here,
+         then adopt. The confirm this used to show was asking the author to accept
+         losing work — now there is nothing to lose, so there is nothing to ask. */
       const incoming = mergeScenario(obj);
-      if (!confirm(`Import "${incoming.title}" into the editor? Your current draft is replaced — save it to the library first if you want to keep it.`)) {
-        importFile.value = '';
-        return;
-      }
-      scenario = incoming;
-      buildForm();
-      update();
-      if (playtestHandle) playtestHandle.reset();
-      // allow re-importing the same filename twice in a row
-      importFile.value = '';
-      toast(`Imported "${scenario.title}"`);
+      adoptScenario(incoming, `Opened "${incoming.title || file.name}"`);
+      importFile.value = '';   // allow re-opening the same filename twice in a row
     };
     reader.onerror = () => { toast('Couldn\'t read that file'); importFile.value = ''; };
     reader.readAsText(file);
