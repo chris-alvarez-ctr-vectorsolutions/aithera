@@ -51,6 +51,13 @@
     catch (e) { return type.normalize(clone(type.DEFAULT)); }
   })();
 
+  /* How many guardrail ERRORS currently block publishing. Written by the lint
+     pass, read by the publish status line. Declared up here with the rest of the
+     module state on purpose: `let` in the temporal dead zone throws a confusing
+     ReferenceError if a future reordering ever makes the lint pass run before the
+     declaration, and the two are far apart in this file. */
+  let blockedCount = 0;
+
   /* ---- tiny helpers ------------------------------------------------------ */
   const $  = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -581,10 +588,15 @@
       dot.innerHTML = sev ? '<i class="fa-solid fa-circle"></i>' : '';
     });
 
-    // Publish gating
+    /* Publish gating. The reason used to live ONLY in a title attribute, which is
+       a hover — and nobody hovers a control they cannot see. It now also goes into
+       the status line beside the button, which is the sentence an author is already
+       reading to find out whether they have published. */
     const btn = $('#publishBtn');
     btn.disabled = errs > 0;
     btn.title = errs ? `${errs} blocking issue${errs > 1 ? 's' : ''} — see Guardrails` : '';
+    blockedCount = errs;
+    renderPubState();
   }
 
   /* ---- compiled prompt pane ----------------------------------------------
@@ -649,8 +661,11 @@
     const unpub = $('#unpublishBtn');
     const pub = type.store.loadPublished();
     strip.classList.remove('is-live', 'is-stale');
+    const blocked = blockedCount > 0
+      ? ` ${blockedCount} field${blockedCount > 1 ? 's' : ''} still block${blockedCount > 1 ? '' : 's'} publishing — see Guardrails.`
+      : '';
     if (!pub) {
-      text.textContent = 'Not published — the learner prototype is running the shipped scenario.';
+      text.textContent = 'Not published — the learner prototype is running the shipped scenario.' + blocked;
       unpub.hidden = true;
       return;
     }
@@ -658,10 +673,10 @@
     const when = pub.savedAt ? new Date(pub.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
     if (JSON.stringify(pub.scenario) === JSON.stringify(scenario)) {
       strip.classList.add('is-live');
-      text.textContent = `Published ${when} — the learner prototype (in this browser) is running this exact draft.`;
+      text.textContent = `Published ${when} — the learner prototype (in this browser) is running this exact draft.` + blocked;
     } else {
       strip.classList.add('is-stale');
-      text.textContent = `Published ${when}, but your draft has unpublished changes.`;
+      text.textContent = `Published ${when}, but your draft has unpublished changes.` + blocked;
     }
   }
 
