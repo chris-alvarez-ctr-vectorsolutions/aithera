@@ -993,106 +993,112 @@
     tplOverlay.innerHTML = `
       <div class="exp-modal is-compact" role="dialog" aria-modal="true" aria-label="New scenario">
         <div class="exp-head">
-          <div class="exp-titles">
-            <div class="exp-title"><i class="fa-solid fa-plus"></i> New scenario</div>
-          </div>
+          <div class="exp-titles"><div class="exp-title" id="nsTitle"><i class="fa-solid fa-plus"></i> New scenario</div></div>
           <button class="exp-close" type="button" aria-label="Close">Close</button>
         </div>
-        <div class="exp-body" id="nsBody"></div>
-        <div class="ns-foot" id="nsFoot"></div>
+        <div class="ns-panel" id="nsPanel"></div>
       </div>`;
-    const body = tplOverlay.querySelector('#nsBody');
+    const panel = tplOverlay.querySelector('#nsPanel');
+    const titleEl = tplOverlay.querySelector('#nsTitle');
 
-    /* Each route is a ROW, not a block: icon + name + one terse line on the left,
-       the action on the right. The long explanation each of these used to carry
-       moved behind the ⓘ — it is worth reading once and never again, which is
-       exactly what a tooltip is for, and keeping it on screen pushed the routes
-       apart and buried the fourth one. */
-    const row = (opts) => {
-      const card = document.createElement('section');
-      card.className = 'exp-card ns-row';
-      card.innerHTML =
-        `<div class="ns-txt">`
-        + `<b><i class="fa-solid ${esc(opts.icon)}"></i> ${esc(opts.title)}`
-        + (opts.tag ? ` <span class="exp-tag">${esc(opts.tag)}</span>` : '')
-        + (opts.more ? ` <i class="fa-regular fa-circle-question ns-info" tabindex="0" role="img" aria-label="${esc(opts.more)}" title="${esc(opts.more)}"></i>` : '')
-        + `</b>`
-        + `<span class="ns-lede">${esc(opts.lede)}</span>`
-        + `</div><div class="ns-act"></div>`;
-      const btn = document.createElement('vaadin-button');
-      btn.setAttribute('theme', 'primary small');
-      btn.textContent = opts.cta;
-      btn.addEventListener('click', opts.onClick);
-      card.querySelector('.ns-act').appendChild(btn);
-      body.appendChild(card);
-      return card;
+    /* A MENU, not a form. The previous version put an action button on the right
+       of every route, which meant three buttons of three different widths in a
+       ragged column — and the template route needed a select as well, so its
+       button floated beside the heading while its control sat underneath. Making
+       the whole row the target removes the column entirely: every route is one
+       full-width row that behaves the same way, and the one route with a further
+       decision drills into it rather than growing an extra control in place. */
+    const menuRow = (opts) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ns-item';
+      b.innerHTML =
+        `<span class="ns-ico"><i class="fa-solid ${esc(opts.icon)}"></i></span>`
+        + `<span class="ns-body">`
+        + `<span class="ns-name">${esc(opts.title)}`
+        + (opts.tag ? ` <span class="exp-tag">${esc(opts.tag)}</span>` : '') + `</span>`
+        + `<span class="ns-lede">${esc(opts.lede)}</span></span>`
+        + `<span class="ns-chev"><i class="fa-solid fa-chevron-right"></i></span>`;
+      if (opts.more) b.title = opts.more;
+      b.addEventListener('click', opts.onClick);
+      return b;
     };
 
-    if (canWizard) {
-      row({
-        icon: 'fa-wand-magic-sparkles', title: 'Draft it with AI',
-        lede: 'A sentence or two in, a complete first draft out.',
-        more: 'Describe the situation, answer a short interview, and the wizard writes every beat, '
-            + 'rubric and piece of coach guidance for you to refine.',
-        cta: 'Start the interview',
-        onClick: () => { closeNewScenario(); openWizard(); }
-      });
+    function showMenu() {
+      titleEl.innerHTML = '<i class="fa-solid fa-plus"></i> New scenario';
+      panel.innerHTML = '';
+      const list = document.createElement('div');
+      list.className = 'ns-list';
+      if (canWizard) {
+        list.appendChild(menuRow({
+          icon: 'fa-wand-magic-sparkles', title: 'Draft it with AI',
+          lede: 'A sentence or two in, a complete first draft out.',
+          more: 'Describe the situation, answer a short interview, and the wizard writes every beat, '
+              + 'rubric and piece of coach guidance for you to refine.',
+          onClick: () => { closeNewScenario(); openWizard(); }
+        }));
+      }
+      if (templates.length) {
+        list.appendChild(menuRow({
+          icon: 'fa-shapes', title: 'Start from a template', tag: `${templates.length} shapes`,
+          lede: 'The shape is decided; the writing is yours.',
+          more: 'Each template is a complete, valid scenario with the teaching content left blank.',
+          onClick: showTemplates
+        }));
+      }
+      list.appendChild(menuRow({
+        icon: 'fa-file-import', title: 'Open an existing scenario', tag: '.lo.json',
+        lede: 'Edit a production scenario, then export it back.',
+        more: 'Pick a scenario file — one exported from the production system, or one a colleague '
+            + 'sent you. Editing here and exporting produces the file you upload back.',
+        onClick: () => { closeNewScenario(); const f = $('#importFile'); if (f) f.click(); }
+      }));
+      panel.appendChild(list);
+
+      const foot = document.createElement('div');
+      foot.className = 'ns-foot';
+      const blank = document.createElement('button');
+      blank.type = 'button';
+      blank.className = 'ns-blank';
+      blank.innerHTML = '<i class="fa-solid fa-file"></i> Or start from a blank canvas';
+      blank.title = 'An empty scenario. The guardrails panel lists what the production engine still needs.';
+      blank.addEventListener('click', () => { closeNewScenario(); startBlank(); });
+      foot.appendChild(blank);
+      panel.appendChild(foot);
     }
 
-    if (templates.length) {
-      const card = row({
-        icon: 'fa-shapes', title: 'Start from a template',
-        tag: `${templates.length} shapes`,
-        lede: 'The shape is decided; the writing is yours.',
-        more: 'Each template is a complete, valid scenario with the teaching content left blank, so '
-            + 'the document loads in the production engine from the moment you start.',
-        cta: 'Use this',
-        onClick: () => {
-          const t = templates[Number(sel.value) || 0];
-          closeNewScenario();
-          startFromTemplate(t);
-        }
+    /* Second step, same modal: the seven shapes get the full width instead of
+       being squeezed into a select beside a button. */
+    function showTemplates() {
+      titleEl.innerHTML = '<i class="fa-solid fa-shapes"></i> Start from a template';
+      panel.innerHTML = '';
+      const list = document.createElement('div');
+      list.className = 'ns-list';
+      templates.forEach((t) => {
+        list.appendChild(menuRow({
+          icon: t.icon || 'fa-cube',
+          title: t.label || t.id,
+          tag: shapeChain(t.shape),
+          /* the blurbs already end in a full stop, so a "·" after one reads as a typo */
+          lede: [t.blurb || '', typeof t.toFill === 'number' ? `~${t.toFill} fields to fill.` : '']
+            .filter(Boolean).join(' '),
+          onClick: () => { closeNewScenario(); startFromTemplate(t); }
+        }));
       });
-      /* The select sits on its own line under the lede — it is the one route where
-         a decision happens INSIDE the panel rather than after it. */
-      const pick = document.createElement('div');
-      pick.className = 'ns-pick';
-      const sel = document.createElement('select');
-      sel.className = 'ns-select';
-      sel.setAttribute('aria-label', 'Template');
-      templates.forEach((t, i) => {
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        const chain = shapeChain(t.shape);
-        opt.textContent = (t.label || t.id) + (chain ? '  —  ' + chain : '')
-          + (typeof t.toFill === 'number' ? `  ·  ~${t.toFill} fields` : '');
-        sel.appendChild(opt);
-      });
-      pick.appendChild(sel);
-      card.querySelector('.ns-txt').appendChild(pick);
+      panel.appendChild(list);
+
+      const foot = document.createElement('div');
+      foot.className = 'ns-foot';
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'ns-blank';
+      back.innerHTML = '<i class="fa-solid fa-chevron-left"></i> Back';
+      back.addEventListener('click', showMenu);
+      foot.appendChild(back);
+      panel.appendChild(foot);
     }
 
-    row({
-      icon: 'fa-file-import', title: 'Open an existing scenario',
-      tag: '.lo.json',
-      lede: 'Edit a production scenario, then export it back.',
-      more: 'Pick a scenario file — one exported from the production system, or one a colleague sent '
-          + 'you. Editing here and exporting produces the file you upload back.',
-      cta: 'Choose a file',
-      onClick: () => { closeNewScenario(); const f = $('#importFile'); if (f) f.click(); }
-    });
-
-    /* Blank canvas is a link, not a card. It is the right answer rarely enough that
-       giving it equal weight to the three above misrepresented the choice. */
-    const foot = tplOverlay.querySelector('#nsFoot');
-    const blank = document.createElement('button');
-    blank.type = 'button';
-    blank.className = 'ns-blank';
-    blank.innerHTML = '<i class="fa-solid fa-file"></i> Or start from a blank canvas';
-    blank.title = 'An empty scenario. The guardrails panel lists what the production engine still needs.';
-    blank.addEventListener('click', () => { closeNewScenario(); startBlank(); });
-    foot.appendChild(blank);
-
+    showMenu();
     tplOverlay.querySelector('.exp-close').addEventListener('click', closeNewScenario);
     tplOverlay.addEventListener('click', (e) => { if (e.target === tplOverlay) closeNewScenario(); });
     document.addEventListener('keydown', onTplKey);
