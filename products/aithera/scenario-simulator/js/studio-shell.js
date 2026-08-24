@@ -995,7 +995,7 @@
         <div class="exp-head">
           <div class="exp-titles">
             <div class="exp-title"><i class="fa-solid fa-plus"></i> New scenario</div>
-            <div class="exp-sub">Three ways in, same destination. Whatever is in the editor now is
+            <div class="exp-sub">Four ways in, same destination. Whatever is in the editor now is
               snapshotted to your local drafts first, so nothing is lost by starting over.</div>
           </div>
           <button class="exp-close" type="button" aria-label="Close">Close</button>
@@ -1024,7 +1024,7 @@
        editing, and it is the only one that writes teaching content for you. */
     if (canWizard) {
       choice({
-        icon: 'fa-wand-magic-sparkles', title: 'Draft it with AI', primary: true,
+        icon: 'fa-wand-magic-sparkles', title: 'Draft it with AI',
         html: 'Describe the situation in a sentence or two, answer a short interview, and the '
             + 'wizard writes a complete first draft — beats, rubrics, coach guidance — for you to '
             + 'refine.',
@@ -1033,34 +1033,51 @@
       });
     }
 
-    /* 2 — templates, inline rather than behind another click: the shape is the
-       decision an author is actually making here, so it should be visible. */
+    /* 2 — templates. These were seven stacked rows, which made the shape visible
+       but made the modal long enough to scroll past the other three routes. A
+       select keeps the shape legible — the chain is in each option's label — while
+       collapsing the section to three lines. The description under it updates with
+       the choice, so nothing is hidden behind the dropdown that an author needs in
+       order to pick. */
     if (templates.length) {
-      const head = document.createElement('section');
-      head.className = 'exp-card';
-      head.innerHTML =
+      const card = document.createElement('section');
+      card.className = 'exp-card';
+      card.innerHTML =
         `<h3><i class="fa-solid fa-shapes" style="margin-right:7px;color:var(--accent)"></i>Start from a template`
         + ` <span class="exp-tag">${templates.length} shapes</span></h3>`
         + `<p>Each one is a complete, valid scenario with the teaching content left blank — the shape `
-        + `is decided, the writing is yours.</p><div id="nsTpl"></div>`;
-      body.appendChild(head);
-      const holder = head.querySelector('#nsTpl');
-      templates.forEach((t) => {
-        const row = document.createElement('div');
-        row.className = 'ns-tpl-row';
+        + `is decided, the writing is yours.</p>`
+        + `<div class="ns-pick"><select class="ns-select" id="nsTplSelect" aria-label="Template"></select>`
+        + `<span class="exp-act" id="nsTplAct"></span></div>`
+        + `<p class="ns-tpl-note" id="nsTplNote"></p>`;
+      body.appendChild(card);
+
+      const sel = card.querySelector('#nsTplSelect');
+      templates.forEach((t, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
         const chain = shapeChain(t.shape);
-        row.innerHTML =
-          `<div class="ns-tpl-main"><b><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i> ${esc(t.label || t.id)}</b>`
-          + (chain ? `<span class="ns-tpl-shape">${esc(chain)}</span>` : '')
-          + `<span class="ns-tpl-blurb">${esc(t.blurb || '')}`
-          + (typeof t.toFill === 'number' ? ` <b>~${t.toFill} fields to fill.</b>` : '') + `</span></div>`;
-        const b = document.createElement('vaadin-button');
-        b.setAttribute('theme', 'tertiary small');
-        b.textContent = 'Use this';
-        b.addEventListener('click', () => { closeNewScenario(); startFromTemplate(t); });
-        row.appendChild(b);
-        holder.appendChild(row);
+        opt.textContent = (t.label || t.id) + (chain ? '  —  ' + chain : '');
+        sel.appendChild(opt);
       });
+      const note = card.querySelector('#nsTplNote');
+      const describe = () => {
+        const t = templates[Number(sel.value) || 0];
+        note.innerHTML = esc(t.blurb || '')
+          + (typeof t.toFill === 'number' ? ` <b>~${t.toFill} fields to fill.</b>` : '');
+      };
+      sel.addEventListener('change', describe);
+      describe();
+
+      const use = document.createElement('vaadin-button');
+      use.setAttribute('theme', 'primary small');
+      use.textContent = 'Use this';
+      use.addEventListener('click', () => {
+        const t = templates[Number(sel.value) || 0];
+        closeNewScenario();
+        startFromTemplate(t);
+      });
+      card.querySelector('#nsTplAct').appendChild(use);
     }
 
     /* 3 — open an existing file. This was its own toolbar button next to Export,
