@@ -844,28 +844,39 @@
      only replaces the working draft), so it's the safe "author a new course"
      entry point. Each type supplies a blank template; older types fall back
      to an emptied default. */
-  $('#freshBtn').addEventListener('click', () => {
-    /* A blank canvas in a CLASSIC type is a dead end: those types have no V4
-       handoff build, so nothing authored there can be uploaded back into the
-       production system. Send the author to the go-forward editor instead of
-       letting them fill in a format that cannot leave. Deliberately does NOT
-       blank anything on arrival — that editor may hold a draft of its own, and
-       destroying it to save a click would be the worse trade. */
-    if (!type.goForward) {
-      const fwd = (window.AitheraStudio.list({ goForwardOnly: true })[0] || {}).id;
-      if (fwd && fwd !== type.id) {
-        if (!confirm('New scenarios are authored in the go-forward format, because that is the one that produces the file you upload back.\n\nOpen that editor? Nothing here is changed, and you click "Blank canvas" there to start.')) return;
-        location.href = location.pathname + '?type=' + encodeURIComponent(fwd);
-        return;
-      }
-    }
-    if (!confirm('Start a brand-new scenario in this mode?\n\nThis clears every field so you can author from scratch. Your published copy and saved library entries are untouched — Export first if you want to keep the current draft.')) return;
-    scenario = type.normalize(type.blank ? type.blank() : clone(type.DEFAULT));
+  /* startBlank / startFromTemplate — the two non-AI ways to begin. Both go
+     through the same door (openNewScenario below), and both snapshot an
+     in-progress draft into the library first, the way the wizard already did:
+     losing unsaved work to a "New scenario" click is a worse outcome than an
+     extra library entry.
+
+     The old handler also redirected a CLASSIC type to the go-forward editor.
+     That branch is gone because it cannot be reached any more — an unknown or
+     retired ?type= now resolves to the go-forward type before this runs. */
+  function snapshotDraft() {
+    try {
+      const pristine = JSON.stringify(type.normalize(clone(type.DEFAULT))) === JSON.stringify(scenario);
+      if (!pristine) { type.store.saveToLibrary(clone(scenario)); return true; }
+    } catch (e) { /* best effort — never block starting a new scenario */ }
+    return false;
+  }
+  function adoptScenario(next, message) {
+    const saved = snapshotDraft();
+    scenario = next;
+    buildForm();
     if (playtestHandle) playtestHandle.reset();
     setPhase(0);
     update();
-    toast('Fresh scenario — fill it in from the top');
-  });
+    toast(message + (saved ? ' — your previous draft is snapshotted in Local drafts' : ''));
+  }
+  function startBlank() {
+    adoptScenario(type.normalize(type.blank ? type.blank() : clone(type.DEFAULT)), 'Blank scenario');
+  }
+  function startFromTemplate(t) {
+    const doc = typeof type.template === 'function' ? type.template(t.id) : null;
+    if (!doc) { toast('That template could not be loaded'); return; }
+    adoptScenario(type.normalize(doc), `Started from ${t.label || t.id}`);
+  }
 
   /* [V2] Start from scratch — the guided wizard (js/studio-wizard.js).
      Brief → interview → staged generation; the drafted scenario lands here
@@ -897,7 +908,7 @@
       },
     });
   }
-  $('#wizardBtn').addEventListener('click', openWizard);
+  $('#newBtn').addEventListener('click', openNewScenario);
 
   /* ---- Export ------------------------------------------------------------
      A scenario can have TWO honest export artifacts: the working draft (this
@@ -922,7 +933,7 @@
     toast('scenario.json downloaded');
   }
 
-  /* ---- START FROM A TEMPLATE --------------------------------------------
+  /* ---- NEW SCENARIO — one door ------------------------------------------
      The type ships a gallery of starting points (type.templates() / .template(id),
      the same optional-capability shape as type.handoff — the shell still never asks
      which pedagogy it is editing). Nothing surfaced it, so in practice an author
@@ -937,65 +948,106 @@
     .map((c) => SHAPE_STEP[c]).filter(Boolean).join(' → ');
 
   let tplOverlay = null;
-  const onTplKey = (e) => { if (e.key === 'Escape') closeTemplates(); };
-  function closeTemplates() {
+  const onTplKey = (e) => { if (e.key === 'Escape') closeNewScenario(); };
+  function closeNewScenario() {
     if (!tplOverlay) return;
     tplOverlay.remove();
     tplOverlay = null;
     document.removeEventListener('keydown', onTplKey);
   }
 
-  function openTemplates() {
-    closeTemplates();
-    const list = (typeof type.templates === 'function' && type.templates()) || [];
-    if (!list.length) { toast('This mode ships no templates'); return; }
+  function openNewScenario() {
+    closeNewScenario();
+    const templates = (typeof type.templates === 'function' && type.templates()) || [];
+    const canWizard = !!(window.AitheraStudioWizard
+      && window.AitheraStudio.list({ goForwardOnly: true }).some((t) => t && t.wizard));
+
     tplOverlay = document.createElement('div');
     tplOverlay.className = 'exp-overlay';
     tplOverlay.innerHTML = `
-      <div class="exp-modal" role="dialog" aria-modal="true" aria-label="Start from a template">
+      <div class="exp-modal" role="dialog" aria-modal="true" aria-label="New scenario">
         <div class="exp-head">
           <div class="exp-titles">
-            <div class="exp-title"><i class="fa-solid fa-shapes"></i> Start from a template</div>
-            <div class="exp-sub">Each one is a complete, valid scenario with the teaching content left
-              blank — the shape is decided, the writing is yours. Picking one replaces your current draft.</div>
+            <div class="exp-title"><i class="fa-solid fa-plus"></i> New scenario</div>
+            <div class="exp-sub">Three ways in, same destination. Whatever is in the editor now is
+              snapshotted to your local drafts first, so nothing is lost by starting over.</div>
           </div>
           <button class="exp-close" type="button" aria-label="Close">Close</button>
         </div>
-        <div class="exp-body" id="tplBody"></div>
+        <div class="exp-body" id="nsBody"></div>
       </div>`;
-    const body = tplOverlay.querySelector('#tplBody');
-    list.forEach((t) => {
+    const body = tplOverlay.querySelector('#nsBody');
+
+    const choice = (opts) => {
       const card = document.createElement('section');
-      card.className = 'exp-card';
-      const chain = shapeChain(t.shape);
+      card.className = 'exp-card' + (opts.primary ? ' is-primary' : '');
       card.innerHTML =
-        `<h3><i class="fa-solid ${esc(t.icon || 'fa-cube')}" style="margin-right:7px;color:var(--accent)"></i>`
-        + `${esc(t.label || t.id)}`
-        + (chain ? ` <span class="exp-tag">${esc(chain)}</span>` : '')
-        + `</h3>`
-        + `<p>${esc(t.blurb || '')}${typeof t.toFill === 'number'
-            ? ` <b>About ${t.toFill} fields to fill in.</b>` : ''}</p>`
-        + `<div class="exp-act"></div>`;
+        `<h3><i class="fa-solid ${esc(opts.icon)}" style="margin-right:7px;color:var(--accent)"></i>${esc(opts.title)}`
+        + (opts.tag ? ` <span class="exp-tag">${esc(opts.tag)}</span>` : '') + `</h3>`
+        + `<p>${opts.html}</p><div class="exp-act"></div>`;
       const btn = document.createElement('vaadin-button');
-      btn.setAttribute('theme', 'primary small');
-      btn.textContent = 'Start from this';
-      btn.addEventListener('click', () => {
-        if (!confirm(`Start from "${t.label || t.id}"?\n\nThis replaces your current draft. Your published copy and saved library entries are untouched — Export first if you want to keep what is here.`)) return;
-        const doc = typeof type.template === 'function' ? type.template(t.id) : null;
-        if (!doc) { toast('That template could not be loaded'); return; }
-        scenario = type.normalize(doc);
-        closeTemplates();
-        buildForm();
-        if (playtestHandle) playtestHandle.reset();
-        setPhase(0);
-        update();
-        toast(`Started from ${t.label || t.id} — fill it in from the top`);
-      });
+      btn.setAttribute('theme', opts.primary ? 'primary' : 'primary small');
+      btn.textContent = opts.cta;
+      btn.addEventListener('click', opts.onClick);
       card.querySelector('.exp-act').appendChild(btn);
       body.appendChild(card);
+      return card;
+    };
+
+    /* 1 — AI. Listed first because it is the fastest route to something worth
+       editing, and it is the only one that writes teaching content for you. */
+    if (canWizard) {
+      choice({
+        icon: 'fa-wand-magic-sparkles', title: 'Draft it with AI', primary: true,
+        html: 'Describe the situation in a sentence or two, answer a short interview, and the '
+            + 'wizard writes a complete first draft — beats, rubrics, coach guidance — for you to '
+            + 'refine.',
+        cta: 'Start the interview',
+        onClick: () => { closeNewScenario(); openWizard(); }
+      });
+    }
+
+    /* 2 — templates, inline rather than behind another click: the shape is the
+       decision an author is actually making here, so it should be visible. */
+    if (templates.length) {
+      const head = document.createElement('section');
+      head.className = 'exp-card';
+      head.innerHTML =
+        `<h3><i class="fa-solid fa-shapes" style="margin-right:7px;color:var(--accent)"></i>Start from a template`
+        + ` <span class="exp-tag">${templates.length} shapes</span></h3>`
+        + `<p>Each one is a complete, valid scenario with the teaching content left blank — the shape `
+        + `is decided, the writing is yours.</p><div id="nsTpl"></div>`;
+      body.appendChild(head);
+      const holder = head.querySelector('#nsTpl');
+      templates.forEach((t) => {
+        const row = document.createElement('div');
+        row.className = 'ns-tpl-row';
+        const chain = shapeChain(t.shape);
+        row.innerHTML =
+          `<div class="ns-tpl-main"><b><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i> ${esc(t.label || t.id)}</b>`
+          + (chain ? `<span class="ns-tpl-shape">${esc(chain)}</span>` : '')
+          + `<span class="ns-tpl-blurb">${esc(t.blurb || '')}`
+          + (typeof t.toFill === 'number' ? ` <b>~${t.toFill} fields to fill.</b>` : '') + `</span></div>`;
+        const b = document.createElement('vaadin-button');
+        b.setAttribute('theme', 'tertiary small');
+        b.textContent = 'Use this';
+        b.addEventListener('click', () => { closeNewScenario(); startFromTemplate(t); });
+        row.appendChild(b);
+        holder.appendChild(row);
+      });
+    }
+
+    /* 3 — blank, last: it is the right answer least often. */
+    choice({
+      icon: 'fa-file', title: 'Blank canvas',
+      html: 'An empty scenario. Every field is yours, and the guardrails panel tells you what the '
+          + 'production engine still needs before it will load.',
+      cta: 'Start blank',
+      onClick: () => { closeNewScenario(); startBlank(); }
     });
-    tplOverlay.querySelector('.exp-close').addEventListener('click', closeTemplates);
-    tplOverlay.addEventListener('click', (e) => { if (e.target === tplOverlay) closeTemplates(); });
+
+    tplOverlay.querySelector('.exp-close').addEventListener('click', closeNewScenario);
+    tplOverlay.addEventListener('click', (e) => { if (e.target === tplOverlay) closeNewScenario(); });
     document.addEventListener('keydown', onTplKey);
     document.body.append(tplOverlay);
   }
@@ -1007,13 +1059,6 @@
     setTimeout(() => toast(`"${TYPE_ID}" is no longer authored here — opened ${type.label} instead. Existing scenarios of that shape still play in the player.`), 400);
   }
 
-  (function wireTemplateBtn() {
-    const btn = $('#templateBtn');
-    if (!btn) return;
-    const has = typeof type.templates === 'function' && (type.templates() || []).length;
-    if (!has) { btn.hidden = true; return; }
-    btn.addEventListener('click', openTemplates);
-  }());
 
   let exportOverlay = null;
   const onExportKey = (e) => { if (e.key === 'Escape') closeExport(); };
@@ -1135,11 +1180,17 @@
   const libBtn = $('#libraryBtn');
   const libPanel = $('#libPanel');
 
+  /* "Library" oversold this. It is not a library and it is not a preview: it is a
+     set of draft snapshots in ONE browser's localStorage, gone if site data is
+     cleared, invisible to everyone else. Now that a finished scenario leaves as an
+     exported .lo.json, the honest framing is that these are working copies and the
+     FILE is the real one — so the panel says that rather than implying this is
+     where scenarios live. */
   function renderLibrary() {
     const entries = type.store.listLibrary();
-    let html = '<div class="libhead">Saved scenarios (this browser)</div>';
+    let html = '<div class="libhead">Local drafts — this browser only</div>';
     if (!entries.length) {
-      html += '<div class="libempty">Nothing saved yet. "Save current" snapshots your draft so you can start another scenario without losing this one.</div>';
+      html += '<div class="libempty">Nothing saved yet. Snapshots let you park a draft and start another without losing it. They live in this browser only — to keep a scenario properly, Export it and upload the file back.</div>';
     } else {
       html += entries.map((e) => {
         const when = e.savedAt ? new Date(e.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
@@ -1149,7 +1200,7 @@
         </div>`;
       }).join('');
     }
-    html += `<button class="libsave" id="libSaveBtn"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save current draft as a new entry</button>`;
+    html += `<button class="libsave" id="libSaveBtn"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Snapshot this draft</button>`;
     libPanel.innerHTML = html;
 
     $('#libSaveBtn', libPanel).addEventListener('click', () => {
