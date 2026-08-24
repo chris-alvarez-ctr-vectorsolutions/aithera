@@ -192,6 +192,17 @@
     tf, rowsBlock, rowCard, guidance, esc,
     getScenario: () => scenario,
     scheduleUpdate,
+    /* Open one item of a SECTION LIST (see below) in the form. A type's own
+       overview rows call this, so clicking a row and clicking the matching
+       rail entry land in exactly the same place. */
+    goToItem: (secId, idx) => setItem(secId, idx),
+    /* The ⋯ menu for one list item — move / duplicate / delete — built by the
+       shell so the rail and a type's overview offer the identical actions. */
+    itemMenu: (secId, idx) => itemMenu(secId, idx),
+    /* Rebuild the rail. A type calls this after it changes one of its own
+       list items, because the rail is showing that list. */
+    refreshNav: () => buildNav(),
+    toast,
   };
 
   /* ---- the three-section spine, presented as PHASES ----------------------
@@ -305,12 +316,238 @@
   function setPhase(i) {
     if (i < 0 || i >= PHASES.length) return;
     activePhase = i;
+    activeItem = null;                 // leaving the phase leaves any open list item
     sessionStorage.setItem(PHASE_KEY, PHASES[i].id);
     buildNav();
     buildForm();
     const form = $('#form');
     if (form) form.scrollTop = 0;
     renderLints();
+  }
+
+  /* =======================================================================
+     SECTION LISTS — a section whose items are their own rail entries
+     -----------------------------------------------------------------------
+     Most sections hold a handful of fields. A few hold an ordered LIST of
+     substantial things, and the scenario's steps are the case in point: four
+     steps, each carrying a practice, three quality levels and a debrief, all
+     stacked into one card the author scrolled through to reach the fourth.
+
+     A section can opt out of that by declaring `sec.list`. The shell then
+     gives the list its own altitude: one rail entry per item nested under the
+     section, ONE item at a time in the form when an entry is picked, and the
+     add / reorder / delete affordances in the rail where the order is visible.
+
+     The contract — all functions, so the type always reads the live draft:
+       items(H)          → [{ title, meta, icon }] one per item, in order
+       render(i, H)      → the element that edits item i
+       add(H)            → append an item; returns the new index
+       move(from, to, H) → reorder; may return a string to say what it cost
+       duplicate(i, H)   → copy item i in after it; returns the new index
+       remove(i, H)      → delete item i; may return a string to say what it cost
+       addLabel          → 'Add step'
+       singular          → 'step'
+     Anything a type leaves out is simply not offered — a list with no `move`
+     gets no drag handle and no move commands.
+     ======================================================================= */
+  /* An open ⋯ menu freezes the rail. update() rebuilds the nav on every
+     debounced save so a renamed step keeps its rail label current — but that
+     also destroys whatever menu is open, and a Vaadin field can fire a change
+     on first paint, so a menu could vanish a moment after being opened with
+     nobody having touched anything. The rebuild is deferred to the close. */
+  let openMenuClose = null;
+  let navDeferred = false;
+
+  const listOf = (sec) => (sec && sec.list) || null;
+  const sectionById = (id) => type.sections.find((s) => s.id === id);
+  const listItems = (L) => { try { return L.items(studioApi) || []; } catch (e) { return []; } };
+
+  /* Which list item is open, as { sec, idx } — null means the phase page.
+     Deliberately NOT persisted: it is a position inside an editing session,
+     and restoring it would drop an author into step 3 of a scenario they
+     opened to read from the top. */
+  let activeItem = null;
+
+  function setItem(secId, idx) {
+    const sec = sectionById(secId);
+    const L = listOf(sec);
+    if (!L) return;
+    const p = phaseIndexOf(sec);
+    if (p < 0) return;
+    if (p !== activePhase) {
+      activePhase = p;
+      sessionStorage.setItem(PHASE_KEY, PHASES[p].id);
+    }
+    const n = listItems(L).length;
+    activeItem = (idx == null || idx < 0 || idx >= n) ? null : { sec: secId, idx };
+    buildNav();
+    buildForm();
+    const form = $('#form');
+    if (form) form.scrollTop = 0;
+    renderLints();
+  }
+
+  /* Follow the OPEN item through a reorder. Whichever way the list moved, the
+     author stays on the thing they were editing — an index that quietly points
+     at a different step is how someone types into the wrong one. */
+  function reindexActive(secId, from, to) {
+    if (!activeItem || activeItem.sec !== secId) return;
+    if (activeItem.idx === from) activeItem.idx = to;
+    else if (from < activeItem.idx && to >= activeItem.idx) activeItem.idx -= 1;
+    else if (from > activeItem.idx && to <= activeItem.idx) activeItem.idx += 1;
+  }
+
+  /* One list edit, applied: run it, say what it cost, and repaint everything
+     that was showing the list (the rail, the form, the guardrails). */
+  function applyListAction(secId, fn) {
+    const sec = sectionById(secId);
+    const L = listOf(sec);
+    if (!L) return;
+    const msg = fn(L);
+    scheduleUpdate();
+    buildNav();
+    buildForm();
+    renderLints();
+    if (typeof msg === 'string' && msg) toast(msg);
+  }
+
+  /* The ⋯ menu shared by the rail and by a type's own overview rows. Returns
+     the button with its popup attached, so a caller just appends it. */
+  function itemMenu(secId, idx) {
+    const sec = sectionById(secId);
+    const L = listOf(sec);
+    const wrap = document.createElement('span');
+    wrap.className = 'item-menu';
+    if (!L) return wrap;
+    const count = listItems(L).length;
+    const one = L.singular || 'item';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'item-menu-btn';
+    btn.setAttribute('aria-haspopup', 'true');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', `Actions for ${one} ${idx + 1}`);
+    btn.innerHTML = '<i class="fa-solid fa-ellipsis" aria-hidden="true"></i>';
+
+    const pop = document.createElement('div');
+    pop.className = 'item-menu-pop';
+    pop.setAttribute('role', 'menu');
+    pop.hidden = true;
+
+    /* The menu has two faces: the commands, and the delete confirmation that
+       replaces them in place. */
+    const list = document.createElement('div');
+    list.className = 'item-menu-list';
+    const confirmPane = document.createElement('div');
+    confirmPane.className = 'item-menu-confirm';
+    confirmPane.hidden = true;
+    pop.append(list, confirmPane);
+
+    const cmd = (label, icon, enabled, run, danger, keepOpen) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'menuitem');
+      if (danger) b.className = 'danger';
+      b.disabled = !enabled;
+      b.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i> ${esc(label)}`;
+      b.addEventListener('click', () => { if (!keepOpen) close(); run(); });
+      list.appendChild(b);
+    };
+
+    if (L.move) {
+      const moveTo = (to) => applyListAction(secId, (l) => {
+        const m = l.move(idx, to, studioApi);
+        reindexActive(secId, idx, to);
+        return m;
+      });
+      cmd('Move up', 'fa-arrow-up', idx > 0, () => moveTo(idx - 1));
+      cmd('Move down', 'fa-arrow-down', idx < count - 1, () => moveTo(idx + 1));
+    }
+    if (L.duplicate) {
+      cmd('Duplicate', 'fa-clone', true, () => {
+        let at = idx;
+        applyListAction(secId, (l) => { at = l.duplicate(idx, studioApi); return ''; });
+        setItem(secId, typeof at === 'number' ? at : idx + 1);
+      });
+    }
+    if (L.remove) {
+      /* Deleting a step is not a formatting change — later steps can name it,
+         and the scenario is the only copy — so it is asked, by name, first.
+         Asked IN THE MENU, not with window.confirm(): a native dialog is
+         suppressed outright in an embedded browser (it returns false without
+         ever prompting), which turns Delete into a button that silently does
+         nothing. The confirmation has to be part of the page. */
+      cmd(`Delete ${one}`, 'fa-trash-can', true, () => {
+        const it = listItems(L)[idx] || {};
+        const name = it.title || `${one} ${idx + 1}`;
+        confirmPane.innerHTML =
+          `<p class="cf-q">Delete “${esc(name)}”?</p>` +
+          `<p class="cf-note">The whole ${esc(one)} goes — its practice, its levels and its debrief. This cannot be undone.</p>`;
+        const row = document.createElement('div');
+        row.className = 'cf-actions';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'cf-cancel';
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', close);
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'cf-go';
+        go.innerHTML = `<i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete`;
+        go.addEventListener('click', () => {
+          close();
+          applyListAction(secId, (l) => {
+            const msg = l.remove(idx, studioApi);
+            /* Whatever was open is now at a different index, or gone. Deleting
+               the step someone else was editing should land them on a neighbour,
+               not on the phase page, and deleting an EARLIER step should leave
+               them exactly where they were. */
+            if (activeItem && activeItem.sec === secId) {
+              if (activeItem.idx === idx) {
+                const n = listItems(l).length;
+                activeItem = n ? { sec: secId, idx: Math.min(idx, n - 1) } : null;
+              } else if (activeItem.idx > idx) activeItem.idx -= 1;
+            }
+            return msg;
+          });
+        });
+        row.append(cancel, go);
+        confirmPane.append(row);
+        list.hidden = true;
+        confirmPane.hidden = false;
+        go.focus();
+      }, true, true);
+    }
+
+    function close() {
+      if (pop.hidden) return;
+      pop.hidden = true;
+      list.hidden = false;                 // next open starts on the commands
+      confirmPane.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', onDoc, true);
+      document.removeEventListener('keydown', onKey, true);
+      if (openMenuClose === close) openMenuClose = null;
+      if (!openMenuClose && navDeferred) { navDeferred = false; buildNav(); }
+    }
+    function onDoc(e) { if (!e.composedPath().includes(wrap)) close(); }
+    function onKey(e) { if (e.key === 'Escape') { close(); btn.focus(); } }
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!pop.hidden) return close();
+      if (openMenuClose) openMenuClose();          // only ever one menu open
+      const box = btn.getBoundingClientRect();
+      pop.classList.toggle('up', box.bottom > window.innerHeight - 210);
+      pop.hidden = false;
+      openMenuClose = close;
+      btn.setAttribute('aria-expanded', 'true');
+      document.addEventListener('click', onDoc, true);
+      document.addEventListener('keydown', onKey, true);
+    });
+
+    wrap.append(btn, pop);
+    return wrap;
   }
 
   /* ---- the Start step's core-interaction display -------------------------
@@ -392,6 +629,9 @@
     ensureCtx();
     const p = PHASES[activePhase];
 
+    // One list item picked from the rail — that item gets the pane to itself.
+    if (activeItem) { buildItemForm(form); return; }
+
     const header = document.createElement('div');
     header.className = 'phase-header';
     header.innerHTML =
@@ -457,7 +697,85 @@
     refreshGuardrailText();
   }
 
+  /* ---- the focus view: one list item, alone -----------------------------
+     Deliberately not "the same page, scrolled to the right card". The whole
+     point of promoting steps into the rail is that the author is editing ONE
+     step; leaving its four siblings under it would put the scroll straight
+     back. The crumb and the footer are what carry the arc instead. */
+  function buildItemForm(form) {
+    const sec = sectionById(activeItem.sec);
+    const L = listOf(sec);
+    const items = listItems(L);
+    const i = activeItem.idx;
+    const it = items[i];
+    if (!it) { activeItem = null; buildForm(); return; }
+    const one = L.singular || 'item';
+    const p = PHASES[activePhase];
+
+    const crumb = document.createElement('div');
+    crumb.className = 'item-crumb';
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'crumb-up';
+    up.innerHTML = `<i class="fa-solid fa-arrow-left"></i> All ${esc((L.pluralLabel || one + 's'))}`;
+    up.addEventListener('click', () => {
+      const secId = sec.id;
+      setItem(secId, null);
+      const el = $('#sec-' + secId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    const trail = document.createElement('span');
+    trail.className = 'crumb-trail';
+    trail.innerHTML = `${esc(p.title)} <i class="fa-solid fa-angle-right"></i> ${esc(sec.title)}`;
+    crumb.append(up, trail);
+    form.appendChild(crumb);
+
+    const header = document.createElement('div');
+    header.className = 'phase-header item-header';
+    const htext = document.createElement('div');
+    htext.innerHTML =
+      `<p class="ph-eyebrow">${esc(one)} ${i + 1} of ${items.length}${it.meta ? ' · ' + esc(it.meta) : ''}</p>` +
+      `<h1><span class="badge">${i + 1}</span> ${esc(it.title || one + ' ' + (i + 1))}</h1>`;
+    header.appendChild(htext);
+    // Same ⋯ commands as the rail — an author working inside a step shouldn't
+    // have to travel back to the list to reorder or delete it.
+    header.appendChild(itemMenu(sec.id, i));
+    form.appendChild(header);
+
+    const card = document.createElement('section');
+    card.className = 'card';
+    card.id = 'sec-' + sec.id + '-item';
+    card.appendChild(L.render(i, studioApi));
+    form.appendChild(card);
+
+    // Footer walks the LIST, not the phases — the arc is the sequence here.
+    const foot = document.createElement('div');
+    foot.className = 'phase-foot';
+    const back = document.createElement('button');
+    back.className = 'pf-btn';
+    back.disabled = i === 0;
+    back.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Previous ${esc(one)}`;
+    back.addEventListener('click', () => setItem(sec.id, i - 1));
+    const spacer = document.createElement('span');
+    spacer.className = 'spacer';
+    const next = document.createElement('button');
+    next.className = 'pf-btn next';
+    if (i < items.length - 1) {
+      const nx = items[i + 1] || {};
+      next.innerHTML = `Next: ${esc(nx.title || one + ' ' + (i + 2))} <i class="fa-solid fa-arrow-right"></i>`;
+      next.addEventListener('click', () => setItem(sec.id, i + 1));
+    } else {
+      next.innerHTML = `Back to all ${esc(L.pluralLabel || one + 's')} <i class="fa-solid fa-arrow-right"></i>`;
+      next.addEventListener('click', () => setItem(sec.id, null));
+    }
+    foot.append(back, spacer, next);
+    form.appendChild(foot);
+
+    refreshGuardrailText();
+  }
+
   function buildNav() {
+    if (openMenuClose) { navDeferred = true; return; }
     const nav = $('#secNav');
     nav.innerHTML = '';
     const steps = document.createElement('div');
@@ -482,16 +800,110 @@
           b.innerHTML = `<i class="fa-solid ${esc(sec.icon)}" style="width:16px;text-align:center;color:var(--ink-faint);font-size:11.5px"></i>
             <span>${esc(sec.title)}</span><span class="status" data-dot="${esc(sec.id)}"></span>`;
           b.addEventListener('click', () => {
+            /* From inside a list item this is a way OUT of the focus view, so
+               rebuild the phase page first — otherwise the card being scrolled
+               to isn't on screen at all. */
+            if (activeItem) setItem(sec.id, null);
             const el = $('#sec-' + sec.id);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            $$('.phase-sections button').forEach((x) => x.classList.toggle('is-active', x === b));
+            $$('.phase-sections > button').forEach((x) => x.classList.toggle('is-active', x === b));
           });
           sub.appendChild(b);
+          const L = listOf(sec);
+          if (L) sub.appendChild(buildItemRail(sec, L));
         });
         steps.appendChild(sub);
       }
     });
     nav.appendChild(steps);
+  }
+
+  /* ---- one section's items, as rail entries ------------------------------
+     Two ways to reorder on purpose. Dragging is the gesture people reach for
+     when a list is a sequence, but it is mouse-only and invisible until you
+     try it, so the same moves are also spelled out in each row's ⋯ menu —
+     which is what a keyboard reaches, and what tells a first-time author the
+     order is theirs to change at all. */
+  function buildItemRail(sec, L) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-list';
+    const items = listItems(L);
+    const one = L.singular || 'item';
+    let dragFrom = null;
+
+    const clearDrop = () => $$('.item-row', wrap).forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+
+    items.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'item-row'
+        + (activeItem && activeItem.sec === sec.id && activeItem.idx === idx ? ' is-active' : '');
+      row.dataset.idx = String(idx);
+
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'item-open';
+      // A long step name ellipsises in a 250px rail, so the full one is on hover.
+      open.title = (it.title || one + ' ' + (idx + 1)) + (it.meta ? ' — ' + it.meta : '');
+      open.innerHTML =
+        `<span class="ihandle"><span class="inum">${idx + 1}</span>`
+        + (L.move ? '<i class="fa-solid fa-grip-vertical grip" aria-hidden="true"></i>' : '')
+        + '</span>'
+        + `<span class="ittl">${esc(it.title || one + ' ' + (idx + 1))}</span>`
+        + (it.icon ? `<i class="fa-solid ${esc(it.icon)} imode" title="${esc(it.meta || '')}" aria-hidden="true"></i>` : '')
+        + `<span class="status" data-itemdot="${esc(sec.id)}:${idx}"></span>`;
+      open.addEventListener('click', () => setItem(sec.id, idx));
+      row.appendChild(open);
+      row.appendChild(itemMenu(sec.id, idx));
+
+      if (L.move) {
+        row.draggable = true;
+        row.addEventListener('dragstart', (e) => {
+          dragFrom = idx;
+          row.classList.add('dragging');
+          try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); } catch (err) { /* Safari */ }
+        });
+        row.addEventListener('dragend', () => { dragFrom = null; row.classList.remove('dragging'); clearDrop(); });
+        row.addEventListener('dragover', (e) => {
+          if (dragFrom == null || dragFrom === idx) return;
+          e.preventDefault();
+          clearDrop();
+          row.classList.add(idx < dragFrom ? 'drop-before' : 'drop-after');
+        });
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const from = dragFrom;
+          clearDrop();
+          if (from == null || from === idx) return;
+          applyListAction(sec.id, (l) => {
+            const msg = l.move(from, idx, studioApi);
+            reindexActive(sec.id, from, idx);
+            return msg;
+          });
+        });
+      }
+      wrap.appendChild(row);
+    });
+
+    if (!items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'item-empty';
+      empty.textContent = `No ${L.pluralLabel || one + 's'} yet.`;
+      wrap.appendChild(empty);
+    }
+
+    if (L.add) {
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'item-add';
+      add.innerHTML = `<i class="fa-solid fa-plus"></i> ${esc(L.addLabel || 'Add ' + one)}`;
+      add.addEventListener('click', () => {
+        let at = items.length;
+        applyListAction(sec.id, (l) => { at = l.add(studioApi); return ''; });
+        setItem(sec.id, typeof at === 'number' ? at : items.length);
+      });
+      wrap.appendChild(add);
+    }
+    return wrap;
   }
 
   function refreshGuardrailText() {
@@ -551,7 +963,8 @@
     } else {
       html += currentLints.map((l, i) => {
         const sec = type.sections.find((x) => x.id === l.section);
-        return `<div class="lint ${l.severity}" data-goto="${esc(l.section)}" role="button" tabindex="0">
+        const item = (listOf(sec) && typeof l.item === 'number') ? ` data-item="${l.item}"` : '';
+        return `<div class="lint ${l.severity}" data-goto="${esc(l.section)}"${item} role="button" tabindex="0">
           <i class="fa-solid ${SEVERITY_ICON[l.severity]} icon"></i>
           <div><div class="msg">${esc(l.msg)}</div>${l.why ? `<div class="why">${esc(l.why)}</div>` : ''}
           <div class="sec">${esc(sec ? sec.title : l.section)}</div></div>
@@ -560,7 +973,15 @@
     }
     box.innerHTML = html;
     $$('[data-goto]', box).forEach((n) => n.addEventListener('click', () => {
-      $('#sec-' + n.dataset.goto).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const secId = n.dataset.goto;
+      /* A lint against one item of a list opens that item — landing on the
+         section card would leave the author to find which step it meant. */
+      if (n.dataset.item != null) { setItem(secId, Number(n.dataset.item)); return; }
+      const sec = sectionById(secId);
+      const p = phaseIndexOf(sec);
+      if (p >= 0 && (p !== activePhase || activeItem)) setPhase(p);
+      const el = $('#sec-' + secId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
 
     // Nav dots: worst severity per section
@@ -573,6 +994,23 @@
       dot.innerHTML = sec.locked ? '<i class="fa-solid fa-lock locknote"></i>'
         : worst && worst.severity !== 'info' ? '<i class="fa-solid fa-circle"></i>'
         : '<i class="fa-solid fa-circle-check"></i>';
+    });
+
+    /* Per-ITEM dots for sections presented as lists. A lint says which item it
+       belongs to (`l.item`); without that the whole list would carry one dot
+       and an author would still be opening steps to find the empty field. */
+    type.sections.forEach((sec) => {
+      const L = listOf(sec);
+      if (!L) return;
+      listItems(L).forEach((it, i) => {
+        const dot = $(`[data-itemdot="${sec.id}:${i}"]`);
+        if (!dot) return;
+        const worst = currentLints.filter((l) => l.section === sec.id && l.item === i)
+          .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])[0];
+        const sev = worst && worst.severity !== 'info' ? worst.severity : '';
+        dot.className = 'status ' + (sev === 'err' ? 'err' : sev === 'warn' ? 'warn' : 'ok');
+        dot.innerHTML = sev ? '<i class="fa-solid fa-circle"></i>' : '<i class="fa-solid fa-circle-check"></i>';
+      });
     });
 
     // Phase-step aggregate dots: the worst non-info severity in each phase, so
@@ -685,6 +1123,11 @@
   /* ---- the one update pipeline ------------------------------------------- */
   function update() {
     saveDraft();
+    /* The rail now shows list items by NAME, so it goes stale the moment an
+       author renames a step. Rebuilding it here keeps the label the author is
+       typing and the label in the rail the same string; the rail is a separate
+       subtree from the form, so focus and caret are untouched. */
+    buildNav();
     renderPrompt();
     renderLints();
     renderPubState();
@@ -1292,9 +1735,12 @@
 
   /* ---- scroll spy: keep the nav highlighting the visible section ---------- */
   const spy = new IntersectionObserver((entries) => {
+    // Only the section buttons — a list's item rows live inside the same
+    // container and are selected by the author, never by the scroll position.
+    if (activeItem) return;
     entries.forEach((en) => {
       if (en.isIntersecting) {
-        $$('.phase-sections button').forEach((b) =>
+        $$('.phase-sections > button').forEach((b) =>
           b.classList.toggle('is-active', b.dataset.sec === en.target.id.replace('sec-', '')));
       }
     });

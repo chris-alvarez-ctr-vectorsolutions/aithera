@@ -206,6 +206,10 @@ studioApi = {
   esc(str),                   // HTML-escape
   getScenario(),              // the live draft
   scheduleUpdate(),           // debounced recompile + save
+  goToItem(secId, i),         // open one item of a SECTION LIST (§4a)
+  itemMenu(secId, i),         // that item's ⋯ menu, built by the shell
+  refreshNav(),               // repaint the rail after a list edit
+  toast(msg),
 }
 ```
 
@@ -215,6 +219,50 @@ declare a `group` (`meta` · `context` · `interaction` · `learn` · `practice`
 rail. A type on the generic `interaction` group shows one **Interaction** phase;
 guided-arc (re-presented by `studio-v2-guided-arc.js`) splits into **Learn /
 Practice / Voice & Tone**.
+
+### 4a. Section lists — a section whose items are their own rail entries
+
+Most sections are a handful of fields. A few are an ordered list of substantial
+things — the Universal Scenario's **steps**, where each one carries a practice,
+three quality levels and a debrief. Stacking those in one card put the fourth
+step behind a scroll past the other three, and left the arc with no reorder at
+all.
+
+A section opts out of that by declaring `list`. The shell then gives the list
+its own altitude: **one rail entry per item** nested under the section, **one
+item at a time** in the form when an entry is picked, and the add / reorder /
+delete affordances in the rail — where the order is visible.
+
+```js
+{ id: 'phases', title: 'Steps', group: 'interaction',
+  list: {
+    singular: 'step', pluralLabel: 'steps', addLabel: 'Add step',
+    items:     (H)         => [{ title, meta, icon }, …],  // in order
+    render:    (i, H)      => Element,                     // edits item i
+    add:       (H)         => newIndex,
+    move:      (from,to,H) => '' | 'what that cost',
+    duplicate: (i, H)      => newIndex,
+    remove:    (i, H)      => '' | 'what that cost',
+  } }
+```
+
+Every function reads the **live** draft — `normalize()` clones and the shell
+re-normalizes on each update, so an array captured once goes stale and a move
+applied to it is a reorder the author watches fail.
+
+Anything a type leaves out is not offered: no `move`, no drag handle and no
+move commands. Other registered types declare no `list` and are untouched.
+
+Two things the shell deliberately does not know:
+
+- **What an edit costs.** `move` and `remove` return a string the shell toasts.
+  The Universal Scenario uses it to report the one thing reordering can break —
+  `scenario-v4.js` requires every `carryover` to name an **earlier** step, so a
+  move can invalidate a step the author was not looking at, and a delete leaves
+  dangling references behind (it prunes those and says how many).
+- **Which item a lint is about.** A lint may carry `item: <index>`; the shell
+  then puts its dot on that rail entry and makes the lint open that item, rather
+  than one dot for the whole list and a hunt for the empty field.
 
 ---
 

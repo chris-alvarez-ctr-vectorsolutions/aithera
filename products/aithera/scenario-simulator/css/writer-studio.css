@@ -300,7 +300,7 @@
       .cols {
         flex: 1 1 auto; min-height: 0;   /* fill remaining height below the chrome */
         display: grid;
-        grid-template-columns: 218px minmax(430px, 1fr) minmax(430px, 44%);
+        grid-template-columns: 292px minmax(430px, 1fr) minmax(430px, 44%);
         gap: 0;
         transition: grid-template-columns .22s ease;
         /* columns stretch to full height; each pane manages its own scroll */
@@ -308,13 +308,13 @@
       /* Inspector collapsed → the panel shrinks to a slim rail and the form
          takes the reclaimed width. */
       .cols.insp-collapsed {
-        grid-template-columns: 218px minmax(430px, 1fr) 48px;
+        grid-template-columns: 292px minmax(430px, 1fr) 48px;
       }
 
       /* Left: section nav — its own scroll region, no page-scroll coupling */
       .secnav {
         min-height: 0; overflow-y: auto;
-        padding: 18px 10px 18px 14px;
+        padding: 18px 8px 18px 12px;
       }
       .secnav .head {
         font-size: 11px; font-weight: 700; letter-spacing: .08em;
@@ -429,8 +429,206 @@
       /* the active phase's sections, indented under it */
       .secnav .phase-sections {
         display: flex; flex-direction: column; gap: 1px;
-        margin: 2px 0 8px 22px; padding-left: 8px;
+        margin: 2px 0 8px 16px; padding-left: 7px;
         border-left: 2px solid var(--line);
+      }
+
+      /* ===== SECTION LISTS: a section's items, as rail entries ==========
+         The steps used to be four accordions in one card. They are now their
+         own rail entries — a third level, indented under the section. It costs
+         sidebar depth, and buys the author the arc as a place they navigate
+         rather than a scroll they manage.
+         Base `.secnav button` rules apply to everything in here, so the row
+         layout is set on the wrapper and the buttons are re-flattened. */
+      /* Indented under the section, but only just: at three levels deep every
+         pixel of indent is a pixel taken off the step's NAME, which is the one
+         thing a rail entry has to be able to show. */
+      .secnav .item-list {
+        display: flex; flex-direction: column; gap: 1px;
+        margin: 1px 0 6px 7px; padding-left: 7px;
+        border-left: 1px dashed var(--line);
+      }
+      .secnav .item-row {
+        display: flex; align-items: center; gap: 2px;
+        border-radius: var(--radius-sm);
+      }
+      .secnav .item-row:hover { background: var(--surface); }
+      .secnav .item-row.is-active { background: var(--accent-soft); }
+      .secnav .item-row .item-open {
+        flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+        padding: 6px 22px 6px 2px; font-size: 12.5px; border-radius: var(--radius-sm);
+      }
+      .secnav .item-row:hover .item-open,
+      .secnav .item-row.is-active .item-open { background: none; }
+      .secnav .item-row.is-active .item-open { color: var(--accent-strong); font-weight: 600; }
+      /* The number and the drag grip share one slot: the number IS the position,
+         so grabbing it to change the position is the same idea twice, and three
+         levels deep the rail has no width to spend on a permanent handle. */
+      .secnav .item-row .ihandle {
+        position: relative; flex: 0 0 auto; width: 16px; height: 15px;
+      }
+      .secnav .item-row .inum {
+        position: absolute; inset: 0; border-radius: 4px;
+        display: grid; place-items: center;
+        background: var(--surface-2); color: var(--ink-faint);
+        font-size: 10px; font-weight: 800; transition: opacity .12s;
+      }
+      .secnav .item-row.is-active .inum { background: var(--accent); color: var(--on-accent); }
+      .secnav .item-row .grip {
+        position: absolute; inset: 0; display: grid; place-items: center;
+        font-size: 10px; color: var(--ink-faint); opacity: 0; cursor: grab;
+        transition: opacity .12s;
+      }
+      .secnav .item-row:hover .grip { opacity: .85; }
+      .secnav .item-row:hover .inum { opacity: 0; }
+      .secnav .item-row .ittl {
+        flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .secnav .item-row .imode { flex: 0 0 auto; font-size: 10.5px; color: var(--ink-faint); }
+      /* The dot and the ⋯ share the right edge — the dot is the resting state,
+         the menu takes over on hover, and neither steals width from the name. */
+      .secnav .item-row .status {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%); margin: 0;
+      }
+      .secnav .item-row { position: relative; }
+      .secnav .item-row:hover .status,
+      .secnav .item-row .item-menu-btn[aria-expanded="true"] ~ .status { opacity: 0; }
+      /* Centred with a negative margin, NOT translateY: a transform creates a
+         stacking context, which trapped the popup's z-index inside this wrapper
+         and let every row below it paint over the open menu. */
+      .secnav .item-row .item-menu {
+        position: absolute; right: 2px; top: 50%; margin-top: -11px;
+      }
+      /* Drag feedback: a line where the row would land, not a mystery. */
+      .secnav .item-row.dragging { opacity: .45; }
+      .secnav .item-row.drop-before { box-shadow: inset 0 2px 0 0 var(--accent); }
+      .secnav .item-row.drop-after  { box-shadow: inset 0 -2px 0 0 var(--accent); }
+      .secnav .item-empty {
+        margin: 4px 6px; font-size: 11.5px; color: var(--ink-faint);
+      }
+      .secnav .item-add {
+        font-size: 12px; color: var(--ink-faint); padding: 6px 6px;
+      }
+      .secnav .item-add:hover { color: var(--accent-strong); }
+
+      /* The ⋯ commands — the keyboard path to the same moves as dragging, and
+         the only place delete lives now that the step body has no footer. */
+      .item-menu { position: relative; flex: 0 0 auto; display: inline-flex; }
+      .item-menu-btn {
+        width: 22px; height: 22px; display: grid; place-items: center;
+        background: none; border: none; border-radius: 5px; cursor: pointer;
+        color: var(--ink-faint); font-size: 12px; opacity: 0; transition: opacity .12s;
+      }
+      .item-row:hover .item-menu-btn,
+      .item-row.is-active .item-menu-btn,
+      .arc-row:hover .item-menu-btn,
+      .item-menu-btn[aria-expanded="true"] { opacity: 1; }
+      .item-menu-btn:hover { background: var(--surface-2); color: var(--ink); }
+      /* `hidden` has to win: a class rule with display:flex outranks the UA
+         [hidden] rule, which left every menu on the page hanging open. */
+      .item-menu-pop[hidden] { display: none; }
+      /* Opens upward when the row sits low in the rail — the nav is a scrolling
+         box, so a downward menu on the last step would be clipped by it. */
+      .item-menu-pop.up { top: auto; bottom: calc(100% + 4px); }
+      .item-menu-pop {
+        position: absolute; z-index: 40; top: calc(100% + 4px); right: 0;
+        min-width: 168px; padding: 5px;
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius-sm); box-shadow: 0 12px 28px rgba(0,0,0,.28);
+        display: flex; flex-direction: column; gap: 1px;
+      }
+      /* Same trap as the popup itself: a class rule with display:flex outranks
+         the UA [hidden] rule, so the commands stayed on screen underneath the
+         confirmation. */
+      .item-menu-list[hidden], .item-menu-confirm[hidden] { display: none; }
+      .item-menu-list { display: flex; flex-direction: column; gap: 1px; }
+      .item-menu-confirm { padding: 4px 6px 6px; width: 226px; }
+      .item-menu-confirm .cf-q {
+        margin: 2px 0 4px; font-size: 12.5px; font-weight: 700; color: var(--ink);
+      }
+      .item-menu-confirm .cf-note {
+        margin: 0 0 10px; font-size: 11.5px; line-height: 1.5; color: var(--ink-soft);
+      }
+      .item-menu-confirm .cf-actions { display: flex; gap: 6px; justify-content: flex-end; }
+      .item-menu-confirm .cf-actions button {
+        display: inline-flex; align-items: center; gap: 6px; width: auto;
+        padding: 6px 11px; border-radius: 6px; font: inherit; font-size: 12px;
+        font-weight: 600; cursor: pointer;
+      }
+      .item-menu-confirm .cf-cancel {
+        background: none; border: 1px solid var(--line); color: var(--ink-soft);
+      }
+      .item-menu-confirm .cf-cancel:hover { color: var(--ink); }
+      .item-menu-confirm .cf-go {
+        background: var(--err); border: 1px solid var(--err); color: #fff;
+      }
+      .item-menu-confirm .cf-go:hover { filter: brightness(1.08); }
+
+      .item-menu-pop button {
+        display: flex; align-items: center; gap: 9px; width: 100%;
+        padding: 7px 9px; border: none; background: none; border-radius: 5px;
+        font: inherit; font-size: 12.5px; color: var(--ink); text-align: left; cursor: pointer;
+      }
+      .item-menu-pop button i { width: 13px; text-align: center; color: var(--ink-faint); font-size: 11.5px; }
+      .item-menu-pop button:hover:not(:disabled) { background: var(--surface-2); }
+      .item-menu-pop button:disabled { opacity: .38; cursor: default; }
+      .item-menu-pop button.danger { color: var(--err); }
+      .item-menu-pop button.danger i { color: var(--err); }
+
+      /* ===== The arc overview (the Steps card) ==========================
+         A read of the whole sequence, and a way into any of it. Editing one
+         step happens in the step's own pane, so nothing here expands. */
+      .arc-row {
+        display: flex; align-items: center; gap: 4px; margin: 8px 0;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+        padding-right: 6px;
+      }
+      .arc-row:hover { border-color: var(--accent); }
+      .arc-open {
+        flex: 1; min-width: 0; display: flex; align-items: center; gap: 11px;
+        padding: 12px 4px 12px 14px; background: none; border: none;
+        font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+      }
+      .arc-open .arc-n {
+        flex: 0 0 auto; width: 22px; height: 22px; border-radius: 6px;
+        display: grid; place-items: center; background: var(--surface-2);
+        color: var(--ink-faint); font-size: 11.5px; font-weight: 800;
+      }
+      .arc-open .arc-name { flex: 0 0 auto; }
+      .arc-open .arc-mode {
+        display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px;
+        border-radius: 20px; background: var(--surface-2); border: 1px solid var(--line);
+        font-size: 12px; font-weight: 600; color: var(--ink-soft);
+      }
+      .arc-open .arc-turns { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+      .arc-open .arc-go { flex: 0 0 auto; color: var(--ink-faint); font-size: 12px; }
+      .arc-add {
+        display: inline-flex; align-items: center; padding: 8px 14px; margin-top: 12px;
+        border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        background: var(--surface-2); color: var(--ink); border: 1px solid var(--line);
+      }
+      .arc-add:hover { border-color: var(--accent); color: var(--accent-strong); }
+
+      /* ===== The focus view (one list item alone in the pane) =========== */
+      .item-crumb {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        max-width: 62ch; margin: 0 2px 14px;
+      }
+      .item-crumb .crumb-up {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 5px 11px 5px 9px; border-radius: 999px;
+        background: var(--surface); border: 1px solid var(--line);
+        font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer;
+      }
+      .item-crumb .crumb-up:hover { color: var(--accent-strong); border-color: var(--accent); }
+      .item-crumb .crumb-trail { font-size: 12px; color: var(--ink-faint); }
+      .item-crumb .crumb-trail i { margin: 0 4px; font-size: 10px; }
+      .phase-header.item-header { display: flex; align-items: flex-start; gap: 12px; }
+      .phase-header.item-header > :first-child { flex: 1; min-width: 0; }
+      .phase-header.item-header .item-menu { margin-top: 18px; }
+      .phase-header.item-header .item-menu-btn {
+        opacity: 1; width: 30px; height: 30px; font-size: 14px;
+        border: 1px solid var(--line); background: var(--surface);
       }
 
       /* ===== Phase header + mode chooser + footer (in the form) ========= */

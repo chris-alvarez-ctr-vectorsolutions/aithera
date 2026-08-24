@@ -611,8 +611,69 @@
     { id: 'opening', group: 'interaction', stage: 'ENTER', icon: 'fa-door-open', title: 'Opening reflection',
       lead: 'One ungraded exchange before the phases. Optional — a scenario may open straight into its first practice.' },
 
+    /* The steps are a SECTION LIST (see studio-shell.js): each one is its own
+       rail entry and gets the authoring pane to itself, rather than four
+       accordions stacked in a single card. `list` is what opts in — the shell
+       reads it and owns the rail, the focus view and the ⋯ commands; this type
+       still owns what a step IS, and what moving or deleting one costs. */
     { id: 'phases', group: 'interaction', stage: 'ENGAGE', icon: 'fa-list-ol', title: 'Steps',
-      lead: 'The arc. Each step pairs a practice (the learner acts) with a debrief (the coach teaches against that attempt).' },
+      lead: 'The arc. Each step pairs a practice (the learner acts) with a debrief (the coach teaches against that attempt).',
+      list: {
+        singular: 'step',
+        pluralLabel: 'steps',
+        addLabel: 'Add step',
+        items: (H) => phasesOf(H).map((p, i) => {
+          const ph = obj(p);
+          const m = modeMeta(obj(ph.practice).mode);
+          return {
+            title: str(ph.label).trim() || str(ph.id).trim() || 'Step ' + (i + 1),
+            meta: m.label,
+            icon: m.icon,
+          };
+        }),
+        render: (i, H) => buildStepEditor(i, H),
+        add: (H) => { const ps = phasesOf(H); ps.push(newPhase(ps.length + 1)); return ps.length - 1; },
+        move: (from, to, H) => {
+          const ps = phasesOf(H);
+          if (from === to || !ps[from]) return '';
+          const before = brokenCarryover(ps).length;
+          ps.splice(to, 0, ps.splice(from, 1)[0]);
+          return carryoverWarning(ps, before);
+        },
+        duplicate: (i, H) => {
+          const ps = phasesOf(H);
+          const src = ps[i];
+          if (!src) return i;
+          const copy = JSON.parse(JSON.stringify(src));
+          copy.id = uniquePhaseId(ps, str(src.id).trim() || 'step');
+          copy.label = (str(src.label).trim() || 'Step ' + (i + 1)) + ' (copy)';
+          /* Inserted directly after its original, so every carryover it holds
+             still names a step that runs earlier than it does. */
+          ps.splice(i + 1, 0, copy);
+          return i + 1;
+        },
+        remove: (i, H) => {
+          const ps = phasesOf(H);
+          const gone = ps[i];
+          if (!gone) return '';
+          const goneId = str(obj(gone).id).trim();
+          ps.splice(i, 1);
+          /* A carryover naming a step that no longer exists is invalid by
+             construction, so drop those references — and say how many, rather
+             than quietly editing steps the author wasn't looking at. */
+          let pruned = 0;
+          ps.forEach((p) => {
+            const inter = obj(obj(obj(p).practice).interaction);
+            if (!Array.isArray(inter.carryover) || !goneId) return;
+            const kept = inter.carryover.filter((c) => str(obj(c).from).trim() !== goneId);
+            pruned += inter.carryover.length - kept.length;
+            if (kept.length) inter.carryover = kept; else delete inter.carryover;
+          });
+          return pruned
+            ? `Step deleted. ${pruned} carryover reference${pruned > 1 ? 's' : ''} to it removed.`
+            : '';
+        },
+      } },
 
     { id: 'closing', group: 'debrief', stage: 'CLOSE', icon: 'fa-flag-checkered', title: 'Expert answer',
       lead: 'The audit-defensible close. Shipped verbatim to every learner on every path.',
@@ -806,90 +867,141 @@
   ];
   const modeMeta = (id) => MODES.find((m) => m.id === id) || { label: id || '—', icon: 'fa-question', hint: '' };
 
-  /* Which step cards are expanded. Deliberately module-level rather than a field
-     on the phase: POC V4 sets additionalProperties:false everywhere, so a stray
-     `__open` key on a phase would fail the load. UI state never touches the
-     document. */
-  const openSteps = new Set();
-
   const LEVEL_COPY = {
     unthoughtful: { title: 'Unthoughtful', hint: 'Misses the point, minimises, or actively goes wrong.' },
     neutral: { title: 'Neutral', hint: 'Well-intentioned and partly right; thin, or missing something important.' },
     strong: { title: 'Strong', hint: 'What an expert would recognise as handling it well.' },
   };
 
-  function buildPhasesEditor(H) {
-    const { tf, rowsBlock, rowCard, guidance, esc, scheduleUpdate } = H;
-    const wrap = document.createElement('div');
+  /* ---- list plumbing the section's `list` contract calls ------------------
+     All of it reads the LIVE draft each time. normalize() clones and the shell
+     re-normalizes on every update, so a phases array captured once goes stale
+     the first time anything saves — and a move applied to an orphaned array is
+     a reorder the author watches fail. */
+  function phasesOf(H) {
+    const s = normalizeInPlace(H && H.getScenario ? H.getScenario() : {});
+    return arr(obj(obj(s).content).phases);
+  }
 
-    /* Read the draft FRESH on every paint, never captured once.
-       normalize() clones, and the shell re-normalizes on each update — so a
-       reference captured at build time goes stale the first time anything saves.
-       Capturing it meant the second retype mutated an orphaned object while the
-       shell rendered from a newer one, and the section came back empty. */
-    let s, phases;
-    function readDraft() {
-      s = normalizeInPlace(H.getScenario ? H.getScenario() : {});
-      phases = arr(obj(obj(s).content).phases);
-    }
+  function uniquePhaseId(phases, base) {
+    const taken = phases.map((p) => str(obj(p).id).trim());
+    let id = base + '-copy';
+    let n = 2;
+    while (taken.includes(id)) { id = base + '-copy' + n; n += 1; }
+    return id;
+  }
 
-    /* Local render, so retyping a step or toggling a debrief's interactivity
-       repaints just this section. Same approach mix-arc uses for its beats. */
-    function paint() {
-      readDraft();
-      wrap.innerHTML = '';
-      if (!phases.length) {
-        const p = document.createElement('p');
-        p.textContent = 'No steps yet — add the first one below.';
-        p.style.cssText = 'color:var(--ink-soft);margin:8px 0';
-        wrap.append(p);
-      }
-      phases.forEach((phase, i) => wrap.append(phaseCard(obj(phase), i)));
-
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.innerHTML = '<i class="fa-solid fa-plus" style="margin-right:6px"></i>Add step';
-      add.style.cssText = 'display:inline-flex;align-items:center;padding:8px 14px;margin-top:12px;border-radius:8px;'
-        + 'font:600 13px inherit;cursor:pointer;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)';
-      add.addEventListener('click', () => {
-        openSteps.add(phases.length);          // open the one just added
-        phases.push(newPhase(phases.length + 1));
-        scheduleUpdate(); paint();
+  /* Every carryover must name an EARLIER step (scenario-v4.js rule 3: a scene
+     starts blank, and carryover grants it a transcript that has already
+     happened). Reordering can therefore invalidate a step the author was not
+     looking at, so report which ones — repairing it silently would be editing
+     their scenario on their behalf. */
+  function brokenCarryover(phases) {
+    const ids = phases.map((p) => str(obj(p).id).trim());
+    const out = [];
+    phases.forEach((p, i) => {
+      arr(obj(obj(obj(p).practice).interaction).carryover).forEach((c) => {
+        const from = str(obj(c).from).trim();
+        if (!from) return;
+        const j = ids.indexOf(from);
+        if (j < 0 || j >= i) out.push({ i, from });
       });
-      wrap.append(add);
+    });
+    return out;
+  }
+
+  function carryoverWarning(phases, before) {
+    const now = brokenCarryover(phases);
+    if (now.length <= before) return '';
+    const first = now[now.length - 1];
+    const ph = obj(phases[first.i]);
+    const name = str(ph.label).trim() || str(ph.id).trim() || 'Step ' + (first.i + 1);
+    return `Moved. “${name}” now carries over from “${first.from}”, which no longer runs before it — see Guardrails.`;
+  }
+
+  /* =======================================================================
+     THE ARC OVERVIEW — what the Steps section shows now
+     -----------------------------------------------------------------------
+     Not an editor any more: the steps each have their own rail entry and their
+     own pane, so this card's job is the one thing the focus view cannot do —
+     show the whole arc at once, in order. A row is a way IN, plus the same ⋯
+     commands the rail offers, so an author reading the arc never has to travel
+     to the rail to act on what they just read.
+     ==================================================================== */
+  function buildPhasesEditor(H) {
+    const { esc } = H;
+    const wrap = document.createElement('div');
+    const phases = phasesOf(H);
+
+    if (!phases.length) {
+      const p = document.createElement('p');
+      p.textContent = 'No steps yet — add the first one below, or from the list on the left.';
+      p.style.cssText = 'color:var(--ink-soft);margin:8px 0';
+      wrap.append(p);
     }
 
-    function phaseCard(ph, i) {
-      const card = document.createElement('div');
-      card.style.cssText = 'border:1px solid var(--line);border-radius:10px;margin:10px 0;background:var(--surface)';
-
+    phases.forEach((phase, i) => {
+      const ph = obj(phase);
       const practice = obj(ph.practice);
       const m = modeMeta(practice.mode);
       const turns = obj(obj(practice.exit).when).turns;
       const fut = obj(ph.debrief).follow_up_turns;
 
-      /* Header — the arc stays scannable when every step is collapsed. */
-      const head = document.createElement('div');
-      head.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer';
-      const isOpen = openSteps.has(i);
-      head.innerHTML = '<i class="fa-solid fa-chevron-' + (isOpen ? 'down' : 'right') + '" style="color:var(--ink-soft);width:12px"></i>'
-        + '<b style="flex:0 0 auto">' + esc(ph.label || ph.id || 'Step ' + (i + 1)) + '</b>'
-        + '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;'
-        + 'background:var(--surface-2);border:1px solid var(--line);font:600 12px inherit;color:var(--ink-soft)">'
-        + '<i class="fa-solid ' + m.icon + '"></i>' + esc(m.label) + '</span>'
-        + '<span style="margin-left:auto;font:12px inherit;color:var(--ink-soft)">practice '
-        + esc(String(turns == null ? '—' : turns)) + ' turns · debrief '
-        + esc(fut === 0 ? 'delivery-only' : fut + ' turns') + '</span>';
-      head.addEventListener('click', () => {
-        if (isOpen) openSteps.delete(i); else openSteps.add(i);
-        paint();
-      });
-      card.append(head);
+      const row = document.createElement('div');
+      row.className = 'arc-row';
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'arc-open';
+      open.innerHTML = '<span class="arc-n">' + (i + 1) + '</span>'
+        + '<b class="arc-name">' + esc(str(ph.label).trim() || str(ph.id).trim() || 'Step ' + (i + 1)) + '</b>'
+        + '<span class="arc-mode"><i class="fa-solid ' + m.icon + '"></i>' + esc(m.label) + '</span>'
+        + '<span class="arc-turns">practice ' + esc(String(turns == null ? '—' : turns)) + ' turns · debrief '
+        + esc(fut === 0 ? 'delivery-only' : fut + ' turns') + '</span>'
+        + '<i class="fa-solid fa-angle-right arc-go" aria-hidden="true"></i>';
+      open.addEventListener('click', () => H.goToItem('phases', i));
+      row.append(open);
+      if (H.itemMenu) row.append(H.itemMenu('phases', i));
+      wrap.append(row);
+    });
 
-      if (!isOpen) return card;
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'arc-add';
+    add.innerHTML = '<i class="fa-solid fa-plus" style="margin-right:6px"></i>Add step';
+    add.addEventListener('click', () => {
+      const ps = phasesOf(H);
+      ps.push(newPhase(ps.length + 1));
+      H.scheduleUpdate();
+      H.refreshNav();
+      H.goToItem('phases', ps.length - 1);     // straight into the step just made
+    });
+    wrap.append(add);
+    return wrap;
+  }
 
-      const body = document.createElement('div');
-      body.style.cssText = 'padding:2px 14px 16px;border-top:1px solid var(--line)';
+  /* =======================================================================
+     ONE STEP — the focus pane the rail opens
+     -----------------------------------------------------------------------
+     The former accordion body, minus the accordion. It repaints itself in
+     place when the step is RETYPED or the debrief's turn budget changes, both
+     of which swap which fields exist; the rail is rebuilt alongside, because
+     the mode it shows just changed too.
+     ==================================================================== */
+  function buildStepEditor(i, H) {
+    const { tf, rowsBlock, rowCard, guidance, esc, scheduleUpdate } = H;
+    const body = document.createElement('div');
+    const repaint = () => { paint(); if (H.refreshNav) H.refreshNav(); };
+
+    function paint() {
+      const s = normalizeInPlace(H.getScenario ? H.getScenario() : {});
+      const phases = arr(obj(obj(s).content).phases);
+      body.innerHTML = '';
+      if (!phases[i]) {
+        body.textContent = 'This step is no longer part of the scenario.';
+        return;
+      }
+      const ph = obj(phases[i]);
+      const practice = obj(ph.practice);
 
       /* --- the mode selector: retypes the step ------------------------- */
       const modeRow = document.createElement('div');
@@ -910,7 +1022,8 @@
                required containers and drop keys the new mode rejects, so the
                document never sits in a state POC V4 would refuse. */
             practice.interaction = seedInteraction(mode.id, obj(practice.interaction));
-            scheduleUpdate(); paint();
+            /* The rail shows the step's mode, so it is repainted too. */
+            scheduleUpdate(); repaint();
           });
         }
         modeRow.append(btn);
@@ -1036,25 +1149,10 @@
         tf(`content.phases.${i}.debrief.transition.button_label`, 'Button into the next step'),
       );
 
-      /* --- remove ------------------------------------------------------ */
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.innerHTML = '<i class="fa-solid fa-trash" style="margin-right:6px"></i>Remove this step';
-      del.style.cssText = 'display:inline-flex;align-items:center;padding:7px 12px;margin-top:14px;border-radius:8px;'
-        + 'font:600 12px inherit;cursor:pointer;background:transparent;color:var(--danger,#c92626);border:1px solid var(--line)';
-      del.addEventListener('click', () => {
-        phases.splice(i, 1);
-        openSteps.clear();                     // indices shifted; collapse rather than mislabel
-        scheduleUpdate(); paint();
-      });
-      body.append(del);
-
-      card.append(body);
-      return card;
     }
 
     paint();
-    return wrap;
+    return body;
   }
 
   /* Per-mode interaction fields. Each mode gets only its own shape — POC V4
@@ -1367,6 +1465,14 @@
     return 'basics';
   }
 
+  /* Which STEP a validator path belongs to, or null. The steps are their own
+     rail entries now, so a lint can carry a dot on the exact step it is about
+     instead of one dot for the whole arc. */
+  function itemFor(path) {
+    const m = String(path || '').match(/^content\.phases\[(\d+)\]/);
+    return m ? Number(m[1]) : null;
+  }
+
   /* Trim the path to something an author can act on.
      A phase-scoped path is rewritten to NAME the step rather than index it:
      "phases 2.practice.interaction.exhibit" tells an author nothing about which
@@ -1387,7 +1493,7 @@
 
   function lints(s) {
     const L = [];
-    const add = (severity, section, msg, why) => L.push({ severity, section, msg, why });
+    const add = (severity, section, msg, why, item) => L.push({ severity, section, msg, why, item });
     const v4 = V4();
     if (!v4) {
       add('warn', 'basics', 'Validation unavailable — js/scenario-v4.js did not load.',
@@ -1400,10 +1506,10 @@
 
     report.errors.forEach((e) => {
       add('err', sectionFor(e.path), friendly(e.path, doc) + ' — ' + e.message,
-        'POC V4 rejects the document until this is authored.');
+        'POC V4 rejects the document until this is authored.', itemFor(e.path));
     });
     report.warnings.forEach((w) => {
-      add('warn', sectionFor(w.path), friendly(w.path, doc) + ' — ' + w.message, '');
+      add('warn', sectionFor(w.path), friendly(w.path, doc) + ' — ' + w.message, '', itemFor(w.path));
     });
 
     /* Soft defaults: filled so the scenario loads, but a story label reads far
@@ -1420,7 +1526,7 @@
           + 'house default "' + label + '".',
           'This one leads into the next scene, so a label naming what happens next reads better — '
           + '"Sit down with Bianca", "Take the follow-up call". (The practice button is different: '
-          + '23 of 29 POC V4 scenarios use the same string there, so its default is fine.)');
+          + '23 of 29 POC V4 scenarios use the same string there, so its default is fine.)', i);
       });
     }
 
