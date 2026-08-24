@@ -57,6 +57,19 @@
 (function () {
   'use strict';
 
+  /* Ask before something the author cannot take back. NEVER window.confirm():
+     it is suppressed in an embedded browser, returning false without ever
+     prompting — and every guard below reads that false as "no", so the wizard
+     refuses to close or to redraft and looks stuck. The shell owns the in-page
+     dialog (window.AitheraConfirm); it loads after this file, so it is looked
+     up at call time, and if it is somehow absent the guard steps aside rather
+     than trapping the author behind a question nobody can answer. */
+  function ask(opts, onYes) {
+    if (typeof window.AitheraConfirm === 'function') return window.AitheraConfirm(opts, onYes);
+    onYes();
+  }
+
+
   const MODEL = 'claude-opus-4-8';
   const DEFAULT_WORKER = 'https://aithera-action-proxy.vector-aithera.workers.dev';
   const RETRY_NUDGE = '\n\n[Return ONLY the JSON object described above — start with { and end with }, no fences, no commentary.]';
@@ -461,9 +474,17 @@
     const $w = (sel) => overlay.querySelector(sel);
 
     function close() {
-      if ((gen.running || outlining) && !confirm('Generation is still running — close anyway?')) return;
-      overlay.remove();
-      document.removeEventListener('keydown', onKey);
+      const shut = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+      };
+      if (!(gen.running || outlining)) return shut();
+      ask({
+        title: 'Close the wizard while it is still generating?',
+        body: 'The draft it is part-way through is discarded.',
+        confirmLabel: 'Close anyway',
+        danger: true,
+      }, shut);
     }
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
@@ -586,8 +607,14 @@
           // No interview spec — the Universal editor IS the starting point
           // (template gallery inside). Same reload-with-?type= move the shell's
           // own type switching uses.
-          if ((gen.running || outlining) && !confirm('Generation is still running — leave anyway?')) return;
-          location.href = 'scenario-editor/index.html?type=' + encodeURIComponent(t.id);
+          const go = () => { location.href = 'scenario-editor/index.html?type=' + encodeURIComponent(t.id); };
+          if (!(gen.running || outlining)) return go();
+          ask({
+            title: 'Leave while it is still generating?',
+            body: 'The draft it is part-way through is discarded.',
+            confirmLabel: 'Leave anyway',
+            danger: true,
+          }, go);
         });
         grid.appendChild(card);
       });
@@ -893,9 +920,20 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
       const edited = intake._outlined
         ? (intake._outlineSig != null && outlineSig() !== intake._outlineSig)
         : hasInterviewAnswers();
-      if (edited && !confirm(intake._outlined
-        ? 'Redraft the outline? Your hand-edits to the drafted fields will be rewritten.'
-        : 'Create the outline from your description? The fields you already filled in will be rewritten.')) return;
+      if (edited) {
+        ask({
+          title: intake._outlined ? 'Redraft the outline?' : 'Create the outline from your description?',
+          body: intake._outlined
+            ? 'Your hand-edits to the drafted fields are rewritten.'
+            : 'The fields you already filled in are rewritten.',
+          confirmLabel: intake._outlined ? 'Redraft' : 'Create outline',
+        }, () => { doOutline(); });
+        return;
+      }
+      doOutline();
+    }
+
+    async function doOutline() {
       outlineErr = '';
       outlining = true;
       renderFoot();

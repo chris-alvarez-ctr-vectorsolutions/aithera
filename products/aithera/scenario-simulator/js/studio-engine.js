@@ -148,10 +148,20 @@
       try { return JSON.parse(localStorage.getItem(keys.library)) || {}; }
       catch (e) { return {}; }
     }
+    /* Where a scenario keeps its name depends on the format: the classic types
+       put it at the top level, POC V4 puts it under `content`. Reading only the
+       top level listed every V4 snapshot as "(untitled)", which made the drafts
+       panel a column of identical rows — nothing to tell them apart by, in the
+       one place whose whole job is telling them apart. */
+    function titleOf(scenario) {
+      const s = scenario || {};
+      const t = String(s.title || (s.content || {}).title || '').trim();
+      return t || '(untitled)';
+    }
     function listLibrary() {
       const lib = readLibrary();
       return Object.keys(lib)
-        .map((id) => ({ id, savedAt: lib[id].savedAt, title: (lib[id].scenario || {}).title || '(untitled)' }))
+        .map((id) => ({ id, savedAt: lib[id].savedAt, title: titleOf(lib[id].scenario) }))
         .sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
     }
     function saveToLibrary(scenario, id) {
@@ -173,7 +183,7 @@
     return {
       keys,
       loadPublished, publish, clearPublished,
-      listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary,
+      listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, titleOf,
     };
   }
 

@@ -88,6 +88,51 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
+  /* ---- ask before something irreversible --------------------------------
+     NOT window.confirm(). A native dialog is suppressed outright in an
+     embedded browser — it returns false without ever prompting — and every
+     call site here reads that false as the author's answer. Which way it
+     fails depends on how the guard is written: deleting a saved draft did
+     nothing at all, while a wizard guard refused to let the author leave.
+     Both look like a broken button, and neither leaves a trace.
+
+     So the question is asked in the page, and the answer arrives by callback.
+     Uses the same overlay/modal idiom as the export and new-scenario dialogs. */
+  window.AitheraConfirm = function askConfirm(opts, onYes) {
+    const o = opts || {};
+    const overlay = document.createElement('div');
+    overlay.className = 'exp-overlay';
+    overlay.innerHTML =
+      `<div class="exp-modal is-compact ask-modal" role="alertdialog" aria-modal="true">
+         <div class="exp-head">
+           <div class="exp-titles">
+             <div class="exp-title">${esc(o.title || 'Are you sure?')}</div>
+             ${o.body ? `<p class="exp-sub">${esc(o.body)}</p>` : ''}
+           </div>
+         </div>
+         <div class="ask-actions">
+           <button type="button" class="ask-no">${esc(o.cancelLabel || 'Cancel')}</button>
+           <button type="button" class="ask-yes${o.danger ? ' is-danger' : ''}">${esc(o.confirmLabel || 'Continue')}</button>
+         </div>
+       </div>`;
+    const done = (yes) => {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      if (yes && typeof onYes === 'function') onYes();
+    };
+    function onKey(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+      if (e.key === 'Enter' && document.activeElement === $('.ask-yes', overlay)) { e.stopPropagation(); done(true); }
+    }
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+    $('.ask-no', overlay).addEventListener('click', () => done(false));
+    $('.ask-yes', overlay).addEventListener('click', () => done(true));
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    $('.ask-yes', overlay).focus();
+  };
+  const askConfirm = window.AitheraConfirm;
+
   /* =======================================================================
      FORM DEFINITION lives in the TYPE now (type.sections + type.renderFields).
      The shell only provides the DOM field-builder helpers below and hands
@@ -1291,10 +1336,15 @@
   });
 
   $('#unpublishBtn').addEventListener('click', () => {
-    if (!confirm('Clear this draft from the player? It goes back to the shipped scenario. Your draft here is untouched.')) return;
-    type.store.clearPublished();
-    renderPubState();
-    toast('Cleared — the player is back on the shipped scenario');
+    askConfirm({
+      title: 'Clear this draft from the player?',
+      body: 'The player goes back to the shipped scenario. Your draft here is untouched.',
+      confirmLabel: 'Clear it',
+    }, () => {
+      type.store.clearPublished();
+      renderPubState();
+      toast('Cleared — the player is back on the shipped scenario');
+    });
   });
 
   /* "Reset to shipped" is gone. It restored type.DEFAULT — which IS one of the
@@ -1687,8 +1737,8 @@
       html += entries.map((e) => {
         const when = e.savedAt ? new Date(e.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
         return `<div class="librow">
-          <button class="meta" data-load="${esc(e.id)}" title="Load into the editor"><span class="t">${esc(e.title)}</span><span class="d">Saved ${esc(when)}</span></button>
-          <button class="rm" data-remove="${esc(e.id)}" aria-label="Delete ${esc(e.title)} from library"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+          <button class="meta" data-load="${esc(e.id)}" data-title="${esc(e.title)}" title="Load into the editor"><span class="t">${esc(e.title)}</span><span class="d">Saved ${esc(when)}</span></button>
+          <button class="rm" data-remove="${esc(e.id)}" data-title="${esc(e.title)}" aria-label="Delete ${esc(e.title)} from library"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
         </div>`;
       }).join('');
     }
@@ -1698,23 +1748,41 @@
     $('#libSaveBtn', libPanel).addEventListener('click', () => {
       type.store.saveToLibrary(clone(scenario));
       renderLibrary();
-      toast(`Saved "${scenario.title}" to the library`);
+      toast(`Snapshot saved — "${type.store.titleOf ? type.store.titleOf(scenario) : (scenario.title || 'untitled')}"`);
     });
     $$('[data-load]', libPanel).forEach((b) => b.addEventListener('click', () => {
       const s = type.store.loadFromLibrary(b.dataset.load);
       if (!s) { toast('That entry could not be loaded'); return; }
-      if (!confirm(`Load "${s.title}" into the editor? Your current draft is replaced — save it to the library first if you want to keep it.`)) return;
-      scenario = mergeScenario(s);
-      buildForm();
-      update();
-      if (playtestHandle) playtestHandle.reset();
-      closeLibrary();
-      toast(`Loaded "${s.title}"`);
+      /* Named from the ROW, not from s.title — a POC V4 document keeps its title
+         under `content`, so the top-level read was undefined and the dialog
+         asked about "undefined". The row already shows the right name. */
+      const name = b.dataset.title || 'this draft';
+      askConfirm({
+        title: `Open “${name}”?`,
+        body: 'It replaces what you are editing now. Snapshot the current draft first if you want to keep it.',
+        confirmLabel: 'Open it',
+      }, () => {
+        scenario = mergeScenario(s);
+        activeItem = null;              // the new document has different steps
+        buildNav();
+        buildForm();
+        update();
+        if (playtestHandle) playtestHandle.reset();
+        closeLibrary();
+        toast(`Loaded "${name}"`);
+      });
     }));
     $$('[data-remove]', libPanel).forEach((b) => b.addEventListener('click', () => {
-      if (!confirm('Delete this saved scenario? This can\'t be undone.')) return;
-      type.store.removeFromLibrary(b.dataset.remove);
-      renderLibrary();
+      askConfirm({
+        title: `Delete “${b.dataset.title || 'this snapshot'}”?`,
+        body: 'Snapshots live in this browser only, so there is no other copy of it. This cannot be undone.',
+        confirmLabel: 'Delete',
+        danger: true,
+      }, () => {
+        type.store.removeFromLibrary(b.dataset.remove);
+        renderLibrary();
+        toast('Snapshot deleted');
+      });
     }));
   }
 
