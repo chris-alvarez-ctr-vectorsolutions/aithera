@@ -17,12 +17,32 @@
    exactly what the Export panel builds — and diffs the result against the input.
 
    USAGE
-     node tools/roundtrip-check.js                 # fetch live documents from the POC repo
-     node tools/roundtrip-check.js path/*.lo.json  # check local files instead
+     node tools/roundtrip-check.js                 # PINNED documents — no credentials
+     node tools/roundtrip-check.js --live          # fetch the live documents instead
+     node tools/roundtrip-check.js path/*.lo.json  # specific local files
+     node tools/roundtrip-check.js --update-pinned # refresh the pins, then READ THE DIFF
 
-   Fixtures are FETCHED rather than vendored, on purpose: a committed copy goes
-   stale against their repo and then reports a green check against content nobody
-   is running any more. Needs `gh` authenticated for the default mode.
+   TWO JOBS, TWO CREDENTIAL NEEDS — this is why the default is pinned.
+
+     "Did WE break the editor's fidelity?"   the regression guard. Wants to run on
+                                             every push, forever, depending on
+                                             nobody. Needs real content, not
+                                             necessarily live content.
+     "Did THEIR content or schema move?"     drift detection. Naturally periodic,
+                                             and genuinely needs to reach their
+                                             repo — which is private, so a
+                                             cross-repo credential.
+
+   Bundling those two meant the valuable half could not run at all without the
+   credential, so the pinned copies under tools/pinned/ are now the default and
+   the live fetch is the drift alarm layered on top. When the fetch is not
+   available the drift section says so, once, and the regression guard still runs.
+
+   The original objection to vendoring stands and is answered rather than ignored:
+   a committed copy goes stale and then reports a green check against content
+   nobody runs. That is exactly what the drift section is for, and it is the same
+   pattern the pinned schema already uses. A pin without its diff is worse than no
+   pin — so refresh deliberately, and read what moved.
 
    Exit code is 1 if any document fails to round-trip, so this can gate a change.
    ========================================================================= */
@@ -103,6 +123,27 @@ function diff(a, b, p, out) {
   return out;
 }
 
+/* The pinned documents, read off disk. Named for their file stem exactly as the
+   live fetch does, so everything downstream is identical either way. */
+function readPinnedDocs() {
+  const dir = path.join(__dirname, 'pinned', 'content');
+  if (!fs.existsSync(dir)) {
+    console.error('No pinned documents at tools/pinned/content/.\n'
+      + '  Seed them once with:  node tools/roundtrip-check.js --update-pinned\n'
+      + '  (that needs `gh` authenticated for ' + POC_REPO + ')');
+    process.exit(2);
+  }
+  const files = fs.readdirSync(dir).filter((f) => /\.lo\.json$/.test(f)).sort();
+  if (!files.length) {
+    console.error('tools/pinned/content/ is empty — run --update-pinned to seed it.');
+    process.exit(2);
+  }
+  return files.map((f) => ({
+    name: path.basename(f, '.lo.json'),
+    doc: JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')),
+  }));
+}
+
 function fetchLiveDocs() {
   const gh = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   let paths;
@@ -124,11 +165,13 @@ const T = loadType();
 /* Flags are not documents. Every non-flag argv entry is read as a file path,
    so a bare --flag was opened as one and the run died on ENOENT. */
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const LIVE = process.argv.includes('--live') || process.argv.includes('--update-pinned');
 const docs = args.length
   ? args.map((f) => ({ name: path.basename(f).replace(/\.lo\.json$/, ''), doc: JSON.parse(fs.readFileSync(f, 'utf8')) }))
-  : fetchLiveDocs();
+  : (LIVE ? fetchLiveDocs() : readPinnedDocs());
 
-console.log('Round-tripping ' + docs.length + ' document(s) through the export chain\n');
+console.log('Round-tripping ' + docs.length + ' document(s) through the export chain'
+  + (args.length ? '' : LIVE ? '  [live]' : '  [pinned]') + '\n');
 let failed = 0;
 docs.forEach(({ name, doc }) => {
   const report = V4.validate(doc);
@@ -371,6 +414,9 @@ if (fixed.length) {
    ========================================================================= */
 const PINNED_DIR = path.join(__dirname, 'pinned');
 const PINNED = [{ local: 'lo_cml_v4.schema.json', remote: 'app/lo_schema/lo_cml_v4.schema.json' }];
+/* Every pinned document is checked too, and so is the SET of them — if they add a
+   twelfth scenario, a list derived from our own directory would never notice it. */
+const CONTENT_DIR = path.join(PINNED_DIR, 'content');
 
 function fetchUpstream(remotePath) {
   const raw = execFileSync('gh', ['api', `repos/${POC_REPO}/contents/${remotePath}`],
@@ -378,9 +424,64 @@ function fetchUpstream(remotePath) {
   return Buffer.from(JSON.parse(raw).content, 'base64').toString('utf8');
 }
 
-console.log('\nUpstream contract — is our pinned copy still current?\n');
+console.log('\nUpstream contract — are our pinned copies still current?\n');
 let drifted = 0;
+
+/* One reachability probe, not one per file. Without the credential this section
+   is the only thing that cannot run, and it says so once instead of printing a
+   dozen identical skips that read like a broken tool. */
+let reachable = true;
+try { fetchUpstream('app/lo_schema/lo_cml_v4.schema.json'); }
+catch (e) {
+  reachable = false;
+  console.log('  skip    drift checking — cannot reach ' + POC_REPO);
+  console.log('          The regression guard above ran against the PINNED copies and is');
+  console.log('          unaffected. What is not being checked is whether their content or');
+  console.log('          schema has moved since the pins were taken.');
+  console.log('          Needs `gh` authenticated locally, or the SCENSIM_POC_TOKEN secret in CI.');
+}
+
+/* The document set, before the file-by-file compare: an added or removed scenario
+   is a bigger deal than a changed field and would otherwise show up as nothing. */
+if (reachable) {
+  try {
+    const liveNames = JSON.parse(execFileSync('gh',
+      ['api', `repos/${POC_REPO}/git/trees/main?recursive=1`],
+      { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }))
+      .tree.filter((n) => n.type === 'blob' && /^app\/content\/[^/]+\.lo\.json$/.test(n.path))
+      .map((n) => path.basename(n.path, '.lo.json')).sort();
+    const mineNames = fs.existsSync(CONTENT_DIR)
+      ? fs.readdirSync(CONTENT_DIR).filter((f) => /\.lo\.json$/.test(f)).map((f) => path.basename(f, '.lo.json')).sort()
+      : [];
+    const added = liveNames.filter((n) => !mineNames.includes(n));
+    const gone = mineNames.filter((n) => !liveNames.includes(n));
+    if (added.length) { drifted++; console.log('  DRIFT   ' + added.length + ' new scenario(s) upstream, not pinned: ' + added.join(', ')); }
+    if (gone.length) { drifted++; console.log('  DRIFT   ' + gone.length + ' pinned scenario(s) no longer upstream: ' + gone.join(', ')); }
+    if (!added.length && !gone.length) console.log('  ok      the same ' + liveNames.length + ' scenario document(s) upstream');
+    if (process.argv.includes('--update-pinned')) {
+      if (!fs.existsSync(CONTENT_DIR)) fs.mkdirSync(CONTENT_DIR, { recursive: true });
+      gone.forEach((n) => fs.unlinkSync(path.join(CONTENT_DIR, n + '.lo.json')));
+      liveNames.forEach((n) => {
+        fs.writeFileSync(path.join(CONTENT_DIR, n + '.lo.json'), fetchUpstream('app/content/' + n + '.lo.json'));
+      });
+      console.log('  pinned  ' + liveNames.length + ' document(s) refreshed — READ THE DIFF before committing');
+    } else {
+      let contentDrift = 0;
+      liveNames.filter((n) => mineNames.includes(n)).forEach((n) => {
+        const mine = fs.readFileSync(path.join(CONTENT_DIR, n + '.lo.json'), 'utf8');
+        if (mine !== fetchUpstream('app/content/' + n + '.lo.json')) { contentDrift++; console.log('  DRIFT   ' + n + '.lo.json has changed upstream'); }
+      });
+      if (contentDrift) { drifted += contentDrift; console.log('          Refresh with --update-pinned, then re-run: a changed document can');
+        console.log('          reveal a field the editor cannot show.'); }
+      else console.log('  ok      every pinned document matches upstream');
+    }
+  } catch (e) {
+    console.log('  skip    document drift — ' + String(e.message).split('\n')[0]);
+  }
+}
+
 PINNED.forEach(({ local, remote }) => {
+  if (!reachable) return;
   const localPath = path.join(PINNED_DIR, local);
   let live;
   try { live = fetchUpstream(remote); }
@@ -389,8 +490,14 @@ PINNED.forEach(({ local, remote }) => {
     return;
   }
   if (process.argv.includes('--update-pinned')) {
+    /* Say whether it actually MOVED. Printing the "their schema has changed"
+       explanation on every refresh — including one that rewrote identical bytes —
+       trains the reader to skip the one line that matters. */
+    const before = fs.existsSync(localPath) ? fs.readFileSync(localPath, 'utf8') : '';
     fs.writeFileSync(localPath, live);
-    console.log('  pinned  ' + local + ' refreshed — READ THE DIFF before committing it');
+    console.log(before === live
+      ? '  ok      ' + local + ' re-pinned, unchanged'
+      : '  pinned  ' + local + ' refreshed AND IT MOVED — read the diff before committing');
     return;
   }
   const mine = fs.existsSync(localPath) ? fs.readFileSync(localPath, 'utf8') : '';

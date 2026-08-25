@@ -1,33 +1,30 @@
 name: Scenario Simulator — JSON contract
 
 # The Scenario Editor and the production engine are joined by nothing but JSON.
-# This job runs the three checks that guard that joint, all in one harness
-# (products/aithera/scenario-simulator/tools/roundtrip-check.js):
+# This file runs the two checks that guard that joint, and they are SEPARATE JOBS
+# because they have different credential needs — bundling them meant the valuable
+# one could not run at all without a cross-repo token.
 #
-#   1. ROUND TRIP  — open each of the dev team's live scenario documents in our
-#                    export chain and export it again unedited. Any difference is
-#                    content an author loses or a field their loader rejects.
-#   2. COVERAGE    — every leaf those documents carry must be reachable by an
-#                    editor field. This is the half a round trip cannot see: two
-#                    lists were once bound to index 0, hiding 152 authored fields,
-#                    and the round trip stayed green throughout because untouched
-#                    data exports perfectly well. Baselined, so only a NEW gap
-#                    fails; the baseline is meant to shrink.
-#   3. SCHEMA PIN  — their JSON Schema is vendored under tools/pinned/ and
-#                    compared against the live file. js/scenario-v4.js
-#                    transcribes its rules by hand, so a change on their side is
-#                    a change an author hits before we do.
+#   guard  "Did WE break the editor's fidelity?"
+#          Round trip + field coverage against the PINNED documents in
+#          products/aithera/scenario-simulator/tools/pinned/. Needs NO credentials,
+#          so it runs on every push, forever, depending on nobody. This is the job
+#          that catches the bugs we actually shipped: 152 authored fields hidden by
+#          a list bound to index 0, 50 more with no editor at all, and a required
+#          field whose input rendered as nothing. All three passed a round trip.
 #
-# WHY IT NEEDS A TOKEN. Checks 1 and 3 read from VectorLearning/scenario-simulator-poc,
-# a different repository, so the default GITHUB_TOKEN is not enough — it is scoped
-# to this repo. Add a fine-grained PAT with *Contents: read* on that repo as the
-# repository secret SCENSIM_POC_TOKEN.
+#   drift  "Did THEIR content or schema move?"
+#          Compares the pins against VectorLearning/scenario-simulator-poc. That
+#          repo is private and this workflow lives in a different one, so the
+#          default GITHUB_TOKEN cannot read it — it is scoped to this repository.
+#          Needs a fine-grained PAT with *Contents: read* on that repo, as the
+#          repository secret SCENSIM_POC_TOKEN. Weekly, because a schema does not
+#          move on our push schedule.
 #
-# Until that secret exists the job does NOT fail the build — it emits a warning
-# annotation on every run instead. A check that silently never runs is the exact
-# failure mode this harness was written to end, so it has to stay visible; but
-# blocking every push on a secret nobody has created yet would just get the whole
-# workflow disabled.
+# Until that secret exists, `drift` emits a warning annotation instead of failing.
+# A check that silently never runs is the failure mode this harness exists to end,
+# so it stays visible — but a red build for a missing credential is how a workflow
+# gets switched off, and `guard` is unaffected either way.
 
 on:
   push:
@@ -39,7 +36,6 @@ on:
     paths:
       - 'products/aithera/scenario-simulator/js/**'
       - 'products/aithera/scenario-simulator/tools/**'
-  # Their schema can move without us pushing anything, so check on a timer too.
   schedule:
     - cron: '17 13 * * 1'
   workflow_dispatch:
@@ -52,11 +48,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  contract:
+  # ---------------------------------------------------------------- guard ------
+  guard:
+    name: Regression guard (pinned, no credentials)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # No `gh` auth, no token, no network: the pinned documents are on disk.
+      # The harness prints one line saying drift checking was skipped, and exits 0.
+      - name: Round trip and field coverage
+        working-directory: products/aithera/scenario-simulator
+        run: node tools/roundtrip-check.js
 
+  # ---------------------------------------------------------------- drift ------
+  drift:
+    name: Upstream drift (needs SCENSIM_POC_TOKEN)
+    runs-on: ubuntu-latest
+    # Only where a secret can exist. Secrets are not exposed to a PR from a fork,
+    # so asking there would report a missing token that is merely unavailable.
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -68,15 +83,16 @@ jobs:
         run: |
           if [ -z "$POC_TOKEN" ]; then
             echo "have=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Contract check skipped::SCENSIM_POC_TOKEN is not set, so the round-trip and schema checks cannot read VectorLearning/scenario-simulator-poc. Add a fine-grained PAT with Contents:read on that repo as the SCENSIM_POC_TOKEN secret. Field coverage needs those documents too, so nothing ran."
+            echo "::warning title=Upstream drift not checked::SCENSIM_POC_TOKEN is not set, so this job cannot read VectorLearning/scenario-simulator-poc and nothing was compared. The regression guard ran against the pinned copies and is unaffected. To switch this on, add a fine-grained PAT with Contents:read on that repo as the SCENSIM_POC_TOKEN secret."
           else
             echo "have=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Round trip, field coverage, and schema drift
+      # --live so this job reads THEIR documents rather than our pins, which is
+      # the whole point: a pin compared against itself can only ever agree.
+      - name: Compare pins against upstream
         if: steps.token.outputs.have == 'true'
         working-directory: products/aithera/scenario-simulator
         env:
-          # roundtrip-check.js shells out to `gh`, which reads this.
           GH_TOKEN: ${{ secrets.SCENSIM_POC_TOKEN }}
-        run: node tools/roundtrip-check.js
+        run: node tools/roundtrip-check.js --live
