@@ -121,7 +121,9 @@ function fetchLiveDocs() {
 }
 
 const T = loadType();
-const args = process.argv.slice(2);
+/* Flags are not documents. Every non-flag argv entry is read as a file path,
+   so a bare --flag was opened as one and the run died on ENOENT. */
+const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const docs = args.length
   ? args.map((f) => ({ name: path.basename(f).replace(/\.lo\.json$/, ''), doc: JSON.parse(fs.readFileSync(f, 'utf8')) }))
   : fetchLiveDocs();
@@ -148,4 +150,185 @@ docs.forEach(({ name, doc }) => {
 });
 console.log('\n' + (docs.length - failed) + '/' + docs.length + ' documents survive an edit-free round trip.');
 if (failed) console.log('A difference here is content an author loses, or a field their loader rejects. Neither is visible in the UI.');
-process.exit(failed ? 1 : 0);
+/* =========================================================================
+   FIELD COVERAGE — can the editor SHOW every leaf a real document contains?
+   -------------------------------------------------------------------------
+   The round trip above proves the editor does not CORRUPT a document. It says
+   nothing about whether the editor can DISPLAY it, and those are two different
+   questions wearing one green tick.
+
+   That gap shipped. Two lists were bound as `<path>.0`, so the editor rendered
+   the first entry of each and hid the rest — 91 teaching points and 61
+   expert-answer components across these same eleven documents, invisible and
+   un-editable. Every one of them round-tripped byte-identically, because
+   untouched data survives an export perfectly well. The check above was green
+   the entire time.
+
+   Worth knowing: the dev team's own guard has the identical blind spot.
+   `tests/test_authoring_roundtrip.py` asserts a byte-identical GET/PUT over the
+   same files, against a docstring naming "a save that looks fine in the studio
+   but drops a field" as the top risk. It would have passed on this too. Neither
+   side had the other half; this is the other half.
+
+   HOW IT WORKS. The editor's inputs are declared, not discovered — a field is
+   `tf('<path>', …)`, `subRows('<path>', …)` or `rowsBlock('<path>', …)`. So the
+   bound paths can be read straight out of the type module and matched against
+   the leaves real content actually carries.
+
+   It is a STATIC read, so it cannot see a path bound imperatively (a checkbox
+   flipping a key, a numeric field writing through a closure). Those are listed
+   in IMPERATIVE below. A missing entry there surfaces as a false positive —
+   the safe direction: the check tells you, you look, you add it.
+   ========================================================================= */
+const TYPE_SRC = fs.readFileSync(path.join(HERE, 'js/scenario-types/v4-universal.js'), 'utf8');
+
+/* Bound outside tf/subRows/rowsBlock: the safety-flag checkboxes, the
+   answer_shape toggle, the mode chips, and every numField(), which writes
+   through a getter/setter pair rather than a path string. Keep this in step with
+   the type — a stale entry is a leaf this check silently forgives. */
+const IMPERATIVE = [
+  'content.elevated_stakes', 'content.involves_minors', 'content.threat_content',
+  'content.phases.0.practice.answer_shape',
+  'content.phases.0.practice.mode',
+  'content.phases.0.practice.exit.when.turns',
+  'content.phases.0.debrief.follow_up_turns',
+  'content.phases.0.practice.interaction.help_turns',
+  'content.phases.0.practice.interaction.spot_target',
+  /* Identity and trace metadata the shell owns rather than the type. */
+  'implementation_id', 'modality', 'schema_version',
+];
+
+/* A path template becomes a MATCHER, not a string, because a `${…}` hole is not
+   always the same kind of thing. In `content.phases.${i}.practice` it is an
+   array index and the leaf reads `content.phases[*].practice`; in
+   `levels.${key}.look_for` it is an OBJECT KEY and the leaf reads
+   `levels.unthoughtful.look_for`. The first version of this check collapsed both
+   to `[*]` and reported 84 false positives — every quality-level field in the
+   editor, all of them perfectly editable. A hole matches either form. */
+const HOLE = ' ';
+function pathMatcher(raw) {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const src = String(raw)
+    .replace(/\.(\d+)(?=\.|$)/g, '[*]')          // a literal index, written .0
+    .replace(/\[\d+\]/g, '[*]')                  // or written [0]
+    .replace(/\.?\$\{[^}]*\}/g, HOLE);           // the dot travels with the hole
+  const body = src.split(HOLE).map(esc).join('(?:\\[\\*\\]|\\.[A-Za-z0-9_-]+)');
+  return new RegExp('^' + body + '$');
+}
+
+/* Some templates start from a variable rather than a literal — the step editor
+   builds `${base}.opening_messages.${k}.text` off
+   `const base = `content.phases.${i}.practice.interaction``. Substituting those
+   assignments is worth the twenty lines: the alternative is matching a leading
+   hole with `.*`, which would quietly mark unrelated leaves as covered, and a
+   coverage check that over-forgives is the one failure mode that makes it
+   useless. Only simple `const x = `…`` template literals are resolved; anything
+   else stays a hole. */
+function resolveBases(raw) {
+  const vars = {};
+  const re = /const\s+([A-Za-z_$][\w$]*)\s*=\s*`([^`]*)`/g;
+  let m;
+  while ((m = re.exec(TYPE_SRC))) {
+    if (/^(content|implementation_id)/.test(m[2])) vars[m[1]] = m[2];
+  }
+  let out = String(raw), passes = 0;
+  while (/\$\{([A-Za-z_$][\w$]*)\}/.test(out) && passes++ < 4) {
+    out = out.replace(/\$\{([A-Za-z_$][\w$]*)\}/g, (whole, name) =>
+      Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : whole);
+  }
+  return out;
+}
+
+function boundMatchers() {
+  const out = [];
+  const re = /\b(?:tf|subRows|rowsBlock)\(\s*([`'"])((?:\\.|(?!\1)[^\\])*)\1/g;
+  let m;
+  while ((m = re.exec(TYPE_SRC))) out.push(pathMatcher(resolveBases(m[2])));
+  IMPERATIVE.forEach((p2) => out.push(pathMatcher(p2)));
+  return out;
+}
+
+/* Every leaf a document carries. A leaf is a primitive; an empty array or
+   object holds nothing to show. */
+function leafPaths(node, prefix, out) {
+  out = out || new Set(); prefix = prefix || '';
+  if (Array.isArray(node)) {
+    node.forEach((v) => leafPaths(v, prefix + '[*]', out));
+  } else if (node && typeof node === 'object') {
+    Object.keys(node).forEach((k) => leafPaths(node[k], prefix ? prefix + '.' + k : k, out));
+  } else if (prefix) {
+    out.add(prefix);
+  }
+  return out;
+}
+
+const MATCHERS = boundMatchers();
+/* Covered when a matcher hits the leaf, or hits the list it sits in — a
+   subRows/rowsBlock bound to `x.y` is the editor for every `x.y[*]`. */
+function covered(leaf) {
+  const asList = leaf.replace(/\[\*\]$/, '');
+  return MATCHERS.some((re) => re.test(leaf) || (asList !== leaf && re.test(asList)));
+}
+
+console.log('\nField coverage — can the editor show every leaf these documents carry?\n');
+const missing = new Map();
+docs.forEach(({ name, doc }) => {
+  leafPaths(doc).forEach((leaf) => {
+    if (covered(leaf)) return;
+    if (!missing.has(leaf)) missing.set(leaf, []);
+    missing.get(leaf).push(name);
+  });
+});
+
+/* A BASELINE, not a wall. Turning this check on found ~50 leaf paths that real
+   content uses and the editor cannot show — genuine gaps, and more than one
+   sitting's work to close. A check that is red on day one gets muted, so the
+   known set is recorded in field-coverage-baseline.json and only a leaf OUTSIDE
+   it fails the run. The list is meant to shrink: anything fixed is reported so
+   the baseline can be trimmed, and it can never silently grow.
+
+   Regenerate with --update-coverage-baseline after DELIBERATELY accepting a new
+   gap. Doing that to turn a red build green is the one use it is not for. */
+const BASELINE_PATH = path.join(__dirname, 'field-coverage-baseline.json');
+const baseline = new Set(
+  fs.existsSync(BASELINE_PATH)
+    ? (JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8')).knownMissing || [])
+    : []
+);
+
+const found = [...missing.entries()].sort((a, b) => b[1].length - a[1].length);
+const fresh = found.filter(([leaf]) => !baseline.has(leaf));
+const fixed = [...baseline].filter((leaf) => !missing.has(leaf));
+
+if (process.argv.includes('--update-coverage-baseline')) {
+  fs.writeFileSync(BASELINE_PATH, JSON.stringify({
+    note: 'Leaf paths real content carries that the editor has no field for. Shrink this list; never grow it to go green.',
+    knownMissing: found.map(([leaf]) => leaf).sort(),
+  }, null, 2) + '\n');
+  console.log('  baseline rewritten with ' + found.length + ' known gap(s)');
+  process.exit(0);
+}
+
+if (!found.length) {
+  console.log('  ok    every leaf in ' + docs.length + ' document(s) has a field that can edit it');
+} else {
+  console.log('  ' + found.length + ' leaf path(s) have no editor field'
+    + (baseline.size ? ' — ' + (found.length - fresh.length) + ' known, ' + fresh.length + ' new' : '') + '\n');
+  const show = fresh.length ? fresh : found;
+  show.slice(0, 20).forEach(([leaf, where]) => {
+    console.log('  ' + (baseline.has(leaf) ? 'known ' : 'NEW   ') + '  ' + leaf
+      + '   (' + where.length + ' doc' + (where.length > 1 ? 's' : '') + ': '
+      + where.slice(0, 4).join(', ') + (where.length > 4 ? ', …' : '') + ')');
+  });
+  if (show.length > 20) console.log('  … ' + (show.length - 20) + ' more');
+  console.log('\n  A leaf with no field is content an author cannot see or change, and it');
+  console.log('  round-trips perfectly while they cannot. If a path here IS editable it is');
+  console.log('  bound imperatively — add it to IMPERATIVE in this file.');
+}
+if (fixed.length) {
+  console.log('\n  ' + fixed.length + ' baseline gap(s) now covered — trim the baseline:');
+  fixed.slice(0, 10).forEach((leaf) => console.log('    fixed  ' + leaf));
+}
+
+process.exit(failed || fresh.length ? 1 : 0);
+
