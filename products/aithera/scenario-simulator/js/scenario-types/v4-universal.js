@@ -627,7 +627,7 @@
     { id: 'world', group: 'context', icon: 'fa-earth-americas', title: 'Situation & world',
       lead: 'The situation the learner is shown, plus the reality every scene shares.',
       bridgeTitle: 'One situation, two audiences',
-      bridge: 'POC V4 keeps <b>one</b> narrative, written to the learner in second person. It is also the coach\'s only picture of the setup — so the coach can never know a richer version than the learner was shown. The <b>scene world</b> is separate and scene-only: the coach never sees it.' },
+      bridge: 'Scenario CML v4 keeps <b>one</b> narrative, written to the learner in second person. It is also the coach\'s only picture of the setup — so the coach can never know a richer version than the learner was shown. The <b>scene world</b> is separate and scene-only: the coach never sees it.' },
 
     { id: 'voice', group: 'voicetone', icon: 'fa-comment', title: 'Coach voice',
       lead: 'This scenario\'s coaching register. Universal coaching behavior is template-owned — do not re-author it here.' },
@@ -765,7 +765,7 @@
       });
       box.append(guidance('Content safety — why these are flagged in the lints', 'fa-shield-halved',
         '<p>These flags classify the content, and they are the only way the safety floors arm: <b>crisis support</b> (if the learner discloses real distress, the coach drops the exercise and points to real support, including the 988 line), <b>minor safeguarding</b>, and the <b>threat floor</b>. The preview honors whichever are on; off means the floor never arms.</p>'
-        + '<p>POC V4 has no fields for these yet, so they are carried as declared extensions: the Dev handoff export strips them to produce a loadable file and lists what each removal costs. A stripped scenario runs in the production engine with no floor and no trace one was declared — say so in the handoff.</p>'));
+        + '<p>Scenario CML v4 has no fields for these yet, so they are carried as declared extensions: the Dev handoff export strips them to produce a loadable file and lists what each removal costs. A stripped scenario runs in the production engine with no floor and no trace one was declared — say so in the handoff.</p>'));
 
       box.append(guidance('What belongs in canon — and what does not', 'fa-circle-info',
         '<p>Canon facts are asserted as true in <b>every</b> scene, always. So canon carries background truth the learner could already know — never plot, never answers.</p>'
@@ -1127,7 +1127,7 @@
       body.append(det);
       body.append(guidance('Why this one is flagged in the lints', 'fa-flask',
         '<p>Leave it off for a judgment or reflection step, where delivering a verdict defeats the point — the coach deepens what the learner said instead.</p>'
-        + '<p>POC V4 has no field for this distinction yet, so it is carried as a declared extension: the scenario will not load in the production engine until the field is adopted, and the export can strip it (which makes every step read as having a right answer).</p>'));
+        + '<p>Scenario CML v4 has no field for this distinction yet, so it is carried as a declared extension: the scenario will not load in the production engine until the field is adopted, and the export can strip it (which makes every step read as having a right answer).</p>'));
 
       /* --- the interaction, per mode ---------------------------------- */
       body.append(interactionFields(practice.mode, i, practice, s, H));
@@ -1448,7 +1448,7 @@
     status.style.cssText = 'border:1px solid var(--line);border-left:4px solid '
       + (ok ? 'var(--ok,#2e8b57)' : 'var(--danger,#c92626)') + ';border-radius:8px;padding:12px 14px;margin:10px 0';
     status.innerHTML = ok
-      ? '<b>Loads in the production engine.</b> Strict validation — the POC V4 loader\'s own rules — passes. '
+      ? '<b>Loads in the production engine.</b> Strict validation — the production loader\'s own rules — passes. '
         + 'Derived conversation cap: ' + strict.cap + ' learner turns.'
       : '<b>' + strict.errors.length + ' field(s) still block the load.</b> These are the same items the '
         + 'lints panel lists per section — authoring work, not export mechanics.';
@@ -1559,9 +1559,173 @@
     return raw.replace(/^content\./, '').replace(/\[(\d+)\]/g, (mm, n) => ' ' + (Number(n) + 1));
   }
 
+  /* The label the AUTHOR sees on the field, keyed by the tail of the validator's
+     path. The validator speaks the schema ("practice.interaction.opening_messages");
+     the editor speaks the form ("Opening bubble"). Showing the schema path made
+     every message a translation exercise, in a panel whose whole job is telling an
+     LXD which field to go and fill.
+
+     Only the leaves worth naming are listed; anything absent falls through to a
+     de-punctuated path, which is still better than raw JSON pointers. Keep this
+     in step with the labels in renderFields — if the two ever disagree, the form
+     wins and this is the stale one. */
+  const FIELD_LABELS = {
+    'label': 'Name',
+    'purpose': 'Purpose',
+    'id': 'Id',
+    'name': 'Name',
+    'role': 'Role',
+    'fact': 'Background truth',
+    'behavior.baseline': 'Baseline',
+    'behavior.driver': 'Driver',
+    'opening.label': 'Name of the exchange',
+    'opening.purpose': 'Purpose of the exchange',
+    'opening.exit.when.turns': 'Turn budget',
+    'opening.exit.final_word': 'Final word',
+    'opening.transition.button_label': 'Continue button label',
+    'practice.answer_shape': 'Has a right answer',
+    'practice.mode': 'Step type',
+    'narrative': 'The situation',
+    'coach_persona': 'Coach persona',
+    'tone_guidelines': 'Tone rules',
+    'teaching_points': 'Teaching points',
+    'misconceptions': 'Misconceptions',
+    'scene_world.setting': 'Scene setting',
+    'scene_world.canon.facts': 'Canon facts',
+    'scene_world.characters': 'Characters',
+    'exit.when.turns': 'Turn budget',
+    'exit.final_word': 'Final word',
+    'transition.button_label': 'Continue button label',
+    'transition.text': 'Handoff line',
+    'practice.purpose': 'Purpose of the practice',
+    'practice.exit.when.turns': 'Turn budget',
+    'practice.exit.final_word': 'Final word',
+    'practice.exit.requirement': 'Exit requirement',
+    'practice.transition.button_label': 'Button into the debrief',
+    'practice.interaction.setting': 'Scene setting',
+    'practice.interaction.partner_label': 'Chat header name',
+    'practice.interaction.opening_messages': 'Opening bubble',
+    'practice.interaction.brief': 'Brief',
+    'practice.interaction.exhibit': 'Exhibit image',
+    'practice.interaction.rubric': 'Findable items',
+    'practice.interaction.spot_target': 'How many catches complete it',
+    'practice.interaction.jot_placeholder': 'Composer placeholder',
+    'practice.interaction.carryover': 'Carried-over transcript',
+    'debrief.label': 'Debrief name',
+    'debrief.key_points': 'Key points',
+    'debrief.final_word': 'Final word',
+    'debrief.follow_up_turns': 'Follow-up turns',
+    'debrief.probe': 'Probe',
+    'debrief.transition.button_label': 'Button into the next step',
+    'closing.ideal_response.summary': 'Summation',
+    'closing.ideal_response.component_groups': 'Expert-answer groups',
+    'closing.ideal_response.source_references': 'Source references',
+    'closing.partner_label': 'Display name on the closing screen',
+  };
+
+  /* The singular of an indexed list, so a row can say "Character 2" rather than
+     "characters 2". Only lists the validator actually indexes into. */
+  const SINGULAR = {
+    'scene_world.characters': 'Character',
+    'scene_world.canon.facts': 'Canon fact',
+    'teaching_points': 'Topic',
+    'misconceptions': 'Misconception',
+    'tone_guidelines': 'Tone rule',
+    'closing.ideal_response.component_groups': 'Group',
+    'closing.ideal_response.source_references': 'Source reference',
+    'opening.opening_messages': 'Opening line',
+    'practice.interaction.opening_messages': 'Opening bubble',
+    'practice.interaction.brief': 'Brief line',
+    'practice.interaction.rubric': 'Findable item',
+    'practice.interaction.carryover': 'Carried-over step',
+    'debrief.key_points': 'Key point',
+  };
+
+  /* Turn the tail of a validator path into the label the form puts on that field.
+     Recursive on an index, so a nested path reads as position-then-field
+     ("Character 2 · Role") instead of a flattened path with a number stuck on the
+     end. */
+  function leafLabel(tail) {
+    const t = String(tail || '');
+    /* A quality level keeps its tier: which tier is the entire point of the row. */
+    const tier = t.match(/levels\.(unthoughtful|neutral|strong)\.?(look_for|response|progression)?/);
+    if (tier) {
+      const LEAF = { look_for: 'Look for', response: 'Response', progression: 'Progression' };
+      const tierName = tier[1].charAt(0).toUpperCase() + tier[1].slice(1);
+      return tier[2] ? tierName + ' \u00b7 ' + LEAF[tier[2]] : tierName + ' quality level';
+    }
+    const m = t.match(/^(.*?)\[(\d+)\]\.?(.*)$/);
+    if (m) {
+      const listPath = m[1];
+      const one = SINGULAR[listPath]
+        || (FIELD_LABELS[listPath] || listPath.replace(/[._]/g, ' ')).replace(/s$/, '');
+      const rest = m[3] ? ' \u00b7 ' + leafLabel(m[3]) : '';
+      return one + ' ' + (Number(m[2]) + 1) + rest;
+    }
+    return FIELD_LABELS[t] || t.replace(/[._]/g, ' ');
+  }
+
+  /* "Step 2 \u201cThe Person\u201d \u00b7 Key points" \u2014 the step by name (from
+     `friendly`), then the field by the label the author sees on it. The validator
+     speaks the schema; the panel's whole job is telling an LXD which field to go
+     and fill, so it has to speak the form. */
+  function labelled(path, doc) {
+    const raw = String(path || '');
+    const inPhase = /^content\.phases\[\d+\]/.test(raw);
+    if (inPhase) {
+      const prefix = friendly(raw, doc).split(' \u00b7 ')[0];
+      const tail = raw.replace(/^content\.phases\[\d+\]\.?/, '');
+      return tail ? prefix + ' \u00b7 ' + leafLabel(tail) : prefix;
+    }
+    return leafLabel(raw.replace(/^content\./, ''));
+  }
+
+  /* Collapse rows that say the SAME thing about different steps into one row
+     that names them all. Three identical 60-word warnings, one per step, is not
+     three times the information — it is the same information three times, and it
+     pushes the rows that ARE different off the screen.
+
+     A collapsible row carries `dedupe` (the message with the step prefix taken
+     off — both the grouping key and the collapsed wording) and `who` (this
+     instance's step name). Rows without `dedupe` pass through untouched. */
+  function collapse(rows) {
+    const groups = [];
+    const index = {};
+    rows.forEach((r) => {
+      if (!r.dedupe) { groups.push({ row: r, who: [] }); return; }
+      const key = r.severity + '\u0000' + r.section + '\u0000' + r.dedupe;
+      if (index[key] === undefined) {
+        index[key] = groups.length;
+        groups.push({ row: r, who: r.who ? [r.who] : [] });
+        return;
+      }
+      if (r.who) groups[index[key]].who.push(r.who);
+    });
+    return groups.map(({ row, who }) => {
+      const base = { severity: row.severity, section: row.section, why: row.why };
+      if (who.length < 2) return Object.assign(base, { msg: row.msg, item: row.item });
+      /* One row standing for several steps cannot carry one step's dot, and must
+         not open a step the author never pointed at. */
+      return Object.assign(base, {
+        msg: row.dedupe + ' \u2014 ' + who.length + ' steps: ' + who.join(', '),
+        item: undefined,
+      });
+    });
+  }
+
+  /* The step a path belongs to, named — for the dedupe suffix ("3 steps: The
+     Law, The Person, The conversation") rather than three separate rows. */
+  function stepName(path, doc) {
+    const i = itemFor(path);
+    if (i === null) return '';
+    const ph = obj(arr(obj(obj(doc).content).phases)[i]);
+    return str(ph.label).trim() || str(ph.id).trim() || ('Step ' + (i + 1));
+  }
+
   function lints(s) {
     const L = [];
-    const add = (severity, section, msg, why, item) => L.push({ severity, section, msg, why, item });
+    const add = (severity, section, msg, why, item, extra) =>
+      L.push(Object.assign({ severity, section, msg, why, item }, extra || {}));
     const v4 = V4();
     if (!v4) {
       add('warn', 'basics', 'Validation unavailable — js/scenario-v4.js did not load.',
@@ -1572,12 +1736,25 @@
     const doc = prune(withoutShellKeys(normalize(s)));
     const report = v4.validate(doc);
 
+    /* The blocking rows carried the same sentence — "POC V4 rejects the document
+       until this is authored." — under every single one. Repeated on twelve rows
+       it is wallpaper, and it spends the one line of explanation each row gets on
+       something the red dot already said. The status line at the bottom of the
+       panel says it once, which is where a fact about all of them belongs.
+       "POC V4" is also not a phrase an LXD has any reason to know. */
     report.errors.forEach((e) => {
-      add('err', sectionFor(e.path), friendly(e.path, doc) + ' — ' + e.message,
-        'POC V4 rejects the document until this is authored.', itemFor(e.path));
+      add('err', sectionFor(e.path), labelled(e.path, doc) + ' — ' + e.message, '', itemFor(e.path));
     });
+    /* Extension warnings are the same paragraph on every step, so they collapse
+       into one row that lists the steps. */
     report.warnings.forEach((w) => {
-      add('warn', sectionFor(w.path), friendly(w.path, doc) + ' — ' + w.message, '', itemFor(w.path));
+      const full = labelled(w.path, doc);
+      /* The collapsed wording drops the step prefix but must keep the FIELD, or
+         the row opens mid-sentence ("is a Vector extension…"). */
+      const parts = full.split(' \u00b7 ');
+      const leaf = parts.length > 1 ? parts.slice(1).join(' \u00b7 ') : full;
+      add('warn', sectionFor(w.path), full + ' — ' + w.message, '', itemFor(w.path),
+        { dedupe: leaf + ' — ' + w.message, who: stepName(w.path, doc) });
     });
 
     /* Soft defaults: filled so the scenario loads, but a story label reads far
@@ -1587,14 +1764,16 @@
        design, unlike the practice button where 23 of 29 are the same string. */
     const houseDebrief = obj(v4.HOUSE).debriefButton;
     if (houseDebrief) {
+      const tip = 'The button into the next step is still the house default "' + houseDebrief + '".';
       arr(obj(doc.content).phases).forEach(function (ph, i) {
         const label = str(obj(obj(obj(ph).debrief).transition).button_label);
         if (label !== houseDebrief) return;
-        add('info', 'phases', 'Step ' + (i + 1) + '\'s button into the next step is still the '
-          + 'house default "' + label + '".',
+        const name = str(obj(ph).label).trim() || ('Step ' + (i + 1));
+        add('info', 'phases', name + ' \u2014 ' + tip.charAt(0).toLowerCase() + tip.slice(1),
           'This one leads into the next scene, so a label naming what happens next reads better — '
-          + '"Sit down with Bianca", "Take the follow-up call". (The practice button is different: '
-          + '23 of 29 POC V4 scenarios use the same string there, so its default is fine.)', i);
+          + '"Sit down with Bianca", "Take the follow-up call". (The button into the practice is '
+          + 'different: 23 of 29 production scenarios use the same string there, so its default '
+          + 'is fine.)', i, { dedupe: tip, who: name });
       });
     }
 
@@ -1614,13 +1793,13 @@
 
     /* A headline, so the author knows where they stand without counting rows. */
     if (!report.errors.length) {
-      add('info', 'basics', 'This scenario would load in POC V4.',
+      add('info', 'basics', 'This scenario would load in the production engine.',
         'Derived conversation cap: ' + report.cap + ' learner turns — the sum of every authored budget.');
     } else {
-      add('info', 'basics', report.errors.length + ' field(s) still needed before this loads in POC V4.',
-        'Each one is listed against the section that edits it. The porting tool leaves a field empty rather than guessing, so these are real authoring decisions.');
+      add('info', 'basics', report.errors.length + ' field(s) still needed before the production engine will load this.',
+        'Every red row above is one of them, listed against the section that edits it. Nothing is guessed on your behalf — an empty field is left empty, so each of these is a real authoring decision.');
     }
-    return L;
+    return collapse(L);
   }
 
   const TYPE = {
@@ -1661,7 +1840,7 @@
     handoff: {
       label: 'Dev handoff — POC V4 content document',
       lead: 'What the production engine loads: our extension fields stripped, then '
-        + 'revalidated under the POC V4 loader\'s own rules, and named the way their '
+        + 'revalidated under the production loader\'s own rules, and named the way their '
         + 'service routes it. Not the same file as the working draft.',
       build: (H) => buildHandoffPanel(H),
     },

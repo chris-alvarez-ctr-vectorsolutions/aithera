@@ -414,21 +414,27 @@
       eyebrow: 'Where this happens',
       sub: 'The world the scenario plays out in — the setting, the facts that are true of it, and who is in it.',
       groups: ['context'] },
-    { id: 'learn',       title: 'Learn',            rail: 'Warm-up + topic turns',
-      eyebrow: 'The learner thinks it through',
-      sub: 'The coached side of the arc: an optional gut-reaction warm-up, then topic turns — the learner commits to an answer, the coach lands the point.',
+    /* Was "Learn — Warm-up + topic turns", with a lede about gut-reaction
+       warm-ups and topic turns. That described GUIDED ARC's shape, and guided-arc
+       is not authored here any more. What this step actually holds is the teaching
+       points — which the type's own card says are debrief-scoped and never shown
+       mid-attempt, so the rail was contradicting the card on the same screen.
+       Named for what is on it. */
+    { id: 'learn',       title: 'Teaching',         rail: 'What they must leave knowing',
+      eyebrow: 'The point of the whole thing',
+      sub: 'What the learner must leave understanding, grouped by subject — plus the wrong beliefs worth correcting. Released when the coach teaches, never mid-attempt.',
       groups: ['learn'] },
-    { id: 'practice',    title: 'Practice',         rail: 'The live scene',
-      eyebrow: 'The learner steps in',
-      sub: 'The live moment the arc ends in — the learner acts, the scene reacts, the coach debriefs after.',
-      groups: ['practice'] },
+    /* The 'practice' step is GONE. It was Guided Arc's separate live-scene page;
+       no authored type declares a `practice` group, so it never rendered — dead
+       rail config that read like a missing feature. A composed arc's practice
+       lives inside each step, on Interaction. */
     { id: 'interaction', title: 'Interaction',      rail: 'The core loop',
-      eyebrow: 'The learner’s core loop',
-      sub: 'ENTER → (ENGAGE · REACT · COACH) ×N ↺ GATE → EXIT.',
+      eyebrow: 'What the learner actually does',
+      sub: 'The arc, step by step: each one gives the learner something to do, then has the coach teach against how they did it.',
       groups: ['interaction'] },
     { id: 'voicetone',   title: 'Voice & Tone',     rail: 'How the coach sounds',
       eyebrow: 'The coach, tuned',
-      sub: 'Who the coach is and how it sounds — one stance carried through Learn and Practice. The detailed voice rules stay locked.',
+      sub: 'Who the coach is and how it sounds — one stance carried through every step. The detailed voice rules stay locked.',
       groups: ['voicetone'] },
     { id: 'debrief',     title: 'Debrief & Close',  rail: 'Results & takeaways',
       eyebrow: 'The learner’s close',
@@ -1123,7 +1129,14 @@
     const infos = currentLints.filter((l) => l.severity === 'info').length;
 
     // Tab label count
-    $('#lintTab').innerHTML = `<i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails${errs + warns ? ` (${errs + warns})` : ''}`;
+    /* "Validation", not "Guardrails" — the rail already has a section called
+       System guardrails (the locked prompt sections), and two different things
+       wearing one word on the same screen is a question an author has to answer
+       every time they look. This tab is the validator's output, which is also
+       what the production service calls it (its authoring API returns
+       `failures[]` and its own inspector tab is Validation), so the two tools
+       now name the same thing the same way. */
+    $('#lintTab').innerHTML = `<i class="fa-solid fa-circle-check" style="margin-right:7px"></i> Validation${errs + warns ? ` (${errs + warns})` : ''}`;
 
     // Panel
     const box = $('#tabLints');
@@ -1277,7 +1290,7 @@
        thing is "published"; they care whether the player is showing what they just
        wrote, and whether the tab they already have open is stale. */
     const blocked = blockedCount > 0
-      ? ` ${blockedCount} field${blockedCount > 1 ? 's' : ''} still missing — see Guardrails.`
+      ? ` ${blockedCount} field${blockedCount > 1 ? 's' : ''} still missing — see Validation.`
       : '';
     if (!pub) {
       text.textContent = 'The player is showing the shipped scenario. Preview to load this draft into it.' + blocked;

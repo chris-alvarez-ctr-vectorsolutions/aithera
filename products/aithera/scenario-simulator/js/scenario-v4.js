@@ -131,12 +131,12 @@
         return;
       }
       if (strictMode) {
-        rep.err(path, 'is a Vector extension, not a field in Scenario CML v4 — the POC V4 loader '
+        rep.err(path, 'is a Vector extension, not a field in Scenario CML v4 — the production loader '
           + 'rejects it (additionalProperties:false). ' + spec.because);
         return;
       }
       rep.warn(path, 'is a Vector extension, not yet in Scenario CML v4 — this document will '
-        + 'NOT load in the POC V4 engine until the field is adopted. If ' + spec.consequence);
+        + 'NOT load in the production engine until the field is adopted. If ' + spec.consequence);
     };
   }
 
