@@ -785,6 +785,21 @@
           helper: 'Who they are when a scene opens.' }),
         tf(`content.scene_world.characters.${i}.behavior.driver`, 'Driver', { area: true, minRows: 2,
           helper: 'What their behavior responds to — the hinge the learner can move.' }),
+        /* Guardrails are the lines this character never crosses, and eight of the
+           eleven production documents author them. They had no field: the closest
+           thing to a per-character safety constraint in the format, invisible. */
+        subRows(`content.scene_world.characters.${i}.behavior.guardrails`, 'Guardrail', 'Add guardrail',
+          'A line this character never crosses, however the learner behaves. One per entry.'),
+        /* Earned disclosure — a fact this character holds, optionally gated on
+           when they will part with it. The mechanic our own ensemble scenarios
+           pioneered, with nowhere to author it until now. */
+        rowsBlock(`content.scene_world.characters.${i}.canon_facts`, (cf, k, onDel) => rowCard(
+          `Fact ${k + 1}`, onDel,
+          tf(`content.scene_world.characters.${i}.canon_facts.${k}.fact`, 'What they know', { area: true, minRows: 2,
+            helper: 'True for this character in every scene. Distinct from world canon, which everyone knows.' }),
+          tf(`content.scene_world.characters.${i}.canon_facts.${k}.reveal_when`, 'Reveal when (optional)', { area: true, minRows: 2,
+            helper: 'The condition that earns it. Blank means they may say it freely.' }),
+        ), 'Add known fact', () => ({ fact: '' })),
       ), 'Add character', () => ({ id: '', name: '', role: '', behavior: { baseline: '', driver: '' } })));
       box.append(guidance('Reactions live on each step, not on the card', 'fa-triangle-exclamation',
         '<p>How a character reacts to being handled well or badly belongs in that <b>step\'s</b> quality levels, because reactions differ per scene. A character card is identity and disposition only.</p>'));
@@ -827,6 +842,8 @@
 
     if (sec.id === 'opening') {
       box.append(
+        tf('content.opening.id', 'Opening id', {
+          helper: 'How the engine addresses this exchange on the wire. Lowercase, no dots.' }),
         tf('content.opening.label', 'Name of the exchange', { helper: 'Learner-facing, e.g. "First reaction".' }),
         tf('content.opening.purpose', 'Purpose', { area: true, minRows: 2,
           helper: 'Model-facing: what this exchange is for, in the coach\'s map of the arc.' }),
@@ -834,7 +851,10 @@
           helper: 'How many learner turns this exchange gets. Shipped scenarios use 2.' }),
         tf('content.opening.exit.final_word', 'Final word', { area: true, minRows: 2,
           helper: 'The locked closing line, delivered verbatim when the exchange ends. Author it as a statement, never a question.' }),
+        tf('content.opening.input_placeholder', 'Composer placeholder'),
         tf('content.opening.transition.button_label', 'Continue button label'),
+        tf('content.opening.transition.text', 'Handoff line (optional)', { area: true, minRows: 2,
+          helper: 'Appended as a locked line once the opening advances.' }),
       );
       box.append(rowsBlock('content.opening.opening_messages', (m, i, onDel) => rowCard(
         `Opening line ${i + 1}`, onDel,
@@ -842,7 +862,19 @@
           helper: 'Locked — delivered verbatim, in order, with no model call.' }),
       ), 'Add line', () => ({ text: '' })));
       box.append(guidance('The opening is ungraded and cannot gate', 'fa-circle-info',
-        '<p>It has no exit requirement by design — nothing the learner says holds them here. Its quality levels are partial on purpose: author only the tiers the source material actually grounds.</p>'));
+        '<p>It has no exit requirement by design — nothing the learner says holds them here. Its quality levels are <b>partial on purpose</b>: author only the tiers the source material actually grounds, and leave the rest empty. Nothing gates on them either — they only shape how the coach meets the learner before it pivots.</p>'));
+      /* The card above has always said the opening's levels are partial on
+         purpose. Until now it said that above no levels editor at all. */
+      levelsBlock(H, 'content.opening', {
+        responseHint: 'Coach-voiced — how to meet a learner arriving at this level, before pivoting. Not feedback.',
+      }).forEach((n) => box.append(n));
+      box.append(rowsBlock('content.opening.conditional_probes', (cp, i, onDel) => rowCard(
+        `Conditional probe ${i + 1}`, onDel,
+        subRows(`content.opening.conditional_probes.${i}.required_concepts`, 'Concept', 'Add concept',
+          'The probe fires only when the learner has NOT covered these. One concept per entry.'),
+        tf(`content.opening.conditional_probes.${i}.probe`, 'The probe', { area: true, minRows: 2,
+          helper: 'Asked once, verbatim, when a required concept is missing.' }),
+      ), 'Add conditional probe', () => ({ required_concepts: [''], probe: '' })));
     }
 
     if (sec.id === 'phases') {
@@ -912,6 +944,83 @@
     neutral: { title: 'Neutral', hint: 'Well-intentioned and partly right; thin, or missing something important.' },
     strong: { title: 'Strong', hint: 'What an expert would recognise as handling it well.' },
   };
+
+  /* ONE quality-levels editor, for the FOUR places a document can carry them.
+     -----------------------------------------------------------------------
+     It was written once, inline, for a practice's interaction — which is why the
+     other three had no editor at all. 36 of the 50 leaf paths the coverage check
+     found were this same block, missing from the debrief, from the debrief's
+     probe, and from the opening. Nine of the eleven production documents author
+     debrief levels; the opening's own card already told authors its levels were
+     "partial on purpose", promising a control that did not exist.
+
+     Parameterised rather than copied, because the variation between the four is
+     real and getting it wrong is a load error or a voice error:
+       progression   roleplay interactions ONLY — the loader rejects it anywhere
+                     else (v4 §9.1 rule 5), so it is opt-in per call site
+       responseHint  what "Response" MEANS differs per site. On a roleplay it is
+                     the world reacting and the character never coaches; on a
+                     debrief it is the coach reading the attempt. One shared
+                     wording here would teach an author to write the wrong voice.
+       partial       the opening authors as many tiers as its source grounds (its
+                     schema requires none); everywhere else all three are needed.
+
+     Nothing is pre-created. The old inline version did `levels[key] = {}` for
+     absent tiers, which mutates the draft just by looking at it — harmless where
+     every document has all three, but on the opening it would invent tiers the
+     document never had and break an edit-free round trip. tf() reads an absent
+     path as empty and creates it on the first keystroke, which is the honest
+     behaviour. */
+  function levelsBlock(H, basePath, opts) {
+    const o = obj(opts);
+    const out = [];
+    Object.keys(LEVEL_COPY).forEach((key) => {
+      const c = LEVEL_COPY[key];
+      const at = basePath + '.levels.' + key;
+      const kids = [
+        H.tf(at + '.look_for', 'Look for', { area: true, minRows: 2, helper: c.hint }),
+        H.tf(at + '.response', 'Response', { area: true, minRows: 2, helper: o.responseHint || '' }),
+      ];
+      if (o.progression) {
+        kids.push(H.tf(at + '.progression', 'Progression', { area: true, minRows: 2,
+          helper: 'How far the scene gets and how it resolves at this level. Legal only on a roleplay step.' }));
+      }
+      kids.push(
+        H.tf(at + '.example.learner', 'Example — what the learner says', { area: true, minRows: 2,
+          helper: 'Optional. One short worked exchange calibrating the register.' }),
+        H.tf(at + '.example.reply', 'Example — the reply', { area: true, minRows: 2 }),
+      );
+      /* No delete: the vocabulary is the engine's, so there are always exactly
+         these three and never a fourth. rowCard omits the control when no
+         handler is given. */
+      out.push(H.rowCard(c.title, null, ...kids));
+    });
+    return out;
+  }
+
+  /* A bound enum. `type` on an exhibit or an ambient image is a closed set of two
+     and REQUIRED whenever the object exists — but only `src` and `alt` were
+     authorable, so adding an exhibit produced a validation error with no field to
+     fix it. Same shape of defect as the turn budget: a required value with no
+     input. `vaadin-select` takes its options as a property in plain JS, which is
+     the whole reason it is usable here without the Lit renderer entry point. */
+  function enumField(label, options, get, set, opts, onChange) {
+    const f = document.createElement('vaadin-select');
+    f.setAttribute('theme', 'outlined');
+    f.label = label;
+    if (opts && opts.helper) f.helperText = opts.helper;
+    f.items = options.map((v) => ({ label: v.charAt(0).toUpperCase() + v.slice(1), value: v }));
+    f.value = str(get());
+    const apply = () => {
+      const v = str(f.value);
+      if (v === str(get())) return;      // see numField: a no-op must not repaint
+      set(v);
+      if (typeof onChange === 'function') onChange();
+    };
+    f.addEventListener('change', apply);
+    f.addEventListener('value-changed', apply);
+    return f;
+  }
 
   /* ---- list plumbing the section's `list` contract calls ------------------
      All of it reads the LIVE draft each time. normalize() clones and the shell
@@ -1099,6 +1208,8 @@
       body.append(guidance('The practice — where the learner acts', 'fa-hand-pointer',
         '<p>A practice always opens with <b>locked</b> content, because it asks the learner for something. It ends when the exit requirement is met <b>or</b> the turn budget runs out, whichever comes first — advancement is server-owned and forward-only, so there is no way back.</p>'));
       body.append(
+        tf(`content.phases.${i}.practice.label`, 'Practice name (optional)', {
+          helper: 'Learner-facing name for the practice itself, when the source gives it one distinct from the step. Blank uses the step name.' }),
         tf(`content.phases.${i}.practice.purpose`, 'Purpose of the practice', { area: true, minRows: 2,
           helper: 'Model-facing: the practice\'s job.' }),
         numField('Turn budget — learner turns before the practice must close',
@@ -1141,30 +1252,14 @@
         '<p>The vocabulary is set by the engine, not the author: <b>unthoughtful</b>, <b>neutral</b>, <b>strong</b>. You write each level\'s criteria. A level is never shown to the learner and never gates progress — it selects what happens next.</p>'
         + '<p><b>Look for</b> is how to recognise the level in what the learner wrote. <b>Response</b> is what the AI then does'
         + (practice.mode === 'roleplay' ? ' in scene, and <b>progression</b> is how far the scene gets and how it resolves.' : '.') + '</p>'));
-      const levels = obj(practice.interaction).levels
-        || (obj(practice.interaction).levels = { unthoughtful: {}, neutral: {}, strong: {} });
-      Object.keys(LEVEL_COPY).forEach((key) => {
-        if (!levels[key]) levels[key] = {};
-        const c = LEVEL_COPY[key];
-        const kids = [
-          tf(`content.phases.${i}.practice.interaction.levels.${key}.look_for`, 'Look for', { area: true, minRows: 2,
-            helper: c.hint }),
-          tf(`content.phases.${i}.practice.interaction.levels.${key}.response`, 'Response', { area: true, minRows: 2,
-            helper: practice.mode === 'roleplay' ? 'What the world or counterpart does. The character never coaches.'
-              : practice.mode === 'observe_react' ? 'Credit generously; nudge only by the authored cue, and never name an item the learner has not found.'
-                : 'Coach-voiced — a probe or acknowledgement at this level.' }),
-        ];
-        if (practice.mode === 'roleplay') {
-          kids.push(tf(`content.phases.${i}.practice.interaction.levels.${key}.progression`, 'Progression', { area: true, minRows: 2,
-            helper: 'How far the scene gets and how it resolves at this level. Legal only on a roleplay step.' }));
-        }
-        kids.push(
-          tf(`content.phases.${i}.practice.interaction.levels.${key}.example.learner`, 'Example — what the learner says', { area: true, minRows: 2,
-            helper: 'Optional. One short worked exchange calibrating the register.' }),
-          tf(`content.phases.${i}.practice.interaction.levels.${key}.example.reply`, 'Example — the reply', { area: true, minRows: 2 }),
-        );
-        body.append(rowCard(c.title, null, ...kids));
-      });
+      levelsBlock(H, `content.phases.${i}.practice.interaction`, {
+        progression: practice.mode === 'roleplay',
+        responseHint: practice.mode === 'roleplay'
+          ? 'What the world or counterpart does. The character never coaches.'
+          : practice.mode === 'observe_react'
+            ? 'Credit generously; nudge only by the authored cue, and never name an item the learner has not found.'
+            : 'Coach-voiced — a probe or acknowledgement at this level.',
+      }).forEach((n) => body.append(n));
 
       /* --- the debrief ------------------------------------------------ */
       body.append(guidance('The debrief — where the coach teaches', 'fa-comment-dots',
@@ -1175,6 +1270,8 @@
         tf(`content.phases.${i}.debrief.label`, 'Debrief name', {
           helper: 'Learner-facing. Use the source deck\'s own name for it, e.g. "Coach Debrief".' }),
         tf(`content.phases.${i}.debrief.purpose`, 'Purpose (optional)', { area: true, minRows: 2 }),
+        tf(`content.phases.${i}.debrief.partner_label`, 'Chat header name (optional)', {
+          helper: 'Defaults to the coach label. Author it when the source names the debrief\'s voice differently.' }),
       );
       body.append(rowsBlock(`content.phases.${i}.debrief.key_points`, (kp, k, onDel) => rowCard(
         `Key point ${k + 1}`, onDel,
@@ -1206,8 +1303,28 @@
           { area: true, minRows: 2,
             helper: 'The locked closing line, delivered verbatim when the debrief ends.' }),
         tf(`content.phases.${i}.debrief.transition.button_label`, 'Button into the next step'),
+        tf(`content.phases.${i}.debrief.transition.text`, 'Handoff line (optional)', { area: true, minRows: 2,
+          helper: 'Appended as a locked line once the debrief advances.' }),
       );
 
+      /* The debrief grades the ATTEMPT it is reviewing, not anything typed here —
+         so its `example.learner` is a representative move from the practice, and
+         the reply is the coach's debrief line (v4 spec §5.3). No progression:
+         there is no scene, and the loader rejects the field outside a roleplay. */
+      body.append(guidance('How the coach reads the attempt', 'fa-gauge',
+        '<p>These tiers grade the <b>practice attempt</b> the debrief is reviewing — not anything the learner types in the debrief itself. So <b>Example — what the learner says</b> is a representative move from the practice, and the reply is the coach\'s line about it.</p>'
+        + '<p>Authoring them is optional; leaving them off makes the debrief read the attempt without a calibrated register.</p>'));
+      levelsBlock(H, `content.phases.${i}.debrief`, {
+        responseHint: 'Coach-voiced — how the coach opens on an attempt at this level.',
+      }).forEach((n) => body.append(n));
+
+      if ((debrief.follow_up_turns || 0) >= 1) {
+        body.append(guidance('How the coach reads the answer to the probe', 'fa-comment-dots',
+          '<p>Only relevant once the debrief has a follow-up turn. Unlike the tiers above, these grade what the learner types <b>in answer to the probe</b>.</p>'));
+        levelsBlock(H, `content.phases.${i}.debrief.probe`, {
+          responseHint: 'Coach-voiced — the reply to an answer at this level.',
+        }).forEach((n) => body.append(n));
+      }
     }
 
     paint();
@@ -1244,6 +1361,8 @@
         tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
           helper: 'Locked scene-setting, delivered verbatim. One message per step of the establishing sequence.' }),
         tf(`${base}.opening_messages.${k}.character_id`, 'Spoken by (blank = narrator)'),
+        tf(`${base}.opening_messages.${k}.emotion`, 'Emotion (optional)', {
+          helper: 'How the character delivers this line. Only meaningful when the line has a speaker.' }),
       ), 'Add opening line', () => ({ text: '' })));
       holder.append(carryoverBlock(base, i, s, H));
       return holder;
@@ -1254,6 +1373,10 @@
         '<p>The rubric is the fixed set of findable items. Each needs a stable <b>id</b> (the engine\'s crediting key), the <b>creditable phrasing</b> a learner\'s catch is matched against, and a <b>nudge</b> that says where to look — <b>never</b> the answer.</p>'
         + '<p>The learner\'s meter always shows the full rubric; <b>spot target</b> only decides how many catches complete the step.</p>'));
       holder.append(
+        enumField('Exhibit kind', ['image', 'video'],
+          () => str(obj(it.exhibit).type) || 'image',
+          (v) => { it.exhibit = obj(it.exhibit); it.exhibit.type = v; }, {
+            helper: 'Required whenever there is an exhibit.' }, scheduleUpdate),
         tf(`${base}.exhibit.src`, 'Exhibit source', { helper: 'Path relative to the media root.' }),
         tf(`${base}.exhibit.alt`, 'Exhibit description', { area: true, minRows: 3,
           helper: 'The full visual description. It must describe the exhibit well enough for the step to work without the image.' }),
@@ -1297,6 +1420,10 @@
     holder.append(
       tf(`${base}.input_placeholder`, 'Composer placeholder'),
       tf(`${base}.partner_label`, 'Chat header name', { helper: 'Defaults to the coach label.' }),
+      enumField('Ambient reference kind', ['image', 'video'],
+        () => str(obj(it.media).type) || 'image',
+        (v) => { it.media = obj(it.media); it.media.type = v; }, {
+          helper: 'Required whenever there is an ambient reference.' }, scheduleUpdate),
       tf(`${base}.media.src`, 'Ambient reference image (optional)', {
         helper: 'Pinned above the conversation for the whole step — e.g. the scene being remediated. Never graded.' }),
       tf(`${base}.media.alt`, 'Image description (optional)', { area: true, minRows: 2 }),

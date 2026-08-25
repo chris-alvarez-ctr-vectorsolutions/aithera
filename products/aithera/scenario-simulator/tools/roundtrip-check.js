@@ -194,9 +194,31 @@ const IMPERATIVE = [
   'content.phases.0.debrief.follow_up_turns',
   'content.phases.0.practice.interaction.help_turns',
   'content.phases.0.practice.interaction.spot_target',
+  /* enumField, same closure-bound shape as numField: a closed two-value set
+     that is REQUIRED whenever its object exists. */
+  'content.phases.0.practice.interaction.exhibit.type',
+  'content.phases.0.practice.interaction.media.type',
   /* Identity and trace metadata the shell owns rather than the type. */
   'implementation_id', 'modality', 'schema_version',
 ];
+
+/* The quality-levels editor binds FOUR sites through one shared helper
+   (`levelsBlock` in the type), so its paths are built by concatenation and a
+   static read cannot see them. Declared here rather than reverted to four
+   copy-pasted blocks: three of these four sites had no editor at all until the
+   helper existed, which is exactly the kind of gap copy-paste produces.
+
+   A hole matches one array index or one named key, so `${t}` covers the three
+   tiers and `${i}` covers every phase. */
+[
+  'content.phases.${i}.practice.interaction',   // roleplay / coach / observe
+  'content.phases.${i}.debrief',                // how the coach reads the attempt
+  'content.phases.${i}.debrief.probe',          // how it reads the answer to the probe
+  'content.opening',                            // partial by design — at least one tier
+].forEach(function (base) {
+  ['look_for', 'response', 'progression', 'example.learner', 'example.reply']
+    .forEach(function (leaf) { IMPERATIVE.push(base + '.levels.${t}.' + leaf); });
+});
 
 /* A path template becomes a MATCHER, not a string, because a `${…}` hole is not
    always the same kind of thing. In `content.phases.${i}.practice` it is an

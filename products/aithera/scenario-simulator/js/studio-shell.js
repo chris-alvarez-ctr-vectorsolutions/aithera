@@ -348,13 +348,20 @@
     const head = document.createElement('div');
     head.className = 'rowhead';
     head.innerHTML = `<span>${esc(title)}</span>`;
-    const del = document.createElement('button');
-    del.className = 'del';
-    del.title = 'Remove';
-    del.setAttribute('aria-label', `Remove ${title}`);   // icon-only button needs a real name
-    del.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
-    del.addEventListener('click', onDelete);
-    head.appendChild(del);
+    /* No handler, no control. A card in a FIXED set has nothing to delete — the
+       three quality levels are the engine's vocabulary, not a list an author
+       adds to — and rendering the bin anyway offered an action that silently did
+       nothing on twelve cards. `addEventListener('click', null)` is legal, which
+       is why this went unnoticed. */
+    if (typeof onDelete === 'function') {
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.title = 'Remove';
+      del.setAttribute('aria-label', `Remove ${title}`);   // icon-only button needs a real name
+      del.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
+      del.addEventListener('click', onDelete);
+      head.appendChild(del);
+    }
     card.appendChild(head);
     fields.forEach((f) => card.appendChild(f));
     return card;
