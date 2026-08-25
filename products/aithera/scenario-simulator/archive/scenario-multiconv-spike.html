@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- ARCHIVED. Base keeps js/ and ../assets/ resolving as before the move. -->
+    <base href="../">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spike — Multi-cast &amp; Fresh-Panel Conversations (Live AI)</title>
+<style>
+  :root{
+    --bg:#0E1117; --panel:#151B24; --panel-2:#1B222D; --line:#2A3340;
+    --ink:#E7ECF3; --ink-soft:#A8B3C2; --ink-faint:#6D7889;
+    --accent:#8B7FE8; --accent-2:#4FB3A3; --amber:#E0A53D; --you:#6C63FF;
+    --char-a:#E0784F; --char-b:#5AA9E0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column}
+  .topbar{background:linear-gradient(90deg,#1B2A4A,#24406e);padding:12px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line)}
+  .topbar .eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#9db4d8}
+  .topbar h1{font-size:16px;font-weight:600}
+  .topbar .spacer{flex:1}
+  .badge{font:600 10px/1 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:5px 9px;border-radius:99px;background:rgba(139,127,232,.18);color:#b9b0f2;border:1px solid rgba(139,127,232,.4)}
+
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;padding:22px 16px 0;overflow-y:auto}
+  .col{width:100%;max-width:760px;display:flex;flex-direction:column;gap:2px}
+
+  .conv-head{margin:8px 0 14px;padding:12px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent)}
+  .conv-head .k{font:600 10px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+  .conv-head .t{font-size:14.5px;color:var(--ink-soft)}
+  .conv-head .mem{margin-top:7px;font:500 11.5px/1.4 ui-monospace,monospace;color:var(--ink-faint)}
+  .conv-head .mem b{color:var(--accent-2)}
+
+  .msg{display:flex;gap:10px;margin:7px 0;animation:rise .28s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .avatar{flex:0 0 auto;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 13px/1 sans-serif;color:#fff;margin-top:2px}
+  .body{min-width:0;max-width:78%}
+  .name{font:600 11px/1 ui-monospace,monospace;letter-spacing:.03em;color:var(--ink-faint);margin:0 0 3px 2px}
+  .bubble{background:var(--panel-2);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:9px 13px;color:var(--ink)}
+  .msg.you{flex-direction:row-reverse}
+  .msg.you .body{max-width:70%}
+  .msg.you .bubble{background:var(--you);border-color:transparent;border-radius:14px 4px 14px 14px;color:#fff}
+  .msg.you .name{text-align:right;margin-right:2px}
+  .narration{max-width:640px;margin:10px auto;text-align:center;font-style:italic;color:var(--ink-soft);font-size:14px;padding:0 20px}
+  .coach .avatar{background:linear-gradient(135deg,var(--accent),#6a5fd0)}
+  .coach .bubble{background:rgba(139,127,232,.10);border-color:rgba(139,127,232,.32)}
+
+  .typing{display:inline-flex;gap:4px;padding:12px 14px}
+  .typing span{width:6px;height:6px;border-radius:50%;background:var(--ink-faint);animation:blink 1.2s infinite}
+  .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+  .dock{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--bg) 22%);padding:16px;display:flex;justify-content:center}
+  .dock-inner{width:100%;max-width:760px;display:flex;flex-direction:column;gap:10px}
+  .composer{display:flex;gap:10px;align-items:flex-end}
+  textarea{flex:1;resize:none;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;color:var(--ink);padding:12px 14px;font:inherit;min-height:48px;max-height:140px}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  button{cursor:pointer;font:600 14px/1 inherit;border:0;border-radius:11px;padding:0 18px;height:48px;background:var(--accent);color:#fff;white-space:nowrap}
+  button.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink-soft)}
+  button:disabled{opacity:.45;cursor:default}
+  .advance{align-self:center;background:var(--accent-2)}
+  .hint{font:500 11.5px/1 ui-monospace,monospace;color:var(--ink-faint);text-align:center}
+  .peek{max-width:760px;margin:2px auto 0;font:500 11px/1.5 ui-monospace,monospace;color:var(--ink-faint);text-align:center}
+  .peek b{color:var(--amber)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="eyebrow">Option B · Spike</span>
+    <h1>Multi-cast &amp; Fresh-Panel Conversations</h1>
+    <span class="spacer"></span>
+    <span class="badge" id="memBadge">memory: 0 turns</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="col" id="col"></div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-inner">
+      <div class="peek" id="peek"></div>
+      <div class="composer">
+        <textarea id="input" placeholder="You're the team lead — what do you say or do?"></textarea>
+        <button id="send">Send</button>
+      </div>
+      <div class="hint">Enter to send · Shift+Enter for a newline</div>
+    </div>
+  </div>
+
+  <script src="js/sim-core.js?v=8"></script>
+  <script>
+  (function(){
+    'use strict';
+    const SC = window.SimCore;
+
+    /* ===================================================================
+       THE SPIKE SCENARIO — hand-authored, two conversations.
+       Proves: (A) two live characters in ONE scene, and (B) a SECOND
+       conversation that opens in a FRESH panel while the model keeps the
+       FULL transcript in memory (turnHistory sends every prior turn).
+       Everything model-facing goes through the real SimCore turn engine.
+       =================================================================== */
+    const BASE = `You run a LIVE workplace roleplay for a learner who is a TEAM LEAD. You voice the other people in the scene; the learner acts as themselves.
+
+OUTPUT CONTRACT — return ONLY a JSON object, nothing else. Start with { and end with }:
+{"turn":[{"speaker":"character","kind":"dialogue","name":"Alex","text":"..."},{"speaker":"character","kind":"narration","text":"..."}]}
+- A spoken line is kind:"dialogue" and MUST carry the speaker's "name". Narration (what happens, the room) is kind:"narration" with NO name.
+- When more than one person is in the scene, voice EACH as a distinct person with their own name — do not merge them.
+- Keep bubbles short and human (one or two sentences). React to what the learner actually did; keep the moment recoverable.
+- NEVER narrate the learner's own words or actions back to them — the app shows those. Start from the moment AFTER their move.
+- Follow the [CURRENT SCENE] line: it tells you which scene is live and who is present RIGHT NOW. You remember everything from earlier scenes, but only the people named in the current scene are present.`;
+
+    const CONVERSATIONS = {
+      1: {
+        head: 'Conversation 1 · the open office',
+        sub: 'Alex and Sam — two of your reports — are in a tense, public argument about who dropped the Delacroix deliverable. The room has gone quiet. You step in.',
+        sceneLine: '[CURRENT SCENE — The open office, RIGHT NOW. Both ALEX and SAM are present and mid-argument. Voice BOTH as distinct people reacting to the learner (their team lead) stepping in. This is the first scene; nothing has happened before it.]',
+        open: [
+          {speaker:'character', kind:'narration', text:'The open office has gone quiet. Alex is half-standing at their desk; Sam is a few feet away, arms crossed.'},
+          {speaker:'character', kind:'dialogue', name:'Alex', text:"I'm not taking the fall for this. Sam had the client hand-off and never sent it."},
+          {speaker:'character', kind:'dialogue', name:'Sam', text:"That's not— you changed the deadline in the tracker and didn't tell anyone. Don't put this on me."},
+        ],
+      },
+      2: {
+        head: 'Conversation 2 · later that afternoon · a 1:1 with Sam',
+        sub: 'A small meeting room. Just you and Sam now. Fresh panel — but the AI still remembers the open-office blow-up.',
+        sceneLine: "[CURRENT SCENE — Later the SAME afternoon, a PRIVATE 1:1 with SAM in a small meeting room. Only SAM is present now (Alex is NOT here). You REMEMBER the earlier open-office argument and how the learner handled it — let Sam's mood and words reflect it (e.g. whether the learner was fair, took sides, or de-escalated). Do not recap the earlier scene verbatim; carry its weight. The learner is meeting Sam fresh in this new moment.]",
+        open: [
+          {speaker:'character', kind:'narration', text:'Sam pulls out a chair and sits, still a little wound up from earlier.'},
+          {speaker:'character', kind:'dialogue', name:'Sam', text:'Thanks for pulling me in here. Kind of a rough afternoon.'},
+        ],
+        // The LEARNER opens the 1:1 (like conv 1's first move). We deliberately
+        // do NOT cold-generate Sam's opening: a model call whose serialized
+        // history ends on an assistant turn (no trailing learner turn) is the one
+        // shape that misbehaves. The real runtime has the same rule — scene opens
+        // are app-owned locked beats; the model only speaks after a learner turn.
+      },
+    };
+
+    /* ---- state: ONE message array (memory) + a per-message conversation tag --- */
+    const state = { messages: [], conv: 1, sending: false, advanceReady: false };
+    const el = (c, html) => { const d = document.createElement('div'); if (c) d.className = c; if (html != null) d.innerHTML = html; return d; };
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    const col = document.getElementById('col');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const peek = document.getElementById('peek');
+    const memBadge = document.getElementById('memBadge');
+
+    const CHAR_COLOR = { Alex:'var(--char-a)', Sam:'var(--char-b)' };
+
+    /* ---- the turn engine — REAL SimCore. system is rebuilt per call so the
+       [CURRENT SCENE] line always names the live conversation; history sends
+       the ENTIRE msgs array (all conversations) → shared memory for free. ---- */
+    const parser = SC.makeTurnParser({ name:true, modeTarget:false, complete:false, report:false });
+    const engine = SC.makeTurnEngine({
+      system: () => BASE + '\n\n' + CONVERSATIONS[state.conv].sceneLine,
+      parser,
+      history: SC.turnHistory({ name:true }),
+      maxTokens: 700,
+    });
+
+    /* ---- RENDER — the visible panel shows ONLY the current conversation's
+       messages. state.messages (memory) is never filtered. This is the whole
+       trick: view and memory are separate projections of one array. ---- */
+    function render() {
+      col.innerHTML = '';
+      const c = CONVERSATIONS[state.conv];
+      const head = el('conv-head');
+      head.innerHTML = `<div class="k">${esc(c.head)}</div><div class="t">${esc(c.sub)}</div>`;
+      const priorScenes = state.conv - 1;
+      const priorMsgs = state.messages.filter((m)=>m._conv < state.conv).length;
+      head.appendChild(el('mem', priorScenes
+        ? `AI memory carried in: <b>${priorMsgs} messages</b> from ${priorScenes} earlier conversation${priorScenes>1?'s':''} — off-screen, still in context.`
+        : `AI memory: this is the first conversation.`));
+      col.appendChild(head);
+
+      state.messages.filter((m)=>m._conv === state.conv).forEach((m)=>col.appendChild(msgNode(m)));
+      if (state.sending) col.appendChild(typingNode());
+      if (state.error) {
+        const e = el('narration'); e.style.color = 'var(--amber)';
+        e.innerHTML = 'Model hiccup — <a href="#" id="retryLink" style="color:var(--amber)">tap to retry</a> (nothing was written to memory).';
+        col.appendChild(e);
+      }
+      if (state.advanceReady && state.conv === 1) col.appendChild(advanceNode());
+      const rl = document.getElementById('retryLink');
+      if (rl) rl.addEventListener('click', (ev)=>{ ev.preventDefault(); runModel(); });
+
+      memBadge.textContent = 'memory: ' + state.messages.filter((m)=>m.speaker==='you').length + ' learner turns';
+      requestAnimationFrame(()=>{ const s=document.getElementById('stage'); s.scrollTop = s.scrollHeight; });
+    }
+    function msgNode(m){
+      if (m.kind === 'narration') return el('narration', esc(m.text));
+      if (m.speaker === 'you') {
+        const n = el('msg you'); n.appendChild(el('body', `<div class="name">You</div><div class="bubble">${esc(m.text)}</div>`)); return n;
+      }
+      const isCoach = m.speaker === 'coach';
+      const who = isCoach ? 'Coach' : (m.name || 'Someone');
+      const n = el('msg' + (isCoach ? ' coach' : ''));
+      const av = el('avatar', esc(who.charAt(0)));
+      if (!isCoach) av.style.background = CHAR_COLOR[who] || 'var(--ink-faint)';
+      n.appendChild(av);
+      n.appendChild(el('body', `<div class="name">${esc(who)}</div><div class="bubble">${esc(m.text)}</div>`));
+      return n;
+    }
+    function typingNode(){ const n = el('msg'); n.appendChild(el('avatar','·')); n.appendChild(el('body','<div class="typing"><span></span><span></span><span></span></div>')); return n; }
+    function advanceNode(){
+      const b = document.createElement('button'); b.className = 'advance';
+      b.textContent = 'Wrap up here → have the 1:1 with Sam';
+      b.addEventListener('click', advanceConversation);
+      const wrap = el(); wrap.style.cssText = 'display:flex;justify-content:center;margin:18px 0 6px'; wrap.appendChild(b);
+      return wrap;
+    }
+
+    function seed(msgs){ msgs.forEach((m)=> state.messages.push({ ...m, _conv: state.conv })); }
+
+    async function runModel(){
+      state.sending = true; state.error = false; render();
+      let turn = null;
+      for (let attempt = 0; attempt < 2 && !turn; attempt++){
+        try { turn = await engine.getTurn(state.messages); } catch(e){ turn = null; }
+      }
+      state.sending = false;
+      // NEVER push an error line into state.messages — the transcript IS the
+      // model's memory, so a junk line would poison every later turn. Surface a
+      // retry affordance outside the transcript instead.
+      if (!turn){ state.error = true; render(); return; }
+      (turn.turn || []).forEach((m)=> state.messages.push({ ...m, _conv: state.conv }));
+      // in conv 1, after the learner has acted a couple of times, offer the handoff
+      if (state.conv === 1 && state.messages.filter((m)=>m.speaker==='you' && m._conv===1).length >= 2) state.advanceReady = true;
+      updatePeek();
+      render();
+    }
+
+    async function send(){
+      const text = input.value.trim();
+      if (!text || state.sending) return;
+      input.value = ''; input.style.height = 'auto';
+      state.messages.push({ speaker:'you', kind:'dialogue', text, _conv: state.conv });
+      render();
+      await runModel();
+    }
+
+    function advanceConversation(){
+      state.conv = 2; state.advanceReady = false;
+      seed(CONVERSATIONS[2].open);
+      input.placeholder = 'A private word with Sam — what do you say?';
+      updatePeek();
+      render();
+    }
+
+    function updatePeek(){
+      const priorNames = Array.from(new Set(state.messages.filter((m)=>m._conv<state.conv && m.name).map((m)=>m.name)));
+      peek.innerHTML = state.conv === 2
+        ? `Panel shows only the 1:1 with Sam. The model still sees the whole transcript — <b>including the Alex/Sam argument</b> — so Sam can reference how you handled it.`
+        : `Two people live in this scene — act "at the room," the model voices whoever reacts.`;
+    }
+
+    input.addEventListener('input', ()=>{ input.style.height='auto'; input.style.height=Math.min(140, input.scrollHeight)+'px'; });
+    input.addEventListener('keydown', (e)=>{ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+    sendBtn.addEventListener('click', send);
+
+    // boot conversation 1
+    seed(CONVERSATIONS[1].open);
+    updatePeek();
+    render();
+  })();
+  </script>
+</body>
+</html>

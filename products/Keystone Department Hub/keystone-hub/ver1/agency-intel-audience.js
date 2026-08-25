@@ -29,6 +29,7 @@
   var esc = KX.esc, attr = KX.attr, micon = KX.micon;
 
   var NAME_CAP = 8;                       // names shown before "+ N more"
+  var CHIP_CAP = 12;                      // picked-name chips before "+ N more"
 
   var S = null;                           // per-open state
   var OPTS = null;                        // options passed to open()
@@ -52,12 +53,30 @@
     return esc(p.rank) + ' · ' + esc(p.stationName) + ' · ' + esc(p.grade);
   }
 
+  // The "n of m selected — Select all" strip that sits above a pick list.
+  // One toggle, not two buttons: once everything on offer is picked, the only
+  // useful next move is to drop it all again, so the same control flips to
+  // Clear. `hook` is the data-attribute the delegated click handler reads.
+  function bulkBar(countText, hook, allOn, selectLabel) {
+    return '<div class="au-bulk"><span>' + countText + '</span>' +
+      '<button class="au-link" ' + hook + '="' + (allOn ? 'clear' : 'all') + '">' +
+      micon(allOn ? 'remove_done' : 'done_all', { size: 15 }) + ' ' +
+      (allOn ? 'Clear all' : selectLabel) + '</button></div>';
+  }
+
   /* ---------------------------------------------------------------- */
   /* Tab 1 — Job titles                                                */
   /* ---------------------------------------------------------------- */
 
   function titlesTab() {
-    return '<div class="au-grid">' +
+    var all = CP.JOB_TITLES || [];
+    return bulkBar(
+      S.titles.length + ' of ' + all.length + ' job titles selected',
+      'data-au-all-titles',
+      all.length > 0 && S.titles.length === all.length,
+      'Select all ' + all.length
+    ) +
+      '<div class="au-grid">' +
       (CP.JOB_TITLES || []).map(function (t) {
         var on = S.titles.indexOf(t.id) !== -1;
         return '<button class="au-card' + (on ? ' is-on' : '') + '" data-au-title="' + attr(t.id) + '">' +
@@ -74,26 +93,62 @@
   /* Tab 2 — Named individuals                                         */
   /* ---------------------------------------------------------------- */
 
-  function individualsTab() {
+  // The roster rows the search is currently showing. Shared by the tab and by
+  // the bulk select/clear handler so the two can never disagree about what
+  // "all" means while a filter is typed in.
+  function visibleRoster() {
     var q = S.search.trim().toLowerCase();
-    var list = R.ROSTER.filter(function (p) {
-      if (!q) return true;
+    if (!q) return R.ROSTER.slice();
+    return R.ROSTER.filter(function (p) {
       return (p.name + ' ' + p.rank + ' ' + p.stationName + ' ' + p.stationLabel + ' ' +
         p.grade + ' ' + p.battalion).toLowerCase().indexOf(q) !== -1;
     });
+  }
 
-    var chips = S.individuals.length
-      ? '<div class="au-chips">' + S.individuals.map(function (id) {
+  function individualsTab() {
+    var q = S.search.trim().toLowerCase();
+    var list = visibleRoster();
+
+    // Chips are capped: "Select all" can put 113 names in here, and an
+    // uncapped cloud pushes the list itself off the bottom of the dialog.
+    var picked = S.individuals;
+    var shown = S.showAllChips ? picked : picked.slice(0, CHIP_CAP);
+    var chips = picked.length
+      ? '<div class="au-chips">' + shown.map(function (id) {
           var p = R.personById(id);
           return p ? '<span class="au-chip">' + esc(p.name) +
             '<button data-au-unpick="' + attr(id) + '" aria-label="Remove ' + attr(p.name) + '">' +
             micon('close', { size: 13 }) + '</button></span>' : '';
-        }).join('') + '</div>'
+        }).join('') +
+        (picked.length > shown.length
+          ? '<button class="au-link" data-au-morechips="1">+ ' +
+            (picked.length - shown.length) + ' more</button>'
+          : picked.length > CHIP_CAP
+            ? '<button class="au-link" data-au-morechips="1">Show fewer</button>'
+            : '') +
+        '</div>'
+      : '';
+
+    // Select-all acts on what the search is currently showing, so "capt" then
+    // Select all reads as "everyone matching capt", not the whole roster.
+    var visSel = list.filter(function (p) {
+      return S.individuals.indexOf(p.id) !== -1;
+    }).length;
+    var allVisOn = list.length > 0 && visSel === list.length;
+    var bulk = list.length
+      ? bulkBar(
+          q ? visSel + ' of ' + list.length + ' matching selected'
+            : S.individuals.length + ' of ' + R.ROSTER.length + ' people selected',
+          'data-au-all-people',
+          allVisOn,
+          q ? 'Select all ' + list.length + ' matching' : 'Select all ' + list.length
+        )
       : '';
 
     return chips +
       '<input class="au-search" id="auSearch" placeholder="Search 113 people — name, rank, station…" ' +
       'value="' + attr(S.search) + '">' +
+      bulk +
       '<div class="au-list">' +
       (list.length
         ? list.map(function (p) {
@@ -420,6 +475,7 @@
       groups: (a.groups || []).slice(),
       search: '',
       thread: [], rule: { clauses: [] }, showNames: false, name: '', showSaved: false, editingId: null,
+      showAllChips: false,
       // Sources this dashboard's widgets actually read — scopes the
       // entitlement warning so it only fires on relevant gaps.
       required: (function () {
@@ -464,6 +520,31 @@
             var ti = S.titles.indexOf(tid);
             if (ti === -1) S.titles.push(tid); else S.titles.splice(ti, 1);
             paint(); return;
+          }
+          // Bulk select / clear — job titles.
+          if ((el = e.target.closest('[data-au-all-titles]'))) {
+            S.titles = el.getAttribute('data-au-all-titles') === 'clear'
+              ? []
+              : (CP.JOB_TITLES || []).map(function (t) { return t.id; });
+            paint(); return;
+          }
+          // Bulk select / clear — named individuals, scoped to the rows the
+          // search is currently showing.
+          if ((el = e.target.closest('[data-au-all-people]'))) {
+            var vis = visibleRoster().map(function (p) { return p.id; });
+            if (el.getAttribute('data-au-all-people') === 'clear') {
+              S.individuals = S.individuals.filter(function (x) {
+                return vis.indexOf(x) === -1;
+              });
+            } else {
+              vis.forEach(function (x) {
+                if (S.individuals.indexOf(x) === -1) S.individuals.push(x);
+              });
+            }
+            paint(); return;
+          }
+          if (e.target.closest('[data-au-morechips]')) {
+            S.showAllChips = !S.showAllChips; paint(); return;
           }
           if ((el = e.target.closest('[data-au-unpick]'))) {
             var uid = el.getAttribute('data-au-unpick');

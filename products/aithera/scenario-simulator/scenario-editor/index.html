@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- The editor moved one level down (products/…/lesson-presentation/scenario-editor/)
+         so that STABLE can own the bare folder URL. Every relative path in this page —
+         23 module tags, the stylesheet, the link to the live player — plus the relative
+         previewUrl the shared scenario TYPES hand back, resolves against the product
+         root. One <base> keeps all of them correct instead of rewriting each, and
+         nothing here uses an in-page #anchor, which is the one thing <base> would
+         break. -->
+    <base href="../">
+
+    <!-- CHANNEL ROUTER — /scenario-editor/ is always the STABLE editor. ?v=<n> hands
+         off to an in-progress build, forwarding every other parameter, because the
+         links people actually share carry ?type= and ?example= and must survive the
+         hop. Runs before anything loads so the stable app never boots first. -->
+    <script>
+      (function () {
+        var v = new URLSearchParams(location.search).get('v');
+        if (!v || v === '1' || v === 'stable') return;      // bare URL = stable
+        var q = new URLSearchParams(location.search);
+        q.delete('v');
+        var rest = q.toString();
+        // location-derived so it holds on file://, localhost and Pages alike
+        var dir = location.pathname.replace(/[^/]*$/, '');
+        location.replace(dir + 'sandbox/' + (rest ? '?' + rest : '') + location.hash);
+      })();
+    </script>
+    <title>Scenario Editor — Stable</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- ====================================================================
+         WRITER STUDIO — the (single, converged) authoring tool. The former V1
+         (writer-studio.html) is now a thin redirect here; this page is the one
+         shell. See js/README.writer-studio.md for the full architecture. On
+         top of the shared engine, types, and storage it adds:
+
+           1. LEARN / PRACTICE nomenclature on the rail. This split was
+              Guided Arc's, and Guided Arc is no longer authored here — that
+              module is not loaded any more (see the load list below). The
+              go-forward type keeps a single Interaction step; the rail
+              nomenclature survives in the shell for any type that asks for
+              it.
+
+           2. START FROM SCRATCH — a guided wizard (brief → plain-language
+              SME interview → staged AI generation through the same Worker
+              proxy the playtest uses) that drafts a complete scenario,
+              including the coach-facing guidance fields that used to need
+              prompt-engineering craft. Two intake modes: BASIC (describe
+              the course in a sentence or more → "Create outline" drafts
+              every interview answer for review) and ADVANCED (the designer
+              answers the full interview). Generic engine:
+              js/studio-wizard.js; the per-type spec lives on type.wizard.
+
+         The studio styles live in css/writer-studio.css and the app logic in
+         js/studio-shell.js (both extracted from this file). [V2] marks the
+         Learn/Practice + wizard additions over the original shell.
+         ==================================================================== -->
+    <!-- ====================================================================
+         WRITER STUDIO — the content writer's side of the Scenario Simulator.
+
+         The premise: as assessment moves from multiple-choice to AI-assisted
+         conversation, the writer's job shifts from writing answer keys to
+         writing GUIDANCE — and the guardrail IS the structure. Writers never
+         touch raw prompt text. They fill structured, plain-language fields and
+         a per-type compiler assembles the system prompt around locked,
+         safety-critical engine sections they can see but not break.
+
+         ONE FRAMEWORK, THREE SECTIONS (the shared spine of every scenario,
+         mirroring the live runtime — js/sim-context.js / sim-core.js /
+         sim-debrief.js):
+           ①  Scenario Context   — the swappable intro modality (video / audio
+                                    / reading / story / none) that sets the scene
+           ②  Interaction        — the live loop: ENTER → ENGAGE · REACT · COACH ·
+                                    GATE → EXIT. This is where the difficulty
+                                    lives; the MODE only reshapes THIS section.
+           ③  Debrief & Close     — Analyze → Results → Takeaways (the guaranteed,
+                                    writer-authored playbook + resources).
+
+         The MODE (a registered scenario TYPE) picks the Section-2 shape:
+           Roleplay · Guided Arc · Observe / React · Teach-Back.
+         The studio shell is mode-agnostic; each type supplies its own sections,
+         compiler, lints and playtest and hangs them on the three-section spine.
+
+         Three panes:
+           LEFT    section nav grouped by the three sections, with lint dots
+           CENTER  the authoring form (writer-owned fields + locked engine)
+           RIGHT   inspector tabs — Compiled prompt / Validation / Playtest
+
+         Publishing writes the scenario to localStorage; the matching learner
+         page picks it up on reload in this same browser. (GitHub Pages has no
+         backend — localStorage is the honest static-hosting handoff. A shared
+         backend would swap in here.)
+         ==================================================================== -->
+    <link rel="stylesheet" href="css/writer-studio.css?v=18" />
+    <style>
+      /* Build markers. Kept in the page rather than the shared stylesheet, because
+         the two builds are forks of this page and the shared CSS is loaded by both. */
+      .topbar .brand .v2tag[data-prototype] {
+        background: #3d2c00; color: #ffc233; border-color: #7a5c00;
+      }
+      /* `hidden` has to win: an id rule with display:flex outranks the UA
+         [hidden] rule, which left the stable build showing an empty amber
+         sliver under its header. */
+      #buildNotice[hidden] { display: none; }
+      #buildNotice {
+        flex: 0 0 auto; display: flex; align-items: flex-start; gap: 10px;
+        padding: 9px 18px;
+        background: #3d2c00; color: #ffe6a8;
+        border-bottom: 1px solid #7a5c00;
+        font: 400 12.5px/1.5 'Open Sans', system-ui, sans-serif;
+      }
+      #buildNotice i { color: #ffc233; font-size: 14px; margin-top: 2px; flex: 0 0 auto; }
+      #buildNotice span { max-width: 100ch; }
+      #buildNotice b { font-weight: 700; }
+      #buildNotice a { color: #ffc233; margin-left: auto; white-space: nowrap; flex: 0 0 auto; }
+    </style>
+</head>
+<body>
+
+  <!-- ===== Top bar ====================================================== -->
+  <header class="topbar">
+    <!-- The build a person is looking at has to be unmistakable from the header,
+         because the consequence is not cosmetic: work saved in the prototype build
+         is a separate set of drafts, and a change seen there is not in the editor
+         they will return to. The old "V2" tag was retired — it now collides with
+         ?v=2 meaning "the prototype", which is a different axis entirely. -->
+    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Scenario Editor <span class="v2tag" id="buildTag"></span></span>
+    <span class="sub" id="subTitle">Conversation practice</span>
+    <span class="spacer"></span>
+    <span class="save-status" id="saveStatus"></span>
+    <!-- Right-aligned utility toolbar -->
+    <div class="toolbar">
+      <span class="libwrap">
+        <!-- Not "Library" — it implies a shared, canonical collection, and this is
+             draft snapshots in one browser's localStorage. Not "previews" either:
+             nothing here previews anything (that is Learner preview). -->
+        <button class="tbtn" id="libraryBtn" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-folder-open"></i> Local drafts <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.6"></i></button>
+        <div class="libpanel" id="libPanel" hidden role="menu" aria-label="Scenario library"><!-- built by JS --></div>
+      </span>
+      <!-- ONE door for starting something new. This was three buttons — "Start
+           from scratch", "From a template", "Blank canvas" — which asked the
+           author to know the difference between three things before they had
+           decided the one thing they actually care about: what they are making.
+           The panel presents all three routes together instead. -->
+      <button class="tbtn" id="newBtn" style="border-color: var(--accent); color: var(--accent)"><i class="fa-solid fa-plus"></i> New scenario</button>
+      <button class="tbtn" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export JSON</button>
+      <!-- hidden picker the Import button triggers -->
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <!-- Filled by the build-notice snippet at the end of the page. Sits under the
+       top bar rather than floating, so it is part of the page an author reads
+       instead of a decoration they learn to dismiss. -->
+  <div id="buildNotice" hidden></div>
+
+  <!-- Published-state strip — also carries the publish + preview actions -->
+  <div class="pubstrip" id="pubStrip">
+    <span class="dot"></span><span id="pubText">Not published yet — the learner prototype is running the shipped scenario.</span>
+    <!-- Label follows the same rewording as the strip: no "publish" vocabulary,
+         because an author is thinking about what the player is showing. -->
+    <button class="unpub" id="unpublishBtn" hidden>Clear this draft from the player</button>
+    <!-- ONE action. This was "Learner preview" (open the player) plus "Publish to
+         prototype" (put the draft where the player reads it) — two steps for one
+         intention, and doing them in the wrong order silently showed you the
+         shipped scenario instead of your work. Preview does both. -->
+    <div class="pubactions">
+      <vaadin-button theme="primary" id="previewBtn"><i class="fa-solid fa-play" slot="prefix"></i> Preview as learner</vaadin-button>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ===== Left: section nav (built by JS) ============================ -->
+    <nav class="secnav" id="secNav" aria-label="Scenario sections"></nav>
+
+    <!-- ===== Center: the authoring form (built by JS) =================== -->
+    <main class="form" id="form"></main>
+
+    <!-- ===== Right: inspector (collapsible) ============================= -->
+    <aside class="inspector" id="inspector" aria-label="Inspector panel">
+      <!-- Header strip: panel title + collapse control -->
+      <div class="insp-bar">
+        <span class="insp-bar-title"><i class="fa-solid fa-flask"></i> Inspector</span>
+        <button class="insp-toggle" id="inspToggle" title="Hide panel" aria-label="Hide inspector panel" aria-expanded="true" aria-controls="inspector">
+          Hide <i class="fa-solid fa-angles-right"></i>
+        </button>
+      </div>
+
+      <div class="insp-main">
+        <vaadin-tabs id="inspectorTabs">
+          <vaadin-tab data-body="tabPrompt"><i class="fa-solid fa-file-code" style="margin-right:7px"></i> Compiled prompt</vaadin-tab>
+          <!-- Renamed from "Guardrails": that word is taken by the rail's own
+               System guardrails section (the locked prompt sections). This tab is
+               the validator, and "Validation" is what the production service's
+               authoring API calls the same output. Label is rewritten with a count
+               by renderLints(). -->
+          <vaadin-tab id="lintTab" data-body="tabLints"><i class="fa-solid fa-circle-check" style="margin-right:7px"></i> Validation</vaadin-tab>
+          <vaadin-tab data-body="tabPlaytest"><i class="fa-solid fa-vial" style="margin-right:7px"></i> Playtest</vaadin-tab>
+          <vaadin-tab id="splitTab" data-body="tabSplit"><i class="fa-solid fa-scissors" style="margin-right:7px"></i> Say/Do Split</vaadin-tab>
+        </vaadin-tabs>
+
+        <div class="tabbody is-active" id="tabPrompt">
+          <div class="promptmeta">
+            <span class="pill" id="promptChars">— chars</span>
+            <span class="pill" id="promptTokens">— tokens (est.)</span>
+            <button class="copy" id="copyPromptBtn"><i class="fa-regular fa-copy"></i> Copy</button>
+          </div>
+          <pre class="promptview" id="promptView"></pre>
+          <!-- The last sentence used to read "This exact text is what the AI runs on."
+               True of the PREVIEW, false of production: this prompt is assembled by
+               our own compiler, and the production service assembles its own from
+               the same document. Two builders, and neither side would notice them
+               drifting. Saying so is not a fix — it stops the tool asserting
+               something untrue while the fix (rendering the production prompt
+               instead of ours) waits on a reason to happen. -->
+          <p class="promptlegend"><span class="wr">Highlighted text</span> is <b>DYNAMIC</b> — compiled from your fields, the guidance the AI performs. Everything else is the <b>LOCKED</b> engine, injected verbatim. This is the prompt <b>the preview</b> runs on, assembled by this editor — production builds its own from the same fields, so read this to learn what your guidance turns into, not as the exact text that ships.</p>
+        </div>
+
+        <div class="tabbody" id="tabLints"></div>
+
+        <div class="tabbody pt" id="tabPlaytest"></div>
+
+        <div class="tabbody" id="tabSplit"></div>
+      </div>
+
+      <!-- Reopen rail — shown only while collapsed; click anywhere to expand -->
+      <button class="insp-rail" id="inspRail" title="Show panel" aria-label="Show inspector panel">
+        <i class="fa-solid fa-angles-left"></i>
+        <span class="insp-rail-txt">Inspector · Prompt · Validation · Playtest</span>
+      </button>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- Reusable context-setter (narrated audio / reading). Used by the Opening
+       & intro section's inline learner preview; harmless if a type never asks. -->
+  <script src="js/scene-context.js?v=3"></script>
+  <!-- Generic studio engine: type registry + per-type storage. Must load
+       BEFORE any type module so registration has somewhere to land. -->
+  <script src="js/studio-engine.js?v=5"></script>
+  <!-- Learner scene-move say/do splitter (window.AitheraSayDoSplit). Used by the
+       playtest scene turns and the Say/Do Split sandbox tab. -->
+  <script src="js/say-do-split.js?v=3"></script>
+  <!-- Scenario types (MODES). Each registers itself into AitheraStudio; the
+       registration order below is the order they appear in the mode picker.
+       action-practice also keeps window.AitheraScenario for the live pages. -->
+  <script src="js/scenario.js?v=16"></script>
+  <script src="js/scenario-types/ensemble-arc.js?v=14"></script>
+  <!-- [V2] Mix & Match — the composed-beat type: an ordered list of beats, one
+       interaction type each (coach-led / roleplay / observe), riding the shared
+       ladder runner. Registration order = mode-picker order. -->
+  <script src="js/scenario-types/mix-arc.js?v=17"></script>
+  <!-- POC V4 alignment. `scenario-v4.js` is the authoring contract of Scenario
+       CML v4 (schema + the loader's cross-field rules + the content lint), so the
+       studio can tell an LXD whether a scenario would load in the production
+       engine while they type. `scenario-v4-runtime.js` compiles a v4 document
+       into the runtime shape sim-player already reads — one compiler for every
+       shape, because v4 has no scenario type field. `scenario-v4-templates.js`
+       carries the seven UX Universal types as v4 TEMPLATES (decision D7): a
+       starting point an LXD edits freely, not a declaration that binds the
+       scenario to one engine path.
+       Order matters: v4-universal.js reads all three, plus mix-arc's prompt
+       builder and ENGINE_SECTIONS, so it loads last. -->
+  <script src="js/scenario-v4.js?v=5"></script>
+  <script src="js/scenario-v4-runtime.js?v=5"></script>
+  <script src="js/scenario-v4-scopes.js?v=2"></script>
+  <script src="js/scenario-v4-templates.js?v=4"></script>
+  <!-- WHAT IS DELIBERATELY NOT LOADED HERE
+       The classic scenario types are no longer authored: content for them does not
+       matter any more, so the editor does not offer them and does not carry their
+       fields, lints or wizards. Removed from this page: guided-arc, scene-sweep and
+       teach-back, plus five studio modules that only ever supplied their "draft with
+       AI" interviews.
+
+       Three classic modules DO stay, as dependencies rather than as options:
+       mix-arc is the compiler the go-forward type funnels through, and
+       ensemble-arc and scenario.js (action-practice) supply prompt sections it
+       reads. They register as types, so an explicitly typed ?type= URL can still
+       reach them — nothing offers that path.
+
+       All of them are still loaded by the PLAYER, which is what runs the example
+       interactions the dev team references. -->
+  <script src="js/scenario-types/v4-universal.js?v=23"></script>
+  <!-- [V2] Shared wizard craft: intake helpers + the invariant coach-voice
+       atoms (banned phrases, grounding, JSON-output rule). Loaded BEFORE the
+       wizard engine and every spec so the specs compose their spine from it. -->
+  <script src="js/studio-wizard-craft.js?v=1"></script>
+  <!-- [V2] the start-from-scratch wizard engine + the guided-arc V2
+       presentation (Learn/Practice/Voice & Tone regroup, topic-turn
+       language, and the wizard's interview + generation spec). Loaded
+       AFTER the type modules so they can re-present the registered type. -->
+  <script src="js/studio-wizard.js?v=17"></script>
+  <!-- [V2] the Universal Scenario wizard spec — the go-forward format's own
+       interview. Authors Scenario CML v4 directly: the scene world is drafted
+       BEFORE the steps (a roleplay's character_id must name a declared
+       character), and teaching points AFTER them (a graded step's conclusion is
+       matched to its phase label). Loaded after v4-universal.js. -->
+  <script src="js/studio-v2-v4-universal-wizard.js?v=2"></script>
+
+  <!-- Studio shell app logic (extracted from this file). -->
+  <script src="js/studio-shell.js?v=33"></script>
+  <!-- ===== BUILD NOTICE ==================================================
+       Identical in both builds ON PURPOSE — it reads the channel rather than
+       being hand-edited per file, so copying this block between the stable and
+       prototype pages can never leave the two describing themselves wrongly.
+       The wording states the CONSEQUENCE, not the label: which drafts you are
+       touching, and whether what you see will still be there when you come
+       back to edit a real scenario.
+       ==================================================================== -->
+  <script>
+    (function () {
+      var prototypeBuild = window.STUDIO_CHANNEL && window.STUDIO_CHANNEL !== 'stable';
+      var tag = document.getElementById('buildTag');
+      var note = document.getElementById('buildNotice');
+      if (tag) {
+        tag.textContent = prototypeBuild ? 'Prototype' : 'Current';
+        tag.title = prototypeBuild
+          ? 'A build for trying out changes. Not the editor your scenarios live in.'
+          : 'The editor your scenarios live in.';
+        if (prototypeBuild) tag.setAttribute('data-prototype', '');
+      }
+      if (note && prototypeBuild) {
+        note.hidden = false;
+        note.setAttribute('role', 'status');
+        note.innerHTML =
+          '<i class="fa-solid fa-flask" aria-hidden="true"></i>'
+          + '<span><b>Prototype build.</b> These are changes we are trying out — this is '
+          + '<b>not</b> the editor your scenarios live in. Drafts and library here are a '
+          + 'separate set, and nothing you see here shows up in the everyday editor until '
+          + 'we release it there.</span>'
+          + '<a href="scenario-editor/">Open the current editor</a>';
+      }
+    })();
+  </script>
+</body>
+</html>

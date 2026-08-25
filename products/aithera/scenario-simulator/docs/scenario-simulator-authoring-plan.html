@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The authoring plan — a lightweight CML editor, and the contract it tracks</title>
+<!-- ==========================================================================
+     UNCATALOGUED SIBLING of the scenario-simulator-* notes. NOT in products.json.
+
+     THE DRIVING PAGE. The talking-points page carried a meeting where we were
+     ASKING. This one carries a meeting where we are DECIDING — it opens with
+     positions, not questions, because presenting settled calls as open ones is
+     what made the last round feel like negotiation.
+
+     REDRAFTED after dating their build. The first version implied their studio
+     was live, active, and something to reckon with. It is not: merged 14 Aug in
+     one squash and untouched since 13 Aug. The correction matters in BOTH
+     directions and the page now makes the split explicitly — the UI is a porting
+     artifact we should ignore, the authoring API is real infrastructure we should
+     TRACK — we call none of it, but what it validates against and what it
+     builds IS the contract. Getting that split wrong either way is expensive:
+     dismiss both and we drift off the format; chase both and we race a parked
+     prototype and take on a runtime dependency nobody asked for.
+
+     Every factual claim was read out of one of the two codebases and cites where,
+     so anything here can be checked in front of whoever disputes it. Where WE got
+     it wrong, that is stated first.
+
+     The cut rule: does this change what someone DOES on Monday?
+     ========================================================================== -->
+<style>
+  :root {
+    --paper:      #f3f6f4;
+    --panel:      #eef2f0;
+    --panel-2:    #e6ece9;
+    --ink:        #12181b;
+    --ink-2:      #43514f;
+    --ink-3:      #6c7a76;
+    --line:       #d3ddd9;
+    --line-2:     #b3c1bc;
+    --accent:     #0b8f78;
+    --accent-ink: #06614f;
+    --warn:       #a8480a;
+    --warn-soft:  #fbe9dc;
+    --warn-line:  #e3c3a4;
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --wrap: 860px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0d1315; --panel:#141d20; --panel-2:#182326;
+      --ink:#e7ece9; --ink-2:#a8b7b2; --ink-3:#7a8a85;
+      --line:#253230; --line-2:#35443f;
+      --accent:#4adebe; --accent-ink:#8ef0da;
+      --warn:#f0a877; --warn-soft:#35210f; --warn-line:#5a3a1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: clamp(26px,5vw,60px) clamp(18px,5vw,44px) 90px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent-ink); margin: 0 0 14px; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(30px,5.4vw,46px);
+    line-height: 1.05; letter-spacing: -.012em; margin: 0 0 16px; max-width: 22ch; }
+  .lede { font-size: clamp(16.5px,2vw,18.5px); color: var(--ink-2); max-width: 62ch; margin: 0 0 30px; }
+
+  .oneline { border: 1px solid var(--warn-line); border-left: 4px solid var(--warn);
+    background: var(--warn-soft); border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 0 0 20px; }
+  .oneline .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--warn); font-weight: 700; display: block; margin-bottom: 6px; }
+  .oneline p { margin: 0 0 10px; font-size: 17px; color: var(--ink); max-width: 64ch; }
+  .oneline p:last-child { margin-bottom: 0; }
+
+  /* The two halves of their build, side by side, because the whole point is that
+     they get OPPOSITE verdicts and a single paragraph would blur them. */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 34px; }
+  @media (max-width: 700px) { .split { grid-template-columns: 1fr; } }
+  .half { border: 1px solid var(--line-2); border-radius: 12px; padding: 17px 20px; background: var(--panel); }
+  .half.keep { border-left: 4px solid var(--accent); }
+  .half.drop { border-left: 4px solid var(--ink-3); }
+  .half .verdict { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; font-weight: 700; margin: 0 0 7px; }
+  .half.keep .verdict { color: var(--accent-ink); }
+  .half.drop .verdict { color: var(--ink-3); }
+  .half h4 { margin: 0 0 9px; font-size: 16.5px; font-weight: 700; letter-spacing: -.01em; }
+  .half p { margin: 0 0 9px; font-size: 14.5px; color: var(--ink-2); }
+  .half p:last-child { margin-bottom: 0; }
+  .half b { color: var(--ink); font-weight: 650; }
+
+  h2 { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3); margin: 48px 0 4px; }
+  h2 + .sub { font-size: 14px; color: var(--ink-3); margin: 0 0 20px; max-width: 64ch; }
+
+  .pos { border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel);
+    padding: 20px 24px; margin: 0 0 14px; }
+  .pos > .n { font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 700; }
+  .pos > h3 { margin: 4px 0 14px; font-size: 20px; font-weight: 700; letter-spacing: -.012em;
+    line-height: 1.28; max-width: 44ch; }
+  .pos dl { margin: 0; display: grid; grid-template-columns: 96px 1fr; gap: 9px 16px; align-items: baseline; }
+  .pos dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 700; padding-top: 3px; line-height: 1.35; }
+  .pos dd { margin: 0; color: var(--ink-2); font-size: 15px; max-width: 64ch; }
+  .pos dd b { color: var(--ink); font-weight: 650; }
+  .pos dd + dd { grid-column: 2; margin-top: 7px; }
+  @media (max-width: 560px) {
+    .pos dl { grid-template-columns: 1fr; gap: 2px 0; }
+    .pos dd { margin-bottom: 10px; }
+    .pos dd + dd { grid-column: auto; }
+  }
+
+  code { font-family: var(--mono); font-size: .84em; background: var(--panel-2);
+    color: var(--accent-ink); padding: .08em .36em; border-radius: 4px; border: 1px solid var(--line); }
+  blockquote { margin: 9px 0 0; padding-left: 12px; border-left: 2px solid var(--line-2);
+    font-style: italic; color: var(--ink-3); font-size: 14.5px; }
+
+  ul.tight { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; }
+  ul.tight li { padding-left: 22px; position: relative; color: var(--ink-2); font-size: 15px; max-width: 68ch; }
+  ul.tight li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 7px; height: 7px;
+    border-radius: 2px; background: var(--accent); transform: rotate(45deg); }
+  ul.tight li b { color: var(--ink); font-weight: 650; }
+
+  .asks { width: 100%; border-collapse: collapse; margin: 0 0 8px; font-size: 14.5px; }
+  .asks th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 700;
+    border-bottom: 1px solid var(--line-2); padding: 0 12px 8px 0; vertical-align: bottom; }
+  .asks td { border-bottom: 1px solid var(--line); padding: 12px 12px 12px 0;
+    vertical-align: top; color: var(--ink-2); }
+  .asks td:first-child { color: var(--ink); font-weight: 650; width: 12.5em; }
+  .asks td:last-child { padding-right: 0; }
+  .asks tr:last-child td { border-bottom: none; }
+  .scroller { overflow-x: auto; }
+
+  .plan { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 0; }
+  @media (max-width: 720px) { .plan { grid-template-columns: 1fr; } }
+  .col { border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); padding: 16px 18px; }
+  .col h4 { margin: 0 0 3px; font-size: 14.5px; font-weight: 700; }
+  .col .when { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 12px; }
+  .col ul { margin: 0; padding-left: 17px; display: grid; gap: 8px; }
+  .col li { font-size: 14px; color: var(--ink-2); }
+  .col li b { color: var(--ink); font-weight: 650; }
+  .col.done { border-color: var(--line-2); background: var(--panel); }
+
+  .omit { border: 1px dashed var(--line-2); border-radius: 12px; padding: 18px 22px; background: transparent; }
+  .omit ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 10px; }
+  .omit li { font-size: 14.5px; color: var(--ink-3); max-width: 70ch; }
+  .omit li b { color: var(--ink-2); font-weight: 650; }
+
+  footer { margin-top: 56px; border-top: 1px solid var(--line); padding-top: 18px;
+    font-size: 13.5px; color: var(--ink-3); }
+  footer a { color: var(--accent-ink); }
+  footer p { margin: 0 0 8px; max-width: 70ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Aithera · Scenario Simulator · authoring plan</p>
+  <h1>Don’t catch up to their editor. Track their contract.</h1>
+  <p class="lede">Six positions we are taking, six things we need back, and the mechanism that keeps the two sides aligned without another reconciliation meeting. Every claim here was read out of one of the two codebases and cites where.</p>
+
+  <div class="oneline">
+    <span class="k">The finding, dated</span>
+    <p>The dev POC contains a React port of the Writer Studio — <code>web/src/studio/</code>, plus <code>web/src/styles/writer-studio.css</code>, which is our stylesheet and says so in its own header: <i>“extracted verbatim from writer-studio-v2.html.”</i> Behind it sits a full authoring API.</p>
+    <p>It landed on <b>13 August</b> in one squash of 194 commits (<code>66ea6803</code>, merged as PR #23 on the 14th) and <b>nothing has touched any of it since</b> — not the studio, not our ported stylesheet, not either authoring module, not the v4 schema, not the CML spec. Eleven days. Every PR since is ratings, docs, quality review and Langfuse plans.</p>
+    <p>So this is not a live tool racing ours. <b>But it is also not one thing, and the two halves get opposite verdicts.</b></p>
+  </div>
+
+  <div class="split">
+    <div class="half drop">
+      <p class="verdict">Ignore this half</p>
+      <h4>The studio UI</h4>
+      <p>A real route in their SPA (one of three in <code>main.tsx</code>) — but it is our design carried across so there was something to drive the endpoints with, and it has sat untouched since the day it landed.</p>
+      <p><b>Nothing to catch up to.</b> Chasing a parked prototype would be the worst use of the next month, and it is the half we are best at anyway.</p>
+    </div>
+    <div class="half keep">
+      <p class="verdict">Track this half</p>
+      <h4>The authoring API</h4>
+      <p>Registered in the live app (<code>app.include_router(authoring.router…)</code>) with its own <code>422</code> handler for structured validation failures. Atomic writes, the same validation gate as a save, registry cache invalidation, a locked-scenario policy, <b>three backend test suites</b>. You do not get that as a side effect of porting a stylesheet.</p>
+      <p><b>Track, not adopt — and that distinction is the whole plan.</b> We do not call it: the LMS owns storage and versioning, and a <code>PUT</code> here is live on the next request with no draft state and no versioning on a v4 document at all. What we track is what it <i>reveals</i> — the schema it validates against, the prompt it builds, the failure shape it reports. Those are the contract. The endpoints are just how they happen to expose it.</p>
+    </div>
+  </div>
+
+  <!-- Added because the redraft said what to ignore and what to adopt and never
+       said what we KEEP, which is the thing most likely to be misread as a
+       change of direction. It is not one: the Writer Studio being the LXDs'
+       editing path is the standing goal, and nothing found in their repo moves
+       it. What moved is only what sits BEHIND our editor. -->
+  <div class="oneline" style="border-left-color:var(--accent);background:var(--panel);border-color:var(--line-2)">
+    <span class="k" style="color:var(--accent-ink)">So who owns what</span>
+    <p><b>Our editor stays the place LXDs go.</b> That has not changed and nothing in their repo changes it. What we are handing over is everything <i>behind</i> the editor — the format, the validator, the prompt builder, and eventually persistence. What stays ours is the authoring experience itself: the information architecture, the field set, the copy, the validation UX, the workflow.</p>
+    <p>Concretely, that makes our editor a <b>lightweight in-browser editor of Scenario CML</b>: open a file, edit it, export it, and the LMS takes it from there and owns versioning and publish. It calls nothing and depends on nothing at runtime. What we owe the format is not a connection — it is <b>fidelity</b>: showing every field a real document contains, validating the way their loader does, and never claiming an output is theirs when it is ours.</p>
+    <p class="sub" style="margin:10px 0 0;font-size:14px">The end state, stated so nobody is surprised by it: when this is embedded in the Learning Object editor, the surface an LXD logs into will be built in their stack, not ours. Until then our editor is <i>both</i> the LXD tool and the specification for that surface. After it, the specification only. Nothing in the plan below assumes a running service, so none of it is blocked on them.</p>
+  </div>
+
+  <h2>Where we actually are</h2>
+  <p class="sub">Five facts, all checkable. The two that make us look worst go first.</p>
+  <ul class="tight">
+    <li><b>We were showing an LXD about a third of a real scenario, and we found it by measuring instead of assuming.</b> Two nested lists were bound to index <code>0</code> — a teaching topic’s <code>points</code> and an expert-answer group’s <code>components</code>. Across the eleven live documents that hid <b>91 teaching points and 61 expert-answer components: 152 authored fields</b>, invisible and un-editable. They survived export, so nothing failed. Fixed and verified against <code>marshall.lo.json</code>.</li>
+    <li><b>On that exact problem, their port got it right and we got it wrong.</b> <code>SectionForm.tsx</code> renders both lists with <code>StringListField</code>. Concede it early and without hedging — it is the cheapest credibility in the room, and it makes the harder positions land as engineering rather than territory.</li>
+    <li><b>Our dev-handoff export was silently dropping the one thing the 18 August meeting approved.</b> Prior-learning-object context reached the coach in our preview and was deleted from the exported file, under a panel that said <i>“nothing else is changed.”</i> Now reported at export with exact paths, and flagged in Validation while authoring. It still does not reach production — ask 1.</li>
+    <li><b>The schema and the spec have been frozen since 13 August, and that explains most of what looks like disagreement.</b> The optional <code>neutral</code> tier the meeting granted is in neither file — not because anyone changed their mind, but because <b>nobody has opened either file since before the meeting happened.</b> Read the open items that way and they get much easier to close.</li>
+    <li><b>Their format is in better shape than the conversation suggests.</b> <code>lo_cml_v4.schema.json</code> is closed at the root and on all 33 <code>$defs</code>, the loader gates on <code>schema_version</code> matching <code>^4\.</code>, and <code>lo_v4.py</code> normalises a v4 document onto the same internal model the v3 builders consume — so the engine, the prompt serialisers and the goldens never see a version. Good design. Also why the drift we do have stays invisible until it bites.</li>
+  </ul>
+
+  <h2>Six positions</h2>
+  <p class="sub">Stated as decisions, not options. Reversible if someone brings a better argument — but the default is that we do this.</p>
+
+  <div class="pos">
+    <p class="n">Position 01</p>
+    <h3>One validator, and it is theirs</h3>
+    <dl>
+      <dt>We do</dt>
+      <dd>Stop transcribing their schema. <code>js/scenario-v4.js</code> is 51KB of hand-written JavaScript reproducing their schema, cross-field rules and content lint. We pin <code>lo_cml_v4.schema.json</code> from a named commit and validate against the file; cross-field rules stay hand-written until we can call the API, but the <i>schema</i> half stops being a copy.</dd>
+      <dt>Because</dt>
+      <dd>Two validators of one format drift silently by construction. <b>It already happened.</b> The optional <code>neutral</code> tier is in neither their schema (<code>levels</code> still requires all three) nor their spec (<i>“All three keys are required when the block is present”</i>) — while <code>openingLevels</code> already permits a partial set via <code>anyOf</code>, so their own two level blocks disagree with each other today. A frozen file is exactly the condition under which a hand copy quietly becomes the more current of the two.</dd>
+      <dt>Costs them</dt>
+      <dd>Nothing. It asks them to treat the schema file as the published artifact it already is, and to say when it moves.</dd>
+    </dl>
+  </div>
+
+  <div class="pos">
+    <p class="n">Position 02</p>
+    <h3>Our prompt is not their prompt, and the pane should say so</h3>
+    <dl>
+      <dt>Done</dt>
+      <dd><b>The pane no longer claims our compiled prompt is theirs.</b> It used to end <i>“this exact text is what the AI runs on”</i>; it is not — it is built by <code>mix-arc</code>’s prompt builder, a reimplementation of <code>prompt_v3.build_coach_system</code>. It now reads as the prompt <i>the preview</i> runs on, assembled by the editor, with production building its own from the same fields. Ours alone, and it cost nothing.</dd>
+      <dt>Because</dt>
+      <dd>Two prompt builders is worse than two validators: the difference surfaces as behaviour an LXD judges the content by, and neither side would notice it drifting. Saying so on the pane is not a fix, but it stops the tool asserting something untrue while the real fix waits for a reason to happen.</dd>
+      <dt>Not yet</dt>
+      <dd>Their <code>POST /authoring/preview-prompt</code> would be the real fix — it renders the actual prompt with authored-vs-template spans, and it persists nothing, so it composes fine with a file-based workflow. <b>But it is not a plan item.</b> It needs a reachable instance and CORS, and it 422s on any invalid document by design (<i>“so the inspector never renders a prompt from invalid content”</i>) while an authoring draft is invalid for nearly all of the time it is being written. Recorded as the option it is, not scheduled.</dd>
+      <dt>Costs them</dt>
+      <dd><b>Nothing.</b> There is no ask here.</dd>
+    </dl>
+  </div>
+
+  <div class="pos">
+    <p class="n">Position 03</p>
+    <h3>Four words for two concepts, and we are picking two</h3>
+    <dl>
+      <dt>We do</dt>
+      <dd>Propose the vocabulary and then hold it everywhere: <b>phase</b> is the ordered unit an author adds and reorders (author-facing: <b>step</b>); <b>practice</b> and <b>debrief</b> are its two halves. <i>Stage</i> and <i>beat</i> retire from anything an author or an API sees.</dd>
+      <dt>Because</dt>
+      <dd>Their spec says phase / practice / debrief, their runtime dataclass calls the turn-owning unit a <code>Stage</code>, <code>resolve_active_beat</code> calls it a beat, our editor says step, our compiled prompt says <i>“an ORDERED SET OF BEATS.”</i> One landmine worth naming while we are in there: <code>lo_v4.py</code> normalises v4 onto the v3 model, so <b>a v4 document reports <code>schema_family = 3</code> at runtime</b> — correct, deliberate, and guaranteed to mislead the next person reading a guard clause or a log.</dd>
+      <dt>Costs them</dt>
+      <dd>A rename in the spec and in wire-facing names. Internal dataclasses can keep their history.</dd>
+    </dl>
+  </div>
+
+  <div class="pos">
+    <p class="n">Position 04</p>
+    <h3>An optional field is a 4.x patch, not a format negotiation</h3>
+    <dl>
+      <dt>We do</dt>
+      <dd>Stop framing new fields as version events. Their gate is a <code>^4\.</code> pattern and <code>version.startswith("4")</code> dispatch, so <b>an additive optional key is compatible inside 4.x</b> — no v5, no envelope, no migration. We ask on that basis and expect the same in return.</dd>
+      <dt>Because</dt>
+      <dd>The extension-envelope ask was the wrong ask and <b>they were right to decline it.</b> A namespaced must-ignore envelope means two engines reading one document and behaving differently with nothing to catch it — the exact failure the closed schema exists to prevent. Conceding that plainly is what earns the field asks a hearing.</dd>
+      <dt>Costs them</dt>
+      <dd>Nothing they are not already doing. It removes the reason to say no.</dd>
+    </dl>
+  </div>
+
+  <div class="pos">
+    <p class="n">Position 05</p>
+    <h3>We stop shipping extensions the format never accepted</h3>
+    <dl>
+      <dt>Done</dt>
+      <dd><b><code>practice.answer_shape</code> is written only where it means something.</b> The templates pre-set it 18 times, all but two of them <code>"open"</code> — which is what absent already means (<code>scenario-v4-runtime</code> tests <code>=== 'determinate'</code>), so the marker declared an extension, earned a stripped-extension warning and made the export lossy in order to say what saying nothing says. Those 16 are gone, and the toggle, the wizard and <code>newPhase</code> no longer record it. The <b>2 genuine <code>determinate</code> markers stay</b> — and still warn, because there the field carries meaning that the format has nowhere to put.</dd>
+      <dt>Still open</dt>
+      <dd>It becomes a real field or it does not exist — those 2 are the whole remaining case, and ask 3 is what closes it. What is fixed is that <b>a new scenario no longer opens with a warning about a default the author never chose.</b> We had built a warning about our own default and pointed it at the LXD; whatever the eventual answer, that was the only indefensible state.</dd>
+      <dt>Costs them</dt>
+      <dd>A yes or a no on ask 3. Either is fine; silence is not.</dd>
+    </dl>
+  </div>
+
+  <div class="pos">
+    <p class="n">Position 06</p>
+    <h3>Both teams built the same guard, and both are blind to the same failure</h3>
+    <dl>
+      <dt>Done</dt>
+      <dd><b>Field coverage is in <code>tools/roundtrip-check.js</code>, and it immediately found 50 more.</b> It reads the paths the editor actually binds and matches them against every leaf the eleven production documents carry. Recorded as a baseline so only a <i>new</i> gap fails the run — a check that is red on day one gets muted. The same schema is now pinned under <code>tools/pinned/</code>, so a contract change on their side shows up as a diff in our repo.</dd>
+      <dd>The three worth naming: <b>a debrief's own three quality tiers</b> (<code>debrief.levels.*</code>, in 9 of 11 documents) — the same class of bug as the 152, in a second place; <b>a character's <code>behavior.guardrails</code></b>, the lines they never cross, in 8 documents and safety-relevant; and <b><code>canon_facts.reveal_when</code></b> — earned disclosure, the mechanic our own ensemble type pioneered, with no field to author it.</dd>
+      <dd><b>All 50 are closed, and the baseline is empty.</b> Every leaf in all eleven production documents now has a field that can edit it — so from here, a gap can only be one the dev team introduces or one we introduce, and either way the check says so on the next push rather than an LXD finding it.</dd>
+      <dt>Because</dt>
+      <dd>This is the finding to lead the technical part of the meeting with, because it criticises nobody. Independently, both teams built the <i>same</i> round-trip test against the <i>same</i> stated fear. Theirs is <code>tests/test_authoring_roundtrip.py</code>, and its docstring opens:
+        <blockquote>“The top risk of a hand-rolled JSON editor is silent lossiness: a save that looks fine in the studio but drops a field…”</blockquote>
+      </dd>
+      <dd>Exactly right — and <b>it cannot catch that class of bug.</b> A byte-identical GET/PUT proves the editor did not <i>corrupt</i> the document. It says nothing about whether the editor could <i>show</i> it. That is how 152 fields hid behind a green check on our side, and the same test on their side would have passed too. Coverage is the missing half, neither of us has it, and it is the only guard that catches the next field either side adds arriving in an editor that cannot display it.</dd>
+      <dt>Costs them</dt>
+      <dd>One test and a CI job — and it is worth offering ours rather than asking: the harness is thirty lines over content they already publish. In exchange, eleven days of silent divergence stops being something either side finds out about by accident.</dd>
+    </dl>
+  </div>
+
+  <h2>Six things we need back</h2>
+  <p class="sub">All six are about the <b>format</b>. Nothing here asks them to change their service, because nothing they do to their own persistence touches a tool that never calls it. Each has a check attached, so “we’ll look at it” is visibly not an answer. Asks 1–3 block authoring work; 4–6 are cheap. Frame all of them as <i>the first things to land next time someone opens the schema</i> — which is true, and much easier to say yes to than a reversal.</p>
+  <div class="scroller">
+  <table class="asks">
+    <thead><tr><th>Ask</th><th>What we want, and what proves it landed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1 · Prior context</td>
+        <td>Add <code>content.prior_context</code> — optional object, three optional strings (<code>title</code>, <code>covered</code>, <code>handoff</code>), free prose, coach-facing only — as a 4.x addition. <b>Or</b> tell us the engine injects it from the surrounding learning object, in which case we delete the fields and stop asking LXDs to type them. Today it is approved behaviour with nowhere to live, so the scenario an LXD playtests is not the one production runs. <b>Check:</b> the key exists in the schema, or the injection contract is written down.</td>
+      </tr>
+      <tr>
+        <td>2 · Optional neutral</td>
+        <td>Land it or drop it. It is in neither the schema nor the spec — because neither file has been opened since before the meeting — and <code>opening.levels</code> already contradicts <code>levels</code> on the same point. We are <b>not</b> relaxing our validator on a verbal decision: we would rather block an author correctly than pass content their loader rejects. <b>Check:</b> <code>levels.required</code> in <code>lo_cml_v4.schema.json</code>.</td>
+      </tr>
+      <tr>
+        <td>3 · <code>answer_shape</code></td>
+        <td>Adopt <code>practice.answer_shape: "determinate" | "open"</code>, or say no and we delete it. If the <code>ideal_response</code> proxy is the answer, tell us what would count as passing the test you asked us to run — “evaluate the current state first” is not a testable instruction. <b>Check:</b> a decision with a date.</td>
+      </tr>
+      <tr>
+        <td>4 · Four required fields</td>
+        <td><code>debrief.final_word</code>, <code>misconception</code>, <code>help_turns</code>, <code>spot_target</code>: required because something renders them, or spec residue? Each one that is residue removes real authoring work from the remaining 61-field gap. Two specifics: <code>help_turns</code> is documented as defaulting to 2 and arming a mid-scene help affordance <b>our prototype does not demonstrate at all</b> — if it ships in V1, we need to design it, and that is on us. And the spec says <code>spot_target</code> <i>“gates completion”</i> while <code>advancement.py</code> never reads it. <b>Check:</b> four one-word answers.</td>
+      </tr>
+      <tr>
+        <td>5 · Turn cost — <b>answered</b></td>
+        <td><b>Phase 1: every learner response costs a turn</b>, with a backlog item to revisit clarifying questions. That reverses what our notes recorded, so <b>we</b> are the ones diverging now: our policy rebates a clarifying question and a first &ldquo;I don't know&rdquo;. Ours to change — and it matters more than a cosmetic difference, because <b>turn budgets are authored numbers</b>: an LXD calibrating &ldquo;3 turns is enough&rdquo; against a preview that rebates is calibrating against an economy production does not have.</td>
+      </tr>
+      <tr>
+        <td>6 · Safety — <b>answered</b></td>
+        <td><b>Closed 2026-08-25.</b> The production engine carries always-on safety guidance in its general prompt, and authors do not control what is enabled. So the three content-safety flags are <b>removed from our side entirely</b> — no toggles, no extension declarations, no runtime arming, no wizard questions. Safety is a V1 product feature, not a preview feature. The unconditional learner-safety floor still compiles on every scenario; the legacy types keep their topic floors for the reference experiences the player runs.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>The plan</h2>
+  <p class="sub">Almost none of this is a migration. It is a sequence of small moves that each leave the tool working — and the middle column needs nobody’s permission.</p>
+  <div class="plan">
+    <div class="col done">
+      <h4>Done</h4>
+      <p class="when">Shipped 25 Aug</p>
+      <ul>
+        <li><b>Coverage 50 → 0.</b> Every leaf in all eleven production documents now has a field. New editors for a debrief's quality tiers, its probe's tiers, the opening's tiers, character guardrails and known-facts-with-reveal-conditions, conditional probes, and the exhibit / ambient-reference kind</li>
+        <li>Nested lists editable — <b>152 fields recovered</b></li>
+        <li><b>A required field with no input:</b> the numeric fields used a tag the component library registers at no version</li>
+        <li><b>The step editor rendered nothing</b> — a change handler firing when nothing changed, twenty repaints deep</li>
+        <li>Export reports what it drops; Validation flags it while authoring</li>
+        <li>First run opens the front door; validation rows name the field the author sees; Guided Arc's vocabulary out of the rail</li>
+        <li>Six honest template shapes; every export stamped</li>
+        <li>The prompt pane stops claiming its text is what production runs (position 02); <code>answer_shape</code> written only where determinate — 16 redundant markers dropped (position 05)</li>
+        <li><b>Field coverage + schema pin, running in CI</b> — joined by a surface check: every page's local <code>src</code>/<code>href</code> resolves, and one file carries one <code>?v=</code> everywhere</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>Next</h4>
+      <p class="when">Ours, and none of it blocked</p>
+      <ul>
+        <li><b>Flow-only preview</b> — a deterministic walk of steps, gates and close. No model, no player parity, and the honest answer to “how does an LXD see their work”</li>
+        <li><b>Host/guest field split</b> for the Learning Object editor: title, <code>implementation_id</code>, CTA label, prior context, persistence and publish are all host-owned — which is most of our top bar and Start page</li>
+        <li>Inspector becomes a drawer; three fixed columns do not survive being embedded</li>
+        <li>Consume the pinned schema instead of transcribing it, keeping our authored messages as an overlay</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>Not ours to close</h4>
+      <p class="when">Waiting on the six asks</p>
+      <ul>
+        <li><b>The 61 unfilled authoring fields</b> — gated on ask 4, and every field that turns out to be spec residue removes real work from that number</li>
+        <li><b>Prior-scenario context</b> reaching production at all (ask 1)</li>
+        <li>Whether the neutral tier is optional (ask 2) and whether <code>answer_shape</code> exists (ask 3)</li>
+        <li>Turn-cost behaviour, where we are deliberately out of line until confirmed (ask 5)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>The two templates, and why it is not redundancy</h2>
+  <p class="sub">Worth its own section because the obvious reading — “seven shapes, some overlap, trim it” — gets the fix wrong. Every template’s real output, dumped from <code>scenario-v4-templates.js</code>:</p>
+  <ul class="tight">
+    <li><b>Scenario CML v4 cannot branch. At all.</b> The schema has no <code>branch</code>, <code>next</code>, <code>condition</code>, <code>goto</code>, <code>target</code> or <code>route</code> anywhere; <code>transition</code> is <code>button_label</code> plus optional <code>text</code>; a <code>phase</code> has no successor field; and the spec never uses the word. Phases are a linear list. So <b>“Branching Arc” produces <code>coach_inquiry → roleplay → roleplay → roleplay</code></b> — a straight four-step ladder. The name is the only branching in it.</li>
+    <li><b>“Teach Back” produces one <code>coach_inquiry</code> step</b>, eight fields, under a blurb that reads <i>“Explain it back in your own words; <b>coverage is credited</b>.”</i> Nothing credits coverage on a coach step — the credited-items channel (<code>[[spotted:]]</code>) exists only for <code>observe_react</code>. The template’s own description promises the one mechanic the document it generates cannot carry.</li>
+    <li><b>The contrast that proves the point is Observe &amp; React</b> — also a single step, twelve fields, and completely fine, because <i>“watch, then talk through what you noticed”</i> is exactly what it produces, and <code>observe_react</code> really does credit. Step count is not the problem. <b>Honesty is.</b></li>
+    <li><b>Done: one renamed, one retired.</b> Branching Arc is now <b>Escalating Situation</b> — <i>“one situation that gets harder scene by scene as the learner responds to it”</i> — because the shape is a genuinely distinct authoring intent from Ensemble’s multi-character disclosure arc even where the mode strings look alike, and it deserves a name describing what it builds. Teach Back is out of the gallery, and that is <i>because</i> teach-back is a real pedagogy: the wrong move is a template quietly handing an author a plain coach chat under its name. The template object is kept in the file, so restoring it is one string once the generalized credited-items contract lands (alignment notes §9.8).</li>
+    <li><b>Six shapes now, and every label matches its output:</b> Mix &amp; Match (C→O→R) · Guided Arc (C→C→R) · Escalating Situation (C→R→R→R) · Ensemble (R→R→R→C) · Scene Sweep (O→C) · Observe &amp; React (O).</li>
+  </ul>
+
+  <h2>Not raising, on purpose</h2>
+  <div class="omit">
+    <ul>
+      <li><b>Their studio UI, as a comparison.</b> Parked since the day it landed, and the half we are best at. Bringing it up invites a conversation about whose editor is better, which is not a decision anyone needs made.</li>
+      <li><b>The eleven-day freeze, as a complaint.</b> It is the <i>explanation</i> for most of the open items and it should be used that way. A frozen file is a much easier thing to unfreeze than a disagreement is to resolve.</li>
+      <li><b>The extension envelope.</b> Declined, and correctly. Re-raising it costs credibility on ask 1, which is the one that matters.</li>
+      <li><b>Retry / rewind.</b> They said no, and it is <b>already gated off</b> on our side — <code>RETRY_ENABLED</code> needs <code>window.SCENARIO_ALLOW_RETRY</code> or <code>?retry=1</code>. Kept behind a flag rather than deleted, because the decision was &ldquo;not now&rdquo; and the early feedback was positive. Nothing to raise, and no divergence left to document.</li>
+      <li><b>The 61 remaining authoring fields.</b> Ours. Gated on ask 4 and nothing else.</li>
+    </ul>
+  </div>
+
+  <footer>
+    <p>Uncatalogued sibling of the <code>scenario-simulator-*</code> notes. Decisions and their consequences: <a href="scenario-simulator-alignment-notes.html">alignment notes</a>. The pre-18-August asks, kept as the record of what was taken in: <a href="scenario-simulator-talking-points.html">talking points</a>. Editor architecture and contracts: <code>js/README.writer-studio.md</code>. What changed in the editor and why: <code>scenario-editor/RELEASE-NOTES.md</code>.</p>
+    <p>Their side, as read on 25 August 2026 — all of it last modified 13 August: <code>app/lo_schema/lo_cml_v4.schema.json</code> · <code>app/routers/authoring.py</code> · <code>app/services/authoring.py</code> · <code>app/services/lo_v4.py</code> · <code>tests/test_authoring_roundtrip.py</code> · <code>docs/authoring/scenario-cml-spec.md</code> · <code>web/src/studio/</code>. The build: <code>66ea6803</code>, a squash of 194 commits, merged as PR #23 on 14 August.</p>
+  </footer>
+
+</div>
+</body>
+</html>

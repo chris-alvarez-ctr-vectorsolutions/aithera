@@ -3679,20 +3679,20 @@ function previewRankingListHtml(form, ranking, fill) {
   let leadTaken = false;
   return `
   <div style="${fill ? 'display:flex;flex-direction:column;height:100%;min-height:0' : ''}">
-    <div class="prl-list" style="${fill ? 'flex:1;min-height:180px;max-height:none;resize:none' : `height:${expanded ? 640 : 360}px;max-height:${expanded ? 760 : 520}px`}">
+    <div class="prl-list" style="${fill ? 'flex:1;min-height:180px;max-height:none;resize:none' : 'height:auto;max-height:none;resize:none;overflow:hidden'}">
       ${rankedAll.map((emp, idx) => {
         const dim = live && (!emp.status.available || emp.status.code === 'on-shift');
         const lead = idx === 0 && !dim && !leadTaken;
         if (lead) leadTaken = true;
         return `
-        <div class="prl-row ${lead ? 'lead' : ''} ${dim ? 'dim' : ''}">
+        <div class="prl-row ${lead ? 'lead' : ''}">
           <span style="width:20px;height:20px;border-radius:50%;background:${lead ? 'var(--ai-grad)' : idx === 1 ? 'rgba(124,58,237,.15)' : 'rgba(0,0,0,.07)'};display:inline-flex;align-items:center;justify-content:center;flex:none;font-size:10px;font-weight:${lead ? 700 : 500};color:${lead ? '#fff' : idx === 1 ? 'var(--ai)' : 'rgba(0,0,0,.4)'}">${idx + 1}</span>
           <span style="flex:1;min-width:0">
             <span style="display:flex;align-items:center;gap:6px">
               <span style="font-size:12.5px;font-weight:${lead ? 600 : 500};color:${lead ? 'rgba(24,39,58,.96)' : 'rgba(24,39,58,.8)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(emp.name)}</span>
               ${lead ? '<span class="next-tag" style="font-size:8.5px;flex:none">NEXT</span>' : ''}
             </span>
-            ${expanded ? `<span style="display:block;font-size:11px;color:${lead ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)'};margin-top:3px">${live ? `${esc(emp.status.label)} · ${esc(emp.station)} · plat ${esc(emp.platoon)}` : `Last callback: ${esc(emp.lastCallback)}`}</span>` : ''}
+            <span style="display:block;font-size:11px;color:${lead ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)'};margin-top:3px">${live ? `${esc(emp.status.label)} · ${esc(emp.station)} · plat ${esc(emp.platoon)}` : `Last callback: ${esc(emp.lastCallback)}`}</span>
           </span>
           <span style="display:flex;align-items:center;gap:6px;flex:none">
             ${live && emp.accruedBonus > 0 ? `<span style="font-size:9.5px;font-weight:700;color:var(--success);background:rgba(21,132,68,.12);padding:2px 6px;border-radius:8px">+${emp.accruedBonus}h</span>` : ''}
@@ -3701,8 +3701,7 @@ function previewRankingListHtml(form, ranking, fill) {
         </div>`;
       }).join('')}
     </div>
-    ${rankedAll.length > 4 ? `<button class="prl-expand" data-sim="rs-expand"><i class="fa-solid fa-chevron-${expanded ? 'up' : 'down'}" style="font-size:9px"></i>${expanded ? 'Show less' : 'Show more'}</button>` : ''}
-    <div style="font-size:10.5px;color:rgba(0,0,0,.35);margin-top:5px;text-align:center">
+    <div style="font-size:10.5px;color:rgba(0,0,0,.35);margin-top:8px;text-align:center">
       ${live ? `Live preview · ${rankedAll.length} in the call order — updates as you run callbacks` : `Mock data · ${rankedAll.length} in the call order — scroll inside or drag the bottom edge to resize`}
     </div>
   </div>`;
@@ -4129,16 +4128,28 @@ function hydrateSimulator(el) {
   const chatThread = byId('simChatThread');
   if (chatThread) chatThread.scrollTop = chatThread.scrollHeight;
 
-  // Preview Mode panel: auto-collapse the Rule Summary once the panel is scrolled down,
-  // freeing vertical room for the settings + chain. Manual chevron re-expands it.
+  // Preview Mode panel: the Rule Summary is open on entry (panel starts at the top) and is
+  // driven by scroll position — it collapses to the slim sticky bar as you scroll down into
+  // the list, and re-opens when you scroll back up to the top. The chevron toggles it too.
   const simScroller = el.querySelector('.sim-right.full');
-  if (simScroller) simScroller.addEventListener('scroll', () => {
-    const box = byId('simSummaryBox');
-    if (box && !sim.summaryCollapsed && simScroller.scrollTop > 12) {
-      sim.summaryCollapsed = true;
-      box.classList.add('collapsed');
-    }
-  });
+  if (simScroller) {
+    let rafPending = false;
+    const syncSummary = () => {
+      rafPending = false;
+      const box = byId('simSummaryBox');
+      if (!box) return;
+      const shouldCollapse = simScroller.scrollTop > 12;
+      if (shouldCollapse !== sim.summaryCollapsed) {
+        sim.summaryCollapsed = shouldCollapse;
+        box.classList.toggle('collapsed', shouldCollapse);
+      }
+    };
+    simScroller.addEventListener('scroll', () => {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(syncSummary);
+    }, { passive: true });
+  }
 
   const chatInput = byId('simChatInput');
   if (chatInput) {
