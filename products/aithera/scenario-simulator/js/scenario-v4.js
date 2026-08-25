@@ -86,8 +86,12 @@
       values: ['determinate', 'open'],
       because: 'v4 cannot distinguish a graded practice from an open judgment one; '
         + 'debrief.key_points is required on every debrief, so its presence carries no signal.',
-      consequence: 'stripped, every practice reads as determinate — the coach delivers a '
-        + 'verdict on reflection beats instead of deepening the learner\'s own answer.',
+      /* This said the OPPOSITE until 2026-08-25: "every practice reads as
+         determinate". The runtime does `answer_shape === 'determinate'`, so an
+         absent marker is OPEN — deliberately, as the safe default. An author
+         reading the export panel was told the stakes backwards. */
+      consequence: 'stripped, every practice reads as OPEN — the coach deepens the learner\'s '
+        + 'own answer on beats that have a right answer it should have landed plainly.',
     },
 
     /* --- content safety triggers -------------------------------------------
