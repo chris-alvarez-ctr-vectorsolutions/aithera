@@ -59,18 +59,20 @@ compose their prompts.
 | 2 | **`studio-engine.js`** | the type **registry** + per-type store. Must load first. |
 | 3 | `say-do-split.js` | learner-move say/do splitter (playtest + sandbox) |
 | 4 | **`scenario.js`** | the **action-practice** TYPE. Also exposes `window.AitheraScenario` — the shared base every other type reads (`ENGINE_SECTIONS`, `CRISIS_FLOOR`). Load before the other types. |
-| 5 | `scenario-types/{guided-arc,teach-back,scene-sweep,ensemble-arc,mix-arc}.js` | the other TYPE modules. Registration order = mode-picker order. `observe-react.js` still exists but is **no longer loaded** — retired 2026-08-05, its one experience now a Mix & Match example. |
-| 5b | `scenario-v4.js` · `scenario-v4-runtime.js` · `scenario-v4-scopes.js` · `scenario-v4-templates.js` | the POC V4 layer: schema + loader rules + content lint; the single V4→runtime compiler; per-scope prompt compilation; the seven V4 starting templates. |
+| 5 | `scenario-types/{ensemble-arc,mix-arc}.js` | the other TYPE modules the editor still loads — as DEPENDENCIES, not as options: mix-arc is the compiler the go-forward type funnels through, and both supply prompt sections it reads. `guided-arc.js`, `scene-sweep.js`, `teach-back.js`, `branching-arc.js` and `observe-react.js` still exist and are still loaded by the PLAYER, but the editor does not load them — content for those shapes is no longer authored, so the editor carries none of their fields, lints or wizards. A `?type=` URL naming one resolves to the go-forward type and says so. |
+| 5b | `scenario-v4.js` · `scenario-v4-runtime.js` · `scenario-v4-scopes.js` · `scenario-v4-templates.js` | the POC V4 layer: schema + loader rules + content lint; the single V4→runtime compiler; per-scope prompt compilation; the V4 starting templates (six in the gallery). |
 | 5c | `scenario-types/v4-universal.js` | the **v4-universal** TYPE — authors Scenario CML v4 directly and owns the Dev handoff export. Reads all four V4 modules plus mix-arc's prompt builder, so it loads after them. |
 | 6 | **`studio-wizard-craft.js`** | shared wizard helpers + the invariant coach-voice atoms. Before the wizard engine + specs. |
 | 7 | `studio-wizard.js` | the wizard **engine** (`window.AitheraStudioWizard`). |
-| 8 | `studio-v2-guided-arc.js` | guided-arc's V2 re-presentation (Learn/Practice rail) **and** its wizard spec. |
-| 9 | `studio-v2-wizards.js` | wizard specs for action-practice, teach-back, observe-react (the observe-react spec is inert while the type is unloaded). |
-| 10 | `studio-v2-ensemble-wizard.js` | the ensemble wizard spec (its own module — the richest schema). |
-| 11 | `studio-v2-scene-sweep-wizard.js` | the scene-sweep wizard spec (its own module — a visual scene + perception rubric; photo/hotspots stay a manual editor step). |
-| 11b | `studio-v2-mix-arc-wizard.js` | the Mix & Match wizard spec (composed beats, one interaction type per beat). |
-| 11c | `studio-v2-v4-universal-wizard.js` | the **Universal Scenario** wizard spec — the go-forward format's own interview. Authors Scenario CML v4 directly; see 5c for the task ordering it is forced into. |
-| 12 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
+| 8 | `studio-v2-v4-universal-wizard.js` | the **Universal Scenario** wizard spec — the go-forward format's own interview, and the ONLY spec the editor loads. Authors Scenario CML v4 directly; see §5c for the task ordering it is forced into. |
+| 9 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
+
+> **Five wizard-spec modules are no longer loaded by anything current:**
+> `studio-v2-guided-arc.js`, `studio-v2-wizards.js`, `studio-v2-ensemble-wizard.js`,
+> `studio-v2-scene-sweep-wizard.js`, `studio-v2-mix-arc-wizard.js`. They are
+> referenced only by the archived copies under `lesson-presentation/archive/`, so
+> they cannot be deleted without breaking those, and they are not part of the
+> current tool. Roughly 170KB — do not inventory them as live code.
 
 `writer-studio.html` (V1) is **retired** — a thin redirect to
 `scenario-editor/index.html` that preserves `?type=` / `?wizard=` deep-links. V2 is a
@@ -92,8 +94,8 @@ A "scenario type" is a plain object a module registers with
 | `label` | string | mode picker, wizard chooser |
 | `icon` | Font Awesome class (`fa-…`) | mode picker |
 | `blurb` | one-line string | mode picker card (the type owns its own description — the shell holds no per-type copy) |
-| `DEFAULT` | a complete exemplar scenario object | "Reset to shipped"; the live page's fallback when nothing is published |
-| `ENGINE_SECTIONS` | array of locked prompt-section descriptors | the Guardrails inspector tab; the compiler |
+| `DEFAULT` | a complete exemplar scenario object | the pristine-draft check and the live page's fallback when nothing is published. **Not** a boot value — a first visit opens on `blank()` plus the New scenario panel, because DEFAULT is one of the templates and full of demo prose. "Reset to shipped" is gone. |
+| `ENGINE_SECTIONS` | array of locked prompt-section descriptors | the rail's **System guardrails** section; the compiler |
 | `isValid(scenario)` | → boolean | store: reject malformed published/library data |
 | `normalize(scenario)` | → scenario | store + shell: fill defaults / migrate older drafts |
 | `blank()` | → an EMPTY scenario | "Blank canvas" + the wizard's `start()` (never merge with DEFAULT — that leaks demo content) |
@@ -104,7 +106,7 @@ A "scenario type" is a plain object a module registers with
 | `previewUrl(scenario)` | → live-page URL | "Learner preview". Usually a constant; **may read the scenario** (action-practice routes story vs. roleplay). |
 | `sections` | array of `{ id, title, group, … }` | the editor form. Empty ⇒ no in-studio editor. |
 | `renderFields(section, studioApi)` | builds the section's inputs | the editor form. |
-| `lints(scenario, studioApi)` | → `[{ severity, section, message, … }]` | the Lints panel. |
+| `lints(scenario, studioApi)` | → `[{ severity, section, message, item?, dedupe?, who? }]` | the **Validation** panel (renamed from "Guardrails", which the rail already used for the locked sections). `dedupe` + `who` collapse rows that say the same thing about different steps into one that names them all. |
 | `playtest` | `{ presets, build(el, ctx) }` **or** `null` | the Playtest tab. `null` ⇒ publish + open the live page instead. |
 | `store` | set at registration (see 3c) | draft/published/library persistence |
 
@@ -116,7 +118,7 @@ pedagogy changes.
 - `handoff` — `{ label, lead, build(studioApi) → HTMLElement }`. Declares a
   **production export artifact** distinct from the working draft. When a type has
   one, the toolbar's **Export JSON** opens a dialog offering both side by side;
-  when it doesn't, Export stays a one-click `scenario.json` download. Only
+  when it doesn't, Export stays a one-click download. Both artifacts are named by the shell's `exportName` (`<slug>-[draft-]<date-time>`), so two downloads never collide. Only
   `v4-universal` declares one today (the POC V4 `.lo.json`). It was previously a
   form section on the editor's last page, which put the export a *developer*
   receives three clicks behind the one they don't — the shell reads the contract
@@ -443,19 +445,28 @@ you.
 
 ---
 
-_Last mapped: 2026-08-18. Seven registered types — action-practice, guided-arc,
-teach-back, scene-sweep, ensemble-arc, mix-arc, and **v4-universal** (which
-authors Scenario CML v4 directly). All but v4-universal are wizard-enabled
-(start-from-scratch). `branching-arc` stays live-only and hand-authored;
-`observe-react` was retired from the registry on 2026-08-05._
+_Last mapped: 2026-08-25. **Four registered types** — `action-practice`
+(`scenario.js`), `ensemble-arc`, `mix-arc`, and **`v4-universal`**, which authors
+Scenario CML v4 directly and is the only one offered. The first three are
+dependencies of the fourth rather than authoring options: they supply the prompt
+sections and the compiler it funnels through. Only `v4-universal` carries a
+wizard spec in the editor._
 
-_As of 2026-08-18 the picker is no longer flat: `v4-universal` carries
-`goForward: true` (§3b) and leads both the wizard's step-0 grid and the shell's
-current-type card; **the other six are badged "Legacy — for editing existing
-scenarios."** New scenarios are steered to Universal Scenario, and the legacy
-types stay first-class for editing what already exists — nothing about their
-contract or their editors changed._
+_`guided-arc`, `scene-sweep`, `teach-back`, `branching-arc` and `observe-react`
+are **not loaded by the editor**. They are still loaded by the PLAYER, which runs
+the example experiences the dev team references, so their modules stay. Content
+for those shapes is not authored any more; the seven scenario families survive as
+**v4 templates** (six in the gallery), which are starting points a document is
+free to leave behind, not a type it belongs to._
+
+_The `goForward` flag (§3b) is what steers new work: `v4-universal` sets it, so it
+leads the wizard's grid and the shell's current-type card. With the legacy types
+unloaded there is nothing left for it to outrank in the editor — the flag stays
+because it is how the NEXT format takes over, one line on that type._
 
 _This document maps the Studio's own architecture. It is deliberately silent on
 the POC V4 alignment — what V4 changed, what is still open, and who owns each
-open decision live in `docs/V4-ALIGNMENT-NOTES.md`._
+open decision live in `docs/reference/V4-ALIGNMENT-NOTES.md`. What changed in the
+editor and why, newest first, is `scenario-editor/RELEASE-NOTES.md`. The
+positions we are taking with the dev team, and the six asks, are
+`docs/scenario-simulator-authoring-plan.html`._

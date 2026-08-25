@@ -195,7 +195,7 @@ achieves true convergence for the conversational half (which is already shared).
 6. **Flip** the index card + `scene-sweep.js` `previewUrl` to
    `scenario-live.html?type=scene-sweep`; bump `?v` everywhere `scene-sweep.js` /
    `sim-player.js` / the new `sim-perception.js` load (scene-sweep-live.html [frozen],
-   writer-studio-v2.html, a11y-audit.html, scenario-live.html); commit + FF-push. Freeze the
+   scenario-editor/, a11y-audit.html, scenario-live.html); commit + FF-push. Freeze the
    bespoke page in the archive.
 
 ---

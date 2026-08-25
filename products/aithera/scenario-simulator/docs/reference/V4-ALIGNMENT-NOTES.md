@@ -42,7 +42,7 @@ Implementation and verification detail — what was built, the test results, and
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **POC V4**       | Scenario CML v4, the content format and engine in `VectorLearning/scenario-simulator-poc`. This is the format UX Universal is aligning to. |
 | **UX Universal** | The UX prototyping stack: the Editor, `js/sim-player.js`, the scenario types, and `scenario-live.html`.                                    |
-| **Editor**       | The UX Universal authoring tool (`writer-studio-v2.html`). Called “Editor” throughout to avoid confusion with Learning Studio, a separate product. |
+| **Editor**       | The UX Universal authoring tool (`scenario-editor/`, with an experimental build at `scenario-editor/?v=2`). Called “Editor” throughout to avoid confusion with Learning Studio, a separate product. The old `writer-studio-v2.html` path still redirects, because links to it are out in Slack and Jira. |
 | **Extension**    | A schema field added to a V4 document that the V4 format does not define (§6, §10). A data concept.                                        |
 | **Surface**      | A pluggable interaction module in the UX Universal player (§9.8). A player concept. Surfaces are not extensions, and neither requires the other. |
 
@@ -65,7 +65,7 @@ Read it for the consequences, not just the verdicts — five of the eight change
 | Pluggable surfaces | **Deferred — revisit later.** Reason given: avoid overloading prompts or over-fitting to unknown future types. | Park item, now with a real decision behind it. |
 | Prior-LO context | **Yes — for the LLM only, never learner-facing.** No media cold-open. | Built in authoring and two native types. **The v4 route strips it.** New gap — see below. |
 | Flexible 1–9 tiers | **Declined as open-ended, but the neutral tier becomes OPTIONAL.** Dev updating spec; the other two stay required. | This is the ask we withdrew, granted anyway. Our validator requires all three. |
-| Retry / rewind | **Do not include.** Whole-scenario restart is sufficient; revisit later. | **We ship it, uncapped.** Now an intentional divergence or a thing to gate. |
+| Retry / rewind | **Do not include.** Whole-scenario restart is sufficient; revisit later. | **Gated off** (2026-08-25). The prototype is what V1 is built from, so an unadopted affordance sitting in it would read as part of the spec. Kept behind `window.SCENARIO_ALLOW_RETRY` / `?retry=1` rather than deleted, because the decision was "not now", not "never". |
 
 ### The three that need work on our side
 
@@ -616,13 +616,13 @@ The current V4 structure does not express that distinction reliably.
 
 The POC punch list records an authoring expectation that learners can trigger another scene progression to retry.
 
-The POC engine is forward-only. The UX Universal player, by contrast, **ships a scene-response retry today**: every learner scene line carries a "Try a different approach" control (`scenario-live.html`, `tryDifferentApproach`) that truncates the transcript back to that moment *and* rewinds the ladder state from a snapshot taken at send time — phase index, turn count, tier, scenario variables — so the model's `[SYSTEM STATE]` matches the truncated history. It applies to scene responses only, remains available until the scenario completes, and is currently uncapped.
+The POC engine is forward-only. The UX Universal player, by contrast, **ships a scene-response retry today**: every learner scene line carries a "Try a different approach" control (`scenario-live.html`, `tryDifferentApproach`) that truncates the transcript back to that moment *and* rewinds the ladder state from a snapshot taken at send time — phase index, turn count, tier, scenario variables — so the model's `[SYSTEM STATE]` matches the truncated history. It applies to scene responses only and remains available until the scenario completes. **Since 2026-08-25 it is off by default** — `RETRY_ENABLED` requires `window.SCENARIO_ALLOW_RETRY === true` or `?retry=1`. The rewind itself is unlimited when enabled; only the prompt CARRY of superseded text is bounded, to the last 2 rewinds at 400 chars each.
 
 So the behavioral difference is real and runs in one direction: authored deck intent and the shipped UX player have retry; the POC engine does not.
 
 The open questions are whether the POC engine adopts it, and what the cap policy should be (each redo is a fresh model turn, and today nothing limits how many times a learner rewinds).
 
-> **Outcome, 2026-08-18: do not include.** The POC engine will not adopt retry; whole-scenario restart is considered sufficient, revisitable later. The first open question is therefore closed and the second is now entirely ours: our player keeps an uncapped rewind, which is a **documented intentional divergence** plus an unbounded model-cost surface. Deciding whether to cap it, gate it as prototype-only, or retire it is UX Universal's call.
+> **Outcome, 2026-08-18: do not include.** The POC engine will not adopt retry; whole-scenario restart is considered sufficient, revisitable later. **Resolved on our side 2026-08-25: gated off by default.** Of the three options — cap it, gate it as prototype-only, retire it — gating won, because the prototype's whole job is to show the dev team what V1 should be, and a declined affordance visible in it reads as part of the spec. Deleting it would have thrown away positive early feedback on a decision that was "not now" rather than "never", so it stays one flag away. No divergence left to document, and no unbounded cost surface in the default path.
 
 ---
 

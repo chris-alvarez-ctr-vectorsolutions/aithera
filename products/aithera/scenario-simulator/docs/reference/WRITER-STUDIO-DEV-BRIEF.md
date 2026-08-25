@@ -60,7 +60,7 @@ the shell.)
 | **Scenario TYPE modules** | `js/scenario.js` + `js/scenario-types/*.js` | One plain object per pedagogy. Owns its fields, its locked sections, and its `compile()`. |
 | **The app shell** | `js/studio-shell.js` | Renders the phase rail, the editor, and the inspector. Generic — drives the type contract, no per-type logic. |
 | **The wizard** | `js/studio-wizard.js` (engine) + `studio-v2-*.js` (per-type specs) + `studio-wizard-craft.js` (shared voice/output rules) | Start-from-scratch generation. |
-| **The page** | `writer-studio-v2.html` | The shell markup + script load order. (`writer-studio.html` = retired redirect.) |
+| **The page** | `scenario-editor/index.html` | The shell markup + script load order. Its bare folder URL is always the stable editor; `?v=2` hands off to `scenario-editor/sandbox/` for experiments, with isolated drafts. (`writer-studio.html` and `writer-studio-v2.html` are retired redirects.) |
 
 **The scenario types** (the pedagogies you can author):
 
