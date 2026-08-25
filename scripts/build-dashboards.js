@@ -183,6 +183,9 @@ function buildProduct(product, jiraBase) {
     if (it.desc) entry.description = it.desc;
     if (it._folder) entry.folder = it._folder;
     if (it.jira) entry.ticket = it.jira;
+    // Optional full URL to the requirements doc (Confluence PRD, etc.); the
+    // dashboard renders it as a "PRD" link badge beside the Jira ticket.
+    if (it.prd) entry.prd = it.prd;
     if (it.status) entry.status = it.status;
     // Optional annotation shown in the card's Designer Versions drawer
     // (e.g. "Blue sky UI design") — what the working file represents.
