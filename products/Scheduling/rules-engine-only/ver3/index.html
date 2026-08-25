@@ -161,6 +161,9 @@
   .ar-tile.clickable:hover { background: rgba(2,113,206,.05); }
   .ar-tile .edit-hint { display: none; flex: none; align-items: center; gap: 4px; padding-top: 2px; font-size: 11px; font-weight: 600; color: var(--primary); }
   .ar-tile.clickable:hover .edit-hint { display: inline-flex; }
+  /* "Show all / Show less" toggle for collapsed approach/rule grids */
+  .grid-collapse-btn { margin-top: 12px; background: none; border: none; cursor: pointer; color: var(--primary); font-size: 12.5px; font-weight: 600; font-family: var(--font); display: inline-flex; align-items: center; gap: 6px; padding: 4px 2px; }
+  .grid-collapse-btn:hover { text-decoration: underline; }
   .ai-badge { display: inline-flex; align-items: center; gap: 3px; height: 18px; padding: 0 6px; border-radius: 9px; background: linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(79,70,229,.1) 100%); border: 1px solid rgba(124,58,237,.22); color: var(--ai-mid); font-size: 10px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
   .new-badge { display: inline-flex; align-items: center; gap: 3px; height: 18px; padding: 0 7px; border-radius: 9px; background: linear-gradient(135deg, #16A34A, #15803D); color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; flex-shrink: 0; box-shadow: 0 1px 3px rgba(21,128,61,.35); }
   .empty-panel { border: 1.5px dashed rgba(124,58,237,.32); border-radius: 10px; background: linear-gradient(135deg, rgba(124,58,237,.04), rgba(99,102,241,.03)); padding: 26px 22px; display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; text-align: left; }
@@ -286,14 +289,7 @@
   .sim-tab.active { border-bottom-color: var(--ai); color: var(--ai); font-weight: 600; }
   .sim-left-scroll { flex: 1; overflow-y: auto; padding: 16px 24px 320px; }
   .sim-right { width: 48%; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
-  /* Preview Mode panel (panelOnly) scrolls as one column when its content is taller than the pane. */
-  .sim-right.full { width: 100%; overflow-y: auto; }
-  /* Collapsible Rule Summary — collapses manually (chevron) or automatically once the panel is scrolled. */
-  .sum-collapsible .sum-body { overflow: hidden; max-height: 600px; opacity: 1; transition: max-height .28s ease, opacity .18s ease, padding .2s ease; }
-  .sum-collapsible.collapsed .sum-body { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
-  .sum-collapsible .sum-chev { transition: transform .25s ease; }
-  .sum-collapsible.collapsed .sum-chev { transform: rotate(180deg); }
-  .sum-head:hover .sum-chev { color: var(--ai); }
+  .sim-right.full { width: 100%; }
   .sim-section { background: #fff; border: 1px solid var(--hairline); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(28,48,74,.04); }
   .sim-section .ss-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 600; color: rgba(24,39,58,.9); }
   .sim-section .ss-head i { color: rgba(0,0,0,.5); font-size: 13px; }
@@ -344,11 +340,6 @@
   .ca-toggle.on { background: #5cb85c; }
   .ca-toggle .knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.28); transition: left .15s; }
   .ca-toggle.on .knob { left: 22px; }
-  /* Modern design-system pill toggle (V1 Create Approach options) */
-  .ds-switch { width: 40px; height: 22px; border-radius: 11px; border: none; padding: 0; position: relative; flex: none; cursor: pointer; background: rgba(0,0,0,.22); transition: background .15s; }
-  .ds-switch.on { background: var(--primary); }
-  .ds-switch .k { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
-  .ds-switch.on .k { left: 20px; }
 
   /* Preview modal (scenario tester) */
   .pv-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(20,14,40,.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 24px; animation: cbToast .2s ease both; }
@@ -1373,6 +1364,7 @@ const app = {
   approachesCreated: false,
   createdName: '',
   creatingApproach: false,
+  creatingRule: false,       // V2: manual (no-AI) rule builder owns the screen
 };
 
 const SHELL_NAV = [
@@ -1450,7 +1442,7 @@ function subSidebarHtml() {
       <i class="fa-solid fa-phone" style="color:var(--primary);font-size:16px"></i>
       <span class="sub-title">CallBack</span>
       <div style="flex:1"></div>
-      <button class="sub-new" aria-label="New" title="Add new CallBacks" data-action="new-callback"><i class="fa-solid fa-plus" style="font-size:12px"></i></button>
+      <button class="sub-new" aria-label="New"><i class="fa-solid fa-plus" style="font-size:12px"></i></button>
     </div>
     <nav class="sub-nav">
       ${SUB_NAV_ITEMS.map(it => `
@@ -1499,6 +1491,7 @@ function renderMain() {
   if (!el) return;
   if (app.building)                    { renderRuleBuilder(el, app.building); return; }
   if (app.creatingApproach)            { renderCreateApproach(el); return; }
+  if (app.creatingRule)                { renderCreateRule(el); return; }
   if (app.subNav === 'dashboard')      { renderDashboardTab(el); return; }
   if (app.subNav === 'approaches')     { renderApproachesRules(el); return; }
   if (app.subNav === 'history')        { renderHistoryPage(el); return; }
@@ -1599,31 +1592,46 @@ const METHODOLOGY_STEPS = [
 
 const SETUP_STEPS = [
   { key: 'approaches', label: 'Create approaches', helper: 'Group the employees who are eligible for a shift (e.g. Firefighter 2, Captains).' },
-  { key: 'rules',      label: 'Create rules',      helper: 'Rules decide who gets called first. Tap “Add New Rule with AI” below to build one.' },
+  { key: 'rules',      label: 'Create rules',      helper: 'Rules decide who gets called first. Tap “Add New Rule” below to build one.' },
   { key: 'callback',   label: 'Ready to send out callbacks', helper: "Your rule is live and your roster is ranked. When a shift opens up, dispatch a callback and we'll work down the list in order." },
 ];
 
-const ar = { tab: 'active', methodologyOpen: true, previewMode: false, newCallback: false, toastTimer: null };
+const ar = { tab: 'active', methodologyOpen: true, previewMode: false, toastTimer: null };
 
 function aiBadgeHtml() {
   return `<span class="ai-badge" title="Created with AI">${sparkSvg(9, 'currentColor')} AI</span>`;
 }
 
+// Collapse a .tile-grid to `rows` rows with a "Show all / Show less" toggle when
+// it holds more than that. Column count is measured from the laid-out DOM so it
+// tracks the responsive grid; expansion persists in ar[stateKey] across renders.
+function setupCollapsibleGrid(grid, rows, noun, stateKey) {
+  if (!grid) return;
+  const items = [...grid.children].filter(c => c.classList && c.classList.contains('ar-tile'));
+  items.forEach(it => { it.style.display = ''; });
+  const sib = grid.nextElementSibling;
+  if (sib && sib.classList && sib.classList.contains('grid-collapse-btn')) sib.remove();
+  if (items.length === 0) return;
+  const firstTop = items[0].offsetTop;
+  const cols = items.filter(it => it.offsetTop === firstTop).length || 1;
+  const maxItems = cols * rows;
+  if (items.length <= maxItems) return;
+  let expanded = !!ar[stateKey];
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'grid-collapse-btn';
+  const apply = () => {
+    items.forEach((it, i) => { it.style.display = (expanded || i < maxItems) ? '' : 'none'; });
+    toggle.innerHTML = expanded
+      ? '<i class="fa-solid fa-chevron-up" style="font-size:9px"></i> Show less'
+      : `<i class="fa-solid fa-chevron-down" style="font-size:9px"></i> Show all ${items.length} ${noun}`;
+  };
+  toggle.addEventListener('click', () => { expanded = !expanded; ar[stateKey] = expanded; apply(); });
+  grid.after(toggle);
+  apply();
+}
+
 function renderApproachesRules(el) {
-  if (ar.newCallback) {
-    // "Add new CallBacks" page — reuses the Preview Mode simulator in callback mode
-    // (same shift/approach/rule/filter settings + a live ranking preview).
-    el.innerHTML = `
-      <div class="ar-page">
-        <div id="arSim" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
-      </div>`;
-    renderSimulator(byId('arSim'), {
-      seed: {}, panelOnly: false, mode: 'callback', // truthy seed → opens with an approach + rule preset so the preview is live
-      onBack:  () => { ar.newCallback = false; renderMain(); },
-      onStart: () => { ar.newCallback = false; app.savedToast = { name: 'Your CallBack', kind: 'callback' }; renderMain(); },
-    });
-    return;
-  }
   if (ar.previewMode) {
     el.innerHTML = `
       <div class="ar-page">
@@ -1648,8 +1656,8 @@ function renderApproachesRules(el) {
       <div class="ar-toast" role="status">
         <span class="t-icon"><i class="fa-solid fa-check"></i></span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#0F5C30">${app.savedToast.kind === 'approach' ? 'Approach created' : app.savedToast.kind === 'updated' ? 'Rule updated' : app.savedToast.kind === 'callback' ? 'CallBack started' : 'Rule saved'}</div>
-          <div style="font-size:12px;color:rgba(15,92,48,.78);margin-top:2px"><b>${esc(app.savedToast.name)}</b> ${app.savedToast.kind === 'approach' ? 'has been added to your approaches list.' : app.savedToast.kind === 'updated' ? 'has been updated.' : app.savedToast.kind === 'callback' ? 'is dispatching down the ranked call order.' : 'has been added to your rules list.'}</div>
+          <div style="font-size:13px;font-weight:600;color:#0F5C30">${app.savedToast.kind === 'approach' ? 'Approach created' : app.savedToast.kind === 'updated' ? 'Rule updated' : 'Rule saved'}</div>
+          <div style="font-size:12px;color:rgba(15,92,48,.78);margin-top:2px"><b>${esc(app.savedToast.name)}</b> ${app.savedToast.kind === 'approach' ? 'has been added to your approaches list.' : app.savedToast.kind === 'updated' ? 'has been updated.' : 'has been added to your rules list.'}</div>
         </div>
         <button data-action="dismiss-toast" aria-label="Dismiss" style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:rgba(15,92,48,.6)"><i class="fa-solid fa-xmark" style="font-size:12px"></i></button>
       </div>
@@ -1699,11 +1707,11 @@ function renderApproachesRules(el) {
             : active
               ? `<span style="width:28px;height:28px;border-radius:50%;background:var(--ai-grad);display:inline-flex;align-items:center;justify-content:center;flex:none;box-shadow:0 0 0 4px rgba(124,58,237,.18), 0 2px 5px rgba(124,58,237,.32);color:#fff;font-size:12px;font-weight:700">${i + 1}</span>`
               : `<span style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none;color:rgba(0,0,0,.4);font-size:12px;font-weight:600">${i + 1}</span>`;
-          const clickable = s.key === 'callback';
           return `
-            <div ${clickable ? 'data-action="new-callback" role="button" tabindex="0" title="Send out a new callback"' : ''} style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;${clickable ? 'cursor:pointer' : ''}">
+            <div style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0">
               ${badge}
               <div style="text-align:center;font-size:11px;font-weight:${active ? 700 : 600};line-height:1.3;color:${done ? 'rgba(22,163,74,.85)' : active ? 'var(--ai-mid)' : 'rgba(0,0,0,.55)'};${done ? 'text-decoration:line-through;' : ''}padding-inline:2px">${esc(s.label)}</div>
+              ${active ? '<span style="font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--ai-grad);padding:3px 6px;border-radius:5px">Next</span>' : ''}
             </div>
             ${!isLast ? `<div style="flex:0 0 18px;height:28px;display:flex;align-items:center;justify-content:center"><div style="width:100%;height:2px;background:${done ? '#16A34A' : 'rgba(0,0,0,.12)'};border-radius:2px"></div></div>` : ''}`;
         }).join('')}
@@ -1711,12 +1719,12 @@ function renderApproachesRules(el) {
       ${activeStep && activeStep.helper ? `
         <div style="padding:12px 14px;background:linear-gradient(135deg, rgba(124,58,237,.07), rgba(99,102,241,.04));border:1px solid rgba(124,58,237,.18);border-radius:6px">
           <div style="font-size:11.5px;line-height:1.5;color:rgba(24,39,58,.72)">${esc(activeStep.helper)}</div>
-          ${activeStep.key === 'callback' ? '<button class="ai-primary-btn" data-action="new-callback" style="margin-top:10px;height:32px;padding:0 14px;font-size:12.5px"><i class="fa-solid fa-plus" style="font-size:11px"></i> Send out new callback</button>' : ''}
+          ${activeStep.key === 'callback' ? '<button class="ai-primary-btn" style="margin-top:10px;height:32px;padding:0 14px;font-size:12.5px"><i class="fa-solid fa-plus" style="font-size:11px"></i> Send out new callback</button>' : ''}
         </div>` : ''}
     </div>` : '';
 
   const approachTiles = hasApproaches() ? `
-    <div class="tile-grid">
+    <div class="tile-grid" id="approachGrid">
       ${shown.map(a => `
         <div class="ar-tile" style="${isArchived ? 'background:rgba(0,0,0,.015);opacity:.75' : ''}">
           ${isArchived
@@ -1744,7 +1752,7 @@ function renderApproachesRules(el) {
     </div>`;
 
   const ruleTiles = hasRules ? `
-    <div class="tile-grid tile-grid--wide">
+    <div class="tile-grid tile-grid--wide" id="ruleGrid">
       ${RULES_DATA.filter(r => r.isNew).map(r => `
         <div class="ar-tile ${r.config ? 'clickable' : ''}" ${r.config ? `data-action="edit-rule" data-id="${r.id}"` : ''}>
           <div style="flex:1;min-width:0">
@@ -1764,7 +1772,7 @@ function renderApproachesRules(el) {
       <span class="empty-icon">${sparkSvg(20)}</span>
       <div style="min-width:0">
         <div style="font-size:14px;font-weight:700;color:var(--ai-deep);margin-bottom:4px">No rules yet — let's create your first one</div>
-        <div style="font-size:12.5px;line-height:1.5;color:rgba(24,39,58,.65)">Approaches are ready. Tap <span style="font-weight:600;color:var(--ai-mid)">+ Add New Rule with AI</span> above to start ranking employees.</div>
+        <div style="font-size:12.5px;line-height:1.5;color:rgba(24,39,58,.65)">Approaches are ready. Tap <span style="font-weight:600;color:var(--ai-mid)">+ Add New Rule</span> above to start ranking employees.</div>
       </div>
       <svg width="44" height="36" viewBox="0 0 44 36" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:.6"><path d="M4 32 Q22 22 36 6"/><path d="M30 4 L38 4 L38 12"/></svg>
     </div>`
@@ -1809,10 +1817,8 @@ function renderApproachesRules(el) {
               <div style="font-size:12px;color:rgba(0,0,0,.42)">(applied to an Approach, to determine ranking)</div>
             </div>
             <div style="display:inline-flex;align-items:center;gap:10px;flex:none">
-              ${hasRules ? '<button class="ai-outline-btn" data-action="preview-mode" style="height:40px;padding:0 16px;font-size:13px"><i class="fa-regular fa-eye" style="font-size:12px"></i> Preview Mode</button>' : ''}
-              <button class="ai-primary-btn" data-action="new-rule" style="height:40px;padding:0 16px;font-size:13px">
-                <i class="fa-solid fa-plus" style="font-size:11px"></i> Add New Rule with AI ${sparkSvg(12)}
-              </button>
+              ${hasRules ? '<button class="ai-outline-btn" data-action="preview-mode" style="height:30px;padding:0 12px;font-size:12.5px"><i class="fa-regular fa-eye" style="font-size:12px"></i> Preview Mode</button>' : ''}
+              <vaadin-button theme="secondary small" data-action="new-rule" style="flex:none"><i class="fa-solid fa-plus" style="font-size:10px;margin-right:5px"></i> Add New Rule</vaadin-button>
             </div>
           </div>
           ${ruleTiles}
@@ -1821,6 +1827,10 @@ function renderApproachesRules(el) {
       </div>
     </div>
   </div>`;
+
+  // Collapse the approach / rule grids to two rows when they overflow.
+  setupCollapsibleGrid(byId('approachGrid'), 2, isArchived ? 'archived approaches' : 'approaches', isArchived ? 'archGridExpanded' : 'appGridExpanded');
+  setupCollapsibleGrid(byId('ruleGrid'), 2, 'rules', 'ruleGridExpanded');
 
   // Auto-collapse the methodology accordion on scroll (matches the original).
   const scroller = byId('arScroll');
@@ -1841,19 +1851,10 @@ document.addEventListener('click', (e) => {
   else if ((el = t('[data-action="dismiss-toast"]'))) { app.savedToast = null; renderMain(); }
   else if ((el = t('[data-action="add-approach"]')))  { app.creatingApproach = true; renderApp(); }
   else if ((el = t('[data-action="preview-mode"]')))  { ar.previewMode = true; renderMain(); }
-  else if ((el = t('[data-action="new-callback"]')))  {
-    // Send out a new callback. Acknowledging setup + collapsing the diagram means
-    // that returning to Approaches & Rules shows neither the wizard nor the open diagram.
-    app.setupAcknowledged = true;
-    ar.methodologyOpen = false;
-    app.subNav = 'approaches';
-    ar.newCallback = true;
-    renderMain();
-  }
-  else if ((el = t('[data-action="new-rule"]')))      { startBuilder({}); }
+  else if ((el = t('[data-action="new-rule"]')))      { openCreateRule(null); }
   else if ((el = t('[data-action="edit-rule"]'))) {
     const rule = RULES_DATA.find(r => r.id === Number(el.dataset.id));
-    if (rule) startBuilder({ existingRule: rule });
+    if (rule) openCreateRule(rule);
   }
 });
 
@@ -1950,78 +1951,83 @@ function renderAiAssistantCard(wrap) {
   }));
 }
 
-/* ── Create Approach screen (V1 — Vector design system) ──────────────────
-   Modernized, cleaned-up rebuild on the Vector Web Components / design system:
-   vaadin-text-field, vaadin-number-field, vaadin-select, vwc-switch and
-   vaadin-button on the app's tokens (--ink / --primary / --hairline / --font).
-   (V2 keeps the production-faithful reproduction of this same screen.) */
+/* ── Create Approach screen ─────────────────────────────────────────── */
+// Production-faithful reproduction of the legacy "Create new Approach"
+// page (deliberately mimics current production, not the design system —
+// same convention as event-indicator's current-ui.html).
 function renderCreateApproach(el) {
+  const HAIR = '#ccd3d8', INK = '#3a4750', MUTE = '#9aa7b0';
   const CATS = [
-    { key: 'list',      label: 'List',      desc: 'Select users who are (not) in selected lists.',                     icon: 'fa-list' },
-    { key: 'group',     label: 'Group',     desc: 'Select users who are (not) in selected groups.',                    icon: 'fa-user-group' },
-    { key: 'specialty', label: 'Specialty', desc: 'Select users who are (not) in selected specialty classifications.', icon: 'fa-tag' },
-    { key: 'qualifier', label: 'Qualifier', desc: "Select users who (don't) have the selected qualifier.",             icon: 'fa-medal' },
-    { key: 'seniority', label: 'Seniority', desc: 'Select users based on their years worked.',                         icon: 'fa-wave-square' },
+    { key: 'list',      label: 'LIST',      desc: 'Select users who are (not) in selected lists',                       icon: 'fa-list' },
+    { key: 'group',     label: 'GROUP',     desc: 'Select users who are (not) in selected groups',                      icon: 'fa-user-group' },
+    { key: 'specialty', label: 'SPECIALTY', desc: 'Select users who are (not) in selected specialty classifications',   icon: 'fa-tag' },
+    { key: 'qualifer',  label: 'QUALIFER',  desc: "Select users who (don't) have the selected qualifier",               icon: 'fa-medal' },
+    { key: 'seniority', label: 'SENIORITY', desc: 'Select users based on their years worked',                           icon: 'fa-wave-square' },
   ];
-  const card = 'background:#fff;border:1px solid var(--hairline);border-radius:10px;box-shadow:0 1px 3px rgba(28,48,74,.06);overflow:hidden';
-  const cardHead = 'padding:13px 18px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--hairline)';
-  const help = '<i class="fa-regular fa-circle-question" title="More info" style="color:var(--muted);font-size:13px;cursor:help"></i>';
-  const muted = 'font-size:12.5px;color:var(--muted)';
-  const optRow = (i, sw, label, hasHelp, control) => `
-    <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;${i > 0 ? 'border-top:1px solid var(--hairline);' : ''}">
-      <div style="flex:none;width:44px;display:flex;justify-content:center">${sw ? `<button class="ds-switch" data-sw="${sw}" aria-label="${label}"><span class="k"></span></button>` : ''}</div>
-      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:14px;line-height:1.4;color:var(--ink)">${label}${hasHelp ? help : ''}</div>
-      <div style="flex:none;display:flex;align-items:center;gap:10px">${control || ''}</div>
+  const numStyle = `height:40px;border:1px solid ${HAIR};border-radius:3px;padding:0 12px;font-size:15px;color:${INK};background:#fff;box-sizing:border-box;font-family:var(--font)`;
+  const toggleRow = (k, label, extra) => `
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:52px;flex:none;display:flex;justify-content:center"><button class="ca-toggle" data-ca-toggle="${k}"><span class="knob"></span></button></div>
+      <div style="flex:0 0 288px;font-size:15px;line-height:1.3;color:${INK}">${label}</div>
+      ${extra || ''}
     </div>`;
   el.innerHTML = `
-  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--page-bg)">
-    <div style="flex:none;background:#fff;border-bottom:1px solid var(--hairline);display:flex;align-items:center;padding:11px 24px;gap:14px">
-      <vaadin-button theme="tertiary" data-ca="back" aria-label="Back"><i class="fa-solid fa-arrow-left" style="font-size:15px"></i></vaadin-button>
-      <h2 style="margin:0;font-size:20px;font-weight:600;color:var(--ink);flex:1;min-width:0">Create new Approach</h2>
-      <vaadin-button theme="primary" data-ca="save"><i class="fa-regular fa-floppy-disk" style="margin-right:8px"></i>Save</vaadin-button>
+  <div class="ca-page">
+    <div style="flex:none;background:#fff;border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:center;padding:12px 20px;gap:16px">
+      <button data-ca="back" aria-label="Back" style="width:44px;height:44px;border-radius:50%;border:1.5px solid #b9c2c9;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="fa-solid fa-arrow-left" style="color:#5a6b78;font-size:18px"></i></button>
+      <i class="fa-solid fa-plus" style="color:#5a6b78;font-size:26px"></i>
+      <h2 style="margin:0;font-size:30px;font-weight:300;color:rgba(90,107,120,.95);flex:1;min-width:0">Create new Approach</h2>
+      <button data-ca="save" style="display:inline-flex;align-items:center;flex:none;height:48px;border:none;border-radius:4px;cursor:pointer;overflow:hidden;background:#5cb85c;color:#fff;font-size:19px;font-weight:400;box-shadow:0 1px 2px rgba(0,0,0,.12)">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:rgba(0,0,0,.09)"><i class="fa-regular fa-floppy-disk" style="font-size:20px"></i></span>
+        <span style="padding:0 22px">Save</span>
+      </button>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:26px 28px 60px">
-      <div style="display:flex;gap:24px;max-width:1120px;margin:0 auto;align-items:flex-start">
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:22px">
-          <vaadin-text-field theme="outlined" id="caName" label="Approach name" placeholder="Name the approach…" style="width:100%">
-            <i slot="prefix" class="fa-solid fa-user-group" style="color:var(--muted)"></i>
-          </vaadin-text-field>
-          <div style="${card}">
-            <div style="${cardHead}">Selection criteria</div>
-            ${CATS.map((c, i) => `
-              <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;${i > 0 ? 'border-top:1px solid var(--hairline);' : ''}" onmouseenter="this.style.background='rgba(2,113,206,.04)'" onmouseleave="this.style.background='transparent'">
-                <span style="width:36px;height:36px;border-radius:8px;background:rgba(2,113,206,.10);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="fa-solid ${c.icon}" style="font-size:15px"></i></span>
-                <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:14px;font-weight:600;color:var(--ink)">${c.label}</span>
-                  <span style="display:block;font-size:12.5px;color:var(--muted);margin-top:2px">${c.desc}</span>
-                </span>
-                <i class="fa-solid fa-plus" style="color:var(--muted);font-size:12px;flex:none"></i>
-              </div>`).join('')}
-          </div>
-          <div style="${card}">
-            <div style="${cardHead}">Options</div>
-            ${optRow(0, null, 'Wait time between tiers', true, `<vaadin-number-field theme="outlined" value="0" style="width:104px"></vaadin-number-field><vaadin-select theme="outlined" id="caWaitUnit" style="width:132px"></vaadin-select><span style="${muted}">Set to 0 to disable</span>`)}
-            ${optRow(1, 'closeout', 'Close out previous tier when contacting next tier', true, '')}
-            ${optRow(2, 'donotcontact', 'Do not contact next tier if Callback has candidates in current tier', false, '')}
-            ${optRow(3, 'maxhours', 'Override max. consecutive hours', false, `<vaadin-number-field theme="outlined" value="0" style="width:104px"></vaadin-number-field><span style="font-size:13px;color:var(--ink)">hours</span><span style="${muted}">Set to 0 for no limit</span>`)}
-            ${optRow(4, 'buffer', 'Override buffer period', false, `<vaadin-number-field theme="outlined" value="0" style="width:104px"></vaadin-number-field><span style="font-size:13px;color:var(--ink)">hours</span><span style="${muted}">Set to 0 for no limit</span>`)}
-            ${optRow(5, 'forcedtimeoff', 'Override forced time off types', false, `<vaadin-text-field theme="outlined" placeholder="Select types…" style="width:320px"></vaadin-text-field>`)}
-          </div>
+    <div style="flex:1;display:flex;overflow:hidden">
+      <div style="flex:1;min-width:0;overflow-y:auto;padding:28px 32px 60px">
+        <div style="display:flex;align-items:stretch;border:1px solid ${HAIR};border-radius:6px;background:#fff;max-width:1180px;margin-bottom:26px;overflow:hidden">
+          <div style="width:64px;flex:none;display:flex;align-items:center;justify-content:center;border-right:1px solid ${HAIR};color:#7d8a93"><i class="fa-solid fa-user-group" style="font-size:20px"></i></div>
+          <input id="caName" placeholder="Name the approach..." style="flex:1;min-width:0;border:none;outline:none;background:transparent;padding:0 18px;font-size:22px;font-weight:300;color:${INK};font-family:var(--font)" />
         </div>
-        <div style="flex:0 0 280px">
-          <div style="${card};padding:18px 20px;position:sticky;top:0">
-            <div class="muted-cap">Selected users</div>
-            <div style="font-size:34px;font-weight:700;color:var(--ink);line-height:1;margin:10px 0 6px">0</div>
-            <div style="font-size:12.5px;color:var(--muted);line-height:1.5">No users match yet. Add a selection criterion above to build the group.</div>
-          </div>
+        <div style="background:#fff;border:1px solid ${HAIR};border-radius:6px;max-width:1180px;overflow:hidden;margin-bottom:40px">
+          ${CATS.map((c, i) => `
+            <div class="ca-cat" style="display:flex;align-items:center;gap:18px;padding:16px 22px;cursor:pointer;${i > 0 ? `border-top:1px solid ${HAIR};` : ''}background:#fff" onmouseenter="this.style.background='#f4f6f8'" onmouseleave="this.style.background='#fff'">
+              <i class="fa-solid ${c.icon}" style="width:24px;text-align:center;color:#8a97a0;font-size:18px;flex:none"></i>
+              <span style="font-size:15px;font-weight:700;color:#4a90d9;letter-spacing:.04em;width:110px;flex:none">${c.label}</span>
+              <span style="font-size:15px;line-height:1.3;color:${MUTE}">${c.desc}</span>
+            </div>`).join('')}
         </div>
+        <h3 style="margin:0 0 22px;font-size:30px;font-weight:300;color:#8794a0">Options</h3>
+        <div style="display:flex;flex-direction:column;gap:26px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="width:52px;flex:none"></div>
+            <div style="flex:0 0 340px;display:inline-flex;align-items:center;gap:10px;font-size:15px;color:${INK}">Wait time between tiers <span title="More info" style="width:18px;height:18px;border-radius:50%;background:#3f5d6c;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;flex:none;cursor:help">?</span></div>
+            <input type="text" value="0" style="${numStyle};width:110px" />
+            <select style="${numStyle};width:150px;padding-right:28px"><option>hours</option><option>minutes</option><option>days</option></select>
+            <span style="font-size:14px;color:${MUTE}">set to 0 to disable</span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:16px">
+            <div style="width:52px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px">
+              <button class="ca-toggle" data-ca-toggle="closeout"><span class="knob"></span></button>
+              <span title="More info" style="width:18px;height:18px;border-radius:50%;background:#3f5d6c;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;flex:none;cursor:help">?</span>
+            </div>
+            <div style="flex:1;font-size:15px;line-height:1.4;color:${INK};padding-top:1px">Close out previous tier when contacting next tier</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:16px">
+            <div style="width:52px;flex:none;display:flex;justify-content:center;padding-top:1px"><button class="ca-toggle" data-ca-toggle="donotcontact"><span class="knob"></span></button></div>
+            <div style="flex:1;font-size:15px;line-height:1.4;color:${INK}">Do not contact next tier if Callback has candidates in current tier</div>
+          </div>
+          ${toggleRow('maxhours', 'Override max. consecutive hours', `<input type="text" value="0" style="${numStyle};width:160px" /><span style="font-size:15px;color:${INK}">hours</span><span style="font-size:14px;color:${MUTE}">set to 0 for no limit</span>`)}
+          ${toggleRow('buffer', 'Override buffer period', `<input type="text" value="0" style="${numStyle};width:160px" /><span style="font-size:15px;color:${INK}">hours</span><span style="font-size:14px;color:${MUTE}">set to 0 for no limit</span>`)}
+          ${toggleRow('forcedtimeoff', 'Override forced time off types', `<input type="text" style="${numStyle};width:380px" />`)}
+        </div>
+      </div>
+      <div style="flex:0 0 34%;min-width:280px;background:#22364a;padding:20px 24px;color:#fff">
+        <div style="font-size:19px;line-height:1.3"><b style="font-weight:700">0</b> <span style="color:#aebccb">selected users</span></div>
       </div>
     </div>
   </div>`;
 
-  const unitSel = byId('caWaitUnit');
-  if (unitSel) { unitSel.items = ['hours', 'minutes', 'days'].map(v => ({ label: v, value: v })); unitSel.value = 'hours'; }
-  el.querySelectorAll('.ds-switch').forEach(t => t.addEventListener('click', () => t.classList.toggle('on')));
+  el.querySelectorAll('.ca-toggle').forEach(t => t.addEventListener('click', () => t.classList.toggle('on')));
   el.querySelector('[data-ca="back"]').addEventListener('click', () => { app.creatingApproach = false; renderApp(); });
   el.querySelector('[data-ca="save"]').addEventListener('click', () => {
     const name = (byId('caName').value || '').trim();
@@ -2032,6 +2038,185 @@ function renderCreateApproach(el) {
     app.savedToast = { name: name || 'New Approach', kind: 'approach' };
     renderApp();
   });
+}
+
+/* ── Create Rule screen (V2 — manual, no-AI) ────────────────────────────
+   Production-faithful reproduction of the legacy "New Rule" builder:
+   Name → Rule Type (category → sub-type). Once a sub-type is picked, the
+   Rule Settings appear INLINE on a card underneath (instead of the
+   production "Rule Settings" tab). Same visual convention as
+   renderCreateApproach — mimics current production, not the design system. */
+const RULE_CATEGORIES = [
+  { key: 'rotating', label: 'Rotating', icon: 'fa-rotate', subs: [
+    { key: 'standard-rolodex', label: 'Standard Rolodex', icon: 'fa-rotate',
+      desc: 'On the selected CallBack actions and events, employees go to the end of the list. Manual reordering of a list is possible at any time.' },
+    { key: 'accumulating-rolodex', label: 'Accumulating Rolodex', icon: 'fa-forward-step',
+      desc: 'On the selected CallBack actions and events, the length of the CallBack or the CallBack count is added to a running count for the employee. Once they reach a set limit, e.g. 24 hours or 3 accepted CallBacks, they go to the end of the list. Manual reordering of a list is possible at any time.' },
+  ]},
+  { key: 'accumulation', label: 'Accumulation Based', icon: 'fa-chart-line', subs: [
+    { key: 'hours-based', label: 'Hours Based', icon: 'fa-clock',
+      desc: 'Order employees based on the accumulated length of all callbacks they participated in in some way. You can count Callbacks they accepted, denied, were contacted for etc., in any combination. Reordering of a list is possible by manually adjusting the hours.' },
+    { key: 'turns-based', label: 'Turns Based', icon: 'fa-layer-group',
+      desc: 'Order employees based on the number of callbacks they participated in in some way. You can count Callbacks they accepted, denied, were contacted for etc., in any combination. Reordering of a list is possible by manually adjusting the ranking numbers.' },
+  ]},
+  { key: 'static', label: 'Static', icon: 'fa-anchor', subs: [
+    { key: 'manual', label: 'Manual Adjustment Only', icon: 'fa-book',
+      desc: 'Employees only move in the list when manually re-ordered by an administrator with the proper permission. Newly added employees go to the end of the list.' },
+    { key: 'seniority', label: 'Seniority Based', icon: 'fa-wave-square',
+      desc: 'Order employees by their hire/promotion date. Reordering the list is only possible by changing the hire or promotion date of the employees. Any arbitrary tie-breaker can be set up for people with the same hire date.' },
+    { key: 'employee-id', label: 'By Employee ID #', icon: 'fa-tag',
+      desc: 'Order employees by their employee ID. This uses an alphanumerical natural sorting algorithm that ignores case and tries to order numbers in numerical order.' },
+    { key: 'random', label: 'Random / Lottery', icon: 'fa-shuffle',
+      desc: 'Order employees in a random fashion.' },
+  ]},
+];
+
+function defaultRuleSettings() {
+  return {
+    affects: 'approach',
+    statuses: { active: true, filled: true, notfilled: false, cancelled: false },
+    responses: { accepted: true, denied: false, noanswer: false },
+    includePrev: true,
+    evaluates: 'callbacks',
+    minOp: 'greater', minHours: '',
+    maxOp: 'less', maxHours: '',
+  };
+}
+
+const newRule = { name: '', category: null, subType: null, editingId: null, settings: defaultRuleSettings() };
+
+function openCreateRule(rule) {
+  const typeToPair = { rolodex: ['rotating', 'standard-rolodex'], turns: ['accumulation', 'turns-based'], hours: ['accumulation', 'hours-based'], hire_date: ['static', 'seniority'], random: ['static', 'random'] };
+  const pair = rule && rule.config ? typeToPair[rule.config.ruleType] : null;
+  newRule.name = rule ? (rule.name || '') : '';
+  newRule.editingId = rule ? rule.id : null;
+  newRule.category = pair ? pair[0] : null;
+  newRule.subType = pair ? pair[1] : null;
+  newRule.settings = defaultRuleSettings();
+  app.creatingRule = true;
+  renderApp();
+}
+
+function handleManualRuleSaved() {
+  const cat = RULE_CATEGORIES.find(c => c.key === newRule.category);
+  const sub = cat && cat.subs.find(s => s.key === newRule.subType);
+  const typeMap = { 'standard-rolodex': 'rolodex', 'accumulating-rolodex': 'turns', 'hours-based': 'hours', 'turns-based': 'turns', 'manual': 'hire_date', 'seniority': 'hire_date', 'employee-id': 'hire_date', 'random': 'random' };
+  const ruleType = typeMap[newRule.subType] || 'rolodex';
+  const name = (newRule.name || '').trim() || (cat ? `New ${cat.label} Rule` : 'New Rule');
+  const desc = sub ? sub.desc : 'Manual rule.';
+  const config = { ruleName: name, ruleType, manualSettings: { ...newRule.settings } };
+  if (newRule.editingId != null) {
+    const idx = RULES_DATA.findIndex(r => r.id === newRule.editingId);
+    if (idx >= 0) RULES_DATA[idx] = { ...RULES_DATA[idx], name, desc, config: { ...RULES_DATA[idx].config, ...config } };
+    app.savedToast = { name, kind: 'updated' };
+  } else {
+    const nextId = RULES_DATA.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+    RULES_DATA.unshift({ id: nextId, name, desc, config, isNew: true });
+    app.savedToast = { name, kind: 'saved' };
+  }
+  app.creatingRule = false;
+  app.subNav = 'approaches';
+  renderApp();
+}
+
+function renderCreateRule(el) {
+  const HAIR = '#ccd3d8', INK = '#3a4750', MUTE = '#9aa7b0', BLUE = '#2f8fe0';
+  const cat = RULE_CATEGORIES.find(c => c.key === newRule.category);
+  const sub = cat && cat.subs.find(s => s.key === newRule.subType);
+  const title = cat ? `New ${cat.label} Rule` : 'New Rule';
+  const s = newRule.settings;
+  const numStyle = `height:40px;border:1px solid ${HAIR};border-radius:3px;padding:0 12px;font-size:15px;color:${INK};background:#fff;box-sizing:border-box;font-family:var(--font)`;
+  const helpDot = '<span title="More info" style="width:18px;height:18px;border-radius:50%;background:#3f5d6c;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;flex:none;cursor:help">?</span>';
+  const radio = (group, val, label, checked) => `<label style="display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:15px;color:${INK}"><input type="radio" name="cr-${group}" data-cr-radio="${group}" value="${val}" ${checked ? 'checked' : ''} style="width:17px;height:17px;accent-color:${BLUE};cursor:pointer">${label}</label>`;
+  const check = (key, label, checked) => `<label style="display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:15px;color:${INK}"><input type="checkbox" data-cr-check="${key}" ${checked ? 'checked' : ''} style="width:17px;height:17px;accent-color:${BLUE};cursor:pointer">${label}</label>`;
+  const row = (label, control, top) => `<div style="display:flex;align-items:${top ? 'flex-start' : 'center'};gap:20px"><div style="flex:0 0 220px;font-size:15px;line-height:1.35;color:${INK}">${label}</div><div style="flex:1;display:flex;align-items:center;gap:24px;flex-wrap:wrap">${control}</div></div>`;
+  const opSelect = (which, val) => `<select data-cr-op="${which}" style="${numStyle};width:180px;padding-right:28px">${[['greater', 'greater than'], ['less', 'less than'], ['equal', 'equal to']].map(([v, l]) => `<option value="${v}" ${v === val ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+
+  const categoryRow = `
+    <div style="display:flex;border:1px solid ${HAIR};border-radius:2px;overflow:hidden">
+      ${RULE_CATEGORIES.map((c, i) => {
+        const on = newRule.category === c.key;
+        return `<button data-cr-cat="${c.key}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:14px;padding:30px 10px;cursor:pointer;background:${on ? '#eaf4fd' : '#fff'};border:none;${i > 0 ? `border-left:1px solid ${HAIR};` : ''}${on ? `box-shadow:inset 0 -3px 0 ${BLUE};` : ''}font-family:var(--font)">
+          <i class="fa-solid ${c.icon}" style="font-size:30px;color:${on ? '#2b3b47' : '#9aa7b0'}"></i>
+          <span style="font-size:15px;color:${on ? '#2b3b47' : '#8a97a0'}">${c.label}</span>
+        </button>`;
+      }).join('')}
+    </div>`;
+
+  const subTypeList = cat ? `
+    <div style="padding:6px 6px 4px">
+      ${cat.subs.map(sc => {
+        const on = newRule.subType === sc.key;
+        return `<button data-cr-sub="${sc.key}" style="width:100%;text-align:left;display:flex;align-items:flex-start;gap:20px;padding:20px 12px;cursor:pointer;background:${on ? '#f2f8fe' : 'transparent'};border:none;border-radius:6px;font-family:var(--font)">
+          <span style="width:44px;height:44px;border-radius:50%;border:1px solid ${on ? BLUE : '#d7dde1'};display:inline-flex;align-items:center;justify-content:center;flex:none;margin-top:2px"><i class="fa-solid ${sc.icon}" style="font-size:18px;color:${on ? BLUE : '#9aa7b0'}"></i></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:26px;font-weight:300;color:#5a6b78;line-height:1.15;margin-bottom:8px">${sc.label}</span>
+            <span style="display:block;font-size:15px;line-height:1.5;color:${MUTE}">${sc.desc}</span>
+          </span>
+        </button>`;
+      }).join('')}
+    </div>` : '';
+
+  const settingsCard = sub ? `
+    <div style="background:#fff;border:1px solid ${HAIR};border-radius:6px;max-width:1180px;margin-top:22px;overflow:hidden">
+      <div style="padding:14px 22px;border-bottom:1px solid ${HAIR};display:flex;align-items:center;gap:10px;font-size:16px;color:${INK}"><i class="fa-solid fa-gear" style="color:#7d8a93;font-size:15px"></i> Rule Settings</div>
+      <div style="padding:26px 24px;display:flex;flex-direction:column;gap:24px">
+        ${row('Rule affects...', radio('affects', 'approach', '...Approach used for Callback', s.affects === 'approach') + radio('affects', 'all', '...all Approaches', s.affects === 'all') + radio('affects', 'selected', 'Selected Approaches', s.affects === 'selected'))}
+        ${row('Callback statuses', check('active', 'Active / Done Calling', s.statuses.active) + check('filled', 'Filled / Partially Filled', s.statuses.filled) + check('notfilled', 'Not Filled', s.statuses.notfilled) + check('cancelled', 'Cancelled', s.statuses.cancelled))}
+        ${row('Callback responses', check('accepted', 'Accepted', s.responses.accepted) + check('denied', 'Denied', s.responses.denied) + check('noanswer', 'No answer', s.responses.noanswer))}
+        ${row('Include previously created shifts in rankings', check('includePrev', '', s.includePrev) + helpDot, true)}
+        ${row('Rule evaluates', radio('evaluates', 'callbacks', 'Callbacks Only', s.evaluates === 'callbacks') + radio('evaluates', 'all', 'All Shifts', s.evaluates === 'all') + helpDot)}
+        ${row('Minimum Shift length', opSelect('min', s.minOp) + `<input type="text" data-cr-num="minHours" value="${s.minHours}" style="${numStyle};width:150px" /><span style="font-size:15px;color:${INK}">hours</span>`)}
+        ${row('Maximum Shift length', opSelect('max', s.maxOp) + `<input type="text" data-cr-num="maxHours" value="${s.maxHours}" style="${numStyle};width:150px" /><span style="font-size:15px;color:${INK}">hours</span>`)}
+      </div>
+    </div>` : '';
+
+  el.innerHTML = `
+  <div class="ca-page">
+    <div style="flex:none;background:#fff;border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:center;padding:12px 20px;gap:16px">
+      <button data-cr="back" aria-label="Back" style="width:44px;height:44px;border-radius:50%;border:1.5px solid #b9c2c9;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="fa-solid fa-arrow-left" style="color:#5a6b78;font-size:18px"></i></button>
+      <i class="fa-solid fa-plus" style="color:#5a6b78;font-size:26px"></i>
+      <h2 style="margin:0;font-size:30px;font-weight:300;color:rgba(90,107,120,.95);flex:1;min-width:0">${title}</h2>
+      <button data-cr="save" style="display:inline-flex;align-items:center;flex:none;height:48px;border:none;border-radius:4px;cursor:pointer;overflow:hidden;background:#5cb85c;color:#fff;font-size:19px;font-weight:400;box-shadow:0 1px 2px rgba(0,0,0,.12)">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:rgba(0,0,0,.09)"><i class="fa-regular fa-floppy-disk" style="font-size:20px"></i></span>
+        <span style="padding:0 22px">Save</span>
+      </button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:28px 32px 60px">
+      <div style="display:flex;align-items:stretch;border:1px solid ${HAIR};border-radius:6px;background:#fff;max-width:1180px;margin-bottom:24px;overflow:hidden">
+        <div style="width:64px;flex:none;display:flex;align-items:center;justify-content:center;border-right:1px solid ${HAIR};color:#7d8a93"><i class="fa-solid fa-scale-balanced" style="font-size:20px"></i></div>
+        <input id="crName" placeholder="Name the rule..." style="flex:1;min-width:0;border:none;outline:none;background:transparent;padding:0 18px;font-size:22px;font-weight:300;color:${INK};font-family:var(--font)" />
+      </div>
+      <div style="max-width:1180px">
+        <div style="display:flex;align-items:flex-end;margin-bottom:-1px;position:relative;z-index:1">
+          <div style="display:inline-flex;align-items:center;gap:10px;padding:12px 22px;background:#fff;border:1px solid ${HAIR};border-bottom:1px solid #fff;border-radius:6px 6px 0 0;font-size:16px;color:${INK}"><i class="fa-solid fa-table-list" style="color:#7d8a93;font-size:15px"></i> Rule Type</div>
+        </div>
+        <div style="background:#fff;border:1px solid ${HAIR};border-radius:0 6px 6px 6px;overflow:hidden">
+          <div style="padding:18px 18px 8px">
+            ${categoryRow}
+            ${subTypeList}
+          </div>
+        </div>
+      </div>
+      ${settingsCard}
+    </div>
+  </div>`;
+
+  const nameInput = byId('crName');
+  if (nameInput) { nameInput.value = newRule.name; nameInput.addEventListener('input', () => { newRule.name = nameInput.value; }); }
+  el.querySelectorAll('[data-cr-cat]').forEach(b => b.addEventListener('click', () => { newRule.category = b.dataset.crCat; newRule.subType = null; renderCreateRule(el); }));
+  el.querySelectorAll('[data-cr-sub]').forEach(b => b.addEventListener('click', () => { newRule.subType = b.dataset.crSub; renderCreateRule(el); }));
+  el.querySelectorAll('[data-cr-radio]').forEach(r => r.addEventListener('change', () => { newRule.settings[r.dataset.crRadio] = r.value; }));
+  el.querySelectorAll('[data-cr-check]').forEach(c => c.addEventListener('change', () => {
+    const k = c.dataset.crCheck;
+    if (k === 'includePrev') newRule.settings.includePrev = c.checked;
+    else if (['active', 'filled', 'notfilled', 'cancelled'].includes(k)) newRule.settings.statuses[k] = c.checked;
+    else if (['accepted', 'denied', 'noanswer'].includes(k)) newRule.settings.responses[k] = c.checked;
+  }));
+  el.querySelectorAll('[data-cr-op]').forEach(sel => sel.addEventListener('change', () => { newRule.settings[sel.dataset.crOp === 'min' ? 'minOp' : 'maxOp'] = sel.value; }));
+  el.querySelectorAll('[data-cr-num]').forEach(inp => inp.addEventListener('input', () => { newRule.settings[inp.dataset.crNum] = inp.value; }));
+  el.querySelector('[data-cr="back"]').addEventListener('click', () => { app.creatingRule = false; renderApp(); });
+  el.querySelector('[data-cr="save"]').addEventListener('click', handleManualRuleSaved);
 }
 
 /* ── History page ───────────────────────────────────────────────────── */
@@ -2864,25 +3049,22 @@ function renderRuleBuilder(el, seed) {
 }
 
 function builderBannerHtml() {
-  const previewing = bld.previewing;
-  // Preview mode gets a distinct teal→indigo→violet header (vs the plain purple
-  // config banner) so the whole screen visibly shifts when you enter preview.
   return `
-  <div class="rb-banner"${previewing ? ' style="background:linear-gradient(120deg, #0EA5A5 0%, #4F46E5 52%, #7C3AED 100%)"' : ''}>
+  <div class="rb-banner">
     <span class="glow1"></span><span class="glow2"></span>
     <div style="display:flex;align-items:center;gap:16px;position:relative">
       <button class="rb-back" data-rb="back"><i class="fa-solid fa-arrow-left" style="font-size:11px"></i> Back</button>
       <div style="width:1px;height:26px;background:rgba(255,255,255,.25)"></div>
-      <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;flex:none;backdrop-filter:blur(4px)">${previewing ? '<i class="fa-regular fa-eye" style="color:#fff;font-size:20px"></i>' : sparkSvg(22)}</div>
+      <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;flex:none;backdrop-filter:blur(4px)">${sparkSvg(22)}</div>
       <div>
-        <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em">${previewing ? 'Preview Mode' : 'Add new rule'}</div>
-        <div style="margin-top:3px;font-size:11px;font-weight:600;color:rgba(255,255,255,.82);letter-spacing:.04em;text-transform:uppercase">${previewing ? 'Simulating the call order · read-only' : 'Powered by AI'}</div>
+        <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em">Add new rule</div>
+        <div style="margin-top:3px;font-size:11px;font-weight:600;color:rgba(255,255,255,.78);letter-spacing:.04em;text-transform:uppercase">Powered by AI</div>
       </div>
       <div style="flex:1"></div>
       ${minInfoComplete() ? `
-        <button class="rb-back" data-rb="toggle-preview" style="${previewing ? 'background:#fff;color:var(--ai-mid);font-weight:600' : 'font-weight:600'}">
-          <i class="fa-solid ${previewing ? 'fa-xmark' : 'fa-eye'}" style="font-size:11px"></i>
-          ${previewing ? 'Exit Preview' : 'Preview Mode'}
+        <button class="rb-back" data-rb="toggle-preview" style="${bld.previewing ? 'background:#fff;color:var(--ai-mid);font-weight:600' : 'font-weight:600'}">
+          <i class="fa-solid ${bld.previewing ? 'fa-xmark' : 'fa-eye'}" style="font-size:11px"></i>
+          ${bld.previewing ? 'Exit Preview' : 'Preview Mode'}
         </button>` : ''}
     </div>
   </div>`;
@@ -3525,7 +3707,7 @@ function initSimulator(opts) {
   }
   const baselineDate = new Date(2026, 4, 19, 8, 0, 0);
   sim = {
-    opts, seed, isFreshStart, panelOnly: !!opts.panelOnly, mode: opts.mode || 'preview', onBack: opts.onBack, onStart: opts.onStart,
+    opts, seed, isFreshStart, panelOnly: !!opts.panelOnly, onBack: opts.onBack,
     selectedRuleId, baselineDate,
     startDate: new Date(baselineDate.getTime() + 86400000),
     chainStart: null,
@@ -3540,7 +3722,6 @@ function initSimulator(opts) {
     chat: [], chatInput: '',
     injectedSummary: !isFreshStart,
     rsTab: 'preview', rsExpanded: false,
-    summaryCollapsed: false,
   };
   sim.chainStart = sim.startDate;
   const activeRule = simActiveRule();
@@ -3667,7 +3848,7 @@ function simHandleChip(chip) {
 function rerenderSim() { if (sim && sim.mountEl) renderSimulator(sim.mountEl, sim.opts, true); }
 
 // ── Rule Summary / Preview Ranking (also used in the embedded panel) ──
-function previewRankingListHtml(form, ranking, fill) {
+function previewRankingListHtml(form, ranking) {
   const live = Array.isArray(ranking) && ranking.length > 0;
   const rankedAll = live ? ranking : rankEmployees(form);
   const expanded = sim ? sim.rsExpanded : false;
@@ -3678,21 +3859,21 @@ function previewRankingListHtml(form, ranking, fill) {
   };
   let leadTaken = false;
   return `
-  <div style="${fill ? 'display:flex;flex-direction:column;height:100%;min-height:0' : ''}">
-    <div class="prl-list" style="${fill ? 'flex:1;min-height:180px;max-height:none;resize:none' : 'height:auto;max-height:none;resize:none;overflow:hidden'}">
+  <div>
+    <div class="prl-list" style="height:${expanded ? 500 : 150}px;max-height:${expanded ? 600 : 300}px">
       ${rankedAll.map((emp, idx) => {
         const dim = live && (!emp.status.available || emp.status.code === 'on-shift');
         const lead = idx === 0 && !dim && !leadTaken;
         if (lead) leadTaken = true;
         return `
-        <div class="prl-row ${lead ? 'lead' : ''}">
+        <div class="prl-row ${lead ? 'lead' : ''} ${dim ? 'dim' : ''}">
           <span style="width:20px;height:20px;border-radius:50%;background:${lead ? 'var(--ai-grad)' : idx === 1 ? 'rgba(124,58,237,.15)' : 'rgba(0,0,0,.07)'};display:inline-flex;align-items:center;justify-content:center;flex:none;font-size:10px;font-weight:${lead ? 700 : 500};color:${lead ? '#fff' : idx === 1 ? 'var(--ai)' : 'rgba(0,0,0,.4)'}">${idx + 1}</span>
           <span style="flex:1;min-width:0">
             <span style="display:flex;align-items:center;gap:6px">
               <span style="font-size:12.5px;font-weight:${lead ? 600 : 500};color:${lead ? 'rgba(24,39,58,.96)' : 'rgba(24,39,58,.8)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(emp.name)}</span>
               ${lead ? '<span class="next-tag" style="font-size:8.5px;flex:none">NEXT</span>' : ''}
             </span>
-            <span style="display:block;font-size:11px;color:${lead ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)'};margin-top:3px">${live ? `${esc(emp.status.label)} · ${esc(emp.station)} · plat ${esc(emp.platoon)}` : `Last callback: ${esc(emp.lastCallback)}`}</span>
+            ${expanded ? `<span style="display:block;font-size:11px;color:${lead ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)'};margin-top:3px">${live ? `${esc(emp.status.label)} · ${esc(emp.station)} · plat ${esc(emp.platoon)}` : `Last callback: ${esc(emp.lastCallback)}`}</span>` : ''}
           </span>
           <span style="display:flex;align-items:center;gap:6px;flex:none">
             ${live && emp.accruedBonus > 0 ? `<span style="font-size:9.5px;font-weight:700;color:var(--success);background:rgba(21,132,68,.12);padding:2px 6px;border-radius:8px">+${emp.accruedBonus}h</span>` : ''}
@@ -3701,7 +3882,8 @@ function previewRankingListHtml(form, ranking, fill) {
         </div>`;
       }).join('')}
     </div>
-    <div style="font-size:10.5px;color:rgba(0,0,0,.35);margin-top:8px;text-align:center">
+    ${rankedAll.length > 4 ? `<button class="prl-expand" data-sim="rs-expand"><i class="fa-solid fa-chevron-${expanded ? 'up' : 'down'}" style="font-size:9px"></i>${expanded ? 'Show less' : 'Show more'}</button>` : ''}
+    <div style="font-size:10.5px;color:rgba(0,0,0,.35);margin-top:5px;text-align:center">
       ${live ? `Live preview · ${rankedAll.length} in the call order — updates as you run callbacks` : `Mock data · ${rankedAll.length} in the call order — scroll inside or drag the bottom edge to resize`}
     </div>
   </div>`;
@@ -3724,17 +3906,14 @@ function ruleSummaryBoxHtml(form, ranking) {
 }
 
 // ── Filters drawer ───────────────────────────────────────────────────
-function callbackFiltersHtml(compact, ranking, embedded, leadHtml) {
+function callbackFiltersHtml(compact, ranking) {
   const count = sim.fClassifications.length + sim.fGroups.length + sim.qualAny.length + sim.qualAll.length;
-  const floating = compact && !embedded; // embedded: expand inline inside the Callback Settings card instead of floating
   const chip = (label, active, tone, data) => `
     <button class="filter-chip ${active ? 'on' : ''}" style="${active ? `background:${tone};border-color:${tone}` : ''}" data-sim-filter="${data}" data-val="${esc(label)}">${esc(label)}</button>`;
   const body = sim.detailsOpen ? `
-    <div style="${floating
+    <div style="${compact
       ? 'position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:60;padding:12px 14px 14px;max-height:380px;overflow-y:auto;background:linear-gradient(180deg,#F4EEFD 0%,#FBF9FE 100%);border:1.5px solid #7C3AED;border-radius:10px;box-shadow:0 16px 40px rgba(91,33,182,.30)'
-      : embedded ? 'padding:8px 0 2px;margin-top:8px;border-top:1px solid rgba(0,0,0,.08)'
       : 'padding:0 16px 14px;border-top:1px solid rgba(0,0,0,.06)'}">
-      ${embedded && leadHtml ? leadHtml : ''}
       <div style="font-size:11px;line-height:1.45;color:rgba(0,0,0,.5);margin:10px 0 14px">Optional — these narrow who's eligible for the callback, on top of the approach roster. Matches the CallBack form's filter sections.</div>
       <div style="margin-bottom:16px">
         <div style="margin-bottom:7px;font-size:12px;font-weight:600;color:rgba(24,39,58,.85)">Filter by Classification(s)</div>
@@ -3768,8 +3947,8 @@ function callbackFiltersHtml(compact, ranking, embedded, leadHtml) {
       </div>
     </div>` : '';
   return `
-  <div id="simFilters" style="${embedded ? 'background:transparent;overflow:visible;position:relative' : `background:#fff;border:1px solid var(--hairline);border-radius:8px;margin-bottom:12px;box-shadow:0 1px 3px rgba(28,48,74,.04);overflow:${compact ? 'visible' : 'hidden'};position:${compact ? 'relative' : 'static'}`};${floating && sim.detailsOpen ? 'z-index:60' : ''}">
-    <button data-sim="toggle-filters" style="width:100%;display:flex;align-items:center;gap:8px;padding:${embedded ? '2px 0' : (compact ? '9px 12px' : '12px 16px')};border:none;background:transparent;cursor:pointer;text-align:left">
+  <div id="simFilters" style="background:#fff;border:1px solid var(--hairline);border-radius:8px;margin-bottom:12px;box-shadow:0 1px 3px rgba(28,48,74,.04);overflow:${compact ? 'visible' : 'hidden'};position:${compact ? 'relative' : 'static'};${compact && sim.detailsOpen ? 'z-index:60' : ''}">
+    <button data-sim="toggle-filters" style="width:100%;display:flex;align-items:center;gap:8px;padding:${compact ? '9px 12px' : '12px 16px'};border:none;background:transparent;cursor:pointer;text-align:left">
       <i class="fa-solid fa-filter" style="color:rgba(0,0,0,.5);font-size:13px;flex:none"></i>
       <span style="font-size:13px;font-weight:600;color:rgba(24,39,58,.9);flex:1">Add details — operational filters</span>
       ${count > 0 ? `<span style="font-size:10px;font-weight:700;color:#fff;background:var(--ai);padding:3px 7px;border-radius:9px">${count}</span>` : ''}
@@ -3801,7 +3980,6 @@ function renderSimulator(el, opts, isRerender) {
   if (!isRerender || !sim) initSimulator(opts);
   sim.mountEl = el;
   const panelOnly = sim.panelOnly;
-  const isCallback = sim.mode === 'callback'; // "Add new CallBacks" page — same settings, callback chrome
   const activeRule = simActiveRule();
   const ruleForm = simRuleForm();
   const ranking = simRanking();
@@ -3898,21 +4076,6 @@ function renderSimulator(el, opts, isRerender) {
       }).join('')}
     </div>`;
 
-  // Compact 2-phase stepper for the preview panel: Preview → Callback (per-run
-  // detail lives in the chain history list below).
-  const stepperCompact = `
-    <div style="display:flex;align-items:flex-start;margin-bottom:14px">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;width:72px">
-        <span class="step-circle ${currentStepIdx === 0 ? 'active' : 'done'}"><i class="fa-regular fa-eye" style="font-size:9px"></i></span>
-        <span style="font-size:10.5px;font-weight:700;color:var(--ai-mid)">Preview</span>
-      </div>
-      <div style="flex:1;height:2px;background:${currentStepIdx > 0 ? 'var(--ai)' : 'rgba(0,0,0,.14)'};margin:10px 6px 0;transition:background .2s"></div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;width:88px">
-        <span class="step-circle ${currentStepIdx > 0 ? (isFinished ? 'done' : 'active') : ''}">${currentStepIdx > 0 ? currentStepIdx : '<i class="fa-solid fa-phone-volume" style="font-size:9px"></i>'}</span>
-        <span style="font-size:10.5px;font-weight:700;color:${currentStepIdx > 0 ? 'var(--ai-mid)' : 'rgba(0,0,0,.4)'}">Callback${currentStepIdx > 0 ? ` ${currentStepIdx}/${SIM_MAX_STEPS}` : ''}</span>
-      </div>
-    </div>`;
-
   const chainRows = sim.stepHistory.length === 0
     ? '<div style="font-size:12px;line-height:1.4;color:rgba(0,0,0,.5);padding:4px 0">No callbacks run yet. Pick who accepts at the bottom (or leave on Random) and run callback #1.</div>'
     : `<div style="max-height:150px;overflow-y:auto;padding-right:4px">
@@ -3992,42 +4155,6 @@ function renderSimulator(el, opts, isRerender) {
       ${bottomBarInner}
     </div>`;
 
-  // Callback mode right column: a PREVIEW panel (the live ranked call order) + a Start CallBack button.
-  // No chain stepper / who-accepts — this is a real "create a callback" form, not the hypothetical tester.
-  const callbackRightCol = `
-    <div class="sim-right" style="width:48%">
-      <div style="background:#192434;color:#fff;padding:13px 22px;display:flex;align-items:center;gap:10px;flex:none">
-        <i class="fa-regular fa-eye" style="font-size:14px"></i>
-        <span style="font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">Preview</span>
-      </div>
-      ${isReady ? rankingList : `
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;text-align:center;gap:14px">
-        <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg, rgba(124,58,237,.12), rgba(91,33,182,.06));display:flex;align-items:center;justify-content:center">${sparkSvg(24, '#7C3AED')}</div>
-        <div style="font-size:13.5px;line-height:1.55;color:rgba(0,0,0,.5);max-width:320px">Fill out the form on the left to preview the CallBack — pick an <strong>approach</strong> and a <strong>rule</strong> and the ranked call order shows here.</div>
-      </div>`}
-      <div style="border-top:1px solid rgba(0,0,0,.07);padding:14px 22px;background:#FAFAFC;flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px">
-        ${isReady ? `<span style="font-size:12px;color:rgba(0,0,0,.5)">${ranking.length} ${ranking.length === 1 ? 'person' : 'people'} in the call order</span>` : ''}
-        <button data-sim="start-callback" ${isReady ? '' : 'disabled'} style="height:40px;padding:0 20px;border-radius:7px;border:none;background:${isReady ? 'var(--ai-grad)' : 'rgba(0,0,0,.14)'};color:#fff;font-size:14px;font-weight:600;cursor:${isReady ? 'pointer' : 'not-allowed'};display:inline-flex;align-items:center;gap:8px;box-shadow:${isReady ? '0 2px 6px rgba(124,58,237,.3)' : 'none'}"><i class="fa-solid fa-plus" style="font-size:12px"></i> Start CallBack</button>
-      </div>
-    </div>`;
-
-  // Shared bits for the merged panel layout (Callback Settings + Rule Summary + merged chain).
-  const cardStyle = 'background:#fff;border:1px solid var(--hairline);border-radius:8px;box-shadow:0 1px 3px rgba(28,48,74,.04)';
-  const summaryText = buildSummary(ruleForm);
-  const hasRuleDetails = ruleForm.tieBreaker || ruleForm.declineAction || ruleForm.lookBack || ruleForm.ruleAffects === 'selected';
-  // Shift start + duration, folded into the top of the "Add details" body (panel).
-  const shiftLeadHtml = `
-    <div style="margin-bottom:16px">
-      <div style="font-size:12px;font-weight:600;color:rgba(24,39,58,.85);margin-bottom:8px">Shift timing</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:11.5px;font-weight:500;color:rgba(0,0,0,.5);flex:none">Shift start</span>
-        ${dateTimeInputsHtml(sim.startDate, true)}
-        ${currentStepIdx > 0 ? `<span style="font-size:10px;font-weight:600;color:var(--ai);background:rgba(124,58,237,.1);padding:3px 6px;border-radius:9px;white-space:nowrap">#${currentStepIdx + 1}</span>` : ''}
-        <span style="font-size:11.5px;font-weight:500;color:rgba(0,0,0,.5);flex:none;margin-left:6px">Duration</span>
-        <select class="sim-select" data-sim-select="duration" style="height:30px;font-size:12px">${[4, 8, 12, 24, 48].map(h => `<option value="${h}" ${h === sim.duration ? 'selected' : ''}>${h} hours</option>`).join('')}</select>
-      </div>
-    </div>`;
-
   const rightCol = `
     <div class="sim-right ${panelOnly ? 'full' : ''}">
       ${!isReady ? `
@@ -4041,32 +4168,18 @@ function renderSimulator(el, opts, isRerender) {
         </div>
       </div>` : `
       ${panelOnly ? `
-      <div style="display:flex;flex-direction:column;gap:10px;padding:12px 10px 56px;background:linear-gradient(180deg, #F3EEFD 0%, #FAF8FE 55%)">
-        <!-- Rule Summary — top, purple / highlighted. Collapses via the chevron or once the panel is scrolled. -->
-        <div id="simSummaryBox" class="sum-collapsible ${sim.summaryCollapsed ? 'collapsed' : ''}" style="flex:none;position:sticky;top:0;z-index:5;background:linear-gradient(135deg, rgba(124,58,237,.11) 0%, rgba(99,102,241,.06) 100%), #F3EEFD;border:1px solid rgba(124,58,237,.30);border-radius:10px;box-shadow:0 1px 4px rgba(124,58,237,.12);overflow:hidden">
-          <button type="button" data-sim="toggle-summary" class="sum-head" style="width:100%;display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:8px 14px;text-align:left;font-family:var(--font)">
-            <span class="muted-cap" style="color:var(--ai-mid);flex:1">Rule Summary</span>
-            <i class="fa-solid fa-chevron-up sum-chev" style="font-size:11px;color:var(--ai-mid)"></i>
-          </button>
-          <div class="sum-body" style="padding:0 14px 14px">
-            <div style="font-size:13px;line-height:1.6;color:rgba(24,39,58,.85)">${hasRuleDetails ? esc(summaryText) : '<span style="color:rgba(0,0,0,.4);font-style:italic">Answer the questions in chat to see your rule take shape…</span>'}</div>
-          </div>
+      <div style="padding:12px 18px;border-bottom:1px solid rgba(0,0,0,.07);background:#fff;flex:none;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11.5px;font-weight:500;color:rgba(0,0,0,.5);flex:none">Shift start</span>
+          ${dateTimeInputsHtml(sim.startDate, true)}
+          ${currentStepIdx > 0 ? `<span style="font-size:10px;font-weight:600;color:var(--ai);background:rgba(124,58,237,.1);padding:3px 6px;border-radius:9px;white-space:nowrap">#${currentStepIdx + 1}</span>` : ''}
+          <span style="font-size:11.5px;font-weight:500;color:rgba(0,0,0,.5);flex:none;margin-left:6px">Duration</span>
+          <select class="sim-select" data-sim-select="duration" style="height:30px;font-size:12px">${[4, 8, 12, 24, 48].map(h => `<option value="${h}" ${h === sim.duration ? 'selected' : ''}>${h} hours</option>`).join('')}</select>
         </div>
-        <!-- Callback Settings — middle. Shift start + duration now live inside "Add details". -->
-        <div style="flex:none;${cardStyle};display:flex;flex-direction:column;gap:10px;padding:12px">
-          <div class="muted-cap">Callback Settings</div>
-          ${callbackFiltersHtml(true, ranking, true, shiftLeadHtml)}
-          <div style="border-top:1px solid var(--hairline);padding-top:12px">${bottomBarInner}</div>
-        </div>
-        <!-- Callback chain — bottom; the stepper carries the header. Sizes to content so the panel scrolls as one. -->
-        <div style="flex:none;${cardStyle};display:flex;flex-direction:column;padding:12px">
-          ${stepperCompact}
-          ${sim.stepHistory.length > 0 ? chainRows : ''}
-          <div class="muted-cap" style="margin:${sim.stepHistory.length > 0 ? '12px' : '2px'} 0 8px;font-size:11px">${sim.stepHistory.length > 0 ? `Up next · call order for callback #${currentStepIdx + 1}` : 'Predicted call order'}</div>
-          <div>${previewRankingListHtml(ruleForm, ranking)}</div>
-        </div>
-      </div>
-      ` : `
+        ${callbackFiltersHtml(true, ranking)}
+        <div style="background:#fff;border:1px solid var(--hairline);border-radius:8px;box-shadow:0 1px 3px rgba(28,48,74,.04);padding:12px 14px">${bottomBarInner}</div>
+        ${ruleSummaryBoxHtml(ruleForm, ranking)}
+      </div>` : ''}
       <div style="padding:14px 22px 12px;border-bottom:1px solid rgba(0,0,0,.07);flex:none;background:#FAFAFC">
         <div class="muted-cap" style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
           <span>Callback chain ${currentStepIdx > 0 ? `· ${currentStepIdx} of ${SIM_MAX_STEPS} run` : ''}</span>
@@ -4076,18 +4189,12 @@ function renderSimulator(el, opts, isRerender) {
         ${chainRows}
       </div>
       ${rankingList}
-      ${bottomBar}`}`}
+      ${!panelOnly ? bottomBar : ''}`}
     </div>`;
 
   el.innerHTML = `
   <div class="sim">
-    ${!panelOnly ? (isCallback ? `
-    <div class="sim-topbar">
-      <button data-sim="back" aria-label="Back" title="Back" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,0,0,.18);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.7)"><i class="fa-solid fa-arrow-left" style="font-size:13px"></i></button>
-      <i class="fa-solid fa-phone-volume" style="font-size:17px;color:rgba(0,0,0,.7)"></i>
-      <h2 style="margin:0;font-size:19px;font-weight:600;color:var(--ink)">Add new CallBacks</h2>
-      <div style="flex:1"></div>
-    </div>` : `
+    ${!panelOnly ? `
     <div class="sim-topbar">
       <button data-sim="back" aria-label="Back" title="Back" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,0,0,.18);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.7)"><i class="fa-solid fa-arrow-left" style="font-size:13px"></i></button>
       <i class="fa-regular fa-eye" style="font-size:18px;color:rgba(0,0,0,.7)"></i>
@@ -4095,19 +4202,15 @@ function renderSimulator(el, opts, isRerender) {
       <span style="font-size:12px;color:rgba(0,0,0,.45);margin-left:6px">· Generic hypothetical — nothing dispatched live</span>
       <div style="flex:1"></div>
       <vaadin-button theme="secondary small" data-sim="reset"><i class="fa-solid fa-rotate-left" style="font-size:10px;margin-right:5px"></i> Reset simulation</vaadin-button>
-    </div>`) : `
+    </div>` : `
     <div class="sim-compact-head">
       <i class="fa-regular fa-eye" style="font-size:14px;flex:none"></i>
       <span style="font-size:13px;font-weight:700;flex:1">Preview Mode</span>
       <button data-sim="reset" title="Reset simulation" style="height:28px;padding:0 10px;border-radius:6px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:11.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px;flex:none"><i class="fa-solid fa-rotate-left" style="font-size:9px"></i> Reset</button>
+      <button data-sim="back" style="height:28px;padding:0 11px;border-radius:6px;border:none;background:#fff;color:var(--ai-mid);font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;flex:none"><i class="fa-solid fa-xmark" style="font-size:9px"></i> Exit preview</button>
     </div>`}
     <div class="sim-body">
-      ${!panelOnly ? (isCallback ? `
-      <div class="sim-left">
-        <div class="sim-left-scroll">
-          ${settingsTab}
-        </div>
-      </div>` : `
+      ${!panelOnly ? `
       <div class="sim-left">
         <div class="sim-tabbar">
           <button class="sim-tab ${sim.leftTab === 'chat' ? 'active' : ''}" data-sim="tab" data-tab="chat">${sparkSvg(12, 'currentColor')} AI Chat</button>
@@ -4116,8 +4219,8 @@ function renderSimulator(el, opts, isRerender) {
         <div class="sim-left-scroll">
           ${sim.leftTab === 'chat' ? chatCard : settingsTab}
         </div>
-      </div>`) : ''}
-      ${isCallback ? callbackRightCol : rightCol}
+      </div>` : ''}
+      ${rightCol}
     </div>
   </div>`;
 
@@ -4127,29 +4230,6 @@ function renderSimulator(el, opts, isRerender) {
 function hydrateSimulator(el) {
   const chatThread = byId('simChatThread');
   if (chatThread) chatThread.scrollTop = chatThread.scrollHeight;
-
-  // Preview Mode panel: the Rule Summary is open on entry (panel starts at the top) and is
-  // driven by scroll position — it collapses to the slim sticky bar as you scroll down into
-  // the list, and re-opens when you scroll back up to the top. The chevron toggles it too.
-  const simScroller = el.querySelector('.sim-right.full');
-  if (simScroller) {
-    let rafPending = false;
-    const syncSummary = () => {
-      rafPending = false;
-      const box = byId('simSummaryBox');
-      if (!box) return;
-      const shouldCollapse = simScroller.scrollTop > 12;
-      if (shouldCollapse !== sim.summaryCollapsed) {
-        sim.summaryCollapsed = shouldCollapse;
-        box.classList.toggle('collapsed', shouldCollapse);
-      }
-    };
-    simScroller.addEventListener('scroll', () => {
-      if (rafPending) return;
-      rafPending = true;
-      requestAnimationFrame(syncSummary);
-    }, { passive: true });
-  }
 
   const chatInput = byId('simChatInput');
   if (chatInput) {
@@ -4212,42 +4292,24 @@ function hydrateSimulator(el) {
     menu.style.left = r.left + 'px';
     menu.style.width = r.width + 'px';
     menu.innerHTML = `
-      <div style="flex:none;padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.08);background:#fff">
-        <div style="position:relative">
-          <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:11px;color:rgba(0,0,0,.4);pointer-events:none"></i>
-          <input id="whoSearch" type="text" placeholder="Search people…" autocomplete="off" style="width:100%;height:32px;padding:0 10px 0 30px;border:1px solid rgba(0,0,0,.16);border-radius:6px;font-size:12.5px;outline:none;box-sizing:border-box;font-family:var(--font)" />
-        </div>
-      </div>
-      <div id="whoList" style="flex:1;min-height:0;overflow-y:auto">
+      <div style="overflow-y:auto">
         <button class="who-opt ${!sim.overridePick ? 'on' : ''}" data-who=""><span>🎲 Random (system decides)</span>${!sim.overridePick ? '<i class="fa-solid fa-check" style="color:var(--ai);font-size:11px"></i>' : ''}</button>
-        <div id="whoSecHdr" style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:rgba(0,0,0,.4);text-transform:uppercase;letter-spacing:.06em;background:#FAFAFC">Pick a specific person</div>
-        ${eligible.map(p => `<button class="who-opt ${sim.overridePick === p.name ? 'on' : ''}" data-who="${esc(p.name)}" data-search="${esc((p.name + ' ' + (p.station || '')).toLowerCase())}"><span>${esc(p.name)} · ${esc(p.station)} · ${p.hours}h</span>${sim.overridePick === p.name ? '<i class="fa-solid fa-check" style="color:var(--ai);font-size:11px"></i>' : ''}</button>`).join('')}
-        <div id="whoEmpty" style="display:none;padding:14px 12px;font-size:12px;color:rgba(0,0,0,.45);text-align:center">No people match your search.</div>
+        <div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:rgba(0,0,0,.4);text-transform:uppercase;letter-spacing:.06em;background:#FAFAFC">Pick a specific person</div>
+        ${eligible.map(p => `<button class="who-opt ${sim.overridePick === p.name ? 'on' : ''}" data-who="${esc(p.name)}"><span>${esc(p.name)} · ${esc(p.station)} · ${p.hours}h</span>${sim.overridePick === p.name ? '<i class="fa-solid fa-check" style="color:var(--ai);font-size:11px"></i>' : ''}</button>`).join('')}
       </div>`;
-    const removeMenu = () => { menu.remove(); document.removeEventListener('mousedown', closer); };
     menu.querySelectorAll('[data-who]').forEach(b => b.addEventListener('click', () => {
       sim.overridePick = b.dataset.who;
-      removeMenu();
+      menu.remove();
       rerenderSim();
     }));
-    const search = menu.querySelector('#whoSearch');
-    search.addEventListener('input', () => {
-      const q = search.value.trim().toLowerCase();
-      let shown = 0;
-      menu.querySelectorAll('#whoList .who-opt[data-search]').forEach(btn => {
-        const match = !q || btn.dataset.search.includes(q);
-        btn.style.display = match ? '' : 'none';
-        if (match) shown++;
-      });
-      const hdr = menu.querySelector('#whoSecHdr'); if (hdr) hdr.style.display = shown ? '' : 'none';
-      const empty = menu.querySelector('#whoEmpty'); if (empty) empty.style.display = shown ? 'none' : 'block';
-    });
     document.body.appendChild(menu);
-    function closer(ev) {
-      if (!menu.contains(ev.target) && ev.target !== whoTrigger && !whoTrigger.contains(ev.target)) removeMenu();
-    }
+    const closer = (ev) => {
+      if (!menu.contains(ev.target) && ev.target !== whoTrigger && !whoTrigger.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('mousedown', closer);
+      }
+    };
     document.addEventListener('mousedown', closer);
-    setTimeout(() => { try { search.focus(); } catch (_) {} }, 0);
   });
 }
 
@@ -4270,7 +4332,6 @@ document.addEventListener('click', (e) => {
   const t = (sel) => e.target.closest(sel);
   let el;
   if ((el = t('[data-sim="back"]')))          { const cb = sim.onBack; sim = null; if (cb) cb(); }
-  else if ((el = t('[data-sim="start-callback"]'))) { const cb = sim.onStart; sim = null; if (cb) cb(); }
   else if ((el = t('[data-sim="reset"]')))    { simReset(); }
   else if ((el = t('[data-sim="tab"]')))      { sim.leftTab = el.dataset.tab; rerenderSim(); }
   else if ((el = t('[data-sim="chip"]')))     { simHandleChip(el.dataset.chip); }
@@ -4281,12 +4342,6 @@ document.addEventListener('click', (e) => {
   else if ((el = t('[data-sim="apply-filters"]')))  { sim.detailsOpen = false; rerenderSim(); }
   else if ((el = t('[data-sim="clear-filters"]')))  { sim.fClassifications = []; sim.fGroups = []; sim.qualAny = []; sim.qualAll = []; rerenderSim(); }
   else if ((el = t('[data-sim="group-mode"]')))     { sim.groupMode = el.dataset.mode; rerenderSim(); }
-  else if ((el = t('[data-sim="toggle-summary"]'))) {
-    // Manual collapse/expand — toggle the class in place so scroll position is preserved (no re-render).
-    sim.summaryCollapsed = !sim.summaryCollapsed;
-    const box = byId('simSummaryBox');
-    if (box) box.classList.toggle('collapsed', sim.summaryCollapsed);
-  }
   else if ((el = t('[data-sim="rs-tab"]')))   { sim.rsTab = el.dataset.tab; rerenderSim(); }
   else if ((el = t('[data-sim="rs-expand"]'))) { sim.rsExpanded = !sim.rsExpanded; rerenderSim(); }
   else if ((el = t('[data-sim-filter]'))) {
@@ -4321,6 +4376,7 @@ renderApp();
 function applyFlowState(id, opts) {
   opts = opts || {};
   app.creatingApproach = false;
+  app.creatingRule = false;
   app.savedToast = null;
   switch (id) {
     case 'firstSetup':              // Step 1: fresh account — no approaches made yet
@@ -4336,10 +4392,10 @@ function applyFlowState(id, opts) {
       ar.previewMode = false;
       renderApp();
       break;
-    case 'builder':                 // dual-screen rule builder ("Add New Rule")
+    case 'builder':                 // manual (no-AI) rule builder ("Add New Rule")
       app.flowVersion = 'v2';
       ar.previewMode = false; app.subNav = 'approaches';
-      startBuilder({});             // sets app.building and re-renders
+      openCreateRule(null);         // opens the production-style New Rule screen
       break;
     case 'preview':                 // predicted-ranking simulator
       app.flowVersion = 'v2';
@@ -4380,8 +4436,8 @@ window.TOOLBOX_CONFIG = {
         desc: 'Fresh account — no approaches created yet. The Approaches & Rules page with an empty approaches list and the setup guide on step 1: "Create your first approach."' },
       { id: 'approaches', flow: 'ar', entry: true, x: 420, y: 170, step: 'Step 2 · Entry', name: 'Rule step', state: 'approaches', match: ['Approaches & Rules', 'Create rule'],
         desc: 'Entry point — the mock opens here. Approaches now exist, so the setup guide is on step 2: "Create your first ranking rule." Approaches and rules lists are populated.' },
-      { id: 'builder', flow: 'ar', x: 780, y: 170, step: 'Step 3', name: 'Rule Builder', state: 'builder', match: ['Add rule', 'New rule'],
-        desc: 'Dual-screen AI rule builder, as if "Add New Rule" was clicked: a guided chat on the left fills the live rule configuration on the right.' },
+      { id: 'builder', flow: 'ar', x: 780, y: 170, step: 'Step 3', name: 'New Rule', state: 'builder', match: ['Add rule', 'New rule', 'Rule type'],
+        desc: 'Manual (no-AI) New Rule builder, as if "Add New Rule" was clicked: pick a Rule Type category (Rotating / Accumulation Based / Static), then a sub-type. Rule Settings appear inline on a card underneath — no separate tab.' },
       { id: 'preview', flow: 'ar', x: 1140, y: 170, step: 'Step 4', name: 'Preview Ranking', state: 'preview', match: ['Preview ranking'],
         desc: 'The dispatch simulator predicts the call order the rule produces for a roster, so the author can sanity-check the ordering before saving. Optional step before saving.' }
     ],

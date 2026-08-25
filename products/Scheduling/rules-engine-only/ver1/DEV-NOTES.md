@@ -1,4 +1,4 @@
-> date: 2026-08-10
+> date: 2026-08-25
 
 <!-- Running notes, one section per flow-map node (## <node-id>). Each bullet is a
      change/decision made while building that screen. The flow map shows these per
@@ -6,24 +6,13 @@
      line dates the notes below it; prefix a bullet with (YYYY-MM-DD) to override. -->
 
 
-## firstSetup — Step 1 · First setup (no approaches yet)
-- Fresh-account empty state of the Approaches & Rules page (flow version `v1`). "Getting started" guide sits on step 1 of 3, "Create approaches" active.
-- Approaches list shows the empty state: "No approaches yet — let's create your first one" with a **+ Add New Approach** CTA.
-- Rules section is deferred here: copy reads "You'll set these up after you've created your approaches above."
-- Dev: this is the SAME page component as the entry (step 2) — the only difference is `hasApproaches() === false`. Build one page with empty/populated states, not two pages.
+## setup — Step 1 · Entry (pick a rule to preview)
+- Chat-free V1. Lean two-tab shell (**Rule setup** | **Preview**) instead of the full CallBack app — no outer sidebar / product chrome, no AI builder.
+- The on-ramp into preview: choose one of the existing rules (real `RULES_DATA`), then **Preview ranking** (or the Preview tab) hands off. The mock boots here.
+- Each rule row shows its name, description, and the approaches it applies to; AI-created rules carry a small "AI" chip. Selection is a single-choice radio.
+- Reuses V2's data + ranking verbatim, so the predicted order on the next step is real.
 
-## approaches — Step 2 · Entry (approaches exist → create first rule)
-- Entry point the mock boots into (flow version `v2`). "Getting started" guide advances to step 2 of 3, "Create rules" active.
-- Approaches list is populated; Rules list shows "No rules yet — let's create your first one" with a **+ Add New Rule with AI** CTA.
-- Methodology accordion ("How does callback ranking work?") is open by default and lays out the five ranking steps.
-
-## builder — Rule Builder (Add New Rule with AI)
-- Full-bleed dual-screen builder (the app shell chrome is hidden). Left = guided AI chat; right = live "Rule configuration" panel that fills in as the chat progresses.
-- Entered from the entry screen's **+ Add New Rule with AI**; **Back** returns to Approaches & Rules.
-- Six rule types drive different config fields: Standard Rolodex, Accumulating Rolodex, Accumulation — Hours Based, Static — Seniority, Static — Employee ID, Random / Lottery.
-- On completion the assistant offers **Save rule / Preview ranking / Adjust something**.
-
-## preview — Preview Ranking (simulator)
-- Full-page "Preview Mode — Rule Simulator", reached via **Preview ranking** (also embeddable as a right-panel view inside the builder).
-- Left = Callback Settings (pick approach + rule, shift date/time, filters); right = predicted call order that updates as inputs change.
-- Generic hypothetical — nothing is dispatched live. **Reset simulation** clears it.
+## preview — Step 2 · Preview (chat-free simulator)
+- The existing Preview Mode simulator with the **AI Chat** tab removed (`opts.noChat`): the left panel is just **Callback Settings** (approach, rule, shift date/time, operational filters), no tabs.
+- Right side is the **preview + callback list**: the callback chain stepper over the **Predicted call order** (the ranked callback list), which updates as settings change. Generic hypothetical — nothing dispatched live.
+- Seeded from the rule picked on the setup step (approach + rule pre-filled), so the call order populates on entry. **Reset simulation** clears it; the back arrow (or Rule setup tab) returns to the entry step.
