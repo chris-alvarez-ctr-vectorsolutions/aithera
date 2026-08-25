@@ -21,10 +21,19 @@
    remembering to look, and remembering does not scale past two surfaces.
 
    WHAT COUNTS AS A SURFACE
-   Every .html under products/aithera, except anything beneath an archive/
-   directory. An archive cut is a frozen snapshot with its own js/ copies and
-   its own old ?v= on purpose; holding it to today's numbers would make the
-   check permanently red and therefore ignored.
+   Every TRACKED .html under products/aithera, except anything beneath an
+   archive/ directory. Two exclusions, two different reasons:
+
+     archive/    A cut is a frozen snapshot carrying its own js/ copies and its
+                 own old ?v= on purpose. Holding it to today's numbers would
+                 make the check permanently red, and a permanently red check
+                 gets switched off.
+     untracked   The page list comes from `git ls-files`, not from walking the
+                 disk, because a walk also finds build output somebody's machine
+                 happens to have — products/aithera/editor/dist/ is gitignored
+                 and was being scanned. What gets served is what is committed,
+                 so that is what this judges, and the check reports the same
+                 numbers locally as it does in CI.
 
    USAGE
      node tools/surface-check.js            # from products/aithera/scenario-simulator
@@ -35,21 +44,37 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '../..');          // products/aithera
 const QUIET = process.argv.includes('--quiet');
 const rel = (p) => path.relative(ROOT, p);
 
 /* ---- the surfaces ------------------------------------------------------- */
-function pages(dir, out = []) {
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name.startsWith('.')) continue;
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) { if (e.name !== 'archive') pages(full, out); }
-    else if (e.name.endsWith('.html')) out.push(full);
-  }
-  return out;
+const isArchived = (p) => p.split(path.sep).includes('archive');
+
+/* Ask git, so an untracked build directory on one machine cannot change what the
+   check reports. Falls back to walking the disk where git is not available — a
+   check that refuses to run is worse than one that occasionally over-reaches, and
+   the fallback still skips the two directories that produce noise. */
+function pages() {
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z', '--', '*.html'], { encoding: 'utf8' });
+    const list = out.split('\0').filter(Boolean).map((p) => path.join(ROOT, p));
+    if (list.length) return list.filter((p) => !isArchived(p));
+  } catch (e) { /* no git, or not a repo — walk instead */ }
+  const walk = (dir, acc = []) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'dist') continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== 'archive') walk(full, acc); }
+      else if (e.name.endsWith('.html')) acc.push(full);
+    }
+    return acc;
+  };
+  return walk(ROOT);
 }
+const PAGES = pages();
 
 /* ---- what a page asks for ----------------------------------------------
    Only src=/href= that name a LOCAL file. A bare anchor, an absolute URL and a
@@ -97,7 +122,7 @@ function baseOf(html) {
 const dead = [];                    // { page, ref }
 const loaders = new Map();          // resolved file -> [{ page, v }]
 
-for (const page of pages(ROOT)) {
+for (const page of PAGES) {
   const html = fs.readFileSync(page, 'utf8');
   const root = path.resolve(path.dirname(page), baseOf(html));
   for (const r of refs(html)) {
@@ -122,7 +147,7 @@ for (const [file, uses] of loaders) {
 
 /* ---- report ------------------------------------------------------------- */
 console.log('Surface check — ' + loaders.size + ' local file(s) referenced by '
-  + pages(ROOT).length + ' live page(s)\n');
+  + PAGES.length + ' live page(s)\n');
 
 console.log('Dead paths — does every referenced file exist?\n');
 if (!dead.length) {
