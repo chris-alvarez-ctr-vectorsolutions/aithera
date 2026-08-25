@@ -26,8 +26,18 @@
 
   const TEMPLATES = {
   "branching-arc": {
-    label: "Branching Arc", icon: "fa-diagram-project",
-    blurb: "An escalating situation the learner reads and responds to as it changes.",
+    /* Was "Branching Arc", under a diagram-of-a-branch icon. Scenario CML v4
+       cannot branch — no branch / next / condition / goto / target anywhere in
+       the schema, `transition` is a button label plus optional text, and a phase
+       has no successor field. This template emits coach_inquiry -> roleplay ->
+       roleplay -> roleplay: a straight ladder whose only branching was its name.
+       The SHAPE is worth keeping (an escalating run of scenes is a real authoring
+       intent, and a different one from Ensemble's multi-character disclosure
+       arc) — so it is named for what it builds. The id stays `branching-arc`:
+       ORDER and any saved link resolve by it, and churning an internal key buys
+       nothing. */
+    label: "Escalating Situation", icon: "fa-arrow-trend-up",
+    blurb: "One situation that gets harder scene by scene as the learner responds to it.",
     shape: "CRRR", toFill: 24,
     doc: {
           "implementation_id": "reading-the-warning-signs",
@@ -1573,7 +1583,20 @@
   };
 
   /* Gallery order: the composable one first, since it is what POC V4 is natively. */
-  const ORDER = ['mix-arc', 'guided-arc', 'branching-arc', 'ensemble-arc', 'scene-sweep', 'observe-react', 'teach-back'];
+  /* The gallery, in order. `teach-back` is deliberately ABSENT while its blurb
+     promises the one thing its output cannot do: it emits a single
+     `coach_inquiry` step under "coverage is credited", and nothing credits
+     coverage on a coach step — the credited-items channel ([[spotted:]]) is
+     observe_react only. Retiring it is not a judgement on teach-back, which is a
+     real pedagogy the content team names; it is a refusal to hand an author a
+     plain coach chat wearing that name. The template object is kept below, so
+     restoring it is adding one string here, once the generalized credited-items
+     contract lands (V4-ALIGNMENT-NOTES §9.8).
+
+     Note the contrast that makes this about honesty and not step count:
+     `observe-react` is ALSO a single step and stays, because its blurb describes
+     exactly what it produces and observe_react really does credit. */
+  const ORDER = ['mix-arc', 'guided-arc', 'branching-arc', 'ensemble-arc', 'scene-sweep', 'observe-react'];
 
   function list() {
     return ORDER.filter(function (k) { return TEMPLATES[k]; }).map(function (k) {
