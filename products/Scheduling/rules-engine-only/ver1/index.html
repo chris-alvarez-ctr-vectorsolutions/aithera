@@ -4128,16 +4128,28 @@ function hydrateSimulator(el) {
   const chatThread = byId('simChatThread');
   if (chatThread) chatThread.scrollTop = chatThread.scrollHeight;
 
-  // Preview Mode panel: auto-collapse the Rule Summary once the panel is scrolled down,
-  // freeing vertical room for the settings + chain. Manual chevron re-expands it.
+  // Preview Mode panel: the Rule Summary is open on entry (panel starts at the top) and is
+  // driven by scroll position — it collapses to the slim sticky bar as you scroll down into
+  // the list, and re-opens when you scroll back up to the top. The chevron toggles it too.
   const simScroller = el.querySelector('.sim-right.full');
-  if (simScroller) simScroller.addEventListener('scroll', () => {
-    const box = byId('simSummaryBox');
-    if (box && !sim.summaryCollapsed && simScroller.scrollTop > 12) {
-      sim.summaryCollapsed = true;
-      box.classList.add('collapsed');
-    }
-  });
+  if (simScroller) {
+    let rafPending = false;
+    const syncSummary = () => {
+      rafPending = false;
+      const box = byId('simSummaryBox');
+      if (!box) return;
+      const shouldCollapse = simScroller.scrollTop > 12;
+      if (shouldCollapse !== sim.summaryCollapsed) {
+        sim.summaryCollapsed = shouldCollapse;
+        box.classList.toggle('collapsed', shouldCollapse);
+      }
+    };
+    simScroller.addEventListener('scroll', () => {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(syncSummary);
+    }, { passive: true });
+  }
 
   const chatInput = byId('simChatInput');
   if (chatInput) {
