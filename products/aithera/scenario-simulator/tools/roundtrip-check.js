@@ -330,5 +330,84 @@ if (fixed.length) {
   fixed.slice(0, 10).forEach((leaf) => console.log('    fixed  ' + leaf));
 }
 
-process.exit(failed || fresh.length ? 1 : 0);
+/* =========================================================================
+   SCHEMA DRIFT — has their contract moved without us noticing?
+   -------------------------------------------------------------------------
+   `js/scenario-v4.js` hand-writes their schema's rules in JavaScript, and that
+   is a deliberate trade: its messages are written for an author ("must have at
+   least one entry — omit the field rather than authoring an empty array"), and a
+   generic JSON-Schema walker produces messages written for a developer. But a
+   transcription drifts, silently, and this is the drift we already have: the
+   optional `neutral` tier the 18 August meeting granted is in neither their
+   schema nor their spec, because neither file has been touched since before that
+   meeting. Whichever side moves first without telling the other breaks the other.
+
+   So the schema is vendored under tools/pinned/ and compared against the live
+   file on every run. Not a validator — an alarm. Refresh deliberately with
+   --update-pinned and read the diff, because a schema change IS a contract
+   change and wants a conversation, not a commit.
+   ========================================================================= */
+const PINNED_DIR = path.join(__dirname, 'pinned');
+const PINNED = [{ local: 'lo_cml_v4.schema.json', remote: 'app/lo_schema/lo_cml_v4.schema.json' }];
+
+function fetchUpstream(remotePath) {
+  const raw = execFileSync('gh', ['api', `repos/${POC_REPO}/contents/${remotePath}`],
+    { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  return Buffer.from(JSON.parse(raw).content, 'base64').toString('utf8');
+}
+
+console.log('\nUpstream contract — is our pinned copy still current?\n');
+let drifted = 0;
+PINNED.forEach(({ local, remote }) => {
+  const localPath = path.join(PINNED_DIR, local);
+  let live;
+  try { live = fetchUpstream(remote); }
+  catch (e) {
+    console.log('  skip  ' + local + ' — could not reach ' + POC_REPO + ' (is `gh` authenticated?)');
+    return;
+  }
+  if (process.argv.includes('--update-pinned')) {
+    fs.writeFileSync(localPath, live);
+    console.log('  pinned  ' + local + ' refreshed — READ THE DIFF before committing it');
+    return;
+  }
+  const mine = fs.existsSync(localPath) ? fs.readFileSync(localPath, 'utf8') : '';
+  if (mine === live) { console.log('  ok      ' + local + ' matches upstream'); return; }
+  drifted++;
+  /* Name what moved, at the level that matters: which definitions gained or lost
+     required fields. A whole-file diff would bury the one line that changes what
+     an author is allowed to leave blank. */
+  const req = (src) => {
+    const out = {};
+    const walk = (node, at) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node.required)) out[at || '(root)'] = node.required.slice().sort().join(',');
+      Object.keys(node).forEach((k) => {
+        const v = node[k];
+        if (k === 'properties' || k === '$defs' || k === 'definitions') {
+          Object.keys(v || {}).forEach((kk) => walk(v[kk], at ? at + '.' + kk : kk));
+        } else if (k === 'items') walk(v, at + '[]');
+        else if (Array.isArray(v) && /^(oneOf|anyOf|allOf)$/.test(k)) v.forEach((vv, i) => walk(vv, at + '<' + k + i + '>'));
+      });
+    };
+    try { walk(JSON.parse(src), ''); } catch (e) { /* unparseable — the byte diff already said enough */ }
+    return out;
+  };
+  const a = req(mine), b = req(live);
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+  const moved = keys.filter((k) => a[k] !== b[k]);
+  console.log('  DRIFT   ' + local + ' differs from upstream'
+    + (moved.length ? ' — ' + moved.length + ' required-field list(s) changed' : ' (no required-field change; formatting or descriptions)'));
+  moved.slice(0, 12).forEach((k) => {
+    console.log('            ' + k + ':  [' + (a[k] || '—') + ']  →  [' + (b[k] || '—') + ']');
+  });
+  if (moved.length > 12) console.log('            … ' + (moved.length - 12) + ' more');
+});
+if (drifted) {
+  console.log('\n  Their schema has moved and ours has not. js/scenario-v4.js transcribes these');
+  console.log('  rules by hand, so a change here is a change an author will hit before we do.');
+  console.log('  Update the transcription, then `--update-pinned` to re-pin.');
+}
+
+process.exit(failed || fresh.length || drifted ? 1 : 0);
 
