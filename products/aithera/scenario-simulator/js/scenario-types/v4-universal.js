@@ -61,6 +61,35 @@
     return d;
   }
 
+  /* What withoutShellKeys() COSTS, in the same {path, consequence} shape
+     stripExtensions() reports — so the handoff panel can list both together.
+     -----------------------------------------------------------------------
+     This exists because the export was silently lossy in exactly the place the
+     panel promised it wasn't. The stripping happened BEFORE stripExtensions ran,
+     so these removals never entered `removed`, and the panel then told the author
+     "Nothing else is changed" while the prior-scenario context went out with the
+     rubbish. That context is the one thing the 2026-08-18 alignment meeting said
+     YES to (for the model, never learner-facing) — reporting it is the floor, and
+     a field in the format is the fix. See docs/reference/V4-ALIGNMENT-NOTES.md.
+
+     Reported only when the block would actually have compiled: an empty
+     previousLO costs nothing, and warning about it would train authors to ignore
+     the panel that matters. Same emptiness test as priorLoBlock(). */
+  function shellKeysRemoved(doc) {
+    const d = obj(doc);
+    if (str(d.contextSource) !== 'previous-lo') return [];
+    const lo = obj(d.previousLO);
+    const authored = ['title', 'covered', 'handoff'].filter(function (k) { return str(lo[k]).trim(); });
+    if (!authored.length) return [];
+    return [{
+      path: 'previousLO (' + authored.join(', ') + ')',
+      value: lo,
+      consequence: 'the coach loses what ran before this scenario — Scenario CML v4 has no field '
+        + 'for prior-learning-object context, so the exported document carries no record that any '
+        + 'was authored, and the production engine will open cold',
+    }];
+  }
+
   /* ---- the document skeleton -------------------------------------------
      normalize() must make a half-built draft SAFE TO RENDER without inventing
      content. Every container the editor binds into has to exist; not one string
@@ -685,7 +714,7 @@
   ];
 
   function renderFields(sec, H) {
-    const { tf, rowsBlock, rowCard, guidance, esc } = H;
+    const { tf, rowsBlock, rowCard, subRows, guidance, esc } = H;
     const box = document.createElement('div');
     box.className = 'fields';
 
@@ -776,11 +805,18 @@
     }
 
     if (sec.id === 'teaching') {
+      /* `points` is a LIST, and it used to be bound as `points.0` — one field,
+         showing the first point and hiding every other one. That is not a
+         cosmetic limit: all 36 topics across the production documents carry more
+         than one point (up to 10), so opening a real scenario showed an LXD a
+         quarter of its teaching content with nothing on screen saying so. The
+         hidden points survived export, which is why the round-trip check stayed
+         green while the editor was lying about what the document contained. */
       box.append(rowsBlock('content.teaching_points', (t, i, onDel) => rowCard(
         `Topic ${i + 1}`, onDel,
         tf(`content.teaching_points.${i}.topic`, 'Topic', { helper: 'A subject heading, e.g. "The law".' }),
-        tf(`content.teaching_points.${i}.points.0`, 'Point', { area: true, minRows: 2,
-          helper: 'A substantive thing the learner must leave understanding.' }),
+        subRows(`content.teaching_points.${i}.points`, 'Point', 'Add point',
+          'A substantive thing the learner must leave understanding.'),
       ), 'Add topic', () => ({ topic: '', points: [''] })));
       box.append(rowsBlock('content.misconceptions', (m, i, onDel) => rowCard(
         `Misconception ${i + 1}`, onDel,
@@ -819,11 +855,15 @@
           helper: 'The expert answer in one paragraph. Shipped verbatim, on every path.' }),
         tf('content.closing.partner_label', 'Display name on the closing screen', { helper: 'Optional.' }),
       );
+      /* Same list-bound-as-`.0` defect the teaching points had: 24 of the 37
+         component groups in the production documents carry more than one
+         component, so the expert answer an LXD could see and edit was 37 of 98
+         parts. Every part now has a field. */
       box.append(rowsBlock('content.closing.ideal_response.component_groups', (g, i, onDel) => rowCard(
         `Group ${i + 1}`, onDel,
         tf(`content.closing.ideal_response.component_groups.${i}.title`, 'Group title', { helper: 'Optional.' }),
-        tf(`content.closing.ideal_response.component_groups.${i}.components.0`, 'Component', { area: true, minRows: 2,
-          helper: 'One part of the expert answer, grouped as the source material groups it.' }),
+        subRows(`content.closing.ideal_response.component_groups.${i}.components`, 'Component', 'Add component',
+          'One part of the expert answer, grouped as the source material groups it.'),
       ), 'Add group', () => ({ title: '', components: [''] })));
       box.append(rowsBlock('content.closing.ideal_response.source_references', (r, i, onDel) => rowCard(
         `Reference ${i + 1}`, onDel,
@@ -1393,9 +1433,14 @@
     const wrap = document.createElement('div');
     if (!v4) { wrap.textContent = 'scenario-v4.js did not load.'; return wrap; }
 
-    const draft = prune(withoutShellKeys(normalize(H.getScenario ? H.getScenario() : {})));
+    const live = normalize(H.getScenario ? H.getScenario() : {});
+    const draft = prune(withoutShellKeys(live));
     const stripped = v4.stripExtensions(draft);
     const strict = v4.validate(stripped.doc, { strict: true });
+    /* Everything this export drops, from BOTH passes. The editor-only keys go
+       first because they are removed first, and because that removal is the one
+       an author cannot see anywhere else in the UI. */
+    const removed = shellKeysRemoved(live).concat(stripped.removed);
 
     /* status card */
     const ok = strict.errors.length === 0;
@@ -1409,18 +1454,26 @@
         + 'lints panel lists per section — authoring work, not export mechanics.';
     wrap.append(status);
 
-    /* what stripping costs — shown whether or not it blocks */
-    if (stripped.removed.length) {
+    /* What the export drops, and what that costs — shown whether or not it
+       blocks. Opened by default when anything is listed: this is the difference
+       between the file an author authored and the file they hand over, and the
+       previous version hid it behind a closed disclosure whose summary did not
+       say a field was going. */
+    if (removed.length) {
       const byConsequence = {};
-      stripped.removed.forEach(function (r) {
+      removed.forEach(function (r) {
         (byConsequence[r.consequence] = byConsequence[r.consequence] || []).push(r.path);
       });
-      wrap.append(guidance('What this export removes, and what that costs', 'fa-scissors',
-        '<p>The production format has not adopted our extension fields yet, so the export strips them. '
-        + 'Nothing else is changed.</p><ul>'
+      const block = guidance('What this export removes, and what that costs', 'fa-scissors',
+        '<p>Scenario CML v4 has no field for these yet, so the export drops them. Nothing else '
+        + 'in the document is changed — but each line below is authored content that will not '
+        + 'reach the production engine. Say so when you hand the file over.</p><ul>'
         + Object.keys(byConsequence).map(function (c) {
-          return '<li><b>' + byConsequence[c].length + ' field(s):</b> ' + esc(c) + '</li>';
-        }).join('') + '</ul>'));
+          return '<li><b>' + byConsequence[c].length + ' field(s):</b> ' + esc(c)
+            + '<br><span class="v4-paths">' + esc(byConsequence[c].join(' · ')) + '</span></li>';
+        }).join('') + '</ul>');
+      block.open = true;
+      wrap.append(block);
     }
 
     /* the file itself */
@@ -1544,6 +1597,20 @@
           + '23 of 29 POC V4 scenarios use the same string there, so its default is fine.)', i);
       });
     }
+
+    /* Prior-scenario context has no field in v4, so it is dropped on export.
+       Flagged HERE, at authoring time, and not only in the Export panel: an
+       author fills that block, sees it honoured in Preview, and would otherwise
+       have no reason to open Export before handing the file over. A warning
+       rather than an error — the scenario loads fine without it; what is lost is
+       the coach knowing what ran before. */
+    arr(shellKeysRemoved(normalize(s))).forEach(function (r) {
+      add('warn', 'basics', 'Prior-scenario context is authored, but Scenario CML v4 has no field for it — '
+        + 'the Dev handoff export drops it.',
+        'It reaches the coach in Preview, so the scenario you playtest is not the scenario production runs. '
+        + 'Approved for the model on 2026-08-18; still waiting on a home in the format. '
+        + 'Fields authored: ' + r.path.replace(/^previousLO \(|\)$/g, '') + '.');
+    });
 
     /* A headline, so the author knows where they stand without counting rows. */
     if (!report.errors.length) {

@@ -202,6 +202,7 @@ studioApi = {
   tf(path, label, opts),      // a bound vaadin-text-field / -area
   rowsBlock(listPath, renderRow, addLabel, makeItem),  // add/remove list editor
   rowCard(...),               // a single list row
+  subRows(listPath, itemLabel, addLabel, helper),  // a NESTED list of plain strings
   guidance(summary, icon, bodyHTML),  // collapsed guidance disclosure
   esc(str),                   // HTML-escape
   getScenario(),              // the live draft
@@ -212,6 +213,16 @@ studioApi = {
   toast(msg),
 }
 ```
+
+> **Never bind a list member by a hard-coded index.** `tf('…points.0', …)` looks
+> like one field for a one-item list and is a data-fidelity bug the moment a real
+> document arrives: it shows entry 0 and hides the rest, and because the hidden
+> entries survive export nothing fails — not the lints, not
+> `tools/roundtrip-check.js`. Two fields were bound this way
+> (`teaching_points[i].points`, `closing.ideal_response.component_groups[i].components`)
+> and between them made 152 authored fields across the eleven production
+> documents invisible and un-editable. `subRows` is what those lists use now; use
+> it for any nested string array.
 
 Fields carry a `data-path`; edits flow back into the draft by path. Sections
 declare a `group` (`meta` · `context` · `interaction` · `learn` · `practice` ·

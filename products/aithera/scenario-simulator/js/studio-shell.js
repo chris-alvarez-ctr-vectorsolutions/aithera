@@ -40,6 +40,14 @@
   // rules; this is just a thin call so old call-sites read the same).
   function mergeScenario(draft) { return type.merge(draft); }
 
+  /* Did this session boot with nothing — no saved draft, no deep link? That is a
+     first visit in this browser, and it is a different situation from opening a
+     scenario: there is nothing to lose, and nothing to edit either. Recorded here
+     because two places downstream need to know it (the New scenario front door
+     below, and snapshotDraft, which must not park an untouched empty document in
+     Local drafts as a phantom "(untitled)" entry). */
+  let bootedEmpty = false;
+
   let scenario = (() => {
     // ?example=<id> opens a curated example (e.g. the WPV FINAL "reading-the-warning-signs")
     // straight into the editor. Non-destructive: it becomes the working draft but
@@ -47,9 +55,61 @@
     const exId = new URLSearchParams(location.search).get('example');
     const ex = exId && type.EXAMPLES && type.EXAMPLES[exId];
     if (ex) return type.normalize(clone(ex));
-    try { return mergeScenario(JSON.parse(localStorage.getItem(type.store.keys.draft))); }
-    catch (e) { return type.normalize(clone(type.DEFAULT)); }
+    /* READ THE STRING FIRST, and test it. This used to be
+       `mergeScenario(JSON.parse(localStorage.getItem(...)))` inside a try/catch
+       that fell back to the type's DEFAULT — but with no stored draft
+       `getItem` returns null and `JSON.parse(null)` returns null WITHOUT
+       throwing, so the catch never ran and merge(null) produced an empty
+       document. The intended fallback was dead code for the one case it existed
+       for, and a first-time author landed on a blank three-column form with a
+       red dot on every section and nothing telling them where to start. */
+    let raw = null;
+    try { raw = localStorage.getItem(type.store.keys.draft); } catch (e) { raw = null; }
+    if (raw) {
+      try { return mergeScenario(JSON.parse(raw)); }
+      /* A corrupt draft is a real failure and must not silently become a blank
+         page either — say so, and hand back an empty document to work in. */
+      catch (e) { bootedEmpty = true; return type.normalize(type.blank ? type.blank() : clone(type.DEFAULT)); }
+    }
+    bootedEmpty = true;
+    /* Empty, not DEFAULT. DEFAULT is one of the seven starting templates (Mix &
+       Match), fully written demo prose — booting into it hands a first-time
+       author someone else's scenario to edit and no way to tell. The New scenario
+       panel is the front door instead; it opens itself below. */
+    return type.normalize(type.blank ? type.blank() : clone(type.DEFAULT));
   })();
+
+  /* ---- "has anyone actually authored anything yet?" ----------------------
+     Asked before a New scenario / template / wizard pick overwrites the draft:
+     an in-progress draft gets snapshotted into Local drafts first, an untouched
+     starting point does not.
+
+     It has to be measured with the SHELL'S OWN keys set aside. `ensureCtx()`
+     writes `contextSource` and `previousLO` into the draft the moment the form
+     builds, so a document nobody has typed a character into is already not
+     byte-equal to the baseline it booted from. Comparing raw is what parked a
+     phantom "(untitled)" snapshot in Local drafts on the first New scenario click
+     of every fresh browser.
+
+     Prior-scenario context is still counted as work when it has text in it —
+     the shell made the container, the author made the content. */
+  const SHELL_OWNED = ['contextSource', 'previousLO'];
+  function shellNeutral(doc) {
+    const d = clone(doc);
+    SHELL_OWNED.forEach((k) => { delete d[k]; });
+    return d;
+  }
+  const UNTOUCHED = (() => {
+    const bases = [clone(type.DEFAULT)].concat(type.blank ? [type.blank()] : []);
+    return bases.map((b) => { try { return JSON.stringify(shellNeutral(type.normalize(b))); } catch (e) { return null; } })
+      .filter(Boolean);
+  })();
+  function draftIsUntouched() {
+    const lo = (scenario && scenario.previousLO) || {};
+    if (['title', 'covered', 'handoff'].some((k) => String(lo[k] || '').trim())) return false;
+    try { return UNTOUCHED.indexOf(JSON.stringify(shellNeutral(type.normalize(clone(scenario))))) >= 0; }
+    catch (e) { return false; }   // can't tell ⇒ assume there is work to protect
+  }
 
   /* How many guardrail ERRORS currently block publishing. Written by the lint
      pass, read by the publish status line. Declared up here with the rest of the
@@ -212,6 +272,76 @@
     return wrap;
   }
 
+  /* A NESTED list of plain strings — the points inside a teaching topic, the
+     parts of an expert-answer group. Deliberately NOT rowsBlock + rowCard: that
+     pair gives every entry its own bordered card, and one level down that reads
+     as a card inside a card. What repeats here is a single field, not a record,
+     so it gets a field per entry and one shared line of guidance above them.
+
+     Why the helper exists at all: two of these lists were bound as
+     `<path>.<index>` with the index hard-coded to 0, which showed the first
+     entry and silently hid the rest — 152 authored fields across the eleven
+     production documents, invisible and un-editable, and preserved on export so
+     nothing ever failed. A type binding a nested string array should reach for
+     this instead of an index. */
+  function subRows(listPath, itemLabel, addLabel, helper) {
+    const wrap = document.createElement('div');
+    wrap.className = 'subrows';
+    wrap.dataset.list = listPath;
+    /* Absent and empty render identically, and the array is created lazily on
+       Add — v4 treats an empty optional array as invalid rather than absent. */
+    const readList = () => {
+      const list = getByPath(scenario, listPath);
+      return Array.isArray(list) ? list : null;
+    };
+    const render = () => {
+      wrap.innerHTML = '';
+      if (helper) {
+        const note = document.createElement('div');
+        note.className = 'subrows-help';
+        note.textContent = helper;
+        wrap.appendChild(note);
+      }
+      const list = readList() || [];
+      list.forEach((_, i) => {
+        const row = document.createElement('div');
+        row.className = 'subrow';
+        /* Numbered only when there is more than one — "Point 1" over a solitary
+           field claims a list the author cannot see. */
+        row.appendChild(tf(`${listPath}.${i}`, list.length > 1 ? `${itemLabel} ${i + 1}` : itemLabel,
+          { area: true, minRows: 2 }));
+        /* No remove on the last remaining entry: these lists are `minItems: 1`
+           in v4, so emptying one is a load failure, not a cleared field. */
+        if (list.length > 1) {
+          const del = document.createElement('button');
+          del.className = 'subdel';
+          del.type = 'button';
+          const name = `${itemLabel.toLowerCase()} ${i + 1}`;
+          del.title = `Remove ${name}`;
+          del.setAttribute('aria-label', `Remove ${name}`);
+          del.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+          del.addEventListener('click', () => { list.splice(i, 1); render(); scheduleUpdate(); });
+          row.appendChild(del);
+        }
+        wrap.appendChild(row);
+      });
+      const add = document.createElement('button');
+      add.className = 'addrow addrow-sub';
+      add.type = 'button';
+      add.innerHTML = `<i class="fa-solid fa-plus"></i> ${esc(addLabel)}`;
+      add.addEventListener('click', () => {
+        let target = readList();
+        if (!target) { setByPath(scenario, listPath, []); target = readList() || []; }
+        target.push('');
+        render();
+        scheduleUpdate();
+      });
+      wrap.appendChild(add);
+    };
+    render();
+    return wrap;
+  }
+
   function rowCard(title, onDelete, ...fields) {
     const card = document.createElement('div');
     card.className = 'rowcard';
@@ -234,7 +364,7 @@
      access to the current draft. A type builds its inputs with these and
      never re-implements them. */
   const studioApi = {
-    tf, rowsBlock, rowCard, guidance, esc,
+    tf, rowsBlock, rowCard, subRows, guidance, esc,
     getScenario: () => scenario,
     scheduleUpdate,
     /* Open one item of a SECTION LIST (see below) in the form. A type's own
@@ -1374,8 +1504,7 @@
      retired ?type= now resolves to the go-forward type before this runs. */
   function snapshotDraft() {
     try {
-      const pristine = JSON.stringify(type.normalize(clone(type.DEFAULT))) === JSON.stringify(scenario);
-      if (!pristine) { type.store.saveToLibrary(clone(scenario)); return true; }
+      if (!draftIsUntouched()) { type.store.saveToLibrary(clone(scenario)); return true; }
     } catch (e) { /* best effort — never block starting a new scenario */ }
     return false;
   }
@@ -1415,9 +1544,11 @@
       workerUrlKey: type.store.keys.workerUrl,
       getScenario: () => scenario,
       replaceScenario: (next) => {
+        /* Same question, same answer as snapshotDraft — routed through the one
+           helper so the wizard and the New scenario panel can never disagree
+           about whether there was work to protect. */
         try {
-          const pristine = JSON.stringify(type.normalize(clone(type.DEFAULT))) === JSON.stringify(scenario);
-          if (!pristine) type.store.saveToLibrary(clone(scenario));   // never eat an in-progress draft
+          if (!draftIsUntouched()) type.store.saveToLibrary(clone(scenario));   // never eat an in-progress draft
         } catch (e) { /* snapshot is best-effort */ }
         scenario = next;
         PHASES = computePhases();
@@ -1633,7 +1764,8 @@
           <section class="exp-card">
             <h3>Working draft <span class="exp-tag">.json</span></h3>
             <p>The draft exactly as it sits here, nothing stripped — for round-tripping
-               between Studio users, or for a colleague to load with Import JSON.</p>
+               between Studio users, or for a colleague to open with <b>New scenario → Open an
+               existing scenario</b>.</p>
             <div class="exp-act" id="expDraftAct"></div>
           </section>
           <section class="exp-card is-primary">
@@ -1851,3 +1983,10 @@
   update();
   // [V2] deep link: ?wizard=1 opens the start-from-scratch wizard directly.
   if (new URLSearchParams(location.search).get('wizard') === '1') openWizard();
+  /* First visit in this browser: show the front door rather than an empty form.
+     An author who boots with nothing has no scenario to edit, so the three-column
+     editor behind this is a lint dot on every section and no way to tell what to
+     do about it — the four ways to start are the answer, and they already exist.
+     Gated on `bootedEmpty` so it fires once per browser and never over a deep
+     link (?example=, ?wizard=) or a draft in progress. */
+  else if (bootedEmpty && !RETIRED_TYPE) openNewScenario();
