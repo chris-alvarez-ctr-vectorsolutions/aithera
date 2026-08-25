@@ -1630,7 +1630,7 @@ function renderApproachesRules(el) {
         <div class="page-header" style="gap:14px"><h2>Approaches &amp; Rules</h2></div>
         <div id="arSim" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
       </div>`;
-    renderSimulator(byId('arSim'), { seed: null, panelOnly: false, onBack: () => { ar.previewMode = false; renderMain(); } });
+    renderSimulator(byId('arSim'), { seed: null, panelOnly: false, noChat: true, onBack: () => { ar.previewMode = false; renderMain(); } });
     return;
   }
 
@@ -2265,6 +2265,7 @@ function initBuilder(seed) {
   const existingTop = existingRule ? rankEmployees(existingRule.config)[0]?.name : null;
   const existingThird = existingRule ? rankEmployees(existingRule.config)[2]?.name : null;
   const editExploratoryChips = existingRule ? [
+    'Preview ranking',
     existingTop ? `Why is ${existingTop} first?` : 'Why is the top employee first?',
     existingTop ? `How many hours does ${existingTop} have?` : 'How many hours does the top employee have?',
     existingThird ? `Where is ${existingThird} in the ranking?` : 'Where is a specific person in the ranking?',
@@ -2557,7 +2558,7 @@ function commitSave() { handleRuleSaved({ form: bld.form, existingRule: bld.exis
 function enterPreview() {
   if (bld.previewing) return;
   bld.previewing = true;
-  bld.messages.push({ role: 'ai', text: "Entering preview mode — the panel on the right is now a live callback simulator. Pick who accepts and run the chain to watch the order and accrued hours shift. Say “Exit preview” or hit Exit when you're done.", chips: ['Exit preview'] });
+  bld.messages.push({ role: 'ai', text: "Opened the ranking preview — a chat-free simulator for this rule. Set the approach, shift, and filters on the left; the predicted call order updates on the right. Hit Back when you're done.", chips: [] });
   renderBuilderShell();
 }
 function exitPreview() {
@@ -2890,6 +2891,14 @@ function builderBannerHtml() {
 
 function renderBuilderShell() {
   const el = bld.rootEl;
+  // Preview is CHAT-FREE: the full ranking simulator (Callback Settings on the
+  // left, the predicted call order / callback list on the right) takes over the
+  // whole screen — no chat pane. Its own Back button returns to the builder.
+  if (bld.previewing) {
+    el.innerHTML = '<div id="rbSim" style="flex:1;display:flex;flex-direction:column;overflow:hidden;height:100%"></div>';
+    renderSimulator(byId('rbSim'), { seed: { form: bld.form }, panelOnly: false, noChat: true, onBack: exitPreview });
+    return;
+  }
   el.innerHTML = `
   <div id="rule-builder" class="rb">
     <div id="rule-builder-chat" class="rb-chat">
@@ -2897,24 +2906,18 @@ function renderBuilderShell() {
       <div class="rb-thread" id="rbThread"></div>
       <div class="rb-input-foot" id="rbFoot"></div>
     </div>
-    ${bld.previewing
-      ? '<div id="rule-builder-config" class="rb-config"><div id="rbSim" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div></div>'
-      : bld.cfgOpen
-        ? '<div id="rule-builder-config" class="rb-config"><div class="cfg-head" id="cfgHead"></div><div class="cfg-scroll" id="cfgScroll"></div><div class="cfg-foot" id="cfgFoot"></div></div>'
-        : `<div class="rb-config-rail">
-             <button data-rb="open-config" style="display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:16px 0;color:rgba(0,0,0,.45)">
-               <i class="fa-solid fa-arrow-left" style="font-size:12px"></i>
-               <span style="font-size:10px;font-weight:500;writing-mode:vertical-rl;text-transform:uppercase;letter-spacing:.07em">Rule Config</span>
-             </button>
-           </div>`}
+    ${bld.cfgOpen
+      ? '<div id="rule-builder-config" class="rb-config"><div class="cfg-head" id="cfgHead"></div><div class="cfg-scroll" id="cfgScroll"></div><div class="cfg-foot" id="cfgFoot"></div></div>'
+      : `<div class="rb-config-rail">
+           <button data-rb="open-config" style="display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:16px 0;color:rgba(0,0,0,.45)">
+             <i class="fa-solid fa-arrow-left" style="font-size:12px"></i>
+             <span style="font-size:10px;font-weight:500;writing-mode:vertical-rl;text-transform:uppercase;letter-spacing:.07em">Rule Config</span>
+           </button>
+         </div>`}
   </div>`;
   renderBuilderChat();
   renderBuilderFoot();
-  if (bld.previewing) {
-    renderSimulator(byId('rbSim'), { seed: { form: bld.form }, panelOnly: true, onBack: exitPreview });
-  } else if (bld.cfgOpen) {
-    renderBuilderPanel();
-  }
+  if (bld.cfgOpen) renderBuilderPanel();
 }
 
 // ── Chat thread ──────────────────────────────────────────────────────
@@ -3400,9 +3403,16 @@ function renderBuilderPanel() {
   html += '</div>';
 
   scroll.innerHTML = html;
+  // Once the rule has enough set, a secondary "Preview ranking" button sits
+  // stacked on top of the Save Rule row — the chat side gets the matching chip.
   byId('cfgFoot').innerHTML = `
-    <vaadin-button theme="secondary" data-rb="back" style="flex:1">Cancel</vaadin-button>
-    <vaadin-button theme="primary" data-rb="save-rule" style="flex:1" ${skips > 0 ? 'disabled' : ''}>Save Rule</vaadin-button>`;
+    <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+      ${minInfoComplete() ? `<vaadin-button theme="secondary" data-rb="toggle-preview" style="width:100%"><i class="fa-regular fa-eye" style="font-size:12px;margin-right:6px"></i> Preview ranking</vaadin-button>` : ''}
+      <div style="display:flex;gap:10px">
+        <vaadin-button theme="secondary" data-rb="back" style="flex:1">Cancel</vaadin-button>
+        <vaadin-button theme="primary" data-rb="save-rule" style="flex:1" ${skips > 0 ? 'disabled' : ''}>Save Rule</vaadin-button>
+      </div>
+    </div>`;
 
   // Hydrate panel controls.
   scroll.querySelectorAll('[data-field-input]').forEach(inp => {
@@ -3525,7 +3535,7 @@ function initSimulator(opts) {
   }
   const baselineDate = new Date(2026, 4, 19, 8, 0, 0);
   sim = {
-    opts, seed, isFreshStart, panelOnly: !!opts.panelOnly, mode: opts.mode || 'preview', onBack: opts.onBack, onStart: opts.onStart,
+    opts, seed, isFreshStart, panelOnly: !!opts.panelOnly, noChat: !!opts.noChat, mode: opts.mode || 'preview', onBack: opts.onBack, onStart: opts.onStart,
     selectedRuleId, baselineDate,
     startDate: new Date(baselineDate.getTime() + 86400000),
     chainStart: null,
@@ -4109,12 +4119,12 @@ function renderSimulator(el, opts, isRerender) {
         </div>
       </div>` : `
       <div class="sim-left">
-        <div class="sim-tabbar">
+        ${sim.noChat ? '' : `<div class="sim-tabbar">
           <button class="sim-tab ${sim.leftTab === 'chat' ? 'active' : ''}" data-sim="tab" data-tab="chat">${sparkSvg(12, 'currentColor')} AI Chat</button>
           <button class="sim-tab ${sim.leftTab === 'settings' ? 'active' : ''}" data-sim="tab" data-tab="settings"><i class="fa-solid fa-gear" style="font-size:12px"></i> Callback Settings</button>
-        </div>
+        </div>`}
         <div class="sim-left-scroll">
-          ${sim.leftTab === 'chat' ? chatCard : settingsTab}
+          ${sim.noChat ? settingsTab : (sim.leftTab === 'chat' ? chatCard : settingsTab)}
         </div>
       </div>`) : ''}
       ${isCallback ? callbackRightCol : rightCol}
@@ -4306,52 +4316,27 @@ document.addEventListener('mousedown', (e) => {
 });
 
 /* ── Boot ───────────────────────────────────────────────────────────── */
-renderApp();
+// V1 lands directly in the rule builder with a complete rule already filled in,
+// so the author is one click from the chat-free ranking preview.
+startBuilder({ existingRule: RULES_DATA[0] });
 
 /* ── Flow Map host contract (Design Toolbox) ──────────────────────────────
-   One flow — the "Approaches & Rules" page journey. The 🗺 Flow Map button in
-   the toolbox dock drives these screens via applyFlowState; there is no in-page
-   flow switcher any more. Screens:
-     firstSetup  — Step 1: fresh account, no approaches yet (create your first approach)
-     approaches  — Step 2 / ENTRY: approaches exist, create your first rule (mock boots here)
-     builder     — dual-screen AI rule builder ("Add New Rule")
-     preview     — predicted-ranking simulator
-   With no #fm hash the mock boots into the 'approaches' entry via the default
-   app.flowVersion 'v2'. (The old FLOW pill's "Rules engine" variant is gone.) */
+   V1 is a two-screen flow driven by the 🗺 Flow Map button:
+     builder  — ENTRY: the AI rule builder, landing with a complete rule already
+                filled in (mock boots here). A "Preview ranking" button sits by
+                Save Rule on both the configure and chat sides.
+     preview  — the chat-free ranking simulator (Callback Settings + call order).
+   With no #fm hash the mock boots into the pre-filled builder via startBuilder(). */
 function applyFlowState(id, opts) {
   opts = opts || {};
-  app.creatingApproach = false;
-  app.savedToast = null;
   switch (id) {
-    case 'firstSetup':              // Step 1: fresh account — no approaches made yet
-      app.flowVersion = 'v1';       // v1 = first-time setup (create your first approach)
-      app.approachesCreated = false; app.createdName = '';
-      app.building = null; app.subNav = 'approaches';
-      ar.previewMode = false;
-      renderApp();
+    case 'preview':                 // chat-free ranking simulator, entered from the builder
+      startBuilder({ existingRule: RULES_DATA[0] });
+      enterPreview();
       break;
-    case 'approaches':              // ENTRY (Step 2): approaches exist, create your first rule
-      app.flowVersion = 'v2';
-      app.building = null; app.subNav = 'approaches';
-      ar.previewMode = false;
-      renderApp();
-      break;
-    case 'builder':                 // dual-screen rule builder ("Add New Rule")
-      app.flowVersion = 'v2';
-      ar.previewMode = false; app.subNav = 'approaches';
-      startBuilder({});             // sets app.building and re-renders
-      break;
-    case 'preview':                 // predicted-ranking simulator
-      app.flowVersion = 'v2';
-      app.building = null; app.subNav = 'approaches';
-      ar.previewMode = true;
-      renderApp();
-      break;
-    default:                        // unknown state → the entry screen
-      app.flowVersion = 'v2';
-      app.building = null; app.subNav = 'approaches';
-      ar.previewMode = false;
-      renderApp();
+    case 'builder':                 // ENTRY: pre-filled AI rule builder
+    default:
+      startBuilder({ existingRule: RULES_DATA[0] });
   }
   if (!opts.instant) window.scrollTo(0, 0);
 }
@@ -4368,27 +4353,21 @@ window.addEventListener('hashchange', bootFromHash);
 
 window.TOOLBOX_CONFIG = {
   flowMap: {
-    title: 'Approaches & Rules — Flow Map',
+    title: 'Rule Builder + Preview — Flow Map',
     applyState: 'applyFlowState',
-    canvas: { w: 1560, h: 440 },
+    canvas: { w: 900, h: 360 },
     flows: [
-      { id: 'ar', name: 'Approaches & Rules', pill: 'A', color: '#c9b8f0',
-        lane: { x: 20, y: 20, w: 1520, h: 400 }, labelXY: { x: 40, y: 40 } }
+      { id: 'rb', name: 'Rule Builder', pill: 'R', color: '#c9b8f0',
+        lane: { x: 20, y: 20, w: 860, h: 320 }, labelXY: { x: 40, y: 40 } }
     ],
     nodes: [
-      { id: 'firstSetup', flow: 'ar', x: 60, y: 170, step: 'Step 1', name: 'First setup', state: 'firstSetup', match: ['First setup', 'Create approach'],
-        desc: 'Fresh account — no approaches created yet. The Approaches & Rules page with an empty approaches list and the setup guide on step 1: "Create your first approach."' },
-      { id: 'approaches', flow: 'ar', entry: true, x: 420, y: 170, step: 'Step 2 · Entry', name: 'Rule step', state: 'approaches', match: ['Approaches & Rules', 'Create rule'],
-        desc: 'Entry point — the mock opens here. Approaches now exist, so the setup guide is on step 2: "Create your first ranking rule." Approaches and rules lists are populated.' },
-      { id: 'builder', flow: 'ar', x: 780, y: 170, step: 'Step 3', name: 'Rule Builder', state: 'builder', match: ['Add rule', 'New rule'],
-        desc: 'Dual-screen AI rule builder, as if "Add New Rule" was clicked: a guided chat on the left fills the live rule configuration on the right.' },
-      { id: 'preview', flow: 'ar', x: 1140, y: 170, step: 'Step 4', name: 'Preview Ranking', state: 'preview', match: ['Preview ranking'],
-        desc: 'The dispatch simulator predicts the call order the rule produces for a roster, so the author can sanity-check the ordering before saving. Optional step before saving.' }
+      { id: 'builder', flow: 'rb', entry: true, x: 90, y: 150, step: 'Step 1 · Entry', name: 'Rule Builder (pre-filled)', state: 'builder', match: ['Add new rule', 'Save Rule', 'Preview ranking'],
+        desc: 'The dual-screen AI rule builder, landing with a complete rule already filled in. Once enough is set, a secondary "Preview ranking" button appears next to Save Rule — on both the configure side and the chat side.' },
+      { id: 'preview', flow: 'rb', x: 470, y: 150, step: 'Step 2', name: 'Preview (chat-free)', state: 'preview', match: ['Preview Mode', 'Callback Settings', 'Predicted call order'],
+        desc: 'Chat-free ranking simulator — no AI chat. Callback Settings on the left (approach, shift, filters); the predicted call order / callback list on the right, updating as inputs change. Back returns to the builder.' }
     ],
     edges: [
-      ['firstSetup', 'approaches'],
-      ['approaches', 'builder'],
-      ['builder', 'preview', 'branch']
+      ['builder', 'preview']
     ]
   }
 };
