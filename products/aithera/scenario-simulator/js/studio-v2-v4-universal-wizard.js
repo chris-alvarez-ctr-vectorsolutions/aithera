@@ -534,10 +534,16 @@ Write the step JSON now.` };
               purpose: str(json.practice_purpose),
               exit: { when: { turns: clampInt(json.exit_turns, MODE_TURNS[mode]) } },
               transition: { button_label: str(json.practice_button_label).trim() || 'Talk it through' },
-              /* declared extension: no marker reads as "open", the safe default */
-              answer_shape: str(json.answer_shape).toLowerCase() === 'determinate' ? 'determinate' : 'open',
               interaction: {},
             };
+            /* Declared extension, SET ONLY WHEN DETERMINATE — an absent marker
+               already reads as open (the safe default), so recording 'open' would
+               declare an extension, earn a stripped-extension warning and make the
+               export lossy to say what saying nothing says. Assigned after the
+               literal rather than inside it, because `answer_shape: undefined`
+               still creates the key, and `'answer_shape' in practice` is what the
+               validator and prune() test. */
+            if (str(json.answer_shape).toLowerCase() === 'determinate') practice.answer_shape = 'determinate';
             if (str(json.exit_requirement).trim()) practice.exit.when.requirement = str(json.exit_requirement).trim();
 
             const it = practice.interaction;

@@ -93,7 +93,6 @@
                                               "requirement": "the learner (a) names the signs as Level 1 behaviors of concern — a pattern, not a mood, (b) starts a record, (c) reports up the chain, and (d) plans a private meeting with Ray"
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "opening_messages": [
                                               {
@@ -146,7 +145,6 @@
                                   "transition": {
                                         "button_label": "Step into the room"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "ray",
                                         "partner_label": "Ray",
@@ -213,7 +211,6 @@
                                   "transition": {
                                         "button_label": "Keep going"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "ray",
                                         "partner_label": "Ray",
@@ -280,7 +277,6 @@
                                   "transition": {
                                         "button_label": "Step into the moment"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "ray",
                                         "partner_label": "Ray",
@@ -459,7 +455,6 @@
                                   "transition": {
                                         "button_label": "Talk to Ms. Reyes"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "ms-reyes",
                                         "partner_label": "Ms. Reyes",
@@ -517,7 +512,6 @@
                                   "transition": {
                                         "button_label": "Continue"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "ms-reyes",
                                         "partner_label": "Ms. Reyes",
@@ -579,7 +573,6 @@
                                   "transition": {
                                         "button_label": "Sit down with Bianca"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "ms-reyes",
                                         "partner_label": "Ms. Reyes",
@@ -641,7 +634,6 @@
                                               "requirement": "the learner (a) files the report personally and follows the school’s process, (b) builds Sofia’s support plan WITH the family (safety/schedule, a named check-in adult, a counselor referral, Sofia’s voice — not mediation), (c) keeps the promise to Ms. Reyes by following up, and (d) names at least one preventive/climate step"
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "opening_messages": [
                                               {
@@ -832,7 +824,6 @@
                                               "turns": 2
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "opening_messages": [
                                               {
@@ -870,7 +861,6 @@
                                   "exit": {
                                         "when": {}
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "jake",
                                         "partner_label": "Jake",
@@ -1061,7 +1051,6 @@
                                   "transition": {
                                         "button_label": "Watch the clip"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "brief": [
                                               {
@@ -1105,7 +1094,6 @@
                                   "transition": {
                                         "button_label": "Say something to Dana"
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "character_id": "dana",
                                         "partner_label": "Dana",
@@ -1199,7 +1187,6 @@
                                               "requirement": "the learner answers the synthesis — \"tomorrow you're first on scene, walk me through your first moves\" — naming their own positioning at distance (upwind/uphill/back), closing the road both directions, opening the ERG, and the notifications (HazMat, law enforcement, incident command)"
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "exhibit": {
                                               "type": "video",
@@ -1345,7 +1332,6 @@
                                               "requirement": "the learner has named the majority of the observable hazards (the coverage target below) — or has had one look-again nudge"
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "exhibit": {
                                               "type": "image",
@@ -1435,7 +1421,6 @@
                                               "requirement": "the learner gives immediate, correct corrective action spanning stop-work / PPE and making the chemical identifiable (a current SDS, a legible label) — or has had one follow-up"
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "opening_messages": [
                                               {
@@ -1546,7 +1531,6 @@
                                               "requirement": "the learner explains the 10 required topics in their own words"
                                         }
                                   },
-                                  "answer_shape": "open",
                                   "interaction": {
                                         "opening_messages": [
                                               {

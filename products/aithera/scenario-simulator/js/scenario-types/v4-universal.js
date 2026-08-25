@@ -1118,15 +1118,19 @@
       const det = document.createElement('vaadin-checkbox');
       det.label = 'This step has a right answer the coach must land plainly';
       det.checked = practice.answer_shape === 'determinate';
+      /* Written only when TRUE, the same way the content-safety flags are — an
+         unmarked practice already reads as open, so recording 'open' buys nothing
+         and costs a warning plus a lossy export. */
       const onDet = () => {
-        practice.answer_shape = det.checked ? 'determinate' : 'open';
+        if (det.checked) practice.answer_shape = 'determinate';
+        else delete practice.answer_shape;
         scheduleUpdate();
       };
       det.addEventListener('change', onDet);
       det.addEventListener('checked-changed', onDet);
       body.append(det);
       body.append(guidance('Why this one is flagged in the lints', 'fa-flask',
-        '<p>Leave it off for a judgment or reflection step, where delivering a verdict defeats the point — the coach deepens what the learner said instead.</p>'
+        '<p>Leave it off for a judgment or reflection step, where delivering a verdict defeats the point — the coach deepens what the learner said instead. Off is also the default, and it records nothing — only turning it ON writes a field.</p>'
         + '<p>Scenario CML v4 has no field for this distinction yet, so it is carried as a declared extension: the scenario will not load in the production engine until the field is adopted, and the export can strip it (which makes every step read as having a right answer).</p>'));
 
       /* --- the interaction, per mode ---------------------------------- */
@@ -1368,7 +1372,11 @@
     return {
       id: 'step' + n, label: '', purpose: '',
       practice: {
-        mode: 'coach_inquiry', purpose: '', answer_shape: 'open',
+        /* No `answer_shape`: absent IS open (scenario-v4-runtime reads
+           `=== 'determinate'`), so writing 'open' declares an extension, earns a
+           stripped-extension warning and makes the export lossy — all to say
+           exactly what saying nothing says. */
+        mode: 'coach_inquiry', purpose: '',
         exit: { when: { turns: 2 } },
         transition: { button_label: '' },
         interaction: { opening_messages: [{ text: '' }] },
@@ -1378,9 +1386,23 @@
   }
 
   /* A bound number input. studioApi's tf() is for text, and a turn budget that
-     silently accepts "two" would fail the load with a type error. */
+     silently accepts "two" would fail the load with a type error.
+     -----------------------------------------------------------------------
+     This was `vaadin-integer-field`, which the Vector core bundle does not
+     register — not at v1.19.0, not at v1.22.3, and it is absent from the curated
+     element list in the themes/core CONTEXT. So every field built here was an
+     UNDEFINED custom element: 0px wide, no shadow root, no children, its label
+     and value living as JS properties on an inert node. Five inputs rendered as
+     nothing — the practice turn budget, a debrief's follow-up turns, both
+     mid-scene help budgets and the spot target — and `practice.exit.when.turns`
+     is REQUIRED, so the Validation panel demanded a field the author had no way
+     to fill. Silent, because an unknown tag is not an error.
+     `vaadin-number-field` is the registered one. `theme="outlined"` is not
+     optional on a Vector input: without it Vaadin's default filled style renders,
+     which is not the design system. */
   function numField(label, get, set, opts, onChange) {
-    const f = document.createElement('vaadin-integer-field');
+    const f = document.createElement('vaadin-number-field');
+    f.setAttribute('theme', 'outlined');
     f.label = label;
     f.stepButtonsVisible = true;
     if (opts && typeof opts.min === 'number') f.min = opts.min;
