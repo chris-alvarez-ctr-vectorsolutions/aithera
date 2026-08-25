@@ -1481,12 +1481,16 @@
     btn.textContent = ok ? 'Download .lo.json for dev' : 'Download anyway (will not load)';
     btn.setAttribute('theme', ok ? 'primary' : 'tertiary');
     btn.addEventListener('click', function () {
-      const stem = slugify(str(stripped.doc.implementation_id) || str(obj(stripped.doc.content).title) || 'scenario');
       const blob = new Blob([JSON.stringify(stripped.doc, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      /* The file stem IS the scenario_id in their service — their routing key. */
-      a.download = stem + '.lo.json';
+      /* Named by the shell's shared scheme (see exportName) rather than a second
+         one invented here, so the two artifacts an author downloads sort together
+         and a re-export never overwrites the previous one. The document's own
+         identity travels inside it, in `implementation_id`. */
+      a.download = H.exportName
+        ? H.exportName('', '.lo.json', stripped.doc)
+        : slugify(str(stripped.doc.implementation_id) || str(obj(stripped.doc.content).title) || 'scenario') + '.lo.json';
       a.click();
       URL.revokeObjectURL(a.href);
     });
@@ -1502,10 +1506,17 @@
        near-identical name. What the export strips is still reported above — that
        information was the useful half. See docs/V4-ALIGNMENT-NOTES.md. */
 
+    /* Was "named the way the service routes it — the file stem becomes the
+       scenario id". True of their loader read straight off a content directory,
+       misleading now: the document goes to the LMS, which owns storage and
+       versioning, and the scenario's identity travels INSIDE the file. */
     wrap.append(guidance('This is the file you upload back', 'fa-circle-question',
-      '<p>This is the document the production engine loads: our editor-only fields stripped, '
-      + 'strict-validated against its own loader rules, and named the way the service routes it — '
-      + 'the file stem becomes the scenario id. Download it and upload it back into the system.</p>'
+      '<p>This is the document the production engine loads: our editor-only fields stripped and '
+      + 'strict-validated against its own loader rules. Download it and upload it into the LMS, '
+      + 'which handles versioning from there — the scenario\'s own id travels inside the file, so '
+      + 'the filename is only for you.</p>'
+      + '<p>Every export is stamped with the date and time, so downloading twice gives you two '
+      + 'files rather than one overwriting the other.</p>'
       + '<p>It is not the same file as the <b>working draft</b>, which is this editor\'s own format '
       + 'and is only for passing a half-finished scenario to another editor user. If you are putting '
       + 'a scenario back into production, it is this one.</p>'));

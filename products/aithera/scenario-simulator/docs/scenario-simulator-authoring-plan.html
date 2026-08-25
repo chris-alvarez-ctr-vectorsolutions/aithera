@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The authoring plan — don't catch up to their editor, adopt their API</title>
+<title>The authoring plan — a lightweight CML editor, and the contract it tracks</title>
 <!-- ==========================================================================
      UNCATALOGUED SIBLING of the scenario-simulator-* notes. NOT in products.json.
 
@@ -17,8 +17,10 @@
      one squash and untouched since 13 Aug. The correction matters in BOTH
      directions and the page now makes the split explicitly — the UI is a porting
      artifact we should ignore, the authoring API is real infrastructure we should
-     adopt. Getting that split wrong in either direction is expensive: dismiss
-     both and we rebuild what exists; chase both and we race a parked prototype.
+     TRACK — we call none of it, but what it validates against and what it
+     builds IS the contract. Getting that split wrong either way is expensive:
+     dismiss both and we drift off the format; chase both and we race a parked
+     prototype and take on a runtime dependency nobody asked for.
 
      Every factual claim was read out of one of the two codebases and cites where,
      so anything here can be checked in front of whoever disputes it. Where WE got
@@ -162,7 +164,7 @@
 <div class="wrap">
 
   <p class="eyebrow">Aithera · Scenario Simulator · authoring plan</p>
-  <h1>Don’t catch up to their editor. Adopt their API.</h1>
+  <h1>Don’t catch up to their editor. Track their contract.</h1>
   <p class="lede">Six positions we are taking, six things we need back, and the mechanism that keeps the two sides aligned without another reconciliation meeting. Every claim here was read out of one of the two codebases and cites where.</p>
 
   <div class="oneline">
@@ -180,10 +182,10 @@
       <p><b>Nothing to catch up to.</b> Chasing a parked prototype would be the worst use of the next month, and it is the half we are best at anyway.</p>
     </div>
     <div class="half keep">
-      <p class="verdict">Adopt this half</p>
+      <p class="verdict">Track this half</p>
       <h4>The authoring API</h4>
-      <p>Registered in the live app (<code>app.include_router(authoring.router…)</code>) with its own <code>422</code> handler for structured validation failures. Atomic writes, the same validation gate as a save, runtime registry cache invalidation, a locked-scenario policy, and <b>three backend test suites</b>.</p>
-      <p><b>You do not get that as a side effect of porting a stylesheet.</b> It is considered infrastructure, and it is the half we would otherwise spend months rebuilding badly.</p>
+      <p>Registered in the live app (<code>app.include_router(authoring.router…)</code>) with its own <code>422</code> handler for structured validation failures. Atomic writes, the same validation gate as a save, registry cache invalidation, a locked-scenario policy, <b>three backend test suites</b>. You do not get that as a side effect of porting a stylesheet.</p>
+      <p><b>Track, not adopt — and that distinction is the whole plan.</b> We do not call it: the LMS owns storage and versioning, and a <code>PUT</code> here is live on the next request with no draft state and no versioning on a v4 document at all. What we track is what it <i>reveals</i> — the schema it validates against, the prompt it builds, the failure shape it reports. Those are the contract. The endpoints are just how they happen to expose it.</p>
     </div>
   </div>
 
@@ -195,8 +197,8 @@
   <div class="oneline" style="border-left-color:var(--accent);background:var(--panel);border-color:var(--line-2)">
     <span class="k" style="color:var(--accent-ink)">So who owns what</span>
     <p><b>Our editor stays the place LXDs go.</b> That has not changed and nothing in their repo changes it. What we are handing over is everything <i>behind</i> the editor — the format, the validator, the prompt builder, and eventually persistence. What stays ours is the authoring experience itself: the information architecture, the field set, the copy, the validation UX, the workflow.</p>
-    <p>Which is an upgrade, not a retreat. <b>An editor that calls their API stops being a prototype in the way that matters</b> — it edits real content, against real validation, showing the real prompt. That is what makes “the Writer Studio is the LXD path” true rather than aspirational, and it is most of the answer to the preview problem: we stop keeping a copy of their engine in step with them and start calling it.</p>
-    <p class="sub" style="margin:10px 0 0;font-size:14px">The end state, stated so nobody is surprised by it: when this is embedded in the Learning Object editor, the surface an LXD logs into will be built in their stack, not ours. Until then our editor is <i>both</i> the LXD tool and the specification for that surface. After it, the specification only.</p>
+    <p>Concretely, that makes our editor a <b>lightweight in-browser editor of Scenario CML</b>: open a file, edit it, export it, and the LMS takes it from there and owns versioning and publish. It calls nothing and depends on nothing at runtime. What we owe the format is not a connection — it is <b>fidelity</b>: showing every field a real document contains, validating the way their loader does, and never claiming an output is theirs when it is ours.</p>
+    <p class="sub" style="margin:10px 0 0;font-size:14px">The end state, stated so nobody is surprised by it: when this is embedded in the Learning Object editor, the surface an LXD logs into will be built in their stack, not ours. Until then our editor is <i>both</i> the LXD tool and the specification for that surface. After it, the specification only. Nothing in the plan below assumes a running service, so none of it is blocked on them.</p>
   </div>
 
   <h2>Where we actually are</h2>
@@ -204,7 +206,7 @@
   <ul class="tight">
     <li><b>We were showing an LXD about a third of a real scenario, and we found it by measuring instead of assuming.</b> Two nested lists were bound to index <code>0</code> — a teaching topic’s <code>points</code> and an expert-answer group’s <code>components</code>. Across the eleven live documents that hid <b>91 teaching points and 61 expert-answer components: 152 authored fields</b>, invisible and un-editable. They survived export, so nothing failed. Fixed and verified against <code>marshall.lo.json</code>.</li>
     <li><b>On that exact problem, their port got it right and we got it wrong.</b> <code>SectionForm.tsx</code> renders both lists with <code>StringListField</code>. Concede it early and without hedging — it is the cheapest credibility in the room, and it makes the harder positions land as engineering rather than territory.</li>
-    <li><b>Our dev-handoff export was silently dropping the one thing the 18 August meeting approved.</b> Prior-learning-object context reached the coach in our preview and was deleted from the exported file, under a panel that said <i>“nothing else is changed.”</i> Now reported at export with exact paths, and flagged in Validation while authoring. It still does not reach production — ask 3.</li>
+    <li><b>Our dev-handoff export was silently dropping the one thing the 18 August meeting approved.</b> Prior-learning-object context reached the coach in our preview and was deleted from the exported file, under a panel that said <i>“nothing else is changed.”</i> Now reported at export with exact paths, and flagged in Validation while authoring. It still does not reach production — ask 1.</li>
     <li><b>The schema and the spec have been frozen since 13 August, and that explains most of what looks like disagreement.</b> The optional <code>neutral</code> tier the meeting granted is in neither file — not because anyone changed their mind, but because <b>nobody has opened either file since before the meeting happened.</b> Read the open items that way and they get much easier to close.</li>
     <li><b>Their format is in better shape than the conversation suggests.</b> <code>lo_cml_v4.schema.json</code> is closed at the root and on all 33 <code>$defs</code>, the loader gates on <code>schema_version</code> matching <code>^4\.</code>, and <code>lo_v4.py</code> normalises a v4 document onto the same internal model the v3 builders consume — so the engine, the prompt serialisers and the goldens never see a version. Good design. Also why the drift we do have stays invisible until it bites.</li>
   </ul>
@@ -227,15 +229,16 @@
 
   <div class="pos">
     <p class="n">Position 02</p>
-    <h3>One prompt builder, and it is theirs</h3>
+    <h3>Our prompt is not their prompt, and the pane should say so</h3>
     <dl>
       <dt>We do</dt>
-      <dd>Point the <b>Compiled prompt</b> pane at <code>POST /authoring/preview-prompt</code> and render its <code>spans[]</code> instead of our string-matched highlighting. Until that is wired, the pane gets labelled as our approximation rather than <i>“this exact text is what the AI runs on.”</i></dd>
-      <dd><b>And we take only the stateless half of their API.</b> <code>preview-prompt</code> persists nothing — envelope in, prompt and spans out, a pure function — so it composes with a file-based workflow where the LMS owns the document. <code>GET/PUT/copy/delete</code> we leave alone: see the two integration asks.</dd>
+      <dd>Stop claiming our compiled prompt is theirs. The pane says <i>“this exact text is what the AI runs on”</i>; it is not — it is built by <code>mix-arc</code>’s prompt builder, a reimplementation of <code>prompt_v3.build_coach_system</code>. Relabel it as our approximation. That is the whole action, it is ours alone, and it costs nothing.</dd>
       <dt>Because</dt>
-      <dd>Ours is built by <code>mix-arc</code>’s prompt builder — a reimplementation of <code>prompt_v3.build_coach_system</code>. Two prompt builders is worse than two validators, because the difference surfaces as behaviour an LXD judges the content by. Their endpoint already renders the real prompt with authored-vs-template spans: the exact pane we hand-built.</dd>
+      <dd>Two prompt builders is worse than two validators: the difference surfaces as behaviour an LXD judges the content by, and neither side would notice it drifting. Saying so on the pane is not a fix, but it stops the tool asserting something untrue while the real fix waits for a reason to happen.</dd>
+      <dt>Not yet</dt>
+      <dd>Their <code>POST /authoring/preview-prompt</code> would be the real fix — it renders the actual prompt with authored-vs-template spans, and it persists nothing, so it composes fine with a file-based workflow. <b>But it is not a plan item.</b> It needs a reachable instance and CORS, and it 422s on any invalid document by design (<i>“so the inspector never renders a prompt from invalid content”</i>) while an authoring draft is invalid for nearly all of the time it is being written. Recorded as the option it is, not scheduled.</dd>
       <dt>Costs them</dt>
-      <dd>A reachable instance and CORS. This is also the honest answer to the preview problem — an LXD checking flow and prompt fidelity does not need our player kept in sync, they need their prompt and a deterministic walk of the arc.</dd>
+      <dd><b>Nothing.</b> There is no ask here.</dd>
     </dl>
   </div>
 
@@ -274,7 +277,7 @@
       <dt>Because</dt>
       <dd>All seven templates pre-set it — 18 occurrences in <code>scenario-v4-templates.js</code> — so <b>every new scenario opens with a stripped-extension warning per step, about a field the author never chose, and every export is lossy for no benefit.</b> We built a warning about our own default and pointed it at the LXD. Whatever the eventual answer, the current state is the only indefensible one.</dd>
       <dt>Costs them</dt>
-      <dd>A yes or a no on ask 5. Either is fine; silence is not.</dd>
+      <dd>A yes or a no on ask 3. Either is fine; silence is not.</dd>
     </dl>
   </div>
 
@@ -294,42 +297,34 @@
     </dl>
   </div>
 
-  <h2>Eight things we need back</h2>
-  <p class="sub">Each has a check attached, so “we’ll look at it” is visibly not an answer. <b>Asks 1–2 are the integration contract</b> and are new — they come out of reading what their persistence endpoints actually do. 3–5 block authoring work; 6–8 are cheap. Frame the format ones as <i>the first things to land next time someone opens the schema</i>, which is true and much easier to say yes to than a reversal.</p>
+  <h2>Six things we need back</h2>
+  <p class="sub">All six are about the <b>format</b>. Nothing here asks them to change their service, because nothing they do to their own persistence touches a tool that never calls it. Each has a check attached, so “we’ll look at it” is visibly not an answer. Asks 1–3 block authoring work; 4–6 are cheap. Frame all of them as <i>the first things to land next time someone opens the schema</i> — which is true, and much easier to say yes to than a reversal.</p>
   <div class="scroller">
   <table class="asks">
     <thead><tr><th>Ask</th><th>What we want, and what proves it landed</th></tr></thead>
     <tbody>
       <tr>
-        <td>1 · A save is not a publish</td>
-        <td><code>write_scenario</code> does <code>_atomic_write</code> then <code>lo_loader.get_registry.cache_clear()</code> — so a <code>PUT</code> is <b>live on the next request</b>. There is no draft state, no publish step, and <b>no versioning at all on a v4 document</b> (<code>revision_id</code> / <code>revision_number</code> are v3 envelope fields, minted only on <i>copy</i>; the code notes v4 has no revision fields). That is fine for eleven files in a content directory and wrong for the product, where the <b>LMS owns drafts, versions and publish</b> and the engine should read a document only once the LMS says it is published. <b>Check:</b> agreement that the LMS is the system of record, and where their engine reads from.</td>
-      </tr>
-      <tr>
-        <td>2 · Prompt preview for an invalid draft</td>
-        <td><code>preview-prompt</code> runs the full write gate and <code>422</code>s on any failure — deliberately: <i>“so the inspector never renders a prompt from invalid content.”</i> But <b>an authoring draft is invalid for almost the entire time it is being written</b>, so an inspector wired to this goes blank the moment a required field is empty, which is most of the session. We need a best-effort mode — render what the document currently supports and say what is missing — or the prompt builder exposed separately from the write gate. <b>Check:</b> a flag, or a second endpoint.</td>
-      </tr>
-      <tr>
-        <td>3 · Prior context</td>
+        <td>1 · Prior context</td>
         <td>Add <code>content.prior_context</code> — optional object, three optional strings (<code>title</code>, <code>covered</code>, <code>handoff</code>), free prose, coach-facing only — as a 4.x addition. <b>Or</b> tell us the engine injects it from the surrounding learning object, in which case we delete the fields and stop asking LXDs to type them. Today it is approved behaviour with nowhere to live, so the scenario an LXD playtests is not the one production runs. <b>Check:</b> the key exists in the schema, or the injection contract is written down.</td>
       </tr>
       <tr>
-        <td>4 · Optional neutral</td>
+        <td>2 · Optional neutral</td>
         <td>Land it or drop it. It is in neither the schema nor the spec — because neither file has been opened since before the meeting — and <code>opening.levels</code> already contradicts <code>levels</code> on the same point. We are <b>not</b> relaxing our validator on a verbal decision: we would rather block an author correctly than pass content their loader rejects. <b>Check:</b> <code>levels.required</code> in <code>lo_cml_v4.schema.json</code>.</td>
       </tr>
       <tr>
-        <td>5 · <code>answer_shape</code></td>
+        <td>3 · <code>answer_shape</code></td>
         <td>Adopt <code>practice.answer_shape: "determinate" | "open"</code>, or say no and we delete it. If the <code>ideal_response</code> proxy is the answer, tell us what would count as passing the test you asked us to run — “evaluate the current state first” is not a testable instruction. <b>Check:</b> a decision with a date.</td>
       </tr>
       <tr>
-        <td>6 · Four required fields</td>
+        <td>4 · Four required fields</td>
         <td><code>debrief.final_word</code>, <code>misconception</code>, <code>help_turns</code>, <code>spot_target</code>: required because something renders them, or spec residue? Each one that is residue removes real authoring work from the remaining 61-field gap. Two specifics: <code>help_turns</code> is documented as defaulting to 2 and arming a mid-scene help affordance <b>our prototype does not demonstrate at all</b> — if it ships in V1, we need to design it, and that is on us. And the spec says <code>spot_target</code> <i>“gates completion”</i> while <code>advancement.py</code> never reads it. <b>Check:</b> four one-word answers.</td>
       </tr>
       <tr>
-        <td>7 · Turn cost</td>
+        <td>5 · Turn cost</td>
         <td>Confirm the three-way split is final — clarifying question free, gibberish counts, refusal counts — and confirm the expectation that disengagement carries into coach feedback and the next phase. It needs state moving across phases; <code>transitions[].set</code> can carry it and nothing populates it today. We are out of line on purpose until this is confirmed, because it is one shared policy across every scenario type on our side. <b>Check:</b> written confirmation, then we change it.</td>
       </tr>
       <tr>
-        <td>8 · Safety, two narrow points</td>
+        <td>6 · Safety, two narrow points</td>
         <td>Not reopening the flags decision. But (a) a generic trauma-informed block that routes everything to a crisis line handles adult self-harm correctly and <b>a child-safety disclosure incorrectly</b> — mandated reporting plus 911 is a different obligation and a different destination; and (b) five of the six clauses in our minors provision are <i>portrayal</i> constraints applying on every turn, not disclosure tripwires, so they belong in the prompt template. <b>That needs no schema field and can land in V1.</b> <b>Check:</b> the routing split, and portrayal language in the template.</td>
       </tr>
     </tbody>
@@ -349,6 +344,7 @@
         <li>Guided Arc’s vocabulary out of the rail; <b>Guardrails → Validation</b>, matching their API</li>
         <li>Validation rows name the field the author sees; repeats collapse</li>
         <li>Template gallery down to <b>six honest shapes</b> — Branching Arc renamed <b>Escalating Situation</b>, Teach Back retired (see below)</li>
+        <li>Every export named <code>&lt;scenario&gt;-[draft-]&lt;date-time&gt;</code> — two downloads no longer collide, and every working draft is no longer called <code>scenario.json</code></li>
       </ul>
     </div>
     <div class="col">
@@ -366,11 +362,10 @@
       <h4>Then</h4>
       <p class="when">1–2 months · needs them</p>
       <ul>
-        <li>Editor calls <code>/authoring</code> for validation and prompt preview, behind a flag — <b>the one dependency worth having</b></li>
         <li><b>Flow-only preview</b> — a deterministic walk of steps, gates and close, needing no model and no player parity</li>
         <li>Host/guest field split for the Learning Object editor: title, <code>implementation_id</code>, CTA label, prior context, persistence and publish are all <b>host-owned</b>, which is most of our top bar and Start page</li>
         <li>Inspector becomes a drawer — three fixed columns do not survive being embedded</li>
-        <li>Export / Import demoted to a fallback once <code>PUT</code> is the real save</li>
+        <li>Import / export stays the workflow — the LMS owns storage and versioning, so nothing here waits on a backend</li>
       </ul>
     </div>
   </div>
@@ -390,9 +385,9 @@
     <ul>
       <li><b>Their studio UI, as a comparison.</b> Parked since the day it landed, and the half we are best at. Bringing it up invites a conversation about whose editor is better, which is not a decision anyone needs made.</li>
       <li><b>The eleven-day freeze, as a complaint.</b> It is the <i>explanation</i> for most of the open items and it should be used that way. A frozen file is a much easier thing to unfreeze than a disagreement is to resolve.</li>
-      <li><b>The extension envelope.</b> Declined, and correctly. Re-raising it costs credibility on ask 3, which is the one that matters.</li>
+      <li><b>The extension envelope.</b> Declined, and correctly. Re-raising it costs credibility on ask 1, which is the one that matters.</li>
       <li><b>Retry / rewind as a feature request.</b> They said no. The live question is ours: our prototype still demonstrates it, uncapped, and a prototype that demonstrates a declined feature actively misleads a team building from it. We pull it unless they want it shown.</li>
-      <li><b>The 61 remaining authoring fields.</b> Ours. Gated on ask 6 and nothing else.</li>
+      <li><b>The 61 remaining authoring fields.</b> Ours. Gated on ask 4 and nothing else.</li>
     </ul>
   </div>
 

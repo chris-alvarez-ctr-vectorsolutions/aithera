@@ -360,11 +360,53 @@
     return card;
   }
 
+  /* ---- ONE naming scheme for every file this tool hands out ---------------
+     Every working-draft export used to be called `scenario.json`. Two scenarios,
+     two exports, two files called the same thing — so the second landed in
+     Downloads as "scenario (1).json" and nothing on either one said which
+     scenario it held or which was newer. Re-exporting after an edit was worse:
+     same name again, and the browser silently picks.
+
+     `<slug>-<kind>-<stamp>` fixes all three: the scenario by name, which of the
+     two artifacts it is, and when it left. Repeat exports sort chronologically
+     and never collide.
+
+     The filename is for PEOPLE. The document carries its own identity inside it
+     (`implementation_id`), so nothing downstream should be parsing this — which
+     is what makes stamping it safe. Worth knowing, though: the production
+     loader resolves a scenario_id from the FILE STEM today, so if a document is
+     ever handed to that service directly rather than through the LMS, the stamp
+     is the part to drop. */
+  function exportStamp() {
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+  }
+  function exportSlug(scenarioObj) {
+    const s2 = scenarioObj || scenario;
+    const raw = (s2 && s2.implementation_id)
+      || (type.store && type.store.titleOf ? type.store.titleOf(s2) : '')
+      || 'scenario';
+    const slug = String(raw).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    /* A long title makes an unreadable filename; the stamp is what disambiguates,
+       so the slug only has to be recognisable. */
+    return (slug || 'scenario').slice(0, 48).replace(/-$/, '');
+  }
+  /* kind: 'draft' | '' — an empty kind is the handoff, whose stem stays as close
+     to the scenario id as the stamp allows. */
+  function exportName(kind, ext, scenarioObj) {
+    const bits = [exportSlug(scenarioObj), kind, exportStamp()].filter(Boolean);
+    return bits.join('-') + ext;
+  }
+
   /* The helper bundle handed to type.renderFields — DOM plumbing plus live
      access to the current draft. A type builds its inputs with these and
      never re-implements them. */
   const studioApi = {
     tf, rowsBlock, rowCard, subRows, guidance, esc,
+    /* Shared so a type's own export (the Dev handoff) is named by the same
+       scheme as the shell's, rather than inventing a second one. */
+    exportName,
     getScenario: () => scenario,
     scheduleUpdate,
     /* Open one item of a SECTION LIST (see below) in the form. A type's own
@@ -1590,10 +1632,10 @@
     const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'scenario.json';
+    a.download = exportName('draft', '.json');
     a.click();
     URL.revokeObjectURL(a.href);
-    toast('scenario.json downloaded');
+    toast('Working draft downloaded');
   }
 
   /* ---- NEW SCENARIO — one door ------------------------------------------
@@ -1778,7 +1820,8 @@
             <h3>Working draft <span class="exp-tag">.json</span></h3>
             <p>The draft exactly as it sits here, nothing stripped — for round-tripping
                between Studio users, or for a colleague to open with <b>New scenario → Open an
-               existing scenario</b>.</p>
+               existing scenario</b>. Stamped with the date and time, so a second download
+               sits beside the first instead of replacing it.</p>
             <div class="exp-act" id="expDraftAct"></div>
           </section>
           <section class="exp-card is-primary">
