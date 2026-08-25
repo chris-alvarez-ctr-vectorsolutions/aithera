@@ -1407,11 +1407,28 @@
     f.stepButtonsVisible = true;
     if (opts && typeof opts.min === 'number') f.min = opts.min;
     f.value = String(get());
+    /* A CHANGE HANDLER MUST NOT FIRE WHEN NOTHING CHANGED. `value-changed` is a
+       property event, not a user event: Vaadin emits it asynchronously after the
+       element upgrades, so the programmatic `f.value` above arrives back here
+       AFTER these listeners attach. Any onChange that repaints then rebuilds this
+       field, whose value is set again, which fires again — and the debrief's
+       "Follow-up turns" does exactly that (its onChange calls paint(), because 0
+       restructures the section). The result was twenty nested repaints and a
+       `Maximum call stack size exceeded` from inside the component bundle, which
+       marked every field built before it as failed: on screen, a step editor with
+       no inputs at all.
+
+       It never fired before because the tag used here was one the component
+       library does not register, so the element was inert and set nothing. Making
+       it a real field is what woke the loop up — worth remembering that a dead
+       control can hide a live bug. */
     const apply = () => {
       const n = parseInt(f.value, 10);
       if (Number.isNaN(n)) return;
       const min = opts && typeof opts.min === 'number' ? opts.min : 0;
-      set(Math.max(min, n));
+      const next = Math.max(min, n);
+      if (next === get()) return;          // nothing moved — do not repaint
+      set(next);
       if (typeof onChange === 'function') onChange();
     };
     f.addEventListener('change', apply);
