@@ -2880,11 +2880,6 @@ function builderBannerHtml() {
         <div style="margin-top:3px;font-size:11px;font-weight:600;color:rgba(255,255,255,.82);letter-spacing:.04em;text-transform:uppercase">${previewing ? 'Simulating the call order · read-only' : 'Powered by AI'}</div>
       </div>
       <div style="flex:1"></div>
-      ${minInfoComplete() ? `
-        <button class="rb-back" data-rb="toggle-preview" style="${previewing ? 'background:#fff;color:var(--ai-mid);font-weight:600' : 'font-weight:600'}">
-          <i class="fa-solid ${previewing ? 'fa-xmark' : 'fa-eye'}" style="font-size:11px"></i>
-          ${previewing ? 'Exit Preview' : 'Preview Mode'}
-        </button>` : ''}
     </div>
   </div>`;
 }
@@ -3262,6 +3257,25 @@ function renderBuilderPanel() {
       ${subtitle ? `<div class="ps-sub">${esc(subtitle)}</div>` : ''}
     </div>`;
 
+  // Live Rule Summary + Preview embedded at the top of the configuration — both
+  // update as the rule is edited. The full simulator is one tap away via the
+  // "Preview ranking" button in the footer (and the chat chip).
+  const cfgSummaryText = buildSummary(f);
+  const cfgHasDetails = f.tieBreaker || f.declineAction || f.lookBack || f.ruleAffects === 'selected';
+  const cfgPreviewBox = `
+    <div style="padding:16px 24px 0">
+      <div style="border:1px solid rgba(124,58,237,.28);border-radius:10px;overflow:hidden;background:linear-gradient(135deg, rgba(124,58,237,.06), rgba(99,102,241,.03))">
+        <div style="padding:11px 14px 12px;border-bottom:1px solid rgba(124,58,237,.16)">
+          <div class="muted-cap" style="color:var(--ai-mid);margin-bottom:6px">Rule Summary</div>
+          <div style="font-size:12.5px;line-height:1.55;color:rgba(24,39,58,.85)">${cfgHasDetails ? esc(cfgSummaryText) : '<span style="color:rgba(0,0,0,.4);font-style:italic">Fill in the rule below to see it summarized…</span>'}</div>
+        </div>
+        <div style="padding:11px 14px 12px">
+          <div class="muted-cap" style="margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="fa-regular fa-eye" style="font-size:11px;color:var(--ai-mid)"></i> Preview · predicted call order</div>
+          <div style="max-height:230px;overflow-y:auto;border:1px solid var(--hairline);border-radius:8px;padding:8px 10px;background:#fff">${previewRankingListHtml(f)}</div>
+        </div>
+      </div>
+    </div>`;
+
   let html = `
     ${skips > 0 ? `
     <div class="skipped-nudge">
@@ -3273,6 +3287,7 @@ function renderBuilderPanel() {
         </div>
       </div>
     </div>` : ''}
+    ${cfgPreviewBox}
     <div style="padding:16px 24px 8px">
     ${sect('Rule settings', 'Who it covers, how it ranks, and which shifts count.', true)}
     ${formGroup('Rule Name', `<input class="form-input" data-field-input="ruleName" value="${esc(f.ruleName)}" placeholder="e.g. Hours Based — Firefighter 2" />`)}`;
