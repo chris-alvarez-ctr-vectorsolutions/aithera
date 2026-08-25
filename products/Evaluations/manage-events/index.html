@@ -137,6 +137,39 @@
         .table-head-row vaadin-checkbox {
             white-space: nowrap;
         }
+        /* Expand/collapse all — same caret affordance as the rows below it */
+        .table-head-row .expand-all-trigger {
+            background: none; border: 0; padding: 4px;
+            font: inherit; color: #5a6470;
+            cursor: pointer; border-radius: 4px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .table-head-row .expand-all-trigger:hover { background: #e8ecf1; color: #1a1a1a; }
+        .table-head-row .expand-all-trigger:focus-visible {
+            outline: 2px solid #0271ce; outline-offset: -2px;
+        }
+        .table-head-row .expand-all-trigger .caret {
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: transform 0.15s ease;
+        }
+        .table-head-row .expand-all-trigger[aria-expanded="true"] .caret { transform: rotate(90deg); }
+        /* The tooltip overlay renders in a portal; the host itself must paint nothing.
+           `display: contents` would leak its text into the header cell — use `none`. */
+        .table-head-row vaadin-tooltip {
+            display: none;
+        }
+
+        /* Roster count — live feedback as filters narrow the list */
+        .table-head-row .roster-count {
+            font-weight: 500; color: #5a6470; white-space: nowrap;
+        }
+
+        /* Empty state when no attendee matches the active filters */
+        .roster-empty {
+            padding: 48px 16px; text-align: center; color: #5a6470;
+        }
+        .roster-empty i { font-size: 28px; color: #98a2ae; margin-bottom: 12px; display: block; }
+        .roster-empty p { margin: 0 0 12px; font-size: 15px; }
 
         /* ── User row ── */
         .user-row {
@@ -326,25 +359,166 @@
         .action-menu-item:hover { background: #f1f8ff; color: #0271ce; }
 
         /* ── Filters drawer (vwc-drawer slot styling) ── */
+        /* The panel starts at the bottom edge of the global TOP APP BAR (the strip
+           with the notification bell), covering the page-title row and filter card.
+           --page-chrome-height is measured in JS since the bar's height isn't a
+           safe constant. */
+        :root { --page-chrome-height: 0px; }
         vwc-drawer#filtersDrawer {
             --vwc-drawer-width: 380px;
+            /* The component's own offset hook. In overlay mode `.drawer-column` gets
+               `position: fixed; top: var(--_offset)` and
+               `height: calc(100vh - var(--_offset))`, which is exactly what we want. */
+            --vwc-drawer-offset-top: var(--page-chrome-height);
+            /* These feed the column's height calc AND its padding. Explicit 0 keeps
+               the panel flush to the viewport bottom. */
+            --vwc-drawer-margin-top: 0px;
+            --vwc-drawer-margin-bottom: 0px;
+        }
+        /* `.drawer-container` is a flex column holding [.drawer-header, drawer-content
+           slot]. It defaults to `overflow: auto`, which lets over-tall content scroll
+           the whole panel — including the footer — instead of keeping it pinned.
+           Own padding replaces the component's 8px/16px so the footer sits flush. */
+        vwc-drawer#filtersDrawer::part(drawer-container) {
+            padding: 12px 16px 0 !important;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;   /* the inner .ds-drawer-scroll owns scrolling */
+        }
+        /* Inside .drawer-container the children are .drawer-header and
+           `<slot name="drawer-content">`. The slot is `display: contents`, so our
+           .ds-drawer-content is the real flex item — verified in-browser: its
+           `flex: 1 1 auto` resolves to the height left after the header. */
+        /* Close glyph: the component rotates its collapse button 180° for
+           position=end (correct for a directional arrow, wrong for an X). */
+        vwc-drawer#filtersDrawer::part(collapse-button) { rotate: none; }
+        vwc-drawer#filtersDrawer > [slot="closeIcon"] {
+            font-size: 18px; color: #5a6470;
         }
         .ds-drawer-header { padding: 6px 4px 0; }
         .ds-drawer-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+        /* Content scrolls; the footer below stays pinned.
+           The host `.drawer-container` is a flex column of [.drawer-header, slot],
+           and this element is the slot's only child — so it must grow to claim the
+           leftover height. `height: 100%` would measure against the container's full
+           height (ignoring the header) and overflow by the header's height. */
         .ds-drawer-content {
             padding: 4px 4px 0;
             display: flex; flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;      /* allow the scroll area to shrink inside flex */
+            overflow: hidden;
         }
+        .ds-drawer-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        /* Sticky footer — pinned to the bottom of the panel, always reachable */
         .ds-drawer-footer {
-            margin-top: 8px;
-            padding-top: 16px; border-top: 1px solid #eef0f3;
+            flex: 0 0 auto;
+            margin-top: 0;
+            padding: 14px 4px 4px;
+            border-top: 1px solid #eef0f3;
+            background: #fff;
             display: flex; gap: 10px; justify-content: flex-end;
         }
         .filter-group { margin-bottom: 22px; }
+        /* Collapsible sections: the whole label row is the trigger */
+        .filter-group.is-collapsible { margin-bottom: 6px; }
+        .filter-group.is-collapsible h3 { margin: 0; }
+        .filter-section-toggle {
+            width: 100%;
+            display: flex; align-items: center; gap: 8px;
+            background: none; border: 0; padding: 8px 4px;
+            font: inherit; color: #5a6470;
+            text-transform: uppercase; letter-spacing: 0.04em;
+            font-size: 13px; font-weight: 700;
+            cursor: pointer; text-align: left;
+            border-radius: 4px;
+        }
+        .filter-section-toggle:hover { background: #f5f7fa; color: #1a1a1a; }
+        .filter-section-toggle:focus-visible {
+            outline: 2px solid #0271ce; outline-offset: -2px;
+        }
+        .filter-section-caret {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 12px; font-size: 11px; color: #98a2ae;
+            transition: transform 0.15s ease;
+        }
+        .filter-section-toggle[aria-expanded="true"] .filter-section-caret {
+            transform: rotate(90deg);
+        }
+        .filter-section-title { flex: 1 1 auto; }
+        /* Indent the search + options so they read as children of the section label.
+           Left inset aligns with the label text: the toggle's own 4px padding plus
+           its 12px caret and 8px gap = 24px. */
+        .filter-section-body {
+            /* 14px + the 9px margin = 23px, so the search field's border and the
+               checkbox squares line up with the section label text above them
+               (Vaadin controls carry ~10px of their own internal left padding). */
+            padding: 6px 4px 10px 14px;
+            border-left: 1px solid #eef0f3;
+            margin-left: 9px;   /* centers the rule under the caret (4px + 12px/2) */
+        }
+        .filter-group.is-collapsed .filter-section-body { display: none; }
+
         .filter-group h3 {
             margin: 0 0 10px; font-size: 13px; font-weight: 700;
             color: #5a6470; text-transform: uppercase; letter-spacing: 0.04em;
         }
+        /* Yes/No filters — group-field is flex by default, so this just sets the gap */
+        .filter-group .yes-no-filter::part(group-field) { gap: 20px; }
+
+        /* ── Searchable, height-capped option lists ── */
+        /* Search + bulk-action row. The search is deliberately narrower than full
+           width so the Select All / Clear All control shares the line. */
+        .filter-group .filter-search-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .filter-group .filter-search {
+            flex: 1 1 auto;
+            min-width: 0;   /* let the field shrink instead of forcing the row wider */
+        }
+        .filter-group .filter-search i {
+            color: #98a2ae; font-size: 13px;
+        }
+        /* Fixed column so the control doesn't jump between "Select All" and
+           "Clear All" — both labels reserve the same width. */
+        .filter-group .filter-select-all {
+            flex: 0 0 auto;
+            min-width: 78px;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+        /* Cap at 5 rows; overflow scrolls inside the group. The max-height is set
+           in JS from the measured 5th row so it tracks the theme's real row height
+           instead of a hardcoded guess. Until then, hidden overflow avoids a flash. */
+        .filter-group .filter-options {
+            overflow-y: auto;
+            overflow-x: hidden;
+            /* Room for the scrollbar so long labels don't sit under it */
+            padding-right: 4px;
+        }
+        .filter-group .filter-options vaadin-checkbox-group {
+            width: 100%;
+        }
+        /* Scrollbar styling — subtle, only meaningful when the list actually overflows */
+        .filter-group .filter-options::-webkit-scrollbar { width: 8px; }
+        .filter-group .filter-options::-webkit-scrollbar-track { background: transparent; }
+        .filter-group .filter-options::-webkit-scrollbar-thumb {
+            background: #d3d8de; border-radius: 4px;
+        }
+        .filter-group .filter-options::-webkit-scrollbar-thumb:hover { background: #b9c0c9; }
+        .filter-group .filter-no-match {
+            margin: 4px 0 0; font-size: 13px; color: #98a2ae; font-style: italic;
+        }
+        /* Hidden by search — display:none would collapse the group's layout */
+        .filter-group vaadin-checkbox[hidden] { display: none !important; }
         .date-range-row { display: flex; gap: 10px; }
         .date-range-row > vaadin-date-picker { flex: 1; }
 
@@ -627,7 +801,7 @@
                 <div class="filter-field-button">
                     <vaadin-button theme="secondary" id="openFiltersBtn">
                         <i class="fa-solid fa-sliders" slot="prefix"></i>
-                        Filters (<span id="filterCount">5</span>)
+                        Filters (<span id="filterCount">0</span>)
                     </vaadin-button>
                 </div>
             </div>
@@ -655,10 +829,19 @@
         <!-- Multi-session Table (default) -->
         <div class="table-card" id="multiSessionTable">
             <div class="table-head-row">
-                <div></div>
+                <div>
+                    <!-- Expand/collapse all — sits in the chevron column, above the row carets -->
+                    <button class="expand-all-trigger" id="expandAllToggle" type="button"
+                            aria-expanded="false" aria-controls="userRows"
+                            aria-label="Expand All">
+                        <span class="caret"><i class="fa-solid fa-chevron-right"></i></span>
+                    </button>
+                    <vaadin-tooltip id="expandAllTooltip" for="expandAllToggle"
+                                    text="Expand All" position="bottom-start"></vaadin-tooltip>
+                </div>
                 <div>User</div>
                 <div>School</div>
-                <div></div>
+                <div><span class="roster-count" id="rosterCount"></span></div>
                 <div class="right-cell">
                     <vaadin-checkbox id="selectAllSessions" label="Select All Filtered Sessions"></vaadin-checkbox>
                 </div>
@@ -725,62 +908,242 @@
 
     <!-- ── Filters Drawer (vwc-drawer overlay) ── -->
     <vwc-drawer id="filtersDrawer" overlay position="end" closable>
+        <!-- Replaces the component's default circled-arrow close glyph with an X -->
+        <i slot="closeIcon" class="fa-solid fa-xmark" aria-hidden="true"></i>
         <div slot="drawer-header" class="ds-drawer-header">
             <h2>Advanced Filters</h2>
         </div>
         <div slot="drawer-content" class="ds-drawer-content">
+          <!-- Scrolls; the CTA footer below stays pinned to the panel bottom -->
+          <div class="ds-drawer-scroll">
 
+            <!-- Option-list filters. Each is searchable and capped at 5 visible rows;
+                 anything beyond that scrolls inside the group (see .filter-options). -->
+            <div class="filter-group is-collapsible" data-section="user-roles">
+                <h3>
+                    <button class="filter-section-toggle" type="button"
+                            aria-expanded="true" aria-controls="sec-user-roles">
+                        <span class="filter-section-caret"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="filter-section-title">User Roles</span>
+                    </button>
+                </h3>
+                <div class="filter-section-body" id="sec-user-roles">
+                    <div class="filter-search-row">
+                    <vaadin-text-field class="filter-search" theme="outlined small"
+                                       placeholder="Search roles..." aria-label="Search User Roles">
+                        <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                    </vaadin-text-field>
+                    <!-- Acts on whatever the search currently shows, not the full list -->
+                    <vaadin-button class="filter-select-all" theme="tertiary small"
+                                   aria-label="Select all User Roles">Select All</vaadin-button>
+                </div>
+                <div class="filter-options">
+                    <vaadin-checkbox-group theme="vertical">
+                        <vaadin-checkbox value="administrator" label="Administrator" checked></vaadin-checkbox>
+                        <vaadin-checkbox value="teacher" label="Teacher"></vaadin-checkbox>
+                        <vaadin-checkbox value="coordinator" label="Coordinator"></vaadin-checkbox>
+                        <vaadin-checkbox value="staff" label="Staff"></vaadin-checkbox>
+                        <vaadin-checkbox value="provider" label="Provider"></vaadin-checkbox>
+                        <vaadin-checkbox value="student-services" label="Student Services"></vaadin-checkbox>
+                        <vaadin-checkbox value="principal" label="Principal"></vaadin-checkbox>
+                        <vaadin-checkbox value="assistant-principal" label="Assistant Principal"></vaadin-checkbox>
+                        <vaadin-checkbox value="counselor" label="Counselor"></vaadin-checkbox>
+                        <vaadin-checkbox value="paraprofessional" label="Paraprofessional"></vaadin-checkbox>
+                        <vaadin-checkbox value="substitute-teacher" label="Substitute Teacher"></vaadin-checkbox>
+                        <vaadin-checkbox value="athletic-director" label="Athletic Director"></vaadin-checkbox>
+                        <vaadin-checkbox value="nurse" label="Nurse"></vaadin-checkbox>
+                        <vaadin-checkbox value="bus-driver" label="Bus Driver"></vaadin-checkbox>
+                    </vaadin-checkbox-group>
+                    <p class="filter-no-match" hidden>No matches</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-group is-collapsible" data-section="schools">
+                <h3>
+                    <button class="filter-section-toggle" type="button"
+                            aria-expanded="true" aria-controls="sec-schools">
+                        <span class="filter-section-caret"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="filter-section-title">Schools</span>
+                    </button>
+                </h3>
+                <div class="filter-section-body" id="sec-schools">
+                    <div class="filter-search-row">
+                    <vaadin-text-field class="filter-search" theme="outlined small"
+                                       placeholder="Search schools..." aria-label="Search Schools">
+                        <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                    </vaadin-text-field>
+                    <!-- Acts on whatever the search currently shows, not the full list -->
+                    <vaadin-button class="filter-select-all" theme="tertiary small"
+                                   aria-label="Select all Schools">Select All</vaadin-button>
+                </div>
+                <div class="filter-options">
+                    <vaadin-checkbox-group theme="vertical">
+                        <vaadin-checkbox value="vector-elementary-school" label="Vector Elementary School"></vaadin-checkbox>
+                        <vaadin-checkbox value="vector-high-school" label="Vector High School" checked></vaadin-checkbox>
+                        <vaadin-checkbox value="oakwood-middle-school" label="Oakwood Middle School"></vaadin-checkbox>
+                        <vaadin-checkbox value="riverside-academy" label="Riverside Academy"></vaadin-checkbox>
+                        <vaadin-checkbox value="northgate-elementary-school" label="Northgate Elementary School"></vaadin-checkbox>
+                        <vaadin-checkbox value="southview-middle-school" label="Southview Middle School"></vaadin-checkbox>
+                        <vaadin-checkbox value="lakeside-high-school" label="Lakeside High School"></vaadin-checkbox>
+                        <vaadin-checkbox value="pinecrest-elementary-school" label="Pinecrest Elementary School"></vaadin-checkbox>
+                        <vaadin-checkbox value="summit-ridge-academy" label="Summit Ridge Academy"></vaadin-checkbox>
+                        <vaadin-checkbox value="westfield-career-center" label="Westfield Career Center"></vaadin-checkbox>
+                    </vaadin-checkbox-group>
+                    <p class="filter-no-match" hidden>No matches</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-group is-collapsible" data-section="grade-levels">
+                <h3>
+                    <button class="filter-section-toggle" type="button"
+                            aria-expanded="true" aria-controls="sec-grade-levels">
+                        <span class="filter-section-caret"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="filter-section-title">Grade Levels</span>
+                    </button>
+                </h3>
+                <div class="filter-section-body" id="sec-grade-levels">
+                    <div class="filter-search-row">
+                    <vaadin-text-field class="filter-search" theme="outlined small"
+                                       placeholder="Search grade levels..." aria-label="Search Grade Levels">
+                        <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                    </vaadin-text-field>
+                    <!-- Acts on whatever the search currently shows, not the full list -->
+                    <vaadin-button class="filter-select-all" theme="tertiary small"
+                                   aria-label="Select all Grade Levels">Select All</vaadin-button>
+                </div>
+                <div class="filter-options">
+                    <vaadin-checkbox-group theme="vertical">
+                        <vaadin-checkbox value="pre-kindergarten" label="Pre-Kindergarten"></vaadin-checkbox>
+                        <vaadin-checkbox value="kindergarten" label="Kindergarten"></vaadin-checkbox>
+                        <vaadin-checkbox value="grades-k-5" label="Grades K-5"></vaadin-checkbox>
+                        <vaadin-checkbox value="grades-6-8" label="Grades 6-8" checked></vaadin-checkbox>
+                        <vaadin-checkbox value="grades-9-12" label="Grades 9-12" checked></vaadin-checkbox>
+                        <vaadin-checkbox value="adult-education" label="Adult Education"></vaadin-checkbox>
+                        <vaadin-checkbox value="special-education" label="Special Education"></vaadin-checkbox>
+                        <vaadin-checkbox value="early-intervention" label="Early Intervention"></vaadin-checkbox>
+                        <vaadin-checkbox value="alternative-education" label="Alternative Education"></vaadin-checkbox>
+                    </vaadin-checkbox-group>
+                    <p class="filter-no-match" hidden>No matches</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-group is-collapsible" data-section="departments">
+                <h3>
+                    <button class="filter-section-toggle" type="button"
+                            aria-expanded="true" aria-controls="sec-departments">
+                        <span class="filter-section-caret"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="filter-section-title">Departments</span>
+                    </button>
+                </h3>
+                <div class="filter-section-body" id="sec-departments">
+                    <div class="filter-search-row">
+                    <vaadin-text-field class="filter-search" theme="outlined small"
+                                       placeholder="Search departments..." aria-label="Search Departments">
+                        <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                    </vaadin-text-field>
+                    <!-- Acts on whatever the search currently shows, not the full list -->
+                    <vaadin-button class="filter-select-all" theme="tertiary small"
+                                   aria-label="Select all Departments">Select All</vaadin-button>
+                </div>
+                <div class="filter-options">
+                    <vaadin-checkbox-group theme="vertical">
+                        <vaadin-checkbox value="athletics" label="Athletics"></vaadin-checkbox>
+                        <vaadin-checkbox value="mathematics" label="Mathematics"></vaadin-checkbox>
+                        <vaadin-checkbox value="science" label="Science"></vaadin-checkbox>
+                        <vaadin-checkbox value="hr-department" label="HR department" checked></vaadin-checkbox>
+                        <vaadin-checkbox value="student-services" label="Student Services"></vaadin-checkbox>
+                        <vaadin-checkbox value="english-language-arts" label="English Language Arts"></vaadin-checkbox>
+                        <vaadin-checkbox value="social-studies" label="Social Studies"></vaadin-checkbox>
+                        <vaadin-checkbox value="world-languages" label="World Languages"></vaadin-checkbox>
+                        <vaadin-checkbox value="fine-arts" label="Fine Arts"></vaadin-checkbox>
+                        <vaadin-checkbox value="special-education" label="Special Education"></vaadin-checkbox>
+                        <vaadin-checkbox value="technology" label="Technology"></vaadin-checkbox>
+                        <vaadin-checkbox value="facilities" label="Facilities"></vaadin-checkbox>
+                        <vaadin-checkbox value="transportation" label="Transportation"></vaadin-checkbox>
+                    </vaadin-checkbox-group>
+                    <p class="filter-no-match" hidden>No matches</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-group is-collapsible" data-section="enrollment-status">
+                <h3>
+                    <button class="filter-section-toggle" type="button"
+                            aria-expanded="true" aria-controls="sec-enrollment-status">
+                        <span class="filter-section-caret"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="filter-section-title">Enrollment Status</span>
+                    </button>
+                </h3>
+                <div class="filter-section-body" id="sec-enrollment-status">
+                    <div class="filter-search-row">
+                    <vaadin-text-field class="filter-search" theme="outlined small"
+                                       placeholder="Search statuses..." aria-label="Search Enrollment Status">
+                        <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                    </vaadin-text-field>
+                    <!-- Acts on whatever the search currently shows, not the full list -->
+                    <vaadin-button class="filter-select-all" theme="tertiary small"
+                                   aria-label="Select all Enrollment Status">Select All</vaadin-button>
+                </div>
+                <div class="filter-options">
+                    <vaadin-checkbox-group theme="vertical">
+                        <vaadin-checkbox value="enrolled" label="Enrolled"></vaadin-checkbox>
+                        <vaadin-checkbox value="waitlisted" label="Waitlisted"></vaadin-checkbox>
+                        <vaadin-checkbox value="completed" label="Completed"></vaadin-checkbox>
+                        <vaadin-checkbox value="pending" label="Pending"></vaadin-checkbox>
+                        <vaadin-checkbox value="pending-approval" label="Pending Approval"></vaadin-checkbox>
+                        <vaadin-checkbox value="approved" label="Approved"></vaadin-checkbox>
+                        <vaadin-checkbox value="declined" label="Declined"></vaadin-checkbox>
+                        <vaadin-checkbox value="cancelled" label="Cancelled"></vaadin-checkbox>
+                        <vaadin-checkbox value="no-show" label="No Show"></vaadin-checkbox>
+                        <vaadin-checkbox value="withdrawn" label="Withdrawn"></vaadin-checkbox>
+                    </vaadin-checkbox-group>
+                    <p class="filter-no-match" hidden>No matches</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attendance/credit state filters — yes/no, unset means "no preference" -->
             <div class="filter-group">
-                <h3>User Roles</h3>
-                <vaadin-checkbox-group theme="vertical">
-                    <vaadin-checkbox label="Administrator" checked></vaadin-checkbox>
-                    <vaadin-checkbox label="Teacher"></vaadin-checkbox>
-                    <vaadin-checkbox label="Coordinator"></vaadin-checkbox>
-                    <vaadin-checkbox label="Staff"></vaadin-checkbox>
-                    <vaadin-checkbox label="Provider"></vaadin-checkbox>
-                    <vaadin-checkbox label="Student Services"></vaadin-checkbox>
-                </vaadin-checkbox-group>
+                <h3>Signed In</h3>
+                <vaadin-radio-group class="yes-no-filter" data-filter="signedIn">
+                    <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
+                    <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
+                </vaadin-radio-group>
             </div>
 
             <div class="filter-group">
-                <h3>Schools</h3>
-                <vaadin-checkbox-group theme="vertical">
-                    <vaadin-checkbox label="Vector Elementary School"></vaadin-checkbox>
-                    <vaadin-checkbox label="Vector High School" checked></vaadin-checkbox>
-                    <vaadin-checkbox label="Oakwood Middle School"></vaadin-checkbox>
-                    <vaadin-checkbox label="Riverside Academy"></vaadin-checkbox>
-                </vaadin-checkbox-group>
+                <h3>Credits Approved</h3>
+                <vaadin-radio-group class="yes-no-filter" data-filter="creditsApproved">
+                    <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
+                    <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
+                </vaadin-radio-group>
             </div>
 
             <div class="filter-group">
-                <h3>Grade Levels</h3>
-                <vaadin-checkbox-group theme="vertical">
-                    <vaadin-checkbox label="Grades K-5"></vaadin-checkbox>
-                    <vaadin-checkbox label="Grades 6-8" checked></vaadin-checkbox>
-                    <vaadin-checkbox label="Grades 9-12" checked></vaadin-checkbox>
-                    <vaadin-checkbox label="Adult Education"></vaadin-checkbox>
-                </vaadin-checkbox-group>
+                <h3>Credits Released</h3>
+                <vaadin-radio-group class="yes-no-filter" data-filter="creditsReleased">
+                    <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
+                    <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
+                </vaadin-radio-group>
             </div>
 
             <div class="filter-group">
-                <h3>Departments</h3>
-                <vaadin-checkbox-group theme="vertical">
-                    <vaadin-checkbox label="Athletics"></vaadin-checkbox>
-                    <vaadin-checkbox label="Mathematics"></vaadin-checkbox>
-                    <vaadin-checkbox label="Science"></vaadin-checkbox>
-                    <vaadin-checkbox label="HR department" checked></vaadin-checkbox>
-                    <vaadin-checkbox label="Student Services"></vaadin-checkbox>
-                </vaadin-checkbox-group>
+                <h3>Feedback</h3>
+                <vaadin-radio-group class="yes-no-filter" data-filter="feedback">
+                    <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
+                    <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
+                </vaadin-radio-group>
             </div>
 
             <div class="filter-group">
-                <h3>Enrollment Status</h3>
-                <vaadin-checkbox-group theme="vertical">
-                    <vaadin-checkbox label="Enrolled"></vaadin-checkbox>
-                    <vaadin-checkbox label="Waitlisted"></vaadin-checkbox>
-                    <vaadin-checkbox label="Completed"></vaadin-checkbox>
-                    <vaadin-checkbox label="Pending"></vaadin-checkbox>
-                </vaadin-checkbox-group>
+                <h3>Evidence</h3>
+                <vaadin-radio-group class="yes-no-filter" data-filter="evidence">
+                    <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
+                    <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
+                </vaadin-radio-group>
             </div>
 
             <div class="filter-group">
@@ -790,6 +1153,8 @@
                     <vaadin-date-picker theme="outlined" label="To"></vaadin-date-picker>
                 </div>
             </div>
+
+          </div><!-- /.ds-drawer-scroll -->
 
             <div class="ds-drawer-footer">
                 <vaadin-button theme="tertiary" id="clearFiltersBtn">Clear All</vaadin-button>
@@ -1004,13 +1369,75 @@
             'declined':  'Declined',
         };
 
-        // Sessions belonging to each user (per the Figma screenshot)
+        // Session catalog — the four sessions every attendee is enrolled in (per the Figma).
         const sessions = [
-            { title: 'Event Introduction Meeting',          details: '10/20/2025 8:30 am - Vector Elementary School',  status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'submitted',     signIn: 'Master Password',   creditsReleased: 'Yes' },
-            { title: 'Head Trauma and Concussion Management', details: '10/20/2025 9:00 am - Vector Elementary School',  status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'approved',      signIn: 'Master Password',   creditsReleased: 'Yes' },
-            { title: 'Falls, Twists, and Sprains',          details: '10/20/2025 10:00 am - Vector Elementary School', status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'not-submitted', signIn: 'By Code',           creditsReleased: 'Yes' },
-            { title: 'Transportation Policies',             details: '10/20/2025 11:00 am - Vector Elementary School', status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'declined',      signIn: 'Attendee Password', creditsReleased: 'Yes' },
+            { title: 'Event Introduction Meeting',            details: '10/20/2025 8:30 am - Vector Elementary School',  status: 'Enrolled', credit: '1 ISH' },
+            { title: 'Head Trauma and Concussion Management', details: '10/20/2025 9:00 am - Vector Elementary School',  status: 'Enrolled', credit: '1 ISH' },
+            { title: 'Falls, Twists, and Sprains',            details: '10/20/2025 10:00 am - Vector Elementary School', status: 'Enrolled', credit: '1 ISH' },
+            { title: 'Transportation Policies',               details: '10/20/2025 11:00 am - Vector Elementary School', status: 'Enrolled', credit: '1 ISH' },
         ];
+
+        // Per-user, per-session attendance state.
+        //
+        // The filters below are only testable if the roster contains a real spread of
+        // states, so this is authored rather than uniform: some users are fully complete,
+        // some fully outstanding, and several are MIXED across their four sessions.
+        // Mixed users are the interesting case — a user matches a filter when ANY of
+        // their sessions matches, so they surface under both "Yes" and "No".
+        //
+        // signedIn / creditsApproved / creditsReleased / feedback are booleans.
+        // evidence mirrors evidenceByUser statuses: 'no' | 'submitted' | 'approved' | 'declined'.
+        const SIGN_IN_METHODS = ['Master Password', 'By Code', 'Attendee Password'];
+
+        // Compact spec per user: 4 chars, one per session.
+        //   S = signed in, A = credits approved, R = credits released, F = feedback given
+        // A '-' means that flag is off for that session.
+        const attendanceSpec = [
+            // Allen — fully complete across all four (expanded by default in the Figma)
+            { flags: ['SARF', 'SARF', 'SARF', 'SARF'], evidence: ['submitted', 'approved', 'no', 'declined'] },
+            // Anderson — signed in + approved everywhere, nothing released yet
+            { flags: ['SAF-', 'SAF-', 'SA--', 'SAF-'], evidence: ['approved', 'approved', 'approved', 'approved'] },
+            // Brown — attended everything, no feedback, credits stuck unapproved
+            { flags: ['S---', 'S---', 'S---', 'S---'], evidence: ['declined', 'no', 'no', 'no'] },
+            // Davis — never signed in to anything (the "no attendance" case)
+            { flags: ['----', '----', '----', '----'], evidence: ['no', 'no', 'no', 'no'] },
+            // Johnson — MIXED: first two complete, last two never attended
+            { flags: ['SARF', 'SARF', '----', '----'], evidence: ['submitted', 'submitted', 'no', 'no'] },
+            // Jones — signed in to half, no credits anywhere
+            { flags: ['S---', '----', 'S---', '----'], evidence: ['no', 'no', 'no', 'no'] },
+            // Martinez — complete except feedback outstanding on two
+            { flags: ['SARF', 'SAR-', 'SARF', 'SAR-'], evidence: ['approved', 'approved', 'no', 'approved'] },
+            // Smith — MIXED: approved everywhere, released on only one
+            { flags: ['SARF', 'SAF-', 'SAF-', 'SAF-'], evidence: ['submitted', 'no', 'no', 'submitted'] },
+            // Taylor — signed in, evidence declined, credits blocked
+            { flags: ['S--F', 'S--F', 'S---', 'S---'], evidence: ['declined', 'declined', 'no', 'no'] },
+            // Washington — attended all, awaiting approval, feedback complete
+            { flags: ['S--F', 'S--F', 'S--F', 'S--F'], evidence: ['no', 'no', 'no', 'no'] },
+            // Williams — fully complete (second clean "done" case)
+            { flags: ['SARF', 'SARF', 'SARF', 'SARF'], evidence: ['approved', 'approved', 'approved', 'approved'] },
+            // Wilson — MIXED: released on the first two only, no feedback at all
+            { flags: ['SAR-', 'SAR-', 'SA--', 'S---'], evidence: ['submitted', 'submitted', 'submitted', 'no'] },
+        ];
+
+        // Expand the compact spec into full session records per user.
+        const sessionsByUser = attendanceSpec.map((spec, userIdx) =>
+            sessions.map((s, sessionIdx) => {
+                const flags = spec.flags[sessionIdx] || '----';
+                const signedIn = flags.includes('S');
+                return {
+                    ...s,
+                    signedIn,
+                    creditsApproved:  flags.includes('A'),
+                    creditsReleased:  flags.includes('R'),
+                    feedback:         flags.includes('F'),
+                    evidence:         spec.evidence[sessionIdx] || 'no',
+                    // Sign-in method only exists if they actually signed in
+                    signIn: signedIn
+                        ? SIGN_IN_METHODS[(userIdx + sessionIdx) % SIGN_IN_METHODS.length]
+                        : '—',
+                };
+            })
+        );
 
         // ── Render user rows ───────────────────────────────────────
         const userRowsEl = document.getElementById('userRows');
@@ -1019,19 +1446,111 @@
         // Allen (index 0) starts expanded to match the Figma.
         const expandedRowIndices = new Set([0]);
 
+        // ── Filter state ───────────────────────────────────────────
+        // null = not set ("no preference"); true/false = Yes/No.
+        const activeFilters = {
+            signedIn: null,
+            creditsApproved: null,
+            creditsReleased: null,
+            feedback: null,
+            evidence: null,
+        };
+
+        // Evidence is a 4-state field in the data but a yes/no question in the filter.
+        // "Yes" = something was submitted (submitted/approved/declined); "No" = nothing.
+        function sessionMatchesFilters(session) {
+            return Object.entries(activeFilters).every(([key, want]) => {
+                if (want === null) return true;              // unset → ignore
+                const has = key === 'evidence'
+                    ? session.evidence !== 'no'
+                    : session[key] === true;
+                return has === want;
+            });
+        }
+
+        // A user stays on the roster when at least one of their sessions matches every
+        // active filter. Their sub-table then shows only the matching sessions, so the
+        // list reads as "these people, and specifically these sessions."
+        function getVisibleSessions(userIndex) {
+            return (sessionsByUser[userIndex] || []).filter(sessionMatchesFilters);
+        }
+
+        function hasActiveFilters() {
+            return Object.values(activeFilters).some(v => v !== null);
+        }
+
+        // Roster count — shows "N of 12 attendees" so testers can see the list narrow
+        function updateRosterCount(shown) {
+            const el = document.getElementById('rosterCount');
+            if (!el) return;
+            el.textContent = hasActiveFilters()
+                ? `${shown} of ${users.length} attendees`
+                : `${users.length} attendees`;
+        }
+
+        // Reset every yes/no filter and re-render. Shared by the drawer's "Clear All"
+        // and the empty-state button.
+        function clearAllFilters() {
+            Object.keys(activeFilters).forEach(k => { activeFilters[k] = null; });
+            document.querySelectorAll('.yes-no-filter').forEach(group => { group.value = ''; });
+            // Reset the per-group searches and unhide everything they filtered out
+            document.querySelectorAll('.filter-search').forEach(field => { field.value = ''; });
+            document.querySelectorAll('.filter-options').forEach(box => {
+                box.querySelectorAll('vaadin-checkbox').forEach(cb => { cb.hidden = false; });
+                const noMatch = box.querySelector('.filter-no-match');
+                if (noMatch) noMatch.hidden = true;
+                box.scrollTop = 0;
+            });
+            if (typeof applyFilterListCaps === 'function') applyFilterListCaps();
+            if (typeof syncAllSelectAllButtons === 'function') syncAllSelectAllButtons();
+            updateFilterBadge();
+            renderUserRows();
+        }
+
+        // Badge counts checkbox filters (decorative) + each yes/no group that is set
+        function updateFilterBadge() {
+            const drawer = document.getElementById('filtersDrawer');
+            if (!drawer) return;
+            const checkboxCount = Array.from(drawer.querySelectorAll('vaadin-checkbox'))
+                .filter(cb => cb.checked).length;
+            const yesNoCount = Object.values(activeFilters).filter(v => v !== null).length;
+            document.getElementById('filterCount').textContent = checkboxCount + yesNoCount;
+        }
+
         function renderUserRows() {
             const feedbackIsEvent = feedbackScope === 'event';
 
-            userRowsEl.innerHTML = users.map((u, i) => {
+            // Build the visible roster first so we can show an empty state if nothing matches
+            const visible = users
+                .map((u, i) => ({ user: u, index: i, matched: getVisibleSessions(i) }))
+                .filter(entry => entry.matched.length > 0);
+
+            if (visible.length === 0) {
+                userRowsEl.innerHTML = `
+                    <div class="roster-empty">
+                        <i class="fa-regular fa-filter-slash"></i>
+                        <p>No attendees match the selected filters.</p>
+                        <vaadin-button theme="tertiary" id="emptyClearFilters">Clear filters</vaadin-button>
+                    </div>
+                `;
+                const clearBtn = document.getElementById('emptyClearFilters');
+                if (clearBtn) clearBtn.addEventListener('click', clearAllFilters);
+                updateRosterCount(0);
+                syncExpandAllToggle();
+                return;
+            }
+
+            userRowsEl.innerHTML = visible.map(({ user: u, index: i, matched }) => {
                 const ev = evidenceByUser[i] || { status: 'no', files: [] };
                 const evClickable = ev.status !== 'no';
                 // Evidence — tertiary text button when actionable, plain text when "No"
                 const evidenceCell = evClickable
                     ? `<vaadin-button theme="tertiary" class="evidence-status evidence-pill-link" data-user-index="${i}">Evidence: ${EVIDENCE_LABEL[ev.status]}</vaadin-button>`
                     : `<span class="evidence-plain">Evidence: ${EVIDENCE_LABEL[ev.status]}</span>`;
-                // Feedback — plain text only when scope is event-level
+                // Feedback — plain text only when scope is event-level.
+                // Event-level rolls up: "Yes" when any matching session has feedback.
                 const feedbackCell = feedbackIsEvent
-                    ? `<span class="feedback-plain">Feedback: Yes</span>`
+                    ? `<span class="feedback-plain">Feedback: ${matched.some(s => s.feedback) ? 'Yes' : 'No'}</span>`
                     : '';
                 const eventCluster = `
                     <div class="event-pills">
@@ -1069,17 +1588,17 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${sessions.map(s => `
+                                ${matched.map(s => `
                                         <tr>
                                             <td class="checkbox-cell"><vaadin-checkbox></vaadin-checkbox></td>
                                             <td class="session-title">${s.title}</td>
                                             <td>${s.details.replace(/School$/, 'Elementary…')}</td>
                                             <td>${s.status}</td>
                                             <td>${s.credit}</td>
-                                            <td>${s.creditsApproved}</td>
-                                            ${feedbackIsEvent ? '' : `<td>${s.feedback}</td>`}
+                                            <td>${s.creditsApproved ? 'Yes' : 'No'}</td>
+                                            ${feedbackIsEvent ? '' : `<td>${s.feedback ? 'Yes' : 'No'}</td>`}
                                             <td>${s.signIn}</td>
-                                            <td>${s.creditsReleased}</td>
+                                            <td>${s.creditsReleased ? 'Yes' : 'No'}</td>
                                             <td class="kebab-cell"><vaadin-button theme="icon" aria-label="More"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button></td>
                                         </tr>
                                     `).join('')}
@@ -1104,12 +1623,61 @@
                         trigger.setAttribute('aria-expanded', String(isExpanded));
                         if (isExpanded) expandedRowIndices.add(idx);
                         else expandedRowIndices.delete(idx);
+                        syncExpandAllToggle();
                     });
                 }
+            });
+
+            updateRosterCount(visible.length);
+            syncExpandAllToggle();
+        }
+
+        // ── Expand / collapse all ──────────────────────────────────
+        // The header caret reads "expanded" only when every VISIBLE row is open, so it
+        // always offers the action that changes the most rows. Counting against the
+        // full user list would leave it stuck on "Expand All" while filters are active.
+        const expandAllToggle = document.getElementById('expandAllToggle');
+        const expandAllTooltip = document.getElementById('expandAllTooltip');
+
+        function visibleRowIndices() {
+            return Array.from(userRowsEl.querySelectorAll('.user-row'))
+                .map(row => Number(row.dataset.index));
+        }
+
+        function syncExpandAllToggle() {
+            if (!expandAllToggle) return;
+            const shown = visibleRowIndices();
+            const allExpanded = shown.length > 0 && shown.every(i => expandedRowIndices.has(i));
+            expandAllToggle.setAttribute('aria-expanded', String(allExpanded));
+            // Tooltip names the action the click performs, not the current state
+            const label = allExpanded ? 'Collapse All' : 'Expand All';
+            expandAllToggle.setAttribute('aria-label', label);
+            if (expandAllTooltip) expandAllTooltip.text = label;
+            expandAllToggle.disabled = shown.length === 0;
+        }
+
+        if (expandAllToggle) {
+            expandAllToggle.addEventListener('click', () => {
+                const shown = visibleRowIndices();
+                const shouldExpand = !shown.every(i => expandedRowIndices.has(i));
+                // Only touch visible rows — a filtered-out row keeps its prior state
+                shown.forEach(i => {
+                    if (shouldExpand) expandedRowIndices.add(i);
+                    else expandedRowIndices.delete(i);
+                });
+
+                userRowsEl.querySelectorAll('.user-row').forEach(row => {
+                    const trigger = row.querySelector('.user-row-trigger');
+                    row.classList.toggle('expanded', shouldExpand);
+                    if (trigger) trigger.setAttribute('aria-expanded', String(shouldExpand));
+                });
+                syncExpandAllToggle();
             });
         }
 
         renderUserRows();
+        // Sync the badge with the demo checkboxes that start checked
+        updateFilterBadge();
 
         // ── Render single-session rows ─────────────────────────────
         const singleSessionRowsEl = document.getElementById('singleSessionRows');
@@ -1435,11 +2003,169 @@
         const filtersDrawer = document.getElementById('filtersDrawer');
         let filtersOpen = false;
 
+        // Dock the panel under the page header. vwc-drawer reads
+        // --vwc-drawer-offset-top for both its `top` and its height calc, so this
+        // one variable positions and sizes it. Measured because the header's height
+        // depends on rendered text (title wrap, back link) — not a safe constant.
+        function syncPageChromeHeight() {
+            // Dock to the TOP APP BAR (the bell/help strip), not the page-title header
+            // below it — the panel should cover the title row and filter card.
+            const bar = document.querySelector('.top-app-bar');
+            if (!bar) return;
+            // The bar is not sticky, so its viewport-relative bottom shrinks as the
+            // page scrolls; clamping at 0 lets the panel ride up to the viewport top
+            // once the bar has scrolled away.
+            const bottom = bar.getBoundingClientRect().bottom;
+            const offset = Math.max(0, Math.round(bottom));
+            document.documentElement.style.setProperty('--page-chrome-height', `${offset}px`);
+        }
+
+        syncPageChromeHeight();
+        window.addEventListener('resize', syncPageChromeHeight);
+        // Header slides away as the page scrolls, so keep the panel's top edge with it
+        window.addEventListener('scroll', syncPageChromeHeight, { passive: true });
+
+        // ── Option-list filters: 5-row cap + search + bulk select ──
+        const VISIBLE_FILTER_ROWS = 5;
+
+        // Cap each list at 5 rows. The row height comes from measuring the rendered
+        // checkboxes rather than a hardcoded value, because Lumo drives the row height
+        // and it isn't a fixed constant in the theme.
+        function applyFilterListCaps() {
+            filtersDrawer.querySelectorAll('.filter-options').forEach(box => {
+                const boxes = Array.from(box.querySelectorAll('vaadin-checkbox'))
+                    .filter(cb => !cb.hidden);
+                if (boxes.length <= VISIBLE_FILTER_ROWS) {
+                    // Fewer than the cap — let it size naturally, no scrollbar
+                    box.style.maxHeight = '';
+                    return;
+                }
+                const first = boxes[0].getBoundingClientRect();
+                const nth = boxes[VISIBLE_FILTER_ROWS - 1].getBoundingClientRect();
+                // Bottom of the 5th row relative to the top of the 1st
+                const height = nth.bottom - first.top;
+                if (height > 0) box.style.maxHeight = `${Math.ceil(height)}px`;
+            });
+        }
+
+        // The options a group's bulk action applies to: only those the search is
+        // currently showing. Searching a subset and hitting Select All must select
+        // that subset, never the hidden remainder.
+        function visibleOptions(optionsBox) {
+            return Array.from(optionsBox.querySelectorAll('vaadin-checkbox'))
+                .filter(cb => !cb.hidden);
+        }
+
+        // The button flips to "Clear All" once every visible option is checked, so it
+        // always offers the action that changes the most boxes — same rule as the
+        // roster's expand/collapse-all toggle.
+        function syncSelectAllButton(group) {
+            const optionsBox = group.querySelector('.filter-options');
+            const btn = group.querySelector('.filter-select-all');
+            if (!optionsBox || !btn) return;
+            const shown = visibleOptions(optionsBox);
+            const allChecked = shown.length > 0 && shown.every(cb => cb.checked);
+            btn.textContent = allChecked ? 'Clear All' : 'Select All';
+            btn.disabled = shown.length === 0;   // nothing to act on under this search
+        }
+
+        // Search within a group — hides non-matching checkboxes, then re-caps so the
+        // visible window still shows at most 5 of whatever survived the filter.
+        filtersDrawer.querySelectorAll('.filter-search').forEach(field => {
+            const group = field.closest('.filter-group');
+            const optionsBox = group && group.querySelector('.filter-options');
+            if (!optionsBox) return;
+            const noMatch = optionsBox.querySelector('.filter-no-match');
+
+            field.addEventListener('input', () => {
+                const q = (field.value || '').trim().toLowerCase();
+                let shown = 0;
+                optionsBox.querySelectorAll('vaadin-checkbox').forEach(cb => {
+                    const label = (cb.getAttribute('label') || '').toLowerCase();
+                    const hit = !q || label.includes(q);
+                    cb.hidden = !hit;
+                    if (hit) shown++;
+                });
+                if (noMatch) noMatch.hidden = shown > 0;
+                optionsBox.scrollTop = 0;
+                applyFilterListCaps();
+                // The visible subset changed, so the bulk action's meaning changed too
+                syncSelectAllButton(group);
+            });
+        });
+
+        // Bulk select/clear — scoped to the current search results
+        filtersDrawer.querySelectorAll('.filter-select-all').forEach(btn => {
+            const group = btn.closest('.filter-group');
+            const optionsBox = group && group.querySelector('.filter-options');
+            if (!optionsBox) return;
+
+            btn.addEventListener('click', () => {
+                const shown = visibleOptions(optionsBox);
+                if (!shown.length) return;
+                const shouldCheck = !shown.every(cb => cb.checked);
+                // Hidden options keep whatever state they already had
+                shown.forEach(cb => { cb.checked = shouldCheck; });
+                syncSelectAllButton(group);
+                updateFilterBadge();
+            });
+        });
+
+        // Manual checkbox clicks also change whether "all visible" are checked.
+        // Bound per-checkbox on `change`: Vaadin's `checked-changed` notification is
+        // dispatched without `bubbles`, so a delegated listener would never fire.
+        filtersDrawer.querySelectorAll('.filter-options vaadin-checkbox').forEach(cb => {
+            const group = cb.closest('.filter-group');
+            cb.addEventListener('change', () => {
+                syncSelectAllButton(group);
+                updateFilterBadge();
+            });
+        });
+
+        function syncAllSelectAllButtons() {
+            filtersDrawer.querySelectorAll('.filter-group').forEach(syncSelectAllButton);
+        }
+
+        // ── Collapsible filter sections ────────────────────────────
+        filtersDrawer.querySelectorAll('.filter-section-toggle').forEach(toggle => {
+            const group = toggle.closest('.filter-group');
+            toggle.addEventListener('click', () => {
+                const collapsed = group.classList.toggle('is-collapsed');
+                toggle.setAttribute('aria-expanded', String(!collapsed));
+                // Re-measure on expand: a section that was collapsed at first open
+                // never got its row height measured.
+                if (!collapsed) {
+                    requestAnimationFrame(() => applyFilterListCaps());
+                }
+            });
+        });
+
+        let filterCapsMeasured = false;
+
         function openFilters() {
             if (filtersOpen) return;
+            // Reflect applied state so dismissing without applying doesn't leave
+            // the drawer showing selections that were never committed to the list
+            filtersDrawer.querySelectorAll('.yes-no-filter').forEach(group => {
+                const key = group.dataset.filter;
+                if (!key || !(key in activeFilters)) return;
+                const v = activeFilters[key];
+                group.value = v === null ? '' : (v ? 'yes' : 'no');
+            });
+            syncPageChromeHeight();
             filtersOpen = true;
             filtersDrawer.open = true;
             lockBodyScroll();
+
+            // Measure once the drawer is actually laid out — a closed drawer reports
+            // zero-height rows, so this can't run at load time.
+            if (!filterCapsMeasured) {
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    applyFilterListCaps();
+                    syncAllSelectAllButtons();
+                    filterCapsMeasured = true;
+                }));
+            }
         }
         function closeFilters() {
             if (!filtersOpen) return;
@@ -1462,13 +2188,20 @@
 
         document.getElementById('openFiltersBtn').addEventListener('click', openFilters);
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-            const count = Array.from(filtersDrawer.querySelectorAll('vaadin-checkbox'))
-                .filter(cb => cb.checked).length;
-            document.getElementById('filterCount').textContent = count;
+            // Read each yes/no group into filter state: '' (unset) → null
+            filtersDrawer.querySelectorAll('.yes-no-filter').forEach(group => {
+                const key = group.dataset.filter;
+                if (!key || !(key in activeFilters)) return;
+                activeFilters[key] = group.value ? group.value === 'yes' : null;
+            });
+            updateFilterBadge();
+            renderUserRows();
             closeFilters();
         });
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             filtersDrawer.querySelectorAll('vaadin-checkbox').forEach(cb => cb.checked = false);
+            // "" is the component's own deselect value — null logs a "not found" warning
+            clearAllFilters();
         });
 
         // ── Add Users Dialog (vaadin-dialog) ───────────────────────
