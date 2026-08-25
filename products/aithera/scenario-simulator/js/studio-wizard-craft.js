@@ -1,14 +1,17 @@
 /* =========================================================================
    AITHERA WRITER STUDIO — SHARED WIZARD CRAFT
-   Loaded by scenario-editor/index.html BEFORE js/studio-wizard.js and the per-type
-   wizard spec files (studio-v2-wizards.js, studio-v2-guided-arc.js,
-   studio-v2-ensemble-wizard.js). Exposes window.AitheraWizardCraft.
+   Loaded by scenario-editor/index.html BEFORE js/studio-wizard.js and the
+   wizard spec — today that is studio-v2-v4-universal-wizard.js, the only one
+   left, since the go-forward format is the only thing new work is authored in.
+   Exposes window.AitheraWizardCraft.
 
    Why this exists: every wizard spec used to re-declare the same intake
    helpers, the same sourceBlock(), and — most dangerously — its own copy of
    the coach VOICE rules (the banned-phrase list and the JSON-output contract).
    Those invariants drifted across 3–4 files; a single edit to the voice rules
-   meant editing them everywhere. They now live here, once.
+   meant editing them everywhere. They now live here, once — and this file is
+   why collapsing to one spec was safe: the rules that must not drift had
+   already been lifted out of the specs that went away.
 
    What is SHARED vs. what stays local to each spec:
      - SHARED (here): the intake helpers, sourceBlock, and the invariant PROMPT

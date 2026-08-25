@@ -13,6 +13,11 @@ name: Scenario Simulator — JSON contract
 #          a list bound to index 0, 50 more with no editor at all, and a required
 #          field whose input rendered as nothing. All three passed a round trip.
 #
+#          The same job also runs the SURFACE check — every local src/href on a
+#          live page resolves, and one file carries one ?v= everywhere. Cheap, no
+#          credential, and it catches the failure the JSON check structurally
+#          cannot: a folder move that leaves a script tag pointing at nothing.
+#
 #   drift  "Did THEIR content or schema move?"
 #          Compares the pins against VectorLearning/scenario-simulator-poc. That
 #          repo is private and this workflow lives in a different one, so the
@@ -32,10 +37,14 @@ on:
     paths:
       - 'products/aithera/scenario-simulator/js/**'
       - 'products/aithera/scenario-simulator/tools/**'
+      # surface-check.js reads the pages, so a page edit has to wake it — that is
+      # exactly how the last dead script tag got in.
+      - 'products/aithera/**/*.html'
   pull_request:
     paths:
       - 'products/aithera/scenario-simulator/js/**'
       - 'products/aithera/scenario-simulator/tools/**'
+      - 'products/aithera/**/*.html'
   schedule:
     - cron: '17 13 * * 1'
   workflow_dispatch:
@@ -62,6 +71,13 @@ jobs:
       - name: Round trip and field coverage
         working-directory: products/aithera/scenario-simulator
         run: node tools/roundtrip-check.js
+
+      # The other half of "did we break it": the JSON can be perfect while the
+      # page that loads the editor points at a module that moved. Same job because
+      # it needs the same nothing — no network, no credential, just the repo.
+      - name: Surfaces resolve, and share one cache-bust
+        working-directory: products/aithera/scenario-simulator
+        run: node tools/surface-check.js
 
   # ---------------------------------------------------------------- drift ------
   drift:

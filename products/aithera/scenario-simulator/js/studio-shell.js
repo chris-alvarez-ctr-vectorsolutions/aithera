@@ -443,8 +443,8 @@
      that mirror the LEARNER's experience. A phase only appears if the current
      mode actually uses it (Start always does), so e.g. Teach-Back — which has
      no intro modality — shows Start → ② Interaction → ③ Debrief, skipping ①. */
-  /* [V2] The rail speaks Learn/Practice. A mode whose sections use the new
-     groups (guided-arc, re-presented by js/studio-v2-guided-arc.js) gets
+  /* [V2] The rail speaks Learn/Practice. A mode whose sections declare the new
+     groups (today: v4-universal, in its own `sections`) gets
      ② Learn / ③ Practice / ④ Voice & Tone; a mode still on the generic
      'interaction' group keeps its single Interaction step. computePhases()
      filters to whichever groups the current mode actually uses, and badge

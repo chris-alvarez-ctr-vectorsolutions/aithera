@@ -67,12 +67,14 @@ compose their prompts.
 | 8 | `studio-v2-v4-universal-wizard.js` | the **Universal Scenario** wizard spec — the go-forward format's own interview, and the ONLY spec the editor loads. Authors Scenario CML v4 directly; see §5c for the task ordering it is forced into. |
 | 9 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |
 
-> **Five wizard-spec modules are no longer loaded by anything current:**
+> **Five wizard-spec modules used to sit here unloaded** —
 > `studio-v2-guided-arc.js`, `studio-v2-wizards.js`, `studio-v2-ensemble-wizard.js`,
-> `studio-v2-scene-sweep-wizard.js`, `studio-v2-mix-arc-wizard.js`. They are
-> referenced only by the archived copies under `lesson-presentation/archive/`, so
-> they cannot be deleted without breaking those, and they are not part of the
-> current tool. Roughly 170KB — do not inventory them as live code.
+> `studio-v2-scene-sweep-wizard.js`, `studio-v2-mix-arc-wizard.js`, plus
+> `marshall-scenario-v2.js`. They were kept on the belief that the archived pages
+> under `lesson-presentation/archive/` referenced them; they do not — each archive
+> cut carries its **own** `js/` copies, which is what makes it a snapshot. So they
+> were deleted (204KB), and git history has them if a spec is ever wanted back.
+> The shared invariants they used to hold live in `studio-wizard-craft.js`.
 
 `writer-studio.html` (V1) is **retired** — a thin redirect to
 `scenario-editor/index.html` that preserves `?type=` / `?wizard=` deep-links. V2 is a
@@ -230,8 +232,8 @@ Fields carry a `data-path`; edits flow back into the draft by path. Sections
 declare a `group` (`meta` · `context` · `interaction` · `learn` · `practice` ·
 `voicetone` · `debrief` · `reference`); the shell maps groups onto the phase
 rail. A type on the generic `interaction` group shows one **Interaction** phase;
-guided-arc (re-presented by `studio-v2-guided-arc.js`) splits into **Learn /
-Practice / Voice & Tone**.
+a type declaring the newer groups — today only `v4-universal` — splits into
+**Learn / Practice / Voice & Tone**.
 
 ### 4a. Section lists — a section whose items are their own rail entries
 
@@ -406,9 +408,9 @@ only in the engine.
 3. *(Optional)* **Give it an editor** — real `sections` + `renderFields` +
    `lints`. Omit (or stub) to make it a publish-and-open-the-live-page type.
 4. *(Optional)* **Give it a wizard** — a new `js/studio-v2-<type>-wizard.js`
-   (or another `attach*()` in `studio-v2-wizards.js`) that consumes
-   `window.AitheraWizardCraft` and sets `T.wizard`. Include it after the type
-   module.
+   that consumes `window.AitheraWizardCraft` and sets `T.wizard`. Include it
+   after the type module. `studio-v2-v4-universal-wizard.js` is the one worked
+   example.
 5. **Build the live page** `<type>-live.html` (load `studio-engine.js` +
    `scenario.js` + your type module; read the type via its global or
    `AitheraStudio.get`; call `type.compile()` for the system prompt).
@@ -425,6 +427,37 @@ file, **bump `?v=` everywhere that file is loaded** (the TYPE modules are loaded
 by many live pages, not just the studio) and bump the service-worker `VERSION`
 — otherwise browsers serve stale modules. There is no bundler to invalidate for
 you.
+
+"Everywhere" is the hard part and it is not a memory exercise any more:
+
+```
+node tools/surface-check.js
+```
+
+It reads every live page under `products/aithera` (archive cuts excluded — those
+are snapshots and their old versions are the point) and fails on **one file
+loaded at two different `?v=`**, naming the pages and the newest number. It fails
+on a **dead local `src`/`href`** in the same run, which is the other half of the
+same mistake: a folder move that repoints seven script tags and misses the
+eighth. Both classes are invisible in a browser — a 404 script tag renders a page
+that merely does less, and a stale `?v=` looks exactly like a fix that did not
+work — so neither should depend on somebody thinking to check. It runs in CI on
+every push alongside the contract check.
+
+### 7a. What moves with what
+
+The propagation list, so it is written down once instead of rediscovered. ✅ means
+a check catches it if you forget; ✍️ means only a person will.
+
+| When you change… | …this moves with it |
+|---|---|
+| any shared JS/CSS in `js/` or `css/` | ✅ its `?v=` on **every** page that loads it |
+| a field the editor binds | ✅ field coverage (`roundtrip-check.js`) — a leaf with no input fails |
+| anything touching export | ✅ the round trip — 11 pinned production documents, byte-for-byte |
+| the editor's behaviour | ✍️ a row in `scenario-editor/RELEASE-NOTES.md`, with the contract verdict |
+| a claim the plan page makes | ✍️ `docs/scenario-simulator-authoring-plan.html` — a shipped position moves from **We do** to **Done**, with the number the code actually has |
+| a file's location or name | ✅ dead-path check · ✍️ the `rel` in `products.json` (CI relinks a plain rename; a cross-product move is by hand) |
+| a module nothing loads any more | ✍️ delete it — and check the *reason* it was being kept, not just the reference count |
 
 ---
 
