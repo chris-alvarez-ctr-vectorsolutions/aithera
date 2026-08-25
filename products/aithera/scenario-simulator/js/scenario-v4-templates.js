@@ -372,8 +372,7 @@
                                   }
                             ]
                       }
-                },
-                "elevated_stakes": true
+                }
           }
     },
   },
@@ -719,9 +718,7 @@
                                   }
                             ]
                       }
-                },
-                "elevated_stakes": true,
-                "involves_minors": true
+                }
           }
     },
   },

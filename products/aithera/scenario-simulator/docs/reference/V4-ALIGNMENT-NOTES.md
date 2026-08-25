@@ -89,7 +89,7 @@ The generic block is a defensible V1 call and in one respect strictly better tha
 
 One routing detail is worth keeping visible regardless of V1 scope: our minors tripwire points to mandated reporting plus 911, not 988. A generic trauma-informed block that routes everything to a crisis line handles adult self-harm disclosure correctly and a child-safety disclosure incorrectly — different obligation, different destination.
 
-Our player keeps its flag-driven floors, so this is now a **documented intentional divergence** rather than a gap to close.
+**Closed 2026-08-25 — the divergence is withdrawn, not documented.** Dev confirmed the production engine carries always-on safety guidance in its general prompt and that authors do not control what is enabled. So the three flags are removed from the go-forward format entirely: no toggles in the editor, no extension declarations, no runtime arming, no wizard questions. Safety is a V1 product feature, not a preview feature. The UNCONDITIONAL learner-safety section still compiles on every scenario; the legacy types keep their own topic floors for the reference experiences the player runs.
 
 ---
 

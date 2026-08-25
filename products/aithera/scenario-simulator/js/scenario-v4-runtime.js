@@ -507,9 +507,15 @@
          the locked threat-content section off threatContent. Hardcoding false
          here (as an earlier build did) meant an authored threat_content: true
          never armed anything — the exact silent regression the flags prevent. */
-      elevatedStakes: content.elevated_stakes === true,
-      involvesMinors: content.involves_minors === true,
-      threatContent: content.threat_content === true,
+      /* Hardcoded false since 2026-08-25: the three content-safety flags are gone
+         from the authored format (see scenario-v4.js). Safety in production is an
+         always-on block in the engine's general prompt, not a per-scenario switch,
+         so there is nothing here to read. The UNCONDITIONAL learner-safety section
+         still compiles on every scenario — this only stops the three topic floors
+         that were conditional on an authored flag. */
+      elevatedStakes: false,
+      involvesMinors: false,
+      threatContent: false,
       /* POC V4 §4.1 keeps ONE `narrative`, in the learner's register: second
          person, present tense, ending where the experience begins. It is the
          situation, not a description of the experience — so it belongs in the

@@ -736,37 +736,16 @@
           helper: 'Where and when scenes take place. Rendered at the top of every scene prompt.' }),
       );
 
-      /* --- content safety flags — declared UX Universal extensions --------
-         The same three toggles the wizard interview asks, with answer_shape's
-         extension treatment. Written only when true and deleted when switched
-         off, so an unset flag never adds a stripped-extension warning for
-         nothing. These are the only way the preview's safety floors arm on a
-         v4 document — an imported scenario's flags were invisible here before
-         this block existed. */
-      const SAFETY_FLAGS = [
-        { key: 'elevated_stakes', label: 'Crisis-adjacent topic — arm the crisis support floor' },
-        { key: 'involves_minors', label: 'A minor is involved — arm the minor-protection floor' },
-        { key: 'threat_content', label: 'Carries threat or violence content — arm the threat floor' },
-      ];
-      const sc = H.getScenario ? H.getScenario() : {};
-      sc.content = obj(sc.content);
-      SAFETY_FLAGS.forEach(function (f) {
-        const cb = document.createElement('vaadin-checkbox');
-        cb.label = f.label;
-        cb.checked = sc.content[f.key] === true;
-        const onFlip = function () {
-          const content = obj((H.getScenario ? H.getScenario() : sc).content);
-          if (cb.checked) content[f.key] = true; else delete content[f.key];
-          if (H.scheduleUpdate) H.scheduleUpdate();
-        };
-        cb.addEventListener('change', onFlip);
-        cb.addEventListener('checked-changed', onFlip);
-        box.append(cb);
-      });
-      box.append(guidance('Content safety — why these are flagged in the lints', 'fa-shield-halved',
-        '<p>These flags classify the content, and they are the only way the safety floors arm: <b>crisis support</b> (if the learner discloses real distress, the coach drops the exercise and points to real support, including the 988 line), <b>minor safeguarding</b>, and the <b>threat floor</b>. The preview honors whichever are on; off means the floor never arms.</p>'
-        + '<p>Scenario CML v4 has no fields for these yet, so they are carried as declared extensions: the Dev handoff export strips them to produce a loadable file and lists what each removal costs. A stripped scenario runs in the production engine with no floor and no trace one was declared — say so in the handoff.</p>'));
+      /* The three content-safety toggles are GONE (2026-08-25). They offered an
+         author control over something the author does not control: dev confirmed
+         the production engine carries always-on safety guidance in its general
+         prompt, so what a scenario "arms" is not an authoring decision. They also
+         armed nothing downstream — the export stripped them.
 
+         The UNCONDITIONAL learner-safety floor is untouched and still compiles on
+         every scenario (ENGINE_SECTIONS `safety`): a learner disclosing their own
+         crisis suspends the exercise and gets real routing. Safety did not leave
+         the preview; the per-scenario switchboard did. */
       box.append(guidance('What belongs in canon — and what does not', 'fa-circle-info',
         '<p>Canon facts are asserted as true in <b>every</b> scene, always. So canon carries background truth the learner could already know — never plot, never answers.</p>'
         + '<ul><li>Happens later in the story → write it into the opener of the step where it happens.</li>'

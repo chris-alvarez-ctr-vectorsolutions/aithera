@@ -321,9 +321,8 @@ ${contentExemplar(['narrative', 'coach_persona'])}`,
           /* Declared Vector extensions — the only way the engine's floors arm on
              a v4 document. Written only when ON, so an unset flag never adds a
              stripped-extension warning for nothing. */
-          if (ik.elevatedStakes) c.elevated_stakes = true;
-          if (ik.involvesMinors) c.involves_minors = true;
-          if (ik.threatContent) c.threat_content = true;
+          /* The three safety flags are no longer part of the format (2026-08-25):
+             safety is an always-on V1 product feature, not per-scenario authoring. */
         },
         doneNote(json) { return `“${str(json.title) || 'untitled'}” · ${slug(json.implementation_id) || 'no id'}`; } });
 

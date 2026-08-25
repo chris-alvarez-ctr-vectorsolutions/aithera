@@ -94,30 +94,15 @@
         + 'own answer on beats that have a right answer it should have landed plainly.',
     },
 
-    /* --- content safety triggers -------------------------------------------
-       UX Universal runs content-triggered safety floors — CRISIS_FLOOR
-       (js/scenario.js), the branching threat floor, the ensemble minor floor.
-       Each is switched on by an authored flag on the scenario. POC V4 has no
-       field for any of them, so on a v4 document the floors never arm: the
-       scenario plays without them and nothing says so. That is the one gap in
-       this set that is a SILENT SAFETY REGRESSION rather than a lost nicety,
-       which is why the flags are declared here rather than waiting for the
-       format conversation. They are content classification, not prompt text. */
-    'content.elevated_stakes': {
-      type: 'boolean',
-      because: 'POC V4 has no field to declare that a scenario runs at elevated stakes.',
-      consequence: 'stripped, the crisis floor never arms on this scenario.',
-    },
-    'content.involves_minors': {
-      type: 'boolean',
-      because: 'POC V4 has no field to declare that a scenario involves minors.',
-      consequence: 'stripped, the minor-protection floor never arms on this scenario.',
-    },
-    'content.threat_content': {
-      type: 'boolean',
-      because: 'POC V4 has no field to declare that a scenario carries threat content.',
-      consequence: 'stripped, the threat floor never arms on this scenario.',
-    },
+    /* The three content-safety flags (elevated_stakes / involves_minors /
+       threat_content) were declared extensions here until 2026-08-25. Removed:
+       safety is a V1 PRODUCT feature. Dev confirmed the production engine carries
+       always-on guidance in its general prompt and that authors do not control
+       what is enabled — so a per-scenario flag was describing a decision nobody
+       gets to make, and every export reported stripping it for no gain.
+
+       The legacy types keep their own floors for the reference experiences the
+       player still runs; this is about what the go-forward format declares. */
   };
 
   /* Set per validate() call; read by extension field validators. */
@@ -756,9 +741,6 @@
         closing: vClosing,
         landing_cta_label: str1,
         /* UX Universal extensions — see EXTENSIONS above. */
-        elevated_stakes: extensionField('content.elevated_stakes'),
-        involves_minors: extensionField('content.involves_minors'),
-        threat_content: extensionField('content.threat_content'),
       },
     });
   }

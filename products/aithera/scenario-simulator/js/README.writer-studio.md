@@ -351,11 +351,19 @@ because each one is a **load error** rather than a quality issue:
 - Rubric ids and phase ids are slugified and de-duplicated, and `spot_target` is
   clamped to the rubric's length (§9.1 rule 6).
 
-The three **safety flags** (`elevated_stakes` / `involves_minors` /
-`threat_content`) are asked for outright, because they are declared Vector
-extensions and the only way the engine's floors arm on a v4 document — an unset
-flag is a silent regression, not a missing nicety. They are written only when
-true, so a false flag never adds a stripped-extension warning that buys nothing.
+The three **safety flags** are GONE (2026-08-25). They were declared extensions
+and the wizard asked for them outright, on the reasoning that an unset flag was a
+silent safety regression. Dev then confirmed the production engine carries
+always-on safety guidance in its general prompt and that authors do not control
+what is enabled — so the flag described a decision nobody gets to make, and every
+export reported stripping it for nothing. Safety is a **V1 product feature, not a
+preview feature**.
+
+> What did NOT change: the UNCONDITIONAL `safety` section in `ENGINE_SECTIONS`
+> compiles on every scenario on every route — a learner disclosing their own
+> crisis suspends the exercise and gets real routing. The legacy types keep their
+> own topic floors for the reference experiences the player still runs. What was
+> removed is the per-scenario switchboard, not the floor.
 
 One field is left **deliberately empty**: an observe step's `exhibit.src`. The
 wizard cannot see pixels (the same call `scene-sweep`'s spec makes), so it drafts
