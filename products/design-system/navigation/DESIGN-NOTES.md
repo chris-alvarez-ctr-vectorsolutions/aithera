@@ -71,18 +71,21 @@ line). Two things are deliberately taken from the shipping products:
 
 ## Version matrix (current set)
 
-All five versions share the same shell: real Vector products, waffle/rail switcher with a
-cross-product Dashboard, Convergence-style location tree picker, scoped search, in-bar
-mode tabs, 3-level side nav, customer logo slot, and review toggles (Logo / Loc / Tabs)
-in the bottom-left pill.
+Shared shell in every version: real Vector products, cross-product Dashboard, location
+TREE picker (org-hierarchy icon, level subtitle on the chip and on every node), scoped
+search naming its scope, 3-level side nav, customer logo slot, collapse-to-icon-panel
+nav toggle, profile-menu side-nav text sizing (compact / default / comfortable), and
+review-pill toggles (Logo / Loc / Tabs where tabs exist).
 
 | # | File | Differs from V1 by |
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
-| V2 | `v2-rail-twopane.html` | Switcher is a persistent left app rail (Dashboard on top, waffle at bottom for the catalog); search moves into the side nav, scoped to the current product, live-filtering the menu |
-| V3 | `v3-flyout-hierarchy.html` | Side-nav hierarchy only: children open in a flyout panel to the RIGHT of the nav; L3 nests inside the panel; one panel at a time |
-| V4 | `v4-text-hierarchy.html` | Side-nav hierarchy only: no guide lines; depth carried by typography (weight 650 → 500 → 400, ink → ink-2 → ink-3, 13 → 12.5 → 12px) |
-| V5 | `v5-color-hierarchy.html` | Side-nav hierarchy only: no guide lines, no containers; the OPEN accordion headers take color (soft accent tint at level 1, stronger tint at level 2), children simply indent |
+| V2a | `v2a-subproducts-filter-panel.html` | Convergence splits into Learner/Admin sub-products switched from a side-nav dropdown; NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
+| V2b | `v2b-subproducts-filter-dropdowns.html` | Same as V2a but the Training Plan filters are DROPDOWN chips above the table |
+| V3 | `v3-app-rail.html` | Switcher is a persistent left app rail (Dashboard on top); search moves into the side nav, product-scoped; closing the side nav also closes the rail |
+| V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right |
+| V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
+| V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
 
 ## Archived explorations
 
@@ -165,8 +168,9 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 
 | File | Params |
 |---|---|
-| V1, V3, V4, V5 | `?app=comply\|dashboard` · `?mode=home\|admin\|trainplan\|reporting` · `?launcher` · `?search` · `?location` (opens the picker) · `?nav=closed` · `?logo=off` · `?loc=off` (hides the picker) · `?tabs=off` (hides the mode tabs) |
-| V2 | Same minus `?search` (search is the side-nav filter) |
+| V1, V4, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
+| V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
+| V3 | Same as V1 minus `?search` (search is the side-nav filter); `?nav=closed` also hides the rail |
 
 ## Review feedback incorporated
 
