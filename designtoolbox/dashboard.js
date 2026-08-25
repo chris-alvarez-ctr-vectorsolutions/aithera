@@ -531,6 +531,11 @@
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
 
+      // Optional link to the requirements doc (Confluence PRD, etc.). Curated as
+      // a full URL in products.json; only http(s) links are rendered.
+      const prdUrl = (typeof m.prd === 'string' && /^https?:\/\//i.test(m.prd.trim()))
+        ? m.prd.trim() : null;
+
       // Curated folder path as an array of display names (["Phase 2",
       // "Content Workflow"]) — meta.json sends an array because folder names
       // may themselves contain " / ", which a joined string couldn't encode.
@@ -552,6 +557,7 @@
         title: m.title || auto.title,
         ticket,
         ticketUrl,
+        prdUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
         // Curated folder, or null for a top-level mock. `group` is the
@@ -1583,7 +1589,7 @@
   }
 
   function buildCard(mock, idx, showFolder) {
-    const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks } = mock;
+    const { title, ticket, ticketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
     let ticketHtml = '';
@@ -1592,8 +1598,15 @@
     } else if (ticket) {
       ticketHtml = `<span class="ticket-badge"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</span>`;
     } else {
-      ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet">Jira link needed</span>`;
+      ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet"><i class="fa-solid fa-link ticket-link-icon"></i>Jira ticket</span>`;
     }
+
+    // PRD link badge: a filled violet link when a requirements URL is curated,
+    // otherwise a dashed-outline placeholder — same shape/label pattern as the
+    // missing Jira tag, so an unlinked PRD reads as a prompt, not an alert.
+    const prdHtml = prdUrl
+      ? `<a class="ticket-badge prd-badge" href="${escapeHtml(prdUrl)}" target="_blank" rel="noopener" title="Open the PRD (requirements doc) in a new tab"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD</a>`
+      : `<span class="ticket-badge ticket-badge--missing" title="No PRD (requirements doc) is linked to this prototype yet"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD</span>`;
 
     // The click-to-copy Pages row for the designer's working file. Only
     // ready-for-dev cards expose the GitHub source link (see below) — before
@@ -1706,6 +1719,7 @@
         <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
           ${ticketHtml}
+          ${prdHtml}
           ${showFolder ? folderChipHtml(mock) : ''}
           ${mockStar(mock)}
         </div>
@@ -2287,6 +2301,12 @@
       .ticket-link-icon { font-size: 8px; opacity: 0.65; }
       a.ticket-badge--link:hover .ticket-link-icon { opacity: 1; }
 
+      /* PRD link badge — same shape as the Jira ticket, distinct violet tone so
+         the requirements-doc link reads as its own thing. */
+      a.prd-badge { cursor: pointer; color: #6d28d9; background: #ede9fe; }
+      a.prd-badge:hover { background: #6d28d9; color: #fff; transform: translateY(-1px); }
+      a.prd-badge:hover .ticket-link-icon { opacity: 1; }
+
       .status-badge {
         display: inline-flex; align-items: center; gap: 7px; background: var(--status-bg); color: var(--status-fg);
         padding: 5px 11px; border-radius: 999px; font-family: var(--display); font-size: 11px; font-weight: 600;
@@ -2559,12 +2579,16 @@
       /* kept for potential nested sections; unused by the tab layout */
       .section--sub .section-title { font-size: 18px; }
 
-      /* "Jira link needed" badge — shown when a mock has no ticket linked yet.
-         Neutral gray, no warning icon — informational, not an alert. */
+      /* Missing-link tag — shown when a mock has no Jira ticket or PRD linked
+         yet. Dashed outline, no fill: reads as a placeholder/prompt rather than
+         a populated badge. Padding is 1px tighter than a filled badge so the
+         1px border keeps the same overall height. */
       .ticket-badge--missing {
-        color: #52525b; background: #e4e4e7; font-family: var(--display);
-        font-size: 10.5px; font-weight: 600; letter-spacing: 0.2px;
+        color: #71717a; background: transparent;
+        border: 1px dashed #c4c4cc; padding: 1px 7px;
+        font-family: var(--display); font-size: 10.5px; font-weight: 600; letter-spacing: 0.2px;
       }
+      .ticket-badge--missing .ticket-link-icon { opacity: 0.5; }
 
       /* Per-card activity log — this prototype's own commit history, collapsed. */
       .card-log { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
