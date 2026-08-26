@@ -26,6 +26,18 @@
 (function () {
   'use strict';
 
+  // Bump this whenever ANY of the three Design Toolbox scripts change
+  // (this file, feedback-widget.js, flow-map.js). It does two jobs:
+  //   1. cache-busts the child scripts this file injects (see inject()), and
+  //   2. is the token a mock puts on its include — `toolbox.js?v=<TOOLBOX_VERSION>`
+  // so a freshly-deployed build can never run alongside a stale cached copy of
+  // these scripts. That stale-beside-fresh coexistence is the root cause of the
+  // "two 💬 buttons / two collapse chevrons stacked in the dock" report: the
+  // includes used to carry no version, so an edge/browser-cached older
+  // feedback-widget.js could execute next to the current one and dock a second
+  // bubble the dedup never saw. (self-heal below is the belt to this suspenders.)
+  var TOOLBOX_VERSION = '1.1.0';
+
   var qs = location.search;
   if (/[?&]fmthumb=1/.test(qs)) return;        // thumbnail iframe → render bare
   if (/[?&]toolbox=off/.test(qs)) return;
@@ -378,6 +390,10 @@
       Array.prototype.slice.call(dock.querySelectorAll('.tbx-collapse-btn')).forEach(function (t) {
         if (t !== toggle) t.remove();
       });
+      // Likewise drop any extra drag grips — only the first survives as `grip`.
+      Array.prototype.slice.call(dock.querySelectorAll('.tbx-drag-btn')).forEach(function (g) {
+        if (g !== grip) g.remove();
+      });
       var launchers = [];
       var seen = {};
       Array.prototype.slice.call(dock.children).forEach(function (c) {
@@ -400,6 +416,61 @@
       if (toggle) dock.appendChild(toggle);   // chevron stays at the far right
       if (grip) dock.insertBefore(grip, dock.firstChild);   // grip stays far left
     }
+    // --- Self-healing dock -------------------------------------------------
+    // reflow() dedups whatever is added THROUGH ToolboxDock.add(). This is the
+    // safety net for a duplicate that appears by any OTHER path — most often an
+    // older cached toolbox.js/feedback-widget.js executing beside a fresh one,
+    // or a page that includes a widget twice. A debounced MutationObserver
+    // re-runs the same cleanup the instant a second bubble / launcher / dock /
+    // collapse-chevron shows up, so the pill can never visually stack two of a
+    // thing. It ACTS only when a duplicate actually exists (hasDupes), so it
+    // never fights a correct dock and never loops on reflow's own mutations.
+    function activePill() {
+      return document.querySelector('.version-switcher.tbx-has-versions') ||
+             document.querySelector('.tbx-dock');
+    }
+    function hasDupes() {
+      if (document.querySelectorAll('.tbx-dock').length > 1) return true;
+      var pill = activePill();
+      if (!pill) return false;
+      return pill.querySelectorAll('.cw-bubble').length > 1 ||
+             pill.querySelectorAll('.fm-launch').length > 1 ||
+             pill.querySelectorAll('#loader-version-group').length > 1 ||
+             pill.querySelectorAll('.tbx-collapse-btn').length > 1 ||
+             pill.querySelectorAll('.tbx-drag-btn').length > 1;
+    }
+    function heal() {
+      if (!hasDupes()) return;
+      // Fold any extra .tbx-dock pills into the first — move their real launchers
+      // in, drop the empty duplicate (and its own chrome) — then reflow to dedup.
+      var docks = document.querySelectorAll('.tbx-dock');
+      if (docks.length > 1) {
+        var keep = docks[0];
+        for (var i = 1; i < docks.length; i++) {
+          var extra = docks[i];
+          Array.prototype.slice.call(extra.children).forEach(function (c) {
+            if (c.classList && (c.classList.contains('tbx-dock-sep') ||
+                c.classList.contains('tbx-collapse-btn') ||
+                c.classList.contains('tbx-drag-btn'))) return;
+            keep.appendChild(c);
+          });
+          extra.remove();
+        }
+      }
+      var pill = activePill();
+      if (pill) reflow(pill);
+    }
+    var healPending = false;
+    function scheduleHeal() {
+      if (healPending) return;
+      healPending = true;
+      requestAnimationFrame(function () { healPending = false; heal(); });
+    }
+    try {
+      new MutationObserver(scheduleHeal)
+        .observe(document.documentElement, { childList: true, subtree: true });
+    } catch (_) { /* no MutationObserver → add()-time reflow still dedups */ }
+
     window.ToolboxDock = {
       get: getDock,
       // Add a launcher to the dock, then reflow so it settles into the canonical
@@ -415,7 +486,9 @@
 
   function inject(src) {
     var s = document.createElement('script');
-    s.src = src;
+    // Pin the child scripts to this toolbox's version so a fresh toolbox.js
+    // never loads a stale cached feedback-widget.js / flow-map.js beside it.
+    s.src = src + (src.indexOf('?') < 0 ? '?' : '&') + 'v=' + TOOLBOX_VERSION;
     // Dynamically-inserted scripts are async by default and would execute in
     // fetch-completion order (the smaller flow-map.js can beat the widget),
     // which would flip the dock order. async=false forces insertion order, so
