@@ -370,6 +370,22 @@
     /* Transcript-only chrome that makes no sense in image view. */
     .transcript-scroll.view-image .scene-foot { display: none; }
 
+    /* ---- Image view is a REVIEW GALLERY, not an editing surface --------
+       Its only job is to show the media as a group so an image that looks
+       off stands out. So every scene-manipulation control is hidden and
+       only the scene number remains -- including on the ACTIVE card, which
+       otherwise reveals its mini-buttons (see `.scene.selected .scene-head
+       .mini-btn` above) and always shows its complete circle. Scene work
+       happens in transcript view. */
+    .transcript-scroll.view-image .scene-head .mini-btn,
+    .transcript-scroll.view-image .scene.selected .scene-head .mini-btn,
+    .transcript-scroll.view-image .scene-head .status { display: none; }
+
+    /* With the controls gone the head is just the number, so drop the
+       spacer's push and tighten the row. */
+    .transcript-scroll.view-image .scene-head .spacer { display: none; }
+    .transcript-scroll.view-image .scene-head { gap: 0; }
+
     /* Empty media slot — no scene has media attached yet. */
     .scene-media-empty {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -841,7 +857,13 @@
       border-radius: inherit;
     }
 
-    /* Media thumbnail inside a scene card's image view. */
+    /* Media thumbnail inside a scene card's image view.
+       `cover` here is deliberate and is the OPPOSITE of .stage-media's
+       `contain` -- not an inconsistency to fix. The canvas shows one image
+       faithfully (letterboxed, nothing cropped); this gallery shows many at
+       once, where uniform tiles are what make an odd image stand out.
+       Letterboxing every thumbnail would ragged the grid and hide exactly
+       what the view exists to reveal. */
     .scene-media-img {
       width: 100%;
       aspect-ratio: 16 / 9;
@@ -2033,6 +2055,11 @@
       host.querySelectorAll('.scene').forEach((card, i) => {
         const sc = list[i];
         if (sc && sc.image) card.__media = { name: sc.image, src: 'assets/' + sc.image };
+        // Paint every card's media slot now, not just the selected one.
+        // restoreSceneCanvas() fills a slot only when its card becomes
+        // active, which left the image view showing a single thumbnail --
+        // useless for a gallery whose whole point is comparing the set.
+        fillSceneMediaSlot(card);
         const ta = card.querySelector('.scene-body textarea');
         attachAutoGrow(ta);
       });
@@ -2138,23 +2165,29 @@
 
     // Apply a scene's own media + template to the canvas and properties
     // panel. A scene with neither returns the canvas to its empty state.
+    // Render one card's media slot (the thumbnail shown in image view) from
+    // its own asset. Shared so every card can be filled at render time and
+    // refreshed when its media changes -- the image view is a gallery of
+    // ALL scenes, so this must not be tied to which card is selected.
+    function fillSceneMediaSlot(card) {
+      const slot = card.querySelector('.scene-media');
+      if (!slot) return;
+      slot.innerHTML = card.__media
+        ? '<div class="scene-media-filled">' +
+            '<img class="scene-media-img" src="' + card.__media.src + '" alt="" />' +
+            '<span class="scene-media-name">' + card.__media.name + '</span>' +
+          '</div>'
+        : '<div class="scene-media-empty">' +
+            '<i class="fa-regular fa-image"></i>' +
+            '<span class="sme-label">No media added</span>' +
+            '<button class="scene-media-add" type="button">Add Media</button>' +
+          '</div>';
+    }
+
     function restoreSceneCanvas(card) {
       if (window.__mediaForScene) window.__mediaForScene.set(card.__media || null);
 
-      // Fill this card's media slot from its own asset (image view).
-      const slot = card.querySelector('.scene-media');
-      if (slot) {
-        slot.innerHTML = card.__media
-          ? '<div class="scene-media-filled">' +
-              '<img class="scene-media-img" src="' + card.__media.src + '" alt="" />' +
-              '<span class="scene-media-name">' + card.__media.name + '</span>' +
-            '</div>'
-          : '<div class="scene-media-empty">' +
-              '<i class="fa-regular fa-image"></i>' +
-              '<span class="sme-label">No media added</span>' +
-              '<button class="scene-media-add" type="button">Add Media</button>' +
-            '</div>';
-      }
+      fillSceneMediaSlot(card);
 
       const tpl = card.__template || '';
       if (tplSelect) tplSelect.value = tpl;
