@@ -129,13 +129,16 @@ There are specific requirements for locks used by authorized employees for locko
 Locks used by authorized employees must be durable, used only for the purpose of lockout tagout, standardized within a facility by color, shape, or size, and uniquely identified and associated with an employee. The keys used for lockout locks must be controlled.
 
 #### scene 3 | 0:23 | LockoutHardware-scene3.png
-When more than one authorized employee works on a machine, the energy isolation devices must be protected by a hasp that can support the application of multiple locks. This allows each authorized employee involved to place their own lock on the hasp.
+When more than one authorized employee works on a machine, the energy isolation devices must be protected by a hasp that can support the application of multiple locks. This allows each authorized employee involved to place their own lock on the hasp. If work is to extend over a shift break, it's important that continuity of coverage be maintained.
 
+<!-- Scenes 4 and 5 split the final sentence MID-SENTENCE, matching the
+     video. Scene 4 intentionally has no terminal punctuation and scene 5
+     intentionally begins lowercase — neither is a typo. -->
 #### scene 4 | 0:04 | LockoutHardware-scene4.png
-If work is to extend over a shift break, it's important that continuity of coverage be maintained.
+The incoming authorized employee must place their own lock on the hasp
 
 #### scene 5 | 0:04 | LockoutHardware-scene5.png
-The incoming authorized employee must place their own lock on the hasp before the outgoing authorized employee removes theirs.
+before the outgoing authorized employee removes theirs.
 
 ### Lockout Administration
 objective: Explain how written lockout procedures are documented, reviewed, and audited to meet program requirements

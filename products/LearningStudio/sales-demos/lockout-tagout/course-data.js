@@ -183,17 +183,17 @@ const COURSE = {
             {
               "dur": 23,
               "image": "LockoutHardware-scene3.png",
-              "transcript": "When more than one authorized employee works on a machine, the energy isolation devices must be protected by a hasp that can support the application of multiple locks. This allows each authorized employee involved to place their own lock on the hasp."
+              "transcript": "When more than one authorized employee works on a machine, the energy isolation devices must be protected by a hasp that can support the application of multiple locks. This allows each authorized employee involved to place their own lock on the hasp. If work is to extend over a shift break, it's important that continuity of coverage be maintained."
             },
             {
               "dur": 4,
               "image": "LockoutHardware-scene4.png",
-              "transcript": "If work is to extend over a shift break, it's important that continuity of coverage be maintained."
+              "transcript": "The incoming authorized employee must place their own lock on the hasp"
             },
             {
               "dur": 4,
               "image": "LockoutHardware-scene5.png",
-              "transcript": "The incoming authorized employee must place their own lock on the hasp before the outgoing authorized employee removes theirs."
+              "transcript": "before the outgoing authorized employee removes theirs."
             }
           ],
           "opensManager": true,
