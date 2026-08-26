@@ -38,12 +38,25 @@ if (fs.existsSync(dir)) {
 
 const title = folder.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+// Demos must NEVER show a real catalog SKU, so scaffold a fake one that is
+// already valid: "DEMO-" + the folder's initials + "-101". Reads like a real
+// catalog code on a call, but the DEMO- prefix makes it unmistakably not one.
+const fakeSku = 'DEMO-' + folder.split('-')
+  .map(w => w.slice(0, 4).toUpperCase())
+  .join('')
+  .slice(0, 8) + '-101';
+
 const starter = `# ${title}
-sku: CHANGE-ME
+sku: ${fakeSku}
 
 <!--
   This file is the single source of truth for this demo.
   After editing:  node _kit/build-course.js ${folder}
+
+  SKU
+    The sku above is DELIBERATELY FAKE and is already valid — demos must
+    never show a real catalog SKU. Change it if you like, but keep any
+    replacement fake too.
 
   STRUCTURE
     ## Section title

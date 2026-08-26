@@ -1,16 +1,18 @@
-# Lockout/Tagout
-sku: CHANGE-ME
+# Lockout Tagout for Authorized Employees
+sku: DEMO-LOTO-101
 
 <!--
   Source of truth for this demo.
   After editing:  node _kit/build-course.js lockout-tagout
 
   STATUS — built from screenshots, in progress
+    · Title and SKU confirmed. The SKU is DELIBERATELY FAKE: demos must
+      never show a real catalog SKU. Keep any replacement fake too.
     · Sections 1-5: titles + durations captured.
     · Section 3 LOs: all 8 captured with durations.
-    · Still needed: SKU, course title confirmation, LO objectives,
-      LOs for sections 1, 2, 4 and 5, and scene-level detail
-      (transcripts + images) for whichever LOs the click path visits.
+    · Still needed: LO objectives, LOs for sections 1, 2, 4 and 5, and
+      scene-level detail (transcripts + images) for whichever LOs the
+      click path visits.
 
   CLICK PATHS
     An LO with "#### scene" blocks is CLICKABLE and opens the object
@@ -19,28 +21,78 @@ sku: CHANGE-ME
     decided.
 
   DURATIONS
-    Section headers in the source list showed rounded minutes
-    (e.g. "6 minutes" for section 3). The LO durations here are the
-    exact per-object values, so computed section totals may differ
-    slightly from those rounded labels. The computed value is correct.
+    The source screenshots show ROUNDED per-object durations; the Studio
+    interface uses exact values. The durations here are transcribed from
+    those rounded displays, so section and course totals computed from
+    them may differ slightly from the rounded section labels
+    (e.g. section 3's header said "6 minutes"). The computed value is
+    the one to trust — never hand-total.
 -->
 
 ## Introduction
-<!-- Source shows 1 minute total. LOs not yet captured. -->
+<!-- Source showed a rounded "1 minute"; the two objects below sum to 1:43.
+     The computed total wins. -->
 
+<!-- The section's title card. It shares the section's name, so `type:`
+     marks it explicitly rather than relying on name-based detection.
+     No scenes yet, so its duration is authored directly. -->
 ### Introduction
+type: title-card
+state: not-started
+duration: 0:08
+
+### Course Overview
 objective: Describe the purpose and scope of lockout/tagout training and identify who is required to complete it
 state: not-started
-duration: 1:00
+duration: 1:35
 
 
 ## Hazardous Energy
-<!-- Source shows 10 minutes total. LOs not yet captured. -->
+<!-- Source showed a rounded "10 minutes"; the title card + 7 LOs below
+     sum to 10:32. The computed total wins. -->
 
+<!-- The section's title card. It shares the section's name, so `type:`
+     marks it explicitly rather than relying on name-based detection.
+     No scenes yet, so its duration is authored directly. -->
 ### Hazardous Energy
+type: title-card
+state: not-started
+duration: 0:06
+
+### The Hazardous Energy Problem
+objective: Explain why unexpected energization or release of stored energy during servicing puts workers at risk
+state: not-started
+duration: 0:54
+
+### The Hazardous Energy Solution
+objective: Describe how an energy control program prevents injury by isolating equipment before service begins
+state: not-started
+duration: 0:43
+
+### Hazardous Energy Isolation
+objective: Identify the energy-isolating device for a piece of equipment and explain what isolation does and does not accomplish
+state: not-started
+duration: 1:17
+
+### Identifying Sources of Hazardous Energy
 objective: Identify the primary sources of hazardous energy in the workplace and explain why each must be controlled before servicing equipment
 state: not-started
-duration: 10:00
+duration: 1:28
+
+### Identifying Secondary Energy Sources
+objective: Recognize stored and residual energy sources that remain hazardous after the primary source is isolated
+state: not-started
+duration: 0:40
+
+### Hazardous Energy Control Procedures
+objective: Apply the sequence of steps in a written energy control procedure to shut down, isolate, lock out, and verify equipment
+state: not-started
+duration: 4:46
+
+### Testing
+objective: Verify that all energy sources are isolated and that the equipment cannot start before beginning work
+state: not-started
+duration: 0:38
 
 
 ## Lockout/Tagout Program Requirements
@@ -89,18 +141,41 @@ duration: 1:00
 
 
 ## Lockout/Tagout Case Study
-<!-- Source shows 3 minutes total. LOs not yet captured. -->
+<!-- Source showed a rounded "3 minutes"; the title card + 2 LOs below
+     sum to 3:05. The computed total wins. -->
 
+<!-- The section's title card. It shares the section's name, so `type:`
+     marks it explicitly rather than relying on name-based detection.
+     No scenes yet, so its duration is authored directly. -->
 ### Lockout/Tagout Case Study
+type: title-card
+state: not-started
+duration: 0:06
+
+### Case Study
+objective: Follow a real-world lockout/tagout incident from routine task to serious injury
+state: not-started
+duration: 1:02
+
+### Case Study: What Went Wrong
 objective: Analyze a real-world lockout/tagout incident and identify the procedural failures that allowed it to occur
 state: not-started
-duration: 3:00
+duration: 1:57
 
 
 ## Conclusion
-<!-- Source shows 1 minute total. LOs not yet captured. -->
+<!-- Source showed a rounded "1 minute"; the title card + 1 LO below
+     sum to 0:51. The computed total wins. -->
 
+<!-- The section's title card. It shares the section's name, so `type:`
+     marks it explicitly rather than relying on name-based detection.
+     No scenes yet, so its duration is authored directly. -->
 ### Conclusion
+type: title-card
+state: not-started
+duration: 0:06
+
+### Summary and Implications
 objective: Summarize the core requirements of the lockout/tagout program and locate the resources needed to apply them on the job
 state: not-started
-duration: 1:00
+duration: 0:45

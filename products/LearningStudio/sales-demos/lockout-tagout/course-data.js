@@ -8,8 +8,8 @@
    ============================================================ */
 
 const COURSE = {
-  "sku": "CHANGE-ME",
-  "title": "Lockout/Tagout",
+  "sku": "DEMO-LOTO-101",
+  "title": "Lockout Tagout for Authorized Employees",
   "sections": [
     {
       "id": "s01",
@@ -18,10 +18,20 @@ const COURSE = {
         {
           "id": "s01-o01",
           "name": "Introduction",
+          "type": "title-card",
+          "state": "not-started",
+          "objective": "",
+          "dur": 8,
+          "scenes": [],
+          "opensManager": false
+        },
+        {
+          "id": "s01-o02",
+          "name": "Course Overview",
           "type": "lesson",
           "state": "not-started",
           "objective": "Describe the purpose and scope of lockout/tagout training and identify who is required to complete it",
-          "dur": 60,
+          "dur": 95,
           "scenes": [],
           "opensManager": false,
           "numbered": 1
@@ -35,13 +45,89 @@ const COURSE = {
         {
           "id": "s02-o01",
           "name": "Hazardous Energy",
+          "type": "title-card",
+          "state": "not-started",
+          "objective": "",
+          "dur": 6,
+          "scenes": [],
+          "opensManager": false
+        },
+        {
+          "id": "s02-o02",
+          "name": "The Hazardous Energy Problem",
           "type": "lesson",
           "state": "not-started",
-          "objective": "Identify the primary sources of hazardous energy in the workplace and explain why each must be controlled before servicing equipment",
-          "dur": 600,
+          "objective": "Explain why unexpected energization or release of stored energy during servicing puts workers at risk",
+          "dur": 54,
           "scenes": [],
           "opensManager": false,
           "numbered": 1
+        },
+        {
+          "id": "s02-o03",
+          "name": "The Hazardous Energy Solution",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Describe how an energy control program prevents injury by isolating equipment before service begins",
+          "dur": 43,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 2
+        },
+        {
+          "id": "s02-o04",
+          "name": "Hazardous Energy Isolation",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Identify the energy-isolating device for a piece of equipment and explain what isolation does and does not accomplish",
+          "dur": 77,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 3
+        },
+        {
+          "id": "s02-o05",
+          "name": "Identifying Sources of Hazardous Energy",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Identify the primary sources of hazardous energy in the workplace and explain why each must be controlled before servicing equipment",
+          "dur": 88,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 4
+        },
+        {
+          "id": "s02-o06",
+          "name": "Identifying Secondary Energy Sources",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Recognize stored and residual energy sources that remain hazardous after the primary source is isolated",
+          "dur": 40,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 5
+        },
+        {
+          "id": "s02-o07",
+          "name": "Hazardous Energy Control Procedures",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Apply the sequence of steps in a written energy control procedure to shut down, isolate, lock out, and verify equipment",
+          "dur": 286,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 6
+        },
+        {
+          "id": "s02-o08",
+          "name": "Testing",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Verify that all energy sources are isolated and that the equipment cannot start before beginning work",
+          "dur": 38,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 7
         }
       ]
     },
@@ -140,13 +226,34 @@ const COURSE = {
         {
           "id": "s04-o01",
           "name": "Lockout/Tagout Case Study",
+          "type": "title-card",
+          "state": "not-started",
+          "objective": "",
+          "dur": 6,
+          "scenes": [],
+          "opensManager": false
+        },
+        {
+          "id": "s04-o02",
+          "name": "Case Study",
           "type": "lesson",
           "state": "not-started",
-          "objective": "Analyze a real-world lockout/tagout incident and identify the procedural failures that allowed it to occur",
-          "dur": 180,
+          "objective": "Follow a real-world lockout/tagout incident from routine task to serious injury",
+          "dur": 62,
           "scenes": [],
           "opensManager": false,
           "numbered": 1
+        },
+        {
+          "id": "s04-o03",
+          "name": "Case Study: What Went Wrong",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Analyze a real-world lockout/tagout incident and identify the procedural failures that allowed it to occur",
+          "dur": 117,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 2
         }
       ]
     },
@@ -157,10 +264,20 @@ const COURSE = {
         {
           "id": "s05-o01",
           "name": "Conclusion",
+          "type": "title-card",
+          "state": "not-started",
+          "objective": "",
+          "dur": 6,
+          "scenes": [],
+          "opensManager": false
+        },
+        {
+          "id": "s05-o02",
+          "name": "Summary and Implications",
           "type": "lesson",
           "state": "not-started",
           "objective": "Summarize the core requirements of the lockout/tagout program and locate the resources needed to apply them on the job",
-          "dur": 60,
+          "dur": 45,
           "scenes": [],
           "opensManager": false,
           "numbered": 1

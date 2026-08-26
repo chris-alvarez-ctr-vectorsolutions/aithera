@@ -50,6 +50,14 @@ multiple lines.
 The next scene's transcript.
 ```
 
+### SKUs are always fake
+
+Demos are shown to customers, so a course must **never** display a real
+catalog SKU. `new-course.js` scaffolds a valid fake one derived from the
+folder name (`forklift-safety` → `DEMO-FORKSAFE-101`). It reads like a real
+catalog code on a call, but the `DEMO-` prefix makes it unmistakably not one.
+Change it if you want a different code — just keep the replacement fake.
+
 ### Click paths — the important rule
 
 - An LO **with** `#### scene` blocks is **clickable**: it opens the object
