@@ -88,6 +88,15 @@
          replace with the real brand value once confirmed. */
       --cape-cod: #3a4550;
 
+      /* Letterbox fill behind the canvas image. The canvas is locked to
+         16:9 but authored images are any ratio, so the gap needs a fill
+         dark enough to read as "outside the frame" rather than as part of
+         the slide. Same dark blue-grey family as Cape Cod, but a separate
+         token deliberately: this is a surface, not the template palette
+         entry, and confirming the real Cape Cod hex shouldn't silently
+         repaint the canvas. */
+      --canvas-fill: #333d47;
+
       --stage-bg: #dbe6f7;
       --panel: var(--lumo-base-color);
       --radius: 10px;
@@ -599,9 +608,39 @@
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
 
-    .stage-card {
+    /* The canvas is ALWAYS 16:9. It flexes as the side panels open and
+       close, but the ratio is fixed, so the rep sees the true slide shape
+       at every panel configuration.
+
+       The wrapper owns the flexing; the card owns the ratio. `min-height:0`
+       lets the wrapper shrink below its content in the flex column, and
+       `align-items:center` stops the row from stretching the card's height
+       (a stretched height would override aspect-ratio). The card then takes
+       the full available width and is capped by max-height, so a wide window
+       is height-bound and a narrow one width-bound -- whichever runs out
+       first governs, and the card never clips out of the viewport. */
+    .stage-wrap {
       flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
       margin: 4px 26px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Makes this box the query container for the rules below, so the
+         card can ask which of its own axes is the binding one. */
+      container-type: size;
+    }
+
+    .stage-card {
+      /* Ratio comes from the container queries below, which pick the
+         binding axis. CSS can't infer that on its own: sizing the wrong
+         axis lets the opposite clamp win and the ratio breaks. Verified
+         against wide/short, narrow/tall and near-16:9 wrappers. */
+      aspect-ratio: 16 / 9;
+      flex: 0 1 auto;
+      min-width: 0;
+
       border-radius: 14px;
       background: linear-gradient(180deg, #eef4fd 0%, #e2ecfa 100%);
       display: flex; flex-direction: column;
@@ -609,6 +648,18 @@
       text-align: center;
       padding: 40px;
     }
+
+    /* Pick the binding axis. Size the OTHER one and let aspect-ratio derive
+       it -- setting both is what breaks the ratio.
+         wrapper wider than 16:9  -> height binds, width follows
+         wrapper taller than 16:9 -> width binds, height follows */
+    @container (min-aspect-ratio: 16 / 9) {
+      .stage-card { height: 100%; width: auto;  max-width: 100%; }
+    }
+    @container (max-aspect-ratio: 16 / 9) {
+      .stage-card { width: 100%;  height: auto; max-height: 100%; }
+    }
+
     .stage-card .empty-icon {
       font-size: 56px; color: #2b3038; margin-bottom: 24px;
       position: relative;
@@ -774,12 +825,19 @@
       padding: 0;
       justify-content: stretch;
       align-items: stretch;
+      /* Letterbox fill. The canvas is 16:9 but authored images are any
+         ratio, so whatever the image doesn't cover reads as the dark area
+         outside the frame. Replaces the light gradient only when media is
+         present -- the empty state keeps its gradient. */
+      background: var(--canvas-fill);
     }
     .stage-card.has-media > *:not(#stageMedia):not(#tplOverlay) { display: none; }
     .stage-media {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
-      object-fit: cover;
+      /* `contain`, not `cover`: show the whole authored image. `cover`
+         cropped the edges off any image that wasn't exactly 16:9. */
+      object-fit: contain;
       border-radius: inherit;
     }
 
@@ -1318,12 +1376,16 @@
           <button class="pill-btn" id="btnCompleteScene"><i class="fa-regular fa-circle" id="completeIcon"></i> <span id="completeLabel">Complete Scene</span></button>
         </div>
 
-        <div class="stage-card" id="stageCard">
-          <!-- Default empty state (shown until a template with sound is applied) -->
-          <div class="empty-icon"><i class="fa-solid fa-lightbulb"></i><i class="fa-solid fa-gear" style="font-size:26px;position:absolute;right:-14px;bottom:-6px;"></i></div>
-          <h3>Ready to start creating?</h3>
-          <p><a href="#" class="link scene-media-add"><i class="fa-solid fa-wand-magic-sparkles"></i> Add Media</a> above to get started or generate a complete learning object</p>
-          <p>using the <span class="grad"><i class="fa-solid fa-wand-magic-sparkles"></i> regenerate</span> tool</p>
+        <!-- The wrapper flexes with the side panels; the card inside holds
+             the fixed 16:9 ratio. -->
+        <div class="stage-wrap">
+          <div class="stage-card" id="stageCard">
+            <!-- Default empty state (shown until a template with sound is applied) -->
+            <div class="empty-icon"><i class="fa-solid fa-lightbulb"></i><i class="fa-solid fa-gear" style="font-size:26px;position:absolute;right:-14px;bottom:-6px;"></i></div>
+            <h3>Ready to start creating?</h3>
+            <p><a href="#" class="link scene-media-add"><i class="fa-solid fa-wand-magic-sparkles"></i> Add Media</a> above to get started or generate a complete learning object</p>
+            <p>using the <span class="grad"><i class="fa-solid fa-wand-magic-sparkles"></i> regenerate</span> tool</p>
+          </div>
         </div>
       </section>
 
@@ -2562,6 +2624,15 @@
           paintStage(sceneMedia);
         }
       };
+
+      // renderScenes() runs in an earlier IIFE — before this one defines
+      // __mediaForScene — so the landing scene's restoreSceneCanvas() call
+      // found no hook and silently skipped painting the canvas. The scene
+      // card looked active, but its image only appeared once the rep
+      // clicked it. Re-apply the already-selected scene now that the hook
+      // exists, so the canvas matches the selection on open.
+      const landing = document.querySelector('.scene.selected');
+      if (landing) window.__mediaForScene.set(landing.__media || null);
 
       // Draw (or clear) the canvas media for whichever scene is active.
       function paintStage(media) {
