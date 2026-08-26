@@ -757,6 +757,33 @@
     .prop-label { font-size: var(--font-size-l); font-weight: var(--font-weight-semibold); color: var(--ink); margin-bottom: 6px; }
     .prop-empty { font-size: var(--font-size-m); color: var(--ink-mute); font-style: italic; }
 
+    /* ---- Current Media row --------------------------------------------
+       The active scene's filename plus a delete control. Long asset names
+       are common, so the name truncates with an ellipsis and keeps its
+       full value in a title tooltip; the trash button never shrinks. */
+    .media-prop-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--lumo-base-color);
+    }
+    .media-prop-row i.mp-icon { color: var(--ink-mute); font-size: var(--font-size-m); flex: 0 0 auto; }
+    .media-prop-name {
+      flex: 1 1 auto; min-width: 0;
+      font-size: var(--font-size-m); color: var(--ink);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .media-prop-del {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      border: 1px solid transparent; border-radius: 6px;
+      background: none; color: var(--ink-mute);
+      cursor: pointer;
+    }
+    .media-prop-del:hover { background: #fdf2f2; border-color: #edc9c9; color: #b23b3b; }
+
     /* Property tab panels */
     .prop-panel { display: none; }
     .prop-panel.active { display: block; }
@@ -1424,9 +1451,13 @@
           </div>
 
           <!-- Media panel -->
+          <!-- Current Media: filled by renderMediaProp() from the active
+               scene's asset. Empty state until the scene has media. -->
           <div class="prop-panel active" id="panel-media">
             <div class="prop-label">Current Media</div>
-            <div class="prop-empty">No media available</div>
+            <div id="mediaProp">
+              <div class="prop-empty">No media available</div>
+            </div>
           </div>
 
           <!-- Templates panel: template picker + its parameters -->
@@ -2169,6 +2200,10 @@
     // its own asset. Shared so every card can be filled at render time and
     // refreshed when its media changes -- the image view is a gallery of
     // ALL scenes, so this must not be tied to which card is selected.
+    // Exposed on window: the media modal lives in a separate <script> block
+    // and needs this to clear a scene's thumbnail (same reason
+    // __mediaForScene is global).
+    window.fillSceneMediaSlot = fillSceneMediaSlot;
     function fillSceneMediaSlot(card) {
       const slot = card.querySelector('.scene-media');
       if (!slot) return;
@@ -2648,6 +2683,52 @@
       // label and modal title reflect that scene alone.
       let sceneMedia = null;
 
+      // ---- Current Media row in the properties panel --------------------
+      // Shows the active scene's filename with a control to remove it.
+      const mediaProp = document.getElementById('mediaProp');
+
+      function renderMediaProp(media) {
+        if (!mediaProp) return;
+        if (!media) {
+          mediaProp.innerHTML = '<div class="prop-empty">No media available</div>';
+          return;
+        }
+        // Name is authored data, so escape it rather than interpolating raw.
+        const safe = String(media.name)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+        mediaProp.innerHTML =
+          '<div class="media-prop-row">' +
+            '<i class="fa-regular fa-image mp-icon"></i>' +
+            '<span class="media-prop-name" title="' + safe + '">' + safe + '</span>' +
+            '<button class="media-prop-del" type="button" title="Remove media from this scene" ' +
+                    'aria-label="Remove media from this scene">' +
+              '<i class="fa-solid fa-trash-can"></i>' +
+            '</button>' +
+          '</div>';
+      }
+
+      // Remove the active scene's media everywhere it appears: the scene's
+      // own record, its gallery thumbnail, the canvas, this panel, and the
+      // Add/Replace button label.
+      function clearMedia() {
+        const active = document.querySelector('.scene.selected');
+        if (active) {
+          active.__media = null;
+          window.fillSceneMediaSlot(active);
+        }
+        sceneMedia = null;
+        labelEl.textContent = 'Add Media';
+        paintStage(null);
+        renderMediaProp(null);
+      }
+
+      if (mediaProp) {
+        mediaProp.addEventListener('click', (e) => {
+          if (e.target.closest('.media-prop-del')) clearMedia();
+        });
+      }
+
       // Save/restore hooks used by selectScene when the active card changes.
       window.__mediaForScene = {
         get: () => sceneMedia,
@@ -2655,6 +2736,7 @@
           sceneMedia = m || null;
           labelEl.textContent = sceneMedia ? 'Replace Media' : 'Add Media';
           paintStage(sceneMedia);
+          renderMediaProp(sceneMedia);
         }
       };
 
@@ -2795,16 +2877,23 @@
               '<i class="fa-regular fa-image"></i>' +
             '</span>';
 
-        document.querySelectorAll('.scene-media').forEach(slot => {
-          slot.innerHTML =
-            '<div class="scene-media-filled">' +
-              visual +
-              '<span class="scene-media-name">' + media.name + '</span>' +
-            '</div>';
-        });
+        // Only the ACTIVE scene's slot. This used to write into every
+        // .scene-media on the page, so adding one image stamped it across
+        // every scene -- which the image-view gallery makes obvious.
+        if (active) {
+          const slot = active.querySelector('.scene-media');
+          if (slot) {
+            slot.innerHTML =
+              '<div class="scene-media-filled">' +
+                visual +
+                '<span class="scene-media-name">' + media.name + '</span>' +
+              '</div>';
+          }
+        }
 
         // Show it on the canvas too, behind any template graphic.
         paintStage(media);
+        renderMediaProp(media);
         closeMedia();
       }
 
