@@ -468,8 +468,43 @@
             margin: 0 0 10px; font-size: 13px; font-weight: 700;
             color: #5a6470; text-transform: uppercase; letter-spacing: 0.04em;
         }
-        /* Yes/No filters — group-field is flex by default, so this just sets the gap */
-        .filter-group .yes-no-filter::part(group-field) { gap: 20px; }
+        /* Yes/No filters — group-field is flex by default; stack the options
+           vertically so the two choices read as a short list, not a wide row. */
+        .filter-group .yes-no-filter::part(group-field) {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        /* Label row for the Yes/No groups: title left, "Clear" pushed to the right
+           edge. Sharing the label's line keeps the clear action off its own row. */
+        .filter-group h3.yes-no-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        /* Text-button styling — the h3 is uppercase/letter-spaced, so this resets
+           the inherited type back to a normal-case action link. */
+        .filter-group .filter-clear {
+            flex: 0 0 auto;
+            padding: 0;
+            border: 0;
+            background: none;
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: normal;
+            color: var(--lumo-primary-text-color, #1a6dcc);
+        }
+        .filter-group .filter-clear:hover { text-decoration: underline; }
+        .filter-group .filter-clear:focus-visible {
+            outline: 2px solid var(--lumo-primary-color, #1a6dcc);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
 
         /* ── Searchable, height-capped option lists ── */
         /* Search + bulk-action row. The search is deliberately narrower than full
@@ -1105,9 +1140,16 @@
                 </div>
             </div>
 
-            <!-- Attendance/credit state filters — yes/no, unset means "no preference" -->
+            <!-- Attendance/credit state filters. Unset = filter off: both Yes and No
+                 records are included. The per-group "Clear" in the label row is how a
+                 user gets back to that neutral state after picking Yes or No — it's
+                 hidden while the group is already unset, so it only appears when it
+                 would actually do something. -->
             <div class="filter-group">
-                <h3>Signed In</h3>
+                <h3 class="yes-no-head">
+                    <span class="filter-section-title">Signed In</span>
+                    <button class="filter-clear" type="button" aria-label="Clear Signed In filter" hidden>Clear</button>
+                </h3>
                 <vaadin-radio-group class="yes-no-filter" data-filter="signedIn">
                     <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
                     <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
@@ -1115,7 +1157,10 @@
             </div>
 
             <div class="filter-group">
-                <h3>Credits Approved</h3>
+                <h3 class="yes-no-head">
+                    <span class="filter-section-title">Credits Approved</span>
+                    <button class="filter-clear" type="button" aria-label="Clear Credits Approved filter" hidden>Clear</button>
+                </h3>
                 <vaadin-radio-group class="yes-no-filter" data-filter="creditsApproved">
                     <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
                     <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
@@ -1123,7 +1168,10 @@
             </div>
 
             <div class="filter-group">
-                <h3>Credits Released</h3>
+                <h3 class="yes-no-head">
+                    <span class="filter-section-title">Credits Released</span>
+                    <button class="filter-clear" type="button" aria-label="Clear Credits Released filter" hidden>Clear</button>
+                </h3>
                 <vaadin-radio-group class="yes-no-filter" data-filter="creditsReleased">
                     <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
                     <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
@@ -1131,7 +1179,10 @@
             </div>
 
             <div class="filter-group">
-                <h3>Feedback</h3>
+                <h3 class="yes-no-head">
+                    <span class="filter-section-title">Feedback</span>
+                    <button class="filter-clear" type="button" aria-label="Clear Feedback filter" hidden>Clear</button>
+                </h3>
                 <vaadin-radio-group class="yes-no-filter" data-filter="feedback">
                     <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
                     <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
@@ -1139,7 +1190,10 @@
             </div>
 
             <div class="filter-group">
-                <h3>Evidence</h3>
+                <h3 class="yes-no-head">
+                    <span class="filter-section-title">Evidence</span>
+                    <button class="filter-clear" type="button" aria-label="Clear Evidence filter" hidden>Clear</button>
+                </h3>
                 <vaadin-radio-group class="yes-no-filter" data-filter="evidence">
                     <vaadin-radio-button value="yes" label="Yes"></vaadin-radio-button>
                     <vaadin-radio-button value="no" label="No"></vaadin-radio-button>
@@ -1447,7 +1501,8 @@
         const expandedRowIndices = new Set([0]);
 
         // ── Filter state ───────────────────────────────────────────
-        // null = not set ("no preference"); true/false = Yes/No.
+        // null = filter off, shown as "Any" in the panel (both Yes and No records
+        // are included); true/false = Yes/No.
         const activeFilters = {
             signedIn: null,
             creditsApproved: null,
@@ -1492,7 +1547,9 @@
         // and the empty-state button.
         function clearAllFilters() {
             Object.keys(activeFilters).forEach(k => { activeFilters[k] = null; });
+            // "" is the component's own deselect value — null logs a "not found" warning
             document.querySelectorAll('.yes-no-filter').forEach(group => { group.value = ''; });
+            syncYesNoClearButtons();
             // Reset the per-group searches and unhide everything they filtered out
             document.querySelectorAll('.filter-search').forEach(field => { field.value = ''; });
             document.querySelectorAll('.filter-options').forEach(box => {
@@ -2122,6 +2179,33 @@
             });
         });
 
+        // The per-group "Clear" only appears once that group has a Yes/No selection,
+        // so it never sits there inert on an already-unset filter.
+        function syncYesNoClearButtons() {
+            filtersDrawer.querySelectorAll('.filter-clear').forEach(btn => {
+                const group = btn.closest('.filter-group');
+                const radios = group && group.querySelector('.yes-no-filter');
+                btn.hidden = !(radios && radios.value);
+            });
+        }
+
+        // Clear a single group back to the neutral (both Yes and No) state.
+        filtersDrawer.querySelectorAll('.filter-clear').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const group = btn.closest('.filter-group');
+                const radios = group && group.querySelector('.yes-no-filter');
+                if (!radios) return;
+                radios.value = '';   // "" is the component's own deselect value
+                syncYesNoClearButtons();
+            });
+        });
+
+        // Show/hide each Clear as its group is set. Like `checked-changed`, Vaadin's
+        // `value-changed` doesn't bubble, so this binds per-group rather than delegating.
+        filtersDrawer.querySelectorAll('.yes-no-filter').forEach(radios => {
+            radios.addEventListener('value-changed', syncYesNoClearButtons);
+        });
+
         function syncAllSelectAllButtons() {
             filtersDrawer.querySelectorAll('.filter-group').forEach(syncSelectAllButton);
         }
@@ -2152,6 +2236,7 @@
                 const v = activeFilters[key];
                 group.value = v === null ? '' : (v ? 'yes' : 'no');
             });
+            syncYesNoClearButtons();
             syncPageChromeHeight();
             filtersOpen = true;
             filtersDrawer.open = true;
@@ -2188,7 +2273,8 @@
 
         document.getElementById('openFiltersBtn').addEventListener('click', openFilters);
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-            // Read each yes/no group into filter state: '' (unset) → null
+            // Read each yes/no group into filter state: '' (unset) → null, meaning
+            // the filter is off and both Yes and No records are included.
             filtersDrawer.querySelectorAll('.yes-no-filter').forEach(group => {
                 const key = group.dataset.filter;
                 if (!key || !(key in activeFilters)) return;
@@ -2200,7 +2286,7 @@
         });
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             filtersDrawer.querySelectorAll('vaadin-checkbox').forEach(cb => cb.checked = false);
-            // "" is the component's own deselect value — null logs a "not found" warning
+            // Resets each radio group back to its "any" (filter off) option
             clearAllFilters();
         });
 
