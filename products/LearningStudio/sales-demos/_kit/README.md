@@ -68,6 +68,31 @@ Change it if you want a different code — just keep the replacement fake.
 Build out only what the demo's click path actually visits. Everything else
 stays a stub so a rep can't wander into an unfinished screen on a live call.
 
+### Hidden objects — for a reveal moment
+
+`hidden: true` on an LO keeps it out of the course overview **and** out of
+the duration totals, while still building it fully — scenes, transcript,
+images and all.
+
+```markdown
+### The Newly Generated Lesson
+objective: …
+hidden: true
+```
+
+It exists for demo moments that reveal a lesson, such as simulating AI
+generating one. Author it completely, then reveal it at demo time by
+clearing the flag and re-rendering:
+
+```javascript
+COURSE.sections.forEach(s => s.objects.forEach(o => { o.hidden = false; }));
+renderSections(); renderCourseMeta();
+```
+
+The list and the totals update together, so the numbers never disagree with
+what's on screen. `build-course.js` prints any hidden object so it doesn't
+look like an LO went missing.
+
 ### Durations
 
 Authored only on leaves. An LO with scenes derives its duration from them;

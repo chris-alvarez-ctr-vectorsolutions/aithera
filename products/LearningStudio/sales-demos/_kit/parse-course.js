@@ -157,6 +157,10 @@ function parseCourse(md) {
         if (meta.key === 'duration')  { obj.dur = parseDuration(meta.value); continue; }
         if (meta.key === 'state')     { obj.state = meta.value || 'not-started'; continue; }
         if (meta.key === 'type')      { obj.type = meta.value; continue; }
+        // `hidden: true` keeps an authored LO out of the overview until the
+        // demo reveals it (see the AI-generation flow). It is fully built in
+        // course.md -- scenes, transcript, images -- just not listed yet.
+        if (meta.key === 'hidden')    { obj.hidden = /^(true|yes|1)$/i.test(meta.value); continue; }
       }
       if (meta && !obj && meta.key === 'sku') { course.sku = meta.value; continue; }
       // Anything else outside a scene is prose — ignored, so the file can

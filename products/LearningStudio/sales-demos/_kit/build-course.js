@@ -42,12 +42,17 @@ function buildCourse(folder) {
   // --- report ---
   const objects = course.sections.flatMap(s => s.objects);
   const clickable = objects.filter(o => o.opensManager);
-  const totalSecs = objects.reduce((n, o) => n + (o.disabled ? 0 : o.dur), 0);
+  const hidden = objects.filter(o => o.hidden);
+  const totalSecs = objects.reduce(
+    (n, o) => n + (o.disabled || o.hidden ? 0 : o.dur), 0);
 
   console.log(`  ${folder}`);
   console.log(`    "${course.title}"  sku: ${course.sku}`);
   console.log(`    ${course.sections.length} sections · ${objects.length} objects · ` +
               `${clickable.length} clickable · ${fmtMSS(totalSecs)} total`);
+  // Called out explicitly: a hidden object is absent from the overview and
+  // from the totals by design, which otherwise looks like a missing LO.
+  hidden.forEach(o => console.log(`    · hidden until revealed: ${o.name} (${fmtMSS(o.dur)})`));
 
   // Flag scene images that aren't in assets/ — the page degrades to its
   // empty-media state, but the author probably meant to add the file.
@@ -80,7 +85,10 @@ function buildCourse(folder) {
 /* ---- Derived values -------------------------------------------------
    Durations always roll up from leaves, so nothing is hand-totalled and
    the numbers can't drift from the content. A disabled title card is
-   excluded: it won't play, so it contributes no time. */
+   excluded: it won't play, so it contributes no time. A hidden object is
+   excluded too -- it isn't in the overview yet, so counting its time would
+   make the total disagree with the visible list. Clearing o.hidden at
+   demo time and re-rendering makes both update together. */
 
 function fmtMSS(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -95,7 +103,8 @@ function fmtCourse(totalSeconds) {
 }
 
 function sectionSeconds(section) {
-  return section.objects.reduce((sum, o) => sum + (o.disabled ? 0 : o.dur), 0);
+  return section.objects.reduce(
+    (sum, o) => sum + (o.disabled || o.hidden ? 0 : o.dur), 0);
 }
 
 function courseSeconds(course) {

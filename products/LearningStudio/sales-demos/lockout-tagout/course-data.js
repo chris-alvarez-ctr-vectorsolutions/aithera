@@ -316,7 +316,10 @@ const COURSE = {
 /* ---- Derived values -------------------------------------------------
    Durations always roll up from leaves, so nothing is hand-totalled and
    the numbers can't drift from the content. A disabled title card is
-   excluded: it won't play, so it contributes no time. */
+   excluded: it won't play, so it contributes no time. A hidden object is
+   excluded too -- it isn't in the overview yet, so counting its time would
+   make the total disagree with the visible list. Clearing o.hidden at
+   demo time and re-rendering makes both update together. */
 
 function fmtMSS(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -331,7 +334,8 @@ function fmtCourse(totalSeconds) {
 }
 
 function sectionSeconds(section) {
-  return section.objects.reduce((sum, o) => sum + (o.disabled ? 0 : o.dur), 0);
+  return section.objects.reduce(
+    (sum, o) => sum + (o.disabled || o.hidden ? 0 : o.dur), 0);
 }
 
 function courseSeconds(course) {
