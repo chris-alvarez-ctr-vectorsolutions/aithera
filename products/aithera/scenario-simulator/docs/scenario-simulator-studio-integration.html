@@ -285,6 +285,16 @@
         </tbody>
       </table>
     </div>
+    <h3>They download separately</h3>
+    <p>Export opens one dialog with two buttons, <b>Download the editor file</b> and <b>Download the player file</b>. That is two clicks and two downloads. Nothing bundles them, and nothing stops someone taking one and leaving the other.</p>
+    <p>A real bundle is not available. The editor has no build step and uses no libraries, so it cannot write a zip. Wrapping both documents in a single JSON file would work, but then Learning Studio has to split it and pull the player file back out unchanged, which adds a place to get it wrong.</p>
+    <p>So the recommendation is to make the pairing easy in the editor and enforce it in Learning Studio:</p>
+    <ul class="g">
+      <li><b>Add a "Download both" button</b> to the editor that fires both downloads. Chrome asks permission the first time a page downloads more than one file, which is worth knowing but does no harm.</li>
+      <li><b>Require both files on upload.</b> Two file inputs, both mandatory, and check that the two files carry the same <span class="k">implementation_id</span> before saving either.</li>
+    </ul>
+    <p>The enforcement matters more than the convenience. A missing or mismatched file only causes damage at upload, so that is where it should be caught.</p>
+
     <div class="note">
       <b>Why keep both.</b> The player file permanently loses the extra fields. If someone re-opens it in the editor it still loads and looks correct, because the editor fills in defaults for anything missing. That makes the lost content easy to miss. Keeping the editor file avoids the problem.
     </div>
@@ -303,8 +313,8 @@
   <section>
     <h2>Save and update</h2>
     <ol class="s">
-      <li>The LXD exports both files. The editor checks the player file before it downloads.</li>
-      <li>The LXD uploads both files together in one step. Uploading them separately lets them get out of sync.</li>
+      <li>The LXD exports both files, currently as two separate downloads. The editor checks the player file before it downloads.</li>
+      <li>The LXD uploads both files together. Learning Studio should reject an upload that is missing one of them, because a lone player file silently loses the authored extras.</li>
       <li>Learning Studio validates the upload and compares its ID and title against the Learning Object. Use the existing authoring service to validate rather than writing a second validator.</li>
       <li>Learning Studio saves both files as a new version and updates the status and date.</li>
     </ol>
@@ -376,14 +386,15 @@
           <li>Stop rebuilding <span class="k">implementation_id</span> from the title.</li>
           <li>Build download filenames from <span class="k">content.title</span>.</li>
           <li>Store local drafts under the <span class="k">lo</span> ID, so reopening a scenario resumes the right draft.</li>
-          <li>Label the two exports clearly: one for the editor, one for the player.</li>
+          <li>Add a <b>Download both</b> button, so the two files are one action.</li>
         </ul>
       </div>
       <div>
         <h3>Learning Studio</h3>
         <ul class="g">
           <li>Create the Learning Object and generate the ID on New Scenario, then open the editor with both.</li>
-          <li>Store both files, versioned together, uploaded in one step.</li>
+          <li>Store both files, versioned together.</li>
+          <li>Require both files on upload, and check they carry the same <span class="k">implementation_id</span>.</li>
           <li>Send back the editor file when someone edits a scenario.</li>
           <li>Validate on upload using the authoring service, and show its <span class="k">failures[]</span> list.</li>
           <li>Compare the ID and title on upload, following the table above.</li>
