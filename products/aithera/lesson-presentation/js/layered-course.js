@@ -10,10 +10,14 @@
 
    The five "light" steps (intro / video / scene / closing / results) render
    here as content modules. The heavyweight Marshall scenario is a full-screen
-   app of its own, so it stays its own page (layered-course-scenario.html); the
+   app of its own, so it stays its own page (clara/scenario.html); the
    crossing into and out of it is a cross-document View Transition (see the CSS
-   in layered-course.html). The scenario hands back by navigating to
+   in clara/course.html). The scenario hands back by navigating to
    ?step=closing with its score already in sessionStorage['ll-course'].
+
+   NOTE: both course pages live in the clara/ subdirectory, so page-relative
+   paths (videos, the lesson index) resolve one level deeper than the rest of
+   lesson-presentation — hence the ../../assets/… and ../index.html below.
 
    Reuses css/layered-learning.css (tokens, chrome, orb, footer classes) and
    js/mobius-orb.js. Include AFTER frame.js so the top frame exists to update.
@@ -428,7 +432,7 @@
       coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
       content: videoContent({ eyebrow: 'Watch', heading: 'Introduction',
         sub: 'First, let’s introduce you to the basics of sexual harassment, how to respond, and why this lesson matters.',
-        src: '../assets/videos/marshall-preroll.mp4' }),
+        src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
     { id: 'scene', n: 3, mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
@@ -438,14 +442,14 @@
               "then it's your call how to respond. There's no perfect script here you need to follow." },
       init: sceneInit },
 
-    { id: 'scenario', n: 4, external: 'layered-course-scenario.html', lesson: 'The Marshall Scenario' },
+    { id: 'scenario', n: 4, external: 'scenario.html', lesson: 'The Marshall Scenario' },
 
     { id: 'closing', n: 5, mode: 'floating', lesson: 'Wrapping Up', gate: true,
       caption: { title: 'Closing video · Floating companion', note: 'Watch the clip, then answer CLARA’s true/false knowledge check to unlock Continue.' },
       coach: { say: 'Press play for the last clip — I’ve got one quick true-or-false question for you when it wraps.' },
       content: videoContent({ eyebrow: 'Watch', heading: 'Wrapping up',
         sub: 'Let’s close the loop and look at a real case example.',
-        src: '../assets/videos/marshall-postscenario.mp4' }),
+        src: '../../assets/videos/marshall-postscenario.mp4' }),
       init: closingInit },
 
     { id: 'results', n: 6, mode: 'sidebar', lesson: 'Your Results',
@@ -619,7 +623,7 @@
     if (busy) return;
     var target = idx + delta;
     if (target < 0 || target >= TOTAL) {
-      if (target >= TOTAL) window.location.href = 'index.html';   // Finish → back to the lesson index
+      if (target >= TOTAL) window.location.href = '../index.html';   // Finish → back to the lesson index
       return;
     }
     showStep(target, delta < 0 ? 'back' : 'fwd', false);
