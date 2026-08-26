@@ -3601,9 +3601,16 @@ function simPrevRanking() {
   const prevHistory = sim.stepHistory.slice(0, -1);
   return rankRosterForScenario({ rule: simRuleForm(), scenarioDate: prevDate, baselineDate: sim.baselineDate, approach: sim.approach, history: prevHistory, seed: sim.simulationSeed, filters: simFilters() });
 }
+// The predicted call order as it stood at a past callback (history[0..idx-1]),
+// so revisiting a step shows that step's list to compare against later runs.
+function simRankingAt(idx) {
+  const step = sim.stepHistory[idx];
+  if (!step) return simRanking();
+  return rankRosterForScenario({ rule: simRuleForm(), scenarioDate: step.date, baselineDate: sim.baselineDate, approach: sim.approach, history: sim.stepHistory.slice(0, idx), seed: sim.simulationSeed, filters: simFilters() });
+}
 function simEligible(ranking) { return ranking.filter(p => p.status.available && p.status.code !== 'on-shift'); }
 
-function simAdvanceDay() { sim.startDate = new Date(sim.startDate.getTime() + 86400000); }
+function simAdvanceDay() { sim.startDate = new Date(sim.startDate.getTime() + 86400000); sim.revisitIdx = null; }
 
 function simAutoSimulate() {
   const eligible = simEligible(simRanking());
@@ -3679,7 +3686,6 @@ function simHandleChip(chip) {
       return `Today (platoon ${platoonForDay(daysBetween(sim.baselineDate, sim.startDate))}): ${onShift.map(p => p.name).join(', ') || '— no one on this approach is on-shift today.'}`;
     }
     if (chip === 'Run a new callback') {
-      if (sim.stepHistory.length >= SIM_MAX_STEPS) return "You've hit the 7-callback limit. Reset to run more.";
       simAutoSimulate();
       return `Ran callback #${sim.stepHistory.length}. Check the chain on the right — accepted employees will move on the next callback per the rule.`;
     }
@@ -3833,7 +3839,15 @@ function renderSimulator(el, opts, isRerender) {
   const previousRanking = simPrevRanking();
   const eligible = simEligible(ranking);
   const currentStepIdx = sim.stepHistory.length;
-  const isFinished = currentStepIdx >= SIM_MAX_STEPS;
+  const isFinished = false; // no cap — simulate as many callbacks as you like
+  // Revisit: when a past step is selected, the call order below shows that
+  // callback's predicted list (and its movement vs the step before) so you can
+  // click back through the run history and compare.
+  const viewingIdx = (sim.revisitIdx != null && sim.revisitIdx < sim.stepHistory.length) ? sim.revisitIdx : null;
+  const displayRanking = viewingIdx != null ? simRankingAt(viewingIdx) : ranking;
+  const displayPrevRanking = viewingIdx != null ? (viewingIdx > 0 ? simRankingAt(viewingIdx - 1) : null) : previousRanking;
+  const displayStepIdx = viewingIdx != null ? viewingIdx : currentStepIdx; // 0-based
+  const displayDate = viewingIdx != null ? sim.stepHistory[viewingIdx].date : sim.startDate;
   const isReady = !!activeRule && !!sim.approach;
   const chips = ['New scenario', eligible.length > 0 ? `Why is ${eligible[0].name} first?` : 'Why is no one available?', 'What if they decline?', 'Who is on shift today?', 'Run a new callback'];
 
@@ -3909,17 +3923,19 @@ function renderSimulator(el, opts, isRerender) {
       </div>
     </div>`;
 
+  // The stepper grows as callbacks run — one circle per run plus the current
+  // (active) one. Past circles are clickable to revisit that callback's list.
   const stepper = `
-    <div style="display:flex;align-items:center;margin-bottom:10px">
-      ${Array.from({ length: SIM_MAX_STEPS }, (_, i) => {
+    <div style="display:flex;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:2px 0">
+      ${Array.from({ length: currentStepIdx + 1 }, (_, i) => {
         const done = i < currentStepIdx;
-        const active = i === currentStepIdx && !isFinished;
+        const active = i === currentStepIdx;
         const revisiting = done && sim.revisitIdx === i;
         return `
           <span class="step-circle ${done ? 'done' : ''} ${active ? 'active' : ''} ${revisiting ? 'revisit' : ''}" ${done ? `data-sim="revisit" data-idx="${i}"` : ''} title="${done ? `Revisit callback #${i + 1}` : `Callback #${i + 1}`}">
-            ${done ? '<i class="fa-solid fa-check" style="font-size:9px"></i>' : (i + 1)}
+            ${done ? (revisiting ? (i + 1) : '<i class="fa-solid fa-check" style="font-size:9px"></i>') : (i + 1)}
           </span>
-          ${i < SIM_MAX_STEPS - 1 ? `<span style="flex:1;height:2px;background:${i < currentStepIdx ? 'var(--ai)' : 'rgba(0,0,0,.1)'};transition:background .2s"></span>` : ''}`;
+          ${i < currentStepIdx ? `<span style="flex:0 1 32px;min-width:14px;height:2px;background:var(--ai);transition:background .2s"></span>` : ''}`;
       }).join('')}
     </div>`;
 
@@ -3962,19 +3978,22 @@ function renderSimulator(el, opts, isRerender) {
 
   const rankingList = !panelOnly ? `
     <div style="padding:12px 22px 6px;flex:none">
-      <div class="muted-cap" style="margin-bottom:6px;font-size:12px">Predicted call order</div>
+      <div class="muted-cap" style="margin-bottom:6px;font-size:12px;display:flex;align-items:center;gap:8px">
+        <span>Predicted call order</span>
+        ${viewingIdx != null ? `<span style="font-size:10px;font-weight:700;color:var(--ai);background:rgba(124,58,237,.12);padding:2px 8px;border-radius:9px;text-transform:none;letter-spacing:0">History · callback #${viewingIdx + 1}</span><button data-sim="live" style="font-size:10.5px;font-weight:600;color:var(--ai-mid);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;font-family:var(--font)">Back to live</button>` : ''}
+      </div>
       <div style="font-size:12px;line-height:1.4;color:rgba(0,0,0,.55)">
-        For callback <strong>#${currentStepIdx + 1}</strong> at <strong>${formatDate(sim.startDate)}</strong> · platoon ${platoonForDay(daysBetween(sim.baselineDate, sim.startDate))} is on-shift
-        ${currentStepIdx > 0 ? `<span style="margin-left:8px;color:rgba(124,58,237,.7);font-weight:500">· arrows show how each person moved since callback #${currentStepIdx}</span>` : ''}
+        For callback <strong>#${displayStepIdx + 1}</strong> at <strong>${formatDate(displayDate)}</strong> · platoon ${platoonForDay(daysBetween(sim.baselineDate, displayDate))} is on-shift
+        ${displayStepIdx > 0 ? `<span style="margin-left:8px;color:rgba(124,58,237,.7);font-weight:500">· arrows show how each person moved since callback #${displayStepIdx}</span>` : ''}
       </div>
     </div>
     <div style="flex:1;overflow-y:auto;padding:4px 18px 14px">
-      ${ranking.map((p, idx) => {
+      ${displayRanking.map((p, idx) => {
         const st = STATUS_STYLE[p.status.code] || STATUS_STYLE['off'];
         const dim = !p.status.available || p.status.code === 'on-shift';
-        const prevIdx = previousRanking ? previousRanking.findIndex(x => x.name === p.name) : -1;
-        const delta = previousRanking && prevIdx >= 0 ? prevIdx - idx : 0;
-        const movement = !previousRanking ? '<span style="width:14px;flex:none"></span>'
+        const prevIdx = displayPrevRanking ? displayPrevRanking.findIndex(x => x.name === p.name) : -1;
+        const delta = displayPrevRanking && prevIdx >= 0 ? prevIdx - idx : 0;
+        const movement = !displayPrevRanking ? '<span style="width:14px;flex:none"></span>'
           : delta === 0 ? '<span style="width:14px;flex:none;color:rgba(0,0,0,.3);font-size:13px;font-weight:700;text-align:center">—</span>'
           : `<span style="display:inline-flex;align-items:center;gap:1px;color:${delta > 0 ? 'var(--success)' : 'var(--error)'};flex:none;min-width:18px"><i class="fa-solid fa-arrow-${delta > 0 ? 'up' : 'down'}" style="font-size:9px"></i><span style="font-size:10px;font-weight:700">${Math.abs(delta)}</span></span>`;
         return `
@@ -3991,7 +4010,7 @@ function renderSimulator(el, opts, isRerender) {
           <span class="status-pill" style="background:${st.bg};color:${st.fg}"><span class="dot" style="background:${st.dot}"></span>${esc(p.status.label)}</span>
         </div>`;
       }).join('')}
-      ${ranking.length === 0 ? `<div style="padding:20px 8px;font-size:12px;line-height:1.4;color:rgba(0,0,0,.4);text-align:center">No one on the ${esc(sim.approach)} approach yet. Pick a different approach above.</div>` : ''}
+      ${displayRanking.length === 0 ? `<div style="padding:20px 8px;font-size:12px;line-height:1.4;color:rgba(0,0,0,.4);text-align:center">No one on the ${esc(sim.approach)} approach yet. Pick a different approach above.</div>` : ''}
     </div>` : '<div style="flex:1;min-height:0"></div>';
 
   const bottomBarInner = !isFinished ? `
@@ -4094,7 +4113,7 @@ function renderSimulator(el, opts, isRerender) {
       ` : `
       <div style="padding:14px 22px 12px;border-bottom:1px solid rgba(0,0,0,.07);flex:none;background:#FAFAFC">
         <div class="muted-cap" style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <span>Callback chain ${currentStepIdx > 0 ? `· ${currentStepIdx} of ${SIM_MAX_STEPS} run` : ''}</span>
+          <span>Callback chain ${currentStepIdx > 0 ? `· ${currentStepIdx} run` : ''}</span>
           ${currentStepIdx > 0 ? '<span style="font-size:10px;font-weight:500;color:rgba(0,0,0,.4);text-transform:none;letter-spacing:0">· click a completed step to revisit it</span>' : ''}
         </div>
         ${stepper}
@@ -4302,6 +4321,7 @@ document.addEventListener('click', (e) => {
   else if ((el = t('[data-sim="run"]')))      { sim.overridePick ? simOverrideAccept(sim.overridePick) : simAutoSimulate(); }
   else if ((el = t('[data-sim="jump"]')))     { sim.startDate = new Date(sim.startDate.getTime() + Number(el.dataset.days) * 86400000); rerenderSim(); }
   else if ((el = t('[data-sim="revisit"]')))  { const i = Number(el.dataset.idx); sim.revisitIdx = sim.revisitIdx === i ? null : i; rerenderSim(); }
+  else if ((el = t('[data-sim="live"]')))     { sim.revisitIdx = null; rerenderSim(); }
   else if ((el = t('[data-sim="toggle-filters"]'))) { sim.detailsOpen = !sim.detailsOpen; rerenderSim(); }
   else if ((el = t('[data-sim="apply-filters"]')))  { sim.detailsOpen = false; rerenderSim(); }
   else if ((el = t('[data-sim="clear-filters"]')))  { sim.fClassifications = []; sim.fGroups = []; sim.qualAny = []; sim.qualAll = []; rerenderSim(); }

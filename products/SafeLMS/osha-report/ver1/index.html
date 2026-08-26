@@ -36,6 +36,10 @@
     --hair:   #E5E7EB;
     --hair-2: #F3F4F6;
     --canvas: #f3f4f6;
+    /* Grouped-column band (e.g. "Latest Module"): a ~4.5% cool gray-blue overlay tint + a light
+       blue-gray edge border. The tint is translucent so it layers over hover/zebra backgrounds. */
+    --grp-tint: rgba(30, 58, 95, 0.045);
+    --grp-border: #D6DEEA;
   }
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
@@ -335,10 +339,28 @@
   .sortable-th.active-sort { color: var(--blue-accent); }
   .sort-arrow { font-size: 12px; color: var(--muted-2); margin-left: 2px; }
   .sortable-th.active-sort .sort-arrow { color: var(--blue-accent); }
-  /* Grouped two-row header: a centered super-label (e.g. "Latest Module") over its sub-columns.
-     The sub-header row sticks just below the super row (which is ~32px tall with the shared th padding). */
-  .report-table thead th.grp-super { text-align: center; background: #eef2f7; color: var(--ink-2); vertical-align: middle; }
-  .report-table thead th.grp-sub { top: 32px; }
+  /* ── Grouped column band (e.g. "Latest Module" over its 3 sub-columns) ──
+     A subtle cool gray-blue tint is applied as a translucent OVERLAY (background-image gradient)
+     so it layers over the base/hover/zebra background-color instead of replacing it — the band
+     stays visible on row hover. Edge borders on the first/last column + the header run the full
+     height, so header → sub-headers → every body cell read as one continuous vertical band. */
+  .report-table thead th.grp-super {
+    text-align: center; text-transform: uppercase; letter-spacing: .6px; font-size: 11.5px;
+    font-weight: 700; color: var(--muted); vertical-align: middle;
+    border-bottom: 1px solid var(--grp-border);   /* separates the group label from the sub-headers */
+  }
+  .report-table thead th.grp-sub { top: 32px; }   /* sticks just below the ~32px super row */
+  /* The shared tint on header + sub-header + body cells of the group. */
+  .report-table thead th.grp-super,
+  .report-table thead th.grp-sub,
+  .report-table td.grp-cell {
+    background-image: linear-gradient(var(--grp-tint), var(--grp-tint));
+  }
+  /* Edge borders: left on the first grouped column, right on the last; the super-header spans all
+     three so it carries both. Applied to header + body so the band's sides are continuous. */
+  .report-table th.grp-super { border-left: 1px solid var(--grp-border); border-right: 1px solid var(--grp-border); }
+  .report-table th.grp-first, .report-table td.grp-first { border-left: 1px solid var(--grp-border); }
+  .report-table th.grp-last,  .report-table td.grp-last  { border-right: 1px solid var(--grp-border); }
   .group-row { background: var(--hair-2); cursor: pointer; user-select: none; }
   .group-row:hover { background: #e9eaec; }
   .expand-cell { padding: 8px 0 8px 14px; color: var(--muted); font-size: 13px; width: 36px; }
@@ -346,7 +368,8 @@
   .group-count { color: var(--muted); font-weight: 500; }
   .data-row td { padding: 8px 9px; border-bottom: 1px solid var(--hair-2); color: var(--ink-2); vertical-align: middle; white-space: normal; word-break: break-word; }
   .data-row:last-child td { border-bottom: none; }
-  .data-row:hover td { background: #fafafa; }
+  /* Use background-COLOR (not the shorthand) so it doesn't wipe the grouped-band overlay image. */
+  .data-row:hover td { background-color: #fafafa; }
   .data-row .l-name { font-weight: 600; color: var(--ink); }
   .data-row td.l-uname { color: var(--muted); }
   /* Progress cell — % complete + a short fixed-width bar (matches the V2 report). */
@@ -454,6 +477,46 @@
   .tm-selected i { width: 30px; height: 30px; border-radius: 8px; background: #dcfce7; color: #15803d;
     display: grid; place-items: center; font-size: 14px; flex-shrink: 0; }
   .tm-empty { padding: 16px 10px; color: var(--muted); font-size: 14px; }
+
+  /* ── People card in the filter panel (icon + "All positions / at All Locations") ── */
+  .people-card { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+    border: 1px solid var(--hair); background: #fff; border-radius: 10px; padding: 12px 14px;
+    font-family: inherit; cursor: pointer; }
+  .people-card:hover { background: var(--hair-2); border-color: var(--muted-2); }
+  .people-card-ico { flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #E1EBF9;
+    color: var(--blue-primary); display: grid; place-items: center; font-size: 18px; }
+  .people-card-text { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+  .people-card-l1 { font-size: 16px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .people-card-l2 { font-size: 15px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .people-card-l2 .pc-at { color: var(--muted-2); }
+
+  /* ── People Selector (step 1): stacked option buttons ── */
+  .ps-modal { width: min(640px, 96vw); }
+  .ps-head-left { display: flex; align-items: center; gap: 14px; }
+  .ps-head-ico { width: 44px; height: 44px; border-radius: 10px; background: #E1EBF9; color: var(--blue-primary);
+    display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
+  .ps-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+  .ps-option { width: 100%; border: 0; background: #E8F0FE; color: var(--blue-dark); border-radius: 12px;
+    padding: 26px 20px; font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
+    transition: background .12s; }
+  .ps-option:hover { background: #d8e6fd; }
+
+  /* ── Group Selector (step 2a): two stacked tree sections + a location toggle in the footer ── */
+  .gs-modal { width: min(920px, 96vw); }
+  .gs-body { overflow-y: auto; min-height: 0; flex: 1; }
+  .gs-cols { display: grid; grid-template-columns: 1fr 280px; }
+  .gs-divider { height: 1px; background: var(--hair); margin: 4px 20px; }
+  .gs-modal .tm-tree { max-height: 240px; }
+  .gs-foot { display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--hair);
+    font-size: 14px; color: var(--ink-2); }
+  .gs-loc-toggle { border: 0; background: none; color: var(--blue-accent); font-family: inherit; font-size: 14px;
+    font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; }
+
+  /* ── List picker (step 2b): Dynamic / Clever / Quick groups ── */
+  .ls-modal { width: min(620px, 96vw); }
+  .ls-body { padding: 18px 20px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .ls-body .tm-tree { max-height: 340px; }
+
   .filter-check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; color: var(--ink-2); cursor: pointer; }
   /* Nudge the checkbox down a hair so it lines up with the first line of a wrapping label. */
   .filter-check-row vaadin-checkbox { margin-top: 1px; flex-shrink: 0; }
@@ -970,46 +1033,17 @@
 
           <div class="filter-divider"></div>
 
-          <!-- Position — inline dropdown holding a single-select folder/subfolder tree -->
+          <!-- People — one entry point. Opens the People Selector (Positions & Locations, Dynamic
+               Group, Clever Group, Quick Groups). Card shows the current audience selection. -->
           <div class="filter-section">
-            <label class="filter-label">Position</label>
-            <div class="tree-drop-wrap">
-              <button type="button" class="tree-launch" id="posLaunch" aria-haspopup="true" aria-expanded="false">
-                <span class="tree-launch-val" id="posLaunchVal">All Positions</span>
-                <i aria-hidden="true" class="fa-solid fa-chevron-down"></i>
-              </button>
-              <div class="tree-dropdown" id="posDropdown" hidden>
-                <div class="tm-search">
-                  <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
-                  <input type="text" id="posSearch" placeholder="Search positions…" aria-label="Search positions">
-                </div>
-                <div class="tm-tree" id="posTree"><!-- rendered by JS --></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="filter-divider"></div>
-
-          <!-- Location — hierarchical single-select folder tree (opens the tree picker modal) -->
-          <div class="filter-section">
-            <label class="filter-label">Location</label>
-            <button type="button" class="tree-launch" id="locLaunch" aria-haspopup="dialog">
-              <span class="loc-launch-check" id="locLaunchCheck" hidden><i aria-hidden="true" class="fa-solid fa-check"></i></span>
-              <span class="tree-launch-val" id="locLaunchVal">All Locations</span>
-              <i aria-hidden="true" class="fa-solid fa-chevron-down"></i>
+            <label class="filter-label">People</label>
+            <button type="button" class="people-card" id="peopleCard" aria-haspopup="dialog">
+              <span class="people-card-ico"><i aria-hidden="true" class="fa-solid fa-user-group"></i></span>
+              <span class="people-card-text">
+                <span class="people-card-l1" id="peopleCardL1">All positions</span>
+                <span class="people-card-l2" id="peopleCardL2"><span class="pc-at">at</span> All Locations</span>
+              </span>
             </button>
-          </div>
-
-          <div class="filter-divider"></div>
-
-          <!-- Quick Groups — saved learner cohorts -->
-          <div class="filter-section">
-            <label class="filter-label">Quick Groups</label>
-            <div class="filter-checkboxes" id="groupChecks">
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-group="A"></vaadin-checkbox><span>Group A</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-group="B"></vaadin-checkbox><span>Group B</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-group="C"></vaadin-checkbox><span>Group C</span></label>
-            </div>
           </div>
 
           <div class="filter-divider"></div>
@@ -1121,34 +1155,105 @@
 <vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
 
-<!-- Location folder-tree picker (single-select, searchable) — the pop-up modal variant with a
-     green-check "selected" badge. (Position uses an inline dropdown in the filter panel instead.)
-     Tree body rendered by JS from LOCATION_TREE. -->
-<div class="tree-modal-overlay" id="treeModal" hidden>
-  <div class="tree-modal" role="dialog" aria-modal="true" aria-labelledby="tmTitle">
+<!-- ═══ Audience pickers ═══ Step 1: People Selector (choose a mechanism). Step 2: the matching
+     picker — Group Selector (Positions & Locations) or a simple list (Dynamic / Clever / Quick). -->
+
+<!-- Step 1 — People Selector: pick one selection mechanism. -->
+<div class="tree-modal-overlay" id="peopleModal" hidden>
+  <div class="tree-modal ps-modal" role="dialog" aria-modal="true" aria-labelledby="psTitle">
+    <div class="tree-modal-head">
+      <div class="ps-head-left">
+        <span class="ps-head-ico"><i aria-hidden="true" class="fa-solid fa-user-group"></i></span>
+        <div>
+          <div class="tm-title" id="psTitle">People Selector</div>
+          <div class="tm-sub">Select one</div>
+        </div>
+      </div>
+      <button type="button" class="tm-close" id="psClose" aria-label="Close"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="ps-body">
+      <button type="button" class="ps-option" data-ps="all">Select All Employees In Site</button>
+      <button type="button" class="ps-option" data-ps="posloc">Select Via Positions &amp; Locations</button>
+      <button type="button" class="ps-option" data-ps="dynamic">Select Via Dynamic Group</button>
+      <button type="button" class="ps-option" data-ps="clever">Select Via Clever Group</button>
+      <button type="button" class="ps-option" data-ps="quick">Select Via Quick Group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Step 2a — Group Selector: Positions & Locations. Location section hidden until revealed. -->
+<div class="tree-modal-overlay" id="groupModal" hidden>
+  <div class="tree-modal gs-modal" role="dialog" aria-modal="true" aria-labelledby="gsTitle">
     <div class="tree-modal-head">
       <div>
-        <div class="tm-title" id="tmTitle">Select Location</div>
-        <div class="tm-sub">Pick one, or the top level to include all locations.</div>
+        <div class="tm-title" id="gsTitle">Group Selector</div>
+        <div class="tm-sub">Select a group</div>
       </div>
       <div class="tm-head-actions">
-        <button type="button" class="tm-done" id="tmDone"><i aria-hidden="true" class="fa-solid fa-check"></i> Done</button>
-        <button type="button" class="tm-close" id="tmClose" aria-label="Close"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="tm-done" id="gsDone"><i aria-hidden="true" class="fa-solid fa-check"></i> Done</button>
+        <button type="button" class="tm-close" id="gsClose" aria-label="Close"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
-    <div class="tree-modal-body">
-      <div class="tm-choose">
-        <div class="tm-col-title" id="tmChooseLabel">Choose location</div>
-        <div class="tm-search">
-          <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="tmSearch" placeholder="Search locations…" aria-label="Search locations">
+    <div class="gs-body">
+      <!-- Choose group (Positions) -->
+      <div class="gs-section">
+        <div class="gs-cols">
+          <div class="tm-choose">
+            <div class="tm-col-title">Choose group</div>
+            <div class="tm-search">
+              <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="gsGroupSearch" placeholder="Search…" aria-label="Search positions">
+            </div>
+            <div class="tm-tree" id="gsGroupTree"><!-- rendered by JS --></div>
+          </div>
+          <div class="tm-selected-col">
+            <div class="tm-col-title">Selected group</div>
+            <div class="tm-selected" id="gsGroupSel"><i aria-hidden="true" class="fa-solid fa-check"></i> <span id="gsGroupSelVal">All Positions</span></div>
+          </div>
         </div>
-        <div class="tm-tree" id="tmTree"><!-- rendered by JS --></div>
       </div>
-      <div class="tm-selected-col">
-        <div class="tm-col-title">Selected location</div>
-        <div class="tm-selected" id="tmSelected"><i aria-hidden="true" class="fa-solid fa-check"></i> <span id="tmSelectedVal">All Locations</span></div>
+      <!-- Choose Location (hidden to begin with) -->
+      <div class="gs-section" id="gsLocSection" hidden>
+        <div class="gs-divider"></div>
+        <div class="gs-cols">
+          <div class="tm-choose">
+            <div class="tm-col-title">Choose Location</div>
+            <div class="tm-search">
+              <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="gsLocSearch" placeholder="Search…" aria-label="Search locations">
+            </div>
+            <div class="tm-tree" id="gsLocTree"><!-- rendered by JS --></div>
+          </div>
+          <div class="tm-selected-col">
+            <div class="tm-col-title">Selected location</div>
+            <div class="tm-selected" id="gsLocSel"><i aria-hidden="true" class="fa-solid fa-check"></i> <span id="gsLocSelVal">All Locations</span></div>
+          </div>
+        </div>
       </div>
+    </div>
+    <div class="gs-foot">
+      <span id="gsLocState">In <strong>All Locations</strong></span>
+      <button type="button" class="gs-loc-toggle" id="gsLocToggle">(Click here to change)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Step 2b — simple list picker (Dynamic Group / Clever Group / Quick Group). -->
+<div class="tree-modal-overlay" id="listModal" hidden>
+  <div class="tree-modal ls-modal" role="dialog" aria-modal="true" aria-labelledby="lsTitle">
+    <div class="tree-modal-head">
+      <div>
+        <div class="tm-title" id="lsTitle">Select a group</div>
+        <div class="tm-sub">Select one</div>
+      </div>
+      <button type="button" class="tm-close" id="lsClose" aria-label="Close"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="ls-body">
+      <div class="tm-search">
+        <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="lsSearch" placeholder="Search…" aria-label="Search groups">
+      </div>
+      <div class="tm-tree" id="lsList"><!-- rendered by JS --></div>
     </div>
   </div>
 </div>
@@ -1326,11 +1431,11 @@
     { key:'progress', label:'% Complete',       width:'150px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => progressCellHTML(r) },
     // ── Latest Module (grouped) — the module ClickSafety most recently reported for the learner ──
-    { key:'latestMod',   label:'Module',         width:'215px', sortable:true, group:'latest', groupLabel:'Latest Module', cellClass:'nowrap',
+    { key:'latestMod',   label:'Module',         width:'215px', sortable:true, group:'latest', groupLabel:'Latest Module', groupFirst:true, cellClass:'nowrap',
       render:(r, course) => { const lm = latestModule(r, course); return lm ? `<span class="lm-name" title="${lm.name.replace(/"/g,'&quot;')}"><span class="lm-idx">M${lm.index}</span> ${lm.name}</span>` : '<span class="muted-cell">—</span>'; } },
     { key:'latestFails', label:'Failed Attempts', width:'130px', sortable:true, group:'latest', groupLabel:'Latest Module', cellClass:'nowrap', headClass:'nowrap',
       render:(r, course) => { const lm = latestModule(r, course); if (!lm) return '<span class="muted-cell">—</span>'; return lm.fails > 0 ? `<span class="fr-attempt">${lm.fails}</span>` : '<span class="muted-cell">0</span>'; } },
-    { key:'latestScore', label:'Quiz Score',      width:'105px', sortable:true, group:'latest', groupLabel:'Latest Module', cellClass:'nowrap', headClass:'nowrap',
+    { key:'latestScore', label:'Quiz Score',      width:'105px', sortable:true, group:'latest', groupLabel:'Latest Module', groupLast:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r, course) => { const lm = latestModule(r, course); return (lm && lm.score != null) ? `${lm.score}%` : '<span class="muted-cell">—</span>'; } },
     // ── Assignment timeline (Started → Due → Completed → Last Access → Time Spent) ──
     { key:'start',    label:'Started',          width:'110px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
@@ -1385,7 +1490,9 @@
     // Due date — the enrollment deadline; every learner has one (spread Jun–Dec 2026).
     const due = mk(6 + (s % 7), 1 + (s % 27));
     // Start date — when the learner began; not-started learners have none yet.
-    const start = r.status === 'not-started' ? '—' : mk(1 + (s % 4), 1 + ((s >> 4) % 27));
+    // NB: use the unsigned shift (>>>) — a signed >> goes negative for large hashes and
+    // produced malformed days like "04/-7/2026".
+    const start = r.status === 'not-started' ? '—' : mk(1 + (s % 4), 1 + ((s >>> 4) % 27));
     // Complete date — only passed learners have finished; reuse their completion date.
     const complete = r.status === 'passed' ? (r.last && r.last !== 'Never' ? r.last : mk(4, 1 + (s % 27))) : '—';
     return { due, start, complete };
@@ -1395,7 +1502,14 @@
   function dataRowHTML(r, course, gid) {
     const key = rowKey(gid, r.ext);
     const cells = visibleColumns().map(c => {
-      const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
+      // Grouped columns (e.g. "Latest Module") carry a shared tint band + edge borders so the
+      // group reads as one continuous vertical band from the header down through every row.
+      const classes = [];
+      if (c.cellClass) classes.push(c.cellClass);
+      if (c.group) classes.push('grp-cell');
+      if (c.groupFirst) classes.push('grp-first');
+      if (c.groupLast) classes.push('grp-last');
+      const cls = classes.length ? ` class="${classes.join(' ')}"` : '';
       return `<td${cls}>${c.render(r, course, gid)}</td>`;
     }).join('');
     return `
@@ -1410,7 +1524,7 @@
   function colTh(c, opts) {
     opts = opts || {};
     const classes = [];
-    if (opts.sub) classes.push('grp-sub');
+    if (opts.sub) { classes.push('grp-sub'); if (c.groupFirst) classes.push('grp-first'); if (c.groupLast) classes.push('grp-last'); }
     if (c.sortable) classes.push('sortable-th');
     if (c.headClass) classes.push(c.headClass);
     const cl = classes.length ? ` class="${classes.join(' ')}"` : '';
@@ -1609,28 +1723,40 @@
     statuses: new Set(),   // empty = all statuses (check specific ones to narrow)
     courses:  new Set(),   // empty = all courses
     actions:  new Set(),   // action-needed groups: 'intervene' | 'nudge' | 'retry' (empty = all)
-    groups:   new Set(),   // quick groups (saved learner cohorts): 'A' | 'B' | 'C' (empty = all)
-    position: 'all',       // Position tree — a node id ('all' = every position)
-    location: 'all',       // Location tree — a node id ('all' = every location)
+    // Audience selection (People Selector). ONE mechanism at a time ("Select one"):
+    //   mode 'all'     → every employee (no narrowing)
+    //   mode 'posloc'  → a Position node (posId) AND a Location node (locId)
+    //   mode 'quick'   → a Quick Group id; 'dynamic'/'clever' → a named group id
+    sel: { mode: 'all', posId: 'all', locId: 'all', groupId: null },
     dueSoonOnly: false,
     nearLimitOnly: false,
   };
   // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
-  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), groups: new Set(f.groups), position: f.position, location: f.location, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
+  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), sel: { ...f.sel }, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
   let draft = cloneFilters(filters);
   function commitDraft() {
     filters.statuses = new Set(draft.statuses);
     filters.courses = new Set(draft.courses);
     filters.actions = new Set(draft.actions);
-    filters.groups = new Set(draft.groups);
-    filters.position = draft.position;
-    filters.location = draft.location;
+    filters.sel = { ...draft.sel };
     filters.dueSoonOnly = draft.dueSoonOnly;
     filters.nearLimitOnly = draft.nearLimitOnly;
   }
-  // Quick Groups are saved learner cohorts; here each learner is assigned to one
-  // deterministically from their ext so the filter demonstrates real narrowing.
+  // Quick / Dynamic / Clever groups — each learner is assigned one deterministically from their
+  // ext so the filters demonstrate real narrowing (no backing roster in a mock).
   const QUICK_GROUPS = ['A', 'B', 'C'];
+  const DYNAMIC_GROUPS = [
+    { id: 'dg-new',      label: 'New Hires (< 90 days)' },
+    { id: 'dg-overdue',  label: 'Overdue Learners' },
+    { id: 'dg-managers', label: 'Managers & Supervisors' },
+  ];
+  const CLEVER_GROUPS = [
+    { id: 'cg-a', label: 'RH Upload Test 25-07-31 Should Fail' },
+    { id: 'cg-b', label: 'Clever · District Staff' },
+    { id: 'cg-c', label: 'Clever · Seasonal Crew' },
+  ];
+  const learnerDynamic = (r) => DYNAMIC_GROUPS[hcode(r.ext + '#dyn') % DYNAMIC_GROUPS.length].id;
+  const learnerClever  = (r) => CLEVER_GROUPS[hcode(r.ext + '#clv') % CLEVER_GROUPS.length].id;
   function learnerGroup(r) {
     let h = 0;
     for (const ch of r.ext) h += ch.charCodeAt(0);
@@ -1675,10 +1801,8 @@
   const posIndex = buildTreeIndex(POSITION_TREE, learnerPosition);
   const locIndex = buildTreeIndex(LOCATION_TREE, learnerLocation);
   const treeConf = {
-    position: { index: posIndex, leafOf: learnerPosition, title: 'Select Position', chooseLabel: 'Choose position',
-                branchIcon: 'fa-folder', leafIcon: 'fa-user', launchVal: 'posLaunchVal', launch: 'posLaunch' },
-    location: { index: locIndex, leafOf: learnerLocation, title: 'Select Location', chooseLabel: 'Choose location',
-                branchIcon: 'fa-folder', leafIcon: 'fa-location-dot', launchVal: 'locLaunchVal', launch: 'locLaunch' },
+    position: { index: posIndex, branchIcon: 'fa-folder', leafIcon: 'fa-user' },
+    location: { index: locIndex, branchIcon: 'fa-folder', leafIcon: 'fa-location-dot' },
   };
   // "Due soon" quick filter = learner is IN PROGRESS and the course Due Date is within the next
   // 30 days of the report's reference date (SORT_REF). Uses the Due Date — matching the Behind
@@ -1699,11 +1823,22 @@
     const r = x.r;
     if (filters.statuses.size && !filters.statuses.has(r.status)) return false;
     if (filters.courses.size && !filters.courses.has(x.course)) return false;
-    if (filters.groups.size && !filters.groups.has(learnerGroup(r))) return false;
-    if (filters.position !== 'all' && !posIndex.descLeaves[filters.position].has(learnerPosition(r))) return false;
-    if (filters.location !== 'all' && !locIndex.descLeaves[filters.location].has(learnerLocation(r))) return false;
+    if (!passesAudience(r, filters.sel)) return false;
     if (filters.dueSoonOnly && !dueSoon(r)) return false;
     if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
+    return true;
+  }
+  // The People Selector audience filter — one mechanism at a time.
+  function passesAudience(r, sel) {
+    if (!sel || sel.mode === 'all') return true;
+    if (sel.mode === 'posloc') {
+      if (sel.posId !== 'all' && !posIndex.descLeaves[sel.posId].has(learnerPosition(r))) return false;
+      if (sel.locId !== 'all' && !locIndex.descLeaves[sel.locId].has(learnerLocation(r))) return false;
+      return true;
+    }
+    if (sel.mode === 'quick')   return learnerGroup(r) === sel.groupId;
+    if (sel.mode === 'dynamic') return learnerDynamic(r) === sel.groupId;
+    if (sel.mode === 'clever')  return learnerClever(r) === sel.groupId;
     return true;
   }
   // Applied filters = base + the action-needed quick filter. Drives the pie + the table.
@@ -1755,33 +1890,17 @@
       cb.checked ? draft.actions.add(a) : draft.actions.delete(a);
     });
   });
-  document.querySelectorAll('#groupChecks vaadin-checkbox').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const g = cb.dataset.group;
-      cb.checked ? draft.groups.add(g) : draft.groups.delete(g);
-    });
-  });
-
-  /* ═══════════════ Position (inline dropdown) & Location (modal) folder-tree pickers ═══════════════
-     Both are single-select + searchable and share one tree renderer. Position uses an inline
-     dropdown; Location uses the pop-up modal with a green-check "selected" badge (per design). */
-  const treeModal = document.getElementById('treeModal');
-  const tmTree = document.getElementById('tmTree');
-  const tmSearch = document.getElementById('tmSearch');
-  let tmPick = 'all', tmExpanded = new Set(), tmQuery = '';
-  // Launcher buttons in the panel show the DRAFT selection (what you're editing).
-  function updateTreeLaunchers() {
-    const pv = document.getElementById('posLaunchVal'); if (pv) pv.textContent = posIndex.byId[draft.position].label;
-    const lv = document.getElementById('locLaunchVal'); if (lv) lv.textContent = locIndex.byId[draft.location].label;
-    const lc = document.getElementById('locLaunchCheck'); if (lc) lc.hidden = (draft.location === 'all');  // green check once a location is picked
-  }
+  /* ═══════════════ Audience — People Selector → Group Selector / list picker ═══════════════
+     One entry point (the People card). Step 1 picks a mechanism; step 2 is the matching picker.
+     Everything edits draft.sel; "Apply Filters" commits it like the rest of the panel. */
   function tmMatches(node, q) {
     if (!q) return true;
     if (node.label.toLowerCase().includes(q)) return true;
     return (node.children || []).some(ch => tmMatches(ch, q));
   }
   // Shared tree → HTML. `dim` picks the icon set; `pick`/`expanded`/`query` are per-instance state.
-  // The selected node gets a green-check badge (matching the design PNG).
+  // The Location tree marks its selected node with a green-check badge (per design); the Positions
+  // tree relies on the blue .selected row highlight.
   function treeRowsHTML(dim, pick, expanded, query) {
     const conf = treeConf[dim], idx = conf.index;
     const q = (query || '').trim().toLowerCase();
@@ -1795,8 +1914,6 @@
         : '<span class="tm-caret leaf"></span>';
       const ico = `<span class="tm-node-ico"><i aria-hidden="true" class="fa-solid ${hasKids ? conf.branchIcon : conf.leafIcon}"></i></span>`;
       const sel = pick === node.id;
-      // Green-check badge is the Location selected-indicator (per design); Position relies on the
-      // blue .selected row highlight instead.
       const check = (sel && dim === 'location') ? '<span class="tm-check" aria-label="Selected"><i aria-hidden="true" class="fa-solid fa-check"></i></span>' : '';
       out.push(`<div class="tm-node${sel ? ' selected' : ''}${dim === 'location' ? ' is-loc' : ''}" data-node="${node.id}" style="padding-left:${10 + depth * 20}px">
         ${caret}${ico}<span class="tm-node-label">${node.label}</span>${check}<span class="tm-count">${idx.counts[node.id]}</span>
@@ -1806,61 +1923,137 @@
     return out.length ? out.join('') : '<div class="tm-empty">No matches.</div>';
   }
 
-  /* ── Location: pop-up modal (Done commits to the draft) ── */
-  function renderLocModal() {
-    tmTree.innerHTML = treeRowsHTML('location', tmPick, tmExpanded, tmQuery);
-    const badge = document.getElementById('tmSelected');
-    document.getElementById('tmSelectedVal').textContent = locIndex.byId[tmPick].label;
-    if (badge) badge.classList.toggle('is-set', tmPick !== 'all');
-  }
-  function openLocModal() {
-    tmPick = draft.location;
-    tmQuery = ''; tmSearch.value = '';
-    tmExpanded = new Set(['all', ...locIndex.ancestors(tmPick)]);
-    renderLocModal();
-    treeModal.hidden = false;
-    tmSearch.focus();
-  }
-  function closeLocModal() { treeModal.hidden = true; }
-  tmTree.addEventListener('click', (e) => {
-    const caret = e.target.closest('.tm-caret');
-    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; tmExpanded.has(id) ? tmExpanded.delete(id) : tmExpanded.add(id); renderLocModal(); return; }
-    const node = e.target.closest('.tm-node');
-    if (node) { tmPick = node.dataset.node; renderLocModal(); }
-  });
-  tmSearch.addEventListener('input', () => { tmQuery = tmSearch.value; renderLocModal(); });
-  document.getElementById('tmDone').addEventListener('click', () => { draft.location = tmPick; updateTreeLaunchers(); closeLocModal(); });
-  document.getElementById('tmClose').addEventListener('click', closeLocModal);
-  treeModal.addEventListener('click', (e) => { if (e.target === treeModal) closeLocModal(); });   // backdrop cancels
-  document.getElementById('locLaunch').addEventListener('click', openLocModal);
-  function closeTree() { closeLocModal(); closePosDropdown(); }   // used by flow-map reset
+  const peopleModal = document.getElementById('peopleModal');
+  const groupModal  = document.getElementById('groupModal');
+  const listModal   = document.getElementById('listModal');
+  function closeAudienceModals() { peopleModal.hidden = true; groupModal.hidden = true; listModal.hidden = true; }
+  function closeTree() { closeAudienceModals(); }   // used by the flow-map reset
 
-  /* ── Position: inline dropdown (pick applies to the draft and closes) ── */
-  const posDropdown = document.getElementById('posDropdown');
-  const posLaunch = document.getElementById('posLaunch');
-  const posTree = document.getElementById('posTree');
-  const posSearch = document.getElementById('posSearch');
-  let posExpanded = new Set(), posQuery = '';
-  function renderPosTree() { posTree.innerHTML = treeRowsHTML('position', draft.position, posExpanded, posQuery); }
-  function openPosDropdown() {
-    posQuery = ''; posSearch.value = '';
-    posExpanded = new Set(['all', ...posIndex.ancestors(draft.position)]);
-    renderPosTree();
-    posDropdown.hidden = false;
-    posLaunch.setAttribute('aria-expanded', 'true');
-    posSearch.focus();
+  // ── The People card in the panel reflects the DRAFT selection ──
+  function updateAudienceCard() {
+    const sel = draft.sel, l1 = document.getElementById('peopleCardL1'), l2 = document.getElementById('peopleCardL2');
+    if (sel.mode === 'all' || sel.mode === 'posloc') {
+      l1.textContent = (sel.mode === 'all') ? 'All positions' : posIndex.byId[sel.posId].label;
+      const loc = (sel.mode === 'all') ? 'All Locations' : locIndex.byId[sel.locId].label;
+      l2.innerHTML = '<span class="pc-at">at</span> ' + loc;
+    } else {
+      const g = (sel.mode === 'quick') ? ('Quick Group ' + sel.groupId)
+              : (sel.mode === 'dynamic') ? (DYNAMIC_GROUPS.find(x => x.id === sel.groupId) || {}).label
+              : (CLEVER_GROUPS.find(x => x.id === sel.groupId) || {}).label;
+      l1.textContent = g || 'Selected group';
+      l2.innerHTML = '<span class="pc-at">' + (sel.mode === 'quick' ? 'Quick group' : sel.mode === 'dynamic' ? 'Dynamic group' : 'Clever group') + '</span>';
+    }
   }
-  function closePosDropdown() { posDropdown.hidden = true; posLaunch.setAttribute('aria-expanded', 'false'); }
-  posLaunch.addEventListener('click', (e) => { e.stopPropagation(); posDropdown.hidden ? openPosDropdown() : closePosDropdown(); });
-  posTree.addEventListener('click', (e) => {
+
+  // ── Step 1: People Selector ──
+  function openPeople() { peopleModal.hidden = false; }
+  document.getElementById('peopleCard').addEventListener('click', openPeople);
+  document.getElementById('psClose').addEventListener('click', () => { peopleModal.hidden = true; });
+  peopleModal.addEventListener('click', (e) => { if (e.target === peopleModal) peopleModal.hidden = true; });
+  peopleModal.querySelectorAll('.ps-option').forEach(btn => btn.addEventListener('click', () => {
+    const mode = btn.dataset.ps;
+    peopleModal.hidden = true;
+    if (mode === 'all') { draft.sel = { mode: 'all', posId: 'all', locId: 'all', groupId: null }; updateAudienceCard(); return; }
+    if (mode === 'posloc') { openGroupSelector(); return; }
+    openListPicker(mode);   // 'quick' | 'dynamic' | 'clever'
+  }));
+
+  // ── Step 2a: Group Selector (Positions & Locations). Location section hidden until revealed. ──
+  const gsGroupTree = document.getElementById('gsGroupTree');
+  const gsGroupSearch = document.getElementById('gsGroupSearch');
+  const gsLocTree = document.getElementById('gsLocTree');
+  const gsLocSearch = document.getElementById('gsLocSearch');
+  const gsLocSection = document.getElementById('gsLocSection');
+  const gsLocToggle = document.getElementById('gsLocToggle');
+  let gsPos = 'all', gsLoc = 'all', gsPosExp = new Set(), gsLocExp = new Set(), gsPosQ = '', gsLocQ = '', gsLocOpen = false;
+  function renderGsGroup() {
+    gsGroupTree.innerHTML = treeRowsHTML('position', gsPos, gsPosExp, gsPosQ);
+    document.getElementById('gsGroupSelVal').textContent = posIndex.byId[gsPos].label;
+  }
+  function renderGsLoc() {
+    gsLocTree.innerHTML = treeRowsHTML('location', gsLoc, gsLocExp, gsLocQ);
+    document.getElementById('gsLocSelVal').textContent = locIndex.byId[gsLoc].label;
+    document.getElementById('gsLocState').innerHTML = 'In <strong>' + locIndex.byId[gsLoc].label + '</strong>';
+  }
+  function setGsLocOpen(open) {
+    gsLocOpen = open;
+    gsLocSection.hidden = !open;
+    gsLocToggle.textContent = open ? '(Click to hide Location)' : '(Click here to change)';
+  }
+  function openGroupSelector() {
+    gsPos = (draft.sel.mode === 'posloc') ? draft.sel.posId : 'all';
+    gsLoc = (draft.sel.mode === 'posloc') ? draft.sel.locId : 'all';
+    gsPosQ = ''; gsLocQ = ''; gsGroupSearch.value = ''; gsLocSearch.value = '';
+    gsPosExp = new Set(['all', ...posIndex.ancestors(gsPos)]);
+    gsLocExp = new Set(['all', ...locIndex.ancestors(gsLoc)]);
+    setGsLocOpen(gsLoc !== 'all');   // hidden to begin with unless a location is already chosen
+    renderGsGroup(); renderGsLoc();
+    groupModal.hidden = false;
+    gsGroupSearch.focus();
+  }
+  gsGroupTree.addEventListener('click', (e) => {
     const caret = e.target.closest('.tm-caret');
-    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; posExpanded.has(id) ? posExpanded.delete(id) : posExpanded.add(id); renderPosTree(); return; }
+    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; gsPosExp.has(id) ? gsPosExp.delete(id) : gsPosExp.add(id); renderGsGroup(); return; }
     const node = e.target.closest('.tm-node');
-    if (node) { draft.position = node.dataset.node; updateTreeLaunchers(); closePosDropdown(); }
+    if (node) { gsPos = node.dataset.node; renderGsGroup(); }
   });
-  posSearch.addEventListener('input', () => { posQuery = posSearch.value; renderPosTree(); });
-  posSearch.addEventListener('click', (e) => e.stopPropagation());
-  document.addEventListener('click', (e) => { if (!posDropdown.hidden && !posDropdown.contains(e.target) && e.target !== posLaunch) closePosDropdown(); });
+  gsLocTree.addEventListener('click', (e) => {
+    const caret = e.target.closest('.tm-caret');
+    if (caret && caret.dataset.caret) { const id = caret.dataset.caret; gsLocExp.has(id) ? gsLocExp.delete(id) : gsLocExp.add(id); renderGsLoc(); return; }
+    const node = e.target.closest('.tm-node');
+    if (node) { gsLoc = node.dataset.node; renderGsLoc(); }
+  });
+  gsGroupSearch.addEventListener('input', () => { gsPosQ = gsGroupSearch.value; renderGsGroup(); });
+  gsLocSearch.addEventListener('input', () => { gsLocQ = gsLocSearch.value; renderGsLoc(); });
+  gsLocToggle.addEventListener('click', () => setGsLocOpen(!gsLocOpen));
+  document.getElementById('gsDone').addEventListener('click', () => {
+    draft.sel = (gsPos === 'all' && gsLoc === 'all')
+      ? { mode: 'all', posId: 'all', locId: 'all', groupId: null }
+      : { mode: 'posloc', posId: gsPos, locId: gsLoc, groupId: null };
+    updateAudienceCard();
+    groupModal.hidden = true;
+  });
+  document.getElementById('gsClose').addEventListener('click', () => { groupModal.hidden = true; });
+  groupModal.addEventListener('click', (e) => { if (e.target === groupModal) groupModal.hidden = true; });
+
+  // ── Step 2b: list picker (Quick / Dynamic / Clever) ──
+  const lsList = document.getElementById('lsList');
+  const lsSearch = document.getElementById('lsSearch');
+  let lsMode = null, lsQ = '';
+  function listItems(mode) {
+    if (mode === 'quick')   return QUICK_GROUPS.map(g => ({ id: g, label: 'Group ' + g }));
+    if (mode === 'dynamic') return DYNAMIC_GROUPS;
+    if (mode === 'clever')  return CLEVER_GROUPS;
+    return [];
+  }
+  function renderList() {
+    const q = lsQ.trim().toLowerCase();
+    const items = listItems(lsMode).filter(it => it.label.toLowerCase().includes(q));
+    const cur = (draft.sel.mode === lsMode) ? draft.sel.groupId : null;
+    lsList.innerHTML = items.length ? items.map(it =>
+      `<div class="tm-node${cur === it.id ? ' selected' : ''}" data-node="${it.id}" style="padding-left:10px">
+        <span class="tm-caret leaf"></span><span class="tm-node-ico"><i aria-hidden="true" class="fa-solid fa-user-group"></i></span>
+        <span class="tm-node-label">${it.label}</span>${cur === it.id ? '<span class="tm-check"><i aria-hidden="true" class="fa-solid fa-check"></i></span>' : ''}
+      </div>`).join('') : '<div class="tm-empty">No matches.</div>';
+  }
+  function openListPicker(mode) {
+    lsMode = mode; lsQ = ''; lsSearch.value = '';
+    document.getElementById('lsTitle').textContent =
+      mode === 'quick' ? 'Select a Quick Group' : mode === 'dynamic' ? 'Select a Dynamic Group' : 'Select a Clever Group';
+    renderList();
+    listModal.hidden = false;
+    lsSearch.focus();
+  }
+  lsList.addEventListener('click', (e) => {
+    const node = e.target.closest('.tm-node');
+    if (!node) return;
+    draft.sel = { mode: lsMode, posId: 'all', locId: 'all', groupId: node.dataset.node };
+    updateAudienceCard();
+    listModal.hidden = true;
+  });
+  lsSearch.addEventListener('input', () => { lsQ = lsSearch.value; renderList(); });
+  document.getElementById('lsClose').addEventListener('click', () => { listModal.hidden = true; });
+  listModal.addEventListener('click', (e) => { if (e.target === listModal) listModal.hidden = true; });
 
   // OSHA Courses — inline checkbox multiselect, built from the data.
   const courseChecks = document.getElementById('courseChecks');
@@ -1888,12 +2081,18 @@
     let n = 0;
     if (filters.statuses.size) n++;
     if (filters.actions.size) n += filters.actions.size;
-    if (filters.groups.size) n += filters.groups.size;
-    if (filters.position !== 'all') n++;
-    if (filters.location !== 'all') n++;
+    if (filters.sel.mode !== 'all') n++;
     if (filters.dueSoonOnly) n++;
     if (filters.nearLimitOnly) n++;
     return n;
+  }
+  // Human label for the current audience selection (for the applied-filter chip).
+  function audienceChipLabel(sel) {
+    if (sel.mode === 'posloc') return posIndex.byId[sel.posId].label + ' · ' + locIndex.byId[sel.locId].label;
+    if (sel.mode === 'quick')   return 'Quick Group ' + sel.groupId;
+    if (sel.mode === 'dynamic') return (DYNAMIC_GROUPS.find(x => x.id === sel.groupId) || {}).label || 'Dynamic group';
+    if (sel.mode === 'clever')  return (CLEVER_GROUPS.find(x => x.id === sel.groupId) || {}).label || 'Clever group';
+    return '';
   }
   // The panel checkboxes reflect the DRAFT (what you're editing), not the applied filters.
   function syncStatusChecks() {
@@ -1902,17 +2101,14 @@
   function syncActionChecks() {
     document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.actions.has(cb.dataset.action); });
   }
-  function syncGroupChecks() {
-    document.querySelectorAll('#groupChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.groups.has(cb.dataset.group); });
-  }
   function syncCourseChecks() {
     document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.courses.has(cb.dataset.course); });
   }
   function syncAllChecks() {
-    syncStatusChecks(); syncActionChecks(); syncGroupChecks(); syncCourseChecks();
+    syncStatusChecks(); syncActionChecks(); syncCourseChecks();
     const ce = document.getElementById('chk-due-soon'); if (ce) ce.checked = draft.dueSoonOnly;
     const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = draft.nearLimitOnly;
-    updateTreeLaunchers();   // Position / Location launchers reflect the draft too
+    updateAudienceCard();   // People card reflects the draft audience selection too
   }
   // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
   function renderAppliedChips() {
@@ -1924,9 +2120,10 @@
       chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); syncStatusChecks(); } });
     }
     filters.actions.forEach(a => chips.push({ k: 'Action needed', label: ACTION_FILTER_LABEL[a], remove: () => { filters.actions.delete(a); syncActionChecks(); } }));
-    filters.groups.forEach(g => chips.push({ k: 'Quick group', label: `Group ${g}`, remove: () => { filters.groups.delete(g); syncGroupChecks(); } }));
-    if (filters.position !== 'all') chips.push({ k: 'Position', label: posIndex.byId[filters.position].label, remove: () => { filters.position = 'all'; } });
-    if (filters.location !== 'all') chips.push({ k: 'Location', label: locIndex.byId[filters.location].label, remove: () => { filters.location = 'all'; } });
+    if (filters.sel.mode !== 'all') {
+      const kind = filters.sel.mode === 'posloc' ? 'People' : filters.sel.mode === 'quick' ? 'Quick group' : filters.sel.mode === 'dynamic' ? 'Dynamic group' : 'Clever group';
+      chips.push({ k: kind, label: audienceChipLabel(filters.sel), remove: () => { filters.sel = { mode: 'all', posId: 'all', locId: 'all', groupId: null }; } });
+    }
     if (filters.dueSoonOnly) chips.push({ k: '', label: 'Due ≤ 30 days', remove: () => { filters.dueSoonOnly = false; const e = document.getElementById('chk-due-soon'); if (e) e.checked = false; } });
     if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
     appliedFilters.innerHTML = '';
@@ -1948,8 +2145,8 @@
   }
   function clearAllFilters() {
     filters.statuses.clear();
-    filters.courses.clear(); filters.actions.clear(); filters.groups.clear();
-    filters.position = 'all'; filters.location = 'all';
+    filters.courses.clear(); filters.actions.clear();
+    filters.sel = { mode: 'all', posId: 'all', locId: 'all', groupId: null };
     filters.dueSoonOnly = false; filters.nearLimitOnly = false;
     draft = cloneFilters(filters);
     searchInput.value = '';
@@ -2259,7 +2456,7 @@
     window.scrollTo(0, 0);
 
     if (id === 'filters') { openPanel(); return; }
-    if (id === 'groups')  { openPanel(); try { openPosDropdown(); } catch (_) {} return; }  // Position/Location picker (Position dropdown open)
+    if (id === 'groups')  { openPanel(); try { openPeople(); } catch (_) {} return; }  // People Selector (audience picker)
     if (id === 'email') {
       // Open the Email Learners compose page with a representative selection.
       try {
