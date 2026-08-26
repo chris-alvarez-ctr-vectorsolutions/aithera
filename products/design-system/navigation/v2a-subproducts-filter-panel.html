@@ -3,38 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vector nav · V1: Grid launcher + in-bar mode tabs</title>
+<title>Vector nav · V2a: Sub-products + filter panel</title>
 <!--
   ============================================================================
-  V1 · GRID LAUNCHER + MODE TABS IN THE TOP BAR + 3-LEVEL ACCORDION SIDE NAV
+  V2a: Sub-products + filter panel
   ============================================================================
-  Adjusted to the updated brief (real Vector products, cross-product
-  Dashboard, location selector, scoped search, 3-level depth).
+  Convergence splits into LEARNER and ADMIN sub-products, switched from a
+  dropdown at the top of the SIDE NAV (not the app switcher: they are two
+  experiences of one product). Learner mode: the side nav holds Home and
+  Training plan. Admin mode: the side nav holds the full Convergence admin
+  tree including Reporting. There are NO top nav tabs in this version, so
+  the page itself must carry its controls: filters live in a persistent RIGHT PANEL beside the plan.
+  The training plan mirrors the real Convergence Training Plan table
+  (qualification > requirement > activity, with Launch actions).
 
-  What this version tests
-  · REAL VECTOR PRODUCTS in the switcher: Convergence and Vector EHS
-    Management fully built (the launcher switches between them live), Vector
-    Scheduling pinned, and the rest of the suite (Check-It, Evaluations,
-    PD Tracking, Pathways, Guardian Tracking, Acadis, Frontline Public
-    Safety, ArdentSky) under an "All products" expansion. The switcher
-    scales: in-panel search, pinned products first, unlicensed row last.
-  · A CROSS-PRODUCT DASHBOARD as a distinct entry pinned above the divider
-    in the switcher: not a product, but the home for everything. Selecting
-    it swaps in a cross-product side nav (My work / Reports / Admin) and a
-    KPI + charts overview aggregating across products. ?app=dashboard.
-  · TOP BAR (shared spec): nav toggle · waffle switcher · product identity ·
-    LOCATION SELECTOR (Convergence-style dropdown with search, ?location
-    pre-opens it) · mode tabs · SCOPED GLOBAL SEARCH with an explicit
-    All products / This product scope control (?search pre-opens results
-    grouped by product) · + New · notifications · help · avatar.
-  · Mode tabs live in the top bar and live-swap the side nav per mode
-    (?mode=home|admin|trainplan|reporting). Tab sets change per product.
-  · 3-LEVEL side nav depth, carried by indentation only and capped at 3:
-    Convergence: Curricula → Annual Compliance → OSHA 10 · 2024.
-    Vector EHS: Inspections → Scheduled inspections → Monthly fire
-    extinguisher check.
-  · Side nav open/close from the far-left toggle (?nav=closed); customer
-    logo slot above the menu (?logo=off).
+  Deep links: ?sub=admin · ?app=comply|dashboard · ?launcher · ?search ·
+  ?location · ?profile · ?density= · ?nav=closed · ?logo=off · ?loc=off
   ============================================================================
 -->
 <style>
@@ -122,8 +106,18 @@ body[data-mode="trainplan"] .mode-pane[data-mode="trainplan"],
 body[data-mode="reporting"] .mode-pane[data-mode="reporting"]{display:flex}
 
 /* ---- Side nav: accordion scoped to the ACTIVE MODE. Slides closed. ---- */
-.sidenav{flex:none;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);overflow-y:auto;padding:12px 10px 16px;display:flex;flex-direction:column;gap:1px;transition:margin-left .18s ease}
-body.nav-hidden .sidenav{margin-left:calc(-1 * var(--nav-w))}
+.sidenav{flex:none;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);overflow-y:auto;padding:12px 10px 16px;display:flex;flex-direction:column;gap:1px;transition:width .18s ease}
+/* Closing the nav COLLAPSES it to a thin icon-only panel (not off-canvas):
+   labels, counts, section headers, logo and children hide; icons remain. */
+body.nav-hidden .sidenav{width:56px;padding:8px 6px 16px;overflow:visible}
+body.nav-hidden .sidenav .cust-logo{display:none}
+body.nav-hidden .sidenav .sn-search{display:none}
+body.nav-hidden .sidenav .nav-h{display:none}
+body.nav-hidden .sidenav .count{display:none}
+body.nav-hidden .sidenav .kids{display:none}
+body.nav-hidden .sidenav svg.tw{display:none}
+body.nav-hidden .sidenav .nitem,body.nav-hidden .sidenav details.grp>summary{font-size:0;gap:0;justify-content:center;width:44px;height:38px;padding:0;margin:0 auto;border-radius:10px;border-left:0}
+body.nav-hidden .sidenav .nitem .ic,body.nav-hidden .sidenav details.grp>summary .ic{width:18px;height:18px}
 /* ---- Menu items. Rounded inset rows. The disclosure chevron TRAILS the
    label (as in Convergence/EHS) so expandable rows and plain rows at the
    same level share one icon x and one label x. Counts sit inline after the
@@ -200,6 +194,8 @@ body[data-app="comply"] .brand[data-app="comply"]{display:flex}
 body[data-app="learn"] .tb-tabs[data-app="learn"]{display:flex}
 body[data-app="comply"] .tb-tabs[data-app="comply"]{display:flex}
 body[data-mode="comply-home"] .mode-pane[data-mode="comply-home"]{display:flex}
+body[data-mode="learner"] .mode-pane[data-mode="learner"]{display:flex}
+body[data-mode="ladmin"] .mode-pane[data-mode="ladmin"]{display:flex}
 .l-cur{display:none}
 .l-tile.current .l-cur{display:inline-block}
 /* ---- Customer logo slot: orgs can surface their own branding above the
@@ -212,10 +208,15 @@ body.logo-off .cust-logo{display:none}
 .sidenav>*{flex:none}
 /* ---- Location selector (Convergence-style, top bar) ---- */
 .loc{position:relative}
-.loc-btn{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid transparent;font-weight:600;font-size:12.5px;color:var(--ink-2);white-space:nowrap;cursor:pointer}
-.loc-btn:hover{background:var(--well);border-color:var(--line);color:var(--ink)}
-.loc-btn .ic{width:14px;height:14px;color:var(--ink-3)}
-.loc-btn .chev{width:12px;height:12px}
+/* The location control reads as a distinct CONTEXT selector, not body text:
+   its own filled, bordered pill with an accent mark. */
+.loc-btn{display:flex;align-items:center;gap:8px;height:40px;padding:0 11px;border-radius:var(--r-2);border:1px solid var(--line-strong);background:var(--surface-2);box-shadow:var(--shadow-1);font-weight:600;font-size:12.5px;color:var(--ink);white-space:nowrap;cursor:pointer}
+.loc-btn:hover{background:var(--surface);border-color:var(--accent-line)}
+.loc-btn[aria-expanded="true"]{background:var(--accent-soft);border-color:var(--accent-line)}
+.loc-btn .ic{width:16px;height:16px;color:var(--accent)}
+.loc-cur{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;text-align:left}
+.loc-sub{font-size:10px;font-weight:600;color:var(--ink-3)}
+.loc-btn .chev{width:12px;height:12px;color:var(--ink-3)}
 .loc-menu{position:absolute;top:calc(100% + 6px);left:0;width:250px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);box-shadow:var(--shadow-3);padding:6px;z-index:70}
 .loc-find{display:flex;align-items:center;gap:7px;height:30px;padding:0 9px;border-radius:6px;background:var(--well);margin-bottom:5px}
 .loc-find .ic{width:13px;height:13px;color:var(--ink-3)}
@@ -305,9 +306,115 @@ body[data-mode="dash"] .mode-pane[data-mode="dash"]{display:flex}
 body.loc-off .loc{display:none}
 body.tabs-off .tb-tabs[data-app]{display:none}
 body.tabs-off .tb-sep{display:none}
+/* with the tabs gone, the alerts button takes over the flex push-right */
+body.tabs-off .topbar>button[aria-label^="Notifications"]{margin-left:auto}
+/* ---- Side-nav text size (user preference, set from the profile menu) ---- */
+body[data-density="compact"]{--item-h:28px}
+body[data-density="compact"] .sidenav .nitem,body[data-density="compact"] .sidenav details.grp>summary{font-size:12.5px}
+body[data-density="compact"] .kids .nitem,body[data-density="compact"] .kids details.grp>summary{height:26px;font-size:12px}
+body[data-density="compact"] .kids .kids .nitem{height:24px;font-size:11.5px}
+body[data-density="comfortable"]{--item-h:38px}
+body[data-density="comfortable"] .sidenav .nitem,body[data-density="comfortable"] .sidenav details.grp>summary{font-size:14px}
+body[data-density="comfortable"] .kids .nitem,body[data-density="comfortable"] .kids details.grp>summary{height:34px;font-size:13.5px}
+body[data-density="comfortable"] .kids .kids .nitem{height:32px;font-size:13px}
+/* ---- Profile menu ---- */
+.umenu{position:relative}
+.u-menu{position:absolute;top:calc(100% + 8px);right:0;width:250px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);box-shadow:var(--shadow-3);padding:6px;z-index:75}
+.u-head{display:flex;align-items:center;gap:10px;padding:8px 9px 10px;border-bottom:1px solid var(--line);margin-bottom:5px}
+.u-head .avatar{margin-left:0}
+.u-head b{display:block;font-size:12.5px;font-weight:650;line-height:1.25}
+.u-head span{font-size:11px;color:var(--ink-3)}
+.u-sec{font-size:10.5px;font-weight:650;color:var(--ink-3);padding:6px 9px 3px}
+.u-opt{display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 9px;border-radius:6px;font-size:12.5px;font-weight:500;color:var(--ink-2);cursor:pointer}
+.u-opt:hover{background:var(--well);color:var(--ink)}
+.u-opt[aria-current="true"]{color:var(--accent-strong);font-weight:650}
+.u-opt .ic{margin-left:auto;width:13px;height:13px;visibility:hidden}
+.u-opt[aria-current="true"] .ic{visibility:visible}
+.u-div{height:1px;background:var(--line);margin:5px 4px}
+.u-item{display:flex;align-items:center;gap:8px;height:30px;padding:0 9px;border-radius:6px;font-size:12.5px;color:var(--ink-2)}
+.u-item:hover{background:var(--well);color:var(--ink)}
+/* ---- Sub-product switcher: Convergence splits into Learner and Admin
+   experiences, switched from a dropdown at the top of the SIDE NAV.
+   Switching swaps the whole nav (and content) below it. ---- */
+/* The sub-product switcher lives in the TOP BAR, hung off the product
+   brand, so the side nav stays purely navigation. */
+.bsw{display:none;position:relative}
+body[data-app="learn"] .bsw{display:block}
+.bsw-btn{display:flex;align-items:center;gap:9px;padding:4px 8px 4px 6px;border-radius:8px;border:1px solid transparent;cursor:pointer;white-space:nowrap}
+.bsw-btn:hover{background:var(--well);border-color:var(--line)}
+.bsw-btn[aria-expanded="true"]{background:var(--well);border-color:var(--line)}
+.bsw-txt{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
+.bsw-txt b{font-size:14px;font-weight:650}
+.bsw-sub{font-size:10.5px;font-weight:600;color:var(--ink-3)}
+.bsw-btn>.chev{width:13px;height:13px;color:var(--ink-3)}
+.bsw-menu{position:absolute;top:calc(100% + 6px);left:0;width:286px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);box-shadow:var(--shadow-3);padding:5px;z-index:72}
+.ss-btn{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:var(--r-2);border:1px solid transparent;cursor:pointer}
+.ss-btn:hover{background:var(--well);border-color:var(--line)}
+.ss-chip{width:30px;height:30px;border-radius:8px;background:var(--ink);color:var(--surface);display:grid;place-items:center;flex:none}
+.ss-chip .ic{width:15px;height:15px}
+.ss-name{flex:1;min-width:0;text-align:left}
+.ss-name b{display:block;font-size:13px;font-weight:650;line-height:1.2}
+.ss-name span{font-size:11px;color:var(--ink-3)}
+.ss-btn>.ic{width:13px;height:13px;color:var(--ink-3)}
+.ss-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);box-shadow:var(--shadow-3);padding:5px;z-index:72}
+.ss-opt{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border-radius:6px;cursor:pointer}
+.ss-opt:hover{background:var(--well)}
+.ss-opt div{flex:1;min-width:0;text-align:left}
+.ss-opt b{display:block;font-size:12.5px;font-weight:650;line-height:1.25}
+.ss-opt span{font-size:11px;color:var(--ink-3)}
+.ss-opt .ic{width:14px;height:14px;color:var(--accent);visibility:hidden}
+.ss-opt[aria-current="true"] .ic{visibility:visible}
+body.nav-hidden .ss{display:none}
+/* ---- Convergence-style training plan (modeled on the real My Training page):
+   hierarchical table, Name/Completion/Duration/Time spent/Due/Actions ---- */
+.tp-head,.tp-row{display:grid;grid-template-columns:minmax(0,5fr) 160px 90px 96px 106px 70px;align-items:center;border-bottom:1px solid var(--line)}
+.tp-head{background:var(--surface-2);font-size:11px;font-weight:650;color:var(--ink-3)}
+.tp-head>div{padding:9px 12px}
+.tp-row>div{padding:8px 12px;font-size:12px;color:var(--ink-2)}
+.tp-row:hover{background:var(--surface-2)}
+.tp-row:last-child,.tp-row.req:last-child{border-bottom:0}
+.tp-name{display:flex;align-items:center;gap:8px;min-width:0}
+.tp-name .ic{width:15px;height:15px;color:var(--ink-3);flex:none}
+.tp-name .t{font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-row.l1 .t{font-weight:650}
+.tp-row.l2 .t{font-weight:600}
+.tp-row.req{background:var(--surface-2)}
+.tp-row.req:hover{background:var(--well)}
+.tp-tag{font-size:10.5px;color:var(--ink-3);background:var(--well);border-radius:99px;padding:1px 7px;flex:none}
+.tp-cc{display:flex;flex-direction:column;align-items:center;gap:3px}
+.tp-cc .bar{width:100px}
+.tp-cc span{font-size:10px;color:var(--ink-3)}
+.tp-c{text-align:center;font-variant-numeric:tabular-nums}
+.tp-launch{display:inline-flex;align-items:center;height:26px;padding:0 14px;border-radius:var(--r-1);background:var(--accent);color:var(--on-accent);font-weight:650;font-size:12px;border:0;cursor:pointer;flex:none}
+.tp-launch:hover{background:var(--accent-strong)}
+.tp-status{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--ink-3)}
+.tp-status .dot{width:9px;height:9px;border-radius:99px;background:var(--line-strong);flex:none}
+.tp-status.done .dot{background:var(--accent)}
+.tp-status.prog .dot{background:var(--accent-line)}
+.tp-act{display:flex;justify-content:flex-end;gap:8px;color:var(--ink-3)}
+.tp-act .ic{width:15px;height:15px}
+/* ---- Filter treatment A: a persistent RIGHT panel beside the plan ---- */
+.tp-layout{display:grid;grid-template-columns:minmax(0,1fr) 232px;gap:12px;align-items:start}
+.fp .card-h b{font-size:13px}
+.fp-clear{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--accent-strong);cursor:pointer}
+.fp-clear:hover{text-decoration:underline}
+.fp-g{padding:10px 14px 12px;border-bottom:1px solid var(--line)}
+.fp-g:last-child{border-bottom:0}
+.fp-g h3{margin:0 0 7px;font-size:11px;font-weight:650;color:var(--ink-3)}
+.fp-opt{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.fp-opt:hover{color:var(--ink)}
+.fp-box{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--line-strong);display:grid;place-items:center;flex:none;background:var(--surface)}
+.fp-box.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.fp-box .ic{width:10px;height:10px}
+.fp-box.r{border-radius:99px}
+.fp-box.r.on{background:var(--surface);border-color:var(--accent);color:var(--accent)}
+.fp-box.r.on::after{content:"";width:7px;height:7px;border-radius:99px;background:var(--accent)}
+.fp-count{margin-left:auto;font-size:10.5px;color:var(--ink-3)}
+/* no tabs in this version: alerts takes the push-right */
+.topbar>button[aria-label^="Notifications"]{margin-left:auto}
 </style>
 </head>
-<body data-app="learn" data-mode="trainplan">
+<body data-app="learn" data-mode="learner">
 <a class="skip" href="#main">Skip to content</a>
 
 <!-- Inline icon set (Lucide-style strokes). Filled glyphs override the inherited stroke. -->
@@ -348,6 +455,7 @@ body.tabs-off .tb-sep{display:none}
 <symbol id="i-book" viewBox="0 0 24 24"><path d="M5.2 5A1.8 1.8 0 0 1 7 3.2h11.2a.6.6 0 0 1 .6.6v16.4a.6.6 0 0 1-.6.6H7A1.8 1.8 0 0 1 5.2 19z"/><path d="M5.2 19A1.8 1.8 0 0 1 7 17.2h11.8"/></symbol>
 <symbol id="i-ext" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></symbol>
 <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21.4s-6.8-6-6.8-11a6.8 6.8 0 0 1 13.6 0c0 5-6.8 11-6.8 11z"/><circle cx="12" cy="10.2" r="2.6"/></symbol>
+<symbol id="i-org" viewBox="0 0 24 24"><rect x="8.5" y="3" width="7" height="5" rx="1.2"/><path d="M12 8v3.5M6.5 11.5h11M6.5 11.5V16M17.5 11.5V16"/><rect x="3" y="16" width="7" height="5" rx="1.2"/><rect x="14" y="16" width="7" height="5" rx="1.2"/></symbol>
 </defs></svg>
 
 <!-- ============ TOP BAR: one row = nav toggle · switcher · identity · modes · actions ============ -->
@@ -360,10 +468,19 @@ body.tabs-off .tb-sep{display:none}
   <button class="icon-btn" id="launcherBtn" aria-label="Switch app" aria-haspopup="dialog" aria-expanded="false">
     <svg class="ic"><use href="#i-grid"/></svg>
   </button>
-  <a class="brand" data-app="learn" href="#" aria-label="Convergence home">
-    <span class="brand-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
-    <b>Convergence</b>
-  </a>
+  <!-- The Convergence brand IS the sub-product switcher: one product, two
+       experiences. Learner and Admin swap the whole side nav below. -->
+  <div class="bsw" data-app="learn">
+    <button class="bsw-btn ssBtn" aria-haspopup="menu" aria-expanded="false">
+      <span class="brand-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
+      <span class="bsw-txt"><b>Convergence</b><span class="bsw-sub" id="brandSub">Learner</span></span>
+      <svg class="ic chev"><use href="#i-chev-d"/></svg>
+    </button>
+    <div class="bsw-menu ssMenu" role="menu" aria-label="Switch experience" hidden>
+      <button class="ss-opt" data-sub="learner" aria-current="true"><span class="ss-chip"><svg class="ic"><use href="#i-cap"/></svg></span><div><b>Learner</b><span>My training and progress</span></div><svg class="ic"><use href="#i-check"/></svg></button>
+      <button class="ss-opt" data-sub="ladmin"><span class="ss-chip"><svg class="ic"><use href="#i-sliders"/></svg></span><div><b>Admin</b><span>Manage training, people and reporting</span></div><svg class="ic"><use href="#i-check"/></svg></button>
+    </div>
+  </div>
   <a class="brand" data-app="comply" href="#" aria-label="Vector EHS Management home">
     <span class="brand-chip"><svg class="ic"><use href="#i-shield"/></svg></span>
     <b>Vector EHS Management</b>
@@ -376,7 +493,7 @@ body.tabs-off .tb-sep{display:none}
        Top-bar concern, separate from switching and from navigation. -->
   <div class="loc">
     <button class="loc-btn" id="locBtn" aria-haspopup="menu" aria-expanded="false">
-      <svg class="ic"><use href="#i-pin"/></svg><span id="locLbl">North Campus</span><svg class="ic chev"><use href="#i-chev-d"/></svg>
+      <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span id="locLbl">North Campus</span><span class="loc-sub" id="locSub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
     </button>
     <div class="loc-menu" id="locMenu" role="dialog" aria-label="Select location" hidden>
       <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
@@ -486,27 +603,21 @@ body.tabs-off .tb-sep{display:none}
     </div>
   </div>
 
-  <!-- MODE TABS, top-right: Learn's major modes. Live demo: click to swap the
-       side nav + content below. Switching product swaps this tab set. -->
-  <nav class="tb-tabs" data-app="learn" aria-label="Convergence modes">
-    <a href="#" data-mode="home">Home</a>
-    <a href="#" data-mode="admin">Admin</a>
-    <a href="#" data-mode="trainplan" aria-current="page">Training Plan</a>
-    <a href="#" data-mode="reporting">Reporting &amp; Insights</a>
-  </nav>
-  <!-- Comply's mode set (swapped in by the launcher). Static here: only the
-       Home mode is built; the point of the Comply pane is the EHS side nav. -->
-  <nav class="tb-tabs" data-app="comply" aria-label="Vector EHS Management modes">
-    <a href="#" aria-current="page">Home</a>
-    <a href="#">Incidents</a>
-    <a href="#">Inspections</a>
-    <a href="#">Observations</a>
-    <a href="#">Analytics</a>
-  </nav>
-  <span class="tb-sep" aria-hidden="true"></span>
   <button class="icon-btn" aria-label="Notifications, 3 unread"><svg class="ic"><use href="#i-bell"/></svg><span class="ndot"></span></button>
   <button class="icon-btn" aria-label="Help"><svg class="ic"><use href="#i-help"/></svg></button>
-  <button class="avatar" aria-label="Account: Alex Kim">AK</button>
+  <div class="umenu">
+    <button class="avatar" id="avatarBtn" aria-label="Account: Alex Kim" aria-haspopup="menu" aria-expanded="false">AK</button>
+    <div class="u-menu" id="userMenu" role="menu" aria-label="Account menu" hidden>
+      <div class="u-head"><span class="avatar">AK</span><div><b>Alex Kim</b><span>alex.kim@northline.com</span></div></div>
+      <div class="u-sec">Side nav text size</div>
+      <button class="u-opt" data-density="compact">Compact<svg class="ic"><use href="#i-check"/></svg></button>
+      <button class="u-opt" data-density="default" aria-current="true">Default<svg class="ic"><use href="#i-check"/></svg></button>
+      <button class="u-opt" data-density="comfortable">Comfortable<svg class="ic"><use href="#i-check"/></svg></button>
+      <div class="u-div"></div>
+      <a class="u-item" href="#">Profile settings</a>
+      <a class="u-item" href="#">Sign out</a>
+    </div>
+  </div>
 </header>
 
 <!-- App switcher: vwc-app-switcher-menu anatomy, extended to scale per the
@@ -554,51 +665,105 @@ body.tabs-off .tb-sep{display:none}
 
 <div class="shell" id="main">
 
-  <!-- ================= MODE: HOME ================= -->
-  <div class="mode-pane" data-mode="home">
-    <nav class="sidenav" aria-label="Home navigation">
-      <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Overview</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-inbox"/></svg>Inbox<span class="count">5</span></a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-check"/></svg>My assignments</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-clip"/></svg>Approvals<span class="count">2</span></a>
-      <div class="nav-h">Pinned</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-star"/></svg>Annual Compliance</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-star"/></svg>OSHA 10 · 2024</a>
-    </nav>
+  <!-- ================= SUB-PRODUCT: CONVERGENCE LEARNER =================
+       The Learner experience: home dashboard + training plan live in the
+       side nav; the sub-product dropdown at the top of the nav switches to
+       Admin. The plan below mirrors the real Convergence Training Plan
+       (hierarchical qualification > requirement > activity table). -->
+  <div class="mode-pane" data-mode="learner">
+  <nav class="sidenav" aria-label="Convergence Learner navigation">
+    <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
+    <a class="nitem" href="#"><svg class="ic"><use href="#i-home"/></svg>Home</a>
+    <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-cap"/></svg>Training plan</a>
+  </nav>
     <main class="content">
       <div class="page">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="#">Convergence</a><span class="sep">/</span>
+          <span class="here" aria-current="page">Training plan</span>
+        </nav>
         <div class="page-head">
           <div>
-            <h1>Good morning, Alex</h1>
-            <p class="sub">Monday, Aug 10 · 3 items need your attention</p>
+            <h1>Training plan</h1>
+            <p class="sub">My assigned training · 1 qualification · 13.5 hours</p>
           </div>
           <div class="head-actions">
-            <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Assign training</button>
+            <button class="btn">Print</button>
           </div>
         </div>
-        <div class="kpis">
-          <div class="kpi"><div class="lbl">My open assignments</div><div class="val">4</div><div class="sub">2 due this week</div></div>
-          <div class="kpi"><div class="lbl">Approvals waiting</div><div class="val">2</div><div class="sub">oldest: 3 days</div></div>
-          <div class="kpi"><div class="lbl">Team completion</div><div class="val">86%</div><div class="sub">up 2.1 pts vs July</div></div>
-          <div class="kpi"><div class="lbl">Overdue on my teams</div><div class="val">43</div><div class="sub">12 at Plant 12</div></div>
-        </div>
-        <div class="card">
-          <div class="card-h"><b>Needs attention</b></div>
-          <div class="lrow">
-            <div class="lt"><b>Forklift Operator Refresher</b><span>12 learners overdue at Plant 12 · due Aug 15</span></div>
-            <span class="pill fill">At risk</span>
-            <button class="btn">Review</button>
+        <div class="tp-layout">
+          <div class="card">
+            <div class="tp-head">
+              <div>Name</div><div style="text-align:center">Completion</div><div style="text-align:center">Duration</div><div style="text-align:center">Time spent</div><div style="text-align:center">Due</div><div style="text-align:right">Actions</div>
+            </div>
+            <div class="tp-row l1">
+              <div class="tp-name"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><span class="t">My assigned training</span><span class="tp-tag">Sorted by qualification</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:38%"></i></span><span>0 of 1 qualification</span></div>
+              <div class="tp-c">13.5 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div><div></div>
+            </div>
+            <div class="tp-row l2">
+              <div class="tp-name" style="padding-left:26px"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><svg class="ic"><use href="#i-cap"/></svg><span class="t">Annual Compliance</span><span class="tp-tag">Qualification</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:38%"></i></span><span>0 of 2 requirements</span></div>
+              <div class="tp-c">13.5 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg></div>
+            </div>
+            <div class="tp-row req">
+              <div class="tp-name" style="padding-left:52px"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><svg class="ic"><use href="#i-clip"/></svg><span class="t">OSHA 10-Hour: General Industry</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:50%"></i></span><span>1 of 2 activities</span></div>
+              <div class="tp-c">10 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div><div></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-doc"/></svg><span class="t">OSHA 10: Part 1</span></div>
+              <div class="tp-status done"><span class="dot"></span>Complete</div>
+              <div class="tp-c">5 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-doc"/></svg><span class="t">OSHA 10: Part 2</span></div>
+              <div class="tp-status"><span class="dot"></span>Not started</div>
+              <div class="tp-c">5 hrs</div><div class="tp-c">–</div><div class="tp-c">Sep 30, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
+            <div class="tp-row req">
+              <div class="tp-name" style="padding-left:52px"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><svg class="ic"><use href="#i-clip"/></svg><span class="t">HazCom: GHS Labels &amp; SDS</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:0%"></i></span><span>0 of 2 activities</span></div>
+              <div class="tp-c">1.5 hrs</div><div class="tp-c">–</div><div class="tp-c">Aug 31, 2026</div><div></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-doc"/></svg><span class="t">HazCom eLearning</span></div>
+              <div class="tp-status"><span class="dot"></span>Not started</div>
+              <div class="tp-c">1 hr</div><div class="tp-c">–</div><div class="tp-c">Aug 31, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-cal"/></svg><span class="t">HazCom site walkthrough</span></div>
+              <div class="tp-status prog"><span class="dot"></span>Scheduled</div>
+              <div class="tp-c">30 mins</div><div class="tp-c">–</div><div class="tp-c">Aug 31, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
           </div>
-          <div class="lrow">
-            <div class="lt"><b>New hire onboarding edits</b><span>2 changes waiting for your approval</span></div>
-            <span class="pill line">Approval</span>
-            <button class="btn">Open</button>
-          </div>
-          <div class="lrow">
-            <div class="lt"><b>Certification lapses in 14 days</b><span>21 learners · OSHA 10 renewals</span></div>
-            <span class="pill line">Watch</span>
-            <button class="btn">View</button>
+          <div class="card fp">
+            <div class="card-h"><b>Filters</b><span class="fp-clear">Clear all</span></div>
+            <div class="fp-g">
+              <h3>Status</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Not started<span class="fp-count">4</span></label>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>In progress<span class="fp-count">1</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Complete<span class="fp-count">1</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Overdue<span class="fp-count">0</span></label>
+            </div>
+            <div class="fp-g">
+              <h3>Activity type</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Computer based<span class="fp-count">4</span></label>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Live session<span class="fp-count">1</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Document review<span class="fp-count">0</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Skill assessment<span class="fp-count">1</span></label>
+            </div>
+            <div class="fp-g">
+              <h3>Due</h3>
+              <label class="fp-opt"><span class="fp-box r on"></span>Anytime</label>
+              <label class="fp-opt"><span class="fp-box r"></span>Next 30 days</label>
+              <label class="fp-opt"><span class="fp-box r"></span>This quarter</label>
+            </div>
           </div>
         </div>
       </div>
@@ -606,7 +771,7 @@ body.tabs-off .tb-sep{display:none}
   </div>
 
   <!-- ================= MODE: ADMIN ================= -->
-  <div class="mode-pane" data-mode="admin">
+  <div class="mode-pane" data-mode="ladmin">
     <nav class="sidenav" aria-label="Admin navigation">
       <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
         <!-- The real Convergence admin NAV_TREE: Dashboard solo, then groups as
@@ -724,177 +889,7 @@ body.tabs-off .tb-sep{display:none}
     </main>
   </div>
 
-  <!-- ================= MODE: TRAINING PLAN (default) ================= -->
-  <div class="mode-pane" data-mode="trainplan">
-    <nav class="sidenav" aria-label="Training Plan navigation">
-      <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-home"/></svg>Overview</a>
-      <details class="grp" open>
-        <summary><svg class="ic"><use href="#i-layers"/></svg>Curricula<span class="count">4</span><svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-        <div class="kids">
-          <details class="grp" open>
-            <summary aria-current="page">Annual Compliance<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-            <div class="kids">
-              <a class="nitem" href="#">OSHA 10 · 2024</a>
-              <a class="nitem" href="#">HazCom: GHS Labels &amp; SDS</a>
-              <a class="nitem" href="#">Lockout/Tagout Awareness</a>
-            </div>
-          </details>
-          <a class="nitem" href="#">New hire onboarding</a>
-          <a class="nitem" href="#">Site: Plant 12</a>
-          <a class="nitem" href="#">Site: DC North</a>
-        </div>
-      </details>
-      <details class="grp">
-        <summary><svg class="ic"><use href="#i-filter"/></svg>Assignments<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-        <div class="kids">
-          <a class="nitem" href="#">Assignment rules</a>
-          <a class="nitem" href="#">Exceptions</a>
-        </div>
-      </details>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-clip"/></svg>Activities</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-doc"/></svg>Qualifications</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-alert"/></svg>Escalations<span class="count">3</span></a>
-      <div class="nav-h">Plan settings</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-bell"/></svg>Notifications</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-sliders"/></svg>Configuration</a>
-    </nav>
-    <main class="content">
-      <div class="page">
-        <nav class="crumbs" aria-label="Breadcrumb">
-          <a href="#">Training Plan</a><span class="sep">/</span>
-          <a href="#">Curricula</a><span class="sep">/</span>
-          <span class="here" aria-current="page">Annual Compliance</span>
-        </nav>
-        <div class="page-head">
-          <div>
-            <h1>Annual Compliance</h1>
-            <p class="sub">Recurring curriculum · 1,284 learners across 6 sites · renews Jan 1</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn">Export</button>
-            <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Add course</button>
-          </div>
-        </div>
 
-        <div class="kpis">
-          <div class="kpi"><div class="lbl">Learners assigned</div><div class="val">1,284</div><div class="sub">across 6 sites</div></div>
-          <div class="kpi"><div class="lbl">Series completion</div><div class="val">86%</div><div class="sub">up 2.1 pts vs July</div></div>
-          <div class="kpi"><div class="lbl">Overdue learners</div><div class="val">43</div><div class="sub">12 at Plant 12</div></div>
-          <div class="kpi"><div class="lbl">Median time to complete</div><div class="val">12.4 days</div><div class="sub">target: 14 days</div></div>
-        </div>
-
-        <div class="card">
-          <div class="card-h">
-            <b>Courses in this curriculum</b>
-            <div class="right">
-              <button class="btn"><svg class="ic"><use href="#i-filter"/></svg>Filter</button>
-            </div>
-          </div>
-          <table>
-            <thead><tr><th>Course</th><th>Type</th><th>Assigned</th><th>Completion</th><th>Due</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="ttl">OSHA 10-Hour: General Industry</span><div class="meta">2024 edition · 10h</div></td>
-                <td>eLearning</td><td>812</td>
-                <td><span class="bar"><i style="width:91%"></i></span><span class="pct">91%</span></td>
-                <td>Sep 30, 2026</td>
-                <td><span class="pill soft">On track</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">HazCom: GHS Labels &amp; SDS</span><div class="meta">1.5h</div></td>
-                <td>eLearning</td><td>1,284</td>
-                <td><span class="bar"><i style="width:88%"></i></span><span class="pct">88%</span></td>
-                <td>Sep 30, 2026</td>
-                <td><span class="pill soft">On track</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">Lockout/Tagout Awareness</span><div class="meta">2h</div></td>
-                <td>eLearning</td><td>640</td>
-                <td><span class="bar"><i style="width:76%"></i></span><span class="pct">76%</span></td>
-                <td>Aug 31, 2026</td>
-                <td><span class="pill line">Watch</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">Forklift Operator Refresher</span><div class="meta">Blended · practical required</div></td>
-                <td>Blended</td><td>218</td>
-                <td><span class="bar"><i style="width:64%"></i></span><span class="pct">64%</span></td>
-                <td>Aug 15, 2026</td>
-                <td><span class="pill fill">At risk</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">Emergency Action Plan Basics</span><div class="meta">45m</div></td>
-                <td>eLearning</td><td>1,284</td>
-                <td><span class="bar"><i style="width:97%"></i></span><span class="pct">97%</span></td>
-                <td>Jul 31, 2026</td>
-                <td><span class="pill soft"><svg class="ic"><use href="#i-check"/></svg>Complete</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="card-f">Showing 5 of 24 courses<a href="#">View all</a></div>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- ================= MODE: REPORTING & INSIGHTS ================= -->
-  <div class="mode-pane" data-mode="reporting">
-    <nav class="sidenav" aria-label="Reporting navigation">
-      <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-chart"/></svg>Dashboards</a>
-      <div class="nav-h">Reports</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-clock"/></svg>My recents</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-star"/></svg>Frequently used</a>
-      <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-check"/></svg>Completion</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-doc"/></svg>Qualification reports</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-users"/></svg>User reports</a>
-      <div class="nav-h">Exports</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-cal"/></svg>Scheduled reports</a>
-    </nav>
-    <main class="content">
-      <div class="page">
-        <nav class="crumbs" aria-label="Breadcrumb">
-          <a href="#">Reporting &amp; Insights</a><span class="sep">/</span>
-          <span class="here" aria-current="page">Completion</span>
-        </nav>
-        <div class="page-head">
-          <div>
-            <h1>Completion by site</h1>
-            <p class="sub">Annual Compliance series · updated 5 minutes ago</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn">Schedule export</button>
-            <button class="btn primary">Export</button>
-          </div>
-        </div>
-        <div class="kpis">
-          <div class="kpi"><div class="lbl">Series completion</div><div class="val">86%</div><div class="sub">all sites</div></div>
-          <div class="kpi"><div class="lbl">Overdue learners</div><div class="val">43</div><div class="sub">down 6 this week</div></div>
-          <div class="kpi"><div class="lbl">Sites below target</div><div class="val">2</div><div class="sub">target: 85%</div></div>
-          <div class="kpi"><div class="lbl">Median days to complete</div><div class="val">12.4</div><div class="sub">target: 14</div></div>
-        </div>
-        <div class="card">
-          <div class="card-h"><b>Sites</b></div>
-          <table>
-            <thead><tr><th>Site</th><th>Assigned</th><th>Completion</th><th>Overdue</th><th>Vs last month</th></tr></thead>
-            <tbody>
-              <tr><td><span class="ttl">HQ Campus</span></td><td>264</td><td><span class="bar"><i style="width:93%"></i></span><span class="pct">93%</span></td><td>3</td><td>+1.9 pts</td></tr>
-              <tr><td><span class="ttl">DC North</span></td><td>320</td><td><span class="bar"><i style="width:91%"></i></span><span class="pct">91%</span></td><td>6</td><td>+1.4 pts</td></tr>
-              <tr><td><span class="ttl">Plant 12</span></td><td>486</td><td><span class="bar"><i style="width:82%"></i></span><span class="pct">82%</span></td><td>12</td><td>+2.6 pts</td></tr>
-              <tr><td><span class="ttl">Plant 7</span></td><td>214</td><td><span class="bar"><i style="width:78%"></i></span><span class="pct">78%</span></td><td>9</td><td>+0.8 pts</td></tr>
-              <tr><td><span class="ttl">Field Services</span></td><td>148</td><td><span class="bar"><i style="width:71%"></i></span><span class="pct">71%</span></td><td>13</td><td>+3.2 pts</td></tr>
-            </tbody>
-          </table>
-          <div class="card-f">6 sites · 1,284 learners<a href="#">Open in dashboards</a></div>
-        </div>
-      </div>
-    </main>
-  </div>
 
 <!-- ================= CROSS-PRODUCT DASHBOARD (via the switcher) =================
      Not a product: the home for everything. The side nav shows cross-product
@@ -1116,7 +1111,7 @@ body.tabs-off .tb-sep{display:none}
   function setNav(open){
     document.body.classList.toggle('nav-hidden',!open);
     nBtn.setAttribute('aria-pressed',String(open));
-    nBtn.setAttribute('aria-label',open?'Hide navigation':'Show navigation');
+    nBtn.setAttribute('aria-label',open?'Collapse navigation':'Expand navigation');
   }
   nBtn.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
 
@@ -1126,7 +1121,7 @@ body.tabs-off .tb-sep{display:none}
     document.body.dataset.app=app;
     if(app==='comply'){document.body.dataset.mode='comply-home';}
     else if(app==='dashboard'){document.body.dataset.mode='dash';}
-    else{setMode('trainplan');}
+    else{document.body.dataset.mode=(document.body.dataset.mode==='ladmin')?'ladmin':'learner';}
     document.querySelectorAll('.l-row[data-app]').forEach(function(t){
       var cur=t.dataset.app===app;
       t.classList.toggle('current',cur);
@@ -1161,6 +1156,7 @@ locMenu.querySelectorAll('.loc-pick').forEach(function(p){
     locMenu.querySelectorAll('.loc-row').forEach(function(r){r.classList.remove('selected');});
     p.closest('.loc-row').classList.add('selected');
     document.getElementById('locLbl').textContent=p.querySelector('strong').textContent;
+    document.getElementById('locSub').textContent=p.querySelector('span').textContent;
     setLoc(false);
   });
 });
@@ -1210,10 +1206,51 @@ lSearch.addEventListener('input',function(){
   });
 });
 
+// 8) Profile menu: per-user display preferences (side-nav text size)
+var avBtn=document.getElementById('avatarBtn'),uMenu=document.getElementById('userMenu');
+function setUMenu(o){uMenu.hidden=!o;avBtn.setAttribute('aria-expanded',String(o));}
+avBtn.addEventListener('click',function(e){e.stopPropagation();setUMenu(uMenu.hidden);});
+document.addEventListener('click',function(e){if(!uMenu.hidden&&!uMenu.contains(e.target))setUMenu(false);});
+function setDensity(d){
+  if(d==='default'){delete document.body.dataset.density;}else{document.body.dataset.density=d;}
+  uMenu.querySelectorAll('.u-opt').forEach(function(o){
+    if(o.dataset.density===d){o.setAttribute('aria-current','true');}else{o.removeAttribute('aria-current');}
+  });
+}
+uMenu.querySelectorAll('.u-opt').forEach(function(o){
+  o.addEventListener('click',function(e){e.stopPropagation();setDensity(o.dataset.density);});
+});
+
+// Sub-product switch: Learner <-> Admin, from the side-nav dropdown
+function setSub(sub){
+  document.body.dataset.mode=sub;
+  var bs=document.getElementById('brandSub');
+  if(bs)bs.textContent=(sub==='ladmin')?'Admin':'Learner';
+  document.querySelectorAll('.ss-opt').forEach(function(o){
+    if(o.dataset.sub===sub){o.setAttribute('aria-current','true');}else{o.removeAttribute('aria-current');}
+  });
+  document.querySelectorAll('.ssMenu').forEach(function(m){m.hidden=true;});
+}
+document.querySelectorAll('.ssBtn').forEach(function(b){
+  b.addEventListener('click',function(e){
+    e.stopPropagation();
+    var m=b.parentElement.querySelector('.ssMenu');
+    m.hidden=!m.hidden;
+    b.setAttribute('aria-expanded',String(!m.hidden));
+  });
+});
+document.querySelectorAll('.ss-opt').forEach(function(o){
+  o.addEventListener('click',function(e){e.stopPropagation();setSub(o.dataset.sub);});
+});
+document.addEventListener('click',function(e){
+  document.querySelectorAll('.ssMenu').forEach(function(m){if(!m.hidden&&!m.parentElement.contains(e.target))m.hidden=true;});
+});
+
   var params=new URLSearchParams(location.search);
   var m=params.get('mode'); if(m&&modes.indexOf(m)>-1)setMode(m);
   if(params.get('app')==='comply')setApp('comply');
   if(params.get('app')==='dashboard')setApp('dashboard');
+  if(params.get('sub')==='admin')setSub('ladmin');
   if(params.has('location'))setLoc(true);
   if(params.has('search')){gsInput.value='osha';gsOpen(true);}
   if(params.has('launcher'))setLauncher(true);
@@ -1221,6 +1258,8 @@ lSearch.addEventListener('input',function(){
   if(new URLSearchParams(location.search).get('logo')==='off')document.body.classList.add('logo-off');
   if(new URLSearchParams(location.search).get('loc')==='off')document.body.classList.add('loc-off');
   if(new URLSearchParams(location.search).get('tabs')==='off')document.body.classList.add('tabs-off');
+  var dd=new URLSearchParams(location.search).get('density'); if(dd==='compact'||dd==='comfortable')setDensity(dd);
+  if(new URLSearchParams(location.search).has('profile'))setUMenu(true);
 })();
 </script>
 <!-- ============================================================================
@@ -1246,15 +1285,20 @@ lSearch.addEventListener('input',function(){
   <a class="vs-all" href="index.html" title="Back to the gallery: all six versions with rationale and trade-offs">All</a>
   <span class="vs-div" aria-hidden="true"></span>
   <span class="vs-cap" aria-hidden="true">Version</span>
-  <a href="v1-launcher-tabs.html" aria-current="page" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
-  <a href="v2-rail-twopane.html" title="V2 · App rail + two-pane nav, no tabs">V2</a>
-  <a href="v3-flyout-hierarchy.html" title="V3 · Hierarchy via flyout panels: children open to the right of the side nav">V3</a>
-  <a href="v4-text-hierarchy.html" title="V4 · Hierarchy via typography only: weight, size and color carry depth">V4</a>
-  <a href="v5-color-hierarchy.html" title="V5 · Hierarchy via color: open accordion groups become tinted blocks">V5</a>
+  <a href="v1-launcher-tabs.html" title="V1 · Grid launcher + mode tabs in the top bar">V1</a>
+  <a href="v2a-subproducts-filter-panel.html" aria-current="page" title="V2a · Learner/Admin sub-products in the side nav · filters in a right panel">V2a</a>
+  <a href="v2b-subproducts-filter-dropdowns.html" title="V2b · Learner/Admin sub-products in the side nav · filters as dropdowns">V2b</a>
+  <a href="v3-app-rail.html" title="V3 · App rail switcher + side-nav product search">V3</a>
+  <a href="v4-flyout-hierarchy.html" title="V4 · Hierarchy via flyout panels">V4</a>
+  <a href="v5-text-hierarchy.html" title="V5 · Hierarchy via typography only">V5</a>
+  <a href="v6-color-hierarchy.html" title="V6 · Hierarchy via colored open accordions">V6</a>
   <span class="vs-div" aria-hidden="true"></span>
   <button class="vs-logo" aria-pressed="true" title="Toggle the customer logo in the side nav (platform customization)" onclick="var off=document.body.classList.toggle('logo-off');this.setAttribute('aria-pressed',off?'false':'true')">Logo</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the location picker in the top bar" onclick="var off=document.body.classList.toggle('loc-off');this.setAttribute('aria-pressed',off?'false':'true')">Loc</button>
-  <button class="vs-logo" aria-pressed="true" title="Toggle the product mode tabs in the top bar" onclick="var off=document.body.classList.toggle('tabs-off');this.setAttribute('aria-pressed',off?'false':'true')">Tabs</button>
 </nav>
+
+<!-- Design Toolbox: review comments + flow map (bottom-center dock).
+     Pins are keyed to the GitHub Pages URL, so comment on the Pages link. -->
+<script src="../../../designtoolbox/toolbox.js"></script>
 </body>
 </html>
