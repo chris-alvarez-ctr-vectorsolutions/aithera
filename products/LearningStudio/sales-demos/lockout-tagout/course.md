@@ -114,10 +114,28 @@ objective: Distinguish between authorized, affected, and other employees and des
 state: not-started
 duration: 1:12
 
+<!-- The demo's click path. This is the only LO with scene detail, so it
+     and the section title card are the only clickable objects in the
+     course. Duration (0:55) derives from the scenes below — the source
+     list's rounded 1:00 is intentionally not authored here. -->
 ### Lockout Hardware
 objective: Identify standard lockout devices and select the correct hardware for common energy-isolating devices
 state: not-started
-duration: 1:00
+
+#### scene 1 | 0:05 | LockoutHardware-scene1.png
+There are specific requirements for locks used by authorized employees for lockout.
+
+#### scene 2 | 0:19 | LockoutHardware-scene2.png
+Locks used by authorized employees must be durable, used only for the purpose of lockout tagout, standardized within a facility by color, shape, or size, and uniquely identified and associated with an employee. The keys used for lockout locks must be controlled.
+
+#### scene 3 | 0:23 | LockoutHardware-scene3.png
+When more than one authorized employee works on a machine, the energy isolation devices must be protected by a hasp that can support the application of multiple locks. This allows each authorized employee involved to place their own lock on the hasp.
+
+#### scene 4 | 0:04 | LockoutHardware-scene4.png
+If work is to extend over a shift break, it's important that continuity of coverage be maintained.
+
+#### scene 5 | 0:04 | LockoutHardware-scene5.png
+The incoming authorized employee must place their own lock on the hasp before the outgoing authorized employee removes theirs.
 
 ### Lockout Administration
 objective: Explain how written lockout procedures are documented, reviewed, and audited to meet program requirements

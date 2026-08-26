@@ -168,9 +168,35 @@ const COURSE = {
           "type": "lesson",
           "state": "not-started",
           "objective": "Identify standard lockout devices and select the correct hardware for common energy-isolating devices",
-          "dur": 60,
-          "scenes": [],
-          "opensManager": false,
+          "dur": 55,
+          "scenes": [
+            {
+              "dur": 5,
+              "image": "LockoutHardware-scene1.png",
+              "transcript": "There are specific requirements for locks used by authorized employees for lockout."
+            },
+            {
+              "dur": 19,
+              "image": "LockoutHardware-scene2.png",
+              "transcript": "Locks used by authorized employees must be durable, used only for the purpose of lockout tagout, standardized within a facility by color, shape, or size, and uniquely identified and associated with an employee. The keys used for lockout locks must be controlled."
+            },
+            {
+              "dur": 23,
+              "image": "LockoutHardware-scene3.png",
+              "transcript": "When more than one authorized employee works on a machine, the energy isolation devices must be protected by a hasp that can support the application of multiple locks. This allows each authorized employee involved to place their own lock on the hasp."
+            },
+            {
+              "dur": 4,
+              "image": "LockoutHardware-scene4.png",
+              "transcript": "If work is to extend over a shift break, it's important that continuity of coverage be maintained."
+            },
+            {
+              "dur": 4,
+              "image": "LockoutHardware-scene5.png",
+              "transcript": "The incoming authorized employee must place their own lock on the hasp before the outgoing authorized employee removes theirs."
+            }
+          ],
+          "opensManager": true,
           "numbered": 2
         },
         {
