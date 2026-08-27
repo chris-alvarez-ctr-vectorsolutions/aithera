@@ -29,9 +29,13 @@
   function warn(msg) { try { console.warn('[SimPlayer] ' + msg); } catch (e) {} }
 
   // The most times the UNGRADED reflection warm-up may STAY (a clarifying probe or
-  // a redirect re-ask) before the app force-opens the scene. Keeps a chatty model
-  // from re-probing a terse gut-read forever. See runArcEngine's reflection branch.
-  var REFLECTION_STAY_CAP = 2;
+  // a redirect re-ask) before the app force-opens the scene. ONE stay = one probe,
+  // so the learner answers at most TWICE in the warm-up — the same one-probe rule
+  // every phase gets. (Was 2, which let the coach probe twice and stretched the
+  // warm-up to three learner turns — stakeholder-reported as blowing the cap.)
+  // See runArcEngine's reflection branch; the force-open strips any question the
+  // model leaves dangling, so the tighter cap never orphans one.
+  var REFLECTION_STAY_CAP = 1;
 
   /* -----------------------------------------------------------------------
      lint(scenario) — a LOAD-TIME authoring check over the ladder graph. The
