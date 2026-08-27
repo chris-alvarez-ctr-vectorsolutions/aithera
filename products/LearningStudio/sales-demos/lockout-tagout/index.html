@@ -174,19 +174,49 @@
         </div>
       </div>
 
-      <!-- AI route -->
-      <div class="route-panel" id="routeAi">
-        <h4>AI Generation</h4>
-        <p>Describe the learning object and AI will generate it for you.</p>
+      <!-- AI route. Unlike the manual route this is not boxed -- the fields
+           sit directly on the modal, matching the reference. -->
+      <div class="route-panel route-plain" id="routeAi">
         <div class="field required">
-          <label for="aiPrompt">Description *</label>
-          <textarea id="aiPrompt" placeholder="Describe what this learning object should cover"></textarea>
+          <label for="aiPrompt">Describe what this learning object should cover *</label>
+          <textarea id="aiPrompt" rows="3"
+            placeholder="e.g., Explain the basics of workplace safety including PPE requirements, hazard identification, and emergency procedures..."></textarea>
         </div>
+
+        <div class="field">
+          <div class="upload-head">Reference Documents (Optional)</div>
+          <p class="upload-sub">Upload reference documents to provide context for AI generation.</p>
+          <p class="upload-hint">Supported: PDF, DOCX, TXT, PPTX, XLSX. Max 5 files, 130,000 words combined.</p>
+
+          <!-- A real <input type="file"> so a rep can pick an actual document
+               from the OS file browser on a live call. Nothing is uploaded --
+               the picked files are only listed back. -->
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" multiple
+                   accept=".pdf,.docx,.txt,.pptx,.xlsx" hidden />
+            <button class="btn btn-upload" type="button" id="uploadBtn">Upload Files…</button>
+            <span class="dz-hint"><i class="fa-solid fa-arrow-up-from-bracket"></i> Drop files here or click to upload</span>
+          </div>
+
+          <!-- Picked files, listed with a control to remove each. -->
+          <ul class="file-list" id="fileList"></ul>
+          <div class="file-count" id="fileCount" hidden></div>
+        </div>
+      </div>
+
+      <!-- Simulated generation. Replaces the modal body while running,
+           then the demo opens the pre-authored LO. -->
+      <div class="generating" id="generating">
+        <div class="gen-spark"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="gen-title">Generating transcript…</div>
+        <div class="gen-step" id="genStep"></div>
+        <div class="gen-bar"><div class="gen-fill" id="genFill"></div></div>
       </div>
     </div>
 
     <div class="modal-foot">
       <button class="btn btn-secondary" type="button" id="addLoCancel">Cancel</button>
+      <!-- Label follows the route: "Create Learning Object" / "Generate Transcript". -->
       <button class="btn btn-primary" type="button" id="addLoCreate" disabled>Create Learning Object</button>
     </div>
   </div>
@@ -1158,8 +1188,92 @@ function setRoute(route) {
   });
   document.getElementById('routeManual').classList.toggle('active', route === 'manual');
   document.getElementById('routeAi').classList.toggle('active', route === 'ai');
+  // The action is route-specific, so the button says what it will do.
+  addLoCreate.textContent = route === 'ai' ? 'Generate Transcript' : 'Create Learning Object';
   syncCreateEnabled();
 }
+
+/* ---- Reference documents ----------------------------------
+   A real file picker so a rep can choose an actual document from their
+   machine mid-call. Nothing is uploaded or read -- the File objects are
+   only listed back, which is all the demo needs. */
+const MAX_FILES = 5;
+let pickedFiles = [];
+
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  const count = document.getElementById('fileCount');
+  list.innerHTML = pickedFiles.map((f, i) =>
+    '<li>' +
+      '<i class="fa-regular fa-file-lines f-icon"></i>' +
+      '<span class="f-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>' +
+      '<span class="f-size">' + fmtBytes(f.size) + '</span>' +
+      '<button class="f-del" type="button" data-i="' + i + '" ' +
+              'aria-label="Remove ' + escapeHtml(f.name) + '">' +
+        '<i class="fa-solid fa-xmark"></i></button>' +
+    '</li>'
+  ).join('');
+
+  if (pickedFiles.length) {
+    const over = pickedFiles.length > MAX_FILES;
+    count.hidden = false;
+    count.classList.toggle('over', over);
+    count.textContent = over
+      ? pickedFiles.length + ' files selected — over the ' + MAX_FILES + '-file limit'
+      : pickedFiles.length + ' of ' + MAX_FILES + ' files selected';
+  } else {
+    count.hidden = true;
+  }
+}
+
+function addFiles(fileList) {
+  // Keep every pick so the count can legitimately go over the limit and
+  // show the warning, rather than silently dropping a rep's file.
+  pickedFiles = pickedFiles.concat([...fileList]);
+  renderFileList();
+}
+
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+document.getElementById('uploadBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileInput.click();
+});
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  addFiles(fileInput.files);
+  // Reset so picking the same file twice still fires a change event.
+  fileInput.value = '';
+});
+
+// Drag and drop straight onto the zone.
+['dragenter', 'dragover'].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('is-drag');
+  }));
+['dragleave', 'drop'].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('is-drag');
+  }));
+dropzone.addEventListener('drop', (e) => {
+  if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+
+document.getElementById('fileList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.f-del');
+  if (!btn) return;
+  pickedFiles.splice(Number(btn.dataset.i), 1);
+  renderFileList();
+});
 
 function openAddLo(section) {
   addLoSectionId = section.id;
@@ -1167,6 +1281,8 @@ function openAddLo(section) {
   loTitle.value = '';
   loObjective.value = '';
   aiPrompt.value = '';
+  pickedFiles = [];
+  renderFileList();
   setRoute('manual');
   addLoModal.classList.add('open');
   setTimeout(() => currentRouteInput().focus(), 0);
@@ -1174,6 +1290,10 @@ function openAddLo(section) {
 
 function closeAddLo() {
   addLoModal.classList.remove('open');
+  // Reset the generating state and kill any pending steps, so dismissing
+  // mid-run doesn't leave the modal stuck or fire a navigation later.
+  clearGenTimers();
+  addLoModal.querySelector('.modal').classList.remove('is-generating');
 }
 
 document.querySelectorAll('.route-tab').forEach(tab => {
@@ -1202,15 +1322,29 @@ addLoCreate.addEventListener('click', () => {
     closeAddLo();
     return;
   }
-  revealGeneratedObject();
+  runGeneration();
 });
 
-/* Reveal the hidden LO for this section and open it.
-   Mutating COURSE (rather than re-reading course-data.js) is what makes
-   the reveal stick: showOverview() doesn't re-render, so navigating back
-   from the object manager shows the overview with the new LO in place --
-   list and duration totals both updated. */
-function revealGeneratedObject() {
+/* Simulated generation, then reveal.
+   The steps are cosmetic -- no work happens -- but they make the moment
+   read as real on a call. Total ~5.2s. */
+const GEN_STEPS = [
+  { at: 0,    pct: 12, label: 'Reading your description…' },
+  { at: 900,  pct: 34, label: 'Reviewing reference documents…' },
+  { at: 2000, pct: 58, label: 'Drafting the transcript…' },
+  { at: 3200, pct: 79, label: 'Selecting media for each scene…' },
+  { at: 4300, pct: 94, label: 'Assembling the learning object…' },
+  { at: 5000, pct: 100, label: 'Done' }
+];
+
+let genTimers = [];
+
+function clearGenTimers() {
+  genTimers.forEach(clearTimeout);
+  genTimers = [];
+}
+
+function runGeneration() {
   const section = COURSE.sections.find(s => s.id === addLoSectionId);
   const target = section && section.objects.find(o => o.hidden);
 
@@ -1221,6 +1355,31 @@ function revealGeneratedObject() {
     return;
   }
 
+  const modal = addLoModal.querySelector('.modal');
+  const step  = document.getElementById('genStep');
+  const fill  = document.getElementById('genFill');
+
+  modal.classList.add('is-generating');
+  step.textContent = '';
+  fill.style.width = '0%';
+
+  GEN_STEPS.forEach(s => {
+    genTimers.push(setTimeout(() => {
+      step.textContent = s.label;
+      fill.style.width = s.pct + '%';
+    }, s.at));
+  });
+
+  // Land in the finished LO once the run completes.
+  genTimers.push(setTimeout(() => revealGeneratedObject(target), 5200));
+}
+
+/* Reveal the hidden LO and open it.
+   Mutating COURSE (rather than re-reading course-data.js) is what makes
+   the reveal stick: showOverview() doesn't re-render, so navigating back
+   from the object manager shows the overview with the new LO in place --
+   list and duration totals both updated. */
+function revealGeneratedObject(target) {
   target.hidden = false;
   closeAddLo();
   renderSections();
