@@ -10,10 +10,14 @@
 
    The five "light" steps (intro / video / scene / closing / results) render
    here as content modules. The heavyweight Marshall scenario is a full-screen
-   app of its own, so it stays its own page (layered-course-scenario.html); the
+   app of its own, so it stays its own page (clara/scenario.html); the
    crossing into and out of it is a cross-document View Transition (see the CSS
-   in layered-course.html). The scenario hands back by navigating to
+   in clara/course.html). The scenario hands back by navigating to
    ?step=closing with its score already in sessionStorage['ll-course'].
+
+   NOTE: both course pages live in the clara/ subdirectory, so page-relative
+   paths (videos, the lesson index) resolve one level deeper than the rest of
+   lesson-presentation — hence the ../../assets/… and ../index.html below.
 
    Reuses css/layered-learning.css (tokens, chrome, orb, footer classes) and
    js/mobius-orb.js. Include AFTER frame.js so the top frame exists to update.
@@ -40,6 +44,58 @@
     return c;
   }
 
+  // --- The aptitude model (AI Aptitude Assessment vision doc) -----------------
+  // Constructs come from the Individual Determinants of Behavior framework
+  // (Intervention Mapping) — the same construct names the vision doc uses.
+  // Five of the eight are assessed in this course; each is scored on the doc's
+  // qualitative bands. 1 = Below Average / Practice Needed, 2 = Average / Good,
+  // 3 = Above Average / Excellent. Pass = at least Average on 80% of objectives.
+  var CONSTRUCTS = [
+    { key: 'knowledge', name: 'Knowledge',                    icon: 'fa-book-open',      listens: 'Can you recognize the behavior — not just define it?' },
+    { key: 'beliefs',   name: 'Attitudes & beliefs',          icon: 'fa-scale-balanced', listens: 'Do you believe stepping in matters?' },
+    { key: 'norms',     name: 'Social norms',                 icon: 'fa-users',          listens: 'Can you read — and resist — the pressure to stay quiet?' },
+    { key: 'skills',    name: 'Behavioral skills',            icon: 'fa-comment-dots',   listens: 'Do you know what to say, specifically?' },
+    { key: 'control',   name: 'Perceived behavioral control', icon: 'fa-gauge-high',     listens: 'Do you feel able to act in the moment?' }
+  ];
+  var BANDS = {
+    1: { label: 'Practice Needed', cls: 'band-warn' },
+    2: { label: 'Good',            cls: 'band-ok'   },
+    3: { label: 'Excellent',       cls: 'band-exc'  }
+  };
+
+  // Which way the Learning Layer recomposes the path after the scenario.
+  // Performance-driven (the scenario's score decides), with a presenter
+  // override — the "Demo: flip outcome" control on the adjust step — stored
+  // alongside the course record so it survives the scenario round-trip.
+  function decideBranch() {
+    try { var o = sessionStorage.getItem('ll-branch'); if (o === 'support' || o === 'accelerate') return o; } catch (e) {}
+    var s = readCourse().scenario || {};
+    var score = (typeof s.score === 'number') ? s.score : 82;
+    return score >= 88 ? 'accelerate' : 'support';
+  }
+
+  // --- "CLARA noticed" evidence toast ---------------------------------------
+  // A quiet signal chip (bottom-right, above the footer) shown when CLARA logs
+  // evidence against a construct — assessment as a continuous thread, not a
+  // test moment. Auto-dismisses; stacks if several fire close together.
+  function notice(html) {
+    var wrap = document.getElementById('llNotices');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'llNotices'; wrap.className = 'll-notices'; wrap.setAttribute('aria-live', 'polite');
+      document.body.appendChild(wrap);
+    }
+    var chip = document.createElement('div');
+    chip.className = 'll-notice';
+    chip.innerHTML = '<i class="fa-solid fa-wave-square" aria-hidden="true"></i><span>' + html + '</span>';
+    wrap.appendChild(chip);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { chip.classList.add('in'); }); });
+    setTimeout(function () {
+      chip.classList.remove('in');
+      setTimeout(function () { chip.remove(); }, T(400) + 20);
+    }, T(4600) + 400);
+  }
+
   // ==========================================================================
   //  Content builders (the markup each step drops into the stage)
   // ==========================================================================
@@ -64,23 +120,28 @@
 
   var RESULTS_CONTENT =
     '<main class="ll-object" id="resultsObject">' +
-      '<p class="ll-eyebrow">Your results</p>' +
-      '<h2 id="resHeadline">Here\'s how you did.</h2>' +
-      '<p class="ll-sub" id="resSub">A quick summary across the whole lesson.</p>' +
+      '<p class="ll-eyebrow">Your aptitude profile</p>' +
+      '<h2 id="resHeadline">Here\'s what you can do now.</h2>' +
+      '<p class="ll-sub" id="resSub">Not a quiz score — a construct-by-construct picture of what you demonstrated, ' +
+        'measured from your baseline to now.</p>' +
       '<div class="res-wrap">' +
-        '<div class="res-ring" aria-hidden="true">' +
-          '<svg viewBox="0 0 180 180" role="img" aria-label="Overall score">' +
+        '<div class="res-ring">' +
+          '<svg viewBox="0 0 180 180" role="img" aria-label="Objectives at Good or above">' +
             '<defs><linearGradient id="resGrad" x1="0" y1="0" x2="1" y2="1">' +
               '<stop offset="0%" stop-color="#46f0dc"/><stop offset="55%" stop-color="#16b8a6"/><stop offset="100%" stop-color="#0c8f83"/>' +
             '</linearGradient></defs>' +
             '<circle class="track" cx="90" cy="90" r="76"></circle>' +
             '<circle class="val" cx="90" cy="90" r="76" id="resArc" stroke-dasharray="477.5" stroke-dashoffset="477.5"></circle>' +
           '</svg>' +
-          '<div class="res-center"><div class="res-score"><span id="resScoreNum">0</span><small>/100</small></div>' +
-          '<div class="res-score-label">Overall</div></div>' +
+          '<div class="res-center"><div class="res-score"><span id="resScoreNum">0</span><small id="resScoreOf">/5</small></div>' +
+          '<div class="res-score-label">At Good or above</div></div>' +
         '</div>' +
-        '<ul class="res-breakdown" id="resBreakdown"></ul>' +
+        '<div class="apt-side">' +
+          '<p class="apt-pass" id="aptPass"></p>' +
+          '<p class="apt-path" id="aptPath"></p>' +
+        '</div>' +
       '</div>' +
+      '<ul class="apt-list" id="aptList" aria-label="Construct-by-construct profile"></ul>' +
       '<p class="res-basis" id="resBasis"></p>' +
     '</main>';
 
@@ -210,6 +271,90 @@
     ctx.positionOrb(false);
   }
 
+  // ==========================================================================
+  //  Baseline check (adaptive pre-assessment) — the aptitude thread's opening.
+  //  Two quick conversational probes BEFORE any content, so the closing profile
+  //  can show growth rather than a snapshot. The stage lists what CLARA listens
+  //  for (the five constructs) while she asks in the floating bubble.
+  // ==========================================================================
+  var BASELINE_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Before we begin</p>' +
+      '<h2>A quick baseline.</h2>' +
+      '<p class="ll-sub">Two short questions — no grade, no trick. They give CLARA a starting picture, ' +
+        'so at the end you can see how far you’ve come, not just where you landed.</p>' +
+      '<ul class="bl-constructs" aria-label="What CLARA listens for">' +
+        CONSTRUCTS.map(function (c) {
+          return '<li class="bl-construct"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
+                 '<span><b>' + esc(c.name) + '</b> ' + esc(c.listens) + '</span></li>';
+        }).join('') +
+      '</ul>' +
+      '<p class="bl-note"><i class="fa-solid fa-circle-info"></i> These are the behavioral constructs this course was ' +
+        'built to develop — from the Individual Determinants of Behavior framework. Every signal CLARA logs maps to one of them.</p>' +
+    '</main>';
+
+  var BASELINE_Q1 = {
+    stem: 'First one — <strong>a coworker keeps “joking” about a colleague’s body after being asked to stop. Is that harassment?</strong>',
+    options: [
+      { t: 'Yes — it’s unwelcome and repeated', band: 2,
+        reply: 'Right — unwelcome and persisting after a clear “stop” is the line. Good starting knowledge.' },
+      { t: 'Only if a manager does it', band: 1,
+        reply: 'Common belief, but no — anyone can be the harasser. We’ll firm this up as we go.' },
+      { t: 'Only if it gets physical', band: 1,
+        reply: 'It doesn’t have to be physical — verbal conduct counts. That’s exactly what this course covers.' }
+    ]
+  };
+  var BASELINE_Q2 = {
+    stem: 'Last one, and be honest — <strong>if you saw it happen, what would make it hardest to step in?</strong>',
+    options: [
+      { t: 'Knowing what to actually say', bands: { skills: 1, control: 2 },
+        reply: 'That’s the most common answer there is — and it’s a skill, not a trait. I’ll focus there.' },
+      { t: 'Whether it’s my place', bands: { norms: 1, control: 2 },
+        reply: 'Fair. Watch how the people around you shape that feeling — we’ll come back to it.' },
+      { t: 'Nothing — I’d step in', bands: { control: 3, skills: 2 },
+        reply: 'Love the confidence. Let’s pressure-test it with something real.' }
+    ]
+  };
+  function baselineInit(ctx) {
+    var bands = { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2 };
+    var answers = {};
+    ask(BASELINE_Q1, function (opt) {
+      bands.knowledge = opt.band; answers.q1 = opt.t;
+      notice('Logged: <b>Knowledge</b> — baseline ' + BANDS[opt.band].label);
+      setTimeout(function () { ask(BASELINE_Q2, done); }, T(1400));
+    });
+    function ask(q, onPick) {
+      ctx.setCoachSay(q.stem);
+      var bubble = ctx.els.bubble;
+      var old = bubble.querySelector('.vq-chips'); if (old) old.remove();
+      var oldFb = bubble.querySelector('.vq-feedback'); if (oldFb) oldFb.remove();
+      var chips = document.createElement('div');
+      chips.className = 'clara-chips vq-chips';
+      q.options.forEach(function (opt) {
+        var b = document.createElement('button');
+        b.className = 'clara-chip'; b.type = 'button'; b.textContent = opt.t;
+        b.addEventListener('click', function () {
+          chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
+          b.classList.add('is-correct');
+          fb.className = 'vq-feedback ok'; fb.textContent = opt.reply;
+          ctx.positionOrb(true);
+          onPick(opt);
+        });
+        chips.appendChild(b);
+      });
+      var fb = document.createElement('div'); fb.className = 'vq-feedback';
+      bubble.appendChild(chips); bubble.appendChild(fb);
+      ctx.positionOrb(true);
+    }
+    function done(opt) {
+      answers.q2 = opt.t;
+      Object.keys(opt.bands || {}).forEach(function (k) { bands[k] = opt.bands[k]; });
+      saveResult('baseline', { bands: bands, answers: answers });
+      notice('Baseline profile captured — <b>5 constructs</b>');
+      ctx.enableNext();
+    }
+  }
+
   // Step 5 — closing video, gated by a true/false knowledge check on the clip.
   // Same binary right/wrong mechanics as the (former) step-2 comprehension check:
   // a wrong pick is disabled with a nudge; the correct pick unlocks Continue.
@@ -268,77 +413,353 @@
     }
   }
 
-  // Step 6 — results: assemble the score from the cross-page record.
-  function computeCourseScore(v, s) {
-    var videoPts = v.answered ? 100 : 80;   // self-report: full credit for answering, else participation floor
-    var scenPts = (typeof s.score === 'number') ? s.score
-                  : (s.status === 'complete') ? 88 : (s.status === 'skipped') ? 80 : 82;
-    return { overall: Math.round(videoPts * 0.3 + scenPts * 0.7), scenPts: scenPts };
+  // ==========================================================================
+  //  Path adjustment — the Knowledge Layer moment. After the scenario, CLARA
+  //  shows the course as a map of learning objects and the Learning Layer
+  //  visibly recomposes it: mastery-based sequencing acting on SME-signed
+  //  Know·Feel·Do objectives. Performance-driven (the scenario record decides),
+  //  with a presenter override in the frame's ⋯ actions ("Demo: flip outcome").
+  // ==========================================================================
+  var ADJUST_CONTENT =
+    '<main class="ll-object" id="adjustObject">' +
+      '<p class="ll-eyebrow">The Knowledge Layer</p>' +
+      '<h2 id="adjHeadline">Recomposing your path…</h2>' +
+      '<p class="ll-sub" id="adjSub">Everything you’ve done so far has been scored against the course’s signed ' +
+        'objectives — CLARA is deciding what you actually need next.</p>' +
+      '<ol class="path-rail" id="pathRail" aria-label="Your learning path"></ol>' +
+      '<div class="prov-card" id="provCard" hidden>' +
+        '<div class="prov-head"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Why this changed</div>' +
+        '<ol class="prov-chain" id="provChain"></ol>' +
+      '</div>' +
+    '</main>';
+
+  // The path map: the course's own learning objects, with the slot AFTER the
+  // scenario as the recomposition target. `planned` is what the linear course
+  // would have served; each branch swaps or removes it.
+  var PATH_NODES = [
+    { icon: 'fa-hand-sparkles', label: 'Welcome',            state: 'done' },
+    { icon: 'fa-wave-square',   label: 'Baseline check',     state: 'done' },
+    { icon: 'fa-circle-play',   label: 'Intro video',        state: 'done' },
+    { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'done', sub: 'construct-mapped' },
+    { icon: 'fa-list-check',    label: 'Review: The Five Ds', state: 'planned', slot: true },
+    { icon: 'fa-flag-checkered', label: 'Wrap-up video',      state: 'next' },
+    { icon: 'fa-chart-simple',  label: 'Aptitude profile',   state: 'next' }
+  ];
+  var ADJUST_BRANCHES = {
+    support: {
+      headline: 'One change, made for you.',
+      sub: 'The scenario showed exactly one construct that needs work — so the generic review is out, ' +
+           'and two minutes of targeted practice are in. Same seat time, better spent.',
+      swap: { icon: 'fa-comment-dots', label: 'Micro-practice: Say it out loud', tag: 'Added · 2 min', cls: 'is-added' },
+      narration: [
+        'Okay, Rob — I pulled three signals out of the Marshall scenario and mapped them to the course’s objectives.',
+        'You read the situation well and you clearly believe stepping in matters. The one construct that came back “Practice Needed” was <b>behavioral skills</b> — the actual words, in the moment.',
+        'So I’m swapping the generic review for a two-minute practice on exactly that. Here’s the change — and the paper trail behind it.'
+      ],
+      chain: [
+        '<b>The signed objective.</b> “Name the behavior and check in with the target” — a <em>Do</em>-level objective in this course’s Know·Feel·Do mapping, SME-signed. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
+        '<b>The evidence.</b> Marshall scenario, construct-mapped: <em>Behavioral skills — Practice Needed</em>. You named the problem to Jake, but the direct words and the follow-up check-in never landed.',
+        '<b>The recomposition.</b> Mastery-based sequencing replaced the one-size review with a targeted practice on that objective. No new content was authored — every beat derives from the signed substrate.'
+      ]
+    },
+    accelerate: {
+      headline: 'You’ve earned a shorter path.',
+      sub: 'You already demonstrated the review’s objectives inside the scenario — so it’s gone, ' +
+           'and the wrap-up tightens to what you haven’t shown yet.',
+      swap: null,   // the planned node is removed, not replaced
+      narration: [
+        'Okay, Rob — I pulled the signals out of the Marshall scenario and mapped them to the course’s objectives.',
+        'You didn’t just pick right answers in there — you named the behavior, held your ground, and checked in afterward. That <em>is</em> the review, demonstrated.',
+        'So the review is off your path, and the wrap-up tightens to the one objective you haven’t evidenced yet. Here’s the change — and the paper trail behind it.'
+      ],
+      chain: [
+        '<b>The signed objectives.</b> The review covers three <em>Do</em>-level objectives from this course’s Know·Feel·Do mapping — all SME-signed. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
+        '<b>The evidence.</b> Marshall scenario, construct-mapped: all three objectives scored <em>Good or above</em> — demonstrated in performance, not recall.',
+        '<b>The recomposition.</b> Mastery-based sequencing tested you out of the review and kept your seat time for the objective still unevidenced. Nothing was waived — it was demonstrated.'
+      ]
+    }
+  };
+
+  function pathNodeHTML(n) {
+    var state = n.state;
+    var chip = state === 'done' ? '<span class="pn-chip pn-done"><i class="fa-solid fa-check"></i> Done</span>'
+             : state === 'planned' ? '<span class="pn-chip pn-planned">Planned</span>'
+             : state === 'added' ? '<span class="pn-chip pn-added"><i class="fa-solid fa-wand-magic-sparkles"></i> ' + esc(n.tag || 'Added') + '</span>'
+             : '<span class="pn-chip pn-next">Up next</span>';
+    return '<li class="path-node ' + (n.cls || '') + '" data-state="' + state + '">' +
+             '<span class="pn-ico"><i class="fa-solid ' + n.icon + '" aria-hidden="true"></i></span>' +
+             '<span class="pn-main"><span class="pn-label">' + esc(n.label) + '</span>' +
+             (n.sub ? '<span class="pn-sub">' + esc(n.sub) + '</span>' : '') + '</span>' +
+             chip +
+           '</li>';
   }
+
+  function adjustInit(ctx) {
+    var branch = decideBranch();
+    var B = ADJUST_BRANCHES[branch];
+    var rail = document.getElementById('pathRail');
+    rail.innerHTML = PATH_NODES.map(pathNodeHTML).join('');
+    notice('Imported: <b>3 signals</b> from the Marshall scenario');
+
+    // CLARA narrates in the docked panel; the map reacts on cue.
+    var echo = ctx.chrome.querySelector('#claraEcho');
+    var lines = B.narration;
+    function bubble(i, el) {
+      el.className = 'cbub clara typing';
+      el.innerHTML = '<span></span><span></span><span></span>';
+      echo.scrollTop = echo.scrollHeight;
+      setTimeout(function () {
+        el.className = 'cbub clara'; el.innerHTML = lines[i];
+        echo.scrollTop = echo.scrollHeight;
+        if (i === lines.length - 1) { setTimeout(applySwap, T(700)); return; }
+        var next = document.createElement('div');
+        echo.appendChild(next);
+        setTimeout(function () { bubble(i + 1, next); }, T(900));
+      }, T(i === 0 ? 900 : 1300));
+    }
+    bubble(0, echo.querySelector('.clara-say') || echo.appendChild(document.createElement('div')));
+
+    function applySwap() {
+      var planned = rail.querySelector('.path-node[data-state="planned"]');
+      document.getElementById('adjHeadline').textContent = B.headline;
+      document.getElementById('adjSub').textContent = B.sub;
+      if (planned) {
+        planned.classList.add('is-leaving');
+        setTimeout(function () {
+          if (B.swap) {
+            var holder = document.createElement('div');
+            holder.innerHTML = pathNodeHTML({ icon: B.swap.icon, label: B.swap.label, state: 'added', tag: B.swap.tag });
+            var added = holder.firstElementChild;
+            added.classList.add('is-entering', B.swap.cls || '');
+            planned.replaceWith(added);
+            requestAnimationFrame(function () { requestAnimationFrame(function () { added.classList.remove('is-entering'); }); });
+            notice('Path recomposed: <b>1 object swapped</b> — Behavioral skills');
+          } else {
+            planned.classList.add('is-skipped');
+            planned.classList.remove('is-leaving');
+            planned.querySelector('.pn-chip').outerHTML = '<span class="pn-chip pn-skipped"><i class="fa-solid fa-forward"></i> Skipped — already demonstrated</span>';
+            var wrap = rail.children[5];
+            if (wrap) {
+              var c = wrap.querySelector('.pn-chip');
+              if (c) c.outerHTML = '<span class="pn-chip pn-added"><i class="fa-solid fa-wand-magic-sparkles"></i> Tightened</span>';
+            }
+            notice('Path recomposed: <b>1 object skipped</b>, wrap-up tightened');
+          }
+          revealProvenance();
+        }, T(650));
+      } else { revealProvenance(); }
+    }
+    function revealProvenance() {
+      var card = document.getElementById('provCard');
+      document.getElementById('provChain').innerHTML =
+        B.chain.map(function (li) { return '<li>' + li + '</li>'; }).join('');
+      card.hidden = false;
+      requestAnimationFrame(function () { requestAnimationFrame(function () { card.classList.add('in'); }); });
+      saveResult('adjust', { branch: branch });
+      // Refresh the counters FIRST (the visible total may have changed —
+      // accelerate removes a step), then unlock Continue: updateFooter re-arms
+      // the gate, so enableNext must come after it.
+      updateFooter(STEPS[idx]);
+      updateFrame(STEPS[idx]);
+      ctx.enableNext();
+    }
+    wireSidebarChat(ctx, [
+      'Fair question. Nothing here was improvised — the swap picks from module structures the Learning Layer derived from this course’s SME-signed objectives.',
+      branch === 'support'
+        ? 'Because “knowing what to say” was the one construct the scenario scored Practice Needed — the other four came back Good or better.'
+        : 'Because you evidenced the review’s objectives in performance. Skipping content you’ve demonstrated is the whole point of mastery-based sequencing.',
+      'Your administrator sees the same chain you do: the objective, the evidence, and the change — nothing is silent.',
+      'If you’d rather take the full path anyway, your organization can turn recomposition off per course — it’s a setting, not a mandate.'
+    ]);
+  }
+
+  // ==========================================================================
+  //  Micro-practice — the object the Learning Layer inserted (support branch).
+  //  Two rehearsal beats on the weak construct: the words in the room, then
+  //  the check-in afterward.
+  // ==========================================================================
+  var PRACTICE_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> Added for you · 2 minutes</p>' +
+      '<h2>Say it out loud.</h2>' +
+      '<p class="ll-sub">Knowing the right move isn’t the same as having the words ready. ' +
+        'Two quick reps — the moment itself, then the follow-up.</p>' +
+      '<div class="mp-scene" id="mpScene">' +
+        '<div class="mp-scene-tag"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Friday, shift meeting</div>' +
+        '<p id="mpSceneText">Jake tries the same “joke” again — this time about Priya, in front of everyone. ' +
+          'You’re standing right there, and a couple of people glance at you.</p>' +
+      '</div>' +
+    '</main>';
+  var PRACTICE_Q1 = {
+    stem: 'Right there, in the room — <strong>what do you say?</strong>',
+    options: [
+      { t: '“That’s not okay, Jake. Drop it.”', good: true,
+        reply: 'That’s it — short, direct, names the behavior, no debate opened. That line works in any room.' },
+      { t: '“Ha… anyway — about the schedule.”', good: false,
+        reply: 'That’s a deflection — it changes the subject but tells the room the joke was fine. Try the direct version.' },
+      { t: '“Come on — we’ve talked about this. Not cool.”', good: true,
+        reply: 'Good — it names it and references the earlier conversation. Direct beats clever every time.' }
+    ]
+  };
+  var PRACTICE_Q2 = {
+    stem: 'Now the part almost everyone skips — <strong>Priya’s back at her desk. What’s your check-in?</strong>',
+    options: [
+      { t: '“I saw what happened. You good? I’ve got your back if you want to report it.”', good: true,
+        reply: 'Exactly — you witnessed it, you checked in, and you offered support without taking over. That’s the full skill.' },
+      { t: '“Ignore Jake — he’s harmless.”', good: false,
+        reply: 'That minimizes it — and asks Priya to carry it alone. Acknowledge what you saw instead.' },
+      { t: '“Want me to say something next time?”', good: false,
+        reply: 'Kind instinct — but “next time” concedes there’ll be one, and you already saw this time. Lead with what you witnessed.' }
+    ]
+  };
+  function practiceInit(ctx) {
+    ctx.floatOpen();
+    rep(PRACTICE_Q1, function () {
+      setTimeout(function () {
+        document.getElementById('mpSceneText').textContent =
+          'The meeting breaks up. Priya heads back to her desk, quieter than usual.';
+        document.querySelector('#mpScene .mp-scene-tag').innerHTML =
+          '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Ten minutes later';
+        rep(PRACTICE_Q2, function () {
+          notice('Logged: <b>Behavioral skills</b> — Practice Needed → Good');
+          saveResult('practice', { done: true });
+          ctx.enableNext();
+        });
+      }, T(1600));
+    });
+    function rep(q, onGood) {
+      ctx.setCoachSay(q.stem);
+      var bubble = ctx.els.bubble;
+      var old = bubble.querySelector('.vq-chips'); if (old) old.remove();
+      var oldFb = bubble.querySelector('.vq-feedback'); if (oldFb) oldFb.remove();
+      var chips = document.createElement('div'); chips.className = 'clara-chips vq-chips';
+      var fb = document.createElement('div'); fb.className = 'vq-feedback';
+      var settled = false;
+      q.options.forEach(function (opt) {
+        var b = document.createElement('button');
+        b.className = 'clara-chip'; b.type = 'button'; b.textContent = opt.t;
+        b.addEventListener('click', function () {
+          if (settled) return;
+          if (opt.good) {
+            settled = true;
+            chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
+            b.classList.add('is-correct');
+            fb.className = 'vq-feedback ok'; fb.textContent = opt.reply;
+            onGood();
+          } else {
+            b.classList.add('is-wrong'); b.disabled = true;
+            fb.className = 'vq-feedback bad'; fb.textContent = opt.reply;
+          }
+          ctx.positionOrb(true);
+        });
+        chips.appendChild(b);
+      });
+      bubble.appendChild(chips); bubble.appendChild(fb);
+      ctx.positionOrb(true);
+    }
+  }
+
+  // Step 9 — the aptitude profile: construct-by-construct, baseline → now.
+  // Follows the AI Aptitude Assessment scoring model: qualitative bands per
+  // construct, quantitative pass = at least Good on 80% of objectives (4 of 5).
+  function computeProfile(course) {
+    var base = (course.baseline && course.baseline.bands) ||
+               { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2 };
+    var s = course.scenario || {};
+    var score = (typeof s.score === 'number') ? s.score : 82;
+    var branch = (course.adjust && course.adjust.branch) || decideBranch();
+    var cl = course.closing || {}, v = course.video1 || {};
+    var strong = score >= 88;
+    var after = {
+      knowledge: cl.correct === true ? 3 : cl.attempted ? 2 : Math.max(base.knowledge, 2),
+      beliefs:   strong ? 3 : Math.max(base.beliefs, 2),
+      norms:     strong ? 3 : 2,
+      skills:    branch === 'support' ? ((course.practice && course.practice.done) ? 2 : base.skills) : 3,
+      control:   strong ? 3 : Math.max(base.control, 2)
+    };
+    var evidence = {
+      knowledge: cl.correct === true
+        ? 'Closing check — protections for sexual orientation and gender identity, first try.'
+        : cl.attempted ? 'Closing check — landed it on a second look.'
+        : 'Recognized the “joking” pattern as harassment in the baseline check.',
+      beliefs: '“Someone had to say it — better me than nobody.” — the Marshall scenario',
+      norms: 'Read the break room’s silence as pressure — and acted anyway. — the Marshall scenario',
+      skills: branch === 'support'
+        ? ((course.practice && course.practice.done)
+            ? '“That’s not okay, Jake. Drop it.” — micro-practice, first rep'
+            : 'Named the problem, but the direct words never landed. — the Marshall scenario')
+        : 'Named the behavior in the moment and checked in afterward. — the Marshall scenario',
+      control: v.answered
+        ? 'Self-rated “' + (v.choice || '') + '” at the start — then held up under real pushback.'
+        : 'Held steady under Jake’s pushback in the scenario.'
+    };
+    var atGood = CONSTRUCTS.filter(function (c) { return after[c.key] >= 2; }).length;
+    return { base: base, after: after, evidence: evidence, atGood: atGood,
+             pass: atGood >= Math.ceil(CONSTRUCTS.length * 0.8), branch: branch };
+  }
+
   function resultsInit(ctx) {
     var course = readCourse();
-    var v = course.video1 || {}, s = course.scenario || {};
-    var sc = computeCourseScore(v, s), overall = sc.overall;
+    var P = computeProfile(course);
 
     var C = 477.5;
-    document.getElementById('resArc').style.strokeDashoffset = String(C * (1 - overall / 100));
-    document.getElementById('resScoreNum').textContent = overall;
+    document.getElementById('resArc').style.strokeDashoffset =
+      String(C * (1 - P.atGood / CONSTRUCTS.length));
+    document.getElementById('resScoreNum').textContent = P.atGood;
+    document.getElementById('resScoreOf').textContent = '/' + CONSTRUCTS.length;
 
-    var band = overall >= 90 ? 'Excellent work' : overall >= 75 ? 'Nicely done' : 'Good start';
-    document.getElementById('resHeadline').textContent = band + ', Rob.';
-    // CLARA's feedback TYPES IN as two bubbles (typing indicator → text) rather
-    // than rendering statically on load — see typeFeedback().
-    typeFeedback(ctx, [
-      (overall >= 90)
-        ? 'That was strong, Rob. Here’s how you did overall.'
-        : 'Solid work, Rob. Here’s how you did overall.',
-      'I’m here if you have any questions.'
-    ]);
+    document.getElementById('resHeadline').textContent =
+      P.pass ? 'Competency demonstrated, Rob.' : 'Real progress, Rob — one construct to go.';
+    document.getElementById('aptPass').innerHTML = P.pass
+      ? '<i class="fa-solid fa-circle-check"></i> <b>Pass</b> — you scored Good or above on ' +
+        P.atGood + ' of ' + CONSTRUCTS.length + ' objectives (the bar is 80%). Not “right answers” — demonstrated behavior.'
+      : '<i class="fa-solid fa-circle-half-stroke"></i> <b>Almost</b> — ' + P.atGood + ' of ' + CONSTRUCTS.length +
+        ' objectives at Good or above; the bar is 80%. CLARA has queued targeted practice for the gap.';
+    document.getElementById('aptPath').innerHTML = P.branch === 'support'
+      ? '<i class="fa-solid fa-wand-magic-sparkles"></i> Your path was recomposed mid-course: one targeted practice added for <b>behavioral skills</b>.'
+      : '<i class="fa-solid fa-wand-magic-sparkles"></i> Your path was recomposed mid-course: the review was skipped — you’d already demonstrated its objectives.';
 
-    var cards = [];
-    cards.push(card('fa-gauge-high', 'Confidence check',
-      v.answered ? 'You rated your starting confidence: “' + esc(v.choice) + '.”'
-        : v.skipped ? 'Skipped (demo).' : 'Not recorded this run.',
-      v.answered ? ['ok', 'Logged'] : v.skipped ? ['warn', 'Skipped'] : ['mut', '—']));
-
-    var scenBody, scenPill;
-    if (s.status === 'complete') { scenBody = 'You worked the full arc with CLARA and reached the debrief.'; scenPill = ['ok', 'Completed']; }
-    else if (s.status === 'skipped') { scenBody = 'Advanced past the live scenario (demo skip).'; scenPill = ['warn', 'Skipped']; }
-    else { scenBody = 'Not recorded this run.'; scenPill = ['mut', '—']; }
-    var scenCard = card('fa-comments', 'The Marshall scenario', scenBody, scenPill);
-    var rep = s.report || {}, tags = [];
-    (rep.strengths || []).slice(0, 3).forEach(function (x) { tags.push('✓ ' + (x.title || x)); });
-    (rep.growthAreas || []).slice(0, 2).forEach(function (x) { tags.push('→ ' + (x.title || x)); });
-    if (tags.length) {
-      var tagWrap = document.createElement('div'); tagWrap.className = 'res-tags';
-      tagWrap.innerHTML = tags.map(function (t) { return '<span class="res-tag">' + esc(t) + '</span>'; }).join('');
-      scenCard.querySelector('.res-card-main').appendChild(tagWrap);
-    }
-    cards.push(scenCard);
-
-    var cl = course.closing || {};
-    cards.push(card('fa-flag-checkered', 'Knowledge check',
-      cl.correct === true ? 'You answered the closing true/false correctly on the first try.'
-        : cl.attempted ? 'You landed the closing true/false after another look — that counts.'
-        : cl.skipped ? 'Skipped (demo).' : 'Not recorded this run.',
-      cl.correct === true ? ['ok', 'Passed'] : cl.attempted ? ['warn', 'Retried'] : cl.skipped ? ['warn', 'Skipped'] : ['mut', '—']));
-
-    var list = document.getElementById('resBreakdown');
-    cards.forEach(function (c) { list.appendChild(c); });
-    document.getElementById('resBasis').innerHTML =
-      '<i class="fa-solid fa-circle-info"></i> Prototype scoring: the scenario portion is a <strong>representative</strong> value (' +
-      sc.scenPts + '/100) blended with the comprehension check — the real per-phase rubric slots in at <code>computeCourseScore()</code>.';
-    ctx.positionOrb(false);
-    wireSidebarChat(ctx);
-
-    function card(icon, title, body, pill) {
-      var li = document.createElement('li'); li.className = 'res-card';
+    // Construct rows: baseline band → current band, with momentum + evidence.
+    var list = document.getElementById('aptList');
+    CONSTRUCTS.forEach(function (c) {
+      var b = P.base[c.key], a = P.after[c.key];
+      var mom = a > b ? ['up', 'fa-arrow-trend-up', 'Improved'] :
+                a < b ? ['down', 'fa-arrow-trend-down', 'Declined'] : ['held', 'fa-arrows-left-right', 'Held'];
+      var li = document.createElement('li'); li.className = 'apt-row';
       li.innerHTML =
-        '<span class="res-ico"><i class="fa-solid ' + icon + '"></i></span>' +
-        '<div class="res-card-main"><h3>' + esc(title) + '</h3><p>' + esc(body) + '</p></div>' +
-        '<span class="res-pill ' + pill[0] + '">' + esc(pill[1]) + '</span>';
-      return li;
-    }
+        '<span class="apt-ico"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></span>' +
+        '<div class="apt-main">' +
+          '<div class="apt-head"><h3>' + esc(c.name) + '</h3>' +
+            '<span class="apt-mom ' + mom[0] + '"><i class="fa-solid ' + mom[1] + '"></i> ' + mom[2] + '</span></div>' +
+          '<div class="apt-bands">' +
+            '<span class="band ' + BANDS[b].cls + '">' + BANDS[b].label + '</span>' +
+            '<i class="fa-solid fa-arrow-right-long apt-arrow" aria-hidden="true"></i>' +
+            '<span class="band ' + BANDS[a].cls + '">' + BANDS[a].label + '</span>' +
+          '</div>' +
+          '<p class="apt-evidence"><i class="fa-solid fa-quote-left" aria-hidden="true"></i> ' + esc(P.evidence[c.key]) + '</p>' +
+        '</div>';
+      list.appendChild(li);
+    });
+
+    typeFeedback(ctx, [
+      P.pass
+        ? 'This is the part I like, Rob — not a pass mark, a profile. You demonstrated ' + P.atGood + ' of ' +
+          CONSTRUCTS.length + ' constructs at Good or above.'
+        : 'Here’s your profile, Rob — honest picture: ' + P.atGood + ' of ' + CONSTRUCTS.length +
+          ' constructs at Good or above, and I’ve already queued practice for the gap.',
+      'Every band traces to something you actually said or did — ask me about any of them.'
+    ]);
+    document.getElementById('resBasis').innerHTML =
+      '<i class="fa-solid fa-circle-info"></i> Scoring follows the AI Aptitude Assessment model: each construct is scored ' +
+      'qualitatively (<strong>Practice Needed / Good / Excellent</strong>) and passing means at least Good on 80% of objectives. ' +
+      'Scenario-derived bands here are <strong>representative</strong> — the live construct rubric slots in at <code>computeProfile()</code>.';
+    ctx.positionOrb(false);
+    wireSidebarChat(ctx, [
+      'Your strongest signal was reading the room — you treated the others’ silence as pressure to resist, not permission to stay quiet.',
+      'Behavioral skills started as your gap, and the two practice reps are what moved it — the words came out shorter and more direct each time.',
+      'Every band on this screen traces back to a specific thing you said or did — your administrator sees the same evidence chain, never just a number.',
+      'If you want, you can rerun just the scenario from the course menu — your profile updates from whatever you demonstrate next.'
+    ]);
   }
 
   // Type a sequence of CLARA bubbles into the sidebar thread: each shows a
@@ -384,11 +805,12 @@
     "Totally normal to second-guess it. What matters is that you acted — staying silent is the only real miss here.",
     "You can replay any part of the scenario from the course menu whenever you'd like more practice."
   ];
-  function wireSidebarChat(ctx) {
+  function wireSidebarChat(ctx, replies) {
     var input = ctx.chrome.querySelector('#claraAsk');
     var send  = ctx.chrome.querySelector('#claraAskSend');
     var echo  = ctx.chrome.querySelector('#claraEcho');
     if (!input || !send || !echo) return;
+    var pool = replies || CLARA_REPLIES;
     var ri = 0;
     function addRow(kind, text) {
       var d = document.createElement('div');
@@ -402,18 +824,22 @@
       if (!v) return;
       addRow('you', v);
       input.value = '';
-      setTimeout(function () { addRow('clara', CLARA_REPLIES[ri % CLARA_REPLIES.length]); ri++; }, T(450));
+      setTimeout(function () { addRow('clara', pool[ri % pool.length]); ri++; }, T(450));
     }
     send.addEventListener('click', submit);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
   }
 
   // ==========================================================================
-  //  The step manifest — six steps; the scenario is external (its own page).
+  //  The step manifest — nine steps; the scenario is external (its own page).
+  //  Numbering is DYNAMIC: a step may carry when() and drop out of the path
+  //  (the accelerate branch removes the micro-practice), so "Section n of N"
+  //  is computed from the currently-visible list — the counter itself is part
+  //  of the recomposition demo.
   // ==========================================================================
   var COURSE = 'Bystander Intervention';
   var STEPS = [
-    { id: 'intro', n: 1, mode: 'ambient', lesson: 'Welcome',
+    { id: 'intro', mode: 'ambient', lesson: 'Welcome',
       caption: { title: 'Course intro · Ambient presence', note: 'CLARA fills the space to open the lesson.' },
       // Welcome screen reads as the "cover": the greeting is the warm eyebrow,
       // the course title is the hero. (The top band still carries course/lesson
@@ -423,37 +849,65 @@
               "I'll guide you through each section and may ask a few questions as you progress through each." },
       init: introInit },
 
-    { id: 'video', n: 2, mode: 'floating', lesson: 'See It Happen', gate: true,
+    { id: 'baseline', mode: 'floating', lesson: 'Baseline Check', gate: true,
+      caption: { title: 'Adaptive pre-assessment · Floating companion', note: 'Two conversational probes before any content — the aptitude thread’s starting picture, so the closing profile can show growth.' },
+      coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
+      content: BASELINE_CONTENT, init: baselineInit },
+
+    { id: 'video', mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'Gated video · Floating companion', note: 'The clip must play and the learner must answer CLARA’s check before Continue unlocks.' },
       coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
       content: videoContent({ eyebrow: 'Watch', heading: 'Introduction',
         sub: 'First, let’s introduce you to the basics of sexual harassment, how to respond, and why this lesson matters.',
-        src: '../assets/videos/marshall-preroll.mp4' }),
+        src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
-    { id: 'scene', n: 3, mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
+    { id: 'scene', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
       caption: { title: 'Scene-setting · Ambient presence', note: 'CLARA hands off into the practice — establishing who/where/what. This is now the ONLY scene-setter; the scenario page skips its own establishing card and drops straight into the cold-open.' },
       coach: { eyebrow: "Let's practice", headline: '“The Marshall Scenario”',
         lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on, " +
               "then it's your call how to respond. There's no perfect script here you need to follow." },
       init: sceneInit },
 
-    { id: 'scenario', n: 4, external: 'layered-course-scenario.html', lesson: 'The Marshall Scenario' },
+    { id: 'scenario', external: 'scenario.html', lesson: 'The Marshall Scenario' },
 
-    { id: 'closing', n: 5, mode: 'floating', lesson: 'Wrapping Up', gate: true,
+    { id: 'adjust', mode: 'sidebar', lesson: 'Your Path, Adjusted', gate: true,
+      caption: { title: 'Knowledge Layer · Docked guide', note: 'The Learning Layer recomposes the path from the scenario’s construct-mapped evidence — mastery-based sequencing over SME-signed objectives, with the provenance chain on screen.' },
+      coach: { say: '', ask: 'Ask CLARA about this change…' },   // narration is TYPED IN by adjustInit
+      content: ADJUST_CONTENT, init: adjustInit },
+
+    { id: 'practice', mode: 'floating', lesson: 'Quick Practice', gate: true,
+      when: function () { return decideBranch() === 'support'; },
+      caption: { title: 'Inserted micro-practice · Floating companion', note: 'The learning object the Learning Layer added — two rehearsal reps on the construct the scenario scored Practice Needed.' },
+      coach: { say: 'Loading…' },   // practiceInit swaps in the first rep immediately
+      content: PRACTICE_CONTENT, init: practiceInit },
+
+    { id: 'closing', mode: 'floating', lesson: 'Wrapping Up', gate: true,
       caption: { title: 'Closing video · Floating companion', note: 'Watch the clip, then answer CLARA’s true/false knowledge check to unlock Continue.' },
       coach: { say: 'Press play for the last clip — I’ve got one quick true-or-false question for you when it wraps.' },
       content: videoContent({ eyebrow: 'Watch', heading: 'Wrapping up',
         sub: 'Let’s close the loop and look at a real case example.',
-        src: '../assets/videos/marshall-postscenario.mp4' }),
+        src: '../../assets/videos/marshall-postscenario.mp4' }),
       init: closingInit },
 
-    { id: 'results', n: 6, mode: 'sidebar', lesson: 'Your Results',
-      caption: { title: 'Course results · Docked guide', note: 'An overall score ring plus a per-section breakdown from the record each step wrote.' },
-      coach: { say: '', ask: 'Ask CLARA about your results…' },   // greeting is TYPED IN by resultsInit (typing bubble → text)
+    { id: 'results', mode: 'sidebar', lesson: 'Your Aptitude Profile',
+      caption: { title: 'Aptitude profile · Docked guide', note: 'Construct-by-construct bands from baseline to now, with the evidence each one traces to — pass = at least Good on 80% of objectives.' },
+      coach: { say: '', ask: 'Ask CLARA about your profile…' },   // greeting is TYPED IN by resultsInit (typing bubble → text)
       content: RESULTS_CONTENT, init: resultsInit }
   ];
-  var TOTAL = STEPS.length;
+
+  // The currently-visible path (steps whose when() holds) and a step's place
+  // in it. A hidden step reports the position of the step before it so the
+  // frame never shows a phantom section.
+  function visiblePath() {
+    return STEPS.filter(function (s) { return !s.when || s.when(); });
+  }
+  function stepPos(step) {
+    var path = visiblePath();
+    var n = path.indexOf(step) + 1;
+    if (n === 0) n = 1;
+    return { n: n, total: path.length };
+  }
 
   // ==========================================================================
   //  Coach-chrome builders (per mode) — ported from layered-learning.js
@@ -489,7 +943,7 @@
   // ==========================================================================
   //  Shell — built once; steps swap in place.
   // ==========================================================================
-  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn;
+  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn, branchBtn;
   var frameLesson, frameStep, frameBar;
   var idx = -1, busy = false, nextHref = null;
 
@@ -524,26 +978,30 @@
   }
 
   function updateFrame(step) {
+    var pos = stepPos(step);
     if (frameLesson) frameLesson.textContent = step.lesson;
-    if (frameStep) frameStep.textContent = 'Section ' + step.n + ' of ' + TOTAL;
-    if (frameBar) frameBar.setAttribute('value', String(step.n / TOTAL));
+    if (frameStep) frameStep.textContent = 'Section ' + pos.n + ' of ' + pos.total;
+    if (frameBar) frameBar.setAttribute('value', String(pos.n / pos.total));
   }
 
   function updateFooter(step) {
     // Section counter + progress live in the bottom bar (the unified flow zone
     // with Back/Continue). Course + lesson stay in the top band, so there's no
-    // duplication.
-    if (footCount) footCount.textContent = 'Section ' + step.n + ' of ' + TOTAL;
-    if (footBar) footBar.setAttribute('value', String(step.n / TOTAL));
+    // duplication. Numbering comes from the VISIBLE path — recomposition can
+    // shrink the denominator mid-course, and that's deliberate.
+    var pos = stepPos(step);
+    if (footCount) footCount.textContent = 'Section ' + pos.n + ' of ' + pos.total;
+    if (footBar) footBar.setAttribute('value', String(pos.n / pos.total));
     if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
-    backBtn.disabled = (step.n <= 1);
-    var isLast = (step.n >= TOTAL);
+    if (branchBtn) branchBtn.style.display = (step.id === 'adjust') ? 'inline-flex' : 'none';
+    backBtn.disabled = (pos.n <= 1);
+    var isLast = (pos.n >= pos.total);
     nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
     nextBtn.disabled = !!step.gate;                 // gated steps re-enable via ctx.enableNext()
     // Popover caption
     if (step.caption) {
       pop.querySelector('.ll-pop-eyebrow').innerHTML =
-        '<i class="fa-solid fa-layer-group"></i> Coach presentation · ' + step.n + ' / ' + TOTAL;
+        '<i class="fa-solid fa-layer-group"></i> Coach presentation · ' + pos.n + ' / ' + pos.total;
       pop.querySelector('.ll-pop-title').textContent = step.caption.title;
       pop.querySelector('.ll-pop-note').textContent = step.caption.note || '';
     }
@@ -618,10 +1076,15 @@
   function go(delta) {
     if (busy) return;
     var target = idx + delta;
-    if (target < 0 || target >= TOTAL) {
-      if (target >= TOTAL) window.location.href = 'index.html';   // Finish → back to the lesson index
-      return;
+    // Walk past steps the current branch hides (e.g. the micro-practice when
+    // the learner tested out of it).
+    while (target >= 0 && target < STEPS.length) {
+      var st = STEPS[target];
+      if (!st.when || st.when()) break;
+      target += delta;
     }
+    if (target < 0) return;
+    if (target >= STEPS.length) { window.location.href = '../index.html'; return; }   // Finish → back to the lesson index
     showStep(target, delta < 0 ? 'back' : 'fwd', false);
   }
 
@@ -704,9 +1167,32 @@
         // Marshall scenario's skip). Record it so the results reflect the skip.
         if (step && step.id === 'video') saveResult('video1', { skipped: true });
         else if (step && step.id === 'closing') saveResult('closing', { skipped: true });
+        else if (step && step.id === 'baseline') saveResult('baseline', { skipped: true });
+        else if (step && step.id === 'practice') saveResult('practice', { skipped: true });
+        else if (step && step.id === 'adjust') saveResult('adjust', { branch: decideBranch(), skipped: true });
         go(1);
       });
       actions.appendChild(skipBtn);
+    }
+
+    // Review-only "Demo: flip outcome" — the presenter override for the path
+    // adjustment. Flips the recomposition branch (struggled ↔ excelled) and
+    // replays the adjust step so a reviewer can see both recompositions without
+    // replaying the scenario. Shown only on the adjust step (see updateFooter).
+    if (actions && !document.getElementById('llBranchBtn')) {
+      branchBtn = document.createElement('button');
+      branchBtn.id = 'llBranchBtn';
+      branchBtn.type = 'button';
+      branchBtn.title = 'Demo: replay this adjustment with the opposite scenario outcome';
+      branchBtn.innerHTML = '<i class="fa-solid fa-shuffle"></i> Demo: flip outcome';
+      branchBtn.style.display = 'none';
+      branchBtn.addEventListener('click', function () {
+        if (busy) return;
+        var next = decideBranch() === 'support' ? 'accelerate' : 'support';
+        try { sessionStorage.setItem('ll-branch', next); } catch (e) {}
+        showStep(idx, 'fwd', false);              // replay the adjust step on the new branch
+      });
+      actions.appendChild(branchBtn);
     }
   }
 

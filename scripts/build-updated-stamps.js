@@ -9,11 +9,21 @@
 
    For each directory in STAMP_DIRS, this script writes an `updated.json`:
 
-     { "generated": "<iso>", "files": { "<file>.html": "<iso of last change>" } }
+     { "files": { "<file>.html": "<iso of last change>" } }
 
    Date per file = its last git commit date; for files that are uncommitted or
    locally modified (a work-in-progress mock), the file's mtime is used instead
    — so a local preview shows "Updated today" while you're editing.
+
+   The output is DETERMINISTIC on purpose: given a clean checkout at a commit it
+   is byte-identical every run. It deliberately carries NO run timestamp. The
+   dashboards workflow commits this file back and retries its push with a
+   rebase; a volatile `generated: <now>` field made two concurrent runs rewrite
+   the same line to different times, so the loser's rebase hit a conflict and
+   the job failed spuriously (and it churned a commit every single run). With no
+   volatile field, an unchanged tree regenerates the same bytes → nothing to
+   commit → no race. Don't reintroduce a timestamp here; nothing consumes it
+   (the index page reads only `.files`).
 
    Usage:  node scripts/build-updated-stamps.js
    Runs in CI on every push (see .github/workflows/dashboards.yml) and can be
@@ -64,7 +74,9 @@ for (const relDir of STAMP_DIRS) {
     files[e.name] = iso;
   }
 
-  const out = { generated: new Date().toISOString(), files };
+  // No run timestamp — see the header note. Output must be deterministic so
+  // concurrent CI runs regenerate identical bytes and never conflict on rebase.
+  const out = { files };
   fs.writeFileSync(path.join(absDir, 'updated.json'), JSON.stringify(out, null, 2) + '\n');
   console.log(`wrote ${relDir}/updated.json (${Object.keys(files).length} files)`);
 }

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Training — Vector Training</title>
+
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from clara/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="learner.css?v=1" />
+</head>
+<body>
+
+    <header class="lp-top">
+        <span class="lp-brand"><i class="fa-solid fa-layer-group"></i> Vector Training <small>· Acme Manufacturing</small></span>
+        <span class="lp-top-spacer"></span>
+        <button class="lp-gear" id="gearBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+        <span class="lp-avatar" aria-label="Rob Keller">RK</span>
+    </header>
+
+    <!-- Settings popover: the AI preference lives HERE after onboarding —
+         changeable any time, never buried. -->
+    <div class="gear-pop" id="gearPop" role="dialog" aria-label="Settings">
+        <h3>Learning assistant</h3>
+        <div class="gear-row">
+            <span class="lbl"><b>CLARA</b><small>AI guidance in your courses</small></span>
+            <button class="sw" id="aiSwitch" role="switch" aria-checked="true" aria-label="AI assistant"></button>
+        </div>
+        <div class="gear-row" id="voiceRow">
+            <span class="lbl"><b>Voice</b><small id="voiceLabel">Bright &amp; warm</small></span>
+            <button class="lp-btn lp-btn--ghost" id="voiceChange" style="padding:6px 12px;font-size:12px">Change</button>
+        </div>
+        <p class="gear-reset">Demo controls: <a href="onboarding.html">restart onboarding</a> ·
+            <a href="#" id="rerunFirstRun">replay CLARA's intro</a></p>
+    </div>
+
+    <main class="db-main">
+        <div class="db-greet">
+            <h1 id="greetLine">Welcome, Rob.</h1>
+        </div>
+
+        <div class="db-stack">
+            <!-- ================= Assigned training ================= -->
+            <section class="db-card" aria-label="Assigned training">
+                <h2>Assigned to you</h2>
+                <p class="sub">3 courses · next due September 15</p>
+
+                <div class="course-row">
+                    <span class="course-ico"><i class="fa-solid fa-comments"></i></span>
+                    <span class="course-main">
+                        <b>Bystander Intervention <span class="course-tag due">Due Sep 15</span><span class="course-tag ai" data-ai-tag>AI-guided</span></b>
+                        <span class="meta">
+                            <span><i class="fa-solid fa-clock"></i>About 25 min</span>
+                            <span><i class="fa-solid fa-wave-square"></i>Starts with a 2-question baseline</span>
+                        </span>
+                    </span>
+                    <a class="lp-btn lp-btn--primary" href="course.html">Start</a>
+                </div>
+                <div class="course-row">
+                    <span class="course-ico" style="background:var(--lp-warn-10);color:var(--lp-warn)"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                    <span class="course-main">
+                        <b>Hazard Communication: Spot the Hazard <span class="course-tag ai" data-ai-tag>AI-guided</span></b>
+                        <span class="meta">
+                            <span><i class="fa-solid fa-clock"></i>About 15 min</span>
+                            <span><i class="fa-solid fa-calendar"></i>Due Oct 3</span>
+                        </span>
+                    </span>
+                    <button class="lp-btn lp-btn--ghost" disabled>Not started</button>
+                </div>
+                <div class="course-row">
+                    <span class="course-ico" style="background:var(--lp-vio-10);color:var(--lp-vio)"><i class="fa-solid fa-bolt"></i></span>
+                    <span class="course-main">
+                        <b>Lockout/Tagout Essentials <span class="course-tag std">Standard</span></b>
+                        <span class="meta">
+                            <span><i class="fa-solid fa-clock"></i>About 20 min</span>
+                            <span><i class="fa-solid fa-calendar"></i>Due Oct 20</span>
+                        </span>
+                    </span>
+                    <button class="lp-btn lp-btn--ghost" disabled>Not started</button>
+                </div>
+            </section>
+
+            <!-- ================= AI-off card (opted-out) ================= -->
+            <aside class="db-card ai-off-card" id="aiOffCard" aria-label="AI assistant is off" hidden>
+                <div class="row">
+                    <i class="fa-solid fa-moon"></i>
+                    <div>
+                        <h2 style="margin-bottom:4px">AI assistant is off</h2>
+                        <p>You chose to learn without CLARA — your courses run in their standard versions: no adjusted
+                           path, no tailored practice, completion instead of a skills profile.</p>
+                        <button class="lp-btn lp-btn--primary" id="aiOffEnable" style="margin-top:12px;padding:9px 16px;font-size:13px">
+                            <i class="fa-solid fa-sparkles"></i> Turn CLARA back on</button>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <!-- ================= CLARA — the persistent floating orb ================= -->
+    <!-- The SAME presence as in the course: anchored bottom-right, always one
+         tap away. The chat panel rises above it; it auto-opens once, right
+         after onboarding, so CLARA can introduce themselves. -->
+    <div class="fab-wrap" id="fabWrap">
+        <div class="fab-panel" id="fabPanel" hidden role="dialog" aria-label="CLARA">
+            <div class="fab-head">
+                <span class="fab-title">CLARA <span class="clara-voice-chip" id="voiceChip">Bright &amp; warm</span></span>
+                <button class="fab-close" id="fabClose" aria-label="Close CLARA panel"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="fab-thread" id="claraEcho" aria-live="polite"></div>
+            <div class="clara-ask">
+                <input id="claraAsk" type="text" placeholder="Ask CLARA anything…" aria-label="Ask CLARA">
+                <button id="claraSend" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+        <button class="fab-orb" id="fabOrb" aria-label="Open CLARA, your learning assistant" aria-expanded="false">
+            <span class="fab-orb-canvas" id="orbSlot" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <!-- ================= CLARA first-run overlay ================= -->
+    <!-- Runs once, ON the dashboard — the assistant introduces herself in the
+         place she'll actually live, instead of on another signup form. -->
+    <div class="fr-overlay" id="frOverlay" hidden>
+        <div class="fr-panel">
+            <div class="fr-orb" id="frOrb"></div>
+            <div class="fr-name">CLARA · your learning assistant</div>
+
+            <!-- Step A: introduction + honest scope note. -->
+            <div class="fr-step active" id="frIntro">
+                <div class="fr-bubbles">
+                    <div class="fr-bub">Hi Rob — I'm <b>CLARA</b>. I can guide you through your training: I'll ask
+                        what you already know, coach you through practice conversations, and adjust your path so you
+                        never sit through what you've already shown you can do.</div>
+                    <div class="fr-bub"><small>What I see: your answers and practice inside courses — scored against
+                        your course's objectives, visible to you and your training admin. I don't listen otherwise,
+                        and you can turn me off any time in Settings.</small></div>
+                </div>
+                <div class="fr-choice">
+                    <button class="lp-btn fr-teal fr-big" id="frOptIn"><i class="fa-solid fa-sparkles"></i> Learn with CLARA</button>
+                </div>
+                <!-- Opting out exists (it has to), but it is NOT a peer of the
+                     default — a quiet link that leads through a real
+                     consequences step, while turning CLARA back ON is always
+                     one click. -->
+                <button class="fr-skip" id="frOptOut">I'd rather learn without AI</button>
+                <p class="fr-note">You can change this any time in Settings.</p>
+            </div>
+
+            <!-- Step A2: the consequences check — reached only via the quiet
+                 link. Keeping CLARA is the primary action here too. -->
+            <div class="fr-step" id="frConfirm">
+                <div class="fr-bubbles">
+                    <div class="fr-bub in">Before you decide — here's what turning me off means: your courses run as
+                        <b>standard click-through versions</b>. No baseline, no path adjusted around what you already
+                        know, no practice tailored to your gaps — and your results show completion, not a skills
+                        profile.</div>
+                </div>
+                <div class="fr-choice">
+                    <button class="lp-btn fr-teal fr-big" id="frKeep"><i class="fa-solid fa-sparkles"></i> Keep CLARA on</button>
+                </div>
+                <button class="fr-skip" id="frConfirmOff">Turn off AI features anyway</button>
+                <p class="fr-note">You can turn CLARA back on any time — it's one switch in Settings.</p>
+            </div>
+
+            <!-- Step B: voice selection (the gender-setting proxy). -->
+            <div class="fr-step" id="frVoice">
+                <div class="fr-bubbles">
+                    <div class="fr-bub in">One more thing — <b>pick the voice you'd like me to have.</b> Tap a card to
+                        hear it. You can change this whenever you like.</div>
+                </div>
+                <div class="fr-voices" id="frVoices" role="radiogroup" aria-label="CLARA's voice">
+                    <button class="fr-voice sel" data-voice="bright" role="radio" aria-checked="true">
+                        <span class="play"><i class="fa-solid fa-play"></i></span>
+                        <b>Bright &amp; warm</b><small>Higher register · feminine</small>
+                        <span class="sel-mark"><i class="fa-solid fa-check"></i> Selected</span>
+                    </button>
+                    <button class="fr-voice" data-voice="low" role="radio" aria-checked="false">
+                        <span class="play"><i class="fa-solid fa-play"></i></span>
+                        <b>Low &amp; steady</b><small>Lower register · masculine</small>
+                        <span class="sel-mark"><i class="fa-solid fa-check"></i> Selected</span>
+                    </button>
+                    <button class="fr-voice" data-voice="even" role="radio" aria-checked="false">
+                        <span class="play"><i class="fa-solid fa-play"></i></span>
+                        <b>Even &amp; neutral</b><small>Mid register · neutral</small>
+                        <span class="sel-mark"><i class="fa-solid fa-check"></i> Selected</span>
+                    </button>
+                </div>
+                <div class="fr-choice">
+                    <button class="lp-btn fr-teal" id="frVoiceDone">Sounds good <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <p class="fr-note">Voice samples use your browser's built-in speech — a stand-in for CLARA's
+                   produced voices.</p>
+            </div>
+
+            <!-- Step C: opted-out farewell — brief, and the door back stays open. -->
+            <div class="fr-step" id="frBye">
+                <div class="fr-bubbles">
+                    <div class="fr-bub in">Okay — AI features are off, and your courses will run in their standard
+                        versions. If you change your mind, I'm one switch away in <b>Settings</b>.
+                        Good luck in there, Rob.</div>
+                </div>
+                <div class="fr-choice">
+                    <button class="lp-btn fr-btn-alt" id="frByeDone">Take me to my training</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/mobius-orb.js?v=5"></script>
+    <script>
+      // ------------------------------------------------------------------
+      // Dashboard state: sessionStorage['clara-prefs'] = {ai:bool, voice:str}.
+      // No prefs + 'clara-firstrun' (or no prefs at all) → run the first-run
+      // overlay. The gear popover flips the same prefs afterwards.
+      // ------------------------------------------------------------------
+      (function () {
+        'use strict';
+        var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var VOICE_LABELS = { bright: 'Bright & warm', low: 'Low & steady', even: 'Even & neutral' };
+
+        function readPrefs() {
+          try { return JSON.parse(sessionStorage.getItem('clara-prefs') || 'null'); } catch (e) { return null; }
+        }
+        function savePrefs(p) {
+          try { sessionStorage.setItem('clara-prefs', JSON.stringify(p)); sessionStorage.removeItem('clara-firstrun'); } catch (e) {}
+        }
+
+        // --- Voice sampling: browser speechSynthesis as the proxy. ----------
+        var SAMPLE = "Hi Rob — I'm CLARA. I'll be with you through every course.";
+        function speak(kind, onend) {
+          if (!('speechSynthesis' in window)) { if (onend) onend(); return; }
+          speechSynthesis.cancel();
+          var u = new SpeechSynthesisUtterance(SAMPLE);
+          var vs = speechSynthesis.getVoices();
+          var pick = null;
+          function find(res) { return vs.find(function (v) { return res.some(function (r) { return r.test(v.name); }) && /en/i.test(v.lang); }); }
+          if (kind === 'bright') { pick = find([/samantha/i, /victoria/i, /karen/i, /zira/i, /female/i]); u.pitch = 1.15; }
+          if (kind === 'low')    { pick = find([/daniel/i, /alex\b/i, /david/i, /male/i]);               u.pitch = 0.8;  }
+          if (kind === 'even')   { pick = find([/moira/i, /tessa/i, /google uk english/i]);              u.pitch = 1.0;  }
+          if (pick) u.voice = pick;
+          u.rate = 1.02;
+          if (onend) u.onend = onend;
+          speechSynthesis.speak(u);
+        }
+
+        // --- Apply a prefs state to the dashboard. ---------------------------
+        var fabWrap = document.getElementById('fabWrap');
+        var aiOffCard = document.getElementById('aiOffCard');
+        var aiSwitch = document.getElementById('aiSwitch');
+        var voiceRow = document.getElementById('voiceRow');
+        var orbMade = false;
+        function applyPrefs(p) {
+          var ai = !!(p && p.ai);
+          fabWrap.hidden = !ai;
+          if (!ai) closeFab();
+          aiOffCard.hidden = ai;
+          aiSwitch.setAttribute('aria-checked', String(ai));
+          voiceRow.style.display = ai ? '' : 'none';
+          document.querySelectorAll('[data-ai-tag]').forEach(function (t) {
+            t.textContent = ai ? 'AI-guided' : 'Standard';
+            t.className = 'course-tag ' + (ai ? 'ai' : 'std');
+          });
+          var label = VOICE_LABELS[(p && p.voice) || 'bright'];
+          document.getElementById('voiceChip').innerHTML = label.replace('&', '&amp;');
+          document.getElementById('voiceLabel').innerHTML = label.replace('&', '&amp;');
+          if (ai && !orbMade && window.MobiusOrb) {
+            window.MobiusOrb.create(document.getElementById('orbSlot'));
+            orbMade = true;
+          }
+        }
+
+        // --- The floating panel: open/close + CLARA's introduction. ----------
+        var fabPanel = document.getElementById('fabPanel');
+        var fabOrb = document.getElementById('fabOrb');
+        function openFab() {
+          fabPanel.hidden = false;
+          fabOrb.setAttribute('aria-expanded', 'true');
+          requestAnimationFrame(function () { requestAnimationFrame(function () { fabPanel.classList.add('open'); }); });
+        }
+        function closeFab() {
+          fabPanel.classList.remove('open');
+          fabOrb.setAttribute('aria-expanded', 'false');
+          setTimeout(function () { fabPanel.hidden = true; }, RM ? 0 : 250);
+        }
+        fabOrb.addEventListener('click', function () {
+          if (fabPanel.hidden) { openFab(); maybeIntro(); } else { closeFab(); }
+        });
+        document.getElementById('fabClose').addEventListener('click', closeFab);
+
+        // CLARA's introduction types into the panel ONCE (right after
+        // onboarding, or on the panel's very first open this session).
+        var INTRO_LINES = [
+          "All set, Rob — this is where I live now. Tap me any time, on any page.",
+          "Bystander Intervention is up first. It opens with two quick baseline questions — I'll meet you in there."
+        ];
+        function maybeIntro() {
+          try { if (sessionStorage.getItem('clara-dash-intro')) return; sessionStorage.setItem('clara-dash-intro', '1'); } catch (e) {}
+          var echo = document.getElementById('claraEcho');
+          INTRO_LINES.forEach(function (line, i) {
+            var d = document.createElement('div');
+            d.className = 'cb her typing';
+            d.innerHTML = '<span></span><span></span><span></span>';
+            setTimeout(function () {
+              echo.appendChild(d); echo.scrollTop = echo.scrollHeight;
+              setTimeout(function () {
+                d.classList.remove('typing'); d.textContent = line;
+                echo.scrollTop = echo.scrollHeight;
+              }, RM ? 0 : 750);
+            }, RM ? 0 : i * 1500);
+          });
+        }
+
+        // --- One canned exchange so the composer feels alive. ----------------
+        var CLARA_REPLIES = [
+          "Bystander Intervention is due September 15 and takes about 25 minutes — start it whenever you're ready and I'll be right there with you.",
+          "Your first course opens with a two-question baseline. No grade — it just tells me where to focus.",
+          "Anything you practice with me is scored against your course's objectives, and you can see every score's source in your results."
+        ];
+        var ri = 0;
+        function wireAsk() {
+          var input = document.getElementById('claraAsk');
+          var send = document.getElementById('claraSend');
+          var echo = document.getElementById('claraEcho');
+          function row(kind, text) {
+            var d = document.createElement('div');
+            d.className = 'cb ' + kind; d.textContent = text;
+            echo.appendChild(d);
+          }
+          function submit() {
+            var v = input.value.trim(); if (!v) return;
+            row('you', v); input.value = '';
+            setTimeout(function () { row('her', CLARA_REPLIES[ri % CLARA_REPLIES.length]); ri++; }, RM ? 0 : 500);
+          }
+          send.addEventListener('click', submit);
+          input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+        }
+
+        // --- Settings popover. -----------------------------------------------
+        var gearBtn = document.getElementById('gearBtn');
+        var gearPop = document.getElementById('gearPop');
+        gearBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var open = gearPop.classList.toggle('open');
+          gearBtn.setAttribute('aria-expanded', String(open));
+        });
+        document.addEventListener('click', function (e) {
+          if (gearPop.classList.contains('open') && !gearPop.contains(e.target)) {
+            gearPop.classList.remove('open'); gearBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+        // Asymmetric by design: turning CLARA OFF goes through the consequences
+        // step; turning her back ON is instant.
+        aiSwitch.addEventListener('click', function () {
+          var p = readPrefs() || { ai: true, voice: 'bright' };
+          if (p.ai) {
+            gearPop.classList.remove('open'); gearBtn.setAttribute('aria-expanded', 'false');
+            frOrigin = 'settings';
+            openOverlay('confirm');
+          } else {
+            p.ai = true; savePrefs(p); applyPrefs(p);
+          }
+        });
+        document.getElementById('aiOffEnable').addEventListener('click', function () {
+          var p = readPrefs() || { ai: false, voice: 'bright' };
+          p.ai = true; savePrefs(p); applyPrefs(p);
+        });
+        document.getElementById('voiceChange').addEventListener('click', function () {
+          // Re-open just the voice step of the first-run overlay.
+          openOverlay('voice');
+        });
+        document.getElementById('rerunFirstRun').addEventListener('click', function (e) {
+          e.preventDefault();
+          gearPop.classList.remove('open');
+          openOverlay('intro');
+        });
+
+        // --- First-run overlay. ----------------------------------------------
+        var overlay = document.getElementById('frOverlay');
+        var frOrbMade = false;
+        var frOrigin = 'firstrun';   // 'firstrun' | 'settings' — where the confirm step returns to
+        function frStep(id) {
+          ['frIntro', 'frConfirm', 'frVoice', 'frBye'].forEach(function (s) {
+            document.getElementById(s).classList.toggle('active', s === id);
+          });
+        }
+        function openOverlay(step) {
+          overlay.hidden = false;
+          requestAnimationFrame(function () { requestAnimationFrame(function () { overlay.classList.add('in'); }); });
+          if (!frOrbMade && window.MobiusOrb) { window.MobiusOrb.create(document.getElementById('frOrb')); frOrbMade = true; }
+          frStep(step === 'voice' ? 'frVoice' : step === 'confirm' ? 'frConfirm' : 'frIntro');
+          if (step === 'intro') {
+            // Bubbles rise in sequence on the intro.
+            var bubs = document.querySelectorAll('#frIntro .fr-bub');
+            bubs.forEach(function (b, i) {
+              b.classList.remove('in');
+              setTimeout(function () { b.classList.add('in'); }, RM ? 0 : 500 + i * 900);
+            });
+          }
+        }
+        function closeOverlay() {
+          if ('speechSynthesis' in window) speechSynthesis.cancel();
+          overlay.classList.remove('in');
+          setTimeout(function () { overlay.hidden = true; }, RM ? 0 : 450);
+        }
+
+        document.getElementById('frOptIn').addEventListener('click', function () { frStep('frVoice'); });
+        // The quiet link never turns anything off by itself — it leads to the
+        // consequences step, where keeping CLARA is again the primary action.
+        document.getElementById('frOptOut').addEventListener('click', function () {
+          frOrigin = 'firstrun';
+          frStep('frConfirm');
+        });
+        document.getElementById('frKeep').addEventListener('click', function () {
+          if (frOrigin === 'settings') { closeOverlay(); return; }   // already configured — nothing to redo
+          frStep('frVoice');
+        });
+        document.getElementById('frConfirmOff').addEventListener('click', function () {
+          var prev = readPrefs();
+          savePrefs({ ai: false, voice: (prev && prev.voice) || 'bright' });
+          applyPrefs(readPrefs());
+          frStep('frBye');
+        });
+        document.getElementById('frByeDone').addEventListener('click', closeOverlay);
+
+        // Voice cards: tap = select + hear the sample.
+        var sel = 'bright';
+        document.querySelectorAll('.fr-voice').forEach(function (card) {
+          card.addEventListener('click', function () {
+            sel = card.dataset.voice;
+            document.querySelectorAll('.fr-voice').forEach(function (c) {
+              var on = c === card;
+              c.classList.toggle('sel', on);
+              c.setAttribute('aria-checked', String(on));
+              c.classList.remove('playing');
+            });
+            card.classList.add('playing');
+            speak(sel, function () { card.classList.remove('playing'); });
+          });
+        });
+        document.getElementById('frVoiceDone').addEventListener('click', function () {
+          savePrefs({ ai: true, voice: sel });
+          applyPrefs(readPrefs());
+          closeOverlay();
+          // CLARA settles into the corner and opens the panel once to say hello.
+          setTimeout(function () { openFab(); maybeIntro(); }, RM ? 0 : 550);
+        });
+
+        // --- Boot. ------------------------------------------------------------
+        var prefs = readPrefs();
+        if (prefs) {
+          applyPrefs(prefs);
+        } else {
+          // No decision yet → default the page to the opted-in look behind the
+          // glass, and let the first-run make it real.
+          applyPrefs({ ai: true, voice: 'bright' });
+          openOverlay('intro');
+        }
+        wireAsk();
+
+        // speechSynthesis loads voices async in some browsers — warm the list.
+        if ('speechSynthesis' in window) { speechSynthesis.getVoices(); }
+      })();
+    </script>
+</body>
+</html>

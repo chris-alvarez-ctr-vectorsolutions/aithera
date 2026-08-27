@@ -1623,7 +1623,7 @@
 
     /* the file itself */
     const btn = document.createElement('vaadin-button');
-    btn.textContent = ok ? 'Download .lo.json for dev' : 'Download anyway (will not load)';
+    btn.textContent = ok ? 'Download the player file' : 'Download anyway (will not load)';
     btn.setAttribute('theme', ok ? 'primary' : 'tertiary');
     btn.addEventListener('click', function () {
       const blob = new Blob([JSON.stringify(stripped.doc, null, 2)], { type: 'application/json' });

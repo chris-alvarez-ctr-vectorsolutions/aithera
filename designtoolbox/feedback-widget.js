@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.29.1';
+  const WIDGET_VERSION = '1.29.2';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -3080,6 +3080,12 @@
 
   // ----- Init -----------------------------------------------------------------
   async function init() {
+    // A comment bubble already in the DOM means another copy of this widget has
+    // already mounted — almost always an OLDER cached feedback-widget.js whose
+    // load guard uses a different global than window.__cwWidgetLoaded, so it
+    // didn't short-circuit above. Don't stack a second bubble + pins layer on
+    // top of it. (toolbox.js's self-heal is the other half of this defense.)
+    if (document.querySelector('.cw-bubble')) return;
     buildRoot();
     window.addEventListener('resize', () => renderPins());
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.

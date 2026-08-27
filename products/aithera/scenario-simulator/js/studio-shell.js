@@ -1733,10 +1733,13 @@
         }));
       }
       list.appendChild(menuRow({
-        icon: 'fa-file-import', title: 'Open an existing scenario', tag: '.lo.json',
+        icon: 'fa-file-import', title: 'Open an existing scenario', tag: 'JSON',
         lede: 'Edit a production scenario, then export it back.',
+        /* The tag used to read `.lo.json`, which named the wrong one of the two
+           files this accepts: the editor file is what you re-open to continue
+           work, and the player file has had the editor's own fields stripped. */
         more: 'Pick a scenario file — one exported from the production system, or one a colleague '
-            + 'sent you. Editing here and exporting produces the file you upload back.',
+            + 'sent you. Editing here and exporting produces the files you upload back.',
         onClick: () => { closeNewScenario(); const f = $('#importFile'); if (f) f.click(); }
       }));
       panel.appendChild(list);
@@ -1840,7 +1843,7 @@
       </div>`;
 
     const draftBtn = document.createElement('vaadin-button');
-    draftBtn.textContent = 'Download scenario.json';
+    draftBtn.textContent = 'Download the editor file';
     draftBtn.setAttribute('theme', 'tertiary');
     draftBtn.addEventListener('click', downloadWorkingDraft);
     $('#expDraftAct', exportOverlay).append(draftBtn);
