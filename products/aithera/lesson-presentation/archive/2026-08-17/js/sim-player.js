@@ -132,10 +132,23 @@
      and mid-bubble questions are never touched. */
   function stripDanglingQuestion(turn) {
     const msgs = turn.turn || [];
+    const isParenAside = (m) => m && m.speaker === 'coach' && m.kind === 'coaching'
+      && /^\(.*\)$/.test(String(m.text || '').trim());
+    // Look past trailing parenthetical asides ("(No wrong answer here…)") —
+    // they ride the question above them, shielding it from the walk-back and
+    // reading as nonsense once it goes. Only if the bubble BEHIND them dangles
+    // do the asides go too; a paren aside with no question stays untouched.
+    let j = msgs.length - 1;
+    while (j >= 0 && isParenAside(msgs[j])) j--;
+    const tail = msgs[j];
+    if (!tail || tail.speaker !== 'coach' || tail.kind !== 'coaching'
+        || !/\?\s*$/.test(String(tail.text || '').trim())) return;
+    msgs.splice(j + 1);   // drop the asides riding the dangling question
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
       if (!m || m.speaker !== 'coach' || m.kind !== 'coaching') break;
       const t = String(m.text || '').trim();
+      if (isParenAside(m)) { msgs.splice(i, 1); continue; }   // an aside uncovered mid-walk
       if (!/\?\s*$/.test(t)) break;
       const parts = t.split(/(?<=[.!?…])\s+/);
       while (parts.length && /\?\s*$/.test(parts[parts.length - 1].trim())) parts.pop();
@@ -399,6 +412,25 @@
             .join(' ').replace(/\s{2,}/g, ' ').trim();
         }
         turn.turn = turn.turn.filter((m) => String(m.text || '').trim().length);
+      } else {
+        // COACHING hand-offs get doubled the same way: the model tacks its own
+        // transition onto the teach tail ("For now, let's name what's actually
+        // happening here…") and the locked signpost then says the same thing
+        // again right underneath. Strip trailing TRANSITION-SHAPED sentences —
+        // sentence-initial "let's / time to / now we…" forms only, walking back
+        // through the tail coach bubbles, so a substantive closing line
+        // ("We'll come back to that.") survives and only the redundant
+        // segue goes.
+        const TRANSITION = /^\s*(?:(?:now|for now|next|alright|okay|so|first)[,—:-]?\s+)?(?:let'?s\b|let us\b|time to\b|now (?:we|you)\b|we'?re going to\b|on to\b)/i;
+        for (let i = turn.turn.length - 1; i >= 0; i--) {
+          const m = turn.turn[i];
+          if (!m || m.speaker !== 'coach' || m.kind !== 'coaching' || m.locked) break;
+          const parts = String(m.text || '').split(/(?<=[.!?…])\s+/);
+          while (parts.length && TRANSITION.test(parts[parts.length - 1])) parts.pop();
+          m.text = parts.join(' ').trim();
+          if (m.text) break;
+          turn.turn.splice(i, 1);   // the bubble was only the segue — keep walking back
+        }
       }
 
       turn.turn = turn.turn.concat(beat);

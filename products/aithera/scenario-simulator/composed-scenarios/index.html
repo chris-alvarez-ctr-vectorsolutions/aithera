@@ -1570,7 +1570,7 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=12"></script>
-    <script src="js/sim-player.js?v=10"></script>
+    <script src="js/sim-player.js?v=11"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
          calls polymorphically for custom-interaction surfaces (scene-sweep,
@@ -1587,7 +1587,7 @@
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=5"></script>
-    <script src="js/scenario-types/mix-arc.js?v=17"></script>
+    <script src="js/scenario-types/mix-arc.js?v=18"></script>
     <!-- [Option B] the tier-ladder TYPES this one generic player routes to via
          ?type=. Two shapes:
            · NATIVE tier-ladder types own their own toRuntime + compile and play
@@ -1595,7 +1595,7 @@
              scene-sweep follow). No lossy funnel.
            · a RECIPE type (guided-arc) expresses itself as a mix-arc scenario via
              toMixArc(), then plays natively AS mix-arc. -->
-    <script src="js/scenario-types/guided-arc.js?v=24"></script>
+    <script src="js/scenario-types/guided-arc.js?v=25"></script>
     <script src="js/scenario-types/branching-arc.js?v=8"></script>
     <script src="js/scenario-types/ensemble-arc.js?v=14"></script>
     <script src="js/scenario-types/scene-sweep.js?v=19"></script>
@@ -2184,7 +2184,7 @@
        every Guided Arc scene (the author toggles it via scene.sayDoSplit, and names
        the people via scene.characters; the splitter itself needs no scenario detail).
        Kept static so the FAST-model call stays cache-friendly. */
-    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, move toward someone), rewritten in SECOND person ("You step in beside them"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"knock it off" -> {"action":"","speech":"Knock it off"}\n"I\'d tell him to shut up" -> {"action":"","speech":"Shut up"}\n"tell him to drop it and then check on her after" -> {"action":"You turn to check on her after","speech":"Drop it"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look over and say cut it out" -> {"action":"You look over","speech":"Cut it out"}';
+    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, move toward someone), rewritten in SECOND person ("You step in beside them"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\n- A STANCE or inner decision not spoken to anyone ("I don\'t really want to get involved", "not my problem", "I keep my head down") belongs in "action" as a second-person aside ("You don\'t really want to get involved") — NEVER turn a private stance into words said to a character.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"i dont really want to get involved in this" -> {"action":"You don\'t really want to get involved in this","speech":""}\n"knock it off" -> {"action":"","speech":"Knock it off"}\n"I\'d tell him to shut up" -> {"action":"","speech":"Shut up"}\n"tell him to drop it and then check on her after" -> {"action":"You turn to check on her after","speech":"Drop it"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look over and say cut it out" -> {"action":"You look over","speech":"Cut it out"}';
     async function splitSceneInputAI(text) {
       const raw = await SimCore.callModel({
         model: SimCore.MODELS.FAST,
@@ -2208,6 +2208,18 @@
        a plain line is spoken verbatim. This keeps a natural opener ("Are you
        okay?", "Hey Kendra, you good") out of the splitter, which otherwise reads it
        as addressed to ITSELF and answers it into the learner's bubble. */
+    /* A STANCE / inner decision — the learner describing their position, not
+       words aimed at anyone in the scene ("i dont really want to get involved
+       in this", "not my problem", "keep my head down", "do nothing"). Shown as
+       a second-person narration aside, never as a spoken bubble: rendering it
+       as speech puts words in the learner's mouth they never meant to say out
+       loud. The raw text still reaches the reaction model verbatim. */
+    const STANCE_RE = /\bnot my (?:place|problem|business|fight|concern)\b|\bnone of my business\b|\bstay(?:ing)? out of (?:it|this)\b|\bkeep(?:ing)? (?:my|your) head down\b|\b(?:do|say|doing|saying) nothing\b|\bignore (?:it|this|him|her|them)\b|\b(?:don'?t|do not|wouldn'?t|won'?t|rather not)\b[^.!?]{0,20}\b(?:get|be|getting|being) involved\b|\bwant (?:no|nothing) (?:part|to do with)\b|\bnot getting involved\b/i;
+    function isStanceAside(t) {
+      const s = String(t || '').trim();
+      if (!s || /\?\s*$/.test(s) || /["“”]/.test(s)) return false;   // questions/quotes are handled elsewhere
+      return STANCE_RE.test(s);
+    }
     const MOVE_ACTION_RE = /\b(steps?|stepping|walks?|walking|moves?|moving|sits?|sitting|stands?|standing|turns?|kneels?|kneeling|reach(?:es|ing)?|leans?|cross(?:es)?|approach(?:es)?|nods?|hugs?|holds?|glanc\w*|gestures?|places?|pulls?|grab\w*|goes? (?:over|to)|come[sn]? (?:over|in)|walk over)\b/i;
     const MOVE_INTENT_RE = /\b(tells?|told|asks?|asked|says?|said|warns?|warned|reminds?|suggests?|offers?|offered|mentions?|apologi[sz]e\w*|explains?|reassure\w*|comfort\w*|greets?|point out|bring up|let (?:her|him|them|\w+) know)\b/i;
     function describesAMove(t) {
@@ -2240,6 +2252,15 @@
        and their words are never lost or replaced by a fabricated line. */
     async function finalizeYouDisplay(msg) {
       const text = String(msg.text || '');
+      // A stance/aside is staged as narration, never spoken — see STANCE_RE.
+      // (Normalize a lowercase standalone "i" first: toSecondPerson's solo-I
+      // rule is case-sensitive, and learners type "i dont want to…".)
+      if (isStanceAside(text)) {
+        msg._display = [{ kind: 'narration', text: toSecondPerson(text.replace(/\bi\b/g, 'I')) }];
+        msg._pending = false;
+        msg._enter = true;
+        return;
+      }
       let beats = null;
       if (describesAMove(text)) {
         try { beats = await splitSceneInputAI(text); } catch (e) { /* fall through */ }
@@ -3418,7 +3439,7 @@
       await wait(reducedMotion() ? 80 : 700);   // a beat before the reply begins — a real response doesn't start the instant you hit send
       showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');
 
-      const turn = await turnP;
+      let turn = await turnP;
 
       // TRANSPORT FAILURE — the Worker was unreachable even after retries. This is
       // NOT a turn: hand the learner's turn back instead of burning it and force-
@@ -3456,6 +3477,70 @@
       // coach's line — and, for the break-room, flip into scene mode so the
       // engine's entry handshake ("Begin practicing") fires on our locked scene.
       runArcEngine(turn);           // app owns the ladder: tier capture, transitions, routing
+
+      // SCENE-MINIMUM RETRY — the model tried to end the scene before the
+      // learner's final required action, with no in-world beats to salvage
+      // (see sim-player.js). Re-ask ONCE with a corrective note riding the
+      // learner's own last message (roles stay alternating), then route the
+      // corrected turn back through the engine. If the retry fails too, the
+      // engine lets the close stand rather than render nothing.
+      //
+      // The same retry also fires when a STAYING scene turn (a "redirect" or
+      // "continue") carries no in-world beats at all: the model misread a
+      // passive-but-real move ("i dont really want to get involved") as a
+      // deflection and replied in pure coaching bubbles, which yanks the
+      // learner out of the scene (the reported break-room bug). Per the
+      // authored calibration a passive choice IS an action with an in-world
+      // outcome. A learner line ending in "?" is a genuine question for the
+      // coach — those keep their coach-voice answer.
+      {
+        const _phases2 = ACTIVE_SCENARIO.phases || [];
+        const _p2 = (state.phaseIdx >= 0 && state.phaseIdx < _phases2.length) ? _phases2[state.phaseIdx] : null;
+        const _hasSceneBeat = (turn.turn || []).some((m) => m && m.speaker === 'character'
+          && (m.kind === 'dialogue' || m.kind === 'narration') && String(m.text || '').trim());
+        if (!turn.__minTurnsViolation && !turn.complete && !turn.deliver
+            && _p2 && _p2.world === 'scene' && state.mode === 'scene'
+            && (turn.turn || []).length && !_hasSceneBeat
+            && !/\?\s*$/.test(text.trim())) {
+          turn.__minTurnsViolation = true;
+        }
+      }
+      // …and when a FORCED terminal close never got its completion (the model
+      // kept the scene going past the cap, the app closed the ladder, and no
+      // debrief/report was coming — the learner would be stranded at an open
+      // composer). The retry asks for the full closing turn instead.
+      if (turn.__minTurnsViolation || turn.__needsCompletion) {
+        const nudge = turn.__needsCompletion
+          ? '\n\n[SYSTEM NOTE — that was the learner\'s FINAL action: the practice is over. In THIS reply: if you are mid-scene, resolve the moment in 1-2 scene beats first; then step back to coaching (mode:"coaching") — your FIRST coaching bubble is the verbatim talk-it-through line — debrief what ACTUALLY happened (never invent a move the learner didn\'t make), and set "action":"teach" and complete:true with your closing recap (see COMPLETION). Do NOT continue the scene.]'
+          : '\n\n[SYSTEM NOTE — the scene is NOT over: this was not the learner\'s final action. Do NOT debrief, coach, or close the beat. Reply with SCENE beats only (speaker:"character") — narrate how the move lands, then escalate per the beat guidance — mode:"scene", "action":"continue". If the move was passive (silence, refusing to engage), that IS their action: narrate its calibrated outcome in-world.]';
+        const you = state.messages[state.messages.length - 1];
+        const orig = you ? you.text : '';
+        if (you) you.text = orig + nudge;
+        let retry = null;
+        try { retry = await getTurn(state.messages); } catch (e) { /* keep the original turn */ }
+        if (you) you.text = orig;   // the transcript keeps only the learner's words
+        if (retry && !retry.__transportError && Array.isArray(retry.turn)) turn = retry;
+        turn.__minTurnsFinal = true;
+        runArcEngine(turn);
+      }
+
+      // DO-NOT-RE-NARRATE guard — drop a scene beat that merely repeats the
+      // learner's own move back at them (the model occasionally re-voices the
+      // learner's line as the character before reacting to it). Exact echoes
+      // only — a character quoting a fragment back ("'Not cool'? Come on.")
+      // survives; app-owned locked beats are never touched.
+      if (state.mode === 'scene' || turn.mode === 'scene') {
+        const normEcho = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const inputNorm = normEcho(text);
+        const quotedNorms = (String(text).match(/[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g) || []).map(normEcho);
+        turn.turn = (turn.turn || []).filter((m) => {
+          if (!m || m.speaker !== 'character' || m.locked) return true;
+          const n = normEcho(m.text);
+          if (n.length < 8) return true;
+          return !(n === inputNorm || quotedNorms.indexOf(n) !== -1);
+        });
+      }
+
       applyDeliver(turn);
 
       // A redirect is a NON-ANSWER (a clarifying question, a first "I'm stuck",

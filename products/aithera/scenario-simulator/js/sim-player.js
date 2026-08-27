@@ -135,6 +135,42 @@
     return { errors, warnings };
   }
 
+  /* When the APP advances (a cap-forced close, a stay-cap reflection open, or
+     any teach turn that delivers the next locked hand-off), the learner can no
+     longer answer — so a coach bubble left hanging on a question is a promise
+     the app is about to break ("it asked me a follow-up, then moved on without
+     letting me respond"). Trim trailing question sentences off the tail
+     coaching bubbles; drop a bubble that was ONLY the question. Scene beats
+     and mid-bubble questions are never touched. */
+  function stripDanglingQuestion(turn) {
+    const msgs = turn.turn || [];
+    const isParenAside = (m) => m && m.speaker === 'coach' && m.kind === 'coaching'
+      && /^\(.*\)$/.test(String(m.text || '').trim());
+    // Look past trailing parenthetical asides ("(No wrong answer here…)") —
+    // they ride the question above them, shielding it from the walk-back and
+    // reading as nonsense once it goes. Only if the bubble BEHIND them dangles
+    // do the asides go too; a paren aside with no question stays untouched.
+    let j = msgs.length - 1;
+    while (j >= 0 && isParenAside(msgs[j])) j--;
+    const tail = msgs[j];
+    if (!tail || tail.speaker !== 'coach' || tail.kind !== 'coaching'
+        || !/\?\s*$/.test(String(tail.text || '').trim())) return;
+    msgs.splice(j + 1);   // drop the asides riding the dangling question
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (!m || m.speaker !== 'coach' || m.kind !== 'coaching') break;
+      const t = String(m.text || '').trim();
+      if (isParenAside(m)) { msgs.splice(i, 1); continue; }   // an aside uncovered mid-walk
+      if (!/\?\s*$/.test(t)) break;
+      const parts = t.split(/(?<=[.!?…])\s+/);
+      while (parts.length && /\?\s*$/.test(parts[parts.length - 1].trim())) parts.pop();
+      m.text = parts.join(' ').trim();
+      if (m.text) break;
+      msgs.splice(i, 1);   // the bubble was only the question — keep walking back
+    }
+    turn.turn = msgs;
+  }
+
   function makeLadder(ctx) {
     const scenario = ctx.scenario;   // ACTIVE_SCENARIO — mutated in place, captured by ref
     const state = ctx.state;
@@ -186,6 +222,7 @@
       }
       const p = phases[state.phaseIdx];
       const cap = Math.max(1, p.maxTurns || 3);
+      const min = Math.max(0, p.minTurns || 0);
       const used = state.turnsInPhase;
       const ladder = phases.filter((x) => state.ladder[x.id])
         .map((x) => (x.label || x.id) + ' = ' + state.ladder[x.id]).join(', ');
@@ -203,9 +240,12 @@
         + (vars ? ' Session state — ' + vars + '.' : '')
         + (used >= cap
             ? ' THE CAP IS REACHED — you MUST set "action":"teach" on this turn: resolve the moment, open with the verbatim talk-it-through line, debrief, and report the "tier". Do NOT continue.'
-            : (used >= 1 && used === cap - 1
-                ? ' ONE TURN LEFT AFTER THIS — the learner gets exactly one more turn, then you MUST close the phase. Do not open anything you cannot land in that one turn: no new topic, no second question, nothing needing a follow-up. Set "action":"continue" to stay, or "action":"teach" (with a "tier") if the exit criteria are already met.'
-                : ' Set "action":"continue" to stay in the phase, or "action":"teach" (with a "tier") once the exit criteria are met.'))
+            : (p.world === 'scene' && used < min)
+              ? ' The scene is NOT over — the learner has ' + (min - used) + ' more action' + (min - used === 1 ? '' : 's')
+                + ' to take. Do NOT debrief, do NOT coach, do NOT set "action":"teach" yet: reply with scene beats only and set "action":"continue".'
+              : (used >= 1 && used === cap - 1
+                  ? ' ONE TURN LEFT AFTER THIS — the learner gets exactly one more turn, then you MUST close the phase. Do not open anything you cannot land in that one turn: no new topic, no second question, nothing needing a follow-up. Set "action":"continue" to stay, or "action":"teach" (with a "tier") if the exit criteria are already met.'
+                  : ' Set "action":"continue" to stay in the phase, or "action":"teach" (with a "tier") once the exit criteria are met.'))
         + ']'
         + rewoundBlock(p);
     }
@@ -277,6 +317,10 @@
         if (wantsStay && state.reflectionStays < REFLECTION_STAY_CAP) {
           state.reflectionStays++; state.reflectionProbed = true; turn.deliver = null; return;
         }
+        // The stay cap is spent — the app opens Phase 1 no matter what the model
+        // wrote. If its turn still ends on a question, that question can never be
+        // answered: trim it before the locked hand-off lands on top of it.
+        stripDanglingQuestion(turn);
         closePhase(null, turn);                // calibration done (or cap reached) → open the scene
         return;
       }
@@ -295,6 +339,40 @@
       const overCap = state.turnsInPhase >= cap + 1;   // the forced close was ignored once already
       if (intent !== 'teach' && !teachOpener && !overCap) { turn.deliver = null; return; }   // stay in the phase
 
+      // SCENE MINIMUM — a scene phase may declare minTurns (Guided Arc's action
+      // console authors "exactly TWO actions"). A model that grades the first
+      // move as strong-or-hopeless and debriefs early ends the scene without
+      // the learner's second turn — and its "across both actions" debrief then
+      // narrates an exchange that never happened. If the model closes early and
+      // its turn still carries scene beats, keep ONLY those beats and stay in
+      // the scene; the real debrief comes after the final required action.
+      const minTurns = Math.max(0, p.minTurns || 0);
+      if (p.world === 'scene' && state.turnsInPhase < minTurns && !overCap) {
+        const sceneBeats = (turn.turn || []).filter((m) => m && m.speaker === 'character'
+          && (m.kind === 'dialogue' || m.kind === 'narration') && String(m.text || '').trim());
+        if (sceneBeats.length) {
+          turn.turn = sceneBeats;
+          turn.action = 'continue'; turn.tier = null; turn.deliver = null;
+          turn.complete = false; turn.report = null;
+          turn.mode = 'scene'; turn.inputTarget = 'character';
+          return;
+        }
+        // No scene beats to keep — flag it and stay put: the page gets ONE shot
+        // to re-ask the model with a corrective note (send() handles the flag),
+        // marking the retried turn __minTurnsFinal before running it back
+        // through here. Only after that retry also fails does the close stand.
+        if (!turn.__minTurnsFinal) {
+          turn.__minTurnsViolation = true;
+          turn.deliver = null;
+          return;
+        }
+        // retried and still nothing in-world to keep — let the close stand rather than render nothing
+      }
+
+      // The app is advancing (or completing) on this turn — the learner cannot
+      // answer anything the coach left hanging. Enforce the authored rule
+      // "never ask a question AND advance in the same turn" app-side.
+      stripDanglingQuestion(turn);
       closePhase(p, turn);
     }
 
@@ -345,6 +423,12 @@
         if (nextIdx < 0 || nextIdx >= phases.length) {   // terminal — the model completes this same turn
           turn.deliver = null;
           state.phaseIdx = phases.length;
+          // A FORCED terminal close — the model never completed on this turn
+          // (it kept the scene going past the cap and the app closed it) —
+          // would strand the learner: the phase is over but no debrief or
+          // report ever arrives and the composer just sits open. Flag it so
+          // the page can immediately re-ask the model for the closing turn.
+          if (!turn.complete) turn.__needsCompletion = true;
           return;
         }
       }
@@ -382,7 +466,7 @@
       // which then doubles the locked entry. Strip any preview SENTENCE from the
       // trailing coach bubbles, then drop a bubble left empty.
       if (p.world === 'scene') {
-        const PREVIEW = /\b(put you in|into the (room|scene|moment)|step in(to)?|into practice|let'?s (practice|keep going|head in)|in the room|back (to|into) the scene|ready to (practice|go|step))\b/i;
+        const PREVIEW = /\b(put you in|into the (room|scene|moment)|step in(to)?|into practice|let'?s (practice|keep going|head in)|in the room|back (to|into) the scene|ready to (practice|go|step)|walk(ing)? into)\b/i;
         for (let i = turn.turn.length - 1; i >= 0 && turn.turn[i].speaker === 'coach'; i--) {
           turn.turn[i].text = String(turn.turn[i].text || '')
             .split(/(?<=[.!?])\s+/)
@@ -390,6 +474,25 @@
             .join(' ').replace(/\s{2,}/g, ' ').trim();
         }
         turn.turn = turn.turn.filter((m) => String(m.text || '').trim().length);
+      } else {
+        // COACHING hand-offs get doubled the same way: the model tacks its own
+        // transition onto the teach tail ("For now, let's name what's actually
+        // happening here…") and the locked signpost then says the same thing
+        // again right underneath. Strip trailing TRANSITION-SHAPED sentences —
+        // sentence-initial "let's / time to / now we…" forms only, walking back
+        // through the tail coach bubbles, so a substantive closing line
+        // ("We'll come back to that.") survives and only the redundant
+        // segue goes.
+        const TRANSITION = /^\s*(?:(?:now|for now|next|alright|okay|so|first)[,—:-]?\s+)?(?:let'?s\b|let us\b|time to\b|now (?:we|you)\b|we'?re going to\b|on to\b)/i;
+        for (let i = turn.turn.length - 1; i >= 0; i--) {
+          const m = turn.turn[i];
+          if (!m || m.speaker !== 'coach' || m.kind !== 'coaching' || m.locked) break;
+          const parts = String(m.text || '').split(/(?<=[.!?…])\s+/);
+          while (parts.length && TRANSITION.test(parts[parts.length - 1])) parts.pop();
+          m.text = parts.join(' ').trim();
+          if (m.text) break;
+          turn.turn.splice(i, 1);   // the bubble was only the segue — keep walking back
+        }
       }
 
       turn.turn = turn.turn.concat(beat);
