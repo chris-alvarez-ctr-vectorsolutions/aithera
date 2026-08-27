@@ -1371,6 +1371,11 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       beats.push({
         id: 'scene', label: 'Step in', level: 'Beat ' + (beats.length + 1) + ' · practice', type: 'roleplay',
         maxTurns: sc.actionCount || 2,
+        // Guided Arc scenes are "exactly N actions", not "up to N": carry the
+        // count as a hard MINIMUM too, so the runtime never lets the model
+        // debrief before the learner's final action (the break-room bug where
+        // turn 2 never happened and the debrief invented it).
+        minTurns: Math.max(2, sc.actionCount || 2),
         entry: {
           bridge: '', signpost: sc.pivot || '', prompt: '',
           beats: arr(sc.setup).map((b) => ({ speaker: 'character', kind: b.kind === 'dialogue' ? 'dialogue' : 'narration', name: b.name || '', text: b.text || '' })),
