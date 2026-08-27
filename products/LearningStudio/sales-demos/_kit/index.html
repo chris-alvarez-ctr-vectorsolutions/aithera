@@ -135,6 +135,63 @@
   <iframe id="omFrame" title="Object Manager" src="about:blank"></iframe>
 </div>
 
+<!-- ===== Add Learning Object modal =====
+     Opened by the "Add Learning Object" button on any expanded section.
+     Two routes: Manual Creation (inert -- present so the choice reads as
+     real) and AI Generation, which drives the demo's reveal. -->
+<div class="modal-overlay" id="addLoModal" role="dialog" aria-modal="true"
+     aria-labelledby="addLoTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="addLoTitle">Add Learning Object</h3>
+      <!-- Filled with the section the button was clicked from. -->
+      <p class="modal-sub">Section: <span id="addLoSection"></span></p>
+    </div>
+
+    <div class="modal-body">
+      <div class="route-tabs" role="tablist">
+        <button class="route-tab active" type="button" role="tab"
+                data-route="manual" aria-selected="true">
+          <i class="fa-regular fa-pen-to-square"></i> Manual Creation
+        </button>
+        <button class="route-tab" type="button" role="tab"
+                data-route="ai" aria-selected="false">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> AI Generation
+        </button>
+      </div>
+
+      <!-- Manual route -->
+      <div class="route-panel active" id="routeManual">
+        <h4>Manual Creation</h4>
+        <p>Enter the details for your learning object.</p>
+        <div class="field required">
+          <label for="loTitle">Title *</label>
+          <input type="text" id="loTitle" placeholder="Enter learning object title" />
+        </div>
+        <div class="field">
+          <label for="loObjective">Learning Objective</label>
+          <textarea id="loObjective" placeholder="Enter the learning objective (optional)"></textarea>
+        </div>
+      </div>
+
+      <!-- AI route -->
+      <div class="route-panel" id="routeAi">
+        <h4>AI Generation</h4>
+        <p>Describe the learning object and AI will generate it for you.</p>
+        <div class="field required">
+          <label for="aiPrompt">Description *</label>
+          <textarea id="aiPrompt" placeholder="Describe what this learning object should cover"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-secondary" type="button" id="addLoCancel">Cancel</button>
+      <button class="btn btn-primary" type="button" id="addLoCreate" disabled>Create Learning Object</button>
+    </div>
+  </div>
+</div>
+
 <script src="course-data.js"></script>
 <script>
 /* ============================================================
@@ -373,6 +430,16 @@ function renderSections() {
 
     head.querySelector('.sec-chev').addEventListener('click', () => toggleSection(section.id));
     head.querySelector('.sec-headings').addEventListener('click', () => toggleSection(section.id));
+
+    // Opens the Add Learning Object modal for THIS section. The button is
+    // only in the DOM while the section is expanded.
+    const addBtn = head.querySelector('.btn-outline');
+    if (addBtn) {
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAddLo(section);
+      });
+    }
 
     // Section overflow menu: Rename Section / Delete
     head.querySelector('.kebab').addEventListener('click', (e) => {
@@ -779,6 +846,12 @@ function toggleSection(sectionId, forceOpen) {
     const btn = document.createElement('button');
     btn.className = 'btn-outline sm';
     btn.textContent = 'Add Learning Object';
+    // Same handler as the render path -- this button is created here when a
+    // section is expanded by click, rather than rendered already-open.
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openAddLo(section);
+    });
     actions.insertBefore(btn, actions.querySelector('.kebab'));
   } else if (!willOpen && existing) {
     existing.remove();
@@ -1045,6 +1118,115 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
+}
+
+/* ── Add Learning Object ──────────────────────────────────────
+   The button opens a two-route modal. Manual Creation is inert: it is
+   there so the choice reads as real, and Create simply closes. AI
+   Generation is the demo path -- it reveals the LO authored with
+   `hidden: true` in course.md and lands in its object manager.
+
+   Which object gets revealed is data-driven, not hard-coded: the first
+   hidden object in the section the button was clicked from. So a course
+   changes its generated LO by editing course.md alone. */
+
+const addLoModal   = document.getElementById('addLoModal');
+const addLoSection = document.getElementById('addLoSection');
+const addLoCreate  = document.getElementById('addLoCreate');
+const loTitle      = document.getElementById('loTitle');
+const loObjective  = document.getElementById('loObjective');
+const aiPrompt     = document.getElementById('aiPrompt');
+
+let addLoRoute = 'manual';
+let addLoSectionId = null;
+
+function currentRouteInput() {
+  return addLoRoute === 'manual' ? loTitle : aiPrompt;
+}
+
+// Create stays disabled until the active route's required field is filled.
+function syncCreateEnabled() {
+  addLoCreate.disabled = !currentRouteInput().value.trim();
+}
+
+function setRoute(route) {
+  addLoRoute = route;
+  document.querySelectorAll('.route-tab').forEach(t => {
+    const on = t.dataset.route === route;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  document.getElementById('routeManual').classList.toggle('active', route === 'manual');
+  document.getElementById('routeAi').classList.toggle('active', route === 'ai');
+  syncCreateEnabled();
+}
+
+function openAddLo(section) {
+  addLoSectionId = section.id;
+  addLoSection.textContent = section.name;
+  loTitle.value = '';
+  loObjective.value = '';
+  aiPrompt.value = '';
+  setRoute('manual');
+  addLoModal.classList.add('open');
+  setTimeout(() => currentRouteInput().focus(), 0);
+}
+
+function closeAddLo() {
+  addLoModal.classList.remove('open');
+}
+
+document.querySelectorAll('.route-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    setRoute(tab.dataset.route);
+    currentRouteInput().focus();
+  });
+});
+
+[loTitle, aiPrompt].forEach(el => el.addEventListener('input', syncCreateEnabled));
+
+document.getElementById('addLoCancel').addEventListener('click', closeAddLo);
+
+// Click the backdrop or press Escape to dismiss.
+addLoModal.addEventListener('click', (e) => {
+  if (e.target === addLoModal) closeAddLo();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && addLoModal.classList.contains('open')) closeAddLo();
+});
+
+addLoCreate.addEventListener('click', () => {
+  if (addLoRoute === 'manual') {
+    // No manual-creation flow in this demo; the route exists to make the
+    // AI choice meaningful.
+    closeAddLo();
+    return;
+  }
+  revealGeneratedObject();
+});
+
+/* Reveal the hidden LO for this section and open it.
+   Mutating COURSE (rather than re-reading course-data.js) is what makes
+   the reveal stick: showOverview() doesn't re-render, so navigating back
+   from the object manager shows the overview with the new LO in place --
+   list and duration totals both updated. */
+function revealGeneratedObject() {
+  const section = COURSE.sections.find(s => s.id === addLoSectionId);
+  const target = section && section.objects.find(o => o.hidden);
+
+  if (!target) {
+    // Nothing authored to reveal for this section. Close quietly rather
+    // than stalling the call on a modal that appears to do nothing.
+    closeAddLo();
+    return;
+  }
+
+  target.hidden = false;
+  closeAddLo();
+  renderSections();
+  renderCourseMeta();
+  renderRail();
+  openObjectManager(target.id);
 }
 
 /* ── Boot ─────────────────────────────────────────────────── */

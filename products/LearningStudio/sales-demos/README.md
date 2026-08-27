@@ -68,6 +68,61 @@ repo-root asset paths are unchanged:
 
 ## Current demos
 
-| Course | Folder | Click path |
-|---|---|---|
-| Lockout/Tagout (LOTO) | `lockout-tagout/` | My Learning → Course detail → Lesson → Knowledge check → Completion |
+| Course | Folder |
+|---|---|
+| Lockout Tagout for Authorized Employees | `lockout-tagout/` |
+
+### LOTO — what a rep can actually do
+
+Built from Studio screenshots: 5 sections, 22 objects. Only what the demo's
+click path visits is built out; everything else is a stub by design, so the
+path can't dead-end mid-call.
+
+- **Lockout Hardware** (section 3) — the click path. Five scenes with real
+  transcript and images.
+- **Section 3's title card** — one scene, no transcript.
+- **Add Learning Object → AI Generation** — reveals an LO authored with
+  `hidden: true` and lands in its object manager. See "Hidden objects" in
+  `_kit/README.md`.
+
+Every LO is *styled* as a link so the overview reads like a finished
+product, but only the objects above do anything. A rep clicking elsewhere
+gets silence, not an error — worth knowing before going off-script.
+
+### Decisions worth not re-litigating
+
+- **Objectives are AI-generated** from the LO titles, not from the real
+  course. Plausible, but confirm the framing before customer use.
+- **SKUs are always fake.** `DEMO-LOTO-101` here. Never show a real catalog
+  SKU in a demo; keep any replacement fake.
+- **Durations are transcribed from rounded screenshot values**, so computed
+  totals are approximations built from rounded parts and won't match
+  Studio's exact figures. Never hand-total — the computed value wins.
+- **Section 3's 0:06 object was dropped**; the 0:10 is the section title
+  card. "Authorized Employee Roles and Responsibilities" is lesson #1.
+- **Some controls are deliberately inert**: Generate Changes in the
+  Preview-and-Enhance step, bulk audio actions, and the Course Details /
+  Assessment tabs. There is no "Animate Image" — excluded as internal-only.
+
+### Open question: the Cape Cod colour
+
+`_kit/object-manager.html` defines `--cape-cod: #3a4550` as a **flagged
+placeholder**. The themes CONTEXT.md publishes Conifer, Puerto Rico, Picton
+Blue, Vivid Violet, Ecstacy and Cinnabar — no Cape Cod. It's used by the
+template fill options. Swap in the real brand hex once confirmed, then
+re-check contrast.
+
+(The canvas letterbox uses a separate `--canvas-fill`, so changing Cape Cod
+won't repaint the canvas.)
+
+### Verifying changes
+
+The build is the first check — it reports object counts, totals, missing
+images and any hidden objects:
+
+    node _kit/build-course.js lockout-tagout
+
+Prefer non-visual verification (`node --check`, the build report, measuring
+the rendered DOM) over screenshots. Watch for undefined CSS vars and Font
+Awesome classes that don't resolve — a missing icon renders as an invisible
+zero-width glyph with no error.
