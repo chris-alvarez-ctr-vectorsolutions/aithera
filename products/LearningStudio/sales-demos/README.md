@@ -30,11 +30,14 @@ apply here.
 sales-demos/
   README.md
   _kit/                   <- shared source of truth (see _kit/README.md)
-    course.md parser + build scripts
+    parse-course.js, build-course.js, new-course.js
+    transcript-to-md.js   <- voiceover script -> course.md LO
     index.html, object-manager.html, demo.css
+    assets/               <- assets the shared UI itself needs
   lockout-tagout/
-    course.md             <- the only file you author
-    assets/               <- scene images
+    course.md             <- authored: the course
+    assets/               <- authored: scene images (+ copied kit assets)
+    transcripts/          <- authored: voiceover scripts (optional)
     course-data.js        <- generated
     index.html            <- copied from _kit/
     object-manager.html   <- copied from _kit/
@@ -55,6 +58,99 @@ Full format and workflow: **`_kit/README.md`**.
 **Do not hand-edit** `course-data.js` or the copied HTML/CSS in a course
 folder — the next build overwrites them. Edit `course.md` for one course,
 or `_kit/` for all of them.
+
+## Spinning off a new course
+
+End-to-end, from nothing to a demo a rep can walk a customer through.
+
+### 1. Scaffold
+
+```bash
+cd products/LearningStudio/sales-demos
+node _kit/new-course.js forklift-safety      # lowercase-with-hyphens
+```
+
+You get a working demo immediately — starter `course.md`, `assets/`,
+`transcripts/`, and a build. Open `forklift-safety/index.html` to confirm
+before writing anything.
+
+The starter includes one clickable LO, one stub, and one **hidden** LO
+wired to the AI-generation flow, so every mechanic is visible from the
+first run. Delete what the course doesn't need.
+
+### 2. Write the course
+
+Everything comes from `forklift-safety/course.md` — sections, learning
+objects, durations, scenes. Format and every option: **`_kit/README.md`**.
+
+Two rules that shape the whole demo:
+
+- **Only build what the click path visits.** An LO with `#### scene`
+  blocks is clickable; one without is a stub. Stubs stop a rep
+  dead-ending on an unfinished screen mid-call.
+- **Never hand-total a duration.** Author them on leaves only; sections
+  and the course roll up automatically.
+
+### 3. Add scene images
+
+Drop them in `forklift-safety/assets/` and reference them by filename.
+**Filenames must match exactly, extension included** — a mismatch shows the
+empty media slot and prints a build warning rather than failing loudly.
+
+### 4. Optional: seed an LO from a voiceover script
+
+If you have narration text, keep it in `transcripts/` and generate the
+`course.md` block from it, so scene text is authored once and never
+retyped:
+
+```bash
+node _kit/transcript-to-md.js forklift-safety/transcripts/intro.md --hidden
+```
+
+Scene durations are estimated from word count when not authored. See
+`_kit/README.md` → "Seeding an LO from a transcript".
+
+### 5. Optional: wire the AI-generation demo
+
+To let a rep simulate generating a lesson: author the LO in full, mark it
+`hidden: true`, and place it **last in its section** so it reads as newly
+created. Then Add Learning Object → AI Generation → Generate Transcript
+reveals it and opens it.
+
+The reveal targets the first hidden object in the clicked section, so
+nothing is hard-coded. A section with no hidden LO closes the modal and
+does nothing.
+
+### 6. Rebuild and verify
+
+```bash
+node _kit/build-course.js forklift-safety
+```
+
+Run this after **every** `course.md` edit, and after any `_kit/` change
+that should reach existing courses. The report is the first check — object
+counts, totals, hidden objects, and missing images.
+
+Then open `index.html` and click the actual path a rep will take.
+
+### 7. Commit
+
+Commit the whole course folder including the generated files — demos are
+served straight from the repo, so what's committed is what a rep sees.
+
+### Gotchas
+
+- **Edit `course.md` or `_kit/`, never a course's generated files.**
+  `index.html`, `object-manager.html`, `demo.css` and `course-data.js` are
+  overwritten on the next build. This is the single easiest mistake to
+  make — the edit works until it silently vanishes.
+- **A `_kit/` change reaches other courses only when they're rebuilt.** Run
+  `--all` after editing the shared UI.
+- **`generate-img-sample.png` is kit-owned**, copied into every course's
+  `assets/` on build. Don't author a scene image with that name.
+- **Nothing persists.** State is in-memory, so a refresh resets the demo to
+  its authored state. Fine for a scripted walkthrough; a rep can't reload
+  after generating.
 
 ## Path depth
 
