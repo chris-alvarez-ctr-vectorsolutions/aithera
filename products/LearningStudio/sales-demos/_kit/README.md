@@ -100,8 +100,34 @@ node _kit/transcript-to-md.js lockout-tagout/transcripts/conveyor.md --hidden
 
 It prints a `### Learning Object` block with one `#### scene` per scene —
 paste it into `course.md` (or redirect it) and run the build. `--hidden`
-adds `hidden: true`; `--duration 0:20` sets a fallback for scenes that
-don't carry their own.
+adds `hidden: true`.
+
+#### Scene durations are estimated from word count
+
+A scene without its own `duration:` gets one computed from its transcript:
+
+```
+seconds = (words / 140) * 60 + 2.5
+```
+
+**There is no published standard for narration pace** — no standards body
+(ATD, ISO, WCAG) specifies one. What exists is practitioner convention
+clustering at 120–150 wpm for instructional narration, plus one verifiable
+industry figure: ACX (Audible) plans audiobooks at 9,300 words per finished
+hour, or 155 wpm.
+
+140 wpm sits mid-range for e-learning and deliberately below conversational
+pace, because instructional content is denser and competes with on-screen
+visuals. The flat 2.5s covers each scene's lead-in, lead-out and transition
+— what a per-minute rate can't capture. The two aren't additive: 140 wpm
+already absorbs intra-sentence pauses, so adding a further percentage would
+double-count.
+
+Honest error bar is about **±15%**. These are estimates, not measurements.
+Author a `duration:` on any scene to override with a real value — an
+authored duration always wins, and one measurement from the actual narrator
+beats every convention above. Both constants live at the top of
+`transcript-to-md.js`. `--duration 0:20` forces a flat value instead.
 
 **Edit the transcript doc, not `course.md`**, then re-run the converter.
 `lockout-tagout/transcripts/machine-specific-conveyor.md` is the worked
