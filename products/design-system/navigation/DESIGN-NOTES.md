@@ -1,5 +1,20 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-08-28 round
+
+- **Tighter side-nav indentation.** Child groups indent 12px (was 18px) with an 8px
+  gutter, and level 3 steps in 10px (was 14px). V5 and V6 carry their own hierarchy
+  overrides, so their padding stepped down to match (35→29 / 33→27).
+- **Nav rows WRAP instead of truncating.** Rows moved from a fixed height and
+  `white-space:nowrap` to `min-height` + normal wrapping, so a long real label runs to a
+  second line rather than being clipped. Two labels are deliberately long enough to show
+  it: **Qualification and requirement assignments** (LMS Training Plan) and **Similar
+  exposure group assessments** (EHS industrial hygiene). Collapsed icon rows are
+  unaffected: they set their own square height.
+- **Customer logo area matches EHS.** The lockup renders at **54px tall** in an ~80px
+  slot, the same logo area the EHS sidebar gives a tenant mark, so customer branding
+  reads as branding instead of a favicon.
+
 ## Changelog · 2026-08-27 round
 
 - **Renamed the product back to Vector LMS** everywhere it was labeled Convergence
@@ -69,7 +84,9 @@ differently** (see below): its launcher drops pinning for a licence split.
 - Switching ≠ navigating: other products never appear inside the current product's nav tree.
 - Menu items keep this exploration's own visual style, but borrow two things from the
   shipping products (see below): the trailing disclosure chevron and the menu vocabulary.
-- Depth is carried by indentation and guide lines, never longer labels. Visible depth caps at 3.
+- Depth is carried by indentation and guide lines, never longer labels. Visible depth caps
+  at 3. Children indent 12px with an 8px gutter; level 3 steps in a further 10px.
+- Rows wrap to a second line rather than truncating, so a long real label stays readable.
 - Landmarks (`banner` / `nav` / `main`), `aria-current`, visible `:focus-visible` rings,
   skip link, and no hover-only destinations (flyouts/tooltips also open on keyboard focus;
   every rail icon is itself a clickable landing-page link).
@@ -133,8 +150,9 @@ updated. Their review pills still reference the old set; they are kept for histo
 ## Customer logo slot (platform customization)
 
 Orgs can surface their own branding at the top of the side nav, above the menu items: a
-customer logo image (here a placeholder "Northline Utilities" lockup) renders in a bordered
-slot at the top of the nav. It is customer CONTENT, not shell UI, so it is exempt from the
+customer logo image (here a placeholder "Northline Utilities" lockup) renders **54px tall**
+in a bordered ~80px slot, matching the logo area the EHS sidebar gives a tenant mark. (V3 is
+the exception: it docks the same slot to the BOTTOM of the nav.) It is customer CONTENT, not shell UI, so it is exempt from the
 neutral token palette. Present in every current version (every nav, including the Dashboard pane). Toggle it
 with the **Logo** button in the bottom-center review pill or deep-link the hidden state with
 `?logo=off`.
