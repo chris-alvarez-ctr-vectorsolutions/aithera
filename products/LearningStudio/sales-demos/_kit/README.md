@@ -68,6 +68,45 @@ Change it if you want a different code — just keep the replacement fake.
 Build out only what the demo's click path actually visits. Everything else
 stays a stub so a rep can't wander into an unfinished screen on a live call.
 
+### Seeding an LO from a transcript
+
+A voiceover script is the natural unit a writer hands over, so a course can
+keep its scene text in a **transcript doc** and generate the `course.md`
+block from it. Scene text is then authored once and copied mechanically —
+never retyped, so it can't be silently reworded.
+
+Transcript docs live in `<course>/transcripts/`:
+
+```markdown
+meta:
+  title: The Learning Object's Title
+  objective: What the learner can do afterwards
+
+## scene 1
+image: SomeImage-scene1.png
+duration: 0:24
+
+The scene's transcript, verbatim.
+
+## scene 2
+...
+```
+
+Generate the `course.md` block:
+
+```bash
+node _kit/transcript-to-md.js lockout-tagout/transcripts/conveyor.md --hidden
+```
+
+It prints a `### Learning Object` block with one `#### scene` per scene —
+paste it into `course.md` (or redirect it) and run the build. `--hidden`
+adds `hidden: true`; `--duration 0:20` sets a fallback for scenes that
+don't carry their own.
+
+**Edit the transcript doc, not `course.md`**, then re-run the converter.
+`lockout-tagout/transcripts/machine-specific-conveyor.md` is the worked
+example — it's the LO the AI-generation demo reveals.
+
 ### Hidden objects — for a reveal moment
 
 `hidden: true` on an LO keeps it out of the course overview **and** out of
