@@ -24,6 +24,9 @@
   product). The customer logo docks to the BOTTOM of the nav in a sticky footer zone.
   The review pill is bottom-center in EVERY version now, stacked directly above the Design
   Toolbox comment dock, so the review tooling reads as one column instead of two corners.
+- **V3's launcher** drops pinned / All products for **Your platforms** vs **Other Vector
+  platforms**, where the second group's rows open each platform's sales page (see the
+  section below).
 - **V4**: accordions start CLOSED; Jira-like micro-interactions (quick restrained slide,
   clear active state, subtle hover); an open section stays open until click-away or an
   explicit collapse, never closing on mouse-leave.
@@ -47,7 +50,8 @@ app-switching visibly reconfigures the nav while the shell stays identical:
 
 The full catalog (Check-It, Evaluations, PD Tracking, Pathways, Guardian Tracking, Acadis,
 Frontline Public Safety) sits under "All products"; **ArdentSky Compliance Suite** appears
-unlicensed with a "Learn more" row to show the request-access state.
+unlicensed with a "Learn more" row to show the request-access state. **V3 models this
+differently** (see below): its launcher drops pinning for a licence split.
 
 ## The shared shell contract (identical in all 7 versions)
 
@@ -183,6 +187,29 @@ the current product only, typing live-filters the menu. Per review, the top bar 
   (the expandable Annual Compliance row is itself the active destination); Vector EHS
   shows Inspections → Scheduled inspections → Monthly fire extinguisher check. Depth is
   carried by indentation only and capped at 3.
+
+## V3's launcher: your platforms vs other Vector platforms
+
+V1's launcher separates **pinned** products from an **All products** expansion, which is a
+personalization split. V3 replaces that with a **licence** split, so the panel answers a
+commercial question instead of a preference one:
+
+- **Your platforms** lists what this org actually licenses (Vector LMS, Vector EHS
+  Management, Vector Scheduling, Vector Check-It, Vector Evaluations). Rows open the app,
+  and the current one carries the "Current" tag.
+- **Other Vector platforms** lists what the org could add (PD Tracking, Pathways, Guardian
+  Tracking, Acadis, Frontline Public Safety, ArdentSky Compliance Suite). These rows do NOT
+  open an app: each opens that platform's product/sales page, so the end slot reads
+  "Learn more" and the section header says so outright. They stay quieter than licensed
+  rows (muted chip and name) but hover in the accent, reading as an offer rather than a
+  broken or locked app.
+- No pinning and no All-products expansion: the two sections ARE the boundary, so nothing
+  is hidden behind a disclosure. The cross-product Dashboard still sits above the divider.
+- The panel search filters both sections and hides a section header once nothing under it
+  matches.
+
+This is a V3-only content model right now; the other versions keep the pinned + All-products
+launcher so the two approaches can be compared directly.
 
 ## Shared side-nav interaction spec (V3 + V4)
 
