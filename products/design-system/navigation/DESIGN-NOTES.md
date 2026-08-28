@@ -9,8 +9,9 @@
 - **Distinct Dashboard icon.** The cross-product Dashboard entry now uses a tiles /
   panels glyph (`i-dash`) everywhere (launcher row, Dashboard brand, V3 rail) so it never
   collides with a product Home icon. Still pinned above the switcher divider.
-- **Two ways to close the side nav** (all versions): a close control in the side nav's own
-  top-right corner, plus the top-bar toggle. Either collapses the nav.
+- **Two ways to close the side nav** (all versions): a **double-caret** control in the side
+  nav's own top-right corner, plus the top-bar toggle. Either collapses the nav; the carets
+  point at the edge the nav moves toward and flip where the control stays visible collapsed.
 - **Shared side-nav interaction spec** (V3 + V4): collapsed → hover/peek overlay → pin →
   close, represented as labeled frames via `?state=collapsed|peek|pinned` (see below).
 - **V2b**: the Learning/Admin switch moved INTO the side nav as a segmented control above
@@ -21,7 +22,8 @@
   column instead of floating in the top bar. The rail now PERSISTS when the side nav
   closes, with an explicit minimal state (`?state=bothclosed` = launcher + current
   product). The customer logo docks to the BOTTOM of the nav in a sticky footer zone.
-  The review pill moved to bottom-center in V3 only, since the logo owns the bottom-left.
+  The review pill is bottom-center in EVERY version now, stacked directly above the Design
+  Toolbox comment dock, so the review tooling reads as one column instead of two corners.
 - **V4**: accordions start CLOSED; Jira-like micro-interactions (quick restrained slide,
   clear active state, subtle hover); an open section stays open until click-away or an
   explicit collapse, never closing on mouse-leave.
@@ -53,7 +55,8 @@ unlicensed with a "Learn more" row to show the request-access state.
   location · scoped search (where the version has it) · notifications · help · avatar.
   No + New action. V3 is the exception by design: its full-height rail owns the left
   edge, and its nav toggle tops the side-nav column instead.
-- The side nav ALSO closes from a control in its own top-right corner (every version),
+- The side nav ALSO closes from a double-caret control in its own top-right corner (every
+  version),
   so there are two ways to collapse it. In the V3/V4 interaction frames that same slot
   holds the pin (hover overlay) and swaps to close when docked.
 - One accent token (`--accent`) reserved for active/selection states; everything else grayscale.
@@ -129,7 +132,7 @@ Orgs can surface their own branding at the top of the side nav, above the menu i
 customer logo image (here a placeholder "Northline Utilities" lockup) renders in a bordered
 slot at the top of the nav. It is customer CONTENT, not shell UI, so it is exempt from the
 neutral token palette. Present in every current version (every nav, including the Dashboard pane). Toggle it
-with the **Logo** button in the bottom-left review pill or deep-link the hidden state with
+with the **Logo** button in the bottom-center review pill or deep-link the hidden state with
 `?logo=off`.
 
 ## App switcher, matched to the design system
@@ -200,9 +203,9 @@ sections never auto-collapse on mouse-leave, only on click-away or explicit coll
 
 ## Version switcher (review tooling, not part of the design)
 
-Every version file carries a small dark pill in the **bottom-left corner** (bottom-center in
-V3, whose sticky logo owns the bottom-left): `All` (back to the gallery) followed by V1 to V6,
-with the current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
+Every version file carries a small dark pill at the **bottom center**, stacked just above the
+Design Toolbox comment dock: `All` (back to the gallery) followed by V1 to V6, with the
+current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
 to the gallery each time. The pill also carries review toggles: **Logo** (customer logo slot), **Loc** (location
 picker) and **Tabs** (mode tabs), plus `?logo=off` / `?loc=off` / `?tabs=off` deep links. It is a single self-contained block at the end of each file
 (one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE
