@@ -4,6 +4,10 @@ Live demo builds for sales reps to walk customers through on a call. **These are
 not design mocks** and the repo's normal mock conventions deliberately do not
 apply here.
 
+**Been handed a demo script and need a new link?** Go straight to
+[Guide: building a new demo](#guide-building-a-new-demo). You don't need to
+read the rest first.
+
 ## Rules for this folder
 
 - **No Design Toolbox.** No `designtoolbox/toolbox.js` include, no comment pins,
@@ -59,98 +63,200 @@ Full format and workflow: **`_kit/README.md`**.
 folder — the next build overwrites them. Edit `course.md` for one course,
 or `_kit/` for all of them.
 
-## Spinning off a new course
+## Guide: building a new demo
 
-End-to-end, from nothing to a demo a rep can walk a customer through.
+**For designers.** You've been handed a demo script or a scenario — "show
+a manufacturing customer how a safety course gets built" — and you need a
+link a rep can open on a call. This is the whole process.
 
-### 1. Scaffold
+You do not need to know JavaScript. You'll write one text file and run two
+commands. Everything else is generated.
+
+**One prerequisite:** the commands need [Node.js](https://nodejs.org)
+installed. Check by running `node --version` in a terminal — any version
+number means you're set. If it says "command not found", install the LTS
+build from nodejs.org first; nothing else here works without it.
+
+> **This is a build-time process, not something a rep ever sees.** Nobody
+> demos "creating a course." You author a course that *looks* finished, and
+> the rep walks a customer through the parts you decided to build.
+
+### Before you start: read the script and answer three questions
+
+Everything downstream follows from these. Answer them first — reworking
+later means rewriting content.
+
+**1. What does the rep actually click?**
+
+This is the single most important decision. You build **only** that path.
+Every other lesson stays plain text that goes nowhere. That's deliberate:
+if everything were clickable, a rep who wandered off-script would land on
+an empty screen in front of a customer.
+
+Write the path down before you build. For example:
+
+> Course overview → open *Lockout Hardware* → view its scenes → back →
+> generate a new lesson in section 3
+
+**2. What is the course, on paper?**
+
+Sections and lesson titles, in order, with a duration for each. It should
+read like a real course a customer might buy — a page of two lessons looks
+like a prototype, not a product. Placeholder titles are fine; thin
+structure isn't.
+
+**3. Which feature is this demo showing off?**
+
+New demos usually exist to showcase something. Today two behaviours are
+available beyond browsing:
+
+- **Opening a lesson** and stepping through its scenes, transcript and
+  media.
+- **Simulating AI generating a new lesson** — the rep types a prompt,
+  optionally uploads a document, watches a progress state, and lands in a
+  finished lesson that appears in the course.
+
+If your script needs a behaviour that doesn't exist yet, that's a build
+change, not a content change — talk to whoever owns the kit before
+promising it.
+
+### Step 1 — Create the course folder
+
+In a terminal:
 
 ```bash
 cd products/LearningStudio/sales-demos
-node _kit/new-course.js forklift-safety      # lowercase-with-hyphens
+node _kit/new-course.js forklift-safety
 ```
 
-You get a working demo immediately — starter `course.md`, `assets/`,
-`transcripts/`, and a build. Open `forklift-safety/index.html` to confirm
-before writing anything.
+Use `lowercase-with-hyphens`; that name becomes the URL.
 
-The starter includes one clickable LO, one stub, and one **hidden** LO
-wired to the AI-generation flow, so every mechanic is visible from the
-first run. Delete what the course doesn't need.
+This creates a **working demo straight away**, with example content in
+place. Open `forklift-safety/index.html` in a browser and click around —
+that's your starting point, and it already shows every mechanic you can
+use: a clickable lesson, a plain-text one, and a hidden one wired to the
+generation flow.
 
-### 2. Write the course
+### Step 2 — Write the course content
 
-Everything comes from `forklift-safety/course.md` — sections, learning
-objects, durations, scenes. Format and every option: **`_kit/README.md`**.
+Open `forklift-safety/course.md`. This is **the only file you write.** It's
+plain text, and the starter file explains the format inline. Full
+reference: **`_kit/README.md`**.
 
-Two rules that shape the whole demo:
+The shape:
 
-- **Only build what the click path visits.** An LO with `#### scene`
-  blocks is clickable; one without is a stub. Stubs stop a rep
-  dead-ending on an unfinished screen mid-call.
-- **Never hand-total a duration.** Author them on leaves only; sections
-  and the course roll up automatically.
+```markdown
+## Section Title
 
-### 3. Add scene images
+### A Lesson The Rep Opens
+objective: What the learner can do afterwards
 
-Drop them in `forklift-safety/assets/` and reference them by filename.
-**Filenames must match exactly, extension included** — a mismatch shows the
-empty media slot and prints a build warning rather than failing loudly.
+#### scene 1 | 0:20 | some-image.png
+What the narrator says over this scene.
 
-### 4. Optional: seed an LO from a voiceover script
+#### scene 2 | 0:15 | another-image.png
+The next scene's narration.
 
-If you have narration text, keep it in `transcripts/` and generate the
-`course.md` block from it, so scene text is authored once and never
-retyped:
+### A Lesson That's Just Listed
+objective: No scenes, so this one isn't clickable
+duration: 1:30
+```
+
+The rule that matters: **a lesson with `#### scene` blocks is clickable; a
+lesson without them is not.** That's how you control the click path from
+step 1 — build scenes only for the lessons the rep opens, and let
+everything else fill out the course.
+
+Don't add up durations yourself. Write them on individual lessons and
+scenes; section and course totals are calculated for you.
+
+### Step 3 — Add your images
+
+Drop scene images into `forklift-safety/assets/`, then reference them by
+filename in `course.md`.
+
+**Filenames must match exactly, including the extension.** A typo doesn't
+throw an error — it shows an empty media box and prints a warning in the
+build output, which is easy to miss.
+
+### Step 4 — If your demo includes AI generation
+
+Skip this if your script doesn't need it.
+
+To let the rep simulate generating a lesson:
+
+1. Author the lesson **completely** — scenes, narration, images.
+2. Add `hidden: true` under its title.
+3. Put it **last in its section**, so it looks newly created when it
+   appears.
+
+That's all. On the call: Add Learning Object → AI Generation → type
+anything → Generate Transcript → a progress state → the lesson opens, and
+it's now in the course.
+
+The flow finds the first hidden lesson in whichever section the rep clicked
+from. Nothing is hard-coded, so you control it entirely from `course.md`.
+A section with no hidden lesson just closes the dialog.
+
+**Long narration?** If you were given a voiceover script, keep it in
+`transcripts/` and convert it instead of retyping — it also estimates scene
+durations from word count:
 
 ```bash
 node _kit/transcript-to-md.js forklift-safety/transcripts/intro.md --hidden
 ```
 
-Scene durations are estimated from word count when not authored. See
-`_kit/README.md` → "Seeding an LO from a transcript".
+Paste the output into `course.md`. See `_kit/README.md` → "Seeding an LO
+from a transcript". `lockout-tagout/transcripts/` has a worked example.
 
-### 5. Optional: wire the AI-generation demo
-
-To let a rep simulate generating a lesson: author the LO in full, mark it
-`hidden: true`, and place it **last in its section** so it reads as newly
-created. Then Add Learning Object → AI Generation → Generate Transcript
-reveals it and opens it.
-
-The reveal targets the first hidden object in the clicked section, so
-nothing is hard-coded. A section with no hidden LO closes the modal and
-does nothing.
-
-### 6. Rebuild and verify
+### Step 5 — Rebuild after every change
 
 ```bash
 node _kit/build-course.js forklift-safety
 ```
 
-Run this after **every** `course.md` edit, and after any `_kit/` change
-that should reach existing courses. The report is the first check — object
-counts, totals, hidden objects, and missing images.
+**Editing `course.md` changes nothing until you run this.** The output is
+your first check — lesson counts, durations, and any missing images.
 
-Then open `index.html` and click the actual path a rep will take.
+### Step 6 — Click the demo before you share it
 
-### 7. Commit
+Open `forklift-safety/index.html` and walk the exact path from question 1,
+the way a rep would. Confirm:
 
-Commit the whole course folder including the generated files — demos are
-served straight from the repo, so what's committed is what a rep sees.
+- Every lesson the script opens actually opens
+- Images appear (no empty media boxes)
+- Durations look sensible
+- If you wired generation: it runs and the new lesson appears last
 
-### Gotchas
+### Step 7 — Commit and share
 
-- **Edit `course.md` or `_kit/`, never a course's generated files.**
-  `index.html`, `object-manager.html`, `demo.css` and `course-data.js` are
-  overwritten on the next build. This is the single easiest mistake to
-  make — the edit works until it silently vanishes.
-- **A `_kit/` change reaches other courses only when they're rebuilt.** Run
-  `--all` after editing the shared UI.
-- **`generate-img-sample.png` is kit-owned**, copied into every course's
-  `assets/` on build. Don't author a scene image with that name.
-- **Nothing persists.** State is in-memory, so a refresh resets the demo to
-  its authored state. Fine for a scripted walkthrough; a rep can't reload
-  after generating.
+Commit the **whole course folder**, generated files included — demos are
+served straight from the repo, so what you commit is what the rep sees.
+Once pushed to `main`, the link is live:
+
+```
+https://vectorlearning.github.io/ux-mockups/products/LearningStudio/sales-demos/forklift-safety/index.html
+```
+
+Give GitHub Pages a minute, then open that URL yourself before sending it
+on.
+
+### Things that will trip you up
+
+- **Never edit `index.html`, `object-manager.html`, `demo.css` or
+  `course-data.js` inside a course folder.** They're regenerated from
+  `_kit/` on every build, so your change works right up until it silently
+  disappears. Edit `course.md` for one course, or `_kit/` for all of them.
+- **Changing the shared UI in `_kit/` doesn't reach existing courses until
+  you rebuild them.** Run `node _kit/build-course.js --all`.
+- **`generate-img-sample.png` is owned by the kit** and copied into every
+  course. Don't name one of your scene images that.
+- **Nothing is saved.** Refreshing resets the demo to its authored state —
+  fine for a scripted walkthrough, but a rep can't reload after generating
+  a lesson and still see it.
+- **Every lesson looks clickable, but only the ones you built respond.**
+  Clicking a plain lesson does nothing at all — no error, no feedback. Tell
+  the rep which lessons are live.
 
 ## Path depth
 
