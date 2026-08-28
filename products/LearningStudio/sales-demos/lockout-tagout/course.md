@@ -140,6 +140,26 @@ The incoming authorized employee must place their own lock on the hasp
 #### scene 5 | 0:04 | LockoutHardware-scene5.png
 before the outgoing authorized employee removes theirs.
 
+### Lockout Administration
+objective: Explain how written lockout procedures are documented, reviewed, and audited to meet program requirements
+state: not-started
+duration: 1:20
+
+### Group Lockout
+objective: Apply group lockout procedures so that every authorized employee retains individual control over their own energy isolation
+state: not-started
+duration: 1:15
+
+### Lockout Release
+objective: Perform the steps required to release equipment from lockout, including verification, notification, and restoring energy safely
+state: not-started
+duration: 0:50
+
+### Removal of an Absent Employee's Lockout Device
+objective: Describe the specific conditions and approvals required before another employee's lockout device may be removed in their absence
+state: not-started
+duration: 1:00
+
 <!-- The AI-generation demo reveals this LO. It is authored in full but
      hidden: true keeps it out of the overview until the rep clicks
      Generate Transcript. Scene text is generated from
@@ -203,25 +223,7 @@ The seven-step sequence, preparation, shutdown, isolation, lockout, stored energ
 
 #### scene 18 | 0:26 | NewLO-scene18-img.png
 The next time you approach a conveyor for maintenance, remember that your machine-specific procedure isn't just paperwork. It's a detailed map of every hazard on that equipment and the exact steps to control them. Follow it every time, verify every step, and you'll complete your work safely and return the conveyor to service with confidence.
-### Lockout Administration
-objective: Explain how written lockout procedures are documented, reviewed, and audited to meet program requirements
-state: not-started
-duration: 1:20
 
-### Group Lockout
-objective: Apply group lockout procedures so that every authorized employee retains individual control over their own energy isolation
-state: not-started
-duration: 1:15
-
-### Lockout Release
-objective: Perform the steps required to release equipment from lockout, including verification, notification, and restoring energy safely
-state: not-started
-duration: 0:50
-
-### Removal of an Absent Employee's Lockout Device
-objective: Describe the specific conditions and approvals required before another employee's lockout device may be removed in their absence
-state: not-started
-duration: 1:00
 
 
 ## Lockout/Tagout Case Study

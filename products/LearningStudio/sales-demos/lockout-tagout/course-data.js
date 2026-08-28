@@ -201,6 +201,50 @@ const COURSE = {
         },
         {
           "id": "s03-o04",
+          "name": "Lockout Administration",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Explain how written lockout procedures are documented, reviewed, and audited to meet program requirements",
+          "dur": 80,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 3
+        },
+        {
+          "id": "s03-o05",
+          "name": "Group Lockout",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Apply group lockout procedures so that every authorized employee retains individual control over their own energy isolation",
+          "dur": 75,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 4
+        },
+        {
+          "id": "s03-o06",
+          "name": "Lockout Release",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Perform the steps required to release equipment from lockout, including verification, notification, and restoring energy safely",
+          "dur": 50,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 5
+        },
+        {
+          "id": "s03-o07",
+          "name": "Removal of an Absent Employee's Lockout Device",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Describe the specific conditions and approvals required before another employee's lockout device may be removed in their absence",
+          "dur": 60,
+          "scenes": [],
+          "opensManager": false,
+          "numbered": 6
+        },
+        {
+          "id": "s03-o08",
           "name": "Conveyor Belt Lockout/Tagout Procedure",
           "type": "lesson",
           "state": "not-started",
@@ -300,50 +344,6 @@ const COURSE = {
           ],
           "hidden": true,
           "opensManager": true,
-          "numbered": 3
-        },
-        {
-          "id": "s03-o05",
-          "name": "Lockout Administration",
-          "type": "lesson",
-          "state": "not-started",
-          "objective": "Explain how written lockout procedures are documented, reviewed, and audited to meet program requirements",
-          "dur": 80,
-          "scenes": [],
-          "opensManager": false,
-          "numbered": 4
-        },
-        {
-          "id": "s03-o06",
-          "name": "Group Lockout",
-          "type": "lesson",
-          "state": "not-started",
-          "objective": "Apply group lockout procedures so that every authorized employee retains individual control over their own energy isolation",
-          "dur": 75,
-          "scenes": [],
-          "opensManager": false,
-          "numbered": 5
-        },
-        {
-          "id": "s03-o07",
-          "name": "Lockout Release",
-          "type": "lesson",
-          "state": "not-started",
-          "objective": "Perform the steps required to release equipment from lockout, including verification, notification, and restoring energy safely",
-          "dur": 50,
-          "scenes": [],
-          "opensManager": false,
-          "numbered": 6
-        },
-        {
-          "id": "s03-o08",
-          "name": "Removal of an Absent Employee's Lockout Device",
-          "type": "lesson",
-          "state": "not-started",
-          "objective": "Describe the specific conditions and approvals required before another employee's lockout device may be removed in their absence",
-          "dur": 60,
-          "scenes": [],
-          "opensManager": false,
           "numbered": 7
         }
       ]
