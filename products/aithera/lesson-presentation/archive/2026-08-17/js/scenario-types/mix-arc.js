@@ -960,11 +960,18 @@ ${groundLines.join('\n')}`);
       if (t === 'roleplay') {
         const c = obj(b.character);
         const who = fill(c.name || b.counterpart || '', s) || 'the character';
+        const min = Math.max(0, b.minTurns || 0);
+        const countPhrase = (min >= cap) ? `exactly ${cap} learner action${cap === 1 ? '' : 's'}`
+          : min > 0 ? `${min}–${cap} learner actions` : `up to ${cap} learner actions`;
+        const minRule = min > 0
+          ? ` NEVER close the beat before the state line shows ${min} learner action${min === 1 ? '' : 's'} used — before that, however strong or weak the learner's move, reply with scene beats only and "action":"continue".`
+          : '';
         arcParts.push(
-`BEAT ${i + 1} · ${label} (${fill(b.level || '', s)}) — LIVE SCENE, opposite ${who}, up to ${cap} learner actions:
+`BEAT ${i + 1} · ${label} (${fill(b.level || '', s)}) — LIVE SCENE, opposite ${who}, ${countPhrase}:
 - The app has already shown the locked scene open. On each learner move that leaves the beat unfinished, reply with SCENE beats only (mode:"scene") and set "action":"continue". ${fill(b.reactionGuidance || 'React in-world to what they actually did; keep the moment recoverable.', s)}
-- The beat is DONE when ${fill(b.exitCriteria || 'the learner has handled the moment', s)} — or when the state line says the cap is reached.
-${closer.replace('FIRST coaching bubble', 'FIRST — emit 1-2 scene beats that settle the moment, THEN step back to coaching (mode:"coaching"). Your first coaching bubble')}`);
+- A PASSIVE move — staying silent, looking away, walking off, refusing to engage ("not my place", "I don't want to get involved") — is NOT a non-answer: it IS the learner's action. Narrate its calibrated outcome in-world (silence has consequences) and continue the scene with "action":"continue". Never set "action":"redirect" for a passive choice, and never pull the learner out to coaching for it.
+- The beat is DONE when ${fill(b.exitCriteria || 'the learner has handled the moment', s)} — or when the state line says the cap is reached.${minRule}
+${closer.replace('FIRST coaching bubble', 'FIRST — emit 1-2 scene beats that settle the moment, THEN step back to coaching (mode:"coaching"). Your first coaching bubble')} Debrief ONLY what actually happened in this scene — never invent, assume, or reference a move, reply, or exchange the learner didn't make.`);
       } else if (t === 'observe') {
         const m = obj(b.media);
         const segs = arr(m.segments).filter((sc) => sc && (str(sc.src).trim() || str(sc.caption).trim() || str(sc.label).trim()));
@@ -1065,6 +1072,10 @@ ${closer}`);
       level: str(b.level),
       type,
       maxTurns: Number.isFinite(b.maxTurns) ? Math.max(1, b.maxTurns) : 3,
+      // OPTIONAL floor (default 0 = none): the runtime refuses a teach/debrief
+      // before this many learner turns are spent. Guided Arc's action console
+      // sets it to its actionCount ("exactly TWO actions") via toMixArc.
+      minTurns: Number.isFinite(b.minTurns) ? Math.max(0, b.minTurns) : 0,
       entry: {
         bridge: str(e.bridge), signpost: str(e.signpost), prompt: str(e.prompt),
         beats: arr(e.beats).map(SBEAT), cta: str(e.cta),
