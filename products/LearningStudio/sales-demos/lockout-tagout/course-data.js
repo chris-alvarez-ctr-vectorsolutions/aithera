@@ -242,6 +242,109 @@ const COURSE = {
           "scenes": [],
           "opensManager": false,
           "numbered": 6
+        },
+        {
+          "id": "s03-o08",
+          "name": "Conveyor Belt Lockout/Tagout Procedure",
+          "type": "lesson",
+          "state": "not-started",
+          "objective": "Apply the facility's machine-specific conveyor lockout/tagout procedure following the correct sequence for preparation, shutdown, isolation, verification, and restoration",
+          "dur": 489,
+          "scenes": [
+            {
+              "dur": 28,
+              "image": "NewLO-scene1-img.png",
+              "transcript": "You're standing at a conveyor that needs maintenance. Before you touch anything, can you name all seven energy sources that might be hiding in that seemingly simple belt system? Most authorized employees can spot the obvious electrical disconnect, but conveyors often conceal mechanical tension, stored pneumatic pressure, and gravitational hazards that can injure or kill if not properly controlled."
+            },
+            {
+              "dur": 21,
+              "image": "NewLO-scene2-img.png",
+              "transcript": "This is why your facility has a machine-specific lockout/tagout procedure for each conveyor. Unlike a general guideline, your conveyor procedure identifies every energy source on that exact piece of equipment and walks you through the precise sequence to isolate, verify, and restore it safely."
+            },
+            {
+              "dur": 27,
+              "image": "NewLO-scene3-img.png",
+              "transcript": "Before you flip any switches or hang any locks, preparation comes first. Confirm the conveyor line has been cleared of product and materials. Then notify all affected employees, those upstream and downstream operators who depend on this conveyor running. They need to know the equipment is going down and approximately how long it will be out of service."
+            },
+            {
+              "dur": 27,
+              "image": "NewLO-scene4-img.png",
+              "transcript": "Once notifications are complete, identify the specific conveyor you're locking out and locate every isolation point. This typically includes the motor disconnect switch, the control panel breaker, any mechanical blocking devices for the take-up carriage, belt chocks or clamps if it's an incline section, and the pneumatic supply valve if the conveyor has a diverter mechanism."
+            },
+            {
+              "dur": 36,
+              "image": "NewLO-scene5-img.png",
+              "transcript": "When you're ready to shut down the conveyor, here's a critical point many people miss. You must stop the conveyor using the local E-stop button or the control station stop button. Never de-energize the disconnect switch while the belt is still running. That creates an uncontrolled stop that can damage equipment and create unexpected hazards. After you hit the stop button, the belt and all rotating components must come to a complete stop before you move to isolation."
+            },
+            {
+              "dur": 41,
+              "image": "NewLO-scene6-img.png",
+              "transcript": "The isolation sequence follows a specific order for a reason. Start with the motor disconnect switch and place it in the off position. Next, open the control panel breaker. Now address the mechanical stored energy. Insert the mechanical block or pin into the belt take-up carriage to prevent it from moving under tension. If your conveyor runs on an incline, apply the belt chock or clamp to keep the belt from sliding downhill under gravity. Finally, if the conveyor has a pneumatic diverter, close and lock the pneumatic supply valve."
+            },
+            {
+              "dur": 22,
+              "image": "NewLO-scene7-img.png",
+              "transcript": "At each isolation point, apply your personal lockout device and tag. Your tag must identify three things: your name, the date, and the reason for the lockout. If something goes wrong or someone needs to know who's working on the equipment, that tag provides critical information."
+            },
+            {
+              "dur": 20,
+              "image": "NewLO-scene8-img.png",
+              "transcript": "With all isolation devices locked and tagged, verify zero energy state. Attempt to start the conveyor from both the local control station and the main panel to confirm it does not run. If it starts, you missed an isolation point."
+            },
+            {
+              "dur": 30,
+              "image": "NewLO-scene9-img.png",
+              "transcript": "Manual verification comes next. Attempt to move the belt by hand, staying within safe reach without crossing any guards. The belt should not move. Try to shift the take-up carriage manually. It should be locked solid by your mechanical block or pin. If your conveyor has pneumatics, check the pressure gauge at the diverter. It must show zero psi after you've locked the valve."
+            },
+            {
+              "dur": 12,
+              "image": "NewLO-scene10-img.png",
+              "transcript": "Only after all verification steps confirm zero energy can you remove guards or access pinch points and nip points around pulleys and rollers."
+            },
+            {
+              "dur": 23,
+              "image": "NewLO-scene11-img.png",
+              "transcript": "When your work is complete, restoring the conveyor requires just as much care as locking it out. Clear all tools, materials, and personnel from the conveyor. Check the take-up frame area and any incline sections where someone might be working out of your direct line of sight."
+            },
+            {
+              "dur": 39,
+              "image": "NewLO-scene12-img.png",
+              "transcript": "Remove your lockout devices in reverse order from how you applied them. Start with the belt chock or clamp if you used one. Remove the mechanical block or pin from the take-up carriage. If you locked out a pneumatic valve, remove your lock and tag, then open the valve and confirm pressure returns. Remove your lock and tag from the control panel breaker and close it. Finally, remove your lock and tag from the motor disconnect switch and close it to re-energize the conveyor."
+            },
+            {
+              "dur": 30,
+              "image": "NewLO-scene13-img.png",
+              "transcript": "Before you restart normal operations, notify the affected employees you contacted at the beginning. Then run a test cycle. Start the conveyor using the normal controls and observe it through a complete cycle to make sure everything operates correctly. Watch for unusual noises, vibrations, or any indication that something isn't right. Only after the test cycle confirms proper operation should you resume normal production."
+            },
+            {
+              "dur": 23,
+              "image": "NewLO-scene14-img.png",
+              "transcript": "Your facility's machine-specific procedure captures all of these steps in written form and should be posted at or near the conveyor for your reference. That procedure has been reviewed and signed off by both EHS or Safety and the equipment owner before it was released for use."
+            },
+            {
+              "dur": 31,
+              "image": "NewLO-scene15-img.png",
+              "transcript": "What makes this procedure different from a general guideline is specificity. It names the exact disconnect switch, the exact breaker number, the specific location of the take-up pin, and the precise pneumatic valve you need to isolate. It accounts for the unique hazards of that particular conveyor, whether that's belt tension stored in the take-up system, gravity loads on an incline, or pneumatic pressure in a diverter."
+            },
+            {
+              "dur": 28,
+              "image": "NewLO-scene16-img.png",
+              "transcript": "As an authorized employee, you're trained to recognize hazardous energy, understand the type and magnitude of energy present, and know the methods used to isolate and control it. OSHA requires employers to establish an energy control program and use procedures that prevent unexpected energization, startup, or release of stored energy. Your conveyor procedure fulfills that requirement at the equipment level."
+            },
+            {
+              "dur": 25,
+              "image": "NewLO-scene17-img.png",
+              "transcript": "The seven-step sequence, preparation, shutdown, isolation, lockout, stored energy check, verification, and release, forms the backbone of every safe lockout/tagout operation. When you apply these steps using your facility's machine-specific conveyor procedure, you're controlling all the hazardous energy types that could injure you: electrical, mechanical, pneumatic, hydraulic, thermal, chemical, and stored energy sources."
+            },
+            {
+              "dur": 26,
+              "image": "NewLO-scene18-img.png",
+              "transcript": "The next time you approach a conveyor for maintenance, remember that your machine-specific procedure isn't just paperwork. It's a detailed map of every hazard on that equipment and the exact steps to control them. Follow it every time, verify every step, and you'll complete your work safely and return the conveyor to service with confidence."
+            }
+          ],
+          "hidden": true,
+          "opensManager": true,
+          "numbered": 7
         }
       ]
     },

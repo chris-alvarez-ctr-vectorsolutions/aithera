@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learners — Vector Training Reporting</title>
+
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="reporting.css?v=3" />
+</head>
+<body>
+
+    <header class="rp-head rp-head--tabs">
+        <div class="rp-brand">
+            <i class="fa-solid fa-layer-group"></i> Vector Training <small>· Reporting</small>
+            <a class="hub-link" href="index.html"><i class="fa-solid fa-arrow-left"></i>CLARA end-to-end hub</a>
+        </div>
+        <div class="rp-head-row">
+            <h1>Learners</h1>
+            <div class="rp-head-meta">
+                <span class="rp-chip"><i class="fa-solid fa-building"></i> Acme Manufacturing</span>
+                <span class="rp-chip"><i class="fa-solid fa-users"></i> Plant Operations · 128</span>
+            </div>
+        </div>
+        <nav class="rp-nav" aria-label="Reporting sections">
+            <a href="reporting.html" data-nav="overview">Overview</a>
+            <a href="courses.html" data-nav="courses">Courses</a>
+            <a href="learners.html" data-nav="learners">Learners</a>
+        </nav>
+    </header>
+
+    <main class="rp-main">
+        <section class="rp-card" aria-label="Learners">
+            <div class="chips-row" id="filterChips" role="group" aria-label="Filter by status"></div>
+            <div class="table-scroll">
+                <table class="rp-table">
+                    <thead><tr>
+                        <th>Learner</th>
+                        <th>Courses</th>
+                        <th title="Bystander Intervention — Knowledge · Attitudes &amp; beliefs · Social norms · Behavioral skills · Perceived control">Constructs</th>
+                        <th class="td-center">Momentum</th>
+                        <th>Path</th>
+                        <th>Competency</th>
+                    </tr></thead>
+                    <tbody id="learnerRows"></tbody>
+                </table>
+            </div>
+        </section>
+        <p class="rp-footline"><i class="fa-solid fa-fingerprint"></i> Showing the demo roster (12 of 128) · construct dots read Knowledge → Perceived control · representative data</p>
+    </main>
+
+    <script src="reporting-ui.js?v=1"></script>
+    <script>
+      (function () {
+        var R = window.ClaraReporting;
+        R.nav('learners');
+
+        var FILTERS = [
+          { key: 'all',        label: 'All',            test: function () { return true; } },
+          { key: 'demo',       label: 'Demonstrated',   test: function (l) { return l.status === 'demo'; } },
+          { key: 'followup',   label: 'Follow-up',      test: function (l) { return l.status === 'followup'; } },
+          { key: 'inflight',   label: 'Not finished',   test: function (l) { return l.status === 'progress' || l.status === 'notstarted'; } }
+        ];
+        var active = 'all';
+        var chips = document.getElementById('filterChips');
+        var body = document.getElementById('learnerRows');
+
+        function render() {
+          var f = FILTERS.find(function (x) { return x.key === active; });
+          chips.innerHTML = FILTERS.map(function (x) {
+            var n = R.LEARNERS.filter(x.test).length;
+            return '<button class="fchip' + (x.key === active ? ' active' : '') + '" data-f="' + x.key + '">' +
+                   x.label + '<small>' + n + '</small></button>';
+          }).join('');
+          body.innerHTML = R.LEARNERS.filter(f.test)
+            .map(function (l) { return R.learnerRowHTML(l, false); }).join('');
+          R.wireRowLinks(body);
+          chips.querySelectorAll('.fchip').forEach(function (b) {
+            b.addEventListener('click', function () { active = b.dataset.f; render(); });
+          });
+        }
+        render();
+      })();
+    </script>
+</body>
+</html>

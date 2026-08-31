@@ -24,6 +24,13 @@ const KIT = __dirname;
 const ROOT = path.dirname(KIT);
 const KIT_FILES = ['index.html', 'object-manager.html', 'demo.css'];
 
+/* Assets the shared UI itself references, copied into every course's
+   assets/. These are NOT course content — they belong to the object
+   manager, which loads them from `assets/` relative to the course folder.
+   Without this a new course shows a BROKEN IMAGE when a rep generates
+   media, since only lockout-tagout happened to have the file. */
+const KIT_ASSETS = ['generate-img-sample.png'];
+
 function fmtMSS(t) {
   return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
 }
@@ -141,7 +148,16 @@ function findObject(course, objectId) {
     fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
   }
 
-  console.log(`    ✓ course-data.js + ${KIT_FILES.length} kit files\n`);
+  // Assets the shared UI needs. Copied every build so a course can't drift
+  // from the kit, and never overwriting course content (these filenames are
+  // kit-owned — don't author a scene image with the same name).
+  KIT_ASSETS.forEach(f => {
+    const src = path.join(KIT, 'assets', f);
+    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dir, 'assets', f));
+  });
+
+  console.log(`    ✓ course-data.js + ${KIT_FILES.length} kit files + ` +
+              `${KIT_ASSETS.length} kit asset${KIT_ASSETS.length === 1 ? '' : 's'}\n`);
   return true;
 }
 
