@@ -1,0 +1,3480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check It — Checklist Management</title>
+
+<!--
+  CHECKLIST MANAGEMENT — retrofit of the Checklist Sandbox into the shipped
+  Check It shell.
+  ---------------------------------------------------------------------------
+  WHAT THIS IS
+  The sandbox (products/check-it/sandbox/) proved out a checklist authoring +
+  deployment model, but it did so on an old library (core v1.5.1 / themes
+  v1.1.1), dark-by-default, with the layout, tables, tabs, chips and dialogs all
+  hand-built and thousands of literal hex colors inlined in JS template strings.
+  This file re-establishes those same features on the CURRENT library
+  (core v1.22.3 / themes v1.9.3) inside the legacy Check It chrome that the
+  Controlled Substances work established.
+
+  THE SPLIT (same convention as Controlled-substances and the other
+  embedded-shell mocks in this repo)
+    * The chrome — navy top bar, white left rail — is a RECREATION of the
+      shipped product. It is deliberately plain HTML/CSS: a developer is not
+      rebuilding it, so there is nothing to gain from componentizing it.
+      Copied from Controlled-substances/ver1 so the two mocks read as one
+      product. Only the ACTIVE nav item moved (Checklist Library).
+    * The content window is the new design, and that is where the design system
+      does the work. Deliberate component choices, rather than the sandbox's
+      hand-rolled equivalents:
+        vaadin-tabs / vaadin-tab ....... surface tabs        (was .editor-tabs)
+        vaadin-grid + columns .......... every table         (was .fleet-list-wrap etc.)
+        vaadin-text-field theme=outlined  search             (was a fake div)
+        vaadin-combo-box / -select ..... filters, pickers    (was native <select>)
+        vaadin-multi-select-combo-box .. faceted filters
+        vaadin-checkbox ................ row selection       (was <input type=checkbox>)
+        vaadin-dialog .................. modals              (was .vp-overlay divs)
+        vaadin-details ................. sections/accordions
+        vwc-switch ..................... boolean settings
+        vwc-stepper / -stepper-step .... builder progress
+        span theme="badge …" ........... every status pill   (was .cs-pill / .chip)
+        vaadin-progress-bar ............ completion meters
+        vaadin-button theme=… .......... all actions
+    * Colors come from --lumo-* semantic tokens. No dark theme: the shipped
+      product is light, so the sandbox's glass/dark aesthetic is dropped rather
+      than ported.
+
+  VOCABULARY NOTE — the sandbox carries TWO type systems and it matters here.
+  Authoring exposes 5 response types (passfail, text, numeric, single, multi).
+  The runtime renders 14 kinds (check, yes-no, numeric, text, long-text, select,
+  multi-select, count, signature, date, datetime, info, acknowledge, cs-count).
+  sandbox-compile.js maps the former onto the latter. This mock authors in the
+  5 and shows the mapped runtime kind, so the seam stays visible to dev.
+
+  Single page, JS view switching. `data-view` on .cm-main picks the surface.
+-->
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 PRO — self-hosted at the repo root, four levels up. -->
+<link
+rel="stylesheet"
+href="../../../../assets/fontawesome/css/all.min.css"
+/>
+
+<style>
+  /* ====================================================================
+     SHELL TOKENS — sampled from the shipped Vector Check It product.
+     Prefixed --ci- so they never collide with Vector's --lumo-/--vwc- tokens.
+     Copied verbatim from Controlled-substances/ver1 so both mocks share one
+     chrome. Do not re-tune these here.
+     ==================================================================== */
+  :root {
+    --ci-topbar-bg:  #1b3b5f;
+    --ci-surface:    #ffffff;
+    --ci-hairline:   #dcdcdc;
+    --ci-ink-900:    #2f2f2f;
+    --ci-ink-700:    #444444;
+    --ci-ink-500:    #6b6b6b;
+    --ci-navy:       #16416b;
+    --ci-nav-active: #e4e4e4;
+    --ci-alert-bg:   #fdeaea;
+    --ci-alert-fg:   #d32f2f;
+    --ci-sidebar-w:  233px;
+    --ci-topbar-h:   70px;
+
+    /* Content-window tokens. Solid hexes, not --lumo-contrast-Npct: those are
+       translucent rgba overlays, so sticky bars built on them let scrolling
+       content show through. These approximate 5pct/10pct opaquely. */
+    --cm-page-bg:    #f5f7f9;
+    --cm-card-bg:    #ffffff;
+    --cm-line:       #e3e7ec;
+    --cm-line-soft:  #eef1f4;
+    --cm-zebra:      #f8fafb;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--ci-ink-900);
+    background: var(--ci-surface);
+  }
+
+  /* Focus ring for the hand-built shell and the plain buttons/rows in the
+     content window.
+
+     Deliberately NOT a bare `:focus-visible`. Vector components render a real
+     <input> in light DOM, so an unscoped rule reaches inside them and draws a
+     second, square ring outside the component's own focus treatment — which
+     reads as a broken permanent blue outline on the search fields. Vector
+     components ship their own focus styling (tunable via
+     --vwc-focus-ring-color-override), so they are excluded here. */
+  a:focus-visible,
+  button:focus-visible,
+  [tabindex]:focus-visible,
+  input:not([slot]):focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #4a90d9; outline-offset: 2px;
+  }
+
+  /* The `* { box-sizing: border-box }` above zeroes vaadin-tab's host padding
+     and collapses the tab bar. Re-grant it. */
+  vaadin-tab { padding: 8px 16px; }
+
+  /* ====================================================================
+     APP FRAME — fixed viewport so only the content column scrolls.
+     ==================================================================== */
+  .ci-app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---------------------------- TOP BAR ---------------------------- */
+  .ci-topbar {
+    height: var(--ci-topbar-h); flex-shrink: 0;
+    background: var(--ci-topbar-bg); color: #fff;
+    display: flex; align-items: center; padding: 0 22px;
+  }
+  .ci-logo { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .ci-logo-lockup { height: 30px; width: auto; display: block; }
+  .ci-logo-sub { margin-left: 34px; font-size: 9.5px; color: #b6c6d6; letter-spacing: .4px; }
+
+  .ci-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .ci-avatar {
+    width: 42px; height: 42px; border-radius: 50%; background: #22b14c;
+    display: grid; place-items: center; font-size: 18px; color: #0d5c25;
+    border: 2px solid #d6f0dd; flex-shrink: 0;
+  }
+  .ci-username { font-size: 16px; color: #fff; white-space: nowrap; }
+
+  /* ---------------------------- SIDEBAR ---------------------------- */
+  .ci-body { flex: 1; display: flex; min-height: 0; }
+  .ci-sidebar {
+    width: var(--ci-sidebar-w); flex-shrink: 0;
+    background: var(--ci-surface); border-right: 1px solid var(--ci-hairline);
+    display: flex; flex-direction: column;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .ci-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+  .ci-search { padding: 14px 12px 10px; }
+  .ci-search .box {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #b9b9b9; border-radius: 6px; padding: 8px 10px;
+    font-size: 13px; color: var(--ci-ink-700);
+  }
+  .ci-search .box span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ci-search .box i { color: var(--ci-ink-900); font-size: 14px; }
+
+  .ci-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 24px; }
+  .ci-nav-item {
+    width: 100%; border: 0; background: transparent; font: inherit; font-size: 14.5px;
+    color: var(--ci-ink-900); text-align: left;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px; border-radius: 6px; cursor: default;
+  }
+  .ci-nav-item .ci-nav-icon { width: 22px; font-size: 17px; text-align: center; flex-shrink: 0; }
+  .ci-nav-item .ci-nav-label { flex: 1; line-height: 1.25; }
+  .ci-nav-item .ci-nav-caret { font-size: 12px; color: var(--ci-ink-500); flex-shrink: 0; }
+  .ci-nav-item[aria-current="page"] { background: var(--ci-nav-active); font-weight: 600; }
+  .ci-nav-item.is-alert { background: var(--ci-alert-bg); color: var(--ci-alert-fg); }
+  .ci-nav-item.is-alert .ci-nav-icon,
+  .ci-nav-item.is-alert .ci-nav-caret { color: var(--ci-alert-fg); }
+
+  /* ====================================================================
+     CONTENT WINDOW — everything below here is the NEW design.
+     ==================================================================== */
+  .ci-content {
+    flex: 1; min-width: 0; overflow-y: auto;
+    background: var(--cm-page-bg);
+    padding: 22px 26px 60px;
+  }
+  /* The builder and creator carry a fixed action bar at the bottom of the
+     viewport, so their content needs clearance or the last section scrolls
+     underneath it. Scoped to those two views — the library tables have no bar.
+     Set on .cm-main (which is INSIDE .ci-content, not an ancestor of it). */
+  .cm-main[data-view="builder"],
+  .cm-main[data-view="creator"] { padding-bottom: 84px; }
+
+  .cm-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+  .cm-title { margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -.01em; }
+  .cm-sub { margin: 5px 0 0; font-size: 13.5px; color: var(--ci-ink-500); }
+  .cm-head-actions { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+
+  /* ---- Surface tabs -------------------------------------------------
+     vaadin-tabs, not a hand-built strip. The count/NEW markers inside a tab
+     are spans because vaadin-tab has no badge slot in v1.22.3. */
+  .cm-tabbar { margin-bottom: 16px; border-bottom: 1px solid var(--cm-line); }
+  .cm-tab-count {
+    margin-left: 7px; font-size: 11px; font-weight: 700; line-height: 1;
+    padding: 3px 6px; border-radius: 9px;
+    background: var(--lumo-contrast-10pct, #1a38601a); color: var(--ci-ink-700);
+  }
+
+  /* ---- Cards --------------------------------------------------------
+     vwc-card carries the chrome; these classes only lay out its slots. */
+  /* Compact library stats — replaces a four-card metric row. One line of
+     text-scale figures, so orientation costs ~30px instead of ~130px and the
+     tables stay above the fold. (.cm-card-grid is still used by the Activity
+     tab's run-history tiles, where the numbers ARE the content.) */
+  .cm-stats {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px;
+    margin: 0 0 16px; font-size: 13px; color: var(--ci-ink-700);
+  }
+  .cm-stat { display: flex; align-items: baseline; gap: 6px; }
+  .cm-stat-value { font-size: 15px; font-weight: 700; color: var(--ci-ink-900); }
+  .cm-stat-label { color: var(--ci-ink-500); }
+  .cm-stat-sep { color: var(--lumo-contrast-30pct, #1c345442); }
+
+  .cm-card-grid {
+    display: grid; gap: 14px; margin-bottom: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  }
+  .cm-metric-label {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ci-ink-500);
+  }
+  .cm-metric-value { font-size: 30px; font-weight: 700; line-height: 1.1; margin-top: 6px; }
+  .cm-metric-foot { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 6px; }
+
+  /* ---- Panel: the standard content surface --------------------------- */
+  .cm-panel {
+    background: var(--cm-card-bg); border: 1px solid var(--cm-line);
+    border-radius: var(--lumo-border-radius-m, .5em);
+    margin-bottom: 18px; overflow: hidden;
+  }
+  .cm-panel-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px; border-bottom: 1px solid var(--cm-line-soft);
+  }
+  .cm-panel-title { margin: 0; font-size: 15px; font-weight: 700; }
+  .cm-panel-sub { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 2px; }
+  .cm-panel-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .cm-panel-body { padding: 16px; }
+
+  /* ---- Filter bar ---------------------------------------------------
+     Vector fields need explicit widths in a dense row or they size to content. */
+  /* Two children only: the wrapping field group, and the action group pinned
+     right. The BAR itself must not wrap — with `flex-wrap: wrap` here the
+     action group drops to its own line as soon as the fields fill the row,
+     stranding the CTA under a gap. Wrapping is the inner group's job. */
+  .cm-filters {
+    display: flex; flex-wrap: nowrap; gap: 10px; align-items: flex-end;
+    padding: 13px 16px; border-bottom: 1px solid var(--cm-line-soft);
+    background: var(--cm-zebra);
+  }
+  /* 240, not 260: with the tab's CTA now sharing this row, the four checklist
+     filters needed 894px against 880px available — a 14px overflow that wrapped
+     Cadence onto its own line. */
+  .cm-filters vaadin-text-field { width: 240px; }
+  .cm-filters vaadin-combo-box,
+  .cm-filters vaadin-select { width: 172px; }
+  .cm-filters vaadin-multi-select-combo-box { width: 216px; }
+  /* Filters wrap; the action group does not. `flex-wrap: wrap` on the bar would
+     drop this whole group to its own line once the filters filled the row,
+     leaving the CTA stranded under a gap. Keeping it out of the wrap flow
+     (margin-left:auto + flex-shrink:0) pins it to the right of the first line. */
+  .cm-filters .cm-filters-right {
+    margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+  }
+  /* The filter fields are what should wrap when space runs out. `flex: 1` lets
+     this group claim all the width the action group doesn't need, so the fields
+     only wrap when they genuinely run out of room. */
+  .cm-filters .cm-filters-fields {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+  }
+  vaadin-multi-select-combo-box { --vaadin-multi-select-combo-box-overlay-max-height: 320px; }
+
+  /* ---- Batch action bar (GAP-REPORT LIST-C01) ------------------------ */
+  .cm-batch {
+    display: none; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--lumo-primary-color-10pct, #0271ce1a);
+    border-bottom: 1px solid var(--cm-line-soft);
+  }
+  .cm-batch.is-open { display: flex; }
+  .cm-batch-count { font-weight: 700; font-size: 13px; }
+  .cm-batch-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  /* ---- Grid ---------------------------------------------------------- */
+  vaadin-grid { border: 0; }
+  /* Stray "…" beside every selection checkbox.
+     vaadin-grid-cell-content is a BLOCK with `text-overflow: ellipsis`. A
+     26px checkbox in a 52px cell leaves an inline text box that the cell
+     ellipsizes, painting a "…" next to the control. Making the cell a flex
+     container removes the inline box entirely — nothing left to truncate.
+     Scoped via :has() so only checkbox cells change; text cells keep their
+     ellipsis truncation. The empty auto-generated label is collapsed too:
+     vaadin-checkbox emits one whenever it is given only aria-label. */
+     Handled in JS via the CELL_CONTROL inline style — page-level CSS cannot
+     reach a grid cell's contents (see the comment on CELL_CONTROL). The rule
+     below is the one exception that does work, because it targets the
+     checkbox's own light-DOM child rather than the cell. */
+  vaadin-grid-cell-content vaadin-checkbox label:empty { display: none; }
+  .cm-cell-strong { font-weight: 600; }
+  /* The checklist name drills into the detail view. Styled as text until
+     hovered so the table doesn't read as a wall of links. */
+  .cm-drill {
+    font-weight: 600; font-size: inherit; color: var(--ci-ink-900);
+    text-decoration: none; cursor: pointer;
+  }
+  .cm-drill:hover, .cm-drill:focus-visible {
+    color: var(--lumo-primary-text-color, #0271ce); text-decoration: underline;
+  }
+  .cm-cell-sub { font-size: 12px; color: var(--ci-ink-500); margin-top: 2px; }
+  .cm-cell-stack { display: flex; flex-direction: column; }
+  .cm-cell-row { display: flex; align-items: center; gap: 8px; }
+  .cm-type-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* ---- Empty state (GAP-REPORT EMPTY-C01) ---------------------------- */
+  .cm-empty { padding: 46px 20px; text-align: center; }
+  .cm-empty i { font-size: 30px; color: var(--lumo-contrast-30pct, #1c345442); }
+  .cm-empty h3 { margin: 12px 0 4px; font-size: 15.5px; font-weight: 700; }
+  .cm-empty p { margin: 0 auto 14px; font-size: 13px; color: var(--ci-ink-500); max-width: 420px; }
+  /* Empty states offer two exits (clear the filter, or create one) — keep the
+     pair from butting together. */
+  .cm-empty vaadin-button + vaadin-button { margin-left: 8px; }
+
+  /* ---- Inline alert / callout (GAP-REPORT ALERT-C01) ------------------
+     No inline non-transient alert ships in v1.22.3 — vaadin-notification is
+     transient. Hand-built, flagged for the DS team. */
+  .cm-alert {
+    display: flex; gap: 11px; padding: 12px 14px; margin-bottom: 16px;
+    border-radius: var(--lumo-border-radius-m, .5em);
+    border: 1px solid var(--lumo-contrast-20pct, #1c375a29);
+    background: var(--cm-card-bg); font-size: 13px; line-height: 1.5;
+  }
+  .cm-alert i { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+  .cm-alert-body { flex: 1; }
+  .cm-alert strong { display: block; margin-bottom: 2px; }
+  .cm-alert-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .cm-alert--info    { border-color: var(--lumo-primary-color-50pct, #0271cec2); background: var(--lumo-primary-color-10pct, #0271ce1a); }
+  .cm-alert--info i  { color: var(--lumo-primary-text-color, #0271ce); }
+  .cm-alert--warn    { border-color: var(--lumo-warning-color, #e0782e); background: var(--lumo-warning-color-10pct, #ffcc001a); }
+  .cm-alert--warn i  { color: var(--lumo-warning-text-color, #995211); }
+  .cm-alert--err     { border-color: var(--lumo-error-color, #d83e38); background: var(--lumo-error-color-10pct, #e71d131a); }
+  .cm-alert--err i   { color: var(--lumo-error-text-color, #ca150c); }
+
+  /* ---- Link-state dot ----------------------------------------------
+     The sandbox's distinctive concept: template | block | unique. */
+  .cm-link-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+  }
+  .cm-link-template { background: var(--lumo-success-color, #158444); }
+  .cm-link-block    { background: var(--lumo-warning-color, #e0782e); }
+  .cm-link-unique   { background: var(--lumo-contrast-50pct, #1c304a85); }
+  .cm-legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 12.5px; color: var(--ci-ink-700); }
+  .cm-legend-item { display: flex; align-items: center; gap: 7px; }
+
+  /* ====================================================================
+     BUILDER
+     ==================================================================== */
+  .cm-builder-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  @media (max-width: 1180px) { .cm-builder-grid { grid-template-columns: 1fr; } }
+
+  /* Sections are DIVISIONS of the one structure container, not cards. No
+     border, no radius, no background of their own — just a rule between them.
+     That removes a whole level of nested box chrome (container > card > card)
+     and lets the checklist read as a single document. */
+  .cm-structure { overflow: hidden; }
+  .cm-section { border-top: 1px solid var(--cm-line-soft); }
+  .cm-section:first-child { border-top: 0; }
+  .cm-section.is-drag-over { box-shadow: inset 0 2px 0 var(--lumo-primary-color, #0271ce); }
+  .cm-section-head {
+    display: flex; align-items: center; gap: 11px; padding: 10px 14px;
+    background: var(--cm-zebra); border-bottom: 1px solid var(--cm-line-soft);
+  }
+  .cm-section.is-collapsed .cm-section-head { border-bottom: 0; }
+  .cm-section.is-collapsed .cm-section-body { display: none; }
+  .cm-grip { color: var(--lumo-contrast-40pct, #1c324f61); cursor: grab; font-size: 13px; }
+  .cm-section-name { font-weight: 700; font-size: 14.5px; }
+  .cm-section-meta { font-size: 12px; color: var(--ci-ink-500); }
+  .cm-section-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+  /* The per-section "Import block / Add steps inline" row. Was laid out inline
+     by JS inside the old padded body; now a real class so the inset survives
+     any change to how that row is built. */
+  .cm-section-add { display: flex; gap: 8px; padding: 8px 14px 10px 26px; }
+  /* Blocks now run edge-to-edge so their separators span the full container.
+     Horizontal padding lives on the rows, not this wrapper. */
+  .cm-section-body { padding: 0; }
+  .cm-section.is-drag-over { border-color: var(--lumo-primary-color, #0271ce); }
+  .cm-section.is-dragging { opacity: .45; }
+
+  /* Block instance row inside a section */
+  /* Blocks are rows inside a section. A hairline separator instead of a full
+     card: they are still discrete (draggable, expandable) but no longer a
+     third level of boxed-in-boxed chrome. */
+  .cm-block { border-bottom: 1px solid var(--cm-line-soft); background: var(--cm-card-bg); }
+  .cm-block:last-child { border-bottom: 0; }
+  .cm-block.is-open { background: var(--cm-zebra); }
+  .cm-block-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 26px; }
+  .cm-block-icon {
+    width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center;
+    background: var(--lumo-contrast-5pct, #193b670d); font-size: 13px; color: var(--ci-ink-700);
+    flex-shrink: 0;
+  }
+  .cm-block-name { font-weight: 600; font-size: 13.5px; }
+  .cm-block-meta { font-size: 11.5px; color: var(--ci-ink-500); margin-top: 1px; }
+  .cm-block-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+  .cm-block-steps {
+    border-top: 1px solid var(--cm-line-soft); padding: 9px 14px 11px 26px; display: none;
+  }
+  .cm-block.is-open .cm-block-steps { display: block; }
+  .cm-block.is-skipped { opacity: .55; }
+
+  .cm-step-row {
+    display: flex; align-items: center; gap: 9px; padding: 6px 0;
+    border-bottom: 1px dashed var(--cm-line-soft); font-size: 13px;
+  }
+  .cm-step-row:last-child { border-bottom: 0; }
+  .cm-step-num {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 10.5px; font-weight: 700;
+    background: var(--lumo-contrast-10pct, #1a38601a); color: var(--ci-ink-700);
+  }
+  .cm-step-label { flex: 1; }
+  .cm-step-sub { font-size: 11.5px; color: var(--ci-ink-500); }
+
+  /* Local-additions zone for template-locked sections */
+  /* Local additions: a tinted BAND inside the section, not another boxed card.
+     A left accent rule marks it as a distinct zone without adding a fourth
+     level of nested border+radius. */
+  .cm-append {
+    margin: 0; padding: 8px 14px 10px 26px;
+    border-top: 1px solid var(--cm-line-soft);
+    border-left: 3px solid var(--lumo-primary-color-50pct, #0271cec2);
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+  }
+  /* Blocks inside the band inherit the row treatment, minus the white ground. */
+  .cm-append .cm-block { background: transparent; border-bottom: 0; }
+  .cm-append .cm-block-row { padding-left: 0; padding-right: 0; }
+  /* The band's own add-button aligns with its text, not the section indent. */
+  .cm-append > vaadin-button { margin-left: -4px; }
+  .cm-append-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--lumo-primary-text-color, #0271ce); margin-bottom: 7px;
+  }
+
+  /* Right-hand inspector column */
+  /* Back link — replaces the breadcrumb on both editors. Styling comes from
+     the design system's `.vwc-link` class (body-text color with a subdued
+     underline, per themes v1.9.3), so only the chevron layout is added here.
+     Tunable via --vwc-link-color / --vwc-link-decoration-color. */
+  .cm-back {
+    display: inline-flex; align-items: baseline; gap: 7px; font-size: 13px;
+  }
+  .cm-back i { font-size: 10px; }
+
+  /* ---- Condensed editor chrome -------------------------------------
+     The builder/creator are working surfaces: every pixel above the first
+     section is overhead. Title, status badge and meta share one line, and the
+     whole header block is tighter than the library's. */
+  .cm-head--editor { align-items: flex-end; margin-bottom: 12px; }
+  .cm-head--editor .cm-head-actions { align-self: flex-start; margin-top: 2px; }
+  .cm-editor-id { min-width: 0; }
+  .cm-editor-titleline {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 2px;
+  }
+  .cm-title--editor { font-size: 21px; }
+  .cm-editor-meta { font-size: 12.5px; color: var(--ci-ink-500); }
+
+  /* Setup and the link legend share one row — two near-empty full-width bars
+     were pure overhead. Setup takes the remaining width; the legend is only as
+     wide as its three dots need. */
+  .cm-setup-row {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;
+  }
+  .cm-setup-row .cm-setup { flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+  .cm-setup-row .cm-legend--inline { flex-shrink: 0; margin-bottom: 0; }
+  @media (max-width: 900px) { .cm-setup-row { flex-wrap: wrap; } }
+
+  /* Inline link-state legend — replaces a full inline alert. */
+  .cm-legend--inline {
+    gap: 16px; padding: 7px 12px; font-size: 12px; align-items: center;
+    background: var(--cm-card-bg); border: 1px solid var(--cm-line);
+    border-radius: var(--lumo-border-radius-s, .25em);
+  }
+  .cm-legend--inline .cm-legend-item { cursor: help; }
+
+  /* Setup section — replaces the Structure tab's old side rail. Fields that
+     describe the whole checklist, laid out horizontally above the sections so
+     the structure below gets the full page width. (The block creator still
+     uses .cm-builder-grid / .cm-inspector for its own inspector column.) */
+  .cm-setup {
+    display: block; margin-bottom: 16px;
+    background: var(--cm-card-bg); border: 1px solid var(--cm-line);
+    border-radius: var(--lumo-border-radius-m, .5em);
+  }
+  /* vaadin-details exposes only a `content` part; the summary is slotted
+     straight into the host with no part, so pad the slotted element itself
+     rather than reaching for ::part(summary) — that selector matches nothing
+     and left the summary row flush against the border. */
+  .cm-setup::part(content) { padding: 0 14px 14px; }
+  .cm-setup-summary {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 12px 14px 12px 0; cursor: pointer;
+  }
+  .cm-setup-title { font-size: 15px; font-weight: 700; }
+  .cm-setup-recap { font-size: 12.5px; color: var(--ci-ink-500); }
+  /* vaadin-details renders NO toggle indicator of its own in v1.22.3 — the
+     summary row is clickable but gives no sign of it. Supply the chevron and
+     rotate it from the host's `opened` attribute. */
+  .cm-setup-caret {
+    margin-left: auto; font-size: 12px; color: var(--ci-ink-500);
+    transition: transform .15s ease; flex-shrink: 0; align-self: center;
+  }
+  .cm-setup[opened] .cm-setup-caret { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) { .cm-setup-caret { transition: none; } }
+  /* Name and description get the wider tracks; type and cadence are short. */
+  .cm-setup-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: minmax(220px, 1.4fr) minmax(150px, .8fr) minmax(150px, .8fr) minmax(240px, 1.6fr);
+    align-items: start;
+  }
+  .cm-setup-grid > * { width: 100%; }
+  @media (max-width: 1180px) {
+    .cm-setup-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 720px) {
+    .cm-setup-grid { grid-template-columns: 1fr; }
+  }
+
+  .cm-inspector { position: sticky; top: 0; }
+  .cm-field-row { margin-bottom: 13px; }
+  .cm-field-row > vaadin-text-field,
+  .cm-field-row > vaadin-select,
+  .cm-field-row > vaadin-combo-box,
+  .cm-field-row > vaadin-text-area { width: 100%; }
+  .cm-switch-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+  .cm-switch-row .cm-switch-text { flex: 1; }
+  .cm-switch-row .cm-switch-label { font-size: 13.5px; font-weight: 600; }
+  .cm-switch-row .cm-switch-help { font-size: 12px; color: var(--ci-ink-500); margin-top: 1px; }
+  /* The global border-box reset collapses vwc-switch to just its inner circle. */
+  vwc-switch { box-sizing: content-box; flex-shrink: 0; }
+
+  /* Sticky editor footer */
+  /* Editor action bar — pinned to the BOTTOM OF THE VIEWPORT, not sticky.
+     `position: sticky` only pins once the page has scrolled far enough to
+     reach it, so on a short checklist the bar just sat wherever the content
+     ended — floating mid-screen over the sections.
+
+     `fixed` is safe here because the shell is itself a fixed viewport frame
+     (.ci-app is position:fixed, inset:0) and .ci-content is the only scroller.
+     Offset from the left by the rail width so the bar spans the content column
+     rather than the whole window. */
+  .cm-editor-foot {
+    position: fixed; bottom: 0; left: var(--ci-sidebar-w); right: 0; z-index: 20;
+    padding: 12px 26px;
+    background: var(--cm-card-bg); border-top: 1px solid var(--cm-line);
+    box-shadow: 0 -2px 8px rgba(16, 24, 40, .06);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .cm-dirty { font-size: 12.5px; color: var(--lumo-warning-text-color, #995211); display: none; }
+  .cm-dirty.is-on { display: flex; align-items: center; gap: 6px; }
+  .cm-editor-foot-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  /* ---- Activity timeline (GAP-REPORT TIME-C01) ----------------------
+     No design-system timeline ships, so this is hand-built on theme tokens.
+     A single ::before spine with a dot per event. */
+  .cm-timeline { position: relative; padding-left: 26px; }
+  .cm-timeline::before {
+    content: ''; position: absolute; left: 7px; top: 4px; bottom: 4px;
+    width: 2px; background: var(--cm-line);
+  }
+  .cm-tl-item { position: relative; padding: 0 0 18px; }
+  .cm-tl-item:last-child { padding-bottom: 0; }
+  .cm-tl-dot {
+    position: absolute; left: -26px; top: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 8px; color: #fff;
+    background: var(--lumo-contrast-50pct, #1c304a85);
+    box-shadow: 0 0 0 3px var(--cm-card-bg);
+  }
+  .cm-tl-dot--pass { background: var(--lumo-success-color, #158444); }
+  .cm-tl-dot--def  { background: var(--lumo-warning-color, #e0782e); }
+  .cm-tl-dot--fail { background: var(--lumo-error-color, #d83e38); }
+  .cm-tl-dot--edit { background: var(--lumo-primary-color, #0271ce); }
+
+  .cm-tl-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .cm-tl-title { font-size: 13.5px; font-weight: 600; }
+  .cm-tl-when { font-size: 12px; color: var(--ci-ink-500); margin-left: auto; white-space: nowrap; }
+  .cm-tl-meta { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 3px; }
+  .cm-tl-note {
+    margin-top: 7px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5;
+    background: var(--cm-zebra); border-left: 2px solid var(--cm-line);
+    border-radius: 0 var(--lumo-border-radius-s, .25em) var(--lumo-border-radius-s, .25em) 0;
+  }
+  .cm-tl-note .cm-tl-wo { display: inline-block; margin-top: 5px; }
+  .cm-tl-day {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--ci-ink-500); margin: 0 0 10px; padding-top: 2px;
+  }
+  .cm-tl-item + .cm-tl-day { margin-top: 8px; }
+
+  /* ====================================================================
+     BLOCK CREATOR
+     ==================================================================== */
+  .cm-stepcard {
+    border: 1px solid var(--cm-line); border-radius: var(--lumo-border-radius-m, .5em);
+    background: var(--cm-card-bg); margin-bottom: 11px;
+  }
+  .cm-stepcard-head {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-bottom: 1px solid var(--cm-line-soft); background: var(--cm-zebra);
+    border-radius: var(--lumo-border-radius-m, .5em) var(--lumo-border-radius-m, .5em) 0 0;
+  }
+  .cm-stepcard-title { font-weight: 700; font-size: 13.5px; }
+  .cm-stepcard-actions { margin-left: auto; display: flex; gap: 4px; }
+  .cm-stepcard-body { padding: 12px; }
+  .cm-stepcard.is-dragging { opacity: .45; }
+  .cm-stepcard.is-drag-over { border-color: var(--lumo-primary-color, #0271ce); }
+
+  .cm-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 11px; }
+  .cm-form-grid > * { width: 100%; }
+  .cm-form-grid--wide { grid-column: 1 / -1; }
+
+  /* Severity: plain chips, not vwc-toggle-button-group — that component
+     behaves additively inside dialog renderers, which is where these live. */
+  .cm-chips { display: flex; gap: 6px; }
+  .cm-chip {
+    border: 1px solid var(--lumo-contrast-20pct, #1c375a29); background: var(--cm-card-bg);
+    border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px;
+    cursor: pointer; color: var(--ci-ink-700);
+  }
+  .cm-chip.active {
+    background: var(--lumo-primary-color, #0271ce);
+    border-color: var(--lumo-primary-color, #0271ce);
+    color: var(--lumo-primary-contrast-color, #fff); font-weight: 600;
+  }
+  .cm-chip-label {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--ci-ink-500); margin-bottom: 6px; display: block;
+  }
+  .cm-options-list { display: flex; flex-direction: column; gap: 6px; }
+  .cm-option-row { display: flex; align-items: center; gap: 7px; }
+  .cm-option-row vaadin-text-field { flex: 1; }
+
+  /* Blast radius dialog */
+  .cm-blast-list { margin: 10px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+
+  /* ---- Dialog scaffolding ------------------------------------------- */
+  .cm-dialog-wrap { min-width: min(760px, 82vw); }
+  .cm-dialog-wrap--sm { min-width: min(460px, 82vw); }
+  .cm-dialog-head { display: flex; align-items: baseline; gap: 10px; }
+  .cm-dialog-title { margin: 0; font-size: 17px; font-weight: 700; }
+  .cm-dialog-sub { font-size: 12.5px; color: var(--ci-ink-500); }
+  .cm-dialog-foot { display: flex; align-items: center; gap: 8px; width: 100%; }
+  .cm-dialog-foot .cm-dialog-foot-right { margin-left: auto; display: flex; gap: 8px; }
+  .cm-dialog-count { font-size: 13px; color: var(--ci-ink-500); }
+
+  /* Faceted vehicle picker */
+  .cm-picker { display: grid; grid-template-columns: 208px 1fr; gap: 16px; }
+  .cm-facets { border-right: 1px solid var(--cm-line-soft); padding-right: 14px; }
+  .cm-facet { margin-bottom: 16px; }
+  .cm-facet-title {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--ci-ink-500); margin-bottom: 7px;
+  }
+  .cm-facet-opts { display: flex; flex-direction: column; gap: 3px; }
+
+  /* Import-block panel list */
+  .cm-import-list { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; }
+  .cm-import-row {
+    display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+    border: 1px solid var(--cm-line); border-radius: var(--lumo-border-radius-s, .25em);
+    cursor: pointer; background: var(--cm-card-bg);
+  }
+  .cm-import-row:hover { background: var(--lumo-contrast-5pct, #193b670d); }
+  .cm-import-row.is-selected {
+    border-color: var(--lumo-primary-color, #0271ce);
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+  }
+  .cm-import-name { font-weight: 600; font-size: 13.5px; }
+  .cm-import-meta { font-size: 11.5px; color: var(--ci-ink-500); margin-top: 2px; }
+
+  /* ---- Toast -------------------------------------------------------- */
+  .cm-toast-host {
+    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+    z-index: 900; display: flex; flex-direction: column; gap: 8px; align-items: center;
+    pointer-events: none;
+  }
+  .cm-toast {
+    background: #18181b; color: #fff; font-size: 13px; font-weight: 500;
+    padding: 10px 16px; border-radius: 999px;
+    box-shadow: var(--lumo-box-shadow-m, 0 4px 12px rgba(0,0,0,.24));
+    display: flex; align-items: center; gap: 9px;
+  }
+  .cm-toast i { font-size: 13px; }
+
+  /* View switching */
+  .cm-view { display: none; }
+  .cm-main[data-view="library"]  .cm-view--library  { display: block; }
+  .cm-main[data-view="builder"]  .cm-view--builder  { display: block; }
+  .cm-main[data-view="creator"]  .cm-view--creator  { display: block; }
+
+  /* Content swap animation, so switching surfaces doesn't jump-cut. */
+  @keyframes cm-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .cm-view { animation: cm-fade-in .16s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .cm-view { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="ci-app">
+
+  <!-- ============================ TOP BAR ============================
+       Recreated product chrome. Decorative throughout.
+       Copied from Controlled-substances/ver1 — keep the two in sync. -->
+  <header class="ci-topbar">
+    <div class="ci-logo">
+      <img class="ci-logo-lockup" src="../../../../assets/vector-solutions-logo-white.svg" alt="Vector Solutions">
+      <span class="ci-logo-sub">Vector Check It</span>
+    </div>
+    <div class="ci-topbar-right">
+      <div class="ci-avatar"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+      <span class="ci-username">Austin Smith</span>
+    </div>
+  </header>
+
+  <div class="ci-body">
+
+    <!-- ============================ SIDEBAR ============================
+         Matches the shipped product's rail. Decorative — Checklist Library is
+         the current page (the only change from the Controlled Substances
+         copy of this rail). -->
+    <aside class="ci-sidebar">
+      <div class="ci-search">
+        <div class="box">
+          <span>Search equipment / Apparatus</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </div>
+      </div>
+
+      <nav class="ci-nav" aria-label="Main">
+        <span class="ci-nav-item"><i class="fa-solid fa-house ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Home</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-truck-front ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Fleet</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-warehouse ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Store Rooms</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-gear ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Equipment</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-box ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Inventory</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-syringe ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Controlled Substances</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-table-columns ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Tickets</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-wrench ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Service Tasks</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item" aria-current="page"><i class="fa-solid fa-list-check ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Checklist Library</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-gauge ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Dashboards</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-chart-column ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Reports</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-users ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Users</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item is-alert"><i class="fa-solid fa-triangle-exclamation ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Department</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-square-check ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Fleet Summary</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-circle-question ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Support Center</span></span>
+      </nav>
+    </aside>
+
+    <!-- ============================ CONTENT ============================ -->
+    <main class="ci-content" id="main">
+      <div class="cm-main" data-view="library" id="cmMain">
+
+        <!-- ======================= LIBRARY / LIST ======================= -->
+        <section class="cm-view cm-view--library" aria-label="Checklist library">
+          <div class="cm-head">
+            <div>
+              <h1 class="cm-title">Checklist Library</h1>
+              <!-- Sub-line tracks the active tab; the two tabs are two views of
+                   one library, so the title stays put. -->
+              <p class="cm-sub" id="libSub">Author checklists from reusable content blocks, then deploy them to apparatus on a cadence.</p>
+            </div>
+            <!-- No actions here. "New checklist" / "New content block" each act
+                 on ONE table, so they live in that tab's own panel rather than
+                 the shared page header — same placement as "Add apparatus" on
+                 the builder's Deployments tab. -->
+          </div>
+
+          <!-- Library stats — one compact line, not a row of metric tiles.
+               These are orientation, not the point of the page: the tables
+               below are. Four cards cost ~130px of vertical space and pushed
+               the actual content under the fold.
+
+               There is deliberately NO retired-block warning here. Blocks and
+               checklists are versioned and linked to their submitted instances,
+               but archived data is never left linked — that is detected and
+               corrected at the moment of archival, so a "retired block still in
+               use" state cannot exist to warn about. -->
+          <div class="cm-stats" id="libStats"></div>
+
+          <div class="cm-tabbar">
+            <vaadin-tabs id="libTabs">
+              <vaadin-tab>Checklists<span class="cm-tab-count" id="tabCountChecklists">3</span></vaadin-tab>
+              <vaadin-tab>Content blocks<span class="cm-tab-count" id="tabCountBlocks">5</span></vaadin-tab>
+            </vaadin-tabs>
+          </div>
+
+          <!-- ---------------- Checklists table ---------------- -->
+          <div class="cm-panel" id="panelChecklists">
+            <div class="cm-filters">
+              <div class="cm-filters-fields">
+                <vaadin-text-field theme="outlined" placeholder="Search checklists" id="clSearch" clear-button-visible>
+                  <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                </vaadin-text-field>
+                <vaadin-multi-select-combo-box theme="outlined" label="Status" id="clStatus"></vaadin-multi-select-combo-box>
+                <vaadin-multi-select-combo-box theme="outlined" label="Type" id="clType"></vaadin-multi-select-combo-box>
+                <vaadin-combo-box theme="outlined" label="Cadence" id="clCadence" clear-button-visible></vaadin-combo-box>
+              </div>
+              <div class="cm-filters-right">
+                <vaadin-button theme="tertiary" id="clClear">Clear filters</vaadin-button>
+                <vaadin-button theme="primary" id="btnNewChecklist">
+                  <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>New checklist
+                </vaadin-button>
+              </div>
+            </div>
+
+            <div class="cm-batch" id="clBatch">
+              <vwc-icon path="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z" style="--vwc-icon-size:17px;--vwc-icon-color:var(--lumo-primary-text-color,#0271ce)"></vwc-icon>
+              <span class="cm-batch-count" id="clBatchCount">0 selected</span>
+              <div class="cm-batch-actions">
+                <vaadin-button theme="tertiary" id="clBatchDeploy">Deploy…</vaadin-button>
+                <vaadin-button theme="tertiary" id="clBatchCadence">Set cadence…</vaadin-button>
+                <vaadin-button theme="tertiary error" id="clBatchRetire">Retire</vaadin-button>
+              </div>
+            </div>
+
+            <vaadin-grid id="clGrid" all-rows-visible></vaadin-grid>
+
+            <div class="cm-empty" id="clEmpty" style="display:none">
+              <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+              <h3>No checklists match these filters</h3>
+              <p>Try clearing a filter, or create a checklist from scratch, from a template, or by assembling content blocks.</p>
+              <!-- Two ways out of an empty result, so the copy's offer to create
+                   one is actionable rather than just descriptive. -->
+              <vaadin-button theme="primary" onclick="document.getElementById('clClear').click()">Clear filters</vaadin-button>
+              <vaadin-button theme="secondary" onclick="document.getElementById('btnNewChecklist').click()">New checklist</vaadin-button>
+            </div>
+          </div>
+
+          <!-- ---------------- Content blocks table ----------------
+               A SIBLING TAB of the checklists table above, not a page of its
+               own: same header, tiles, alert and tab bar stay put, and only the
+               panel below the tab bar swaps. -->
+          <div class="cm-panel" id="panelBlocks" style="display:none">
+            <div class="cm-filters">
+              <div class="cm-filters-fields">
+                <vaadin-text-field theme="outlined" placeholder="Search blocks" id="blSearch" clear-button-visible>
+                  <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                </vaadin-text-field>
+                <vaadin-multi-select-combo-box theme="outlined" label="Domain" id="blDomain"></vaadin-multi-select-combo-box>
+                <vaadin-multi-select-combo-box theme="outlined" label="Status" id="blStatus"></vaadin-multi-select-combo-box>
+              </div>
+              <div class="cm-filters-right">
+                <vaadin-button theme="tertiary" id="blClear">Clear filters</vaadin-button>
+                <vaadin-button theme="primary" id="btnNewBlock">
+                  <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>New content block
+                </vaadin-button>
+              </div>
+            </div>
+            <vaadin-grid id="blGrid" all-rows-visible></vaadin-grid>
+            <div class="cm-empty" id="blEmpty" style="display:none">
+              <i class="fa-solid fa-cube" aria-hidden="true"></i>
+              <h3>No content blocks match these filters</h3>
+              <p>Blocks are the reusable unit of authoring. Create one, publish it, then import it into any checklist.</p>
+              <vaadin-button theme="primary" onclick="document.getElementById('blClear').click()">Clear filters</vaadin-button>
+              <vaadin-button theme="secondary" onclick="document.getElementById('btnNewBlock').click()">New content block</vaadin-button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== BUILDER ========================== -->
+        <section class="cm-view cm-view--builder" aria-label="Checklist builder">
+          <!-- Condensed editor header: breadcrumb, then title + status + meta
+               on ONE line. Previously these were three stacked rows (~140px);
+               the editor is a working surface, so the chrome should not cost
+               more vertical space than the first section it sits above. -->
+          <div class="cm-head cm-head--editor">
+            <div class="cm-editor-id">
+              <a class="vwc-link cm-back" id="bcBuilder" href="#">
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>Back to checklists
+              </a>
+              <div class="cm-editor-titleline">
+                <h1 class="cm-title cm-title--editor" id="bTitle">Apparatus Morning Check</h1>
+                <span theme="badge success pill" id="bStatus">Published</span>
+                <span class="cm-editor-meta" id="bVersion">v5 · 2 sections · 1 deployment</span>
+              </div>
+            </div>
+            <div class="cm-head-actions">
+              <vaadin-button theme="tertiary" id="bExit">
+                <i class="fa-solid fa-xmark" aria-hidden="true" style="margin-right:7px"></i>Exit
+              </vaadin-button>
+            </div>
+          </div>
+
+          <div class="cm-tabbar">
+            <vaadin-tabs id="bTabs">
+              <vaadin-tab>Structure</vaadin-tab>
+              <vaadin-tab>Deployments<span class="cm-tab-count" id="bDepCount">1</span></vaadin-tab>
+              <vaadin-tab>Activity<span class="cm-tab-count" id="bActCount">0</span></vaadin-tab>
+              <vaadin-tab>Settings</vaadin-tab>
+            </vaadin-tabs>
+          </div>
+
+          <!-- ---- Builder tab: Checklist ---- -->
+          <div id="bPanelChecklist">
+            <!-- Setup section. These four fields describe the checklist as a
+                 whole, so they sit ABOVE the structure rather than in a side
+                 rail: the sections then get the full width, which is what they
+                 need once a block rollup is expanded. Collapsed by default via
+                 vaadin-details — setup is set once, structure is edited daily. -->
+            <div class="cm-setup-row">
+              <vaadin-details id="bSetup" class="cm-setup">
+                <div slot="summary" class="cm-setup-summary">
+                  <span class="cm-setup-title">Setup</span>
+                  <span class="cm-setup-recap" id="bSetupRecap"></span>
+                  <i class="fa-solid fa-chevron-down cm-setup-caret" aria-hidden="true"></i>
+                </div>
+                <div class="cm-setup-grid">
+                  <vaadin-text-field theme="outlined" label="Checklist name" id="bName" value="Apparatus Morning Check"></vaadin-text-field>
+                  <vaadin-select theme="outlined" label="Type" id="bType"></vaadin-select>
+                  <vaadin-select theme="outlined" label="Default cadence" id="bCadence"></vaadin-select>
+                  <vaadin-text-area theme="outlined" label="Description" id="bDesc"
+                    placeholder="What this checklist covers, and when crews run it."></vaadin-text-area>
+                </div>
+              </vaadin-details>
+
+              <!-- Link-state legend: one line, not a 132px alert. The dots
+                   are the reference a designer actually needs while scanning
+                   sections; the full explanation lives on hover. Breaking a
+                   template link is still an explicit, confirmed action. -->
+              <div class="cm-legend cm-legend--inline" id="bLinkLegend">
+                <span class="cm-legend-item" title="Live link — template edits reach this section.">
+                  <span class="cm-link-dot cm-link-template"></span>Template
+                </span>
+                <span class="cm-legend-item" title="Template link broken; block links intact.">
+                  <span class="cm-link-dot cm-link-block"></span>Block
+                </span>
+                <span class="cm-legend-item" title="Fully local. Nothing propagates in.">
+                  <span class="cm-link-dot cm-link-unique"></span>Unique
+                </span>
+              </div>
+            </div>
+
+            <!-- ONE container for the whole checklist body. Sections are
+                 divisions INSIDE it, separated by rules, not a stack of
+                 free-floating cards — the structure reads as one document.
+                 The header below is the container's own, so section rows don't
+                 each need to re-announce what column they're in. -->
+            <div class="cm-panel cm-structure">
+              <div class="cm-panel-head">
+                <div>
+                  <h2 class="cm-panel-title">Checklist content</h2>
+                  <div class="cm-panel-sub" id="bStructureSub">2 sections · 6 blocks</div>
+                </div>
+                <div class="cm-panel-actions">
+                  <vaadin-button theme="tertiary" id="btnAddSection">
+                    <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add section
+                  </vaadin-button>
+                </div>
+              </div>
+              <div id="sectionList"></div>
+            </div>
+          </div>
+
+          <!-- ---- Builder tab: Deployments ---- -->
+          <div id="bPanelDeploy" style="display:none">
+            <div class="cm-panel">
+              <div class="cm-filters">
+                <div class="cm-filters-fields">
+                  <vaadin-text-field theme="outlined" placeholder="Search apparatus" id="dpSearch" clear-button-visible>
+                    <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                  </vaadin-text-field>
+                  <vaadin-multi-select-combo-box theme="outlined" label="Status" id="dpStatus"></vaadin-multi-select-combo-box>
+                </div>
+                <div class="cm-filters-right">
+                  <vaadin-button theme="primary" id="btnAddVehicles">
+                    <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add apparatus
+                  </vaadin-button>
+                </div>
+              </div>
+
+              <div class="cm-batch" id="dpBatch">
+                <vwc-icon path="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z" style="--vwc-icon-size:17px;--vwc-icon-color:var(--lumo-primary-text-color,#0271ce)"></vwc-icon>
+                <span class="cm-batch-count" id="dpBatchCount">0 selected</span>
+                <div class="cm-batch-actions">
+                  <vaadin-button theme="tertiary" id="dpBatchCadence">Apply cadence…</vaadin-button>
+                  <vaadin-button theme="tertiary" id="dpBatchStatus">Apply status…</vaadin-button>
+                  <vaadin-button theme="tertiary error" id="dpBatchRemove">Remove</vaadin-button>
+                </div>
+              </div>
+
+              <vaadin-grid id="dpGrid" all-rows-visible></vaadin-grid>
+
+              <div class="cm-empty" id="dpEmpty" style="display:none">
+                <i class="fa-solid fa-truck-front" aria-hidden="true"></i>
+                <h3>Not deployed to any apparatus yet</h3>
+                <p>A checklist only reaches crews once it is deployed. Pick the apparatus that should run it, and how often.</p>
+                <vaadin-button theme="primary" onclick="document.getElementById('btnAddVehicles').click()">Add apparatus</vaadin-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---- Builder tab: Activity ----
+               One timeline for two event kinds: runs (a crew completed this
+               checklist on an apparatus) and edits (someone changed the
+               checklist itself). Filterable, because "show me only the runs
+               that found something" is the question this surface answers. -->
+          <div id="bPanelActivity" style="display:none">
+            <div class="cm-card-grid" id="actMetrics"></div>
+
+            <div class="cm-panel">
+              <div class="cm-filters">
+                <div class="cm-filters-fields">
+                  <vaadin-combo-box theme="outlined" label="Event" id="actKind" clear-button-visible></vaadin-combo-box>
+                  <vaadin-combo-box theme="outlined" label="Apparatus" id="actRig" clear-button-visible></vaadin-combo-box>
+                  <vaadin-combo-box theme="outlined" label="Outcome" id="actOutcome" clear-button-visible></vaadin-combo-box>
+                </div>
+                <div class="cm-filters-right">
+                  <vaadin-button theme="tertiary" id="actClear">Clear filters</vaadin-button>
+                </div>
+              </div>
+              <div class="cm-panel-body" id="actTimeline"></div>
+            </div>
+          </div>
+
+          <!-- ---- Builder tab: Settings ---- -->
+          <div id="bPanelSettings" style="display:none">
+            <div class="cm-panel" style="max-width:720px">
+              <div class="cm-panel-head">
+                <div>
+                  <h2 class="cm-panel-title">Completion rules</h2>
+                  <div class="cm-panel-sub">How a run is gated, and what it produces when it ends.</div>
+                </div>
+              </div>
+              <div class="cm-panel-body" id="settingsBody"></div>
+            </div>
+          </div>
+
+          <div class="cm-editor-foot">
+            <span class="cm-dirty" id="bDirty">
+              <i class="fa-solid fa-circle" aria-hidden="true" style="font-size:7px"></i>Unsaved changes
+            </span>
+            <div class="cm-editor-foot-actions">
+              <vaadin-button theme="secondary" id="bSaveDraft">Save draft</vaadin-button>
+              <vaadin-button theme="primary" id="bPublish">Publish checklist</vaadin-button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======================= BLOCK CREATOR ======================= -->
+        <section class="cm-view cm-view--creator" aria-label="Block creator">
+          <div class="cm-head cm-head--editor">
+            <div class="cm-editor-id">
+              <a class="vwc-link cm-back" id="bcCreator" href="#">
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>Back to content blocks
+              </a>
+              <div class="cm-editor-titleline">
+                <h1 class="cm-title cm-title--editor" id="cTitle">Wheels &amp; Tires</h1>
+                <span theme="badge success pill" id="cStatus">Published</span>
+                <span class="cm-editor-meta" id="cVersion">v2 · General Vehicle · 4 steps</span>
+              </div>
+            </div>
+            <div class="cm-head-actions">
+              <vaadin-button theme="tertiary" id="cExit">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true" style="margin-right:7px"></i>Back
+              </vaadin-button>
+            </div>
+          </div>
+
+          <div class="cm-builder-grid">
+            <div>
+              <div class="cm-panel">
+                <div class="cm-panel-head">
+                  <div>
+                    <h2 class="cm-panel-title">Check steps</h2>
+                    <div class="cm-panel-sub" id="cStepCount">4 steps</div>
+                  </div>
+                  <div class="cm-panel-actions">
+                    <vaadin-button theme="secondary" id="btnAddStep">
+                      <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add check step
+                    </vaadin-button>
+                  </div>
+                </div>
+                <div class="cm-panel-body" id="stepList"></div>
+              </div>
+            </div>
+
+            <div class="cm-inspector">
+              <div class="cm-panel">
+                <div class="cm-panel-head"><h2 class="cm-panel-title">Block info</h2></div>
+                <div class="cm-panel-body">
+                  <div class="cm-field-row">
+                    <vaadin-text-field theme="outlined" label="Block name" id="cName" value="Wheels &amp; Tires"></vaadin-text-field>
+                  </div>
+                  <div class="cm-field-row">
+                    <vaadin-select theme="outlined" label="Domain / category" id="cDomain"></vaadin-select>
+                  </div>
+                  <div class="cm-field-row">
+                    <vaadin-text-area theme="outlined" label="Short description" id="cDescription"
+                      placeholder="One line crews will see in the block library."></vaadin-text-area>
+                  </div>
+                  <vwc-divider></vwc-divider>
+                  <div class="cm-switch-row">
+                    <div class="cm-switch-text">
+                      <div class="cm-switch-label">Allow multiple uses per checklist</div>
+                      <div class="cm-switch-help">Each instance then needs a context label, e.g. "Driver front".</div>
+                    </div>
+                    <vwc-switch id="cMultiUse" checked accessible-name="Allow multiple uses per checklist"></vwc-switch>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cm-editor-foot">
+            <span class="cm-dirty" id="cDirty">
+              <i class="fa-solid fa-circle" aria-hidden="true" style="font-size:7px"></i>Unsaved changes
+            </span>
+            <div class="cm-editor-foot-actions">
+              <vaadin-button theme="secondary" id="cSaveDraft">Save draft</vaadin-button>
+              <vaadin-button theme="primary" id="cPublish">Publish content block</vaadin-button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Dialogs are created by renderer functions in JS below. -->
+<vaadin-dialog id="dlgImport" header-title="Import content block"></vaadin-dialog>
+<vaadin-dialog id="dlgPicker" header-title="Add apparatus"></vaadin-dialog>
+<vaadin-dialog id="dlgBreak" header-title="Break template link"></vaadin-dialog>
+<vaadin-dialog id="dlgBlast" header-title="Publish content block"></vaadin-dialog>
+<vaadin-dialog id="dlgStep" header-title="Check step"></vaadin-dialog>
+
+<div class="cm-toast-host" id="toastHost" aria-live="polite"></div>
+
+<script>
+/* ======================================================================
+   DATA — mirrors products/check-it/sandbox/sandbox-seed.js so the two
+   prototypes tell the same story. Same entities, same statuses, same
+   version numbers. In-memory only; nothing persists.
+
+   Entity shapes kept faithful to the sandbox store:
+     block     { id, name, domain, description, multiUse, status, version, steps[] }
+     checklist { id, name, type, cadence, status, version, origin, sections[], deployments[] }
+     section   { id, name, collapsed, blocks[], appendBlocks[], linkState, templateLocked }
+     instance  { instanceId, blockId, contextLabel, linkState, expanded, optional }
+     deployment{ id, vehicleTag, status, cadenceOverride, deployedAt, lastRunAt }
+   ====================================================================== */
+
+const DOMAINS = [
+  { value: 'vehicle',   label: 'General Vehicle',   icon: 'fa-truck-front' },
+  { value: 'apparatus', label: 'Apparatus — Fire',  icon: 'fa-truck-fire' },
+  { value: 'ems',       label: 'EMS / Medical',     icon: 'fa-truck-medical' },
+  { value: 'cs',        label: 'Controlled Substance', icon: 'fa-syringe' },
+  { value: 'facility',  label: 'Facility',          icon: 'fa-building' },
+  { value: 'equipment', label: 'Equipment / PPE',   icon: 'fa-helmet-safety' },
+  { value: 'le',        label: 'Law Enforcement',   icon: 'fa-shield-halved' },
+  { value: 'admin',     label: 'Administrative',    icon: 'fa-clipboard-list' }
+];
+
+const CHECKLIST_TYPES = [
+  { value: 'apparatus', label: 'Apparatus', color: '#c0392b' },
+  { value: 'ems',       label: 'EMS',       color: '#2980b9' },
+  { value: 'facility',  label: 'Facility',  color: '#8e44ad' },
+  { value: 'pm',        label: 'Preventive maintenance', color: '#16a085' }
+];
+
+const CADENCES = ['daily', 'weekly', 'monthly', 'quarterly', 'annual'];
+
+/* The 5 AUTHORING response types. The runtime has 14 kinds; sandbox-compile.js
+   maps these onto them. Keeping the mapping visible here is deliberate — it is
+   the seam a developer has to implement. */
+const RESPONSE_TYPES = [
+  { value: 'passfail', label: 'Pass / Fail',    kind: 'check' },
+  { value: 'text',     label: 'Open text',      kind: 'text' },
+  { value: 'numeric',  label: 'Numeric value',  kind: 'numeric' },
+  { value: 'single',   label: 'Single select',  kind: 'select' },
+  { value: 'multi',    label: 'Multi select',   kind: 'multi-select' }
+];
+
+const BLOCKS = [
+  { id: 'wheels-tires', name: 'Wheels & Tires', domain: 'vehicle', status: 'published', version: 2,
+    multiUse: true, description: 'Tire condition, pressure and lug integrity for one wheel position.',
+    usedBy: 6,
+    steps: [
+      { id: 1, label: 'Tire tread depth acceptable', type: 'passfail', severity: 'critical', allowPhoto: true, allowNote: true },
+      { id: 2, label: 'Tire pressure', type: 'numeric', severity: 'warning', unit: 'psi', min: '95', max: '110', allowPhoto: false, allowNote: true },
+      { id: 3, label: 'Lug nuts tight, indicators aligned', type: 'passfail', severity: 'critical', allowPhoto: true },
+      { id: 4, label: 'Visible sidewall damage', type: 'single', severity: 'warning', options: ['None', 'Minor scuffing', 'Cut or bulge'], allowPhoto: true }
+    ] },
+  { id: 'fluid-levels', name: 'Fluid Levels', domain: 'apparatus', status: 'published', version: 1,
+    multiUse: false, description: 'Engine oil, coolant, brake and transmission fluid checks.', usedBy: 4,
+    steps: [
+      { id: 1, label: 'Engine oil level', type: 'single', severity: 'critical', options: ['Full', 'Add needed', 'Low — do not run'] },
+      { id: 2, label: 'Coolant level', type: 'passfail', severity: 'critical', allowPhoto: true },
+      { id: 3, label: 'Brake fluid level', type: 'passfail', severity: 'critical' },
+      { id: 4, label: 'Visible leaks under apparatus', type: 'passfail', severity: 'warning', allowPhoto: true, allowNote: true }
+    ] },
+  { id: 'scba-readiness', name: 'SCBA Readiness', domain: 'equipment', status: 'published', version: 3,
+    multiUse: true, description: 'Cylinder pressure, mask seal and PASS device verification.', usedBy: 9,
+    steps: [
+      { id: 1, label: 'Cylinder pressure', type: 'numeric', severity: 'critical', unit: 'psi', min: '4200', max: '4500' },
+      { id: 2, label: 'Mask seal check', type: 'passfail', severity: 'critical' },
+      { id: 3, label: 'PASS device audible', type: 'passfail', severity: 'critical' },
+      { id: 4, label: 'Regulator condition', type: 'single', severity: 'warning', options: ['Good', 'Worn', 'Replace'] },
+      { id: 5, label: 'Harness webbing intact', type: 'passfail', severity: 'warning', allowPhoto: true }
+    ] },
+  { id: 'hydrant-inspection', name: 'Hydrant Inspection', domain: 'facility', status: 'draft', version: 1,
+    multiUse: false, description: 'Static pressure, cap condition and obstruction clearance.', usedBy: 1,
+    steps: [
+      { id: 1, label: 'Static pressure', type: 'numeric', severity: 'warning', unit: 'psi', min: '20', max: '40' },
+      { id: 2, label: 'Caps present and free', type: 'passfail', severity: 'warning' },
+      { id: 3, label: 'Clearance obstructions', type: 'multi', severity: 'warning', options: ['Vegetation', 'Parked vehicle', 'Snow', 'None'], allowPhoto: true }
+    ] },
+  /* Retired: usedBy 0. Archiving a block severs its links to checklists at the
+     time of archival, so a retired block is never still referenced. */
+  { id: 'mobile-radio', name: 'Mobile Radio Check (legacy)', domain: 'equipment', status: 'retired', version: 4,
+    multiUse: false, description: 'Superseded by the department-wide comms check.', usedBy: 0,
+    steps: [
+      { id: 1, label: 'Radio powers on', type: 'passfail', severity: 'critical' },
+      { id: 2, label: 'Dispatch acknowledges test', type: 'passfail', severity: 'critical' }
+    ] }
+];
+
+const CHECKLISTS = [
+  { id: 'apparatus-morning', name: 'Apparatus Morning Check', type: 'apparatus', cadence: 'daily',
+    status: 'published', version: 5, origin: 'template', lastRun: 'Today, 06:14',
+    sections: [
+      { id: 's1', name: 'Exterior & Running Gear', collapsed: false, linkState: 'template', templateLocked: true,
+        blocks: [
+          { instanceId: 'i1', blockId: 'wheels-tires', contextLabel: 'Driver front', linkState: 'template', expanded: false },
+          { instanceId: 'i2', blockId: 'wheels-tires', contextLabel: 'Driver rear',  linkState: 'template', expanded: false },
+          { instanceId: 'i3', blockId: 'fluid-levels', contextLabel: '',             linkState: 'template', expanded: false }
+        ],
+        appendBlocks: [
+          { instanceId: 'i4', blockId: 'freestanding', name: 'Station-specific: bay door clearance',
+            linkState: 'unique', expanded: false, optional: true,
+            steps: [
+              { id: 1, label: 'Bay door fully retracted before roll-out', type: 'passfail', sev: 'critical' },
+              { id: 2, label: 'Apron clear of equipment', type: 'passfail', sev: 'warning' }
+            ] }
+        ] },
+      { id: 's2', name: 'Compartment & Equipment', collapsed: false, linkState: 'block', templateLocked: false,
+        blocks: [
+          { instanceId: 'i5', blockId: 'scba-readiness', contextLabel: 'Seat 1', linkState: 'block', expanded: false },
+          { instanceId: 'i6', blockId: 'scba-readiness', contextLabel: 'Seat 2', linkState: 'block', expanded: false }
+        ],
+        appendBlocks: [] }
+    ],
+    /* Deployed across the fleet — a daily apparatus check runs on every rig, so
+       this is the normal case, not an edge case. Mixed states on purpose: the
+       rollup in the library has to show that "5 apparatus" is really 3 running,
+       1 paused (rig in the shop) and 1 pending (never run yet). */
+    deployments: [
+      { id: 'd1', vehicleTag: 'E-7',  status: 'active',  cadenceOverride: null,     deployedAt: '2026-05-02', lastRunAt: 'Today, 06:14' },
+      { id: 'd2', vehicleTag: 'E-12', status: 'active',  cadenceOverride: null,     deployedAt: '2026-05-02', lastRunAt: 'Today, 05:58' },
+      { id: 'd3', vehicleTag: 'L-3',  status: 'active',  cadenceOverride: null,     deployedAt: '2026-05-14', lastRunAt: 'Today, 05:52' },
+      { id: 'd4', vehicleTag: 'BR-1', status: 'paused',  cadenceOverride: null,     deployedAt: '2026-05-02', lastRunAt: '3 days ago' },
+      { id: 'd5', vehicleTag: 'M-4',  status: 'pending', cadenceOverride: 'weekly', deployedAt: '2026-08-19', lastRunAt: null }
+    ] },
+  { id: 'quarterly-hydrant', name: 'Quarterly Hydrant Check', type: 'facility', cadence: 'quarterly',
+    status: 'draft', version: 1, origin: 'scratch', lastRun: '—',
+    sections: [
+      { id: 's1', name: 'Hydrants', collapsed: false, linkState: 'unique', templateLocked: false,
+        blocks: [ { instanceId: 'i1', blockId: 'hydrant-inspection', contextLabel: '', linkState: 'unique', expanded: false } ],
+        appendBlocks: [] }
+    ],
+    deployments: [] },
+  /* Two active rigs — exercises the "name the rigs" path (<= 3) next to the
+     morning check's "5 apparatus" count path. */
+  { id: 'ems-weekly', name: 'EMS Bag & Airway Check', type: 'ems', cadence: 'weekly',
+    status: 'published', version: 3, origin: 'blocks', lastRun: 'Mon, 07:40',
+    sections: [
+      { id: 's1', name: 'Airway & Oxygen', collapsed: false, linkState: 'block', templateLocked: false,
+        blocks: [ { instanceId: 'i1', blockId: 'scba-readiness', contextLabel: 'Onboard O2', linkState: 'block', expanded: false } ],
+        appendBlocks: [] }
+    ],
+    deployments: [
+      { id: 'd6', vehicleTag: 'M-4',  status: 'active', cadenceOverride: null, deployedAt: '2026-06-01', lastRunAt: 'Mon, 07:40' },
+      { id: 'd7', vehicleTag: 'E-12', status: 'active', cadenceOverride: null, deployedAt: '2026-06-01', lastRunAt: 'Mon, 07:12' }
+    ] },
+  /* Retired but still deployed — the case the retired-block alert refers to.
+     A paused deployment keeps the history without scheduling new runs. */
+  { id: 'preshift-radio', name: 'Pre-Shift Radio Check (legacy)', type: 'apparatus', cadence: 'daily',
+    status: 'retired', version: 7, origin: 'blocks', lastRun: '2026-04-11',
+    sections: [
+      { id: 's1', name: 'Comms', collapsed: false, linkState: 'block', templateLocked: false,
+        blocks: [ { instanceId: 'i1', blockId: 'mobile-radio', contextLabel: '', linkState: 'block', expanded: false } ],
+        appendBlocks: [] }
+    ],
+    /* Retired, so NOT deployed. Archiving a checklist clears its deployments
+       as part of the archival step — the product never leaves archived data
+       linked to live apparatus, so there is no "paused deployment on a retired
+       checklist" state to represent. Past runs stay linked to the version that
+       produced them; only the forward link is removed. */
+    deployments: [] }
+];
+
+/* ---- Activity history -------------------------------------------------
+   Two kinds of event on one timeline, because "what happened to this
+   checklist" spans both:
+     run  — a crew completed (or failed) a run on an apparatus
+     edit — someone changed the checklist itself (publish, version, deploy)
+   Keyed by checklist id. Newest first. Ordinarily this is a server-side audit
+   log; here it is seeded so the surface has something real to show.
+
+   `deficiencies` on a run is what makes this more than a log: it is the
+   trail from "this checklist ran" to "and here is what it found". */
+const ACTIVITY = {
+  'apparatus-morning': [
+    { kind: 'run',  at: 'Today, 06:14',   rig: 'E-7',  actor: 'M. Alvarez',  outcome: 'deficiency',
+      deficiencies: 2, note: 'Tire pressure 92 psi (min 95) · SCBA cylinder 4180 psi', wo: 'WO-4471' },
+    { kind: 'run',  at: 'Today, 05:58',   rig: 'E-12', actor: 'D. Whitfield', outcome: 'pass' },
+    { kind: 'run',  at: 'Today, 05:52',   rig: 'L-3',  actor: 'J. Okafor',   outcome: 'pass' },
+    { kind: 'edit', at: 'Yesterday, 16:02', actor: 'A. Smith',
+      summary: 'Deployed to M-4', detail: 'Pending first run · weekly cadence override' },
+    { kind: 'run',  at: 'Yesterday, 06:09', rig: 'E-7',  actor: 'M. Alvarez', outcome: 'pass' },
+    { kind: 'run',  at: 'Yesterday, 06:02', rig: 'E-12', actor: 'R. Cho',    outcome: 'deficiency',
+      deficiencies: 1, note: 'Coolant below marker', wo: 'WO-4468' },
+    { kind: 'edit', at: '2026-08-14, 09:41', actor: 'A. Smith',
+      summary: 'Published v5', detail: 'Added "Station-specific: bay door clearance" as an optional block' },
+    { kind: 'edit', at: '2026-08-02, 11:20', actor: 'K. Boyle',
+      summary: 'Paused deployment on BR-1', detail: 'Rig out of service for transmission work' },
+    { kind: 'run',  at: '2026-08-01, 06:11', rig: 'BR-1', actor: 'T. Nguyen', outcome: 'failed',
+      deficiencies: 3, note: 'Transmission fluid low, two tires below tread minimum', wo: 'WO-4402' },
+    { kind: 'edit', at: '2026-05-14, 08:05', actor: 'A. Smith',
+      summary: 'Deployed to L-3', detail: 'Inherits daily cadence' },
+    { kind: 'edit', at: '2026-05-02, 14:33', actor: 'A. Smith',
+      summary: 'Published v4 and deployed to E-7, E-12, BR-1', detail: 'Initial fleet rollout' }
+  ],
+  'ems-weekly': [
+    { kind: 'run',  at: 'Mon, 07:40', rig: 'M-4',  actor: 'S. Reyes', outcome: 'pass' },
+    { kind: 'run',  at: 'Mon, 07:12', rig: 'E-12', actor: 'R. Cho',   outcome: 'pass' },
+    { kind: 'edit', at: '2026-06-01, 10:15', actor: 'K. Boyle',
+      summary: 'Published v3 and deployed to M-4, E-12', detail: 'Replaced the old airway-only check' }
+  ],
+  'quarterly-hydrant': [
+    { kind: 'edit', at: '2026-07-22, 13:47', actor: 'A. Smith',
+      summary: 'Created as draft', detail: 'Not yet deployed — hydrant inspection block is still a draft' }
+  ],
+  'preshift-radio': [
+    { kind: 'edit', at: '2026-04-11, 17:30', actor: 'K. Boyle',
+      summary: 'Retired', detail: 'Superseded by the department-wide comms check · E-7 deployment removed at archival' },
+    { kind: 'run',  at: '2026-04-11, 06:05', rig: 'E-7', actor: 'M. Alvarez', outcome: 'pass' }
+  ]
+};
+
+const VEHICLES = [
+  { tag: 'E-7',  name: 'Engine 7',    type: 'Engine',    station: 'Station 1', year: 2019, make: 'Pierce',   model: 'Enforcer',  status: 'ok',   lastCheckLabel: 'Today, 06:14' },
+  { tag: 'E-12', name: 'Engine 12',   type: 'Engine',    station: 'Station 3', year: 2016, make: 'Pierce',   model: 'Saber',     status: 'warn', lastCheckLabel: 'Yesterday' },
+  { tag: 'L-3',  name: 'Ladder 3',    type: 'Ladder',    station: 'Station 1', year: 2021, make: 'Seagrave', model: 'Aerialscope', status: 'ok', lastCheckLabel: 'Today, 05:52' },
+  { tag: 'M-4',  name: 'Medic 4',     type: 'Ambulance', station: 'Station 2', year: 2022, make: 'Ford',     model: 'F-450',     status: 'ok',   lastCheckLabel: 'Today, 07:03' },
+  { tag: 'BR-1', name: 'Brush 1',     type: 'Brush',     station: 'Station 4', year: 2014, make: 'Freightliner', model: 'M2',    status: 'oos',  lastCheckLabel: '3 days ago' }
+];
+
+/* ---- Lookups ---------------------------------------------------------- */
+const blockById  = id => BLOCKS.find(b => b.id === id);
+const domainMeta = v  => DOMAINS.find(d => d.value === v) || DOMAINS[0];
+const typeMeta   = v  => CHECKLIST_TYPES.find(t => t.value === v) || CHECKLIST_TYPES[0];
+const respMeta   = v  => RESPONSE_TYPES.find(r => r.value === v) || RESPONSE_TYPES[0];
+const cap        = s  => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
+/* Status → Lumo badge theme. One mapping, used everywhere, so a status never
+   renders two different colors on two different surfaces. */
+/* `badge warning` renders amber (#995211 on a yellow tint) and is verified in
+   themes v1.9.3, even though core's CONTEXT.md lists only success/error/
+   contrast/primary. A bare `theme="badge"` is BLUE — informational — which is
+   wrong for a paused deployment or a deficiency. */
+const STATUS_BADGE = {
+  published: 'success', active: 'success', ok: 'success',
+  draft: 'contrast',    pending: 'contrast',
+  paused: 'warning',    warn: 'warning',
+  retired: 'error',     oos: 'error'
+};
+const badge = (text, status, extra) =>
+  '<span theme="badge ' + (STATUS_BADGE[status] !== undefined ? STATUS_BADGE[status] : '') +
+  ' pill' + (extra ? ' ' + extra : '') + '">' + text + '</span>';
+
+/* Apparatus status is stored as ok|warn|oos; crews read it in words. */
+const VEHICLE_STATUS = { ok: 'In service', warn: 'Needs attention', oos: 'Out of service' };
+
+const SEVERITIES = [
+  { value: 'critical', label: 'Critical' },
+  { value: 'warning',  label: 'Warning' },
+  { value: 'none',     label: 'None' }
+];
+const sevBadge = sev => {
+  if (sev === 'critical') return '<span theme="badge error pill">Critical</span>';
+  if (sev === 'warning')  return '<span theme="badge pill">Warning</span>';
+  return '<span theme="badge contrast pill">None</span>';
+};
+
+/* ---- Toast ------------------------------------------------------------ */
+let toastTimer = null;
+function toast(msg, icon) {
+  const host = document.getElementById('toastHost');
+  host.innerHTML = '<div class="cm-toast"><i class="fa-solid ' + (icon || 'fa-circle-check') +
+                   '" aria-hidden="true"></i>' + msg + '</div>';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { host.innerHTML = ''; }, 2600);
+}
+
+/* ======================================================================
+   VIEW SWITCHING
+   ====================================================================== */
+const cmMain = document.getElementById('cmMain');
+let activeChecklistId = 'apparatus-morning';
+let activeBlockId = 'wheels-tires';
+
+function setView(v) {
+  cmMain.setAttribute('data-view', v);
+  window.scrollTo(0, 0);
+  const c = document.querySelector('.ci-content');
+  if (c) c.scrollTop = 0;
+}
+
+/* ======================================================================
+   LIBRARY — checklists grid
+   ====================================================================== */
+const clGrid = document.getElementById('clGrid');
+let clSelected = new Set();
+
+function checklistRows() {
+  const q = (document.getElementById('clSearch').value || '').toLowerCase();
+  const st = document.getElementById('clStatus').selectedItems || [];
+  const ty = document.getElementById('clType').selectedItems || [];
+  const cad = document.getElementById('clCadence').value;
+  return CHECKLISTS.filter(c => {
+    if (q && c.name.toLowerCase().indexOf(q) === -1) return false;
+    if (st.length && st.indexOf(cap(c.status)) === -1) return false;
+    if (ty.length && ty.indexOf(typeMeta(c.type).label) === -1) return false;
+    if (cad && cap(c.cadence) !== cad) return false;
+    return true;
+  });
+}
+
+function buildChecklistGrid() {
+  clGrid.innerHTML = '';
+
+  // Selection column — vaadin-checkbox, not a bare input.
+  const selCol = document.createElement('vaadin-grid-column');
+  selCol.setAttribute('width', '52px');
+  selCol.setAttribute('flex-grow', '0');
+  selCol.headerRenderer = root => {
+    if (!root.firstElementChild) {
+      const cb = document.createElement('vaadin-checkbox');
+      cb.style.cssText = CELL_CONTROL;
+      cb.setAttribute('aria-label', 'Select all checklists');
+      cb.addEventListener('checked-changed', e => {
+        const rows = checklistRows();
+        if (e.detail.value) rows.forEach(r => clSelected.add(r.id));
+        else rows.forEach(r => clSelected.delete(r.id));
+        renderChecklistGrid();
+      });
+      root.appendChild(cb);
+    }
+  };
+  selCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const cb = document.createElement('vaadin-checkbox');
+    cb.style.cssText = CELL_CONTROL;
+    cb.checked = clSelected.has(model.item.id);
+    cb.setAttribute('aria-label', 'Select ' + model.item.name);
+    cb.addEventListener('checked-changed', e => {
+      if (e.detail.value) clSelected.add(model.item.id); else clSelected.delete(model.item.id);
+      syncChecklistBatch();
+    });
+    root.appendChild(cb);
+  };
+  clGrid.appendChild(selCol);
+
+  const nameCol = document.createElement('vaadin-grid-sort-column');
+  nameCol.setAttribute('header', 'Checklist');
+  nameCol.setAttribute('path', 'name');
+  nameCol.setAttribute('flex-grow', '3');
+  nameCol.renderer = (root, col, model) => {
+    const c = model.item, tm = typeMeta(c.type);
+    const sectionCount = c.sections.length;
+    const blockCount = c.sections.reduce((n, s) => n + s.blocks.length + s.appendBlocks.length, 0);
+    root.innerHTML =
+      '<div class="cm-cell-row">' +
+        '<span class="cm-type-dot" style="background:' + tm.color + '"></span>' +
+        '<div class="cm-cell-stack">' +
+          '<a class="cm-drill" href="#" role="button">' + c.name + '</a>' +
+          '<span class="cm-cell-sub">' + tm.label + ' · v' + c.version + ' · ' +
+            sectionCount + ' section' + (sectionCount === 1 ? '' : 's') + ' · ' +
+            blockCount + ' block' + (blockCount === 1 ? '' : 's') + '</span>' +
+        '</div>' +
+      '</div>';
+    // The name is the primary drill-in — clicking it opens the checklist the
+    // same way Edit does. Bound per render because cells are recycled.
+    const link = root.querySelector('.cm-drill');
+    if (link) link.addEventListener('click', ev => { ev.preventDefault(); openBuilder(c.id); });
+  };
+  clGrid.appendChild(nameCol);
+
+  const statusCol = document.createElement('vaadin-grid-column');
+  statusCol.setAttribute('header', 'Status');
+  statusCol.setAttribute('width', '124px');
+  statusCol.setAttribute('flex-grow', '0');
+  statusCol.renderer = (root, col, model) =>
+    { root.innerHTML = badge(cap(model.item.status), model.item.status); };
+  clGrid.appendChild(statusCol);
+
+  const cadCol = document.createElement('vaadin-grid-sort-column');
+  cadCol.setAttribute('header', 'Cadence');
+  cadCol.setAttribute('path', 'cadence');
+  cadCol.setAttribute('width', '124px');
+  cadCol.setAttribute('flex-grow', '0');
+  cadCol.renderer = (root, col, model) => { root.textContent = cap(model.item.cadence); };
+  clGrid.appendChild(cadCol);
+
+  const depCol = document.createElement('vaadin-grid-column');
+  /* Deployed to — a ROLLUP: one row per checklist, with its deployments
+     summarised in the cell. Never one row per deployment.
+
+     Two things the naive version got wrong once a checklist reached more than
+     one rig. It joined every tag with commas, which silently truncated at this
+     width ("E-7, E-12, L-3, M-4, BI"); and it counted all deployments equally,
+     so "5 apparatus" could mean 1 active and 4 paused. Now: lead with the
+     ACTIVE count (that's the number that answers "who is running this today"),
+     name the rigs only while they fit, and call out non-active states rather
+     than burying them. Full per-rig detail lives in the Deployments tab. */
+  depCol.setAttribute('header', 'Deployed to');
+  depCol.setAttribute('width', '186px');
+  depCol.setAttribute('flex-grow', '0');
+  depCol.renderer = (root, col, model) => {
+    const c = model.item;
+    if (!c.deployments.length) { root.innerHTML = '<span class="cm-cell-sub">Not deployed</span>'; return; }
+
+    const active = c.deployments.filter(d => d.status === 'active');
+    const other  = c.deployments.filter(d => d.status !== 'active');
+
+    // Name the rigs when there are few; switch to a count once the list would
+    // outgrow the column.
+    const MAX_TAGS = 3;
+    const shown = (active.length ? active : c.deployments);
+    const lead = shown.length <= MAX_TAGS
+      ? shown.map(d => d.vehicleTag).join(', ')
+      : shown.length + ' apparatus';
+
+    // Non-active deployments are a real state, not a rounding error — say so.
+    const byState = {};
+    other.forEach(d => { byState[d.status] = (byState[d.status] || 0) + 1; });
+    const notes = Object.keys(byState).map(k => byState[k] + ' ' + k);
+    const sub = active.length
+      ? (active.length + ' active' + (notes.length ? ' · ' + notes.join(' · ') : ''))
+      : notes.join(' · ');
+
+    root.innerHTML =
+      '<div class="cm-cell-stack">' +
+        '<span class="cm-cell-strong">' + lead + '</span>' +
+        '<span class="cm-cell-sub">' + sub + '</span>' +
+      '</div>';
+  };
+  clGrid.appendChild(depCol);
+
+  const runCol = document.createElement('vaadin-grid-column');
+  runCol.setAttribute('header', 'Last run');
+  runCol.setAttribute('width', '132px');
+  runCol.setAttribute('flex-grow', '0');
+  runCol.renderer = (root, col, model) => { root.textContent = model.item.lastRun; };
+  clGrid.appendChild(runCol);
+
+  const actCol = document.createElement('vaadin-grid-column');
+  actCol.setAttribute('width', '108px');
+  actCol.setAttribute('flex-grow', '0');
+  actCol.setAttribute('text-align', 'end');
+  actCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const edit = document.createElement('vaadin-button');
+    edit.setAttribute('theme', 'tertiary');
+    edit.style.cssText = CELL_CONTROL + 'text-align:right;';
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => openBuilder(model.item.id));
+    root.appendChild(edit);
+  };
+  clGrid.appendChild(actCol);
+
+  renderChecklistGrid();
+}
+
+function renderChecklistGrid() {
+  const rows = checklistRows();
+  clGrid.items = rows;
+  clGrid.style.display = rows.length ? '' : 'none';
+  document.getElementById('clEmpty').style.display = rows.length ? 'none' : 'block';
+  syncChecklistBatch();
+  renderMetrics();
+}
+
+/* Library stats are DERIVED, never hardcoded — otherwise the deployment count
+   drifts from what the rows say the moment a deployment is added, paused or
+   removed. Counts the whole library, not the filtered view.
+
+   Rendered as one compact line. No "blocks needing review" figure: that tile
+   existed mainly to surface retired-blocks-still-in-use, which is not a state
+   this product allows — archival corrects the links at the time it happens. */
+function renderMetrics() {
+  const pub = CHECKLISTS.filter(c => c.status === 'published').length;
+  const drafts = CHECKLISTS.filter(c => c.status === 'draft').length;
+
+  const allDeps = CHECKLISTS.reduce((a, c) => a.concat(c.deployments), []);
+  const active = allDeps.filter(d => d.status === 'active');
+  const rigs = new Set(active.map(d => d.vehicleTag));
+
+  const stat = (value, label) =>
+    '<span class="cm-stat"><span class="cm-stat-value">' + value + '</span>' +
+    '<span class="cm-stat-label">' + label + '</span></span>';
+  const sep = '<span class="cm-stat-sep" aria-hidden="true">·</span>';
+
+  const host = document.getElementById('libStats');
+  if (host) {
+    host.innerHTML = [
+      stat(pub, 'published'),
+      stat(drafts, drafts === 1 ? 'draft' : 'drafts'),
+      stat(active.length, 'active deployment' + (active.length === 1 ? '' : 's') +
+        (rigs.size ? ' across ' + rigs.size + ' apparatus' : ''))
+    ].join(sep);
+  }
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  // Tab badges count the whole library too, so they never disagree with a stat.
+  set('tabCountChecklists', CHECKLISTS.length);
+  set('tabCountBlocks', BLOCKS.length);
+}
+
+function syncChecklistBatch() {
+  const bar = document.getElementById('clBatch');
+  const n = clSelected.size;
+  document.getElementById('clBatchCount').textContent = n + ' selected';
+  bar.classList.toggle('is-open', n > 0);
+}
+
+/* ======================================================================
+   LIBRARY — content blocks grid
+   ====================================================================== */
+const blGrid = document.getElementById('blGrid');
+
+function blockRows() {
+  const q = (document.getElementById('blSearch').value || '').toLowerCase();
+  const dm = document.getElementById('blDomain').selectedItems || [];
+  const st = document.getElementById('blStatus').selectedItems || [];
+  return BLOCKS.filter(b => {
+    if (q && b.name.toLowerCase().indexOf(q) === -1) return false;
+    if (dm.length && dm.indexOf(domainMeta(b.domain).label) === -1) return false;
+    if (st.length && st.indexOf(cap(b.status)) === -1) return false;
+    return true;
+  });
+}
+
+function buildBlockGrid() {
+  blGrid.innerHTML = '';
+
+  const nameCol = document.createElement('vaadin-grid-sort-column');
+  nameCol.setAttribute('header', 'Content block');
+  nameCol.setAttribute('path', 'name');
+  nameCol.setAttribute('flex-grow', '3');
+  nameCol.renderer = (root, col, model) => {
+    const b = model.item, dm = domainMeta(b.domain);
+    root.innerHTML =
+      '<div class="cm-cell-row">' +
+        '<span class="cm-block-icon"><i class="fa-solid ' + dm.icon + '" aria-hidden="true"></i></span>' +
+        '<div class="cm-cell-stack">' +
+          '<span class="cm-cell-strong">' + b.name +
+            (b.multiUse ? ' <span theme="badge contrast pill">Multi-use</span>' : '') + '</span>' +
+          '<span class="cm-cell-sub">' + b.description + '</span>' +
+        '</div>' +
+      '</div>';
+  };
+  blGrid.appendChild(nameCol);
+
+  const domCol = document.createElement('vaadin-grid-sort-column');
+  domCol.setAttribute('header', 'Domain');
+  domCol.setAttribute('path', 'domain');
+  domCol.setAttribute('width', '168px');
+  domCol.setAttribute('flex-grow', '0');
+  domCol.renderer = (root, col, model) => { root.textContent = domainMeta(model.item.domain).label; };
+  blGrid.appendChild(domCol);
+
+  const stCol = document.createElement('vaadin-grid-column');
+  stCol.setAttribute('header', 'Status');
+  stCol.setAttribute('width', '124px');
+  stCol.setAttribute('flex-grow', '0');
+  stCol.renderer = (root, col, model) => {
+    root.innerHTML = badge(cap(model.item.status), model.item.status) +
+      ' <span class="cm-cell-sub">v' + model.item.version + '</span>';
+  };
+  blGrid.appendChild(stCol);
+
+  const stepCol = document.createElement('vaadin-grid-column');
+  stepCol.setAttribute('header', 'Steps');
+  stepCol.setAttribute('width', '90px');
+  stepCol.setAttribute('flex-grow', '0');
+  stepCol.setAttribute('text-align', 'end');
+  stepCol.renderer = (root, col, model) => { root.textContent = model.item.steps.length; };
+  blGrid.appendChild(stepCol);
+
+  const useCol = document.createElement('vaadin-grid-column');
+  useCol.setAttribute('header', 'Used by');
+  useCol.setAttribute('width', '124px');
+  useCol.setAttribute('flex-grow', '0');
+  useCol.renderer = (root, col, model) => {
+    const n = model.item.usedBy;
+    root.innerHTML = n
+      ? '<span class="cm-cell-strong">' + n + '</span> <span class="cm-cell-sub">checklist' + (n === 1 ? '' : 's') + '</span>'
+      : '<span class="cm-cell-sub">Unused</span>';
+  };
+  blGrid.appendChild(useCol);
+
+  const actCol = document.createElement('vaadin-grid-column');
+  actCol.setAttribute('width', '108px');
+  actCol.setAttribute('flex-grow', '0');
+  actCol.setAttribute('text-align', 'end');
+  actCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const edit = document.createElement('vaadin-button');
+    edit.setAttribute('theme', 'tertiary');
+    edit.style.cssText = CELL_CONTROL + 'text-align:right;';
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => openCreator(model.item.id));
+    root.appendChild(edit);
+  };
+  blGrid.appendChild(actCol);
+
+  renderBlockGrid();
+}
+
+function renderBlockGrid() {
+  const rows = blockRows();
+  blGrid.items = rows;
+  blGrid.style.display = rows.length ? '' : 'none';
+  document.getElementById('blEmpty').style.display = rows.length ? 'none' : 'block';
+}
+
+/* ======================================================================
+   BUILDER
+   ====================================================================== */
+let bDirtyState = false;
+/* Hydrating the inspector fields fires `value-changed` on each one, which would
+   otherwise flag a freshly-opened checklist as unsaved. Suppress while loading. */
+let hydrating = false;
+function markBuilderDirty() {
+  if (hydrating) return;
+  bDirtyState = true;
+  document.getElementById('bDirty').classList.add('is-on');
+}
+function markBuilderSaved() {
+  bDirtyState = false;
+  document.getElementById('bDirty').classList.remove('is-on');
+}
+
+function currentChecklist() { return CHECKLISTS.find(c => c.id === activeChecklistId); }
+
+function openBuilder(id) {
+  activeChecklistId = id;
+  hydrating = true;
+  const c = currentChecklist();
+  document.getElementById('bTitle').textContent = c.name;
+  document.getElementById('bName').value = c.name;
+  document.getElementById('bType').value = c.type;
+  document.getElementById('bCadence').value = c.cadence;
+
+  const st = document.getElementById('bStatus');
+  st.setAttribute('theme', 'badge ' + (STATUS_BADGE[c.status] || '') + ' pill');
+  st.textContent = cap(c.status);
+
+  const blocks = c.sections.reduce((n, s) => n + s.blocks.length + s.appendBlocks.length, 0);
+  document.getElementById('bVersion').textContent =
+    'v' + c.version + ' · ' + c.sections.length + ' section' + (c.sections.length === 1 ? '' : 's') +
+    ' · ' + blocks + ' block' + (blocks === 1 ? '' : 's') +
+    ' · ' + c.deployments.length + ' deployment' + (c.deployments.length === 1 ? '' : 's');
+  document.getElementById('bDepCount').textContent = c.deployments.length;
+
+  renderSetupRecap();
+
+  renderSections();
+  renderDeployGrid();
+  renderActivity();
+  setBuilderTab(0);
+  setView('builder');
+  // Vaadin fires value-changed asynchronously, so drop the guard on the next
+  // frame — after hydration's events have all landed.
+  requestAnimationFrame(() => { hydrating = false; markBuilderSaved(); });
+}
+
+/* The collapsed Setup section still has to say what it contains — otherwise
+   collapsing it hides the checklist's type and cadence entirely. */
+function renderSetupRecap() {
+  const c = currentChecklist();
+  if (!c) return;
+  const el = document.getElementById('bSetupRecap');
+  if (el) el.textContent = typeMeta(c.type).label + ' · ' + cap(c.cadence) + ' · v' + c.version;
+}
+
+/* ---- Sections + block instances -------------------------------------- */
+let dragSectionId = null;
+
+function renderSections() {
+  const c = currentChecklist();
+  const host = document.getElementById('sectionList');
+  host.innerHTML = '';
+
+  // The structure container owns the section/block count, so keep it derived.
+  const sub = document.getElementById('bStructureSub');
+  if (sub) {
+    const nb = c.sections.reduce((n, x) => n + x.blocks.length + x.appendBlocks.length, 0);
+    sub.textContent = c.sections.length + ' section' + (c.sections.length === 1 ? '' : 's') +
+      ' · ' + nb + ' block' + (nb === 1 ? '' : 's');
+  }
+
+  if (!c.sections.length) {
+    host.innerHTML =
+      '<div class="cm-empty" style="padding:34px 12px">' +
+        '<i class="fa-solid fa-layer-group" aria-hidden="true"></i>' +
+        '<h3>No sections yet</h3>' +
+        '<p>Sections group the blocks a crew works through. Add one, then import ' +
+        'a content block or add steps inline.</p>' +
+        '<vaadin-button theme="primary" onclick="document.getElementById(\'btnAddSection\').click()">Add section</vaadin-button>' +
+      '</div>';
+    return;
+  }
+
+  c.sections.forEach(sec => {
+    const el = document.createElement('div');
+    el.className = 'cm-section' + (sec.collapsed ? ' is-collapsed' : '');
+    el.draggable = true;
+    el.dataset.sectionId = sec.id;
+
+    const count = sec.blocks.length + sec.appendBlocks.length;
+    const linkLabel = { template: 'Template', block: 'Block', unique: 'Unique' }[sec.linkState];
+
+    el.innerHTML =
+      '<div class="cm-section-head">' +
+        '<i class="fa-solid fa-grip-vertical cm-grip" aria-hidden="true"></i>' +
+        '<div>' +
+          '<div class="cm-section-name">' + sec.name + '</div>' +
+          '<div class="cm-section-meta">' +
+            '<span class="cm-link-dot cm-link-' + sec.linkState + '"></span> ' + linkLabel +
+            ' · ' + count + ' block' + (count === 1 ? '' : 's') +
+            (sec.templateLocked ? ' · <i class="fa-solid fa-lock" aria-hidden="true"></i> Template-locked' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="cm-section-actions"></div>' +
+      '</div>' +
+      '<div class="cm-section-body"></div>';
+
+    // Header actions
+    const acts = el.querySelector('.cm-section-actions');
+    acts.appendChild(iconBtn(sec.collapsed ? 'fa-chevron-down' : 'fa-chevron-up',
+      sec.collapsed ? 'Expand section' : 'Collapse section',
+      () => { sec.collapsed = !sec.collapsed; renderSections(); }));
+    if (sec.linkState === 'template') {
+      acts.appendChild(textBtn('Break link', 'tertiary', () => openBreakDialog(sec)));
+    }
+    acts.appendChild(iconBtn('fa-trash-can', 'Delete section', () => {
+      c.sections = c.sections.filter(s => s.id !== sec.id);
+      markBuilderDirty(); renderSections();
+      toast('Section deleted', 'fa-trash-can');
+    }));
+
+    // Body: block instances
+    const body = el.querySelector('.cm-section-body');
+    sec.blocks.forEach(inst => body.appendChild(renderBlockInstance(sec, inst, false)));
+
+    if (sec.templateLocked) {
+      const zone = document.createElement('div');
+      zone.className = 'cm-append';
+      zone.innerHTML = '<div class="cm-append-label">Local additions</div>';
+      sec.appendBlocks.forEach(inst => zone.appendChild(renderBlockInstance(sec, inst, true)));
+      const add = document.createElement('vaadin-button');
+      add.setAttribute('theme', 'tertiary');
+      add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add local block';
+      add.addEventListener('click', () => openImportDialog(sec, true));
+      zone.appendChild(add);
+      body.appendChild(zone);
+    } else {
+      sec.appendBlocks.forEach(inst => body.appendChild(renderBlockInstance(sec, inst, true)));
+      const row = document.createElement('div');
+      row.className = 'cm-section-add';
+      const imp = document.createElement('vaadin-button');
+      imp.setAttribute('theme', 'secondary');
+      imp.innerHTML = '<i class="fa-solid fa-cube" aria-hidden="true" style="margin-right:6px"></i>Import block';
+      imp.addEventListener('click', () => openImportDialog(sec, false));
+      const steps = document.createElement('vaadin-button');
+      steps.setAttribute('theme', 'tertiary');
+      steps.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add steps inline';
+      steps.addEventListener('click', () => openStepDialog(sec));
+      row.appendChild(imp); row.appendChild(steps);
+      body.appendChild(row);
+    }
+
+    // Section drag-reorder
+    el.addEventListener('dragstart', e => {
+      dragSectionId = sec.id; el.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      dragSectionId = null; el.classList.remove('is-dragging');
+      host.querySelectorAll('.cm-section').forEach(n => n.classList.remove('is-drag-over'));
+    });
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (dragSectionId && dragSectionId !== sec.id) el.classList.add('is-drag-over');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('is-drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      el.classList.remove('is-drag-over');
+      if (!dragSectionId || dragSectionId === sec.id) return;
+      const from = c.sections.findIndex(s => s.id === dragSectionId);
+      const to   = c.sections.findIndex(s => s.id === sec.id);
+      const [moved] = c.sections.splice(from, 1);
+      c.sections.splice(to, 0, moved);
+      markBuilderDirty(); renderSections();
+    });
+
+    host.appendChild(el);
+  });
+}
+
+function renderBlockInstance(sec, inst, isAppend) {
+  const el = document.createElement('div');
+  el.className = 'cm-block' + (inst.expanded ? ' is-open' : '') + (inst.optional ? '' : '');
+  const freestanding = inst.blockId === 'freestanding';
+  const b = freestanding ? null : blockById(inst.blockId);
+  const name = freestanding ? inst.name : b.name;
+  const steps = freestanding ? inst.steps : b.steps;
+  const dm = freestanding ? { icon: 'fa-pen-to-square' } : domainMeta(b.domain);
+
+  // Duplicate detection — a multi-use block appearing twice needs a context label.
+  const all = sec.blocks.concat(sec.appendBlocks);
+  const dupes = all.filter(i => i.blockId === inst.blockId).length > 1;
+
+  let meta = [];
+  if (!freestanding) meta.push('v' + b.version);
+  meta.push(steps.length + ' step' + (steps.length === 1 ? '' : 's'));
+  if (!freestanding && b.multiUse) meta.push('Multi-use');
+  if (freestanding) meta.push('Inline');
+
+  el.innerHTML =
+    '<div class="cm-block-row">' +
+      '<i class="fa-solid fa-grip-vertical cm-grip" aria-hidden="true"></i>' +
+      '<span class="cm-block-icon"><i class="fa-solid ' + dm.icon + '" aria-hidden="true"></i></span>' +
+      '<div>' +
+        '<div class="cm-block-name">' + name +
+          (inst.contextLabel ? ' <span theme="badge contrast pill">' + inst.contextLabel + '</span>' : '') +
+          (dupes && !inst.contextLabel ? ' <span theme="badge error pill">Needs context label</span>' : '') +
+        '</div>' +
+        '<div class="cm-block-meta">' +
+          '<span class="cm-link-dot cm-link-' + inst.linkState + '"></span> ' + meta.join(' · ') +
+        '</div>' +
+      '</div>' +
+      '<div class="cm-block-actions"></div>' +
+    '</div>' +
+    '<div class="cm-block-steps"></div>';
+
+  const acts = el.querySelector('.cm-block-actions');
+
+  // Required ↔ Optional toggle
+  const optBtn = document.createElement('vaadin-button');
+  optBtn.setAttribute('theme', 'tertiary');
+  optBtn.innerHTML = inst.optional
+    ? '<span theme="badge contrast pill">Optional</span>'
+    : '<span theme="badge success pill">Required</span>';
+  optBtn.addEventListener('click', () => {
+    inst.optional = !inst.optional;
+    markBuilderDirty(); renderSections();
+    toast(name + (inst.optional ? ' is now optional' : ' is now required'), 'fa-arrows-rotate');
+  });
+  acts.appendChild(optBtn);
+
+  acts.appendChild(iconBtn(inst.expanded ? 'fa-chevron-up' : 'fa-chevron-down',
+    inst.expanded ? 'Hide steps' : 'Show steps',
+    () => { inst.expanded = !inst.expanded; renderSections(); }));
+
+  acts.appendChild(iconBtn('fa-trash-can', 'Remove block', () => {
+    const key = isAppend ? 'appendBlocks' : 'blocks';
+    sec[key] = sec[key].filter(i => i.instanceId !== inst.instanceId);
+    markBuilderDirty(); renderSections();
+    toast('Block removed', 'fa-trash-can');
+  }));
+
+  // Expanded step preview
+  const stepHost = el.querySelector('.cm-block-steps');
+  steps.forEach((s, i) => {
+    const sev = s.severity || s.sev || 'none';
+    const rm = respMeta(s.type);
+    const bits = [rm.label + ' → <code>' + rm.kind + '</code>'];
+    if (s.unit) bits.push(s.min + '–' + s.max + ' ' + s.unit);
+    if (s.options) bits.push(s.options.length + ' options');
+    if (s.allowPhoto) bits.push('<i class="fa-solid fa-camera" aria-hidden="true"></i> photo');
+    if (s.allowNote)  bits.push('<i class="fa-solid fa-note-sticky" aria-hidden="true"></i> note');
+    const row = document.createElement('div');
+    row.className = 'cm-step-row';
+    row.innerHTML =
+      '<span class="cm-step-num">' + (i + 1) + '</span>' +
+      '<span class="cm-step-label">' + s.label +
+        '<div class="cm-step-sub">' + bits.join(' · ') + '</div></span>' +
+      sevBadge(sev);
+    stepHost.appendChild(row);
+  });
+
+  return el;
+}
+
+/* Every control placed in a grid cell carries this.
+
+   A control cell painted a stray "…" beside the control. vaadin-grid-cell-content
+   is a block with `text-overflow: ellipsis`, and a control narrower than its
+   cell leaves an inline text box for the cell to truncate. Page-level CSS
+   cannot fix it — the cell and its contents are distributed through the grid's
+   shadow DOM, so neither a descendant selector nor a `::slotted()` rule
+   injected into the shadow root takes effect. An INLINE style on the control
+   does apply, and stretching it to fill the cell leaves nothing to ellipsize.
+   Text columns keep their normal truncation. */
+const CELL_CONTROL = 'display:block;width:100%;';
+
+/* Small button helpers — keeps the renderers readable. */
+function iconBtn(faClass, label, onClick) {
+  const b = document.createElement('vaadin-button');
+  b.setAttribute('theme', 'icon tertiary');
+  b.setAttribute('aria-label', label);
+  b.innerHTML = '<i class="fa-solid ' + faClass + '" aria-hidden="true"></i>';
+  b.addEventListener('click', onClick);
+  return b;
+}
+function textBtn(text, theme, onClick) {
+  const b = document.createElement('vaadin-button');
+  b.setAttribute('theme', theme);
+  b.textContent = text;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/* ---- Library tabs ---------------------------------------------------
+   Checklists and Content blocks are two views of the same library, so only
+   the panel below the tab bar swaps — the title, tiles, alert and tab bar all
+   stay. The sub-line and the primary action follow the active tab. */
+/* Only the sub-line follows the active tab now; each tab's CTA lives in its own
+   panel, so it appears and disappears with that panel. */
+const LIB_SUB = [
+  'Author checklists from reusable content blocks, then deploy them to apparatus on a cadence.',
+  'Reusable groups of check steps. One block can appear in many checklists — edits propagate to every linked section.'
+];
+
+function setLibraryTab(i) {
+  const tabs = document.getElementById('libTabs');
+  if (tabs.selected !== i) tabs.selected = i;
+  document.getElementById('panelChecklists').style.display = i === 1 ? 'none' : '';
+  document.getElementById('panelBlocks').style.display     = i === 1 ? '' : 'none';
+  document.getElementById('libSub').textContent = LIB_SUB[i] || LIB_SUB[0];
+  // The CTAs live inside the panels, so hiding the panel hides its action —
+  // nothing to toggle here.
+  if (i === 1) renderBlockGrid(); else renderChecklistGrid();
+  setView('library');
+}
+
+/* ---- Builder tabs ---------------------------------------------------- */
+function setBuilderTab(i) {
+  const tabs = document.getElementById('bTabs');
+  if (tabs.selected !== i) tabs.selected = i;
+  document.getElementById('bPanelChecklist').style.display = i === 0 ? '' : 'none';
+  document.getElementById('bPanelDeploy').style.display    = i === 1 ? '' : 'none';
+  document.getElementById('bPanelActivity').style.display  = i === 2 ? '' : 'none';
+  document.getElementById('bPanelSettings').style.display  = i === 3 ? '' : 'none';
+  if (i === 2) renderActivity();
+}
+
+/* ---- Deployments grid ------------------------------------------------ */
+const dpGrid = document.getElementById('dpGrid');
+let dpSelected = new Set();
+
+function deployRows() {
+  const c = currentChecklist();
+  const q = (document.getElementById('dpSearch').value || '').toLowerCase();
+  const st = document.getElementById('dpStatus').selectedItems || [];
+  return c.deployments.filter(d => {
+    const v = VEHICLES.find(x => x.tag === d.vehicleTag) || {};
+    if (q && (d.vehicleTag + ' ' + (v.name || '')).toLowerCase().indexOf(q) === -1) return false;
+    if (st.length && st.indexOf(cap(d.status)) === -1) return false;
+    return true;
+  });
+}
+
+function buildDeployGrid() {
+  dpGrid.innerHTML = '';
+
+  const selCol = document.createElement('vaadin-grid-column');
+  selCol.setAttribute('width', '52px');
+  selCol.setAttribute('flex-grow', '0');
+  selCol.headerRenderer = root => {
+    if (!root.firstElementChild) {
+      const cb = document.createElement('vaadin-checkbox');
+      cb.style.cssText = CELL_CONTROL;
+      cb.setAttribute('aria-label', 'Select all deployments');
+      cb.addEventListener('checked-changed', e => {
+        const rows = deployRows();
+        if (e.detail.value) rows.forEach(r => dpSelected.add(r.id));
+        else rows.forEach(r => dpSelected.delete(r.id));
+        renderDeployGrid();
+      });
+      root.appendChild(cb);
+    }
+  };
+  selCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const cb = document.createElement('vaadin-checkbox');
+    cb.style.cssText = CELL_CONTROL;
+    cb.checked = dpSelected.has(model.item.id);
+    cb.setAttribute('aria-label', 'Select ' + model.item.vehicleTag);
+    cb.addEventListener('checked-changed', e => {
+      if (e.detail.value) dpSelected.add(model.item.id); else dpSelected.delete(model.item.id);
+      syncDeployBatch();
+    });
+    root.appendChild(cb);
+  };
+  dpGrid.appendChild(selCol);
+
+  const vehCol = document.createElement('vaadin-grid-sort-column');
+  vehCol.setAttribute('header', 'Apparatus');
+  vehCol.setAttribute('path', 'vehicleTag');
+  vehCol.setAttribute('flex-grow', '2');
+  vehCol.renderer = (root, col, model) => {
+    const v = VEHICLES.find(x => x.tag === model.item.vehicleTag) || {};
+    root.innerHTML = '<div class="cm-cell-stack">' +
+      '<span class="cm-cell-strong">' + model.item.vehicleTag + ' · ' + (v.name || '') + '</span>' +
+      '<span class="cm-cell-sub">' + (v.station || '') + ' · ' + (v.year || '') + ' ' +
+        (v.make || '') + ' ' + (v.model || '') + '</span></div>';
+  };
+  dpGrid.appendChild(vehCol);
+
+  // In-row editable status (GAP-REPORT LIST-V03)
+  const stCol = document.createElement('vaadin-grid-column');
+  stCol.setAttribute('header', 'Status');
+  stCol.setAttribute('width', '164px');
+  stCol.setAttribute('flex-grow', '0');
+  stCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const sel = document.createElement('vaadin-select');
+    sel.setAttribute('theme', 'outlined');
+    sel.style.cssText = CELL_CONTROL + 'width:138px;';
+    sel.items = ['active', 'paused', 'pending'].map(s => ({ label: cap(s), value: s }));
+    sel.value = model.item.status;
+    sel.addEventListener('value-changed', e => {
+      if (!e.detail.value || e.detail.value === model.item.status) return;
+      model.item.status = e.detail.value;
+      markBuilderDirty();
+      toast(model.item.vehicleTag + ' set to ' + e.detail.value, 'fa-arrows-rotate');
+    });
+    root.appendChild(sel);
+  };
+  dpGrid.appendChild(stCol);
+
+  const cadCol = document.createElement('vaadin-grid-column');
+  cadCol.setAttribute('header', 'Cadence');
+  cadCol.setAttribute('width', '176px');
+  cadCol.setAttribute('flex-grow', '0');
+  cadCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const c = currentChecklist();
+    const sel = document.createElement('vaadin-select');
+    sel.setAttribute('theme', 'outlined');
+    sel.style.cssText = CELL_CONTROL + 'width:150px;';
+    sel.items = [{ label: 'Inherit (' + cap(c.cadence) + ')', value: '__inherit' }]
+      .concat(CADENCES.map(x => ({ label: cap(x), value: x })));
+    sel.value = model.item.cadenceOverride || '__inherit';
+    sel.addEventListener('value-changed', e => {
+      if (!e.detail.value) return;
+      model.item.cadenceOverride = e.detail.value === '__inherit' ? null : e.detail.value;
+      markBuilderDirty();
+    });
+    root.appendChild(sel);
+  };
+  dpGrid.appendChild(cadCol);
+
+  const runCol = document.createElement('vaadin-grid-column');
+  runCol.setAttribute('header', 'Last run');
+  runCol.setAttribute('width', '132px');
+  runCol.setAttribute('flex-grow', '0');
+  runCol.renderer = (root, col, model) => {
+    root.innerHTML = model.item.lastRunAt
+      ? model.item.lastRunAt
+      : '<span class="cm-cell-sub">Never</span>';
+  };
+  dpGrid.appendChild(runCol);
+
+  const actCol = document.createElement('vaadin-grid-column');
+  actCol.setAttribute('width', '64px');
+  actCol.setAttribute('flex-grow', '0');
+  actCol.setAttribute('text-align', 'end');
+  actCol.renderer = (root, col, model) => {
+    root.innerHTML = '';
+    const rm = iconBtn('fa-trash-can', 'Remove deployment', () => {
+      const c = currentChecklist();
+      c.deployments = c.deployments.filter(d => d.id !== model.item.id);
+      dpSelected.delete(model.item.id);
+      markBuilderDirty(); renderDeployGrid();
+      document.getElementById('bDepCount').textContent = c.deployments.length;
+      toast('Deployment removed', 'fa-trash-can');
+    });
+    rm.style.cssText = CELL_CONTROL + 'text-align:right;';
+    root.appendChild(rm);
+  };
+  dpGrid.appendChild(actCol);
+
+  renderDeployGrid();
+}
+
+function renderDeployGrid() {
+  const rows = deployRows();
+  dpGrid.items = rows;
+  dpGrid.style.display = rows.length ? '' : 'none';
+  document.getElementById('dpEmpty').style.display = rows.length ? 'none' : 'block';
+  syncDeployBatch();
+}
+
+function syncDeployBatch() {
+  const n = dpSelected.size;
+  document.getElementById('dpBatchCount').textContent = n + ' selected';
+  document.getElementById('dpBatch').classList.toggle('is-open', n > 0);
+}
+
+/* ---- Activity tab ---------------------------------------------------
+   The third thing a checklist owner needs after structure and deployments:
+   what has actually happened to this checklist. Runs and edits share one
+   timeline so cause and effect sit next to each other — "published v5" landing
+   right above the runs that followed it is the point. */
+const OUTCOME_META = {
+  pass:       { label: 'Passed',      badge: 'success', dot: 'cm-tl-dot--pass', icon: 'fa-check' },
+  deficiency: { label: 'Deficiency',  badge: 'warning', dot: 'cm-tl-dot--def',  icon: 'fa-triangle-exclamation' },
+  failed:     { label: 'Out of service', badge: 'error', dot: 'cm-tl-dot--fail', icon: 'fa-xmark' }
+};
+
+function activityFor(id) { return ACTIVITY[id] || []; }
+
+function activityRows() {
+  const all = activityFor(activeChecklistId);
+  const kind = document.getElementById('actKind').value;
+  const rig  = document.getElementById('actRig').value;
+  const out  = document.getElementById('actOutcome').value;
+  return all.filter(e => {
+    if (kind === 'Runs' && e.kind !== 'run') return false;
+    if (kind === 'Edits' && e.kind !== 'edit') return false;
+    if (rig && e.rig !== rig) return false;
+    if (out && (e.kind !== 'run' || OUTCOME_META[e.outcome].label !== out)) return false;
+    return true;
+  });
+}
+
+function renderActivity() {
+  const host = document.getElementById('actTimeline');
+  const rows = activityRows();
+  const all = activityFor(activeChecklistId);
+  document.getElementById('bActCount').textContent = all.length;
+
+  // Rig filter options come from the events themselves, not the whole fleet.
+  const rigSel = document.getElementById('actRig');
+  const rigs = Array.from(new Set(all.filter(e => e.rig).map(e => e.rig)));
+  if ((rigSel.items || []).length !== rigs.length) rigSel.items = rigs;
+
+  renderActivityMetrics(all);
+
+  if (!rows.length) {
+    host.innerHTML =
+      '<div class="cm-empty" style="padding:34px 12px">' +
+        '<i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>' +
+        '<h3>' + (all.length ? 'No events match these filters' : 'No activity yet') + '</h3>' +
+        '<p>' + (all.length
+          ? 'Clear a filter to see the full history.'
+          : 'Runs and edits will appear here once this checklist is published and deployed.') + '</p>' +
+        (all.length ? '<vaadin-button theme="primary" onclick="document.getElementById(\'actClear\').click()">Clear filters</vaadin-button>' : '') +
+      '</div>';
+    return;
+  }
+
+  // Group by day so a long history stays scannable.
+  const dayOf = at => at.split(',')[0];
+  let lastDay = null;
+  let html = '<div class="cm-timeline">';
+
+  rows.forEach(e => {
+    const day = dayOf(e.at);
+    if (day !== lastDay) { html += '<div class="cm-tl-day">' + day + '</div>'; lastDay = day; }
+
+    if (e.kind === 'run') {
+      const om = OUTCOME_META[e.outcome];
+      html +=
+        '<div class="cm-tl-item">' +
+          '<span class="cm-tl-dot ' + om.dot + '"><i class="fa-solid ' + om.icon + '" aria-hidden="true"></i></span>' +
+          '<div class="cm-tl-head">' +
+            '<span class="cm-tl-title">Run on ' + e.rig + '</span>' +
+            '<span theme="badge ' + om.badge + ' pill">' + om.label + '</span>' +
+            (e.deficiencies ? '<span class="cm-cell-sub">' + e.deficiencies +
+              ' deficienc' + (e.deficiencies === 1 ? 'y' : 'ies') + '</span>' : '') +
+            '<span class="cm-tl-when">' + e.at + '</span>' +
+          '</div>' +
+          '<div class="cm-tl-meta">Completed by ' + e.actor + '</div>' +
+          (e.note
+            ? '<div class="cm-tl-note">' + e.note +
+              (e.wo ? '<div class="cm-tl-wo"><span theme="badge contrast pill">' +
+                '<i class="fa-solid fa-wrench" aria-hidden="true" style="margin-right:5px"></i>' +
+                e.wo + '</span></div>' : '') +
+              '</div>'
+            : '') +
+        '</div>';
+    } else {
+      html +=
+        '<div class="cm-tl-item">' +
+          '<span class="cm-tl-dot cm-tl-dot--edit"><i class="fa-solid fa-pen" aria-hidden="true"></i></span>' +
+          '<div class="cm-tl-head">' +
+            '<span class="cm-tl-title">' + e.summary + '</span>' +
+            '<span theme="badge primary pill">Edit</span>' +
+            '<span class="cm-tl-when">' + e.at + '</span>' +
+          '</div>' +
+          '<div class="cm-tl-meta">' + e.actor + (e.detail ? ' · ' + e.detail : '') + '</div>' +
+        '</div>';
+    }
+  });
+
+  host.innerHTML = html + '</div>';
+}
+
+/* Run-history tiles — the numbers an owner checks before editing a checklist:
+   is it actually being run, and is it finding things? */
+function renderActivityMetrics(all) {
+  const runs = all.filter(e => e.kind === 'run');
+  const clean = runs.filter(e => e.outcome === 'pass').length;
+  const defs = runs.reduce((n, e) => n + (e.deficiencies || 0), 0);
+  const wos = new Set(runs.filter(e => e.wo).map(e => e.wo));
+  const rate = runs.length ? Math.round((clean / runs.length) * 100) : null;
+
+  const tile = (label, value, foot) =>
+    '<vwc-card theme="padded outlined"><div slot="content">' +
+      '<div class="cm-metric-label">' + label + '</div>' +
+      '<div class="cm-metric-value">' + value + '</div>' +
+      '<div class="cm-metric-foot">' + foot + '</div>' +
+    '</div></vwc-card>';
+
+  document.getElementById('actMetrics').innerHTML =
+    tile('Runs logged', runs.length, runs.length ? 'Across ' +
+      new Set(runs.map(e => e.rig)).size + ' apparatus' : 'Never run') +
+    tile('Clean rate', rate === null ? '—' : rate + '%', clean + ' of ' + runs.length + ' passed') +
+    tile('Deficiencies found', defs, defs ? 'Across all runs' : 'None recorded') +
+    tile('Work orders raised', wos.size, wos.size ? Array.from(wos).join(', ') : 'None');
+}
+
+/* ---- Settings tab ----------------------------------------------------
+   The sandbox left this a stub. Built out here with real switches, because
+   "completion rules" is what a dev needs specified. */
+const SETTINGS = [
+  { id: 'gate',    label: 'Block advancing until every step is answered',
+    help: 'Optional blocks and skipped blocks do not gate.', on: true },
+  { id: 'photo',   label: 'Require a photo on every deficiency',
+    help: 'Applies to critical severity only unless overridden per step.', on: true },
+  { id: 'sig',     label: 'Require officer attestation before submit',
+    help: 'Appends the terminal Attest & Submit step to every run.', on: true },
+  { id: 'wo',      label: 'Auto-create a work order for critical failures',
+    help: 'Routes to the Service Tasks queue with the apparatus attached.', on: true },
+  { id: 'carry',   label: 'Carry open work orders into the next run',
+    help: 'Crews must confirm, update or resolve each one before completing the step.', on: true },
+  { id: 'oos',     label: 'Flag apparatus out of service on any critical failure',
+    help: 'Officer can override with a readiness determination.', on: false }
+];
+
+function renderSettings() {
+  const host = document.getElementById('settingsBody');
+  host.innerHTML = '';
+  SETTINGS.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'cm-switch-row';
+    row.innerHTML = '<div class="cm-switch-text">' +
+      '<div class="cm-switch-label">' + s.label + '</div>' +
+      '<div class="cm-switch-help">' + s.help + '</div></div>';
+    const sw = document.createElement('vwc-switch');
+    sw.checked = s.on;
+    sw.setAttribute('accessible-name', s.label);
+    sw.addEventListener('checked-changed', e => { s.on = e.detail; markBuilderDirty(); });
+    row.appendChild(sw);
+    host.appendChild(row);
+    if (i < SETTINGS.length - 1) host.appendChild(document.createElement('vwc-divider'));
+  });
+}
+
+/* ======================================================================
+   BLOCK CREATOR
+   ====================================================================== */
+let cDirtyState = false;
+let creatorSteps = [];
+let dragStepIdx = null;
+
+function markCreatorDirty() {
+  if (hydrating) return;
+  cDirtyState = true;
+  document.getElementById('cDirty').classList.add('is-on');
+}
+
+function openCreator(id) {
+  activeBlockId = id;
+  hydrating = true;
+  const b = blockById(id);
+  creatorSteps = JSON.parse(JSON.stringify(b.steps));
+
+  document.getElementById('cTitle').textContent = b.name;
+  document.getElementById('cName').value = b.name;
+  document.getElementById('cDomain').value = b.domain;
+  document.getElementById('cDescription').value = b.description;
+  document.getElementById('cMultiUse').checked = !!b.multiUse;
+
+  const st = document.getElementById('cStatus');
+  st.setAttribute('theme', 'badge ' + (STATUS_BADGE[b.status] || '') + ' pill');
+  st.textContent = cap(b.status);
+  document.getElementById('cVersion').textContent =
+    'v' + b.version + ' · ' + domainMeta(b.domain).label + ' · used by ' + b.usedBy + ' checklists';
+
+  renderCreatorSteps();
+  setView('creator');
+  requestAnimationFrame(() => {
+    hydrating = false;
+    cDirtyState = false;
+    document.getElementById('cDirty').classList.remove('is-on');
+  });
+}
+
+function renderCreatorSteps() {
+  const host = document.getElementById('stepList');
+  host.innerHTML = '';
+  document.getElementById('cStepCount').textContent =
+    creatorSteps.length + ' step' + (creatorSteps.length === 1 ? '' : 's');
+
+  if (!creatorSteps.length) {
+    host.innerHTML =
+      '<div class="cm-empty"><i class="fa-solid fa-list-ol" aria-hidden="true"></i>' +
+      '<h3>No check steps yet</h3>' +
+      '<p>A block is an ordered list of steps. Add the first one to get started.</p></div>';
+    return;
+  }
+
+  creatorSteps.forEach((s, idx) => {
+    const rm = respMeta(s.type);
+    const card = document.createElement('div');
+    card.className = 'cm-stepcard';
+    card.draggable = true;
+
+    card.innerHTML =
+      '<div class="cm-stepcard-head">' +
+        '<i class="fa-solid fa-grip-vertical cm-grip" aria-hidden="true"></i>' +
+        '<span class="cm-stepcard-title">Step ' + (idx + 1) + '</span>' +
+        '<span class="cm-cell-sub">' + rm.label + ' → <code>' + rm.kind + '</code></span>' +
+        '<div class="cm-stepcard-actions"></div>' +
+      '</div>' +
+      '<div class="cm-stepcard-body"><div class="cm-form-grid"></div></div>';
+
+    const acts = card.querySelector('.cm-stepcard-actions');
+    acts.appendChild(iconBtn('fa-copy', 'Duplicate step', () => {
+      const copy = JSON.parse(JSON.stringify(s));
+      creatorSteps.splice(idx + 1, 0, copy);
+      renumber(); markCreatorDirty(); renderCreatorSteps();
+      toast('Step duplicated', 'fa-copy');
+    }));
+    acts.appendChild(iconBtn('fa-trash-can', 'Delete step', () => {
+      creatorSteps.splice(idx, 1);
+      renumber(); markCreatorDirty(); renderCreatorSteps();
+      toast('Step deleted', 'fa-trash-can');
+    }));
+
+    const grid = card.querySelector('.cm-form-grid');
+
+    // Label — full width
+    const label = document.createElement('vaadin-text-field');
+    label.setAttribute('theme', 'outlined');
+    label.setAttribute('label', 'Step label');
+    label.classList.add('cm-form-grid--wide');
+    label.value = s.label || '';
+    label.addEventListener('value-changed', e => { s.label = e.detail.value; markCreatorDirty(); });
+    grid.appendChild(label);
+
+    // Response type
+    const type = document.createElement('vaadin-select');
+    type.setAttribute('theme', 'outlined');
+    type.setAttribute('label', 'Response');
+    type.items = RESPONSE_TYPES.map(r => ({ label: r.label, value: r.value }));
+    type.value = s.type;
+    type.addEventListener('value-changed', e => {
+      if (!e.detail.value || e.detail.value === s.type) return;
+      s.type = e.detail.value;
+      if (s.type === 'single' || s.type === 'multi') { if (!s.options) s.options = ['Option 1']; }
+      else delete s.options;
+      if (s.type !== 'numeric') { delete s.unit; delete s.min; delete s.max; }
+      markCreatorDirty(); renderCreatorSteps();
+    });
+    grid.appendChild(type);
+
+    // Required / Optional
+    const req = document.createElement('vaadin-select');
+    req.setAttribute('theme', 'outlined');
+    req.setAttribute('label', 'Requirement');
+    req.items = [{ label: 'Required', value: 'req' }, { label: 'Optional', value: 'opt' }];
+    req.value = s.optional ? 'opt' : 'req';
+    req.addEventListener('value-changed', e => {
+      if (!e.detail.value) return;
+      s.optional = e.detail.value === 'opt'; markCreatorDirty();
+    });
+    grid.appendChild(req);
+
+    // Numeric threshold
+    if (s.type === 'numeric') {
+      [['min', 'Min'], ['max', 'Max']].forEach(([key, lbl]) => {
+        const f = document.createElement('vaadin-number-field');
+        f.setAttribute('theme', 'outlined');
+        f.setAttribute('label', lbl);
+        f.value = s[key] || '';
+        f.addEventListener('value-changed', e => { s[key] = e.detail.value; markCreatorDirty(); });
+        grid.appendChild(f);
+      });
+      const u = document.createElement('vaadin-text-field');
+      u.setAttribute('theme', 'outlined');
+      u.setAttribute('label', 'Unit');
+      u.value = s.unit || '';
+      u.addEventListener('value-changed', e => { s.unit = e.detail.value; markCreatorDirty(); });
+      grid.appendChild(u);
+    }
+
+    // Options editor
+    if (s.type === 'single' || s.type === 'multi') {
+      const wrap = document.createElement('div');
+      wrap.className = 'cm-form-grid--wide';
+      wrap.innerHTML = '<span class="cm-chip-label">Options</span>';
+      const list = document.createElement('div');
+      list.className = 'cm-options-list';
+      (s.options || []).forEach((opt, oi) => {
+        const row = document.createElement('div');
+        row.className = 'cm-option-row';
+        const f = document.createElement('vaadin-text-field');
+        f.setAttribute('theme', 'outlined');
+        f.value = opt;
+        f.addEventListener('value-changed', e => { s.options[oi] = e.detail.value; markCreatorDirty(); });
+        row.appendChild(f);
+        row.appendChild(iconBtn('fa-xmark', 'Remove option', () => {
+          s.options.splice(oi, 1); markCreatorDirty(); renderCreatorSteps();
+        }));
+        list.appendChild(row);
+      });
+      wrap.appendChild(list);
+      const add = document.createElement('vaadin-button');
+      add.setAttribute('theme', 'tertiary');
+      add.style.marginTop = '6px';
+      add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add option';
+      add.addEventListener('click', () => {
+        s.options.push('Option ' + (s.options.length + 1));
+        markCreatorDirty(); renderCreatorSteps();
+      });
+      wrap.appendChild(add);
+      grid.appendChild(wrap);
+    }
+
+    // Severity chips + affordance switches
+    const sevWrap = document.createElement('div');
+    sevWrap.className = 'cm-form-grid--wide';
+    sevWrap.innerHTML = '<span class="cm-chip-label">Failure severity</span>';
+    const chips = document.createElement('div');
+    chips.className = 'cm-chips';
+    const cur = s.severity || s.sev || 'none';
+    SEVERITIES.forEach(sv => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cm-chip' + (cur === sv.value ? ' active' : '');
+      btn.textContent = sv.label;
+      btn.addEventListener('click', () => {
+        s.severity = sv.value; markCreatorDirty(); renderCreatorSteps();
+      });
+      chips.appendChild(btn);
+    });
+    sevWrap.appendChild(chips);
+
+    const affRow = document.createElement('div');
+    affRow.style.cssText = 'display:flex;gap:26px;margin-top:12px;flex-wrap:wrap';
+    [['allowPhoto', 'Allow photo'], ['allowNote', 'Allow note']].forEach(([key, lbl]) => {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'display:flex;align-items:center;gap:9px';
+      const sw = document.createElement('vwc-switch');
+      sw.checked = !!s[key];
+      sw.setAttribute('accessible-name', lbl);
+      sw.addEventListener('checked-changed', e => { s[key] = e.detail; markCreatorDirty(); });
+      const t = document.createElement('span');
+      t.style.fontSize = '13px';
+      t.textContent = lbl;
+      cell.appendChild(sw); cell.appendChild(t);
+      affRow.appendChild(cell);
+    });
+    sevWrap.appendChild(affRow);
+    grid.appendChild(sevWrap);
+
+    // Drag-to-reorder steps
+    card.addEventListener('dragstart', e => {
+      dragStepIdx = idx; card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      dragStepIdx = null; card.classList.remove('is-dragging');
+      host.querySelectorAll('.cm-stepcard').forEach(n => n.classList.remove('is-drag-over'));
+    });
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (dragStepIdx !== null && dragStepIdx !== idx) card.classList.add('is-drag-over');
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('is-drag-over'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('is-drag-over');
+      if (dragStepIdx === null || dragStepIdx === idx) return;
+      const [moved] = creatorSteps.splice(dragStepIdx, 1);
+      creatorSteps.splice(idx, 0, moved);
+      renumber(); markCreatorDirty(); renderCreatorSteps();
+    });
+
+    host.appendChild(card);
+  });
+}
+
+function renumber() { creatorSteps.forEach((s, i) => { s.id = i + 1; }); }
+
+/* ======================================================================
+   DIALOGS — vaadin-dialog with renderer functions.
+   ====================================================================== */
+
+/* ---- Import content block ------------------------------------------- */
+let importTarget = null, importIsAppend = false, importPick = null;
+
+function openImportDialog(sec, isAppend) {
+  importTarget = sec; importIsAppend = isAppend; importPick = null;
+  const dlg = document.getElementById('dlgImport');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap';
+    wrap.innerHTML =
+      '<p class="cm-dialog-sub" style="margin:0 0 12px">' +
+      'Published blocks only. Importing creates a live link — later edits to the block reach this section.' +
+      '</p>';
+
+    const search = document.createElement('vaadin-text-field');
+    search.setAttribute('theme', 'outlined');
+    search.setAttribute('placeholder', 'Search published blocks');
+    search.setAttribute('clear-button-visible', '');
+    search.style.cssText = 'width:100%;margin-bottom:12px';
+    wrap.appendChild(search);
+
+    const list = document.createElement('div');
+    list.className = 'cm-import-list';
+    wrap.appendChild(list);
+
+    function paint() {
+      const q = (search.value || '').toLowerCase();
+      const rows = BLOCKS.filter(b => b.status === 'published' &&
+        b.name.toLowerCase().indexOf(q) !== -1);
+      list.innerHTML = '';
+      if (!rows.length) {
+        list.innerHTML = '<div class="cm-empty" style="padding:28px 12px">' +
+          '<i class="fa-solid fa-cube" aria-hidden="true"></i>' +
+          '<h3>No published blocks match</h3>' +
+          '<p>Only published blocks can be imported. Drafts must be published first.</p></div>';
+        return;
+      }
+      rows.forEach(b => {
+        const dm = domainMeta(b.domain);
+        const row = document.createElement('div');
+        row.className = 'cm-import-row' + (importPick === b.id ? ' is-selected' : '');
+        row.innerHTML =
+          '<span class="cm-block-icon"><i class="fa-solid ' + dm.icon + '" aria-hidden="true"></i></span>' +
+          '<div style="flex:1">' +
+            '<div class="cm-import-name">' + b.name +
+              (b.multiUse ? ' <span theme="badge contrast pill">Multi-use</span>' : '') + '</div>' +
+            '<div class="cm-import-meta">' + dm.label + ' · v' + b.version + ' · ' +
+              b.steps.length + ' steps · used by ' + b.usedBy + '</div>' +
+          '</div>' +
+          (importPick === b.id ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : '');
+        row.addEventListener('click', () => { importPick = b.id; paint(); });
+        list.appendChild(row);
+      });
+    }
+    search.addEventListener('value-changed', paint);
+    paint();
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'primary');
+    ok.textContent = 'Import block';
+    ok.addEventListener('click', () => {
+      if (!importPick) { toast('Pick a block first', 'fa-circle-exclamation'); return; }
+      const b = blockById(importPick);
+      const inst = {
+        instanceId: 'i' + Date.now().toString(36),
+        blockId: b.id, contextLabel: '',
+        linkState: importIsAppend ? 'unique' : 'template',
+        expanded: false
+      };
+      (importIsAppend ? importTarget.appendBlocks : importTarget.blocks).push(inst);
+      markBuilderDirty(); renderSections();
+      dlg.opened = false;
+      toast(b.name + ' imported', 'fa-cube');
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
+}
+
+/* ---- Faceted apparatus picker --------------------------------------- */
+let pickSelected = new Set();
+let pickFacets = { type: new Set(), station: new Set(), status: new Set() };
+
+function openPickerDialog() {
+  pickSelected = new Set();
+  pickFacets = { type: new Set(), station: new Set(), status: new Set() };
+  const dlg = document.getElementById('dlgPicker');
+
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap';
+    wrap.innerHTML = '<div class="cm-picker">' +
+      '<div class="cm-facets"></div><div class="cm-results"></div></div>';
+    const facetHost = wrap.querySelector('.cm-facets');
+    const resHost   = wrap.querySelector('.cm-results');
+
+    const c = currentChecklist();
+    const already = new Set(c.deployments.map(d => d.vehicleTag));
+
+    function facetValues(key) {
+      return Array.from(new Set(VEHICLES.map(v => v[key]))).sort();
+    }
+    function matches(v) {
+      if (pickFacets.type.size && !pickFacets.type.has(v.type)) return false;
+      if (pickFacets.station.size && !pickFacets.station.has(v.station)) return false;
+      if (pickFacets.status.size && !pickFacets.status.has(v.status)) return false;
+      return true;
+    }
+
+    function paintFacets() {
+      facetHost.innerHTML = '';
+      [['type', 'Type'], ['station', 'Station'], ['status', 'Status']].forEach(([key, title]) => {
+        const box = document.createElement('div');
+        box.className = 'cm-facet';
+        box.innerHTML = '<div class="cm-facet-title">' + title + '</div>';
+        const opts = document.createElement('div');
+        opts.className = 'cm-facet-opts';
+        facetValues(key).forEach(val => {
+          const cb = document.createElement('vaadin-checkbox');
+          cb.setAttribute('label', key === 'status' ? VEHICLE_STATUS[val] : val);
+          cb.checked = pickFacets[key].has(val);
+          cb.addEventListener('checked-changed', e => {
+            if (e.detail.value) pickFacets[key].add(val); else pickFacets[key].delete(val);
+            paintResults();
+          });
+          opts.appendChild(cb);
+        });
+        box.appendChild(opts);
+        facetHost.appendChild(box);
+      });
+      const clr = document.createElement('vaadin-button');
+      clr.setAttribute('theme', 'tertiary');
+      clr.textContent = 'Clear filters';
+      clr.addEventListener('click', () => {
+        pickFacets = { type: new Set(), station: new Set(), status: new Set() };
+        paintFacets(); paintResults();
+      });
+      facetHost.appendChild(clr);
+    }
+
+    function paintResults() {
+      const rows = VEHICLES.filter(matches);
+      resHost.innerHTML = '';
+      const head = document.createElement('div');
+      head.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:10px';
+      head.innerHTML = '<span class="cm-dialog-count">' + rows.length + ' apparatus</span>';
+      const all = document.createElement('vaadin-button');
+      all.setAttribute('theme', 'tertiary');
+      all.textContent = 'Select all ' + rows.length;
+      all.addEventListener('click', () => {
+        rows.forEach(v => { if (!already.has(v.tag)) pickSelected.add(v.tag); });
+        paintResults();
+      });
+      head.appendChild(all);
+      resHost.appendChild(head);
+
+      if (!rows.length) {
+        resHost.innerHTML += '<div class="cm-empty" style="padding:30px 12px">' +
+          '<i class="fa-solid fa-truck-front" aria-hidden="true"></i>' +
+          '<h3>No apparatus match these facets</h3>' +
+          '<p>Clear a facet to widen the results.</p></div>';
+        return;
+      }
+
+      const grid = document.createElement('vaadin-grid');
+      grid.setAttribute('all-rows-visible', '');
+      grid.style.maxHeight = '340px';
+
+      const sel = document.createElement('vaadin-grid-column');
+      sel.setAttribute('width', '52px');
+      sel.setAttribute('flex-grow', '0');
+      sel.renderer = (r, col, model) => {
+        r.innerHTML = '';
+        const cb = document.createElement('vaadin-checkbox');
+        cb.style.cssText = CELL_CONTROL;
+        const isIn = already.has(model.item.tag);
+        cb.checked = isIn || pickSelected.has(model.item.tag);
+        cb.disabled = isIn;
+        cb.setAttribute('aria-label', 'Select ' + model.item.tag);
+        cb.addEventListener('checked-changed', e => {
+          if (isIn) return;
+          if (e.detail.value) pickSelected.add(model.item.tag); else pickSelected.delete(model.item.tag);
+          const n = pickSelected.size;
+          const btn = document.getElementById('pickAddBtn');
+          if (btn) btn.textContent = n ? 'Add ' + n + ' apparatus' : 'Add apparatus';
+        });
+        r.appendChild(cb);
+      };
+      grid.appendChild(sel);
+
+      const tagCol = document.createElement('vaadin-grid-sort-column');
+      tagCol.setAttribute('header', 'Apparatus');
+      tagCol.setAttribute('path', 'tag');
+      tagCol.renderer = (r, col, model) => {
+        const v = model.item;
+        r.innerHTML = '<div class="cm-cell-stack"><span class="cm-cell-strong">' +
+          v.tag + ' · ' + v.name + (already.has(v.tag) ? ' <span theme="badge contrast pill">Deployed</span>' : '') +
+          '</span><span class="cm-cell-sub">' + v.year + ' ' + v.make + ' ' + v.model + '</span></div>';
+      };
+      grid.appendChild(tagCol);
+
+      const stnCol = document.createElement('vaadin-grid-sort-column');
+      stnCol.setAttribute('header', 'Station');
+      stnCol.setAttribute('path', 'station');
+      stnCol.setAttribute('width', '124px');
+      stnCol.setAttribute('flex-grow', '0');
+      grid.appendChild(stnCol);
+
+      const stCol = document.createElement('vaadin-grid-column');
+      stCol.setAttribute('header', 'Status');
+      stCol.setAttribute('width', '152px');   // fits "Needs attention" unclipped
+      stCol.setAttribute('flex-grow', '0');
+      stCol.renderer = (r, col, model) => {
+        r.innerHTML = badge(VEHICLE_STATUS[model.item.status], model.item.status);
+      };
+      grid.appendChild(stCol);
+
+      grid.items = rows;
+      resHost.appendChild(grid);
+    }
+
+    paintFacets(); paintResults();
+    root.appendChild(wrap);
+  };
+
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.id = 'pickAddBtn';
+    ok.setAttribute('theme', 'primary');
+    ok.textContent = 'Add apparatus';
+    ok.addEventListener('click', () => {
+      if (!pickSelected.size) { toast('Select at least one apparatus', 'fa-circle-exclamation'); return; }
+      const c = currentChecklist();
+      pickSelected.forEach(tag => {
+        c.deployments.push({
+          id: 'd' + Date.now().toString(36) + tag,
+          vehicleTag: tag, status: 'pending', cadenceOverride: null,
+          deployedAt: '2026-08-20', lastRunAt: null
+        });
+      });
+      document.getElementById('bDepCount').textContent = c.deployments.length;
+      markBuilderDirty(); renderDeployGrid();
+      dlg.opened = false;
+      toast(pickSelected.size + ' apparatus added', 'fa-truck-front');
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
+}
+
+/* ---- Break template link (destructive, explicit) -------------------- */
+function openBreakDialog(sec) {
+  if (!sec) return;
+  const dlg = document.getElementById('dlgBreak');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+    wrap.innerHTML =
+      '<div class="cm-alert cm-alert--err" style="margin-bottom:0">' +
+        '<i class="fa-solid fa-link-slash" aria-hidden="true"></i>' +
+        '<div class="cm-alert-body">' +
+          '<strong>This cannot be undone.</strong>' +
+          'Breaking the template link on <strong>' + sec.name + '</strong> stops template updates from ' +
+          'reaching this section. The individual block links stay intact, so block edits still ' +
+          'propagate — the section moves from <em>Template</em> to <em>Block</em>.' +
+        '</div>' +
+      '</div>';
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Keep the link', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'error primary');
+    ok.textContent = 'Break template link';
+    ok.addEventListener('click', () => {
+      sec.linkState = 'block';
+      sec.templateLocked = false;
+      // Local additions fold back into the main list once the lock is gone.
+      sec.blocks = sec.blocks.concat(sec.appendBlocks);
+      sec.appendBlocks = [];
+      sec.blocks.forEach(i => { if (i.linkState === 'template') i.linkState = 'block'; });
+      markBuilderDirty(); renderSections();
+      dlg.opened = false;
+      toast('Template link broken', 'fa-link-slash');
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
+}
+
+/* ---- Blast radius on publish ---------------------------------------- */
+function openBlastDialog() {
+  const b = blockById(activeBlockId);
+  const dlg = document.getElementById('dlgBlast');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+    wrap.innerHTML =
+      '<p style="margin:0 0 4px;font-size:13.5px">Publishing <strong>' + b.name +
+      '</strong> as <strong>v' + (b.version + 1) + '</strong> pushes these changes to every ' +
+      'template-linked section.</p>' +
+      '<div class="cm-alert cm-alert--warn" style="margin:14px 0 0">' +
+        '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+        '<div class="cm-alert-body">' +
+          '<strong>' + b.usedBy + ' checklists reference this block.</strong>' +
+          'Active deployments pin to the version they were deployed with, so in-flight runs are ' +
+          'unaffected. The next scheduled run picks up v' + (b.version + 1) + '.' +
+        '</div>' +
+      '</div>' +
+      '<ul class="cm-blast-list">' +
+        '<li>Apparatus Morning Check — 2 linked sections</li>' +
+        '<li>Ladder Weekly Check — 1 linked section</li>' +
+        '<li>Reserve Apparatus Monthly — 1 linked section</li>' +
+      '</ul>';
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'primary');
+    ok.textContent = 'Publish v' + (b.version + 1);
+    ok.addEventListener('click', () => {
+      b.version += 1;
+      b.status = 'published';
+      b.steps = JSON.parse(JSON.stringify(creatorSteps));
+      dlg.opened = false;
+      cDirtyState = false;
+      document.getElementById('cDirty').classList.remove('is-on');
+      openCreator(b.id);
+      renderBlockGrid();
+      toast(b.name + ' published as v' + b.version, 'fa-circle-check');
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
+}
+
+/* ---- Inline step dialog (freestanding steps in the builder) --------- */
+function openStepDialog(sec) {
+  const draft = { label: '', type: 'passfail', severity: 'critical', allowPhoto: false, allowNote: false };
+  const dlg = document.getElementById('dlgStep');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+    wrap.innerHTML = '<p class="cm-dialog-sub" style="margin:0 0 14px">' +
+      'Inline steps live only in this checklist. They are never reusable — for something crews will ' +
+      'run on more than one apparatus, create a content block instead.</p>';
+
+    const grid = document.createElement('div');
+    grid.className = 'cm-form-grid';
+
+    const label = document.createElement('vaadin-text-field');
+    label.setAttribute('theme', 'outlined');
+    label.setAttribute('label', 'Step label');
+    label.classList.add('cm-form-grid--wide');
+    label.addEventListener('value-changed', e => { draft.label = e.detail.value; });
+    grid.appendChild(label);
+
+    const type = document.createElement('vaadin-select');
+    type.setAttribute('theme', 'outlined');
+    type.setAttribute('label', 'Response');
+    type.items = RESPONSE_TYPES.map(r => ({ label: r.label, value: r.value }));
+    type.value = draft.type;
+    type.addEventListener('value-changed', e => { if (e.detail.value) draft.type = e.detail.value; });
+    grid.appendChild(type);
+
+    const sevWrap = document.createElement('div');
+    sevWrap.className = 'cm-form-grid--wide';
+    sevWrap.innerHTML = '<span class="cm-chip-label">Failure severity</span>';
+    const chips = document.createElement('div');
+    chips.className = 'cm-chips';
+    SEVERITIES.forEach(sv => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cm-chip' + (draft.severity === sv.value ? ' active' : '');
+      btn.textContent = sv.label;
+      btn.addEventListener('click', () => {
+        draft.severity = sv.value;
+        chips.querySelectorAll('.cm-chip').forEach(n => n.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      chips.appendChild(btn);
+    });
+    sevWrap.appendChild(chips);
+    grid.appendChild(sevWrap);
+
+    wrap.appendChild(grid);
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'primary');
+    ok.textContent = 'Add step';
+    ok.addEventListener('click', () => {
+      if (!draft.label.trim()) { toast('Give the step a label', 'fa-circle-exclamation'); return; }
+      const target = sec.templateLocked ? sec.appendBlocks : sec.blocks;
+      // Reuse an existing inline block in this section if there is one.
+      let inline = target.find(i => i.blockId === 'freestanding');
+      if (!inline) {
+        inline = { instanceId: 'i' + Date.now().toString(36), blockId: 'freestanding',
+                   name: 'Inline steps', linkState: 'unique', expanded: true, steps: [] };
+        target.push(inline);
+      }
+      inline.steps.push(Object.assign({ id: inline.steps.length + 1 }, draft));
+      inline.expanded = true;
+      markBuilderDirty(); renderSections();
+      dlg.opened = false;
+      toast('Step added', 'fa-plus');
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
+}
+
+/* ======================================================================
+   WIRING
+   ====================================================================== */
+window.addEventListener('DOMContentLoaded', () => {
+
+  /* Filter option sets. Vaadin combo boxes take .items imperatively. */
+  document.getElementById('clStatus').items = ['Published', 'Draft', 'Retired'];
+  document.getElementById('clType').items = CHECKLIST_TYPES.map(t => t.label);
+  document.getElementById('clCadence').items = CADENCES.map(cap);
+  document.getElementById('blDomain').items = DOMAINS.map(d => d.label);
+  document.getElementById('blStatus').items = ['Published', 'Draft', 'Retired'];
+  document.getElementById('dpStatus').items = ['Active', 'Paused', 'Pending'];
+
+  document.getElementById('bType').items = CHECKLIST_TYPES.map(t => ({ label: t.label, value: t.value }));
+  document.getElementById('bCadence').items = CADENCES.map(c => ({ label: cap(c), value: c }));
+  document.getElementById('cDomain').items = DOMAINS.map(d => ({ label: d.label, value: d.value }));
+
+  /* Grids */
+  buildChecklistGrid();
+  buildBlockGrid();
+  buildDeployGrid();
+  renderSettings();
+
+  /* Library filters */
+  ['clSearch', 'clStatus', 'clType', 'clCadence'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('value-changed', renderChecklistGrid);
+    el.addEventListener('selected-items-changed', renderChecklistGrid);
+  });
+  document.getElementById('clClear').addEventListener('click', () => {
+    document.getElementById('clSearch').value = '';
+    document.getElementById('clStatus').selectedItems = [];
+    document.getElementById('clType').selectedItems = [];
+    document.getElementById('clCadence').value = '';
+    renderChecklistGrid();
+  });
+
+  ['blSearch', 'blDomain', 'blStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('value-changed', renderBlockGrid);
+    el.addEventListener('selected-items-changed', renderBlockGrid);
+  });
+  document.getElementById('blClear').addEventListener('click', () => {
+    document.getElementById('blSearch').value = '';
+    document.getElementById('blDomain').selectedItems = [];
+    document.getElementById('blStatus').selectedItems = [];
+    renderBlockGrid();
+  });
+
+  ['dpSearch', 'dpStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('value-changed', renderDeployGrid);
+    el.addEventListener('selected-items-changed', renderDeployGrid);
+  });
+
+  /* Activity filters */
+  document.getElementById('actKind').items = ['Runs', 'Edits'];
+  document.getElementById('actOutcome').items = ['Passed', 'Deficiency', 'Out of service'];
+  ['actKind', 'actRig', 'actOutcome'].forEach(id => {
+    document.getElementById(id).addEventListener('value-changed', renderActivity);
+  });
+  document.getElementById('actClear').addEventListener('click', () => {
+    ['actKind', 'actRig', 'actOutcome'].forEach(id => { document.getElementById(id).value = ''; });
+    renderActivity();
+  });
+
+  /* Library tabs — Checklists / Content blocks. Sibling tabs on ONE surface:
+     the header, metric tiles, alert and tab bar are shared, and only the panel
+     underneath swaps. */
+  document.getElementById('libTabs').addEventListener('selected-changed', e => {
+    setLibraryTab(e.detail.value);
+  });
+
+  /* Builder tabs */
+  document.getElementById('bTabs').addEventListener('selected-changed', e => {
+    setBuilderTab(e.detail.value);
+  });
+
+  /* Navigation */
+  document.getElementById('btnNewChecklist').addEventListener('click', () => {
+    toast('New checklist — starting from a blank draft', 'fa-plus');
+    openBuilder('quarterly-hydrant');
+  });
+  document.getElementById('btnNewBlock').addEventListener('click', () => openCreator('hydrant-inspection'));
+
+  document.getElementById('bExit').addEventListener('click', () => setLibraryTab(0));
+  document.getElementById('cExit').addEventListener('click', () => setLibraryTab(1));
+
+  /* Builder actions */
+  document.getElementById('btnAddSection').addEventListener('click', () => {
+    const c = currentChecklist();
+    c.sections.push({
+      id: 's' + Date.now().toString(36),
+      name: 'New section', collapsed: false, linkState: 'unique',
+      templateLocked: false, blocks: [], appendBlocks: []
+    });
+    markBuilderDirty(); renderSections();
+    toast('Section added', 'fa-plus');
+  });
+  document.getElementById('btnAddVehicles').addEventListener('click', openPickerDialog);
+
+  document.getElementById('bName').addEventListener('value-changed', e => {
+    const c = currentChecklist();
+    c.name = e.detail.value;
+    document.getElementById('bTitle').textContent = e.detail.value;
+    markBuilderDirty();
+  });
+  ['bType', 'bCadence', 'bDesc'].forEach(id => {
+    document.getElementById(id).addEventListener('value-changed', e => {
+      markBuilderDirty();
+      // Keep the model in step so the recap (and the library grid) agree.
+      const c = currentChecklist();
+      if (c && e.detail.value) {
+        if (id === 'bType') c.type = e.detail.value;
+        if (id === 'bCadence') c.cadence = e.detail.value;
+      }
+      renderSetupRecap();
+    });
+  });
+
+  document.getElementById('bSaveDraft').addEventListener('click', () => {
+    markBuilderSaved();
+    toast('Draft saved', 'fa-floppy-disk');
+  });
+  document.getElementById('bPublish').addEventListener('click', () => {
+    const c = currentChecklist();
+    c.status = 'published';
+    c.version += 1;
+    markBuilderSaved();
+    openBuilder(c.id);
+    renderChecklistGrid();
+    toast(c.name + ' published as v' + c.version, 'fa-circle-check');
+  });
+
+  /* Batch bars */
+  document.getElementById('clBatchDeploy').addEventListener('click', () => {
+    toast(clSelected.size + ' checklists queued for deployment', 'fa-truck-front');
+  });
+  document.getElementById('clBatchCadence').addEventListener('click', () => {
+    toast('Cadence applied to ' + clSelected.size + ' checklists', 'fa-clock');
+  });
+  document.getElementById('clBatchRetire').addEventListener('click', () => {
+    clSelected.forEach(id => {
+      const c = CHECKLISTS.find(x => x.id === id);
+      if (c) c.status = 'retired';
+    });
+    const n = clSelected.size;
+    clSelected.clear();
+    renderChecklistGrid();
+    toast(n + ' checklists retired', 'fa-box-archive');
+  });
+
+  document.getElementById('dpBatchCadence').addEventListener('click', () =>
+    toast('Cadence applied to ' + dpSelected.size + ' deployments', 'fa-clock'));
+  document.getElementById('dpBatchStatus').addEventListener('click', () =>
+    toast('Status applied to ' + dpSelected.size + ' deployments', 'fa-arrows-rotate'));
+  document.getElementById('dpBatchRemove').addEventListener('click', () => {
+    const c = currentChecklist();
+    c.deployments = c.deployments.filter(d => !dpSelected.has(d.id));
+    const n = dpSelected.size;
+    dpSelected.clear();
+    document.getElementById('bDepCount').textContent = c.deployments.length;
+    markBuilderDirty(); renderDeployGrid();
+    toast(n + ' deployments removed', 'fa-trash-can');
+  });
+
+  /* Block creator actions */
+  document.getElementById('btnAddStep').addEventListener('click', () => {
+    creatorSteps.push({
+      id: creatorSteps.length + 1, label: '', type: 'passfail',
+      severity: 'warning', allowPhoto: false, allowNote: false
+    });
+    markCreatorDirty(); renderCreatorSteps();
+  });
+  document.getElementById('cName').addEventListener('value-changed', e => {
+    document.getElementById('cTitle').textContent = e.detail.value;
+    markCreatorDirty();
+  });
+  ['cDomain', 'cDescription'].forEach(id => {
+    document.getElementById(id).addEventListener('value-changed', markCreatorDirty);
+  });
+  document.getElementById('cMultiUse').addEventListener('checked-changed', markCreatorDirty);
+  document.getElementById('cSaveDraft').addEventListener('click', () => {
+    cDirtyState = false;
+    document.getElementById('cDirty').classList.remove('is-on');
+    toast('Draft saved', 'fa-floppy-disk');
+  });
+  document.getElementById('cPublish').addEventListener('click', openBlastDialog);
+
+  /* Breadcrumb clicks route back to the library. */
+  /* Back links, not breadcrumbs: one destination each, so a plain click
+     handler replaces the component's `link-click` event. */
+  document.getElementById('bcBuilder').addEventListener('click', e => {
+    e.preventDefault(); setLibraryTab(0);
+  });
+  document.getElementById('bcCreator').addEventListener('click', e => {
+    e.preventDefault(); setLibraryTab(1);
+  });
+
+  /* Seed the builder + creator so a deep link lands on real content, then
+     return to the library. Both seeds set `hydrating`, so wait a frame for
+     them to release it before honoring a #fm= deep link. */
+  openBuilder('apparatus-morning');
+  openCreator('wheels-tires');
+  requestAnimationFrame(() => {
+    setLibraryTab(0);
+    bootFromHash();
+  });
+});
+
+/* ======================================================================
+   DESIGN TOOLBOX — Flow Map
+   ====================================================================== */
+function applyFlowState(id, opts) {
+  opts = opts || {};
+  const closeAll = () => {
+    ['dlgImport', 'dlgPicker', 'dlgBreak', 'dlgBlast', 'dlgStep'].forEach(x => {
+      const d = document.getElementById(x);
+      if (d) d.opened = false;
+    });
+  };
+  closeAll();
+
+  switch (id) {
+    case 'library':
+      setLibraryTab(0);
+      break;
+    case 'blocks':
+      setLibraryTab(1);
+      break;
+    case 'builder':
+      openBuilder('apparatus-morning');
+      setBuilderTab(0);
+      break;
+    case 'import':
+      openBuilder('apparatus-morning');
+      setBuilderTab(0);
+      openImportDialog(currentChecklist().sections[1], false);
+      break;
+    case 'breaklink':
+      openBuilder('apparatus-morning');
+      setBuilderTab(0);
+      // A checklist can have zero sections (see the structure empty state), and
+      // only a template-linked one can have its link broken — pick the first
+      // eligible section rather than assuming sections[0] exists.
+      {
+        const secs = (currentChecklist().sections || []);
+        const target = secs.find(x => x.linkState === 'template') || secs[0];
+        if (target) openBreakDialog(target);
+      }
+      break;
+    case 'deployments':
+      openBuilder('apparatus-morning');
+      setBuilderTab(1);
+      break;
+    case 'picker':
+      openBuilder('apparatus-morning');
+      setBuilderTab(1);
+      openPickerDialog();
+      break;
+    case 'activity':
+      openBuilder('apparatus-morning');
+      setBuilderTab(2);
+      break;
+    case 'settings':
+      openBuilder('apparatus-morning');
+      setBuilderTab(3);          // Settings moved to index 3 when Activity landed
+      break;
+    case 'creator':
+      openCreator('wheels-tires');
+      break;
+    case 'blast':
+      openCreator('wheels-tires');
+      openBlastDialog();
+      break;
+    default:
+      break;
+  }
+  if (!opts.instant) window.scrollTo(0, 0);
+}
+window.applyFlowState = applyFlowState;
+
+function bootFromHash() {
+  var m = (location.hash || '').match(/fm=([\w-]+)/);
+  if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+}
+window.addEventListener('hashchange', bootFromHash);
+
+window.TOOLBOX_CONFIG = {
+  flowMap: {
+    title: 'Checklist Management — Flow Map',
+    applyState: 'applyFlowState',
+    devNotes: '../DEV-NOTES.md',
+    canvas: { w: 1320, h: 620 },
+    flows: [
+      { id: 'lib', name: 'Library', pill: 'A', color: '#bcd7f0',
+        lane: { x: 20, y: 20, w: 1280, h: 168 }, labelXY: { x: 40, y: 42 } },
+      { id: 'build', name: 'Checklist builder', pill: 'B', color: '#c9b8f0',
+        lane: { x: 20, y: 204, w: 1280, h: 228 }, labelXY: { x: 40, y: 226 } },
+      { id: 'block', name: 'Block authoring', pill: 'C', color: '#b8e0cf',
+        lane: { x: 20, y: 448, w: 1280, h: 152 }, labelXY: { x: 40, y: 470 } }
+    ],
+    nodes: [
+      { id: 'library', flow: 'lib', entry: true, x: 70, y: 92,
+        step: 'Entry', name: 'Checklist Library', state: 'library',
+        desc: 'The management surface. Metric tiles, a retired-block alert, and a filterable grid of every checklist with status, cadence and deployment count.' },
+      { id: 'blocks', flow: 'lib', x: 370, y: 92,
+        step: 'Tab', name: 'Content Blocks', state: 'blocks',
+        desc: 'The reusable-block inventory: domain, status/version, step count and how many checklists each block feeds.' },
+
+      { id: 'builder', flow: 'build', x: 70, y: 286,
+        step: 'Edit', name: 'Builder — Checklist', state: 'builder',
+        desc: 'Sections holding block instances. Link-state dots (template / block / unique), template-locked sections with a separate local-additions zone, and Required/Optional per instance.' },
+      { id: 'import', flow: 'build', x: 370, y: 286,
+        step: 'Dialog', name: 'Import Block', state: 'import',
+        desc: 'Searchable list of published blocks only. Importing creates a live template link.' },
+      { id: 'breaklink', flow: 'build', x: 670, y: 286,
+        step: 'Destructive', name: 'Break Template Link', state: 'breaklink',
+        desc: 'Explicit, irreversible. Section drops from Template to Block; local additions fold back into the main list.' },
+      { id: 'deployments', flow: 'build', x: 970, y: 250,
+        step: 'Tab', name: 'Deployments', state: 'deployments',
+        desc: 'Which apparatus run this checklist, with in-row editable status and a cadence override that can inherit from the checklist.' },
+      { id: 'picker', flow: 'build', x: 970, y: 356,
+        step: 'Dialog', name: 'Apparatus Picker', state: 'picker',
+        desc: 'Faceted picker — Type / Station / Status facets, select-all-filtered, and already-deployed rows disabled.' },
+      { id: 'activity', flow: 'build', x: 370, y: 380,
+        step: 'Tab', name: 'Activity History', state: 'activity',
+        desc: 'Runs and edits on one timeline, so a publish sits directly above the runs that followed it. Filter by event kind, apparatus or outcome; run-history tiles show clean rate, deficiencies and work orders raised.' },
+      { id: 'settings', flow: 'build', x: 670, y: 380,
+        step: 'Tab', name: 'Completion Rules', state: 'settings',
+        desc: 'The sandbox left this a stub. Built out here: answer gating, photo-on-deficiency, attestation, auto work orders, carried WOs, and OOS flagging.' },
+
+      { id: 'creator', flow: 'block', x: 70, y: 512,
+        step: 'Author', name: 'Block Creator', state: 'creator',
+        desc: 'One block: name, domain, multi-use switch, and an ordered list of step cards. Each step sets response type, requirement, severity, and photo/note affordances.' },
+      { id: 'blast', flow: 'block', x: 370, y: 512,
+        step: 'Publish', name: 'Blast Radius', state: 'blast',
+        desc: 'Publishing bumps the version and names every checklist affected. Active deployments pin to their version, so in-flight runs are untouched.' }
+    ],
+    edges: [
+      ['library', 'blocks'],
+      ['library', 'builder'],
+      ['builder', 'import'],
+      ['builder', 'breaklink'],
+      ['builder', 'deployments'],
+      ['deployments', 'picker'],
+      ['builder', 'activity'],
+      ['builder', 'settings'],
+      ['blocks', 'creator'],
+      ['creator', 'blast']
+    ]
+  }
+};
+</script>
+
+<!-- Design Toolbox: pin-and-comment review widget + flow map. Review tooling
+     only — NOT part of the product; developers strip this line for production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
