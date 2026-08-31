@@ -1,12 +1,12 @@
 # Prioritization Settings — Functional Description & Redesign Brief
 
 **For:** Claude Design, as input for exploring simple / advanced layout variants
-**Prototype:** https://vectorlearning.github.io/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/ver1/prioritization-settings.html
+**Prototype:** https://vectorlearning.github.io/ux-mockups/products/Keystone-Department-Hub/keystone-hub/ver1/prioritization-settings.html
 **Product:** Readiness Hub (Vector Solutions) — the cross-product department landing for fire/EMS leaders
-**Source files:** `products/Keystone Department Hub/keystone-hub/ver1/prioritization-settings.html` + `prioritization.js` (markup/logic), `data.js` (task registry), `keystone-shared.js` (band resolution shared with the task list)
+**Source files:** `products/Keystone-Department-Hub/keystone-hub/ver1/prioritization-settings.html` + `prioritization.js` (markup/logic), `data.js` (task registry), `keystone-shared.js` (band resolution shared with the task list)
 
 > Note on files: an older React/JSX iteration of this same page also exists in the repo at
-> `products/Keystone Department Hub/project/Prioritization Settings.html`. Ignore it. The URL above is
+> `products/Keystone-Department-Hub/project/Prioritization Settings.html`. Ignore it. The URL above is
 > canonical — it is rebuilt on Vector Web Components, defaults to four named bands instead of three, and
 > shows band **names** rather than raw scores in the preview. Where the two disagree, the URL wins.
 

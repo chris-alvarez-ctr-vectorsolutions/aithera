@@ -19,4 +19,4 @@ The design medium is **HTML/CSS/JS** — these are prototypes, not production co
 ## Bundle contents
 
 - `keystone-department-hub/README.md` — this file
-- `Keystone Department Hub/project/` — the `Keystone Department Hub` project files (HTML prototypes, assets, components)
+- `Keystone-Department-Hub/project/` — the `Keystone-Department-Hub` project files (HTML prototypes, assets, components)

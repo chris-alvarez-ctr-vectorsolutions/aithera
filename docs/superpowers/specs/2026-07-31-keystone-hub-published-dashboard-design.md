@@ -1,7 +1,7 @@
-# Keystone Department Hub — published dashboard above the task list
+# Keystone-Department-Hub — published dashboard above the task list
 
 **Date:** 2026-07-31
-**Scope:** Chief and Firefighter views of `products/Keystone Department Hub/keystone-hub/`
+**Scope:** Chief and Firefighter views of `products/Keystone-Department-Hub/keystone-hub/`
 
 ## Problem
 
