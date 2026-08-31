@@ -1,31 +1,61 @@
-# Atlas navigation shell · design notes
+# Vector navigation shell · design notes
+
+## Changelog · 2026-08-27 round
+
+- **Renamed the product back to Vector LMS** everywhere it was labeled Convergence
+  (labels, switchers, search scopes, comments, these notes). The Convergence-style top-tab
+  PATTERN is unchanged; only the name moved. Pattern references (Convergence-style tabs,
+  Convergence NAV_TREE / Training Plan / location picker) keep the Convergence name.
+- **Distinct Dashboard icon.** The cross-product Dashboard entry now uses a tiles /
+  panels glyph (`i-dash`) everywhere (launcher row, Dashboard brand, V3 rail) so it never
+  collides with a product Home icon. Still pinned above the switcher divider.
+- **Two ways to close the side nav** (all versions): a close control in the side nav's own
+  top-right corner, plus the top-bar toggle. Either collapses the nav.
+- **Shared side-nav interaction spec** (V3 + V4): collapsed → hover/peek overlay → pin →
+  close, represented as labeled frames via `?state=collapsed|peek|pinned` (see below).
+- **V2b**: the Learning/Admin switch moved INTO the side nav as a segmented control above
+  the section list (V2a keeps the top-bar brand switcher, so the pair now also compares
+  switch placement).
+- **V3 restructured into an L-shaped shell**: the app rail is dominant and full-height
+  (starts at y=0), the top bar is inset to its right, and the nav toggle tops the side-nav
+  column instead of floating in the top bar. The rail now PERSISTS when the side nav
+  closes, with an explicit minimal state (`?state=bothclosed` = launcher + current
+  product). The customer logo docks to the BOTTOM of the nav in a sticky footer zone.
+  The review pill moved to bottom-center in V3 only, since the logo owns the bottom-left.
+- **V4**: accordions start CLOSED; Jira-like micro-interactions (quick restrained slide,
+  clear active state, subtle hover); an open section stays open until click-away or an
+  explicit collapse, never closing on mouse-leave.
 
 Static, high-fidelity explorations of a unified navigation shell that could be shared
 across multiple Vector Solutions products. Branding is deliberately neutral (grayscale
 surfaces, one indigo accent, system font stack) so reviews focus on structure, not styling.
 Open `index.html` for the browsable gallery with live thumbnails.
 
-## The placeholder suite
+## The product suite
 
-Three invented products stand in for real Vector products. Each has a deliberately
-different internal structure so app-switching visibly reconfigures the nav while the
-shell stays identical:
+Real Vector products, each with a deliberately different internal structure so
+app-switching visibly reconfigures the nav while the shell stays identical:
 
-| Product | Stands in for | Internal shape |
-|---|---|---|
-| **Learn** | LMS / course + training management | Deep: modes (Home / Admin / Training Plan / Reporting & Insights), 3-level content tree |
-| **Comply** | EHS / safety + compliance | Medium: modes (Home / Incidents / Inspections / Chemical safety / Reporting), queue-style lists |
-| **Schedule** | Workforce scheduling | Shallow: no modes, one flat nav, board-centric |
+| Product | Internal shape |
+|---|---|
+| **Vector LMS** | Deep: modes (Home / Admin / Training Plan / Reporting & Insights), 3-level content tree |
+| **Vector EHS Management** | Medium: EHS sidebar sections (Safety management / Training / Analytics), queue-style lists |
+| **Vector Scheduling** | Shallow: pinned in switchers, no built pane |
+| **Dashboard** | Cross-product overview, pinned above the switcher divider with its own tiles glyph |
 
-A fourth tile, **Insights**, appears in switchers as a not-licensed app to show the
-"request access" state.
+The full catalog (Check-It, Evaluations, PD Tracking, Pathways, Guardian Tracking, Acadis,
+Frontline Public Safety) sits under "All products"; **ArdentSky Compliance Suite** appears
+unlicensed with a "Learn more" row to show the request-access state.
 
-## The shared shell contract (identical in all 6 versions)
+## The shared shell contract (identical in all 7 versions)
 
-- Top bar, left to right: **nav open/close** (always the far-left item, directly above the
-  side nav's edge) · **app switcher** · product identity + org · global search (⌘K) ·
-  **+ New** · notifications · help · avatar. V1, V5 and V6 carry the toggle; V4 ships
-  permanently collapsed by design, so it has none.
+- Top bar, left to right: **nav open/close** · **app switcher** · product identity ·
+  location · scoped search (where the version has it) · notifications · help · avatar.
+  No + New action. V3 is the exception by design: its full-height rail owns the left
+  edge, and its nav toggle tops the side-nav column instead.
+- The side nav ALSO closes from a control in its own top-right corner (every version),
+  so there are two ways to collapse it. In the V3/V4 interaction frames that same slot
+  holds the pin (hover overlay) and swaps to close when docked.
 - One accent token (`--accent`) reserved for active/selection states; everything else grayscale.
 - Same design tokens in every file (colors, spacing, radius, type scale) so versions differ
   in structure only. Dark theme (V4) changes token values, not component rules.
@@ -43,7 +73,7 @@ Per design review, the VISUAL style of menu rows is this exploration's own (roun
 rows, soft accent tint for the active item, indented accordion children with a 1px guide
 line). Two things are deliberately taken from the shipping products:
 
-1. **Trailing disclosure chevron** (Convergence `.sn-row .sn-chevron`, EHS `.sb-chevron`):
+1. **Trailing disclosure chevron** (Vector LMS `.sn-row .sn-chevron`, EHS `.sb-chevron`):
    the expand/collapse chevron sits at the row's right edge and flips 180° when open. With a
    leading caret, an expandable row's label sits further right than a plain row's, so plain
    items read as living at a higher level; trailing chevrons put every same-level item on one
@@ -80,10 +110,10 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 | # | File | Differs from V1 by |
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
-| V2a | `v2a-subproducts-filter-panel.html` | Convergence splits into Learner/Admin sub-products switched from a side-nav dropdown; NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
-| V2b | `v2b-subproducts-filter-dropdowns.html` | Same as V2a but the Training Plan filters are DROPDOWN chips above the table |
-| V3 | `v3-app-rail.html` | Switcher is a persistent left app rail (Dashboard on top); search moves into the side nav, product-scoped; closing the side nav also closes the rail |
-| V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right |
+| V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
+| V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav, and the Training Plan filters are DROPDOWN chips above the table |
+| V3 | `v3-app-rail.html` | L-SHAPED SHELL: full-height app rail (Dashboard on top), top bar inset to its right, nav toggle on the side-nav column; search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
+| V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
 | V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
 | V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
 
@@ -123,15 +153,15 @@ The launcher popover in V1 and V4 follows the anatomy of `vwc-app-switcher-menu`
 
 Per the updated brief, V1 carries the revised shell and V2 is the same shell with the app
 rail as its only difference; V3 to V6 still show the earlier spec until the direction is
-confirmed. The location selector is the Convergence nested tree picker: chevron toggles,
+confirmed. The location selector is the Vector LMS nested tree picker: chevron toggles,
 node name + level label (Organization / Region / Site), a check on the selected node, and
 selection allowed at any level. The scope control reads "All" or the current
 product's name (never the generic "This product"), and the placeholder mirrors it (Search
-all products / Search Convergence). In V2, search moves into the side nav and is scoped to
+all products / Search Vector LMS). In V2, search moves into the side nav and is scoped to
 the current product only, typing live-filters the menu. Per review, the top bar carries no
 + New action.
 
-- **Real Vector products.** Convergence and Vector EHS Management are fully built and
+- **Real Vector products.** Vector LMS and Vector EHS Management are fully built and
   switchable; Vector Scheduling is pinned; Vector Check-It, Vector Evaluations, Vector PD
   Tracking, Vector Pathways, Guardian Tracking, Acadis, Frontline Public Safety and
   ArdentSky Compliance Suite (unlicensed, "Learn more") sit under an "All products"
@@ -146,16 +176,33 @@ the current product only, typing live-filters the menu. Per review, the top bar 
 - **Scoped global search**: the field carries an explicit scope control, All products /
   This product. Results are grouped by product under the all-products scope, with a note
   that the other scope limits results to the current app.
-- **3-level side nav**: Convergence shows Curricula → Annual Compliance → OSHA 10 · 2024
+- **3-level side nav**: Vector LMS shows Curricula → Annual Compliance → OSHA 10 · 2024
   (the expandable Annual Compliance row is itself the active destination); Vector EHS
   shows Inspections → Scheduled inspections → Monthly fire extinguisher check. Depth is
   carried by indentation only and capped at 3.
 
+## Shared side-nav interaction spec (V3 + V4)
+
+Versions with an icon-collapsed side nav follow one interaction cycle, represented as
+labeled, deep-linkable FRAMES rather than fully engineered behavior (these are static
+mockups). A dark ribbon at the top of the screen names the frame:
+
+| Frame | Deep link | What it shows |
+|---|---|---|
+| A · collapsed | `?state=collapsed` | Icons only. The pointer coming within ~16px of the nav would open the peek overlay. |
+| B · hover / peek overlay | `?state=peek` | The nav expands as an OVERLAY on top of the content (nothing shifts). It stays interactive until the user clicks away (collapses back to icons) or clicks the PIN in the nav's top-right to dock it. In this frame the pin and click-away are live. |
+| C+D · pinned (docked) | `?state=pinned` | Docked open; the pin has been REPLACED by the close control in the same top-right slot, so that slot toggles pin ↔ close. |
+| both closed (V3 only) | `?state=bothclosed` | Side nav collapsed AND the app rail in its minimal state (launcher + current product), the least chrome the shell can show. |
+
+Full cycle to review: collapsed → peek overlay → pinned (close icon) → collapsed.
+V4's accordion behavior follows the same "stays open until dismissed" principle: open
+sections never auto-collapse on mouse-leave, only on click-away or explicit collapse.
+
 ## Version switcher (review tooling, not part of the design)
 
-Every version file carries a small dark pill in the **bottom-left corner**: `All` (back to the
-gallery) followed by V1 to V6, with the current version highlighted and each button titled with
-its pattern. It exists so reviewers can flip between explorations in place instead of returning
+Every version file carries a small dark pill in the **bottom-left corner** (bottom-center in
+V3, whose sticky logo owns the bottom-left): `All` (back to the gallery) followed by V1 to V6,
+with the current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
 to the gallery each time. The pill also carries review toggles: **Logo** (customer logo slot), **Loc** (location
 picker) and **Tabs** (mode tabs), plus `?logo=off` / `?loc=off` / `?tabs=off` deep links. It is a single self-contained block at the end of each file
 (one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE
@@ -168,9 +215,10 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 
 | File | Params |
 |---|---|
-| V1, V4, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
+| V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
 | V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
-| V3 | Same as V1 minus `?search` (search is the side-nav filter); `?nav=closed` also hides the rail |
+| V3 | Same as V1 minus `?search` (search is the side-nav filter), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames); the rail persists under `?nav=closed` |
+| V4 | V1's set plus `?state=collapsed\|peek\|pinned` (interaction frames) |
 
 ## Review feedback incorporated
 
@@ -183,7 +231,7 @@ No storage, no frameworks, no build step; every file opens directly from disk.
   nav navigates within the mode" observable rather than described.
 - Per review, V1 drops the global search field and the + New action from its top bar; the
   other versions keep the full slot set for comparison.
-- Rows briefly adopted Convergence/EHS visual styling (full-bleed rows, left accent bar,
+- Rows briefly adopted Vector LMS/EHS visual styling (full-bleed rows, left accent bar,
   tinted accordion band); review preferred the original open-accordion look, so the visuals
   reverted while keeping the trailing chevron and adopting the products' menu vocabulary.
 - The exploration was consolidated: V1/V2 are the live shell pair, the original V3 to V6
@@ -194,13 +242,13 @@ No storage, no frameworks, no build step; every file opens directly from disk.
   right-aligning them all was not an option because the right edge belongs to the chevron
   on expandable rows).
 
-## Recommendation
+## Recommendation (from the original six-version round; version numbers refer to `archive/`)
 
 Advance **V6**, pressure-tested against **V5**:
 
 - The app rail is the only switcher that keeps the whole suite permanently visible while
   physically separating switching from navigating.
-- Tabs as an opt-in, per-product layer let deep products (the Convergence pattern) and
+- Tabs as an opt-in, per-product layer let deep products (the Vector LMS pattern) and
   shallow products share one shell without forcing empty chrome on simple products.
 - Collapse-to-rail plus the 3-level cap keeps the side nav honest as products grow.
 - If typical orgs license more than 5 or 6 products, the rail stops scaling; V5's named
@@ -218,13 +266,15 @@ Advance **V6**, pressure-tested against **V5**:
 ## Files
 
 ```
-vector-nav/
-  index.html                     gallery (live iframe thumbnails, rationale, links)
-  v1-launcher-tabs.html          V1 · grid launcher + in-bar mode tabs + accordion
-  v2-rail-twopane.html           V2 · app rail + two-pane nav, no tabs
-  v3-sidebar-dropdown-tree.html  V3 · sidebar product dropdown + 3-level tree
-  v4-dense-dark-flyout.html      V4 · dense dark, collapsed rail + flyouts
-  v5-topbar-switcher-tabs.html   V5 · top-bar switcher + dedicated tab row
-  v6-synthesis.html              V6 · recommended synthesis
-  DESIGN-NOTES.md                this file
+navigation/
+  index.html                            gallery (live iframe thumbnails, rationale, links)
+  v1-launcher-tabs.html                 V1 · reference shell: grid launcher + in-bar mode tabs
+  v2a-subproducts-filter-panel.html     V2a · Learner/Admin via top-bar brand · filter panel
+  v2b-subproducts-filter-dropdowns.html V2b · Learner/Admin segmented in the nav · filter chips
+  v3-app-rail.html                      V3 · L-shaped shell: full-height app rail
+  v4-flyout-hierarchy.html              V4 · hierarchy via flyout panels (Jira-like)
+  v5-text-hierarchy.html                V5 · hierarchy via typography only
+  v6-color-hierarchy.html               V6 · hierarchy via colored open accordions
+  archive/                              the original six-version exploration
+  DESIGN-NOTES.md                       this file
 ```

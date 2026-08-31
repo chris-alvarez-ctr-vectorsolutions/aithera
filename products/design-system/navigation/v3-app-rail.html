@@ -8,16 +8,20 @@
   ============================================================================
   V3 · APP RAIL SWITCHER + PRODUCT-SCOPED SEARCH IN THE SIDE NAV
   ============================================================================
-  Same shell as V1 with three deliberate differences:
-  · The app switcher is an ADDITIONAL LEFT SIDE BAR (persistent rail,
-    Dashboard pinned on top, waffle at the bottom opens the full catalog).
+  Same shell as V1 with these deliberate differences:
+  · L-SHAPED SHELL: the app-switcher rail is DOMINANT and full-height (it
+    starts at y=0); the top bar is INSET to its right, not full-width.
+  · The rail is persistent: Dashboard pinned on top, waffle at the bottom
+    opens the full catalog. Closing the side nav does NOT hide the rail.
   · SEARCH LIVES IN THE SIDE NAV, scoped to the current product; typing
     live-filters the menu. No global search in the top bar.
-  · Closing the side nav also CLOSES THE RAIL (per review), so the collapsed
-    state is a single thin icon panel, not two stacked bars.
+  · The nav open/close control tops the SIDE-NAV COLUMN itself (aligned to
+    the nav edge), not the top bar.
+  · The customer logo docks to the BOTTOM of the nav in a sticky footer zone.
 
   Deep links: ?app=comply|dashboard · ?mode= · ?launcher · ?location ·
-  ?profile · ?density= · ?nav=closed · ?logo=off · ?loc=off · ?tabs=off
+  ?profile · ?density= · ?nav=closed · ?logo=off · ?loc=off · ?tabs=off ·
+  ?state=collapsed|peek|pinned|bothclosed (side-nav interaction frames)
   ============================================================================
 -->
 <style>
@@ -118,7 +122,7 @@ body.nav-hidden .sidenav svg.tw{display:none}
 body.nav-hidden .sidenav .nitem,body.nav-hidden .sidenav details.grp>summary{font-size:0;gap:0;justify-content:center;width:44px;height:38px;padding:0;margin:0 auto;border-radius:10px;border-left:0}
 body.nav-hidden .sidenav .nitem .ic,body.nav-hidden .sidenav details.grp>summary .ic{width:18px;height:18px}
 /* ---- Menu items. Rounded inset rows. The disclosure chevron TRAILS the
-   label (as in Convergence/EHS) so expandable rows and plain rows at the
+   label (as in Vector LMS/EHS) so expandable rows and plain rows at the
    same level share one icon x and one label x. Counts sit inline after the
    label on every row, so plain rows and expandable rows read the same. ---- */
 .nav-h{font-size:11px;font-weight:650;color:var(--ink-3);padding:16px 10px 5px}
@@ -218,7 +222,7 @@ body.logo-off .cust-logo{display:none}
 .loc-find{display:flex;align-items:center;gap:7px;height:30px;padding:0 9px;border-radius:6px;background:var(--well);margin-bottom:5px}
 .loc-find .ic{width:13px;height:13px;color:var(--ink-3)}
 .loc-find input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:12.5px;color:var(--ink);outline:none}
-/* Nested tree-list hierarchy picker (matches the Convergence location
+/* Nested tree-list hierarchy picker (matches the Vector LMS location
    picker: chevron toggles, node name + level label, check on the selected
    node, depth by indentation; a location can be selected at any level) */
 .loc-menu{width:320px;max-height:70vh;overflow-y:auto}
@@ -331,7 +335,10 @@ body[data-density="comfortable"] .kids .kids .nitem{height:32px;font-size:13px}
 .u-item{display:flex;align-items:center;gap:8px;height:30px;padding:0 9px;border-radius:6px;font-size:12.5px;color:var(--ink-2)}
 .u-item:hover{background:var(--well);color:var(--ink)}
 /* ---- App rail: the V3-defining switcher ---- */
-.below{flex:1;display:flex;min-height:0}
+/* L-shaped shell: the rail runs the FULL height; everything else stacks in a
+   right-hand column so the top bar is inset, not full-width */
+.frame{flex:1;display:flex;min-height:0}
+.rcol{flex:1;display:flex;flex-direction:column;min-width:0}
 .apprail{flex:none;width:56px;background:var(--rail-bg);display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:4px;z-index:45}
 .rapp{width:40px;height:40px;border-radius:10px;color:var(--rail-ink);display:grid;place-items:center;position:relative;cursor:pointer}
 .rapp .ic{width:19px;height:19px}
@@ -345,13 +352,45 @@ body[data-density="comfortable"] .kids .kids .nitem{height:32px;font-size:13px}
 .apprail :focus-visible{outline-color:#aab3ff}
 .launcher{left:64px;top:auto;bottom:14px}
 /* closing the side nav closes the rail too: one thin panel, not two bars */
-body.nav-hidden .apprail{display:none}
+/* the app rail PERSISTS when the side nav collapses (it is the product switcher) */
 /* ---- Product-scoped search in the SIDE NAV; typing live-filters the menu ---- */
 .sn-search{display:flex;align-items:center;gap:8px;height:34px;margin:2px 0 10px;padding:0 10px;border-radius:8px;background:var(--well);border:1px solid transparent;flex:none}
 .sn-search:focus-within{background:var(--surface);border-color:var(--accent-line)}
 .sn-search .ic{width:14px;height:14px;color:var(--ink-3)}
 .sn-search input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:12.5px;color:var(--ink);outline:none}
 .sn-search input::placeholder{color:var(--ink-3)}
+/* ---- Second way to collapse: a control in the side nav's own top-right.
+   The top-bar toggle remains; either collapses the nav. In the hover-overlay
+   frames this same slot holds the PIN; docked, it holds this close control. ---- */
+.sidenav{position:relative}
+.sn-close{position:absolute;top:8px;right:6px;z-index:6;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--ink-3);cursor:pointer}
+.sn-close:hover{background:var(--well);color:var(--ink)}
+.sn-close .ic{width:14px;height:14px}
+.sn-close .pin-ic{display:none}
+body.nav-hidden .sn-close{display:none}
+/* ---- V3: the collapse control tops the side-nav column (no top-bar toggle);
+   collapsed, the same slot expands it again ---- */
+body.nav-hidden .sn-close{display:grid;right:15px}
+/* customer logo docks to the BOTTOM of the nav in its own sticky footer zone;
+   the item list scrolls independently above it */
+.sidenav{padding-bottom:0}
+.sidenav .cust-logo{order:99;margin-top:auto;position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--line);border-bottom:0;margin-bottom:0;padding:12px 16px;z-index:4}
+body.nav-hidden .sidenav{padding-bottom:8px}
+/* "both closed": the rail itself has a minimal state = launcher + current product */
+body.rail-min .apprail .rapp[data-app]:not([aria-pressed="true"]){display:none}
+body.rail-min .apprail .rapp[data-tip="Vector Scheduling"]{display:none}
+body.rail-min .rdiv{display:none}
+/* ---- interaction-spec frames (?state=collapsed|peek|pinned|bothclosed) ---- */
+.state-note{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:95;background:var(--ink);color:var(--surface);font:600 11.5px/1.5 var(--font);padding:7px 12px;border-radius:8px;box-shadow:var(--shadow-2);max-width:620px;text-align:center}
+/* peek: the nav expands as an OVERLAY above the content; nothing shifts */
+body.nav-peek .sidenav{position:fixed;left:56px;top:var(--topbar-h);bottom:0;width:var(--nav-w);box-shadow:var(--shadow-3);border-right:1px solid var(--line);z-index:60}
+body.nav-peek .shell{padding-left:56px}
+body.nav-peek .sn-close .close-ic{display:none}
+body.nav-peek .sn-close .pin-ic{display:block}
+/* V3: the toggle sits in its own row above the search (static, right-aligned),
+   so it never overlaps the search field; collapsed, it centers as the expander */
+.sn-close{position:static;order:-2;align-self:flex-end;margin:-2px 0 2px}
+body.nav-hidden .sn-close{position:static;right:auto;margin:0 auto 4px}
 </style>
 </head>
 <body data-app="learn" data-mode="trainplan">
@@ -396,24 +435,80 @@ body.nav-hidden .apprail{display:none}
 <symbol id="i-ext" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></symbol>
 <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21.4s-6.8-6-6.8-11a6.8 6.8 0 0 1 13.6 0c0 5-6.8 11-6.8 11z"/><circle cx="12" cy="10.2" r="2.6"/></symbol>
 <symbol id="i-org" viewBox="0 0 24 24"><rect x="8.5" y="3" width="7" height="5" rx="1.2"/><path d="M12 8v3.5M6.5 11.5h11M6.5 11.5V16M17.5 11.5V16"/><rect x="3" y="16" width="7" height="5" rx="1.2"/><rect x="14" y="16" width="7" height="5" rx="1.2"/></symbol>
+<symbol id="i-dash" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="9" rx="1.5"/><rect x="14" y="3.5" width="6.5" height="5.5" rx="1.5"/><rect x="14" y="12.5" width="6.5" height="8" rx="1.5"/><rect x="3.5" y="16" width="7" height="4.5" rx="1.5"/></symbol>
+<symbol id="i-pinpush" viewBox="0 0 24 24"><path d="M12 16.5V21"/><path d="M8.4 3.5h7.2l-.9 5.8 3 3.2H6.3l3-3.2z"/></symbol>
 </defs></svg>
 
-<!-- ============ TOP BAR: one row = nav toggle · switcher · identity · modes · actions ============ -->
+
+<!-- App switcher: vwc-app-switcher-menu anatomy, extended to scale per the
+     updated brief: in-panel search, a DISTINCT cross-product Dashboard entry
+     pinned above the divider, pinned products, then an "All products"
+     expansion carrying the rest of the Vector suite. -->
+<div class="l-scrim" id="launcherScrim" hidden></div>
+<div class="launcher" id="launcher" role="dialog" aria-labelledby="launcherTitle" hidden>
+  <h2 class="l-title" id="launcherTitle">Your Vector Solutions products</h2>
+  <div class="l-search"><svg class="ic"><use href="#i-search"/></svg><input id="lSearch" placeholder="Find a product" aria-label="Find a product"></div>
+  <a class="l-row dash" href="#" data-app="dashboard">
+    <span class="l-chip"><svg class="ic"><use href="#i-dash"/></svg></span>
+    <span class="l-name">Dashboard</span>
+    <span class="l-end"><span class="l-cur">Current</span>All products</span>
+  </a>
+  <div class="l-div" role="separator"></div>
+  <div class="l-sec">Pinned</div>
+  <a class="l-row current" href="#" data-app="learn" aria-current="true">
+    <span class="l-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
+    <span class="l-name">Vector LMS</span>
+    <span class="l-end"><span class="l-cur">Current</span><svg class="ic"><use href="#i-ext"/></svg></span>
+  </a>
+  <a class="l-row" href="#" data-app="comply">
+    <span class="l-chip"><svg class="ic"><use href="#i-shield"/></svg></span>
+    <span class="l-name">Vector EHS Management</span>
+    <span class="l-end"><span class="l-cur">Current</span><svg class="ic"><use href="#i-ext"/></svg></span>
+  </a>
+  <a class="l-row" href="#">
+    <span class="l-chip"><svg class="ic"><use href="#i-cal"/></svg></span>
+    <span class="l-name">Vector Scheduling</span>
+    <span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span>
+  </a>
+  <details class="l-more" id="lMore">
+    <summary>All products (8)<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-check"/></svg></span><span class="l-name">Vector Check-It</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-clip"/></svg></span><span class="l-name">Vector Evaluations</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-chart"/></svg></span><span class="l-name">Vector PD Tracking</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-swap"/></svg></span><span class="l-name">Vector Pathways</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-eye"/></svg></span><span class="l-name">Guardian Tracking</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-book"/></svg></span><span class="l-name">Acadis</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-alert"/></svg></span><span class="l-name">Frontline Public Safety</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
+    <a class="l-row inactive" href="#"><span class="l-chip"><svg class="ic"><use href="#i-lock"/></svg></span><span class="l-name">ArdentSky Compliance Suite</span><span class="l-end">Learn more<svg class="ic"><use href="#i-ext"/></svg></span></a>
+  </details>
+</div>
+
+<!-- L-shaped shell: the app rail owns the full left edge (y=0 to the bottom);
+     the top bar begins to its right -->
+<div class="frame">
+<nav class="apprail" aria-label="Products">
+  <button class="rapp" data-app="dashboard" data-tip="Dashboard" aria-pressed="false"><svg class="ic"><use href="#i-dash"/></svg></button>
+  <span class="rdiv"></span>
+  <button class="rapp" data-app="learn" data-tip="Vector LMS" aria-pressed="true"><svg class="ic"><use href="#i-cap"/></svg></button>
+  <button class="rapp" data-app="comply" data-tip="Vector EHS Management" aria-pressed="false"><svg class="ic"><use href="#i-shield"/></svg></button>
+  <button class="rapp" data-tip="Vector Scheduling" aria-label="Vector Scheduling"><svg class="ic"><use href="#i-cal"/></svg></button>
+  <span class="rspace"></span>
+  <button class="rapp" id="launcherBtn" data-tip="All products" aria-label="All products" aria-haspopup="dialog" aria-expanded="false"><svg class="ic"><use href="#i-grid"/></svg></button>
+</nav>
+<div class="rcol">
+
+<!-- ============ TOP BAR: inset to the right of the full-height rail ============ -->
 <header class="topbar" role="banner">
-  <!-- Side nav open/close: the far-left corner, directly above the sidenav edge -->
-  <button class="icon-btn" id="navToggle" aria-label="Hide navigation" aria-pressed="true" aria-controls="main">
-    <svg class="ic"><use href="#i-panel"/></svg>
-  </button>
-  <a class="brand" data-app="learn" href="#" aria-label="Convergence home">
+  <a class="brand" data-app="learn" href="#" aria-label="Vector LMS home">
     <span class="brand-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
-    <b>Convergence</b>
+    <b>Vector LMS</b>
   </a>
   <a class="brand" data-app="comply" href="#" aria-label="Vector EHS Management home">
     <span class="brand-chip"><svg class="ic"><use href="#i-shield"/></svg></span>
     <b>Vector EHS Management</b>
   </a>
   <a class="brand" data-app="dashboard" href="#" aria-label="Dashboard home">
-    <span class="brand-chip"><svg class="ic"><use href="#i-home"/></svg></span>
+    <span class="brand-chip"><svg class="ic"><use href="#i-dash"/></svg></span>
     <b>Dashboard</b>
   </a>
   <!-- Location selector (Convergence-style): filters the current context.
@@ -500,7 +595,7 @@ body.nav-hidden .apprail{display:none}
 
   <!-- MODE TABS, top-right: Learn's major modes. Live demo: click to swap the
        side nav + content below. Switching product swaps this tab set. -->
-  <nav class="tb-tabs" data-app="learn" aria-label="Convergence modes">
+  <nav class="tb-tabs" data-app="learn" aria-label="Vector LMS modes">
     <a href="#" data-mode="home">Home</a>
     <a href="#" data-mode="admin">Admin</a>
     <a href="#" data-mode="trainplan" aria-current="page">Training Plan</a>
@@ -533,66 +628,14 @@ body.nav-hidden .apprail{display:none}
   </div>
 </header>
 
-<!-- App switcher: vwc-app-switcher-menu anatomy, extended to scale per the
-     updated brief: in-panel search, a DISTINCT cross-product Dashboard entry
-     pinned above the divider, pinned products, then an "All products"
-     expansion carrying the rest of the Vector suite. -->
-<div class="l-scrim" id="launcherScrim" hidden></div>
-<div class="launcher" id="launcher" role="dialog" aria-labelledby="launcherTitle" hidden>
-  <h2 class="l-title" id="launcherTitle">Your Vector Solutions products</h2>
-  <div class="l-search"><svg class="ic"><use href="#i-search"/></svg><input id="lSearch" placeholder="Find a product" aria-label="Find a product"></div>
-  <a class="l-row dash" href="#" data-app="dashboard">
-    <span class="l-chip"><svg class="ic"><use href="#i-home"/></svg></span>
-    <span class="l-name">Dashboard</span>
-    <span class="l-end"><span class="l-cur">Current</span>All products</span>
-  </a>
-  <div class="l-div" role="separator"></div>
-  <div class="l-sec">Pinned</div>
-  <a class="l-row current" href="#" data-app="learn" aria-current="true">
-    <span class="l-chip"><svg class="ic"><use href="#i-cap"/></svg></span>
-    <span class="l-name">Convergence</span>
-    <span class="l-end"><span class="l-cur">Current</span><svg class="ic"><use href="#i-ext"/></svg></span>
-  </a>
-  <a class="l-row" href="#" data-app="comply">
-    <span class="l-chip"><svg class="ic"><use href="#i-shield"/></svg></span>
-    <span class="l-name">Vector EHS Management</span>
-    <span class="l-end"><span class="l-cur">Current</span><svg class="ic"><use href="#i-ext"/></svg></span>
-  </a>
-  <a class="l-row" href="#">
-    <span class="l-chip"><svg class="ic"><use href="#i-cal"/></svg></span>
-    <span class="l-name">Vector Scheduling</span>
-    <span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span>
-  </a>
-  <details class="l-more" id="lMore">
-    <summary>All products (8)<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-check"/></svg></span><span class="l-name">Vector Check-It</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-clip"/></svg></span><span class="l-name">Vector Evaluations</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-chart"/></svg></span><span class="l-name">Vector PD Tracking</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-swap"/></svg></span><span class="l-name">Vector Pathways</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-eye"/></svg></span><span class="l-name">Guardian Tracking</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-book"/></svg></span><span class="l-name">Acadis</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row" href="#"><span class="l-chip"><svg class="ic"><use href="#i-alert"/></svg></span><span class="l-name">Frontline Public Safety</span><span class="l-end"><svg class="ic"><use href="#i-ext"/></svg></span></a>
-    <a class="l-row inactive" href="#"><span class="l-chip"><svg class="ic"><use href="#i-lock"/></svg></span><span class="l-name">ArdentSky Compliance Suite</span><span class="l-end">Learn more<svg class="ic"><use href="#i-ext"/></svg></span></a>
-  </details>
-</div>
-
-<div class="below">
-<nav class="apprail" aria-label="Products">
-  <button class="rapp" data-app="dashboard" data-tip="Dashboard" aria-pressed="false"><svg class="ic"><use href="#i-home"/></svg></button>
-  <span class="rdiv"></span>
-  <button class="rapp" data-app="learn" data-tip="Convergence" aria-pressed="true"><svg class="ic"><use href="#i-cap"/></svg></button>
-  <button class="rapp" data-app="comply" data-tip="Vector EHS Management" aria-pressed="false"><svg class="ic"><use href="#i-shield"/></svg></button>
-  <button class="rapp" data-tip="Vector Scheduling" aria-label="Vector Scheduling"><svg class="ic"><use href="#i-cal"/></svg></button>
-  <span class="rspace"></span>
-  <button class="rapp" id="launcherBtn" data-tip="All products" aria-label="All products" aria-haspopup="dialog" aria-expanded="false"><svg class="ic"><use href="#i-grid"/></svg></button>
-</nav>
 <div class="shell" id="main">
 
   <!-- ================= MODE: HOME ================= -->
   <div class="mode-pane" data-mode="home">
     <nav class="sidenav" aria-label="Home navigation">
+      <button class="sn-close" aria-label="Collapse navigation" title="Collapse navigation"><svg class="ic close-ic"><use href="#i-panel"/></svg><svg class="ic pin-ic"><use href="#i-pinpush"/></svg></button>
       <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Convergence" aria-label="Search Convergence"></div>
+      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Vector LMS" aria-label="Search Vector LMS"></div>
       <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Overview</a>
       <a class="nitem" href="#"><svg class="ic"><use href="#i-inbox"/></svg>Inbox<span class="count">5</span></a>
       <a class="nitem" href="#"><svg class="ic"><use href="#i-check"/></svg>My assignments</a>
@@ -643,8 +686,9 @@ body.nav-hidden .apprail{display:none}
   <!-- ================= MODE: ADMIN ================= -->
   <div class="mode-pane" data-mode="admin">
     <nav class="sidenav" aria-label="Admin navigation">
+      <button class="sn-close" aria-label="Collapse navigation" title="Collapse navigation"><svg class="ic close-ic"><use href="#i-panel"/></svg><svg class="ic pin-ic"><use href="#i-pinpush"/></svg></button>
       <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Convergence" aria-label="Search Convergence"></div>
+      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Vector LMS" aria-label="Search Vector LMS"></div>
         <!-- The real Convergence admin NAV_TREE: Dashboard solo, then groups as
              accordions with their actual children (chrome.js NAV_TREE). -->
         <a class="nitem" href="#"><svg class="ic"><use href="#i-home"/></svg>Dashboard</a>
@@ -763,8 +807,9 @@ body.nav-hidden .apprail{display:none}
   <!-- ================= MODE: TRAINING PLAN (default) ================= -->
   <div class="mode-pane" data-mode="trainplan">
     <nav class="sidenav" aria-label="Training Plan navigation">
+      <button class="sn-close" aria-label="Collapse navigation" title="Collapse navigation"><svg class="ic close-ic"><use href="#i-panel"/></svg><svg class="ic pin-ic"><use href="#i-pinpush"/></svg></button>
       <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Convergence" aria-label="Search Convergence"></div>
+      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Vector LMS" aria-label="Search Vector LMS"></div>
       <a class="nitem" href="#"><svg class="ic"><use href="#i-home"/></svg>Overview</a>
       <details class="grp" open>
         <summary><svg class="ic"><use href="#i-layers"/></svg>Curricula<span class="count">4</span><svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
@@ -882,8 +927,9 @@ body.nav-hidden .apprail{display:none}
   <!-- ================= MODE: REPORTING & INSIGHTS ================= -->
   <div class="mode-pane" data-mode="reporting">
     <nav class="sidenav" aria-label="Reporting navigation">
+      <button class="sn-close" aria-label="Collapse navigation" title="Collapse navigation"><svg class="ic close-ic"><use href="#i-panel"/></svg><svg class="ic pin-ic"><use href="#i-pinpush"/></svg></button>
       <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Convergence" aria-label="Search Convergence"></div>
+      <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Vector LMS" aria-label="Search Vector LMS"></div>
       <a class="nitem" href="#"><svg class="ic"><use href="#i-chart"/></svg>Dashboards</a>
       <div class="nav-h">Reports</div>
       <a class="nitem" href="#"><svg class="ic"><use href="#i-clock"/></svg>My recents</a>
@@ -940,6 +986,7 @@ body.nav-hidden .apprail{display:none}
      content aggregates KPIs + simple charts across the products this org has. -->
 <div class="mode-pane" data-mode="dash">
   <nav class="sidenav" aria-label="Dashboard navigation">
+      <button class="sn-close" aria-label="Collapse navigation" title="Collapse navigation"><svg class="ic close-ic"><use href="#i-panel"/></svg><svg class="ic pin-ic"><use href="#i-pinpush"/></svg></button>
     <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
     <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search the dashboard" aria-label="Search the dashboard"></div>
     <div class="nav-h">My work</div>
@@ -968,7 +1015,7 @@ body.nav-hidden .apprail{display:none}
         </div>
       </div>
       <div class="kpis kpis3">
-        <div class="kpi"><div class="lbl">Training completion</div><div class="val">86%</div><div class="sub">Convergence · up 2.1 pts</div></div>
+        <div class="kpi"><div class="lbl">Training completion</div><div class="val">86%</div><div class="sub">Vector LMS · up 2.1 pts</div></div>
         <div class="kpi"><div class="lbl">Open incidents</div><div class="val">27</div><div class="sub">Vector EHS Management · 4 serious</div></div>
         <div class="kpi"><div class="lbl">Coverage gaps</div><div class="val">12</div><div class="sub">Vector Scheduling · next 14 days</div></div>
         <div class="kpi"><div class="lbl">Overdue inspections</div><div class="val">9</div><div class="sub">Vector EHS Management</div></div>
@@ -999,7 +1046,7 @@ body.nav-hidden .apprail{display:none}
         <div class="card">
           <div class="card-h"><b>Required training in date, by product</b></div>
           <div class="hband">
-            <div class="hb"><span class="t">Convergence</span><span class="track"><i style="width:86%"></i></span><span class="v">86%</span></div>
+            <div class="hb"><span class="t">Vector LMS</span><span class="track"><i style="width:86%"></i></span><span class="v">86%</span></div>
             <div class="hb"><span class="t">Vector EHS Management</span><span class="track"><i style="width:78%"></i></span><span class="v">78%</span></div>
             <div class="hb"><span class="t">Vector Scheduling</span><span class="track"><i style="width:91%"></i></span><span class="v">91%</span></div>
             <div class="hb"><span class="t">Vector Check-It</span><span class="track"><i style="width:64%"></i></span><span class="v">64%</span></div>
@@ -1017,6 +1064,7 @@ body.nav-hidden .apprail{display:none}
        then Training and Analytics sections with their actual EHS children. -->
   <div class="mode-pane" data-mode="comply-home">
     <nav class="sidenav" aria-label="Comply navigation">
+      <button class="sn-close" aria-label="Collapse navigation" title="Collapse navigation"><svg class="ic close-ic"><use href="#i-panel"/></svg><svg class="ic pin-ic"><use href="#i-pinpush"/></svg></button>
       <div class="cust-logo"><svg width="150" height="34" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
       <div class="sn-search"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Search Vector EHS Management" aria-label="Search Vector EHS Management"></div>
         <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Home</a>
@@ -1128,6 +1176,7 @@ body.nav-hidden .apprail{display:none}
 
 </div>
 </div>
+</div>
 
 <script>
 // Demo-only wiring, no storage, no framework.
@@ -1156,10 +1205,13 @@ body.nav-hidden .apprail{display:none}
   var nBtn=document.getElementById('navToggle');
   function setNav(open){
     document.body.classList.toggle('nav-hidden',!open);
-    nBtn.setAttribute('aria-pressed',String(open));
-    nBtn.setAttribute('aria-label',open?'Collapse navigation':'Expand navigation');
+    if(nBtn){nBtn.setAttribute('aria-pressed',String(open));nBtn.setAttribute('aria-label',open?'Collapse navigation':'Expand navigation');}
   }
-  nBtn.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
+  if(nBtn)nBtn.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
+  // the in-nav control collapses too (and expands, where visible while collapsed)
+  document.querySelectorAll('.sn-close').forEach(function(b){
+    b.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
+  });
 
   // 4) Launcher tiles switch the product: Learn <-> Comply (EHS-style nav).
   //    ?app=comply deep-links the Comply pane.
@@ -1272,6 +1324,35 @@ uMenu.querySelectorAll('.u-opt').forEach(function(o){
   if(new URLSearchParams(location.search).get('tabs')==='off')document.body.classList.add('tabs-off');
   var dd=new URLSearchParams(location.search).get('density'); if(dd==='compact'||dd==='comfortable')setDensity(dd);
   if(new URLSearchParams(location.search).has('profile'))setUMenu(true);
+  // ---- interaction-spec frames: static, deep-linkable states ----
+  var st=params.get('state');
+  if(st){
+    var NOTES={
+      collapsed:'Frame A - collapsed: icons only. Pointer within 16px of the nav would open the peek overlay (?state=peek).',
+      peek:'Frame B - hover / peek overlay: the nav expands OVER the content, nothing shifts. Click away to collapse; click the pin (top right of the nav) to dock it.',
+      pinned:'Frames C+D - pinned (docked): the pin has swapped to the close control in the same top-right slot.',
+      bothclosed:'Frame - both closed: side nav collapsed AND the app switcher reduced to its minimal state (launcher + current product).'
+    };
+    if(st==='collapsed')setNav(false);
+    if(st==='pinned')setNav(true);
+    if(st==='peek'){setNav(true);document.body.classList.add('nav-peek');}
+    if(st==='bothclosed'){setNav(false);document.body.classList.add('rail-min');}
+    if(NOTES[st]){var sn=document.createElement('div');sn.className='state-note';sn.textContent=NOTES[st];document.body.appendChild(sn);}
+    if(st==='peek'){
+      // pin docks the overlay; clicking anywhere off the nav collapses it
+      document.querySelectorAll('.sn-close').forEach(function(b){
+        b.addEventListener('click',function(e){
+          e.stopImmediatePropagation();
+          document.body.classList.remove('nav-peek');setNav(true);
+        },true);
+      });
+      document.addEventListener('click',function(e){
+        if(document.body.classList.contains('nav-peek')&&!e.target.closest('.sidenav')){
+          document.body.classList.remove('nav-peek');setNav(false);
+        }
+      });
+    }
+  }
 })();
 </script>
 <!-- ============================================================================
@@ -1281,7 +1362,7 @@ uMenu.querySelectorAll('.u-opt').forEach(function(o){
      this comment through the closing </nav> to remove it entirely.
      ============================================================================ -->
 <style>
-.vswitch{position:fixed;bottom:14px;left:70px;/* clears the 56px rail */z-index:90;display:flex;align-items:center;gap:2px;padding:4px 5px;border-radius:99px;background:rgba(20,22,28,.95);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+.vswitch{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);/* bottom-center: the sticky logo owns the bottom-left */z-index:90;display:flex;align-items:center;gap:2px;padding:4px 5px;border-radius:99px;background:rgba(20,22,28,.95);box-shadow:0 10px 28px rgba(0,0,0,.3)}
 .vswitch a{display:grid;place-items:center;min-width:28px;height:26px;padding:0 8px;border-radius:99px;color:#c9cdd7;font:650 11.5px/1 var(--font);text-decoration:none;white-space:nowrap}
 .vswitch a:hover{background:rgba(255,255,255,.14);color:#fff}
 .vswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}

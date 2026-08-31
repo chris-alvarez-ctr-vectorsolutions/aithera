@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learning Studio — Sales Demo</title>
+
+  <!-- Vector Web Components. Versions match the Phase1 object-manager
+       prototype this demo borrows its second area from, so the two shells
+       share one design language. -->
+  <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+  </script>
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+  </script>
+
+  <!-- Open Sans -->
+  <link rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+  <!-- Font Awesome 6 Pro, self-hosted. Four levels below the repo root. -->
+  <link rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css" />
+
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+
+<!-- ============================================================
+     SALES DEMO — Learning Studio
+
+     Two full-viewport areas that swap completely:
+       AREA 1  Course Overview  (this file's markup, rendered from COURSE)
+       AREA 2  Object Manager   (object-manager.html, loaded in an iframe)
+
+     Deliberately carries NO design toolbox, NO comment pins, NO flow map,
+     and no version loader. Nothing may read as internal tooling.
+
+     All durations and counts are COMPUTED from course-data.js — never
+     hand-typed — so the content pass can't desync the roll-ups.
+     ============================================================ -->
+
+<!-- ===== AREA 1: Course Overview ===== -->
+<div class="area" id="area-overview">
+  <div class="app">
+
+    <!-- Row 1: global header -->
+    <header class="ov-topbar">
+      <div class="ov-ident">
+        <div class="ov-sku">SKU: <span id="hdr-sku"></span></div>
+        <div class="ov-course-title" id="hdr-title"></div>
+      </div>
+
+      <div class="search-wrap">
+        <label class="ai-search">
+          <i class="fa-solid fa-wand-magic-sparkles spark"></i>
+          <input type="text" placeholder="Describe the content you want to search for…" />
+        </label>
+      </div>
+
+      <div class="ov-top-right">
+        <button class="btn-publish">Publish</button>
+      </div>
+    </header>
+
+    <!-- Row 2: course overview bar + tabs -->
+    <div class="ov-subbar">
+      <div class="ov-subbar-left">
+        <span class="ov-subbar-title">Course Overview</span>
+      </div>
+
+      <nav class="ov-tabs" aria-label="Course sections">
+        <div class="seg" id="ovTabs">
+          <button class="seg-btn active" data-tab="content">Content</button>
+          <button class="seg-btn" data-tab="details">Course Details</button>
+          <button class="seg-btn" data-tab="assessment">Assessment</button>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Body: structure rail + content column -->
+    <div class="ov-body">
+
+      <!-- Left: course structure rail -->
+      <aside class="ov-rail" id="ovRail">
+        <div class="ov-rail-head">
+          <h2>Course Structure</h2>
+          <button class="chev" id="railCollapse" title="Collapse" aria-label="Collapse course structure">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+        </div>
+        <div class="ov-rail-scroll" id="railList">
+          <!-- rendered from COURSE -->
+        </div>
+      </aside>
+
+      <!-- Right: course content -->
+      <main class="ov-content">
+        <div class="ov-content-inner">
+
+          <div class="ov-content-head">
+            <div>
+              <h1 class="ov-h1">Course Content</h1>
+              <p class="ov-sub">Add, edit, or remove content to create a custom learning experience.</p>
+            </div>
+
+            <div class="ov-content-meta">
+              <div class="ov-progress">
+                <div class="ov-progress-label" id="progLabel"></div>
+                <div class="ov-progress-bar"><span id="progFill"></span></div>
+              </div>
+              <span class="dur-pill" id="courseDur"><i class="fa-regular fa-clock"></i> <span></span></span>
+              <button class="btn-outline">Preview Course</button>
+            </div>
+          </div>
+
+          <div id="sectionList">
+            <!-- rendered from COURSE -->
+          </div>
+
+        </div>
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== AREA 2: Object Manager =====
+     Loaded in an iframe so the borrowed Phase1 shell keeps its own
+     100vh layout untouched. It posts a message back to request the
+     return trip to the overview. -->
+<div class="area" id="area-manager">
+  <iframe id="omFrame" title="Object Manager" src="about:blank"></iframe>
+</div>
+
+<!-- ===== Add Learning Object modal =====
+     Opened by the "Add Learning Object" button on any expanded section.
+     Two routes: Manual Creation (inert -- present so the choice reads as
+     real) and AI Generation, which drives the demo's reveal. -->
+<div class="modal-overlay" id="addLoModal" role="dialog" aria-modal="true"
+     aria-labelledby="addLoTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="addLoTitle">Add Learning Object</h3>
+      <!-- Filled with the section the button was clicked from. -->
+      <p class="modal-sub">Section: <span id="addLoSection"></span></p>
+    </div>
+
+    <div class="modal-body">
+      <div class="route-tabs" role="tablist">
+        <button class="route-tab active" type="button" role="tab"
+                data-route="manual" aria-selected="true">
+          <i class="fa-regular fa-pen-to-square"></i> Manual Creation
+        </button>
+        <button class="route-tab" type="button" role="tab"
+                data-route="ai" aria-selected="false">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> AI Generation
+        </button>
+      </div>
+
+      <!-- Manual route -->
+      <div class="route-panel active" id="routeManual">
+        <h4>Manual Creation</h4>
+        <p>Enter the details for your learning object.</p>
+        <div class="field required">
+          <label for="loTitle">Title *</label>
+          <input type="text" id="loTitle" placeholder="Enter learning object title" />
+        </div>
+        <div class="field">
+          <label for="loObjective">Learning Objective</label>
+          <textarea id="loObjective" placeholder="Enter the learning objective (optional)"></textarea>
+        </div>
+      </div>
+
+      <!-- AI route. Unlike the manual route this is not boxed -- the fields
+           sit directly on the modal, matching the reference. -->
+      <div class="route-panel route-plain" id="routeAi">
+        <div class="field required">
+          <label for="aiPrompt">Describe what this learning object should cover *</label>
+          <textarea id="aiPrompt" rows="3"
+            placeholder="e.g., Explain the basics of workplace safety including PPE requirements, hazard identification, and emergency procedures..."></textarea>
+        </div>
+
+        <div class="field">
+          <div class="upload-head">Reference Documents (Optional)</div>
+          <p class="upload-sub">Upload reference documents to provide context for AI generation.</p>
+          <p class="upload-hint">Supported: PDF, DOCX, TXT, PPTX, XLSX. Max 5 files, 130,000 words combined.</p>
+
+          <!-- A real <input type="file"> so a rep can pick an actual document
+               from the OS file browser on a live call. Nothing is uploaded --
+               the picked files are only listed back. -->
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" multiple
+                   accept=".pdf,.docx,.txt,.pptx,.xlsx" hidden />
+            <button class="btn btn-upload" type="button" id="uploadBtn">Upload Files…</button>
+            <span class="dz-hint"><i class="fa-solid fa-arrow-up-from-bracket"></i> Drop files here or click to upload</span>
+          </div>
+
+          <!-- Picked files, listed with a control to remove each. -->
+          <ul class="file-list" id="fileList"></ul>
+          <div class="file-count" id="fileCount" hidden></div>
+        </div>
+      </div>
+
+      <!-- Simulated generation. Replaces the modal body while running,
+           then the demo opens the pre-authored LO. -->
+      <div class="generating" id="generating">
+        <div class="gen-spark"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="gen-title">Generating transcript…</div>
+        <div class="gen-step" id="genStep"></div>
+        <div class="gen-bar"><div class="gen-fill" id="genFill"></div></div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-secondary" type="button" id="addLoCancel">Cancel</button>
+      <!-- Label follows the route: "Create Learning Object" / "Generate Transcript". -->
+      <button class="btn btn-primary" type="button" id="addLoCreate" disabled>Create Learning Object</button>
+    </div>
+  </div>
+</div>
+
+<script src="course-data.js"></script>
+<script>
+/* ============================================================
+   DEMO DRIVER
+   ============================================================ */
+
+/* ── Area swapping ────────────────────────────────────────── */
+
+const areaOverview = document.getElementById('area-overview');
+const areaManager  = document.getElementById('area-manager');
+const omFrame      = document.getElementById('omFrame');
+
+function showOverview() {
+  areaManager.classList.remove('is-active');
+  areaOverview.classList.add('is-active');
+  // Drop the iframe so the next open starts clean.
+  omFrame.src = 'about:blank';
+  document.title = 'Learning Studio — Sales Demo';
+}
+
+function openObjectManager(objectId) {
+  omFrame.src = 'object-manager.html?object=' + encodeURIComponent(objectId);
+  areaOverview.classList.remove('is-active');
+  areaManager.classList.add('is-active');
+}
+
+// The object manager asks to come back via postMessage.
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'om:back') showOverview();
+});
+
+/* ── Header + meta rendering (all computed) ───────────────── */
+
+document.getElementById('hdr-sku').textContent = COURSE.sku;
+document.getElementById('hdr-title').textContent = COURSE.title;
+
+function renderCourseMeta() {
+  const { done, total } = courseProgress(COURSE);
+  document.getElementById('progLabel').textContent = done + '/' + total + ' Complete';
+  document.getElementById('progFill').style.width =
+    (total ? (done / total) * 100 : 0) + '%';
+  document.querySelector('#courseDur span').textContent = fmtCourse(courseSeconds(COURSE));
+}
+
+/* ── Left rail ────────────────────────────────────────────── */
+
+function renderRail() {
+  const list = document.getElementById('railList');
+  list.innerHTML = '';
+
+  COURSE.sections.forEach((section, i) => {
+    const num = String(i + 1).padStart(2, '0');
+
+    const item = document.createElement('button');
+    item.className = 'rail-item';
+    item.type = 'button';
+    item.dataset.section = section.id;
+    item.dataset.index = i;
+    item.draggable = true;
+
+    // The number and the grip share one slot and cross-fade on hover —
+    // see .rail-handle in demo.css. The rail truncates long names via
+    // CSS ellipsis, matching the reference.
+    item.innerHTML =
+      '<span class="rail-handle" aria-hidden="true">' +
+        '<span class="rail-num">' + num + '</span>' +
+        '<i class="rail-grip fa-solid fa-grip-vertical"></i>' +
+      '</span>' +
+      '<span class="rail-name">' + escapeHtml(section.name) + '</span>';
+
+    item.addEventListener('click', () => {
+      // A click that ends a drag shouldn't also navigate.
+      if (railDrag.justDropped) return;
+      const card = document.querySelector('[data-section-card="' + section.id + '"]');
+      if (!card) return;
+      if (!card.classList.contains('is-open')) toggleSection(section.id, true);
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    attachRailDrag(item, i);
+    list.appendChild(item);
+  });
+
+  // Tooltips depend on rendered width, so they're applied after layout.
+  applyRailTooltips();
+}
+
+/* Give a rail item a tooltip ONLY when its name is actually truncated.
+   A tooltip that just repeats fully-visible text is noise, so this
+   compares the text's natural width against its visible box. Re-run on
+   resize, since the same name can overflow at one width and not another. */
+function applyRailTooltips() {
+  document.querySelectorAll('.rail-item').forEach(item => {
+    const nameEl = item.querySelector('.rail-name');
+    if (!nameEl) return;
+    // +1 absorbs sub-pixel rounding, which would otherwise flag names
+    // that fit exactly as overflowing.
+    const truncated = nameEl.scrollWidth > nameEl.clientWidth + 1;
+    if (truncated) {
+      item.title = nameEl.textContent;
+    } else {
+      item.removeAttribute('title');
+    }
+  });
+}
+
+// The rail is a fixed width, but the window can still change enough to
+// alter wrapping/ellipsis on zoom or font swap.
+window.addEventListener('resize', applyRailTooltips);
+// Re-check once webfonts land, since Open Sans metrics differ from the
+// fallback and can change which names overflow.
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(applyRailTooltips);
+}
+
+/* ── Drag to reorder sections ──────────────────────────────────
+   Uses the native HTML5 drag-and-drop API (no library, per the repo's
+   vanilla-only rule). Reordering mutates COURSE.sections and re-renders
+   BOTH the rail and the content column, so the two never disagree —
+   section numbering, durations and the roll-ups all recompute.
+   ──────────────────────────────────────────────────────────── */
+
+const railDrag = { fromIndex: null, overIndex: null, after: false, justDropped: false };
+
+function attachRailDrag(item, index) {
+  item.addEventListener('dragstart', (e) => {
+    railDrag.fromIndex = index;
+    item.classList.add('is-dragging');
+    document.getElementById('railList').classList.add('is-reordering');
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox requires data to be set for the drag to start at all.
+    try { e.dataTransfer.setData('text/plain', String(index)); } catch (err) {}
+  });
+
+  item.addEventListener('dragover', (e) => {
+    e.preventDefault();                       // required to allow a drop
+    e.dataTransfer.dropEffect = 'move';
+    if (railDrag.fromIndex === null || railDrag.fromIndex === index) {
+      clearDropMarkers();
+      return;
+    }
+    // Drop above or below the hovered row depending on which half the
+    // pointer is in.
+    const box = item.getBoundingClientRect();
+    const after = (e.clientY - box.top) > box.height / 2;
+
+    clearDropMarkers();
+    item.classList.add(after ? 'drop-after' : 'drop-before');
+    railDrag.overIndex = index;
+    railDrag.after = after;
+  });
+
+  item.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    commitRailReorder();
+  });
+
+  item.addEventListener('dragend', () => {
+    // Fires whether or not the drop landed on a valid target.
+    item.classList.remove('is-dragging');
+    endRailDrag();
+  });
+}
+
+function clearDropMarkers() {
+  document.querySelectorAll('.rail-item.drop-before, .rail-item.drop-after')
+    .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+}
+
+function commitRailReorder() {
+  const from = railDrag.fromIndex;
+  const over = railDrag.overIndex;
+  if (from === null || over === null || from === over) return;
+
+  // Target slot in the ORIGINAL array coordinates.
+  let to = railDrag.after ? over + 1 : over;
+  // Removing the dragged row first shifts everything after it down one.
+  if (from < to) to--;
+  if (to === from) return;
+
+  const [moved] = COURSE.sections.splice(from, 1);
+  COURSE.sections.splice(to, 0, moved);
+
+  // Re-render both panes from the mutated data so they stay in lockstep.
+  renderRail();
+  renderSections();
+  renderCourseMeta();
+
+  // Suppress the click that follows a drop, then flash the moved row so
+  // the reorder is visible on a live call.
+  railDrag.justDropped = true;
+  setTimeout(() => { railDrag.justDropped = false; }, 0);
+
+  const movedRow = document.querySelector('[data-section-card="' + moved.id + '"]');
+  if (movedRow) movedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function endRailDrag() {
+  clearDropMarkers();
+  document.getElementById('railList').classList.remove('is-reordering');
+  railDrag.fromIndex = null;
+  railDrag.overIndex = null;
+  railDrag.after = false;
+}
+
+/* ── Section cards ────────────────────────────────────────── */
+
+function renderSections() {
+  const wrap = document.getElementById('sectionList');
+  wrap.innerHTML = '';
+
+  COURSE.sections.forEach((section, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    const isOpen = !!section.expanded;
+
+    const card = document.createElement('section');
+    card.className = 'sec-card' + (isOpen ? ' is-open' : '');
+    card.setAttribute('data-section-card', section.id);
+
+    /* -- header row -- */
+    const head = document.createElement('div');
+    head.className = 'sec-head';
+    head.innerHTML =
+      '<button class="sec-chev" type="button" aria-label="Toggle section">' +
+        '<i class="fa-solid fa-chevron-' + (isOpen ? 'up' : 'down') + '"></i>' +
+      '</button>' +
+      '<div class="sec-headings">' +
+        '<h3 class="sec-title">' + num + ' ' + escapeHtml(section.name) + '</h3>' +
+        '<div class="sec-dur">Estimated Duration: ' + fmtMSS(sectionSeconds(section)) + '</div>' +
+      '</div>' +
+      '<div class="sec-actions">' +
+        (isOpen ? '<button class="btn-outline sm">Add Learning Object</button>' : '') +
+        '<button class="kebab" type="button" aria-label="Section options"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+      '</div>';
+
+    head.querySelector('.sec-chev').addEventListener('click', () => toggleSection(section.id));
+    head.querySelector('.sec-headings').addEventListener('click', () => toggleSection(section.id));
+
+    // Opens the Add Learning Object modal for THIS section. The button is
+    // only in the DOM while the section is expanded.
+    const addBtn = head.querySelector('.btn-outline');
+    if (addBtn) {
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAddLo(section);
+      });
+    }
+
+    // Section overflow menu: Rename Section / Delete
+    head.querySelector('.kebab').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMenu(e.currentTarget, [
+        { label: 'Rename Section', icon: 'fa-pen-to-square',
+          onSelect: () => renameSection(section.id) },
+        { separator: true },
+        { label: 'Delete', icon: 'fa-trash-can', danger: true,
+          onSelect: () => deleteSection(section.id) }
+      ]);
+    });
+
+    card.appendChild(head);
+
+    /* -- object list -- */
+    const body = document.createElement('div');
+    body.className = 'sec-body';
+
+    // `hidden` objects are authored in course.md but not listed yet -- they
+    // exist so the demo can reveal one (e.g. the AI-generation flow) and
+    // land in a fully built LO. Clear obj.hidden and re-render to reveal;
+    // the duration totals follow automatically.
+    section.objects.forEach((obj, objIndex) => {
+      if (obj.hidden) return;
+      body.appendChild(renderObjectRow(obj, section, objIndex));
+    });
+
+    card.appendChild(body);
+
+    /* -- insert affordances --
+       Two + buttons per card, revealed only while that card is hovered
+       (or when either button has keyboard focus). They overlay the card's
+       own top and bottom edge rather than sitting in the gap between
+       cards, so it is always unambiguous which section you are inserting
+       relative to — a button floating in the gap would be equally close
+       to the card above and the one below. */
+    card.appendChild(makeInsertButton(section, i, 'before'));
+    card.appendChild(makeInsertButton(section, i, 'after'));
+
+    wrap.appendChild(card);
+  });
+}
+
+/* Build one hover-revealed insert button.
+   `where` is 'before' (top edge) or 'after' (bottom edge). */
+function makeInsertButton(section, index, where) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'sec-insert sec-insert-' + where;
+
+  const num = String(index + 1).padStart(2, '0');
+  const label = where === 'before'
+    ? 'Add section before ' + num + ' ' + section.name
+    : 'Add section after ' + num + ' ' + section.name;
+  btn.setAttribute('aria-label', label);
+  btn.title = where === 'before' ? 'Add section above' : 'Add section below';
+
+  btn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+
+  btn.addEventListener('click', (e) => {
+    // Don't let the click reach the card and toggle the section.
+    e.stopPropagation();
+    addSection(index, where);
+  });
+
+  return btn;
+}
+
+/* Insert a new empty section relative to `index`, then re-render.
+   Section numbering, the rail, and every duration roll-up are all
+   derived from COURSE, so they renumber themselves on re-render. */
+function addSection(index, where) {
+  const at = where === 'before' ? index : index + 1;
+
+  COURSE.sections.splice(at, 0, {
+    id: 'new' + (++newSectionCounter),
+    name: 'New Section',
+    objects: [],
+    expanded: true
+  });
+
+  renderRail();
+  renderSections();
+  renderCourseMeta();
+
+  // Bring the new card into view so the rep sees the result of the click.
+  const added = document.querySelectorAll('[data-section-card]')[at];
+  if (added) added.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+let newSectionCounter = 0;
+
+function renderObjectRow(obj, section, index) {
+  const isTitleCard = obj.type === 'title-card';
+
+  /* The drag handle sits OUTSIDE the row container, in the gutter to its
+     left. So each object is a wrapper holding [handle][row] side by side,
+     and the wrapper — not the row — is the draggable unit.
+
+     Section title cards are NOT draggable: they anchor their section, so
+     they get an empty gutter spacer instead of a handle. The spacer keeps
+     title cards and lessons aligned on the same left edge. */
+  const wrap = document.createElement('div');
+  wrap.className = 'lo-wrap' + (isTitleCard ? ' is-title-card' : ' is-lesson')
+    + (isTitleCard && obj.disabled ? ' is-disabled' : '');
+  wrap.dataset.objectId = obj.id;
+  wrap.dataset.sectionId = section.id;
+  wrap.dataset.index = index;
+
+  const handle = document.createElement('span');
+  if (isTitleCard) {
+    handle.className = 'lo-handle is-static';
+    handle.setAttribute('aria-hidden', 'true');
+    // No grip glyph and no drag wiring — just reserves the gutter width.
+  } else {
+    handle.className = 'lo-handle';
+    handle.setAttribute('aria-hidden', 'true');
+    handle.title = 'Drag to reorder within this section';
+    handle.innerHTML = '<i class="fa-solid fa-grip-vertical"></i>';
+  }
+
+  const row = document.createElement('div');
+  row.className = 'lo-row';
+
+  // Status chip — only for complete / in-progress.
+  let chip = '';
+  if (obj.state === 'in-progress') chip = '<span class="chip chip-progress">In Progress</span>';
+  else if (obj.state === 'complete') chip = '<span class="chip chip-done">Complete</span>';
+
+  // EVERY object is styled as a link so the overview reads like a finished
+  // product on a sales call -- a page of live-looking lessons, not a couple
+  // of links among plain text. Only objects flagged opensManager actually
+  // DO anything: the `data-open` attribute is what wires up the click, and
+  // it is emitted for those alone. Styling and behaviour are deliberately
+  // decoupled here; `is-link` is purely cosmetic.
+  const nameEl = '<a class="lo-name is-link"' +
+    (obj.opensManager ? ' data-open="' + obj.id + '"' : '') +
+    '>' + escapeHtml(obj.name) + '</a>';
+
+  // Always emit the number slot, empty when the object has no number, so
+  // the name starts at the same x on title cards and lessons alike.
+  const numberPrefix = '<span class="lo-num">' +
+    (obj.numbered ? obj.numbered + '.' : '') +
+    '</span>';
+
+  // Lesson rows carry the folded-corner accent with the user icon inside
+  // it; the icon's tooltip marks the row as user content. Title cards keep
+  // the eye icon in the lead slot.
+  //
+  // Both row types still render a lead slot so their text stays aligned —
+  // on lessons it is an empty spacer, since that row's icon now lives in
+  // the corner triangle.
+  const corner = isTitleCard ? '' :
+    '<span class="lo-corner">' +
+      '<i class="lo-corner-icon fa-solid fa-user" title="User Content" aria-label="User Content"></i>' +
+    '</span>';
+
+  // On a title card the eye is an interactive toggle for enable/disable.
+  // On a lesson it stays an empty spacer that preserves text alignment.
+  const isDisabled = isTitleCard && !!obj.disabled;
+  const eyeLabel = isDisabled ? 'Enable Title Card' : 'Disable Title Card';
+  const leadIcon = isTitleCard
+    ? '<button class="lo-eye lo-eye-toggle" type="button"' +
+        ' title="' + eyeLabel + '" aria-label="' + eyeLabel + '"' +
+        ' aria-pressed="' + (isDisabled ? 'true' : 'false') + '">' +
+        '<i class="fa-regular ' + (isDisabled ? 'fa-eye-slash' : 'fa-eye') + '"></i>' +
+      '</button>'
+    : '<span class="lo-eye" aria-hidden="true"></span>';
+
+  row.innerHTML =
+    corner +
+    leadIcon +
+    '<div class="lo-main">' +
+      '<div class="lo-line">' + numberPrefix + nameEl + chip + '</div>' +
+      (obj.objective
+        ? '<div class="lo-objective"><b>Objective:</b> ' + escapeHtml(obj.objective) + '</div>'
+        : '') +
+    '</div>' +
+    '<span class="lo-dur"><i class="fa-regular fa-clock"></i> ' + fmtMSS(obj.dur) + '</span>' +
+    '<button class="lo-play" type="button" aria-label="Play"><i class="fa-solid fa-play"></i></button>' +
+    '<button class="kebab" type="button" aria-label="Object options"><i class="fa-solid fa-ellipsis-vertical"></i></button>';
+
+  const link = row.querySelector('[data-open]');
+  if (link) {
+    link.addEventListener('click', () => {
+      if (objDrag.justDropped) return;
+      openObjectManager(obj.id);
+    });
+  }
+
+  // Eye toggle: enable/disable this section title card.
+  const eyeToggle = row.querySelector('.lo-eye-toggle');
+  if (eyeToggle) {
+    eyeToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      obj.disabled = !obj.disabled;
+      // Durations exclude disabled cards, so the roll-ups must recompute.
+      renderSections();
+      renderCourseMeta();
+    });
+  }
+
+  // Object overflow menu: Edit Learning Object / Move To ▸ / Delete
+  row.querySelector('.kebab').addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    // Move To lists every OTHER section. The object lands in the last
+    // position of whichever section is chosen.
+    const targets = COURSE.sections
+      .filter(s => s.id !== section.id)
+      .map(s => {
+        const i = COURSE.sections.indexOf(s);
+        return {
+          label: String(i + 1).padStart(2, '0') + ' ' + s.name,
+          onSelect: () => moveObjectToSection(obj.id, section.id, s.id)
+        };
+      });
+
+    openMenu(e.currentTarget, [
+      { label: 'Edit Learning Object', icon: 'fa-pen-to-square',
+        onSelect: () => openObjectManager(obj.id) },
+      { label: 'Move To', icon: 'fa-arrow-right-arrow-left',
+        // A section with nowhere to move to still shows the row, disabled,
+        // rather than silently dropping the option.
+        disabled: targets.length === 0,
+        submenu: targets },
+      { separator: true },
+      { label: 'Delete', icon: 'fa-trash-can', danger: true,
+        onSelect: () => deleteObject(obj.id, section.id) }
+    ]);
+  });
+
+  wrap.appendChild(handle);
+  wrap.appendChild(row);
+
+  // Title cards are fixed in place — no drag listeners at all. They still
+  // participate as drop TARGETS so a lesson can be dropped above or below
+  // one; only their own dragging is disabled.
+  if (!isTitleCard) {
+    attachObjectDrag(wrap, handle, section, index);
+  } else {
+    attachDropTargetOnly(wrap, section, index);
+  }
+
+  return wrap;
+}
+
+/* ── Drag to reorder learning objects ──────────────────────────
+   Scoped to a single section: an object can only be dropped among its
+   own siblings. Cross-section moves are rejected, and while dragging,
+   every other section is visibly marked as an invalid target.
+
+   Only the gutter handle starts a drag (draggable is set on mousedown
+   over the handle and cleared afterwards), so text in the row stays
+   selectable and the object link stays clickable.
+   ──────────────────────────────────────────────────────────── */
+
+const objDrag = {
+  sectionId: null, fromIndex: null, overIndex: null, after: false, justDropped: false
+};
+
+function attachObjectDrag(wrap, handle, section, index) {
+  // Arm dragging only when the press starts on the handle.
+  handle.addEventListener('mousedown', () => { wrap.draggable = true; });
+  wrap.addEventListener('mouseup', () => { wrap.draggable = false; });
+
+  wrap.addEventListener('dragstart', (e) => {
+    if (!wrap.draggable) { e.preventDefault(); return; }
+    objDrag.sectionId = section.id;
+    objDrag.fromIndex = index;
+    wrap.classList.add('is-dragging');
+
+    // Mark the owning section as the only valid drop zone.
+    const card = document.querySelector('[data-section-card="' + section.id + '"]');
+    if (card) card.classList.add('is-drop-scope');
+    document.querySelectorAll('[data-section-card]').forEach(c => {
+      if (c !== card) c.classList.add('is-drop-blocked');
+    });
+
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', obj_id(wrap)); } catch (err) {}
+  });
+
+  wrap.addEventListener('dragover', (e) => {
+    if (objDrag.fromIndex === null) return;
+
+    // Reject anything from a different section outright.
+    if (objDrag.sectionId !== section.id) {
+      e.dataTransfer.dropEffect = 'none';
+      return;                                  // no preventDefault => not droppable
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (objDrag.fromIndex === index) { clearObjectMarkers(); return; }
+
+    const box = wrap.getBoundingClientRect();
+    const after = (e.clientY - box.top) > box.height / 2;
+    clearObjectMarkers();
+    wrap.classList.add(after ? 'drop-after' : 'drop-before');
+    objDrag.overIndex = index;
+    objDrag.after = after;
+  });
+
+  wrap.addEventListener('drop', (e) => {
+    if (objDrag.sectionId !== section.id) return;   // out-of-section drop: ignore
+    e.preventDefault();
+    e.stopPropagation();
+    commitObjectReorder();
+  });
+
+  wrap.addEventListener('dragend', () => {
+    wrap.draggable = false;
+    wrap.classList.remove('is-dragging');
+    endObjectDrag();
+  });
+}
+
+/* A non-draggable object (section title card) still accepts drops from its
+   own section's lessons, so a lesson can be moved above or below it. It
+   never starts a drag itself. */
+function attachDropTargetOnly(wrap, section, index) {
+  wrap.addEventListener('dragover', (e) => {
+    if (objDrag.fromIndex === null) return;
+    if (objDrag.sectionId !== section.id) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const box = wrap.getBoundingClientRect();
+    const after = (e.clientY - box.top) > box.height / 2;
+    clearObjectMarkers();
+    wrap.classList.add(after ? 'drop-after' : 'drop-before');
+    objDrag.overIndex = index;
+    objDrag.after = after;
+  });
+
+  wrap.addEventListener('drop', (e) => {
+    if (objDrag.sectionId !== section.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    commitObjectReorder();
+  });
+}
+
+function obj_id(wrap) { return wrap.dataset.objectId || ''; }
+
+function clearObjectMarkers() {
+  document.querySelectorAll('.lo-wrap.drop-before, .lo-wrap.drop-after')
+    .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+}
+
+function commitObjectReorder() {
+  const section = COURSE.sections.find(s => s.id === objDrag.sectionId);
+  const from = objDrag.fromIndex;
+  const over = objDrag.overIndex;
+  if (!section || from === null || over === null || from === over) return;
+
+  let to = objDrag.after ? over + 1 : over;
+  if (from < to) to--;
+  if (to === from) return;
+
+  const [moved] = section.objects.splice(from, 1);
+  section.objects.splice(to, 0, moved);
+
+  // Section duration is a sum, so reordering can't change it — but
+  // re-render through the same path anyway to keep one code path.
+  renderSections();
+  renderCourseMeta();
+
+  objDrag.justDropped = true;
+  setTimeout(() => { objDrag.justDropped = false; }, 0);
+}
+
+function endObjectDrag() {
+  clearObjectMarkers();
+  document.querySelectorAll('.is-drop-scope, .is-drop-blocked')
+    .forEach(c => c.classList.remove('is-drop-scope', 'is-drop-blocked'));
+  objDrag.sectionId = null;
+  objDrag.fromIndex = null;
+  objDrag.overIndex = null;
+  objDrag.after = false;
+}
+
+function toggleSection(sectionId, forceOpen) {
+  const section = COURSE.sections.find(s => s.id === sectionId);
+  const card = document.querySelector('[data-section-card="' + sectionId + '"]');
+  if (!section || !card) return;
+
+  const willOpen = forceOpen === true ? true : !card.classList.contains('is-open');
+  section.expanded = willOpen;
+  card.classList.toggle('is-open', willOpen);
+
+  // Swap the chevron and the contextual Add button.
+  const icon = card.querySelector('.sec-chev i');
+  icon.className = 'fa-solid fa-chevron-' + (willOpen ? 'up' : 'down');
+
+  const actions = card.querySelector('.sec-actions');
+  const existing = actions.querySelector('.btn-outline');
+  if (willOpen && !existing) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-outline sm';
+    btn.textContent = 'Add Learning Object';
+    // Same handler as the render path -- this button is created here when a
+    // section is expanded by click, rather than rendered already-open.
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openAddLo(section);
+    });
+    actions.insertBefore(btn, actions.querySelector('.kebab'));
+  } else if (!willOpen && existing) {
+    existing.remove();
+  }
+}
+
+/* Allow dropping in the gaps between rows / below the last row: the
+   container accepts the drop and commits against the last hovered row.
+   Without this, releasing a few pixels off a row silently cancels. */
+document.getElementById('railList').addEventListener('dragover', (e) => e.preventDefault());
+document.getElementById('railList').addEventListener('drop', (e) => {
+  e.preventDefault();
+  commitRailReorder();
+});
+
+/* ── Rail collapse ────────────────────────────────────────── */
+
+document.getElementById('railCollapse').addEventListener('click', () => {
+  const rail = document.getElementById('ovRail');
+  rail.classList.toggle('is-collapsed');
+  const icon = rail.querySelector('#railCollapse i');
+  icon.className = 'fa-solid fa-chevron-' +
+    (rail.classList.contains('is-collapsed') ? 'right' : 'left');
+});
+
+/* ── Tab bar ──────────────────────────────────────────────────
+   Only Content is built. The other tabs will be added as the click
+   paths require them; for now they hold selection so the bar isn't
+   dead, then fall back to Content. */
+document.querySelectorAll('#ovTabs .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#ovTabs .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (btn.dataset.tab !== 'content') {
+      setTimeout(() => {
+        document.querySelectorAll('#ovTabs .seg-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('#ovTabs [data-tab="content"]').classList.add('active');
+      }, 220);
+    }
+  });
+});
+
+/* ── Overflow menus ────────────────────────────────────────────
+   One popup menu shared by the section and object kebabs. Items are
+   plain objects:
+     { label, icon?, danger?, disabled?, onSelect? }
+     { separator: true }
+     { label, submenu: [ …items ] }     ← nested flyout
+
+   Only one menu is open at a time. It closes on select, outside click,
+   Escape, scroll, or resize.
+   ──────────────────────────────────────────────────────────── */
+
+let openMenuEl = null;
+let menuAnchor = null;
+
+function closeMenu() {
+  if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; }
+  if (menuAnchor) { menuAnchor.classList.remove('is-menu-open'); menuAnchor = null; }
+}
+
+function openMenu(anchor, items) {
+  // Clicking the same kebab again toggles the menu shut.
+  const wasOpen = menuAnchor === anchor;
+  closeMenu();
+  if (wasOpen) return;
+
+  const menu = buildMenu(items);
+  document.body.appendChild(menu);
+  positionMenu(menu, anchor);
+
+  openMenuEl = menu;
+  menuAnchor = anchor;
+  anchor.classList.add('is-menu-open');
+}
+
+function buildMenu(items) {
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.setAttribute('role', 'menu');
+
+  items.forEach(item => {
+    if (item.separator) {
+      const sep = document.createElement('div');
+      sep.className = 'menu-sep';
+      menu.appendChild(sep);
+      return;
+    }
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'menu-item'
+      + (item.danger ? ' is-danger' : '')
+      + (item.disabled ? ' is-disabled' : '')
+      + (item.submenu ? ' has-submenu' : '');
+    row.setAttribute('role', 'menuitem');
+    if (item.disabled) row.disabled = true;
+
+    row.innerHTML =
+      '<span class="menu-icon">' +
+        (item.icon ? '<i class="fa-solid ' + item.icon + '"></i>' : '') +
+      '</span>' +
+      '<span class="menu-label">' + escapeHtml(item.label) + '</span>' +
+      (item.submenu ? '<i class="menu-caret fa-solid fa-chevron-right"></i>' : '');
+
+    if (item.submenu && !item.disabled) {
+      // Flyout is built once and shown on hover/focus of the parent row.
+      const fly = buildMenu(item.submenu);
+      fly.classList.add('menu-flyout');
+      row.appendChild(fly);
+
+      row.addEventListener('mouseenter', () => positionFlyout(fly, row));
+      row.addEventListener('focus', () => positionFlyout(fly, row));
+    } else if (!item.disabled) {
+      row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeMenu();
+        if (item.onSelect) item.onSelect();
+      });
+    }
+
+    menu.appendChild(row);
+  });
+
+  return menu;
+}
+
+/* Anchored to the kebab, flipped when it would overflow the viewport. */
+function positionMenu(menu, anchor) {
+  const a = anchor.getBoundingClientRect();
+  const m = menu.getBoundingClientRect();
+
+  let top = a.bottom + 6;
+  if (top + m.height > window.innerHeight - 8) {
+    top = Math.max(8, a.top - m.height - 6);      // flip above
+  }
+  // Right-align to the kebab so the menu grows leftward.
+  let left = a.right - m.width;
+  left = Math.max(8, Math.min(left, window.innerWidth - m.width - 8));
+
+  menu.style.top = Math.round(top) + 'px';
+  menu.style.left = Math.round(left) + 'px';
+}
+
+/* Flyout opens to the right of its parent row, or to the left if there
+   isn't room. Positioned in viewport coords like the root menu. */
+function positionFlyout(fly, row) {
+  fly.style.visibility = 'hidden';
+  fly.style.display = 'block';
+  const r = row.getBoundingClientRect();
+  const f = fly.getBoundingClientRect();
+
+  let left = r.right + 2;
+  if (left + f.width > window.innerWidth - 8) left = r.left - f.width - 2;
+
+  let top = r.top - 4;
+  if (top + f.height > window.innerHeight - 8) {
+    top = Math.max(8, window.innerHeight - f.height - 8);
+  }
+
+  fly.style.left = Math.round(left) + 'px';
+  fly.style.top = Math.round(top) + 'px';
+  fly.style.display = '';
+  fly.style.visibility = '';
+}
+
+// Global dismissal.
+document.addEventListener('click', (e) => {
+  if (!openMenuEl) return;
+  if (openMenuEl.contains(e.target)) return;
+  if (menuAnchor && menuAnchor.contains(e.target)) return;
+  closeMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+window.addEventListener('resize', closeMenu);
+document.addEventListener('scroll', closeMenu, true);
+
+/* ── Menu actions ──────────────────────────────────────────── */
+
+function renameSection(sectionId) {
+  const section = COURSE.sections.find(s => s.id === sectionId);
+  if (!section) return;
+  // Inline rename on the section title — no browser prompt, which would
+  // look like a bug on a customer call.
+  const card = document.querySelector('[data-section-card="' + sectionId + '"]');
+  const titleEl = card && card.querySelector('.sec-title');
+  if (!titleEl) return;
+
+  const index = COURSE.sections.indexOf(section);
+  const num = String(index + 1).padStart(2, '0');
+
+  const input = document.createElement('input');
+  input.className = 'sec-title-input';
+  input.value = section.name;
+
+  titleEl.textContent = num + ' ';
+  titleEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const commit = (save) => {
+    if (settled) return;
+    settled = true;
+    const next = input.value.trim();
+    if (save && next) section.name = next;
+    renderRail();
+    renderSections();
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();                       // don't let Escape hit the menu handler
+    if (e.key === 'Enter') commit(true);
+    if (e.key === 'Escape') commit(false);
+  });
+  input.addEventListener('blur', () => commit(true));
+  input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function deleteSection(sectionId) {
+  const i = COURSE.sections.findIndex(s => s.id === sectionId);
+  if (i === -1) return;
+  COURSE.sections.splice(i, 1);
+  renderRail();
+  renderSections();
+  renderCourseMeta();
+}
+
+function deleteObject(objectId, sectionId) {
+  const section = COURSE.sections.find(s => s.id === sectionId);
+  if (!section) return;
+  const i = section.objects.findIndex(o => o.id === objectId);
+  if (i === -1) return;
+  section.objects.splice(i, 1);
+  renderRail();
+  renderSections();
+  renderCourseMeta();
+}
+
+/* Move an object to the LAST position of the target section. */
+function moveObjectToSection(objectId, fromSectionId, toSectionId) {
+  const from = COURSE.sections.find(s => s.id === fromSectionId);
+  const to = COURSE.sections.find(s => s.id === toSectionId);
+  if (!from || !to || from === to) return;
+
+  const i = from.objects.findIndex(o => o.id === objectId);
+  if (i === -1) return;
+
+  const [moved] = from.objects.splice(i, 1);
+  to.objects.push(moved);                      // last position
+
+  // Both sections' durations change, so re-render everything.
+  to.expanded = true;                          // reveal where it landed
+  renderRail();
+  renderSections();
+  renderCourseMeta();
+
+  const card = document.querySelector('[data-section-card="' + toSectionId + '"]');
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── Utility ──────────────────────────────────────────────── */
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+/* ── Add Learning Object ──────────────────────────────────────
+   The button opens a two-route modal. Manual Creation is inert: it is
+   there so the choice reads as real, and Create simply closes. AI
+   Generation is the demo path -- it reveals the LO authored with
+   `hidden: true` in course.md and lands in its object manager.
+
+   Which object gets revealed is data-driven, not hard-coded: the first
+   hidden object in the section the button was clicked from. So a course
+   changes its generated LO by editing course.md alone. */
+
+const addLoModal   = document.getElementById('addLoModal');
+const addLoSection = document.getElementById('addLoSection');
+const addLoCreate  = document.getElementById('addLoCreate');
+const loTitle      = document.getElementById('loTitle');
+const loObjective  = document.getElementById('loObjective');
+const aiPrompt     = document.getElementById('aiPrompt');
+
+let addLoRoute = 'manual';
+let addLoSectionId = null;
+
+function currentRouteInput() {
+  return addLoRoute === 'manual' ? loTitle : aiPrompt;
+}
+
+// Create stays disabled until the active route's required field is filled.
+function syncCreateEnabled() {
+  addLoCreate.disabled = !currentRouteInput().value.trim();
+}
+
+function setRoute(route) {
+  addLoRoute = route;
+  document.querySelectorAll('.route-tab').forEach(t => {
+    const on = t.dataset.route === route;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  document.getElementById('routeManual').classList.toggle('active', route === 'manual');
+  document.getElementById('routeAi').classList.toggle('active', route === 'ai');
+  // The action is route-specific, so the button says what it will do.
+  addLoCreate.textContent = route === 'ai' ? 'Generate Transcript' : 'Create Learning Object';
+  syncCreateEnabled();
+}
+
+/* ---- Reference documents ----------------------------------
+   A real file picker so a rep can choose an actual document from their
+   machine mid-call. Nothing is uploaded or read -- the File objects are
+   only listed back, which is all the demo needs. */
+const MAX_FILES = 5;
+let pickedFiles = [];
+
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  const count = document.getElementById('fileCount');
+  list.innerHTML = pickedFiles.map((f, i) =>
+    '<li>' +
+      '<i class="fa-regular fa-file-lines f-icon"></i>' +
+      '<span class="f-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>' +
+      '<span class="f-size">' + fmtBytes(f.size) + '</span>' +
+      '<button class="f-del" type="button" data-i="' + i + '" ' +
+              'aria-label="Remove ' + escapeHtml(f.name) + '">' +
+        '<i class="fa-solid fa-xmark"></i></button>' +
+    '</li>'
+  ).join('');
+
+  if (pickedFiles.length) {
+    const over = pickedFiles.length > MAX_FILES;
+    count.hidden = false;
+    count.classList.toggle('over', over);
+    count.textContent = over
+      ? pickedFiles.length + ' files selected — over the ' + MAX_FILES + '-file limit'
+      : pickedFiles.length + ' of ' + MAX_FILES + ' files selected';
+  } else {
+    count.hidden = true;
+  }
+}
+
+function addFiles(fileList) {
+  // Keep every pick so the count can legitimately go over the limit and
+  // show the warning, rather than silently dropping a rep's file.
+  pickedFiles = pickedFiles.concat([...fileList]);
+  renderFileList();
+}
+
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+document.getElementById('uploadBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileInput.click();
+});
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  addFiles(fileInput.files);
+  // Reset so picking the same file twice still fires a change event.
+  fileInput.value = '';
+});
+
+// Drag and drop straight onto the zone.
+['dragenter', 'dragover'].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('is-drag');
+  }));
+['dragleave', 'drop'].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('is-drag');
+  }));
+dropzone.addEventListener('drop', (e) => {
+  if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+
+document.getElementById('fileList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.f-del');
+  if (!btn) return;
+  pickedFiles.splice(Number(btn.dataset.i), 1);
+  renderFileList();
+});
+
+function openAddLo(section) {
+  addLoSectionId = section.id;
+  addLoSection.textContent = section.name;
+  loTitle.value = '';
+  loObjective.value = '';
+  aiPrompt.value = '';
+  pickedFiles = [];
+  renderFileList();
+  setRoute('manual');
+  addLoModal.classList.add('open');
+  setTimeout(() => currentRouteInput().focus(), 0);
+}
+
+function closeAddLo() {
+  addLoModal.classList.remove('open');
+  // Reset the generating state and kill any pending steps, so dismissing
+  // mid-run doesn't leave the modal stuck or fire a navigation later.
+  clearGenTimers();
+  addLoModal.querySelector('.modal').classList.remove('is-generating');
+}
+
+document.querySelectorAll('.route-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    setRoute(tab.dataset.route);
+    currentRouteInput().focus();
+  });
+});
+
+[loTitle, aiPrompt].forEach(el => el.addEventListener('input', syncCreateEnabled));
+
+document.getElementById('addLoCancel').addEventListener('click', closeAddLo);
+
+// Click the backdrop or press Escape to dismiss.
+addLoModal.addEventListener('click', (e) => {
+  if (e.target === addLoModal) closeAddLo();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && addLoModal.classList.contains('open')) closeAddLo();
+});
+
+addLoCreate.addEventListener('click', () => {
+  if (addLoRoute === 'manual') {
+    // No manual-creation flow in this demo; the route exists to make the
+    // AI choice meaningful.
+    closeAddLo();
+    return;
+  }
+  runGeneration();
+});
+
+/* Simulated generation, then reveal.
+   The steps are cosmetic -- no work happens -- but they make the moment
+   read as real on a call. Total ~5.2s. */
+const GEN_STEPS = [
+  { at: 0,    pct: 12, label: 'Reading your description…' },
+  { at: 900,  pct: 34, label: 'Reviewing reference documents…' },
+  { at: 2000, pct: 58, label: 'Drafting the transcript…' },
+  { at: 3200, pct: 79, label: 'Selecting media for each scene…' },
+  { at: 4300, pct: 94, label: 'Assembling the learning object…' },
+  { at: 5000, pct: 100, label: 'Done' }
+];
+
+let genTimers = [];
+
+function clearGenTimers() {
+  genTimers.forEach(clearTimeout);
+  genTimers = [];
+}
+
+function runGeneration() {
+  const section = COURSE.sections.find(s => s.id === addLoSectionId);
+  const target = section && section.objects.find(o => o.hidden);
+
+  if (!target) {
+    // Nothing authored to reveal for this section. Close quietly rather
+    // than stalling the call on a modal that appears to do nothing.
+    closeAddLo();
+    return;
+  }
+
+  const modal = addLoModal.querySelector('.modal');
+  const step  = document.getElementById('genStep');
+  const fill  = document.getElementById('genFill');
+
+  modal.classList.add('is-generating');
+  step.textContent = '';
+  fill.style.width = '0%';
+
+  GEN_STEPS.forEach(s => {
+    genTimers.push(setTimeout(() => {
+      step.textContent = s.label;
+      fill.style.width = s.pct + '%';
+    }, s.at));
+  });
+
+  // Land in the finished LO once the run completes.
+  genTimers.push(setTimeout(() => revealGeneratedObject(target), 5200));
+}
+
+/* Reveal the hidden LO and open it.
+   Mutating COURSE (rather than re-reading course-data.js) is what makes
+   the reveal stick: showOverview() doesn't re-render, so navigating back
+   from the object manager shows the overview with the new LO in place --
+   list and duration totals both updated. */
+function revealGeneratedObject(target) {
+  target.hidden = false;
+  closeAddLo();
+  renderSections();
+  renderCourseMeta();
+  renderRail();
+  openObjectManager(target.id);
+}
+
+/* ── Boot ─────────────────────────────────────────────────── */
+
+renderCourseMeta();
+renderRail();
+renderSections();
+showOverview();
+</script>
+
+</body>
+</html>

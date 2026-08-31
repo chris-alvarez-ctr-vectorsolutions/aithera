@@ -1,0 +1,3081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Object Manager — Learning Studio</title>
+
+  <!-- Vector Web Components -->
+  <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+  </script>
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+  </script>
+
+  <!-- Open Sans -->
+  <link rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+  <!-- Font Awesome 6 PRO — self-hosted so icons render on file:// too -->
+  <link rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css" />
+
+  <style>
+    :root {
+      /* Values quoted from @vector-web-components/themes CONTEXT.md
+         (v1.9.3 — the minimum version that publishes one; this file loads
+         v1.5.0, which predates CONTEXT.md). Kept in sync with the Course
+         Overview's demo.css so both areas read as one product. */
+
+      /* Typography */
+      --lumo-font-family: 'Open Sans', sans-serif;
+      --lumo-font-size-m: 14px;
+      --font-size-xs: 12px;
+      --font-size-s: 13px;
+      --font-size-m: var(--lumo-font-size-m);
+      --font-size-l: 16px;
+      --font-size-xl: 20px;
+      --font-size-xxl: 24px;
+      --font-weight-normal: 400;
+      --font-weight-semibold: 600;   /* headings + all emphasis */
+
+      /* Text colors (translucent, so they compose over any surface) */
+      --lumo-header-text-color: #000000de;
+      --lumo-body-text-color: #000000de;
+      --lumo-secondary-text-color: #00000099;
+      --lumo-tertiary-text-color: #1c304a85;
+      --lumo-disabled-text-color: #00000061;
+
+      /* Primary — science blue */
+      --lumo-primary-color: #0271ce;
+      --lumo-primary-color-10pct: #0271ce1a;
+      --lumo-primary-contrast-color: #fff;
+
+      /* Status */
+      --lumo-error-text-color: #ca150c;
+      --lumo-success-text-color: #0a7637;
+      --lumo-warning-text-color: #995211;
+      --lumo-warning-color-10pct: #ffcc001a;
+      --vwc-notification-color: #ffc700;
+      --vwc-notification-color-10pct: #ffc7001a;
+
+      /* Base, contrast, elevation */
+      --lumo-base-color: #fff;
+      --lumo-contrast-5pct: #193b670d;
+      --lumo-box-shadow-xs: 0 1px 4px -1px #1c304a85;
+
+      /* Science-blue tint used by the toolbar; the tab track reuses the
+         same colour pre-composited over white (#e5f0fa). */
+      --primary-tint-10: #0271ce1a;
+
+      /* Semantic aliases */
+      --ink: var(--lumo-body-text-color);
+      --ink-soft: var(--lumo-secondary-text-color);
+      --ink-mute: var(--lumo-tertiary-text-color);
+      --brand: #0257a1;                        /* darkened primary, hover */
+      --brand-2: var(--lumo-primary-color);
+
+      /* Borders stay opaque hex: the --lumo-contrast-* tokens are
+         translucent overlays and would let content show through. */
+      --border: #e2e6ec;
+      --border-strong: #d3d9e0;
+
+      /* NOTE: "Cape Cod" is not published in the themes CONTEXT.md
+         (its named palettes are Conifer, Puerto Rico, Picton Blue, Vivid
+         Violet, Ecstacy and Cinnabar). This is a stand-in dark neutral —
+         replace with the real brand value once confirmed. */
+      --cape-cod: #3a4550;
+
+      /* Letterbox fill behind the canvas image. The canvas is locked to
+         16:9 but authored images are any ratio, so the gap needs a fill
+         dark enough to read as "outside the frame" rather than as part of
+         the slide. Same dark blue-grey family as Cape Cod, but a separate
+         token deliberately: this is a surface, not the template palette
+         entry, and confirming the real Cape Cod hex shouldn't silently
+         repaint the canvas. */
+      --canvas-fill: #333d47;
+
+      --stage-bg: #dbe6f7;
+      --panel: var(--lumo-base-color);
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: var(--lumo-font-family), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    /* ---- App shell: fixed header rows + flexible body ------------------ */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Thin dark accent strip across the very top */
+    .accent-strip { height: 5px; background: #23272e; flex: 0 0 auto; }
+
+    /* ---- Row 1: global header ----------------------------------------- */
+    .topbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+    .topbar .back {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 8px;
+      border: none; background: transparent; cursor: pointer;
+      font-size: var(--font-size-xl); color: var(--ink);
+    }
+    .topbar .back:hover { background: #f1f4f8; }
+
+    .title-block {
+      border-left: 1px solid var(--border);
+      padding-left: 20px;
+      min-width: 220px;
+    }
+    .title-block .eyebrow { font-size: var(--font-size-s); color: var(--ink-soft); line-height: 1.2; }
+    .title-block .title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--ink); line-height: 1.25;
+    }
+    .title-block .title .edit {
+      border: none; background: transparent; cursor: pointer;
+      color: var(--brand-2); font-size: var(--font-size-m); padding: 2px;
+    }
+    .title-block .title .edit:hover { color: var(--brand); }
+
+    /* Center AI search */
+    .search-wrap { flex: 1 1 auto; display: flex; justify-content: center; }
+    .ai-search {
+      display: flex; align-items: center; gap: 10px;
+      width: min(560px, 100%);
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      padding: 10px 20px;
+      background: #fff;
+      color: var(--ink-mute);
+      font-size: var(--font-size-m);
+      cursor: text;
+    }
+    .ai-search:hover { border-color: #b9c2cf; }
+    .ai-search .spark {
+      background: linear-gradient(135deg, #6a8ff0, #7a4fd6);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      font-size: var(--font-size-m);
+    }
+    .ai-search input {
+      border: none; outline: none; background: transparent;
+      flex: 1 1 auto; font: inherit; color: var(--ink);
+    }
+    .ai-search input::placeholder { color: var(--ink-mute); }
+
+    /* Right cluster on row 1 */
+    .top-right { display: flex; align-items: center; gap: 22px; flex: 0 0 auto; }
+    .saved { font-size: var(--font-size-s); color: var(--ink); white-space: nowrap; }
+    .saved b { font-weight: var(--font-weight-semibold); }
+    .autosave { font-size: var(--font-size-s); color: var(--ink-soft); white-space: nowrap; }
+    .icon-btn {
+      border: none; background: transparent; cursor: pointer;
+      width: 38px; height: 38px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-l); color: var(--ink);
+    }
+    .icon-btn:hover { background: #f1f4f8; }
+
+    /* ---- Row 2: scene-management toolbar ------------------------------ */
+    .subbar {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 18px;
+      /* Tightened to match the Course Overview's toolbar (5px + a 53px
+         floor), so the two screens share a header height. */
+      padding: 5px 22px;
+      min-height: 53px;
+      border-bottom: 1px solid var(--border);
+      /* Science-blue tint, matching the Course Overview's toolbar. The
+         tint is translucent, so it layers over an explicit white base. */
+      background:
+        linear-gradient(var(--primary-tint-10), var(--primary-tint-10)),
+        var(--lumo-base-color);
+    }
+    .subbar .heading {
+      display: flex; align-items: center; gap: 12px;
+      font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--ink);
+      flex: 0 0 auto;
+    }
+    .dur-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      /* Notification (gold) tokens + 6px radius, matching the Course
+         Overview's duration pill. --lumo-warning-text-color rather than
+         --vwc-notification-text-color: the latter on its own tint is
+         4.29:1, under AA; the warning token clears it at 5.58:1. */
+      border: 1px solid var(--vwc-notification-color);
+      background: var(--vwc-notification-color-10pct);
+      color: var(--lumo-warning-text-color);
+      border-radius: 6px; padding: 4px 12px;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+    }
+    .dur-pill i { font-size: var(--font-size-xs); }
+
+    /* Segmented tab pills (center) */
+    .seg-tabs {
+      flex: 1 1 auto;
+      display: flex; justify-content: center;
+    }
+    .seg-tabs .seg {
+      display: inline-flex; align-items: center;
+      /* Same fill as the toolbar (the 10% tint pre-composited over white),
+         so elevation rather than colour separates the two — matching the
+         Course Overview. Replaces the old white + border treatment. */
+      background: #e5f0fa;
+      border: none;
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: var(--lumo-box-shadow-xs);
+    }
+    .seg .seg-btn {
+      border: none; background: transparent; cursor: pointer;
+      font: inherit; font-size: var(--font-size-m); font-weight: var(--font-weight-semibold);
+      color: var(--ink-soft);
+      padding: 6px 20px; border-radius: 999px;
+      white-space: nowrap;
+    }
+    .seg .seg-btn:hover { color: var(--ink); }
+    .seg .seg-btn.active {
+      background: var(--brand-2); color: var(--lumo-primary-contrast-color);
+    }
+
+    /* Right action buttons on row 2 */
+    .subbar .actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+    .sq-btn {
+      width: 40px; height: 40px; border-radius: 8px;
+      border: 1px solid var(--border-strong); background: #fff; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-l); color: var(--ink);
+    }
+    .sq-btn:hover { background: #f1f4f8; }
+    .sq-btn.danger { color: #b23b3b; }
+    .sq-btn .grad {
+      background: linear-gradient(135deg, #6a8ff0, #7a4fd6);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    /* ---- Body: three columns ------------------------------------------ */
+    .body {
+      flex: 1 1 auto;
+      display: flex;
+      min-height: 0;
+    }
+
+    /* Left transcript panel */
+    .left {
+      flex: 0 0 590px;
+      display: flex; flex-direction: column;
+      transition: flex-basis .18s ease;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      background: #fff;
+      min-height: 0;
+    }
+    /* Vertical padding is 10px rather than the right panel's 16px so both
+       headers land at the same 58px. The left header is taller by nature:
+       its view toggle is a 36px control where the right header has only a
+       25px text line. Trimming the padding matches them without shrinking
+       the toggle to a cramped size. */
+    .left-head {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 22px;
+      border-bottom: 1px solid var(--border);
+      min-height: 58px;
+    }
+    .left-head .chev {
+      border: none; background: transparent; cursor: pointer;
+      font-size: var(--font-size-l); color: var(--ink-soft); padding: 4px;
+    }
+    .left-head h2 { font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); margin: 0; flex: 1 1 auto; }
+    .view-toggle { display: flex; align-items: center; gap: 8px; }
+    .view-toggle .vt {
+      width: 40px; height: 34px; border-radius: 8px;
+      border: 1px solid var(--border-strong); background: #fff; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-m); color: var(--ink-soft);
+    }
+    .view-toggle .vt:hover { background: #f1f4f8; }
+    .view-toggle .vt.active {
+      background: var(--brand-2); color: #fff; border-color: var(--brand-2);
+    }
+
+    /* The two view-mode buttons are a compact, icon-only version of the
+       .seg tab pill used in the subbar and centre column — same track
+       fill, radius, elevation and active treatment, just sized for a
+       single glyph instead of a text label. */
+    .vt-group {
+      display: inline-flex;
+      align-items: center;
+      background: #e5f0fa;
+      border: none;
+      border-radius: 999px;
+      padding: 3px;
+      box-shadow: var(--lumo-box-shadow-xs);
+    }
+
+    /* Override the boxed .vt treatment for the buttons inside the pill. */
+    /* Square, so the 999px radius renders a true circle rather than an
+       oval — the hover and active fills both need to read as circles. */
+    .view-toggle .vt-group .vt {
+      width: 30px; height: 30px;
+      border: none;
+      background: transparent;
+      border-radius: 999px;
+      color: var(--ink-soft);
+      font-size: var(--font-size-s);
+    }
+    .view-toggle .vt-group .vt:hover {
+      background: var(--lumo-primary-color-10pct);
+      color: var(--ink);
+    }
+    .view-toggle .vt-group .vt.active {
+      background: var(--brand-2);
+      color: var(--lumo-primary-contrast-color);
+      border-color: transparent;
+    }
+    /* The active button is already filled, so its hover keeps the solid
+       brand fill rather than washing it with the lighter tint. */
+    .view-toggle .vt-group .vt.active:hover {
+      background: var(--brand-2);
+      color: var(--lumo-primary-contrast-color);
+    }
+
+    /* ---- Scene view modes -------------------------------------------
+       The panel carries the mode; the scene cards swap which body they
+       show. Both bodies stay in the DOM so toggling never re-renders or
+       loses transcript text the user typed. */
+    .scene-media { display: none; }
+    .transcript-scroll.view-image .scene-body { display: none; }
+    .transcript-scroll.view-image .scene-media { display: block; }
+    /* Transcript-only chrome that makes no sense in image view. */
+    .transcript-scroll.view-image .scene-foot { display: none; }
+
+    /* ---- Image view is a REVIEW GALLERY, not an editing surface --------
+       Its only job is to show the media as a group so an image that looks
+       off stands out. So every scene-manipulation control is hidden and
+       only the scene number remains -- including on the ACTIVE card, which
+       otherwise reveals its mini-buttons (see `.scene.selected .scene-head
+       .mini-btn` above) and always shows its complete circle. Scene work
+       happens in transcript view. */
+    .transcript-scroll.view-image .scene-head .mini-btn,
+    .transcript-scroll.view-image .scene.selected .scene-head .mini-btn,
+    .transcript-scroll.view-image .scene-head .status { display: none; }
+
+    /* With the controls gone the head is just the number, so drop the
+       spacer's push and tighten the row. */
+    .transcript-scroll.view-image .scene-head .spacer { display: none; }
+    .transcript-scroll.view-image .scene-head { gap: 0; }
+
+    /* Empty media slot — no scene has media attached yet. */
+    .scene-media-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px;
+      aspect-ratio: 16 / 9;
+      border: 1px dashed var(--border-strong);
+      border-radius: 8px;
+      background: #fbfcfe;
+      color: var(--ink-mute);
+      text-align: center;
+      padding: 12px;
+    }
+    .scene-media-empty i { font-size: var(--font-size-xl); opacity: .7; }
+    .scene-media-empty .sme-label {
+      font-size: var(--font-size-s);
+      color: var(--ink-soft);
+    }
+    .scene-media-add {
+      border: 1px solid var(--brand-2);
+      background: var(--lumo-base-color);
+      color: var(--brand-2);
+      font: inherit;
+      font-size: var(--font-size-s);
+      font-weight: var(--font-weight-semibold);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .scene-media-add:hover { background: var(--lumo-primary-color-10pct); }
+
+    .transcript-scroll {
+      flex: 1 1 auto; overflow-y: auto;
+      padding: 20px 22px;
+      display: flex; flex-direction: column; gap: 18px;
+      background: #fbfcfe;
+    }
+
+    /* Scene card */
+    .scene {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(20,30,50,.04);
+    }
+    .scene.selected {
+      border-color: var(--brand-2);
+      box-shadow: 0 0 0 2px rgba(2, 113, 206,.18);
+    }
+
+    /* ---- Active vs. inactive scene cards -------------------------------
+       Only the selected scene is editable and shows its per-scene controls.
+       Inactive cards render their transcript read-only and hide the
+       audio/play/delete row, so the panel reads as a list rather than a
+       wall of buttons. */
+
+    /* Controls: selected card only. */
+    .scene .scene-head .mini-btn { display: none; }
+    .scene.selected .scene-head .mini-btn { display: inline-flex; }
+
+    /* Transcript: textarea when selected, static text otherwise. */
+    .scene .scene-body textarea { display: none; }
+    .scene.selected .scene-body textarea { display: block; }
+    .scene .scene-read { display: block; }
+    .scene.selected .scene-read { display: none; }
+
+    .scene-read {
+      font-size: var(--font-size-m);
+      line-height: 1.6;
+      color: var(--ink-soft);
+      white-space: pre-wrap;
+    }
+    /* An empty inactive scene still needs to occupy a line. */
+    .scene:not(.selected) .scene-read:empty::before {
+      content: "No transcript yet";
+      color: var(--ink-mute);
+      font-style: italic;
+    }
+
+    /* ---- Hover-revealed scene inserts ----------------------------------
+       Same affordance as the Course Overview's section inserts: one button
+       per edge, anchored to this card so the insertion point is never
+       ambiguous, revealed only while the card is hovered. */
+    .scene { position: relative; }
+    .scene-insert {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%) scale(0.8);
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: var(--brand-2);
+      color: var(--lumo-primary-contrast-color);
+      font-size: var(--font-size-xs);
+      cursor: pointer;
+      display: grid; place-items: center;
+      padding: 0;
+      z-index: 3;
+      box-shadow: 0 1px 3px rgba(20,40,80,.25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease, transform .12s ease, background .12s ease;
+    }
+    .scene-insert-before { top: -13px; }
+    .scene-insert-after  { bottom: -13px; }
+
+    .scene:hover .scene-insert,
+    .scene-insert:focus-visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) scale(1);
+    }
+    .scene-insert:hover {
+      background: var(--brand);
+      transform: translateX(-50%) scale(1.12);
+    }
+    .scene-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .scene-num {
+      width: 34px; height: 34px; border-radius: 999px;
+      background: var(--brand-2); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: var(--font-weight-semibold); font-size: var(--font-size-m); flex: 0 0 auto;
+    }
+    .scene .mini-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      border: 1px solid var(--border-strong); background: #fff; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-s); color: var(--ink-soft);
+    }
+    .scene .mini-btn:hover { background: #f1f4f8; }
+    .scene .mini-btn.danger:hover { color: #b23b3b; }
+    .scene .spacer { flex: 1 1 auto; }
+    /* ---- Scene completion status --------------------------------------
+       NOT a selection control: this is the scene's completion state.
+       Empty circle = incomplete, green check = complete. Selection is
+       shown by the card's own border, never by this dot. */
+    .scene .status {
+      width: 22px; height: 22px; border-radius: 999px;
+      border: 2px solid #c3ccd8; background: #fff;
+      flex: 0 0 auto; cursor: pointer; padding: 0;
+      display: grid; place-items: center;
+      color: transparent;
+      font-size: var(--font-size-s);
+      transition: background .12s ease, border-color .12s ease, color .12s ease;
+    }
+    .scene .status:hover { border-color: var(--lumo-success-text-color); }
+    .scene .status.is-complete {
+      background: var(--lumo-success-text-color);
+      border-color: var(--lumo-success-text-color);
+      color: #fff;
+    }
+
+    .scene-body textarea {
+      width: 100%; border: none; outline: none; resize: none;
+      font: inherit; font-size: var(--font-size-m); line-height: 1.55; color: var(--ink);
+      background: transparent; min-height: 22px;
+    }
+    .scene-body textarea::placeholder { color: var(--ink-mute); }
+    .scene-body .filled {
+      font-size: var(--font-size-m); line-height: 1.6; color: #3a434f;
+      white-space: pre-wrap;
+    }
+
+    /* Scene card while a title template's default sound is in use —
+       transcript/audio are disabled and this note takes the body's place. */
+    .scene.template-sound .scene-body { display: none; }
+    .scene-sound-note {
+      display: none;
+      border: 1px dashed #c3d0e6;
+      border-radius: 10px;
+      background: #f3f7fe;
+      padding: 14px 16px;
+    }
+    .scene.template-sound .scene-sound-note { display: block; }
+    .scene-sound-note .ssn-head {
+      display: flex; align-items: center; gap: 9px;
+      font-size: var(--font-size-m); font-weight: var(--font-weight-semibold); color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .scene-sound-note .ssn-head i { color: var(--brand-2); }
+    .scene-sound-note .ssn-sub {
+      font-size: var(--font-size-s); color: var(--ink-soft); line-height: 1.5; margin-bottom: 12px;
+    }
+    .scene-sound-note .ssn-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .scene-sound-note .ssn-play {
+      border: 1px solid var(--brand-2); background: #fff; color: var(--brand);
+      border-radius: 999px; padding: 6px 14px; cursor: pointer;
+      font: inherit; font-size: var(--font-size-s); font-weight: var(--font-weight-semibold);
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .scene-sound-note .ssn-play:hover { background: #eef3fd; }
+    .scene-sound-note .ssn-override {
+      border: none; background: transparent; cursor: pointer;
+      color: var(--brand-2); font: inherit; font-size: var(--font-size-s); font-weight: var(--font-weight-semibold);
+      text-decoration: underline; padding: 2px;
+    }
+    .scene-sound-note .ssn-override:hover { color: var(--brand); }
+    /* Disabled audio mini-controls while template sound is active */
+    .scene.template-sound .scene-head .mini-btn:not(.danger) {
+      opacity: .4; pointer-events: none;
+    }
+    .scene-foot {
+      display: flex; justify-content: flex-end; align-items: center;
+      margin-top: 12px;
+    }
+    .time-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: var(--font-size-s); font-weight: var(--font-weight-semibold); color: var(--ink);
+    }
+    .time-chip i { font-size: var(--font-size-xs); }
+
+    /* Center stage */
+    .center {
+      flex: 1 1 auto;
+      display: flex; flex-direction: column;
+      background: var(--stage-bg);
+      min-width: 0; min-height: 0;
+    }
+    .center-actions {
+      flex: 0 0 auto;
+      display: flex; justify-content: flex-end; gap: 12px;
+      padding: 16px 26px;
+    }
+    .pill-btn {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: #fff; border: 1px solid var(--brand-2);
+      color: var(--brand); font-weight: var(--font-weight-semibold); font-size: var(--font-size-m);
+      border-radius: 8px; padding: 9px 18px; cursor: pointer;
+    }
+    .pill-btn:hover { background: #f4f8ff; }
+    .pill-btn .grad {
+      background: linear-gradient(135deg, #6a8ff0, #7a4fd6);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    /* The canvas is ALWAYS 16:9. It flexes as the side panels open and
+       close, but the ratio is fixed, so the rep sees the true slide shape
+       at every panel configuration.
+
+       The wrapper owns the flexing; the card owns the ratio. `min-height:0`
+       lets the wrapper shrink below its content in the flex column, and
+       `align-items:center` stops the row from stretching the card's height
+       (a stretched height would override aspect-ratio). The card then takes
+       the full available width and is capped by max-height, so a wide window
+       is height-bound and a narrow one width-bound -- whichever runs out
+       first governs, and the card never clips out of the viewport. */
+    .stage-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
+      margin: 4px 26px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Makes this box the query container for the rules below, so the
+         card can ask which of its own axes is the binding one. */
+      container-type: size;
+    }
+
+    .stage-card {
+      /* Ratio comes from the container queries below, which pick the
+         binding axis. CSS can't infer that on its own: sizing the wrong
+         axis lets the opposite clamp win and the ratio breaks. Verified
+         against wide/short, narrow/tall and near-16:9 wrappers. */
+      aspect-ratio: 16 / 9;
+      flex: 0 1 auto;
+      min-width: 0;
+
+      border-radius: 14px;
+      background: linear-gradient(180deg, #eef4fd 0%, #e2ecfa 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 40px;
+    }
+
+    /* Pick the binding axis. Size the OTHER one and let aspect-ratio derive
+       it -- setting both is what breaks the ratio.
+         wrapper wider than 16:9  -> height binds, width follows
+         wrapper taller than 16:9 -> width binds, height follows */
+    @container (min-aspect-ratio: 16 / 9) {
+      .stage-card { height: 100%; width: auto;  max-width: 100%; }
+    }
+    @container (max-aspect-ratio: 16 / 9) {
+      .stage-card { width: 100%;  height: auto; max-height: 100%; }
+    }
+
+    .stage-card .empty-icon {
+      font-size: 56px; color: #2b3038; margin-bottom: 24px;
+      position: relative;
+    }
+    .stage-card h3 { font-size: 26px; font-weight: var(--font-weight-semibold); margin: 0 0 22px; color: var(--ink); }
+    .stage-card p { font-size: var(--font-size-l); color: #3a434f; margin: 6px 0; line-height: 1.5; }
+    .stage-card a.link {
+      color: var(--brand-2); text-decoration: none; font-weight: var(--font-weight-semibold);
+    }
+    .stage-card a.link:hover { text-decoration: underline; }
+    .stage-card .grad {
+      background: linear-gradient(135deg, #6a8ff0, #7a4fd6);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    /* Right properties panel */
+    /* ---- Collapsed side panels -----------------------------------------
+       Each panel shrinks to a narrow rail that keeps only its collapse
+       chevron, so there is always an affordance to reopen it. The centre
+       canvas takes the reclaimed width. */
+    .left.is-collapsed,
+    .right.is-collapsed { flex-basis: 44px; }
+
+    .left.is-collapsed .left-head h2,
+    .left.is-collapsed .view-toggle,
+    .left.is-collapsed .transcript-scroll,
+    .right.is-collapsed .right-head h2,
+    .right.is-collapsed .right-scroll { display: none; }
+
+    /* The head keeps just the chevron, centred in the rail. */
+    .left.is-collapsed .left-head,
+    .right.is-collapsed .right-head {
+      justify-content: center;
+      padding-left: 0; padding-right: 0;
+    }
+
+    .right {
+      flex: 0 0 320px;
+      display: flex; flex-direction: column;
+      transition: flex-basis .18s ease;
+      overflow: hidden;
+      border-left: 1px solid var(--border);
+      background: #fff;
+      min-height: 0;
+    }
+    /* Same 58px floor as .left-head so the two panel headers align. */
+    .right-head {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      min-height: 58px;
+    }
+    .right-head h2 { font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); margin: 0; flex: 1 1 auto; }
+    .right-head .chev {
+      border: none; background: transparent; cursor: pointer;
+      font-size: var(--font-size-l); color: var(--ink-soft); padding: 4px;
+    }
+    .right-scroll { flex: 1 1 auto; overflow-y: auto; padding: 20px; }
+
+    /* Media / Template toggle */
+    .mt-toggle {
+      display: flex; gap: 6px;
+      background: #eef2f7; border-radius: 999px; padding: 5px;
+      margin-bottom: 24px;
+    }
+    .mt-toggle button {
+      flex: 1 1 0; border: none; cursor: pointer;
+      font: inherit; font-size: var(--font-size-m); font-weight: var(--font-weight-semibold);
+      color: var(--ink-soft);
+      padding: 8px 10px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .mt-toggle button.active {
+      background: var(--brand-2); color: #fff;
+      box-shadow: 0 1px 4px rgba(2, 113, 206,.35);
+    }
+    .prop-label { font-size: var(--font-size-l); font-weight: var(--font-weight-semibold); color: var(--ink); margin-bottom: 6px; }
+    .prop-empty { font-size: var(--font-size-m); color: var(--ink-mute); font-style: italic; }
+
+    /* ---- Current Media row --------------------------------------------
+       The active scene's filename plus a delete control. Long asset names
+       are common, so the name truncates with an ellipsis and keeps its
+       full value in a title tooltip; the trash button never shrinks. */
+    .media-prop-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--lumo-base-color);
+    }
+    .media-prop-row i.mp-icon { color: var(--ink-mute); font-size: var(--font-size-m); flex: 0 0 auto; }
+    .media-prop-name {
+      flex: 1 1 auto; min-width: 0;
+      font-size: var(--font-size-m); color: var(--ink);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .media-prop-del {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      border: 1px solid transparent; border-radius: 6px;
+      background: none; color: var(--ink-mute);
+      cursor: pointer;
+    }
+    .media-prop-del:hover { background: #fdf2f2; border-color: #edc9c9; color: #b23b3b; }
+
+    /* Property tab panels */
+    .prop-panel { display: none; }
+    .prop-panel.active { display: block; }
+
+    /* ---- Template parameter fields ------------------------------------ */
+    .prop-field { margin-bottom: 18px; }
+    .prop-field-label {
+      font-size: var(--font-size-m);
+      font-weight: var(--font-weight-semibold);
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .prop-input {
+      width: 100%;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #fff;
+      padding: 11px 14px;
+      font: inherit; font-size: var(--font-size-m); color: var(--ink);
+    }
+    .prop-input:focus {
+      outline: none; border-color: var(--brand-2);
+      box-shadow: 0 0 0 2px var(--lumo-primary-color-10pct);
+    }
+
+    /* Fill picker: the three design-system fills as selectable swatches.
+       Each fill also determines its own text colour (see FILLS in JS), so
+       a light fill can never end up with light text. */
+    .fill-group { display: flex; gap: 8px; }
+    .fill-opt {
+      flex: 1 1 0;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #fff;
+      padding: 8px 6px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .fill-opt:hover { border-color: #b9c2cf; }
+    .fill-opt.is-selected {
+      border-color: var(--brand-2);
+      box-shadow: 0 0 0 2px var(--lumo-primary-color-10pct);
+    }
+    .fill-swatch {
+      width: 100%; height: 26px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+    .fill-name {
+      font-size: var(--font-size-xs);
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+    .fill-opt.is-selected .fill-name {
+      color: var(--brand-2);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .btn-block { width: 100%; justify-content: center; }
+
+    /* ---- Template graphic drawn on the canvas -------------------------- */
+    /* The stage becomes a positioning context once a template is applied,
+       and its centred empty-state layout is dropped so the overlay can
+       fill the frame. */
+    .stage-card.has-template {
+      position: relative;
+      overflow: hidden;
+      padding: 0;
+      justify-content: stretch;
+      align-items: stretch;
+    }
+    /* The media image stays visible under the template graphic — the
+       template is an overlay on the media, not a replacement for it. */
+    .stage-card.has-template > *:not(#tplOverlay):not(#stageMedia) { display: none; }
+
+    /* Media on the canvas. */
+    .stage-card.has-media {
+      position: relative;
+      overflow: hidden;
+      padding: 0;
+      justify-content: stretch;
+      align-items: stretch;
+      /* Letterbox fill. The canvas is 16:9 but authored images are any
+         ratio, so whatever the image doesn't cover reads as the dark area
+         outside the frame. Replaces the light gradient only when media is
+         present -- the empty state keeps its gradient. */
+      background: var(--canvas-fill);
+    }
+    .stage-card.has-media > *:not(#stageMedia):not(#tplOverlay) { display: none; }
+    .stage-media {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      /* `contain`, not `cover`: show the whole authored image. `cover`
+         cropped the edges off any image that wasn't exactly 16:9. */
+      object-fit: contain;
+      border-radius: inherit;
+    }
+
+    /* Media thumbnail inside a scene card's image view.
+       `cover` here is deliberate and is the OPPOSITE of .stage-media's
+       `contain` -- not an inconsistency to fix. The canvas shows one image
+       faithfully (letterboxed, nothing cropped); this gallery shows many at
+       once, where uniform tiles are what make an odd image stand out.
+       Letterboxing every thumbnail would ragged the grid and hide exactly
+       what the view exists to reveal. */
+    .scene-media-img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: 8px;
+      display: block;
+    }
+
+    .tpl-overlay { position: absolute; inset: 0; display: flex; pointer-events: none; }
+    .tpl-overlay-inner {
+      background: #fff;
+      color: var(--ink);
+      font-size: var(--font-size-l);
+      line-height: 1.4;
+      padding: 22px 28px;
+      display: flex; flex-direction: column; justify-content: center;
+      overflow: auto;
+    }
+    .tpl-overlay .tpl-title {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: 6px;
+    }
+    .tpl-placeholder { color: var(--ink-mute); font-style: italic; }
+
+    /* Layouts — where the graphic sits in the frame.
+       Four templates: full, half (left/right), banner (top/middle/bottom)
+       and corner box (four corners). */
+
+    /* Full screen — the graphic fills the canvas. */
+    .layout-full .tpl-overlay-inner { width: 100%; height: 100%; }
+
+    /* Half screen — full-height panel on one side. */
+    .layout-half { align-items: stretch; }
+    .layout-half .tpl-overlay-inner { width: 50%; height: 100%; }
+    .layout-half.pos-left  { justify-content: flex-start; }
+    .layout-half.pos-right { justify-content: flex-end; }
+
+    /* Banner — full-width band, anchored top / middle / bottom. */
+    .layout-banner { align-items: flex-end; }
+    .layout-banner .tpl-overlay-inner { width: 100%; min-height: 26%; }
+    .layout-banner.pos-top { align-items: flex-start; }
+    .layout-banner.pos-middle { align-items: center; }
+    .layout-banner.pos-bottom { align-items: flex-end; }
+
+    /* Corner box — inset panel in one of the four corners. */
+    .layout-corner-box { padding: 24px; }
+    .layout-corner-box .tpl-overlay-inner {
+      width: 46%; max-height: 60%;
+      border-radius: 10px;
+      box-shadow: var(--lumo-box-shadow-xs);
+    }
+    .layout-corner-box.pos-top-left     { align-items: flex-start; justify-content: flex-start; }
+    .layout-corner-box.pos-top-right    { align-items: flex-start; justify-content: flex-end; }
+    .layout-corner-box.pos-bottom-left  { align-items: flex-end;   justify-content: flex-start; }
+    .layout-corner-box.pos-bottom-right { align-items: flex-end;   justify-content: flex-end; }
+
+    /* The placeholder inherits the fill's text colour but stays muted. */
+    .tpl-overlay .tpl-placeholder { opacity: .6; }
+
+    /* Filled media slot in a scene card's image view. */
+    .scene-media-filled { display: block; }
+    .scene-media-thumb {
+      display: grid; place-items: center;
+      aspect-ratio: 16 / 9;
+      border-radius: 8px;
+      color: #fff; font-size: var(--font-size-xl);
+    }
+    .scene-media-name {
+      display: block;
+      margin-top: 6px;
+      font-size: var(--font-size-s);
+      color: var(--ink-soft);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* ---- Edit Audio modal ---------------------------------------------- */
+    .audio-warn {
+      background: var(--vwc-notification-color-10pct);
+      border: 1px solid var(--vwc-notification-color);
+      color: var(--lumo-warning-text-color);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      font-size: var(--font-size-m);
+    }
+
+    /* Text-styled button for the phonetic toggle. */
+    .link-btn {
+      border: none; background: transparent; padding: 0;
+      margin: 2px 0 18px;
+      font: inherit; font-size: var(--font-size-m);
+      font-weight: var(--font-weight-semibold);
+      color: var(--brand-2);
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 7px;
+      text-decoration: underline;
+    }
+    .link-btn:hover { color: var(--brand); }
+    .link-btn i { font-size: var(--font-size-s); opacity: .8; text-decoration: none; }
+
+    .phonetic-wrap[hidden] { display: none; }
+
+    .audio-voice-row {
+      display: flex; align-items: flex-end; gap: 12px;
+      margin-bottom: 18px;
+    }
+    .audio-voice-field { flex: 1 1 auto; }
+    .audio-voice-row .audio-generate { flex: 0 0 auto; white-space: nowrap; }
+
+    .audio-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .audio-progress[hidden] { display: none; }
+    .audio-progress vaadin-progress-bar { flex: 1 1 auto; }
+
+    .audio-player { width: 100%; }
+
+    .btn-danger {
+      background: var(--lumo-error-text-color);
+      color: #fff;
+      border-color: var(--lumo-error-text-color);
+    }
+    .btn-danger:hover { background: #a81009; border-color: #a81009; }
+
+    .btn:disabled { opacity: .45; cursor: default; }
+
+    /* The active scene's transcript is clickable — it opens Edit Audio. */
+    .scene.selected .scene-body { cursor: pointer; }
+    .scene.selected .scene-body:hover textarea { background: var(--lumo-contrast-5pct); }
+
+    /* ---- Add / Replace Media modal ------------------------------------ */
+    .media-head { align-items: flex-start; }
+    .media-head-text { flex: 1 1 auto; }
+    .media-head-text h3 { margin: 0; }
+    .media-sub { margin: 2px 0 0; font-size: var(--font-size-m); color: var(--ink-soft); }
+    .modal-x {
+      border: none; background: transparent; cursor: pointer;
+      width: 32px; height: 32px; border-radius: 6px;
+      color: var(--ink-soft); font-size: var(--font-size-l);
+      flex: 0 0 auto;
+    }
+    .modal-x:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
+
+    /* Route picker — same segmented-pill language as the rest of the app,
+       sized for three text labels. */
+    .media-tabs {
+      display: flex;
+      background: #e5f0fa;
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: var(--lumo-box-shadow-xs);
+      margin-bottom: 22px;
+    }
+    .media-tab {
+      flex: 1 1 0;
+      border: none; background: transparent; cursor: pointer;
+      font: inherit; font-size: var(--font-size-m);
+      font-weight: var(--font-weight-semibold);
+      color: var(--ink-soft);
+      padding: 9px 12px; border-radius: 999px;
+      white-space: nowrap;
+    }
+    .media-tab:hover { color: var(--ink); }
+    .media-tab.active { background: var(--brand-2); color: var(--lumo-primary-contrast-color); }
+
+    .media-pane { display: none; }
+    .media-pane.active { display: block; }
+
+    .media-pane-title {
+      display: flex; align-items: center; gap: 10px;
+      margin: 0 0 18px;
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      color: var(--ink);
+    }
+
+    .media-label { display: block; font-size: var(--font-size-m); color: var(--ink); margin: 0 0 6px; }
+    .media-label .req { color: var(--lumo-error-text-color); }
+
+    .media-textarea {
+      width: 100%;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px; background: #fff;
+      padding: 12px 14px; margin-bottom: 18px;
+      font: inherit; font-size: var(--font-size-m); color: var(--ink);
+      resize: vertical;
+    }
+    .media-textarea:focus {
+      outline: none; border-color: var(--brand-2);
+      box-shadow: 0 0 0 2px var(--lumo-primary-color-10pct);
+    }
+    .media-textarea::placeholder { color: var(--ink-mute); }
+
+    .media-hint { margin: 12px 0 0; font-size: var(--font-size-s); color: var(--ink-soft); }
+
+    /* `display: flex` would override the `hidden` attribute, so the loader
+       must explicitly stay hidden until a generation actually starts. */
+    .gen-progress { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+    .gen-progress[hidden] { display: none; }
+    .gen-progress vaadin-progress-bar { flex: 1 1 auto; }
+    .gen-progress-text { font-size: var(--font-size-s); color: var(--ink-soft); white-space: nowrap; }
+
+    /* ---- Preview and Enhance step -------------------------------------
+       A completed generation takes over the modal: route tabs hidden,
+       the image previewed large, with a describe-changes field beneath. */
+    .enhance-preview {
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--stage-bg);
+      margin-bottom: 18px;
+    }
+    .enhance-preview img {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      display: block;
+    }
+
+    .enhance-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .enhance-row-title {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: var(--font-size-m);
+      color: var(--ink);
+    }
+
+    /* Footer: Back sits left, the rest right. */
+    .media-foot { display: flex; align-items: center; gap: 10px; }
+    .media-foot-spacer { flex: 1 1 auto; }
+    #mediaBack[hidden] { display: none; }
+
+    /* While the enhance step is showing, the route picker is irrelevant. */
+    .modal-body.is-enhancing .media-tabs { display: none; }
+
+    /* ---- Stock library ---- */
+    .stock-search {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px; background: #fff;
+      padding: 6px 6px 6px 14px; margin-bottom: 16px;
+    }
+    .stock-search > i { color: var(--ink-mute); flex: 0 0 auto; }
+    .stock-search input {
+      flex: 1 1 auto; border: none; outline: none; background: transparent;
+      font: inherit; font-size: var(--font-size-m); color: var(--ink);
+    }
+    .stock-search input::placeholder { color: var(--ink-mute); }
+
+    .stock-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; min-height: 180px;
+      border: 1px dashed var(--border-strong);
+      border-radius: 8px; background: #fbfcfe;
+      color: var(--ink-mute); font-size: var(--font-size-m);
+    }
+    .stock-empty i { font-size: var(--font-size-xl); opacity: .7; }
+
+    .stock-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; max-height: 42vh; overflow-y: auto; padding: 2px;
+    }
+    .stock-item {
+      border: 2px solid transparent; border-radius: 8px;
+      padding: 0; cursor: pointer; background: none;
+      overflow: hidden; text-align: left;
+    }
+    .stock-thumb {
+      aspect-ratio: 4 / 3; border-radius: 6px;
+      display: grid; place-items: center;
+      color: #fff; font-size: var(--font-size-xl);
+    }
+    .stock-caption {
+      display: block; font-size: var(--font-size-xs); color: var(--ink-soft);
+      padding: 5px 2px 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .stock-item:hover { border-color: #b9c2cf; }
+    .stock-item.is-selected { border-color: var(--brand-2); }
+    .stock-item.is-selected .stock-caption { color: var(--brand-2); font-weight: var(--font-weight-semibold); }
+
+    /* ---- Rich text editor modal --------------------------------------- */
+    .modal.modal-wide { max-width: 640px; width: 92vw; }
+
+    .rte-toolbar {
+      display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+      border: 1px solid var(--border-strong);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: #f7f9fc;
+      padding: 6px 8px;
+    }
+    .rte-btn {
+      width: 30px; height: 30px;
+      border: none; background: transparent; cursor: pointer;
+      border-radius: 6px;
+      color: var(--ink-soft);
+      font-size: var(--font-size-s);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .rte-btn:hover { background: var(--lumo-primary-color-10pct); color: var(--ink); }
+    .rte-btn.is-on { background: var(--brand-2); color: var(--lumo-primary-contrast-color); }
+    .rte-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+    .rte-body {
+      border: 1px solid var(--border-strong);
+      border-radius: 0 0 8px 8px;
+      background: #fff;
+      min-height: 180px; max-height: 40vh; overflow-y: auto;
+      padding: 14px 16px;
+      font-size: var(--font-size-m); line-height: 1.55; color: var(--ink);
+    }
+    .rte-body:focus { outline: none; border-color: var(--brand-2); }
+    .rte-body:empty::before {
+      content: "Type the text that appears on screen\2026";
+      color: var(--ink-mute); font-style: italic;
+    }
+
+    /* ---- Template dropdown (native-styled select) --------------------- */
+    .tpl-select-wrap { position: relative; margin-top: 4px; }
+    .tpl-select {
+      width: 100%;
+      appearance: none; -webkit-appearance: none;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px 40px 12px 16px;
+      font: inherit; font-size: var(--font-size-m); color: var(--ink);
+      cursor: pointer;
+    }
+    .tpl-select:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 2px rgba(2, 113, 206,.18); }
+    .tpl-select-wrap .caret {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      pointer-events: none; color: var(--ink-soft); font-size: var(--font-size-s);
+    }
+
+    /* ---- Modal ---------------------------------------------------------- */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 3000;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(20,28,42,.45);
+      padding: 24px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      width: min(460px, 100%);
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 18px 48px rgba(15,25,45,.28);
+      overflow: hidden;
+    }
+    .modal-head {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 22px 24px 12px;
+    }
+    .modal-head .m-icon {
+      flex: 0 0 auto;
+      width: 40px; height: 40px; border-radius: 999px;
+      background: #eef3fd; color: var(--brand-2);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-l);
+    }
+    .modal-head h3 { margin: 2px 0 0; font-size: var(--font-size-l); font-weight: var(--font-weight-semibold); color: var(--ink); }
+    .modal-body { padding: 4px 24px 8px; }
+    .modal-body p { font-size: var(--font-size-m); line-height: 1.55; color: #3a434f; margin: 0 0 14px; }
+    .modal-body .tpl-name { font-weight: var(--font-weight-semibold); color: var(--ink); }
+
+    /* In-modal sound preview row */
+    .sound-preview {
+      display: flex; align-items: center; gap: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #fbfcfe;
+      margin-bottom: 4px;
+    }
+    .sound-preview .sp-play {
+      flex: 0 0 auto;
+      width: 38px; height: 38px; border-radius: 999px;
+      border: none; cursor: pointer;
+      background: var(--brand-2); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-m);
+    }
+    .sound-preview .sp-play:hover { background: var(--brand); }
+    .sound-preview .sp-meta { flex: 1 1 auto; min-width: 0; }
+    .sound-preview .sp-title { font-size: var(--font-size-m); font-weight: var(--font-weight-semibold); color: var(--ink); }
+    .sound-preview .sp-bar {
+      height: 5px; border-radius: 999px; background: #dbe2ec; margin-top: 8px;
+      overflow: hidden;
+    }
+    .sound-preview .sp-fill {
+      height: 100%; width: 0%; background: var(--brand-2);
+      transition: width .1s linear;
+    }
+    .sound-preview .sp-time { font-size: var(--font-size-xs); color: var(--ink-soft); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+
+    /* A genuine warning state, so it uses the theme's warning tokens
+       rather than the notification gold the duration pill uses. */
+    .modal-warn {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: var(--font-size-s);
+      color: var(--lumo-warning-text-color);
+      background: var(--lumo-warning-color-10pct);
+      border-radius: 8px;
+      padding: 10px 12px; margin-top: 12px;
+    }
+    .modal-warn i { margin-top: 2px; }
+
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 16px 24px 22px;
+    }
+    .btn {
+      border-radius: 8px; padding: 10px 18px; cursor: pointer;
+      font: inherit; font-size: var(--font-size-m); font-weight: var(--font-weight-semibold);
+      border: 1px solid transparent;
+    }
+    .btn-secondary { background: #fff; border-color: var(--border-strong); color: var(--ink); }
+    .btn-secondary:hover { background: #f1f4f8; }
+    .btn-primary { background: var(--brand-2); color: #fff; }
+    .btn-primary:hover { background: var(--brand); }
+
+    :focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="accent-strip"></div>
+
+    <!-- ===== Row 1: global header ===== -->
+    <header class="topbar">
+      <button class="back" title="Back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+
+      <div class="title-block">
+        <!-- Populated from course-data.js for the object that was clicked. -->
+        <div class="eyebrow" id="omEyebrow">Section:</div>
+        <div class="title">
+          <span id="omTitle"></span>
+          <button class="edit" title="Rename" aria-label="Rename learning object"><i class="fa-solid fa-pen-to-square"></i></button>
+        </div>
+      </div>
+
+      <div class="search-wrap">
+        <label class="ai-search">
+          <i class="fa-solid fa-wand-magic-sparkles spark"></i>
+          <input type="text" placeholder="Describe the content you want to search for…" />
+        </label>
+      </div>
+
+      <div class="top-right">
+        <div class="saved">Last Saved:<b>&nbsp;Today - 10:04 am</b></div>
+        <div class="autosave">Autosave on</div>
+        <button class="icon-btn" title="Help" aria-label="Help"><i class="fa-regular fa-circle-question"></i></button>
+        <button class="icon-btn" title="Comments" aria-label="Comments"><i class="fa-regular fa-comment-dots"></i></button>
+      </div>
+    </header>
+
+    <!-- ===== Row 2: scene management toolbar ===== -->
+    <div class="subbar">
+      <div class="heading">
+        <span>Scene Management</span>
+        <!-- Duration comes from the object's entry in course-data.js, so it
+             always agrees with the number shown on the overview row. -->
+        <span class="dur-pill"><i class="fa-regular fa-clock"></i> <span id="omDur"></span></span>
+      </div>
+
+      <nav class="seg-tabs" aria-label="Scene sections">
+        <div class="seg" id="segTabs">
+          <button class="seg-btn active" data-tab="scenes">Scenes</button>
+          <button class="seg-btn" data-tab="knowledge">Knowledge Check</button>
+          <button class="seg-btn" data-tab="assessment">Assessment</button>
+          <button class="seg-btn" data-tab="citations">Citations</button>
+          <button class="seg-btn" data-tab="others">Others</button>
+        </div>
+      </nav>
+
+      <div class="actions">
+        <button class="sq-btn" title="Previous scene" aria-label="Previous scene"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="sq-btn" title="Next scene" aria-label="Next scene"><i class="fa-solid fa-chevron-right"></i></button>
+        <button class="sq-btn" title="Play" aria-label="Play"><i class="fa-solid fa-play"></i></button>
+        <button class="sq-btn" title="Regenerate" aria-label="Regenerate"><i class="fa-solid fa-wand-magic-sparkles grad"></i></button>
+        <button class="sq-btn danger" title="Delete" aria-label="Delete"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    </div>
+
+    <!-- ===== Body: three columns ===== -->
+    <div class="body">
+
+      <!-- Left: transcript -->
+      <section class="left">
+        <div class="left-head">
+          <button class="chev" id="leftCollapse" title="Collapse" aria-label="Collapse transcript" aria-expanded="true"><i class="fa-solid fa-chevron-left"></i></button>
+          <h2>Transcript</h2>
+          <div class="view-toggle">
+            <!-- Bulk audio actions — not a view mode, so it sits outside
+                 the view-mode group and never takes the active state. -->
+            <button class="vt" id="btnBulkAudio"
+                    title="Bulk audio actions" aria-label="Bulk audio actions">
+              <i class="fa-solid fa-waveform-lines"></i>
+            </button>
+
+            <!-- View mode: transcript ⇄ image-only. Exactly one active. -->
+            <span class="vt-group" role="group" aria-label="Scene view">
+              <button class="vt active" id="viewTranscript"
+                      title="Transcript view" aria-label="Transcript view" aria-pressed="true">
+                <i class="fa-solid fa-align-left"></i>
+              </button>
+              <button class="vt" id="viewImage"
+                      title="Image view" aria-label="Image view" aria-pressed="false">
+                <i class="fa-regular fa-image"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+
+        <div class="transcript-scroll" id="scenes">
+          <!-- Scene cards are rendered from the clicked LO's data
+               (course-data.js). See renderScenes(). -->
+        </div>
+      </section>
+
+      <!-- Center: stage -->
+      <section class="center">
+        <div class="center-actions">
+          <!-- Label flips to "Replace Media" once the scene has media. -->
+          <button class="pill-btn" id="btnAddMedia">
+            <i class="fa-solid fa-wand-magic-sparkles grad"></i>
+            <span id="addMediaLabel">Add Media</span>
+          </button>
+          <button class="pill-btn"><i class="fa-solid fa-play"></i> Preview</button>
+          <button class="pill-btn" id="btnCompleteScene"><i class="fa-regular fa-circle" id="completeIcon"></i> <span id="completeLabel">Complete Scene</span></button>
+        </div>
+
+        <!-- The wrapper flexes with the side panels; the card inside holds
+             the fixed 16:9 ratio. -->
+        <div class="stage-wrap">
+          <div class="stage-card" id="stageCard">
+            <!-- Default empty state (shown until a template with sound is applied) -->
+            <div class="empty-icon"><i class="fa-solid fa-lightbulb"></i><i class="fa-solid fa-gear" style="font-size:26px;position:absolute;right:-14px;bottom:-6px;"></i></div>
+            <h3>Ready to start creating?</h3>
+            <p><a href="#" class="link scene-media-add"><i class="fa-solid fa-wand-magic-sparkles"></i> Add Media</a> above to get started or generate a complete learning object</p>
+            <p>using the <span class="grad"><i class="fa-solid fa-wand-magic-sparkles"></i> regenerate</span> tool</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: properties -->
+      <aside class="right">
+        <div class="right-head">
+          <h2>Properties</h2>
+          <button class="chev" id="rightCollapse" title="Collapse" aria-label="Collapse properties" aria-expanded="true"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="right-scroll">
+          <div class="mt-toggle" id="mtToggle">
+            <button class="active" data-mt="media"><i class="fa-regular fa-image"></i> Media</button>
+            <button data-mt="template"><i class="fa-solid fa-cubes"></i> Templates</button>
+          </div>
+
+          <!-- Media panel -->
+          <!-- Current Media: filled by renderMediaProp() from the active
+               scene's asset. Empty state until the scene has media. -->
+          <div class="prop-panel active" id="panel-media">
+            <div class="prop-label">Current Media</div>
+            <div id="mediaProp">
+              <div class="prop-empty">No media available</div>
+            </div>
+          </div>
+
+          <!-- Templates panel: template picker + its parameters -->
+          <div class="prop-panel" id="panel-template">
+            <div class="prop-field">
+              <div class="prop-field-label">Select Template</div>
+            <div class="tpl-select-wrap">
+              <select class="tpl-select" id="tplSelect">
+                <option value="">Select Template</option>
+                <option value="full-screen">Full Screen</option>
+                <option value="half-screen">Half Screen</option>
+                <option value="banner">Banner</option>
+                <option value="corner-box">Corner Box</option>
+              </select>
+              <i class="fa-solid fa-chevron-down caret"></i>
+            </div>
+            </div>
+
+            <!-- Rendered from TEMPLATES[selected].fields -->
+            <div id="tplParams"></div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- ===== Template-sound confirmation modal ===== -->
+  <div class="modal-overlay" id="soundModal" role="dialog" aria-modal="true" aria-labelledby="soundModalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="m-icon"><i class="fa-solid fa-music"></i></span>
+        <h3 id="soundModalTitle">Use the template's sound?</h3>
+      </div>
+      <div class="modal-body">
+        <p>This scene already has transcript text and audio. <span class="tpl-name" id="modalTplName">Main Title Card</span> includes its own title sound. Keeping the template sound will <b>remove this scene's transcript and audio</b>.</p>
+
+        <div class="sound-preview">
+          <button class="sp-play" id="modalPreviewBtn" title="Preview sound" aria-label="Preview template sound"><i class="fa-solid fa-play"></i></button>
+          <div class="sp-meta">
+            <div class="sp-title" id="modalSoundName">Main Title Sting</div>
+            <div class="sp-bar"><div class="sp-fill" id="modalSoundFill"></div></div>
+          </div>
+          <span class="sp-time" id="modalSoundTime">0:03</span>
+        </div>
+
+        <div class="modal-warn">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Your existing transcript and generated audio for this scene will be discarded. You can switch back to transcript/audio later from the scene.</span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" id="modalKeepAudioBtn">Keep transcript/audio</button>
+        <button class="btn btn-primary" id="modalUseSoundBtn">Use template sound</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Edit Audio =====
+       Opened by clicking the active scene's transcript text. Edits the
+       transcript, optionally its phonetic spelling, and regenerates the
+       scene's AI voice-over. -->
+  <div class="modal-overlay" id="audioModal" role="dialog" aria-modal="true" aria-labelledby="audioModalTitle">
+    <div class="modal modal-wide">
+      <div class="modal-head media-head">
+        <span class="m-icon"><i class="fa-solid fa-wand-magic-sparkles grad"></i></span>
+        <div class="media-head-text">
+          <h3 id="audioModalTitle">Edit Audio</h3>
+          <p class="media-sub">Make changes to selected voice and phonetic text below to updated audio.</p>
+        </div>
+        <button class="modal-x" id="audioClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="audio-warn">Generating new audio will replace any existing scene audio</div>
+
+        <label class="media-label" for="audioTranscript">Transcript Text <span class="req">*</span></label>
+        <textarea class="media-textarea" id="audioTranscript" rows="5"></textarea>
+
+        <!-- Toggles the phonetic field below. -->
+        <button class="link-btn" id="phoneticToggle" type="button" aria-expanded="false">
+          Edit Phonetic Text
+          <i class="fa-solid fa-circle-info" title="Respell words so the voice pronounces them correctly"></i>
+        </button>
+
+        <div class="phonetic-wrap" id="phoneticWrap" hidden>
+          <label class="media-label" for="audioPhonetic">Phonetic Text</label>
+          <textarea class="media-textarea" id="audioPhonetic" rows="3"
+                    placeholder="Respell tricky words as they should sound — e.g. “perennial” → “puh-REN-ee-ul”"></textarea>
+        </div>
+
+        <div class="audio-voice-row">
+          <div class="audio-voice-field">
+            <label class="media-label" for="audioVoice">Voice <span class="req">*</span></label>
+            <div class="tpl-select-wrap">
+              <select class="tpl-select" id="audioVoice">
+                <option>Eric(M)-American</option>
+                <option>Ava(F)-American</option>
+                <option>Marcus(M)-American</option>
+                <option>Sophie(F)-British</option>
+                <option>Diego(M)-Spanish</option>
+              </select>
+              <i class="fa-solid fa-chevron-down caret"></i>
+            </div>
+          </div>
+          <button class="btn btn-secondary audio-generate" id="audioGenerate" type="button">Generate Audio</button>
+        </div>
+
+        <div class="audio-progress" id="audioProgress" hidden>
+          <vaadin-progress-bar indeterminate></vaadin-progress-bar>
+          <span class="gen-progress-text">Generating audio…</span>
+        </div>
+
+        <!-- Native player: a real control with no audio file behind it,
+             which is enough to demo the affordance. -->
+        <audio class="audio-player" id="audioPlayer" controls></audio>
+      </div>
+
+      <div class="modal-foot media-foot">
+        <button class="btn btn-danger" id="audioRemove" type="button">Remove Audio from Scene</button>
+        <span class="media-foot-spacer"></span>
+        <button class="btn btn-secondary" id="audioCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="audioSave" type="button" disabled>Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Add / Replace Media =====
+       Three routes to a media asset: AI generation, manual upload via the
+       design-system upload component, and a searchable stock library. -->
+  <div class="modal-overlay" id="mediaModal" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle">
+    <div class="modal modal-wide">
+      <div class="modal-head media-head">
+        <span class="m-icon"><i class="fa-solid fa-images"></i></span>
+        <div class="media-head-text">
+          <h3 id="mediaModalTitle">Add Media</h3>
+          <p class="media-sub">Upload your own media or generate with AI</p>
+        </div>
+        <button class="modal-x" id="mediaClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Route picker -->
+        <div class="media-tabs" id="mediaTabs" role="tablist">
+          <button class="media-tab active" data-mtab="generate" role="tab" aria-selected="true">Generate Media</button>
+          <button class="media-tab" data-mtab="upload" role="tab" aria-selected="false">Upload Media</button>
+          <button class="media-tab" data-mtab="stock" role="tab" aria-selected="false">Stock Library</button>
+        </div>
+
+        <!-- ---- AI generation ---- -->
+        <section class="media-pane active" id="mpane-generate">
+          <h4 class="media-pane-title">
+            <i class="fa-solid fa-wand-magic-sparkles grad"></i>
+            Describe the image you want to create
+          </h4>
+
+          <label class="media-label" for="genDesc">Description <span class="req">*</span></label>
+          <textarea class="media-textarea" id="genDesc" rows="3"
+                    placeholder="Describe the visual style and aesthetic…"></textarea>
+
+          <label class="media-label" for="genStyle">Style</label>
+          <div class="tpl-select-wrap">
+            <select class="tpl-select" id="genStyle">
+              <option>No Style</option>
+              <option>Photorealistic</option>
+              <option>Illustration</option>
+              <option>Flat vector</option>
+              <option>3D render</option>
+              <option>Watercolor</option>
+            </select>
+            <i class="fa-solid fa-chevron-down caret"></i>
+          </div>
+
+          <!-- Shown only while a generation is in flight. -->
+          <div class="gen-progress" id="genProgress" hidden>
+            <vaadin-progress-bar indeterminate></vaadin-progress-bar>
+            <span class="gen-progress-text">Generating image…</span>
+          </div>
+        </section>
+
+        <!-- ---- Manual upload ---- -->
+        <section class="media-pane" id="mpane-upload">
+          <h4 class="media-pane-title">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i>
+            Upload from your device
+          </h4>
+          <!-- Design-system upload component. Per the core CONTEXT.md,
+               vaadin-upload does NOT take theme="outlined". -->
+          <vaadin-upload id="mediaUpload" accept="image/*,video/*" max-files="1"></vaadin-upload>
+          <p class="media-hint">JPG, PNG, SVG, MP4 or WebM · up to 50&nbsp;MB</p>
+        </section>
+
+        <!-- ---- Preview and Enhance ----
+             Where a completed generation lands. Takes over the modal: the
+             route tabs and per-route panes are hidden while this shows. -->
+        <section class="media-pane" id="mpane-enhance">
+          <div class="enhance-preview">
+            <!-- Same asset the confirm applies (GENERATED_IMAGE), so the
+                 preview and what lands on the scene can't diverge. -->
+            <img id="enhanceImg" src="assets/generate-img-sample.png" alt="Generated image preview" />
+          </div>
+
+          <div class="enhance-row">
+            <span class="enhance-row-title">
+              <i class="fa-solid fa-wand-magic-sparkles grad"></i>
+              Describe how you want to edit this image
+            </span>
+            <button class="btn btn-secondary" id="enhanceGenerate" type="button">Generate Changes</button>
+          </div>
+
+          <label class="media-label" for="enhanceDesc">Description <span class="req">*</span></label>
+          <textarea class="media-textarea" id="enhanceDesc" rows="2"
+                    placeholder="Describe your changes…"></textarea>
+        </section>
+
+        <!-- ---- Stock library ---- -->
+        <section class="media-pane" id="mpane-stock">
+          <h4 class="media-pane-title">
+            <i class="fa-solid fa-photo-film"></i>
+            Search the stock library
+          </h4>
+
+          <div class="stock-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="stockQuery" placeholder="Search by keyword — e.g. garden, soil, seedling…" />
+            <button class="btn btn-primary" id="stockSearchBtn" type="button">Search</button>
+          </div>
+
+          <div class="stock-empty" id="stockEmpty">
+            <i class="fa-regular fa-images"></i>
+            <span>Search to browse the stock library</span>
+          </div>
+
+          <!-- Results render here as a selectable gallery. -->
+          <div class="stock-grid" id="stockGrid" hidden></div>
+        </section>
+      </div>
+
+      <div class="modal-foot media-foot">
+        <!-- Back returns to the generate form; only shown after a
+             generation has landed in the enhance step. -->
+        <button class="btn btn-secondary" id="mediaBack" hidden>Back</button>
+        <span class="media-foot-spacer"></span>
+        <button class="btn btn-secondary" id="mediaCancel">Cancel</button>
+        <button class="btn btn-primary" id="mediaConfirm">Generate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Rich text editor for on-screen text =====
+       Uses contenteditable + document.execCommand. execCommand is
+       deprecated but still works in every current browser and needs no
+       library — the right trade for a prototype under the repo's
+       vanilla-only rule. -->
+  <div class="modal-overlay" id="textModal" role="dialog" aria-modal="true" aria-labelledby="rteTitle">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <span class="m-icon"><i class="fa-solid fa-font"></i></span>
+        <h3 id="rteTitle">Edit On-Screen Text</h3>
+      </div>
+
+      <div class="modal-body">
+        <div class="rte-toolbar" role="toolbar" aria-label="Text formatting">
+          <button type="button" class="rte-btn" data-cmd="bold" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold"></i></button>
+          <button type="button" class="rte-btn" data-cmd="italic" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic"></i></button>
+          <button type="button" class="rte-btn" data-cmd="underline" title="Underline" aria-label="Underline"><i class="fa-solid fa-underline"></i></button>
+          <span class="rte-sep"></span>
+          <button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul"></i></button>
+          <button type="button" class="rte-btn" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+          <span class="rte-sep"></span>
+          <button type="button" class="rte-btn" data-cmd="justifyLeft" title="Align left" aria-label="Align left"><i class="fa-solid fa-align-left"></i></button>
+          <button type="button" class="rte-btn" data-cmd="justifyCenter" title="Align center" aria-label="Align center"><i class="fa-solid fa-align-center"></i></button>
+          <button type="button" class="rte-btn" data-cmd="justifyRight" title="Align right" aria-label="Align right"><i class="fa-solid fa-align-right"></i></button>
+          <span class="rte-sep"></span>
+          <button type="button" class="rte-btn" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><i class="fa-solid fa-eraser"></i></button>
+        </div>
+
+        <div class="rte-body" id="rteBody" contenteditable="true"
+             role="textbox" aria-multiline="true" aria-labelledby="rteTitle"></div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn btn-secondary" id="rteCancel">Cancel</button>
+        <button class="btn btn-primary" id="rteSave">Save Text</button>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    /* ============================================================
+       TEMPLATE PARAMETERS
+
+       Each on-screen-text template exposes its own parameter list and
+       draws a matching graphic on the canvas. The panel is rendered from
+       this table, so adding a template is a data change, not a UI change.
+
+       Field types:
+         select  — dropdown, `options: []`
+         color   — swatch + label
+         text    — single-line input
+         richtext— read-only summary + "Edit Text" button opening the modal
+
+       `layout` drives the canvas graphic: which band/box the text sits in.
+       ============================================================ */
+
+    /* Fill options. Each fill pairs a background with the text colour that
+       meets contrast on it, so the two can never be set inconsistently. */
+    const FILLS = {
+      white:   { label: 'White',       bg: '#ffffff', fg: 'var(--cape-cod)' },
+      science: { label: 'Science Blue', bg: '#0271ce', fg: '#ffffff' },
+      capecod: { label: 'Cape Cod',    bg: 'var(--cape-cod)', fg: '#ffffff' }
+    };
+    const FILL_KEYS = Object.keys(FILLS);
+
+    const TEMPLATES = {
+      'full-screen': {
+        label: 'Full Screen', layout: 'full',
+        fields: [
+          { key: 'fill', type: 'fill', label: 'Fill color', value: 'white' },
+          { key: 'text', type: 'richtext', label: 'On-screen text' }
+        ]
+      },
+      'half-screen': {
+        label: 'Half Screen', layout: 'half',
+        fields: [
+          { key: 'fill', type: 'fill', label: 'Fill color', value: 'white' },
+          { key: 'position', type: 'select', label: 'Positioning',
+            options: ['left', 'right'], value: 'left' },
+          { key: 'text', type: 'richtext', label: 'On-screen text' }
+        ]
+      },
+      'banner': {
+        label: 'Banner', layout: 'banner',
+        fields: [
+          { key: 'fill', type: 'fill', label: 'Fill color', value: 'white' },
+          { key: 'position', type: 'select', label: 'Positioning',
+            options: ['top', 'middle', 'bottom'], value: 'bottom' },
+          { key: 'text', type: 'richtext', label: 'On-screen text' }
+        ]
+      },
+      'corner-box': {
+        label: 'Corner Box', layout: 'corner-box',
+        fields: [
+          { key: 'fill', type: 'fill', label: 'Fill color', value: 'white' },
+          { key: 'position', type: 'select', label: 'Positioning',
+            options: ['top left', 'top right', 'bottom left', 'bottom right'],
+            value: 'bottom left' },
+          { key: 'text', type: 'richtext', label: 'On-screen text' }
+        ]
+      }
+    };
+
+    // Live parameter values, keyed by template then field.
+    const tplState = {};
+    let activeTemplate = '';
+
+    function fieldValue(tplKey, f) {
+      const s = tplState[tplKey] || (tplState[tplKey] = {});
+      if (!(f.key in s)) s[f.key] = f.value !== undefined ? f.value : '';
+      return s[f.key];
+    }
+
+    /* ---- Render the parameter list for the selected template ---- */
+    function renderTemplateParams(tplKey) {
+      const host = document.getElementById('tplParams');
+      host.innerHTML = '';
+      const tpl = TEMPLATES[tplKey];
+      if (!tpl) return;
+
+      tpl.fields.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'prop-field';
+
+        const label = document.createElement('div');
+        label.className = 'prop-field-label';
+        label.textContent = f.label;
+        row.appendChild(label);
+
+        if (f.type === 'select') {
+          const wrap = document.createElement('div');
+          wrap.className = 'tpl-select-wrap';
+          const sel = document.createElement('select');
+          sel.className = 'tpl-select';
+          f.options.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o; opt.textContent = o;
+            if (o === fieldValue(tplKey, f)) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', () => {
+            tplState[tplKey][f.key] = sel.value;
+            drawTemplateGraphic();
+          });
+          wrap.appendChild(sel);
+          const caret = document.createElement('i');
+          caret.className = 'fa-solid fa-chevron-down caret';
+          wrap.appendChild(caret);
+          row.appendChild(wrap);
+
+        } else if (f.type === 'fill') {
+          // Fixed set of design-system fills. Each carries its own text
+          // colour, so background and foreground can't drift apart.
+          const group = document.createElement('div');
+          group.className = 'fill-group';
+          const current = fieldValue(tplKey, f);
+
+          FILL_KEYS.forEach(key => {
+            const fill = FILLS[key];
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.className = 'fill-opt' + (key === current ? ' is-selected' : '');
+            opt.title = fill.label;
+            opt.setAttribute('aria-label', fill.label);
+            opt.setAttribute('aria-pressed', String(key === current));
+
+            const sw = document.createElement('span');
+            sw.className = 'fill-swatch';
+            sw.style.background = fill.bg;
+            const cap = document.createElement('span');
+            cap.className = 'fill-name';
+            cap.textContent = fill.label;
+            opt.appendChild(sw); opt.appendChild(cap);
+
+            opt.addEventListener('click', () => {
+              tplState[tplKey][f.key] = key;
+              group.querySelectorAll('.fill-opt').forEach(b => {
+                b.classList.remove('is-selected');
+                b.setAttribute('aria-pressed', 'false');
+              });
+              opt.classList.add('is-selected');
+              opt.setAttribute('aria-pressed', 'true');
+              drawTemplateGraphic();
+            });
+
+            group.appendChild(opt);
+          });
+          row.appendChild(group);
+
+        } else if (f.type === 'text') {
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.className = 'prop-input';
+          inp.value = fieldValue(tplKey, f);
+          inp.addEventListener('input', () => {
+            tplState[tplKey][f.key] = inp.value;
+            drawTemplateGraphic();
+          });
+          row.appendChild(inp);
+
+        } else if (f.type === 'richtext') {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-primary btn-block';
+          btn.textContent = 'Edit Text';
+          btn.addEventListener('click', () => openTextEditor(tplKey, f));
+          row.appendChild(btn);
+        }
+
+        host.appendChild(row);
+      });
+    }
+
+    /* ---- Draw the template's graphic on the canvas ---- */
+    function drawTemplateGraphic() {
+      const stage = document.getElementById('stageCard');
+      const tpl = TEMPLATES[activeTemplate];
+      const overlay = document.getElementById('tplOverlay');
+      if (overlay) overlay.remove();
+      if (!tpl) { stage.classList.remove('has-template'); return; }
+
+      stage.classList.add('has-template');
+      const s = tplState[activeTemplate] || {};
+
+      const el = document.createElement('div');
+      el.id = 'tplOverlay';
+      el.className = 'tpl-overlay layout-' + tpl.layout;
+
+      // Positioning fields flip the band/panel to the other edge.
+      const pos = s.position || s.side || s.anchor;
+      if (pos) el.classList.add('pos-' + String(pos).replace(/\s+/g, '-'));
+
+      const inner = document.createElement('div');
+      inner.className = 'tpl-overlay-inner';
+      // Background and text colour always come from the same fill entry.
+      const fill = FILLS[s.fill] || FILLS.white;
+      inner.style.background = fill.bg;
+      inner.style.color = fill.fg;
+
+      if (s.title) {
+        const h = document.createElement('div');
+        h.className = 'tpl-title';
+        h.textContent = s.title;
+        inner.appendChild(h);
+      }
+      const body = document.createElement('div');
+      body.className = 'tpl-text';
+      // Rich text is stored as HTML from the editor.
+      body.innerHTML = s.text || '<span class="tpl-placeholder">On-screen text</span>';
+      inner.appendChild(body);
+
+      el.appendChild(inner);
+      stage.appendChild(el);
+    }
+
+    /* ---- Rich text editor modal ---- */
+    let editorTarget = null;
+
+    function openTextEditor(tplKey, field) {
+      editorTarget = { tplKey, field };
+      const modal = document.getElementById('textModal');
+      const area = document.getElementById('rteBody');
+      document.getElementById('rteTitle').textContent = 'Edit ' + field.label;
+      area.innerHTML = (tplState[tplKey] && tplState[tplKey][field.key]) || '';
+      modal.classList.add('open');
+      area.focus();
+    }
+
+    function closeTextEditor() {
+      document.getElementById('textModal').classList.remove('open');
+      editorTarget = null;
+    }
+
+    // --- Scene panel: transcript ⇄ image view toggle ---
+    // Both bodies live in the DOM; the mode class on the scroller decides
+    // which shows. That way switching views never re-renders a scene or
+    // discards transcript text the user has typed.
+    (function () {
+      const scroller = document.getElementById('scenes');
+      const btnTranscript = document.getElementById('viewTranscript');
+      const btnImage = document.getElementById('viewImage');
+      const panelTitle = document.querySelector('.left-head h2');
+
+      function setView(mode) {
+        const image = mode === 'image';
+        scroller.classList.toggle('view-image', image);
+
+        btnImage.classList.toggle('active', image);
+        btnTranscript.classList.toggle('active', !image);
+        btnImage.setAttribute('aria-pressed', String(image));
+        btnTranscript.setAttribute('aria-pressed', String(!image));
+
+        // The panel heading names the current view.
+        if (panelTitle) panelTitle.textContent = image ? 'Media' : 'Transcript';
+      }
+
+      btnTranscript.addEventListener('click', () => setView('transcript'));
+      btnImage.addEventListener('click', () => setView('image'));
+    })();
+
+    // --- Bulk audio actions ---
+    // Icon + tooltip only for now; the actions get wired when the click
+    // path calls for them.
+
+    // --- Minor functionality: segmented tab selection ---
+    const segTabs = document.getElementById('segTabs');
+    segTabs.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      segTabs.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+
+    // --- Media / Template panel toggle ---
+    const mt = document.getElementById('mtToggle');
+    const panelMedia = document.getElementById('panel-media');
+    const panelTemplate = document.getElementById('panel-template');
+    mt.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      mt.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isMedia = btn.dataset.mt === 'media';
+      panelMedia.classList.toggle('active', isMedia);
+      panelTemplate.classList.toggle('active', !isMedia);
+    });
+
+    /* ============================================================
+       RENDER SCENES FROM COURSE DATA
+
+       The object manager is a single page shared by every learning
+       object: it reads ?object=<id>, looks the LO up in course-data.js,
+       and builds its scene cards here. There are no per-LO HTML files.
+       ============================================================ */
+    function sceneCardHTML(scene, index, selected) {
+      const text = scene && scene.transcript ? scene.transcript : '';
+      return '<article class="scene' + (selected ? ' selected' : '') + '"' +
+               ' data-scene="' + (index + 1) + '" data-has-audio="false">' +
+          '<div class="scene-head">' +
+            '<span class="scene-num">' + (index + 1) + '</span>' +
+            '<button class="mini-btn" title="Audio" aria-label="Audio"><i class="fa-solid fa-volume-high"></i></button>' +
+            '<button class="mini-btn" title="Play" aria-label="Play"><i class="fa-solid fa-play"></i></button>' +
+            '<button class="mini-btn danger" title="Delete" aria-label="Delete scene"><i class="fa-solid fa-trash-can"></i></button>' +
+            '<span class="spacer"></span>' +
+            '<button class="status" type="button" title="Mark scene complete" ' +
+                    'aria-label="Mark scene complete" aria-pressed="false">' +
+              '<i class="fa-solid fa-check"></i></button>' +
+          '</div>' +
+          '<div class="scene-body">' +
+            '<textarea rows="1" placeholder="Enter scene transcript…">' + escapeHTML(text) + '</textarea>' +
+            '<div class="scene-read">' + escapeHTML(text) + '</div>' +
+          '</div>' +
+          '<div class="scene-media"></div>' +
+          '<div class="scene-foot">' +
+            '<span class="time-chip"><i class="fa-regular fa-clock"></i> ' +
+              fmtMSS(scene && scene.dur ? scene.dur : 0) + '</span>' +
+          '</div>' +
+          '<button class="scene-insert scene-insert-before" type="button" ' +
+                  'title="Add scene above" aria-label="Add scene above"><i class="fa-solid fa-plus"></i></button>' +
+          '<button class="scene-insert scene-insert-after" type="button" ' +
+                  'title="Add scene below" aria-label="Add scene below"><i class="fa-solid fa-plus"></i></button>' +
+        '</article>';
+    }
+
+    function escapeHTML(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function renderScenes(obj) {
+      const host = document.getElementById('scenes');
+      const list = (obj && obj.scenes && obj.scenes.length) ? obj.scenes : [null];
+      host.innerHTML = list.map((sc, i) => sceneCardHTML(sc, i, i === 0)).join('');
+
+      // Attach each scene's authored image so the canvas and the image
+      // view show it without the rep having to add media by hand.
+      host.querySelectorAll('.scene').forEach((card, i) => {
+        const sc = list[i];
+        if (sc && sc.image) card.__media = { name: sc.image, src: 'assets/' + sc.image };
+        // Paint every card's media slot now, not just the selected one.
+        // restoreSceneCanvas() fills a slot only when its card becomes
+        // active, which left the image view showing a single thumbnail --
+        // useless for a gallery whose whole point is comparing the set.
+        fillSceneMediaSlot(card);
+        const ta = card.querySelector('.scene-body textarea');
+        attachAutoGrow(ta);
+      });
+
+      // Scene 1 is always the active scene when the object manager opens,
+      // for every LO and title card. Selecting it (rather than just
+      // relying on the .selected class emitted above) also paints the
+      // canvas, fills the media slot and syncs the Complete pill, so the
+      // landing state is identical to clicking that card by hand.
+      const first = host.querySelector('.scene') || null;
+      if (first) {
+        host.querySelectorAll('.scene').forEach(sc => sc.classList.remove('selected'));
+        first.classList.add('selected');
+        restoreSceneCanvas(first);
+      }
+      syncCompleteButton();
+    }
+
+    // --- Collapse the scene / properties panels ---
+    // Each panel collapses to a narrow rail that keeps its chevron, so it
+    // can always be reopened. The chevron flips to point the other way.
+    function wireCollapse(btnId, panelSel, openIcon, closedIcon, noun) {
+      const btn = document.getElementById(btnId);
+      const panel = document.querySelector(panelSel);
+      if (!btn || !panel) return;
+      btn.addEventListener('click', () => {
+        const collapsed = panel.classList.toggle('is-collapsed');
+        btn.querySelector('i').className = 'fa-solid ' + (collapsed ? closedIcon : openIcon);
+        btn.title = (collapsed ? 'Expand ' : 'Collapse ') + noun;
+        btn.setAttribute('aria-label', btn.title);
+        btn.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+    wireCollapse('leftCollapse',  '.left',  'fa-chevron-left',  'fa-chevron-right', 'transcript');
+    wireCollapse('rightCollapse', '.right', 'fa-chevron-right', 'fa-chevron-left',  'properties');
+
+    // --- Scene selection (click a card to select it) ---
+    const scenes = document.getElementById('scenes');
+    scenes.addEventListener('click', (e) => {
+      // Insert buttons act on the card without selecting it.
+      const ins = e.target.closest('.scene-insert');
+      if (ins) {
+        e.stopPropagation();
+        addScene(ins.closest('.scene'), ins.classList.contains('scene-insert-before'));
+        return;
+      }
+      // Completion status: toggles the scene's own state, doesn't select.
+      const st = e.target.closest('.status');
+      if (st) {
+        e.stopPropagation();
+        const done = st.classList.toggle('is-complete');
+        st.setAttribute('aria-pressed', String(done));
+        st.title = done ? 'Mark scene incomplete' : 'Mark scene complete';
+        st.setAttribute('aria-label', st.title);
+        st.closest('.scene').classList.toggle('is-complete', done);
+        syncCompleteButton();
+        return;
+      }
+      if (e.target.closest('.mini-btn')) return; // don't select when hitting a control
+      const card = e.target.closest('.scene');
+      if (!card) return;
+      selectScene(card);
+    });
+
+    // Reflect the selected scene's completion state in the centre pill, so
+    // the two controls for the same state can never disagree.
+    function syncCompleteButton() {
+      const card = scenes.querySelector('.scene.selected');
+      const icon = document.getElementById('completeIcon');
+      const label = document.getElementById('completeLabel');
+      if (!card || !icon || !label) return;
+      const done = card.classList.contains('is-complete');
+      icon.className = done ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
+      label.textContent = done ? 'Scene Complete' : 'Complete Scene';
+    }
+
+    // Selecting a card syncs the read-only view from the textarea first, so
+    // the outgoing scene shows whatever was just typed into it.
+    function selectScene(card) {
+      const outgoing = scenes.querySelector('.scene.selected');
+
+      // Stash the outgoing scene's canvas state before switching away.
+      if (outgoing && outgoing !== card) {
+        outgoing.__template = tplSelect ? tplSelect.value : '';
+        if (window.__mediaForScene) outgoing.__media = window.__mediaForScene.get();
+      }
+
+      scenes.querySelectorAll('.scene').forEach(sc => {
+        const ta = sc.querySelector('.scene-body textarea');
+        const ro = sc.querySelector('.scene-read');
+        if (ta && ro) ro.textContent = ta.value;
+        sc.classList.remove('selected');
+      });
+      card.classList.add('selected');
+      const ta = card.querySelector('.scene-body textarea');
+      if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+      syncCompleteButton();
+
+      // Reset the canvas + properties to THIS scene's state. Without this
+      // the previous scene's media and template would linger on screen.
+      restoreSceneCanvas(card);
+    }
+
+    // Apply a scene's own media + template to the canvas and properties
+    // panel. A scene with neither returns the canvas to its empty state.
+    // Render one card's media slot (the thumbnail shown in image view) from
+    // its own asset. Shared so every card can be filled at render time and
+    // refreshed when its media changes -- the image view is a gallery of
+    // ALL scenes, so this must not be tied to which card is selected.
+    // Exposed on window: the media modal lives in a separate <script> block
+    // and needs this to clear a scene's thumbnail (same reason
+    // __mediaForScene is global).
+    window.fillSceneMediaSlot = fillSceneMediaSlot;
+    function fillSceneMediaSlot(card) {
+      const slot = card.querySelector('.scene-media');
+      if (!slot) return;
+      slot.innerHTML = card.__media
+        ? '<div class="scene-media-filled">' +
+            '<img class="scene-media-img" src="' + card.__media.src + '" alt="" />' +
+            '<span class="scene-media-name">' + card.__media.name + '</span>' +
+          '</div>'
+        : '<div class="scene-media-empty">' +
+            '<i class="fa-regular fa-image"></i>' +
+            '<span class="sme-label">No media added</span>' +
+            '<button class="scene-media-add" type="button">Add Media</button>' +
+          '</div>';
+    }
+
+    function restoreSceneCanvas(card) {
+      if (window.__mediaForScene) window.__mediaForScene.set(card.__media || null);
+
+      fillSceneMediaSlot(card);
+
+      const tpl = card.__template || '';
+      if (tplSelect) tplSelect.value = tpl;
+      activeTemplate = tpl;
+      renderTemplateParams(tpl);
+      drawTemplateGraphic();
+    }
+
+    // Insert a new empty scene relative to `card`, then select it so it
+    // opens ready to type into. Scene numbers are renumbered in order.
+    function addScene(card, before) {
+      const el = document.createElement('article');
+      el.className = 'scene';
+      el.dataset.hasAudio = 'false';
+      el.innerHTML =
+        '<div class="scene-head">' +
+          '<span class="scene-num"></span>' +
+          '<button class="mini-btn" title="Audio" aria-label="Audio"><i class="fa-solid fa-volume-high"></i></button>' +
+          '<button class="mini-btn" title="Play" aria-label="Play"><i class="fa-solid fa-play"></i></button>' +
+          '<button class="mini-btn danger" title="Delete" aria-label="Delete scene"><i class="fa-solid fa-trash-can"></i></button>' +
+          '<span class="spacer"></span>' +
+          '<button class="status" type="button" title="Mark scene complete" aria-label="Mark scene complete" aria-pressed="false"><i class="fa-solid fa-check"></i></button>' +
+        '</div>' +
+        '<div class="scene-body">' +
+          '<textarea rows="1" placeholder="Enter scene transcript…"></textarea>' +
+          '<div class="scene-read"></div>' +
+        '</div>' +
+        '<div class="scene-media">' +
+          '<div class="scene-media-empty">' +
+            '<i class="fa-regular fa-image"></i>' +
+            '<span class="sme-label">No media added</span>' +
+            '<button class="scene-media-add" type="button">Add Media</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="scene-foot"><span class="time-chip"><i class="fa-regular fa-clock"></i> 00:00</span></div>' +
+        '<button class="scene-insert scene-insert-before" type="button" title="Add scene above" aria-label="Add scene above"><i class="fa-solid fa-plus"></i></button>' +
+        '<button class="scene-insert scene-insert-after" type="button" title="Add scene below" aria-label="Add scene below"><i class="fa-solid fa-plus"></i></button>';
+
+      card.parentNode.insertBefore(el, before ? card : card.nextSibling);
+      renumberScenes();
+      attachAutoGrow(el.querySelector('textarea'));
+      selectScene(el);
+      el.querySelector('textarea').focus();
+    }
+
+    function renumberScenes() {
+      scenes.querySelectorAll('.scene').forEach((sc, i) => {
+        const n = sc.querySelector('.scene-num');
+        if (n) n.textContent = String(i + 1);
+        sc.dataset.scene = String(i + 1);
+      });
+    }
+
+    // --- Auto-grow transcript textareas as you type ---
+    function attachAutoGrow(ta) {
+      if (!ta) return;
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+      ta.addEventListener('input', grow);
+      // Keep the read-only view in step so it's correct the moment the
+      // card is deselected.
+      ta.addEventListener('input', () => {
+        const ro = ta.closest('.scene-body').querySelector('.scene-read');
+        if (ro) ro.textContent = ta.value;
+      });
+      grow();
+    }
+    document.querySelectorAll('.scene-body textarea').forEach(attachAutoGrow);
+
+    // The centre "Complete Scene" pill toggles the selected scene's status.
+    const completeBtn = document.getElementById('btnCompleteScene');
+    if (completeBtn) {
+      completeBtn.addEventListener('click', () => {
+        const card = scenes.querySelector('.scene.selected');
+        if (!card) return;
+        const st = card.querySelector('.status');
+        if (st) st.click();          // one code path for the state change
+      });
+    }
+    syncCompleteButton();
+
+    /* =====================================================================
+       TEMPLATE SELECTION + CONDITIONAL TEMPLATE-SOUND BEHAVIOR
+       ---------------------------------------------------------------------
+       Data model mirrors Phase 2 (Phase2/objectManager.html): a scene has a
+       transcript string and an audioGenerated flag. "Transcript/audio exists"
+       means the selected scene has non-empty transcript OR generated audio.
+
+       Title templates (Main Title Card, Main Title Card 2, Section Title Card,
+       tagged data-title="1") carry their own title sound/jingle:
+         - Scene HAS transcript/audio  -> ask via modal whether to keep the
+           template sound (removing transcript/audio) or keep transcript/audio.
+         - Scene has NEITHER            -> bypass modal, default to template sound.
+       When the template sound is in use, the stage shows a "Using default
+       template sound" note with an option to override back to transcript/audio.
+       ===================================================================== */
+    const tplSelect   = document.getElementById('tplSelect');
+    const soundModal  = document.getElementById('soundModal');
+    const modalTplName   = document.getElementById('modalTplName');
+    const modalSoundName = document.getElementById('modalSoundName');
+
+    // Which template's sound we last confirmed, so the note can name it.
+    let pendingTpl = null; // { value, label, sound } awaiting the modal decision
+
+    // Does the currently-selected scene have transcript text and/or audio?
+    function selectedScene() { return scenes.querySelector('.scene.selected'); }
+    function sceneHasContent(scene) {
+      if (!scene) return false;
+      if (scene.dataset.hasAudio === 'true') return true;
+      const ta = scene.querySelector('textarea');
+      const filled = scene.querySelector('.filled');
+      const text = (ta ? ta.value : (filled ? filled.textContent : '')) || '';
+      return text.trim().length > 0;
+    }
+
+    // Read the <option> that's selected as a title template (or null).
+    function titleTplFromOption(opt) {
+      if (!opt || opt.dataset.title !== '1') return null;
+      return { value: opt.value, label: opt.textContent.trim(), sound: opt.dataset.sound || 'Template sound' };
+    }
+
+    tplSelect.addEventListener('change', () => {
+      const opt = tplSelect.selectedOptions[0];
+      const titleTpl = titleTplFromOption(opt);
+
+      // Swap the parameter list and redraw the canvas graphic for the
+      // newly-selected template. Independent of the title-sound flow below.
+      activeTemplate = tplSelect.value;
+      renderTemplateParams(activeTemplate);
+      drawTemplateGraphic();
+
+      const scene = selectedScene();
+
+      if (!titleTpl) {
+        // Non-title template (or "Select Template") — no sound behavior.
+        // Clear any active template-sound state on the selected scene.
+        clearSceneSound(scene);
+        return;
+      }
+
+      if (sceneHasContent(scene)) {
+        // Scene has transcript/audio -> confirm via modal before swapping.
+        openSoundModal(titleTpl);
+      } else {
+        // No transcript/audio -> bypass modal, default straight to the sound.
+        applyTemplateSound(scene, titleTpl);
+      }
+    });
+
+    // ---- Modal open/close ------------------------------------------------
+    function openSoundModal(titleTpl) {
+      pendingTpl = titleTpl;
+      modalTplName.textContent = titleTpl.label;
+      modalSoundName.textContent = titleTpl.sound;
+      resetPreview();
+      soundModal.classList.add('open');
+    }
+    function closeSoundModal() {
+      stopPreview();
+      soundModal.classList.remove('open');
+    }
+
+    // Confirm = keep template sound (disable transcript/audio for this scene).
+    document.getElementById('modalUseSoundBtn').addEventListener('click', () => {
+      applyTemplateSound(selectedScene(), pendingTpl);
+      closeSoundModal();
+    });
+
+    // Cancel = keep transcript/audio; revert the template selection.
+    document.getElementById('modalKeepAudioBtn').addEventListener('click', cancelSelection);
+
+    // Clicking the dimmed backdrop cancels (same as "Keep transcript/audio").
+    soundModal.addEventListener('click', (e) => { if (e.target === soundModal) cancelSelection(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && soundModal.classList.contains('open')) cancelSelection();
+    });
+    function cancelSelection() {
+      tplSelect.value = '';   // undo the pick — scene keeps its transcript/audio
+      closeSoundModal();
+    }
+
+    /* ---- Apply / clear the template-sound state ON THE SCENE CARD -------
+       The scene card is where the state lives: when a title template's default
+       sound is in use, the card's transcript/audio are disabled and an in-card
+       note tells the user, with a preview button and an override link back to
+       transcript/audio. The center stage is left untouched. */
+    function applyTemplateSound(scene, titleTpl) {
+      if (!scene) return;
+      scene.dataset.templateSound = titleTpl.value;
+      // Build (or refresh) the in-card note, inserted after the (now hidden)
+      // scene body so it occupies the transcript's place.
+      let note = scene.querySelector('.scene-sound-note');
+      if (!note) {
+        note = document.createElement('div');
+        note.className = 'scene-sound-note';
+        scene.querySelector('.scene-body').after(note);
+      }
+      note.innerHTML = `
+        <div class="ssn-head"><i class="fa-solid fa-music"></i> Using default template sound</div>
+        <div class="ssn-sub">This scene plays <b>${titleTpl.sound}</b> from the ${titleTpl.label} template. Transcript and audio are turned off while the template sound is in use.</div>
+        <div class="ssn-actions">
+          <button class="ssn-play" type="button"><i class="fa-solid fa-play"></i> Preview sound</button>
+          <button class="ssn-override" type="button">Remove and use transcript/audio instead</button>
+        </div>
+      `;
+      note.querySelector('.ssn-play').addEventListener('click', (e) => simulatePlay(e.currentTarget, titleTpl.sound));
+      note.querySelector('.ssn-override').addEventListener('click', () => clearSceneSound(scene));
+      // Flip the card into template-sound mode (CSS hides body + dims audio btns).
+      scene.classList.add('template-sound');
+      // Reflect "no spoken duration" while the sound is in use.
+      const chip = scene.querySelector('.time-chip');
+      if (chip) { chip.dataset.orig = chip.dataset.orig || chip.innerHTML; chip.innerHTML = '<i class="fa-solid fa-music"></i> Sound'; }
+    }
+
+    // Override / deselect: return the scene to transcript/audio mode.
+    function clearSceneSound(scene) {
+      if (!scene || !scene.classList.contains('template-sound')) return;
+      scene.classList.remove('template-sound');
+      delete scene.dataset.templateSound;
+      const chip = scene.querySelector('.time-chip');
+      if (chip && chip.dataset.orig) { chip.innerHTML = chip.dataset.orig; delete chip.dataset.orig; }
+      // If the user overrode from a scene whose template is still selected in the
+      // dropdown, drop the selection so the two stay in sync.
+      const opt = tplSelect.selectedOptions[0];
+      if (opt && opt.dataset.title === '1') tplSelect.value = '';
+    }
+
+    /* ---- Sound-preview simulation --------------------------------------
+       No real audio file in a prototype — animate the progress bar/label so
+       the "preview the sound" affordance reads as functional. */
+    let previewTimer = null;
+    function resetPreview() {
+      stopPreview();
+      const fill = document.getElementById('modalSoundFill');
+      if (fill) fill.style.width = '0%';
+      const btn = document.getElementById('modalPreviewBtn');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    }
+    function stopPreview() {
+      if (previewTimer) { clearInterval(previewTimer); previewTimer = null; }
+    }
+    // Modal preview button
+    document.getElementById('modalPreviewBtn').addEventListener('click', () => {
+      const btn = document.getElementById('modalPreviewBtn');
+      const fill = document.getElementById('modalSoundFill');
+      if (previewTimer) { // pause
+        stopPreview();
+        btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        return;
+      }
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+      let pct = parseFloat(fill.style.width) || 0;
+      previewTimer = setInterval(() => {
+        pct += 100 / 30; // ~3s at 100ms ticks
+        if (pct >= 100) {
+          pct = 100; fill.style.width = '100%';
+          stopPreview(); btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+          setTimeout(() => { fill.style.width = '0%'; }, 400);
+          return;
+        }
+        fill.style.width = pct + '%';
+      }, 100);
+    });
+
+    // Generic play toggle for the stage preview button (label swap only).
+    function simulatePlay(btn, soundName) {
+      const playing = btn.dataset.playing === '1';
+      if (playing) {
+        btn.dataset.playing = '0';
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> Preview sound';
+        if (btn._t) { clearTimeout(btn._t); btn._t = null; }
+      } else {
+        btn.dataset.playing = '1';
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i> Playing…';
+        btn._t = setTimeout(() => {
+          btn.dataset.playing = '0';
+          btn.innerHTML = '<i class="fa-solid fa-play"></i> Preview sound';
+        }, 3000);
+      }
+    }
+  </script>
+
+  <!-- ============================================================
+       SALES DEMO WIRING
+
+       This file is the Phase1 object-manager prototype with the system
+       maintenance banner and the design toolbox removed. Everything
+       below is the glue that makes it act as Area 2 of the demo:
+       it reads ?object=<id>, titles itself from the shared course data,
+       and hands control back to the Course Overview.
+       ============================================================ -->
+  <script src="course-data.js"></script>
+  <script>
+    (function () {
+      // --- Resolve the object that was clicked on the overview ---
+      const params = new URLSearchParams(location.search);
+      const objectId = params.get('object');
+      const hit = objectId ? findObject(COURSE, objectId) : null;
+
+      if (hit) {
+        document.getElementById('omEyebrow').textContent = 'Section: ' + hit.section.name;
+        document.getElementById('omTitle').textContent = hit.obj.name;
+        document.getElementById('omDur').textContent = fmtCourse(hit.obj.dur);
+        document.title = hit.obj.name + ' — Learning Studio';
+        // Build this LO's scenes. One page serves every object.
+        renderScenes(hit.obj);
+      } else {
+        // Direct-open fallback so the file still renders on its own.
+        document.getElementById('omEyebrow').textContent = 'Section:';
+        document.getElementById('omTitle').textContent = 'Learning Object';
+        document.getElementById('omDur').textContent = fmtCourse(0);
+        renderScenes(null);   // one empty scene, so the panel isn't blank
+      }
+
+      // --- Back arrow returns to the Course Overview ---
+      // The overview hosts this page in an iframe and listens for this
+      // message. When opened standalone there is no parent to notify,
+      // so fall back to normal history.
+      const backBtn = document.querySelector('.topbar .back');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'om:back' }, '*');
+          } else {
+            history.back();
+          }
+        });
+      }
+    })();
+
+    /* ============================================================
+       EDIT AUDIO
+       Opened by clicking the active scene's transcript. Edits transcript
+       + phonetic text and regenerates the scene's AI voice-over.
+       ============================================================ */
+    (function () {
+      const modal     = document.getElementById('audioModal');
+      const transcript= document.getElementById('audioTranscript');
+      const phonetic  = document.getElementById('audioPhonetic');
+      const wrap      = document.getElementById('phoneticWrap');
+      const toggle    = document.getElementById('phoneticToggle');
+      const voice     = document.getElementById('audioVoice');
+      const saveBtn   = document.getElementById('audioSave');
+      const progress  = document.getElementById('audioProgress');
+
+      let sourceScene = null;   // the card being edited
+      let baseline    = '';     // transcript value when the modal opened
+
+      // Save Changes stays disabled until something actually changes.
+      function markDirty() {
+        saveBtn.disabled = transcript.value === baseline;
+      }
+      transcript.addEventListener('input', markDirty);
+      phonetic.addEventListener('input', () => { saveBtn.disabled = false; });
+      voice.addEventListener('change', () => { saveBtn.disabled = false; });
+
+      // Phonetic field is revealed by the link, not shown by default.
+      toggle.addEventListener('click', () => {
+        const open = wrap.hidden;
+        wrap.hidden = !open;
+        toggle.setAttribute('aria-expanded', String(open));
+        if (open) phonetic.focus();
+      });
+
+      function openAudio(card) {
+        sourceScene = card;
+        const ta = card.querySelector('.scene-body textarea');
+        baseline = ta ? ta.value : '';
+        transcript.value = baseline;
+
+        // Reset to a clean state each time.
+        phonetic.value = '';
+        wrap.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+        progress.hidden = true;
+        saveBtn.disabled = true;
+
+        modal.classList.add('open');
+        transcript.focus();
+      }
+      function closeAudio() { modal.classList.remove('open'); sourceScene = null; }
+
+      // Clicking the active scene's transcript opens the modal. The
+      // textarea is read-only-by-click here: pointer events open Edit
+      // Audio rather than placing a caret, so the two editing paths
+      // can't disagree about which value is current.
+      document.getElementById('scenes').addEventListener('mousedown', (e) => {
+        const body = e.target.closest('.scene-body');
+        if (!body) return;
+        const card = body.closest('.scene');
+        if (!card || !card.classList.contains('selected')) return;
+        e.preventDefault();
+        openAudio(card);
+      });
+
+      // The scene's audio button is the same action, so it opens the
+      // same modal rather than a parallel control.
+      document.getElementById('scenes').addEventListener('click', (e) => {
+        const btn = e.target.closest('.mini-btn[title="Audio"]');
+        if (!btn) return;
+        e.stopPropagation();
+        openAudio(btn.closest('.scene'));
+      });
+
+      // Simulated generation, matching the media modal's 3s pattern.
+      document.getElementById('audioGenerate').addEventListener('click', () => {
+        if (!transcript.value.trim()) { transcript.focus(); return; }
+        progress.hidden = false;
+        setTimeout(() => {
+          progress.hidden = true;
+          saveBtn.disabled = false;
+          if (sourceScene) sourceScene.dataset.hasAudio = 'true';
+        }, 3000);
+      });
+
+      document.getElementById('audioRemove').addEventListener('click', () => {
+        if (sourceScene) sourceScene.dataset.hasAudio = 'false';
+        closeAudio();
+      });
+
+      saveBtn.addEventListener('click', () => {
+        if (sourceScene) {
+          const ta = sourceScene.querySelector('.scene-body textarea');
+          const ro = sourceScene.querySelector('.scene-read');
+          if (ta) {
+            ta.value = transcript.value;
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+          }
+          if (ro) ro.textContent = transcript.value;
+        }
+        closeAudio();
+      });
+
+      document.getElementById('audioCancel').addEventListener('click', closeAudio);
+      document.getElementById('audioClose').addEventListener('click', closeAudio);
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeAudio(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) closeAudio();
+      });
+    })();
+
+    /* ============================================================
+       ADD / REPLACE MEDIA
+       Three routes to an asset. Each sets sceneMedia, which flips the
+       button label and fills the scene's media slot.
+       ============================================================ */
+    (function () {
+      const modal    = document.getElementById('mediaModal');
+      const tabs     = document.getElementById('mediaTabs');
+      const confirm  = document.getElementById('mediaConfirm');
+      const titleEl  = document.getElementById('mediaModalTitle');
+      const labelEl  = document.getElementById('addMediaLabel');
+      const subEl    = document.querySelector('.media-sub');
+      const backBtn  = document.getElementById('mediaBack');
+
+      // Media is per-scene, keyed by scene id. The module-level variable
+      // only tracks the CURRENTLY SELECTED scene's asset, so the button
+      // label and modal title reflect that scene alone.
+      let sceneMedia = null;
+
+      // ---- Current Media row in the properties panel --------------------
+      // Shows the active scene's filename with a control to remove it.
+      const mediaProp = document.getElementById('mediaProp');
+
+      function renderMediaProp(media) {
+        if (!mediaProp) return;
+        if (!media) {
+          mediaProp.innerHTML = '<div class="prop-empty">No media available</div>';
+          return;
+        }
+        // Name is authored data, so escape it rather than interpolating raw.
+        const safe = String(media.name)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+        mediaProp.innerHTML =
+          '<div class="media-prop-row">' +
+            '<i class="fa-regular fa-image mp-icon"></i>' +
+            '<span class="media-prop-name" title="' + safe + '">' + safe + '</span>' +
+            '<button class="media-prop-del" type="button" title="Remove media from this scene" ' +
+                    'aria-label="Remove media from this scene">' +
+              '<i class="fa-solid fa-trash-can"></i>' +
+            '</button>' +
+          '</div>';
+      }
+
+      // Remove the active scene's media everywhere it appears: the scene's
+      // own record, its gallery thumbnail, the canvas, this panel, and the
+      // Add/Replace button label.
+      function clearMedia() {
+        const active = document.querySelector('.scene.selected');
+        if (active) {
+          active.__media = null;
+          window.fillSceneMediaSlot(active);
+        }
+        sceneMedia = null;
+        labelEl.textContent = 'Add Media';
+        paintStage(null);
+        renderMediaProp(null);
+      }
+
+      if (mediaProp) {
+        mediaProp.addEventListener('click', (e) => {
+          if (e.target.closest('.media-prop-del')) clearMedia();
+        });
+      }
+
+      // Save/restore hooks used by selectScene when the active card changes.
+      window.__mediaForScene = {
+        get: () => sceneMedia,
+        set: (m) => {
+          sceneMedia = m || null;
+          labelEl.textContent = sceneMedia ? 'Replace Media' : 'Add Media';
+          paintStage(sceneMedia);
+          renderMediaProp(sceneMedia);
+        }
+      };
+
+      // renderScenes() runs in an earlier IIFE — before this one defines
+      // __mediaForScene — so the landing scene's restoreSceneCanvas() call
+      // found no hook and silently skipped painting the canvas. The scene
+      // card looked active, but its image only appeared once the rep
+      // clicked it. Re-apply the already-selected scene now that the hook
+      // exists, so the canvas matches the selection on open.
+      const landing = document.querySelector('.scene.selected');
+      if (landing) window.__mediaForScene.set(landing.__media || null);
+
+      // Draw (or clear) the canvas media for whichever scene is active.
+      function paintStage(media) {
+        const stage = document.getElementById('stageCard');
+        if (!stage) return;
+        const prev = document.getElementById('stageMedia');
+        if (prev) prev.remove();
+        if (media && media.src) {
+          const img = document.createElement('img');
+          img.id = 'stageMedia';
+          img.className = 'stage-media';
+          img.src = media.src;
+          img.alt = '';
+          stage.classList.add('has-media');
+          stage.insertBefore(img, stage.firstChild);
+        } else {
+          stage.classList.remove('has-media');
+        }
+      }
+      let route = 'generate';
+      let stockPick = null;
+      let generated = false;   // a finished generation is waiting to be applied
+
+      /* The demo's single generated-image result. Every generation resolves
+         to this one asset regardless of the prompt text or any uploaded
+         file -- the demo has fixed outcomes, so a rep can type anything on a
+         call and still land on a predictable image.
+
+         The name is the FILENAME, not the prompt: it is what the media
+         panel lists after "Add to Scene", and a filename is what a real
+         asset would show there. */
+      const GENERATED_IMAGE = {
+        name: 'generate-img-sample.png',
+        src: 'assets/generate-img-sample.png'
+      };
+
+      // Deterministic stock results — no network, works on file://.
+      const STOCK = [
+        { name: 'Raised garden beds',  hue: 122 },
+        { name: 'Seedlings in tray',   hue: 96  },
+        { name: 'Watering can',        hue: 200 },
+        { name: 'Compost pile',        hue: 32  },
+        { name: 'Tomato vine',         hue: 6   },
+        { name: 'Garden trowel',       hue: 210 },
+        { name: 'Herb planter',        hue: 142 },
+        { name: 'Greenhouse interior', hue: 168 },
+        { name: 'Sun over rows',       hue: 45  }
+      ];
+
+      function setRoute(next) {
+        route = next;
+        // Leaving the generate tab discards an unapplied result.
+        if (next !== 'generate') resetGenerate();
+        tabs.querySelectorAll('.media-tab').forEach(t => {
+          const on = t.dataset.mtab === next;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', String(on));
+        });
+        ['generate', 'upload', 'stock'].forEach(r => {
+          document.getElementById('mpane-' + r).classList.toggle('active', r === next);
+        });
+        // The primary action is named for the route it completes.
+        confirm.textContent =
+          next === 'generate' ? 'Generate' :
+          next === 'upload'   ? 'Use Upload' : 'Use Selected';
+      }
+
+      tabs.addEventListener('click', (e) => {
+        const t = e.target.closest('.media-tab');
+        if (t) setRoute(t.dataset.mtab);
+      });
+
+      /* ---- Stock search ---- */
+      function runStockSearch() {
+        const q = document.getElementById('stockQuery').value.trim().toLowerCase();
+        const grid = document.getElementById('stockGrid');
+        const empty = document.getElementById('stockEmpty');
+
+        // Keyword filter; an empty query shows the whole library.
+        const hits = q
+          ? STOCK.filter(i => i.name.toLowerCase().includes(q))
+          : STOCK.slice();
+
+        grid.innerHTML = '';
+        stockPick = null;
+
+        if (!hits.length) {
+          empty.hidden = false;
+          grid.hidden = true;
+          empty.querySelector('span').textContent = 'No results for "' + q + '"';
+          return;
+        }
+
+        hits.forEach(item => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'stock-item';
+          const thumb = document.createElement('span');
+          thumb.className = 'stock-thumb';
+          // Placeholder art — a tinted panel, not invented photography.
+          thumb.style.background =
+            'linear-gradient(135deg, hsl(' + item.hue + ' 42% 62%), hsl(' + item.hue + ' 38% 44%))';
+          thumb.innerHTML = '<i class="fa-regular fa-image"></i>';
+          const cap = document.createElement('span');
+          cap.className = 'stock-caption';
+          cap.textContent = item.name;
+          btn.appendChild(thumb); btn.appendChild(cap);
+
+          btn.addEventListener('click', () => {
+            grid.querySelectorAll('.stock-item').forEach(b => b.classList.remove('is-selected'));
+            btn.classList.add('is-selected');
+            stockPick = item;
+          });
+          grid.appendChild(btn);
+        });
+
+        empty.hidden = true;
+        grid.hidden = false;
+      }
+
+      document.getElementById('stockSearchBtn').addEventListener('click', runStockSearch);
+      document.getElementById('stockQuery').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); runStockSearch(); }
+      });
+
+      /* ---- Apply the chosen asset ---- */
+      function applyMedia(media) {
+        sceneMedia = media;
+        labelEl.textContent = 'Replace Media';
+
+        // Persist on the scene element so switching away and back restores it.
+        const active = document.querySelector('.scene.selected');
+        if (active) active.__media = media;
+
+        // A real file renders as an <img>; the stock/upload placeholders
+        // fall back to a tinted swatch.
+        const visual = media.src
+          ? '<img class="scene-media-img" src="' + media.src + '" alt="" />'
+          : '<span class="scene-media-thumb" style="background:' + media.swatch + '">' +
+              '<i class="fa-regular fa-image"></i>' +
+            '</span>';
+
+        // Only the ACTIVE scene's slot. This used to write into every
+        // .scene-media on the page, so adding one image stamped it across
+        // every scene -- which the image-view gallery makes obvious.
+        if (active) {
+          const slot = active.querySelector('.scene-media');
+          if (slot) {
+            slot.innerHTML =
+              '<div class="scene-media-filled">' +
+                visual +
+                '<span class="scene-media-name">' + media.name + '</span>' +
+              '</div>';
+          }
+        }
+
+        // Show it on the canvas too, behind any template graphic.
+        paintStage(media);
+        renderMediaProp(media);
+        closeMedia();
+      }
+
+      confirm.addEventListener('click', () => {
+        if (route === 'generate') {
+          const desc = document.getElementById('genDesc');
+          const prog = document.getElementById('genProgress');
+
+          // Already in the enhance step — apply the image to the scene.
+          if (generated) {
+            applyMedia({ ...GENERATED_IMAGE });
+            return;
+          }
+
+          // Description is required; nothing happens until it's filled in.
+          if (!desc.value.trim()) { desc.focus(); return; }
+
+          // Start the simulated job: the loader appears only now.
+          prog.hidden = false;
+          confirm.disabled = true;
+          confirm.textContent = 'Generating…';
+
+          setTimeout(() => {
+            prog.hidden = true;
+            confirm.disabled = false;
+            enterEnhance();
+          }, 3000);
+
+        } else if (route === 'upload') {
+          // An uploaded file resolves to the same demo image -- the file a
+          // rep picks on a call can't be rendered, and a fixed outcome is
+          // the point. Was a flat colour swatch; now shows real media.
+          applyMedia({ ...GENERATED_IMAGE });
+
+        } else {
+          if (!stockPick) return;                            // nothing selected
+          applyMedia({
+            name: stockPick.name,
+            swatch: 'linear-gradient(135deg, hsl(' + stockPick.hue + ' 42% 62%), hsl(' +
+                    stockPick.hue + ' 38% 44%))'
+          });
+        }
+      });
+
+      /* ---- Open / close ---- */
+      // Show the Preview and Enhance step. The route tabs and per-route
+      // panes give way to it; the footer swaps to Back / Add to Scene.
+      function enterEnhance() {
+        generated = true;
+        document.querySelector('.modal-body').classList.add('is-enhancing');
+        ['generate', 'upload', 'stock'].forEach(r => {
+          document.getElementById('mpane-' + r).classList.remove('active');
+        });
+        document.getElementById('mpane-enhance').classList.add('active');
+
+        titleEl.textContent = 'Preview and Enhance';
+        subEl.textContent = 'Leverage AI to enhance your media';
+        backBtn.hidden = false;
+        confirm.textContent = 'Add to Scene';
+      }
+
+      // Return the generate pane to its initial state: no loader, no
+      // enhance step, footer back to Cancel / Generate.
+      function resetGenerate() {
+        generated = false;
+        const prog = document.getElementById('genProgress');
+        if (prog) prog.hidden = true;
+        document.querySelector('.modal-body').classList.remove('is-enhancing');
+        document.getElementById('mpane-enhance').classList.remove('active');
+        const eDesc = document.getElementById('enhanceDesc');
+        if (eDesc) eDesc.value = '';
+        backBtn.hidden = true;
+        titleEl.textContent = sceneMedia ? 'Replace Media' : 'Add Media';
+        subEl.textContent = 'Upload your own media or generate with AI';
+        confirm.disabled = false;
+      }
+
+      function openMedia() {
+        titleEl.textContent = sceneMedia ? 'Replace Media' : 'Add Media';
+        resetGenerate();
+        document.getElementById('genDesc').value = '';
+        setRoute('generate');
+        modal.classList.add('open');
+      }
+      function closeMedia() { modal.classList.remove('open'); }
+
+      // Every Add Media affordance opens the same modal.
+      document.getElementById('btnAddMedia').addEventListener('click', openMedia);
+      document.addEventListener('click', (e) => {
+        const trigger = e.target.closest('.scene-media-add');
+        if (!trigger) return;
+        // One of the triggers is an <a href="#"> in the empty state.
+        e.preventDefault();
+        openMedia();
+      });
+
+      // Back leaves the enhance step and restores the generate form.
+      backBtn.addEventListener('click', () => {
+        resetGenerate();
+        setRoute('generate');
+      });
+
+      // "Generate Changes" is present for the click path but does not
+      // simulate a re-generation — no change workflow was requested.
+      document.getElementById('enhanceGenerate').addEventListener('click', (e) => {
+        e.preventDefault();
+      });
+
+      document.getElementById('mediaCancel').addEventListener('click', closeMedia);
+      document.getElementById('mediaClose').addEventListener('click', closeMedia);
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeMedia(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) closeMedia();
+      });
+    })();
+
+    /* ============================================================
+       RICH TEXT EDITOR WIRING
+       ============================================================ */
+    (function () {
+      const modal  = document.getElementById('textModal');
+      const body   = document.getElementById('rteBody');
+      const toolbar= document.querySelector('.rte-toolbar');
+
+      // Format commands. execCommand is deprecated but universally
+      // supported and library-free — appropriate for a prototype.
+      toolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.rte-btn');
+        if (!btn) return;
+        e.preventDefault();
+        body.focus();
+        document.execCommand(btn.dataset.cmd, false, null);
+        syncToolbarState();
+      });
+
+      // Reflect the caret's current formatting in the toolbar.
+      function syncToolbarState() {
+        toolbar.querySelectorAll('.rte-btn').forEach(btn => {
+          let on = false;
+          try { on = document.queryCommandState(btn.dataset.cmd); } catch (err) {}
+          btn.classList.toggle('is-on', !!on);
+        });
+      }
+      body.addEventListener('keyup', syncToolbarState);
+      body.addEventListener('mouseup', syncToolbarState);
+
+      document.getElementById('rteSave').addEventListener('click', () => {
+        if (editorTarget) {
+          const { tplKey, field } = editorTarget;
+          tplState[tplKey] = tplState[tplKey] || {};
+          // Treat a whitespace-only body as empty so the canvas falls back
+          // to its placeholder rather than showing a blank band.
+          const html = body.innerHTML.trim();
+          tplState[tplKey][field.key] = body.textContent.trim() ? html : '';
+          drawTemplateGraphic();
+        }
+        closeTextEditor();
+      });
+
+      document.getElementById('rteCancel').addEventListener('click', closeTextEditor);
+
+      // Click the backdrop or press Escape to dismiss.
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeTextEditor(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) closeTextEditor();
+      });
+    })();
+  </script>
+</body>
+</html>
