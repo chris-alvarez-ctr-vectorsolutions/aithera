@@ -914,9 +914,12 @@
       '<td><button class="kx-chevron" data-toggle="' + KX.attr(task.id) + '" aria-expanded="' + open + '" ' +
       'aria-label="' + (open ? 'Collapse details' : 'Expand details') + '">' + micon('chevron_right', { size: 20 }) + '</button></td>' +
       '<td><span class="kx-product">' + esc(KX.srcName(task.source)) + '</span></td>' +
-      '<td><div class="kx-task-cell">' + KX.typeIcon(task) +
+      // The type reads as a named badge rather than an icon. The separate
+      // .kx-task-type line the comfortable density used to carry is gone with it
+      // — it would only repeat the badge. (Adopted after the V1/V2 comparison;
+      // the icon variant is in git history at ver1 before 2026-08-31.)
+      '<td><div class="kx-task-cell">' + KX.typeBadge(task) +
       '<div style="min-width:0;flex:1"><div class="kx-task-title"><span>' + esc(task.title) + '</span></div>' +
-      (!dense ? '<div class="kx-task-type">' + esc(task.typeLabel) + '</div>' : '') +
       '</div></div></td>' +
       '<td>' + assigneeCell(task, dense) + '</td>' +
       '<td>' + KX.dueCell(task, dense) + '</td>' +
