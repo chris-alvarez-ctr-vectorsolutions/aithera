@@ -37,7 +37,7 @@
     { id: 'loto', name: 'Lockout/Tagout Essentials', icon: 'fa-bolt', iconCls: 'ci-violet',
       ai: false, due: 'Oct 20', assigned: 96, completed: 12, demonstrated: null,
       recomposed: null, growth: null, topGap: null,
-      gapNote: 'standard course — completion only', live: false }
+      gapNote: 'Enable AI guidance to add construct-level evidence', live: false }
   ];
 
   // --- Learners ---------------------------------------------------------------
