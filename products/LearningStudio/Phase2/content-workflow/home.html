@@ -178,8 +178,20 @@
 </head>
 <body>
 
-  <!-- Top navigation -->
-  <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+  <!--
+    Top navigation.
+    The three right-side menus each live in their own named topnav slot. These
+    slots always render a blank placeholder div if left empty, so they're filled
+    here rather than omitted — an empty slot leaves a phantom gap in the header.
+  -->
+  <vwc-topnav id="topnav" sidenav-id="sidenav">
+    <vwc-app-switcher-menu slot="app-switcher" id="appSwitcher"></vwc-app-switcher-menu>
+    <vwc-notifications-menu slot="notifications-menu" id="notifMenu"></vwc-notifications-menu>
+    <vwc-user-menu slot="user-menu" id="userMenu"></vwc-user-menu>
+  </vwc-topnav>
+
+  <!-- Lightweight confirmation toast for menu actions (profile, logout, etc.) -->
+  <vaadin-notification id="toast" position="bottom-start" duration="2600"></vaadin-notification>
 
   <div class="app-body">
     <!-- Sidenav -->
@@ -360,12 +372,14 @@
     /* ============================================================
        SHELL — topnav + sidenav (Content Portal parity)
        ============================================================ */
+    // Content Portal path prefix — shared by the sidenav and the account menu.
+    const CP = '../../Content Portal/mockups/';
+
     customElements.whenDefined('vwc-sidenav').then(() => {
       const topnav = document.getElementById('topnav');
-      topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+      topnav.logo ={ src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
 
       const sidenav = document.getElementById('sidenav');
-      const CP = '../../Content Portal/mockups/';
       sidenav.items = [
         { type: 'link', id: 'home',     text: 'Home',            href: 'home.html',                icon: { type: 'svg', path: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z' } },
         { type: 'link', id: 'library',  text: 'Content Library', href: CP + 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
@@ -374,6 +388,274 @@
         { type: 'link', id: 'assets',   text: 'Assets',          href: CP + 'global-assets.html',   icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
         { type: 'link', id: 'settings', text: 'Settings',        href: CP + 'settings.html',        icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
       ];
+    });
+
+    /* ============================================================
+       TOPNAV RIGHT SIDE — app switcher, notifications, account menu
+       ============================================================ */
+
+    // Small helper so every menu action gives visible feedback in the prototype.
+    const toast = document.getElementById('toast');
+    function say(message) {
+      toast.renderer = (root) => { root.textContent = message; };
+      toast.opened = true;
+    }
+
+    /* ---- App switcher (no-op: opens the menu, products don't navigate) ---- */
+    customElements.whenDefined('vwc-app-switcher-menu').then(() => {
+      const appSwitcher = document.getElementById('appSwitcher');
+      // `href` is deliberately omitted so each item renders as a button rather
+      // than a link — the switcher is presentational only in this prototype.
+      appSwitcher.products = [
+        { id: 'ls',        text: 'LearningStudio' },
+        { id: 'lms',       text: 'Vector LMS' },
+        { id: 'evals',     text: 'Evaluations' },
+        { id: 'scheduling',text: 'Scheduling' }
+      ];
+      appSwitcher.unlicensedProducts = [
+        { id: 'ehs',      text: 'EHS Management' },
+        { id: 'pathways', text: 'Pathways' }
+      ];
+    });
+
+    /* ---- Notifications menu ----
+       Notification shape per the library: { id, title, subtitle, body, sent,
+       read, href, icon, iconColor, iconBackgroundColor, buttons }.
+       `sent` is a Date/ISO string — the component renders it as a relative
+       "2h ago" string itself, so times are stored as real offsets from now.
+    */
+    const minsAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+
+    // Material icon paths (the library's icons are MDI paths, not Font Awesome).
+    const ICON_COMMENT = 'M9,22A1,1 0 0,1 8,21V18H4A2,2 0 0,1 2,16V4C2,2.89 2.9,2 4,2H20A2,2 0 0,1 22,4V16A2,2 0 0,1 20,18H13.9L10.2,21.71C10,21.9 9.75,22 9.5,22V22H9Z';
+    // Stacked/multi bubbles — signals a grouped roll-up rather than one comment.
+    const ICON_COMMENTS = 'M12,23A1,1 0 0,1 11,22V19H7A2,2 0 0,1 5,17V7A2,2 0 0,1 7,5H21A2,2 0 0,1 23,7V17A2,2 0 0,1 21,19H16.9L13.2,22.71C13,22.9 12.75,23 12.5,23H12M3,15H1V3A2,2 0 0,1 3,1H19V3H3V15Z';
+    const ICON_CHECK   = 'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z';
+    const ICON_ALERT   = 'M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z';
+    const ICON_SPARKLE = 'M19,1L17.74,3.75L15,5L17.74,6.26L19,9L20.25,6.26L23,5L20.25,3.75M9,4L6.5,9.5L1,12L6.5,14.5L9,20L11.5,14.5L17,12L11.5,9.5M19,15L17.74,17.74L15,19L17.74,20.25L19,23L20.25,20.25L23,19L20.25,17.74';
+
+    /* ---- Rolled-up comment notifications ----
+       While an author is offline, a single course can accumulate dozens of
+       comments. Rather than emit one notification per comment (50+ rows on
+       return), the backend groups them per course into ONE notification that
+       summarizes the volume and the distinct commenters.
+
+       This is intentionally one notification per COURSE, not per comment, so
+       the unread badge counts "courses needing attention" rather than raw
+       comment volume — which is the whole point of the roll-up.
+
+       `courseId` / `commentCount` are prototype-only fields carried alongside
+       the library's notification shape so the action handler knows which course
+       to open. The library ignores unknown keys.
+    */
+    function commentRollup({ id, courseId, courseName, commentCount, people, sent, read }) {
+      // "Priya, Marcus and 2 others" — keeps the body readable regardless of count.
+      const others = people.length - 2;
+      const who = people.length === 1 ? people[0]
+        : people.length === 2 ? `${people[0]} and ${people[1]}`
+        : `${people[0]}, ${people[1]} and ${others} other${others === 1 ? '' : 's'}`;
+
+      return {
+        id, courseId, commentCount,
+        title: `<strong>${commentCount} new comments</strong> on ${courseName}`,
+        subtitle: `${who} · while you were away`,
+        body: `${commentCount} comments across the course are waiting on you. Open the course to review and resolve them in one pass.`,
+        sent, read,
+        icon: { type: 'svg', path: ICON_COMMENTS },
+        iconColor: '#fff', iconBackgroundColor: '#db2777',
+        // Dead-end for now — the resolve-comments editor session isn't built yet.
+        buttons: [{ id: 'resolve-comments', text: 'Review comments', theme: 'primary' }]
+      };
+    }
+
+    let NOTIFICATIONS = [
+      commentRollup({
+        id: 'r1', courseId: '123',
+        courseName: 'Chemical Hazard Communication (HazCom)',
+        commentCount: 10,
+        people: ['Priya Raman', 'Marcus Webb', 'Dana Cole', 'Alex Kim'],
+        sent: minsAgo(38), read: false
+      }),
+      commentRollup({
+        id: 'r2', courseId: '451',
+        courseName: 'Fall Protection — Refresher',
+        commentCount: 6,
+        people: ['Sofia Nunez', 'Marcus Webb'],
+        sent: minsAgo(60 * 6), read: false
+      }),
+      {
+        id: 'n2',
+        title: 'AI draft is ready to review',
+        subtitle: 'Fire Safety — Custom (Acme Corp)',
+        body: 'Your generated storyboard finished building. 6 scenes, 3 decision points.',
+        sent: minsAgo(95), read: false,
+        icon: { type: 'svg', path: ICON_SPARKLE },
+        iconColor: '#fff', iconBackgroundColor: '#7c3aed',
+        buttons: [{ id: 'open', text: 'Open draft', theme: 'primary' }]
+      },
+      // A single comment does NOT roll up — it stays a normal notification with
+      // the comment text inline. Roll-up only kicks in at 2+ on one course.
+      {
+        id: 'n5',
+        title: '<strong>Dana Cole</strong> commented on your scenario',
+        subtitle: 'Confined Space Entry',
+        body: 'Can we add a consequence beat before the debrief? The current cut feels abrupt.',
+        sent: minsAgo(60 * 9), read: false,
+        icon: { type: 'svg', path: ICON_COMMENT },
+        iconColor: '#fff', iconBackgroundColor: '#db2777',
+        buttons: [{ id: 'reply', text: 'Reply', theme: 'primary' }]
+      },
+      {
+        id: 'n3',
+        title: 'Review requested',
+        subtitle: 'Lockout/Tagout Safety — Fundamentals',
+        body: 'Marcus Webb assigned you as reviewer. Due Friday.',
+        sent: minsAgo(60 * 20), read: false,
+        icon: { type: 'svg', path: ICON_ALERT },
+        iconColor: '#fff', iconBackgroundColor: '#e0782e'
+      },
+      {
+        id: 'n4',
+        title: 'Course published',
+        subtitle: 'Bloodborne Pathogen Control',
+        body: 'Your course is now live and assignable to learners.',
+        sent: minsAgo(60 * 52), read: true,
+        icon: { type: 'svg', path: ICON_CHECK },
+        iconColor: '#fff', iconBackgroundColor: '#158444'
+      }
+    ];
+
+    /* ---- Hide "mark as read" on already-read notifications ----
+       The notification component hardcodes both hover buttons (dismiss +
+       mark-read) into its shadow DOM with no prop to hide either, so page CSS
+       can't reach them. Instead the rule is appended to the component class's
+       own adopted stylesheet, which every instance shares — including the ones
+       rebuilt each time the tabs repaint.
+
+       The host carries an `unread` attribute only while unread, so
+       :host(:not([unread])) targets exactly the read rows. Dismiss (the first
+       hover button) is deliberately left alone.
+    */
+    customElements.whenDefined('vwc-notifications-menu-notification').then(() => {
+      const Notification = customElements.get('vwc-notifications-menu-notification');
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(`
+        :host(:not([unread])) .vwc-notifications-menu-notification--hover-button[aria-label^="mark as"] {
+          display: none;
+        }
+      `);
+      Notification.elementStyles = [...Notification.elementStyles, sheet];
+    });
+
+    customElements.whenDefined('vwc-notifications-menu').then(() => {
+      const notifMenu = document.getElementById('notifMenu');
+
+      // Show the number inside the badge rather than a bare dot. This MUST be
+      // set as a JS property — the matching attribute is all-lowercase
+      // (showunreadnotificationscount), so a dashed attribute silently no-ops.
+      notifMenu.showUnreadNotificationsCount = true;
+
+      // Tabs each carry their OWN notifications array — the menu derives its
+      // unread badge from every tab's contents combined.
+      function paintNotifications() {
+        notifMenu.notificationTabs = [
+          { id: 'all',    text: 'All',    notifications: NOTIFICATIONS },
+          { id: 'unread', text: 'Unread', notifications: NOTIFICATIONS.filter(n => !n.read) }
+        ];
+      }
+      paintNotifications();
+
+      /* Set read state by REPLACING the notification object rather than
+         mutating it. The row component only recomputes its `unread` host
+         attribute inside willUpdate(), which Lit skips when the `notification`
+         property still holds the same object reference — so an in-place
+         `n.read = true` leaves the row visually unread (stale attribute, stale
+         "mark as read" aria-label). A fresh object forces the re-render. */
+      function setRead(id, read) {
+        let changed = null;
+        NOTIFICATIONS = NOTIFICATIONS.map(n =>
+          n.id === id ? (changed = { ...n, read }) : n);
+        if (changed) paintNotifications();
+        return changed;
+      }
+
+      // Mark read / unread — badge recalculates automatically.
+      notifMenu.addEventListener('toggle-read', (e) => {
+        const current = NOTIFICATIONS.find(n => n.id === e.detail.notification.id);
+        if (!current) return;
+        const updated = setRead(current.id, !current.read);
+        say(updated.read ? 'Marked as read' : 'Marked as unread');
+      });
+
+      // Dismiss a single notification.
+      notifMenu.addEventListener('dismiss', (e) => {
+        NOTIFICATIONS = NOTIFICATIONS.filter(n => n.id !== e.detail.notification.id);
+        paintNotifications();
+        say('Notification dismissed');
+      });
+
+      // "Clear All" in the menu header.
+      notifMenu.addEventListener('clear-all', () => {
+        NOTIFICATIONS = [];
+        paintNotifications();
+        say('All notifications cleared');
+      });
+
+      // Clicking a notification's action button.
+      notifMenu.addEventListener('button-click', (e) => {
+        const { button, notification } = e.detail;
+        const target = setRead(notification.id, true) ||
+                       NOTIFICATIONS.find(n => n.id === notification.id);
+        notifMenu.opened = false;
+
+        // DEAD END (intentional): opening a course into a comment-resolution
+        // editor session is not built yet. When it exists, this should route to
+        // that session scoped to the course — e.g.
+        //   window.location = `builder.html?course=${target.courseId}&mode=comments`
+        // and the roll-up should clear once its comments are resolved.
+        if (button.id === 'resolve-comments') {
+          say(`Opening course ${target.courseId} to resolve ${target.commentCount} comments — not built yet`);
+          return;
+        }
+
+        say(`${button.text} — ${notification.subtitle}`);
+      });
+    });
+
+    /* ---- User / account menu ----
+       `user` takes firstName + lastName + email; the component builds the
+       avatar initials from those itself. Custom items sit between My Profile
+       and Logout.
+    */
+    customElements.whenDefined('vwc-user-menu').then(() => {
+      const userMenu = document.getElementById('userMenu');
+
+      userMenu.user = {
+        firstName: 'Jordan',
+        lastName: 'Reyes',
+        email: 'jordan.reyes@vectorsolutions.com'
+      };
+
+      // NOTE: `helpToggle` is deliberately NOT used here. In core v1.19.0 the
+      // user-menu popover memoizes its content against only
+      // [user, menuItems, languageSelector, accounts, selectedAccountId], so
+      // toggling help after upgrade renders a zero-height ghost row instead of
+      // a real item.
+      userMenu.menuItems = [
+        { id: 'settings',    text: 'Settings',        icon: { type: 'svg', path: 'M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z' } },
+        { id: 'preferences', text: 'Content preferences', icon: { type: 'svg', path: 'M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z' } },
+        { id: 'activity',    text: 'My activity',     icon: { type: 'svg', path: 'M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3M12,8V13L16.28,15.54L17,14.33L13.5,12.25V8H12Z' } }
+      ];
+
+      // My Profile is on by default (myProfileButtonToggle), so it needs no
+      // opt-in — only its click handler.
+      userMenu.addEventListener('profile-click', () => say('Opening your profile…'));
+      userMenu.addEventListener('logout-click',  () => say('Signing out…'));
+      userMenu.addEventListener('custom-item-click', (e) => {
+        const item = e.detail;
+        if (item.id === 'settings') { window.location = CP + 'settings.html'; return; }
+        say(`${item.text} — not built in this prototype`);
+      });
     });
   </script>
 </body>
