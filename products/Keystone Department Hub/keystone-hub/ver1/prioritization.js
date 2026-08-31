@@ -44,8 +44,12 @@
     // Priority bands — named, admin-editable, 2–5 buckets. Highest cutoff
     // first; the lowest bucket is the floor (min 0).
     bandList: KX.DEFAULT_BAND_LIST.map(function (b) { return Object.assign({}, b); }),
+    // The registry carries free-form 0–1 importances (0.95, 0.85, 0.75 …) from
+    // when the slider was 0–100. Snap each to the nearest of the five stops so
+    // two types displayed at the same level always score identically.
+    // (impLevel / impStore are function declarations — hoisted, safe here.)
     importance: Object.keys(K.TASK_TYPES).reduce(function (acc, k) {
-      acc[k] = K.TASK_TYPES[k].importance; return acc;
+      acc[k] = impStore(impLevel(K.TASK_TYPES[k].importance)); return acc;
     }, {}),
     timeByType: {},
     slaByType: {}
@@ -57,6 +61,12 @@
 
   var clone = function (o) { return JSON.parse(JSON.stringify(o)); };
 
+  // Quantize a whole importance map onto the 1–5 stops.
+  function snapImportance(map) {
+    Object.keys(map).forEach(function (k) { map[k] = impStore(impLevel(map[k])); });
+    return map;
+  }
+
   function loadConfig() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -66,7 +76,7 @@
         weights:    Object.assign({}, DEFAULT_CONFIG.weights,    p.weights || {}),
         timeTiers:  Object.assign({}, DEFAULT_CONFIG.timeTiers,  p.timeTiers || {}),
         sla:        Object.assign({}, DEFAULT_CONFIG.sla,        p.sla || {}),
-        importance: Object.assign({}, DEFAULT_CONFIG.importance, p.importance || {}),
+        importance: snapImportance(Object.assign({}, DEFAULT_CONFIG.importance, p.importance || {})),
         bandList:   (Array.isArray(p.bandList) && p.bandList.length) ? p.bandList : clone(DEFAULT_CONFIG.bandList),
         timeByType: Object.assign({}, p.timeByType || {}),
         slaByType:  Object.assign({}, p.slaByType || {})
@@ -280,6 +290,56 @@
   }
 
   /* ---------------------------------------------------------------------
+     IMPORTANCE SCALE — 1–5 in the UI, 0–1 in the config
+     ---------------------------------------------------------------------
+     User testing found the old 0–100 importance slider carried too much
+     cognitive load: 13 unanchored sliders, no guidance on what 70 meant or
+     how two types compared. The admin now picks one of five *named* levels.
+
+     Nothing changes below the surface. The level maps linearly onto the
+     value the scoring formula has always consumed:
+
+       level 1 → 0.2   level 2 → 0.4   level 3 → 0.6
+       level 4 → 0.8   level 5 → 1.0
+
+     which is the back end's 1–100 importance scale at 20-point steps
+     (1→20, 2→40, 3→60, 4→80, 5→100). The back end already supports the full
+     1–100 range — this is a front-end simplification only, so a value saved
+     by the old UI still loads: impLevel() rounds it to the nearest stop. */
+  var IMP_LEVELS = ['Minimal', 'Low', 'Moderate', 'High', 'Critical'];
+
+  // 0–1 stored value → 1–5 level shown in the UI.
+  function impLevel(v01) {
+    return Math.max(1, Math.min(5, Math.round((v01 || 0) * 5)));
+  }
+  // 1–5 level → the 0–1 value the scoring formula uses (×100 on the back end).
+  function impStore(level) {
+    return Math.max(1, Math.min(5, Math.round(level))) / 5;
+  }
+  function impName(level) { return IMP_LEVELS[Math.max(1, Math.min(5, level)) - 1]; }
+
+  // The five digits under a slider double as its tick marks and its labels.
+  function impTicks(level) {
+    var out = '';
+    for (var i = 1; i <= 5; i++) {
+      out += '<span' + (i === level ? ' class="on"' : '') + '>' + i + '</span>';
+    }
+    return out;
+  }
+
+  function impReadoutHtml(level) {
+    return '<b>' + level + '</b><span>' + esc(impName(level)) + '</span>';
+  }
+
+  // Stated once at the top of the card so the five stops are never a mystery.
+  function scaleKeyHtml() {
+    return '<div class="pf-scale-key"><span class="k-lbl">Importance scale</span>' +
+      IMP_LEVELS.map(function (name, i) {
+        return '<span class="k-item"><i>' + (i + 1) + '</i>' + esc(name) + '</span>';
+      }).join('') + '</div>';
+  }
+
+  /* ---------------------------------------------------------------------
      CARD 1 — Task-type importance  (always visible)
      --------------------------------------------------------------------- */
   function importanceCard() {
@@ -296,7 +356,7 @@
         var key = row.key, def = row.def;
         var hasOverride = !!((cfg.timeByType && cfg.timeByType[key]) || (cfg.slaByType && cfg.slaByType[key]));
         var isOpen = openType === key;
-        var impVal = Math.round((cfg.importance[key] != null ? cfg.importance[key] : def.importance) * 100);
+        var impLvl = impLevel(cfg.importance[key] != null ? cfg.importance[key] : def.importance);
 
         var override = '';
         if (hasOverride && isOpen) {
@@ -319,9 +379,14 @@
           '<span class="pf-imp-icon" style="background:' + src.bg + '">' +
           micon(def.icon, { size: 19, color: src.color }) + '</span>' +
           '<div class="pf-imp-name" title="' + KX.attr(def.label) + '">' + esc(def.label) + '</div>' +
-          '<input type="range" class="pf-range" min="0" max="100" step="1" value="' + impVal +
-          '" data-imp="' + KX.attr(key) + '" aria-label="' + KX.attr(def.label + ' importance') + '">' +
-          '<div class="pf-imp-val" data-imp-val="' + KX.attr(key) + '">' + impVal + '</div>' +
+          '<div class="pf-imp-scale">' +
+          '<input type="range" class="pf-range" min="1" max="5" step="1" value="' + impLvl +
+          '" data-imp="' + KX.attr(key) + '" aria-label="' + KX.attr(def.label + ' importance') +
+          '" aria-valuetext="' + KX.attr(impLvl + ' — ' + impName(impLvl)) + '">' +
+          '<div class="pf-ticks" data-imp-ticks="' + KX.attr(key) + '" aria-hidden="true">' +
+          impTicks(impLvl) + '</div></div>' +
+          '<div class="pf-imp-val" data-imp-val="' + KX.attr(key) + '">' +
+          impReadoutHtml(impLvl) + '</div>' +
           '<button class="pf-imp-timing' + (hasOverride ? ' has-override' : '') + '"' +
           ' data-timing="' + KX.attr(key) + '" data-has="' + (hasOverride ? '1' : '0') + '"' +
           ' title="' + KX.attr(hasOverride
@@ -342,7 +407,7 @@
         'Your Readiness Hub task list shows every item assigned to you or in progress. Prioritization ' +
         'settings let your department control how those items are ranked, so the things that are most ' +
         'important to your department surface first.') +
-      sections + '</div>';
+      scaleKeyHtml() + sections + '</div>';
   }
 
   /* ---------------------------------------------------------------------
@@ -481,7 +546,7 @@
       var score = Math.round(cfg.weights.time * Tref + cfg.weights.importance * imp01 + cfg.weights.effort * Eref);
       return {
         key: key, def: def, src: K.SOURCES[def.source],
-        imp: Math.round(imp01 * 100), score: score, count: counts[key] || 0
+        imp: impLevel(imp01), score: score, count: counts[key] || 0
       };
     }).sort(function (a, b) { return b.score - a.score; });
   }
@@ -503,7 +568,8 @@
           // sort order of this list, it is just never shown.
           '<div class="pf-preview-score" style="background:' + tone.bg + ';color:' + tone.fg + '">' +
           esc(tone.label) + '</div>' +
-          '<div class="pf-preview-meta">importance ' + r.imp + ' · ' + r.count + ' active</div>' +
+          '<div class="pf-preview-meta">importance ' + r.imp + ' ' + esc(impName(r.imp)) +
+          ' · ' + r.count + ' active</div>' +
           '</div>';
       }).join('') +
       '<div class="pf-preview-foot"><b>Type configuration</b><br>' +
@@ -811,12 +877,15 @@
       var t = e.target;
       if (t.matches('input[data-imp]')) {
         var key = t.getAttribute('data-imp');
-        var pct = +t.value;
-        // Importance is presented 0–100 but stored 0–1 so the scoring formula
-        // (time and effort are also 0–1) stays consistent.
-        cfg.importance[key] = Math.max(0, Math.min(1, pct / 100));
+        var lvl = Math.max(1, Math.min(5, Math.round(+t.value)));
+        // Importance is picked as a named 1–5 level but stored 0–1, so the
+        // scoring formula (time and effort are also 0–1) stays consistent.
+        cfg.importance[key] = impStore(lvl);
+        t.setAttribute('aria-valuetext', lvl + ' — ' + impName(lvl));
         var out = document.querySelector('[data-imp-val="' + key + '"]');
-        if (out) out.textContent = pct;
+        if (out) out.innerHTML = impReadoutHtml(lvl);
+        var ticks = document.querySelector('[data-imp-ticks="' + key + '"]');
+        if (ticks) ticks.innerHTML = impTicks(lvl);
         refreshPreview();
         refreshToolbar();
         return;
