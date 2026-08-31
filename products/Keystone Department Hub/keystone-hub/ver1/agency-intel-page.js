@@ -190,7 +190,7 @@
   // while groups resolve to people, so summing the two would double-count
   // anyone who is both (a Captain who is also in the HazMat group).
   function reachOf(d) {
-    var a = d.assignedTo;
+    var a = CP.audienceOf(d);
     if (!a) return 0;
     if (window.AGENCY_INTEL_ROSTER) return AGENCY_INTEL_ROSTER.audienceCount(a);
     var n = (a.individuals || []).length;
@@ -233,7 +233,9 @@
   }
 
   function audienceCell(d) {
-    var a = d.assignedTo;
+    // Gated: job titles are v2 only, so with the flag off this cell shows the
+    // groups and named people and never the title chip. See audienceOf().
+    var a = CP.audienceOf(d);
     var titles = (a && a.titles) || [];
     var inds = (a && a.individuals) || [];
     var groups = (a && a.groups) || [];
@@ -278,26 +280,28 @@
      HOME — DASHBOARDS TAB
      ===================================================================== */
 
-  // 'scheduled' is a report-delivery state, which is v2 — see deliveryOf() in
-  // agency-intel-page-data.js. With the flag off nothing can hold that status,
-  // so the chip would only ever read 0; drop it from the segmented control.
+  // 'scheduled' (report delivery) and 'private' (published to yourself only) are
+  // both v2 — see deliveryOf() and privateEnabled() in agency-intel-page-data.js.
+  // With the flag off nothing can hold either status, so those chips would only
+  // ever read 0; each names its own gate and drops out of the segmented control.
   var ALL_FILTERS = [
     { id: 'all', label: 'All', fg: 'var(--ink-900)', bg: 'var(--surface-1)' },
     { id: 'draft', label: 'Draft', fg: 'var(--amber-600)', bg: 'var(--amber-50)' },
-    { id: 'private', label: 'Private', fg: 'var(--ink-700)', bg: 'var(--surface-3)' },
-    { id: 'scheduled', label: 'Scheduled', futureOnly: true, fg: 'var(--lumo-primary-text-color)', bg: 'var(--lumo-primary-color-10pct)' },
+    { id: 'private', label: 'Private', gate: 'privateEnabled', fg: 'var(--ink-700)', bg: 'var(--surface-3)' },
+    { id: 'scheduled', label: 'Scheduled', gate: 'deliveryEnabled', fg: 'var(--lumo-primary-text-color)', bg: 'var(--lumo-primary-color-10pct)' },
     { id: 'published', label: 'Published', fg: 'var(--teal-600)', bg: 'var(--teal-50)' }
   ];
   function filters() {
-    var on = CP.deliveryEnabled();
-    return ALL_FILTERS.filter(function (f) { return on || !f.futureOnly; });
+    return ALL_FILTERS.filter(function (f) { return !f.gate || CP[f.gate](); });
   }
 
   function filteredDashboards() {
     var list = state.dashboards;
-    // If the flag goes off while 'Scheduled' is the active filter, the chip is
-    // gone from under it — fall back to All rather than showing an empty table.
-    if (state.filter === 'scheduled' && !CP.deliveryEnabled()) state.filter = 'all';
+    // If the flag goes off while a gated chip ('Scheduled' or 'Private') is the
+    // active filter, the chip is gone from under it — fall back to All rather
+    // than showing an empty table.
+    var live = filters().some(function (f) { return f.id === state.filter; });
+    if (!live) state.filter = 'all';
     if (state.filter !== 'all') {
       list = list.filter(function (d) { return CP.statusOf(d) === state.filter; });
     }
@@ -568,20 +572,39 @@
         '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">Grant a job title or an individual to start.</div></div>') +
       '</div>';
 
+    // A seeded entry is { id, personId, question, ts, outcome, sources,
+    // deniedSources, flagged, channel } — see makeEntry() in
+    // agency-intel-ai-data.js. The asker's name, job title and the reason a
+    // question was declined are all DERIVED here rather than stored on the
+    // entry, so the log can't drift out of sync with the roster or the job
+    // titles' entitlements.
     var logRows = state.aiLog.slice(0, 40).map(function (e) {
+      var person = (CP.INDIVIDUALS || []).find(function (p) { return p.id === e.personId; });
+      var title = person ? ((CP.titleById(person.titleId) || {}).label || person.rank || '') : '';
+      // fmtTs returns { rel, time, full } — the row wears the relative stamp and
+      // keeps the full date on hover.
+      var ts = e.ts ? AI.fmtTs(e.ts) : null;
+      // Name the apps the asker couldn't reach: that specific gap is the whole
+      // point of the log, and it's what the Review access button acts on.
+      var missing = (e.deniedSources || []).map(function (s) {
+        return (K.SOURCES[s] || {}).name || s;
+      });
+      var reason = missing.length
+        ? 'No access to ' + missing.join(' and ') + '.'
+        : 'Outside this person\'s data permissions.';
       return '<div class="cp-log-row">' +
         '<div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">' +
-        '<span style="font-size:12.5px;font-weight:600;color:var(--ink-900)">' + esc(e.who || 'Unknown') + '</span>' +
-        '<span style="font-size:11px;color:var(--ink-400)">' + esc(e.title || '') + '</span>' +
+        '<span style="font-size:12.5px;font-weight:600;color:var(--ink-900)">' +
+        esc(person ? person.name : 'Unknown') + '</span>' +
+        '<span style="font-size:11px;color:var(--ink-400)">' + esc(title) + '</span>' +
         '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px">' +
         outcomeBadge(e.outcome) +
-        '<span style="font-size:11px;color:var(--ink-400);white-space:nowrap;font-variant-numeric:tabular-nums">' +
-        esc(AI.fmtTs ? AI.fmtTs(e.at) : '') + '</span></span></div>' +
-        '<div style="font-size:12.5px;color:var(--ink-700);line-height:1.45">' + esc(e.q || '') + '</div>' +
+        '<span style="font-size:11px;color:var(--ink-400);white-space:nowrap;font-variant-numeric:tabular-nums"' +
+        (ts ? ' title="' + KX.attr(ts.full) + '"' : '') + '>' + esc(ts ? ts.rel : '') + '</span></span></div>' +
+        '<div style="font-size:12.5px;color:var(--ink-700);line-height:1.45">' + esc(e.question || '') + '</div>' +
         (e.outcome === 'denied'
           ? '<div style="display:flex;align-items:center;gap:8px;margin-top:7px">' +
-            '<span style="font-size:11.5px;color:var(--lumo-error-text-color)">' +
-            esc(e.reason || 'Outside this person\'s data permissions.') + '</span>' +
+            '<span style="font-size:11.5px;color:var(--lumo-error-text-color)">' + esc(reason) + '</span>' +
             '<vaadin-button theme="tertiary small" data-ai-fix="' + KX.attr(e.id) + '" ' +
             'style="margin-left:auto">Review access</vaadin-button></div>'
           : '') +
@@ -638,6 +661,11 @@
       .concat([{ id: 'ai', label: 'AI access', icon: 'auto_awesome' }]);
 
     return '<div class="cp-page">' +
+      // Same back-to-hub pill the Prioritization settings page uses. Home only —
+      // the build view has its own "Agency Intelligence" back button.
+      '<nav class="cp-topbar" aria-label="Breadcrumb">' +
+      '<a class="cp-backlink" href="index.html">' + micon('arrow_back', { size: 18 }) + 'Back to Hub</a>' +
+      '</nav>' +
       '<div class="cp-page-head"><div style="flex:1;min-width:0">' +
       // Mark scales with the page title, now a 40px H1.
       '<div style="display:flex;align-items:center;gap:12px">' + agencyIntelMark(40) + '<h1>Agency Intelligence</h1></div>' +
@@ -1337,12 +1365,16 @@
         assignDash(d.id, out.audience, out.delivery);
         var live = !!out.audience;
         KX.pushToast({
-          title: live ? 'Dashboard published' : out.delivery ? 'Report scheduled' : 'Set to private',
+          // The no-audience outcome is 'private' only in v2; with the flag off
+          // the dashboard simply stays a draft, so the toast says that instead.
+          title: live ? 'Dashboard published' : out.delivery ? 'Report scheduled'
+            : CP.privateEnabled() ? 'Set to private' : 'Saved as a draft',
           body: live
             ? 'Live for ' + out.reach + ' ' + (out.reach === 1 ? 'person' : 'people') + '.'
             : out.delivery
               ? CP.cadenceMeta(out.delivery.cadence).label + ' · ' + CP.formatMeta(out.delivery.format).label
-              : 'Only you can see this now.',
+              : CP.privateEnabled() ? 'Only you can see this now.'
+                : 'It is not shared with anyone yet.',
           icon: 'campaign', tone: 'success'
         });
       }
@@ -1354,8 +1386,20 @@
   function assignDash(id, audience, delivery) {
     state.dashboards = state.dashboards.map(function (d) {
       if (d.id === id) {
-        var live = !!(audience && ((audience.titles || []).length ||
-          (audience.individuals || []).length || (audience.groups || []).length));
+        // Same shape as the delivery `keep` below: with job titles behind the
+        // flag the dialog cannot express them, so carry over whatever titles
+        // this dashboard already holds instead of publishing an empty list over
+        // them and quietly destroying the seeded audience the flag previews.
+        // A LOCAL, deliberately — `audience` itself must stay as the dialog sent
+        // it, because the release branch below reads it to decide what the other
+        // dashboards give up, and a title nobody selected must not be taken from
+        // them.
+        var mine = audience;
+        if (mine && !CP.titlesEnabled()) {
+          mine = Object.assign({}, mine, { titles: ((d.assignedTo || {}).titles || []).slice() });
+        }
+        var live = !!(mine && ((mine.titles || []).length ||
+          (mine.individuals || []).length || (mine.groups || []).length));
         // With report delivery behind the flag the dialog can't express it, so
         // leave whatever delivery the dashboard already carries alone — wiping
         // it here would quietly destroy the seeded schedules that the flag is
@@ -1363,7 +1407,7 @@
         var keep = !CP.deliveryEnabled();
         var nextDelivery = keep ? (d.delivery || null) : (delivery ? Object.assign({ on: true }, delivery) : null);
         return Object.assign({}, d, {
-          assignedTo: live ? audience : null,
+          assignedTo: live ? mine : null,
           delivery: nextDelivery,
           status: live ? 'published' : (!keep && delivery ? 'draft' : 'private'),
           updatedAt: TODAY

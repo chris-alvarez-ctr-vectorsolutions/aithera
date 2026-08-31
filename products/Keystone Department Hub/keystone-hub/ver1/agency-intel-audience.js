@@ -354,11 +354,18 @@
   /* Shell                                                             */
   /* ---------------------------------------------------------------- */
 
-  var TABS = [
-    { id: 'titles', label: 'Job titles', icon: 'badge' },
+  // Job titles are v2 only — see audienceOf() in agency-intel-page-data.js. The
+  // tab drops out of the segmented control rather than rendering disabled: with
+  // it gone the control reads as a straight two-way choice between naming people
+  // and describing them, which is the whole v1 story.
+  var ALL_TABS = [
+    { id: 'titles', label: 'Job titles', icon: 'badge', gated: true },
     { id: 'individuals', label: 'Named individuals', icon: 'person' },
     { id: 'groups', label: 'AI groups', icon: 'auto_awesome' }
   ];
+  function tabs() {
+    return ALL_TABS.filter(function (t) { return !t.gated || CP.titlesEnabled(); });
+  }
 
   function bodyHtml() {
     var n = reach().length;
@@ -367,7 +374,7 @@
       : 'No audience selected yet';
 
     return (S.step === 'audience'
-      ? '<div class="au-tabs">' + TABS.map(function (t) {
+      ? '<div class="au-tabs">' + tabs().map(function (t) {
           var on = S.tab === t.id;
           var count = t.id === 'titles' ? S.titles.length
             : t.id === 'individuals' ? S.individuals.length : S.groups.length;
@@ -378,7 +385,7 @@
         '<div class="au-promise">Everyone selected gets it on their homepage automatically — ' +
         'current and future.</div>' +
         '<div class="au-tabbody">' +
-        (S.tab === 'titles' ? titlesTab() : S.tab === 'individuals' ? individualsTab() : groupsTab()) +
+        (S.tab === 'groups' ? groupsTab() : S.tab === 'titles' ? titlesTab() : individualsTab()) +
         '</div>'
       : '<div class="au-tabbody' + (CP.deliveryEnabled() ? '' : ' is-short') + '">' +
         reviewHtml() + '</div>') +
@@ -464,12 +471,15 @@
 
   function open(opts) {
     var d = opts.dashboard;
-    var a = d.assignedTo || {};
+    // audienceOf(), not d.assignedTo: with job titles behind the flag the dialog
+    // must not carry title selections it has no tab to show. The dashboard keeps
+    // them — assignDash() merges them back — so nothing is lost.
+    var a = CP.audienceOf(d) || {};
     var del = CP.deliveryOf(d);
 
     OPTS = opts;
     S = {
-      step: 'audience', tab: 'titles',
+      step: 'audience', tab: tabs()[0].id,
       titles: (a.titles || []).slice(),
       individuals: (a.individuals || []).slice(),
       groups: (a.groups || []).slice(),

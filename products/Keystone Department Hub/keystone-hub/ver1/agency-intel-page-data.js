@@ -254,6 +254,36 @@
     if (!deliveryEnabled()) return null;
     return (d && d.delivery && d.delivery.on) ? d.delivery : null;
   }
+  // NOT IN V1 — publishing a dashboard for your own private use is a follow-up
+  // feature, so the whole 'private' lifecycle state sits behind the same
+  // Future-functionality flag. statusOf() is the single choke point: with the
+  // flag off an unshared dashboard reads as 'Draft', which is what removes the
+  // Private chip from the status filter and every Private badge in the table
+  // and card columns. Stored statuses are left untouched, so flipping the flag
+  // on restores the state with its seeded data intact.
+  function privateEnabled() {
+    return !!(window.KX && window.KX.getFlags().futureOn);
+  }
+
+  // NOT IN V1 — publishing straight to a job title is a follow-up feature, so
+  // the whole job-title leg of the audience sits behind the same
+  // Future-functionality flag. audienceOf() is the single choke point: with the
+  // flag off every reader sees an audience carrying no titles, which is what
+  // removes the Job titles tab from the publish dialog's segmented control, the
+  // "N job titles" line from its review step, and the title chips (plus their
+  // share of the headcount and of the Dynamic/Static mode pill) from the
+  // management list's Published-to column. Stored audiences keep their titles
+  // untouched — assignDash() merges them back on publish rather than letting a
+  // dialog that cannot express them wipe them — so flipping the flag on
+  // restores the option with its seeded data intact.
+  function titlesEnabled() {
+    return !!(window.KX && window.KX.getFlags().futureOn);
+  }
+  function audienceOf(d) {
+    const a = d && d.assignedTo;
+    if (!a || titlesEnabled()) return a || null;
+    return { titles: [], individuals: a.individuals || [], groups: a.groups || [] };
+  }
 
   /* ---------- Static or dynamic access list? ----------
      `titles` and AI `groups` are ATTRIBUTE-DRIVEN: a promotion, a transfer or a
@@ -277,7 +307,7 @@
   };
 
   function audienceMode(d) {
-    const a = d && d.assignedTo;
+    const a = audienceOf(d);
     if (!a) return null;
     const byRule  = ((a.titles || []).length + (a.groups || []).length) > 0;
     const byName  = (a.individuals || []).length > 0;
@@ -493,7 +523,8 @@
 
   // ---------- Dashboard lifecycle status ----------
   // draft     — work in progress, not shared anywhere
-  // private   — finished, shows only on the creator's home (no team audience)
+  // private   — finished, shows only on the creator's home (no team audience);
+  //             v2 only — see privateEnabled(), reads as 'draft' with the flag off
   // published — pushed to job titles / individuals (team sees it)
   // scheduled — delivered as a report on a cadence, but not live on any homepage
   const DASH_STATUSES = [
@@ -510,9 +541,16 @@
   // reads as 'scheduled' — it falls back to its own draft/private/published.
   function statusOf(d) {
     if (deliveryOf(d) && !hasHomeAudience(d)) return 'scheduled';
-    if (d && d.status) return d.status;
-    const a = d && d.assignedTo;
-    return (a && ((a.titles || []).length || (a.individuals || []).length)) ? 'published' : 'draft';
+    let s;
+    if (d && d.status) s = d.status;
+    else {
+      const a = d && d.assignedTo;
+      s = (a && ((a.titles || []).length || (a.individuals || []).length)) ? 'published' : 'draft';
+    }
+    // With private publishing behind the flag there is no such state to show —
+    // an unshared dashboard is simply still a draft.
+    if (s === 'private' && !privateEnabled()) return 'draft';
+    return s;
   }
 
   // ---------- Seeded dashboards (populated home) ----------
@@ -528,7 +566,11 @@
         createdAt: '2026-04-18',
         updatedAt: '2026-05-06',
         status: 'published',
-        assignedTo: { titles: ['battalion_chief'], individuals: [] },
+        // Titles AND a named chief. The job-title leg is v2 only (see
+        // audienceOf()), so pairing it with one named person is what keeps this
+        // dashboard reading as Published — with a real Published-to cell —
+        // in BOTH flag states instead of going blank in v1.
+        assignedTo: { titles: ['battalion_chief'], individuals: ['u1'] },
         // Live for the chiefs AND a monthly PDF to the city manager — one
         // object, two destinations. This is the combined flow's whole point.
         delivery: {
@@ -688,6 +730,14 @@
         // stream, so an extra draw here would reshuffle every dashboard's name,
         // dates and widgets. Reusing individuals already drawn costs no draw.
         if (i % 4 === 1 && assignedTo.individuals.length) assignedTo.titles = [];
+        // Job titles are v2 only (audienceOf() strips them), so a published
+        // dashboard whose whole audience was titles would render an empty
+        // Published-to cell with the flag off. Guarantee one named person.
+        // AFTER the rule above, so it still sees the individuals that were
+        // actually drawn; and indexed off the loop counter, NOT rnd(), because
+        // an extra draw would reshuffle every dashboard's name, dates and
+        // widgets.
+        if (!assignedTo.individuals.length) assignedTo.individuals = [indIds[i % indIds.length]];
         status = 'published';
       } else {
         status = rnd() < 0.5 ? 'draft' : 'private';
@@ -911,8 +961,11 @@
     nextSendFrom: nextSendFrom,
     defaultDelivery: defaultDelivery,
     hasHomeAudience: hasHomeAudience,
+    titlesEnabled: titlesEnabled,
+    audienceOf: audienceOf,
     deliveryEnabled: deliveryEnabled,
     deliveryOf: deliveryOf,
+    privateEnabled: privateEnabled,
     deliveryMeta: deliveryMeta,
     reportReach: reportReach,
     reportSummary: reportSummary,
