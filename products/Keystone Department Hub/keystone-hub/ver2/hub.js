@@ -120,7 +120,9 @@
     sortDir: 'desc',
     expanded: {},          // task id → true
     filterOpen: false,
-    openMenu: null,        // 'views' | 'bands' | 'sources' | 'types' | 'battalions'
+    openMenu: null,        // 'views' | 'person' | 'bands' | 'sources' | 'types' | 'battalions'
+    personQuery: '',       // the person filter's type-ahead query
+    personActive: -1,      // keyboard-highlighted row in the person results
     customViews: [],
     userDefaultView: {}
   };
@@ -369,11 +371,252 @@
     var selfId = K.ROLES[state.role] && K.ROLES[state.role].selfId;
     var isSelfScope = has('assignees') && f.assignees.length === 1 && f.assignees[0] === selfId;
     if (has('assignees') && !hardScoped && !isSelfScope) {
-      chips.push({ key: 'assignees', kind: 'Assignee', label: f.assignees.length === 1 ? '1 person' : f.assignees.length + ' people' });
+      // The chip names the person. It used to read "Assignee · 1 person", which
+      // told a leader nothing about WHOSE list they were looking at — and with
+      // the scope segments showing neither state (see syncScopeGroup), this chip
+      // is now the only thing on screen that states it.
+      var picked = f.assignees.map(function (id) {
+        var pp = K.helpers.personById(id);
+        return pp ? pp.first + ' ' + pp.last : id;
+      });
+      chips.push({ key: 'assignees', kind: 'Person',
+        label: picked.length === 1 ? picked[0] : picked[0] + ' + ' + (picked.length - 1) + ' more' });
     }
     if (f.dueWithinHours) chips.push({ key: 'dueWithinHours', kind: 'Due in', label: '≤ ' + f.dueWithinHours + 'h' });
     if (f.mandatory) chips.push({ key: 'mandatory', kind: 'Mandatory', label: 'mandatory' });
     return chips;
+  }
+
+  /* ---------------------------------------------------------------------
+     PERSON FILTER
+     "What does Stephen Smith have outstanding?" — an admin's most common
+     question about someone else's queue, and the one filter that cannot be a
+     checkbox list. Two things make it different from the other filter pills:
+
+       • SCALE. K.DIRECTORY is 2,431 people. A list is not an option, so this
+         pill opens a type-ahead instead: nothing is listed until you type,
+         except the handful of people who actually hold work in the current
+         view (see personResults — that's who you're nearly always after).
+       • IDENTITY. A name does not identify a person. This department has two
+         Stephen Smiths and two Riley Brennans; one Riley holds a queue and the
+         other holds nothing, and they share a rank AND a shift. So every row
+         carries the badge number, rank, station and shift, plus the task count
+         — which in practice is the fastest disambiguator of the four.
+     --------------------------------------------------------------------- */
+
+  var PERSON_ROWS = 8;      // rows shown at once before "keep typing"
+  var PERSON_FLOOD = 200;   // above this many matches, don't render a list at all
+
+  function personRowId(i) { return 'kxPersonRow' + i; }
+
+  function fmtN(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  /* Task counts per person, measured with every OTHER active filter still
+     applied — the same contract the scope segment's counts use, so the number
+     beside a name describes what picking that name would actually show. */
+  function personTaskCounts() {
+    var base = scrubFilter(state.filter);
+    delete base.assignees;
+    var tasks = applyFilter(K.TASKS, Object.assign({}, base, roleScope() || {}), state.search);
+    var map = {};
+    tasks.forEach(function (t) {
+      t.assignees.forEach(function (id) { map[id] = (map[id] || 0) + 1; });
+    });
+    return map;
+  }
+
+  /* What the popover should show right now.
+     `seeded` marks the nothing-typed state: the useful default is not the first
+     eight of 2,431 people alphabetically, it's the people holding work in this
+     view, busiest first. */
+  function personResults(counts) {
+    var q = state.personQuery.trim();
+    if (!q) {
+      var withWork = Object.keys(counts).map(function (id) { return K.helpers.personById(id); })
+        .filter(Boolean)
+        .sort(function (a, b) { return (counts[b.id] - counts[a.id]) || a.last.localeCompare(b.last); });
+      var dupes = {};
+      withWork.forEach(function (pp) {
+        var k = (pp.first + ' ' + pp.last).toLowerCase();
+        dupes[k] = (dupes[k] || 0) + 1;
+      });
+      Object.keys(dupes).forEach(function (k) { if (dupes[k] < 2) delete dupes[k]; });
+      return { rows: withWork, total: withWork.length, flood: false, seeded: true, dupes: dupes };
+    }
+    // People with work are boosted within each match tier — an admin hunting
+    // "Riley Brennan" almost always wants the one with an outstanding queue.
+    var res = K.helpers.searchDirectory(q, { boost: Object.keys(counts) });
+    return { rows: res.rows, total: res.total, flood: res.total > PERSON_FLOOD,
+      seeded: false, dupes: res.dupes || {} };
+  }
+
+  /* Bold whichever typed token hits first, so a row shows WHY it matched.
+     Only the earliest hit is marked — more than that turns a row into a
+     ransom note. */
+  function hiText(text, tokens) {
+    var lower = String(text).toLowerCase();
+    var at = -1, len = 0;
+    for (var i = 0; i < tokens.length; i++) {
+      var j = lower.indexOf(tokens[i]);
+      if (j !== -1 && (at === -1 || j < at)) { at = j; len = tokens[i].length; }
+    }
+    if (at === -1) return esc(text);
+    return esc(String(text).slice(0, at)) + '<mark>' + esc(String(text).slice(at, at + len)) +
+      '</mark>' + esc(String(text).slice(at + len));
+  }
+
+  function personRowHtml(p, n, on, active, tokens, dup, idx) {
+    var st = K.helpers.stationById(p.station);
+    var sub = [p.rank, 'badge ' + (p.badge || '—')];
+    if (st) sub.push(st.name);
+    if (p.shift && p.shift !== '—') sub.push(p.shift + '-shift');
+    return '<button class="kx-person-row' + (on ? ' is-on' : '') + (active ? ' is-active' : '') + '" ' +
+      'data-person-pick="' + KX.attr(p.id) + '" role="option" aria-selected="' + on + '" ' +
+      'id="' + personRowId(idx) + '">' +
+      '<span class="kx-person-check">' + (on ? micon('check', { size: 14 }) : '') + '</span>' +
+      '<span class="kx-person-id">' +
+      '<span class="nm">' + hiText(p.first, tokens) + ' ' + hiText(p.last, tokens) +
+      // Said out loud on the row, because a name that looks unique is exactly
+      // when an admin stops reading the rest of the line.
+      (dup > 1 ? '<span class="dup" title="' + dup +
+        ' people share this name — the badge number is what tells them apart">' +
+        dup + ' same name</span>' : '') + '</span>' +
+      '<span class="sub">' + sub.map(function (bit, i) {
+        // Only the badge is highlight-worthy in the sub-line; the rest is context.
+        return i === 1 ? 'badge ' + hiText(String(p.badge || '—'), tokens) : esc(bit);
+      }).join(' · ') + '</span></span>' +
+      '<span class="kx-person-n' + (n ? '' : ' is-none') + '">' +
+      (n ? n + (n === 1 ? ' task' : ' tasks') : 'no tasks') + '</span>' +
+      '</button>';
+  }
+
+  /* The region repainted on every keystroke — everything BELOW the input, so
+     the input node itself is never replaced mid-type. See repaintPersonList. */
+  function personListHtml(counts) {
+    var sel = state.filter.assignees || [];
+    var q = state.personQuery.trim();
+    var tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    var res = personResults(counts);
+
+    // One letter matches hundreds of people. A list of the "best" 8 of 900 is
+    // noise pretending to be an answer, so say so instead.
+    if (res.flood) {
+      return '<div class="kx-person-note"><strong>' + fmtN(res.total) + ' people</strong> match “' +
+        esc(q) + '”. Keep typing — add a last name or a badge number.</div>';
+    }
+    if (!res.total) {
+      return '<div class="kx-person-note">' + (q
+        ? 'No one in the directory matches “' + esc(q) + '”.'
+        : 'Nobody holds a task in this view. Type to search all ' + fmtN(K.DIRECTORY.length) + ' people.') +
+        '</div>';
+    }
+
+    var shown = res.rows.slice(0, PERSON_ROWS);
+    var head = '<div class="kx-person-head"><span>' +
+      (res.seeded ? 'Holds tasks in this view' : fmtN(res.total) + (res.total === 1 ? ' match' : ' matches')) +
+      '</span>' +
+      (res.total > shown.length ? '<span class="of">showing ' + shown.length + ' of ' + fmtN(res.total) + '</span>' : '') +
+      '</div>';
+
+    return head +
+      '<div class="kx-person-rows" id="kxPersonRows" role="listbox" ' +
+      'aria-label="Matching people">' +
+      shown.map(function (p, i) {
+        var dup = res.dupes[(p.first + ' ' + p.last).toLowerCase()] || 0;
+        return personRowHtml(p, counts[p.id] || 0, sel.indexOf(p.id) !== -1, i === state.personActive, tokens, dup, i);
+      }).join('') + '</div>' +
+      (res.total > shown.length
+        ? '<div class="kx-person-note kx-person-note--tight">' +
+          (res.seeded
+            ? fmtN(res.total - shown.length) + ' more hold tasks — type a name to reach them.'
+            : 'Keep typing to narrow the other ' + fmtN(res.total - shown.length) + '.') +
+          '</div>'
+        : '');
+  }
+
+  function personChips(sel) {
+    if (!sel.length) return '';
+    return '<div class="kx-person-chips">' + sel.map(function (id) {
+      var pp = K.helpers.personById(id);
+      if (!pp) return '';
+      var nm = pp.first + ' ' + pp.last;
+      // The badge rides along on the chip too: with two Stephen Smiths in the
+      // directory, a chip reading just "Stephen Smith" would be as ambiguous
+      // as the search that found him.
+      return '<span class="kx-person-chip">' + esc(nm) +
+        '<span class="bdg">#' + esc(pp.badge || '—') + '</span>' +
+        '<button data-person-unpick="' + KX.attr(id) + '" aria-label="Remove ' + KX.attr(nm) + '">' +
+        micon('close', { size: 12 }) + '</button></span>';
+    }).join('') +
+      '<button class="kx-person-clearall" data-person-clear>Clear</button></div>';
+  }
+
+  function personDropdown() {
+    var sel = state.filter.assignees || [];
+    var isOpen = state.openMenu === 'person';
+    return '<div style="position:relative">' +
+      '<button class="kx-pill kx-btn-elev' + (sel.length ? ' is-on' : '') + '" data-menu-toggle="person" ' +
+      'style="padding:6px 12px">' + micon('person_search', { size: 14 }) + 'Person' +
+      (sel.length ? '<span class="count">' + sel.length + '</span>' : '') +
+      micon('expand_more', { size: 14 }) + '</button>' +
+      (isOpen ? '<div class="kx-menu kx-menu--left kx-person">' +
+        personChips(sel) +
+        '<div class="kx-person-search">' + micon('search', { size: 16 }) +
+        '<input id="kxPersonSearch" type="text" autocomplete="off" spellcheck="false" ' +
+        'placeholder="Name or badge number — ' + fmtN(K.DIRECTORY.length) + ' people" ' +
+        'value="' + KX.attr(state.personQuery) + '" aria-label="Search people by name or badge number" ' +
+        // Arrowing through results moves a visual highlight but never DOM focus,
+        // which leaves a screen reader silent unless the input names the active
+        // row. aria-activedescendant is what makes the highlight audible.
+        'role="combobox" aria-expanded="true" aria-autocomplete="list" ' +
+        'aria-controls="kxPersonRows"' +
+        (state.personActive >= 0 ? ' aria-activedescendant="' + personRowId(state.personActive) + '"' : '') +
+        '>' +
+        '<button id="kxPersonClearQ" data-person-clearq aria-label="Clear search"' +
+        (state.personQuery ? '' : ' hidden') + '>' + micon('close', { size: 14 }) + '</button>' +
+        '</div>' +
+        '<div id="kxPersonList">' + personListHtml(personTaskCounts()) + '</div>' +
+        '</div>' : '') +
+      '</div>';
+  }
+
+  /* render() rebuilds #root, so the search input is a brand-new node after any
+     full re-render. Put focus and the caret back at the end of the text. */
+  function focusPersonSearch() {
+    var el = document.getElementById('kxPersonSearch');
+    if (!el) return;
+    el.focus();
+    try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+  }
+
+  /* Typing must NOT go through render(): that would replace the very input
+     being typed into on every keystroke and send the caret to the start. Only
+     the results below the input are repainted, so the input node survives and
+     the caret never moves. */
+  function repaintPersonList() {
+    var list = document.getElementById('kxPersonList');
+    if (!list) return;
+    list.innerHTML = personListHtml(personTaskCounts());
+    var clr = document.getElementById('kxPersonClearQ');
+    if (clr) clr.hidden = !state.personQuery;
+    // The input node is deliberately NOT rebuilt here, so its pointer at the
+    // active row has to be re-aimed by hand.
+    var inp = document.getElementById('kxPersonSearch');
+    if (inp) {
+      if (state.personActive >= 0) inp.setAttribute('aria-activedescendant', personRowId(state.personActive));
+      else inp.removeAttribute('aria-activedescendant');
+    }
+  }
+
+  function togglePerson(id) {
+    var cur = (state.filter.assignees || []).slice();
+    var i = cur.indexOf(id);
+    if (i === -1) cur.push(id); else cur.splice(i, 1);
+    // setFilter re-renders. state.openMenu and state.personQuery are untouched
+    // by it, so the popover comes back open with the query still typed — an
+    // admin can tick a second person without starting over.
+    setFilter(defineValue('assignees', cur.length ? cur : undefined));
+    focusPersonSearch();
   }
 
   function filterDropdown(sec) {
@@ -514,6 +757,10 @@
 
       (state.filterOpen
         ? '<div class="kx-filter-panel kx-desktop-only">' +
+          // Person goes first: for a leader it is the highest-intent filter in
+          // the set. Hidden for a hard-scoped role, which has no other queue to
+          // look at — the same gate the scope control uses.
+          (hardScoped ? '' : personDropdown()) +
           sections.map(filterDropdown).join('') +
           (chips.length ? '<button class="kx-clear-all" data-clear-all>' + micon('close', { size: 14 }) + ' Clear all</button>' : '') +
           '</div>'
@@ -946,9 +1193,13 @@
     var g = document.getElementById('kxScope');
     if (!g) return;
     var uid = K.ROLES[state.role] && K.ROLES[state.role].selfId;
-    var mine = Array.isArray(state.filter.assignees) &&
-      state.filter.assignees.length === 1 && state.filter.assignees[0] === uid;
-    KX.setToggleGroup(g, mine ? 'mine' : 'all');
+    var picked = Array.isArray(state.filter.assignees) ? state.filter.assignees : [];
+    var mine = picked.length === 1 && picked[0] === uid;
+    // A person filter that is not simply "me" is NEITHER scope, so neither
+    // segment is selected. This used to fall through to 'all' — which meant
+    // filtering to one firefighter lit up "All tasks" above a table showing
+    // that one person's queue. The Person chip states the scope instead.
+    KX.setToggleGroup(g, picked.length ? (mine ? 'mine' : []) : 'all');
   }
 
   function syncBucketGroup() {
@@ -1386,9 +1637,35 @@
       if (menuToggle) {
         var key = menuToggle.getAttribute('data-menu-toggle');
         state.openMenu = state.openMenu === key ? null : key;
+        // The person popover opens on a clean query — a stale search from a
+        // previous visit would hide the "holds tasks in this view" list, which
+        // is the whole point of the empty state. Already-picked people are
+        // NOT cleared; those live in state.filter and show as chips.
+        if (key === 'person') { state.personQuery = ''; state.personActive = -1; }
         render();
+        if (state.openMenu === 'person') focusPersonSearch();
         return;
       }
+
+      /* -- person filter --
+         Placed above the generic chip / row handlers because the popover sits
+         inside the filter bar and its rows are buttons of their own. */
+      var pClearQ = e.target.closest('[data-person-clearq]');
+      if (pClearQ) {
+        state.personQuery = ''; state.personActive = -1;
+        render(); focusPersonSearch();
+        return;
+      }
+      var pClear = e.target.closest('[data-person-clear]');
+      if (pClear) {
+        setFilter({ assignees: undefined });
+        focusPersonSearch();
+        return;
+      }
+      var pUnpick = e.target.closest('[data-person-unpick]');
+      if (pUnpick) { e.stopPropagation(); togglePerson(pUnpick.getAttribute('data-person-unpick')); return; }
+      var pPick = e.target.closest('[data-person-pick]');
+      if (pPick) { togglePerson(pPick.getAttribute('data-person-pick')); return; }
 
       /* -- saved views -- */
       var del = e.target.closest('[data-view-delete]');
@@ -1473,6 +1750,50 @@
     });
 
     // Keyboard: Enter navigates, Space expands (matches the prototype).
+    /* -- person type-ahead: keystrokes --
+       A dedicated listener rather than a branch in the task-row one below,
+       which early-returns on anything that isn't a table row. */
+    root.addEventListener('input', function (e) {
+      if (!e.target || e.target.id !== 'kxPersonSearch') return;
+      state.personQuery = e.target.value;
+      state.personActive = -1;          // a new query invalidates the highlight
+      repaintPersonList();
+    });
+
+    root.addEventListener('keydown', function (e) {
+      if (!e.target || e.target.id !== 'kxPersonSearch') return;
+      var shown = personResults(personTaskCounts()).rows.slice(0, PERSON_ROWS);
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!shown.length) return;
+        var i = state.personActive;
+        state.personActive = (e.key === 'ArrowDown')
+          ? (i + 1 >= shown.length ? 0 : i + 1)
+          : (i <= 0 ? shown.length - 1 : i - 1);
+        repaintPersonList();
+        var act = document.querySelector('#kxPersonList .kx-person-row.is-active');
+        if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // With nothing typed there is no obvious "first" answer, so Enter only
+        // commits a row the user has actually arrowed onto.
+        var idx = state.personActive >= 0 ? state.personActive : (state.personQuery.trim() ? 0 : -1);
+        if (idx >= 0 && shown[idx]) togglePerson(shown[idx].id);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        // Esc clears the query first and closes only on a second press, so a
+        // mistyped name doesn't cost the whole popover.
+        if (state.personQuery) { state.personQuery = ''; state.personActive = -1; render(); focusPersonSearch(); }
+        else { state.openMenu = null; render(); }
+        return;
+      }
+    });
+
     root.addEventListener('keydown', function (e) {
       var row = e.target.closest && e.target.closest('tr[data-task]');
       if (!row) return;
