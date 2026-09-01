@@ -86,7 +86,10 @@
   function splitSceneInput(raw) {
     const t = String(raw || '').trim();
     if (!t) return [];
-    const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g;
+    // Single quotes count as QUOTE MARKS only at word boundaries — an opener
+    // can't follow a letter and a closer can't precede one — so contraction
+    // apostrophes (It's, don't, Jake's) never pair up and shred the move.
+    const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|(?<!\w)'(?:.+?)'(?!\w)/g;
     const beats = [];
     let last = 0, m;
     while ((m = quoteRe.exec(t)) !== null) {

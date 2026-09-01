@@ -2105,7 +2105,13 @@
        model verbatim (this only drives DISPLAY, via the message's _display). */
     function splitSceneInput(raw) {
       const t = String(raw || '').trim();
-      const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g;
+      // Single quotes count as QUOTE MARKS only at word boundaries — an opener
+      // can't follow a letter and a closer can't precede one — so contraction
+      // apostrophes (It's, don't, Jake's) can never pair up. Without the
+      // boundaries, a move with several contractions and no real quotes got
+      // shredded: the text BETWEEN contractions became fake "spoken" bubbles
+      // and the leftover narration lost its apostrophes.
+      const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|(?<!\w)'(?:.+?)'(?!\w)/g;
       const found = t.match(quoteRe);
       if (found && found.length) {
         const speech = found.map((q) => q.replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim()).filter(Boolean);
@@ -3478,7 +3484,7 @@
       if (state.mode === 'scene' || turn.mode === 'scene') {
         const normEcho = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const inputNorm = normEcho(text);
-        const quotedNorms = (String(text).match(/[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g) || []).map(normEcho);
+        const quotedNorms = (String(text).match(/[“”][^“”]*[“”]|"[^"]*"|(?<!\w)'(?:.+?)'(?!\w)/g) || []).map(normEcho);
         turn.turn = (turn.turn || []).filter((m) => {
           if (!m || m.speaker !== 'character' || m.locked) return true;
           const n = normEcho(m.text);
