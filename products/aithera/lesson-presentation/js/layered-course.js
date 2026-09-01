@@ -575,6 +575,166 @@
     });
   }
 
+  // LEARN · Know (K2 barriers) — "Audio Summary": narrated text with word
+  // highlighting, and a Read-instead toggle — modality switching on demand.
+  // TTS starts only on the learner's tap (never autoplays). Compressible.
+  var AUDIO_TEXT =
+    'Here’s the strange part: the more people who see something, the less likely any one of them is to act. ' +
+    'Psychologists call it diffusion of responsibility — everyone assumes someone else will handle it. ' +
+    'Add the fear of misreading the moment, and a room full of decent people can stay perfectly silent. ' +
+    'That silence isn’t agreement. It’s a stalemate — and it breaks the instant one person moves. ' +
+    'You’re learning to be that person. Not the loudest one. Just the first.';
+  var AUDIO_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Learn · Know</p>' +
+      '<h2>Why rooms stay quiet.</h2>' +
+      '<p class="ll-sub">Listen, or read — your call. Same objective either way.</p>' +
+      '<div class="aud-wrap">' +
+        '<div class="aud-controls">' +
+          '<button class="aud-play" id="audPlay" type="button"><i class="fa-solid fa-play"></i> Listen</button>' +
+          '<button class="aud-mode" id="audMode" type="button"><i class="fa-solid fa-book-open"></i> Read instead</button>' +
+        '</div>' +
+        '<p class="aud-text" id="audText" aria-label="Narrated passage"></p>' +
+        '<p class="aud-note"><i class="fa-solid fa-circle-info"></i> Narration uses your browser’s built-in speech — a stand-in for the produced voice track.</p>' +
+      '</div>' +
+    '</main>';
+  function audioInit(ctx) {
+    var words = AUDIO_TEXT.split(' ');
+    var textEl = document.getElementById('audText');
+    // Word spans + the char offset each one starts at (for boundary events).
+    var offsets = []; var pos = 0;
+    textEl.innerHTML = words.map(function (w, i) {
+      offsets.push(pos); pos += w.length + 1;
+      return '<span class="w" data-i="' + i + '">' + esc(w) + '</span>';
+    }).join(' ');
+    var spans = textEl.querySelectorAll('.w');
+    var playBtn = document.getElementById('audPlay');
+    var modeBtn = document.getElementById('audMode');
+    var playing = false, finished = false;
+
+    function wordAt(charIndex) {
+      for (var i = offsets.length - 1; i >= 0; i--) if (charIndex >= offsets[i]) return i;
+      return 0;
+    }
+    function highlight(i) {
+      spans.forEach(function (sp, j) { sp.classList.toggle('hot', j === i); });
+    }
+    function finish(fromRead) {
+      if (finished) return; finished = true;
+      spans.forEach(function (sp) { sp.classList.remove('hot'); });
+      ctx.setCoachSay(fromRead
+        ? 'Read at your own pace — the point stands either way: the stalemate breaks the instant one person moves.'
+        : 'That last line is the whole course: not the loudest one. Just the first.');
+      notice('Taught: <b>Knowledge</b> — why bystanders freeze (K2)');
+      saveResult('audio', { done: true, mode: fromRead ? 'read' : 'listen' });
+      ctx.enableNext();
+      ctx.positionOrb(true);
+    }
+    playBtn.addEventListener('click', function () {
+      if (!('speechSynthesis' in window)) { finish(true); return; }
+      if (playing) { speechSynthesis.cancel(); playing = false; playBtn.innerHTML = '<i class="fa-solid fa-play"></i> Listen'; return; }
+      var u = new SpeechSynthesisUtterance(AUDIO_TEXT);
+      u.rate = 1.0;
+      u.onboundary = function (e) { if (e.name === 'word' || e.charIndex != null) highlight(wordAt(e.charIndex)); };
+      u.onend = function () { playing = false; playBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Replay'; finish(false); };
+      playing = true;
+      playBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    });
+    modeBtn.addEventListener('click', function () {
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      playing = false;
+      textEl.classList.add('read-mode');
+      playBtn.style.display = 'none';
+      modeBtn.disabled = true;
+      modeBtn.innerHTML = '<i class="fa-solid fa-check"></i> Reading';
+      notice('Modality switched: <b>listen → read</b> — same objective, same credit');
+      finish(true);
+    });
+  }
+
+  // LEARN · Know (K4 select the tactic) — "Pick your move": four situations,
+  // tap the D that fits. Some situations accept a second-best answer with a
+  // coaching note. Compressible.
+  var DRILL_SITS = [
+    { text: 'Jake’s mid-“joke”, the room’s laughing, and you’re two feet away.',
+      best: 'Direct', near: 'Distract',
+      ok: 'Right — you’re close, it’s live, and naming it lands hardest in the moment.',
+      nearMsg: 'Distract works too — but this close, Direct is stronger. Take it when you can.' },
+    { text: 'You froze. The moment passed in seconds and everyone’s back to work.',
+      best: 'Delay', near: null,
+      ok: 'Exactly — the moment passing doesn’t end your options. The check-in is still an intervention.' },
+    { text: 'The one doing it is your supervisor’s friend. You have zero leverage here.',
+      best: 'Delegate', near: 'Document',
+      ok: 'Right — power gaps are what Delegate is for. Find the person they’ll actually hear.',
+      nearMsg: 'Documenting helps — but someone with standing needs to act. Delegate first, document alongside.' },
+    { text: 'Third time this month. Same target, same “joke”, same room.',
+      best: 'Document', near: 'Delegate',
+      ok: 'Yes — a pattern needs a record. Dates, words, witnesses: that’s what moves an investigation.',
+      nearMsg: 'Escalating is fair — but a pattern without a record is one person’s word. Document it too.' }
+  ];
+  var DRILL_DS = ['Direct', 'Distract', 'Delegate', 'Delay', 'Document'];
+  var DRILL_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Learn · Know</p>' +
+      '<h2>Pick your move.</h2>' +
+      '<p class="ll-sub">Four moments, five Ds — tap the one that fits. There’s a best answer, and sometimes a decent second.</p>' +
+      '<div class="dr-wrap">' +
+        '<div class="dr-card"><span class="tag" id="drTag">Moment 1 of 4</span><p id="drText"></p></div>' +
+        '<div class="dr-ds" id="drDs">' +
+          DRILL_DS.map(function (d) { return '<button class="dr-d" type="button" data-d="' + d + '">' + d + '</button>'; }).join('') +
+        '</div>' +
+        '<p class="dr-fb" id="drFb"></p>' +
+        '<p class="dr-progress" id="drProgress"><b>0</b> of 4 placed</p>' +
+      '</div>' +
+    '</main>';
+  function drillInit(ctx) {
+    var i = 0, settled = false;
+    var textEl = document.getElementById('drText');
+    var fb = document.getElementById('drFb');
+    var btns = document.querySelectorAll('.dr-d');
+    show();
+    btns.forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (settled) return;
+        var sit = DRILL_SITS[i], d = b.dataset.d;
+        if (d === sit.best) {
+          settled = true; b.classList.add('hit');
+          fb.className = 'dr-fb ok'; fb.textContent = sit.ok;
+          advance();
+        } else if (d === sit.near) {
+          settled = true; b.classList.add('near');
+          fb.className = 'dr-fb near'; fb.textContent = sit.nearMsg;
+          advance();
+        } else {
+          b.classList.add('miss'); b.disabled = true;
+          fb.className = 'dr-fb bad'; fb.textContent = 'Not this one — think about distance, power, and timing.';
+        }
+      });
+    });
+    function advance() {
+      document.getElementById('drProgress').innerHTML = '<b>' + (i + 1) + '</b> of 4 placed';
+      setTimeout(function () {
+        i++;
+        if (i >= DRILL_SITS.length) {
+          ctx.setCoachSay('Four for four on judgment calls — choosing the move <em>is</em> the skill. Next: what the crew actually thinks.');
+          notice('Logged: <b>Knowledge</b> — tactic selection (K4)');
+          saveResult('drill', { done: true });
+          ctx.enableNext();
+          ctx.positionOrb(true);
+        } else { show(); }
+      }, T(2400));
+    }
+    function show() {
+      settled = false;
+      document.getElementById('drTag').textContent = 'Moment ' + (i + 1) + ' of 4';
+      textEl.textContent = DRILL_SITS[i].text;
+      fb.className = 'dr-fb'; fb.textContent = '';
+      btns.forEach(function (b) { b.disabled = false; b.classList.remove('hit', 'near', 'miss'); });
+    }
+  }
+
   // LEARN · Feel (F1 social norms + F4 self-efficacy) — "Peer Results":
   // guess what the crew thinks, then see the actual norms data. The reveal is
   // the teaching. Survives compression on every path.
@@ -754,8 +914,10 @@
   var PATH_NODES = [
     { icon: 'fa-hand-sparkles', label: 'Welcome',              state: 'done' },
     { icon: 'fa-wave-square',   label: 'Entry battery',        state: 'done', sub: 'Entry · Know & Feel' },
-    { icon: 'fa-list-check',    label: 'The Five Ds',          state: 'next', sub: 'Learn · Know K3–K4', compressible: true },
     { icon: 'fa-circle-play',   label: 'Intro video',          state: 'next', sub: 'Learn · Know', shortcut: true },
+    { icon: 'fa-headphones',    label: 'Why rooms stay quiet', state: 'next', sub: 'Learn · Know K2 · listen or read', compressible: true },
+    { icon: 'fa-list-check',    label: 'The Five Ds',          state: 'next', sub: 'Learn · Know K3', compressible: true },
+    { icon: 'fa-hand-pointer',  label: 'Pick your move',       state: 'next', sub: 'Learn · Know K4', compressible: true },
     { icon: 'fa-scale-balanced', label: 'A real case',         state: 'next', sub: 'Learn · Know', compressible: true },
     { icon: 'fa-users',         label: 'Would they back you?', state: 'next', sub: 'Learn · Feel F1 — never compresses' },
     { icon: 'fa-comment-dots',  label: 'After the moment',     state: 'next', sub: 'Learn · Do D4 — never compresses' },
@@ -767,17 +929,17 @@
   var COMPRESS_BRANCHES = {
     compressed: {
       headline: 'Your path just got shorter.',
-      sub: 'Test-out: the entry battery verified three Know objectives, so two Learn beats compress out and the ' +
+      sub: 'Test-out: the entry battery verified the Know objectives, so four Learn beats compress out and the ' +
            'intro runs as the short cut. Your record still shows full coverage.',
       narration: [
-        'Quick work, Rob — the entry battery just verified <b>K1–K3</b>: the five Ds and the case law behind them.',
+        'Quick work, Rob — the entry battery just verified <b>K1–K4</b>: the bystander effect, the five Ds, and how to pick between them.',
         'So the Know beats compress out — you’ll never sit through them, and your record still shows full coverage. The Feel and Do beats stay: beliefs and skills can’t be verified by a quiz.',
         'One thing never compresses: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path, and the paper trail.'
       ],
       chain: [
         '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>K1–K3 · Know / Remember & Understand</em> — the five Ds and the barriers to intervention. SME-signed once, at the spec. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
         '<b>The evidence.</b> The entry battery — Know & Feel items only; a skill is never quizzed. Both items correct, construct-mapped to <em>Knowledge</em> and <em>Perceived behavioral control</em>.',
-        '<b>The recomposition.</b> Test-out: two Learn beats compressed, the intro cut short. The locked mastery item and the Perform stage are untouched — compressed never, shown always.'
+        '<b>The recomposition.</b> Test-out: four Know beats compressed, the intro cut short. The Feel and Do beats, the locked mastery item and the Perform stage are untouched — compressed never, shown always.'
       ]
     },
     full: {
@@ -786,7 +948,7 @@
            'and it ends at the scenario either way.',
       narration: [
         'Honest start, Rob — the entry battery didn’t verify anything yet, so nothing compresses.',
-        'You get the full build: the five Ds, the case study, plus the Feel and Do beats everyone gets. And the path stays live — a miss at the mastery check gets fixed in the moment, not flagged for later.',
+        'You get the full build: the narrated barriers piece, the five Ds and the tactic drill, the case study — plus the Feel and Do beats everyone gets. The path stays live, too: a miss at the mastery check gets fixed in the moment.',
         'Either way it ends the same place: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path.'
       ],
       chain: [
@@ -866,7 +1028,7 @@
                 '<span class="pn-chip pn-added"><i class="fa-solid fa-arrow-trend-up"></i> Test-up · advanced tier</span>';
             }
           });
-          notice('Path recomposed: <b>2 beats compressed</b>' + (up ? ', check served at the <b>advanced tier</b>' : ''));
+          notice('Path recomposed: <b>' + targets.length + ' beats compressed</b>' + (up ? ', check served at the <b>advanced tier</b>' : ''));
           revealProvenance();
         }, T(300 + targets.length * 550 + 400));
       } else {
@@ -1202,11 +1364,23 @@
         src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
+    { id: 'audio', mode: 'floating', lesson: 'Why Rooms Stay Quiet', gate: true,
+      when: function () { return entryStrength() === 'full'; },
+      caption: { title: 'LEARN · Know beat — Audio Summary', note: 'Narrated text with word-by-word highlighting (K2, diffusion of responsibility) and a Read-instead toggle — the modality-switching feature, live: listen or read, same objective, same credit. Compressible at entry.' },
+      coach: { say: 'This one you can listen to or read — your call. Tap Listen when you’re ready.' },
+      content: AUDIO_CONTENT, init: audioInit },
+
     { id: 'terms', mode: 'floating', lesson: 'The Five Ds', gate: true,
       when: function () { return entryStrength() === 'full'; },
       caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3/K4) — one of the two beats a strong entry battery compresses away. Gate: every card flipped.' },
       coach: { say: 'Five moves, five cards — flip each one. You only ever need the one that fits the moment.' },
       content: TERMS_CONTENT, init: termsInit },
+
+    { id: 'drill', mode: 'floating', lesson: 'Pick Your Move', gate: true,
+      when: function () { return entryStrength() === 'full'; },
+      caption: { title: 'LEARN · Know beat — tactic drill', note: 'Four situations, five Ds (K4, select the tactic) — best answers plus accepted seconds with coaching notes. Compressible at entry.' },
+      coach: { say: 'You know the five moves — now pick the right one under real constraints.' },
+      content: DRILL_CONTENT, init: drillInit },
 
     { id: 'norms', mode: 'floating', lesson: 'Would They Back You?', gate: true,
       caption: { title: 'LEARN · Feel beat — Peer Results', note: 'The norms correction (F1, gap-fill content the base course never had): guess the crew’s reaction, then the real numbers land. Survives compression on every path — beliefs can’t be tested out of at entry.' },
