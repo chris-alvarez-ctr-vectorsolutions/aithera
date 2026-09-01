@@ -690,7 +690,7 @@
     '<main class="ll-object">' +
       '<p class="ll-eyebrow">Learn · Know</p>' +
       '<h2>The Five Ds.</h2>' +
-      '<p class="ll-sub">Five ways to intervene — flip each one. You only ever need the one that fits the moment.</p>' +
+      '<p class="ll-sub">Knowing the five Ds can help you avoid being a passive bystander. Let’s do a quick review of each.</p>' +
       '<div class="tr-grid" id="trGrid">' +
         FIVE_DS.map(function (d, i) {
           return '<button class="tr-card" type="button" data-i="' + i + '" aria-label="Flip: ' + esc(d.name) + '">' +
