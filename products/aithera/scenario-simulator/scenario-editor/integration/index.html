@@ -10,31 +10,30 @@
          previewUrl the shared scenario TYPES hand back, resolves against the product
          root. One <base> keeps all of them correct instead of rewriting each, and
          nothing here uses an in-page #anchor, which is the one thing <base> would
-         break. NOTE for forked surface files: because <base> points at the product
-         root, a copy living beside this page is referenced as
-         scenario-editor/sandbox/js/<file>.js — not js/<file>.js, which would load
-         the SHARED one. -->
-    <base href="../../">
+         break. -->
+    <base href="./">
 
-    <!-- CHANNEL — declared BEFORE studio-engine.js loads, because the types build
-         their stores at registration time. This is what keeps an experiment here off
-         an author's real work: draft and library get their own localStorage keys, so
-         nothing typed in this build can overwrite a scenario someone is authoring in
-         the stable editor. The publish→live buffer stays shared on purpose, so the
-         playtest still opens in the player. See js/studio-engine.js. -->
+    <!-- The channel router is deliberately absent: a frozen cut has no sandbox to
+         hand off to, and ?v= must not bounce anyone out of the integration build. -->
+
+    <!-- EMBEDDED MODE — ?embed=1 hides the two chrome bars, because Learning
+         Studio's window owns Save, Publish and Preview when the editor is in its
+         iframe. Set here rather than after boot so the bars never paint and then
+         vanish. Opt-in by parameter, never inferred from being framed: the
+         standalone editor keeps its chrome wherever it is shown. -->
     <script>
-      window.STUDIO_CHANNEL = 'sandbox';
-      // ?v=1 goes back to stable, carrying every other parameter with it
       (function () {
-        var q = new URLSearchParams(location.search);
-        var v = q.get('v');
-        if (v !== '1' && v !== 'stable') return;
-        q.delete('v');
-        var rest = q.toString();
-        location.replace('../' + (rest ? '?' + rest : '') + location.hash);
+        /* Embedded is the DEFAULT here, inverted from the live editor: this build
+           exists to be iframed by Learning Studio, which supplies Save, Publish and
+           Preview. ?embed=0 restores the chrome for debugging the page on its own. */
+        var q = new URLSearchParams(location.search).get('embed');
+        if (q !== '0' && q !== 'false') document.documentElement.classList.add('embed');
+        /* Its own draft keys, so iteration on the live editor can never reach the
+           drafts K&A are authoring in here. Must be set before studio-engine.js. */
+        window.STUDIO_CHANNEL = 'integration';
       })();
     </script>
-    <title>Scenario Editor — Sandbox</title>
+    <title>Scenario Editor — Frozen integration build</title>
 
     <!-- Dark mode is OPT-IN. Vector products are light-only, so the editor defaults to light
          regardless of the OS setting. Set window.STUDIO_ALLOW_DARK = true to restore OS-driven
@@ -336,38 +335,21 @@
 
   <!-- Studio shell app logic (extracted from this file). -->
   <script src="js/studio-shell.js?v=35"></script>
-
-  <!-- ===== BUILD NOTICE ==================================================
-       Identical in both builds ON PURPOSE — it reads the channel rather than
-       being hand-edited per file, so copying this block between the stable and
-       prototype pages can never leave the two describing themselves wrongly.
-       The wording states the CONSEQUENCE, not the label: which drafts you are
-       touching, and whether what you see will still be there when you come
-       back to edit a real scenario.
+  <!-- ===== BUILD IDENTITY ==============================================
+       The live page derives this from window.STUDIO_CHANNEL, which here is
+       'integration' — and that would have read as "prototype build" and painted
+       an amber strip inside Learning Studio's iframe. This build states what it
+       is instead, and never shows the notice.
        ==================================================================== -->
   <script>
     (function () {
-      var prototypeBuild = window.STUDIO_CHANNEL && window.STUDIO_CHANNEL !== 'stable';
       var tag = document.getElementById('buildTag');
-      var note = document.getElementById('buildNotice');
       if (tag) {
-        tag.textContent = prototypeBuild ? 'Prototype' : 'Current';
-        tag.title = prototypeBuild
-          ? 'A build for trying out changes. Not the editor your scenarios live in.'
-          : 'The editor your scenarios live in.';
-        if (prototypeBuild) tag.setAttribute('data-prototype', '');
+        tag.textContent = 'Frozen';
+        tag.title = 'A frozen copy for the Learning Studio integration. Not updated.';
       }
-      if (note && prototypeBuild) {
-        note.hidden = false;
-        note.setAttribute('role', 'status');
-        note.innerHTML =
-          '<i class="fa-solid fa-flask" aria-hidden="true"></i>'
-          + '<span><b>Prototype build.</b> These are changes we are trying out — this is '
-          + '<b>not</b> the editor your scenarios live in. Drafts and library here are a '
-          + 'separate set, and nothing you see here shows up in the everyday editor until '
-          + 'we release it there.</span>'
-          + '<a href="scenario-editor/">Open the current editor</a>';
-      }
+      var note = document.getElementById('buildNotice');
+      if (note) note.hidden = true;
     })();
   </script>
 </body>

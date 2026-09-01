@@ -56,6 +56,7 @@ Branch is `main`.
 | `scenario-editor/` | **Stable.** The build authors use. This is the one to integrate. |
 | `scenario-editor/?embed=1` | **Stable, embedded.** Same build with both chrome bars hidden. |
 | `scenario-editor/?v=2` | **Sandbox.** UI experiments. Nothing here is a commitment; it has its own draft storage. |
+| `scenario-editor/integration/` | **The frozen cut — this is what to iframe.** Self-contained, embedded by default, and it does not change when the others do. |
 
 Useful parameters, which combine: `?type=v4-universal` picks the scenario type,
 `?example=<id>` loads a sample document, `?wizard=1` opens the new-scenario
@@ -78,6 +79,10 @@ standalone one is stable with no parameters. **They are the same code.**
 >
 > The sandbox does not currently honour `?embed=1`. One line to add if it is ever
 > wanted.
+>
+> **This is why the frozen cut exists.** `scenario-editor/integration/` carries its
+> own copy of every module, so iteration on the live editor cannot reach it. Iframe
+> that one. See `scenario-editor/integration/README.md`.
 
 ---
 
