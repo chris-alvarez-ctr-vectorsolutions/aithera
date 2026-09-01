@@ -52,12 +52,12 @@
 
   // --- Cross-page course record (sessionStorage) ---------------------------
   function readCourse() {
-    try { return JSON.parse(sessionStorage.getItem('ll-course') || '{}') || {}; }
+    try { return JSON.parse(sessionStorage.getItem(CFG.storageKey) || '{}') || {}; }
     catch (e) { return {}; }
   }
   function saveResult(key, value) {
     var c = readCourse(); c[key] = value;
-    try { sessionStorage.setItem('ll-course', JSON.stringify(c)); } catch (e) {}
+    try { sessionStorage.setItem(CFG.storageKey, JSON.stringify(c)); } catch (e) {}
     return c;
   }
   // --- Context lenses -------------------------------------------------------
