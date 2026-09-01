@@ -1,4 +1,4 @@
-# Keystone Department Hub — replacement announcement banner
+# Keystone-Department-Hub — replacement announcement banner
 
 **Date:** 2026-08-04
 **Scope:** The "new feature" announcement banner on the recreated host-app homepages in the
@@ -156,9 +156,9 @@ phone case.
 
 The banner's CSS block and its markup are replaced in place in each of:
 
-- `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html` (`ts-` prefix)
-- `products/Keystone Department Hub/embedded-check-it/ver1/index.html` (`ci-` prefix)
-- `products/Keystone Department Hub/embedded-scheduling/ver1/index.html` (`sch-` prefix)
+- `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html` (`ts-` prefix)
+- `products/Keystone-Department-Hub/embedded-check-it/ver1/index.html` (`ci-` prefix)
+- `products/Keystone-Department-Hub/embedded-scheduling/ver1/index.html` (`sch-` prefix)
 
 Each file keeps its own class prefix; the values are identical across the three. `products.json`
 gets refreshed `modified` dates for the three embedded entries. No other page changes.

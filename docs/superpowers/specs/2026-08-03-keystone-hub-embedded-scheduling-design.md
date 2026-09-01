@@ -1,12 +1,12 @@
-# Keystone Department Hub — embedded in Vector Scheduling
+# Keystone-Department-Hub — embedded in Vector Scheduling
 
 **Date:** 2026-08-03
-**Product:** Keystone Department Hub
-**Feature folder:** `products/Keystone Department Hub/embedded-scheduling/`
+**Product:** Keystone-Department-Hub
+**Feature folder:** `products/Keystone-Department-Hub/embedded-scheduling/`
 
 ## Purpose
 
-The second of the host-app bake-outs showing the Keystone Department Hub wearing
+The second of the host-app bake-outs showing the Keystone-Department-Hub wearing
 another Vector application's chrome. Target Solutions shipped first
 (`embedded-target-solutions/`); this is Vector Scheduling. Check It remains.
 
@@ -79,7 +79,7 @@ roster is sample data, and the real product supports badges on any crew member.
 ## File layout
 
 ```
-products/Keystone Department Hub/
+products/Keystone-Department-Hub/
   keystone-hub/                 ← existing hub. NOT modified.
   embedded-target-solutions/    ← first bake-out. NOT modified.
   embedded-scheduling/
@@ -100,7 +100,7 @@ products/Keystone Department Hub/
 ### `products.json`
 
 Append a second item to the **existing** `Embedded App Views` folder group under
-the `Keystone Department Hub` product:
+the `Keystone-Department-Hub` product:
 
 ```json
 {

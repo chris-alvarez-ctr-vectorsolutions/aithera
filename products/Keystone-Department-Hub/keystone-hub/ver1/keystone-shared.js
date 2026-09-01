@@ -101,9 +101,6 @@
      the same colour language the source chips use elsewhere, so a row can still
      be scanned by app at a glance.
 
-     V2 ONLY — V1 keeps the icons. This is the change under review; see
-     versions.json. Don't port it back into ver1.
-
      Note it also ADDS information rather than restating it: in the compact
      density the type name appears nowhere in the table today. */
   function typeBadge(task) {

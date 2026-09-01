@@ -1,5 +1,20 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-08-28 round
+
+- **Tighter side-nav indentation.** Child groups indent 12px (was 18px) with an 8px
+  gutter, and level 3 steps in 10px (was 14px). V5 and V6 carry their own hierarchy
+  overrides, so their padding stepped down to match (35→29 / 33→27).
+- **Nav rows WRAP instead of truncating.** Rows moved from a fixed height and
+  `white-space:nowrap` to `min-height` + normal wrapping, so a long real label runs to a
+  second line rather than being clipped. Two labels are deliberately long enough to show
+  it: **Qualification and requirement assignments** (LMS Training Plan) and **Similar
+  exposure group assessments** (EHS industrial hygiene). Collapsed icon rows are
+  unaffected: they set their own square height.
+- **Customer logo area matches EHS.** The lockup renders at **54px tall** in an ~80px
+  slot, the same logo area the EHS sidebar gives a tenant mark, so customer branding
+  reads as branding instead of a favicon.
+
 ## Changelog · 2026-08-27 round
 
 - **Renamed the product back to Vector LMS** everywhere it was labeled Convergence
@@ -9,8 +24,9 @@
 - **Distinct Dashboard icon.** The cross-product Dashboard entry now uses a tiles /
   panels glyph (`i-dash`) everywhere (launcher row, Dashboard brand, V3 rail) so it never
   collides with a product Home icon. Still pinned above the switcher divider.
-- **Two ways to close the side nav** (all versions): a close control in the side nav's own
-  top-right corner, plus the top-bar toggle. Either collapses the nav.
+- **Two ways to close the side nav** (all versions): a **double-caret** control in the side
+  nav's own top-right corner, plus the top-bar toggle. Either collapses the nav; the carets
+  point at the edge the nav moves toward and flip where the control stays visible collapsed.
 - **Shared side-nav interaction spec** (V3 + V4): collapsed → hover/peek overlay → pin →
   close, represented as labeled frames via `?state=collapsed|peek|pinned` (see below).
 - **V2b**: the Learning/Admin switch moved INTO the side nav as a segmented control above
@@ -21,7 +37,11 @@
   column instead of floating in the top bar. The rail now PERSISTS when the side nav
   closes, with an explicit minimal state (`?state=bothclosed` = launcher + current
   product). The customer logo docks to the BOTTOM of the nav in a sticky footer zone.
-  The review pill moved to bottom-center in V3 only, since the logo owns the bottom-left.
+  The review pill is bottom-center in EVERY version now, stacked directly above the Design
+  Toolbox comment dock, so the review tooling reads as one column instead of two corners.
+- **V3's launcher** drops pinned / All products for **Your platforms** vs **Other Vector
+  platforms**, where the second group's rows open each platform's sales page (see the
+  section below).
 - **V4**: accordions start CLOSED; Jira-like micro-interactions (quick restrained slide,
   clear active state, subtle hover); an open section stays open until click-away or an
   explicit collapse, never closing on mouse-leave.
@@ -45,7 +65,8 @@ app-switching visibly reconfigures the nav while the shell stays identical:
 
 The full catalog (Check-It, Evaluations, PD Tracking, Pathways, Guardian Tracking, Acadis,
 Frontline Public Safety) sits under "All products"; **ArdentSky Compliance Suite** appears
-unlicensed with a "Learn more" row to show the request-access state.
+unlicensed with a "Learn more" row to show the request-access state. **V3 models this
+differently** (see below): its launcher drops pinning for a licence split.
 
 ## The shared shell contract (identical in all 7 versions)
 
@@ -53,7 +74,8 @@ unlicensed with a "Learn more" row to show the request-access state.
   location · scoped search (where the version has it) · notifications · help · avatar.
   No + New action. V3 is the exception by design: its full-height rail owns the left
   edge, and its nav toggle tops the side-nav column instead.
-- The side nav ALSO closes from a control in its own top-right corner (every version),
+- The side nav ALSO closes from a double-caret control in its own top-right corner (every
+  version),
   so there are two ways to collapse it. In the V3/V4 interaction frames that same slot
   holds the pin (hover overlay) and swaps to close when docked.
 - One accent token (`--accent`) reserved for active/selection states; everything else grayscale.
@@ -62,7 +84,9 @@ unlicensed with a "Learn more" row to show the request-access state.
 - Switching ≠ navigating: other products never appear inside the current product's nav tree.
 - Menu items keep this exploration's own visual style, but borrow two things from the
   shipping products (see below): the trailing disclosure chevron and the menu vocabulary.
-- Depth is carried by indentation and guide lines, never longer labels. Visible depth caps at 3.
+- Depth is carried by indentation and guide lines, never longer labels. Visible depth caps
+  at 3. Children indent 12px with an 8px gutter; level 3 steps in a further 10px.
+- Rows wrap to a second line rather than truncating, so a long real label stays readable.
 - Landmarks (`banner` / `nav` / `main`), `aria-current`, visible `:focus-visible` rings,
   skip link, and no hover-only destinations (flyouts/tooltips also open on keyboard focus;
   every rail icon is itself a clickable landing-page link).
@@ -126,10 +150,11 @@ updated. Their review pills still reference the old set; they are kept for histo
 ## Customer logo slot (platform customization)
 
 Orgs can surface their own branding at the top of the side nav, above the menu items: a
-customer logo image (here a placeholder "Northline Utilities" lockup) renders in a bordered
-slot at the top of the nav. It is customer CONTENT, not shell UI, so it is exempt from the
+customer logo image (here a placeholder "Northline Utilities" lockup) renders **54px tall**
+in a bordered ~80px slot, matching the logo area the EHS sidebar gives a tenant mark. (V3 is
+the exception: it docks the same slot to the BOTTOM of the nav.) It is customer CONTENT, not shell UI, so it is exempt from the
 neutral token palette. Present in every current version (every nav, including the Dashboard pane). Toggle it
-with the **Logo** button in the bottom-left review pill or deep-link the hidden state with
+with the **Logo** button in the bottom-center review pill or deep-link the hidden state with
 `?logo=off`.
 
 ## App switcher, matched to the design system
@@ -181,6 +206,29 @@ the current product only, typing live-filters the menu. Per review, the top bar 
   shows Inspections → Scheduled inspections → Monthly fire extinguisher check. Depth is
   carried by indentation only and capped at 3.
 
+## V3's launcher: your platforms vs other Vector platforms
+
+V1's launcher separates **pinned** products from an **All products** expansion, which is a
+personalization split. V3 replaces that with a **licence** split, so the panel answers a
+commercial question instead of a preference one:
+
+- **Your platforms** lists what this org actually licenses (Vector LMS, Vector EHS
+  Management, Vector Scheduling, Vector Check-It, Vector Evaluations). Rows open the app,
+  and the current one carries the "Current" tag.
+- **Other Vector platforms** lists what the org could add (PD Tracking, Pathways, Guardian
+  Tracking, Acadis, Frontline Public Safety, ArdentSky Compliance Suite). These rows do NOT
+  open an app: each opens that platform's product/sales page, so the end slot reads
+  "Learn more" and the section header says so outright. They stay quieter than licensed
+  rows (muted chip and name) but hover in the accent, reading as an offer rather than a
+  broken or locked app.
+- No pinning and no All-products expansion: the two sections ARE the boundary, so nothing
+  is hidden behind a disclosure. The cross-product Dashboard still sits above the divider.
+- The panel search filters both sections and hides a section header once nothing under it
+  matches.
+
+This is a V3-only content model right now; the other versions keep the pinned + All-products
+launcher so the two approaches can be compared directly.
+
 ## Shared side-nav interaction spec (V3 + V4)
 
 Versions with an icon-collapsed side nav follow one interaction cycle, represented as
@@ -200,9 +248,9 @@ sections never auto-collapse on mouse-leave, only on click-away or explicit coll
 
 ## Version switcher (review tooling, not part of the design)
 
-Every version file carries a small dark pill in the **bottom-left corner** (bottom-center in
-V3, whose sticky logo owns the bottom-left): `All` (back to the gallery) followed by V1 to V6,
-with the current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
+Every version file carries a small dark pill at the **bottom center**, stacked just above the
+Design Toolbox comment dock: `All` (back to the gallery) followed by V1 to V6, with the
+current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
 to the gallery each time. The pill also carries review toggles: **Logo** (customer logo slot), **Loc** (location
 picker) and **Tabs** (mode tabs), plus `?logo=off` / `?loc=off` / `?tabs=off` deep links. It is a single self-contained block at the end of each file
 (one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE

@@ -22,8 +22,8 @@
 - **No `localStorage`** for grants, thread, or added widgets. Session-only, so every reviewer opens to the same state.
 - **Do not edit** `data.js`, `hub.js`, `custom-dashboards.js`, `agency-intel-page.js`, `agency-intel-ai-data.js`, or `agency-intel-page-data.js`. This work is additive.
 - **Repo root:** `/Users/johnlangford/Documents/VibeCode/ux-mockups`. All paths below are relative to it.
-- **Hub directory:** `products/Keystone Department Hub/keystone-hub/`. Referred to below as `<HUB>/`.
-- **Page URL for verification:** `file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html`
+- **Hub directory:** `products/Keystone-Department-Hub/keystone-hub/`. Referred to below as `<HUB>/`.
+- **Page URL for verification:** `file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html`
 
 ### Playwright MCP tools are deferred
 
@@ -83,8 +83,8 @@ All 15 `metricId`s used by `homepageRespond()` exist in both `AVAILABLE_METRICS`
 ## Task 1: Load grant data, drop the dead script, add the gate
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/index.html:636-644`
-- Create: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js`
+- Modify: `products/Keystone-Department-Hub/keystone-hub/index.html:636-644`
+- Create: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js`
 
 **Interfaces:**
 - Consumes: `window.AGENCY_INTEL.INDIVIDUALS` (from `agency-intel-page-data.js`), `window.AGENCY_INTEL_AI.seedGrants()` (from `agency-intel-ai-data.js`), `window.KEYSTONE.ROLES`.
@@ -193,7 +193,7 @@ Create `<HUB>/hub-ai-panel.js`:
 Load the Playwright tools (see Global Constraints), then:
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -238,8 +238,8 @@ Expected: `{ "agencyIntelGone": "undefined", "dashRendered": true, "widgetCount"
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/index.html" \
-        "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js"
+git add "products/Keystone-Department-Hub/keystone-hub/index.html" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js"
 git commit -m "Keystone hub: read the AI access tab's grants, drop the orphaned chat card
 
 The hub now loads the same agency-intel grant model the AI access tab
@@ -252,10 +252,10 @@ leaves the script list but stays on disk — coverageHero() guards on it."
 ## Task 2: Two-column body and the compact panel
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js:656-694` (`publishedDashboard`)
-- Modify: `products/Keystone Department Hub/keystone-hub/index.html:404` and `:454` area (layout rules)
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (append panel component CSS)
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js`
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-hero.js:656-694` (`publishedDashboard`)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/index.html:404` and `:454` area (layout rules)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css` (append panel component CSS)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js`
 
 **Interfaces:**
 - Consumes: `KXAIPanel.hasAccess(roleId)` from Task 1.
@@ -481,7 +481,7 @@ already reloaded, `git stash` is not needed; the assertion below is absolute,
 not comparative.
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -556,10 +556,10 @@ exactly as tall as the widget row, input visible without scrolling.
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/index.html" \
-        "products/Keystone Department Hub/keystone-hub/styles.css" \
-        "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
-        "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js"
+git add "products/Keystone-Department-Hub/keystone-hub/index.html" \
+        "products/Keystone-Department-Hub/keystone-hub/styles.css" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js"
 git commit -m "Keystone hub: dock Agency Intelligence inside the dashboard container
 
 Chat left, widgets right, in a new .kx-pubbody flex row. Compact by
@@ -583,8 +583,8 @@ list below it should both flex to fill the available width**, and **dashboard
 widgets may wrap to multiple rows when the screen is small**.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css:349`
-- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (widget-span breakpoints, next to the existing `.kx-pubgrid` rules)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css:349`
+- Modify: `products/Keystone-Department-Hub/keystone-hub/index.html` (widget-span breakpoints, next to the existing `.kx-pubgrid` rules)
 
 **Interfaces:** none new. This is a CSS-only change.
 
@@ -643,7 +643,7 @@ roles see no change whatsoever.
 - [ ] **Step 3: Verify titles are legible and nothing else regressed**
 
 ```
-browser_navigate → http://127.0.0.1:8765/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → http://127.0.0.1:8765/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -728,8 +728,8 @@ Expected: no `error` entries (a favicon 404 is pre-existing and not a finding).
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/styles.css" \
-        "products/Keystone Department Hub/keystone-hub/index.html"
+git add "products/Keystone-Department-Hub/keystone-hub/styles.css" \
+        "products/Keystone-Department-Hub/keystone-hub/index.html"
 git commit -m "Keystone hub: let the page flex, and let dashboard widgets wrap
 
 The 1200px cap on .kx-main was arbitrary, and once the Agency Intelligence
@@ -776,8 +776,8 @@ second row… which cost ~31px per widget"). It is the right reversal now: 26px 
 the price of legible titles, against 161px for the two-across fallback.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`pubWidget`, around lines 574-592)
-- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (a footer rule, and re-measured breakpoints)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-hero.js` (`pubWidget`, around lines 574-592)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/index.html` (a footer rule, and re-measured breakpoints)
 
 **Interfaces:** none new. `pdRangeControl(w, ownerLabel, compact)` keeps its
 signature and all its existing behaviour (the dirty-state dot, the Reset button,
@@ -956,8 +956,8 @@ Expected: no `error` entries (the favicon 404 is pre-existing).
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
-        "products/Keystone Department Hub/keystone-hub/index.html"
+git add "products/Keystone-Department-Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone-Department-Hub/keystone-hub/index.html"
 git commit -m "Keystone dashboard: the widget title gets its own row
 
 The date-range control shared the header with the title and took ~105px of
@@ -976,8 +976,8 @@ choice made when nothing shared the dashboard body."
 ## Task 3: Ask and answer — the expanded state
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js`
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (append thread CSS)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js`
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css` (append thread CSS)
 
 **Interfaces:**
 - Consumes: `KXAIPanel.html(cfg)`, `state`, `isExpanded()` from Task 2; `window.AGENCY_INTEL_AI.homepageRespond(question, person, overrides)` which returns `{ text, denied?, entry }` where `entry` is `null` for small talk and otherwise `{ metricId, outcome, deniedSources, ... }`; `window.AGENCY_INTEL.metricSources(metricId) -> string[]`; `window.KEYSTONE.SOURCES[src].name`.
@@ -1298,7 +1298,7 @@ Add `wire()` to the export block and call it on load:
 - [ ] **Step 6: Verify an answered question**
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -1360,9 +1360,9 @@ Expected: no `error` entries.
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js" \
-        "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
-        "products/Keystone Department Hub/keystone-hub/styles.css"
+git add "products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone-Department-Hub/keystone-hub/styles.css"
 git commit -m "Keystone hub: the homepage assistant answers, and declines
 
 Wired to homepageRespond(), so entitlement checks and denials come from
@@ -1377,9 +1377,9 @@ row does not move."
 ## Task 4: Add as a widget
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js`
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`dashBody`)
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (append action + drop-zone CSS)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js`
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-hero.js` (`dashBody`)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css` (append action + drop-zone CSS)
 
 **Interfaces:**
 - Consumes: thread entries with `metricId` from Task 3; `window.KEYSTONE_CUSTOM.buildSpec(metricId, 'kpi')`; `window.AGENCY_INTEL.metricSources(metricId)`; `pubWidget(w, ownerLabel)` in `hub-hero.js`.
@@ -1557,7 +1557,7 @@ In `<HUB>/hub-hero.js`, replace `dashBody` with:
 - [ ] **Step 5: Verify the add path**
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -1627,9 +1627,9 @@ browser_take_screenshot → filename: keystone-ai-panel-expanded.png
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js" \
-        "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
-        "products/Keystone Department Hub/keystone-hub/styles.css"
+git add "products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone-Department-Hub/keystone-hub/styles.css"
 git commit -m "Keystone hub: answers become widgets on the dashboard
 
 An answered question offers 'Add as a widget', which lands a w:4 KPI in
@@ -1643,8 +1643,8 @@ dashboard never offers an edit affordance."
 ## Task 5: Collapse and New chat
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js`
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (append collapsed CSS)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js`
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css` (append collapsed CSS)
 
 **Interfaces:**
 - Consumes: `state.collapsed`, `state.thread`, `isExpanded()` from Tasks 2-3.
@@ -1752,7 +1752,7 @@ In `wire()`, add before the chip handler:
 - [ ] **Step 4: Verify collapse reclaims the grid, and New chat resets**
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -1816,8 +1816,8 @@ Expected: no `error` entries.
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js" \
-        "products/Keystone Department Hub/keystone-hub/styles.css"
+git add "products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js" \
+        "products/Keystone-Department-Hub/keystone-hub/styles.css"
 git commit -m "Keystone hub: collapse the assistant, or start a fresh chat
 
 The container was deliberately height-budgeted, so seeing the dashboard
@@ -1832,11 +1832,11 @@ added — clearing a conversation is not undoing a publish."
 
 **Files** — five, because this task also absorbs four cleanups deferred by
 earlier reviews (see Step 2b):
-- Modify: `products/Keystone Department Hub/keystone-hub/agency-intelligence-dashboard.html:44-49` (delete the duplicated `.agency-intel-mark` rule)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/agency-intelligence-dashboard.html:44-49` (delete the duplicated `.agency-intel-mark` rule)
 - Modify: `products.json:702-707` (refresh `desc` and `modified`)
-- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (delete the dead `.kx-pubwidget-head .rng` rule)
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js` (confirmation copy, shared-state comment, chevron class)
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (chevron positioning per orientation)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/index.html` (delete the dead `.kx-pubwidget-head .rng` rule)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js` (confirmation copy, shared-state comment, chevron class)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css` (chevron positioning per orientation)
 
 **Interfaces:**
 - Consumes: `.agency-intel-mark` now defined in `styles.css` (Task 2).
@@ -1854,7 +1854,7 @@ this work.
 - [ ] **Step 2: Verify the mark still renders on the Agency Intelligence page**
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/agency-intelligence-dashboard.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/agency-intelligence-dashboard.html
 ```
 
 ```
@@ -1972,7 +1972,7 @@ Expected: `ok`
 - [ ] **Step 5: Final sweep — both pages, all four roles, no console errors**
 
 ```
-browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -2017,7 +2017,7 @@ Expected: no `error` entries.
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/agency-intelligence-dashboard.html" \
+git add "products/Keystone-Department-Hub/keystone-hub/agency-intelligence-dashboard.html" \
         products.json
 git commit -m "Keystone: one definition of the Agency Intelligence mark, refreshed dashboard copy
 
@@ -2052,9 +2052,9 @@ trade was made explicitly.
   over repointing the old Scheduling widget.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/charts.js` (new `pdScatter`)
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`pubWidget` scatter branch; `CHIEF_DASH`)
-- Modify: `products/Keystone Department Hub/keystone-hub/agency-intel-page-data.js` (Chief's entitlements + the comment that contradicts them)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/charts.js` (new `pdScatter`)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-hero.js` (`pubWidget` scatter branch; `CHIEF_DASH`)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/agency-intel-page-data.js` (Chief's entitlements + the comment that contradicts them)
 
 **Interfaces:** `CC.buildCorrelationSpec(metricIds, 'scatter')` already returns
 `{ metricIds, viz, xLabel, yLabel, xUnit, yUnit, points:[{label,x,y}], kind }` —
@@ -2148,7 +2148,7 @@ full set.
 - [ ] **Step 5: Verify the charts render and the row holds**
 
 ```
-browser_navigate → http://127.0.0.1:8765/products/Keystone%20Department%20Hub/keystone-hub/index.html
+browser_navigate → http://127.0.0.1:8765/products/Keystone-Department-Hub/keystone-hub/index.html
 ```
 
 ```
@@ -2206,9 +2206,9 @@ Expected: no `error` entries (a favicon 404 is pre-existing).
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/charts.js" \
-        "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
-        "products/Keystone Department Hub/keystone-hub/agency-intel-page-data.js"
+git add "products/Keystone-Department-Hub/keystone-hub/charts.js" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone-Department-Hub/keystone-hub/agency-intel-page-data.js"
 git commit -m "Keystone: the Chief's dashboard uses the charts the builder offers
 
 Three big-number tiles showed one of the six chart types Agency
@@ -2255,10 +2255,10 @@ mixed spans the narrowest widget hits its legible floor sooner.
   fixes the clipped chip and the dead gap together.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-hero.js` (`CHIEF_DASH` spans)
-- Modify: `products/Keystone Department Hub/keystone-hub/hub-ai-panel.js` (`chipsHtml`)
-- Modify: `products/Keystone Department Hub/keystone-hub/styles.css` (chip layout)
-- Modify: `products/Keystone Department Hub/keystone-hub/index.html` (wrap threshold)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-hero.js` (`CHIEF_DASH` spans)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js` (`chipsHtml`)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/styles.css` (chip layout)
+- Modify: `products/Keystone-Department-Hub/keystone-hub/index.html` (wrap threshold)
 
 - [ ] **Step 1: Rebalance the spans**
 
@@ -2384,10 +2384,10 @@ Expected: no `error` entries (favicon 404 is pre-existing).
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/keystone-hub/hub-hero.js" \
-        "products/Keystone Department Hub/keystone-hub/hub-ai-panel.js" \
-        "products/Keystone Department Hub/keystone-hub/styles.css" \
-        "products/Keystone Department Hub/keystone-hub/index.html"
+git add "products/Keystone-Department-Hub/keystone-hub/hub-hero.js" \
+        "products/Keystone-Department-Hub/keystone-hub/hub-ai-panel.js" \
+        "products/Keystone-Department-Hub/keystone-hub/styles.css" \
+        "products/Keystone-Department-Hub/keystone-hub/index.html"
 git commit -m "Keystone: give each chart the width it needs, and fill the panel
 
 The three charts shared spans that suited none of them: the donut's legend

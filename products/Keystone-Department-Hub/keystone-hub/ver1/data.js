@@ -30,22 +30,230 @@
   ];
 
   // ---------- People ----------
+  // `badge` is the department ID number. It exists because names do not
+  // identify a person: this department has three Smiths and two Brennans in
+  // the seed data alone, and the generated DIRECTORY below has more of both.
+  // Every surface that has to tell two same-named people apart shows the badge.
   const PEOPLE = [
-    { id: 'u1',  first: 'Jamie',    last: 'Smith',     rank: 'Battalion Chief',  station: 'st1',  shift: 'A' },
-    { id: 'u2',  first: 'Devon',    last: 'Hartwell',  rank: 'Captain',          station: 'st4',  shift: 'A' },
-    { id: 'u3',  first: 'Sloane',   last: 'Kim',       rank: 'Lieutenant',       station: 'st4',  shift: 'B' },
-    { id: 'u4',  first: 'Jamal',    last: 'Okafor',    rank: 'Engineer',         station: 'st4',  shift: 'A' },
-    { id: 'u5',  first: 'Riley',    last: 'Brennan',   rank: 'Firefighter/EMT',  station: 'st4',  shift: 'A' },
-    { id: 'u6',  first: 'Priya',    last: 'Shah',      rank: 'Firefighter',      station: 'st7',  shift: 'C' },
-    { id: 'u7',  first: 'Owen',     last: 'Maguire',   rank: 'Lieutenant',       station: 'st7',  shift: 'A' },
-    { id: 'u8',  first: 'Alex',     last: 'Tanaka',    rank: 'Paramedic',        station: 'st9',  shift: 'B' },
-    { id: 'u9',  first: 'Marisol',  last: 'Vega',      rank: 'Firefighter',      station: 'st9',  shift: 'A' },
-    { id: 'u10', first: 'Kai',      last: 'Brennan',   rank: 'Captain',          station: 'st12', shift: 'B' },
-    { id: 'u11', first: 'Theo',     last: 'Iverson',   rank: 'Firefighter/EMT',  station: 'st12', shift: 'C' },
-    { id: 'u12', first: 'Naima',    last: 'Whitfield', rank: 'Training Officer', station: 'st1',  shift: '—' },
-    { id: 'u13', first: 'Eli',      last: 'Rosenfeld', rank: 'Firefighter',      station: 'st14', shift: 'A' },
-    { id: 'u14', first: 'Cassidy',  last: 'Park',      rank: 'Lieutenant',       station: 'st14', shift: 'B' },
+    { id: 'u1',  first: 'Jamie',    last: 'Smith',     rank: 'Battalion Chief',  station: 'st1',  shift: 'A', badge: '01042' },
+    { id: 'u2',  first: 'Devon',    last: 'Hartwell',  rank: 'Captain',          station: 'st4',  shift: 'A', badge: '02184' },
+    { id: 'u3',  first: 'Sloane',   last: 'Kim',       rank: 'Lieutenant',       station: 'st4',  shift: 'B', badge: '03357' },
+    { id: 'u4',  first: 'Jamal',    last: 'Okafor',    rank: 'Engineer',         station: 'st4',  shift: 'A', badge: '04120' },
+    { id: 'u5',  first: 'Riley',    last: 'Brennan',   rank: 'Firefighter/EMT',  station: 'st4',  shift: 'A', badge: '04871' },
+    { id: 'u6',  first: 'Priya',    last: 'Shah',      rank: 'Firefighter',      station: 'st7',  shift: 'C', badge: '05233' },
+    { id: 'u7',  first: 'Owen',     last: 'Maguire',   rank: 'Lieutenant',       station: 'st7',  shift: 'A', badge: '06018' },
+    { id: 'u8',  first: 'Alex',     last: 'Tanaka',    rank: 'Paramedic',        station: 'st9',  shift: 'B', badge: '06744' },
+    { id: 'u9',  first: 'Marisol',  last: 'Vega',      rank: 'Firefighter',      station: 'st9',  shift: 'A', badge: '07391' },
+    { id: 'u10', first: 'Kai',      last: 'Brennan',   rank: 'Captain',          station: 'st12', shift: 'B', badge: '08290' },
+    { id: 'u11', first: 'Theo',     last: 'Iverson',   rank: 'Firefighter/EMT',  station: 'st12', shift: 'C', badge: '09115' },
+    { id: 'u12', first: 'Naima',    last: 'Whitfield', rank: 'Training Officer', station: 'st1',  shift: '—', badge: '09802' },
+    { id: 'u13', first: 'Eli',      last: 'Rosenfeld', rank: 'Firefighter',      station: 'st14', shift: 'A', badge: '10466' },
+    { id: 'u14', first: 'Cassidy',  last: 'Park',      rank: 'Lieutenant',       station: 'st14', shift: 'B', badge: '11238' },
   ];
+
+  /* ---------- Department directory ---------------------------------------
+     PEOPLE above is the cast that holds tasks in this prototype — 14 of them.
+     A real department the Hub has to serve is two to three orders of magnitude
+     larger, and that is the entire design problem for any "filter to a person"
+     control: a checkbox list is unusable at that size, and a NAME IS NOT AN
+     IDENTIFIER. DIRECTORY is that department.
+
+     It supersets PEOPLE (the 14 carry through verbatim, badges and all) and
+     generates the remainder deterministically — no Math.random() anywhere, so
+     every reviewer who opens the prototype sees the same 2,431 people, the same
+     badge numbers, and the same search results. (Same house rule as
+     agency-intel-roster.js, for the same reason.)
+
+     Three same-name collisions are PLANTED rather than left to chance, because
+     they are precisely the case the design has to answer for:
+       • two Stephen Smiths — different rank, station and shift; neither holds
+         a task, so only the badge separates them
+       • a second Riley Brennan — same rank AND same shift as the seed Riley
+         Brennan, who holds a queue of tasks. This one holds none. The badge is
+         the only thing that tells an admin which Riley they are looking at.
+     Common surnames sit in the pool on purpose too, so searching "smith" or
+     "brennan" returns the ~17 people it would in a real department rather than
+     a conveniently tidy one or two.
+     ---------------------------------------------------------------------- */
+
+  // 90 first names x 140 surnames. The walk below is injective over this space
+  // for any n < 12600, so no full name repeats by accident — every duplicate in
+  // the directory is one of the three planted above.
+  const DIR_FIRST = [
+    'Aaron', 'Abigail', 'Adrian', 'Alana', 'Alberto', 'Alicia', 'Amara', 'Amos', 'Anders', 'Angela',
+    'Anton', 'Ariana', 'Arjun', 'Ashley', 'Aurora', 'Barrett', 'Beatriz', 'Blake', 'Bridget', 'Caleb',
+    'Camille', 'Carlos', 'Cecilia', 'Chandra', 'Clara', 'Cormac', 'Damian', 'Daniela', 'Darnell', 'David',
+    'Delia', 'Desmond', 'Dominic', 'Edith', 'Eduardo', 'Elias', 'Ellery', 'Emmett', 'Erika', 'Ezra',
+    'Fatima', 'Fernando', 'Fiona', 'Franklin', 'Gabriela', 'Gerald', 'Gloria', 'Grant', 'Hannah', 'Harold',
+    'Heidi', 'Hector', 'Ines', 'Isaac', 'Ivan', 'Jacinta', 'Janelle', 'Javier', 'Jerome', 'Josefina',
+    'Julian', 'Karina', 'Keegan', 'Lorena', 'Lucas', 'Madeline', 'Malik', 'Manuel', 'Margot', 'Mateo',
+    'Meredith', 'Miriam', 'Nadia', 'Nathaniel', 'Noelle', 'Omar', 'Patrice', 'Rafael', 'Regina', 'Rosalind',
+    'Rowan', 'Salvador', 'Simone', 'Stephen', 'Sylvia', 'Terrence', 'Valeria', 'Victor', 'Wanda', 'Yolanda'
+  ];
+  const DIR_LAST = [
+    'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
+    'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
+    'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson',
+    'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores',
+    'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts',
+    'Gomez', 'Phillips', 'Evans', 'Turner', 'Diaz', 'Parker', 'Cruz', 'Edwards', 'Collins', 'Reyes',
+    'Stewart', 'Morris', 'Morales', 'Murphy', 'Cook', 'Rogers', 'Gutierrez', 'Ortiz', 'Morgan', 'Cooper',
+    'Peterson', 'Bailey', 'Reed', 'Kelly', 'Howard', 'Ramos', 'Kim', 'Cox', 'Ward', 'Richardson',
+    'Watson', 'Brooks', 'Chavez', 'Wood', 'Bennett', 'Gray', 'Mendoza', 'Ruiz', 'Hughes', 'Price',
+    'Alvarez', 'Castillo', 'Sanders', 'Patel', 'Myers', 'Long', 'Ross', 'Foster', 'Jimenez', 'Powell',
+    'Jenkins', 'Perry', 'Russell', 'Sullivan', 'Bell', 'Coleman', 'Butler', 'Henderson', 'Barnes', 'Fisher',
+    'Vasquez', 'Simmons', 'Romero', 'Jordan', 'Patterson', 'Alexander', 'Hamilton', 'Graham', 'Reynolds', 'Griffin',
+    'Brennan', 'Maguire', 'Okafor', 'Tanaka', 'Hartwell', 'Rosenfeld', 'Whitfield', 'Iverson', 'Vega', 'Shah',
+    'Okonkwo', 'Delacroix', 'Vandenberg', 'Kowalski', 'Nakamura', 'Fitzgerald', 'Abernathy', 'Castellanos', 'Thornbury', 'Beaumont'
+  ];
+
+  const DIR_GENERATED = 2417;                 // + the 14 seeds = 2,431 people
+
+  // Rank is drawn from a bijective scatter of 0..2416, which makes the head
+  // count per rank EXACT (6 battalion chiefs, 40 captains, 94 lieutenants, …)
+  // instead of approximately-right. 2417 is prime and 17 is not a factor of it,
+  // so (n * 17) % 2417 visits every value once — and, being coprime with the
+  // 6-station and 3-shift cycles, rank never correlates with either.
+  function dirRank(n) {
+    const m = (n * 17) % DIR_GENERATED;
+    if (m < 6)    return 'Battalion Chief';
+    if (m < 46)   return 'Captain';
+    if (m < 140)  return 'Lieutenant';
+    if (m < 160)  return 'Training Officer';
+    if (m < 300)  return 'Engineer';
+    if (m < 560)  return 'Paramedic';
+    if (m < 1200) return 'Firefighter/EMT';
+    return 'Firefighter';
+  }
+
+  function buildDirectory() {
+    const stationIds = STATIONS.map((s) => s.id);
+    // Seeds first: same objects PEOPLE exposes, so a badge or a rank edited
+    // above shows up in the directory too and the two can never disagree.
+    const out = PEOPLE.map((p) => Object.assign({}, p));
+
+    for (let n = 0; n < DIR_GENERATED; n++) {
+      const a = n % DIR_LAST.length;                 // surname slot
+      const b = Math.floor(n / DIR_LAST.length);     // 0..17 over this range
+      const rank = dirRank(n);
+      out.push({
+        id: 'd' + n,
+        first: DIR_FIRST[(b * 5 + a * 13) % DIR_FIRST.length],
+        last: DIR_LAST[a],
+        rank: rank,
+        station: stationIds[n % stationIds.length],
+        // Shift advances on a different cycle than station, or every house ends
+        // up staffed by exactly one shift. Training officers aren't on a rota.
+        shift: rank === 'Training Officer' ? '—' : ['A', 'B', 'C'][Math.floor(n / stationIds.length) % 3],
+        badge: String(12000 + n * 7)                 // all above the seeds' 11238
+      });
+    }
+
+    // The planted collisions. Overwriting names at a generated index (rather
+    // than appending new people) keeps every badge unique for free.
+    const plant = (n, first, last) => {
+      const row = out[PEOPLE.length + n];
+      row.first = first;
+      row.last = last;
+    };
+    plant(427, 'Stephen', 'Smith');    // Captain · Station 4 · C-shift · #14989
+    plant(1685, 'Stephen', 'Smith');   // Firefighter · Station 14 · B-shift · #23795
+    plant(903, 'Riley', 'Brennan');    // Firefighter/EMT · Station 9 · A-shift · #18321
+
+    return out;
+  }
+
+  const DIRECTORY = buildDirectory();
+
+  /* Search the directory. Returns { total, rows } — the FULL match count plus
+     the ranked matches, so a caller that caps its list can still say "8 of 47"
+     honestly. Ranking order, best first:
+        0  exact badge         1  exact full name      2  surname prefix
+        3  first-name prefix   4  badge substring      5  name substring
+        6  matched on rank / station / shift only
+     Within a tier, anyone in `boost` (in practice: people who actually hold
+     tasks) sorts first — an admin hunting "Stephen Smith" almost always wants
+     the Stephen Smith with work outstanding, not the one with an empty queue. */
+  function searchDirectory(query, opts) {
+    const o = opts || {};
+    const boost = o.boost || [];
+    const q = String(query || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!q) return { total: 0, rows: [] };
+
+    const tokens = q.split(' ');
+    const qDigits = q.replace(/\D/g, '');
+    const scored = [];
+
+    for (let i = 0; i < DIRECTORY.length; i++) {
+      const p = DIRECTORY[i];
+      const st = STATIONS.find((s) => s.id === p.station) || { name: '', label: '' };
+      const first = p.first.toLowerCase();
+      const last = p.last.toLowerCase();
+      const full = first + ' ' + last;
+      const badge = p.badge;
+      // "Brennan, Riley" is how a roster prints a name, so accept it as typed.
+      const hay = full + ' ' + last + ', ' + first + ' ' + badge + ' ' +
+        String(Number(badge)) + ' ' + p.rank.toLowerCase() + ' ' +
+        st.name.toLowerCase() + ' ' + st.label.toLowerCase() + ' ' + p.shift.toLowerCase();
+
+      // Every token must land somewhere, so "stephen smith" narrows instead of
+      // widening the way an OR would.
+      let all = true;
+      for (let t = 0; t < tokens.length; t++) {
+        if (hay.indexOf(tokens[t]) === -1) { all = false; break; }
+      }
+      if (!all) continue;
+
+      let tier;
+      if (qDigits && (badge === qDigits || String(Number(badge)) === String(Number(qDigits)))) tier = 0;
+      else if (full === q || (last + ', ' + first) === q) tier = 1;
+      else if (last.indexOf(tokens[0]) === 0) tier = 2;
+      else if (first.indexOf(tokens[0]) === 0) tier = 3;
+      else if (qDigits && badge.indexOf(qDigits) !== -1) tier = 4;
+      else if (full.indexOf(q) !== -1 || full.indexOf(tokens[0]) !== -1) tier = 5;
+      else tier = 6;
+
+      scored.push({ p: p, tier: tier, hot: boost.indexOf(p.id) !== -1 ? 0 : 1 });
+    }
+
+    /* Same-name people must travel TOGETHER, or the control quietly fails at
+       the exact case it exists for. Ranked purely on merit, a search for
+       "brennan" put the Riley Brennan holding eight tasks at the top and left
+       the OTHER Riley Brennan twelve rows down, past the visible cut — so an
+       admin would pick one and never learn there were two. Every member of a
+       same-name group therefore sorts at the position of its best-ranked
+       member, which lands them adjacent. */
+    const best = {};
+    const key = (x) => (x.p.first + ' ' + x.p.last).toLowerCase();
+    scored.forEach((x) => {
+      const k = key(x);
+      const cur = best[k];
+      if (!cur || x.tier < cur.tier || (x.tier === cur.tier && x.hot < cur.hot)) {
+        best[k] = { tier: x.tier, hot: x.hot };
+      }
+    });
+
+    scored.sort((x, y) => {
+      const gx = best[key(x)];
+      const gy = best[key(y)];
+      return gx.tier - gy.tier ||
+        gx.hot - gy.hot ||
+        x.p.last.localeCompare(y.p.last) ||
+        x.p.first.localeCompare(y.p.first) ||
+        // Inside one same-name group: whoever holds work leads, then by badge
+        // so the order never wobbles between renders.
+        x.hot - y.hot ||
+        String(x.p.badge).localeCompare(String(y.p.badge));
+    });
+
+    // How many matches share each full name, so a row can warn that its name
+    // alone does not identify anyone. Only genuine collisions are reported.
+    const dupes = {};
+    scored.forEach((x) => { const k = key(x); dupes[k] = (dupes[k] || 0) + 1; });
+    Object.keys(dupes).forEach((k) => { if (dupes[k] < 2) delete dupes[k]; });
+
+    return { total: scored.length, rows: scored.map((x) => x.p), dupes };
+  }
 
   // ---------- Task type registry — drives icons, importance defaults, expansion fields ----------
   const TASK_TYPES = {
@@ -232,9 +440,13 @@
 
   // Export everything to window for cross-script access
   window.KEYSTONE = {
-    NOW, SOURCES, STATIONS, PEOPLE, TASK_TYPES, TASKS, SAVED_VIEWS, ROLES,
+    NOW, SOURCES, STATIONS, PEOPLE, DIRECTORY, TASK_TYPES, TASKS, SAVED_VIEWS, ROLES,
     helpers: { priorityScore, priorityBand, statusOf, timeWeight, hours, days,
-               personById: (id) => PEOPLE.find(p => p.id === id),
+               // personById covers the 14 task-holders; anyone the person filter
+               // can reach lives in the directory, so fall through to it.
+               personById: (id) => PEOPLE.find(p => p.id === id) || DIRECTORY.find(p => p.id === id),
+               directoryById: (id) => DIRECTORY.find(p => p.id === id),
+               searchDirectory,
                stationById: (id) => STATIONS.find(s => s.id === id),
                sourceById: (id) => SOURCES[id],
                typeById: (id) => TASK_TYPES[id],

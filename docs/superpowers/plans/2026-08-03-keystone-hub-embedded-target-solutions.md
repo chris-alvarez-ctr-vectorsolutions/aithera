@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a demo-ready mock showing the Keystone Department Hub embedded in the Target Solutions shell, with a recreated Target Solutions homepage you can click back and forth from.
+**Goal:** Build a demo-ready mock showing the Keystone-Department-Hub embedded in the Target Solutions shell, with a recreated Target Solutions homepage you can click back and forth from.
 
 **Architecture:** One HTML file (`ver1/index.html`) containing persistent Target Solutions chrome — accent bar, top nav, left sidebar — wrapping two sibling views. A `data-view` attribute on the root element decides which view shows; CSS does the hiding, so nothing re-renders and the chrome never flickers. The `home` view is a hand-built recreation of the current Target Solutions homepage. The `hub` view is a single `<iframe>` pointing at the real, unmodified `keystone-hub/index.html`.
 
@@ -12,9 +12,9 @@
 
 ## Global Constraints
 
-- **Never modify `products/Keystone Department Hub/keystone-hub/`.** It is embedded by reference. Any change to it is out of scope and a plan violation.
+- **Never modify `products/Keystone-Department-Hub/keystone-hub/`.** It is embedded by reference. Any change to it is out of scope and a plan violation.
 - **Never edit the feature-root `index.html`.** It is a verbatim copy of `base-template/index.html` (the generic version loader). Only `ver1/index.html` is designed in.
-- All work happens in `products/Keystone Department Hub/embedded-target-solutions/`.
+- All work happens in `products/Keystone-Department-Hub/embedded-target-solutions/`.
 - **Vector components and theme tokens are for NEW elements only** — the announcement banner, its CTA button, and the nav link's NEW pill. The recreated legacy Target Solutions chrome (top nav, sidebar, Frequent Activities tiles, To Do rows, Bulletin Board) is plain HTML/CSS, because the real page predates the component library and rebuilding it in VWC would misrepresent what exists today.
 - Department name is exactly `Springfield Fire Department`. Avatar initials are exactly `JL`.
 - Frequent Activities ships **one** row of nine solid-color tiles. The pastel "Field-based Trainings" row from the source screenshot is deliberately omitted.
@@ -44,7 +44,7 @@ cd "/Users/johnlangford/Documents/VibeCode/ux-mockups" && python3 -m http.server
 Run it in the background. The feature's URL for the whole plan is:
 
 ```
-http://localhost:8123/products/Keystone%20Department%20Hub/embedded-target-solutions/
+http://localhost:8123/products/Keystone-Department-Hub/embedded-target-solutions/
 ```
 
 Playwright MCP tools are available for this: `mcp__playwright__browser_navigate`,
@@ -86,10 +86,10 @@ Creates the versioned folder, the loader, the manifest, a blank canvas, and the
 `products.json` entry. Delivers a working (empty) feature URL and a dashboard card.
 
 **Files:**
-- Create: `products/Keystone Department Hub/embedded-target-solutions/index.html`
-- Create: `products/Keystone Department Hub/embedded-target-solutions/versions.json`
-- Create: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
-- Modify: `products.json` — the `Keystone Department Hub` product's `items` array
+- Create: `products/Keystone-Department-Hub/embedded-target-solutions/index.html`
+- Create: `products/Keystone-Department-Hub/embedded-target-solutions/versions.json`
+- Create: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
+- Modify: `products.json` — the `Keystone-Department-Hub` product's `items` array
 
 **Interfaces:**
 - Consumes: nothing.
@@ -100,7 +100,7 @@ Creates the versioned folder, the loader, the manifest, a blank canvas, and the
 - [ ] **Step 1: Create the folder and copy the loader verbatim**
 
 ```bash
-cd "/Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone Department Hub"
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub"
 mkdir -p embedded-target-solutions/ver1
 cp ../../base-template/index.html embedded-target-solutions/index.html
 ```
@@ -114,7 +114,7 @@ Create `embedded-target-solutions/versions.json`:
 
 ```json
 [
-  { "id": "ver1", "label": "V1", "path": "ver1/index.html", "title": "Keystone Department Hub embedded in the Target Solutions shell, with a recreated TS homepage" }
+  { "id": "ver1", "label": "V1", "path": "ver1/index.html", "title": "Keystone-Department-Hub embedded in the Target Solutions shell, with a recreated TS homepage" }
 ]
 ```
 
@@ -133,10 +133,10 @@ append to, and the root element.
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Keystone Department Hub — in Target Solutions</title>
+<title>Keystone-Department-Hub — in Target Solutions</title>
 
 <!--
-  Keystone Department Hub, wearing the Target Solutions shell.
+  Keystone-Department-Hub, wearing the Target Solutions shell.
 
   The hub will be published inside several Vector Solutions applications. This is
   the first of three bake-outs showing what that looks like (Target Solutions, then
@@ -225,7 +225,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
 
 - [ ] **Step 4: Register the feature in `products.json`**
 
-Open `products.json` at the repo root and find the `Keystone Department Hub`
+Open `products.json` at the repo root and find the `Keystone-Department-Hub`
 product (search for `"slug": "keystone-department-hub"`). Its `items` array
 currently holds three entries: `Department Hub`, `Prioritization Settings`, and
 `Agency Intelligence Dashboard`.
@@ -261,7 +261,7 @@ Run:
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups" \
   && python3 -c "import json;d=json.load(open('products.json'));print('products.json OK')" \
-  && python3 -c "import json;d=json.load(open('products/Keystone Department Hub/embedded-target-solutions/versions.json'));print('versions.json OK, entries:',len(d))"
+  && python3 -c "import json;d=json.load(open('products/Keystone-Department-Hub/embedded-target-solutions/versions.json'));print('versions.json OK, entries:',len(d))"
 ```
 
 Expected output:
@@ -279,7 +279,7 @@ before continuing.
 Start the server if it is not already running, then navigate Playwright to:
 
 ```
-http://localhost:8123/products/Keystone%20Department%20Hub/embedded-target-solutions/
+http://localhost:8123/products/Keystone-Department-Hub/embedded-target-solutions/
 ```
 
 Resize to 1500×1000 and take a screenshot.
@@ -296,7 +296,7 @@ Expected:
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions" products.json
+git add "products/Keystone-Department-Hub/embedded-target-solutions" products.json
 git commit -m "Keystone embedded views: scaffold the Target Solutions feature
 
 Loader + single-version manifest + blank Vector canvas, registered under a
@@ -311,7 +311,7 @@ Builds the accent bar, top nav, and left sidebar — everything that stays put a
 a view switch. Includes the bento button's forward-looking hook.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
+- Modify: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 **Interfaces:**
 - Consumes: the `<style id="ts-styles">` block and the `<div class="ts-app" data-view="home">` element from Task 1.
@@ -669,7 +669,7 @@ Then run `mcp__playwright__browser_snapshot` and confirm:
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html"
 git commit -m "Keystone embedded views: Target Solutions top nav and sidebar
 
 Persistent chrome: crimson rule, top nav with a real focusable bento button
@@ -686,7 +686,7 @@ The demo-critical increment. After this task the presenter can click between Hom
 and the live hub, even though the homepage is still empty.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
+- Modify: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 **Interfaces:**
 - Consumes: `#ts-content` (empty), `#nav-home`, `#nav-hub`, and their `data-target`
@@ -742,7 +742,7 @@ with:
       <!-- ---------- VIEW: the recreated Target Solutions homepage ---------- -->
       <div class="ts-view" id="view-home"></div>
 
-      <!-- ---------- VIEW: the real Keystone Department Hub ----------------
+      <!-- ---------- VIEW: the real Keystone-Department-Hub ----------------
            Embedded by reference, never copied. Hub edits appear here for free,
            and its own stylesheet and #root get a clean document instead of
            fighting the Target Solutions shell. -->
@@ -751,7 +751,7 @@ with:
              parent defers the fetch until the first click, which would put a
              visible stall in the middle of the demo. -->
         <iframe src="../../keystone-hub/index.html"
-                title="Keystone Department Hub"></iframe>
+                title="Keystone-Department-Hub"></iframe>
       </div>
 
     </main>
@@ -805,7 +805,7 @@ Navigate to the feature URL, resize to 1500×1000.
    - The Target Solutions accent bar, top nav, and sidebar are **unchanged and still
      visible** — the switch affects only the content column.
    - `Keystone Hub` now shows the selected treatment; `Home` no longer does.
-   - The content area renders the Keystone Department Hub: its greeting header, the
+   - The content area renders the Keystone-Department-Hub: its greeting header, the
      published dashboard, the filter bar, and the task table.
 
 2. Confirm the embed is genuinely interactive — click a status bucket in the hub's
@@ -827,7 +827,7 @@ Navigate to the feature URL, resize to 1500×1000.
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html"
 git commit -m "Keystone embedded views: click between Home and the live hub
 
 data-view on the shell swaps two sibling views without re-rendering the
@@ -840,7 +840,7 @@ in sync and keeps all its interactivity."
 ## Task 4: Frequent Activities card
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
+- Modify: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 **Interfaces:**
 - Consumes: `#view-home` (empty) from Task 3.
@@ -979,7 +979,7 @@ Expected:
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html"
 git commit -m "Keystone embedded views: Frequent Activities card
 
 One row of nine station-based tiles. The source page's second pastel row is
@@ -991,7 +991,7 @@ omitted to keep To Do and the Bulletin Board high in the demo viewport."
 ## Task 5: To Do and Bulletin Board
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
+- Modify: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 **Interfaces:**
 - Consumes: `#view-home` and the `.ts-card` classes from Task 4.
@@ -1229,7 +1229,7 @@ Expected:
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html"
 git commit -m "Keystone embedded views: To Do and Bulletin Board cards
 
 Completes the recreated Target Solutions homepage — tabbed To Do list with
@@ -1244,7 +1244,7 @@ The last piece, and the only genuinely new element on the homepage. Built with
 Vector components and theme tokens.
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
+- Modify: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 **Interfaces:**
 - Consumes: `window.tsSetView(name)` from Task 3, and `#view-home` from Task 4.
@@ -1306,7 +1306,7 @@ Insert as the **first child** of `#view-home`, immediately before the
           </div>
           <div class="ts-announce-copy">
             <h3>
-              Introducing the Keystone Department Hub
+              Introducing the Keystone-Department-Hub
               <span class="ts-new-pill">NEW</span>
             </h3>
             <p>
@@ -1360,7 +1360,7 @@ Navigate to the feature URL, resize to 1500×1000, `home` view showing.
 1. Screenshot. Expected:
    - A white banner sits **above** Frequent Activities with a blue left edge and a
      circular blue flame mark.
-   - Heading `Introducing the Keystone Department Hub` with a blue **NEW** pill
+   - Heading `Introducing the Keystone-Department-Hub` with a blue **NEW** pill
      beside it, and the body copy below.
    - On the right: a **filled blue** `View the Department Hub` button and a subtle
      `×` button. Both are real `vaadin-button` elements — confirm they render as
@@ -1382,7 +1382,7 @@ Navigate to the feature URL, resize to 1500×1000, `home` view showing.
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html"
 git commit -m "Keystone embedded views: homepage announcement banner
 
 Promotes the new Department Hub with a CTA that lands in the same state as
@@ -1398,7 +1398,7 @@ No new features. This is the end-to-end gate against the spec's success criteria
 plus a responsive sanity check.
 
 **Files:**
-- Modify (only if a defect is found): `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`
+- Modify (only if a defect is found): `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 **Interfaces:**
 - Consumes: everything.
@@ -1440,7 +1440,7 @@ cd "/Users/johnlangford/Documents/VibeCode/ux-mockups" && node scripts/build-das
 Expected: the script completes without error. Then `git status` — if it rewrote
 dashboard output files, include them in the final commit.
 
-Navigate to the Keystone Department Hub product dashboard and confirm an
+Navigate to the Keystone-Department-Hub product dashboard and confirm an
 **Embedded App Views** folder appears in the left Folders rail, containing
 `In Target Solutions`.
 

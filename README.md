@@ -10,15 +10,43 @@ The prototypes use ES modules and `fetch`, so they need to be *served*, not
 opened with `file://`. From the repo root:
 
 ```bash
-python3 -m http.server 4599
+python3 scripts/serve.py
 ```
 
 Then open <http://localhost:4599/> for the shareable index, or go straight to a
 prototype, e.g. <http://localhost:4599/products/aithera/>.
 
+**Always use port 4599.** Every preview URL you share or bookmark should start
+`http://localhost:4599/` — a one-off server on some other port dies with the
+session that started it, and the bookmark then answers "refused to connect".
+
+`scripts/serve.py` is `python3 -m http.server` with two fixes: it sends
+`Cache-Control: no-store`, so a refresh after an edit always shows the file on
+disk instead of a cached copy, and it binds to `127.0.0.1` so the repo isn't
+exposed to the network. Plain `python3 -m http.server 4599` still works if you
+prefer it.
+
 If you use Claude Code, the same server is defined in
 [`.claude/launch.json`](.claude/launch.json) (`static` serves the repo root on
 4599) — start it with `preview_start`.
+
+### Keeping it up across reboots
+
+`~/Library/LaunchAgents/com.vectorsolutions.ux-mockups-preview.plist` runs the
+server at login and restarts it if it dies, so the URLs are always there. It
+needs one manual grant first, because macOS blocks background agents from
+reading `~/Documents`: **System Settings → Privacy & Security → Full Disk
+Access**, `+`, then <kbd>⌘⇧G</kbd> and paste
+`/Library/Developer/CommandLineTools/usr/bin/python3`. Then:
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.vectorsolutions.ux-mockups-preview.plist
+```
+
+Stop it with `launchctl bootout gui/$(id -u)/com.vectorsolutions.ux-mockups-preview`.
+Logs go to `~/Library/Logs/ux-mockups-preview.log`. Without the Full Disk Access
+grant the agent starts but every request fails with `Operation not permitted` —
+run the server from a terminal instead.
 
 ## Layout
 
