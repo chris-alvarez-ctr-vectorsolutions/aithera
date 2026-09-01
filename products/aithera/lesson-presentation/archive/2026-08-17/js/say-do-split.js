@@ -83,6 +83,12 @@
       beats.push({ kind: 'narration', text: toSecondPerson(a) });
     }
   }
+  /* Move-description signals for the no-quote fallback: a physical verb, or a
+     speech verb aimed at a third person ("tell Jake…" — but never "tell you"/
+     "tell me", which read as direct address). Mirrors the live page's
+     MOVE_ACTION_RE / MOVE_INTENT_RE routing, compacted. */
+  const MOVE_DESC_RE = /\b(steps?|stepping|walks?|walking|moves?|moving|turns?|turning|stands?|standing|leans?|kneels?|approach(?:es|ing)?|goes? (?:over|to)|come[sn]? (?:over|in)|grab\w*|reach(?:es|ing)?|glanc\w*|looks? (?:at|over|around|toward)|pours?|sets?|puts?|nods?|gestures?)\b|\b(?:tell|telling|told|ask|asking|asked|warn|warning|warned|remind|reminding)\s+(?!you\b|me\b)\w+/i;
+
   function splitSceneInput(raw) {
     const t = String(raw || '').trim();
     if (!t) return [];
@@ -98,8 +104,17 @@
       if (spoken) beats.push({ kind: 'dialogue', text: spoken });
       last = quoteRe.lastIndex;
     }
-    if (last === 0) {   // no quotes at all — coarse single-beat fallback
-      if (/^(i |i'd |i would |i'll |i'm |i am |i just |you )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+    if (last === 0) {   // no quotes at all — decide NARRATION vs SPEECH
+      // A move that DESCRIBES what the learner does or says ("tell Jake to
+      // stop, then look at Marshall") is awkward as their literal voice —
+      // stage it as an action line. Order matters: a first-person opener is
+      // the strongest description signal; a trailing vocative (", Jake") is
+      // the strongest direct-speech signal; then any move verb (physical, or
+      // a speech verb aimed at a third person) tips to narration. Only
+      // unmarked text stays a spoken bubble.
+      if (/^(i |i'd |i would |i'll |i'm |i am |i just |you |then )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+      if (/,\s*\w+[.!?]?$/.test(t)) return [{ kind: 'dialogue', text: t }];
+      if (MOVE_DESC_RE.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
       return [{ kind: 'dialogue', text: t }];
     }
     pushAction(beats, t.slice(last));                     // action after the last quote
@@ -172,8 +187,15 @@
   /* The one call a consumer wants: AI-first, deterministic fallback, and the
      raw line as a last resort so the learner's words are NEVER lost. */
   async function splitMove(text, opt) {
-    let beats = null;
-    try { beats = await splitSceneInputAI(text, opt); } catch (_) { /* fall through */ }
+    let beats = null, aiFail = null;
+    try {
+      beats = await splitSceneInputAI(text, opt);
+      if (!beats) aiFail = 'returned no usable beats';
+    } catch (e) { aiFail = 'call failed (' + ((e && e.message) || e) + ')'; }
+    // BREADCRUMB — the road into the deterministic fallback used to be silent,
+    // which made "why did the split look mechanical?" unanswerable after the
+    // fact. Dev-facing only; the learner/author sees nothing.
+    if (aiFail) { try { console.info('[say/do] AI split ' + aiFail + ' — deterministic fallback for: ' + text); } catch (_) {} }
     if (!beats || !beats.length) beats = splitSceneInput(text);
     return (beats && beats.length) ? beats : [{ kind: 'dialogue', text: String(text || '') }];
   }

@@ -2177,7 +2177,19 @@
         speech.forEach((s) => beats.push({ kind: 'dialogue', text: s }));
         return beats.length ? beats : [{ kind: 'dialogue', text: t }];
       }
-      if (/^(i |i'd |i would |i'll |i'm |i am |i just )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+      // No quotes: decide NARRATION vs SPEECH. A move that DESCRIBES what the
+      // learner does or says ("tell Jake to stop, then look at Marshall") is
+      // awkward as their literal voice — stage it as an action line. Order
+      // matters: a first-person opener is the strongest description signal; a
+      // trailing vocative (", Jake") is the strongest direct-speech signal;
+      // then any move verb (physical, or a speech verb aimed at a third
+      // person) tips to narration. Only unmarked text stays a spoken bubble.
+      if (/^(i |i'd |i would |i'll |i'm |i am |i just |you |then )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+      if (/,\s*\w+[.!?]?$/.test(t)) return [{ kind: 'dialogue', text: t }];
+      if (MOVE_ACTION_RE.test(t)
+          || /\b(?:tell|telling|told|ask|asking|asked|warn|warning|warned|remind|reminding)\s+(?!you\b|me\b)\w+/i.test(t)) {
+        return [{ kind: 'narration', text: toSecondPerson(t) }];
+      }
       return [{ kind: 'dialogue', text: t }];
     }
 
@@ -2241,13 +2253,42 @@
        up"); an "answer" invents new content (Haiku replying to "you okay?" with
        "I'm okay"). Reject a split whose speech adds 2+ content words never written. */
     const SPLIT_STOP = new Set('i im ive id ill youll you youre your youve u we hes shes her his him them they theyre a an the and or but to of for so it its is are am was were be been will would could should do dont did have has had not no yes yeah ok okay sure just really that this then on in at with about here there'.split(/\s+/));
+    /* One typo apart (Damerau-Levenshtein 1: substitution, adjacent swap,
+       insertion, or deletion). The grounding check below uses it so an AI
+       split that silently CORRECTS the learner's spelling ("harrassment" →
+       "harassment", "Marhsall" → "Marshall") isn't rejected as fabricated —
+       that rejection was quietly downgrading typo-heavy moves to the
+       deterministic fallback. */
+    function near1(a, b) {
+      if (a === b) return true;
+      const la = a.length, lb = b.length;
+      if (la === lb) {
+        const diff = [];
+        for (let i = 0; i < la; i++) { if (a[i] !== b[i]) { diff.push(i); if (diff.length > 2) return false; } }
+        if (diff.length === 1) return true;                              // one substitution
+        return diff.length === 2 && diff[1] === diff[0] + 1
+          && a[diff[0]] === b[diff[1]] && a[diff[1]] === b[diff[0]];     // adjacent swap
+      }
+      if (Math.abs(la - lb) !== 1) return false;
+      const long = la > lb ? a : b, short = la > lb ? b : a;
+      let i = 0, j = 0, skipped = false;
+      while (i < long.length && j < short.length) {
+        if (long[i] === short[j]) { i++; j++; }
+        else { if (skipped) return false; skipped = true; i++; }
+      }
+      return true;                                                       // one insertion/deletion
+    }
     function splitGrounded(input, beats) {
       const speech = (beats || []).filter((b) => b.kind === 'dialogue').map((b) => b.text).join(' ');
       if (!speech.trim()) return true;             // action-only → nothing to fabricate
       const words = (s) => (String(s).toLowerCase().match(/[a-z']+/g) || []).map((w) => w.replace(/'/g, ''));
       const inSet = new Set(words(input));
+      const inWords = [...inSet];
       let novel = 0;
-      words(speech).forEach((w) => { if (w.length >= 3 && !SPLIT_STOP.has(w) && !inSet.has(w)) novel++; });
+      words(speech).forEach((w) => {
+        if (w.length >= 3 && !SPLIT_STOP.has(w) && !inSet.has(w)
+            && !inWords.some((x) => near1(w, x))) novel++;   // a one-typo neighbor is the learner's own word
+      });
       return novel < 2;
     }
 
@@ -2269,8 +2310,19 @@
       }
       let beats = null;
       if (describesAMove(text)) {
-        try { beats = await splitSceneInputAI(text); } catch (e) { /* fall through */ }
-        if (beats && !splitGrounded(text, beats)) beats = null;        // reject a fabricated split
+        // BREADCRUMB — every road into the deterministic fallback used to be
+        // silent, which made "why did the split look mechanical?" unanswerable
+        // after the fact. Dev-facing only; the learner sees nothing.
+        let aiFail = null;
+        try {
+          beats = await splitSceneInputAI(text);
+          if (!beats) aiFail = 'returned no usable beats';
+        } catch (e) { aiFail = 'call failed (' + ((e && e.message) || e) + ')'; }
+        if (beats && !splitGrounded(text, beats)) {                    // reject a fabricated split
+          aiFail = 'rejected as ungrounded (speech added words the learner never typed)';
+          beats = null;
+        }
+        if (aiFail) try { console.info('[say/do] AI split ' + aiFail + ' — deterministic fallback for: ' + text); } catch (_) {}
         if (!beats || !beats.length) beats = splitSceneInput(text);    // deterministic peel
       }
       if (!beats || !beats.length) beats = [{ kind: 'dialogue', text }];  // verbatim — their words, unaltered
