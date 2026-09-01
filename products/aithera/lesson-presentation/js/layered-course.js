@@ -132,10 +132,10 @@
 
   var RESULTS_CONTENT =
     '<main class="ll-object" id="resultsObject">' +
-      '<p class="ll-eyebrow">Your aptitude profile</p>' +
+      '<p class="ll-eyebrow">Your results</p>' +
       '<h2 id="resHeadline">Here\'s what you can do now.</h2>' +
-      '<p class="ll-sub" id="resSub">Not a quiz score — a construct-by-construct picture of what you demonstrated, ' +
-        'measured from your baseline to now.</p>' +
+      '<p class="ll-sub" id="resSub">Not a quiz score — a picture of what you actually showed, ' +
+        'from your first answer to your last.</p>' +
       '<div class="res-wrap">' +
         '<div class="res-ring">' +
           '<svg viewBox="0 0 180 180" role="img" aria-label="Objectives at Good or above">' +
@@ -219,7 +219,7 @@
     var asked = false, answered = false;
     if (entryStrength() === 'compressed') {
       // She leads here: nothing on the page explains why this build is shorter.
-      ctx.setCoachSay('This is the short cut — the beats you verified at entry are gone. Press play; one quick question at the end.');
+      ctx.setCoachSay('This is the short cut — the lessons you already showed me are gone. Press play; one quick question at the end.');
       ctx.floatOpen();
     }
     preloadVideoFully(video);
@@ -383,7 +383,7 @@
   var BASELINE_CONTENT =
     '<main class="ll-object">' +
       '<div class="bl-ask" id="blAsk">' +
-        '<p class="ll-eyebrow" id="blStep">Entry check</p>' +
+        '<p class="ll-eyebrow" id="blStep">Answer: 2 questions</p>' +
         '<h2 class="bl-q" id="blQ" aria-live="polite"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
@@ -487,7 +487,7 @@
     }
 
     function render(q, n, onPick) {
-      stepEl.textContent = 'Entry check · Question ' + n + ' of 2';
+      stepEl.textContent = 'Answer: question ' + n + ' of 2';
       qEl.textContent = q.stem;
       hintEl.textContent = q.hint || '';
       hintEl.hidden = !q.hint;
@@ -518,7 +518,7 @@
     function done(opt) {
       answers.q2 = opt.t;
       Object.keys(opt.bands || {}).forEach(function (k) { bands[k] = opt.bands[k]; });
-      stepEl.textContent = 'Entry check · complete';
+      stepEl.textContent = 'Answer: 2 of 2 done';
       saveResult('baseline', { bands: bands, answers: answers });
       // Record the result here, not on the adjustment screen — that screen
       // only appears when something compressed, and the profile, the title
@@ -537,35 +537,34 @@
   // ==========================================================================
   var CHECK_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Check · mastery items</p>' +
-      '<h2>Two items. One is locked.</h2>' +
-      '<p class="ll-sub">Must-pass items are asked of every learner — compression never touches them. ' +
-        'The rest are sampled. And a miss gets fixed now, inside the module, not flagged for later.</p>' +
+      '<p class="ll-eyebrow">Check: 2 questions</p>' +
+      '<h2>Let’s check what stuck.</h2>' +
+      '<p class="ll-sub">Anything you miss gets fixed here, not flagged on a report.</p>' +
       '<div class="mp-scene">' +
-        '<div class="mp-scene-tag"><i class="fa-solid fa-lock" aria-hidden="true"></i> Item 1 · compliance-locked</div>' +
-        '<p>Asked of everyone, at the tier your entry result earned.</p>' +
+        '<div class="mp-scene-tag"><i class="fa-solid fa-lock" aria-hidden="true"></i> Question 1</div>' +
+        '<p>Everyone answers this one, whatever path they took.</p>' +
       '</div>' +
       '<div class="mp-scene" style="margin-top:12px">' +
-        '<div class="mp-scene-tag"><i class="fa-solid fa-shuffle" aria-hidden="true"></i> Item 2 · sampled — objective D4</div>' +
-        '<p>The follow-up after the moment — the beat you just rehearsed with Priya.</p>' +
+        '<div class="mp-scene-tag"><i class="fa-solid fa-shuffle" aria-hidden="true"></i> Question 2</div>' +
+        '<p>The part after the moment — what you just practised with Priya.</p>' +
       '</div>' +
     '</main>';
   var CHECK_LOCKED_STD = {
-    stem: 'The locked item — true or false: <strong>harassing or firing an employee because of their sexual orientation, ' +
+    stem: 'First one, and everyone gets this one — true or false: <strong>harassing or firing an employee because of their sexual orientation, ' +
           'gender identity, or departure from gender stereotypes violates federal law.</strong>',
     options: [ { t: 'True', correct: true }, { t: 'False', correct: false } ],
     correctReply: 'Correct — all three are protected under federal law. One more item, then the scenario.',
-    wrongReply: 'Not quite — it’s actually true, and this one’s locked, so it has to land. Give it another look.'
+    wrongReply: 'Not quite — it’s actually true, and this is the one everybody has to get. Give it another look.'
   };
   var CHECK_LOCKED_ADV = {
-    stem: 'The locked item, advanced tier — true or false: <strong>retaliation protections only apply after a formal, ' +
+    stem: 'First one, and I’ve made it a hard one — true or false: <strong>retaliation protections only apply after a formal, ' +
           'written complaint has been filed.</strong>',
     options: [ { t: 'True', correct: false }, { t: 'False', correct: true } ],
     correctReply: 'Right — false. Protections cover informal reports and witnesses too, from the moment conduct is raised in any form. One more item.',
-    wrongReply: 'It’s actually false — protections aren’t gated on paperwork. This one’s locked, so look again.'
+    wrongReply: 'It’s actually false — protections aren’t gated on paperwork. This is the one everybody has to get, so look again.'
   };
   var CHECK_SAMPLED = {
-    stem: 'Item two — <strong>you stepped in and the moment has passed. Priya’s back at her desk. What’s the strongest follow-up?</strong>',
+    stem: 'Last one — <strong>you stepped in and the moment has passed. Priya’s back at her desk. What’s the strongest follow-up?</strong>',
     options: [
       { t: '“I saw what happened. You good? I’ve got your back if you want to report it.”', good: true,
         reply: 'That’s the full skill — witnessed, checked in, offered support without taking over. Nothing to fix. On to the scenario.' },
@@ -690,9 +689,9 @@
   ];
   var TERMS_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Learn · Know</p>' +
+      '<p class="ll-eyebrow">Review: 5 flip cards</p>' +
       '<h2>The Five Ds.</h2>' +
-      '<p class="ll-sub">Knowing the five Ds can help you avoid being a passive bystander. Let’s do a quick review of each.</p>' +
+      '<p class="ll-sub">Five ways to step in. Flip each card for what it means and what it sounds like.</p>' +
       '<div class="tr-grid" id="trGrid">' +
         FIVE_DS.map(function (d, i) {
           return '<button class="tr-card" type="button" data-i="' + i + '" aria-label="Flip: ' + esc(d.name) + '">' +
@@ -739,8 +738,9 @@
     'You’re learning to be that person. Not the loudest one. Just the first.';
   var AUDIO_CONTENT =
     '<main class="ll-object is-read">' +
-      '<p class="ll-eyebrow">A quick read</p>' +
+      '<p class="ll-eyebrow">Read or listen: 2 minutes</p>' +
       '<h2>Why rooms stay quiet.</h2>' +
+      '<p class="ll-sub">Read it at your own pace, or tap “Read to me” to hear it read aloud.</p>' +
       '<div class="aud-wrap">' +
         // Above the passage, not below it: someone who would rather listen than
         // read shouldn't have to read the whole thing to find the audio option.
@@ -847,9 +847,9 @@
   var DRILL_DS = ['Direct', 'Distract', 'Delegate', 'Delay', 'Document'];
   var DRILL_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Learn · Know</p>' +
+      '<p class="ll-eyebrow">Practice: 4 questions</p>' +
       '<h2>Pick your move.</h2>' +
-      '<p class="ll-sub">Four moments, five Ds — tap the one that fits. There’s a best answer, and sometimes a decent second.</p>' +
+      '<p class="ll-sub">Four moments, five moves. Pick the one that fits; you’ll see the stronger option if there was one.</p>' +
       '<div class="dr-wrap">' +
         '<div class="dr-card"><span class="tag" id="drTag">Moment 1 of 4</span><p id="drText"></p></div>' +
         '<div class="dr-ds" id="drDs">' +
@@ -907,26 +907,35 @@
   // LEARN · Feel (F1 social norms + F4 self-efficacy) — "Peer Results":
   // guess what the crew thinks, then see the actual norms data. The reveal is
   // the teaching. Survives compression on every path.
+  // One list, used twice: the three things a learner can guess AND the three
+  // real numbers. The choices don't get replaced by a chart — each choice IS
+  // its own result row, so the answer lands on the thing the learner clicked.
+  var NORMS_DATA = [
+    { k: 'respect',   label: 'Most would quietly respect it', pct: 84 },
+    { k: 'overreact', label: 'Most would think I overreacted', pct: 11 },
+    { k: 'notice',    label: 'Most wouldn’t even notice', pct: 5 }
+  ];
   var NORMS_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Learn · Feel</p>' +
+      '<p class="ll-eyebrow">Compare: 1 question</p>' +
       '<h2>Would they back you?</h2>' +
-      '<p class="ll-sub">Before the numbers — your honest read of this crew.</p>' +
+      '<p class="ll-sub">Answer honestly and then we’ll display the real numbers for each.</p>' +
       '<div class="pr-wrap">' +
         '<div class="pr-choices" id="prChoices">' +
-          '<button class="pr-choice" type="button" data-k="respect">Most would quietly respect it</button>' +
-          '<button class="pr-choice" type="button" data-k="overreact">Most would think I overreacted</button>' +
-          '<button class="pr-choice" type="button" data-k="notice">Most wouldn’t even notice</button>' +
+          NORMS_DATA.map(function (d) {
+            return '<button class="pr-choice" type="button" data-k="' + d.k + '">' +
+              '<span class="pr-head">' +
+                '<span class="pr-lab">' + esc(d.label) + '</span>' +
+                '<span class="pr-tag">Your guess</span>' +
+                '<span class="pr-pct">' + d.pct + '%</span>' +
+              '</span>' +
+              '<span class="pr-track"><span class="pr-fill" data-w="' + d.pct + '"></span></span>' +
+            '</button>';
+          }).join('') +
         '</div>' +
-        '<div class="pr-results" id="prResults" hidden></div>' +
         '<p class="pr-src" id="prSrc" hidden><i class="fa-solid fa-users" aria-hidden="true"></i> Anonymous survey · Acme Plant Operations · 214 responses · representative data</p>' +
       '</div>' +
     '</main>';
-  var NORMS_DATA = [
-    { k: 'respect',   label: 'Would quietly respect it', pct: 84 },
-    { k: 'overreact', label: 'Would think it’s overreacting', pct: 11 },
-    { k: 'notice',    label: 'Wouldn’t notice either way', pct: 5 }
-  ];
   function normsInit(ctx) {
     ctx.floatOpen();
     ctx.setCoachSay('Quick gut check first — <strong>if you called out Jake’s “joke” in front of the crew, how would most of them react?</strong> Answer honestly; the real numbers come next.');
@@ -941,18 +950,18 @@
       });
     });
     function reveal() {
-      var box = document.getElementById('prResults');
-      box.innerHTML = NORMS_DATA.map(function (d) {
-        return '<div class="pr-row' + (d.pct >= 50 ? ' is-top' : '') + '">' +
-          '<div class="lab"><span>' + esc(d.label) + (d.k === picked ? ' <span class="you">· your guess</span>' : '') + '</span>' +
-          '<span class="pct">' + d.pct + '%</span></div>' +
-          '<div class="pr-track"><div class="pr-fill" data-w="' + d.pct + '"></div></div>' +
-        '</div>';
-      }).join('');
-      box.hidden = false;
+      // The rows the learner just chose from become the results — same labels,
+      // same order, same position on screen. Nothing is replaced or repeated,
+      // so their pick stays under their eye while the real number lands on it.
+      var choices = document.getElementById('prChoices');
+      choices.classList.add('answered');
+      NORMS_DATA.forEach(function (d) {
+        var b = choices.querySelector('.pr-choice[data-k="' + d.k + '"]');
+        if (b && d.pct >= 50) b.classList.add('is-top');
+      });
       document.getElementById('prSrc').hidden = false;
       requestAnimationFrame(function () { requestAnimationFrame(function () {
-        box.querySelectorAll('.pr-fill').forEach(function (f) { f.style.width = f.dataset.w + '%'; });
+        choices.querySelectorAll('.pr-fill').forEach(function (f) { f.style.width = f.dataset.w + '%'; });
       }); });
       setTimeout(function () {
         ctx.setCoachSay(picked === 'respect'
@@ -970,9 +979,9 @@
   // this beat is what the mastery check's sampled item then tests.
   var STEPIN_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Learn · Do</p>' +
+      '<p class="ll-eyebrow">Practice: text conversation</p>' +
       '<h2>After the moment.</h2>' +
-      '<p class="ll-sub">The step almost everyone skips: the follow-up. Priya just texted you — take over the thread.</p>' +
+      '<p class="ll-sub">The step almost everyone skips: the follow-up. Priya just texted you — pick the reply you’d actually send.</p>' +
       '<div class="sms-wrap">' +
         '<div class="sms-thread" id="smsThread">' +
           '<div class="sms-head"><span class="sms-ava">P</span><b>Priya</b><small>now</small></div>' +
@@ -1191,10 +1200,10 @@
   // ==========================================================================
   var PRACTICE_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> In-course remediation · 2 minutes</p>' +
+      '<p class="ll-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> Practice: 2 minutes</p>' +
       '<h2>Say it out loud.</h2>' +
       '<p class="ll-sub">Knowing the right move isn’t the same as having the words ready. ' +
-        'Two quick reps — the moment itself, then the follow-up.</p>' +
+        'Two quick run-throughs — the moment itself, then the follow-up.</p>' +
       '<div class="mp-scene" id="mpScene">' +
         '<div class="mp-scene-tag"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Friday, shift meeting</div>' +
         '<p id="mpSceneText">Jake tries the same “joke” again — this time about Priya, in front of everyone. ' +
@@ -1375,7 +1384,7 @@
       'qualitatively (<strong>Practice Needed / Good / Excellent</strong>) and passing means at least Good on 80% of objectives. ' +
       'Scenario-derived bands here are <strong>representative</strong> — the live construct rubric slots in at <code>computeProfile()</code>.';
     ctx.positionOrb(false);
-    wireSidebarChat(ctx, [
+    wireChat(ctx, [
       'Your strongest signal was reading the room — you treated the others’ silence as pressure to resist, not permission to stay quiet.',
       'Behavioral skills moved at the mastery check — the rehearsal reps made the follow-up automatic before the scenario ever tested it.',
       'Every band on this screen traces back to a specific thing you said or did — your administrator sees the same evidence chain, never just a number.',
@@ -1426,29 +1435,74 @@
     "Totally normal to second-guess it. What matters is that you acted — staying silent is the only real miss here.",
     "You can replay any part of the scenario from the course menu whenever you'd like more practice."
   ];
-  function wireSidebarChat(ctx, replies) {
+  // Answers that hold up anywhere in the course, for the floating bubble —
+  // the docked steps pass their own, step-specific pool.
+  var CLARA_COURSE_REPLIES = [
+    "Short version: you don’t have to fix the whole situation. You just have to not leave the person alone in it.",
+    "If you’re not sure it counts, that uncertainty is the normal part. Say something anyway — a check-in costs you almost nothing.",
+    "You can go back to any section from the menu. Nothing here locks you out once you’ve seen it.",
+    "I’m reading your answers as we go, not scoring you — and nothing you say to me in here goes on your record."
+  ];
+
+  // One chat, both chromes: the docked rail and the floating bubble use the
+  // same ids, and only one chrome exists at a time.
+  function wireChat(ctx, replies) {
     var input = ctx.chrome.querySelector('#claraAsk');
     var send  = ctx.chrome.querySelector('#claraAskSend');
     var echo  = ctx.chrome.querySelector('#claraEcho');
     if (!input || !send || !echo) return;
     var pool = replies || CLARA_REPLIES;
-    var ri = 0;
+    var ri = 0, busyReply = false;
     function addRow(kind, text) {
       var d = document.createElement('div');
       d.className = 'cbub ' + kind;                 // 'you' | 'clara' — styled as a speech bubble
       d.textContent = text;
       echo.appendChild(d);
       echo.scrollTop = echo.scrollHeight;          // follow the newest message
+      return d;
     }
     function submit() {
       var v = input.value.trim();
-      if (!v) return;
+      if (!v || busyReply) return;
+      busyReply = true;
       addRow('you', v);
       input.value = '';
-      setTimeout(function () { addRow('clara', pool[ri % pool.length]); ri++; }, T(450));
+      // She thinks before she answers — the same three-dot beat the docked
+      // panel uses, so a canned reply doesn't land instantly and read as fake.
+      var dots = addRow('clara', '');
+      dots.className = 'cbub clara typing';
+      dots.innerHTML = '<span></span><span></span><span></span>';
+      setTimeout(function () {
+        dots.className = 'cbub clara';
+        dots.textContent = pool[ri % pool.length];
+        ri++; busyReply = false;
+        echo.scrollTop = echo.scrollHeight;
+      }, T(900));
     }
     send.addEventListener('click', submit);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+  }
+
+  // The floating bubble's Reply / collapse toggle. Wired for every floating
+  // step, so the companion is a way IN to CLARA on every page that has her —
+  // not a tooltip you can only read.
+  function wireFloatingChat(ctx, replies) {
+    var bubble = ctx.chrome.querySelector('#claraBubble');
+    var reply  = ctx.chrome.querySelector('#claraReply');
+    var close  = ctx.chrome.querySelector('#claraCollapse');
+    if (!bubble || !reply) return;
+    reply.addEventListener('click', function () {
+      bubble.classList.add('is-chat');
+      ctx.floatOpen();
+      var input = ctx.chrome.querySelector('#claraAsk');
+      if (input) input.focus();
+      ctx.positionOrb(true);
+    });
+    if (close) close.addEventListener('click', function () {
+      bubble.classList.remove('is-chat');
+      ctx.positionOrb(true);
+    });
+    wireChat(ctx, replies || CLARA_COURSE_REPLIES);
   }
 
   // ==========================================================================
@@ -1484,8 +1538,8 @@
     { id: 'video', icon: 'fa-circle-play', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'LEARN · Gated video', note: 'The first Learn beat. On the compressed build CLARA frames it as the short cut; the clip must play and the learner answers CLARA’s check before Continue unlocks.' },
       coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
-      content: videoContent({ eyebrow: 'Learn · watch', heading: 'Introduction',
-        sub: 'First, let’s introduce you to the basics of sexual harassment, how to respond, and why this lesson matters.',
+      content: videoContent({ eyebrow: 'Watch: 2 minute video', heading: 'Introduction',
+        sub: 'What harassment looks like, how to respond, and why this one matters. One question at the end.',
         src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
@@ -1523,8 +1577,8 @@
     { id: 'casevideo', icon: 'fa-scale-balanced', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'A Real Case', gate: true,
       caption: { title: 'LEARN · Case beat', note: 'The real-case close, on every path — it’s the emotional anchor and nothing at entry evidences it. No question here; the mastery items live in the Check stage.' },
       coach: { say: 'One real case before the check — press play.' },
-      content: videoContent({ eyebrow: 'Learn · watch', heading: 'A real case',
-        sub: 'What it costs when nobody steps in — a case that went to court.',
+      content: videoContent({ eyebrow: 'Watch: 2 minute video', heading: 'A real case',
+        sub: 'A real case that ended up in court, and what it cost.',
         src: '../../assets/videos/marshall-postscenario.mp4' }),
       init: caseInit },
 
@@ -1541,7 +1595,7 @@
 
     { id: 'scene', icon: 'fa-clapperboard', mins: 1, stage: 'Perform', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
       caption: { title: 'PERFORM · Scene-setting', note: 'The establishing shot for the Perform stage. The scenario page skips its own establishing card and drops straight into the cold-open.' },
-      coach: { eyebrow: "Perform — nobody tests out of this", headline: '“The Marshall Scenario”',
+      coach: { eyebrow: 'Practice scenario', headline: '“The Marshall Scenario”',
         lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on, " +
               "then it's your call how to respond. There's no perfect script here you need to follow." },
       init: sceneInit },
@@ -1614,8 +1668,27 @@
       return '<div class="clara-slot"></div>';
     }
     if (mode === 'floating') {
-      return '<div class="clara-bubble"><span class="clara-name">CLARA</span>' +
-        '<div class="clara-say">' + (coach.say || '') + '</div></div>' +
+      // Two states in one bubble. Compact is the tooltip it has always been —
+      // CLARA says a line and that's that. "Reply" opens the same bubble into
+      // a conversation: her line stays at the top, a thread grows under it and
+      // a composer appears. Anything a step appends (answer chips, feedback)
+      // orders ABOVE the chat block, so a question is never pushed below it.
+      return '<div class="clara-bubble" id="claraBubble">' +
+          '<span class="clara-name">CLARA</span>' +
+          '<button class="clara-collapse" id="claraCollapse" type="button" aria-label="Close chat">' +
+            '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+          '<div class="clara-say">' + (coach.say || '') + '</div>' +
+          '<div class="clara-chat">' +
+            '<div class="clara-echo" id="claraEcho"></div>' +
+            '<div class="clara-composer">' +
+              '<input id="claraAsk" type="text" placeholder="' + esc(coach.ask || 'Ask CLARA anything…') + '" aria-label="Ask CLARA">' +
+              '<button class="clara-send" id="claraAskSend" type="button" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>' +
+            '</div>' +
+          '</div>' +
+          '<button class="clara-reply" id="claraReply" type="button" ' +
+            'aria-label="Reply to CLARA" title="Reply to CLARA">' +
+            '<i class="fa-solid fa-reply" aria-hidden="true"></i></button>' +
+        '</div>' +
         '<div class="clara-slot"><span class="clara-hint" aria-hidden="true"></span></div>';
     }
     return slot;
@@ -1856,6 +1929,11 @@
       updateFooter(step); updateFrame(step);
 
       var ctx = makeCtx();
+      // Every floating step gets the Reply affordance, before its own init
+      // runs — the companion should be a way in to CLARA on every page she's
+      // on, not a line you can only read. Steps can supply their own answers
+      // via coach.replies.
+      if (step.mode === 'floating') wireFloatingChat(ctx, (step.coach || {}).replies);
       if (step.init) {
         inInit = true;
         try { step.init(ctx); } catch (e) { console.error('step init', step.id, e); }
