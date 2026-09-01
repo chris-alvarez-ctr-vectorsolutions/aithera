@@ -1,5 +1,28 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-01 round
+
+- **Vector branding on the product identity.** The top-bar app name is now a "Vector
+  <Product>" wordmark lockup: one shared mark (`#i-vector`, a PLACEHOLDER geometric V) plus
+  the product name, with "Vector" set heavier as the constant half and the name behind a
+  hairline. This follows how the suite actually brands, a unified wordmark system rather
+  than a separate logo per product, so the mark is identical in every product and only the
+  name changes. `--brand-navy` carries it. The identity is the ONLY branded surface: the
+  rest of the shell stays neutral so the structure keeps the focus. Official artwork drops
+  into that one symbol; official hex into that one token.
+- **The collapse control is back to the side-nav panel icon** in every version (the double
+  carets are gone, and so is the flip-when-collapsed rule the carets needed).
+- **V3's side nav runs full height** alongside the rail: both left columns start at y=0 and
+  the top bar is inset past both, spanning only the content area. The collapse control keeps
+  the SAME top-right spot every other version uses, which now sits level with the top bar.
+  The rail still persists when the nav closes, the logo stays sticky at the nav's bottom,
+  and the hover-overlay / pin / close frames still work (the overlay is full height too,
+  with the bar inset to its edge so the identity is never covered).
+- **V2b's location selector moved into the side nav**, at the top above the Learning/Admin
+  switch, so V2b holds both context controls in the nav and leaves the top bar as search
+  plus universal actions. They stay distinct: a full-width bordered control over a segmented
+  pair. Every other version keeps location in the top bar, so the two placements compare.
+
 ## Changelog · 2026-08-28 round
 
 - **Tighter side-nav indentation.** Child groups indent 12px (was 18px) with an 8px
@@ -24,9 +47,9 @@
 - **Distinct Dashboard icon.** The cross-product Dashboard entry now uses a tiles /
   panels glyph (`i-dash`) everywhere (launcher row, Dashboard brand, V3 rail) so it never
   collides with a product Home icon. Still pinned above the switcher divider.
-- **Two ways to close the side nav** (all versions): a **double-caret** control in the side
-  nav's own top-right corner, plus the top-bar toggle. Either collapses the nav; the carets
-  point at the edge the nav moves toward and flip where the control stays visible collapsed.
+- **Two ways to close the side nav** (all versions): a control in the side nav's own
+  top-right corner, plus the top-bar toggle. Either collapses the nav. (Round 4 note: this
+  briefly used double carets; it is back to the side-nav panel icon.)
 - **Shared side-nav interaction spec** (V3 + V4): collapsed → hover/peek overlay → pin →
   close, represented as labeled frames via `?state=collapsed|peek|pinned` (see below).
 - **V2b**: the Learning/Admin switch moved INTO the side nav as a segmented control above
@@ -74,8 +97,7 @@ differently** (see below): its launcher drops pinning for a licence split.
   location · scoped search (where the version has it) · notifications · help · avatar.
   No + New action. V3 is the exception by design: its full-height rail owns the left
   edge, and its nav toggle tops the side-nav column instead.
-- The side nav ALSO closes from a double-caret control in its own top-right corner (every
-  version),
+- The side nav ALSO closes from a control in its own top-right corner (every version),
   so there are two ways to collapse it. In the V3/V4 interaction frames that same slot
   holds the pin (hover overlay) and swaps to close when docked.
 - One accent token (`--accent`) reserved for active/selection states; everything else grayscale.
@@ -135,8 +157,8 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
 | V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
-| V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav, and the Training Plan filters are DROPDOWN chips above the table |
-| V3 | `v3-app-rail.html` | L-SHAPED SHELL: full-height app rail (Dashboard on top), top bar inset to its right, nav toggle on the side-nav column; search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
+| V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav; the LOCATION SELECTOR also sits in the nav above it (top bar = search + universal actions only); Training Plan filters are DROPDOWN chips above the table |
+| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both; search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
 | V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
 | V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
 | V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
@@ -228,6 +250,20 @@ commercial question instead of a preference one:
 
 This is a V3-only content model right now; the other versions keep the pinned + All-products
 launcher so the two approaches can be compared directly.
+
+## Product identity: the Vector wordmark lockup
+
+Vector brands its suite as "Vector <Product>" lockups over ONE shared mark, not as a
+separate logo per product, so the top-bar identity does the same: the mark is constant in
+every product and only the name changes. "Vector" is set heavier than the product name,
+with the name behind a hairline, so the shared half reads as the mark and the variable half
+reads as the label. The Dashboard is not a product, so it keeps its tiles glyph.
+
+**Both the mark and the colour are placeholders and are labelled as such.** The mark is
+the `#i-vector` symbol (a plain geometric V) and the colour is `--brand-navy`. Every lockup
+references that one symbol and that one token, so dropping in official artwork and hex is a
+two-place edit. The identity is deliberately the only branded surface: surfaces, content and
+active states stay neutral so the structure, not the palette, is what gets reviewed.
 
 ## Shared side-nav interaction spec (V3 + V4)
 
