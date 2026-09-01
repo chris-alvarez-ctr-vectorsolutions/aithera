@@ -85,8 +85,12 @@
     ask:       { cls: 'pol-ask',   icon: 'fa-clipboard-list',   label: 'Ask' },
     never:     { cls: 'pol-never', icon: 'fa-shield-halved',    label: 'Never skipped' }
   };
-  // The policy row shown above a beat: what is being asked, under which rule,
-  // and where that rule says the item belongs.
+  // NOT shown to a learner. "Gate", "remediate", "K1 · Know / Remember" and
+  // "pre-module battery" are how WE talk about routing; none of it answers a
+  // question a learner has. The policy is demonstrated where it belongs — in
+  // the step captions behind the footer "?", in the plain-English moves on the
+  // adjustment screen (skipped / harder / kept), and in the Learning Layer
+  // view. Kept here because those captions are generated from the same data.
   function policyRow(id) {
     var o = obj(id), c = POLICY_CHIP[o.policy];
     return '<div class="pol-row">' +
@@ -246,7 +250,6 @@
     '<main class="ll-object">' +
       '<div class="bl-ask" id="blAsk">' +
         '<p class="ll-eyebrow" id="blStep">Answer: 4 questions</p>' +
-        '<div id="blPolicy"></div>' +
         '<h2 class="bl-q" id="blQ"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
@@ -255,26 +258,34 @@
       '</div>' +
     '</main>';
   var BATTERY = [
-    { obj: 'K1',
+    // K1 is sequence recall, so the item is an actual ordering task rather
+    // than a choice between three written sequences. Reading a sequence and
+    // producing one are different things, and only the second is the
+    // objective. Tap-to-place, not drag: it works on touch and by keyboard,
+    // and the numbered slots make the affordance unambiguous.
+    { obj: 'K1', type: 'order',
       stem: 'You have just used a sharp. Put the next three actions in order.',
-      hint: 'No grade — this decides how much of the procedure you have to sit through.',
-      options: [
-        { t: 'Activate the safety feature → move to the container → dispose', icon: 'fa-circle-check', score: 2,
-          reply: 'That is the sequence, and the order matters — the feature goes on before the sharp travels anywhere.' },
-        { t: 'Move to the container → dispose → activate the safety feature', icon: 'fa-arrow-right-arrow-left', score: 1,
-          reply: 'Close, but the feature has to be on before it moves. An unshielded sharp in transit is where most injuries happen.' },
-        { t: 'Recap it → carry it → dispose when you are finished', icon: 'fa-ban', score: 0,
-          reply: 'Recapping is the one thing never to do — it is the single most common route to a stick. We will cover this properly.' }
-      ] },
+      hint: 'Tap them in the order you would do them. Tap a slot to take one back.',
+      correct: ['feature', 'move', 'dispose'],
+      actions: [
+        { id: 'move',    icon: 'fa-person-walking', t: 'Walk to the container' },
+        { id: 'dispose', icon: 'fa-inbox',          t: 'Drop it in' },
+        { id: 'feature', icon: 'fa-shield-halved',  t: 'Activate the safety feature' }
+      ],
+      okReply: 'That is the sequence, and the order is the whole point — the feature goes on before the sharp travels anywhere.',
+      badReply: 'Not that order. The safety feature goes on FIRST, before the sharp moves: an unshielded point in transit is where most injuries happen.' },
+    // All three options are things you can do with a used sharp, and exactly
+    // one is never acceptable. The distractors are correct practice, so the
+    // item tests the rule rather than reading comprehension.
     { obj: 'K1',
-      stem: 'Which handling of a used sharp is never acceptable?',
+      stem: 'Which of these is never acceptable with a used sharp?',
       options: [
-        { t: 'Recapping, bending, or general waste', icon: 'fa-circle-check', score: 2,
-          reply: 'All three, and for the same reason: each one puts a hand near an unshielded point.' },
-        { t: 'Only general waste', icon: 'fa-trash', score: 1,
-          reply: 'General waste is the worst of them, but recapping and bending are also never acceptable.' },
-        { t: 'Only if the container is out of reach', icon: 'fa-circle-question', score: 0,
-          reply: 'Distance is never the exception — that is exactly the situation the procedure exists for.' }
+        { t: 'Recapping it by hand', icon: 'fa-ban', score: 2,
+          reply: 'Right — recapping is the one absolute. Every other rule here has an “unless”; that one does not.' },
+        { t: 'Carrying it to a container in the next room', icon: 'fa-person-walking', score: 0,
+          reply: 'That one is allowed, and sometimes it is the only option — provided the safety feature is on and you planned the route. Recapping is the one that never is.' },
+        { t: 'Sealing a container once it reaches the fill line', icon: 'fa-box-archive', score: 0,
+          reply: 'That is correct practice, not a violation — a container at its fill line should be sealed. The one that is never acceptable is recapping by hand.' }
       ] },
     { obj: 'F1',
       stem: 'Safe sharps disposal protects your coworkers, not just you.',
@@ -285,7 +296,7 @@
         { t: 'It is mostly a formality', icon: 'fa-file-lines', score: 1, reply: 'Worth testing that. There is a case in this module that answers it better than I can.' }
       ] },
     { obj: 'F3',
-      stem: 'Most people on your shift use the container immediately rather than setting a sharp down.',
+      stem: 'Most people you work alongside use the container straight away rather than setting a sharp down.',
       hint: 'Your read of the room, not the rule.',
       options: [
         { t: 'Most do', icon: 'fa-users', score: 3, reply: 'Noted — we will see how that compares to what your sector actually reports.' },
@@ -297,7 +308,6 @@
     var res = { k1: 'unproven', k1score: 0, k2up: false, f1: 3, f3: 3 };
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
-    var polEl = document.getElementById('blPolicy');
     var qEl = document.getElementById('blQ');
     var hintEl = document.getElementById('blHint');
     var optsEl = document.getElementById('blOptions');
@@ -312,10 +322,10 @@
     function render(i) {
       var q = BATTERY[i];
       stepEl.textContent = 'Answer: question ' + (i + 1) + ' of 4';
-      polEl.innerHTML = policyRow(q.obj);
       qEl.textContent = q.stem;
       hintEl.textContent = q.hint || '';
       hintEl.hidden = !q.hint;
+      if (q.type === 'order') { renderOrder(i, q); return; }
       optsEl.className = 'bl-options';
       optsEl.innerHTML = '';
       var picked = false;
@@ -346,6 +356,74 @@
       });
       LE.pickGroup(optsEl);
     }
+    // Tap-to-place ordering. `placed` is the answer; the pool is whatever is
+    // not in it yet. Grading fires on the third placement — there is no submit
+    // button because there is nothing left to decide once all three are down.
+    function renderOrder(i, q) {
+      optsEl.className = 'ord-wrap';
+      var placed = [], settled = false;
+      draw();
+
+      function label(id) {
+        for (var k = 0; k < q.actions.length; k++) if (q.actions[k].id === id) return q.actions[k];
+        return null;
+      }
+      function draw() {
+        var slots = '<ol class="ord-slots" id="ordSlots" aria-live="polite">';
+        for (var n = 0; n < 3; n++) {
+          var id = placed[n], a = id ? label(id) : null;
+          var mark = '';
+          if (settled) mark = (q.correct[n] === id) ? ' is-right' : ' is-wrong';
+          slots += '<li class="ord-slot' + (a ? ' filled' : '') + mark + '">' +
+            '<span class="ord-n">' + (n + 1) + '</span>' +
+            (a ? '<button class="ord-chip" type="button" data-take="' + n + '"' + (settled ? ' disabled' : '') + '>' +
+                   '<i class="fa-solid ' + a.icon + '" aria-hidden="true"></i> ' + esc(a.t) +
+                   (settled ? '' : '<i class="fa-solid fa-xmark ord-x" aria-hidden="true"></i>') + '</button>'
+               : '<span class="ord-empty">Tap an action below</span>') +
+          '</li>';
+        }
+        slots += '</ol>';
+        var pool = '<div class="ord-pool">' + q.actions.filter(function (a) {
+          return placed.indexOf(a.id) === -1;
+        }).map(function (a) {
+          return '<button class="ord-card" type="button" data-put="' + a.id + '">' +
+            '<i class="fa-solid ' + a.icon + '" aria-hidden="true"></i>' +
+            '<span>' + esc(a.t) + '</span></button>';
+        }).join('') + '</div>';
+        optsEl.innerHTML = slots + pool + '<p class="ord-fb" id="ordFb"></p>';
+        optsEl.querySelectorAll('[data-put]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            if (settled || placed.length >= 3) return;
+            placed.push(b.dataset.put);
+            draw();
+            if (placed.length === 3) grade();
+          });
+        });
+        optsEl.querySelectorAll('[data-take]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            if (settled) return;
+            placed.splice(+b.dataset.take, 1);
+            draw();
+          });
+        });
+      }
+      function grade() {
+        settled = true;
+        var right = placed.every(function (id, n) { return q.correct[n] === id; });
+        draw();
+        var fb = document.getElementById('ordFb');
+        fb.className = 'ord-fb ' + (right ? 'ok' : 'bad');
+        fb.textContent = right ? q.okReply : q.badReply;
+        k1.push(right ? 2 : 0);
+        ctx.floatOpen();
+        ctx.setCoachSay(esc(right ? q.okReply : q.badReply));
+        ctx.positionOrb(true);
+        var dwell = T(3000);
+        countdown(dwell);
+        setTimeout(function () { swapTo(i + 1); }, dwell);
+      }
+    }
+
     function swapTo(i) {
       askEl.classList.add('swapping');
       setTimeout(function () {
@@ -472,7 +550,6 @@
       return '<main class="ll-object">' +
         '<div class="cs-wrap">' +
           '<p class="ll-eyebrow">' + esc(cfg.eyebrow) + '</p>' +
-          policyRow(cfg.obj) +
           '<div class="cs-scene">' +
             '<div class="cs-tag"><i class="fa-solid ' + cfg.icon + '"></i> ' + esc(L.where) + ' · ' + esc(L.when) + '</div>' +
             '<p>' + esc(L[cfg.scene]) + '</p>' +
@@ -515,7 +592,7 @@
   }
 
   var CASE1 = {
-    key: 'case1', obj: 'K1', eyebrow: 'Judge it: case 1 of 3', icon: 'fa-clock',
+    key: 'case1', obj: 'K1', eyebrow: 'Decide: case 1 of 3', icon: 'fa-clock',
     scene: 'case1', question: 'What is wrong with this, specifically?',
     coach: 'Read it and tell me what the actual failure is — not what you would have done instead.',
     options: [
@@ -528,7 +605,7 @@
     ]
   };
   var CASE2 = {
-    key: 'case2', obj: 'K2', eyebrow: 'Judge it: case 2 of 3', icon: 'fa-box-open',
+    key: 'case2', obj: 'K2', eyebrow: 'Decide: case 2 of 3', icon: 'fa-box-open',
     scene: 'case2', question: 'What do you do?',
     coach: 'This one is about the container, not the sharp.',
     options: [
@@ -545,12 +622,12 @@
         reply: 'Correct, and the tension is real — four minutes uncovered beats one sharp going somewhere undesignated.' },
       { t: 'Seal it and wait for someone to bring the spare so the area stays covered', grade: 'near',
         reply: 'Defensible, and in some settings it is the standing rule. But nothing gets used in the meantime — the moment you accept “just this one”, you are back at case 1.' },
-      { t: 'Use the wall unit in the next room for the rest of the shift', grade: 'near',
+      { t: 'Use the unit in the next room until the spare arrives', grade: 'near',
         reply: 'Workable if the route is planned and everyone knows. It fails the moment somebody who was not told needs it.' }
     ]
   };
   var CASE3 = {
-    key: 'case3', obj: 'K2', eyebrow: 'Judge it: case 3 of 3', icon: 'fa-magnifying-glass',
+    key: 'case3', obj: 'K2', eyebrow: 'Decide: case 3 of 3', icon: 'fa-magnifying-glass',
     scene: 'case3', question: 'This one was not yours. What now?',
     coach: 'The interesting part of this case is that you did not cause it.',
     options: [
@@ -571,14 +648,12 @@
     '<main class="ll-object">' +
       '<div class="cs-wrap">' +
         '<p class="ll-eyebrow">Check: 1 question</p>' +
-        '<div id="ifPolicy"></div>' +
         '<h2 class="bl-q" style="max-width:30ch">Before you pick anything up — what have you already decided?</h2>' +
         '<div class="cs-opts" id="ifOpts"></div>' +
         '<p class="cs-fb" id="ifFb"></p>' +
       '</div>' +
     '</main>';
   function inflowInit(ctx) {
-    document.getElementById('ifPolicy').innerHTML = policyRow('K1');
     var wrap = document.getElementById('ifOpts');
     var fb = document.getElementById('ifFb');
     ctx.floatOpen();
@@ -632,7 +707,6 @@
     return '<main class="ll-object">' +
       '<div class="cs-wrap">' +
         '<p class="ll-eyebrow">Read: 1 minute</p>' +
-        policyRow('F1') +
         '<div class="cs-scene">' +
           '<div class="cs-tag"><i class="fa-solid fa-triangle-exclamation"></i> The one that landed</div>' +
           '<p>' + esc(L.case4) + '</p>' +
@@ -739,7 +813,6 @@
     return '<main class="ll-object">' +
       '<div class="ac-wrap">' +
         '<p class="ll-eyebrow">Do it: 1 moment</p>' +
-        policyRow('D1') +
         '<h2 class="bl-q" style="max-width:28ch">Dispose first, or set it down?</h2>' +
         '<p class="ll-sub">This runs in real time. When the sharp needs to be gone, act — the moment won’t wait.</p>' +
         '<div class="ac-stage" id="acStage"><div class="ac-lines" id="acLines"></div></div>' +
@@ -832,7 +905,6 @@
     '<main class="ll-object">' +
       '<div class="fu-wrap">' +
         '<p class="ll-eyebrow">Set it up: 1 choice</p>' +
-        '<div id="fuPolicy"></div>' +
         '<h2 class="bl-q" style="max-width:26ch">When should I check back?</h2>' +
         '<p class="ll-sub">One question, once, about something you actually did at work. It is how this objective gets evidenced at all.</p>' +
         '<div class="fu-opts" id="fuOpts">' +
@@ -847,7 +919,6 @@
       '</div>' +
     '</main>';
   function followupInit(ctx) {
-    document.getElementById('fuPolicy').innerHTML = policyRow('D3');
     var opts = document.getElementById('fuOpts');
     var note = document.getElementById('fuNote');
     ctx.floatOpen();
@@ -910,13 +981,12 @@
            'Cannot be evidenced today. Scheduled, and it stays open on the record until it answers.']
     };
     document.getElementById('recList').innerHTML = OBJECTIVES.map(function (o) {
-      var s = state[o.id], p = POLICY_CHIP[o.policy];
+      var s = state[o.id];
       return '<li class="apt-row">' +
         '<span class="apt-ico"><i class="fa-solid ' +
           (o.domain === 'Know' ? 'fa-book-open' : o.domain === 'Feel' ? 'fa-heart' : 'fa-bolt') + '"></i></span>' +
         '<div class="apt-main">' +
-          '<div class="apt-head"><h3>' + esc(o.id + ' · ' + o.name) + '</h3>' +
-            '<span class="pol ' + p.cls + '"><i class="fa-solid ' + p.icon + '"></i> ' + p.label + '</span></div>' +
+          '<div class="apt-head"><h3>' + esc(o.name) + '</h3></div>' +
           '<div class="apt-class">' +
             '<span class="apt-dom ' + (o.domain === 'Know' ? 'dom-know' : o.domain === 'Feel' ? 'dom-feel' : 'dom-do') + '">' +
               esc(o.domain + ' / ' + o.sub) + '</span>' +
