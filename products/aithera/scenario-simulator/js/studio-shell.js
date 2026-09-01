@@ -1303,7 +1303,7 @@
       strip.hidden = false;
       strip.innerHTML = prompts.map((p, i) => {
         const on = i === activePromptIdx;
-        return `<button data-pi="${i}" style="padding:4px 11px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:12px;${on ? 'background:#2563eb;color:#fff;border-color:#2563eb' : 'background:transparent;color:var(--ink-faint)'}">${esc(p.label)}</button>`;
+        return `<button data-pi="${i}" style="padding:4px 11px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:12px;${on ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : 'background:transparent;color:var(--ink-faint)'}">${esc(p.label)}</button>`;
       }).join('');
       $$('[data-pi]', strip).forEach((b) => b.addEventListener('click', () => {
         activePromptIdx = Number(b.dataset.pi);
