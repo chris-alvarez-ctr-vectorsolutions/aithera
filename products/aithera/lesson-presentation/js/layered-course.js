@@ -218,7 +218,9 @@
     var video = document.getElementById('courseVideo');
     var asked = false, answered = false;
     if (entryStrength() === 'compressed') {
+      // She leads here: nothing on the page explains why this build is shorter.
       ctx.setCoachSay('This is the short cut — the beats you verified at entry are gone. Press play; one quick question at the end.');
+      ctx.floatOpen();
     }
     preloadVideoFully(video);
     wireVideoSkip(video);
@@ -1497,7 +1499,7 @@
     { id: 'terms', icon: 'fa-list-check', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'The Five Ds', gate: true,
       when: function () { return entryStrength() === 'full'; },
       caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3) — one of the two beats the entry check compresses away, paired with the tactic drill: they stand or fall together. Gate: every card flipped.' },
-      coach: { say: 'Five moves, five cards — flip each one. You only ever need the one that fits the moment.' },
+      coach: { say: 'Notice what separates them — distance, power, timing. That’s what decides which one you’d reach for.' },
       content: TERMS_CONTENT, init: termsInit },
 
     { id: 'drill', icon: 'fa-hand-pointer', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'Pick Your Move', gate: true,
@@ -1623,6 +1625,43 @@
   //  Shell — built once; steps swap in place.
   // ==========================================================================
   var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn, branchBtn;
+  // True only while a step's own init() is running. It's what separates CLARA's
+  // opening line for a screen (narration — stays behind the orb) from a line
+  // that lands later in response to the learner (a reaction — raises her).
+  var inInit = false;
+
+  // --- Where CLARA shows up ---------------------------------------------------
+  // She does NOT arrive talking on every screen. A coach who speaks on all
+  // fourteen sections stops being read, and most of these screens teach fine on
+  // their own — a line restating the page is a second voice for one point. So
+  // the default is TUCKED: the orb sits in its slot carrying the unread dot, and
+  // her line for that screen waits one tap behind it.
+  //
+  // She surfaces on her own in exactly two cases:
+  //
+  //   1. She LEADS the screen — the page can't do its job without her. She's
+  //      asking the question (checkInit, normsInit, stepinInit and practiceInit
+  //      each open her at init), or she's explaining something written nowhere
+  //      on the page (why this build is shorter than the full one). A step
+  //      declares that by opening her itself, or by setting coach.lead; a step
+  //      with no learning object of its own always counts, since she'd be the
+  //      only thing on the screen.
+  //   2. She REACTS — see setFloat/setCoachSay. That's why the flip cards, the
+  //      tactic drill and the read need no wiring: their coach lines arrive
+  //      after the screen has settled, so they raise her by themselves.
+  function coachLeads(step) {
+    if (step.mode !== 'floating') return true;    // sidebar/ambient/crown ARE her
+    if (!step.content) return true;               // nothing else on screen to read
+    return !!(step.coach && step.coach.lead);
+  }
+
+  // One door for the tuck state, so "she's been read" can't drift out of sync
+  // with "she's open": opening her is what clears the unread dot.
+  function setFloat(state) {
+    if (!stage) return;
+    stage.dataset.float = state;
+    if (state === 'open') delete stage.dataset.unread;
+  }
   var frameLesson, frameStep, frameBar;
   var idx = -1, busy = false, nextHref = null;
 
@@ -1683,9 +1722,15 @@
         coachSay: chrome ? chrome.querySelector('.clara-say') : null },
       enableNext: function () { nextBtn.disabled = false; },
       disableNext: function () { nextBtn.disabled = true; },
-      setCoachSay: function (html) { var s = chrome.querySelector('.clara-say'); if (s) s.innerHTML = html; },
-      floatOpen: function () { stage.dataset.float = 'open'; },
-      floatClose: function () { stage.dataset.float = 'closed'; },
+      setCoachSay: function (html) {
+        var s = chrome.querySelector('.clara-say'); if (s) s.innerHTML = html;
+        // A line that lands after the screen has settled is a reaction to
+        // something the learner just did — the one thing that raises her
+        // without being asked. Her opening line, set during init, does not.
+        if (!inInit && stage.dataset.mode === 'floating') setFloat('open');
+      },
+      floatOpen: function () { setFloat('open'); },
+      floatClose: function () { setFloat('closed'); },
       positionOrb: positionOrb, saveResult: saveResult, readCourse: readCourse
     };
   }
@@ -1780,7 +1825,12 @@
       if (prevObject) prevObject.remove();
 
       stage.dataset.mode = step.mode;
-      if (step.mode === 'floating') stage.dataset.float = 'open';
+      if (step.mode === 'floating') {
+        var leads = coachLeads(step);
+        setFloat(leads ? 'open' : 'closed');
+        // A queued line she hasn't shown yet is the only thing the dot means.
+        if (!leads && (step.coach || {}).say) stage.dataset.unread = 'true';
+      }
 
       // Learning-object content — append FIRST so the coach chrome sits ON TOP
       // for hit-testing. Otherwise the full-bleed (inset:0) .ll-object, though
@@ -1806,7 +1856,11 @@
       updateFooter(step); updateFrame(step);
 
       var ctx = makeCtx();
-      if (step.init) { try { step.init(ctx); } catch (e) { console.error('step init', step.id, e); } }
+      if (step.init) {
+        inInit = true;
+        try { step.init(ctx); } catch (e) { console.error('step init', step.id, e); }
+        inInit = false;
+      }
 
       if (first) { busy = false; }
       else {
@@ -1885,7 +1939,7 @@
     // In floating mode the orb is the launcher — tap to tuck/expand.
     orbEl.addEventListener('click', function () {
       if (stage.dataset.mode !== 'floating' || busy) return;
-      stage.dataset.float = (stage.dataset.float === 'closed') ? 'open' : 'closed';
+      setFloat(stage.dataset.float === 'closed' ? 'open' : 'closed');
     });
   }
 
