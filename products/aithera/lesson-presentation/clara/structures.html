@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Layer — Vector Training</title>
+
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="reporting.css?v=4" />
+
+    <style>
+      /* ==== Learning Layer view ==============================================
+         The LED's side of the two-signature model: what the Learning Layer
+         proposes between the SME signature and the learner, and what it
+         declines to propose. Built on the reporting shell because this is an
+         internal tool, not a learner screen. */
+
+      /* --- Capability scoring, shared by both tables --- */
+      .ll-score { display: inline-flex; gap: 3px; vertical-align: middle; }
+      .ll-score i { font-size: 8px; color: var(--rp-line); }
+      .ll-score i.on { color: var(--rp-primary); }
+      .ll-score.warn i.on { color: #b45309; }
+      .ll-score.bad  i.on { color: #b91c1c; }
+
+      /* --- Candidate structures --- */
+      .st-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+      .st-card {
+        border: 1px solid var(--rp-line); border-radius: 12px; padding: 18px 20px 20px;
+        background: #fff; display: flex; flex-direction: column;
+      }
+      .st-card.is-pick { border-color: var(--rp-primary); box-shadow: 0 0 0 1px var(--rp-primary); }
+      .st-opt { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--rp-ink-faint); }
+      .st-card.is-pick .st-opt { color: var(--rp-primary); }
+      .st-card h3 { margin: 6px 0 8px; font-size: 16px; font-weight: 700; }
+      .st-card > p { margin: 0 0 16px; font-size: 13px; line-height: 1.55; color: var(--rp-ink-soft); }
+      .st-caps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 7px; }
+      .st-caps li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+      .st-caps span { color: var(--rp-ink-soft); }
+      .st-verdict {
+        margin: auto 0 0; padding-top: 14px; border-top: 1px solid var(--rp-line);
+        font-size: 12.5px; line-height: 1.55; color: var(--rp-ink-soft);
+      }
+      .st-verdict b { color: var(--rp-ink); }
+      .st-badge {
+        /* align-self, not inline-block: the card is a flex column, so a plain
+           inline-block still stretches to the full card width. */
+        align-self: flex-start; margin-bottom: 8px; padding: 3px 9px; border-radius: 999px;
+        font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+      }
+
+      /* --- Permutation integrity: what we will and won't render --- */
+      .pm-table td.cell { text-align: center; }
+      .pm-state {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+      }
+      .pm-ok      { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+      .pm-caution { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+      .pm-no      { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+      .pm-why { margin: 3px 0 0; font-size: 11.5px; color: var(--rp-ink-faint); line-height: 1.45; }
+      .pm-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: 12px; color: var(--rp-ink-soft); }
+
+      /* --- The derivation chain --- */
+      .dv-chain { list-style: none; margin: 0; padding: 0; }
+      .dv-chain li { position: relative; padding: 0 0 20px 30px; font-size: 13px; line-height: 1.6; color: var(--rp-ink-soft); }
+      .dv-chain li:last-child { padding-bottom: 0; }
+      .dv-chain li::before {
+        content: ''; position: absolute; left: 6px; top: 6px; width: 9px; height: 9px;
+        border-radius: 50%; background: var(--rp-primary);
+      }
+      .dv-chain li:not(:last-child)::after {
+        content: ''; position: absolute; left: 10px; top: 19px; bottom: 2px; width: 1px; background: var(--rp-line);
+      }
+      .dv-chain b { color: var(--rp-ink); }
+      .dv-chain em { font-style: normal; font-weight: 600; color: #b45309; }
+      .dv-sig {
+        display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px;
+        font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+        background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+      }
+      @media (max-width: 900px) { .st-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <header class="rp-head">
+        <div class="rp-brand">
+            <i class="fa-solid fa-layer-group"></i> Vector Training <small>· Learning Layer</small>
+            <a class="hub-link" href="index.html"><i class="fa-solid fa-arrow-left"></i>CLARA end-to-end hub</a>
+        </div>
+        <div class="rp-head-row">
+            <h1>Module 2 · Step In</h1>
+            <div class="rp-head-meta">
+                <span class="rp-chip"><i class="fa-solid fa-signature"></i> SME-signed 12 Aug 2026</span>
+                <span class="rp-chip"><i class="fa-solid fa-list-check"></i> 14 objectives · K5 F5 D4</span>
+                <span class="rp-chip"><i class="fa-solid fa-lock"></i> 1 compliance-locked</span>
+            </div>
+        </div>
+        <p class="rp-tagline">Everything between the two signatures is <b>derivation</b>. The SME signed the
+           Know&middot;Feel&middot;Do mapping and the metadata envelope, once. This page is what the Learning Layer
+           does with it — the structures it proposes, the permutations it declines, and the chain behind the
+           experience a given learner actually received.</p>
+    </header>
+
+    <main class="rp-main">
+
+        <!-- ============ 1. Candidate structures ============ -->
+        <section class="rp-card">
+            <div class="rp-card-head">
+                <div>
+                    <h2>Candidate structures</h2>
+                    <p class="rp-card-sub">Not a finished course and not a blank page. Three structures the same
+                       14 objectives can be poured into, each scored on how well it holds across the four
+                       capabilities — because a structure that is elegant at full length and collapses when three
+                       objectives drop out is not one we can sell.</p>
+                </div>
+            </div>
+
+            <div class="st-grid">
+                <div class="st-card">
+                    <span class="st-opt">Option A</span>
+                    <h3>Continuous narrative</h3>
+                    <p>One storyline for the length of the module: a single situation from first signal to
+                       resolution, with beats attached to points in the story.</p>
+                    <ul class="st-caps">
+                        <li><span>Mastery-based sequencing</span>
+                            <span class="ll-score bad"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i></span></li>
+                        <li><span>Contextualization</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i></span></li>
+                        <li><span>Combination</span>
+                            <span class="ll-score warn"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i></span></li>
+                        <li><span>Transformation</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i></span></li>
+                    </ul>
+                    <p class="st-verdict">Strongest engagement, weakest under compression — <b>remove three
+                       objectives and the story loses its connective tissue.</b></p>
+                </div>
+
+                <div class="st-card is-pick">
+                    <span class="st-badge">Proposed · LED signed</span>
+                    <span class="st-opt">Option B</span>
+                    <h3>Case ladder</h3>
+                    <p>Three escalating cases, each self-contained, each raising the judgment required. Objectives
+                       map cleanly to cases, so a case can be added, hardened or dropped whole.</p>
+                    <ul class="st-caps">
+                        <li><span>Mastery-based sequencing</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i></span></li>
+                        <li><span>Contextualization</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i></span></li>
+                        <li><span>Combination</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i></span></li>
+                        <li><span>Transformation</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i></span></li>
+                    </ul>
+                    <p class="st-verdict"><b>The workhorse.</b> Compression and combination operate on whole cases,
+                       so cohesion is structural rather than editorial. Default for regulated content — and what the
+                       shipped experience runs.</p>
+                </div>
+
+                <div class="st-card">
+                    <span class="st-opt">Option C</span>
+                    <h3>Coach-led rehearsal</h3>
+                    <p>An AI coach frames the behavior, the learner practices it immediately, and instruction
+                       arrives as debrief between reps rather than up front.</p>
+                    <ul class="st-caps">
+                        <li><span>Mastery-based sequencing</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i></span></li>
+                        <li><span>Contextualization</span>
+                            <span class="ll-score"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i></span></li>
+                        <li><span>Combination</span>
+                            <span class="ll-score warn"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i></span></li>
+                        <li><span>Transformation</span>
+                            <span class="ll-score bad"><i class="fa-solid fa-circle on"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i></span></li>
+                    </ul>
+                    <p class="st-verdict">Most differentiated, least portable — <b>it barely survives translation to
+                       podcast or article.</b> Reserve for high-stakes Do-heavy outcomes.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 2. Permutation integrity ============ -->
+        <section class="rp-card">
+            <div class="rp-card-head">
+                <div>
+                    <h2>Permutation integrity</h2>
+                    <p class="rp-card-sub">A module exists in a compression state, a context lens, a combination and
+                       a modality all at once — so capability integrity is computed <b>per permutation</b>, not once
+                       for the structure. Where the score falls through the floor the Learning Layer declines to
+                       offer the permutation rather than rendering it badly.</p>
+                </div>
+            </div>
+
+            <table class="rp-table pm-table">
+                <thead>
+                    <tr>
+                        <th>Modality</th>
+                        <th class="cell">No test-out<br><small>14 objectives</small></th>
+                        <th class="cell">Partial<br><small>3 proven, 11 taught</small></th>
+                        <th class="cell">Maximum<br><small>13 proven</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="rp-name">Video course<div class="pm-why">The reference rendering — the point in the variant space the SME signed.</div></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span><div class="pm-why">Shipped</div></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                    </tr>
+                    <tr>
+                        <td class="rp-name">AI tutor<div class="pm-why">Compression is native — the tutor simply does not raise what is proven.</div></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                    </tr>
+                    <tr>
+                        <td class="rp-name">Article<div class="pm-why">Pre-rendered; break points restore routing without live branching.</div></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                        <td class="cell"><span class="pm-state pm-caution"><i class="fa-solid fa-triangle-exclamation"></i> Break points required</span></td>
+                        <td class="cell"><span class="pm-state pm-caution"><i class="fa-solid fa-triangle-exclamation"></i> Break points required</span></td>
+                    </tr>
+                    <tr>
+                        <td class="rp-name">Podcast<div class="pm-why">Chapter boundaries only. No live branching to compress against.</div></td>
+                        <td class="cell"><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span></td>
+                        <td class="cell"><span class="pm-state pm-caution"><i class="fa-solid fa-triangle-exclamation"></i> Break points required</span></td>
+                        <td class="cell">
+                            <span class="pm-state pm-no"><i class="fa-solid fa-ban"></i> Do not offer</span>
+                            <div class="pm-why">At this compression the cut runs ~4 minutes and the learner
+                                reasonably asks why they listened. The modality has become a wrapper around a
+                                simulation rather than an experience.</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="pm-legend">
+                <span><span class="pm-state pm-ok"><i class="fa-solid fa-check"></i> Offer</span> all four capabilities hold</span>
+                <span><span class="pm-state pm-caution"><i class="fa-solid fa-triangle-exclamation"></i> Caution</span> holds only with a repair</span>
+                <span><span class="pm-state pm-no"><i class="fa-solid fa-ban"></i> Decline</span> a capability fails; not shown to the LED as an option</span>
+            </div>
+        </section>
+
+        <!-- ============ 3. Derivation chain ============ -->
+        <section class="rp-card">
+            <div class="rp-card-head">
+                <div>
+                    <h2>Why this learner's path looks like this</h2>
+                    <p class="rp-card-sub">The chain behind the shipped permutation, end to end. Nothing in it was
+                       decided case by case — every step is computed from the objective metadata the SME signed.
+                       This is the claim that holds on day one, before there is any outcome data at all.</p>
+                </div>
+            </div>
+
+            <ol class="dv-chain">
+                <li><b>The signed objectives.</b> Module BO-2 &ldquo;Step In&rdquo; &middot;
+                    <em>K3 Know / Remember</em> (recall the five Ds) and <em>K4 Know / Evaluate</em> (select the
+                    tactic best suited to a situation and constraint). Theoretical construct: Response Knowledge.
+                    Signed once, at the spec. <span class="dv-sig">SME signature</span></li>
+                <li><b>The evidence.</b> The entry check asked one Know item mapped to K4 — a tactic-selection
+                    question, not a definition question, because what a correct answer buys is the tactics
+                    instruction. Answered correctly; K3 is entailed by K4 at this level and the two are declared a
+                    cluster in the envelope.</li>
+                <li><b>The derivation.</b> Test-out suppressed the two instructional beats carrying K3 and K4
+                    — <em>The Five Ds</em> and <em>Pick your move</em> — and shortened the intro clip, whose
+                    &ldquo;how to respond&rdquo; half the same item evidences. 2 of 14 objectives verified,
+                    12 instructed, ~3 minutes removed.</li>
+                <li><b>What could not move.</b> The five Feel objectives and the four Do objectives were untouched:
+                    no entry item probes them, and the envelope marks belief and performance objectives as
+                    non-suppressible by design. The compliance-locked mastery item was served, not removed.</li>
+                <li><b>The floor.</b> The Scenario Simulator ran regardless — a learner who tested out of every
+                    instructional objective still performs the behavior against the SME-validated rubric.
+                    <span class="dv-sig">LED signature</span></li>
+            </ol>
+        </section>
+
+        <footer class="rp-foot">
+            <p><b>Prototype.</b> Capability scores and permutation verdicts are representative — the point is that
+               they are <i>computed and surfaced before a build</i>, not that these particular numbers are final.</p>
+            <p>Sources: Know-Feel-Do Framework v3 (Classification Guide) &middot; LO Envelope CML Specification
+               &middot; Differentiation Decision Schema v0.1 &middot; <a href="course.html">the shipped learner
+               experience</a>.</p>
+        </footer>
+    </main>
+
+</body>
+</html>

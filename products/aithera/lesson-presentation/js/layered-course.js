@@ -50,13 +50,28 @@
   // Five of the eight are assessed in this course; each is scored on the doc's
   // qualitative bands. 1 = Below Average / Practice Needed, 2 = Average / Good,
   // 3 = Above Average / Excellent. Pass = at least Average on 80% of objectives.
+  // The two frameworks aren't rivals — one is a FIELD of the other. Know·Feel·Do
+  // with its sub-level is the classification the SME signs (and the thing the
+  // Knowledge Layer stores as a first-class object); the theoretical construct
+  // is the semantic anchor hung on it, which is where the Individual
+  // Determinants of Behavior names live. So every row here carries both: the
+  // learner reads the plain name, and the record carries the classification
+  // the objective was signed under.
   var CONSTRUCTS = [
-    { key: 'knowledge', name: 'Knowledge',                    icon: 'fa-book-open'      },
-    { key: 'beliefs',   name: 'Attitudes & beliefs',          icon: 'fa-scale-balanced' },
-    { key: 'norms',     name: 'Social norms',                 icon: 'fa-users'          },
-    { key: 'skills',    name: 'Behavioral skills',            icon: 'fa-comment-dots'   },
-    { key: 'control',   name: 'Perceived behavioral control', icon: 'fa-gauge-high'     }
+    { key: 'knowledge', name: 'Knowing what to do',      icon: 'fa-book-open',
+      domain: 'Know', sub: 'Remember & Evaluate', theory: 'Response Knowledge' },
+    { key: 'norms',     name: 'Reading the room',        icon: 'fa-users',
+      domain: 'Feel', sub: 'Perceive',            theory: 'Social Norm Perception' },
+    { key: 'beliefs',   name: 'Believing it matters',    icon: 'fa-scale-balanced',
+      domain: 'Feel', sub: 'Value',               theory: 'Outcome Expectancy' },
+    { key: 'control',   name: 'Believing you can',       icon: 'fa-gauge-high',
+      domain: 'Feel', sub: 'Can',                 theory: 'Self-Efficacy (Bandura)' },
+    { key: 'activate',  name: 'Moving while it’s open',  icon: 'fa-bolt',
+      domain: 'Do',   sub: 'Activate',            theory: 'Behavioral Cueing' },
+    { key: 'skills',    name: 'Having the words',        icon: 'fa-comment-dots',
+      domain: 'Do',   sub: 'Apply',               theory: 'Behavioral Capability (Bandura)' }
   ];
+  var DOMAIN_CLS = { Know: 'dom-know', Feel: 'dom-feel', Do: 'dom-do' };
   var BANDS = {
     1: { label: 'Practice Needed', cls: 'band-warn' },
     2: { label: 'Good',            cls: 'band-ok'   },
@@ -85,6 +100,86 @@
     var c = readCourse().check;
     return !!(c && c.missed);
   }
+
+  // ==========================================================================
+  //  CONTEXT LENSES — capability 2 of the four the module has to survive.
+  //
+  //  The same module, the same objectives, the same beats, applied to a
+  //  different working environment. NOTHING here is a second course: every
+  //  lensed string is derived from the objective's context-sensitivity
+  //  metadata, which is why the tactic examples and the drill situations move
+  //  while the tactics, the ordering and the assessment do not.
+  //
+  //  Two lenses rather than three, deliberately. A lens is only worth having
+  //  if its scene, its tactics and its evidence all genuinely differ — a
+  //  find-and-replace on the room name is the thing this capability is
+  //  supposed to disprove. Adding a third is data entry once these two hold.
+  //  Presenter control: "Demo: context lens".
+  // ==========================================================================
+  var LENSES = {
+    plant: {
+      label: 'Plant floor',
+      role: 'Shift lead',
+      where: 'The tool crib, shift change',
+      when: 'Monday, start of shift',
+      org: 'Acme Plant Operations',
+      // The scene the Perform stage opens on.
+      lede: 'In a second you’ll be at the tool crib as the shift changes over. Take in who’s here ' +
+            'and what’s going on, then it’s your call how to respond. There’s no perfect script to follow.',
+      // The five tactics, shown in this environment's terms.
+      ds: {
+        Direct:   '“That’s not okay — drop it.” Said to Jake, in front of the crew.',
+        Distract: '“Jake — the forklift guy’s looking for you.” The joke dies on its own.',
+        Delegate: 'Loop in the shift lead Jake actually listens to.',
+        Delay:    '“I saw that. You good?” — catching them at the clock-out beats never.',
+        Document: 'Date, shift, exact words. Specifics move investigations.'
+      },
+      drill: [
+        'Jake’s mid-“joke”, the crew’s laughing, and you’re two feet away at the crib window.',
+        'You froze. The shift changed over and everyone’s already on the floor.',
+        'The one doing it is your supervisor’s friend, and he runs the line you work.',
+        'Third shift running. Same target, same “joke”, same handover.'
+      ],
+      // The remediation scene, when a check miss inserts it.
+      remediationWhen: 'Friday, shift meeting',
+      remediationText: 'Jake tries the same “joke” again — this time about Priya, in front of the whole shift. ' +
+                       'The room goes quiet and waits to see what you do.'
+    },
+    office: {
+      label: 'Office',
+      role: 'Team lead',
+      where: 'The Monday stand-up',
+      when: 'Monday, 9am',
+      org: 'Acme Corporate Services',
+      lede: 'In a second you’ll be in a Monday stand-up that goes sideways. Take in who’s here ' +
+            'and what’s going on, then it’s your call how to respond. There’s no perfect script to follow.',
+      ds: {
+        Direct:   '“That’s not okay — drop it.” Said to Jake, with the room listening.',
+        Distract: '“Jake — can you pull up the numbers?” The joke dies on its own.',
+        Delegate: 'Take it to the manager Jake actually listens to.',
+        Delay:    '“I saw that. You good?” — catching them after the call beats never.',
+        Document: 'Date, meeting, exact words. Specifics move investigations.'
+      },
+      drill: [
+        'Jake’s mid-“joke”, half the table is laughing, and you’re sitting right next to him.',
+        'You froze. The stand-up moved on and everyone’s back at their desks.',
+        'The one doing it is your supervisor’s friend, and he assigns your work.',
+        'Third stand-up in a row. Same target, same “joke”, same table.'
+      ],
+      remediationWhen: 'Friday, team meeting',
+      remediationText: 'Jake tries the same “joke” again — this time about Priya, in front of the whole team. ' +
+                       'The room goes quiet and waits to see what you do.'
+    }
+  };
+  var LENS_ORDER = ['plant', 'office'];
+  // The steps whose content genuinely moves with the lens. Everywhere else the
+  // control is hidden rather than shown doing nothing.
+  var LENSED_STEPS = { terms: 1, drill: 1, norms: 1, practice: 1, scene: 1 };
+  function lensId() {
+    try { var o = sessionStorage.getItem('ll-lens'); if (LENSES[o]) return o; } catch (e) {}
+    return 'plant';
+  }
+  function lens() { return LENSES[lensId()]; }
 
   // --- Single-select option group (keyboard) --------------------------------
   // Arrow/Home/End move FOCUS only; Enter or Space commits, the way any button
@@ -258,16 +353,19 @@
   }
 
   // Step 3 — ambient scene-setter with detail chips injected into the chrome.
-  var SCENE_FACTS = [
-    { icon: 'fa-id-badge', label: 'Your role', value: 'Shift lead' },
-    { icon: 'fa-location-dot', label: 'Where', value: 'The break room' },
-    { icon: 'fa-users', label: 'Who’s here', value: 'Marshall & Jake' },
-    { icon: 'fa-clock', label: 'When', value: 'Monday, start of shift' }
-  ];
+  function sceneFacts() {
+    var L = lens();
+    return [
+      { icon: 'fa-id-badge', label: 'Your role', value: L.role },
+      { icon: 'fa-location-dot', label: 'Where', value: L.where },
+      { icon: 'fa-users', label: 'Who’s here', value: 'Marshall & Jake' },
+      { icon: 'fa-clock', label: 'When', value: L.when }
+    ];
+  }
   function sceneInit(ctx) {
     var wrap = document.createElement('div');
     wrap.className = 'll-scene-facts';
-    wrap.innerHTML = SCENE_FACTS.map(function (f) {
+    wrap.innerHTML = sceneFacts().map(function (f) {
       return '<span class="ll-scene-fact"><i class="fa-solid ' + f.icon + '"></i>' +
              '<span><b>' + esc(f.label) + ':</b> ' + esc(f.value) + '</span></span>';
     }).join('');
@@ -332,7 +430,8 @@
 
   // Which session-record key marks each section complete.
   var DONE_KEYS = { baseline: 'baseline', compress: 'entry', video: 'video1', audio: 'audio',
-                    terms: 'terms', drill: 'drill', norms: 'norms', stepin: 'stepin',
+                    terms: 'terms', drill: 'drill', norms: 'norms', efficacy: 'efficacy',
+                    activate: 'activate', stepin: 'stepin',
                     casevideo: 'casevideo', check: 'check', practice: 'practice', scenario: 'scenario' };
   function introInit(ctx) {
     var course = readCourse();
@@ -423,7 +522,7 @@
     ]
   };
   function baselineInit(ctx) {
-    var bands = { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2 };
+    var bands = { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2, activate: 2 };
     var answers = {};
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
@@ -670,24 +769,21 @@
 
   // LEARN · Know (K3/K4) — "Terms to Remember": the five Ds as flip cards.
   // Gate: every card flipped. Compressed away by a strong entry battery.
+  // The tactic and its definition are the objective and never move. Only the
+  // worked example is lensed — that's the context-sensitive half.
   var FIVE_DS = [
     { icon: 'fa-bullhorn', name: 'Direct',
-      def: 'Name what’s happening and ask it to stop.',
-      ex: '“That’s not okay — drop it.” Said to Jake, in the room.' },
+      def: 'Name what’s happening and ask it to stop.' },
     { icon: 'fa-arrows-split-up-and-left', name: 'Distract',
-      def: 'Break the moment without confronting anyone.',
-      ex: '“Jake — the forklift guy’s looking for you.” The joke dies on its own.' },
+      def: 'Break the moment without confronting anyone.' },
     { icon: 'fa-user-group', name: 'Delegate',
-      def: 'Bring in someone better placed to act.',
-      ex: 'Loop in the lead Jake actually listens to.' },
+      def: 'Bring in someone better placed to act.' },
     { icon: 'fa-hourglass-half', name: 'Delay',
-      def: 'Check in with the target once the moment passes.',
-      ex: '“I saw that. You good?” — ten minutes later beats never.' },
+      def: 'Check in with the target once the moment passes.' },
     { icon: 'fa-file-lines', name: 'Document',
-      def: 'Record what, when, who — so a report can act.',
-      ex: 'Date, shift, exact words. Specifics move investigations.' }
+      def: 'Record what, when, who — so a report can act.' }
   ];
-  var TERMS_CONTENT =
+  function TERMS_CONTENT() { return '' +
     '<main class="ll-object">' +
       '<p class="ll-eyebrow">Review: 5 flip cards</p>' +
       '<h2>The Five Ds.</h2>' +
@@ -697,13 +793,13 @@
           return '<button class="tr-card" type="button" data-i="' + i + '" aria-label="Flip: ' + esc(d.name) + '">' +
             '<span class="tr-inner">' +
               '<span class="tr-face"><i class="fa-solid ' + d.icon + '" aria-hidden="true"></i><b>' + esc(d.name) + '</b><span class="hint">Tap to flip</span></span>' +
-              '<span class="tr-face tr-back"><b>' + esc(d.name) + '</b><p>' + esc(d.def) + '</p><p class="ex">' + esc(d.ex) + '</p></span>' +
+              '<span class="tr-face tr-back"><b>' + esc(d.name) + '</b><p>' + esc(d.def) + '</p><p class="ex">' + esc(lens().ds[d.name]) + '</p></span>' +
             '</span>' +
           '</button>';
         }).join('') +
       '</div>' +
       '<p class="tr-progress" id="trProgress"><b>0</b> of 5 flipped</p>' +
-    '</main>';
+    '</main>'; }
   function termsInit(ctx) {
     var flipped = 0;
     document.querySelectorAll('.tr-card').forEach(function (card) {
@@ -828,24 +924,20 @@
   // tap the D that fits. Some situations accept a second-best answer with a
   // coaching note. Compressible.
   var DRILL_SITS = [
-    { text: 'Jake’s mid-“joke”, the room’s laughing, and you’re two feet away.',
-      best: 'Direct', near: 'Distract',
+    { best: 'Direct', near: 'Distract',
       ok: 'Right — you’re close, it’s live, and naming it lands hardest in the moment.',
       nearMsg: 'Distract works too — but this close, Direct is stronger. Take it when you can.' },
-    { text: 'You froze. The moment passed in seconds and everyone’s back to work.',
-      best: 'Delay', near: null,
+    { best: 'Delay', near: null,
       ok: 'Exactly — the moment passing doesn’t end your options. The check-in is still an intervention.' },
-    { text: 'The one doing it is your supervisor’s friend. You have zero leverage here.',
-      best: 'Delegate', near: 'Document',
+    { best: 'Delegate', near: 'Document',
       ok: 'Right — power gaps are what Delegate is for. Find the person they’ll actually hear.',
       nearMsg: 'Documenting helps — but someone with standing needs to act. Delegate first, document alongside.' },
-    { text: 'Third time this month. Same target, same “joke”, same room.',
-      best: 'Document', near: 'Delegate',
+    { best: 'Document', near: 'Delegate',
       ok: 'Yes — a pattern needs a record. Dates, words, witnesses: that’s what moves an investigation.',
       nearMsg: 'Escalating is fair — but a pattern without a record is one person’s word. Document it too.' }
   ];
   var DRILL_DS = ['Direct', 'Distract', 'Delegate', 'Delay', 'Document'];
-  var DRILL_CONTENT =
+  function DRILL_CONTENT() { return '' +
     '<main class="ll-object">' +
       '<p class="ll-eyebrow">Practice: 4 questions</p>' +
       '<h2>Pick your move.</h2>' +
@@ -858,7 +950,7 @@
         '<p class="dr-fb" id="drFb"></p>' +
         '<p class="dr-progress" id="drProgress"><b>0</b> of 4 placed</p>' +
       '</div>' +
-    '</main>';
+    '</main>'; }
   function drillInit(ctx) {
     var i = 0, settled = false;
     var textEl = document.getElementById('drText');
@@ -898,7 +990,7 @@
     function show() {
       settled = false;
       document.getElementById('drTag').textContent = 'Moment ' + (i + 1) + ' of 4';
-      textEl.textContent = DRILL_SITS[i].text;
+      textEl.textContent = lens().drill[i];   // the situation is lensed; the tactic that fits it isn't
       fb.className = 'dr-fb'; fb.textContent = '';
       btns.forEach(function (b) { b.disabled = false; b.classList.remove('hit', 'near', 'miss'); });
     }
@@ -915,7 +1007,7 @@
     { k: 'overreact', label: 'Most would think I overreacted', pct: 11 },
     { k: 'notice',    label: 'Most wouldn’t even notice', pct: 5 }
   ];
-  var NORMS_CONTENT =
+  function NORMS_CONTENT() { return '' +
     '<main class="ll-object">' +
       '<p class="ll-eyebrow">Compare: 1 question</p>' +
       '<h2>Would they back you?</h2>' +
@@ -933,9 +1025,9 @@
             '</button>';
           }).join('') +
         '</div>' +
-        '<p class="pr-src" id="prSrc" hidden><i class="fa-solid fa-users" aria-hidden="true"></i> Anonymous survey · Acme Plant Operations · 214 responses · representative data</p>' +
+        '<p class="pr-src" id="prSrc" hidden><i class="fa-solid fa-users" aria-hidden="true"></i> Anonymous survey · ' + esc(lens().org) + ' · 214 responses · representative data</p>' +
       '</div>' +
-    '</main>';
+    '</main>'; }
   function normsInit(ctx) {
     ctx.floatOpen();
     ctx.setCoachSay('Quick gut check first — <strong>if you called out Jake’s “joke” in front of the crew, how would most of them react?</strong> Answer honestly; the real numbers come next.');
@@ -971,6 +1063,181 @@
         ctx.enableNext();
         ctx.positionOrb(true);
       }, T(1300));
+    }
+  }
+
+  // ==========================================================================
+  //  LEARN · Feel — self-efficacy. "Believe you can intervene without
+  //  escalating or damaging your standing."
+  //
+  //  A Feel objective cannot be taught by telling someone to feel it, so this
+  //  beat does what the deck's Feel domain actually asks for: surface the
+  //  belief the learner already holds, then put evidence against it. The
+  //  slider is the measurement; the reframe is the instruction. Never
+  //  compressible — a quiz cannot verify a belief.
+  // ==========================================================================
+  var EFFICACY_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Rate: 1 question</p>' +
+      '<h2>Could you pull it off?</h2>' +
+      '<p class="ll-sub">Not whether you should — whether you could, without it blowing up on you.</p>' +
+      '<div class="ef-wrap">' +
+        '<p class="ef-q">If you said something to Jake in front of everyone, how confident are you that it would go ' +
+          '<em>fine</em> — no scene, no fallout for you?</p>' +
+        '<div class="ef-slider">' +
+          '<input type="range" id="efRange" min="0" max="100" value="50" step="1" ' +
+            'aria-label="How confident are you that speaking up would go fine?">' +
+          '<div class="ef-scale"><span>Not at all</span><span>Completely</span></div>' +
+        '</div>' +
+        '<div class="ef-readout" id="efReadout"><b id="efVal">50</b><span id="efWord">Somewhere in the middle</span></div>' +
+        '<button class="ef-lock" id="efLock" type="button">That’s my answer</button>' +
+        '<div class="ef-after" id="efAfter" hidden>' +
+          '<p class="ef-real" id="efReal"></p>' +
+          '<ul class="ef-evidence">' +
+            '<li><i class="fa-solid fa-comment" aria-hidden="true"></i><span>Most interventions are <b>one sentence long</b>. “That’s not okay — drop it.” Nothing to escalate.</span></li>' +
+            '<li><i class="fa-solid fa-users" aria-hidden="true"></i><span>You already saw the number: <b>84%</b> of the room would back you.</span></li>' +
+            '<li><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Retaliation for stepping in is <b>itself a violation</b> — the protection covers witnesses, not just targets.</span></li>' +
+          '</ul>' +
+        '</div>' +
+      '</div>' +
+    '</main>';
+  function efficacyWord(v) {
+    return v < 25 ? 'Not confident' : v < 50 ? 'Doubtful' : v < 75 ? 'Fairly confident' : 'Very confident';
+  }
+  function efficacyInit(ctx) {
+    ctx.floatOpen();
+    ctx.setCoachSay('Be honest with this one — I’m not scoring it. I just want to know what you think you’re capable of.');
+    var range = document.getElementById('efRange');
+    var val = document.getElementById('efVal');
+    var word = document.getElementById('efWord');
+    var lock = document.getElementById('efLock');
+    var locked = false;
+    range.addEventListener('input', function () {
+      val.textContent = range.value;
+      word.textContent = efficacyWord(+range.value);
+    });
+    lock.addEventListener('click', function () {
+      if (locked) return; locked = true;
+      var v = +range.value;
+      range.disabled = true;
+      lock.hidden = true;
+      document.getElementById('efReal').innerHTML = v >= 70
+        ? 'Good — and worth knowing your read is <b>well-founded</b>, not just optimism:'
+        : 'That’s the most common answer there is. Here’s what it’s usually missing:';
+      var after = document.getElementById('efAfter');
+      after.hidden = false;
+      requestAnimationFrame(function () { requestAnimationFrame(function () { after.classList.add('in'); }); });
+      ctx.setCoachSay(v >= 70
+        ? 'That confidence is the thing that actually predicts stepping in — more than knowing the five moves does.'
+        : 'That gap between “I should” and “I could” is the real barrier here — not knowledge. Which is why we practise it rather than explain it.');
+      saveResult('efficacy', { confidence: v });
+      ctx.enableNext();
+      ctx.positionOrb(true);
+    });
+  }
+
+  // ==========================================================================
+  //  LEARN · Do — activate. "Recognize and act on the cue to intervene while
+  //  the moment is still open."
+  //
+  //  The one beat in the module a question could not stand in for. The scene
+  //  runs in real time and the window closes on its own; the learner either
+  //  moves inside it or watches it shut. Missing is a legitimate outcome and
+  //  is NOT retried — the moment genuinely passing is the teaching, and it
+  //  hands off to Delay, which is what the drill already taught. Gates on
+  //  having taken the run, not on having caught it. Never compressible.
+  // ==========================================================================
+  var ACTIVATE_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Do it: 1 moment</p>' +
+      '<h2>Say it while it’s open.</h2>' +
+      '<p class="ll-sub">This one runs in real time. When you see something worth stopping, stop it — the moment won’t wait.</p>' +
+      '<div class="ac-wrap">' +
+        '<div class="ac-stage" id="acStage">' +
+          '<div class="ac-lines" id="acLines"></div>' +
+        '</div>' +
+        '<div class="ac-window" id="acWindow" hidden>' +
+          '<div class="ac-track"><div class="ac-fill" id="acFill"></div></div>' +
+        '</div>' +
+        '<button class="ac-go" id="acGo" type="button" disabled>' +
+          '<i class="fa-solid fa-hand" aria-hidden="true"></i> Say something</button>' +
+        '<p class="ac-verdict" id="acVerdict" hidden></p>' +
+      '</div>' +
+    '</main>';
+  // The cue is line 3. Everything before it is the room filling in; the window
+  // opens on the line that makes intervening warranted.
+  var ACTIVATE_SCENE = [
+    { who: 'Jake',   at: 0,    text: 'Alright, who’s on the crib tonight?' },
+    { who: 'Room',   at: 1400, text: '(general shuffling, someone laughs at something else)', mute: true },
+    { who: 'Jake',   at: 3000, text: 'Oh — Priya’s on. Hey Priya, still doing that thing with the—', cue: true },
+    { who: 'Room',   at: 4600, text: '(a couple of people laugh. Someone glances at you.)', mute: true },
+    { who: 'Jake',   at: 6400, text: 'What? It’s a compliment. Relax.' }
+  ];
+  var ACTIVATE_WINDOW = 6200;   // ms the cue stays actionable, from the cue line
+  function activateInit(ctx) {
+    ctx.floatOpen();
+    ctx.setCoachSay('Watch it play. The second you think “someone should say something” — that’s you. Hit the button.');
+    var lines = document.getElementById('acLines');
+    var go = document.getElementById('acGo');
+    var win = document.getElementById('acWindow');
+    var fill = document.getElementById('acFill');
+    var verdict = document.getElementById('acVerdict');
+    var cueAt = null, done = false, timers = [];
+
+    ACTIVATE_SCENE.forEach(function (l) {
+      timers.push(setTimeout(function () {
+        var d = document.createElement('p');
+        d.className = 'ac-line' + (l.mute ? ' is-mute' : '');
+        d.innerHTML = l.mute ? esc(l.text)
+          : '<b>' + esc(l.who) + '</b> ' + esc(l.text);
+        lines.appendChild(d);
+        lines.scrollTop = lines.scrollHeight;
+        if (l.cue) openWindow();
+      }, T(l.at)));
+    });
+
+    function openWindow() {
+      cueAt = Date.now();
+      go.disabled = false;
+      win.hidden = false;
+      fill.style.transition = 'none'; fill.style.width = '100%';
+      void fill.offsetWidth;
+      fill.style.transition = 'width ' + T(ACTIVATE_WINDOW) + 'ms linear';
+      fill.style.width = '0%';
+      timers.push(setTimeout(missed, T(ACTIVATE_WINDOW)));
+    }
+
+    go.addEventListener('click', function () {
+      if (done || cueAt === null) return;
+      done = true;
+      var ms = Date.now() - cueAt;
+      timers.forEach(clearTimeout);
+      go.disabled = true;
+      win.hidden = true;
+      settle(true, ms);
+    });
+
+    function missed() {
+      if (done) return; done = true;
+      timers.forEach(clearTimeout);
+      go.disabled = true;
+      win.hidden = true;
+      settle(false, null);
+    }
+
+    function settle(inTime, ms) {
+      document.getElementById('acStage').classList.add(inTime ? 'is-hit' : 'is-missed');
+      verdict.hidden = false;
+      verdict.className = 'ac-verdict ' + (inTime ? 'ok' : 'late');
+      verdict.innerHTML = inTime
+        ? '<i class="fa-solid fa-circle-check"></i> You moved <b>' + (ms / 1000).toFixed(1) + ' seconds</b> after the line landed — while the room was still deciding what it thought.'
+        : '<i class="fa-solid fa-clock"></i> The moment closed. Jake moved on and the room settled — which is exactly how most of them end.';
+      ctx.setCoachSay(inTime
+        ? 'That’s the whole skill. Not the wording — the timing. You spoke while it was still one comment instead of a pattern everyone had agreed to ignore.'
+        : 'That’s honest, and it’s the common outcome — the window is genuinely short. It doesn’t end your options, though: this is exactly where Delay earns its place. Catch Priya afterwards.');
+      saveResult('activate', { acted: inTime, ms: ms });
+      ctx.enableNext();
+      ctx.positionOrb(true);
     }
   }
 
@@ -1198,18 +1465,17 @@
   //  the moment. Two rehearsal beats on objective D4: the words in the room,
   //  then the follow-up the check just showed was shaky.
   // ==========================================================================
-  var PRACTICE_CONTENT =
+  function PRACTICE_CONTENT() { return '' +
     '<main class="ll-object">' +
       '<p class="ll-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> Practice: 2 minutes</p>' +
       '<h2>Say it out loud.</h2>' +
       '<p class="ll-sub">Knowing the right move isn’t the same as having the words ready. ' +
         'Two quick run-throughs — the moment itself, then the follow-up.</p>' +
       '<div class="mp-scene" id="mpScene">' +
-        '<div class="mp-scene-tag"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Friday, shift meeting</div>' +
-        '<p id="mpSceneText">Jake tries the same “joke” again — this time about Priya, in front of everyone. ' +
-          'You’re standing right there, and a couple of people glance at you.</p>' +
+        '<div class="mp-scene-tag"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i> ' + esc(lens().remediationWhen) + '</div>' +
+        '<p id="mpSceneText">' + esc(lens().remediationText) + '</p>' +
       '</div>' +
-    '</main>';
+    '</main>'; }
   var PRACTICE_Q1 = {
     stem: 'Right there, in the room — <strong>what do you say?</strong>',
     options: [
@@ -1284,6 +1550,7 @@
   function computeProfile(course) {
     var base = (course.baseline && course.baseline.bands) ||
                { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2 };
+    if (typeof base.activate !== 'number') base.activate = 2;   // not probed at entry — no Do items there
     var s = course.scenario || {};
     var score = (typeof s.score === 'number') ? s.score : 82;
     var strength = (course.entry && course.entry.strength) || entryStrength();
@@ -1296,7 +1563,10 @@
       beliefs:   strong ? 3 : Math.max(base.beliefs, 2),
       norms:     strong ? 3 : 2,
       skills:    strong ? 3 : remediated ? 2 : (ck.item2 === 'good' ? 2 : (ck.missed ? 1 : 2)),
-      control:   strong ? 3 : Math.max(base.control, 2)
+      control:   strong ? 3 : Math.max(base.control, 2),
+      // Missing the window is instruction, not failure — it bands at Good and
+      // only catching it earns Excellent.
+      activate:  (course.activate && course.activate.acted) ? 3 : 2
     };
     var evidence = {
       knowledge: base.knowledge >= 2
@@ -1311,9 +1581,12 @@
           : ck.missed
             ? 'The follow-up never landed — remediation still queued.'
             : 'Executed the chosen tactic live and held it under pushback. — the Marshall scenario',
-      control: v.answered
-        ? 'Self-rated “' + (v.choice || '') + '” at the start — then held up under real pushback.'
-        : 'Held steady under Jake’s pushback in the scenario.'
+      control: (course.efficacy && typeof course.efficacy.confidence === 'number')
+        ? 'Rated your own odds at ' + course.efficacy.confidence + '/100 before the practice — then held up under real pushback.'
+        : 'Held steady under Jake’s pushback in the scenario.',
+      activate: (course.activate && course.activate.acted)
+        ? 'Spoke ' + (course.activate.ms / 1000).toFixed(1) + 's after the cue landed, while the window was still open.'
+        : 'The window closed before you moved — the most common outcome, and the reason Delay is taught alongside.'
     };
     var atGood = CONSTRUCTS.filter(function (c) { return after[c.key] >= 2; }).length;
     return { base: base, after: after, evidence: evidence, atGood: atGood, strength: strength, up: up,
@@ -1335,9 +1608,9 @@
       P.pass ? 'Competency demonstrated, Rob.' : 'Real progress, Rob — one construct to go.';
     document.getElementById('aptPass').innerHTML = P.pass
       ? '<i class="fa-solid fa-circle-check"></i> <b>Pass</b> — you scored Good or above on ' +
-        P.atGood + ' of ' + CONSTRUCTS.length + ' objectives (the bar is 80%). Not “right answers” — demonstrated behavior.'
+        P.atGood + ' of ' + CONSTRUCTS.length + ' constructs (the bar is 80%). Not “right answers” — demonstrated behavior.'
       : '<i class="fa-solid fa-circle-half-stroke"></i> <b>Almost</b> — ' + P.atGood + ' of ' + CONSTRUCTS.length +
-        ' objectives at Good or above; the bar is 80%. CLARA has queued targeted practice for the gap.';
+        ' constructs at Good or above; the bar is 80%. CLARA has queued targeted practice for the gap.';
     var pathBits = [];
     if (P.strength === 'compressed') pathBits.push('<b>2 beats compressed at entry</b> (test-out)');
     if (P.up) pathBits.push('check served at the <b>advanced tier</b> (test-up)');
@@ -1359,6 +1632,13 @@
         '<div class="apt-main">' +
           '<div class="apt-head"><h3>' + esc(c.name) + '</h3>' +
             '<span class="apt-mom ' + mom[0] + '"><i class="fa-solid ' + mom[1] + '"></i> ' + mom[2] + '</span></div>' +
+          // The classification the objective was signed under, and the
+          // theoretical construct anchoring it — the record's language, kept
+          // visibly subordinate to the plain-English name above it.
+          '<div class="apt-class">' +
+            '<span class="apt-dom ' + DOMAIN_CLS[c.domain] + '">' + esc(c.domain) + ' / ' + esc(c.sub) + '</span>' +
+            '<span class="apt-theory">' + esc(c.theory) + '</span>' +
+          '</div>' +
           '<div class="apt-bands">' +
             '<span class="band ' + BANDS[b].cls + '">' + BANDS[b].label + '</span>' +
             '<i class="fa-solid fa-arrow-right-long apt-arrow" aria-hidden="true"></i>' +
@@ -1520,7 +1800,7 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'baseline', icon: 'fa-wave-square', mins: 1, stage: 'Entry', mode: 'floating', lesson: 'Entry Check', gate: true,
-      caption: { title: 'ENTRY · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content, presented as Quick Questions — one question, large choices, nothing else on screen. What a learner proves here is compressed out of the path (test-out); skills are never quizzed, because a skill can’t be tested out of, only shown — that’s the Perform stage. Every signal CLARA logs maps to one of the five constructs from the Individual Determinants of Behavior framework, and the closing profile reads back against these same five.' },
+      caption: { title: 'ENTRY · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content, presented as Quick Questions — one question, large choices, nothing else on screen. SCALE: the real battery is 17 items spanning all four modules of the course; these two stand in for it, so treat the compression they buy as illustrative of the mechanism rather than of how much a two-question check could actually evidence. What a learner proves here is compressed out of the path (test-out); skills are never quizzed, because a skill can’t be tested out of, only shown — that’s the Perform stage. Every signal CLARA logs maps to one of the five constructs from the Individual Determinants of Behavior framework, and the closing profile reads back against these same five.' },
       coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
       content: BASELINE_CONTENT, init: baselineInit },
 
@@ -1567,6 +1847,18 @@
       coach: { say: 'Loading…' },   // normsInit swaps in the question immediately
       content: NORMS_CONTENT, init: normsInit },
 
+    // Feel · self-efficacy. Never compressible — a belief can't be quizzed out of.
+    { id: 'efficacy', icon: 'fa-gauge-high', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'Could You Pull It Off?', gate: true,
+      caption: { title: 'LEARN · Feel beat — self-efficacy', note: 'Objective F4 (Feel / Can): believe you can intervene without escalating or damaging your standing. Gap-fill — the base course had no Feel objective for this outcome. The slider is the measurement and the reframe is the instruction; it reads back the norms figure the learner just saw, so the Feel beats compound rather than sitting side by side. Survives compression on every path.' },
+      coach: { say: 'Loading…' },
+      content: EFFICACY_CONTENT, init: efficacyInit },
+
+    // Do · activate. The beat no question could stand in for.
+    { id: 'activate', icon: 'fa-bolt', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'Say It While It’s Open', gate: true,
+      caption: { title: 'LEARN · Do beat — activate', note: 'Objective D1 (Do / Activate): recognize and act on the cue while the moment is still open. This is the deck’s “a question cannot credibly measure behavior” made literal — the scene runs in real time and the window closes on its own. Missing is a legitimate outcome and is NOT retried: the moment passing is the teaching, and it hands off to Delay. Gates on having taken the run, not on catching it. Survives compression on every path.' },
+      coach: { say: 'Loading…' },
+      content: ACTIVATE_CONTENT, init: activateInit },
+
     { id: 'stepin', icon: 'fa-comment-dots', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'After the Moment', gate: true,
       caption: { title: 'LEARN · Do beat — Conversation Step-In', note: 'Rehearsal as instruction (D4): Priya texts after the incident and the learner takes the thread over. Weak replies get Priya’s real reaction and another try. This beat is what the mastery check’s sampled item then tests.' },
       coach: { say: 'Loading…' },   // stepinInit runs the thread immediately
@@ -1595,9 +1887,7 @@
 
     { id: 'scene', icon: 'fa-clapperboard', mins: 1, stage: 'Perform', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
       caption: { title: 'PERFORM · Scene-setting', note: 'The establishing shot for the Perform stage. The scenario page skips its own establishing card and drops straight into the cold-open.' },
-      coach: { eyebrow: 'Practice scenario', headline: '“The Marshall Scenario”',
-        lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on, " +
-              "then it's your call how to respond. There's no perfect script here you need to follow." },
+      coach: { eyebrow: 'Practice scenario', headline: '“The Marshall Scenario”', lede: true },   // lede text comes from the lens
       init: sceneInit },
 
     { id: 'scenario', icon: 'fa-comments', mins: 8, stage: 'Perform', external: 'scenario.html', lesson: 'The Marshall Scenario' },
@@ -1645,7 +1935,7 @@
       return slotAmbient +
         (coach.eyebrow ? '<div class="clara-eyebrow">' + esc(coach.eyebrow) + '</div>' : '') +
         '<h1>' + esc(coach.headline || "Hi, I'm CLARA.") + '</h1>' +
-        (coach.lede ? '<p class="clara-lede">' + coach.lede + '</p>' : '');
+        (coach.lede ? '<p class="clara-lede">' + esc(coach.lede === true ? lens().lede : coach.lede) + '</p>' : '');
     }
     if (mode === 'sidebar') {
       return slot +
@@ -1697,7 +1987,7 @@
   // ==========================================================================
   //  Shell — built once; steps swap in place.
   // ==========================================================================
-  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn, branchBtn;
+  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn, branchBtn, lensBtn;
   // True only while a step's own init() is running. It's what separates CLARA's
   // opening line for a screen (narration — stays behind the orb) from a line
   // that lands later in response to the learner (a reaction — raises her).
@@ -1853,6 +2143,10 @@
       branchBtn.style.display = (step.id === 'compress' || step.id === 'baseline') ? 'inline-flex' : 'none';
       labelBranchBtn();
     }
+    if (lensBtn) {
+      lensBtn.style.display = LENSED_STEPS[step.id] ? 'inline-flex' : 'none';
+      lensBtn.innerHTML = '<i class="fa-solid fa-layer-group"></i> Demo: context lens — ' + esc(lens().label);
+    }
     backBtn.disabled = (pos.n <= 1);
     var isLast = (pos.n >= pos.total);
     nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
@@ -1911,7 +2205,9 @@
       object = null;
       if (step.content) {
         var holder = document.createElement('div');
-        holder.innerHTML = step.content;
+        // A lensed beat supplies a FUNCTION so it re-renders against whichever
+        // context lens is active; a fixed beat is still a plain string.
+        holder.innerHTML = (typeof step.content === 'function') ? step.content() : step.content;
         object = holder.firstElementChild;
         if (!first) object.classList.add('pre-enter');
         stage.appendChild(object);
@@ -2052,6 +2348,27 @@
         go(1);
       });
       actions.appendChild(skipBtn);
+    }
+
+    // Review-only "Demo: context lens" — capability 2 made clickable. Swaps
+    // the working environment and replays the current step: same objectives,
+    // same beats, same assessment, different scene. Shown on every lensed
+    // step so a reviewer can flip it wherever they happen to be standing.
+    if (actions && !document.getElementById('llLensBtn')) {
+      lensBtn = document.createElement('button');
+      lensBtn.id = 'llLensBtn';
+      lensBtn.type = 'button';
+      lensBtn.title = 'Demo: re-render this module through a different context lens. ' +
+        'The objectives and the structure are identical — only the context-sensitive content moves.';
+      lensBtn.style.display = 'none';
+      lensBtn.addEventListener('click', function () {
+        if (busy) return;
+        var i = LENS_ORDER.indexOf(lensId());
+        var next = LENS_ORDER[(i + 1) % LENS_ORDER.length];
+        try { sessionStorage.setItem('ll-lens', next); } catch (e) {}
+        showStep(idx, 'fwd', false);              // replay this beat in the new lens
+      });
+      actions.appendChild(lensBtn);
     }
 
     // Review-only "Demo: flip outcome" — the presenter override for the path
