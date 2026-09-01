@@ -51,11 +51,11 @@
   // qualitative bands. 1 = Below Average / Practice Needed, 2 = Average / Good,
   // 3 = Above Average / Excellent. Pass = at least Average on 80% of objectives.
   var CONSTRUCTS = [
-    { key: 'knowledge', name: 'Knowledge',                    icon: 'fa-book-open',      listens: 'Can you recognize the behavior — not just define it?' },
-    { key: 'beliefs',   name: 'Attitudes & beliefs',          icon: 'fa-scale-balanced', listens: 'Do you believe stepping in matters?' },
-    { key: 'norms',     name: 'Social norms',                 icon: 'fa-users',          listens: 'Can you read — and resist — the pressure to stay quiet?' },
-    { key: 'skills',    name: 'Behavioral skills',            icon: 'fa-comment-dots',   listens: 'Do you know what to say, specifically?' },
-    { key: 'control',   name: 'Perceived behavioral control', icon: 'fa-gauge-high',     listens: 'Do you feel able to act in the moment?' }
+    { key: 'knowledge', name: 'Knowledge',                    icon: 'fa-book-open'      },
+    { key: 'beliefs',   name: 'Attitudes & beliefs',          icon: 'fa-scale-balanced' },
+    { key: 'norms',     name: 'Social norms',                 icon: 'fa-users'          },
+    { key: 'skills',    name: 'Behavioral skills',            icon: 'fa-comment-dots'   },
+    { key: 'control',   name: 'Perceived behavioral control', icon: 'fa-gauge-high'     }
   ];
   var BANDS = {
     1: { label: 'Practice Needed', cls: 'band-warn' },
@@ -84,6 +84,28 @@
   function checkMissed() {
     var c = readCourse().check;
     return !!(c && c.missed);
+  }
+
+  // --- Single-select option group (keyboard) --------------------------------
+  // Arrow/Home/End move FOCUS only; Enter or Space commits, the way any button
+  // does. A strict radiogroup selects on arrow, which here would lock in an
+  // answer the learner was only scrolling past — these picks are one-way.
+  function pickGroup(group) {
+    if (!group) return;
+    group.addEventListener('keydown', function (e) {
+      var list = Array.prototype.filter.call(
+        group.querySelectorAll('[role="radio"]'), function (r) { return !r.disabled; });
+      var i = list.indexOf(document.activeElement);
+      if (i === -1) return;
+      var next = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = list[(i + 1) % list.length];
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = list[(i - 1 + list.length) % list.length];
+      else if (e.key === 'Home') next = list[0];
+      else if (e.key === 'End') next = list[list.length - 1];
+      if (!next) return;
+      e.preventDefault();
+      next.focus();
+    });
   }
 
   // --- "CLARA noticed" evidence toast ---------------------------------------
@@ -281,16 +303,24 @@
   // ==========================================================================
   var INTRO_CONTENT =
     '<main class="ll-object" id="coursePage">' +
-      '<div class="cp-grid">' +
-        '<div class="cp-hero">' +
-          '<p class="ll-eyebrow">Workplace Conduct &amp; Harassment</p>' +
-          '<h1>Bystander Intervention</h1>' +
-          '<p class="cp-desc">Learn to read the moment, choose an intervention, and follow up with the ' +
-            'targeted person.</p>' +
-          '<div class="cp-chips">' +
-            '<span class="cp-chip due"><i class="fa-solid fa-calendar"></i> Required · due Sep 15</span>' +
-            '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
+      '<div class="cp-page">' +
+        // Full-width hero band: title block left, course art right (a still
+        // from the course's own break-room footage), fading into the stage.
+        '<header class="cp-hero-band">' +
+          '<div class="cp-hero">' +
+            '<p class="ll-eyebrow">Workplace Conduct &amp; Harassment</p>' +
+            '<h1>Bystander Intervention</h1>' +
+            '<p class="cp-desc">Learn to read the moment, choose an intervention, and follow up with the ' +
+              'targeted person.</p>' +
+            '<div class="cp-chips">' +
+              '<span class="cp-chip due"><i class="fa-solid fa-calendar"></i> Required · due Sep 15</span>' +
+              '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
+            '</div>' +
           '</div>' +
+          '<div class="cp-hero-img" role="img" aria-label="The break room from the course’s practice scenario"></div>' +
+        '</header>' +
+      '<div class="cp-grid">' +
+        '<div>' +
           '<section class="cp-sections" aria-label="Course sections">' +
             '<div class="cp-sec-head"><h2>Course sections</h2>' +
               '<span class="cp-progress"><span id="cpCount"></span><span class="cp-dots" id="cpDots"></span></span></div>' +
@@ -316,6 +346,7 @@
             '<div class="cp-coord"><span class="ava">LM</span>' +
               '<span><b>Lena Moreau</b><small>Training Coordinator · training@acmemfg.com</small></span></div></div>' +
         '</aside>' +
+      '</div>' +
       '</div>' +
     '</main>';
 
@@ -355,85 +386,121 @@
     ctx.positionOrb(false);
   }
 
+
   // ==========================================================================
-  //  Baseline check (adaptive pre-assessment) — the aptitude thread's opening.
-  //  Two quick conversational probes BEFORE any content, so the closing profile
-  //  can show growth rather than a snapshot. The stage lists what CLARA listens
-  //  for (the five constructs) while she asks in the floating bubble.
+  //  Entry check (adaptive pre-assessment) — the aptitude thread's opening.
+  //  Two quick probes BEFORE any content, so the closing profile can show
+  //  growth rather than a snapshot.
+  //
+  //  Presentation follows the "Quick Question" Basic Interaction: ONE question
+  //  at a time, centered on the stage as the headline, with large blocky
+  //  choices. The learner reads a question, not a briefing — the framework
+  //  rationale (which constructs this maps to, why skills are never quizzed)
+  //  is presenter material and lives in the step caption behind the footer "?".
+  //  CLARA keeps the floating bubble for a short reaction after each pick;
+  //  she no longer carries the stem or the options.
   // ==========================================================================
   var BASELINE_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Entry · before instruction begins</p>' +
-      '<h2>First, a quick entry check.</h2>' +
-      '<p class="ll-sub">Two short questions on what you know and how you see it — no grade, no trick. ' +
-        'What you already prove here gets compressed out of your path, and the end can show how far you’ve come.</p>' +
-      '<ul class="bl-constructs" aria-label="What CLARA listens for">' +
-        CONSTRUCTS.map(function (c) {
-          return '<li class="bl-construct"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
-                 '<span><b>' + esc(c.name) + '</b> ' + esc(c.listens) + '</span></li>';
-        }).join('') +
-      '</ul>' +
-      '<p class="bl-note"><i class="fa-solid fa-circle-info"></i> Entry checks cover Know and Feel only — skills are ' +
-        'never quizzed here, because a skill can’t be tested out of, only shown. Every signal CLARA logs maps to one ' +
-        'of these constructs from the Individual Determinants of Behavior framework.</p>' +
+      '<div class="bl-ask" id="blAsk">' +
+        '<p class="ll-eyebrow" id="blStep">Entry check</p>' +
+        '<h2 class="bl-q" id="blQ"></h2>' +
+        '<p class="bl-hint" id="blHint" hidden></p>' +
+        '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
+      '</div>' +
     '</main>';
 
   var BASELINE_Q1 = {
-    stem: 'First one — <strong>a coworker keeps “joking” about a colleague’s body after being asked to stop. Is that harassment?</strong>',
+    stem: 'A coworker keeps “joking” about a colleague’s body after being asked to stop. Is that harassment?',
+    hint: 'No grade, no trick — this just sets where you start.',
     options: [
-      { t: 'Yes — it’s unwelcome and repeated', band: 2,
+      { t: 'Yes — it’s unwelcome and repeated', icon: 'fa-circle-check', band: 2,
         reply: 'Right — unwelcome and persisting after a clear “stop” is the line. Good starting knowledge.' },
-      { t: 'Only if a manager does it', band: 1,
+      { t: 'Only if a manager does it', icon: 'fa-user-tie', band: 1,
         reply: 'Common belief, but no — anyone can be the harasser. We’ll firm this up as we go.' },
-      { t: 'Only if it gets physical', band: 1,
+      { t: 'Only if it gets physical', icon: 'fa-hand-fist', band: 1,
         reply: 'It doesn’t have to be physical — verbal conduct counts. That’s exactly what this course covers.' }
     ]
   };
   var BASELINE_Q2 = {
-    stem: 'Last one, and be honest — <strong>if you saw it happen, what would make it hardest to step in?</strong>',
+    stem: 'If you saw it happen, what would make it hardest to step in?',
+    hint: 'Be honest — there’s no wrong answer to this one.',
     options: [
-      { t: 'Knowing what to actually say', bands: { skills: 1, control: 2 },
+      { t: 'Knowing what to actually say', icon: 'fa-comment-dots', bands: { skills: 1, control: 2 },
         reply: 'That’s the most common answer there is — and it’s a skill, not a trait. I’ll focus there.' },
-      { t: 'Whether it’s my place', bands: { norms: 1, control: 2 },
+      { t: 'Whether it’s my place', icon: 'fa-users', bands: { norms: 1, control: 2 },
         reply: 'Fair. Watch how the people around you shape that feeling — we’ll come back to it.' },
-      { t: 'Nothing — I’d step in', bands: { control: 3, skills: 2 },
+      { t: 'Nothing — I’d step in', icon: 'fa-bolt', bands: { control: 3, skills: 2 },
         reply: 'Love the confidence. Let’s pressure-test it with something real.' }
     ]
   };
   function baselineInit(ctx) {
     var bands = { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2 };
     var answers = {};
-    ask(BASELINE_Q1, function (opt) {
+    var askEl = document.getElementById('blAsk');
+    var stepEl = document.getElementById('blStep');
+    var qEl = document.getElementById('blQ');
+    var hintEl = document.getElementById('blHint');
+    var optsEl = document.getElementById('blOptions');
+
+    // While a question is up, CLARA is the orb only — one thing on screen to
+    // read. Her line waits behind it for anyone who taps, and she rises with a
+    // reaction the moment an answer lands.
+    ctx.setCoachSay('No grade here, and no trick — I just want to know where to aim.');
+    ctx.floatClose();
+
+    render(BASELINE_Q1, 1, function (opt) {
       bands.knowledge = opt.band; answers.q1 = opt.t;
       notice('Logged: <b>Knowledge</b> — baseline ' + BANDS[opt.band].label);
-      setTimeout(function () { ask(BASELINE_Q2, done); }, T(1400));
+      setTimeout(function () { swapTo(BASELINE_Q2, 2, done); }, T(2600));
     });
-    function ask(q, onPick) {
-      ctx.setCoachSay(q.stem);
-      var bubble = ctx.els.bubble;
-      var old = bubble.querySelector('.vq-chips'); if (old) old.remove();
-      var oldFb = bubble.querySelector('.vq-feedback'); if (oldFb) oldFb.remove();
-      var chips = document.createElement('div');
-      chips.className = 'clara-chips vq-chips';
+
+    // Fade the answered question out, drop the next one into the same slot —
+    // and tuck CLARA back to the orb as it lands, so question 2 gets the same
+    // clean stage question 1 had.
+    function swapTo(q, n, onPick) {
+      askEl.classList.add('swapping');
+      setTimeout(function () {
+        render(q, n, onPick);
+        askEl.classList.remove('swapping');
+        ctx.floatClose();
+        ctx.positionOrb(true);
+      }, T(320));
+    }
+
+    function render(q, n, onPick) {
+      stepEl.textContent = 'Entry check · Question ' + n + ' of 2';
+      qEl.textContent = q.stem;
+      hintEl.textContent = q.hint || '';
+      hintEl.hidden = !q.hint;
+      optsEl.className = 'bl-options';
+      optsEl.innerHTML = '';
+      var picked = false;
       q.options.forEach(function (opt) {
         var b = document.createElement('button');
-        b.className = 'clara-chip'; b.type = 'button'; b.textContent = opt.t;
+        b.className = 'bl-option'; b.type = 'button';
+        b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+        b.innerHTML = '<i class="fa-solid ' + opt.icon + '" aria-hidden="true"></i>' +
+                      '<span class="bl-option-label">' + esc(opt.t) + '</span>';
         b.addEventListener('click', function () {
-          chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
-          b.classList.add('is-correct');
-          fb.className = 'vq-feedback ok'; fb.textContent = opt.reply;
+          if (picked) return; picked = true;
+          b.setAttribute('aria-checked', 'true');
+          optsEl.classList.add('answered');
+          optsEl.querySelectorAll('.bl-option').forEach(function (o) { if (o !== b) o.disabled = true; });
+          ctx.floatOpen();
+          ctx.setCoachSay(esc(opt.reply));
           ctx.positionOrb(true);
           onPick(opt);
         });
-        chips.appendChild(b);
+        optsEl.appendChild(b);
       });
-      var fb = document.createElement('div'); fb.className = 'vq-feedback';
-      bubble.appendChild(chips); bubble.appendChild(fb);
-      ctx.positionOrb(true);
+      pickGroup(optsEl);
     }
+
     function done(opt) {
       answers.q2 = opt.t;
       Object.keys(opt.bands || {}).forEach(function (k) { bands[k] = opt.bands[k]; });
+      stepEl.textContent = 'Entry check · complete';
       saveResult('baseline', { bands: bands, answers: answers });
       notice('Entry profile captured — <b>5 constructs</b>');
       if (bands.knowledge >= 2) {
@@ -1412,7 +1479,7 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'baseline', icon: 'fa-wave-square', mins: 1, stage: 'Entry', mode: 'floating', lesson: 'Entry Check', gate: true,
-      caption: { title: 'ENTRY · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content. What a learner proves here is compressed out of the path (test-out); skills are never quizzed — the Perform stage is where they’re shown.' },
+      caption: { title: 'ENTRY · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content, presented as Quick Questions — one question, large choices, nothing else on screen. What a learner proves here is compressed out of the path (test-out); skills are never quizzed, because a skill can’t be tested out of, only shown — that’s the Perform stage. Every signal CLARA logs maps to one of the five constructs from the Individual Determinants of Behavior framework, and the closing profile reads back against these same five.' },
       coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
       content: BASELINE_CONTENT, init: baselineInit },
 
