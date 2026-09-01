@@ -108,28 +108,6 @@
     });
   }
 
-  // --- "CLARA noticed" evidence toast ---------------------------------------
-  // A quiet signal chip (bottom-right, above the footer) shown when CLARA logs
-  // evidence against a construct — assessment as a continuous thread, not a
-  // test moment. Auto-dismisses; stacks if several fire close together.
-  function notice(html) {
-    var wrap = document.getElementById('llNotices');
-    if (!wrap) {
-      wrap = document.createElement('div');
-      wrap.id = 'llNotices'; wrap.className = 'll-notices'; wrap.setAttribute('aria-live', 'polite');
-      document.body.appendChild(wrap);
-    }
-    var chip = document.createElement('div');
-    chip.className = 'll-notice';
-    chip.innerHTML = '<i class="fa-solid fa-wave-square" aria-hidden="true"></i><span>' + html + '</span>';
-    wrap.appendChild(chip);
-    requestAnimationFrame(function () { requestAnimationFrame(function () { chip.classList.add('in'); }); });
-    setTimeout(function () {
-      chip.classList.remove('in');
-      setTimeout(function () { chip.remove(); }, T(400) + 20);
-    }, T(4600) + 400);
-  }
-
   // ==========================================================================
   //  Content builders (the markup each step drops into the stage)
   // ==========================================================================
@@ -451,7 +429,6 @@
 
     render(BASELINE_Q1, 1, function (opt) {
       bands.knowledge = opt.band; answers.q1 = opt.t;
-      notice('Logged: <b>Knowledge</b> — baseline ' + BANDS[opt.band].label);
       setTimeout(function () { swapTo(BASELINE_Q2, 2, done); }, T(2600));
     });
 
@@ -502,12 +479,6 @@
       Object.keys(opt.bands || {}).forEach(function (k) { bands[k] = opt.bands[k]; });
       stepEl.textContent = 'Entry check · complete';
       saveResult('baseline', { bands: bands, answers: answers });
-      notice('Entry profile captured — <b>5 constructs</b>');
-      if (bands.knowledge >= 2) {
-        setTimeout(function () {
-          notice('Verified at entry: <b>3 Know objectives</b> — matching instruction compressed');
-        }, T(1200));
-      }
       ctx.enableNext();
     }
   }
@@ -562,7 +533,6 @@
   function checkInit(ctx) {
     ctx.floatOpen();
     var locked = testUp() ? CHECK_LOCKED_ADV : CHECK_LOCKED_STD;
-    if (testUp()) notice('Test-up: locked item served at the <b>advanced tier</b>');
     askLocked();
 
     function askLocked() {
@@ -610,12 +580,10 @@
             b.classList.add('is-correct');
             fb.className = 'vq-feedback ok'; fb.textContent = opt.reply;
             saveResult('check', { locked: true, item2: 'good', tier: testUp() ? 'advanced' : 'standard' });
-            notice('Mastery check passed — <b>nothing to fix</b>');
           } else {
             b.classList.add('is-wrong');
             fb.className = 'vq-feedback bad'; fb.textContent = opt.reply;
             saveResult('check', { locked: true, item2: 'missed', missed: true, tier: testUp() ? 'advanced' : 'standard' });
-            notice('Path recomposed: <b>remediation inserted</b> — objective D4');
           }
           // The denominator changes the moment remediation inserts —
           // refresh counters, then unlock (updateFooter re-arms the gate).
@@ -703,7 +671,6 @@
         if (flipped === 2) ctx.setCoachSay('Direct gets the headlines, but every one of these counts as stepping in.');
         if (flipped === 5) {
           ctx.setCoachSay('All five. Remember: the goal isn’t the perfect move — it’s any move.');
-          notice('Logged: <b>Knowledge</b> — the five Ds, reviewed');
           saveResult('terms', { done: true });
           ctx.enableNext();
           ctx.positionOrb(true);
@@ -762,7 +729,6 @@
       ctx.setCoachSay(fromRead
         ? 'Read at your own pace — the point stands either way: the stalemate breaks the instant one person moves.'
         : 'That last line is the whole course: not the loudest one. Just the first.');
-      notice('Taught: <b>Knowledge</b> — why bystanders freeze (K2)');
       saveResult('audio', { done: true, mode: fromRead ? 'read' : 'listen' });
       ctx.enableNext();
       ctx.positionOrb(true);
@@ -786,7 +752,6 @@
       playBtn.style.display = 'none';
       modeBtn.disabled = true;
       modeBtn.innerHTML = '<i class="fa-solid fa-check"></i> Reading';
-      notice('Modality switched: <b>listen → read</b> — same objective, same credit');
       finish(true);
     });
   }
@@ -856,7 +821,6 @@
         i++;
         if (i >= DRILL_SITS.length) {
           ctx.setCoachSay('Four for four on judgment calls — choosing the move <em>is</em> the skill. Next: what the crew actually thinks.');
-          notice('Logged: <b>Knowledge</b> — tactic selection (K4)');
           saveResult('drill', { done: true });
           ctx.enableNext();
           ctx.positionOrb(true);
@@ -926,7 +890,6 @@
         ctx.setCoachSay(picked === 'respect'
           ? 'You called it — <strong>84%</strong> say they’d respect it. Most people guess under half, and that gap is why rooms stay silent: everyone’s waiting for a first mover they’d already support.'
           : 'Here’s the part almost everyone gets wrong: <strong>84%</strong> say they’d respect it. The silence you’re reading as disapproval is usually agreement waiting for a first mover — and it doesn’t take perfect words to be that person.');
-        notice('Taught: <b>Social norms</b> — the perception gap (F1)');
         saveResult('norms', { guess: picked });
         ctx.enableNext();
         ctx.positionOrb(true);
@@ -1013,7 +976,6 @@
         if (r.good) {
           replies.querySelectorAll('.sms-reply').forEach(function (b) { b.disabled = true; });
           document.getElementById('smsAnatomy').classList.add('show');
-          notice('Taught: <b>Behavioral skills</b> — the follow-up (D4)');
           saveResult('stepin', { done: true });
           ctx.enableNext();
         } else {
@@ -1119,7 +1081,6 @@
     var B = COMPRESS_BRANCHES[strength];
     var rail = document.getElementById('pathRail');
     rail.innerHTML = PATH_NODES.map(pathNodeHTML).join('');
-    notice('Entry battery scored against <b>module BO-2</b>’s signed objectives');
 
     // CLARA narrates in the docked panel; the map reacts on cue.
     var echo = ctx.chrome.querySelector('#claraEcho');
@@ -1165,11 +1126,9 @@
                 '<span class="pn-chip pn-added"><i class="fa-solid fa-arrow-trend-up"></i> Test-up · advanced tier</span>';
             }
           });
-          notice('Path recomposed: <b>' + targets.length + ' beats compressed</b>' + (up ? ', check served at the <b>advanced tier</b>' : ''));
           revealProvenance();
         }, T(300 + targets.length * 550 + 400));
       } else {
-        notice('Nothing compressed — <b>full build</b>');
         revealProvenance();
       }
     }
@@ -1244,7 +1203,6 @@
         document.querySelector('#mpScene .mp-scene-tag').innerHTML =
           '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Ten minutes later';
         rep(PRACTICE_Q2, function () {
-          notice('Logged: <b>Behavioral skills</b> — Practice Needed → Good');
           saveResult('practice', { done: true });
           ctx.enableNext();
         });
