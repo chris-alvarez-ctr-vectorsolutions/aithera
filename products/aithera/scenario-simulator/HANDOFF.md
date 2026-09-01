@@ -61,6 +61,24 @@ Useful parameters, which combine: `?type=v4-universal` picks the scenario type,
 `?example=<id>` loads a sample document, `?wizard=1` opens the new-scenario
 wizard directly.
 
+`?embed=1` and `?v=2` are **independent switches on different axes**, not two
+names for the same choice. `?embed=1` changes the presentation — it hides two
+bars, in CSS. `?v=2` changes the page — a separate `index.html` with its own
+draft storage. The build being integrated is stable with `?embed=1`; the
+standalone one is stable with no parameters. **They are the same code.**
+
+> **The sandbox isolates less than its name suggests.** `scenario-editor/sandbox/js/`
+> is empty: the sandbox page carries `<base href="../../">` and loads every module
+> from the shared `js/`. So it forks the page and the `localStorage` keys, and
+> nothing else — a change to any shared module lands in stable, and therefore in
+> the embedded build, immediately. That is deliberate. To genuinely isolate one
+> module, copy it into `scenario-editor/sandbox/js/` and point the sandbox page at
+> that copy, which creates a fork to reconcile later. What protects the integrated
+> build is not a switch but the two checks below plus a `RELEASE-NOTES.md` row.
+>
+> The sandbox does not currently honour `?embed=1`. One line to add if it is ever
+> wanted.
+
 ---
 
 ## What `?embed=1` does
