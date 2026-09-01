@@ -279,18 +279,19 @@
   // ==========================================================================
   var BASELINE_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Before we begin</p>' +
-      '<h2>A quick baseline.</h2>' +
-      '<p class="ll-sub">Two short questions — no grade, no trick. They give CLARA a starting picture, ' +
-        'so at the end you can see how far you’ve come, not just where you landed.</p>' +
+      '<p class="ll-eyebrow">Entry · before instruction begins</p>' +
+      '<h2>First, a quick entry check.</h2>' +
+      '<p class="ll-sub">Two short questions on what you know and how you see it — no grade, no trick. ' +
+        'What you already prove here gets compressed out of your path, and the end can show how far you’ve come.</p>' +
       '<ul class="bl-constructs" aria-label="What CLARA listens for">' +
         CONSTRUCTS.map(function (c) {
           return '<li class="bl-construct"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
                  '<span><b>' + esc(c.name) + '</b> ' + esc(c.listens) + '</span></li>';
         }).join('') +
       '</ul>' +
-      '<p class="bl-note"><i class="fa-solid fa-circle-info"></i> These are the behavioral constructs this course was ' +
-        'built to develop — from the Individual Determinants of Behavior framework. Every signal CLARA logs maps to one of them.</p>' +
+      '<p class="bl-note"><i class="fa-solid fa-circle-info"></i> Entry checks cover Know and Feel only — skills are ' +
+        'never quizzed here, because a skill can’t be tested out of, only shown. Every signal CLARA logs maps to one ' +
+        'of these constructs from the Individual Determinants of Behavior framework.</p>' +
     '</main>';
 
   var BASELINE_Q1 = {
@@ -350,7 +351,12 @@
       answers.q2 = opt.t;
       Object.keys(opt.bands || {}).forEach(function (k) { bands[k] = opt.bands[k]; });
       saveResult('baseline', { bands: bands, answers: answers });
-      notice('Baseline profile captured — <b>5 constructs</b>');
+      notice('Entry profile captured — <b>5 constructs</b>');
+      if (bands.knowledge >= 2) {
+        setTimeout(function () {
+          notice('Verified at entry: <b>3 Know objectives</b> — matching instruction compressed');
+        }, T(1200));
+      }
       ctx.enableNext();
     }
   }
@@ -435,47 +441,54 @@
 
   // The path map: the course's own learning objects, with the slot AFTER the
   // scenario as the recomposition target. `planned` is what the linear course
-  // would have served; each branch swaps or removes it.
+  // would have served; each branch swaps or removes it. Node sublines carry
+  // the module contract's stage (Entry → Learn → Check → Perform → Record),
+  // and the wrap-up carries a compliance-locked item recomposition can never
+  // remove — compressed never, served harder.
   var PATH_NODES = [
     { icon: 'fa-hand-sparkles', label: 'Welcome',            state: 'done' },
-    { icon: 'fa-wave-square',   label: 'Baseline check',     state: 'done' },
-    { icon: 'fa-circle-play',   label: 'Intro video',        state: 'done' },
-    { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'done', sub: 'construct-mapped' },
-    { icon: 'fa-list-check',    label: 'Review: The Five Ds', state: 'planned', slot: true },
-    { icon: 'fa-flag-checkered', label: 'Wrap-up video',      state: 'next' },
-    { icon: 'fa-chart-simple',  label: 'Aptitude profile',   state: 'next' }
+    { icon: 'fa-wave-square',   label: 'Entry check',        state: 'done', sub: 'Entry · Know & Feel battery' },
+    { icon: 'fa-circle-play',   label: 'Intro video',        state: 'done', sub: 'Learn · compressed at entry' },
+    { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'done', sub: 'Perform · rubric-scored' },
+    { icon: 'fa-list-check',    label: 'Review: The Five Ds', state: 'planned', sub: 'Learn', slot: true },
+    { icon: 'fa-flag-checkered', label: 'Wrap-up video',      state: 'next', sub: 'Check · locked item inside', locked: true },
+    { icon: 'fa-chart-simple',  label: 'Aptitude profile',   state: 'next', sub: 'Record' }
   ];
+  // Branch vocabulary follows the Knowledge Layer V1 scope: the support branch
+  // is IN-COURSE REMEDIATION, the accelerate branch is TEST-OUT (+ test-up on
+  // the wrap-up check). Objective IDs quote the worked example: module BO-2
+  // "Step In", objectives D1/D2/D4 with their Do sub-levels.
   var ADJUST_BRANCHES = {
     support: {
       headline: 'One change, made for you.',
-      sub: 'The scenario showed exactly one construct that needs work — so the generic review is out, ' +
-           'and two minutes of targeted practice are in. Same seat time, better spent.',
+      sub: 'In-course remediation: one objective came back Practice Needed, so the generic review is out ' +
+           'and two minutes of targeted rehearsal are in. Same seat time, better spent.',
       swap: { icon: 'fa-comment-dots', label: 'Micro-practice: Say it out loud', tag: 'Added · 2 min', cls: 'is-added' },
       narration: [
-        'Okay, Rob — I pulled three signals out of the Marshall scenario and mapped them to the course’s objectives.',
-        'You read the situation well and you clearly believe stepping in matters. The one construct that came back “Practice Needed” was <b>behavioral skills</b> — the actual words, in the moment.',
-        'So I’m swapping the generic review for a two-minute practice on exactly that. Here’s the change — and the paper trail behind it.'
+        'Okay, Rob — you verified three Know objectives at the entry check, so that instruction was compressed before you ever saw it. Now I’ve mapped the scenario’s signals to the rest.',
+        'You read the situation well and you clearly believe stepping in matters. The one objective that came back “Practice Needed” was <b>D4 — the follow-up after the moment</b>.',
+        'So this is in-course remediation: the generic review swaps for two minutes on exactly that. Here’s the change — and the paper trail behind it.'
       ],
       chain: [
-        '<b>The signed objective.</b> “Name the behavior and check in with the target” — a <em>Do</em>-level objective in this course’s Know·Feel·Do mapping, SME-signed. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
-        '<b>The evidence.</b> Marshall scenario, construct-mapped: <em>Behavioral skills — Practice Needed</em>. You named the problem to Jake, but the direct words and the follow-up check-in never landed.',
-        '<b>The recomposition.</b> Mastery-based sequencing replaced the one-size review with a targeted practice on that objective. No new content was authored — every beat derives from the signed substrate.'
+        '<b>The signed objective.</b> Module BO-2 “Step In” · <em>D4 · Do / Sustain</em> — “follow up with the person afterwards rather than treating the moment as closed.” SME-signed once, at the spec. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
+        '<b>The evidence.</b> The Perform stage — the Marshall scenario, rubric-scored: <em>Behavioral skills — Practice Needed</em>. You named the problem to Jake, but the follow-up never landed.',
+        '<b>The recomposition.</b> A two-minute rehearsal replaces the one-size review. The wrap-up’s compliance-locked item is untouched — locked objectives are never compressed, only served harder.'
       ]
     },
     accelerate: {
       headline: 'You’ve earned a shorter path.',
-      sub: 'You already demonstrated the review’s objectives inside the scenario — so it’s gone, ' +
-           'and the wrap-up tightens to what you haven’t shown yet.',
+      sub: 'Test-out: you demonstrated the review’s objectives inside the scenario — so it’s compressed away, ' +
+           'and your wrap-up check is served at the advanced tier instead.',
       swap: null,   // the planned node is removed, not replaced
       narration: [
-        'Okay, Rob — I pulled the signals out of the Marshall scenario and mapped them to the course’s objectives.',
-        'You didn’t just pick right answers in there — you named the behavior, held your ground, and checked in afterward. That <em>is</em> the review, demonstrated.',
-        'So the review is off your path, and the wrap-up tightens to the one objective you haven’t evidenced yet. Here’s the change — and the paper trail behind it.'
+        'Okay, Rob — you verified three Know objectives at the entry check, and the scenario just evidenced the rest. I’ve mapped it all to the course’s objectives.',
+        'You didn’t just pick right answers in there — you acted on the cue, held the tactic under pushback, and followed up. That <em>is</em> the review, demonstrated: you can’t test out of a skill, you can only show it — and you showed it.',
+        'So the review compresses away, your record still shows full coverage, and the wrap-up steps up to the advanced tier. Here’s the change — and the paper trail behind it.'
       ],
       chain: [
-        '<b>The signed objectives.</b> The review covers three <em>Do</em>-level objectives from this course’s Know·Feel·Do mapping — all SME-signed. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
-        '<b>The evidence.</b> Marshall scenario, construct-mapped: all three objectives scored <em>Good or above</em> — demonstrated in performance, not recall.',
-        '<b>The recomposition.</b> Mastery-based sequencing tested you out of the review and kept your seat time for the objective still unevidenced. Nothing was waived — it was demonstrated.'
+        '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>D1 · Activate</em>, <em>D2 · Apply</em>, <em>D4 · Sustain</em> — all SME-signed Do objectives. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
+        '<b>The evidence.</b> The Perform stage — the culminating simulation is the minimum experience, and it ran in full: all three objectives at <em>Good or above</em>, rubric-scored.',
+        '<b>The recomposition.</b> Test-out honored — compression, not exemption: the record still shows full coverage. The wrap-up check is served at the advanced tier (test-up), and its compliance-locked item stays for everyone.'
       ]
     }
   };
@@ -486,6 +499,9 @@
              : state === 'planned' ? '<span class="pn-chip pn-planned">Planned</span>'
              : state === 'added' ? '<span class="pn-chip pn-added"><i class="fa-solid fa-wand-magic-sparkles"></i> ' + esc(n.tag || 'Added') + '</span>'
              : '<span class="pn-chip pn-next">Up next</span>';
+    // Compliance-locked content rides in addition to the state chip —
+    // recomposition can never remove it, only serve it harder.
+    if (n.locked) chip += '<span class="pn-chip pn-locked" title="Compliance-locked — never compressed, served harder"><i class="fa-solid fa-lock"></i> Locked</span>';
     return '<li class="path-node ' + (n.cls || '') + '" data-state="' + state + '">' +
              '<span class="pn-ico"><i class="fa-solid ' + n.icon + '" aria-hidden="true"></i></span>' +
              '<span class="pn-main"><span class="pn-label">' + esc(n.label) + '</span>' +
@@ -537,13 +553,13 @@
           } else {
             planned.classList.add('is-skipped');
             planned.classList.remove('is-leaving');
-            planned.querySelector('.pn-chip').outerHTML = '<span class="pn-chip pn-skipped"><i class="fa-solid fa-forward"></i> Skipped — already demonstrated</span>';
+            planned.querySelector('.pn-chip').outerHTML = '<span class="pn-chip pn-skipped"><i class="fa-solid fa-forward"></i> Tested out — demonstrated</span>';
             var wrap = rail.children[5];
             if (wrap) {
               var c = wrap.querySelector('.pn-chip');
-              if (c) c.outerHTML = '<span class="pn-chip pn-added"><i class="fa-solid fa-wand-magic-sparkles"></i> Tightened</span>';
+              if (c) c.outerHTML = '<span class="pn-chip pn-added"><i class="fa-solid fa-arrow-trend-up"></i> Test-up · advanced tier</span>';
             }
-            notice('Path recomposed: <b>1 object skipped</b>, wrap-up tightened');
+            notice('Path recomposed: <b>tested out of 1 object</b>, wrap-up served at the advanced tier');
           }
           revealProvenance();
         }, T(650));
@@ -566,8 +582,8 @@
     wireSidebarChat(ctx, [
       'Fair question. Nothing here was improvised — the swap picks from module structures the Learning Layer derived from this course’s SME-signed objectives.',
       branch === 'support'
-        ? 'Because “knowing what to say” was the one construct the scenario scored Practice Needed — the other four came back Good or better.'
-        : 'Because you evidenced the review’s objectives in performance. Skipping content you’ve demonstrated is the whole point of mastery-based sequencing.',
+        ? 'Because objective D4 — the follow-up — was the one thing the Perform stage scored Practice Needed. That’s in-course remediation: reinforcement in the moment, inside the module.'
+        : 'Because you evidenced the review’s objectives in performance — that’s test-out. And the locked item in the wrap-up stays for everyone; compression never touches it.',
       'Your administrator sees the same chain you do: the objective, the evidence, and the change — nothing is silent.',
       'If you’d rather take the full path anyway, your organization can turn recomposition off per course — it’s a setting, not a mandate.'
     ]);
@@ -580,7 +596,7 @@
   // ==========================================================================
   var PRACTICE_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> Added for you · 2 minutes</p>' +
+      '<p class="ll-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> In-course remediation · 2 minutes</p>' +
       '<h2>Say it out loud.</h2>' +
       '<p class="ll-sub">Knowing the right move isn’t the same as having the words ready. ' +
         'Two quick reps — the moment itself, then the follow-up.</p>' +
@@ -849,8 +865,8 @@
               "I'll guide you through each section and may ask a few questions as you progress through each." },
       init: introInit },
 
-    { id: 'baseline', mode: 'floating', lesson: 'Baseline Check', gate: true,
-      caption: { title: 'Adaptive pre-assessment · Floating companion', note: 'Two conversational probes before any content — the aptitude thread’s starting picture, so the closing profile can show growth.' },
+    { id: 'baseline', mode: 'floating', lesson: 'Entry Check', gate: true,
+      caption: { title: 'Entry battery · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content. What a learner proves here is compressed out of the path (test-out); skills are never quizzed — the Perform stage is where they’re shown.' },
       coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
       content: BASELINE_CONTENT, init: baselineInit },
 
@@ -872,13 +888,13 @@
     { id: 'scenario', external: 'scenario.html', lesson: 'The Marshall Scenario' },
 
     { id: 'adjust', mode: 'sidebar', lesson: 'Your Path, Adjusted', gate: true,
-      caption: { title: 'Knowledge Layer · Docked guide', note: 'The Learning Layer recomposes the path from the scenario’s construct-mapped evidence — mastery-based sequencing over SME-signed objectives, with the provenance chain on screen.' },
+      caption: { title: 'Knowledge Layer · Docked guide', note: 'The Learning Layer recomposes the path from Perform-stage evidence: in-course remediation on the support branch, test-out + test-up on the accelerate branch. Compliance-locked items are never compressed — the provenance chain is on screen.' },
       coach: { say: '', ask: 'Ask CLARA about this change…' },   // narration is TYPED IN by adjustInit
       content: ADJUST_CONTENT, init: adjustInit },
 
     { id: 'practice', mode: 'floating', lesson: 'Quick Practice', gate: true,
       when: function () { return decideBranch() === 'support'; },
-      caption: { title: 'Inserted micro-practice · Floating companion', note: 'The learning object the Learning Layer added — two rehearsal reps on the construct the scenario scored Practice Needed.' },
+      caption: { title: 'In-course remediation · Floating companion', note: 'The learning object the Learning Layer inserted — two rehearsal reps on objective D4 (the follow-up), which the Perform stage scored Practice Needed.' },
       coach: { say: 'Loading…' },   // practiceInit swaps in the first rep immediately
       content: PRACTICE_CONTENT, init: practiceInit },
 

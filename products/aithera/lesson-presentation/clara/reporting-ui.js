@@ -52,7 +52,7 @@
     { name: 'Elena Vasquez',  role: 'Line tech',   done: 1, of: 3, profile: [2, 2, 2, 2, 1], mom: 'held', path: 'std',    status: 'demo',       completed: 'Aug 23', seat: 29 },
     { name: 'Jae-won Park',   role: 'Maintenance', done: 2, of: 3, profile: [3, 2, 3, 2, 3], mom: 'up',   path: 'short',  status: 'demo',       completed: 'Aug 22', seat: 17 },
     { name: 'Sandra Iwu',     role: 'Operator',    done: 1, of: 3, profile: [2, 2, 2, 1, 1], mom: 'held', path: 'recomp', status: 'followup',   completed: 'Aug 21', seat: 30 },
-    { name: 'Grace Okafor',   role: 'Shift lead',  done: 2, of: 3, profile: [3, 3, 3, 2, 2], mom: 'up',   path: 'short',  status: 'demo',       completed: 'Aug 20', seat: 19 },
+    { name: 'Grace Okafor',   role: 'Shift lead',  done: 2, of: 3, profile: [3, 3, 3, 2, 2], mom: 'up',   path: 'up',     status: 'demo',       completed: 'Aug 20', seat: 19 },
     { name: 'Miguel Santos',  role: 'Operator',    done: 0, of: 3, profile: null,            mom: null,   path: null,     status: 'progress',   completed: null,     seat: null },
     { name: 'Lena Kovacs',    role: 'Line tech',   done: 1, of: 3, profile: [2, 2, 2, 2, 2], mom: 'up',   path: 'std',    status: 'demo',       completed: 'Aug 19', seat: 25 },
     { name: 'Alex Romero',    role: 'Operator',    done: 0, of: 3, profile: null,            mom: null,   path: null,     status: 'notstarted', completed: null,     seat: null }
@@ -85,6 +85,7 @@
   function pathTag(path) {
     if (path === 'recomp') return '<span class="path-tag recomp" title="The Knowledge Layer inserted targeted practice">Recomposed</span>';
     if (path === 'short')  return '<span class="path-tag short" title="Tested out of content already demonstrated">Shortened</span>';
+    if (path === 'up')     return '<span class="path-tag adv" title="Tested up — checks served at the advanced tier">Advanced</span>';
     if (path === 'std')    return '<span class="path-tag std">Standard</span>';
     return '<span class="dots-none">—</span>';
   }
