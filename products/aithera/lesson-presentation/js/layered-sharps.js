@@ -116,6 +116,16 @@
       case2: 'The sharps container in the health office is packed to the neck. Someone has been pressing things down to make room.',
       case3: 'Clearing a classroom bin at the end of the day, you spot a used lancet sitting on top of the paper.',
       case4: 'A custodian emptying that same classroom bin at nine that night is stuck through the bag. He finds out whose lancet it was three weeks later, from a lab result.',
+      story: {
+        by: 'Health-office aide, elementary. Told at a district safety in-service.',
+        paras: [
+          'We do finger-sticks for two of our students. That afternoon the office phone went while I still had the lancet in my hand, so I set it on the counter and took the call. It was a parent. It ran long.',
+          'The counter gets wiped down at the end of the day. The lancet went into the classroom bin with everything else on it.',
+          'Gerald empties those bins at nine. He has done it for eleven years. He pushed the bag down to get the liner off — the way you do when it will not close — and it went through the bag and through his glove.',
+          'He spent five months on testing. He kept working the whole time. He told me himself, months later, in the parking lot, and what he said was “I know it wasn’t on purpose.”',
+          'That was worse than if he had been angry.'
+        ]
+      },
       simPremise: 'You have just finished a finger-stick in the health office. Before you can dispose of the lancet, a student comes to the door in tears.'
     },
     aec: {
@@ -126,6 +136,16 @@
       case2: 'The first-aid kit’s small sharps container on this floor is full, and the spare is in the trailer two levels down.',
       case3: 'A needle is sitting in the demo debris pile the framing crew will clear at seven tomorrow morning.',
       case4: 'A labourer clearing that pile is stuck through his glove. The needle came out of a wall in an occupied building — nobody can say whose it was.',
+      story: {
+        by: 'Site supervisor, commercial fit-out. Told at a Monday toolbox talk.',
+        paras: [
+          'We were on punch list in an occupied building. I pulled a syringe out of a wall cavity — you find things — and set it on the ledge, because my hands were full and I would be back through in twenty minutes.',
+          'I was not back through. The framing crew cleared that floor at seven the next morning.',
+          'Danny picked the debris up by the armful, the way everybody does. It went through his glove and into the web of his hand.',
+          'We never found out whose it was, or how long it had been in that wall. None of that mattered to the eleven weeks he spent waiting on bloodwork.',
+          'He came back on the job. He wore double gloves for a year afterwards and nobody said a word about it.'
+        ]
+      },
       simPremise: 'You have just bagged a syringe found in a wall cavity. Before you reach the container, the site engineer calls you over about a load-bearing question.'
     },
     manufacturing: {
@@ -136,6 +156,16 @@
       case2: 'The container in the plant clinic is above its fill line, and the spare box is in the supply room.',
       case3: 'You find contaminated glass from the clinic bagged into general waste at the dock.',
       case4: 'A sanitation worker on second shift compresses that bag by hand and is cut through it. It was a blade change nobody logged.',
+      story: {
+        by: 'Maintenance tech, second shift. Told during a plant stand-down.',
+        paras: [
+          'I changed a blade at the line about ten minutes before the end of second shift. The container was at the other end of the bay and I had one more part to run, so I set the old blade on the bench and told myself I would walk it over on my way out.',
+          'I did not. I do not remember deciding not to. I just clocked out.',
+          'Somebody swept that bench into the general waste bin overnight. Ruben, on sanitation, compressed the bag by hand the way you do when it will not close, and the blade went through the plastic and into the base of his thumb.',
+          'He was on post-exposure protocol for six months. Bloodwork every few weeks. He could not donate, and he had to tell his wife each time the results came back.',
+          'Nobody ever asked me about it. There was no incident number with my name on it. I only know because he told me himself — and he was not angry. That was the part I could not get past.'
+        ]
+      },
       simPremise: 'You have just changed a blade at the line. Before you reach the container, the shift lead calls you over about a jam on the next machine.'
     },
     public: {
@@ -146,6 +176,16 @@
       case2: 'The jump-bag container is full, and the wall unit is behind the stretcher you cannot reach from here.',
       case3: 'At the ED doors you find a used needle loose on the gurney rail, left from the run before yours.',
       case4: 'Your partner, breaking down the gurney at the ED, is stuck by that needle. It was from the previous crew’s run, and nobody had cleared the rail.',
+      story: {
+        by: 'Paramedic, county EMS. Told at a crew debrief.',
+        paras: [
+          'I placed a line in the back of a moving rig on a transfer. Patient was stable, the road was bad, and both my hands were doing something. I set the used catheter on the bench seat beside me. Two seconds, I thought.',
+          'We got busy at the doors. I broke down the gurney and never went back for it.',
+          'My partner Renata caught it with the side of her hand pulling the stretcher rail. She said “that’s mine, isn’t it” before I had even turned around.',
+          'She did the protocol. Twelve weeks. She rode with me the whole time and never once brought it up on a call.',
+          'I have run that transfer a hundred times since. The sharp goes in the box first now, even with a hand on the patient. It costs about four seconds.'
+        ]
+      },
       simPremise: 'You have just placed a line in a moving ambulance. Before you can dispose of the catheter, the patient’s rhythm changes on the monitor.'
     }
   };
@@ -156,6 +196,64 @@
   //  performatively in the simulation, so the beat may go and the floor holds.
   //  K2 is content-locked — a low score serves it HARDER, never removes it.
   // ==========================================================================
+  // ==========================================================================
+  //  IMAGES — optional, and switchable. A beat declares a visual; the
+  //  presenter can turn every visual in the module off to compare the two
+  //  renderings side by side. That is not a gimmick: the plan's article
+  //  modality is "an illustrated read" whose sector variance is explicitly a
+  //  copy-AND-IMAGE pass, so whether a beat carries art is a derivation
+  //  decision like any other, and worth being able to show.
+  //
+  //  The art here is authored SVG rather than photography. There is no sharps
+  //  photo library in this repo, and a stock photo that is nearly right reads
+  //  worse than a diagram that is exactly right. These are schematic on
+  //  purpose: the moment, not the room.
+  // ==========================================================================
+  // Steps that carry art today. Adding one is a line here plus a figure()
+  // call in its content builder.
+  var IMAGE_STEPS = { case4: 1 };
+  function imagesOn() {
+    try { return sessionStorage.getItem('sh-images') !== 'off'; } catch (e) { return true; }
+  }
+  function figure(svg, caption) {
+    if (!imagesOn()) return '';
+    return '<figure class="fig">' + svg +
+      (caption ? '<figcaption>' + esc(caption) + '</figcaption>' : '') + '</figure>';
+  }
+  // The gap the whole module is about: a sharp at rest somewhere it was never
+  // meant to be, and the hand that meets it next.
+  var FIG_LEFT_BEHIND =
+    '<svg viewBox="0 0 640 250" role="img" aria-label="A sharp left on a work surface, with a disposal container out of reach and a bare hand approaching from the other side">' +
+      '<defs><linearGradient id="figGlow" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#2ee6cf" stop-opacity=".18"/>' +
+        '<stop offset="1" stop-color="#2ee6cf" stop-opacity="0"/></linearGradient></defs>' +
+      // the surface
+      '<rect x="40" y="150" width="560" height="7" rx="3.5" fill="#22304a"/>' +
+      '<rect x="40" y="157" width="560" height="26" fill="#141f33"/>' +
+      // the sharp, left at rest
+      '<g transform="translate(150 128)">' +
+        '<rect x="0" y="14" width="86" height="9" rx="4.5" fill="#f1b34a"/>' +
+        '<rect x="78" y="16.5" width="30" height="4" rx="2" fill="#f1b34a"/>' +
+        '<circle cx="8" cy="18.5" r="7" fill="#f1b34a" opacity=".55"/>' +
+      '</g>' +
+      // its unused route to the container
+      '<path d="M270 146 C 340 100, 430 100, 496 138" stroke="#2ee6cf" stroke-width="2" ' +
+        'stroke-dasharray="7 9" fill="none" opacity=".45"/>' +
+      // the container, out of the moment
+      '<g transform="translate(470 78)" opacity=".8">' +
+        '<rect x="0" y="18" width="74" height="72" rx="8" fill="none" stroke="#2ee6cf" stroke-width="2.5"/>' +
+        '<rect x="-6" y="6" width="86" height="14" rx="7" fill="#2ee6cf" opacity=".85"/>' +
+        '<rect x="28" y="0" width="18" height="8" rx="4" fill="#2ee6cf" opacity=".6"/>' +
+        '<path d="M6 56 H68" stroke="#2ee6cf" stroke-width="1.5" stroke-dasharray="4 5" opacity=".7"/>' +
+      '</g>' +
+      // the next person, arriving without knowing
+      '<g transform="translate(74 96)" opacity=".95">' +
+        '<path d="M40 58 C 40 34, 24 28, 14 34 C 4 40, 6 56, 18 58 Z" fill="#ff8b6b" opacity=".85"/>' +
+        '<rect x="36" y="50" width="34" height="10" rx="5" fill="#ff8b6b" opacity=".85"/>' +
+      '</g>' +
+      '<rect x="40" y="183" width="560" height="52" fill="url(#figGlow)"/>' +
+    '</svg>';
+
   function batteryResult() {
     try { var o = sessionStorage.getItem('sh-battery');
           if (o === 'proven' || o === 'unproven') return o; } catch (e) {}
@@ -705,15 +803,17 @@
   function CASE4_CONTENT() {
     var L = lens();
     return '<main class="ll-object">' +
-      '<div class="cs-wrap">' +
+      '<div class="story-wrap">' +
         '<p class="ll-eyebrow">Read: 1 minute</p>' +
-        '<div class="cs-scene">' +
-          '<div class="cs-tag"><i class="fa-solid fa-triangle-exclamation"></i> The one that landed</div>' +
-          '<p>' + esc(L.case4) + '</p>' +
-        '</div>' +
-        '<p class="fu-note" style="margin-top:18px">The person who was hurt did not use the sharp, did not leave it, and ' +
-          'had no way to know it was there. That is the whole reason this is a professional responsibility and not a ' +
-          'personal-safety rule — the risk you create is almost never carried by you.</p>' +
+        '<h2 class="story-h">Somebody else found it.</h2>' +
+        figure(FIG_LEFT_BEHIND, 'The gap this module is about — the sharp at rest, and whoever meets it next.') +
+        '<blockquote class="story">' +
+          L.story.paras.map(function (para) { return '<p>' + esc(para) + '</p>'; }).join('') +
+          '<footer>' + esc(L.story.by) + '</footer>' +
+        '</blockquote>' +
+        '<p class="story-note">The person who was hurt did not use the sharp, did not leave it, and had no way ' +
+          'to know it was there. That is why this is a professional responsibility and not a personal-safety ' +
+          'rule — the risk you create is almost never carried by you.</p>' +
       '</div>' +
     '</main>';
   }
@@ -723,7 +823,7 @@
     setTimeout(function () {
       saveResult('case4', { read: true });
       ctx.enableNext();
-    }, T(1200));
+    }, T(2600));
   }
 
   // ==========================================================================
@@ -1103,13 +1203,19 @@
       'I am recording which objective each answer evidenced, not a score. Your administrator sees the same chain you do.'
     ],
     demoControls: [{
-      id: 'shBatteryBtn',
-      title: 'Demo: force the pre-module battery result (proven ↔ not proven) and replay the routing.',
+      id: 'shImagesBtn', icon: 'fa-image', name: 'Visuals',
+      note: 'Whether a beat carries art is a derivation decision, not a property of the beat',
+      visibleOn: function (step) { return !!IMAGE_STEPS[step.id]; },
+      state: function () { return imagesOn() ? 'On' : 'Off'; },
+      onClick: function (api) {
+        try { sessionStorage.setItem('sh-images', imagesOn() ? 'off' : 'on'); } catch (e) {}
+        api.replay();
+      }
+    }, {
+      id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Battery result',
+      note: 'Force the pre-module result and replay the routing it drives',
       visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
-      label: function () {
-        return '<i class="fa-solid fa-shuffle"></i> Demo: battery — ' +
-               (batteryResult() === 'proven' ? 'procedure proven' : 'not proven');
-      },
+      state: function () { return batteryResult() === 'proven' ? 'Procedure proven' : 'Not proven'; },
       onClick: function (api) {
         var next = batteryResult() === 'proven' ? 'unproven' : 'proven';
         try { sessionStorage.setItem('sh-battery', next); } catch (e) {}

@@ -1800,18 +1800,14 @@
     lensedSteps: LENSED_STEPS,
     replies: CLARA_COURSE_REPLIES,
     demoControls: [{
-      id: 'llBranchBtn',
-      title: 'Demo: force the entry result (can skip ↔ full build). ' +
-             'On the full build there is nothing to report, so the adjustment screen doesn’t run at all.',
+      id: 'llBranchBtn', icon: 'fa-shuffle', name: 'Entry result',
+      note: 'On the full build there is nothing to report, so the adjustment screen doesn’t run',
       // Reachable from the check that PRODUCES the result and the screen that
       // REPORTS it — the latter doesn't exist on the full-build branch.
       visibleOn: function (step) { return step.id === 'compress' || step.id === 'baseline'; },
       // Names the armed result rather than the action, so it reads the same
-      // in both places. Clicking flips it.
-      label: function () {
-        return '<i class="fa-solid fa-shuffle"></i> Demo: entry result — ' +
-               (entryStrength() === 'compressed' ? 'can skip' : 'full build');
-      },
+      // wherever it is offered. Choosing it flips it.
+      state: function () { return entryStrength() === 'compressed' ? 'Can skip' : 'Full build'; },
       onClick: function (api) {
         var next = entryStrength() === 'compressed' ? 'full' : 'compressed';
         try { sessionStorage.setItem('ll-entry', next); } catch (e) {}

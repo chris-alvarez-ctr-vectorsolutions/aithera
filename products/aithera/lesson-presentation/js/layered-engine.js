@@ -281,7 +281,7 @@
   // ==========================================================================
   //  Shell — built once; steps swap in place.
   // ==========================================================================
-  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, skipBtn, lensBtn;
+  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, demoBtn, demoMenu;
   var demoBtns = [];
   // True only while a step's own init() is running. It's what separates CLARA's
   // opening line for a screen (narration — stays behind the orb) from a line
@@ -424,16 +424,9 @@
       if (footBar) { footBar.style.display = ''; footBar.setAttribute('value', String(sec.n / sec.total)); }
       backBtn.style.display = '';
     }
-    if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
-    demoBtns.forEach(function (d) {
-      var on = !d.spec.visibleOn || d.spec.visibleOn(step);
-      d.el.style.display = on ? 'inline-flex' : 'none';
-      if (on && d.spec.label) d.el.innerHTML = d.spec.label();
-    });
-    if (lensBtn) {
-      lensBtn.style.display = CFG.lensedSteps[step.id] ? 'inline-flex' : 'none';
-      lensBtn.innerHTML = '<i class="fa-solid fa-layer-group"></i> Demo: context lens — ' + esc(lens().label);
-    }
+    // The demo menu builds its rows when it opens, so a step change only has
+    // to close it — nothing to re-label here.
+    closeDemoMenu();
     backBtn.disabled = (pos.n <= 1);
     var isLast = (pos.n >= pos.total);
     nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
@@ -610,79 +603,126 @@
     frameStep = document.querySelector('.vt-frame .vt-progress .vt-step');
     frameBar = document.querySelector('.vt-frame .vt-progress vaadin-progress-bar');
 
-    // Review-only "Skip (demo)" in the frame's actions slot — lets a reviewer
-    // move past a gated video without watching/answering. NOT product UI;
-    // shown only on gated steps (see updateFooter). Matches the scenario page's
-    // skip control (same frame.css .vt-actions styling).
+    // ==========================================================================
+    //  Review-only controls live behind ONE button.
+    //
+    //  These are presenter tools, not product UI, and there are now enough of
+    //  them to crowd the course title out of the top band. Collapsing them
+    //  into a single "Demo" menu keeps the frame reading the way the real
+    //  product would — plus one obviously-not-product control — and it means
+    //  adding a fourth tool costs no bar space at all. Skip is in here too:
+    //  it is the same kind of thing, and it does not deserve the top level.
+    // ==========================================================================
     var actions = document.querySelector('.vt-frame .vt-actions');
-    if (actions && !document.getElementById('llStepSkip')) {
-      skipBtn = document.createElement('button');
-      skipBtn.id = 'llStepSkip';
-      skipBtn.type = 'button';
-      skipBtn.title = 'Skip this learning object';
-      skipBtn.innerHTML = '<i class="fa-solid fa-forward"></i> Skip this learning object';
-      skipBtn.style.display = 'none';
-      skipBtn.addEventListener('click', function () {
-        if (busy) return;
-        var step = STEPS[idx];
-        // Skip the whole learning object → advance. WHAT that writes to the
-        // record is the step's own business, so the step declares it.
-        if (step && typeof step.onSkip === 'function') { try { step.onSkip(); } catch (e) { console.error('onSkip', step.id, e); } }
-        go(1);
+    if (actions && !document.getElementById('llDemoBtn')) {
+      demoBtn = document.createElement('button');
+      demoBtn.id = 'llDemoBtn';
+      demoBtn.type = 'button';
+      demoBtn.title = 'Review-only controls — not part of the learner experience';
+      demoBtn.setAttribute('aria-haspopup', 'true');
+      demoBtn.setAttribute('aria-expanded', 'false');
+      demoBtn.innerHTML = '<i class="fa-solid fa-sliders"></i> Demo';
+      actions.appendChild(demoBtn);
+
+      demoMenu = document.createElement('div');
+      demoMenu.className = 'll-demo-menu';
+      demoMenu.id = 'llDemoMenu';
+      demoMenu.setAttribute('role', 'menu');
+      demoMenu.hidden = true;
+      document.body.appendChild(demoMenu);
+
+      demoBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        demoMenu.hidden ? openDemoMenu() : closeDemoMenu();
       });
-      actions.appendChild(skipBtn);
+      document.addEventListener('click', function (e) {
+        if (!demoMenu.hidden && !demoMenu.contains(e.target)) closeDemoMenu();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !demoMenu.hidden) { closeDemoMenu(); demoBtn.focus(); }
+      });
     }
 
-    // Review-only "Demo: context lens" — capability 2 made clickable. Swaps
-    // the working environment and replays the current step: same objectives,
-    // same beats, same assessment, different scene. Shown on every lensed
-    // step so a reviewer can flip it wherever they happen to be standing.
-    if (actions && CFG.lenses && !document.getElementById('llLensBtn')) {
-      lensBtn = document.createElement('button');
-      lensBtn.id = 'llLensBtn';
-      lensBtn.type = 'button';
-      lensBtn.title = 'Demo: re-render this module through a different context lens. ' +
-        'The objectives and the structure are identical — only the context-sensitive content moves.';
-      lensBtn.style.display = 'none';
-      lensBtn.addEventListener('click', function () {
-        if (busy) return;
-        cycleLens();
-        showStep(idx, 'fwd', false);              // replay this beat in the new lens
-      });
-      actions.appendChild(lensBtn);
-    }
+    // What the course declared, plus the two the engine owns.
+    CFG.demoControls.forEach(function (spec) { demoBtns.push({ spec: spec }); });
+  }
 
-    // Review-only presenter controls DECLARED BY THE COURSE. The engine owns
-    // the button and when it shows; what it means is content. Each entry is
-    // { id, title, visibleOn(step), label(), onClick(api) }.
-    CFG.demoControls.forEach(function (spec) {
-      if (!actions || document.getElementById(spec.id)) return;
-      var btn = document.createElement('button');
-      btn.id = spec.id;
-      btn.type = 'button';
-      if (spec.title) btn.title = spec.title;
-      btn.style.display = 'none';
-      btn.addEventListener('click', function () {
-        if (busy) return;
-        spec.onClick({
-          step: STEPS[idx],
-          // Re-render the current step in place — for a control whose effect
-          // is visible on the screen you are already looking at.
-          replay: function () { showStep(idx, 'fwd', false); },
-          // Move on — for a control whose effect REMOVES the current step.
-          go: go,
-          // Update the counters without disturbing an already-open gate.
-          refresh: function () {
-            var st = STEPS[idx];
-            var wasOpen = !nextBtn.disabled;
-            updateFooter(st); updateFrame(st);
-            if (wasOpen) nextBtn.disabled = false;
+  function closeDemoMenu() {
+    if (!demoMenu) return;
+    demoMenu.hidden = true;
+    demoBtn.setAttribute('aria-expanded', 'false');
+  }
+  function openDemoMenu() {
+    if (!demoMenu) return;
+    var step = STEPS[idx];
+    var rows = [];
+
+    // Skip — only where there is a gate to get past.
+    if (step && step.gate) {
+      rows.push({ icon: 'fa-forward', name: 'Skip this learning object', state: '',
+        note: 'Move past the gate without answering',
+        run: function () {
+          if (step && typeof step.onSkip === 'function') {
+            try { step.onSkip(); } catch (e) { console.error('onSkip', step.id, e); }
           }
-        });
-      });
-      actions.appendChild(btn);
-      demoBtns.push({ spec: spec, el: btn });
+          go(1);
+        } });
+    }
+    // Context lens — engine-owned, shown where the course says it applies.
+    if (CFG.lenses && CFG.lensedSteps[step.id]) {
+      rows.push({ icon: 'fa-layer-group', name: 'Context lens', state: lens().label,
+        note: 'Same objectives and rubric, different working environment',
+        run: function () { cycleLens(); showStep(idx, 'fwd', false); } });
+    }
+    // Whatever else the course declared for this step.
+    demoBtns.forEach(function (d) {
+      var spec = d.spec;
+      if (spec.visibleOn && !spec.visibleOn(step)) return;
+      rows.push({ icon: spec.icon || 'fa-shuffle', name: spec.name || 'Demo',
+        state: spec.state ? spec.state() : '', note: spec.note || '',
+        run: function () {
+          spec.onClick({
+            step: STEPS[idx],
+            replay: function () { showStep(idx, 'fwd', false); },
+            go: go,
+            refresh: function () {
+              var st = STEPS[idx];
+              var wasOpen = !nextBtn.disabled;
+              updateFooter(st); updateFrame(st);
+              if (wasOpen) nextBtn.disabled = false;
+            }
+          });
+        } });
     });
+
+    demoMenu.innerHTML =
+      '<p class="ll-demo-head">Review only · not shown to a learner</p>' +
+      (rows.length
+        ? rows.map(function (r, i) {
+            return '<button class="ll-demo-item" type="button" role="menuitem" data-i="' + i + '">' +
+              '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>' +
+              '<span class="ll-demo-main"><b>' + esc(r.name) + '</b>' +
+              (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>' +
+              (r.state ? '<span class="ll-demo-state">' + esc(r.state) + '</span>' : '') +
+            '</button>';
+          }).join('')
+        : '<p class="ll-demo-empty">Nothing to demonstrate on this screen.</p>');
+
+    demoMenu.querySelectorAll('.ll-demo-item').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (busy) return;
+        closeDemoMenu();
+        rows[+b.dataset.i].run();
+      });
+    });
+
+    var r = demoBtn.getBoundingClientRect();
+    demoMenu.hidden = false;
+    demoMenu.style.top = Math.round(r.bottom + 8) + 'px';
+    demoMenu.style.right = Math.round(window.innerWidth - r.right) + 'px';
+    demoBtn.setAttribute('aria-expanded', 'true');
+    var first = demoMenu.querySelector('.ll-demo-item');
+    if (first) first.focus();
   }
 
   function build() {
