@@ -395,7 +395,7 @@
       '</div>' +
       '<div class="mp-scene" style="margin-top:12px">' +
         '<div class="mp-scene-tag"><i class="fa-solid fa-shuffle" aria-hidden="true"></i> Item 2 · sampled — objective D4</div>' +
-        '<p>The follow-up after the moment: the objective most people never get asked about.</p>' +
+        '<p>The follow-up after the moment — the beat you just rehearsed with Priya.</p>' +
       '</div>' +
     '</main>';
   var CHECK_LOCKED_STD = {
@@ -513,27 +513,219 @@
     });
   }
 
-  // LEARN — "The Five Ds" review beat. Full-build learners see it; a strong
-  // entry battery compresses it away (they proved K1–K3 already). Ungated.
+  // ==========================================================================
+  //  LEARN BEATS — real instruction, one beat per objective, using the Basic
+  //  Interaction patterns (Terms to Remember, Peer Results, Conversation
+  //  Step-In) with authored content. Know beats compress at entry; Feel and
+  //  Do beats survive compression — beliefs and skills still need teaching.
+  // ==========================================================================
+
+  // LEARN · Know (K3/K4) — "Terms to Remember": the five Ds as flip cards.
+  // Gate: every card flipped. Compressed away by a strong entry battery.
   var FIVE_DS = [
-    { icon: 'fa-bullhorn',        name: 'Direct',   tip: 'Name the behavior, in the moment.' },
-    { icon: 'fa-arrows-split-up-and-left', name: 'Distract', tip: 'Break the moment without confrontation.' },
-    { icon: 'fa-user-group',      name: 'Delegate', tip: 'Bring in someone better placed to act.' },
-    { icon: 'fa-hourglass-half',  name: 'Delay',    tip: 'Check in with the target afterwards.' },
-    { icon: 'fa-file-lines',      name: 'Document', tip: 'Record what happened, for a report that can act.' }
+    { icon: 'fa-bullhorn', name: 'Direct',
+      def: 'Name what’s happening and ask it to stop.',
+      ex: '“That’s not okay — drop it.” Said to Jake, in the room.' },
+    { icon: 'fa-arrows-split-up-and-left', name: 'Distract',
+      def: 'Break the moment without confronting anyone.',
+      ex: '“Jake — the forklift guy’s looking for you.” The joke dies on its own.' },
+    { icon: 'fa-user-group', name: 'Delegate',
+      def: 'Bring in someone better placed to act.',
+      ex: 'Loop in the lead Jake actually listens to.' },
+    { icon: 'fa-hourglass-half', name: 'Delay',
+      def: 'Check in with the target once the moment passes.',
+      ex: '“I saw that. You good?” — ten minutes later beats never.' },
+    { icon: 'fa-file-lines', name: 'Document',
+      def: 'Record what, when, who — so a report can act.',
+      ex: 'Date, shift, exact words. Specifics move investigations.' }
   ];
-  var REVIEW_CONTENT =
+  var TERMS_CONTENT =
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Learn · review</p>' +
+      '<p class="ll-eyebrow">Learn · Know</p>' +
       '<h2>The Five Ds.</h2>' +
-      '<p class="ll-sub">Five ways to intervene — you only ever need the one that fits the moment.</p>' +
-      '<ul class="bl-constructs" aria-label="The five Ds">' +
-        FIVE_DS.map(function (d) {
-          return '<li class="bl-construct"><i class="fa-solid ' + d.icon + '" aria-hidden="true"></i>' +
-                 '<span><b>' + esc(d.name) + '</b> ' + esc(d.tip) + '</span></li>';
+      '<p class="ll-sub">Five ways to intervene — flip each one. You only ever need the one that fits the moment.</p>' +
+      '<div class="tr-grid" id="trGrid">' +
+        FIVE_DS.map(function (d, i) {
+          return '<button class="tr-card" type="button" data-i="' + i + '" aria-label="Flip: ' + esc(d.name) + '">' +
+            '<span class="tr-inner">' +
+              '<span class="tr-face"><i class="fa-solid ' + d.icon + '" aria-hidden="true"></i><b>' + esc(d.name) + '</b><span class="hint">Tap to flip</span></span>' +
+              '<span class="tr-face tr-back"><b>' + esc(d.name) + '</b><p>' + esc(d.def) + '</p><p class="ex">' + esc(d.ex) + '</p></span>' +
+            '</span>' +
+          '</button>';
         }).join('') +
-      '</ul>' +
+      '</div>' +
+      '<p class="tr-progress" id="trProgress"><b>0</b> of 5 flipped</p>' +
     '</main>';
+  function termsInit(ctx) {
+    var flipped = 0;
+    document.querySelectorAll('.tr-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        if (card.classList.contains('flipped')) return;
+        card.classList.add('flipped');
+        flipped++;
+        document.getElementById('trProgress').innerHTML = '<b>' + flipped + '</b> of 5 flipped';
+        if (flipped === 2) ctx.setCoachSay('Direct gets the headlines, but every one of these counts as stepping in.');
+        if (flipped === 5) {
+          ctx.setCoachSay('All five. Remember: the goal isn’t the perfect move — it’s any move.');
+          notice('Logged: <b>Knowledge</b> — the five Ds, reviewed');
+          ctx.enableNext();
+          ctx.positionOrb(true);
+        }
+      });
+    });
+  }
+
+  // LEARN · Feel (F1 social norms + F4 self-efficacy) — "Peer Results":
+  // guess what the crew thinks, then see the actual norms data. The reveal is
+  // the teaching. Survives compression on every path.
+  var NORMS_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Learn · Feel</p>' +
+      '<h2>Would they back you?</h2>' +
+      '<p class="ll-sub">Before the numbers — your honest read of this crew.</p>' +
+      '<div class="pr-wrap">' +
+        '<div class="pr-choices" id="prChoices">' +
+          '<button class="pr-choice" type="button" data-k="respect">Most would quietly respect it</button>' +
+          '<button class="pr-choice" type="button" data-k="overreact">Most would think I overreacted</button>' +
+          '<button class="pr-choice" type="button" data-k="notice">Most wouldn’t even notice</button>' +
+        '</div>' +
+        '<div class="pr-results" id="prResults" hidden></div>' +
+        '<p class="pr-src" id="prSrc" hidden><i class="fa-solid fa-users" aria-hidden="true"></i> Anonymous survey · Acme Plant Operations · 214 responses · representative data</p>' +
+      '</div>' +
+    '</main>';
+  var NORMS_DATA = [
+    { k: 'respect',   label: 'Would quietly respect it', pct: 84 },
+    { k: 'overreact', label: 'Would think it’s overreacting', pct: 11 },
+    { k: 'notice',    label: 'Wouldn’t notice either way', pct: 5 }
+  ];
+  function normsInit(ctx) {
+    ctx.floatOpen();
+    ctx.setCoachSay('Quick gut check first — <strong>if you called out Jake’s “joke” in front of the crew, how would most of them react?</strong> Answer honestly; the real numbers come next.');
+    var picked = null;
+    document.querySelectorAll('.pr-choice').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (picked) return;
+        picked = b.dataset.k;
+        b.classList.add('picked');
+        document.querySelectorAll('.pr-choice').forEach(function (c) { c.disabled = true; });
+        reveal();
+      });
+    });
+    function reveal() {
+      var box = document.getElementById('prResults');
+      box.innerHTML = NORMS_DATA.map(function (d) {
+        return '<div class="pr-row' + (d.pct >= 50 ? ' is-top' : '') + '">' +
+          '<div class="lab"><span>' + esc(d.label) + (d.k === picked ? ' <span class="you">· your guess</span>' : '') + '</span>' +
+          '<span class="pct">' + d.pct + '%</span></div>' +
+          '<div class="pr-track"><div class="pr-fill" data-w="' + d.pct + '"></div></div>' +
+        '</div>';
+      }).join('');
+      box.hidden = false;
+      document.getElementById('prSrc').hidden = false;
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        box.querySelectorAll('.pr-fill').forEach(function (f) { f.style.width = f.dataset.w + '%'; });
+      }); });
+      setTimeout(function () {
+        ctx.setCoachSay(picked === 'respect'
+          ? 'You called it — <strong>84%</strong> say they’d respect it. Most people guess under half, and that gap is why rooms stay silent: everyone’s waiting for a first mover they’d already support.'
+          : 'Here’s the part almost everyone gets wrong: <strong>84%</strong> say they’d respect it. The silence you’re reading as disapproval is usually agreement waiting for a first mover — and it doesn’t take perfect words to be that person.');
+        notice('Taught: <b>Social norms</b> — the perception gap (F1)');
+        saveResult('norms', { guess: picked });
+        ctx.enableNext();
+        ctx.positionOrb(true);
+      }, T(1300));
+    }
+  }
+
+  // LEARN · Do (D4 sustain) — "Conversation Step-In": Priya texts after the
+  // incident and the learner takes the thread over. Rehearsal AS instruction —
+  // this beat is what the mastery check's sampled item then tests.
+  var STEPIN_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Learn · Do</p>' +
+      '<h2>After the moment.</h2>' +
+      '<p class="ll-sub">The step almost everyone skips: the follow-up. Priya just texted you — take over the thread.</p>' +
+      '<div class="sms-wrap">' +
+        '<div class="sms-thread" id="smsThread">' +
+          '<div class="sms-head"><span class="sms-ava">P</span><b>Priya</b><small>now</small></div>' +
+        '</div>' +
+        '<div class="sms-replies" id="smsReplies" hidden></div>' +
+        '<div class="sms-anatomy" id="smsAnatomy">' +
+          '<div class="an-head"><i class="fa-solid fa-diagram-project"></i> What a strong follow-up contains</div>' +
+          '<ul>' +
+            '<li><i class="fa-solid fa-eye"></i><span><b>I witnessed it</b> — she isn’t carrying the memory alone.</span></li>' +
+            '<li><i class="fa-solid fa-heart"></i><span><b>How are you</b> — a question, not a verdict.</span></li>' +
+            '<li><i class="fa-solid fa-hand-holding-hand"></i><span><b>Your call, my support</b> — offer, don’t take over.</span></li>' +
+          '</ul>' +
+        '</div>' +
+      '</div>' +
+    '</main>';
+  var STEPIN_OPENERS = [
+    'hey. did everyone hear jake today or was it just loud in my head',
+    'whatever. it’s fine.'
+  ];
+  var STEPIN_REPLIES = [
+    { t: '“It wasn’t fine — I heard it too. You good? Your call what happens next, but I’ve got your back if you want to report it.”',
+      good: true,
+      priya: 'ok. honestly that helps. maybe tomorrow — but thanks for saying you heard it.',
+      coach: 'That’s the whole skill in one message — witnessed, checked in, offered without taking over. This exact move is objective <b>D4</b>, and it shows up again very soon.' },
+    { t: '“He’s like that with everyone, honestly. Don’t let him get to you.”',
+      good: false,
+      priya: 'yeah. sure.',
+      coach: 'Feel that thread go cold? “He’s like that” tells her the room accepts it — and leaves her alone with it. Try again: what would you want someone to say to you?' },
+    { t: '“You should report him RIGHT NOW. Want me to walk you to HR??”',
+      good: false,
+      priya: 'whoa — i don’t know. i wasn’t asking for that.',
+      coach: 'Right instinct, wrong grip. Reporting is <em>her</em> call — pressure turns support into another thing happening <em>to</em> her. Offer it; don’t drive it.' }
+  ];
+  function stepinInit(ctx) {
+    ctx.floatOpen();
+    ctx.setCoachSay('Read the thread as it lands. When it’s your turn, pick the reply you’d actually send.');
+    var thread = document.getElementById('smsThread');
+    var replies = document.getElementById('smsReplies');
+    STEPIN_OPENERS.forEach(function (m, i) {
+      setTimeout(function () {
+        addMsg('them', m);
+        if (i === STEPIN_OPENERS.length - 1) setTimeout(showReplies, T(700));
+      }, T(600 + i * 1400));
+    });
+    function addMsg(kind, text) {
+      var d = document.createElement('div');
+      d.className = 'sms-msg ' + kind; d.textContent = text;
+      thread.appendChild(d);
+      requestAnimationFrame(function () { requestAnimationFrame(function () { d.classList.add('in'); }); });
+    }
+    function showReplies() {
+      var tag = document.createElement('div');
+      tag.className = 'sms-takeover'; tag.textContent = 'You take it from here';
+      thread.appendChild(tag);
+      replies.hidden = false;
+      STEPIN_REPLIES.forEach(function (r) {
+        var b = document.createElement('button');
+        b.className = 'sms-reply'; b.type = 'button'; b.textContent = r.t;
+        b.addEventListener('click', function () { send(r, b); });
+        replies.appendChild(b);
+      });
+      ctx.positionOrb(true);
+    }
+    function send(r, btn) {
+      addMsg('you', r.t.replace(/^“|”$/g, ''));
+      setTimeout(function () { addMsg('them', r.priya); }, T(900));
+      setTimeout(function () {
+        ctx.setCoachSay(r.coach);
+        if (r.good) {
+          replies.querySelectorAll('.sms-reply').forEach(function (b) { b.disabled = true; });
+          document.getElementById('smsAnatomy').classList.add('show');
+          notice('Taught: <b>Behavioral skills</b> — the follow-up (D4)');
+          saveResult('stepin', { done: true });
+          ctx.enableNext();
+        } else {
+          btn.disabled = true;   // weak reply spent — rehearse until it lands
+        }
+        ctx.positionOrb(true);
+      }, T(1800));
+    }
+  }
 
   // ==========================================================================
   //  ENTRY COMPRESSION — the Knowledge Layer moment, at its contract-native
@@ -562,9 +754,11 @@
   var PATH_NODES = [
     { icon: 'fa-hand-sparkles', label: 'Welcome',              state: 'done' },
     { icon: 'fa-wave-square',   label: 'Entry battery',        state: 'done', sub: 'Entry · Know & Feel' },
-    { icon: 'fa-list-check',    label: 'Review: The Five Ds',  state: 'next', sub: 'Learn', compressible: true },
-    { icon: 'fa-circle-play',   label: 'Intro video',          state: 'next', sub: 'Learn', shortcut: true },
-    { icon: 'fa-scale-balanced', label: 'A real case',         state: 'next', sub: 'Learn', compressible: true },
+    { icon: 'fa-list-check',    label: 'The Five Ds',          state: 'next', sub: 'Learn · Know K3–K4', compressible: true },
+    { icon: 'fa-circle-play',   label: 'Intro video',          state: 'next', sub: 'Learn · Know', shortcut: true },
+    { icon: 'fa-scale-balanced', label: 'A real case',         state: 'next', sub: 'Learn · Know', compressible: true },
+    { icon: 'fa-users',         label: 'Would they back you?', state: 'next', sub: 'Learn · Feel F1 — never compresses' },
+    { icon: 'fa-comment-dots',  label: 'After the moment',     state: 'next', sub: 'Learn · Do D4 — never compresses' },
     { icon: 'fa-clipboard-check', label: 'Mastery check',      state: 'next', sub: 'Check · one item locked', locked: true },
     { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'next', sub: 'Perform · rubric-scored', floor: true },
     { icon: 'fa-chart-simple',  label: 'Aptitude profile',     state: 'next', sub: 'Record' }
@@ -577,7 +771,7 @@
            'intro runs as the short cut. Your record still shows full coverage.',
       narration: [
         'Quick work, Rob — the entry battery just verified <b>K1–K3</b>: the five Ds and the case law behind them.',
-        'So those beats compress out — you’ll never sit through them, and your record still shows full coverage. Compression, not exemption.',
+        'So the Know beats compress out — you’ll never sit through them, and your record still shows full coverage. The Feel and Do beats stay: beliefs and skills can’t be verified by a quiz.',
         'One thing never compresses: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path, and the paper trail.'
       ],
       chain: [
@@ -592,7 +786,7 @@
            'and it ends at the scenario either way.',
       narration: [
         'Honest start, Rob — the entry battery didn’t verify anything yet, so nothing compresses.',
-        'You get the full build: the five Ds, the case study, all of it. And the path stays live — a miss at the mastery check gets fixed in the moment, not flagged for later.',
+        'You get the full build: the five Ds, the case study, plus the Feel and Do beats everyone gets. And the path stays live — a miss at the mastery check gets fixed in the moment, not flagged for later.',
         'Either way it ends the same place: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path.'
       ],
       chain: [
@@ -1008,11 +1202,21 @@
         src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
-    { id: 'review', mode: 'floating', lesson: 'The Five Ds',
+    { id: 'terms', mode: 'floating', lesson: 'The Five Ds', gate: true,
       when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Review beat', note: 'One of the two beats a strong entry battery compresses away (K1–K3). Full-build learners see it; tested-out learners never do.' },
-      coach: { say: 'Thirty seconds, five moves — you only ever need the one that fits the moment.' },
-      content: REVIEW_CONTENT },
+      caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3/K4) — one of the two beats a strong entry battery compresses away. Gate: every card flipped.' },
+      coach: { say: 'Five moves, five cards — flip each one. You only ever need the one that fits the moment.' },
+      content: TERMS_CONTENT, init: termsInit },
+
+    { id: 'norms', mode: 'floating', lesson: 'Would They Back You?', gate: true,
+      caption: { title: 'LEARN · Feel beat — Peer Results', note: 'The norms correction (F1, gap-fill content the base course never had): guess the crew’s reaction, then the real numbers land. Survives compression on every path — beliefs can’t be tested out of at entry.' },
+      coach: { say: 'Loading…' },   // normsInit swaps in the question immediately
+      content: NORMS_CONTENT, init: normsInit },
+
+    { id: 'stepin', mode: 'floating', lesson: 'After the Moment', gate: true,
+      caption: { title: 'LEARN · Do beat — Conversation Step-In', note: 'Rehearsal as instruction (D4): Priya texts after the incident and the learner takes the thread over. Weak replies get Priya’s real reaction and another try. This beat is what the mastery check’s sampled item then tests.' },
+      coach: { say: 'Loading…' },   // stepinInit runs the thread immediately
+      content: STEPIN_CONTENT, init: stepinInit },
 
     { id: 'casevideo', mode: 'floating', lesson: 'A Real Case', gate: true,
       when: function () { return entryStrength() === 'full'; },
