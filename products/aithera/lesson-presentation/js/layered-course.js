@@ -382,22 +382,30 @@
     '<main class="ll-object">' +
       '<div class="bl-ask" id="blAsk">' +
         '<p class="ll-eyebrow" id="blStep">Entry check</p>' +
-        '<h2 class="bl-q" id="blQ"></h2>' +
+        '<h2 class="bl-q" id="blQ" aria-live="polite"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
+        '<p class="bl-next" id="blNext" aria-hidden="true">Next question' +
+          '<span class="bl-next-track"><span class="bl-next-fill" id="blNextFill"></span></span></p>' +
       '</div>' +
     '</main>';
 
+  // Q1 asks what you'd DO, not what counts as harassment — because what a right
+  // answer here buys is the tactics lessons, and a definition question doesn't
+  // evidence those. Choosing the strongest move shows both halves at once: that
+  // the moves exist, and that you can pick the one this moment calls for.
+  // The options are three of the five Ds, so the near-miss is a real tactic
+  // rather than a wrong answer — the same best/near shape the drill teaches.
   var BASELINE_Q1 = {
-    stem: 'A coworker keeps “joking” about a colleague’s body after being asked to stop. Is that harassment?',
+    stem: 'A coworker won’t stop “joking” about a colleague’s body. You’re right there. What’s the strongest move?',
     hint: 'No grade, no trick — this just sets where you start.',
     options: [
-      { t: 'Yes — it’s unwelcome and repeated', icon: 'fa-circle-check', band: 2,
-        reply: 'Right — unwelcome and persisting after a clear “stop” is the line. Good starting knowledge.' },
-      { t: 'Only if a manager does it', icon: 'fa-user-tie', band: 1,
-        reply: 'Common belief, but no — anyone can be the harasser. We’ll firm this up as we go.' },
-      { t: 'Only if it gets physical', icon: 'fa-hand-fist', band: 1,
-        reply: 'It doesn’t have to be physical — verbal conduct counts. That’s exactly what this course covers.' }
+      { t: 'Name it — ask them to stop', icon: 'fa-bullhorn', band: 2,
+        reply: 'That’s the strongest one: closest to the moment, hardest to ignore. You already know the moves.' },
+      { t: 'Check in with them after', icon: 'fa-hourglass-half', band: 1,
+        reply: 'That’s a real move, and it beats nothing — but you’re right there. Choosing between them is what we’ll practise.' },
+      { t: 'Nothing — not my place', icon: 'fa-ban', band: 1,
+        reply: 'It is your place — and there are five ways to step in, most of them quieter than you’d expect. We’ll walk through them.' }
     ]
   };
   var BASELINE_Q2 = {
@@ -420,6 +428,8 @@
     var qEl = document.getElementById('blQ');
     var hintEl = document.getElementById('blHint');
     var optsEl = document.getElementById('blOptions');
+    var nextEl = document.getElementById('blNext');
+    var fillEl = document.getElementById('blNextFill');
 
     // While a question is up, CLARA is the orb only — one thing on screen to
     // read. Her line waits behind it for anyone who taps, and she rises with a
@@ -429,8 +439,36 @@
 
     render(BASELINE_Q1, 1, function (opt) {
       bands.knowledge = opt.band; answers.q1 = opt.t;
-      setTimeout(function () { swapTo(BASELINE_Q2, 2, done); }, T(2600));
+      var dwell = T(2600);
+      countdown(dwell);
+      setTimeout(function () { swapTo(BASELINE_Q2, 2, done); }, dwell);
     });
+
+    // The beat between the two questions is the one moment nothing is
+    // clickable: the learner has answered, CLARA is replying, and Continue is
+    // still gated. With no signal that reads as a broken page — so the wait
+    // says what it's waiting for and shows how much of it is left.
+    function countdown(ms) {
+      if (!ms) return;                              // reduced motion: no dwell to show
+      nextEl.classList.add('in');
+      fillEl.style.transition = 'none';
+      fillEl.style.width = '0%';
+      void fillEl.offsetWidth;                      // commit the reset before animating
+      fillEl.style.transition = 'width ' + ms + 'ms linear';
+      fillEl.style.width = '100%';
+    }
+    // Snapped away, not faded: this runs inside the swap, while the whole
+    // block is already invisible, so there's nothing to animate — and a fade
+    // would leave "Next question" and a full bar under question 2, where
+    // neither is true any more.
+    function clearCountdown() {
+      nextEl.style.transition = 'none';
+      nextEl.classList.remove('in');
+      fillEl.style.transition = 'none';
+      fillEl.style.width = '0%';
+      void nextEl.offsetWidth;
+      nextEl.style.transition = '';
+    }
 
     // Fade the answered question out, drop the next one into the same slot —
     // and tuck CLARA back to the orb as it lands, so question 2 gets the same
@@ -440,6 +478,7 @@
       setTimeout(function () {
         render(q, n, onPick);
         askEl.classList.remove('swapping');
+        clearCountdown();
         ctx.floatClose();
         ctx.positionOrb(true);
       }, T(320));
@@ -479,6 +518,10 @@
       Object.keys(opt.bands || {}).forEach(function (k) { bands[k] = opt.bands[k]; });
       stepEl.textContent = 'Entry check · complete';
       saveResult('baseline', { bands: bands, answers: answers });
+      // Record the result here, not on the adjustment screen — that screen
+      // only appears when something compressed, and the profile, the title
+      // page and the counters all need the result on either path.
+      saveResult('entry', { strength: entryStrength(), up: testUp() });
       ctx.enableNext();
     }
   }
@@ -679,9 +722,13 @@
     });
   }
 
-  // LEARN · Know (K2 barriers) — "Audio Summary": narrated text with word
-  // highlighting, and a Read-instead toggle — modality switching on demand.
-  // TTS starts only on the learner's tap (never autoplays). Compressible.
+  // LEARN · Know (K2 barriers) — "A quick read": the passage IS the beat, so it
+  // gets the type weight and the header steps back out of its way (no subtitle,
+  // lighter title — see .ll-object.is-read in course.html). Reading is the
+  // default state; narration is the option, on one "Read to me" control that
+  // starts browser TTS with word-by-word highlighting. Nothing autoplays, and
+  // nothing is gated: a self-paced read has no completion event to wait for, so
+  // Continue is live from the first frame (step.gate is false). Compressible.
   var AUDIO_TEXT =
     'Here’s the strange part: the more people who see something, the less likely any one of them is to act. ' +
     'Psychologists call it diffusion of responsibility — everyone assumes someone else will handle it. ' +
@@ -689,17 +736,16 @@
     'That silence isn’t agreement. It’s a stalemate — and it breaks the instant one person moves. ' +
     'You’re learning to be that person. Not the loudest one. Just the first.';
   var AUDIO_CONTENT =
-    '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Learn · Know</p>' +
+    '<main class="ll-object is-read">' +
+      '<p class="ll-eyebrow">A quick read</p>' +
       '<h2>Why rooms stay quiet.</h2>' +
-      '<p class="ll-sub">Listen, or read — your call. Same objective either way.</p>' +
       '<div class="aud-wrap">' +
-        '<div class="aud-controls">' +
-          '<button class="aud-play" id="audPlay" type="button"><i class="fa-solid fa-play"></i> Listen</button>' +
-          '<button class="aud-mode" id="audMode" type="button"><i class="fa-solid fa-book-open"></i> Read instead</button>' +
-        '</div>' +
-        '<p class="aud-text" id="audText" aria-label="Narrated passage"></p>' +
-        '<p class="aud-note"><i class="fa-solid fa-circle-info"></i> Narration uses your browser’s built-in speech — a stand-in for the produced voice track.</p>' +
+        // Above the passage, not below it: someone who would rather listen than
+        // read shouldn't have to read the whole thing to find the audio option.
+        '<button class="aud-play" id="audPlay" type="button"><i class="fa-solid fa-volume-high"></i> Read to me</button>' +
+        '<p class="aud-text" id="audText"></p>' +
+        // Prototype disclaimer — kept out of the way until narration is used.
+        '<p class="aud-note" id="audNote"><i class="fa-solid fa-circle-info"></i> Narration uses your browser’s built-in speech — a stand-in for the produced voice track.</p>' +
       '</div>' +
     '</main>';
   function audioInit(ctx) {
@@ -713,8 +759,12 @@
     }).join(' ');
     var spans = textEl.querySelectorAll('.w');
     var playBtn = document.getElementById('audPlay');
-    var modeBtn = document.getElementById('audMode');
-    var playing = false, finished = false;
+    var noteEl = document.getElementById('audNote');
+    var playing = false, heard = false;
+
+    // The read counts as delivered on arrival — the learner sets the pace and
+    // Continue is already live, so there's no event left to credit it against.
+    saveResult('audio', { done: true, mode: 'read' });
 
     function wordAt(charIndex) {
       for (var i = offsets.length - 1; i >= 0; i--) if (charIndex >= offsets[i]) return i;
@@ -723,37 +773,53 @@
     function highlight(i) {
       spans.forEach(function (sp, j) { sp.classList.toggle('hot', j === i); });
     }
-    function finish(fromRead) {
-      if (finished) return; finished = true;
+    function label(icon, text) {
+      playBtn.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + text;
+    }
+    function stop(icon, text) {
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      playing = false;
+      playBtn.classList.remove('on');
       spans.forEach(function (sp) { sp.classList.remove('hot'); });
-      ctx.setCoachSay(fromRead
-        ? 'Read at your own pace — the point stands either way: the stalemate breaks the instant one person moves.'
-        : 'That last line is the whole course: not the loudest one. Just the first.');
-      saveResult('audio', { done: true, mode: fromRead ? 'read' : 'listen' });
-      ctx.enableNext();
-      ctx.positionOrb(true);
+      label(icon, text);
     }
     playBtn.addEventListener('click', function () {
-      if (!('speechSynthesis' in window)) { finish(true); return; }
-      if (playing) { speechSynthesis.cancel(); playing = false; playBtn.innerHTML = '<i class="fa-solid fa-play"></i> Listen'; return; }
+      if (noteEl) noteEl.classList.add('show');
+      if (!('speechSynthesis' in window)) {         // no voice on this browser
+        playBtn.disabled = true;
+        label('fa-circle-exclamation', 'Narration unavailable');
+        return;
+      }
+      if (playing) { stop('fa-volume-high', 'Read to me'); return; }
       var u = new SpeechSynthesisUtterance(AUDIO_TEXT);
       u.rate = 1.0;
       u.onboundary = function (e) { if (e.name === 'word' || e.charIndex != null) highlight(wordAt(e.charIndex)); };
-      u.onend = function () { playing = false; playBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Replay'; finish(false); };
+      u.onend = function () {
+        stop('fa-rotate-left', 'Read it again');
+        if (heard) return;
+        heard = true;
+        saveResult('audio', { done: true, mode: 'listen' });
+        ctx.setCoachSay('That last line is the whole course: not the loudest one. Just the first.');
+        ctx.positionOrb(true);
+      };
       playing = true;
-      playBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+      playBtn.classList.add('on');
+      label('fa-pause', 'Pause');
       speechSynthesis.cancel();
       speechSynthesis.speak(u);
     });
-    modeBtn.addEventListener('click', function () {
-      if ('speechSynthesis' in window) speechSynthesis.cancel();
-      playing = false;
-      textEl.classList.add('read-mode');
-      playBtn.style.display = 'none';
-      modeBtn.disabled = true;
-      modeBtn.innerHTML = '<i class="fa-solid fa-check"></i> Reading';
-      finish(true);
-    });
+
+    // Steps have no teardown hook, so a running utterance would keep talking
+    // over the next screen: stop the voice when the passage leaves the DOM.
+    var stageEl = document.querySelector('.ll-stage');
+    if (stageEl && window.MutationObserver) {
+      var mo = new MutationObserver(function () {
+        if (document.body.contains(textEl)) return;
+        mo.disconnect();
+        if ('speechSynthesis' in window) speechSynthesis.cancel();
+      });
+      mo.observe(stageEl, { childList: true });
+    }
   }
 
   // LEARN · Know (K4 select the tactic) — "Pick your move": four situations,
@@ -987,157 +1053,126 @@
   }
 
   // ==========================================================================
-  //  ENTRY COMPRESSION — the Knowledge Layer moment, at its contract-native
-  //  position: immediately after the entry battery. The Learning Layer scores
-  //  the battery against module BO-2's signed objectives and compresses the
-  //  Learn beats the learner already verified (test-out). The compliance-
-  //  locked item and the Perform stage are untouchable. Presenter override:
-  //  "Demo: flip entry result".
+  //  PATH ADJUSTMENT — the one screen whose whole job is showing the learner
+  //  what their own answers just did to the course. So it shows ONLY that.
+  //
+  //  Off this screen deliberately: the fixed beats (Welcome, the entry check
+  //  itself, the Feel and Do work, the scenario, the profile) — they never
+  //  change, so listing them buries the four rows that did. Also gone: the
+  //  "entry battery" framing, the SME/objective vocabulary and the audit
+  //  chain. None of that is a learner's language or a learner's question;
+  //  it's presenter material and lives in the step caption behind the "?".
+  //
+  //  CLARA crowns the stack rather than sitting in a rail: she says WHY in a
+  //  sentence, the rows say WHAT, and they arrive one at a time so the change
+  //  reads as something happening rather than a list that was always there.
+  //  Presenter override: "Demo: flip entry result".
   // ==========================================================================
-  var COMPRESS_CONTENT =
-    '<main class="ll-object" id="adjustObject">' +
-      '<p class="ll-eyebrow">The Knowledge Layer</p>' +
-      '<h2 id="adjHeadline">Scoring your entry battery…</h2>' +
-      '<p class="ll-sub" id="adjSub">Your answers are being mapped to the module’s SME-signed objectives — ' +
-        'what you’ve already proven decides what you skip.</p>' +
-      '<ol class="path-rail" id="pathRail" aria-label="Your learning path"></ol>' +
-      '<div class="prov-card" id="provCard" hidden>' +
-        '<div class="prov-head"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Why this changed</div>' +
-        '<ol class="prov-chain" id="provChain"></ol>' +
+  var ADJUST_CONTENT =
+    '<main class="ll-object ll-object--crowned" id="adjustObject">' +
+      '<div class="adj">' +
+        '<p class="ll-eyebrow" id="adjEyebrow">Your path</p>' +
+        '<h2 class="adj-head" id="adjHead">Reading your answers…</h2>' +
+        '<ol class="adj-stack" id="adjStack" aria-live="polite"></ol>' +
+        '<p class="adj-saved" id="adjSaved">&nbsp;</p>' +
       '</div>' +
     '</main>';
 
-  // The path map in contract order. `compressible` marks the Learn beats a
-  // strong entry battery removes; the Check carries the locked item; Perform
-  // is the floor — it runs for everyone, always.
-  var PATH_NODES = [
-    { icon: 'fa-hand-sparkles', label: 'Welcome',              state: 'done' },
-    { icon: 'fa-wave-square',   label: 'Entry battery',        state: 'done', sub: 'Entry · Know & Feel' },
-    { icon: 'fa-circle-play',   label: 'Intro video',          state: 'next', sub: 'Learn · Know', shortcut: true },
-    { icon: 'fa-headphones',    label: 'Why rooms stay quiet', state: 'next', sub: 'Learn · Know K2 · listen or read', compressible: true },
-    { icon: 'fa-list-check',    label: 'The Five Ds',          state: 'next', sub: 'Learn · Know K3', compressible: true },
-    { icon: 'fa-hand-pointer',  label: 'Pick your move',       state: 'next', sub: 'Learn · Know K4', compressible: true },
-    { icon: 'fa-scale-balanced', label: 'A real case',         state: 'next', sub: 'Learn · Know', compressible: true },
-    { icon: 'fa-users',         label: 'Would they back you?', state: 'next', sub: 'Learn · Feel F1 — never compresses' },
-    { icon: 'fa-comment-dots',  label: 'After the moment',     state: 'next', sub: 'Learn · Do D4 — never compresses' },
-    { icon: 'fa-clipboard-check', label: 'Mastery check',      state: 'next', sub: 'Check · one item locked', locked: true },
-    { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'next', sub: 'Perform · rubric-scored', floor: true },
-    { icon: 'fa-chart-simple',  label: 'Aptitude profile',     state: 'next', sub: 'Record' }
+  // The only rows worth a screen: lessons whose presence, length or difficulty
+  // depends on how the learner answered. `step` links each row to the real
+  // step, so the minutes below are the course's own numbers, not a claim.
+  // Two questions can only buy what two questions evidence. The tactics
+  // cluster goes together — showing you can pick the right move demonstrates
+  // you know the moves — and the intro clip shortens because recognising the
+  // behaviour is exactly what it's there to teach. Everything else stays.
+  var ADJUST_ROWS = [
+    { step: 'terms',     icon: 'fa-list-check',      label: 'The Five Ds',   kind: 'drop'   },
+    { step: 'drill',     icon: 'fa-hand-pointer',    label: 'Pick your move', kind: 'drop'  },
+    { step: 'video',     icon: 'fa-circle-play',     label: 'Intro video',   kind: 'short'  },
+    { step: 'check',     icon: 'fa-clipboard-check', label: 'Mastery check', kind: 'harder' }
   ];
 
-  var COMPRESS_BRANCHES = {
+  // The verdict copy. The WORKING state is the eyebrow and headline already in
+  // ADJUST_CONTENT — branch-independent on purpose, so the learner can't read
+  // the outcome off the page before the rows have actually resolved.
+  var ADJUST_BRANCHES = {
     compressed: {
-      headline: 'Your path just got shorter.',
-      sub: 'Test-out: the entry battery verified the Know objectives, so four Learn beats compress out and the ' +
-           'intro runs as the short cut. Your record still shows full coverage.',
-      narration: [
-        'Quick work, Rob — the entry battery just verified <b>K1–K4</b>: the bystander effect, the five Ds, and how to pick between them.',
-        'So the Know beats compress out — you’ll never sit through them, and your record still shows full coverage. The Feel and Do beats stay: beliefs and skills can’t be verified by a quiz.',
-        'One thing never compresses: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path, and the paper trail.'
-      ],
-      chain: [
-        '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>K1–K3 · Know / Remember & Understand</em> — the five Ds and the barriers to intervention. SME-signed once, at the spec. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
-        '<b>The evidence.</b> The entry battery — Know & Feel items only; a skill is never quizzed. Both items correct, construct-mapped to <em>Knowledge</em> and <em>Perceived behavioral control</em>.',
-        '<b>The recomposition.</b> Test-out: four Know beats compressed, the intro cut short. The Feel and Do beats, the locked mastery item and the Perform stage are untouched — compressed never, shown always.'
-      ]
+      eyebrow: 'Your path just changed',
+      head: 'You can skip ahead.'
     },
     full: {
-      headline: 'The full build — for now.',
-      sub: 'Nothing verified at entry yet, so nothing compresses. The path can still change at the mastery check — ' +
-           'and it ends at the scenario either way.',
-      narration: [
-        'Honest start, Rob — the entry battery didn’t verify anything yet, so nothing compresses.',
-        'You get the full build: the narrated barriers piece, the five Ds and the tactic drill, the case study — plus the Feel and Do beats everyone gets. The path stays live, too: a miss at the mastery check gets fixed in the moment.',
-        'Either way it ends the same place: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path.'
-      ],
-      chain: [
-        '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>K1–K3</em> — SME-signed, and not yet evidenced by you.',
-        '<b>The evidence.</b> The entry battery missed the Knowledge item, so nothing suppresses. No penalty — the full build is the default, not a punishment.',
-        '<b>The recomposition.</b> Still armed: a miss at the mastery check inserts in-course remediation on the spot, and the Perform stage feeds your profile and what comes next.'
-      ]
+      eyebrow: 'Your path',
+      head: 'Nothing to skip yet.'
     }
   };
-  function pathNodeHTML(n) {
-    var state = n.state;
-    var chip = state === 'done' ? '<span class="pn-chip pn-done"><i class="fa-solid fa-check"></i> Done</span>'
-             : state === 'planned' ? '<span class="pn-chip pn-planned">Planned</span>'
-             : state === 'added' ? '<span class="pn-chip pn-added"><i class="fa-solid fa-wand-magic-sparkles"></i> ' + esc(n.tag || 'Added') + '</span>'
-             : '<span class="pn-chip pn-next">Up next</span>';
-    // Compliance-locked content rides in addition to the state chip —
-    // recomposition can never remove it, only serve it harder.
-    if (n.locked) chip += '<span class="pn-chip pn-locked" title="Compliance-locked — never compressed, served harder"><i class="fa-solid fa-lock"></i> Locked</span>';
-    if (n.floor) chip += '<span class="pn-chip pn-floor" title="The culminating simulation is the minimum experience — it runs even at full test-out">Always runs</span>';
-    return '<li class="path-node ' + (n.cls || '') + '" data-state="' + state + '">' +
-             '<span class="pn-ico"><i class="fa-solid ' + n.icon + '" aria-hidden="true"></i></span>' +
-             '<span class="pn-main"><span class="pn-label">' + esc(n.label) + '</span>' +
-             (n.sub ? '<span class="pn-sub">' + esc(n.sub) + '</span>' : '') + '</span>' +
-             chip +
-           '</li>';
+
+  function minsFor(id) {
+    for (var i = 0; i < STEPS.length; i++) if (STEPS[i].id === id) return STEPS[i].mins || 0;
+    return 0;
   }
+
+  var ADJUST_CHIPS = {
+    dropped: '<span class="adj-chip adj-chip--drop"><i class="fa-solid fa-forward"></i> Skipped</span>',
+    shorter: '<span class="adj-chip adj-chip--short"><i class="fa-solid fa-scissors"></i> Shorter</span>',
+    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Harder</span>',
+    kept:    '<span class="adj-chip adj-chip--keep">Kept</span>'
+  };
 
   function compressInit(ctx) {
     var strength = entryStrength();
     var up = testUp();
-    var B = COMPRESS_BRANCHES[strength];
-    var rail = document.getElementById('pathRail');
-    rail.innerHTML = PATH_NODES.map(pathNodeHTML).join('');
+    var B = ADJUST_BRANCHES[strength];
+    var stack = document.getElementById('adjStack');
+    var compressed = strength === 'compressed';
 
-    // CLARA narrates in the docked panel; the map reacts on cue.
-    var echo = ctx.chrome.querySelector('#claraEcho');
-    var lines = B.narration;
-    function bubble(i, el) {
-      el.className = 'cbub clara typing';
-      el.innerHTML = '<span></span><span></span><span></span>';
-      echo.scrollTop = echo.scrollHeight;
+    // Build the row set for THIS result. The mastery check only earns a row
+    // when it actually changed (test-up) — an unchanged row is just noise.
+    var rows = ADJUST_ROWS.filter(function (r) {
+      return r.kind !== 'harder' || (compressed && up);
+    }).map(function (r) {
+      var mins = minsFor(r.step);
+      if (!compressed)        return { row: r, state: 'kept',    note: mins + ' min' };
+      if (r.kind === 'drop')  return { row: r, state: 'dropped', note: mins + ' min saved' };
+      if (r.kind === 'short') return { row: r, state: 'shorter', note: 'the short cut' };
+      return { row: r, state: 'harder', note: 'you earned the tougher version' };
+    });
+
+    var saved = rows.reduce(function (n, r) {
+      return n + (r.state === 'dropped' ? minsFor(r.row.step) : 0);
+    }, 0);
+    var dropped = rows.filter(function (r) { return r.state === 'dropped'; }).length;
+
+    // EVERY row is on screen from the first frame, spinner where its verdict
+    // will go — and the summary line holds its space with a blank. Only the
+    // verdicts resolve, so no part of this page ever moves under the reader.
+    stack.innerHTML = rows.map(function (r) {
+      return '<li class="adj-row" data-state="pending">' +
+               '<span class="adj-ico"><i class="fa-solid ' + r.row.icon + '" aria-hidden="true"></i></span>' +
+               '<span class="adj-main"><span class="adj-label">' + esc(r.row.label) + '</span>' +
+               '<span class="adj-note">' + minsFor(r.row.step) + ' min</span></span>' +
+               '<span class="adj-state"><span class="adj-spin" aria-hidden="true"></span></span>' +
+             '</li>';
+    }).join('');
+
+    var els = [].slice.call(stack.children);
+    rows.forEach(function (r, i) {
       setTimeout(function () {
-        el.className = 'cbub clara'; el.innerHTML = lines[i];
-        echo.scrollTop = echo.scrollHeight;
-        if (i === lines.length - 1) { setTimeout(applyCompression, T(700)); return; }
-        var next = document.createElement('div');
-        echo.appendChild(next);
-        setTimeout(function () { bubble(i + 1, next); }, T(900));
-      }, T(i === 0 ? 900 : 1300));
-    }
-    bubble(0, echo.querySelector('.clara-say') || echo.appendChild(document.createElement('div')));
+        var li = els[i];
+        li.dataset.state = r.state;
+        li.querySelector('.adj-note').textContent = r.note;
+        li.querySelector('.adj-state').innerHTML = ADJUST_CHIPS[r.state];
+      }, T(900 + i * 480));
+    });
+    setTimeout(finish, T(900 + rows.length * 480 + 300));
 
-    function applyCompression() {
-      document.getElementById('adjHeadline').textContent = B.headline;
-      document.getElementById('adjSub').textContent = B.sub;
-      var nodes = [].slice.call(rail.children);
-      if (strength === 'compressed') {
-        // Strike the compressible Learn beats one after another, then mark the
-        // short cut and (when earned) the advanced-tier check.
-        var targets = nodes.filter(function (li, i) { return PATH_NODES[i].compressible; });
-        targets.forEach(function (li, i) {
-          setTimeout(function () {
-            li.classList.add('is-skipped');
-            var c = li.querySelector('.pn-chip');
-            if (c) c.outerHTML = '<span class="pn-chip pn-skipped"><i class="fa-solid fa-forward"></i> Verified at entry — compressed</span>';
-          }, T(300 + i * 550));
-        });
-        setTimeout(function () {
-          nodes.forEach(function (li, i) {
-            if (PATH_NODES[i].shortcut) {
-              var c = li.querySelector('.pn-chip');
-              if (c) c.outerHTML = '<span class="pn-chip pn-done"><i class="fa-solid fa-scissors"></i> Short cut · 4 min</span>';
-            }
-            if (PATH_NODES[i].locked && up) {
-              li.querySelector('.pn-chip').outerHTML =
-                '<span class="pn-chip pn-added"><i class="fa-solid fa-arrow-trend-up"></i> Test-up · advanced tier</span>';
-            }
-          });
-          revealProvenance();
-        }, T(300 + targets.length * 550 + 400));
-      } else {
-        revealProvenance();
-      }
-    }
-    function revealProvenance() {
-      var card = document.getElementById('provCard');
-      document.getElementById('provChain').innerHTML =
-        B.chain.map(function (li) { return '<li>' + li + '</li>'; }).join('');
-      card.hidden = false;
-      requestAnimationFrame(function () { requestAnimationFrame(function () { card.classList.add('in'); }); });
+    function finish() {
+      document.getElementById('adjEyebrow').textContent = B.eyebrow;
+      document.getElementById('adjHead').textContent = B.head;
+      var savedEl = document.getElementById('adjSaved');
+      savedEl.textContent = compressed
+        ? dropped + ' lessons off your path — about ' + saved + ' minutes.'
+        : 'Nothing removed. You’ll see all of it.';
+      savedEl.classList.add('in');
       saveResult('entry', { strength: strength, up: up });
       // Refresh the counters FIRST (compression changes the visible total),
       // then unlock Continue: updateFooter re-arms the gate.
@@ -1145,14 +1180,6 @@
       updateFrame(STEPS[idx]);
       ctx.enableNext();
     }
-    wireSidebarChat(ctx, [
-      'Nothing here was improvised — compression picks over module structures the Learning Layer derived from BO-2’s SME-signed objectives.',
-      strength === 'compressed'
-        ? 'Because you proved K1–K3 at entry. Test-out removes only what’s evidenced — the locked item and the scenario stay for everyone.'
-        : 'Because nothing’s evidenced yet. The full build is the default — and the mastery check can still recompose the path in the moment.',
-      'Your administrator sees the same chain you do: the objective, the evidence, and the change — nothing is silent.',
-      'If you’d rather take the full path anyway, your organization can turn test-out off per course — it’s a setting, not a mandate.'
-    ]);
   }
 
   // ==========================================================================
@@ -1262,7 +1289,7 @@
     };
     var evidence = {
       knowledge: base.knowledge >= 2
-        ? 'Verified K1–K3 at entry, then held the locked mastery item' + (up ? ' at the advanced tier' : '') + ' — first try.'
+        ? 'Verified the intervention tactics at entry, then held the locked mastery item' + (up ? ' at the advanced tier' : '') + ' — first try.'
         : 'Built through the full path, then held the compliance-locked mastery item.',
       beliefs: '“Someone had to say it — better me than nobody.” — the Marshall scenario',
       norms: 'Read the break room’s silence as pressure — and acted anyway. — the Marshall scenario',
@@ -1441,10 +1468,16 @@
       coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
       content: BASELINE_CONTENT, init: baselineInit },
 
-    { id: 'compress', icon: 'fa-diagram-project', mins: 1, stage: 'Entry', mode: 'sidebar', lesson: 'Your Path, Compressed', gate: true,
-      caption: { title: 'ENTRY · Knowledge Layer · Docked guide', note: 'The Learning Layer scores the entry battery against module BO-2’s SME-signed objectives and compresses the Learn beats already verified. Locked items and the Perform stage are untouchable. Presenter control: Demo — flip entry result.' },
-      coach: { say: '', ask: 'Ask CLARA about this change…' },   // narration is TYPED IN by compressInit
-      content: COMPRESS_CONTENT, init: compressInit },
+    // Only on the branch where something actually changed. A learner who
+    // proved nothing gets no screen — telling them "nothing was removed" is a
+    // non-event, and it would land as an EXTRA screen on the longer path: a
+    // tax on the person already doing more work. Silence is the right output
+    // of an adaptive system that decided not to act.
+    { id: 'compress', icon: 'fa-diagram-project', mins: 1, stage: 'Entry', mode: 'crown', lesson: 'What You Can Skip', gate: true, interstitial: true,
+      when: function () { return entryStrength() === 'compressed'; },
+      caption: { title: 'ENTRY · Knowledge Layer · Crowned guide', note: 'Runs ONLY when compression fired — a learner who proved nothing skips this screen entirely, because “nothing was removed” is a non-event and would land as an extra screen on the longer path. The Learning Layer scores the entry check against module BO-2’s SME-signed objectives and compresses only the beats that check actually evidences (test-out): the tactics cluster (K3 the five Ds + K4 selecting one — they stand or fall together) and the intro clip, which shortens because its “how to respond” half is exactly what the item evidences. The barriers beat and the closing case are NOT compressible — nothing at entry probes them. Two questions buy two lessons, not four. The screen shows the learner ONLY what changed — fixed beats, the objective vocabulary and the audit chain are deliberately absent, because none of it answers a learner’s question. The audit chain still exists for administrators: objective → evidence → change, nothing silent. Locked items and the Perform stage are untouchable. Presenter control: Demo — flip entry result.' },
+      coach: {},   // the crown is the orb alone — no narration on this step
+      content: ADJUST_CONTENT, init: compressInit },
 
     { id: 'video', icon: 'fa-circle-play', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'LEARN · Gated video', note: 'The first Learn beat. On the compressed build CLARA frames it as the short cut; the clip must play and the learner answers CLARA’s check before Continue unlocks.' },
@@ -1454,21 +1487,22 @@
         src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
-    { id: 'audio', icon: 'fa-headphones', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'Why Rooms Stay Quiet', gate: true,
-      when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Know beat — Audio Summary', note: 'Narrated text with word-by-word highlighting (K2, diffusion of responsibility) and a Read-instead toggle — the modality-switching feature, live: listen or read, same objective, same credit. Compressible at entry.' },
-      coach: { say: 'This one you can listen to or read — your call. Tap Listen when you’re ready.' },
+    // Not compressible: the entry check never probes WHY bystanders freeze, so
+    // there's no evidence to test out of it. Runs on every path.
+    { id: 'audio', icon: 'fa-book-open-reader', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'Why Rooms Stay Quiet',
+      caption: { title: 'LEARN · Know beat — a short read', note: 'A read-first Know beat (K2, diffusion of responsibility): the passage carries the objective, so it carries the type weight — no subtitle, lighter title, no panel around the text. Modality switching is still live, but as an option rather than a fork: one “Read to me” control narrates the same words with word-by-word highlighting, same objective, same credit. Ungated on purpose — a self-paced read has no completion event, so Continue is live and the learner sets the pace. NOT compressible: nothing at entry probes why bystanders freeze.' },
+      coach: { say: 'Short one — read it at your own pace. If you’d rather hear it, tap “Read to me”.' },
       content: AUDIO_CONTENT, init: audioInit },
 
     { id: 'terms', icon: 'fa-list-check', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'The Five Ds', gate: true,
       when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3/K4) — one of the two beats a strong entry battery compresses away. Gate: every card flipped.' },
+      caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3) — one of the two beats the entry check compresses away, paired with the tactic drill: they stand or fall together. Gate: every card flipped.' },
       coach: { say: 'Five moves, five cards — flip each one. You only ever need the one that fits the moment.' },
       content: TERMS_CONTENT, init: termsInit },
 
     { id: 'drill', icon: 'fa-hand-pointer', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'Pick Your Move', gate: true,
       when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Know beat — tactic drill', note: 'Four situations, five Ds (K4, select the tactic) — best answers plus accepted seconds with coaching notes. Compressible at entry.' },
+      caption: { title: 'LEARN · Know beat — tactic drill', note: 'Four situations, five Ds (K4, select the tactic) — best answers plus accepted seconds with coaching notes. The other half of the compressible tactics cluster.' },
       coach: { say: 'You know the five moves — now pick the right one under real constraints.' },
       content: DRILL_CONTENT, init: drillInit },
 
@@ -1482,9 +1516,10 @@
       coach: { say: 'Loading…' },   // stepinInit runs the thread immediately
       content: STEPIN_CONTENT, init: stepinInit },
 
+    // Not compressible either — the closing case is the emotional anchor, and
+    // nothing at entry evidences it. Runs on every path.
     { id: 'casevideo', icon: 'fa-scale-balanced', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'A Real Case', gate: true,
-      when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Case beat', note: 'The real-case close — the second beat entry compression removes. No question here; the mastery items live in the Check stage.' },
+      caption: { title: 'LEARN · Case beat', note: 'The real-case close, on every path — it’s the emotional anchor and nothing at entry evidences it. No question here; the mastery items live in the Check stage.' },
       coach: { say: 'One real case before the check — press play.' },
       content: videoContent({ eyebrow: 'Learn · watch', heading: 'A real case',
         sub: 'What it costs when nobody steps in — a case that went to court.',
@@ -1529,6 +1564,20 @@
     if (n === 0) n = 1;
     return { n: n, total: path.length };
   }
+  // "Section n of N" counts LEARNING OBJECTS, not screens. The title page is a
+  // cover and the path adjustment is a system moment — neither is a section, so
+  // neither is numbered and neither pads the denominator. Returns null for
+  // those, which is the signal to hide the counter and bar entirely.
+  function countedPath() {
+    return visiblePath().filter(function (s) { return !s.cover && !s.interstitial; });
+  }
+  function sectionPos(step) {
+    if (step.cover || step.interstitial) return null;
+    var path = countedPath();
+    var n = path.indexOf(step) + 1;
+    if (n === 0) n = 1;
+    return { n: n, total: path.length };
+  }
 
   // ==========================================================================
   //  Coach-chrome builders (per mode) — ported from layered-learning.js
@@ -1552,6 +1601,15 @@
           '<input id="claraAsk" type="text" placeholder="' + esc(coach.ask || 'Ask CLARA anything…') + '" aria-label="Ask CLARA">' +
           '<button class="clara-send" id="claraAskSend" type="button" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>' +
         '</div>';
+    }
+    // Crown: the orb sits ABOVE the content, centred, with one line under it.
+    // For screens where CLARA has something short to say about what the page
+    // is showing — she introduces it rather than sitting beside it.
+    if (mode === 'crown') {
+      // The orb alone — no name, no line. On a screen whose whole job is
+      // showing what changed, the rows and the total say it; a coach
+      // narrating the same thing above them was a second voice for one point.
+      return '<div class="clara-slot"></div>';
     }
     if (mode === 'floating') {
       return '<div class="clara-bubble"><span class="clara-name">CLARA</span>' +
@@ -1583,6 +1641,40 @@
     if (!glide) requestAnimationFrame(function () { orbEl.style.transition = ''; });
   }
 
+  // ---- Orb travel between steps -------------------------------------------
+  // The orb used to GLIDE from its old slot to its new one. When two steps put
+  // it in very different places — the bottom-right companion to the crown at
+  // top-centre — that reads as a long diagonal slide across the page. It now
+  // leaves and arrives IN PLACE instead: a small swell, out to nothing, then
+  // back at the new spot with a slight overshoot. Same handoff, no travel.
+  // (Repositioning WITHIN a step still glides — those are short moves, e.g.
+  // the orb following its bubble as the bubble grows.)
+  function orbLeave() {
+    if (!orbEl) return;
+    orbEl.classList.remove('is-orb-in');
+    void orbEl.offsetWidth;                        // restart the animation
+    orbEl.classList.add('is-orb-out');
+  }
+  function orbArrive() {
+    if (!orbEl) return;
+    orbEl.classList.remove('is-orb-out');
+    void orbEl.offsetWidth;
+    orbEl.classList.add('is-orb-in');
+    // Drop the class once it lands so the orb goes back to its resting,
+    // un-animated state (scale(1) either way — nothing moves). The timer is a
+    // backstop, not the mechanism: the animation's fill holds the orb at
+    // scale 0 until it plays, so anywhere it DOESN'T play — a paused
+    // background tab, a browser that skips it — the orb would sit invisible.
+    // Comfortably longer than the 460ms animation, so it never cuts one short.
+    var done = function () {
+      clearTimeout(orbInTimer);
+      orbEl.classList.remove('is-orb-in');
+      orbEl.removeEventListener('animationend', done);
+    };
+    orbEl.addEventListener('animationend', done);
+    var orbInTimer = setTimeout(done, 700);
+  }
+
   function makeCtx() {
     return {
       stage: stage, chrome: chrome, orb: orbEl,
@@ -1599,10 +1691,19 @@
   }
 
   function updateFrame(step) {
-    var pos = stepPos(step);
+    var sec = sectionPos(step);
     if (frameLesson) frameLesson.textContent = step.lesson;
-    if (frameStep) frameStep.textContent = 'Section ' + pos.n + ' of ' + pos.total;
-    if (frameBar) frameBar.setAttribute('value', String(pos.n / pos.total));
+    if (frameStep) frameStep.textContent = sec ? 'Section ' + sec.n + ' of ' + sec.total : '';
+    if (frameBar) frameBar.setAttribute('value', sec ? String(sec.n / sec.total) : '0');
+  }
+
+  // The demo control names the ARMED result rather than the action, so it says
+  // the same thing on the entry check (where you set it) and on the adjustment
+  // screen (where you see it). Clicking flips it.
+  function labelBranchBtn() {
+    if (!branchBtn) return;
+    var armed = entryStrength() === 'compressed' ? 'can skip' : 'full build';
+    branchBtn.innerHTML = '<i class="fa-solid fa-shuffle"></i> Demo: entry result — ' + armed;
   }
 
   function updateFooter(step) {
@@ -1611,18 +1712,29 @@
     // duplication. Numbering comes from the VISIBLE path — recomposition can
     // shrink the denominator mid-course, and that's deliberate.
     var pos = stepPos(step);
+    var sec = sectionPos(step);
     // The title page is a cover: no back, no counter — just the course CTA.
     if (step.cover) {
       if (footCount) footCount.textContent = 'Course overview';
       if (footBar) footBar.style.display = 'none';
       backBtn.style.display = 'none';
+    } else if (!sec) {
+      // An interstitial isn't a section, so it gets no number and no bar —
+      // claiming progress through a screen that teaches nothing would be a lie,
+      // and a numbered gap either side of it reads as a bug.
+      if (footCount) footCount.textContent = '';
+      if (footBar) footBar.style.display = 'none';
+      backBtn.style.display = '';
     } else {
-      if (footCount) footCount.textContent = 'Section ' + pos.n + ' of ' + pos.total;
-      if (footBar) { footBar.style.display = ''; footBar.setAttribute('value', String(pos.n / pos.total)); }
+      if (footCount) footCount.textContent = 'Section ' + sec.n + ' of ' + sec.total;
+      if (footBar) { footBar.style.display = ''; footBar.setAttribute('value', String(sec.n / sec.total)); }
       backBtn.style.display = '';
     }
     if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
-    if (branchBtn) branchBtn.style.display = (step.id === 'compress') ? 'inline-flex' : 'none';
+    if (branchBtn) {
+      branchBtn.style.display = (step.id === 'compress' || step.id === 'baseline') ? 'inline-flex' : 'none';
+      labelBranchBtn();
+    }
     backBtn.disabled = (pos.n <= 1);
     var isLast = (pos.n >= pos.total);
     nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
@@ -1630,7 +1742,10 @@
     // Popover caption
     if (step.caption) {
       pop.querySelector('.ll-pop-eyebrow').innerHTML =
-        '<i class="fa-solid fa-layer-group"></i> Coach presentation · ' + pos.n + ' / ' + pos.total;
+        // "screen" not "section": this counts every screen including the cover
+        // and the interstitial, so it deliberately differs from the learner's
+        // section count. Saying which is which stops that reading as a bug.
+        '<i class="fa-solid fa-layer-group"></i> Coach presentation · screen ' + pos.n + ' / ' + pos.total;
       pop.querySelector('.ll-pop-title').textContent = step.caption.title;
       pop.querySelector('.ll-pop-note').textContent = step.caption.note || '';
     }
@@ -1657,6 +1772,7 @@
     if (!first) {
       if (prevChrome) prevChrome.classList.add('leaving');
       if (prevObject) prevObject.classList.add('leaving');
+      orbLeave();
     }
 
     setTimeout(function () {
@@ -1685,7 +1801,8 @@
       stage.appendChild(chrome);
 
       idx = i; nextHref = null;
-      positionOrb(first ? false : true);            // glide to the new slot
+      positionOrb(false);                           // land in the new slot, no travel
+      if (!first) orbArrive();
       updateFooter(step); updateFrame(step);
 
       var ctx = makeCtx();
@@ -1813,14 +1930,31 @@
       branchBtn = document.createElement('button');
       branchBtn.id = 'llBranchBtn';
       branchBtn.type = 'button';
-      branchBtn.title = 'Demo: replay this compression with the opposite entry result (compressed ↔ full build)';
-      branchBtn.innerHTML = '<i class="fa-solid fa-shuffle"></i> Demo: flip entry result';
+      branchBtn.title = 'Demo: force the entry result (can skip ↔ full build). ' +
+        'On the full build there is nothing to report, so the adjustment screen doesn’t run at all.';
       branchBtn.style.display = 'none';
       branchBtn.addEventListener('click', function () {
         if (busy) return;
+        var step = STEPS[idx];
         var next = entryStrength() === 'compressed' ? 'full' : 'compressed';
         try { sessionStorage.setItem('ll-entry', next); } catch (e) {}
-        showStep(idx, 'fwd', false);              // replay the compression on the new entry result
+        if (readCourse().baseline) saveResult('entry', { strength: next, up: testUp() });
+
+        if (step && step.id === 'compress') {
+          // This screen only exists when something compressed, so flipping to
+          // the full build deletes it out from under us — advancing IS the
+          // demonstration. Flipping the other way replays it.
+          if (next === 'full') { go(1); return; }
+          showStep(idx, 'fwd', false);
+          return;
+        }
+        // On the entry check: just re-arm and relabel. Replaying would wipe
+        // the learner's answers and re-gate Continue for no reason — the
+        // effect shows on the next Continue either way. The counters move
+        // now, though: the denominator is a different number on each branch.
+        var wasOpen = !nextBtn.disabled;
+        updateFooter(step); updateFrame(step);
+        if (wasOpen) nextBtn.disabled = false;
       });
       actions.appendChild(branchBtn);
     }

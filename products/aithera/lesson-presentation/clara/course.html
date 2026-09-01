@@ -177,7 +177,7 @@
       .bl-ask.swapping { opacity: 0; transform: translateY(-8px); }
       /* Centering a question (a title, not body prose) is the point here. */
       .ll-object .bl-q {
-        margin: 0 0 10px; max-width: 30ch;
+        margin: 0 0 10px; max-width: 34ch;
         font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; line-height: 1.2;
         letter-spacing: -.01em; text-align: center; color: #fff;
       }
@@ -212,6 +212,24 @@
         .bl-ask, .bl-option { transition: none; }
         .bl-option:hover { transform: none; }
       }
+      /* The wait between the two questions. Always in flow — it holds its own
+         line from the first frame — so revealing it can't shift the options
+         above it. Determinate on purpose: a spinner would say "something is
+         happening", and what the learner needs to know is "how long". */
+      .bl-next {
+        display: flex; align-items: center; gap: 11px;
+        margin: 22px 0 0; min-height: 16px;
+        font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+        text-transform: uppercase; color: var(--ll-ink-faint);
+        opacity: 0; transition: opacity .3s ease;
+      }
+      .bl-next.in { opacity: 1; }
+      .bl-next-track {
+        width: 132px; height: 3px; border-radius: 999px;
+        background: rgba(255, 255, 255, .12); overflow: hidden;
+      }
+      .bl-next-fill { display: block; width: 0; height: 100%; border-radius: 999px; background: var(--ll-teal); }
+
       /* Narrow: stack the choices, shorter cards so all three stay in view. */
       @media (max-width: 620px) {
         .ll-object .bl-q { font-size: 22px; max-width: 22ch; }
@@ -224,56 +242,143 @@
         .bl-option i { font-size: 18px; }
       }
 
-      /* ==== Path adjustment: the learning-path map ==== */
-      .path-rail { list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; width: min(860px, 100%); }
-      .path-node {
-        display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-        background: rgba(255, 255, 255, .035); border: 1px solid var(--ll-line-soft); border-radius: 13px;
-        transition: opacity .5s var(--ll-ease), transform .5s var(--ll-ease), border-color .5s ease, box-shadow .5s ease;
+      /* ==== Orb handoff between steps: bounce out, bounce in ====
+         Not a glide. Two steps can park the orb in very different places (the
+         bottom-right companion vs. the crown at top-centre), and interpolating
+         between them drags it diagonally across the whole page. Instead it
+         swells slightly, shrinks out to nothing, and re-appears at the new
+         spot overshooting its resting size before settling. */
+      .clara-orb.is-orb-out { animation: orb-out 240ms cubic-bezier(.4, .05, .75, .2) forwards; }
+      .clara-orb.is-orb-in  { animation: orb-in 460ms cubic-bezier(.25, .8, .35, 1) both; }
+      @keyframes orb-out {
+        0%   { transform: scale(1);    opacity: 1; }
+        34%  { transform: scale(1.14); opacity: 1; }
+        100% { transform: scale(0);    opacity: 0; }
       }
-      .pn-ico {
-        width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
-        color: var(--ll-ink-soft); font-size: 14px; flex: 0 0 auto;
+      @keyframes orb-in {
+        0%   { transform: scale(0);    opacity: 0; }
+        55%  { transform: scale(1.16); opacity: 1; }
+        78%  { transform: scale(.965); opacity: 1; }
+        100% { transform: scale(1);    opacity: 1; }
       }
-      .path-node[data-state="done"] .pn-ico { color: var(--ll-teal); border-color: rgba(46, 230, 207, .3); }
-      .pn-main { display: flex; flex-direction: column; gap: 2px; text-align: left; }
-      .pn-label { font-size: 13px; font-weight: 600; color: #fff; }
-      .pn-sub { font-size: 10.5px; color: var(--ll-ink-faint); letter-spacing: .03em; }
-      .pn-chip { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
-      .pn-chip i { font-size: 9px; margin-right: 2px; }
-      .pn-done    { background: rgba(46, 230, 207, .12); color: var(--ll-teal); border: 1px solid rgba(46, 230, 207, .28); }
-      .pn-planned { background: rgba(255, 255, 255, .05); color: var(--ll-ink-faint); border: 1px solid var(--ll-line); }
-      .pn-next    { background: rgba(255, 255, 255, .05); color: var(--ll-ink-soft); border: 1px solid var(--ll-line); }
-      .pn-added   { background: rgba(167, 139, 250, .14); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, .35); }
-      .pn-skipped { background: rgba(241, 179, 74, .14); color: #f1b34a; border: 1px solid rgba(241, 179, 74, .32); }
-      /* Compliance-locked content — recomposition never removes it. */
-      .pn-locked  { background: rgba(255, 255, 255, .05); color: #f1b34a; border: 1px solid rgba(241, 179, 74, .4); margin-left: 6px; }
-      /* The Perform floor — the simulation is the minimum experience. */
-      .pn-floor   { background: rgba(46, 230, 207, .08); color: var(--ll-teal); border: 1px solid rgba(46, 230, 207, .3); margin-left: 6px; }
-      .path-node.is-leaving  { opacity: 0; transform: translateY(-10px) scale(.97); }
-      .path-node.is-entering { opacity: 0; transform: translateY(12px) scale(.97); }
-      .path-node.is-added    { border-color: rgba(167, 139, 250, .45); box-shadow: 0 0 0 1px rgba(167, 139, 250, .18), 0 6px 24px rgba(167, 139, 250, .14); }
-      .path-node.is-skipped  { opacity: .55; }
-      .path-node.is-skipped .pn-label { text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, .4); }
+      /* Reduced motion: the orb still hands off, it just doesn't perform. */
+      @media (prefers-reduced-motion: reduce) {
+        .clara-orb.is-orb-out { animation: none; opacity: 0; }
+        .clara-orb.is-orb-in  { animation: none; opacity: 1; }
+      }
 
-      /* The provenance chain — the paper trail under the recomposition. */
-      .prov-card {
-        margin-top: 24px; width: min(760px, 100%);
-        background: rgba(255, 255, 255, .03); border: 1px solid var(--ll-line-soft); border-radius: 14px;
-        padding: 16px 18px; opacity: 0; transform: translateY(10px);
-        transition: opacity .5s var(--ll-ease), transform .5s var(--ll-ease);
+      /* ==== Path adjustment: CLARA crowning a tight stack of changes ====
+         The screen has one job — show what the learner's own answers did to
+         the course — so the layout gives it the whole middle: orb on top,
+         one line from CLARA, the headline, then the changed lessons arriving
+         one at a time. No fixed beats, no audit trail, no rail. */
+
+      /* Crown chrome: the orb centred above the content rather than beside it.
+         The shared stylesheet only knows the four original modes, so this one
+         opts itself in here — it's course-local, like the rest of this block. */
+      .ll-stage[data-mode="crown"] .clara-chrome--crown { display: flex; }
+      .clara-chrome--crown {
+        left: 0; right: 0; top: clamp(18px, 4vh, 44px);
+        margin: 0 auto;
+        width: min(620px, calc(100% - 48px));
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 6px;
+        pointer-events: none;
       }
-      .prov-card.in { opacity: 1; transform: none; }
-      .prov-head { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ll-teal); display: flex; align-items: center; gap: 8px; }
-      .prov-chain { list-style: none; margin: 12px 0 0; padding: 0; }
-      .prov-chain li { position: relative; padding: 0 0 14px 26px; font-size: 13px; line-height: 1.55; color: var(--ll-ink-soft); text-align: left; }
-      .prov-chain li:last-child { padding-bottom: 2px; }
-      .prov-chain li::before { content: ''; position: absolute; left: 7px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--ll-teal); }
-      .prov-chain li:not(:last-child)::after { content: ''; position: absolute; left: 10.5px; top: 18px; bottom: 2px; width: 1px; background: var(--ll-line); }
-      .prov-chain b { color: #fff; }
-      .prov-chain em { color: #f1b34a; font-style: normal; font-weight: 600; }
-      .prov-ok { color: var(--ll-teal); }
+      .clara-chrome--crown .clara-slot { width: 58px; height: 58px; }
+      /* Content clears the crown; the stack owns the rest of the stage. */
+      /* Anchored, NOT centred. Every row is on screen from the first frame
+         and only its verdict resolves, so a fixed top edge means the page
+         never moves under the reader — and the gap below the crown is small
+         enough that CLARA, the headline and the stack read as one column. */
+      .ll-stage[data-mode="crown"] .ll-object {
+        padding-top: clamp(122px, 16vh, 150px);
+        justify-content: flex-start;
+      }
+      .adj { width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; }
+      .ll-object .adj-head {
+        margin: 0 0 4px; max-width: 22ch;
+        font-size: clamp(24px, 3.2vw, 32px); font-weight: 800; line-height: 1.2;
+        letter-spacing: -.01em; text-align: center; color: #fff;
+      }
+
+      /* The stack — tight, so four removals read as one block of change. */
+      .adj-stack { list-style: none; margin: 18px 0 0; padding: 0; width: 100%; display: grid; gap: 6px; }
+      .adj-row {
+        display: grid; grid-template-columns: 32px 1fr auto; gap: 13px; align-items: center;
+        padding: 9px 14px; border-radius: 12px;
+        border: 1px solid var(--ll-line-soft); background: rgba(255, 255, 255, .04);
+        transition: background .4s ease, border-color .4s ease, opacity .4s ease;
+      }
+      /* Waiting its turn: present and sized, just undecided. */
+      .adj-row[data-state="pending"] { opacity: .62; }
+      /* The verdict slot holds a fixed width so the spinner → chip swap
+         doesn't nudge the row's own layout either. */
+      .adj-state { min-width: 92px; display: flex; justify-content: flex-end; align-items: center; }
+      .adj-spin {
+        width: 15px; height: 15px; border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, .13); border-top-color: var(--ll-teal);
+        animation: adj-spin .7s linear infinite;
+      }
+      @keyframes adj-spin { to { transform: rotate(360deg); } }
+      .adj-ico {
+        width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        color: var(--ll-ink-soft); font-size: 13px;
+      }
+      .adj-main { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; }
+      .adj-label { font-size: 14px; font-weight: 600; color: #fff; }
+      .adj-note { font-size: 11px; color: var(--ll-ink-faint); }
+      /* A dropped lesson reads as struck off a list, not as a card that failed. */
+      .adj-row[data-state="dropped"] { background: transparent; border-style: dashed; }
+      .adj-row[data-state="dropped"] .adj-ico { opacity: .4; }
+      .adj-row[data-state="dropped"] .adj-label {
+        color: var(--ll-ink-faint);
+        text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, .35);
+      }
+      .adj-row[data-state="shorter"] .adj-ico,
+      .adj-row[data-state="harder"] .adj-ico { color: var(--ll-teal); border-color: rgba(46, 230, 207, .3); }
+
+      .adj-chip {
+        font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+        padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+      }
+      .adj-chip i { font-size: 9px; margin-right: 3px; }
+      .adj-chip--drop   { background: rgba(241, 179, 74, .14); color: #f1b34a; border: 1px solid rgba(241, 179, 74, .32); }
+      .adj-chip--short  { background: rgba(46, 230, 207, .12); color: var(--ll-teal); border: 1px solid rgba(46, 230, 207, .28); }
+      .adj-chip--harder { background: rgba(167, 139, 250, .14); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, .35); }
+      .adj-chip--keep   { background: rgba(255, 255, 255, .05); color: var(--ll-ink-soft); border: 1px solid var(--ll-line); }
+
+      /* The payoff, in minutes — the one number a learner actually wants. */
+      /* Rendered from the start with a blank, so its line is already reserved
+         and the stack above it can't be pushed when the total lands. */
+      .adj-saved {
+        margin: 15px 0 0; font-size: 14px; font-weight: 600; color: var(--ll-teal);
+        opacity: 0; transition: opacity .45s ease;
+      }
+      .adj-saved.in { opacity: 1; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .adj-row, .adj-saved { transition: none; }
+        .adj-spin { animation: none; border-top-color: rgba(255, 255, 255, .13); }
+      }
+      /* Narrow: shrink the crown so the stack — the actual point — keeps as
+         much of the screen as possible. Past six rows it scrolls, which is
+         the right answer on a phone. */
+      @media (max-width: 720px) {
+        .clara-chrome--crown { top: 14px; }
+        .clara-chrome--crown .clara-slot { width: 48px; height: 48px; }
+        .ll-stage[data-mode="crown"] .ll-object { padding-top: clamp(94px, 13vh, 116px); }
+        .adj-state { min-width: 84px; }
+        .ll-object .adj-head { font-size: 22px; max-width: 20ch; }
+        .adj-stack { margin-top: 18px; gap: 6px; }
+        .adj-row { padding: 9px 12px; gap: 11px; grid-template-columns: 28px 1fr auto; }
+        .adj-ico { width: 28px; height: 28px; font-size: 12px; }
+        .adj-label { font-size: 13px; }
+        .adj-saved { margin-top: 15px; font-size: 13px; }
+      }
 
       /* ==== Inserted micro-practice: the mini-scene card ==== */
       .mp-scene {
@@ -393,32 +498,42 @@
       .sms-anatomy li i { color: var(--ll-teal); font-size: 11px; }
       .sms-anatomy li b { color: #fff; }
 
-      /* ==== Learn beats — Audio Summary: narrated text, word-by-word ==== */
-      .aud-wrap { width: min(640px, 100%); margin-top: 22px; text-align: left; }
-      .aud-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+      /* ==== Learn beats — a short read, narration on demand ==================
+         The passage is the instruction on this beat, so it gets the type
+         weight: the header sheds its subtitle and drops a size and a weight,
+         the panel around the text goes away, and the body copy comes up to
+         reading size. Scoped to .is-read so the rest of the course keeps the
+         standard object header.                                              */
+      .ll-object.is-read .ll-eyebrow {
+        font-size: 11px; font-weight: 700; letter-spacing: .14em;
+        color: var(--ll-ink-faint); margin-bottom: 9px;
+      }
+      .ll-object.is-read h2 {
+        font-size: clamp(20px, 2.1vw, 25px); font-weight: 700;
+        color: var(--ll-ink); margin-bottom: 20px;
+      }
+      .aud-wrap { width: min(62ch, 100%); text-align: left; }
+      /* Quiet by design — an option beside the text, not a call to action. */
       .aud-play {
-        display: inline-flex; align-items: center; gap: 9px;
-        font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
-        background: rgba(46, 230, 207, .14); color: var(--ll-teal);
-        border: 1px solid rgba(46, 230, 207, .35); border-radius: 999px; padding: 9px 18px;
+        display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px;
+        font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+        background: transparent; color: var(--ll-ink-soft);
+        border: 1px solid var(--ll-line); border-radius: 999px; padding: 7px 15px;
+        transition: color .2s ease, border-color .2s ease, background .2s ease;
       }
-      .aud-play:hover { background: rgba(46, 230, 207, .22); }
-      .aud-mode {
-        margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
-        font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
-        background: rgba(255, 255, 255, .04); color: var(--ll-ink-soft);
-        border: 1px solid var(--ll-line); border-radius: 999px; padding: 7px 14px;
-      }
-      .aud-mode:hover { border-color: rgba(46, 230, 207, .5); color: var(--ll-ink); }
+      .aud-play:hover { color: var(--ll-teal); border-color: rgba(46, 230, 207, .5); background: rgba(46, 230, 207, .08); }
+      .aud-play.on { color: var(--ll-teal); border-color: rgba(46, 230, 207, .45); background: rgba(46, 230, 207, .12); }
+      .aud-play:disabled { cursor: default; opacity: .5; }
       .aud-text {
-        background: rgba(255, 255, 255, .03); border: 1px solid var(--ll-line-soft);
-        border-radius: 14px; padding: 20px 22px;
-        font-size: 16.5px; line-height: 1.85; color: var(--ll-ink-soft);
+        margin: 0; font-size: clamp(17px, 1.5vw, 19.5px); line-height: 1.8;
+        color: var(--ll-ink);
       }
       .aud-text .w { border-radius: 4px; padding: 0 1px; transition: background .12s ease, color .12s ease; }
       .aud-text .w.hot { background: rgba(46, 230, 207, .25); color: #fff; }
-      .aud-text.read-mode { color: var(--ll-ink); }
-      .aud-note { margin-top: 10px; font-size: 11px; color: var(--ll-ink-faint); }
+      /* Space is reserved, not created on tap — revealing the disclaimer must
+         not nudge the passage the learner is mid-way through. */
+      .aud-note { margin-top: 20px; font-size: 11px; color: var(--ll-ink-faint); visibility: hidden; }
+      .aud-note.show { visibility: visible; }
 
       /* ==== Learn beats — Pick your move: which D fits the moment ==== */
       .dr-wrap { width: min(620px, 100%); margin-top: 22px; }
@@ -583,6 +698,6 @@
     </script>
     <script src="../js/mobius-orb.js?v=5"></script>
     <script src="../js/frame.js?v=4"></script>
-    <script src="../js/layered-course.js?v=28"></script>
+    <script src="../js/layered-course.js?v=44"></script>
 </body>
 </html>
