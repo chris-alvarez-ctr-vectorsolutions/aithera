@@ -119,9 +119,19 @@ the template gallery, the AI draft, and open-an-existing-scenario. The panel
 still opens itself when the editor boots with an empty document, but after that
 there is no way back to it — so no changing template and no starting over.
 
-The function already exists (`openNewScenario()` in `js/studio-shell.js`); it is
-simply not reachable from outside the page. It was left that way on purpose
-rather than guessing at an API. You will want a way in.
+**This is now solved, three ways** — see
+`scenario-editor/integration/README.md` for the details and a copy-paste
+snippet:
+
+- `?new=1` and `?wizard=1` on the URL, for when you are loading the iframe anyway.
+- `postMessage({ source: 'learning-studio', action: 'new-scenario' })` for
+  triggering it in place. **This is the one that works from Learning Studio**, since
+  a cross-origin parent cannot reach into the frame.
+- `window.AitheraStudioHost.openNewScenario()`, same-origin only.
+
+Scoped to those two actions deliberately. It replaces one hidden button; it is
+not a proposed event contract for save, publish and preview, and should be
+replaced by that rather than grown into it.
 
 ---
 

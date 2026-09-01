@@ -2047,12 +2047,72 @@
   buildPlaytest();
   buildSplitSandbox();
   update();
-  // [V2] deep link: ?wizard=1 opens the start-from-scratch wizard directly.
-  if (new URLSearchParams(location.search).get('wizard') === '1') openWizard();
+  /* Deep links to the two ways of starting. Both matter more than they used to:
+     in embedded mode the top bar is hidden, so `New scenario` — the only route to
+     the template gallery, the AI draft and open-an-existing-scenario — has no
+     button. A parameter is the right shape for the replacement, because Learning
+     Studio creates the Learning Object and then opens the iframe fresh anyway.
+
+       ?new=1     the front door panel, exactly what the hidden #newBtn opened
+       ?wizard=1  straight into the wizard, skipping the panel
+
+     Checked before the empty-draft fallback so an explicit request always wins. */
+  const BOOT_Q = new URLSearchParams(location.search);
+  if (BOOT_Q.get('wizard') === '1') openWizard();
+  else if (BOOT_Q.get('new') === '1') openNewScenario();
   /* First visit in this browser: show the front door rather than an empty form.
      An author who boots with nothing has no scenario to edit, so the three-column
      editor behind this is a lint dot on every section and no way to tell what to
      do about it — the four ways to start are the answer, and they already exist.
      Gated on `bootedEmpty` so it fires once per browser and never over a deep
-     link (?example=, ?wizard=) or a draft in progress. */
+     link (?example=, ?wizard=, ?new=) or a draft in progress. */
   else if (bootedEmpty && !RETIRED_TYPE) openNewScenario();
+
+  /* ---- the same two doors, for an embedder -------------------------------
+     A parameter needs a reload, which is right when Learning Studio has just
+     created the Learning Object and is opening the iframe anyway — but wrong for
+     "start over" mid-session, where a reload throws away the very thing the
+     author is looking at.
+
+     So the actions are also reachable at runtime. Two ways, because they are not
+     interchangeable:
+
+       window.AitheraStudioHost.openNewScenario()   SAME-ORIGIN only
+       postMessage({ source: 'learning-studio', … }) cross-origin
+
+     The window handle is the one to reach for in a same-origin page or the
+     console. It CANNOT be used from Learning Studio: reading
+     `iframe.contentWindow.AitheraStudioHost` across an origin boundary throws,
+     and the iframe is served from a different host. Cross-origin embedders must
+     use postMessage.
+
+     Deliberately two actions and nothing else. This is a first primitive so the
+     hidden `New scenario` button has a replacement — NOT a proposed event
+     contract for save, publish and preview. That still has to be designed with
+     the dev team, and this should be replaced by it rather than grown into it. */
+  window.AitheraStudioHost = {
+    openNewScenario: openNewScenario,
+    openWizard: openWizard,
+  };
+
+  window.addEventListener('message', (e) => {
+    /* Only the embedder, and only these two actions. Nothing is read from the
+       message and nothing but an acknowledgement is sent back, which is what
+       keeps an unvalidated origin acceptable here — opening a panel is not a
+       sensitive action. Add an origin allowlist once Learning Studio's origin is
+       known; the acknowledgement already replies to `e.origin` only. */
+    if (e.source !== window.parent) return;
+    const msg = e.data;
+    if (!msg || typeof msg !== 'object' || msg.source !== 'learning-studio') return;
+    if (msg.action !== 'new-scenario' && msg.action !== 'wizard') return;
+
+    if (msg.action === 'wizard') openWizard();
+    else openNewScenario();
+
+    try {
+      e.source.postMessage(
+        { source: 'scenario-editor', action: msg.action, ok: true },
+        e.origin === 'null' ? '*' : e.origin
+      );
+    } catch (err) { /* an embedder that cannot be replied to still got its panel */ }
+  });

@@ -29,6 +29,35 @@ The separate draft keys matter: both builds are served from the same origin, so
 without them, iteration on the live editor could reach the drafts K&A are
 authoring in here.
 
+## Triggering the new-scenario flow
+
+The top bar is hidden here, so `New scenario` has no button. Three replacements,
+which are not interchangeable:
+
+| | Use it when |
+| --- | --- |
+| `?new=1` | Learning Studio is opening the iframe anyway — after creating the Learning Object, say. Needs a load, so it discards anything in the editor. |
+| `?wizard=1` | Same, but skipping the panel and going straight into the wizard. |
+| `postMessage` | Mid-session, in place. **The only one that works from Learning Studio**, because a cross-origin parent cannot read into the frame. |
+
+```js
+// from the Learning Studio window
+iframe.contentWindow.postMessage(
+  { source: 'learning-studio', action: 'new-scenario' },  // or 'wizard'
+  'https://vectorlearning.github.io'
+);
+// the editor replies { source: 'scenario-editor', action, ok: true }
+```
+
+`window.AitheraStudioHost.openNewScenario()` also exists, but **only works
+same-origin** — useful from the console or a same-origin harness, not from
+Studio. Reading `iframe.contentWindow.AitheraStudioHost` across an origin
+boundary throws.
+
+The listener accepts these two actions from `window.parent` only, reads nothing
+from the message, and sends back only an acknowledgement. Add an origin
+allowlist once Learning Studio's origin is known.
+
 ## What is deliberately not in the cut
 
 The editor's own **Preview as learner** opens `composed-scenarios/index.html`,
