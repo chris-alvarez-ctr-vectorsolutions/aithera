@@ -75,7 +75,7 @@
     try { var o = sessionStorage.getItem('ll-entry'); if (o === 'compressed' || o === 'full') return o; } catch (e) {}
     var b = readCourse().baseline;
     if (b && b.bands) return b.bands.knowledge >= 2 ? 'compressed' : 'full';
-    return 'compressed';   // deep links land on the showcase branch
+    return 'full';   // before the entry battery, the syllabus shows the full build
   }
   function testUp() {
     var b = readCourse().baseline;
@@ -273,16 +273,96 @@
     ctx.positionOrb(false);
   }
 
-  // Step 1 — the welcome "cover." Re-adds the run-time estimate as a single
-  // detail pill, reusing the Marshall scene-setter's chip treatment
-  // (.ll-scene-fact) so the two title slides read as one family.
+  // ==========================================================================
+  //  Step 1 — the course TITLE PAGE: hero + live sections list + details rail,
+  //  the standard LMS anatomy rendered on the CLARA stage. The sections list
+  //  is generated from the ACTUAL path (visiblePath), so it foreshadows
+  //  compression before the entry battery and stays honest on a return visit.
+  // ==========================================================================
+  var INTRO_CONTENT =
+    '<main class="ll-object" id="coursePage">' +
+      '<div class="cp-grid">' +
+        '<div class="cp-hero">' +
+          '<p class="ll-eyebrow" id="cpGreet">Hi, Rob — ready when you are</p>' +
+          '<h1>Bystander Intervention</h1>' +
+          '<p class="cp-desc">This course gives every employee the judgment — and the words — to act when they ' +
+            'see harassment or bullying at work. You’ll learn to read the moment, choose an intervention that ' +
+            'fits, and follow up with the person targeted, then prove it in a live practice scenario. ' +
+            'The course adapts as you go: what you already know is compressed out, and anything shaky gets ' +
+            'fixed on the spot.</p>' +
+          '<div class="cp-chips">' +
+            '<span class="cp-chip due"><i class="fa-solid fa-calendar"></i> Required · due Sep 15</span>' +
+            '<span class="cp-chip"><i class="fa-solid fa-clock"></i> ≈25 min · ≈18 after a strong entry</span>' +
+            '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
+          '</div>' +
+          '<button class="ll-btn ll-btn--primary" id="cpStart" type="button">Start course <i class="fa-solid fa-arrow-right"></i></button>' +
+          '<section class="cp-sections" aria-label="Course sections">' +
+            '<div class="cp-sec-head"><h2>Course sections</h2>' +
+              '<span class="cp-progress"><span id="cpCount"></span><span class="cp-dots" id="cpDots"></span></span></div>' +
+            '<div id="cpRows"></div>' +
+            '<p class="cp-adapt-note" id="cpAdaptNote"><i class="fa-solid fa-wand-magic-sparkles"></i> Sections marked ' +
+              '“adapts” can be compressed out by your entry check — the list updates as the course recomposes.</p>' +
+          '</section>' +
+        '</div>' +
+        '<aside class="cp-rail">' +
+          '<div class="cp-card"><h3>Course requirements</h3>' +
+            '<ul class="cp-req">' +
+              '<li><i class="fa-solid fa-award"></i><span><b>Competency requirement</b> — Good or above on at least 80% of objectives (4 of 5).</span></li>' +
+              '<li><i class="fa-solid fa-lock"></i><span><b>Locked item</b> — one compliance question every learner must pass; it is never compressed.</span></li>' +
+              '<li><i class="fa-solid fa-comments"></i><span><b>Demonstrated live</b> — the closing scenario runs for everyone. You can’t test out of a skill.</span></li>' +
+            '</ul></div>' +
+          '<div class="cp-card"><h3>Course details</h3>' +
+            '<div class="cp-kv">' +
+              '<div class="kv"><b>Typical duration</b>≈25 minutes full build · ≈18 after a strong entry check</div>' +
+              '<div class="kv"><b>Category</b>Workplace Conduct</div>' +
+              '<div class="kv"><b>Source</b>Module BO-2 “Step In” · Harassment Prevention (JCOM-40198), standing alone as microlearning</div>' +
+            '</div></div>' +
+          '<div class="cp-card cp-res"><h3>Resources</h3>' +
+            '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-file-pdf"></i> Acme reporting policy <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
+            '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-hand-holding-heart"></i> Employee Assistance Program <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
+            '<p class="cp-res-note">All resources open in a new window.</p></div>' +
+          '<div class="cp-card"><h3>Course coordinator</h3>' +
+            '<div class="cp-coord"><span class="ava">LM</span>' +
+              '<span><b>Lena Moreau</b><small>Training Coordinator · training@acmemfg.com</small></span></div></div>' +
+        '</aside>' +
+      '</div>' +
+    '</main>';
+
+  // Which session-record key marks each section complete.
+  var DONE_KEYS = { baseline: 'baseline', compress: 'entry', video: 'video1', audio: 'audio',
+                    terms: 'terms', drill: 'drill', norms: 'norms', stepin: 'stepin',
+                    casevideo: 'casevideo', check: 'check', practice: 'practice', scenario: 'scenario' };
   function introInit(ctx) {
-    var wrap = document.createElement('div');
-    wrap.className = 'll-scene-facts';
-    wrap.innerHTML =
-      '<span class="ll-scene-fact"><i class="fa-solid fa-clock"></i>' +
-        '<span><b>Duration:</b> ≈ 10 minutes</span></span>';
-    if (ctx.chrome) ctx.chrome.appendChild(wrap);
+    var course = readCourse();
+    var entryDecided = !!course.entry;
+    var rows = visiblePath().filter(function (st) { return st.id !== 'intro'; });
+    var doneCount = 0;
+    document.getElementById('cpRows').innerHTML = rows.map(function (st) {
+      var done = !!course[DONE_KEYS[st.id]];
+      if (done) doneCount++;
+      var meta = [];
+      if (st.stage) meta.push('<span class="stage">' + esc(st.stage) + '</span>');
+      if (st.mins) meta.push('<span>About ' + st.mins + ' min' + (st.mins > 1 ? 's' : '') + '</span>');
+      meta.push('<span>Required</span>');
+      if (!entryDecided && st.when && st.id !== 'practice')
+        meta.push('<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles"></i>adapts</span>');
+      return '<div class="cp-row' + (done ? ' done' : '') + '">' +
+        '<span class="cp-row-ico"><i class="fa-solid ' + (st.icon || 'fa-circle') + '" aria-hidden="true"></i></span>' +
+        '<span class="cp-row-main"><b>' + esc(st.lesson) + '</b>' +
+          '<span class="cp-row-meta">' + meta.join('') + '</span></span>' +
+        '<span class="cp-row-state ' + (done ? 'done">Completed' : 'todo">Not started') + '</span>' +
+      '</div>';
+    }).join('');
+    document.getElementById('cpCount').textContent = doneCount + ' of ' + rows.length + ' complete';
+    document.getElementById('cpDots').innerHTML = rows.map(function (st) {
+      return '<i class="' + (course[DONE_KEYS[st.id]] ? 'done' : '') + '"></i>';
+    }).join('');
+    if (entryDecided) document.getElementById('cpAdaptNote').hidden = true;
+    if (doneCount > 0) {
+      document.getElementById('cpGreet').textContent = 'Welcome back, Rob — pick up where you left off';
+      document.getElementById('cpStart').innerHTML = 'Continue course <i class="fa-solid fa-arrow-right"></i>';
+    }
+    document.getElementById('cpStart').addEventListener('click', function () { go(1); });
     ctx.positionOrb(false);
   }
 
@@ -568,6 +648,7 @@
         if (flipped === 5) {
           ctx.setCoachSay('All five. Remember: the goal isn’t the perfect move — it’s any move.');
           notice('Logged: <b>Knowledge</b> — the five Ds, reviewed');
+          saveResult('terms', { done: true });
           ctx.enableNext();
           ctx.positionOrb(true);
         }
@@ -1336,27 +1417,22 @@
   // ==========================================================================
   var COURSE = 'Bystander Intervention';
   var STEPS = [
-    { id: 'intro', mode: 'ambient', lesson: 'Welcome',
-      caption: { title: 'Course intro · Ambient presence', note: 'CLARA fills the space to open the lesson.' },
-      // Welcome screen reads as the "cover": the greeting is the warm eyebrow,
-      // the course title is the hero. (The top band still carries course/lesson
-      // for wayfinding — the big title here is deliberate cover emphasis.)
-      coach: { eyebrow: "Hi, Rob. Ready to begin?", headline: COURSE,
-        lede: "We'll be working through some sensitive scenarios today, related to sexual harassment in the workplace. " +
-              "I'll guide you through each section and may ask a few questions as you progress through each." },
-      init: introInit },
+    { id: 'intro', mode: 'floating', lesson: 'Welcome',
+      caption: { title: 'Course title page · Floating companion', note: 'The standard LMS anatomy — description, live sections list, requirements, details, coordinator — rendered from the actual path, so it foreshadows compression and stays honest on return visits.' },
+      coach: { say: 'This page is yours: what’s in the course, what it asks of you, and where it can adapt. We’ll be working through some sensitive workplace scenarios — I’ll be with you the whole way. Start whenever you’re ready.' },
+      content: INTRO_CONTENT, init: introInit },
 
-    { id: 'baseline', mode: 'floating', lesson: 'Entry Check', gate: true,
+    { id: 'baseline', icon: 'fa-wave-square', mins: 1, stage: 'Entry', mode: 'floating', lesson: 'Entry Check', gate: true,
       caption: { title: 'ENTRY · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content. What a learner proves here is compressed out of the path (test-out); skills are never quizzed — the Perform stage is where they’re shown.' },
       coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
       content: BASELINE_CONTENT, init: baselineInit },
 
-    { id: 'compress', mode: 'sidebar', lesson: 'Your Path, Compressed', gate: true,
+    { id: 'compress', icon: 'fa-diagram-project', mins: 1, stage: 'Entry', mode: 'sidebar', lesson: 'Your Path, Compressed', gate: true,
       caption: { title: 'ENTRY · Knowledge Layer · Docked guide', note: 'The Learning Layer scores the entry battery against module BO-2’s SME-signed objectives and compresses the Learn beats already verified. Locked items and the Perform stage are untouchable. Presenter control: Demo — flip entry result.' },
       coach: { say: '', ask: 'Ask CLARA about this change…' },   // narration is TYPED IN by compressInit
       content: COMPRESS_CONTENT, init: compressInit },
 
-    { id: 'video', mode: 'floating', lesson: 'See It Happen', gate: true,
+    { id: 'video', icon: 'fa-circle-play', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'See It Happen', gate: true,
       caption: { title: 'LEARN · Gated video', note: 'The first Learn beat. On the compressed build CLARA frames it as the short cut; the clip must play and the learner answers CLARA’s check before Continue unlocks.' },
       coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
       content: videoContent({ eyebrow: 'Learn · watch', heading: 'Introduction',
@@ -1364,35 +1440,35 @@
         src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
-    { id: 'audio', mode: 'floating', lesson: 'Why Rooms Stay Quiet', gate: true,
+    { id: 'audio', icon: 'fa-headphones', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'Why Rooms Stay Quiet', gate: true,
       when: function () { return entryStrength() === 'full'; },
       caption: { title: 'LEARN · Know beat — Audio Summary', note: 'Narrated text with word-by-word highlighting (K2, diffusion of responsibility) and a Read-instead toggle — the modality-switching feature, live: listen or read, same objective, same credit. Compressible at entry.' },
       coach: { say: 'This one you can listen to or read — your call. Tap Listen when you’re ready.' },
       content: AUDIO_CONTENT, init: audioInit },
 
-    { id: 'terms', mode: 'floating', lesson: 'The Five Ds', gate: true,
+    { id: 'terms', icon: 'fa-list-check', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'The Five Ds', gate: true,
       when: function () { return entryStrength() === 'full'; },
       caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3/K4) — one of the two beats a strong entry battery compresses away. Gate: every card flipped.' },
       coach: { say: 'Five moves, five cards — flip each one. You only ever need the one that fits the moment.' },
       content: TERMS_CONTENT, init: termsInit },
 
-    { id: 'drill', mode: 'floating', lesson: 'Pick Your Move', gate: true,
+    { id: 'drill', icon: 'fa-hand-pointer', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'Pick Your Move', gate: true,
       when: function () { return entryStrength() === 'full'; },
       caption: { title: 'LEARN · Know beat — tactic drill', note: 'Four situations, five Ds (K4, select the tactic) — best answers plus accepted seconds with coaching notes. Compressible at entry.' },
       coach: { say: 'You know the five moves — now pick the right one under real constraints.' },
       content: DRILL_CONTENT, init: drillInit },
 
-    { id: 'norms', mode: 'floating', lesson: 'Would They Back You?', gate: true,
+    { id: 'norms', icon: 'fa-users', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'Would They Back You?', gate: true,
       caption: { title: 'LEARN · Feel beat — Peer Results', note: 'The norms correction (F1, gap-fill content the base course never had): guess the crew’s reaction, then the real numbers land. Survives compression on every path — beliefs can’t be tested out of at entry.' },
       coach: { say: 'Loading…' },   // normsInit swaps in the question immediately
       content: NORMS_CONTENT, init: normsInit },
 
-    { id: 'stepin', mode: 'floating', lesson: 'After the Moment', gate: true,
+    { id: 'stepin', icon: 'fa-comment-dots', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'After the Moment', gate: true,
       caption: { title: 'LEARN · Do beat — Conversation Step-In', note: 'Rehearsal as instruction (D4): Priya texts after the incident and the learner takes the thread over. Weak replies get Priya’s real reaction and another try. This beat is what the mastery check’s sampled item then tests.' },
       coach: { say: 'Loading…' },   // stepinInit runs the thread immediately
       content: STEPIN_CONTENT, init: stepinInit },
 
-    { id: 'casevideo', mode: 'floating', lesson: 'A Real Case', gate: true,
+    { id: 'casevideo', icon: 'fa-scale-balanced', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'A Real Case', gate: true,
       when: function () { return entryStrength() === 'full'; },
       caption: { title: 'LEARN · Case beat', note: 'The real-case close — the second beat entry compression removes. No question here; the mastery items live in the Check stage.' },
       coach: { say: 'One real case before the check — press play.' },
@@ -1401,27 +1477,27 @@
         src: '../../assets/videos/marshall-postscenario.mp4' }),
       init: caseInit },
 
-    { id: 'check', mode: 'floating', lesson: 'Mastery Check', gate: true,
+    { id: 'check', icon: 'fa-clipboard-check', mins: 1, stage: 'Check', mode: 'floating', lesson: 'Mastery Check', gate: true,
       caption: { title: 'CHECK · Floating companion', note: 'Two items: the compliance-locked objective (asked of everyone, retry until right, advanced tier on test-up) and a sampled D4 item. A weak answer on the sampled item inserts in-course remediation on the spot — the section counter grows live.' },
       coach: { say: 'Loading…' },   // checkInit swaps in item 1 immediately
       content: CHECK_CONTENT, init: checkInit },
 
-    { id: 'practice', mode: 'floating', lesson: 'Quick Practice', gate: true,
+    { id: 'practice', icon: 'fa-wand-magic-sparkles', mins: 2, stage: 'Check', mode: 'floating', lesson: 'Quick Practice', gate: true,
       when: function () { return checkMissed(); },
       caption: { title: 'CHECK · In-course remediation', note: 'The learning object the mastery-check miss inserted — two rehearsal reps on objective D4, fixed in the moment rather than flagged for later.' },
       coach: { say: 'Loading…' },   // practiceInit swaps in the first rep immediately
       content: PRACTICE_CONTENT, init: practiceInit },
 
-    { id: 'scene', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
+    { id: 'scene', icon: 'fa-clapperboard', mins: 1, stage: 'Perform', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
       caption: { title: 'PERFORM · Scene-setting', note: 'The establishing shot for the Perform stage. The scenario page skips its own establishing card and drops straight into the cold-open.' },
       coach: { eyebrow: "Perform — nobody tests out of this", headline: '“The Marshall Scenario”',
         lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on, " +
               "then it's your call how to respond. There's no perfect script here you need to follow." },
       init: sceneInit },
 
-    { id: 'scenario', external: 'scenario.html', lesson: 'The Marshall Scenario' },
+    { id: 'scenario', icon: 'fa-comments', mins: 8, stage: 'Perform', external: 'scenario.html', lesson: 'The Marshall Scenario' },
 
-    { id: 'results', mode: 'sidebar', lesson: 'Your Aptitude Profile',
+    { id: 'results', icon: 'fa-chart-simple', mins: 2, stage: 'Record', mode: 'sidebar', lesson: 'Your Aptitude Profile',
       caption: { title: 'RECORD · Aptitude profile', note: 'Construct-by-construct bands from entry to close, the recompositions that happened live, and the cross-module payoff: Perform evidence pre-verifies objectives in the learner’s next course.' },
       coach: { say: '', ask: 'Ask CLARA about your profile…' },   // greeting is TYPED IN by resultsInit (typing bubble → text)
       content: RESULTS_CONTENT, init: resultsInit }
