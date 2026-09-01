@@ -63,15 +63,27 @@
     3: { label: 'Excellent',       cls: 'band-exc'  }
   };
 
-  // Which way the Learning Layer recomposes the path after the scenario.
-  // Performance-driven (the scenario's score decides), with a presenter
-  // override — the "Demo: flip outcome" control on the adjust step — stored
-  // alongside the course record so it survives the scenario round-trip.
-  function decideBranch() {
-    try { var o = sessionStorage.getItem('ll-branch'); if (o === 'support' || o === 'accelerate') return o; } catch (e) {}
-    var s = readCourse().scenario || {};
-    var score = (typeof s.score === 'number') ? s.score : 82;
-    return score >= 88 ? 'accelerate' : 'support';
+  // The course runs the module contract literally: Entry → Learn → Check →
+  // Perform → Record. Recomposition therefore has THREE contract-native
+  // moments, each with its own decision:
+  //   Entry   → entryStrength(): 'compressed' (test-out) or 'full' build,
+  //             from the entry battery (presenter override: 'll-entry').
+  //   Check   → checkMissed(): a miss on the sampled item inserts in-course
+  //             remediation on the spot (the presenter just answers weakly).
+  //   Perform → feeds the profile and paths the NEXT course (page 70's loop).
+  function entryStrength() {
+    try { var o = sessionStorage.getItem('ll-entry'); if (o === 'compressed' || o === 'full') return o; } catch (e) {}
+    var b = readCourse().baseline;
+    if (b && b.bands) return b.bands.knowledge >= 2 ? 'compressed' : 'full';
+    return 'compressed';   // deep links land on the showcase branch
+  }
+  function testUp() {
+    var b = readCourse().baseline;
+    return entryStrength() === 'compressed' && !!(b && b.bands && b.bands.control === 3);
+  }
+  function checkMissed() {
+    var c = readCourse().check;
+    return !!(c && c.missed);
   }
 
   // --- "CLARA noticed" evidence toast ---------------------------------------
@@ -205,6 +217,9 @@
   function videoInit(ctx) {
     var video = document.getElementById('courseVideo');
     var asked = false, answered = false;
+    if (entryStrength() === 'compressed') {
+      ctx.setCoachSay('This is the short cut — the beats you verified at entry are gone. Press play; one quick question at the end.');
+    }
     preloadVideoFully(video);
     wireVideoSkip(video);
     video.addEventListener('play', function () { ctx.floatClose(); });
@@ -361,77 +376,179 @@
     }
   }
 
-  // Step 5 — closing video, gated by a true/false knowledge check on the clip.
-  // Same binary right/wrong mechanics as the (former) step-2 comprehension check:
-  // a wrong pick is disabled with a nudge; the correct pick unlocks Continue.
-  var CLOSING_QUESTION = {
-    stem: 'True or false — <strong>Harassing or firing an employee because of their sexual orientation, ' +
+  // ==========================================================================
+  //  CHECK — standalone mastery check, two items. Item 1 is the compliance-
+  //  locked objective (asked of every learner, retry until right, served at
+  //  the ADVANCED TIER when the entry battery was exceeded — test-up). Item 2
+  //  is sampled (objective D4): a miss triggers in-course remediation on the
+  //  spot — the path visibly grows a step.
+  // ==========================================================================
+  var CHECK_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Check · mastery items</p>' +
+      '<h2>Two items. One is locked.</h2>' +
+      '<p class="ll-sub">Must-pass items are asked of every learner — compression never touches them. ' +
+        'The rest are sampled. And a miss gets fixed now, inside the module, not flagged for later.</p>' +
+      '<div class="mp-scene">' +
+        '<div class="mp-scene-tag"><i class="fa-solid fa-lock" aria-hidden="true"></i> Item 1 · compliance-locked</div>' +
+        '<p>Asked of everyone, at the tier your entry result earned.</p>' +
+      '</div>' +
+      '<div class="mp-scene" style="margin-top:12px">' +
+        '<div class="mp-scene-tag"><i class="fa-solid fa-shuffle" aria-hidden="true"></i> Item 2 · sampled — objective D4</div>' +
+        '<p>The follow-up after the moment: the objective most people never get asked about.</p>' +
+      '</div>' +
+    '</main>';
+  var CHECK_LOCKED_STD = {
+    stem: 'The locked item — true or false: <strong>harassing or firing an employee because of their sexual orientation, ' +
           'gender identity, or departure from gender stereotypes violates federal law.</strong>',
-    options: [
-      { t: 'True', correct: true },
-      { t: 'False', correct: false }
-    ],
-    correctReply: 'Correct — it’s true. Federal law protects employees from harassment or firing based on ' +
-                  'sexual orientation, gender identity, or not conforming to gender stereotypes. Let’s see how you did.',
-    wrongReply: 'Not quite — it’s actually true. All three are protected under federal law, so give it another look.'
+    options: [ { t: 'True', correct: true }, { t: 'False', correct: false } ],
+    correctReply: 'Correct — all three are protected under federal law. One more item, then the scenario.',
+    wrongReply: 'Not quite — it’s actually true, and this one’s locked, so it has to land. Give it another look.'
   };
-  function closingInit(ctx) {
-    var video = document.getElementById('courseVideo');
-    var asked = false, answered = false;
-    preloadVideoFully(video);
-    wireVideoSkip(video);
-    video.addEventListener('play', function () { ctx.floatClose(); });
-    video.addEventListener('ended', revealQuestion);
+  var CHECK_LOCKED_ADV = {
+    stem: 'The locked item, advanced tier — true or false: <strong>retaliation protections only apply after a formal, ' +
+          'written complaint has been filed.</strong>',
+    options: [ { t: 'True', correct: false }, { t: 'False', correct: true } ],
+    correctReply: 'Right — false. Protections cover informal reports and witnesses too, from the moment conduct is raised in any form. One more item.',
+    wrongReply: 'It’s actually false — protections aren’t gated on paperwork. This one’s locked, so look again.'
+  };
+  var CHECK_SAMPLED = {
+    stem: 'Item two — <strong>you stepped in and the moment has passed. Priya’s back at her desk. What’s the strongest follow-up?</strong>',
+    options: [
+      { t: '“I saw what happened. You good? I’ve got your back if you want to report it.”', good: true,
+        reply: 'That’s the full skill — witnessed, checked in, offered support without taking over. Nothing to fix. On to the scenario.' },
+      { t: '“Ignore Jake — he’s harmless.”', good: false,
+        reply: 'That minimizes it — and asks Priya to carry it alone. This matters, so we fix it now: I’m adding two minutes of rehearsal before we go on.' },
+      { t: '“Want me to say something next time?”', good: false,
+        reply: '“Next time” concedes there’ll be one — and you saw this time. We fix it now, not later: two minutes of rehearsal coming up.' }
+    ]
+  };
+  function checkInit(ctx) {
+    ctx.floatOpen();
+    var locked = testUp() ? CHECK_LOCKED_ADV : CHECK_LOCKED_STD;
+    if (testUp()) notice('Test-up: locked item served at the <b>advanced tier</b>');
+    askLocked();
 
-    function revealQuestion() {
-      if (asked) return; asked = true;
-      ctx.floatOpen();
-      ctx.setCoachSay(CLOSING_QUESTION.stem);
+    function askLocked() {
+      ctx.setCoachSay(locked.stem);
       var bubble = ctx.els.bubble;
-      var chips = document.createElement('div');
-      chips.className = 'clara-chips vq-chips';
-      CLOSING_QUESTION.options.forEach(function (opt) {
+      var chips = document.createElement('div'); chips.className = 'clara-chips vq-chips';
+      var fb = document.createElement('div'); fb.className = 'vq-feedback';
+      var done = false;
+      locked.options.forEach(function (opt) {
         var b = document.createElement('button');
         b.className = 'clara-chip'; b.type = 'button'; b.textContent = opt.t;
-        b.addEventListener('click', function () { choose(opt, b, chips); });
+        b.addEventListener('click', function () {
+          if (done) return;
+          if (opt.correct) {
+            done = true;
+            chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
+            b.classList.add('is-correct');
+            fb.className = 'vq-feedback ok'; fb.textContent = locked.correctReply;
+            setTimeout(askSampled, T(1600));
+          } else {
+            b.classList.add('is-wrong'); b.disabled = true;   // locked = retry until right
+            fb.className = 'vq-feedback bad'; fb.textContent = locked.wrongReply;
+          }
+          ctx.positionOrb(true);
+        });
         chips.appendChild(b);
       });
-      var fb = document.createElement('div'); fb.className = 'vq-feedback';
       bubble.appendChild(chips); bubble.appendChild(fb);
       ctx.positionOrb(true);
     }
-    function choose(opt, btn, chips) {
-      if (answered) return;
-      var fb = ctx.els.bubble.querySelector('.vq-feedback');
-      if (opt.correct) {
-        answered = true;
-        chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
-        btn.classList.add('is-correct');
-        fb.className = 'vq-feedback ok'; fb.textContent = CLOSING_QUESTION.correctReply;
-        ctx.enableNext();
-        saveResult('closing', { correct: true });
-      } else {
-        btn.classList.add('is-wrong'); btn.disabled = true;
-        fb.className = 'vq-feedback bad'; fb.textContent = CLOSING_QUESTION.wrongReply;
-        saveResult('closing', { correct: false, attempted: true });
-      }
+    function askSampled() {
+      ctx.setCoachSay(CHECK_SAMPLED.stem);
+      var bubble = ctx.els.bubble;
+      var old = bubble.querySelector('.vq-chips'); if (old) old.remove();
+      var oldFb = bubble.querySelector('.vq-feedback'); if (oldFb) oldFb.remove();
+      var chips = document.createElement('div'); chips.className = 'clara-chips vq-chips';
+      var fb = document.createElement('div'); fb.className = 'vq-feedback';
+      var done = false;
+      CHECK_SAMPLED.options.forEach(function (opt) {
+        var b = document.createElement('button');
+        b.addEventListener('click', function () {
+          if (done) return; done = true;
+          chips.querySelectorAll('.clara-chip').forEach(function (c) { c.disabled = true; });
+          if (opt.good) {
+            b.classList.add('is-correct');
+            fb.className = 'vq-feedback ok'; fb.textContent = opt.reply;
+            saveResult('check', { locked: true, item2: 'good', tier: testUp() ? 'advanced' : 'standard' });
+            notice('Mastery check passed — <b>nothing to fix</b>');
+          } else {
+            b.classList.add('is-wrong');
+            fb.className = 'vq-feedback bad'; fb.textContent = opt.reply;
+            saveResult('check', { locked: true, item2: 'missed', missed: true, tier: testUp() ? 'advanced' : 'standard' });
+            notice('Path recomposed: <b>remediation inserted</b> — objective D4');
+          }
+          // The denominator changes the moment remediation inserts —
+          // refresh counters, then unlock (updateFooter re-arms the gate).
+          updateFooter(STEPS[idx]); updateFrame(STEPS[idx]);
+          ctx.enableNext();
+          ctx.positionOrb(true);
+        });
+        b.className = 'clara-chip'; b.type = 'button'; b.textContent = opt.t;
+        chips.appendChild(b);
+      });
+      bubble.appendChild(chips); bubble.appendChild(fb);
       ctx.positionOrb(true);
     }
   }
 
+  // LEARN — "A real case": the former wrap-up clip, now a plain Learn beat
+  // (no question; the mastery items moved to the Check step).
+  function caseInit(ctx) {
+    var video = document.getElementById('courseVideo');
+    var ended = false;
+    preloadVideoFully(video);
+    wireVideoSkip(video);
+    video.addEventListener('play', function () { ctx.floatClose(); });
+    video.addEventListener('ended', function () {
+      if (ended) return; ended = true;
+      ctx.floatOpen();
+      ctx.setCoachSay('That’s the real-world close — a case that went to court because nobody stepped in. Ready to keep moving.');
+      saveResult('casevideo', { watched: true });
+      ctx.enableNext();
+      ctx.positionOrb(true);
+    });
+  }
+
+  // LEARN — "The Five Ds" review beat. Full-build learners see it; a strong
+  // entry battery compresses it away (they proved K1–K3 already). Ungated.
+  var FIVE_DS = [
+    { icon: 'fa-bullhorn',        name: 'Direct',   tip: 'Name the behavior, in the moment.' },
+    { icon: 'fa-arrows-split-up-and-left', name: 'Distract', tip: 'Break the moment without confrontation.' },
+    { icon: 'fa-user-group',      name: 'Delegate', tip: 'Bring in someone better placed to act.' },
+    { icon: 'fa-hourglass-half',  name: 'Delay',    tip: 'Check in with the target afterwards.' },
+    { icon: 'fa-file-lines',      name: 'Document', tip: 'Record what happened, for a report that can act.' }
+  ];
+  var REVIEW_CONTENT =
+    '<main class="ll-object">' +
+      '<p class="ll-eyebrow">Learn · review</p>' +
+      '<h2>The Five Ds.</h2>' +
+      '<p class="ll-sub">Five ways to intervene — you only ever need the one that fits the moment.</p>' +
+      '<ul class="bl-constructs" aria-label="The five Ds">' +
+        FIVE_DS.map(function (d) {
+          return '<li class="bl-construct"><i class="fa-solid ' + d.icon + '" aria-hidden="true"></i>' +
+                 '<span><b>' + esc(d.name) + '</b> ' + esc(d.tip) + '</span></li>';
+        }).join('') +
+      '</ul>' +
+    '</main>';
+
   // ==========================================================================
-  //  Path adjustment — the Knowledge Layer moment. After the scenario, CLARA
-  //  shows the course as a map of learning objects and the Learning Layer
-  //  visibly recomposes it: mastery-based sequencing acting on SME-signed
-  //  Know·Feel·Do objectives. Performance-driven (the scenario record decides),
-  //  with a presenter override in the frame's ⋯ actions ("Demo: flip outcome").
+  //  ENTRY COMPRESSION — the Knowledge Layer moment, at its contract-native
+  //  position: immediately after the entry battery. The Learning Layer scores
+  //  the battery against module BO-2's signed objectives and compresses the
+  //  Learn beats the learner already verified (test-out). The compliance-
+  //  locked item and the Perform stage are untouchable. Presenter override:
+  //  "Demo: flip entry result".
   // ==========================================================================
-  var ADJUST_CONTENT =
+  var COMPRESS_CONTENT =
     '<main class="ll-object" id="adjustObject">' +
       '<p class="ll-eyebrow">The Knowledge Layer</p>' +
-      '<h2 id="adjHeadline">Recomposing your path…</h2>' +
-      '<p class="ll-sub" id="adjSub">Everything you’ve done so far has been scored against the course’s signed ' +
-        'objectives — CLARA is deciding what you actually need next.</p>' +
+      '<h2 id="adjHeadline">Scoring your entry battery…</h2>' +
+      '<p class="ll-sub" id="adjSub">Your answers are being mapped to the module’s SME-signed objectives — ' +
+        'what you’ve already proven decides what you skip.</p>' +
       '<ol class="path-rail" id="pathRail" aria-label="Your learning path"></ol>' +
       '<div class="prov-card" id="provCard" hidden>' +
         '<div class="prov-head"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Why this changed</div>' +
@@ -439,60 +556,52 @@
       '</div>' +
     '</main>';
 
-  // The path map: the course's own learning objects, with the slot AFTER the
-  // scenario as the recomposition target. `planned` is what the linear course
-  // would have served; each branch swaps or removes it. Node sublines carry
-  // the module contract's stage (Entry → Learn → Check → Perform → Record),
-  // and the wrap-up carries a compliance-locked item recomposition can never
-  // remove — compressed never, served harder.
+  // The path map in contract order. `compressible` marks the Learn beats a
+  // strong entry battery removes; the Check carries the locked item; Perform
+  // is the floor — it runs for everyone, always.
   var PATH_NODES = [
-    { icon: 'fa-hand-sparkles', label: 'Welcome',            state: 'done' },
-    { icon: 'fa-wave-square',   label: 'Entry check',        state: 'done', sub: 'Entry · Know & Feel battery' },
-    { icon: 'fa-circle-play',   label: 'Intro video',        state: 'done', sub: 'Learn · compressed at entry' },
-    { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'done', sub: 'Perform · rubric-scored' },
-    { icon: 'fa-list-check',    label: 'Review: The Five Ds', state: 'planned', sub: 'Learn', slot: true },
-    { icon: 'fa-flag-checkered', label: 'Wrap-up video',      state: 'next', sub: 'Check · locked item inside', locked: true },
-    { icon: 'fa-chart-simple',  label: 'Aptitude profile',   state: 'next', sub: 'Record' }
+    { icon: 'fa-hand-sparkles', label: 'Welcome',              state: 'done' },
+    { icon: 'fa-wave-square',   label: 'Entry battery',        state: 'done', sub: 'Entry · Know & Feel' },
+    { icon: 'fa-list-check',    label: 'Review: The Five Ds',  state: 'next', sub: 'Learn', compressible: true },
+    { icon: 'fa-circle-play',   label: 'Intro video',          state: 'next', sub: 'Learn', shortcut: true },
+    { icon: 'fa-scale-balanced', label: 'A real case',         state: 'next', sub: 'Learn', compressible: true },
+    { icon: 'fa-clipboard-check', label: 'Mastery check',      state: 'next', sub: 'Check · one item locked', locked: true },
+    { icon: 'fa-comments',      label: 'The Marshall scenario', state: 'next', sub: 'Perform · rubric-scored', floor: true },
+    { icon: 'fa-chart-simple',  label: 'Aptitude profile',     state: 'next', sub: 'Record' }
   ];
-  // Branch vocabulary follows the Knowledge Layer V1 scope: the support branch
-  // is IN-COURSE REMEDIATION, the accelerate branch is TEST-OUT (+ test-up on
-  // the wrap-up check). Objective IDs quote the worked example: module BO-2
-  // "Step In", objectives D1/D2/D4 with their Do sub-levels.
-  var ADJUST_BRANCHES = {
-    support: {
-      headline: 'One change, made for you.',
-      sub: 'In-course remediation: one objective came back Practice Needed, so the generic review is out ' +
-           'and two minutes of targeted rehearsal are in. Same seat time, better spent.',
-      swap: { icon: 'fa-comment-dots', label: 'Micro-practice: Say it out loud', tag: 'Added · 2 min', cls: 'is-added' },
+
+  var COMPRESS_BRANCHES = {
+    compressed: {
+      headline: 'Your path just got shorter.',
+      sub: 'Test-out: the entry battery verified three Know objectives, so two Learn beats compress out and the ' +
+           'intro runs as the short cut. Your record still shows full coverage.',
       narration: [
-        'Okay, Rob — you verified three Know objectives at the entry check, so that instruction was compressed before you ever saw it. Now I’ve mapped the scenario’s signals to the rest.',
-        'You read the situation well and you clearly believe stepping in matters. The one objective that came back “Practice Needed” was <b>D4 — the follow-up after the moment</b>.',
-        'So this is in-course remediation: the generic review swaps for two minutes on exactly that. Here’s the change — and the paper trail behind it.'
+        'Quick work, Rob — the entry battery just verified <b>K1–K3</b>: the five Ds and the case law behind them.',
+        'So those beats compress out — you’ll never sit through them, and your record still shows full coverage. Compression, not exemption.',
+        'One thing never compresses: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path, and the paper trail.'
       ],
       chain: [
-        '<b>The signed objective.</b> Module BO-2 “Step In” · <em>D4 · Do / Sustain</em> — “follow up with the person afterwards rather than treating the moment as closed.” SME-signed once, at the spec. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
-        '<b>The evidence.</b> The Perform stage — the Marshall scenario, rubric-scored: <em>Behavioral skills — Practice Needed</em>. You named the problem to Jake, but the follow-up never landed.',
-        '<b>The recomposition.</b> A two-minute rehearsal replaces the one-size review. The wrap-up’s compliance-locked item is untouched — locked objectives are never compressed, only served harder.'
+        '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>K1–K3 · Know / Remember & Understand</em> — the five Ds and the barriers to intervention. SME-signed once, at the spec. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
+        '<b>The evidence.</b> The entry battery — Know & Feel items only; a skill is never quizzed. Both items correct, construct-mapped to <em>Knowledge</em> and <em>Perceived behavioral control</em>.',
+        '<b>The recomposition.</b> Test-out: two Learn beats compressed, the intro cut short. The locked mastery item and the Perform stage are untouched — compressed never, shown always.'
       ]
     },
-    accelerate: {
-      headline: 'You’ve earned a shorter path.',
-      sub: 'Test-out: you demonstrated the review’s objectives inside the scenario — so it’s compressed away, ' +
-           'and your wrap-up check is served at the advanced tier instead.',
-      swap: null,   // the planned node is removed, not replaced
+    full: {
+      headline: 'The full build — for now.',
+      sub: 'Nothing verified at entry yet, so nothing compresses. The path can still change at the mastery check — ' +
+           'and it ends at the scenario either way.',
       narration: [
-        'Okay, Rob — you verified three Know objectives at the entry check, and the scenario just evidenced the rest. I’ve mapped it all to the course’s objectives.',
-        'You didn’t just pick right answers in there — you acted on the cue, held the tactic under pushback, and followed up. That <em>is</em> the review, demonstrated: you can’t test out of a skill, you can only show it — and you showed it.',
-        'So the review compresses away, your record still shows full coverage, and the wrap-up steps up to the advanced tier. Here’s the change — and the paper trail behind it.'
+        'Honest start, Rob — the entry battery didn’t verify anything yet, so nothing compresses.',
+        'You get the full build: the five Ds, the case study, all of it. And the path stays live — a miss at the mastery check gets fixed in the moment, not flagged for later.',
+        'Either way it ends the same place: the Marshall scenario. You can’t test out of a skill — you can only show it. Here’s your path.'
       ],
       chain: [
-        '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>D1 · Activate</em>, <em>D2 · Apply</em>, <em>D4 · Sustain</em> — all SME-signed Do objectives. <i class="fa-solid fa-circle-check prov-ok" aria-hidden="true"></i>',
-        '<b>The evidence.</b> The Perform stage — the culminating simulation is the minimum experience, and it ran in full: all three objectives at <em>Good or above</em>, rubric-scored.',
-        '<b>The recomposition.</b> Test-out honored — compression, not exemption: the record still shows full coverage. The wrap-up check is served at the advanced tier (test-up), and its compliance-locked item stays for everyone.'
+        '<b>The signed objectives.</b> Module BO-2 “Step In” · <em>K1–K3</em> — SME-signed, and not yet evidenced by you.',
+        '<b>The evidence.</b> The entry battery missed the Knowledge item, so nothing suppresses. No penalty — the full build is the default, not a punishment.',
+        '<b>The recomposition.</b> Still armed: a miss at the mastery check inserts in-course remediation on the spot, and the Perform stage feeds your profile and what comes next.'
       ]
     }
   };
-
   function pathNodeHTML(n) {
     var state = n.state;
     var chip = state === 'done' ? '<span class="pn-chip pn-done"><i class="fa-solid fa-check"></i> Done</span>'
@@ -502,6 +611,7 @@
     // Compliance-locked content rides in addition to the state chip —
     // recomposition can never remove it, only serve it harder.
     if (n.locked) chip += '<span class="pn-chip pn-locked" title="Compliance-locked — never compressed, served harder"><i class="fa-solid fa-lock"></i> Locked</span>';
+    if (n.floor) chip += '<span class="pn-chip pn-floor" title="The culminating simulation is the minimum experience — it runs even at full test-out">Always runs</span>';
     return '<li class="path-node ' + (n.cls || '') + '" data-state="' + state + '">' +
              '<span class="pn-ico"><i class="fa-solid ' + n.icon + '" aria-hidden="true"></i></span>' +
              '<span class="pn-main"><span class="pn-label">' + esc(n.label) + '</span>' +
@@ -510,12 +620,13 @@
            '</li>';
   }
 
-  function adjustInit(ctx) {
-    var branch = decideBranch();
-    var B = ADJUST_BRANCHES[branch];
+  function compressInit(ctx) {
+    var strength = entryStrength();
+    var up = testUp();
+    var B = COMPRESS_BRANCHES[strength];
     var rail = document.getElementById('pathRail');
     rail.innerHTML = PATH_NODES.map(pathNodeHTML).join('');
-    notice('Imported: <b>3 signals</b> from the Marshall scenario');
+    notice('Entry battery scored against <b>module BO-2</b>’s signed objectives');
 
     // CLARA narrates in the docked panel; the map reacts on cue.
     var echo = ctx.chrome.querySelector('#claraEcho');
@@ -527,7 +638,7 @@
       setTimeout(function () {
         el.className = 'cbub clara'; el.innerHTML = lines[i];
         echo.scrollTop = echo.scrollHeight;
-        if (i === lines.length - 1) { setTimeout(applySwap, T(700)); return; }
+        if (i === lines.length - 1) { setTimeout(applyCompression, T(700)); return; }
         var next = document.createElement('div');
         echo.appendChild(next);
         setTimeout(function () { bubble(i + 1, next); }, T(900));
@@ -535,35 +646,39 @@
     }
     bubble(0, echo.querySelector('.clara-say') || echo.appendChild(document.createElement('div')));
 
-    function applySwap() {
-      var planned = rail.querySelector('.path-node[data-state="planned"]');
+    function applyCompression() {
       document.getElementById('adjHeadline').textContent = B.headline;
       document.getElementById('adjSub').textContent = B.sub;
-      if (planned) {
-        planned.classList.add('is-leaving');
+      var nodes = [].slice.call(rail.children);
+      if (strength === 'compressed') {
+        // Strike the compressible Learn beats one after another, then mark the
+        // short cut and (when earned) the advanced-tier check.
+        var targets = nodes.filter(function (li, i) { return PATH_NODES[i].compressible; });
+        targets.forEach(function (li, i) {
+          setTimeout(function () {
+            li.classList.add('is-skipped');
+            var c = li.querySelector('.pn-chip');
+            if (c) c.outerHTML = '<span class="pn-chip pn-skipped"><i class="fa-solid fa-forward"></i> Verified at entry — compressed</span>';
+          }, T(300 + i * 550));
+        });
         setTimeout(function () {
-          if (B.swap) {
-            var holder = document.createElement('div');
-            holder.innerHTML = pathNodeHTML({ icon: B.swap.icon, label: B.swap.label, state: 'added', tag: B.swap.tag });
-            var added = holder.firstElementChild;
-            added.classList.add('is-entering', B.swap.cls || '');
-            planned.replaceWith(added);
-            requestAnimationFrame(function () { requestAnimationFrame(function () { added.classList.remove('is-entering'); }); });
-            notice('Path recomposed: <b>1 object swapped</b> — Behavioral skills');
-          } else {
-            planned.classList.add('is-skipped');
-            planned.classList.remove('is-leaving');
-            planned.querySelector('.pn-chip').outerHTML = '<span class="pn-chip pn-skipped"><i class="fa-solid fa-forward"></i> Tested out — demonstrated</span>';
-            var wrap = rail.children[5];
-            if (wrap) {
-              var c = wrap.querySelector('.pn-chip');
-              if (c) c.outerHTML = '<span class="pn-chip pn-added"><i class="fa-solid fa-arrow-trend-up"></i> Test-up · advanced tier</span>';
+          nodes.forEach(function (li, i) {
+            if (PATH_NODES[i].shortcut) {
+              var c = li.querySelector('.pn-chip');
+              if (c) c.outerHTML = '<span class="pn-chip pn-done"><i class="fa-solid fa-scissors"></i> Short cut · 4 min</span>';
             }
-            notice('Path recomposed: <b>tested out of 1 object</b>, wrap-up served at the advanced tier');
-          }
+            if (PATH_NODES[i].locked && up) {
+              li.querySelector('.pn-chip').outerHTML =
+                '<span class="pn-chip pn-added"><i class="fa-solid fa-arrow-trend-up"></i> Test-up · advanced tier</span>';
+            }
+          });
+          notice('Path recomposed: <b>2 beats compressed</b>' + (up ? ', check served at the <b>advanced tier</b>' : ''));
           revealProvenance();
-        }, T(650));
-      } else { revealProvenance(); }
+        }, T(300 + targets.length * 550 + 400));
+      } else {
+        notice('Nothing compressed — <b>full build</b>');
+        revealProvenance();
+      }
     }
     function revealProvenance() {
       var card = document.getElementById('provCard');
@@ -571,28 +686,27 @@
         B.chain.map(function (li) { return '<li>' + li + '</li>'; }).join('');
       card.hidden = false;
       requestAnimationFrame(function () { requestAnimationFrame(function () { card.classList.add('in'); }); });
-      saveResult('adjust', { branch: branch });
-      // Refresh the counters FIRST (the visible total may have changed —
-      // accelerate removes a step), then unlock Continue: updateFooter re-arms
-      // the gate, so enableNext must come after it.
+      saveResult('entry', { strength: strength, up: up });
+      // Refresh the counters FIRST (compression changes the visible total),
+      // then unlock Continue: updateFooter re-arms the gate.
       updateFooter(STEPS[idx]);
       updateFrame(STEPS[idx]);
       ctx.enableNext();
     }
     wireSidebarChat(ctx, [
-      'Fair question. Nothing here was improvised — the swap picks from module structures the Learning Layer derived from this course’s SME-signed objectives.',
-      branch === 'support'
-        ? 'Because objective D4 — the follow-up — was the one thing the Perform stage scored Practice Needed. That’s in-course remediation: reinforcement in the moment, inside the module.'
-        : 'Because you evidenced the review’s objectives in performance — that’s test-out. And the locked item in the wrap-up stays for everyone; compression never touches it.',
+      'Nothing here was improvised — compression picks over module structures the Learning Layer derived from BO-2’s SME-signed objectives.',
+      strength === 'compressed'
+        ? 'Because you proved K1–K3 at entry. Test-out removes only what’s evidenced — the locked item and the scenario stay for everyone.'
+        : 'Because nothing’s evidenced yet. The full build is the default — and the mastery check can still recompose the path in the moment.',
       'Your administrator sees the same chain you do: the objective, the evidence, and the change — nothing is silent.',
-      'If you’d rather take the full path anyway, your organization can turn recomposition off per course — it’s a setting, not a mandate.'
+      'If you’d rather take the full path anyway, your organization can turn test-out off per course — it’s a setting, not a mandate.'
     ]);
   }
 
   // ==========================================================================
-  //  Micro-practice — the object the Learning Layer inserted (support branch).
-  //  Two rehearsal beats on the weak construct: the words in the room, then
-  //  the check-in afterward.
+  //  IN-COURSE REMEDIATION — the object the mastery-check miss inserted, in
+  //  the moment. Two rehearsal beats on objective D4: the words in the room,
+  //  then the follow-up the check just showed was shaky.
   // ==========================================================================
   var PRACTICE_CONTENT =
     '<main class="ll-object">' +
@@ -683,35 +797,39 @@
                { knowledge: 2, beliefs: 2, norms: 2, skills: 2, control: 2 };
     var s = course.scenario || {};
     var score = (typeof s.score === 'number') ? s.score : 82;
-    var branch = (course.adjust && course.adjust.branch) || decideBranch();
-    var cl = course.closing || {}, v = course.video1 || {};
+    var strength = (course.entry && course.entry.strength) || entryStrength();
+    var up = (course.entry && course.entry.up) || testUp();
+    var ck = course.check || {}, v = course.video1 || {};
+    var remediated = !!(course.practice && course.practice.done);
     var strong = score >= 88;
     var after = {
-      knowledge: cl.correct === true ? 3 : cl.attempted ? 2 : Math.max(base.knowledge, 2),
+      knowledge: base.knowledge >= 2 ? 3 : 2,     // entry-verified + locked item held → Excellent; full build → Good
       beliefs:   strong ? 3 : Math.max(base.beliefs, 2),
       norms:     strong ? 3 : 2,
-      skills:    branch === 'support' ? ((course.practice && course.practice.done) ? 2 : base.skills) : 3,
+      skills:    strong ? 3 : remediated ? 2 : (ck.item2 === 'good' ? 2 : (ck.missed ? 1 : 2)),
       control:   strong ? 3 : Math.max(base.control, 2)
     };
     var evidence = {
-      knowledge: cl.correct === true
-        ? 'Closing check — protections for sexual orientation and gender identity, first try.'
-        : cl.attempted ? 'Closing check — landed it on a second look.'
-        : 'Recognized the “joking” pattern as harassment in the baseline check.',
+      knowledge: base.knowledge >= 2
+        ? 'Verified K1–K3 at entry, then held the locked mastery item' + (up ? ' at the advanced tier' : '') + ' — first try.'
+        : 'Built through the full path, then held the compliance-locked mastery item.',
       beliefs: '“Someone had to say it — better me than nobody.” — the Marshall scenario',
       norms: 'Read the break room’s silence as pressure — and acted anyway. — the Marshall scenario',
-      skills: branch === 'support'
-        ? ((course.practice && course.practice.done)
-            ? '“That’s not okay, Jake. Drop it.” — micro-practice, first rep'
-            : 'Named the problem, but the direct words never landed. — the Marshall scenario')
-        : 'Named the behavior in the moment and checked in afterward. — the Marshall scenario',
+      skills: remediated
+        ? '“I saw what happened. You good?” — the follow-up, rehearsed in remediation, then executed live in the scenario.'
+        : ck.item2 === 'good'
+          ? 'Picked the strong follow-up at the mastery check — then executed the tactic live under pushback.'
+          : ck.missed
+            ? 'The follow-up never landed — remediation still queued.'
+            : 'Executed the chosen tactic live and held it under pushback. — the Marshall scenario',
       control: v.answered
         ? 'Self-rated “' + (v.choice || '') + '” at the start — then held up under real pushback.'
         : 'Held steady under Jake’s pushback in the scenario.'
     };
     var atGood = CONSTRUCTS.filter(function (c) { return after[c.key] >= 2; }).length;
-    return { base: base, after: after, evidence: evidence, atGood: atGood,
-             pass: atGood >= Math.ceil(CONSTRUCTS.length * 0.8), branch: branch };
+    return { base: base, after: after, evidence: evidence, atGood: atGood, strength: strength, up: up,
+             remediated: remediated, missed: !!ck.missed,
+             pass: atGood >= Math.ceil(CONSTRUCTS.length * 0.8) };
   }
 
   function resultsInit(ctx) {
@@ -731,9 +849,14 @@
         P.atGood + ' of ' + CONSTRUCTS.length + ' objectives (the bar is 80%). Not “right answers” — demonstrated behavior.'
       : '<i class="fa-solid fa-circle-half-stroke"></i> <b>Almost</b> — ' + P.atGood + ' of ' + CONSTRUCTS.length +
         ' objectives at Good or above; the bar is 80%. CLARA has queued targeted practice for the gap.';
-    document.getElementById('aptPath').innerHTML = P.branch === 'support'
-      ? '<i class="fa-solid fa-wand-magic-sparkles"></i> Your path was recomposed mid-course: one targeted practice added for <b>behavioral skills</b>.'
-      : '<i class="fa-solid fa-wand-magic-sparkles"></i> Your path was recomposed mid-course: the review was skipped — you’d already demonstrated its objectives.';
+    var pathBits = [];
+    if (P.strength === 'compressed') pathBits.push('<b>2 beats compressed at entry</b> (test-out)');
+    if (P.up) pathBits.push('check served at the <b>advanced tier</b> (test-up)');
+    if (P.remediated || P.missed) pathBits.push('<b>remediation inserted</b> at the mastery check');
+    document.getElementById('aptPath').innerHTML =
+      '<i class="fa-solid fa-wand-magic-sparkles"></i> ' +
+      (pathBits.length ? 'Your path was recomposed live: ' + pathBits.join(' · ') + '.'
+                       : 'You ran the full build — no recomposition needed this time.');
 
     // Construct rows: baseline band → current band, with momentum + evidence.
     var list = document.getElementById('aptList');
@@ -763,8 +886,10 @@
           CONSTRUCTS.length + ' constructs at Good or above.'
         : 'Here’s your profile, Rob — honest picture: ' + P.atGood + ' of ' + CONSTRUCTS.length +
           ' constructs at Good or above, and I’ve already queued practice for the gap.',
-      'Every band traces to something you actually said or did — ask me about any of them.'
+      'Every band traces to something you actually said or did — ask me about any of them.',
+      'One more thing: your Perform evidence just pre-verified two objectives in <b>Hazard Communication</b>. Your next course got shorter before you ever opened it.'
     ]);
+    try { sessionStorage.setItem('clara-next-recomposed', '1'); } catch (e) {}
     document.getElementById('resBasis').innerHTML =
       '<i class="fa-solid fa-circle-info"></i> Scoring follows the AI Aptitude Assessment model: each construct is scored ' +
       'qualitatively (<strong>Practice Needed / Good / Excellent</strong>) and passing means at least Good on 80% of objectives. ' +
@@ -772,7 +897,7 @@
     ctx.positionOrb(false);
     wireSidebarChat(ctx, [
       'Your strongest signal was reading the room — you treated the others’ silence as pressure to resist, not permission to stay quiet.',
-      'Behavioral skills started as your gap, and the two practice reps are what moved it — the words came out shorter and more direct each time.',
+      'Behavioral skills moved at the mastery check — the rehearsal reps made the follow-up automatic before the scenario ever tested it.',
       'Every band on this screen traces back to a specific thing you said or did — your administrator sees the same evidence chain, never just a number.',
       'If you want, you can rerun just the scenario from the course menu — your profile updates from whatever you demonstrate next.'
     ]);
@@ -794,7 +919,7 @@
     }
     function reveal(b, text) {
       b.className = 'cbub clara';
-      b.textContent = text;
+      b.innerHTML = text;
       echo.scrollTop = echo.scrollHeight;
     }
     function run(i, bubble) {
@@ -847,11 +972,11 @@
   }
 
   // ==========================================================================
-  //  The step manifest — nine steps; the scenario is external (its own page).
-  //  Numbering is DYNAMIC: a step may carry when() and drop out of the path
-  //  (the accelerate branch removes the micro-practice), so "Section n of N"
-  //  is computed from the currently-visible list — the counter itself is part
-  //  of the recomposition demo.
+  //  The step manifest — the module contract run literally:
+  //  Entry → Learn → Check → Perform → Record. Numbering is DYNAMIC: steps
+  //  carry when() and enter/leave the path live (entry compression removes two
+  //  Learn beats; a check miss inserts remediation), so "Section n of N" is
+  //  itself part of the recomposition demo.
   // ==========================================================================
   var COURSE = 'Bystander Intervention';
   var STEPS = [
@@ -866,48 +991,60 @@
       init: introInit },
 
     { id: 'baseline', mode: 'floating', lesson: 'Entry Check', gate: true,
-      caption: { title: 'Entry battery · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content. What a learner proves here is compressed out of the path (test-out); skills are never quizzed — the Perform stage is where they’re shown.' },
+      caption: { title: 'ENTRY · Floating companion', note: 'The module contract’s Entry stage: Know & Feel probes before any content. What a learner proves here is compressed out of the path (test-out); skills are never quizzed — the Perform stage is where they’re shown.' },
       coach: { say: 'Loading…' },   // baselineInit swaps in Q1 immediately
       content: BASELINE_CONTENT, init: baselineInit },
 
+    { id: 'compress', mode: 'sidebar', lesson: 'Your Path, Compressed', gate: true,
+      caption: { title: 'ENTRY · Knowledge Layer · Docked guide', note: 'The Learning Layer scores the entry battery against module BO-2’s SME-signed objectives and compresses the Learn beats already verified. Locked items and the Perform stage are untouchable. Presenter control: Demo — flip entry result.' },
+      coach: { say: '', ask: 'Ask CLARA about this change…' },   // narration is TYPED IN by compressInit
+      content: COMPRESS_CONTENT, init: compressInit },
+
     { id: 'video', mode: 'floating', lesson: 'See It Happen', gate: true,
-      caption: { title: 'Gated video · Floating companion', note: 'The clip must play and the learner must answer CLARA’s check before Continue unlocks.' },
+      caption: { title: 'LEARN · Gated video', note: 'The first Learn beat. On the compressed build CLARA frames it as the short cut; the clip must play and the learner answers CLARA’s check before Continue unlocks.' },
       coach: { say: 'Press play when you’re ready — I’ll have one quick question for you once it wraps.' },
-      content: videoContent({ eyebrow: 'Watch', heading: 'Introduction',
+      content: videoContent({ eyebrow: 'Learn · watch', heading: 'Introduction',
         sub: 'First, let’s introduce you to the basics of sexual harassment, how to respond, and why this lesson matters.',
         src: '../../assets/videos/marshall-preroll.mp4' }),
       init: videoInit },
 
+    { id: 'review', mode: 'floating', lesson: 'The Five Ds',
+      when: function () { return entryStrength() === 'full'; },
+      caption: { title: 'LEARN · Review beat', note: 'One of the two beats a strong entry battery compresses away (K1–K3). Full-build learners see it; tested-out learners never do.' },
+      coach: { say: 'Thirty seconds, five moves — you only ever need the one that fits the moment.' },
+      content: REVIEW_CONTENT },
+
+    { id: 'casevideo', mode: 'floating', lesson: 'A Real Case', gate: true,
+      when: function () { return entryStrength() === 'full'; },
+      caption: { title: 'LEARN · Case beat', note: 'The real-case close — the second beat entry compression removes. No question here; the mastery items live in the Check stage.' },
+      coach: { say: 'One real case before the check — press play.' },
+      content: videoContent({ eyebrow: 'Learn · watch', heading: 'A real case',
+        sub: 'What it costs when nobody steps in — a case that went to court.',
+        src: '../../assets/videos/marshall-postscenario.mp4' }),
+      init: caseInit },
+
+    { id: 'check', mode: 'floating', lesson: 'Mastery Check', gate: true,
+      caption: { title: 'CHECK · Floating companion', note: 'Two items: the compliance-locked objective (asked of everyone, retry until right, advanced tier on test-up) and a sampled D4 item. A weak answer on the sampled item inserts in-course remediation on the spot — the section counter grows live.' },
+      coach: { say: 'Loading…' },   // checkInit swaps in item 1 immediately
+      content: CHECK_CONTENT, init: checkInit },
+
+    { id: 'practice', mode: 'floating', lesson: 'Quick Practice', gate: true,
+      when: function () { return checkMissed(); },
+      caption: { title: 'CHECK · In-course remediation', note: 'The learning object the mastery-check miss inserted — two rehearsal reps on objective D4, fixed in the moment rather than flagged for later.' },
+      coach: { say: 'Loading…' },   // practiceInit swaps in the first rep immediately
+      content: PRACTICE_CONTENT, init: practiceInit },
+
     { id: 'scene', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
-      caption: { title: 'Scene-setting · Ambient presence', note: 'CLARA hands off into the practice — establishing who/where/what. This is now the ONLY scene-setter; the scenario page skips its own establishing card and drops straight into the cold-open.' },
-      coach: { eyebrow: "Let's practice", headline: '“The Marshall Scenario”',
+      caption: { title: 'PERFORM · Scene-setting', note: 'The establishing shot for the Perform stage. The scenario page skips its own establishing card and drops straight into the cold-open.' },
+      coach: { eyebrow: "Perform — nobody tests out of this", headline: '“The Marshall Scenario”',
         lede: "In a second you'll be in a real break-room exchange. Take in who's here and what's going on, " +
               "then it's your call how to respond. There's no perfect script here you need to follow." },
       init: sceneInit },
 
     { id: 'scenario', external: 'scenario.html', lesson: 'The Marshall Scenario' },
 
-    { id: 'adjust', mode: 'sidebar', lesson: 'Your Path, Adjusted', gate: true,
-      caption: { title: 'Knowledge Layer · Docked guide', note: 'The Learning Layer recomposes the path from Perform-stage evidence: in-course remediation on the support branch, test-out + test-up on the accelerate branch. Compliance-locked items are never compressed — the provenance chain is on screen.' },
-      coach: { say: '', ask: 'Ask CLARA about this change…' },   // narration is TYPED IN by adjustInit
-      content: ADJUST_CONTENT, init: adjustInit },
-
-    { id: 'practice', mode: 'floating', lesson: 'Quick Practice', gate: true,
-      when: function () { return decideBranch() === 'support'; },
-      caption: { title: 'In-course remediation · Floating companion', note: 'The learning object the Learning Layer inserted — two rehearsal reps on objective D4 (the follow-up), which the Perform stage scored Practice Needed.' },
-      coach: { say: 'Loading…' },   // practiceInit swaps in the first rep immediately
-      content: PRACTICE_CONTENT, init: practiceInit },
-
-    { id: 'closing', mode: 'floating', lesson: 'Wrapping Up', gate: true,
-      caption: { title: 'Closing video · Floating companion', note: 'Watch the clip, then answer CLARA’s true/false knowledge check to unlock Continue.' },
-      coach: { say: 'Press play for the last clip — I’ve got one quick true-or-false question for you when it wraps.' },
-      content: videoContent({ eyebrow: 'Watch', heading: 'Wrapping up',
-        sub: 'Let’s close the loop and look at a real case example.',
-        src: '../../assets/videos/marshall-postscenario.mp4' }),
-      init: closingInit },
-
     { id: 'results', mode: 'sidebar', lesson: 'Your Aptitude Profile',
-      caption: { title: 'Aptitude profile · Docked guide', note: 'Construct-by-construct bands from baseline to now, with the evidence each one traces to — pass = at least Good on 80% of objectives.' },
+      caption: { title: 'RECORD · Aptitude profile', note: 'Construct-by-construct bands from entry to close, the recompositions that happened live, and the cross-module payoff: Perform evidence pre-verifies objectives in the learner’s next course.' },
       coach: { say: '', ask: 'Ask CLARA about your profile…' },   // greeting is TYPED IN by resultsInit (typing bubble → text)
       content: RESULTS_CONTENT, init: resultsInit }
   ];
@@ -1009,7 +1146,7 @@
     if (footCount) footCount.textContent = 'Section ' + pos.n + ' of ' + pos.total;
     if (footBar) footBar.setAttribute('value', String(pos.n / pos.total));
     if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
-    if (branchBtn) branchBtn.style.display = (step.id === 'adjust') ? 'inline-flex' : 'none';
+    if (branchBtn) branchBtn.style.display = (step.id === 'compress') ? 'inline-flex' : 'none';
     backBtn.disabled = (pos.n <= 1);
     var isLast = (pos.n >= pos.total);
     nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
@@ -1182,10 +1319,11 @@
         // Skip the whole learning object → advance to the next step (mirrors the
         // Marshall scenario's skip). Record it so the results reflect the skip.
         if (step && step.id === 'video') saveResult('video1', { skipped: true });
-        else if (step && step.id === 'closing') saveResult('closing', { skipped: true });
+        else if (step && step.id === 'check') saveResult('check', { skipped: true });
         else if (step && step.id === 'baseline') saveResult('baseline', { skipped: true });
         else if (step && step.id === 'practice') saveResult('practice', { skipped: true });
-        else if (step && step.id === 'adjust') saveResult('adjust', { branch: decideBranch(), skipped: true });
+        else if (step && step.id === 'casevideo') saveResult('casevideo', { skipped: true });
+        else if (step && step.id === 'compress') saveResult('entry', { strength: entryStrength(), up: testUp(), skipped: true });
         go(1);
       });
       actions.appendChild(skipBtn);
@@ -1199,14 +1337,14 @@
       branchBtn = document.createElement('button');
       branchBtn.id = 'llBranchBtn';
       branchBtn.type = 'button';
-      branchBtn.title = 'Demo: replay this adjustment with the opposite scenario outcome';
-      branchBtn.innerHTML = '<i class="fa-solid fa-shuffle"></i> Demo: flip outcome';
+      branchBtn.title = 'Demo: replay this compression with the opposite entry result (compressed ↔ full build)';
+      branchBtn.innerHTML = '<i class="fa-solid fa-shuffle"></i> Demo: flip entry result';
       branchBtn.style.display = 'none';
       branchBtn.addEventListener('click', function () {
         if (busy) return;
-        var next = decideBranch() === 'support' ? 'accelerate' : 'support';
-        try { sessionStorage.setItem('ll-branch', next); } catch (e) {}
-        showStep(idx, 'fwd', false);              // replay the adjust step on the new branch
+        var next = entryStrength() === 'compressed' ? 'full' : 'compressed';
+        try { sessionStorage.setItem('ll-entry', next); } catch (e) {}
+        showStep(idx, 'fwd', false);              // replay the compression on the new entry result
       });
       actions.appendChild(branchBtn);
     }
@@ -1223,6 +1361,9 @@
     var start = 0;
     try {
       var want = new URLSearchParams(location.search).get('step');
+      // Old deep links keep working across the contract-order restructure.
+      if (want === 'adjust') want = 'compress';
+      if (want === 'closing') want = 'check';
       if (want) { var f = STEPS.findIndex(function (s) { return s.id === want; }); if (f > -1) start = f; }
     } catch (e) {}
 
