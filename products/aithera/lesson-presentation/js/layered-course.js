@@ -283,39 +283,30 @@
     '<main class="ll-object" id="coursePage">' +
       '<div class="cp-grid">' +
         '<div class="cp-hero">' +
-          '<p class="ll-eyebrow" id="cpGreet">Hi, Rob — ready when you are</p>' +
+          '<p class="ll-eyebrow">Workplace Conduct &amp; Harassment</p>' +
           '<h1>Bystander Intervention</h1>' +
-          '<p class="cp-desc">This course gives every employee the judgment — and the words — to act when they ' +
-            'see harassment or bullying at work. You’ll learn to read the moment, choose an intervention that ' +
-            'fits, and follow up with the person targeted, then prove it in a live practice scenario. ' +
-            'The course adapts as you go: what you already know is compressed out, and anything shaky gets ' +
-            'fixed on the spot.</p>' +
+          '<p class="cp-desc">Learn to read the moment, choose an intervention, and follow up with the ' +
+            'targeted person.</p>' +
           '<div class="cp-chips">' +
             '<span class="cp-chip due"><i class="fa-solid fa-calendar"></i> Required · due Sep 15</span>' +
-            '<span class="cp-chip"><i class="fa-solid fa-clock"></i> ≈25 min · ≈18 after a strong entry</span>' +
             '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
           '</div>' +
-          '<button class="ll-btn ll-btn--primary" id="cpStart" type="button">Start course <i class="fa-solid fa-arrow-right"></i></button>' +
           '<section class="cp-sections" aria-label="Course sections">' +
             '<div class="cp-sec-head"><h2>Course sections</h2>' +
               '<span class="cp-progress"><span id="cpCount"></span><span class="cp-dots" id="cpDots"></span></span></div>' +
             '<div id="cpRows"></div>' +
             '<p class="cp-adapt-note" id="cpAdaptNote"><i class="fa-solid fa-wand-magic-sparkles"></i> Sections marked ' +
-              '“adapts” can be compressed out by your entry check — the list updates as the course recomposes.</p>' +
+              '“adaptive” can be skipped based on your performance.</p>' +
           '</section>' +
         '</div>' +
         '<aside class="cp-rail">' +
-          '<div class="cp-card"><h3>Course requirements</h3>' +
+          '<div class="cp-card"><h3>Competency requirement</h3>' +
             '<ul class="cp-req">' +
-              '<li><i class="fa-solid fa-award"></i><span><b>Competency requirement</b> — Good or above on at least 80% of objectives (4 of 5).</span></li>' +
-              '<li><i class="fa-solid fa-lock"></i><span><b>Locked item</b> — one compliance question every learner must pass; it is never compressed.</span></li>' +
-              '<li><i class="fa-solid fa-comments"></i><span><b>Demonstrated live</b> — the closing scenario runs for everyone. You can’t test out of a skill.</span></li>' +
+              '<li><i class="fa-solid fa-award"></i><span><b>Good (or above) on at least 80% of objectives.</b></span></li>' +
             '</ul></div>' +
-          '<div class="cp-card"><h3>Course details</h3>' +
+          '<div class="cp-card"><h3>Time needed to complete</h3>' +
             '<div class="cp-kv">' +
-              '<div class="kv"><b>Typical duration</b>≈25 minutes full build · ≈18 after a strong entry check</div>' +
-              '<div class="kv"><b>Category</b>Workplace Conduct</div>' +
-              '<div class="kv"><b>Source</b>Module BO-2 “Step In” · Harassment Prevention (JCOM-40198), standing alone as microlearning</div>' +
+              '<div class="kv"><b>Typical ≈ 25 minutes</b>Test well and save 6 minutes</div>' +
             '</div></div>' +
           '<div class="cp-card cp-res"><h3>Resources</h3>' +
             '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-file-pdf"></i> Acme reporting policy <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
@@ -343,9 +334,8 @@
       var meta = [];
       if (st.stage) meta.push('<span class="stage">' + esc(st.stage) + '</span>');
       if (st.mins) meta.push('<span>About ' + st.mins + ' min' + (st.mins > 1 ? 's' : '') + '</span>');
-      meta.push('<span>Required</span>');
       if (!entryDecided && st.when && st.id !== 'practice')
-        meta.push('<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles"></i>adapts</span>');
+        meta.push('<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles"></i>adaptive</span>');
       return '<div class="cp-row' + (done ? ' done' : '') + '">' +
         '<span class="cp-row-ico"><i class="fa-solid ' + (st.icon || 'fa-circle') + '" aria-hidden="true"></i></span>' +
         '<span class="cp-row-main"><b>' + esc(st.lesson) + '</b>' +
@@ -358,11 +348,10 @@
       return '<i class="' + (course[DONE_KEYS[st.id]] ? 'done' : '') + '"></i>';
     }).join('');
     if (entryDecided) document.getElementById('cpAdaptNote').hidden = true;
-    if (doneCount > 0) {
-      document.getElementById('cpGreet').textContent = 'Welcome back, Rob — pick up where you left off';
-      document.getElementById('cpStart').innerHTML = 'Continue course <i class="fa-solid fa-arrow-right"></i>';
-    }
-    document.getElementById('cpStart').addEventListener('click', function () { go(1); });
+    // The Start CTA lives in the bottom nav on this step (see updateFooter);
+    // on a return visit it reads Continue instead.
+    if (doneCount > 0) nextBtn.innerHTML = 'Continue course <i class="fa-solid fa-arrow-right"></i>';
+    ctx.floatClose();   // orb only — the page speaks for itself here
     ctx.positionOrb(false);
   }
 
@@ -1417,9 +1406,9 @@
   // ==========================================================================
   var COURSE = 'Bystander Intervention';
   var STEPS = [
-    { id: 'intro', mode: 'floating', lesson: 'Welcome',
-      caption: { title: 'Course title page · Floating companion', note: 'The standard LMS anatomy — description, live sections list, requirements, details, coordinator — rendered from the actual path, so it foreshadows compression and stays honest on return visits.' },
-      coach: { say: 'This page is yours: what’s in the course, what it asks of you, and where it can adapt. We’ll be working through some sensitive workplace scenarios — I’ll be with you the whole way. Start whenever you’re ready.' },
+    { id: 'intro', mode: 'floating', lesson: 'Welcome', cover: true, nextLabel: 'Start course',
+      caption: { title: 'Course title page · Floating companion', note: 'The standard LMS anatomy — description, live sections list, requirements, coordinator — rendered from the actual path, so it foreshadows compression and stays honest on return visits. The bottom nav is the CTA: Start course, no back, no counter.' },
+      coach: { say: 'Hi Rob — I’ll be with you the whole way. Start whenever you’re ready.' },
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'baseline', icon: 'fa-wave-square', mins: 1, stage: 'Entry', mode: 'floating', lesson: 'Entry Check', gate: true,
@@ -1597,8 +1586,16 @@
     // duplication. Numbering comes from the VISIBLE path — recomposition can
     // shrink the denominator mid-course, and that's deliberate.
     var pos = stepPos(step);
-    if (footCount) footCount.textContent = 'Section ' + pos.n + ' of ' + pos.total;
-    if (footBar) footBar.setAttribute('value', String(pos.n / pos.total));
+    // The title page is a cover: no back, no counter — just the course CTA.
+    if (step.cover) {
+      if (footCount) footCount.textContent = 'Course overview';
+      if (footBar) footBar.style.display = 'none';
+      backBtn.style.display = 'none';
+    } else {
+      if (footCount) footCount.textContent = 'Section ' + pos.n + ' of ' + pos.total;
+      if (footBar) { footBar.style.display = ''; footBar.setAttribute('value', String(pos.n / pos.total)); }
+      backBtn.style.display = '';
+    }
     if (skipBtn) skipBtn.style.display = step.gate ? 'inline-flex' : 'none';   // review-only, gated steps only
     if (branchBtn) branchBtn.style.display = (step.id === 'compress') ? 'inline-flex' : 'none';
     backBtn.disabled = (pos.n <= 1);
