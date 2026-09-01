@@ -141,296 +141,252 @@
 </style>
 </head>
 <body>
-
 <div class="wrap">
 
   <header>
     <p class="eyebrow">Aithera · Scenario Simulator</p>
     <h1>Scenario Editor ‹› Learning Studio</h1>
-    <p class="lede">The Scenario Editor is a temporary tool. In about six months Learning Studio will have its own scenario authoring, so this integration should stay simple and easy to replace.</p>
+    <p class="lede">The Scenario Editor runs embedded in Learning Studio. The main window is the wrapper: it owns save, publish and preview, and asks the editor for the document over an event channel. The editor is the authoring canvas and nothing else.</p>
     <div class="meta">
-      <span><b>Editor</b> its own page, opened from Studio</span>
-      <span><b>Transfer</b> download and upload</span>
-      <span><b>Skipping</b> iframe · editor login · Studio-hosted drafts</span>
-      <span><b>2026-08-26</b></span>
+      <span><b>Editor</b> iframe inside the Learning Studio page</span>
+      <span><b>Transfer</b> events between wrapper and iframe</span>
+      <span><b>Storage</b> localStorage on the Learning Studio origin</span>
+      <span><b>2026-09-01</b></span>
     </div>
   </header>
 
   <section>
     <h2>Integration strategy</h2>
     <ul class="g">
-      <li><b>The Scenario Editor stays its own page,</b> on its own domain. The Learning Studio frontend opens it in a new browser tab with the scenario's ID and title in the URL.
-        <div class="note">
-          <b>Why not an iframe.</b> The editor keeps work in progress in browser storage (<span class="k">localStorage</span>), and browsers block or isolate that storage inside an iframe. Since it holds the only copy of an unsaved scenario, an LXD could lose work. We have already seen a smaller version of this problem: <span class="k">window.confirm()</span> returns false without ever prompting inside an embedded browser, which made the editor's Delete button do nothing.
-        </div>
-      </li>
-      <li><b>The scenario file moves between the two systems as a download and an upload,</b> both done by the LXD in their own browser. Nothing is transferred system to system.</li>
-      <li><b>The Learning Studio backend stores one file per scenario</b> and versions it. That file holds everything the LXD authored, and it is the file the player loads.</li>
-      <li><b>The scenario ID the Learning Studio backend generates goes into the document's <span class="k">implementation_id</span> field,</b> so the file always knows which scenario it belongs to.</li>
-      <li><b>No login in the Scenario Editor.</b> It has no server of its own and stores nothing but browser-local drafts. Uploading, versioning and deleting all happen in Learning Studio, which already has authentication.</li>
+      <li><b>The Scenario Editor runs in an iframe</b> inside the Learning Studio page. Learning Studio's own window is the wrapper around it.</li>
+      <li><b>The wrapper owns Save, Publish and Preview.</b> Those controls live in the main window. The editor hides its own header and primary buttons when embedded, so there is one set of controls, not two.</li>
+      <li><b>The two sides talk over events.</b> The wrapper asks the editor for the current document and the editor hands it back. The LXD never downloads or uploads a file.</li>
+      <li><b>Drafts persist to <span class="k">localStorage</span> on the Learning Studio origin</b> — the main window's own storage, so it is first-party and not subject to the restrictions that apply to storage inside an iframe.</li>
+      <li><b>Publish is a wrapper action and means the scenario goes live to learners.</b> There is no separate draft record: the local copy is the draft.</li>
+      <li><b>The wrapper handles images.</b> It uploads to S3, gets a URL back, and that URL is what gets saved as the media reference in the scenario.</li>
+      <li><b>No login in the editor,</b> and no direct contact with Learning Studio's backend. Everything it needs arrives from the wrapper.</li>
     </ul>
+    <div class="note">
+      <b>Already true of the editor:</b> it has no native browser dialogs left. Every confirm and prompt was replaced with an in-page dialog, precisely because a native one is suppressed inside an embedded browser and returns false without asking. One <span class="k">alert()</span> survives, in the storage-quota path in <span class="k">studio-engine.js</span>, and it should go the same way.
+    </div>
+  </section>
+
+  <section>
+    <h2>How the pieces sit</h2>
+    <p>Everything happens in one browser window. The editor is inside it, and talks to nothing but the wrapper — that is the property that makes the rest of this simple.</p>
+
+    <figure>
+      <div class="svg-scroll">
+        <svg viewBox="0 0 960 500" role="img" aria-label="Architecture diagram. One Learning Studio browser window acts as a wrapper. At the top of it sits the Learning Studio chrome, holding the Save, Publish and Preview controls. Below that, an iframe contains the Scenario Editor with its own header and buttons hidden. Two event arrows run between them: the wrapper sends the document down to the editor, and the editor returns the current document upward on request. From the wrapper, four connections run outward to localStorage on the Learning Studio origin, the Learning Studio backend for publishing, S3 for image uploads, and the production engine for previews. The editor itself connects to nothing outside the wrapper.">
+          <defs>
+            <marker id="ar" markerWidth="7" markerHeight="7" refX="5.6" refY="3.5" orient="auto"><path class="d-arrow" d="M0,0 L7,3.5 L0,7 z"/></marker>
+          </defs>
+
+          <!-- the browser window / wrapper -->
+          <rect x="30" y="56" width="556" height="404" rx="14" class="d-b2"/>
+          <text x="48" y="80" font-size="12" font-weight="700" class="d-ink" letter-spacing="1">LEARNING STUDIO WINDOW · THE WRAPPER</text>
+
+          <!-- studio chrome, where the CTAs now live -->
+          <rect x="52" y="96" width="512" height="52" rx="9" class="d-acbox"/>
+          <text x="308" y="118" font-size="12" text-anchor="middle" class="d-ink">Studio chrome — Save · Publish · Preview</text>
+          <text x="308" y="136" font-size="11" text-anchor="middle">the only controls the LXD sees</text>
+
+          <!-- the event channel -->
+          <path class="d-edge" d="M170,152 L170,222" marker-end="url(#ar)"/>
+          <text x="182" y="166" font-size="10.5" class="d-ink">send the document in</text>
+          <text x="182" y="181" font-size="10" class="d-ink3">on open</text>
+
+          <path class="d-edge" d="M446,222 L446,152" marker-end="url(#ar)"/>
+          <text x="434" y="203" font-size="10.5" text-anchor="end" class="d-ink">hand the document back</text>
+          <text x="434" y="218" font-size="10" text-anchor="end" class="d-ink3">on save, publish, preview</text>
+
+          <!-- the iframe -->
+          <rect x="52" y="224" width="512" height="212" rx="9" class="d-b"/>
+          <text x="70" y="248" font-size="11.5" font-weight="700" class="d-ink" letter-spacing=".6">IFRAME</text>
+          <rect x="70" y="262" width="476" height="70" rx="8" class="d-b2"/>
+          <text x="308" y="288" font-size="12" text-anchor="middle" class="d-ink">Scenario Editor — the authoring canvas</text>
+          <text x="308" y="308" font-size="11" text-anchor="middle">own header and buttons hidden when embedded</text>
+          <text x="70" y="360" font-size="11" class="d-ink3">Holds no credentials · reaches no Learning Studio API ·</text>
+          <text x="70" y="378" font-size="11" class="d-ink3">talks only to the wrapper</text>
+
+          <!-- what the wrapper talks to -->
+          <rect x="656" y="86" width="274" height="52" rx="9" class="d-b"/>
+          <text x="672" y="108" font-size="11.5" class="d-ink">localStorage</text>
+          <text x="672" y="126" font-size="10.5">Learning Studio origin · the draft</text>
+
+          <rect x="656" y="176" width="274" height="52" rx="9" class="d-b"/>
+          <text x="672" y="198" font-size="11.5" class="d-ink">Learning Studio backend</text>
+          <text x="672" y="216" font-size="10.5">publish — the scenario goes live</text>
+
+          <rect x="656" y="266" width="274" height="52" rx="9" class="d-b"/>
+          <text x="672" y="288" font-size="11.5" class="d-ink">S3</text>
+          <text x="672" y="306" font-size="10.5">image upload, returns a URL</text>
+
+          <rect x="656" y="356" width="274" height="52" rx="9" class="d-b"/>
+          <text x="672" y="378" font-size="11.5" class="d-ink">Production engine</text>
+          <text x="672" y="396" font-size="10.5">preview the latest local save</text>
+
+          <path class="d-edge" d="M588,112 L650,112" marker-end="url(#ar)"/>
+          <path class="d-edge" d="M588,202 L650,202" marker-end="url(#ar)"/>
+          <path class="d-edge" d="M588,292 L650,292" marker-end="url(#ar)"/>
+          <path class="d-edge" d="M588,382 L650,382" marker-end="url(#ar)"/>
+
+          <!-- legend -->
+          <rect x="30" y="474" width="15" height="13" rx="3" class="d-acbox"/>
+          <text x="53" y="484" font-size="10.5" class="d-ink">where the LXD acts</text>
+        </svg>
+      </div>
+    </figure>
+
+    <div class="note">
+      <b>The one rule worth protecting:</b> every outward connection starts at the wrapper. If the editor ever calls Learning Studio's backend or S3 directly, it needs credentials, and the reason it can stay a throwaway tool disappears.
+    </div>
   </section>
 
   <section>
     <h2>The LO wrapper</h2>
     <p>In Learning Studio, a <b>Learning Object</b> (LO) is the record that holds one piece of content. It has an ID, a title, a status and a modified date, and it is what shows up in the content lists. Scenes, questions and citations all live inside one Learning Object.</p>
-    <p>A scenario works the same way. It gets its own Learning Object, and the exported scenario JSON is that object's content, which is where the <span class="k">.lo.json</span> file extension comes from. Everywhere below, the thing that gets created, versioned, stored into and handed back from is that Learning Object.</p>
-    <p><b>The Learning Studio backend owns it.</b> Creating it, generating its ID, storing the uploaded file against it and keeping its version history are all backend work. The Learning Studio frontend shows it in the Scenario Manager and provides the upload and download controls.</p>
-    <div class="note">
-      <b>The Scenario Editor never sees the Learning Object.</b> It receives only the ID and title, in the URL, and writes the ID into the scenario file so the file can be matched back to the right record later. It has no access to Learning Studio's storage or API.
-    </div>
-  </section>
-
-  <section>
-    <h2>The flow</h2>
-    <figure>
-      <div class="svg-scroll">
-<svg viewBox="0 0 960 604" role="img" aria-label="Swimlane diagram. The highlighted box in each phase is where that phase starts: New Scenario in the Learning Studio frontend, Export the scenario file in the Scenario Editor, and Edit or Duplicate in the Learning Studio frontend. The tinted lane is outside Learning Studio. Full description: three lanes — the Learning Studio backend, the Learning Studio frontend, and the Scenario Editor — across three phases. New scenario: the UI takes a New Scenario tap and a title, the backend creates the Learning Object and generates the scenario ID, the UI lists it as a draft, and the editor opens with the id and title on the URL. Save and update: the editor exports the scenario file, the UI uploads it, validates it against the production loader and checks its ID and title, and the backend saves it as a new version, which is the file the player loads. Edit: the UI offers Edit or Duplicate, the backend hands back the same file it stored, the UI downloads it, and the editor imports it.">
-          <defs>
-            <marker id="ar" markerWidth="7" markerHeight="7" refX="5.6" refY="3.5" orient="auto"><path class="d-arrow" d="M0,0 L7,3.5 L0,7 z"/></marker>
-          </defs>
-
-          <!-- lane tint on the editor row: the only lane outside Learning Studio -->
-          <rect x="0" y="400" width="950" height="150" class="d-lane"/>
-
-          <!-- phase headers -->
-          <text x="247" y="22" class="d-ink" font-size="12.5" font-weight="700" letter-spacing="1.6" text-anchor="middle">NEW SCENARIO</text>
-          <text x="533" y="22" class="d-ink" font-size="12.5" font-weight="700" letter-spacing="1.6" text-anchor="middle">SAVE / UPDATE</text>
-          <text x="813" y="22" class="d-ink" font-size="12.5" font-weight="700" letter-spacing="1.6" text-anchor="middle">EDIT</text>
-
-          <!-- frame: lane + column dividers -->
-          <line x1="0" y1="40" x2="950" y2="40" class="d-div"/>
-          <line x1="0" y1="220" x2="950" y2="220" class="d-div"/>
-          <line x1="0" y1="400" x2="950" y2="400" class="d-div"/>
-          <line x1="0" y1="550" x2="950" y2="550" class="d-div"/>
-          <line x1="104" y1="14" x2="104" y2="550" class="d-div"/>
-          <line x1="390" y1="14" x2="390" y2="550" class="d-div"/>
-          <line x1="676" y1="14" x2="676" y2="550" class="d-div"/>
-
-          <!-- lane labels -->
-          <text x="12" y="120" class="d-ink3" font-size="10.5" letter-spacing="1.3">STUDIO</text>
-          <text x="12" y="134" class="d-ink3" font-size="10.5" letter-spacing="1.3">BACKEND</text>
-          <text x="12" y="300" class="d-ink3" font-size="10.5" letter-spacing="1.3">STUDIO</text>
-          <text x="12" y="314" class="d-ink3" font-size="10.5" letter-spacing="1.3">FRONTEND</text>
-          <text x="12" y="466" class="d-ink3" font-size="10.5" letter-spacing="1.3">SCENARIO</text>
-          <text x="12" y="480" class="d-ink3" font-size="10.5" letter-spacing="1.3">EDITOR</text>
-
-          <!-- ============ BACKEND LANE ============ -->
-          <rect x="132" y="102" width="230" height="60" rx="8" class="d-b"/>
-          <text x="247" y="126" font-size="11.5" text-anchor="middle" class="d-ink">creates the Learning Object</text>
-          <text x="247" y="144" font-size="11.5" text-anchor="middle">generates the scenario ID</text>
-
-          <rect x="412" y="94" width="242" height="76" rx="8" class="d-b"/>
-          <text x="533" y="117" font-size="11.5" text-anchor="middle" class="d-ink">saves the scenario file</text>
-          <text x="533" y="135" font-size="11" text-anchor="middle">as a new version</text>
-          <text x="533" y="156" font-size="11" text-anchor="middle">the player loads this file</text>
-
-          <rect x="698" y="102" width="230" height="60" rx="8" class="d-b"/>
-          <text x="813" y="126" font-size="11.5" text-anchor="middle" class="d-ink">sends back the scenario file</text>
-          <text x="813" y="144" font-size="11" text-anchor="middle">the same file, to keep editing</text>
-
-          <!-- ============ STUDIO UI LANE ============ -->
-          <rect x="137" y="242" width="220" height="44" rx="8" class="d-acbox"/>
-          <text x="247" y="269" font-size="11.5" text-anchor="middle" class="d-ink">New Scenario · enter a title</text>
-
-          <rect x="147" y="330" width="200" height="44" rx="8" class="d-b"/>
-          <text x="247" y="357" font-size="11.5" text-anchor="middle">listed as Draft</text>
-
-          <rect x="418" y="238" width="230" height="60" rx="8" class="d-b"/>
-          <text x="533" y="261" font-size="11.5" text-anchor="middle" class="d-ink">validate the upload</text>
-          <text x="533" y="279" font-size="11" text-anchor="middle">check the ID and title</text>
-
-          <rect x="418" y="330" width="230" height="44" rx="8" class="d-b"/>
-          <text x="533" y="357" font-size="11.5" text-anchor="middle" class="d-ink">upload the scenario file</text>
-
-          <rect x="704" y="238" width="218" height="44" rx="8" class="d-acbox"/>
-          <text x="813" y="265" font-size="11.5" text-anchor="middle" class="d-ink">Edit · Duplicate</text>
-
-          <rect x="704" y="330" width="218" height="44" rx="8" class="d-b"/>
-          <text x="813" y="357" font-size="11.5" text-anchor="middle" class="d-ink">download the scenario file</text>
-
-          <!-- ============ EDITOR LANE ============ -->
-          <rect x="140" y="432" width="214" height="60" rx="8" class="d-b"/>
-          <text x="247" y="455" font-size="11" text-anchor="middle" class="d-ink">opens ?lo= &amp; ?title=</text>
-          <text x="247" y="473" font-size="11" text-anchor="middle">wizard · id pre-set</text>
-
-          <rect x="420" y="432" width="226" height="60" rx="8" class="d-acbox"/>
-          <text x="533" y="455" font-size="11" text-anchor="middle" class="d-ink">export the scenario file</text>
-          <text x="533" y="473" font-size="11" text-anchor="middle">checked before download</text>
-
-          <rect x="706" y="432" width="214" height="60" rx="8" class="d-b"/>
-          <text x="813" y="455" font-size="11" text-anchor="middle" class="d-ink">import · edit</text>
-          <text x="813" y="473" font-size="11" text-anchor="middle">Open an existing scenario</text>
-
-          <!-- ============ ARROWS — phase 1 ============ -->
-          <path class="d-edge" d="M210,240 L210,168" marker-end="url(#ar)"/>
-          <path class="d-edge" d="M300,164 H362 Q372,164 372,174 V342 Q372,352 362,352 H353" marker-end="url(#ar)"/>
-          <path class="d-edge" d="M247,376 L247,428" marker-end="url(#ar)"/>
-
-          <!-- ============ ARROWS — phase 2 ============ -->
-          <path class="d-edge" d="M533,430 L533,378" marker-end="url(#ar)"/>
-          <path class="d-edge" d="M533,328 L533,302" marker-end="url(#ar)"/>
-          <path class="d-edge" d="M533,236 L533,176" marker-end="url(#ar)"/>
-          <text x="545" y="318" font-size="10" class="d-ink3">status + date update</text>
-
-          <!-- ============ ARROWS — phase 3 ============ -->
-          <path class="d-edge" d="M780,236 L780,168" marker-end="url(#ar)"/>
-          <path class="d-edge" d="M760,164 H700 Q690,164 690,174 V342 Q690,352 700,352 H703" marker-end="url(#ar)"/>
-          <path class="d-edge" d="M813,376 L813,428" marker-end="url(#ar)"/>
-
-          <!-- the loop: edit sends you back around to save -->
-          <path class="d-dash" d="M700,516 L656,516" marker-end="url(#ar)"/>
-          <text x="676" y="536" font-size="10" class="d-ink3" text-anchor="middle">editing ends in another save</text>
-
-          <!-- legend: the two visual codes used above -->
-          <rect x="104" y="574" width="15" height="13" rx="3" class="d-acbox"/>
-          <text x="127" y="584" font-size="10.5" class="d-ink">where the phase starts</text>
-          <rect x="308" y="574" width="15" height="13" rx="3" class="d-b2"/>
-          <text x="331" y="584" font-size="10.5">outside Learning Studio</text>
-        </svg>
-      </div>
-    </figure>
+    <p>A scenario works the same way. It gets its own Learning Object, and the scenario JSON is that object's content, which is where the <span class="k">.lo.json</span> file extension comes from.</p>
+    <p><b>The Learning Studio backend owns it.</b> Creating it, generating its ID and publishing it are backend work. <b>The main window owns the working copy</b> — the draft in <span class="k">localStorage</span>, and the controls that act on it.</p>
   </section>
 
   <section>
     <h2>Step by step</h2>
-    <p>The same three phases as the diagram above, spelled out. Every step names the system that performs it.</p>
+    <p>Every step names the part of the system that performs it.</p>
 
     <h3 class="first">New scenario</h3>
     <ol class="s">
-      <li><b>In Learning Studio</b> (frontend) the LXD taps <b>New Scenario</b> and enters a title.</li>
-      <li><b>The Learning Studio backend</b> creates the Learning Object and generates its scenario ID.</li>
-      <li><b>The Learning Studio frontend</b> lists the new Learning Object in the Scenario Manager with a status of <b>Draft</b>.</li>
-      <li><b>The Learning Studio frontend</b> opens the Scenario Editor in a new browser tab at <span class="k">?lo=&lt;id&gt;&amp;title=&lt;title&gt;</span>.</li>
-      <li><b>In the Scenario Editor</b>, the page reads those two values from the URL, fills in the title, sets <span class="k">implementation_id</span> to the ID, and starts the new-scenario wizard.</li>
+      <li><b>In Learning Studio</b>, the LXD taps <b>Create New Scenario</b> and enters a title.</li>
+      <li><b>The Learning Studio backend</b> creates a draft Learning Object and generates its scenario ID.</li>
+      <li><b>The main window</b> opens the authoring view with the editor embedded, passing in the ID and title.</li>
+      <li><b>In the iframe</b>, the editor sets <span class="k">implementation_id</span> to the ID, fills in the title, and offers its starting points — draft with AI, start from a template, or open an existing scenario.</li>
     </ol>
 
-    <h3>Save and update</h3>
+    <h3>Save</h3>
     <ol class="s">
-      <li><b>In the Scenario Editor</b>, the LXD exports the scenario file. It downloads to their own machine.</li>
-      <li><b>In Learning Studio</b> (frontend) the LXD opens the scenario's Learning Object and uploads that file to it.</li>
-      <li><b>The Learning Studio backend</b> validates the upload and compares its ID and title against the Learning Object it was uploaded to. It should call the existing authoring service to validate rather than reimplementing the rules.</li>
-      <li><b>The Learning Studio backend</b> saves the file as a new version of the Learning Object, and <b>the frontend</b> updates the status and modified date in the list.</li>
+      <li><b>In Learning Studio</b>, the LXD presses <b>Save</b> in the main window.</li>
+      <li><b>The main window</b> asks the editor for the current document.</li>
+      <li><b>The iframe</b> returns it.</li>
+      <li><b>The main window</b> writes it to <span class="k">localStorage</span> on its own origin. This is the draft, and it is the only copy until publish.</li>
+    </ol>
+
+    <h3>Preview</h3>
+    <ol class="s">
+      <li><b>In Learning Studio</b>, the LXD presses <b>Preview</b>.</li>
+      <li><b>The main window</b> takes the latest saved document and hands it to the production engine.</li>
+      <li>The scenario runs on the real engine, not on a preview built into the editor.</li>
+    </ol>
+
+    <h3>Publish</h3>
+    <ol class="s">
+      <li><b>In Learning Studio</b>, the LXD presses <b>Publish</b>.</li>
+      <li><b>The main window</b> sends the saved document to the backend.</li>
+      <li><b>The Learning Studio backend</b> validates it and stores it against the Learning Object. It should call the existing authoring service to validate rather than reimplementing the rules.</li>
+      <li>The scenario is live to learners.</li>
     </ol>
 
     <div class="sub">
-    <h4>Checking the upload</h4>
-    <p>The comparison in step 3, case by case.</p>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th>What the backend finds on upload</th><th>What it does</th></tr></thead>
-        <tbody>
-          <tr><td>ID and title both match</td><td>Save it. No prompt needed.</td></tr>
-          <tr><td>ID matches, title differs</td><td>Offer to update the Learning Object title. LXDs often improve the title while authoring.</td></tr>
-          <tr><td>ID does not match</td><td>Warn and show both IDs, with Cancel as the default. This usually means the wrong file went into the wrong Learning Object.</td></tr>
-          <tr><td>No ID in the file</td><td>Offer to assign the Learning Object's ID. This covers scenarios authored before the integration exists.</td></tr>
-        </tbody>
-      </table>
-    </div>
+      <h4>Validate before publish, not after</h4>
+      <p>The v4 schema refuses fields it does not recognise, so an invalid document fails to load rather than degrading. The editor already checks a document against the production loader's rules, so the wrapper can surface that result on Save and stop a bad Publish before it reaches learners.</p>
     </div>
 
     <h3>Edit an existing scenario</h3>
     <ol class="s">
-      <li><b>In Learning Studio</b> (frontend) the LXD picks a scenario from the Scenario Manager and chooses <b>Edit</b> or <b>Duplicate</b>.</li>
-      <li><b>The Learning Studio backend</b> returns the file it has stored for that Learning Object, and <b>the frontend</b> downloads it to the LXD's machine.</li>
-      <li><b>In the Scenario Editor</b>, the LXD chooses <b>Open an existing scenario</b>, picks that file, and edits it.</li>
-      <li>Exporting and uploading again follows <b>Save and update</b> above.</li>
+      <li><b>In Learning Studio</b>, the LXD opens a scenario from the Scenario Manager.</li>
+      <li><b>The main window</b> loads the draft from <span class="k">localStorage</span>, or the published document from the backend if there is no local draft.</li>
+      <li><b>The main window</b> sends that document into the iframe.</li>
+      <li><b>In the iframe</b>, the editor renders it and the LXD edits. Saving follows <b>Save</b> above.</li>
     </ol>
   </section>
 
   <section>
     <h2>Other considerations</h2>
 
-    <h3 class="first">Scenario IDs</h3>
-    <p>Put Learning Studio's scenario ID in the document's <span class="k">implementation_id</span> field. The field already exists in the v4 format, and its description in the editor already reads <em>"how the surrounding content system identifies this implementation."</em> Storing the ID there means the file knows which Learning Object it belongs to even after it has been emailed or downloaded onto another machine.</p>
+    <h3 class="first">Draft durability</h3>
+    <p>With no draft record on the server, the draft lives in one browser profile on one machine. Clearing site data, switching browsers or losing the laptop loses the work, and two authors cannot pass a half-finished scenario between them.</p>
+    <p>The sharper version: <b>publish is the only thing that persists anywhere but that browser, and publish means live to learners.</b> So an LXD who wants their work stored somewhere durable has to make it live, and one who does not has to trust <span class="k">localStorage</span> to survive.</p>
+    <p><b>The cheap fix, if it becomes a problem:</b> have the wrapper also send the draft to the backend on Save, stored against the Learning Object as a draft and not served to learners. The wrapper already holds the document at that moment, so it is a place to put it rather than new plumbing. Worth deciding deliberately rather than discovering it when someone loses a day of authoring.</p>
+
+    <h3>Creating a scenario</h3>
+    <p>Splitting the question in two makes it easier to answer:</p>
     <ul class="g">
-      <li><b>The Learning Studio backend generates the ID once,</b> when it creates the Learning Object. Nothing else ever generates one.</li>
-      <li><b>In the Scenario Editor, do not rebuild the ID from the title.</b> The wizard currently falls back to a slug of the title, so renaming a scenario can change the ID the engine uses for routing. Remove that fallback.</li>
-      <li><b>In the Scenario Editor, make the field read-only</b> when Learning Studio supplied the ID. It is editable text today, and an LXD who types over it breaks the link to the Learning Object with no warning.</li>
-      <li><b>Duplicating a scenario needs a new ID,</b> generated by the Learning Studio backend like any other. Otherwise two Learning Objects share one routing key.</li>
-      <li class="no"><b>In the Scenario Editor, change the download filenames in the same update.</b> Filenames are built from <span class="k">implementation_id</span> first, so an ID like a GUID would make every download unreadable. Use <span class="k">content.title</span> instead and fall back to the ID.</li>
+      <li><b>Creating the Learning Object</b> — the record, its ID and its title. Already the wrapper's, and already built in the flow above.</li>
+      <li><b>Choosing what the scenario starts as</b> — blank, one of the templates, or AI-drafted. This is authoring, and it should stay in the iframe.</li>
+    </ul>
+    <p>The second one belongs to the editor because that is where the knowledge lives. The template gallery reads the scenario-type registry, and each template is a complete, valid v4 document with the teaching content left blank. For the wrapper to offer that picker it would have to know which templates exist and how to produce a valid skeleton for each — duplicating the editor's job, in a tool meant to be replaced.</p>
+    <div class="note">
+      <b>So: yes, creation is in scope, and it is the editor's half that matters.</b> When the header and primary buttons are hidden for embedding, the <b>New scenario panel must not go with them</b> — it is not a call to action, it is the entry point. The editor already opens it by itself when it boots with an empty document.
+    </div>
+
+    <h3>Scenario IDs</h3>
+    <p>The scenario ID the backend generates goes into the document's <span class="k">implementation_id</span> field. The field already exists in v4, and its description in the editor already reads <em>"how the surrounding content system identifies this implementation."</em></p>
+    <ul class="g">
+      <li><b>The backend generates it once,</b> when it creates the Learning Object. Nothing else ever generates one.</li>
+      <li><b>In the editor, do not rebuild the ID from the title.</b> The wizard currently falls back to a slug of the title, so renaming a scenario can change the ID the engine routes on. Remove that fallback.</li>
+      <li><b>In the editor, make the field read-only</b> when the wrapper supplied the ID. It is editable text today.</li>
+      <li><b>Duplicating a scenario needs a new ID,</b> generated by the backend like any other, or two Learning Objects share one routing key.</li>
     </ul>
 
     <h3>Images</h3>
-    <p>In the v4 format, media is <span class="k">{ type, src, alt }</span> and <span class="k">src</span> is a plain string. The format has no field for image data, so the scenario file can only hold a reference to an image, never the image itself. <b>The Learning Studio backend stores the actual file</b>, in its media library. <b>The Scenario Editor holds only the reference string</b> the LXD pastes in.</p>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th>Option</th><th>Assessment</th></tr></thead>
-        <tbody>
-          <tr><td>Base64 image inside the JSON<br><span class="fn">what the editor does today</span></td><td>Will not work. Browser storage holds about 5MB, and the editor already shows "too large to save — usually an embedded photo." A single 3MB image stops the LXD from saving.</td></tr>
-          <tr><td>Learning Studio uploader and asset picker<br><span class="fn">LXD pastes the path or ID into the editor</span></td><td class="yes">Use this one.</td></tr>
-          <tr><td>Scenario Editor uploads to the Learning Studio backend directly</td><td>This would require adding a login to the editor. Not worth it for a temporary tool.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="note">
-      <b>This is simpler than it looks.</b> The v4 observe practice has no hotspot coordinates. Its rubric is text based and production runs the text-observation loop, so the LXD never places markers on an image. The editor only needs the reference string. Showing a thumbnail would be nice, but it is not required.
-    </div>
+    <p>In the v4 format, media is <span class="k">{ type, src, alt }</span> and <span class="k">src</span> is a plain string. The format has no field for image data, so the scenario can only hold a reference — which is exactly what the wrapper's S3 flow provides.</p>
     <ul class="g">
-      <li><b>Order of work.</b> The image has to exist before the LXD exports, so the sequence is: upload the image <b>in Learning Studio</b>, copy the reference it returns, paste it <b>in the Scenario Editor</b>, then export. Put the asset picker in the Scenario Manager so they do not have to leave a half-finished scenario to go find it.</li>
-      <li class="no"><b>Still to decide.</b> If image URLs only resolve for a logged-in Learning Studio user, the Scenario Editor cannot render them, since it runs on a different domain with no Learning Studio session. Either accept previews without images, or have the backend issue signed or public URLs.</li>
+      <li><b>The wrapper uploads to S3 and gets a URL.</b> That URL is saved as the media reference in the scenario.</li>
+      <li><b>This also removes the storage problem.</b> Embedding an image as base64 could approach the browser's storage limit on its own; a URL costs a few dozen bytes.</li>
+      <li><b>Nothing to author beyond the reference.</b> The v4 observe practice has no hotspot coordinates — its rubric is text based — so the LXD never places markers on an image.</li>
+      <li class="no"><b>Still to decide:</b> whether the S3 URL resolves without a Learning Studio session. If it does not, images will not render in the editor or in a preview.</li>
     </ul>
-  </section>
-
-    <h3>Publishing</h3>
-    <p>Uploading a file is not publishing it. A scenario has to go live at some point, and none of the flows above say how. This is undecided, which is why it is not in the diagram yet.</p>
-    <p><b>Recommendation: the Learning Studio backend owns it</b>, because it already owns authentication and the Learning Object's lifecycle. Three options have been floated:</p>
-    <ul class="g">
-      <li><b>Someone uploads and publishes on the author's behalf.</b> Works today, does not scale.</li>
-      <li class="no"><b>The Scenario Editor gets a publish button.</b> No. It would need Learning Studio credentials, which is the one thing this integration avoids, and it would give the editor a write path into Learning Studio's storage.</li>
-      <li><b>Hand the file to the dev team.</b> Fine while this is a prototype, not a workflow.</li>
-    </ul>
-    <p>Two things to settle either way: <b>which upload changes which status</b> (the Scenario Manager shows Published and In Progress), and <b>whether a published scenario can be uploaded to</b> without being unpublished first.</p>
 
     <h3>Reuse and versions</h3>
-    <p>A scenario reaches a learner by being added to a course as a knowledge-check question type: the LXD picks it from a list of scenarios and attaches it to a Learning Object. That raises two questions this spec does not answer.</p>
+    <p>A scenario reaches a learner by being added to a course as a knowledge-check question type, which means one scenario can be referenced from several places. Publish settles what a version is; it does not settle what happens to the references.</p>
     <ul class="g">
-      <li><b>What appears in that list?</b> Published scenarios only, or drafts too.</li>
-      <li><b>What happens to courses that already reference a scenario when a new version is uploaded?</b> Either they follow the latest version, or they stay pinned to the version they were attached to.</li>
+      <li><b>What appears in the scenario picker?</b> Published scenarios only, presumably, since a draft exists only in one author's browser.</li>
+      <li><b>What happens to courses already referencing a scenario when it is published again?</b> Either they follow the latest version, or they stay pinned to the one they were attached to.</li>
     </ul>
-    <p>The second one has real consequences and is easy to miss, because nothing goes wrong until a scenario is reused. Following the latest version is simpler and means a typo is fixed everywhere at once. Pinning is safer for compliance content, where an approved scenario should not change under a course without someone deciding it should — and these scenarios cover harassment, bullying and hazmat.</p>
-    <p><b>Suggestion:</b> pin the reference, and give the course an explicit "update to the latest version" action. That keeps the safe behaviour as the default and the convenient one available. It is a product call rather than a technical one.</p>
+    <p>Nothing goes wrong here until a scenario is reused, which is what makes it easy to miss. Following the latest is simpler and fixes a typo everywhere at once. Pinning is safer for compliance content, where an approved scenario should not change under a course without someone deciding it should — and these scenarios cover harassment, bullying and hazmat. <b>Suggestion:</b> pin the reference and give the course an explicit update action. A product call, not a technical one.</p>
   </section>
 
   <section>
     <h2>Updates needed</h2>
     <div class="cols">
       <div>
-        <h3>Scenario Editor</h3>
+        <h3 class="first">Scenario Editor</h3>
         <ul class="g">
-          <li>Read <span class="k">?lo=</span> and <span class="k">?title=</span> on load. Fill in the title, set the ID, and make the ID read-only.</li>
+          <li>An embedded mode that hides the header and primary buttons, and keeps the New scenario panel.</li>
+          <li>Receive a document from the wrapper and render it.</li>
+          <li>Return the current document when the wrapper asks.</li>
+          <li>Stop writing its own <span class="k">localStorage</span> drafts when embedded, so there is one working copy rather than two that can diverge.</li>
+          <li>Replace the last <span class="k">alert()</span> in <span class="k">studio-engine.js</span> with an in-page message.</li>
+          <li>Set <span class="k">implementation_id</span> from the wrapper and make it read-only.</li>
           <li>Stop rebuilding <span class="k">implementation_id</span> from the title.</li>
-          <li>Build download filenames from <span class="k">content.title</span>.</li>
-          <li>Store local drafts under the <span class="k">lo</span> ID, so reopening a scenario resumes the right draft.</li>
-          <li>Nothing new for the one-file flow — the export the LXD already uses is the file Learning Studio wants.</li>
+          <li>Accept an image URL as a media reference from the wrapper's picker.</li>
         </ul>
       </div>
       <div>
-        <h3>Learning Studio</h3>
+        <h3 class="first">Learning Studio</h3>
         <ul class="g">
-          <li><b>Backend</b> — create the Learning Object and generate its ID on New Scenario.</li>
-          <li><b>Backend</b> — store the uploaded file against the Learning Object, versioned.</li>
-          <li><b>Backend</b> — return that same file when someone edits.</li>
-          <li><b>Backend</b> — validate on upload via the authoring service, and compare the ID and title per the table above.</li>
+          <li><b>Frontend</b> — embed the editor and define the event contract in both directions.</li>
+          <li><b>Frontend</b> — Save, Publish and Preview controls in the main window.</li>
+          <li><b>Frontend</b> — write and read the draft in <span class="k">localStorage</span>.</li>
+          <li><b>Frontend</b> — surface validation results on Save, and block a failing Publish.</li>
+          <li><b>Frontend</b> — image picker that uploads to S3 and returns the URL to the editor.</li>
+          <li><b>Backend</b> — create the Learning Object and generate its ID.</li>
+          <li><b>Backend</b> — validate on publish via the authoring service.</li>
+          <li><b>Backend</b> — publish and unpublish, and store the published document.</li>
           <li><b>Backend</b> — generate a new ID when a scenario is duplicated.</li>
-          <li><b>Backend</b> — publish and unpublish the Learning Object, and decide how upload interacts with status.</li>
-          <li><b>Backend</b> — store media in the library and return a reference the editor can use.</li>
-          <li><b>Frontend</b> — open the editor in a new tab with the ID and title in the URL.</li>
-          <li><b>Frontend</b> — upload and download controls on the Learning Object, and the <span class="k">failures[]</span> list when validation fails.</li>
-          <li><b>Frontend</b> — asset uploader and picker reachable from the Scenario Manager.</li>
         </ul>
       </div>
     </div>
   </section>
 
   <section>
-    <h2>Questions for the dev team</h2>
+    <h2>Open questions</h2>
     <ul class="g">
-      <li><b>Can <span class="k">implementation_id</span> be any format?</b> The schema only requires a non-empty string, but all 11 production documents use readable slugs, and the loader has read a scenario ID from the filename in the past. We need to know whether anything downstream expects a particular format before Learning Studio picks one.</li>
-      <li><b>Can the Learning Studio backend reach the authoring service's validation endpoint?</b> If not, we need the v4 JSON Schema as a file so the backend can validate on its own.</li>
-      <li><b>Does a backend API already exist for creating a Learning Object?</b> And is one scenario exactly one Learning Object, or does a scenario sit inside a larger one alongside other content? Everything here assumes one scenario per Learning Object.</li>
-      <li><b>Do media-library URLs resolve without a Learning Studio login?</b> This decides whether the Scenario Editor can render images in a preview.</li>
-      <li><b>When can v4 accept the two fields the editor authors?</b> Prior-scenario context was approved on 18 August and the format still has no field for it. One file depends on this landing — otherwise the options are relaxing the schema or dropping the two features.</li>
+      <li><b>The event contract.</b> Which messages exist, who initiates each, and what happens when the editor does not answer. Worth writing down before either side builds against it.</li>
+      <li><b>Does the wrapper need to know the document changed?</b> If Save is the only trigger, an LXD can close the tab on unsaved work. An "editor says it is dirty" event would let the wrapper warn.</li>
+      <li><b>Draft durability</b> — server-side draft on Save, or accept one browser as the only copy.</li>
+      <li><b>Do S3 URLs resolve without a Learning Studio session?</b> This decides whether images render in the editor and in previews.</li>
+      <li><b>Reuse</b> — what the scenario picker lists, and whether references pin to a version.</li>
+      <li><b>Can <span class="k">implementation_id</span> be any format?</b> The schema wants a non-empty string, but all eleven production documents use readable slugs and the loader has read a scenario ID from a filename in the past. Worth confirming nothing downstream expects a shape before the backend picks one.</li>
     </ul>
   </section>
 
@@ -438,7 +394,7 @@
     Related docs: <a href="scenario-simulator-json-contract.html">JSON contract</a> ·
     <a href="scenario-simulator-talking-points.html">Talking points</a> ·
     <a href="reference/V4-ALIGNMENT-NOTES.md">V4 alignment notes</a>.
-    Editor code: <code>scenario-editor/</code>, <code>js/studio-shell.js</code>, <code>js/scenario-v4.js</code>.
+    Editor code: <code>scenario-editor/</code>, <code>js/studio-shell.js</code>, <code>js/studio-engine.js</code>, <code>js/scenario-v4.js</code>.
   </footer>
 
 </div>
