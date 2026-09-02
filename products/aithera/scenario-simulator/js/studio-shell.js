@@ -1555,11 +1555,10 @@
      only replaces the working draft), so it's the safe "author a new course"
      entry point. Each type supplies a blank template; older types fall back
      to an emptied default. */
-  /* startBlank / startFromTemplate — the two non-AI ways to begin. Both go
-     through the same door (openNewScenario below), and both snapshot an
-     in-progress draft into the library first, the way the wizard already did:
-     losing unsaved work to a "New scenario" click is a worse outcome than an
-     extra library entry.
+  /* The non-AI ways to begin — blank canvas, a template, an opened file — all
+     go through adoptScenario below, and all snapshot an in-progress draft into
+     the library first, the way the wizard already did: losing unsaved work to a
+     "New scenario" click is a worse outcome than an extra library entry.
 
      The old handler also redirected a CLASSIC type to the go-forward editor.
      That branch is gone because it cannot be reached any more — an unknown or
@@ -1570,22 +1569,24 @@
     } catch (e) { /* best effort — never block starting a new scenario */ }
     return false;
   }
-  function adoptScenario(next, message) {
+  /* Returns whether a draft was snapshotted, and takes `silent` — because the
+     template hand-off panel reports both facts itself, and a toast sliding in
+     under a modal that has just said the same thing reads as a second, separate
+     event rather than the same one. */
+  function adoptScenario(next, message, opts) {
     const saved = snapshotDraft();
     scenario = next;
     buildForm();
     if (playtestHandle) playtestHandle.reset();
     setPhase(0);
     update();
-    toast(message + (saved ? ' — your previous draft is snapshotted in Local drafts' : ''));
+    if (!(opts && opts.silent)) {
+      toast(message + (saved ? ' — your previous draft is snapshotted in Local drafts' : ''));
+    }
+    return saved;
   }
   function startBlank() {
     adoptScenario(type.normalize(type.blank ? type.blank() : clone(type.DEFAULT)), 'Blank scenario');
-  }
-  function startFromTemplate(t) {
-    const doc = typeof type.template === 'function' ? type.template(t.id) : null;
-    if (!doc) { toast('That template could not be loaded'); return; }
-    adoptScenario(type.normalize(doc), `Started from ${t.label || t.id}`);
   }
 
   /* [V2] Start from scratch — the guided wizard (js/studio-wizard.js).
@@ -1653,11 +1654,32 @@
      were reachable only from code.
 
      A template is a starting point, not an example to study: picking one REPLACES
-     the draft, so it confirms first. `.template(id)` already hands back a deep copy,
-     so the gallery can never be edited by accident. */
+     the draft — which is why it snapshots first (adoptScenario) and why the pick
+     hands over through a panel that says what it did, rather than a confirm
+     asking permission for something that is already recoverable.
+     `.template(id)` already hands back a deep copy, so the gallery can never be
+     edited by accident. */
   const SHAPE_STEP = { C: 'Coach', R: 'Roleplay', O: 'Observe' };
   const shapeChain = (shape) => String(shape || '').split('')
     .map((c) => SHAPE_STEP[c]).filter(Boolean).join(' → ');
+
+  /* How much writing a document actually carries: every non-empty leaf in it.
+     Deliberately a count of VALUES, not of fields — the shell cannot count
+     fields, because the TYPE renders them (type.renderFields), and this has to
+     hold for any schema. It is the one honest answer to "did the template
+     actually bring anything in", which is the question an author is asking when
+     the form behind the modal looks the same shape either way. */
+  function contentValueCount(doc) {
+    let n = 0;
+    (function walk(v) {
+      if (v == null) return;
+      if (typeof v === 'string') { if (v.trim()) n += 1; return; }
+      if (typeof v === 'number' || typeof v === 'boolean') { n += 1; return; }
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (typeof v === 'object') Object.keys(v).forEach((k) => walk(v[k]));
+    }(doc));
+    return n;
+  }
 
   let tplOverlay = null;
   const onTplKey = (e) => { if (e.key === 'Escape') closeNewScenario(); };
@@ -1686,6 +1708,11 @@
       </div>`;
     const panel = tplOverlay.querySelector('#nsPanel');
     const titleEl = tplOverlay.querySelector('#nsTitle');
+    /* "Is this still MY panel?" — asked before every paint in the paced
+       template hand-off below. Not just `tplOverlay`: closing and re-opening
+       New scenario mid-sequence makes a fresh overlay, and the old sequence
+       must not paint its read-out into it. */
+    const alive = () => !!tplOverlay && tplOverlay.contains(panel);
 
     /* A MENU, not a form. The previous version put an action button on the right
        of every route, which meant three buttons of three different widths in a
@@ -1771,7 +1798,7 @@
           /* the blurbs already end in a full stop, so a "·" after one reads as a typo */
           lede: [t.blurb || '', typeof t.toFill === 'number' ? `~${t.toFill} fields to fill.` : '']
             .filter(Boolean).join(' '),
-          onClick: () => { closeNewScenario(); startFromTemplate(t); }
+          onClick: () => showApplying(t)
         }));
       });
       panel.appendChild(list);
@@ -1785,6 +1812,160 @@
       back.addEventListener('click', showMenu);
       foot.appendChild(back);
       panel.appendChild(foot);
+    }
+
+    /* ---- third step, same modal: the HAND-OFF -----------------------------
+       Picking a template used to close the panel and rebuild the form behind
+       it, leaving a toast as the only evidence. Two things made that read as
+       "nothing happened": a template-filled form and a half-filled one are the
+       same three columns of fields at a glance, and the author was looking at
+       the modal — which vanished — rather than at the strip that replaced it.
+       An author who reads it that way clicks the same row again.
+
+       So the pick stays in the modal, names what it is doing WHILE it does it,
+       and hands over on a deliberate click rather than a dismissal. The pacing
+       is the point, and it is not a spinner pretending: each line runs its own
+       real step of the work, and the numbers on the last screen are read back
+       out of the document that landed. */
+    const STEP_BEAT = 460;                       // long enough to read one line
+
+    function templateFoot(nodes) {
+      const foot = document.createElement('div');
+      foot.className = 'ns-foot';
+      nodes.forEach((n) => foot.appendChild(n));
+      panel.appendChild(foot);
+      return foot;
+    }
+
+    function backLink(label) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ns-blank';
+      b.innerHTML = `<i class="fa-solid fa-chevron-left"></i> ${esc(label)}`;
+      b.addEventListener('click', showTemplates);
+      return b;
+    }
+
+    function showApplying(t) {
+      const label = t.label || t.id;
+      const chain = shapeChain(t.shape);
+      titleEl.innerHTML = `<i class="fa-solid ${esc(t.icon || 'fa-shapes')}"></i> Loading ${esc(label)}`;
+      panel.innerHTML =
+        `<p class="ns-say">Bringing the <b>${esc(label)}</b> starting point`
+        + `${chain ? ` — ${esc(chain)}` : ''} into the editor. Every field is being filled with the `
+        + `template's content, and all of it is yours to rewrite.</p>`
+        + `<ol class="ns-steps" id="nsSteps"></ol>`
+        + `<p class="ns-sr" role="status" id="nsStatus"></p>`;
+
+      let doc = null;
+      let snapshotted = false;
+      /* Each line IS a step of the work, in the order it has to happen. */
+      const steps = [
+        { label: `Reading the ${label} template`,
+          run: () => {
+            doc = (typeof type.template === 'function') ? type.template(t.id) : null;
+            if (!doc) throw new Error('template unavailable');
+          } },
+        { label: 'Filling every field with its content',
+          run: () => { snapshotted = adoptScenario(type.normalize(doc), '', { silent: true }); } },
+        { label: 'Checking what still needs your words',
+          run: () => { renderLints(); } },
+      ];
+
+      const list = panel.querySelector('#nsSteps');
+      const status = panel.querySelector('#nsStatus');
+      list.innerHTML = steps.map((st, i) =>
+        `<li data-step="${i}"><span class="ns-tick"><i class="fa-regular fa-circle"></i></span>`
+        + `<span>${esc(st.label)}</span></li>`).join('');
+      const mark = (i, state, icon) => {
+        const li = list.querySelector(`[data-step="${i}"]`);
+        if (!li) return;
+        li.className = state;
+        li.querySelector('.ns-tick').innerHTML = `<i class="${icon}"></i>`;
+      };
+
+      let i = 0;
+      (function runStep() {
+        if (i >= steps.length) {
+          showReady(t, { values: contentValueCount(scenario), snapshotted });
+          return;
+        }
+        const step = steps[i];
+        if (alive()) { mark(i, 'is-now', 'fa-solid fa-spinner ns-spin'); status.textContent = step.label; }
+        setTimeout(() => {
+          /* The work runs whether or not the panel is still open — the author
+             asked for this template, and closing the panel early should mean
+             they skipped the read-out, not that the pick was cancelled. Only
+             the painting is guarded. */
+          try { step.run(); }
+          catch (e) { showTemplateError(label); return; }
+          if (alive()) mark(i, 'is-done', 'fa-solid fa-circle-check');
+          i += 1;
+          runStep();
+        }, STEP_BEAT);
+      }());
+    }
+
+    /* The read-out. Two numbers, because they are the two halves of the answer
+       to "what just happened": what the template wrote for you, and what it
+       deliberately left blank for you (the port seeds no placeholder prose —
+       templates are honest starting points, not finished scenarios). */
+    function showReady(t, res) {
+      if (!alive()) return;
+      const label = t.label || t.id;
+      const title = String((scenario && scenario.content && scenario.content.title) || '').trim();
+      const errs = currentLints.filter((l) => l.severity === 'err').length;
+      const warns = currentLints.filter((l) => l.severity === 'warn').length;
+      const openSections = type.sections.filter((sec) => !sec.locked).length;
+      const todo = errs || warns;
+
+      titleEl.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> ${esc(label)} is loaded`;
+      panel.innerHTML =
+        `<p class="ns-say">The editor behind this is now holding `
+        + `${title ? `<b>${esc(title)}</b>` : `the <b>${esc(label)}</b> starting point`}`
+        + `. Nothing here is locked to the template — every line of it is a first draft of yours.</p>`
+        + `<div class="ns-stats">`
+        + `<div><b>${res.values}</b><span>values filled in from the template</span></div>`
+        + `<div><b>${todo || '0'}</b><span>${todo
+              ? 'flagged as still needing your words — the Validation tab lists them'
+              : 'flagged — every check already passes'}</span></div>`
+        + `<div><b>${openSections}</b><span>editable sections, walked step by step from the rail</span></div>`
+        + `</div>`
+        + (res.snapshotted
+            ? `<p class="ns-note"><i class="fa-solid fa-clock-rotate-left"></i>`
+              + `The draft you had open was saved to Local drafts first — nothing was lost.</p>`
+            : '');
+
+      const go = document.createElement('div');
+      go.className = 'ns-go';
+      const start = document.createElement('button');
+      start.type = 'button';
+      start.className = 'ns-primary';
+      start.innerHTML = 'Start editing <i class="fa-solid fa-arrow-right"></i>';
+      start.addEventListener('click', () => {
+        closeNewScenario();
+        const form = $('#form');
+        if (form) form.scrollTop = 0;
+      });
+      const hint = document.createElement('span');
+      hint.className = 'ns-gohint';
+      hint.textContent = `You'll land on ${PHASES[0] ? PHASES[0].title : 'the first step'}.`;
+      go.append(start, hint);
+      panel.appendChild(go);
+      start.focus();
+    }
+
+    /* A template that cannot be loaded is a dead end INSIDE the panel now. It
+       used to toast — onto a screen the author had just been sent back to with
+       no visible change, which is the same false "nothing happened" this whole
+       step exists to fix, only worse because this time it was true. */
+    function showTemplateError(label) {
+      if (!alive()) { toast(`${label} could not be loaded`); return; }
+      titleEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--err)"></i> That template could not be loaded';
+      panel.innerHTML =
+        `<p class="ns-say"><b>${esc(label)}</b> did not come through, so nothing changed — `
+        + `the draft you had is still open behind this. Try another starting point.</p>`;
+      templateFoot([backLink('Back to the templates')]);
     }
 
     showMenu();
