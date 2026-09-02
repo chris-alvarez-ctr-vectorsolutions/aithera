@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learning Studio — Course Search</title>
+
+  <!-- Vector Web Components.
+       Pinned to core v1.19.0 / themes v1.5.0 to match BOTH sources this screen
+       is assembled from: the notifications panel lifted from
+       Phase2/content-workflow/home.html, and the Course Overview / Object
+       Manager pages this screen links into. Keeping one library version across
+       all three files means the shell, menus and type scale are identical as
+       the user walks the workflow. -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+  <!-- Font Awesome 6 PRO — self-hosted at the repo root. FIVE levels up, not the
+       usual four: this feature sits one folder deeper than the standard layout
+       (products/LearningStudio/Phase1/<feature>/ver1/), matching its Phase1 siblings. -->
+  <link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%; margin: 0; padding: 0;
+      font-family: 'Open Sans', system-ui, sans-serif;
+      color: var(--lumo-body-text-color, #0f2e3d);
+      background: #f7f8fa;
+    }
+
+    /* ============================================================
+       SHELL — topnav + sidenav.
+       Carried over from Phase2/content-workflow/home.html so the header
+       (and the notifications panel in it) behaves identically here.
+       ============================================================ */
+    vwc-topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+
+    .app-body { display: flex; height: 100vh; padding-top: 56px; }
+
+    /* Sidenav width must be set through the component's own CSS variables --
+       a plain `width` on the host does not propagate to the inner element and
+       leaves the nav overlaying the content. */
+    vwc-sidenav {
+      --vwc-sidenav-width: 240px; --vwc-sidenav-max-width: 240px; --offset: 56px;
+      flex-shrink: 0; z-index: 10; background: var(--lumo-base-color, #fff);
+      border-right: 1px solid rgba(28,55,90,0.1);
+    }
+    vwc-sidenav[collapsed] { --vwc-sidenav-width: 56px; --vwc-sidenav-max-width: 56px; }
+
+    .main-content { flex: 1; min-width: 0; overflow-y: auto; background: #f7f8fa; }
+    .content-inner { max-width: 1560px; margin: 0 auto; padding: 30px 40px 64px; }
+
+    /* ============================================================
+       PAGE HEAD — title + Create New Course
+       ============================================================ */
+    .page-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 24px; margin-bottom: 26px;
+    }
+    .page-head h1 {
+      font-size: 30px; font-weight: 700; letter-spacing: -.4px; margin: 0;
+      color: #3b4754;
+    }
+
+    /* ============================================================
+       SEARCH
+       Per the Vector search pattern: an outlined vaadin-text-field with the
+       magnifier as a vwc-icon in the SUFFIX slot. There is no theme="search"
+       token, and the library's icons are MDI paths rather than Font Awesome.
+       ============================================================ */
+    .search-block { margin-bottom: 28px; }
+    .search-label {
+      display: block; font-size: 13px; font-weight: 400; margin-bottom: 4px;
+      color: var(--lumo-secondary-text-color, #5b6472);
+    }
+    #courseSearch { width: 365px; max-width: 100%; }
+    #courseSearch vwc-icon { color: var(--lumo-secondary-text-color, #5b6472); }
+
+    /* ============================================================
+       RESULTS CARD
+       ============================================================ */
+    .results-card {
+      background: var(--lumo-base-color, #fff);
+      border: 1px solid var(--lumo-contrast-10pct, #e3e7ec);
+      border-radius: 6px; overflow: hidden;
+    }
+    .results-head {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--lumo-contrast-10pct, #e3e7ec);
+    }
+    .results-head h2 { font-size: 20px; font-weight: 700; margin: 0; color: #3b4754; }
+
+    /* The table can outgrow the viewport on narrow screens, so it scrolls
+       inside its own container rather than pushing the page sideways. */
+    .table-scroll { overflow-x: auto; }
+
+    /* ---- vwc-table system ---- */
+    .vwc-table {
+      width: 100%; border-collapse: collapse; font-size: 14px;
+      color: var(--vwc-table-font-color, var(--lumo-body-text-color, #3b4754));
+    }
+    .vwc-table thead th {
+      background: var(--vwc-table-header-background-color, #fafbfc);
+      text-align: left; padding: 12px 18px; font-weight: 600; font-size: 14px;
+      color: #3b4754; white-space: nowrap;
+      border-bottom: 1px solid var(--vwc-table-border-color, #dfe3e8);
+      /* Vertical rules between headers, matching the reference UI. */
+      border-left: 1px solid var(--lumo-contrast-10pct, #e6eaee);
+    }
+    .vwc-table thead th:first-child { border-left: none; }
+    .vwc-table td {
+      padding: 14px 18px; vertical-align: middle;
+      border-bottom: 1px solid var(--vwc-table-border-color, #e6eaee);
+    }
+    .vwc-table--hover-indication tbody tr:hover td {
+      background: var(--vwc-table-row-hover-color, #f4f7fa);
+    }
+    .vwc-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Column sizing. Course Title is the flexible column; the rest are sized
+       to their content so the title gets the remaining space. */
+    .col-title   { width: 34%; }
+    .col-variant { width: 20%; }
+    .col-sku     { width: 14%; }
+    .col-mod     { width: 13%; }
+    .col-status  { width: 12%; }
+    .col-actions { width: 7%;  }
+
+    /* A long course title wraps rather than stretching the table. Long SKUs
+       are single-token strings that cannot wrap, so they ellipsize instead --
+       the full value is available via the cell's title attribute. */
+    .cell-title { line-height: 1.45; }
+    .cell-sku {
+      max-width: 170px; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Course title is the entry point into the workflow. */
+    .title-link {
+      background: none; border: none; padding: 0; font: inherit; text-align: left;
+      color: inherit; cursor: pointer; line-height: 1.45;
+    }
+    .title-link:hover { color: var(--lumo-primary-color, #0271ce); text-decoration: underline; }
+
+    /* ---- Sortable headers ----
+       vwc-sortable-header renders its own button + arrow inside the <th>. */
+    .vwc-table thead th vwc-sortable-header { font-weight: 600; }
+
+    /* ---- Status pills ----
+       Soft-tinted chips, matching the reference. Each status keeps its own
+       hue so the state is readable at a glance without reading the label. */
+    .status-pill {
+      display: inline-block; padding: 3px 9px; border-radius: 4px;
+      font-size: 12.5px; font-weight: 400; white-space: nowrap;
+    }
+    .status-pill.in-progress   { background: #e7f0fd; color: #1f5fa9; }
+    .status-pill.ready         { background: #e7f0fd; color: #1f5fa9; }
+    .status-pill.qa-complete   { background: #eef0f2; color: #55606f; }
+    .status-pill.published     { background: #e4f4ea; color: #1c7a44; }
+
+    /* ---- Row actions ---- */
+    .row-actions { display: flex; align-items: center; gap: 6px; }
+    .icon-btn {
+      width: 30px; height: 30px; display: grid; place-items: center;
+      background: none; border: none; border-radius: 4px; cursor: pointer;
+      color: var(--lumo-primary-color, #0271ce); font-size: 15px;
+    }
+    .icon-btn:hover { background: var(--lumo-primary-color-10pct, #e7f0fd); }
+    .icon-btn.kebab { color: #55606f; }
+    .icon-btn.kebab:hover { background: var(--lumo-contrast-10pct, #eef0f2); }
+
+    /* ---- Empty state (when a search matches nothing) ---- */
+    .empty-state {
+      padding: 52px 20px; text-align: center;
+      color: var(--lumo-secondary-text-color, #5b6472);
+    }
+    .empty-state i { font-size: 30px; margin-bottom: 12px; display: block; opacity: .55; }
+    .empty-state p { margin: 0; font-size: 14px; }
+
+    /* ---- Paginator ---- */
+    .results-foot {
+      display: flex; justify-content: flex-end;
+      padding: 10px 18px;
+      border-top: 1px solid var(--lumo-contrast-10pct, #e6eaee);
+    }
+
+    /* ============================================================
+       NOTIFICATIONS PANEL HEIGHT
+       The menu renders into a `vaadin-popover-overlay` appended to <body>,
+       whose inner overlay part is `max-height: 100%` -- so with six
+       notifications it stretches the full height of the viewport below the
+       topnav before anything scrolls. That reads as a wall of panel rather
+       than a menu.
+
+       Capping the overlay part hands scrolling back to the tabsheet's own
+       scroller inside it (which is already `overflow-y: auto`), so the panel
+       stays a compact menu and the list scrolls within it.
+
+       Scoped by the notification menu's own aria-label so this cannot affect
+       other popovers on the page (the row kebab, tooltips, the user menu).
+       min() keeps it short on a laptop viewport but never taller than the
+       space actually available.
+       ============================================================ */
+    vaadin-popover-overlay[aria-label="Notifications menu"] {
+      /* The cap itself. min() keeps the panel short on a laptop viewport but
+         never taller than the space actually available below the topnav.
+
+         Notification cards are not a uniform height (a comment roll-up with an
+         action button runs ~150px, a plain one ~90px), so no cap lands cleanly
+         between cards in every tab and filter state. This one shows roughly
+         three cards and lets the next one sit partly visible at the scroll
+         edge -- the usual menu cue that there is more below. */
+      --notif-max-h: min(520px, calc(100vh - 96px));
+    }
+    vaadin-popover-overlay[aria-label="Notifications menu"]::part(overlay) {
+      max-height: var(--notif-max-h);
+    }
+    /* Capping the overlay alone is not enough: the tabsheet inside it is
+       `height: auto`, so it keeps its full natural height, overflows the
+       capped overlay and gets CLIPPED -- the last card cut off mid-text with
+       no scrollbar. Constraining the tabsheet makes its own scroller (already
+       overflow-y: auto) the thing that scrolls, turning that overflow back
+       into a proper scrolling list.
+
+       It must be capped to the space left BELOW the panel header ("Notifications
+       / Clear All"), not to the full panel height: the tabsheet starts 48px
+       down, so reusing the full cap pushes its bottom 48px past the overlay and
+       clips the last card by exactly that much. `height` rather than
+       `max-height` so the scroller resolves a definite height to scroll within. */
+    vaadin-popover-overlay[aria-label="Notifications menu"] .vwc-notifications-menu--tab-sheet {
+      --notif-header-h: 48px;
+      height: calc(var(--notif-max-h) - var(--notif-header-h));
+    }
+
+    /* ---- Row-action menu (kebab) ---- */
+    .kebab-menu {
+      position: fixed; z-index: 200; min-width: 190px; padding: 6px;
+      background: #fff; border: 1px solid var(--lumo-contrast-10pct, #e3e7ec);
+      border-radius: 8px; box-shadow: 0 12px 30px rgba(16,24,40,.16);
+    }
+    .kebab-menu[hidden] { display: none; }
+    .kebab-menu button {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      background: none; border: none; border-radius: 5px; cursor: pointer;
+      font: inherit; font-size: 13.5px; text-align: left; padding: 9px 11px;
+      color: #3b4754;
+    }
+    .kebab-menu button:hover { background: var(--lumo-contrast-5pct, #f2f5f8); }
+    .kebab-menu button i { width: 15px; text-align: center; color: #6b7785; }
+  </style>
+</head>
+<body>
+
+  <!--
+    Top navigation.
+    Each right-side menu lives in its own named slot; an empty slot still
+    renders a placeholder div, so all three are filled rather than omitted.
+    The notifications menu here is the one lifted from content-workflow/home.html.
+  -->
+  <vwc-topnav id="topnav" sidenav-id="sidenav">
+    <vwc-app-switcher-menu slot="app-switcher" id="appSwitcher"></vwc-app-switcher-menu>
+    <vwc-notifications-menu slot="notifications-menu" id="notifMenu"></vwc-notifications-menu>
+    <vwc-user-menu slot="user-menu" id="userMenu"></vwc-user-menu>
+  </vwc-topnav>
+
+  <!-- Lightweight confirmation toast for menu and row actions. -->
+  <vaadin-notification id="toast" position="bottom-start" duration="2600"></vaadin-notification>
+
+  <div class="app-body">
+    <vwc-sidenav id="sidenav" active-item-id="home"></vwc-sidenav>
+
+    <main class="main-content">
+      <div class="content-inner">
+
+        <div class="page-head">
+          <h1>Learning Studio</h1>
+          <vaadin-button theme="primary" id="createCourse">Create New Course</vaadin-button>
+        </div>
+
+        <!-- ===== Search ===== -->
+        <div class="search-block">
+          <label class="search-label" for="courseSearch">Search for a course</label>
+          <vaadin-text-field id="courseSearch" theme="outlined" value="test">
+            <vwc-icon slot="suffix" type="svg"
+              path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z">
+            </vwc-icon>
+          </vaadin-text-field>
+        </div>
+
+        <!-- ===== Results ===== -->
+        <section class="results-card">
+          <div class="results-head">
+            <h2>Search Results</h2>
+          </div>
+
+          <div class="table-scroll">
+            <table class="vwc-table vwc-table--hover-indication">
+              <thead>
+                <tr id="headRow">
+                  <th class="col-title">
+                    <vwc-sortable-header data-key="title" accessible-name="Sort by course title">Course Title</vwc-sortable-header>
+                  </th>
+                  <th class="col-variant">
+                    <vwc-sortable-header data-key="variant" accessible-name="Sort by variant title">Variant Title</vwc-sortable-header>
+                  </th>
+                  <th class="col-sku">
+                    <vwc-sortable-header data-key="sku" accessible-name="Sort by SKU">SKU #</vwc-sortable-header>
+                  </th>
+                  <th class="col-mod">
+                    <vwc-sortable-header data-key="modified" accessible-name="Sort by last modified">Last Modified</vwc-sortable-header>
+                  </th>
+                  <th class="col-status">
+                    <vwc-sortable-header data-key="status" accessible-name="Sort by status">Status</vwc-sortable-header>
+                  </th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"><!-- rendered from COURSES --></tbody>
+            </table>
+          </div>
+
+          <!-- Shown in place of the table when nothing matches the search. -->
+          <div class="empty-state" id="emptyState" hidden>
+            <i class="fa-regular fa-folder-open"></i>
+            <p>No courses match that search.</p>
+          </div>
+
+          <div class="results-foot">
+            <vwc-paginator id="paginator"></vwc-paginator>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Row kebab menu. One menu is reused for every row and positioned on open,
+       rather than rendering fifty identical hidden menus into the table. -->
+  <div class="kebab-menu" id="kebabMenu" role="menu" hidden>
+    <button type="button" data-act="open"><i class="fa-regular fa-folder-open"></i> Open course</button>
+    <button type="button" data-act="duplicate"><i class="fa-regular fa-copy"></i> Duplicate</button>
+    <button type="button" data-act="variant"><i class="fa-regular fa-code-branch"></i> Create variant</button>
+    <button type="button" data-act="history"><i class="fa-regular fa-clock-rotate-left"></i> Version history</button>
+    <button type="button" data-act="archive"><i class="fa-regular fa-box-archive"></i> Archive</button>
+  </div>
+
+
+<script>
+/* ============================================================
+   COURSE SEARCH RESULTS — static demo data.
+
+   Fifty rows so the paginator has five real pages to move through, matching
+   the reference UI ("1 to 10 of 50"). The first nine rows are the reference
+   screen's own rows, verbatim, so the first page reads exactly like it; the
+   remainder are filler that keeps sorting and paging honest.
+
+   `courseKey` marks the rows that actually lead somewhere. Only the Lockout
+   Tagout row opens the Course Overview -- that is the one course built out in
+   this prototype. Every other row is a realistic-looking dead end.
+   ============================================================ */
+
+const COURSES = [
+  { title: 'Artificial Intelligence: Understanding the Fastest-Growing Industry',
+    variant: 'Full Course', sku: '#AUTO-15912898-2026-08-28', modified: '2026-08-28', status: 'In-Progress' },
+  { title: 'Performance Testing: Fundamentals and Best Practices',
+    variant: '', sku: '#Test-678', modified: '2026-08-25', status: 'In-Progress' },
+  { title: 'Performance Testing: Fundamentals and Best Practices',
+    variant: '', sku: '#Test-890', modified: '2026-08-25', status: 'In-Progress' },
+  { title: 'Performance Testing: Fundamentals and Best Practices',
+    variant: 'Updated Variant <timestamp>', sku: '#Test-456', modified: '2026-08-25', status: 'In-Progress' },
+  { title: 'Creating and Managing Defects in Jira: A Comprehensive Guide',
+    variant: '', sku: '##SKU-test-dev-0142', modified: '2026-08-25', status: 'In-Progress' },
+  { title: 'Updating SCORM Courses: A Practical Guide',
+    variant: 'Full Course', sku: '#test-1112', modified: '2026-08-25', status: 'Ready to Deploy' },
+  { title: 'Heat Illness Prevention',
+    variant: 'Full Course', sku: '#stg-24442-test', modified: '2026-08-20', status: 'Ready to Deploy' },
+  { title: 'Studio Migration Test',
+    variant: 'Full Course', sku: '#EDU-87418', modified: '2026-08-14', status: 'QA Complete' },
+  { title: 'Comprehensive Advanced Software Testing and Quality Assurance Strategies for Large Scale Cloud-Native Applications with Continuous Integration, Microservices, DevOps Practices, Fault Tolerance, Accessibility, Security and Performance Evaluation & Job Work',
+    variant: 'Full Course', sku: '#yash-222', modified: '2026-08-11', status: 'In-Progress' },
+
+  /* The one course wired into the rest of the workflow. */
+  { title: 'Lockout Tagout for Authorized Employees',
+    variant: 'Full Course', sku: '#DEMO-LOTO-101', modified: '2026-08-10', status: 'In-Progress',
+    courseKey: 'loto' },
+
+  { title: 'Confined Space Entry — Permit Required',
+    variant: 'Full Course', sku: '#EDU-55210', modified: '2026-08-08', status: 'In-Progress' },
+  { title: 'Chemical Hazard Communication (HazCom)',
+    variant: 'Full Course', sku: '#EDU-44119', modified: '2026-08-07', status: 'Published' },
+  { title: 'Chemical Hazard Communication (HazCom)',
+    variant: 'Spanish (LATAM)', sku: '#EDU-44119-ES', modified: '2026-08-07', status: 'QA Complete' },
+  { title: 'Fall Protection — Refresher',
+    variant: 'Full Course', sku: '#EDU-33087', modified: '2026-08-05', status: 'Ready to Deploy' },
+  { title: 'Fall Protection — Refresher',
+    variant: 'Short Form (15 min)', sku: '#EDU-33087-SF', modified: '2026-08-05', status: 'In-Progress' },
+  { title: 'Bloodborne Pathogen Control',
+    variant: 'Full Course', sku: '#EDU-29004', modified: '2026-08-04', status: 'Published' },
+  { title: 'Respiratory Protection Essentials',
+    variant: 'Full Course', sku: '#EDU-27781', modified: '2026-08-01', status: 'In-Progress' },
+  { title: 'Forklift Operator Safety — Class I',
+    variant: 'Full Course', sku: '#EDU-26640', modified: '2026-07-30', status: 'QA Complete' },
+  { title: 'Forklift Operator Safety — Class IV',
+    variant: 'Full Course', sku: '#EDU-26641', modified: '2026-07-30', status: 'In-Progress' },
+  { title: 'Electrical Safety for Non-Qualified Workers',
+    variant: 'Full Course', sku: '#EDU-25518', modified: '2026-07-28', status: 'Ready to Deploy' },
+  { title: 'Arc Flash Awareness',
+    variant: 'Full Course', sku: '#EDU-25004', modified: '2026-07-27', status: 'In-Progress' },
+  { title: 'Machine Guarding Fundamentals',
+    variant: 'Full Course', sku: '#EDU-24880', modified: '2026-07-24', status: 'Published' },
+  { title: 'Hearing Conservation Program',
+    variant: 'Full Course', sku: '#EDU-24102', modified: '2026-07-22', status: 'QA Complete' },
+  { title: 'Ladder Safety — Portable and Fixed',
+    variant: 'Full Course', sku: '#EDU-23744', modified: '2026-07-21', status: 'In-Progress' },
+  { title: 'Personal Protective Equipment Overview',
+    variant: 'Full Course', sku: '#EDU-23110', modified: '2026-07-18', status: 'Published' },
+  { title: 'Personal Protective Equipment Overview',
+    variant: 'Manufacturing Edition', sku: '#EDU-23110-MFG', modified: '2026-07-18', status: 'In-Progress' },
+  { title: 'Emergency Action Plan Awareness',
+    variant: 'Full Course', sku: '#EDU-22095', modified: '2026-07-16', status: 'Ready to Deploy' },
+  { title: 'Fire Extinguisher Use and Selection',
+    variant: 'Full Course', sku: '#EDU-21870', modified: '2026-07-15', status: 'In-Progress' },
+  { title: 'Slips, Trips and Falls Prevention',
+    variant: 'Full Course', sku: '#EDU-21344', modified: '2026-07-11', status: 'Published' },
+  { title: 'Back Safety and Safe Lifting',
+    variant: 'Full Course', sku: '#EDU-20988', modified: '2026-07-10', status: 'QA Complete' },
+  { title: 'Hot Work and Welding Safety',
+    variant: 'Full Course', sku: '#EDU-20551', modified: '2026-07-08', status: 'In-Progress' },
+  { title: 'Trenching and Excavation Safety',
+    variant: 'Full Course', sku: '#EDU-20114', modified: '2026-07-07', status: 'In-Progress' },
+  { title: 'Scaffolding Safety Awareness',
+    variant: 'Full Course', sku: '#EDU-19876', modified: '2026-07-03', status: 'Ready to Deploy' },
+  { title: 'Crane and Rigging Signal Person',
+    variant: 'Full Course', sku: '#EDU-19420', modified: '2026-07-02', status: 'QA Complete' },
+  { title: 'Bloodborne Pathogen Control',
+    variant: 'Healthcare Edition', sku: '#EDU-29004-HC', modified: '2026-06-30', status: 'In-Progress' },
+  { title: 'Driver Safety — Defensive Driving',
+    variant: 'Full Course', sku: '#EDU-18733', modified: '2026-06-27', status: 'Published' },
+  { title: 'Distracted Driving Awareness',
+    variant: 'Full Course', sku: '#EDU-18200', modified: '2026-06-26', status: 'In-Progress' },
+  { title: 'Workplace Violence Prevention',
+    variant: 'Full Course', sku: '#EDU-17955', modified: '2026-06-24', status: 'Ready to Deploy' },
+  { title: 'Harassment Prevention for Employees',
+    variant: 'Full Course', sku: '#EDU-17400', modified: '2026-06-20', status: 'Published' },
+  { title: 'Harassment Prevention for Supervisors',
+    variant: 'Full Course', sku: '#EDU-17401', modified: '2026-06-20', status: 'QA Complete' },
+  { title: 'Cybersecurity Awareness Essentials',
+    variant: 'Full Course', sku: '#EDU-16988', modified: '2026-06-18', status: 'In-Progress' },
+  { title: 'Phishing and Social Engineering',
+    variant: 'Full Course', sku: '#EDU-16512', modified: '2026-06-16', status: 'Ready to Deploy' },
+  { title: 'Ergonomics for Office Workers',
+    variant: 'Full Course', sku: '#EDU-16033', modified: '2026-06-13', status: 'In-Progress' },
+  { title: 'Hazardous Waste Handling (RCRA)',
+    variant: 'Full Course', sku: '#EDU-15790', modified: '2026-06-11', status: 'QA Complete' },
+  { title: 'Spill Response and Containment',
+    variant: 'Full Course', sku: '#EDU-15244', modified: '2026-06-09', status: 'In-Progress' },
+  { title: 'Compressed Gas Cylinder Safety',
+    variant: 'Full Course', sku: '#EDU-14980', modified: '2026-06-05', status: 'Published' },
+  { title: 'Silica Dust Exposure Control',
+    variant: 'Full Course', sku: '#EDU-14501', modified: '2026-06-03', status: 'In-Progress' },
+  { title: 'Asbestos Awareness',
+    variant: 'Full Course', sku: '#EDU-14077', modified: '2026-06-01', status: 'Ready to Deploy' },
+  { title: 'Lead Awareness in Construction',
+    variant: 'Full Course', sku: '#EDU-13655', modified: '2026-05-28', status: 'QA Complete' },
+  { title: 'Heat Illness Prevention',
+    variant: 'Spanish (LATAM)', sku: '#EDU-13200-ES', modified: '2026-05-26', status: 'In-Progress' }
+];
+
+/* Status label → pill modifier class. */
+const STATUS_CLASS = {
+  'In-Progress':     'in-progress',
+  'Ready to Deploy': 'ready',
+  'QA Complete':     'qa-complete',
+  'Published':       'published'
+};
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g,
+  c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+/* "2026-08-28" → "August 28, 2026". Parsed as parts rather than through
+   `new Date('2026-08-28')`, which is treated as UTC and can render as the
+   previous day for anyone west of Greenwich. */
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+function fmtDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return MONTHS[m - 1] + ' ' + d + ', ' + y;
+}
+
+/* ============================================================
+   VIEW STATE
+   ============================================================ */
+
+// Sort starts on Last Modified descending, as in the reference screen.
+let sortKey = 'modified';
+let sortDir = 'desc';
+let page = 0;
+let pageSize = 10;
+/* The search box starts pre-filled with "test" to match the reference screen,
+   but the list starts UNFILTERED -- the reference shows all 50 results with
+   that text sitting in the box, i.e. a term that has been typed but not yet
+   submitted. `query` therefore starts empty and only takes the field's value
+   once the user actually edits it. */
+let query = '';
+
+const toast = document.getElementById('toast');
+function say(message) {
+  toast.renderer = (root) => { root.textContent = message; };
+  toast.opened = true;
+}
+
+/* Rows matching the current search. The reference screen is showing results
+   for "test", which matches on title, variant and SKU. */
+function filtered() {
+  const q = query.trim().toLowerCase();
+  if (!q) return COURSES;
+  return COURSES.filter(c =>
+    (c.title + ' ' + c.variant + ' ' + c.sku).toLowerCase().includes(q));
+}
+
+function sorted(rows) {
+  const dir = sortDir === 'asc' ? 1 : -1;
+  // Sort a copy -- COURSES itself stays in its authored order.
+  return rows.slice().sort((a, b) => {
+    const av = (a[sortKey] || '').toString().toLowerCase();
+    const bv = (b[sortKey] || '').toString().toLowerCase();
+    // ISO dates compare correctly as plain strings, so no special case here.
+    if (av < bv) return -1 * dir;
+    if (av > bv) return  1 * dir;
+    return 0;
+  });
+}
+
+function render() {
+  const rows = sorted(filtered());
+  const total = rows.length;
+
+  // Clamp the page: a narrowed search can leave us past the last page.
+  const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1);
+  if (page > lastPage) page = lastPage;
+
+  const slice = rows.slice(page * pageSize, page * pageSize + pageSize);
+
+  const body = document.getElementById('resultsBody');
+  body.innerHTML = slice.map((c) => {
+    // Rows carry their identity by SKU, which is unique here -- titles are not
+    // (the same course appears under several variants).
+    const cls = STATUS_CLASS[c.status] || 'in-progress';
+    const titleCell = c.courseKey
+      ? '<button type="button" class="title-link" data-open="' + escapeHtml(c.sku) + '">' +
+          escapeHtml(c.title) + '</button>'
+      : escapeHtml(c.title);
+
+    return '' +
+      '<tr data-sku="' + escapeHtml(c.sku) + '">' +
+        '<td class="cell-title">' + titleCell + '</td>' +
+        '<td>' + escapeHtml(c.variant) + '</td>' +
+        '<td class="cell-sku" title="' + escapeHtml(c.sku) + '">' + escapeHtml(c.sku) + '</td>' +
+        '<td>' + fmtDate(c.modified) + '</td>' +
+        '<td><span class="status-pill ' + cls + '">' + escapeHtml(c.status) + '</span></td>' +
+        '<td>' +
+          '<div class="row-actions">' +
+            '<button class="icon-btn" type="button" data-act="edit" ' +
+                    'aria-label="Edit ' + escapeHtml(c.title) + '">' +
+              '<i class="fa-regular fa-pen-to-square"></i></button>' +
+            '<button class="icon-btn kebab" type="button" data-act="more" ' +
+                    'aria-label="More actions for ' + escapeHtml(c.title) + '">' +
+              '<i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+  }).join('');
+
+  // Swap the table for an empty state when the search matches nothing.
+  document.querySelector('.table-scroll').hidden = total === 0;
+  document.getElementById('emptyState').hidden = total !== 0;
+  document.querySelector('.results-foot').hidden = total === 0;
+
+  // Keep the paginator in step with the filtered total.
+  const paginator = document.getElementById('paginator');
+  paginator.total = total;
+  paginator.page = page;
+  paginator.pageSize = pageSize;
+}
+
+/* ============================================================
+   THE WORKFLOW HOP — a course row opens the Course Overview.
+   ============================================================ */
+function openCourse(sku) {
+  const course = COURSES.find(c => c.sku === sku);
+  if (course && course.courseKey === 'loto') {
+    window.location = 'course-overview.html';
+    return;
+  }
+  // Every other row is intentionally a dead end: only Lockout Tagout is
+  // built out in this prototype.
+  say('Only "Lockout Tagout for Authorized Employees" is built in this prototype');
+}
+
+document.getElementById('resultsBody').addEventListener('click', (e) => {
+  const openBtn = e.target.closest('[data-open]');
+  if (openBtn) { openCourse(openBtn.dataset.open); return; }
+
+  const actionBtn = e.target.closest('[data-act]');
+  if (!actionBtn) return;
+  const sku = actionBtn.closest('tr').dataset.sku;
+
+  if (actionBtn.dataset.act === 'edit') { openCourse(sku); return; }
+  if (actionBtn.dataset.act === 'more') { openKebab(actionBtn, sku); return; }
+});
+
+/* ---- Kebab menu ----
+   One shared menu, positioned under whichever button opened it. It is
+   `position: fixed`, so it is placed from the button's viewport rect and
+   needs no scroll compensation; it simply closes on scroll instead. */
+const kebab = document.getElementById('kebabMenu');
+let kebabSku = null;
+
+function openKebab(button, sku) {
+  kebabSku = sku;
+  kebab.hidden = false;
+  const r = button.getBoundingClientRect();
+  const w = kebab.offsetWidth;
+  // Right-align to the button, but never let the menu run off-screen.
+  kebab.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+  kebab.style.top  = (r.bottom + 6) + 'px';
+}
+
+function closeKebab() { kebab.hidden = true; kebabSku = null; }
+
+kebab.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const act = btn.dataset.act;
+  const sku = kebabSku;
+  closeKebab();
+
+  if (act === 'open') { openCourse(sku); return; }
+  // The remaining actions are presentational in this prototype.
+  say(btn.textContent.trim() + ' — not built in this prototype');
+});
+
+document.addEventListener('click', (e) => {
+  if (kebab.hidden) return;
+  if (!kebab.contains(e.target) && !e.target.closest('[data-act="more"]')) closeKebab();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKebab(); });
+window.addEventListener('scroll', closeKebab, true);
+
+/* ============================================================
+   SEARCH FIELD
+   ============================================================ */
+customElements.whenDefined('vaadin-text-field').then(() => {
+  const field = document.getElementById('courseSearch');
+  field.addEventListener('input', () => {
+    query = field.value;
+    page = 0;          // a new search always starts at page 1
+    render();
+  });
+});
+
+/* ============================================================
+   SORTABLE HEADERS
+   The event bubbles, so one listener on the header row covers every column.
+   With allowMultiSort false (the default) the component clears its siblings
+   itself, so only this row's own state needs tracking here.
+   ============================================================ */
+customElements.whenDefined('vwc-sortable-header').then(() => {
+  // Reflect the initial sort (Last Modified, descending) in the header UI.
+  const initial = document.querySelector('vwc-sortable-header[data-key="modified"]');
+  if (initial) initial.sortDirection = 'desc';
+
+  document.getElementById('headRow').addEventListener('sort-direction-change', (e) => {
+    const header = e.target.closest('vwc-sortable-header');
+    if (!header) return;
+    const dir = e.detail.direction;
+
+    if (!dir) {
+      // Cycled back to unsorted -- fall back to the default ordering.
+      sortKey = 'modified'; sortDir = 'desc';
+      const def = document.querySelector('vwc-sortable-header[data-key="modified"]');
+      if (def && def !== header) def.sortDirection = 'desc';
+    } else {
+      sortKey = header.dataset.key;
+      sortDir = dir;
+    }
+    page = 0;
+    render();
+  });
+});
+
+/* ============================================================
+   PAGINATOR
+   `page-change` also fires on the component's first render, which would
+   otherwise re-render the table before it has been drawn once. The initial
+   render() below runs first, so that extra event is harmless.
+   ============================================================ */
+customElements.whenDefined('vwc-paginator').then(() => {
+  const paginator = document.getElementById('paginator');
+  paginator.pageSizeOptions = [10, 25, 50, 100];
+  paginator.pageSize = pageSize;
+  paginator.total = filtered().length;
+  paginator.page = page;
+
+  paginator.addEventListener('page-change', (e) => {
+    const next = e.detail || {};
+    // Changing page size keeps the user near the top rather than on a page
+    // index that means something different at the new size.
+    if (next.pageSize !== pageSize) { pageSize = next.pageSize; page = 0; }
+    else if (next.page !== page)    { page = next.page; }
+    else return;
+    render();
+    document.querySelector('.main-content').scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
+document.getElementById('createCourse').addEventListener('click',
+  () => say('Create New Course — not built in this prototype'));
+
+// First paint.
+render();
+
+
+/* ============================================================
+   SHELL — sidenav + topnav
+   ============================================================ */
+customElements.whenDefined('vwc-topnav').then(() => {
+  const topnav = document.getElementById('topnav');
+  topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+
+  const sidenav = document.getElementById('sidenav');
+  sidenav.items = [
+    { type: 'link', id: 'home',     text: 'Home',     href: 'index.html',
+      icon: { type: 'svg', path: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z' } },
+    { type: 'link', id: 'courses',  text: 'Courses',  href: 'index.html',
+      icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
+    { type: 'divider' },
+    { type: 'link', id: 'settings', text: 'Settings', href: '#',
+      icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
+  ];
+});
+
+/* ---- App switcher (no-op: opens the menu, products don't navigate) ---- */
+customElements.whenDefined('vwc-app-switcher-menu').then(() => {
+  const appSwitcher = document.getElementById('appSwitcher');
+  // `href` is deliberately omitted so each item renders as a button rather
+  // than a link — the switcher is presentational only in this prototype.
+  appSwitcher.products = [
+    { id: 'ls',        text: 'LearningStudio' },
+    { id: 'lms',       text: 'Vector LMS' },
+    { id: 'evals',     text: 'Evaluations' },
+    { id: 'scheduling',text: 'Scheduling' }
+  ];
+  appSwitcher.unlicensedProducts = [
+    { id: 'ehs',      text: 'EHS Management' },
+    { id: 'pathways', text: 'Pathways' }
+  ];
+});
+
+
+/* ============================================================
+   NOTIFICATIONS MENU
+   Carried over verbatim from Phase2/content-workflow/home.html — this is the
+   updated panel this screen is meant to pair with the current search UI.
+
+   Notification shape per the library: { id, title, subtitle, body, sent,
+   read, href, icon, iconColor, iconBackgroundColor, buttons }.
+   `sent` is a Date/ISO string — the component renders it as a relative
+   "2h ago" string itself, so times are stored as real offsets from now.
+   ============================================================ */
+const minsAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+
+// Material icon paths (the library's icons are MDI paths, not Font Awesome).
+const ICON_COMMENT = 'M9,22A1,1 0 0,1 8,21V18H4A2,2 0 0,1 2,16V4C2,2.89 2.9,2 4,2H20A2,2 0 0,1 22,4V16A2,2 0 0,1 20,18H13.9L10.2,21.71C10,21.9 9.75,22 9.5,22V22H9Z';
+// Stacked/multi bubbles — signals a grouped roll-up rather than one comment.
+const ICON_COMMENTS = 'M12,23A1,1 0 0,1 11,22V19H7A2,2 0 0,1 5,17V7A2,2 0 0,1 7,5H21A2,2 0 0,1 23,7V17A2,2 0 0,1 21,19H16.9L13.2,22.71C13,22.9 12.75,23 12.5,23H12M3,15H1V3A2,2 0 0,1 3,1H19V3H3V15Z';
+const ICON_CHECK   = 'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z';
+const ICON_ALERT   = 'M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z';
+const ICON_SPARKLE = 'M19,1L17.74,3.75L15,5L17.74,6.26L19,9L20.25,6.26L23,5L20.25,3.75M9,4L6.5,9.5L1,12L6.5,14.5L9,20L11.5,14.5L17,12L11.5,9.5M19,15L17.74,17.74L15,19L17.74,20.25L19,23L20.25,20.25L23,19L20.25,17.74';
+
+/* ---- Rolled-up comment notifications ----
+   While an author is offline, a single course can accumulate dozens of
+   comments. Rather than emit one notification per comment (50+ rows on
+   return), the backend groups them per course into ONE notification that
+   summarizes the volume and the distinct commenters.
+
+   This is intentionally one notification per COURSE, not per comment, so
+   the unread badge counts "courses needing attention" rather than raw
+   comment volume — which is the whole point of the roll-up.
+
+   `courseId` / `commentCount` are prototype-only fields carried alongside
+   the library's notification shape so the action handler knows which course
+   to open. The library ignores unknown keys.
+*/
+function commentRollup({ id, courseId, courseName, commentCount, people, sent, read }) {
+  // "Priya, Marcus and 2 others" — keeps the body readable regardless of count.
+  const others = people.length - 2;
+  const who = people.length === 1 ? people[0]
+    : people.length === 2 ? `${people[0]} and ${people[1]}`
+    : `${people[0]}, ${people[1]} and ${others} other${others === 1 ? '' : 's'}`;
+
+  return {
+    id, courseId, commentCount,
+    title: `<strong>${commentCount} new comments</strong> on ${courseName}`,
+    subtitle: `${who} · while you were away`,
+    body: `${commentCount} comments across the course are waiting on you. Open the course to review and resolve them in one pass.`,
+    sent, read,
+    icon: { type: 'svg', path: ICON_COMMENTS },
+    iconColor: '#fff', iconBackgroundColor: '#db2777',
+    // Dead-end for now — the resolve-comments editor session isn't built yet.
+    buttons: [{ id: 'resolve-comments', text: 'Review comments', theme: 'primary' }]
+  };
+}
+
+let NOTIFICATIONS = [
+  commentRollup({
+    id: 'r1', courseId: '123',
+    courseName: 'Chemical Hazard Communication (HazCom)',
+    commentCount: 10,
+    people: ['Priya Raman', 'Marcus Webb', 'Dana Cole', 'Alex Kim'],
+    sent: minsAgo(38), read: false
+  }),
+  commentRollup({
+    id: 'r2', courseId: '451',
+    courseName: 'Fall Protection — Refresher',
+    commentCount: 6,
+    people: ['Sofia Nunez', 'Marcus Webb'],
+    sent: minsAgo(60 * 6), read: false
+  }),
+  {
+    id: 'n2',
+    title: 'AI draft is ready to review',
+    subtitle: 'Fire Safety — Custom (Acme Corp)',
+    body: 'Your generated storyboard finished building. 6 scenes, 3 decision points.',
+    sent: minsAgo(95), read: false,
+    icon: { type: 'svg', path: ICON_SPARKLE },
+    iconColor: '#fff', iconBackgroundColor: '#7c3aed',
+    buttons: [{ id: 'open', text: 'Open draft', theme: 'primary' }]
+  },
+  // A single comment does NOT roll up — it stays a normal notification with
+  // the comment text inline. Roll-up only kicks in at 2+ on one course.
+  {
+    id: 'n5',
+    title: '<strong>Dana Cole</strong> commented on your scenario',
+    subtitle: 'Confined Space Entry',
+    body: 'Can we add a consequence beat before the debrief? The current cut feels abrupt.',
+    sent: minsAgo(60 * 9), read: false,
+    icon: { type: 'svg', path: ICON_COMMENT },
+    iconColor: '#fff', iconBackgroundColor: '#db2777',
+    buttons: [{ id: 'reply', text: 'Reply', theme: 'primary' }]
+  },
+  {
+    id: 'n3',
+    title: 'Review requested',
+    subtitle: 'Lockout/Tagout Safety — Fundamentals',
+    body: 'Marcus Webb assigned you as reviewer. Due Friday.',
+    sent: minsAgo(60 * 20), read: false,
+    icon: { type: 'svg', path: ICON_ALERT },
+    iconColor: '#fff', iconBackgroundColor: '#e0782e'
+  },
+  {
+    id: 'n4',
+    title: 'Course published',
+    subtitle: 'Bloodborne Pathogen Control',
+    body: 'Your course is now live and assignable to learners.',
+    sent: minsAgo(60 * 52), read: true,
+    icon: { type: 'svg', path: ICON_CHECK },
+    iconColor: '#fff', iconBackgroundColor: '#158444'
+  }
+];
+
+/* ---- Hide "mark as read" on already-read notifications ----
+   The notification component hardcodes both hover buttons (dismiss +
+   mark-read) into its shadow DOM with no prop to hide either, so page CSS
+   can't reach them. Instead the rule is appended to the component class's
+   own adopted stylesheet, which every instance shares — including the ones
+   rebuilt each time the tabs repaint.
+
+   The host carries an `unread` attribute only while unread, so
+   :host(:not([unread])) targets exactly the read rows. Dismiss (the first
+   hover button) is deliberately left alone.
+*/
+customElements.whenDefined('vwc-notifications-menu-notification').then(() => {
+  const Notification = customElements.get('vwc-notifications-menu-notification');
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(`
+    :host(:not([unread])) .vwc-notifications-menu-notification--hover-button[aria-label^="mark as"] {
+      display: none;
+    }
+  `);
+  Notification.elementStyles = [...Notification.elementStyles, sheet];
+});
+
+customElements.whenDefined('vwc-notifications-menu').then(() => {
+  const notifMenu = document.getElementById('notifMenu');
+
+  // Show the number inside the badge rather than a bare dot. This MUST be
+  // set as a JS property — the matching attribute is all-lowercase
+  // (showunreadnotificationscount), so a dashed attribute silently no-ops.
+  notifMenu.showUnreadNotificationsCount = true;
+
+  // Tabs each carry their OWN notifications array — the menu derives its
+  // unread badge from every tab's contents combined.
+  function paintNotifications() {
+    notifMenu.notificationTabs = [
+      { id: 'all',    text: 'All',    notifications: NOTIFICATIONS },
+      { id: 'unread', text: 'Unread', notifications: NOTIFICATIONS.filter(n => !n.read) }
+    ];
+  }
+  paintNotifications();
+
+  /* Set read state by REPLACING the notification object rather than
+     mutating it. The row component only recomputes its `unread` host
+     attribute inside willUpdate(), which Lit skips when the `notification`
+     property still holds the same object reference — so an in-place
+     `n.read = true` leaves the row visually unread (stale attribute, stale
+     "mark as read" aria-label). A fresh object forces the re-render. */
+  function setRead(id, read) {
+    let changed = null;
+    NOTIFICATIONS = NOTIFICATIONS.map(n =>
+      n.id === id ? (changed = { ...n, read }) : n);
+    if (changed) paintNotifications();
+    return changed;
+  }
+
+  // Mark read / unread — badge recalculates automatically.
+  /* Marking read/unread must NOT close the panel -- you should be able to
+     triage several notifications in one visit.
+
+     Why it closed on its own: repainting the tabs rebuilds the row, which
+     destroys the very button that was just clicked. Focus falls out of the
+     popover, and vaadin-popover treats that focus loss as a dismissal. The
+     traced order is click -> focusout -> vaadin-overlay-close. Nothing in this
+     file asks the panel to close.
+
+     Restoring focus afterwards does NOT fix it: the row is rebuilt
+     asynchronously by Lit, so a rAF runs before the new button exists, focuses
+     the element about to be replaced, and a second focusout closes the panel
+     anyway. Instead the dismissal itself is suppressed for the moment around
+     the repaint -- vaadin-overlay-close is cancelable, so preventing it while
+     a toggle is in flight keeps the panel open regardless of how the focus
+     churn lands. The guard is released shortly afterwards, so a genuine
+     outside-click still closes the panel normally. */
+  let suppressClose = false;
+  let suppressCloseTimer = null;
+
+  /* Attached once, in the capture phase, so it runs before the popover's own
+     close handling.
+
+     The overlay is matched by its aria-label rather than by holding a reference
+     to the element: the menu tears down and recreates its overlay across a
+     repaint, so an identity check against a previously-found element silently
+     stops matching after the first toggle -- which let the second mark-as-read
+     close the panel even though the first was correctly prevented. */
+  document.addEventListener('vaadin-overlay-close', (e) => {
+    if (!suppressClose) return;
+    const overlay = e.target;
+    if (overlay && overlay.getAttribute &&
+        overlay.getAttribute('aria-label') === 'Notifications menu') {
+      e.preventDefault();
+    }
+  }, true);
+
+  notifMenu.addEventListener('toggle-read', (e) => {
+    const current = NOTIFICATIONS.find(n => n.id === e.detail.notification.id);
+    if (!current) return;
+
+    /* Hold the guard across the repaint AND the focus churn it causes.
+
+       A short TIME window rather than a frame count: setTimeout(0) releases
+       before the close event (traced at ~10ms after the click) and the panel
+       shuts anyway, while a fixed number of rAFs is only as good as its guess
+       at how many frames the rebuild takes -- that guess held or failed
+       depending on what else was listening, which is exactly the kind of race
+       not to ship. 250ms comfortably covers the rebuild on a slow frame and is
+       far shorter than the gap before a deliberate outside-click, so genuine
+       dismissals still work. The timer is reset per toggle so rapid triage of
+       several notifications keeps the panel open throughout. */
+    suppressClose = true;
+    clearTimeout(suppressCloseTimer);
+    suppressCloseTimer = setTimeout(() => { suppressClose = false; }, 250);
+
+    const updated = setRead(current.id, !current.read);
+
+    say(updated.read ? 'Marked as read' : 'Marked as unread');
+  });
+
+  // Dismiss a single notification.
+  notifMenu.addEventListener('dismiss', (e) => {
+    NOTIFICATIONS = NOTIFICATIONS.filter(n => n.id !== e.detail.notification.id);
+    paintNotifications();
+    say('Notification dismissed');
+  });
+
+  // "Clear All" in the menu header.
+  notifMenu.addEventListener('clear-all', () => {
+    NOTIFICATIONS = [];
+    paintNotifications();
+    say('All notifications cleared');
+  });
+
+  // Clicking a notification's action button.
+  notifMenu.addEventListener('button-click', (e) => {
+    const { button, notification } = e.detail;
+    const target = setRead(notification.id, true) ||
+                   NOTIFICATIONS.find(n => n.id === notification.id);
+    notifMenu.opened = false;
+
+    // DEAD END (intentional): opening a course into a comment-resolution
+    // editor session is not built yet. When it exists, this should route to
+    // that session scoped to the course, and the roll-up should clear once
+    // its comments are resolved.
+    if (button.id === 'resolve-comments') {
+      say(`Opening course ${target.courseId} to resolve ${target.commentCount} comments — not built yet`);
+      return;
+    }
+
+    say(`${button.text} — ${notification.subtitle}`);
+  });
+});
+
+/* ---- User / account menu ----
+   `user` takes firstName + lastName + email; the component builds the
+   avatar initials from those itself. Custom items sit between My Profile
+   and Logout.
+*/
+customElements.whenDefined('vwc-user-menu').then(() => {
+  const userMenu = document.getElementById('userMenu');
+
+  userMenu.user = {
+    firstName: 'Dana',
+    lastName: 'Lopez',
+    email: 'dana.lopez@vectorsolutions.com'
+  };
+
+  // NOTE: `helpToggle` is deliberately NOT used here. In core v1.19.0 the
+  // user-menu popover memoizes its content against only
+  // [user, menuItems, languageSelector, accounts, selectedAccountId], so
+  // toggling help after upgrade renders a zero-height ghost row instead of
+  // a real item.
+  userMenu.menuItems = [
+    { id: 'settings',    text: 'Settings',    icon: { type: 'svg', path: 'M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z' } },
+    { id: 'activity',    text: 'My activity', icon: { type: 'svg', path: 'M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3M12,8V13L16.28,15.54L17,14.33L13.5,12.25V8H12Z' } }
+  ];
+
+  // My Profile is on by default (myProfileButtonToggle), so it needs no
+  // opt-in — only its click handler.
+  userMenu.addEventListener('profile-click', () => say('Opening your profile…'));
+  userMenu.addEventListener('logout-click',  () => say('Signing out…'));
+  userMenu.addEventListener('custom-item-click', (e) => {
+    say(`${e.detail.text} — not built in this prototype`);
+  });
+});
+</script>
+
+
+<!-- ── Design Toolbox: Flow Map ───────────────────────────────────────────── -->
+<script>
+  /* State driver. The three screens of this workflow are three separate FILES,
+     not three states of one page, so a node's "state" here is really a page.
+     applyFlowState navigates when the requested node lives elsewhere, and
+     no-ops when we are already on the right page -- that keeps the flow map's
+     thumbnails and #fm= deep links working across the whole workflow. */
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'search':
+        // Already this page.
+        break;
+      case 'overview':
+        window.location = 'course-overview.html';
+        break;
+      case 'object-manager':
+        window.location = 'object-manager.html?object=s01-o02';
+        break;
+      default:
+        break;
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Comments & Version Control — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 440 },
+      flows: [
+        { id: 'main', name: 'Course Authoring Flow', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1200, h: 400 }, labelXY: { x: 40, y: 40 } }
+      ],
+      nodes: [
+        { id: 'search', flow: 'main', entry: true, x: 70, y: 170,
+          step: 'Step 1', name: 'Course Search', state: 'search',
+          desc: 'Current search-results UI with the updated notifications panel. Clicking the Lockout Tagout course opens the Course Overview.' },
+        { id: 'overview', flow: 'main', x: 470, y: 170,
+          step: 'Step 2', name: 'Course Overview', state: 'overview',
+          desc: 'Course content: sections and learning objects. Clicking a learning object opens the Object Manager.' },
+        { id: 'object-manager', flow: 'main', x: 870, y: 170,
+          step: 'Step 3', name: 'Object Manager', state: 'object-manager',
+          desc: 'Scene-level editing for one learning object. Back returns to the Course Overview.' }
+      ],
+      edges: [
+        ['search', 'overview'],
+        ['overview', 'object-manager']
+      ]
+    }
+  };
+</script>
+
+<script src="../../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
