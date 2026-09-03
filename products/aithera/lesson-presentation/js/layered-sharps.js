@@ -626,10 +626,12 @@
 
     rows.push({ icon: 'fa-list-ol', label: 'The procedure',
       state: proven ? 'dropped' : 'kept',
-      note: proven ? 'you sequenced it correctly' : 'not proven yet — 2 min' });
+      note: proven ? 'instruction and case both removed — you sequenced it correctly'
+                   : 'not proven yet — 2 min of instruction, then the case' });
     rows.push({ icon: 'fa-eye', label: 'Spotting the conditions',
       state: k2TestUp() ? 'harder' : 'kept',
-      note: k2TestUp() ? 'content-locked — served at the harder tier' : 'content-locked — never removed' });
+      note: k2TestUp() ? 'content-locked — both cases served at the harder tier'
+                       : 'content-locked — never removed' });
     if (feelLow()) {
       rows.push({ icon: 'fa-heart-crack', label: 'The one that landed',
         state: 'added', note: 'a low Feel score adds a beat, never removes one' });
@@ -662,8 +664,8 @@
       document.getElementById('adjHead').textContent = proven ? 'You can skip the procedure.' : 'You will do the full set.';
       var savedEl = document.getElementById('adjSaved');
       savedEl.textContent = proven
-        ? 'One beat off — and one served harder, because locked content is never removed.'
-        : 'Nothing removed. The locked beat and the simulation were never on the table anyway.';
+        ? 'Two beats off — the instruction and its case — and the locked pair served harder, because locked content is never removed.'
+        : 'Nothing removed. The locked pair and the simulation were never on the table anyway.';
       savedEl.classList.add('in');
       ctx.setCoachSay(proven
         ? 'Note what did NOT move: recognizing the conditions is content-locked, so proving the procedure made it harder rather than making it disappear.'
@@ -672,6 +674,165 @@
       LE.refreshNav();
       ctx.enableNext();
     }, T(900 + rows.length * 480 + 300));
+  }
+
+  // ==========================================================================
+  //  MODALITIES — capability 4, Transformation. The wrapper never moves: the
+  //  battery, the cases, the simulation and the record are identical in all
+  //  four. What varies is the INSTRUCTION in the middle, which in this module
+  //  is exactly one beat — so the toggle doubles as proof of the invariant.
+  //
+  //  Podcast is DECLINED rather than rendered. This module carries under a
+  //  minute of expository Know content, and a sixty-second audio file is not a
+  //  podcast, it is a clip. Audio's honest unit is the COURSE — six modules
+  //  assembled into one listen, carried by the sector narratives — which is
+  //  Assembly, not Transformation. Declining is the stronger demonstration: a
+  //  system that refuses to render badly is more credible than four green cells.
+  // ==========================================================================
+  var PROCEDURE_VIDEO = '../../assets/videos/sharps-procedure.mp4';
+
+  var MODALITIES = {
+    video:   { label: 'Video course', icon: 'fa-circle-play',
+               note: 'The reference rendering — the point in the variant space the SME signed.' },
+    article: { label: 'Article', icon: 'fa-file-lines',
+               note: 'Pre-rendered. The same four steps, read rather than watched.' },
+    tutor:   { label: 'AI tutor', icon: 'fa-comments',
+               note: 'CLARA walks the procedure one step at a time.' },
+    podcast: { label: 'Podcast', icon: 'fa-podcast', declined: true,
+               note: 'Declined at module level. Audio is offered one level up, across the course.' }
+  };
+  var MODALITY_ORDER = ['video', 'article', 'tutor', 'podcast'];
+  function modalityId() {
+    try { var m = sessionStorage.getItem('sh-modality'); if (MODALITIES[m]) return m; } catch (e) {}
+    return MODALITY_ORDER[0];
+  }
+  function cycleModality() {
+    var i = MODALITY_ORDER.indexOf(modalityId());
+    var next = MODALITY_ORDER[(i + 1) % MODALITY_ORDER.length];
+    try { sessionStorage.setItem('sh-modality', next); } catch (e) {}
+    return next;
+  }
+
+  // ==========================================================================
+  //  THE PROCEDURE — K1, taught. The beat the adjustment screen has always
+  //  promised ("The procedure · kept · not proven yet — 2 min") and the module
+  //  never contained: a learner who did NOT test out was routed straight past
+  //  the instruction into being corrected against it. Case 1's feedback cites
+  //  "the procedure says plan the route before you start" — a procedure the
+  //  learner had never been shown.
+  //
+  //  K1 is a mandated four-step sequence. There is nothing to reason toward,
+  //  so it is taught before it is practised; K2, which IS discoverable, keeps
+  //  the case ladder. Structure per objective, the way policy already is.
+  //
+  //  Nothing below is new content. The four steps are K1.text — the sentence
+  //  the SME signed — decomposed into its clauses, and every modality renders
+  //  THESE. That is the whole claim: one signed source, several carriers.
+  // ==========================================================================
+  var PROCEDURE = [
+    { t: 'Plan disposal before you start',
+      d: 'Know where the container is and how you reach it before the sharp is ever in your hand. Distance is a problem you solve early, not one you discover holding a used needle.' },
+    { t: 'Use a needle alternative where one exists',
+      d: 'The safest sharp is the one that was never used. Where a blunt or needle-free option does the job, it is the option.' },
+    { t: 'Activate the safety feature',
+      d: 'At the point of use, before anything else happens — while the sharp is still under your control and nobody else is near it.' },
+    { t: 'Dispose in a designated container',
+      d: 'Straight in. No recapping, no bending, no setting it down for a second, no general waste. The moment it leaves your hand for anywhere else, it belongs to whoever finds it.' }
+  ];
+
+  function procedureList() {
+    return '<ol class="pr-list">' + PROCEDURE.map(function (s, i) {
+      return '<li class="pr-item"><span class="pr-n">' + (i + 1) + '</span>' +
+        '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
+        '<span class="pr-d">' + esc(s.d) + '</span></span></li>';
+    }).join('') + '</ol>';
+  }
+
+  function PROCEDURE_CONTENT() {
+    var m = modalityId(), body;
+    if (m === 'podcast') {
+      body =
+        '<div class="pr-declined">' +
+          '<p class="pr-dec-h"><i class="fa-solid fa-circle-minus"></i> Not offered as a podcast</p>' +
+          '<p>This module carries under a minute of instruction. An audio cut of it is a clip, not an ' +
+            'episode — the learner reasonably asks why they listened.</p>' +
+          '<p>Audio is offered one level up: <b>Bloodborne Pathogens</b>, six modules assembled into a ' +
+            'single listen and carried by the sector narratives. That is Assembly, not Transformation.</p>' +
+          '<p class="pr-dec-fall">Showing the article rendering so the path still runs.</p>' +
+        '</div>' + procedureList();
+    } else if (m === 'video') {
+      body =
+        '<div class="pr-video">' +
+          '<video id="prVideo" controls playsinline preload="metadata">' +
+            '<source src="' + PROCEDURE_VIDEO + '" type="video/mp4">' +
+          '</video>' +
+          '<p class="pr-vfall" id="prVfall" hidden><i class="fa-solid fa-triangle-exclamation"></i> ' +
+            'No video at <code>' + esc(PROCEDURE_VIDEO) + '</code> — showing the article rendering instead.</p>' +
+        '</div>' +
+        '<div id="prVlist" hidden>' + procedureList() + '</div>';
+    } else if (m === 'tutor') {
+      body = '<div class="pr-tutor" id="prTutor"></div>';
+    } else {
+      body = procedureList();
+    }
+    return '<main class="ll-object"><div class="pr-wrap">' +
+      '<p class="ll-eyebrow">Learn · the procedure</p>' +
+      '<h1 class="pr-h">Four steps, in this order.</h1>' +
+      '<p class="pr-sub">' + esc(obj('K1').text) + '</p>' +
+      body +
+      '<p class="pr-src"><i class="fa-solid fa-file-signature"></i> One signed source · K1 · ' +
+        esc(MODALITIES[m].label) + (MODALITIES[m].declined ? ' (declined)' : '') + '</p>' +
+    '</div></main>';
+  }
+
+  function procedureInit(ctx) {
+    var m = modalityId();
+    ctx.floatOpen();
+
+    if (m === 'video') {
+      var v = document.getElementById('prVideo');
+      var fell = false;
+      var fallback = function () {
+        if (fell) return;
+        fell = true;
+        var f = document.getElementById('prVfall'), l = document.getElementById('prVlist');
+        if (f) f.hidden = false;
+        if (l) l.hidden = false;
+        if (v) v.hidden = true;
+      };
+      if (v) {
+        // A 404 fires on the <source>, not reliably on the <video> — watch both,
+        // and time out as the backstop for a file that stalls rather than errors.
+        var src = v.querySelector('source');
+        if (src) src.addEventListener('error', fallback);
+        v.addEventListener('error', fallback, true);
+        setTimeout(function () { if (v.readyState === 0) fallback(); }, 1800);
+      } else { fallback(); }
+      ctx.setCoachSay('Watch the order — three of the four happen before the sharp is ever used.');
+      ctx.enableNext();
+    } else if (m === 'tutor') {
+      var host = document.getElementById('prTutor');
+      ctx.setCoachSay('I will take these one at a time.');
+      PROCEDURE.forEach(function (s, i) {
+        setTimeout(function () {
+          if (!host) return;
+          var d = document.createElement('div');
+          d.className = 'pr-turn';
+          d.innerHTML = '<span class="pr-n">' + (i + 1) + '</span>' +
+            '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
+            '<span class="pr-d">' + esc(s.d) + '</span></span>';
+          host.appendChild(d);
+          requestAnimationFrame(function () { d.classList.add('in'); });
+        }, T(350 + i * 850));
+      });
+      setTimeout(function () { ctx.enableNext(); }, T(350 + PROCEDURE.length * 850));
+    } else {
+      ctx.setCoachSay(m === 'podcast'
+        ? 'Audio is not offered for this module — I am showing you the article cut so the path still runs.'
+        : 'Read the order rather than the steps. Three of the four happen before the sharp is ever used.');
+      ctx.enableNext();
+    }
+    ctx.positionOrb(false);
   }
 
   // ==========================================================================
@@ -691,31 +852,43 @@
           '</div>' +
           '<p class="cs-q">' + esc(cfg.question) + '</p>' +
           '<div class="cs-opts" id="csOpts"></div>' +
-          '<p class="cs-fb" id="csFb"></p>' +
         '</div>' +
       '</main>';
     };
   }
+  // Case-style choice: a selection mark plus a label. The mark is what tells
+  // the eye these three are pressable and the scene above them is not, and on
+  // grading it carries the verdict as a glyph rather than colour alone.
+  function csOption(text) {
+    var b = document.createElement('button');
+    b.className = 'cs-opt'; b.type = 'button';
+    b.innerHTML = '<span class="cs-mark" aria-hidden="true"></span><span class="cs-opt-t"></span>';
+    b.querySelector('.cs-opt-t').textContent = text;
+    return b;
+  }
+  var CS_GLYPH = { ok: 'fa-check', near: 'fa-minus', bad: 'fa-xmark' };
+  function csMark(b, grade) {
+    b.classList.add('pick-' + grade);
+    var m = b.querySelector('.cs-mark');
+    if (m) m.innerHTML = '<i class="fa-solid ' + (CS_GLYPH[grade] || CS_GLYPH.bad) + '" aria-hidden="true"></i>';
+  }
+
   function caseInit(cfg) {
     return function (ctx) {
       var opts = cfg.harder && k2TestUp() ? cfg.harder : cfg.options;
       var wrap = document.getElementById('csOpts');
-      var fb = document.getElementById('csFb');
       ctx.floatOpen();
       ctx.setCoachSay(cfg.harder && k2TestUp()
         ? 'You earned the harder version of this one — the answer is genuinely arguable here.'
         : cfg.coach);
       var settled = false;
       opts.forEach(function (o) {
-        var b = document.createElement('button');
-        b.className = 'cs-opt'; b.type = 'button'; b.textContent = o.t;
+        var b = csOption(o.t);
         b.addEventListener('click', function () {
           if (settled) return; settled = true;
           wrap.classList.add('answered');
           wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-          b.classList.add(o.grade === 'ok' ? 'pick-ok' : o.grade === 'near' ? 'pick-near' : 'pick-bad');
-          fb.className = 'cs-fb ' + o.grade;
-          fb.textContent = o.reply;
+          csMark(b, o.grade === 'ok' ? 'ok' : o.grade === 'near' ? 'near' : 'bad');
           ctx.setCoachSay(esc(o.coach || o.reply));
           saveResult(cfg.key, { grade: o.grade });
           ctx.enableNext();
@@ -772,6 +945,17 @@
         reply: 'You protected one person. The condition that put it there is still running, and it will produce another.' },
       { t: 'Leave it and tell whoever is responsible', grade: 'bad',
         reply: 'Between now and them, it is in reach of whoever comes next. Secure first, report second.' }
+    ],
+    // Content-locked -> test-up, the second half of it. The deck hardens BOTH
+    // K2 cases, not one: recognition is the locked objective, and case 3 is
+    // where it is hardest, because you did not cause this one.
+    harder: [
+      { t: 'Secure it, then report the route that let a sharp reach a paper bin', grade: 'ok',
+        reply: 'That is the fuller call. The sharp is one event; the route that delivers them there is the condition — and only the second one has a fix.' },
+      { t: 'Secure it and file it as an individual incident', grade: 'near',
+        reply: 'Defensible, and most places would accept it. But an incident closes on a person, and nothing here was a person — it was a path that lets a sharp travel.' },
+      { t: 'Secure it, then find out who was working the room before deciding what to report', grade: 'near',
+        reply: 'Understandable, and it is the wrong first move. Whose it was does not change what you do next — and asking is exactly what makes the next person slower to say they found one.' }
     ]
   };
 
@@ -783,14 +967,12 @@
     '<main class="ll-object">' +
       '<div class="cs-wrap">' +
         '<p class="ll-eyebrow">Check: 1 question</p>' +
-        '<h2 class="bl-q" style="max-width:30ch">Before you pick anything up — what have you already decided?</h2>' +
+        '<h2 class="cs-q cs-q--lead">Before you pick anything up — what have you already decided?</h2>' +
         '<div class="cs-opts" id="ifOpts"></div>' +
-        '<p class="cs-fb" id="ifFb"></p>' +
       '</div>' +
     '</main>';
   function inflowInit(ctx) {
     var wrap = document.getElementById('ifOpts');
-    var fb = document.getElementById('ifFb');
     ctx.floatOpen();
     ctx.setCoachSay('Everyone gets this one — it is the objective that gates the module. Two goes at it.');
     var tries = 0, settled = false;
@@ -802,25 +984,22 @@
       { t: 'Who to tell if something goes wrong', ok: false,
         reply: 'That matters afterwards. The thing decided in advance is the route.' }
     ].forEach(function (o) {
-      var b = document.createElement('button');
-      b.className = 'cs-opt'; b.type = 'button'; b.textContent = o.t;
+      var b = csOption(o.t);
       b.addEventListener('click', function () {
         if (settled) return;
         if (o.ok) {
           settled = true;
           wrap.classList.add('answered');
           wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-          b.classList.add('pick-ok');
-          fb.className = 'cs-fb ok'; fb.textContent = o.reply;
+          csMark(b, 'ok');
           saveResult('inflow', { passed: true, attempts: tries + 1 });
           ctx.setCoachSay(esc(o.reply));
           ctx.enableNext();
         } else {
           tries++;
-          b.classList.add('pick-bad'); b.disabled = true;
-          fb.className = 'cs-fb bad';
-          fb.textContent = tries === 1 ? o.reply
-            : 'Let me put it another way: the reason it is decided in advance is that afterwards, both your hands are full.';
+          csMark(b, 'bad'); b.disabled = true;
+          ctx.setCoachSay(esc(tries === 1 ? o.reply
+            : 'Let me put it another way: the reason it is decided in advance is that afterwards, both your hands are full.'));
           if (tries >= 2) {
             saveResult('inflow', { passed: false, attempts: tries });
             ctx.enableNext();
@@ -950,7 +1129,7 @@
     return '<main class="ll-object">' +
       '<div class="ac-wrap">' +
         '<p class="ll-eyebrow">Do it: 1 moment</p>' +
-        '<h2 class="bl-q" style="max-width:28ch">Dispose first, or set it down?</h2>' +
+        '<h2 class="cs-q cs-q--lead">Dispose first, or set it down?</h2>' +
         '<p class="ll-sub">This runs in real time. When the sharp needs to be gone, act — the moment won’t wait.</p>' +
         '<div class="ac-stage" id="acStage"><div class="ac-lines" id="acLines"></div></div>' +
         '<div class="ac-window" id="acWindow" hidden>' +
@@ -1042,7 +1221,7 @@
     '<main class="ll-object">' +
       '<div class="fu-wrap">' +
         '<p class="ll-eyebrow">Set it up: 1 choice</p>' +
-        '<h2 class="bl-q" style="max-width:26ch">When should I check back?</h2>' +
+        '<h2 class="cs-q cs-q--lead">When should I check back?</h2>' +
         '<p class="ll-sub">One question, once, about something you actually did at work. It is how this objective gets evidenced at all.</p>' +
         '<div class="fu-opts" id="fuOpts">' +
           '<button class="fu-card" type="button" data-d="30"><span class="day">30</span>' +
@@ -1173,6 +1352,13 @@
       coach: { say: '' },
       content: ADJUST_CONTENT, init: adjustInit },
 
+    { id: 'procedure', icon: 'fa-list-ol', mins: 2, stage: 'Learn', lesson: 'The Procedure', mode: 'floating', gate: true,
+      when: function () { return batteryResult() !== 'proven'; },
+      caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat: the Demo menu’s Modality control re-renders exactly this screen and nothing else.' },
+      coach: { say: 'Loading…' },
+      content: PROCEDURE_CONTENT, init: procedureInit,
+      onSkip: function () { saveResult('procedure', { skipped: true }); } },
+
     { id: 'case1', icon: 'fa-clock', mins: 1, stage: 'Learn', lesson: 'Deferred Disposal', mode: 'floating', gate: true, adaptive: true,
       when: function () { return batteryResult() !== 'proven'; },
       caption: { title: 'LEARN · Case 1 (K1)', note: 'The procedure case. Compressed out when the battery proved K1 — the only beat in the module that test-out can remove, and only because the simulation re-verifies it performatively.' },
@@ -1240,6 +1426,11 @@
       'I am recording which objective each answer evidenced, not a score. Your administrator sees the same chain you do.'
     ],
     demoControls: [{
+      id: 'shModalityBtn', icon: 'fa-shapes', name: 'Modality',
+      note: 'Only the procedure beat moves — battery, cases, simulation and record are identical in all four',
+      state: function () { return MODALITIES[modalityId()].label; },
+      onClick: function (api) { cycleModality(); api.replay(); }
+    }, {
       id: 'shImagesBtn', icon: 'fa-image', name: 'Visuals',
       note: 'Whether a beat carries art is a derivation decision, not a property of the beat',
       visibleOn: function (step) { return !!IMAGE_STEPS[step.id]; },
