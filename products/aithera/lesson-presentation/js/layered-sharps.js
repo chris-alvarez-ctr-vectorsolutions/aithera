@@ -431,7 +431,7 @@
     var optsEl = document.getElementById('blOptions');
     var k1 = [];
 
-    ctx.setCoachSay('Four questions before we start. Two on the procedure, two on how you see it — nothing on doing it, because a question cannot measure that.');
+    ctx.setCoachSay('Four questions before we start. Two on the procedure, two on how you see it. No grade on any of them.');
     ctx.floatClose();
     render(0);
 
@@ -626,15 +626,15 @@
 
     rows.push({ icon: 'fa-list-ol', label: 'The procedure',
       state: proven ? 'dropped' : 'kept',
-      note: proven ? 'instruction and case both removed — you sequenced it correctly'
-                   : 'not proven yet — 4 min of instruction, then the case' });
+      note: proven ? 'removed — you put the four steps in the right order'
+                   : 'kept — 4 min of instruction, then a case to try it on' });
     rows.push({ icon: 'fa-eye', label: 'Spotting the conditions',
       state: k2TestUp() ? 'harder' : 'kept',
-      note: k2TestUp() ? 'content-locked — both cases served at the harder tier'
-                       : 'content-locked — never removed' });
+      note: k2TestUp() ? 'harder — both cases, with the answer genuinely arguable'
+                       : 'never removed, whatever you answer' });
     if (feelLow()) {
       rows.push({ icon: 'fa-heart-crack', label: 'The one that landed',
-        state: 'added', note: 'a low Feel score adds a beat, never removes one' });
+        state: 'added', note: 'added because of how you answered the last two questions' });
     }
     rows.push({ icon: 'fa-shield-halved', label: 'The simulation',
       state: 'kept', note: 'runs for everyone, in every profile' });
@@ -664,12 +664,12 @@
       document.getElementById('adjHead').textContent = proven ? 'You can skip the procedure.' : 'You will do the full set.';
       var savedEl = document.getElementById('adjSaved');
       savedEl.textContent = proven
-        ? 'Two beats off — the instruction and its case — and the locked pair served harder, because locked content is never removed.'
-        : 'Nothing removed. The locked pair and the simulation were never on the table anyway.';
+        ? 'Two sections off. Spotting unsafe conditions got harder instead — that one is never removed.'
+        : 'Nothing removed. Spotting the conditions and the practice scenario were never going to be.';
       savedEl.classList.add('in');
       ctx.setCoachSay(proven
-        ? 'Note what did NOT move: recognizing the conditions is content-locked, so proving the procedure made it harder rather than making it disappear.'
-        : 'Nothing came off, and nothing was going to — the two Do objectives and the locked one can’t be answered away.');
+        ? 'Note what did not move: spotting the conditions got harder, not shorter. That one never comes off.'
+        : 'Nothing came off, and nothing was going to — you cannot answer your way out of doing it.');
       ctx.positionOrb(true);
       LE.refreshNav();
       ctx.enableNext();
@@ -795,23 +795,50 @@
 
     if (m === 'video') {
       var v = document.getElementById('prVideo');
-      var fell = false;
-      var fallback = function () {
-        if (fell) return;
-        fell = true;
-        var f = document.getElementById('prVfall'), l = document.getElementById('prVlist');
-        if (f) f.hidden = false;
-        if (l) l.hidden = false;
+      var note = document.getElementById('prVfall');
+      var list = document.getElementById('prVlist');
+      var started = false, stalls = 0;
+
+      // Two different failures that deserve two different sentences. A file
+      // that is not there is networkState NO_SOURCE (or error code 4). A
+      // download that dies partway is code 2 and says NOTHING about whether
+      // the file exists — claiming "no video at <path>" for that is a lie,
+      // and a 40 MB file on a single-threaded preview server hits it often.
+      // Neither justifies swapping in the text once someone is already
+      // watching, so `started` latches the video in place.
+      function say(html) {
+        if (!note) return;
+        note.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + html;
+        note.hidden = false;
+      }
+      function missing() {
+        if (started) return;
+        say('No video at <code>' + esc(PROCEDURE_VIDEO) + '</code> — showing the written version instead.');
+        if (list) list.hidden = false;
         if (v) v.hidden = true;
-      };
+      }
+      function stalled() {
+        stalls++;
+        // Once is a hiccup and the learner can just press play again. Twice
+        // means this connection is not going to carry it, so hand over the text.
+        if (stalls < 2) { say('The video stopped loading. Press play to pick it up again.'); return; }
+        say('The video keeps dropping out — showing the written version instead.');
+        if (list) list.hidden = false;
+        if (v) v.hidden = true;
+      }
+
       if (v) {
-        // A 404 fires on the <source>, not reliably on the <video> — watch both,
-        // and time out as the backstop for a file that stalls rather than errors.
+        v.addEventListener('playing', function () { started = true; if (note) note.hidden = true; });
+        v.addEventListener('error', function () {
+          var code = v.error && v.error.code;
+          if (code === 2) stalled(); else missing();   // 2 = MEDIA_ERR_NETWORK
+        });
         var src = v.querySelector('source');
-        if (src) src.addEventListener('error', fallback);
-        v.addEventListener('error', fallback, true);
-        setTimeout(function () { if (v.readyState === 0) fallback(); }, 1800);
-      } else { fallback(); }
+        if (src) src.addEventListener('error', function () {
+          if (v.networkState === 3) missing();          // 3 = NETWORK_NO_SOURCE
+        });
+        setTimeout(function () { if (v.networkState === 3) missing(); }, 2500);
+      } else { missing(); }
       ctx.setCoachSay('Watch the order — three of the four happen before the sharp is ever used.');
       ctx.enableNext();
     } else if (m === 'tutor') {
@@ -978,7 +1005,7 @@
   function inflowInit(ctx) {
     var wrap = document.getElementById('ifOpts');
     ctx.floatOpen();
-    ctx.setCoachSay('Everyone gets this one — it is the objective that gates the module. Two goes at it.');
+    ctx.setCoachSay('Everyone gets this one, and you get two goes at it.');
     var tries = 0, settled = false;
     [
       { t: 'Where it is going, before I start', ok: true,
@@ -1139,7 +1166,7 @@
         // still working out what it is measures reading speed, not procedure.
         '<div class="ac-brief" id="acBrief">' +
           '<p class="ll-sub">Knowing the procedure and doing it while something else is pulling at you are ' +
-            'two different things. Only the second one is the objective here.</p>' +
+            'two different things. Only the second one is what this measures.</p>' +
           '<ol class="ac-how">' +
             '<li><span class="ac-num">1</span><span>A short scene plays out in real time, a line at a time.</span></li>' +
             '<li><span class="ac-num">2</span><span>The moment the safety feature is on, <b>Dispose it now</b> unlocks.</span></li>' +
@@ -1187,9 +1214,10 @@
     var verdict = document.getElementById('acVerdict');
     var cueAt = null, done = false, timers = [], ticker = null;
 
-    ctx.floatOpen();
-    ctx.setCoachSay('Everyone does this one — including anyone who tested out of the procedure, because reciting it and ' +
-      'doing it under interruption are not the same skill. Read the three steps, then start it when you are ready.');
+    // She does not lead here — the brief on the page does, and every word she
+    // had was either restating it or naming the routing behind it. Tucked, with
+    // one line worth a tap: an offer the page doesn't make.
+    ctx.setCoachSay('Want the disposal steps again before you start? Just ask.');
 
     document.getElementById('acBegin').addEventListener('click', begin);
 
@@ -1257,7 +1285,7 @@
         : '<i class="fa-solid fa-clock"></i> The six seconds ran out and the sharp was set down. That is how every one ' +
           'of the three cases you just judged began.';
       ctx.setCoachSay(inTime
-        ? 'Timing, technique and route all held. That is the objective — not knowing the procedure, doing it while something else was pulling at you.'
+        ? 'Timing, technique and route all held — while something else was pulling at you. That is the hard part, not the knowing.'
         : 'Honest outcome, and the common one. The interruption is not the failure — the sharp existing outside a container is. That is what the follow-up is for.');
       saveResult('perform', { disposed: inTime, ms: ms });
       ctx.enableNext();
@@ -1275,14 +1303,14 @@
       '<div class="fu-wrap">' +
         '<p class="ll-eyebrow">Set it up: 1 choice</p>' +
         '<h2 class="cs-q cs-q--lead">When should I check back?</h2>' +
-        '<p class="ll-sub">One question, once, about something you actually did at work. It is how this objective gets evidenced at all.</p>' +
+        '<p class="ll-sub">One question, once, about something you actually did at work.</p>' +
         '<div class="fu-opts" id="fuOpts">' +
           '<button class="fu-card" type="button" data-d="30"><span class="day">30</span>' +
             '<span><b>In 30 days</b><small>Soon enough that the procedure is still fresh</small></span></button>' +
           '<button class="fu-card" type="button" data-d="60"><span class="day">60</span>' +
             '<span><b>In 60 days</b><small>Long enough that the habit has been tested</small></span></button>' +
           '<button class="fu-card" type="button" data-d="90"><span class="day">90</span>' +
-            '<span><b>In 90 days</b><small>The standard interval for this objective</small></span></button>' +
+            '<span><b>In 90 days</b><small>The usual gap for a check like this</small></span></button>' +
         '</div>' +
         '<p class="fu-note" id="fuNote" hidden></p>' +
       '</div>' +
@@ -1291,7 +1319,7 @@
     var opts = document.getElementById('fuOpts');
     var note = document.getElementById('fuNote');
     ctx.floatOpen();
-    ctx.setCoachSay('Last thing. This objective can’t be finished today — it is about what you keep doing.');
+    ctx.setCoachSay('Last thing, and it can’t be finished today — it is about what you keep doing afterwards.');
     var picked = false;
     opts.querySelectorAll('.fu-card').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1302,9 +1330,9 @@
         var d = b.dataset.d;
         note.hidden = false;
         note.innerHTML = 'Scheduled for <b>' + d + ' days</b>. One question: <i>“Since the module, has a container ' +
-          'or a loose sharp needed raising — and did you raise it?”</i> The answer is the evidence for this ' +
-          'objective; nothing before today can be.';
-        ctx.setCoachSay('Set for ' + d + ' days. Until then this objective sits open on your record — honestly, rather than being marked complete because you watched something.');
+          'or a loose sharp needed raising — and did you raise it?”</i> Nothing you do today can answer that, ' +
+          'which is the point.';
+        ctx.setCoachSay('Set for ' + d + ' days. Until then it stays open on your record, rather than ticked off because you sat through a module today.');
         saveResult('followup', { days: +d });
         ctx.enableNext();
         ctx.positionOrb(true);
@@ -1391,7 +1419,7 @@
   var STEPS = [
     { id: 'intro', mode: 'floating', lesson: 'Welcome', cover: true, nextLabel: 'Start module',
       caption: { title: 'Course title page', note: 'Module 4 of six behavioral outcomes decomposed from Bloodborne Pathogens (RVCT-303B). The sections list renders from the live path, so it foreshadows what the battery can remove.' },
-      coach: { say: 'This is the sharps module. Four questions first — they decide how much of it you actually have to sit through.' },
+      coach: { say: 'Four questions first — they decide how much of this you actually have to sit through.' },
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Four Questions', mode: 'floating', gate: true,
