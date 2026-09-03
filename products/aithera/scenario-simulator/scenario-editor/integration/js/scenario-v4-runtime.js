@@ -154,7 +154,14 @@
     };
   }
 
-  /* An observe exhibit becomes our single-segment media list. */
+  /* An observe exhibit becomes our single-segment media list.
+
+     `mediaType` carries the authored `exhibit.type` ('image' | 'video') through
+     to the renderer. It used to be dropped here, which meant the exhibit-kind
+     dropdown in the editor decided nothing: the clip card renders a <video> for
+     any src it is handed, so an authored photo came out as a black box with
+     playback controls. The renderer still sniffs the extension as a fallback for
+     the other producers of media.segments, but an authored type beats a guess. */
   function mediaFromInteraction(interaction) {
     const it = obj(interaction);
     const media = { segments: [], affectiveBeat: false, openingReaction: '' };
@@ -162,6 +169,7 @@
     if (exhibit) {
       media.segments = [{
         src: str(exhibit.src),
+        mediaType: str(exhibit.type),
         label: str(exhibit.alt).slice(0, 60),
         caption: str(exhibit.alt),
       }];

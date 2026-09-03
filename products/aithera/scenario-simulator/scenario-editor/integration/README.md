@@ -1,8 +1,16 @@
 # Frozen integration build — do not edit
 
 This folder is a **self-contained, frozen copy** of the Scenario Editor, cut on
-**2026-09-02**. Learning Studio iframes this build so the K&A team can edit
-existing scenarios from inside Studio while the real integration is designed.
+**2026-09-02** and last re-cut on **2026-09-03**. Learning Studio iframes this
+build so the K&A team can edit existing scenarios from inside Studio while the
+real integration is designed.
+
+Re-cuts so far — each one deliberate, each one a row in
+`../RELEASE-NOTES.md`:
+
+| Date | What came in |
+| --- | --- |
+| 2026-09-03 | The paced template hand-off read-out, and `exhibit.type` surviving the compiler so an authored image exhibit is not rendered as a video (`studio-shell.js`, `writer-studio.css`, `scenario-v4-runtime.js`) |
 
 Nothing outside this folder can change what it does. It carries its own copy of
 all 16 modules and the stylesheet, so work continues on the live editor at
