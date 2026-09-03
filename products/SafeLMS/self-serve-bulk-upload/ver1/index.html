@@ -335,6 +335,32 @@
      ver1 = 'A', ver2 = 'B'. */
   var VERSION = 'A';
 
+  /* Automated-sync qualification gate. Designer spec = 3 clean imports in a row;
+     the PRD / earlier card said 4 (flagged in DEV-NOTES). One constant to flip. */
+  var SYNC_GATE = 3, SYNC_DONE = 1;
+
+  /* Illustrative rows for the "everything that would change" purge breakdown —
+     who gets deactivated, and which position/location (job) assignments get
+     removed and how many people each hits. */
+  var IMPACT = {
+    deacts: [
+      { name: 'Gary Harper',    user: 'gharper',    job: 'Teacher · Lincoln Elementary' },
+      { name: 'Maria Reyes',    user: 'mreyes',     job: 'Counselor · Ridgewood High' },
+      { name: 'Tom Allen',      user: 'tallen',     job: 'Custodian · Kennedy Middle' },
+      { name: 'Priya Nair',     user: 'pnair',      job: 'Aide · District Office' },
+      { name: 'Alan Pruitt',    user: 'apruitt',    job: 'Bus Driver · Transportation' },
+      { name: 'Dana Whitfield', user: 'dwhitfield', job: 'Registrar · District Office' }
+    ],
+    jobs: [
+      { pos: 'Coach',      loc: 'Ridgewood High',    people: 4 },
+      { pos: 'Grade 9',    loc: 'Ridgewood High',    people: 12, note: 'replaced with Grade 10' },
+      { pos: 'Custodian',  loc: 'Kennedy Middle',    people: 2 },
+      { pos: 'Aide',       loc: 'Lincoln Elementary', people: 6 },
+      { pos: 'Bus Driver', loc: 'Transportation',    people: 7 }
+    ]
+  };
+  function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+
   var FILES = [
     { id: 'clean',   name: 'staff_roster_2026.csv',      rows: 45,  note: 'September new-hire batch from HR' },
     { id: 'confirm', name: 'fall_staff_roster.csv',      rows: 164, note: 'Full fall roster export — all buildings' },
@@ -491,15 +517,16 @@
   function summaryFor(fileId, pu, pj) {
     var b;
     switch (fileId) {
-      case 'clean':   b = { add: 42, mod: 3,   deactOn: 128, jobsAdd: 6,  jobsRem: 4 };   break;
-      case 'confirm': b = { add: 12, mod: 118, deactOn: 6,   jobsAdd: 22, jobsRem: 31 };  break;
-      case 'saml':    b = { add: 9,  mod: 147, deactOn: 14,  jobsAdd: 18, jobsRem: 40 };  break;
-      case 'dupes':   b = { add: 26, mod: 124, deactOn: 12,  jobsAdd: 30, jobsRem: 27 };  break;
-      case 'blast':   b = { add: 2,  mod: 166, deactOn: 0,   jobsAdd: 4,  jobsRem: 150 }; break;
-      default:        b = { add: 0,  mod: 0,   deactOn: 0,   jobsAdd: 0,  jobsRem: 0 };   break;
+      case 'clean':   b = { add: 42, mod: 3,   deactOn: 128, jobsAdd: 6,  jobsRem: 4,   ppl: 4,   pos: 2, loc: 2 }; break;
+      case 'confirm': b = { add: 12, mod: 118, deactOn: 6,   jobsAdd: 22, jobsRem: 31,  ppl: 24,  pos: 5, loc: 3 }; break;
+      case 'saml':    b = { add: 9,  mod: 147, deactOn: 14,  jobsAdd: 18, jobsRem: 40,  ppl: 33,  pos: 6, loc: 4 }; break;
+      case 'dupes':   b = { add: 26, mod: 124, deactOn: 12,  jobsAdd: 30, jobsRem: 27,  ppl: 21,  pos: 5, loc: 3 }; break;
+      case 'blast':   b = { add: 2,  mod: 166, deactOn: 0,   jobsAdd: 4,  jobsRem: 150, ppl: 120, pos: 9, loc: 6 }; break;
+      default:        b = { add: 0,  mod: 0,   deactOn: 0,   jobsAdd: 0,  jobsRem: 0,   ppl: 0,   pos: 0, loc: 0 }; break;
     }
     return { add: b.add, mod: b.mod, deact: pu ? b.deactOn : 0,
-      jobsAdded: b.jobsAdd, jobsRemoved: pj ? b.jobsRem : 0 };
+      jobsAdded: b.jobsAdd, jobsRemoved: pj ? b.jobsRem : 0,
+      jobsPeople: pj ? b.ppl : 0, pos: pj ? b.pos : 0, loc: pj ? b.loc : 0 };
   }
   function summary() { return summaryFor(state.fileId, state.purgeUsers, state.purgeJobs); }
 
@@ -612,16 +639,17 @@
         ackLabel: 'I recognize this as the same person — update the name.' });
     }
     if (pj && summaryFor(fileId, pu, pj).jobsRemoved > 0) {
-      var jr = summaryFor(fileId, pu, pj).jobsRemoved;
+      var js = summaryFor(fileId, pu, pj);
       A.push({ id: 'purge-jobs', tier: 'confirm', repBtn: true,
-        title: jr + ' positions & locations will be removed to match your file',
-        what: 'You turned on “Remove positions & locations not in this file.” For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. Most are routine (a grade level or role that changed), but some may be intentional extras.',
-        ifProceed: 'The ' + jr + ' extra positions & locations are removed and their assignments come off those users. Anything still in the file is kept and new ones are added — the record becomes an exact mirror of the file.',
-        action: 'Check the examples below. Proceed only if the file is the complete, current list of each person’s positions & locations.',
+        title: js.jobsRemoved + ' positions & locations will be removed — affecting ' + js.jobsPeople + ' people',
+        what: 'You turned on “Remove positions & locations not in this file.” For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. This touches ' + js.pos + ' positions across ' + js.loc + ' locations; most are routine (a grade level or role that changed), but some may be intentional extras.',
+        ifProceed: 'The ' + js.jobsRemoved + ' extra positions & locations are removed from ' + js.jobsPeople + ' people, and the training tied to them comes off those users. Anything still in the file is kept and new ones are added — the record becomes an exact mirror of the file.',
+        action: 'Check the examples below — each shows how many people it affects. Proceed only if the file is the complete, current list of each person’s positions & locations.',
         lines: [
-          { t: 'Maya Torres — Coach · Ridgewood High  →  removed (not in file)' },
-          { t: 'Sam Ortiz — Grade 9 · Ridgewood High  →  replaced with Grade 10' },
-          { t: '… and ' + (jr - 2) + ' more' }
+          { t: 'Coach · Ridgewood High — removed from 4 people' },
+          { t: 'Grade 9 · Ridgewood High — removed from 12 people (→ Grade 10)' },
+          { t: 'Custodian · Kennedy Middle — removed from 2 people' },
+          { t: '… and more — ' + js.jobsRemoved + ' assignments across ' + js.jobsPeople + ' people' }
         ],
         ackLabel: 'I’ve checked these — remove the positions & locations that aren’t in my file.' });
     }
@@ -852,10 +880,54 @@
       + '</div></div>';
   }
 
+  /* "Everything that would change" — itemized deactivations and job removals with
+     per-item people counts, so the scope + permanence are visible while choosing. */
+  function impactBreakdown() {
+    var pu = state.purgeUsers, pj = state.purgeJobs, sum = summary();
+    if (!pu && !pj) {
+      return '<div class="ex-card" style="margin-bottom:0;"><div style="font-size:13px;color:#3D4F63;line-height:1.6;">'
+        + '<b>Nothing will be removed.</b> Users and jobs in your file are added or updated; everyone and everything else is left exactly as it is.</div></div>';
+    }
+    var out = '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 13px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;">'
+      + '<b>This is permanent.</b> Deactivations and removals — and the training tied to a removed job — can’t be undone once you run the import.</div>';
+
+    if (pu) {
+      var ds = IMPACT.deacts.slice(0, 3);
+      out += '<div class="ex-card" style="margin-bottom:10px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+        + '<div class="ex-eyebrow" style="margin:0;">Users deactivated</div>'
+        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.deact + ' people lose access</div></div>'
+        + ds.map(function (d) {
+            return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
+              + '<div><span style="font-weight:600;">' + esc(d.name) + '</span> <span class="mono" style="color:#8CA0B4;font-size:11.5px;">' + esc(d.user) + '</span></div>'
+              + '<div style="color:#8CA0B4;text-align:right;">' + esc(d.job) + '</div></div>';
+          }).join('')
+        + (sum.deact > ds.length ? '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.deact + ' users</div>' : '')
+        + '</div>';
+    }
+    if (pj) {
+      var js = IMPACT.jobs.slice(0, 3);
+      out += '<div class="ex-card" style="margin-bottom:0;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+        + '<div class="ex-eyebrow" style="margin:0;">Positions &amp; locations removed</div>'
+        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.jobsRemoved + ' removed · ' + sum.jobsPeople + ' people</div></div>'
+        + js.map(function (j) {
+            return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
+              + '<div><span class="job-chip job-remove" style="margin:0;">' + esc(j.pos + ' · ' + j.loc) + '</span>'
+              + (j.note ? ' <span style="color:#8CA0B4;font-size:11.5px;">(' + esc(j.note) + ')</span>' : '') + '</div>'
+              + '<div style="color:#B42318;white-space:nowrap;">from ' + j.people + ' ' + (j.people === 1 ? 'person' : 'people') + '</div></div>';
+          }).join('')
+        + '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.jobsRemoved + ' changes</div>'
+        + '<div style="font-size:12px;color:#5B6B7E;margin-top:9px;line-height:1.5;border-top:1px solid #F3F6FA;padding-top:9px;">Touches <b>' + sum.pos + ' positions</b> across <b>' + sum.loc + ' locations</b>. Removing a job also removes the training assigned to it.</div>'
+        + '</div>';
+    }
+    return out;
+  }
+
   /* Import settings — two independent, off-by-default choices ("deactivate/remove",
-     the customer wording for purge), each destructive. Shows a LIVE example of how
-     a real user's record changes as the toggles flip, so the effect is concrete
-     before anything runs. Both are re-confirmed with a review on the next step. */
+     the customer wording for purge), each destructive. Shows the full itemized
+     impact (who/what changes and how many people) as the toggles flip, so the
+     scope is concrete before anything runs. Re-confirmed with a review next step. */
   function settingsHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     var pu = state.purgeUsers, pj = state.purgeJobs;
@@ -867,19 +939,7 @@
         + '<div class="opt-main"><div class="opt-title">' + title + '</div><div class="opt-sub">' + sub + '</div></div></div>';
     }
 
-    // Example 1 — a user who isn't in the file (the "deactivate users" effect)
-    var exUser = '<div class="ex-card">'
-      + '<div class="ex-eyebrow">A user who isn’t in your file — Dana Reyes</div>'
-      + '<div style="display:flex;align-items:center;gap:14px;">'
-      + '<div style="flex:1;"><div style="font-size:11px;color:#8CA0B4;">Now</div><div style="font-size:13px;font-weight:500;margin-top:2px;">Active</div></div>'
-      + '<div style="color:#8CA0B4;">→</div>'
-      + '<div style="flex:1;"><div style="font-size:11px;color:#8CA0B4;">After import</div>'
-      + (pu
-          ? '<div style="font-size:13px;font-weight:600;color:#B42318;margin-top:2px;">Deactivated</div><div style="font-size:11.5px;color:#B42318;">Loses access · history kept</div>'
-          : '<div style="font-size:13px;font-weight:500;margin-top:2px;">Stays active</div><div style="font-size:11.5px;color:#8CA0B4;">Left exactly as-is</div>')
-      + '</div></div></div>';
-
-    // Example 2 — a user in the file whose jobs differ (the "remove jobs" effect)
+    // Per-person example — a user in the file whose jobs differ (remove-jobs effect)
     var chips = '<span class="job-chip job-keep">Teacher · Lincoln Elementary</span>'
       + (pj ? '<span class="job-chip job-remove">Coach · Ridgewood High</span>'
             : '<span class="job-chip job-keep">Coach · Ridgewood High</span>')
@@ -912,8 +972,9 @@
       + '• ' + (pj ? 'Each user’s positions &amp; locations are <b>synced to exactly match</b> the file.' : 'New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
       + '</div>' + repRow
       + '</div>'
-      + '<div style="flex:1;min-width:300px;"><div class="section-eyebrow" style="margin-bottom:10px;">How your file will apply</div>'
-      + exUser + exJobs + '</div>'
+      + '<div style="flex:1;min-width:300px;"><div class="section-eyebrow" style="margin-bottom:10px;">What would change on your site</div>'
+      + impactBreakdown()
+      + '<div style="margin-top:14px;">' + exJobs + '</div></div>'
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
@@ -1112,46 +1173,60 @@
       + '</div></div>';
   }
 
+  /* Automated sync isn't available until the site clears the clean-import gate.
+     Shown when stage() === 'qualifying': a locked panel with the "N to go"
+     tracker, so the customer sees why the tab is unavailable and how close it is. */
+  function lockedSyncHTML() {
+    var toGo = SYNC_GATE - SYNC_DONE;
+    var segs = '';
+    for (var i = 0; i < SYNC_GATE; i++) {
+      segs += '<div style="flex:1;height:9px;border-radius:5px;background:' + (i < SYNC_DONE ? '#12B76A' : '#E1E7EE') + ';"></div>';
+    }
+    var runs = [
+      { mark: '✓', bg: '#12B76A', label: 'Clean import — 2 added, 14 updated', sub: 'Counts toward automation · streak 1 of ' + SYNC_GATE, date: 'Aug 19' },
+      { mark: '✕', bg: '#D92D20', label: 'Import had errors — file arrived as .xlsx instead of .csv', sub: 'Streak reset to 0 — any error starts the count over', date: 'Aug 5' }
+    ];
+    var runsHtml = runs.map(function (q) {
+      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:10px 0;border-top:1px solid #F3F6FA;">'
+        + '<div style="width:20px;height:20px;border-radius:50%;background:' + q.bg + ';color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 20px;margin-top:1px;">' + q.mark + '</div>'
+        + '<div style="flex:1;"><div style="font-size:13px;color:#1B2B3E;">' + esc(q.label) + '</div>'
+        + '<div style="font-size:11.5px;color:#8CA0B4;margin-top:1px;">' + esc(q.sub) + '</div></div>'
+        + '<div style="color:#8CA0B4;font-size:12.5px;white-space:nowrap;">' + q.date + '</div></div>';
+    }).join('');
+
+    var card = '<div class="card" style="padding:22px;">'
+      + '<div style="display:flex;gap:14px;align-items:flex-start;">'
+      + '<div style="width:40px;height:40px;border-radius:10px;background:#EEF2F7;color:#5B6B7E;display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 40px;"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>'
+      + '<div style="flex:1;"><div style="font-size:16px;font-weight:700;">Automated sync isn’t turned on yet</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-top:4px;line-height:1.55;">Automated sync drops your roster file on your SFTP folder and SafeLMS imports it for you — no manual upload. It turns on after <b>' + SYNC_GATE + ' clean manual imports in a row</b> with the same file format.</div></div>'
+      + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:6px 11px;white-space:nowrap;">' + toGo + ' to go</div></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 8px;">'
+      + '<div style="font-size:13px;font-weight:600;">' + SYNC_DONE + ' of ' + SYNC_GATE + ' clean imports</div>'
+      + '<div style="font-size:12.5px;color:#8CA0B4;">' + toGo + ' more clean import' + (toGo === 1 ? '' : 's') + ' to unlock</div></div>'
+      + '<div style="display:flex;gap:6px;">' + segs + '</div>'
+      + '<div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin:20px 0 0;">Your recent imports</div>'
+      + runsHtml
+      + '<div style="background:#F8FAFC;border-radius:8px;padding:11px 14px;font-size:12.5px;color:#5B6B7E;margin-top:14px;line-height:1.5;">Each manual import is checked as it comes in. Keep the format, columns, and file-name pattern identical each time — an import with any error resets the streak to zero.</div>'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;">'
+      + '<button class="btn btn--primary" data-act="goImport">Run a manual import →</button>'
+      + '<button class="btn btn--disabled" disabled>Turn on automated sync</button>'
+      + '<span style="font-size:12px;color:#8CA0B4;">Unlocks after your ' + ordinal(SYNC_GATE) + ' clean import</span>'
+      + '</div></div>';
+
+    return '<section data-screen-label="Automated sync — not available yet"><div style="max-width:720px;">' + card + '</div></section>';
+  }
+
   function syncTab() {
     var st = stage();
+    if (st === 'qualifying') return lockedSyncHTML();   // locked — not available yet
+
     var failed = st === 'active-failed';
     var showFailure = failed && !state.blessed;
     var showResolved = failed && state.blessed;
-    var qualifying = st === 'qualifying';
+    var qualifying = false;
     var healthy = st === 'active-healthy';
 
     var left = '';
-
-    if (qualifying) {
-      var runs = [
-        { mark: '✕', bg: '#D92D20', label: 'Import had errors — file arrived as .xlsx instead of .csv. Count reset.', date: 'Aug 5' },
-        { mark: '✓', bg: '#12B76A', label: 'Clean import — 3 added, 12 updated', date: 'Aug 12' },
-        { mark: '✓', bg: '#12B76A', label: 'Clean import — 0 added, 8 updated', date: 'Aug 19' },
-        { mark: '✓', bg: '#12B76A', label: 'Clean import — 1 added, 14 updated', date: 'Aug 26' }
-      ];
-      left += '<div class="card" style="padding:20px;">'
-        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">'
-        + '<div><div style="font-size:15.5px;font-weight:700;">You’re 1 clean import away from automated sync</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin-top:4px;line-height:1.55;">Four clean imports in a row with the same file format qualify this site for automation. After that, you drop your file on your SFTP folder and SafeLMS imports it for you.</div></div>'
-        + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:5px 10px;white-space:nowrap;">3 of 4 complete</div></div>'
-        + '<div style="display:flex;gap:6px;margin:16px 0 14px;">'
-        + '<div style="flex:1;height:8px;border-radius:4px;background:#12B76A;"></div>'
-        + '<div style="flex:1;height:8px;border-radius:4px;background:#12B76A;"></div>'
-        + '<div style="flex:1;height:8px;border-radius:4px;background:#12B76A;"></div>'
-        + '<div style="flex:1;height:8px;border-radius:4px;background:#E1E7EE;"></div></div>'
-        + '<div style="display:flex;flex-direction:column;gap:7px;">'
-        + runs.map(function (q) {
-            return '<div style="display:flex;align-items:center;gap:10px;font-size:13px;">'
-              + '<div style="width:18px;height:18px;border-radius:50%;background:' + q.bg + ';color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 18px;">' + q.mark + '</div>'
-              + '<div style="color:#3D4F63;flex:1;">' + esc(q.label) + '</div>'
-              + '<div style="color:#8CA0B4;font-size:12.5px;">' + q.date + '</div></div>';
-          }).join('')
-        + '</div>'
-        + '<div style="background:#F8FAFC;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#5B6B7E;margin-top:14px;">An import with errors resets the count — that’s what happened on Aug 5, when the file arrived as Excel instead of CSV. Keep the format and columns identical to your last three imports.</div>'
-        + '<button class="btn btn--disabled" style="margin-top:14px;padding:10px 16px;border-radius:8px;" disabled>Turn on automated sync</button>'
-        + '<span style="font-size:12px;color:#8CA0B4;margin-left:10px;">Available after your 4th clean import</span>'
-        + '</div>';
-    }
 
     if (showFailure) {
       left += syncFailureCard();
@@ -1228,6 +1303,7 @@
 
   function render() {
     var tab = curTab();
+    var locked = stage() === 'qualifying';                 // automated sync not available yet
     var syncNeedsDot = stage() === 'active-failed' && !state.blessed;
 
     var inner;
@@ -1236,15 +1312,20 @@
       inner = importTab()
         + '<div class="stack-divider"></div>'
         + '<div id="autosync" class="stack-head"><div class="stack-title">Automated sync'
-        + (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '') + '</div>'
-        + '<div class="stack-sub">Set your roster to import on a schedule, and catch &amp; fix failures without opening a case.</div></div>'
+        + (locked ? ' <i class="fa-solid fa-lock" aria-hidden="true" style="font-size:12px;opacity:.5;"></i>'
+                  : (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '')) + '</div>'
+        + '<div class="stack-sub">' + (locked
+            ? 'Not available yet — ' + (SYNC_GATE - SYNC_DONE) + ' clean imports to go before it unlocks.'
+            : 'Set your roster to import on a schedule, and catch &amp; fix failures without opening a case.') + '</div></div>'
         + syncTab();
     } else {
       // A: Manual import / Automated sync as a segmented sub-control (two views).
+      var syncFlag = locked
+        ? ' <i class="fa-solid fa-lock" aria-hidden="true" style="font-size:10px;opacity:.55;margin-left:3px;"></i>'
+        : (syncNeedsDot ? '<span class="dot-red"></span>' : '');
       var subtabs = '<div class="subtabs">'
         + '<button class="subtab' + (tab === 'import' ? ' is-active' : '') + '" data-act="goImport">Manual import</button>'
-        + '<button class="subtab' + (tab === 'sync' ? ' is-active' : '') + '" data-act="goSyncTab">Automated sync'
-        + (syncNeedsDot ? '<span class="dot-red"></span>' : '') + '</button></div>';
+        + '<button class="subtab' + (tab === 'sync' ? ' is-active' : '') + '" data-act="goSyncTab">Automated sync' + syncFlag + '</button></div>';
       inner = subtabs + (tab === 'import' ? importTab() : syncTab());
     }
 
@@ -1373,6 +1454,7 @@
       case 'review-escalate': reviewFor('dupes', false, false); break;  // BLOCKED ×2 + CONTACT VECTOR
       case 'done': setState({ tab: 'import', fileId: 'confirm', doneCounts: summaryFor('confirm', false, false), step: 'done', validating: false }); break;
       /* Automated sync — one node per severity path */
+      case 'sync-locked':   setSyncState('qualifying', null); break;          // NOT AVAILABLE — qualifying ("N to go")
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
       case 'sync-failed':   setSyncState('active-failed', 'confirm'); break;  // CONFIRM — approve changes
       case 'sync-blocked':  setSyncState('active-failed', 'blocked'); break;  // BLOCKED — fix at source
@@ -1424,14 +1506,16 @@
         { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Contact Vector', name: 'Contact Vector — email collision', state: 'review-escalate',
           desc: 'Two accounts already share one email on the site (PRD D-4). A customer file can’t fix it — hard-stops with a Contact Vector action.' },
 
-        /* ── Automated sync: the same three tiers in a row, plus healthy ── */
-        { id: 'sync-healthy', flow: 'sync', entry: true, x: 40, y: 900, step: 'Info', name: 'Info — up to date', state: 'sync-healthy',
+        /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
+        { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
+          desc: 'Automated sync is locked until 3 clean manual imports in a row. Shows the "N to go" tracker and why the tab is unavailable. (Gate = 3 per designer; PRD said 4.)' },
+        { id: 'sync-healthy', flow: 'sync', x: 360, y: 900, step: 'Info', name: 'Info — up to date', state: 'sync-healthy',
           desc: 'The clean path: the last sync applied its changes, nothing is waiting, next check within 30 min.' },
-        { id: 'sync-failed', flow: 'sync', x: 380, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',
+        { id: 'sync-failed', flow: 'sync', x: 680, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',
           desc: 'Sync stopped on CONFIRM-tier changes (name changes). Same row-level view; the customer approves and applies in place — no case.' },
-        { id: 'sync-blocked', flow: 'sync', x: 720, y: 900, step: 'Blocked', name: 'Blocked — fix at source', state: 'sync-blocked',
+        { id: 'sync-blocked', flow: 'sync', x: 1000, y: 900, step: 'Blocked', name: 'Blocked — fix at source', state: 'sync-blocked',
           desc: 'Sync stopped on a BLOCKED change (username format drift would rewrite most accounts). Can’t self-apply — fix the export or use the manual uploader.' },
-        { id: 'sync-escalate', flow: 'sync', x: 1060, y: 900, step: 'Contact Vector', name: 'Contact Vector — email collision', state: 'sync-escalate',
+        { id: 'sync-escalate', flow: 'sync', x: 1320, y: 900, step: 'Contact Vector', name: 'Contact Vector — email collision', state: 'sync-escalate',
           desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
@@ -1439,6 +1523,7 @@
         ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
         ['settings', 'review-saml'], ['settings', 'review-escalate'],
         ['review-info', 'done'], ['review-confirm', 'done'],
+        ['sync-locked', 'sync-healthy'],
         ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
       ]
     }
