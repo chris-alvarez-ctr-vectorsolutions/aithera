@@ -454,8 +454,7 @@
         '<h2 class="bl-q" id="blQ" aria-live="polite"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
-        '<p class="bl-next" id="blNext" aria-hidden="true">Next question' +
-          '<span class="bl-next-track"><span class="bl-next-fill" id="blNextFill"></span></span></p>' +
+        '<button class="bl-next" id="blNext" type="button">Next question <i class="fa-solid fa-arrow-right"></i></button>' +
       '</div>' +
     '</main>';
 
@@ -498,7 +497,8 @@
     var hintEl = document.getElementById('blHint');
     var optsEl = document.getElementById('blOptions');
     var nextEl = document.getElementById('blNext');
-    var fillEl = document.getElementById('blNextFill');
+    var onNext = null;
+    nextEl.addEventListener('click', function () { if (onNext) onNext(); });
 
     // While a question is up, CLARA is the orb only — one thing on screen to
     // read. Her line waits behind it for anyone who taps, and she rises with a
@@ -508,33 +508,26 @@
 
     render(BASELINE_Q1, 1, function (opt) {
       bands.knowledge = opt.band; answers.q1 = opt.t;
-      var dwell = T(2600);
-      countdown(dwell);
-      setTimeout(function () { swapTo(BASELINE_Q2, 2, done); }, dwell);
+      offerNext(function () { swapTo(BASELINE_Q2, 2, done); });
     });
 
-    // The beat between the two questions is the one moment nothing is
+    // The beat between the two questions is the one moment nothing else is
     // clickable: the learner has answered, CLARA is replying, and Continue is
-    // still gated. With no signal that reads as a broken page — so the wait
-    // says what it's waiting for and shows how much of it is left.
-    function countdown(ms) {
-      if (!ms) return;                              // reduced motion: no dwell to show
+    // still gated. So this is the only live control on screen — and it waits
+    // rather than counting, because a timer would decide how long her reply
+    // is worth reading.
+    function offerNext(run) {
+      onNext = function () { onNext = null; run(); };
       nextEl.classList.add('in');
-      fillEl.style.transition = 'none';
-      fillEl.style.width = '0%';
-      void fillEl.offsetWidth;                      // commit the reset before animating
-      fillEl.style.transition = 'width ' + ms + 'ms linear';
-      fillEl.style.width = '100%';
     }
     // Snapped away, not faded: this runs inside the swap, while the whole
     // block is already invisible, so there's nothing to animate — and a fade
-    // would leave "Next question" and a full bar under question 2, where
-    // neither is true any more.
-    function clearCountdown() {
+    // would leave the button sitting under question 2, where it isn't true
+    // any more.
+    function hideNext() {
+      onNext = null;
       nextEl.style.transition = 'none';
       nextEl.classList.remove('in');
-      fillEl.style.transition = 'none';
-      fillEl.style.width = '0%';
       void nextEl.offsetWidth;
       nextEl.style.transition = '';
     }
@@ -547,7 +540,7 @@
       setTimeout(function () {
         render(q, n, onPick);
         askEl.classList.remove('swapping');
-        clearCountdown();
+        hideNext();
         ctx.floatClose();
         ctx.positionOrb(true);
       }, T(320));

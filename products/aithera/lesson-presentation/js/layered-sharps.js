@@ -373,8 +373,7 @@
         '<h2 class="bl-q" id="blQ"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
-        '<p class="bl-next" id="blNext" aria-hidden="true">Next question' +
-          '<span class="bl-next-track"><span class="bl-next-fill" id="blNextFill"></span></span></p>' +
+        '<button class="bl-next" id="blNext" type="button">Next question <i class="fa-solid fa-arrow-right"></i></button>' +
       '</div>' +
     '</main>';
   var BATTERY = [
@@ -432,8 +431,10 @@
     var hintEl = document.getElementById('blHint');
     var optsEl = document.getElementById('blOptions');
     var nextEl = document.getElementById('blNext');
-    var fillEl = document.getElementById('blNextFill');
     var k1 = [];
+    // One handler for the life of the step; each answer re-points it.
+    var onNext = null;
+    nextEl.addEventListener('click', function () { if (onNext) onNext(); });
 
     ctx.setCoachSay('Four questions before we start. Two on the procedure, two on how you see it — nothing on doing it, because a question cannot measure that.');
     ctx.floatClose();
@@ -466,11 +467,8 @@
           ctx.floatOpen();
           ctx.setCoachSay(esc(opt.reply));
           ctx.positionOrb(true);
-          if (i + 1 < BATTERY.length) {
-            var dwell = T(2600);
-            countdown(dwell);
-            setTimeout(function () { swapTo(i + 1); }, dwell);
-          } else { done(); }
+          if (i + 1 < BATTERY.length) offerNext(i + 1);
+          else done();
         });
         optsEl.appendChild(b);
       });
@@ -573,9 +571,7 @@
         ctx.floatOpen();
         ctx.setCoachSay(esc(right ? q.okReply : q.badReply));
         ctx.positionOrb(true);
-        var dwell = T(3000);
-        countdown(dwell);
-        setTimeout(function () { swapTo(i + 1); }, dwell);
+        offerNext(i + 1);
       }
     }
 
@@ -584,23 +580,24 @@
       setTimeout(function () {
         render(i);
         askEl.classList.remove('swapping');
-        clearCountdown();
+        hideNext();
         ctx.floatClose();
         ctx.positionOrb(true);
       }, T(320));
     }
-    function countdown(ms) {
-      if (!ms) return;
+    // The learner decides when to move on, so CLARA's reply stays up for as
+    // long as they want it. Nothing here is on a clock.
+    function offerNext(i) {
+      onNext = function () { onNext = null; swapTo(i); };
       nextEl.classList.add('in');
-      fillEl.style.transition = 'none'; fillEl.style.width = '0%';
-      void fillEl.offsetWidth;
-      fillEl.style.transition = 'width ' + ms + 'ms linear';
-      fillEl.style.width = '100%';
     }
-    function clearCountdown() {
+    // Snapped away, not faded: this runs inside the swap, while the whole
+    // block is already invisible, so a fade would only leave the button
+    // hanging under the next question, where it isn't true any more.
+    function hideNext() {
+      onNext = null;
       nextEl.style.transition = 'none';
       nextEl.classList.remove('in');
-      fillEl.style.transition = 'none'; fillEl.style.width = '0%';
       void nextEl.offsetWidth;
       nextEl.style.transition = '';
     }
