@@ -237,6 +237,23 @@
   .job-add { background: var(--green-bg); color: var(--green-ink); }
   .job-remove { background: var(--red-bg); color: var(--red-ink); text-decoration: line-through; }
 
+  /* ---- File-picker modal (prototype stand-in for the OS file chooser) ---- */
+  .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(14,42,67,.45);
+    display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeup .16s ease; }
+  .modal { background: #fff; border-radius: 12px; width: 560px; max-width: 100%; max-height: 86vh;
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.35); }
+  .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .modal-x { background: none; border: none; color: var(--muted-2); font-size: 17px; cursor: pointer;
+    line-height: 1; padding: 3px 7px; border-radius: 6px; }
+  .modal-x:hover { background: var(--line-3); color: var(--ink-2); }
+  .modal-body { padding: 16px 22px; overflow-y: auto; }
+  .modal-foot { padding: 13px 22px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .modal-drop { border: 1.5px dashed #B9C9DA; border-radius: 10px; padding: 18px; text-align: center; margin-bottom: 16px; }
+
   /* ---- Prototype variant panel (mock-only affordance) ---- */
   /* Anchored bottom-LEFT, over the sidenav's empty lower region — never covers
      the content-area action buttons (Continue / Run import live on the right). */
@@ -380,6 +397,7 @@
     purgeUsers: false,   // deactivate users not in the file
     purgeJobs: false,    // remove positions/locations not in the file
     repSent: false,      // "sent to your Vector rep" acknowledgement
+    fileModal: false,    // sample-file picker modal (prototype stand-in for the OS file chooser)
     validating: false,
     acks: {},
     blessed: false,
@@ -415,7 +433,7 @@
 
   function pickFile(id) {
     setState({ fileId: id, mapping: defaultMapping(id), acks: {},
-      step: isMap() ? 'map' : 'settings', purgeUsers: false, purgeJobs: false, repSent: false });
+      step: isMap() ? 'map' : 'settings', purgeUsers: false, purgeJobs: false, repSent: false, fileModal: false });
   }
 
   function go(step) {
@@ -712,20 +730,41 @@
         + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Column headers must match the template exactly. Download it, paste your data in, and upload it below.</div>'
         + '</div><button class="btn sm btn--outline-blue" style="white-space:nowrap;">Download template (.csv)</button></div>';
     }
+    return '<div class="fadeup">' + banner
+      + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
+      + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+      + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
+      + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
+      + '</div>';
+  }
+
+  /* Prototype file picker — opens from the dropzone / “browse” and stands in for the
+     OS file chooser. The sample files live HERE (not on the page) so the upload
+     screen matches the real product; picking one loads its scenario and closes. */
+  function fileModalHTML() {
     var files = FILES.map(function (f) {
       return '<div class="file-row" data-act="pickFile" data-arg="' + f.id + '">'
         + '<div class="file-badge">CSV</div>'
-        + '<div style="flex:1;"><div class="mono" style="font-size:13px;font-weight:500;">' + esc(f.name) + '</div>'
+        + '<div style="flex:1;min-width:0;"><div class="mono" style="font-size:13px;font-weight:500;">' + esc(f.name) + '</div>'
         + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:1px;">' + esc(f.note) + '</div></div>'
-        + '<div style="font-size:12.5px;color:#8CA0B4;">' + f.rows + ' rows</div>'
-        + '<div style="font-size:13px;color:#1257B8;font-weight:600;">Select →</div></div>';
+        + '<div style="font-size:12.5px;color:#8CA0B4;white-space:nowrap;">' + f.rows + ' rows</div>'
+        + '<div style="font-size:13px;color:#1257B8;font-weight:600;white-space:nowrap;">Select →</div></div>';
     }).join('');
-    return '<div class="fadeup">' + banner
-      + '<div class="dropzone"><div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
-      + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="noop">browse</a></div>'
-      + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
-      + '<div style="margin-top:22px;"><div class="section-eyebrow">Sample files for this test session</div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px;">' + files + '</div></div></div>';
+    return '<div class="modal-overlay" data-act="closeFiles">'
+      + '<div class="modal" data-act="noop">'
+      + '<div class="modal-head"><div>'
+      + '<div class="modal-title">Choose a file to upload</div>'
+      + '<div class="modal-sub">Prototype stand-in for your computer’s file picker — each sample loads a different scenario.</div>'
+      + '</div><button class="modal-x" data-act="closeFiles" aria-label="Close">✕</button></div>'
+      + '<div class="modal-body">'
+      + '<div class="modal-drop"><div class="dropzone-icon" style="margin:0 auto 8px;"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+      + '<div style="font-size:13.5px;font-weight:600;">Drop a .csv or .xlsx here</div>'
+      + '<div style="font-size:12px;color:#8CA0B4;margin-top:2px;">or pick a sample below</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;">' + files + '</div>'
+      + '</div>'
+      + '<div class="modal-foot"><span style="font-size:12px;color:#8CA0B4;">Sample files for this test session</span>'
+      + '<button class="btn sm btn--ghost" data-act="closeFiles">Cancel</button></div>'
+      + '</div></div>';
   }
 
   function mapHTML() {
@@ -1139,7 +1178,8 @@
 
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()
-      + '<div class="main">' + topbar() + '<div class="scroll">' + main + '</div></div></div>';
+      + '<div class="main">' + topbar() + '<div class="scroll">' + main + '</div></div></div>'
+      + (state.fileModal ? fileModalHTML() : '');
   }
 
   /* -------------------------------------------------------------- interaction */
@@ -1160,6 +1200,8 @@
       case 'goImport': setState({ tab: 'import' }); break;
       case 'goSyncTab': case 'goSync': setState({ tab: 'sync' }); break;
       case 'pickFile': pickFile(arg); scrollTop(); break;
+      case 'openFiles': e.preventDefault(); setState({ fileModal: true }); break;
+      case 'closeFiles': setState({ fileModal: false }); break;
       case 'back': go(flow()[Math.max(0, flow().indexOf(state.step) - 1)]); scrollTop(); break;
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
       case 'togglePurgeUsers': setState({ purgeUsers: !state.purgeUsers }); break;
