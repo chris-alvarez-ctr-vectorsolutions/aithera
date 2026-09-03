@@ -226,15 +226,22 @@
 .clara-chrome--floating .clara-send { width: 38px; height: 38px; font-size: 13px; }
 .clara-chrome--floating .clara-echo:not(:empty) + .clara-composer { margin-top: 0; }
 
-/* Collapse back to the one-liner. Only shown while open. */
+/* Dismiss. Present in BOTH states, because a popup you can only close by
+   finding the orb underneath it isn't closable — from the open chat it goes
+   back to her line, from the line it tucks her away. */
 .clara-collapse {
   position: absolute; top: 11px; right: 12px;
-  width: 24px; height: 24px; display: none; place-items: center;
+  width: 24px; height: 24px; display: grid; place-items: center;
   border: 0; border-radius: 8px; background: transparent;
   color: var(--ll-ink-faint); font-size: 12px; cursor: pointer;
+  transition: background .15s ease, color .15s ease;
 }
 .clara-collapse:hover { background: rgba(255, 255, 255, .07); color: var(--ll-ink); }
-.clara-bubble.is-chat .clara-collapse { display: grid; }
+.clara-collapse:focus-visible { outline: none; color: var(--ll-teal); box-shadow: 0 0 0 2px rgba(46, 230, 207, .45); }
+/* While her bubble holds the only way forward, dismissing it would strand the
+   learner — the same reason the orb won't tuck her. The chat's own close still
+   works there, since it only returns to the line. */
+.ll-stage[data-pending] .clara-bubble:not(.is-chat) .clara-collapse { display: none; }
 
 
 /* ==== Feel beat — self-efficacy slider ====
@@ -351,6 +358,35 @@
    between them drags it diagonally across the whole page. Instead it
    swells slightly, shrinks out to nothing, and re-appears at the new
    spot overshooting its resting size before settling. */
+/* ==== The orb as a launcher ====
+   In floating mode the orb is the control that brings CLARA back, and an
+   animated mark alone doesn't read as pressable. It gets a pointer, a ring on
+   hover and focus, and — while she's tucked — a label saying what it does. */
+.clara-orb[data-launcher] { cursor: pointer; }
+.clara-orb[data-launcher]::before {
+  content: ""; position: absolute; inset: -5px;
+  border-radius: 50%; border: 1px solid transparent;
+  transition: border-color .18s ease, background .18s ease;
+}
+.clara-orb[data-launcher]:hover::before,
+.clara-orb[data-launcher]:focus-visible::before {
+  border-color: rgba(46, 230, 207, .5); background: rgba(46, 230, 207, .07);
+}
+.clara-orb[data-launcher]:focus-visible { outline: none; }
+/* The label rides beside the tucked orb, in the chrome so it sits in the same
+   corner; it goes away the moment she's on screen and speaking for herself. */
+.clara-cue {
+  position: absolute; right: 84px; bottom: 15px;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ll-ink-soft); white-space: nowrap;
+  background: var(--ll-panel); border: 1px solid var(--ll-line-soft);
+  opacity: 0; transform: translateX(6px); pointer-events: none; cursor: pointer;
+  transition: opacity .28s ease, transform .28s var(--ll-ease);
+}
+.ll-stage[data-float="closed"] .clara-chrome--floating .clara-cue { opacity: 1; transform: none; pointer-events: auto; }
+.clara-cue:hover { border-color: rgba(46, 230, 207, .45); color: var(--ll-teal); }
+
 .clara-orb.is-orb-out { animation: orb-out 240ms cubic-bezier(.4, .05, .75, .2) forwards; }
 .clara-orb.is-orb-in  { animation: orb-in 460ms cubic-bezier(.25, .8, .35, 1) both; }
 @keyframes orb-out {

@@ -184,10 +184,22 @@
       if (input) input.focus();
       ctx.positionOrb(true);
     });
+    // One control, read in context: from the open chat it goes back to her
+    // line; from the line it tucks her away to the orb.
     if (close) close.addEventListener('click', function () {
-      bubble.classList.remove('is-chat');
+      if (bubble.classList.contains('is-chat')) {
+        bubble.classList.remove('is-chat');
+        close.setAttribute('aria-label', 'Dismiss CLARA');
+      } else {
+        ctx.floatClose();
+      }
       ctx.positionOrb(true);
     });
+    reply.addEventListener('click', function () { close.setAttribute('aria-label', 'Close chat'); });
+    // A second mouse target for the same move. It stays aria-hidden — the orb
+    // is the labelled control, and two of them would just be noise to read.
+    var cue = ctx.chrome.querySelector('.clara-cue');
+    if (cue) cue.addEventListener('click', function () { ctx.floatOpen(); ctx.positionOrb(true); });
     wireChat(ctx, replies || CFG.replies || CLARA_REPLIES);
   }
 
@@ -259,8 +271,8 @@
       // orders ABOVE the chat block, so a question is never pushed below it.
       return '<div class="clara-bubble" id="claraBubble">' +
           '<span class="clara-name">CLARA</span>' +
-          '<button class="clara-collapse" id="claraCollapse" type="button" aria-label="Close chat">' +
-            '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+          '<button class="clara-collapse" id="claraCollapse" type="button" aria-label="Dismiss CLARA" title="Dismiss">' +
+            '<i class="fa-solid fa-xmark" aria-hidden="true"></i></button>' +
           '<div class="clara-say">' + (coach.say || '') + '</div>' +
           '<div class="clara-chat">' +
             '<div class="clara-echo" id="claraEcho"></div>' +
@@ -279,7 +291,10 @@
               '<i class="fa-solid fa-reply" aria-hidden="true"></i></button>' +
           '</div>' +
         '</div>' +
-        '<div class="clara-slot"><span class="clara-hint" aria-hidden="true"></span></div>';
+        '<div class="clara-slot"><span class="clara-hint" aria-hidden="true"></span></div>' +
+        // The orb is the launcher, and an animated mark on its own does not
+        // say so. While she is tucked, it gets a label.
+        '<span class="clara-cue" aria-hidden="true">Ask CLARA</span>';
     }
     return slot;
   }
@@ -328,6 +343,7 @@
   }
   function clearCoachAction() {
     pendingAction = false;
+    if (stage) delete stage.dataset.pending;
     var b = chrome && chrome.querySelector('#claraAct');
     if (b) { b.hidden = true; b.onclick = null; b.innerHTML = ''; }
   }
@@ -412,6 +428,7 @@
         b.innerHTML = esc(label) + ' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>';
         b.hidden = false;
         pendingAction = true;
+        stage.dataset.pending = '1';
         b.onclick = function () { clearCoachAction(); run(); };
         setFloat('open');
       },
@@ -527,6 +544,11 @@
       chrome.innerHTML = chromeHTML(step.mode, step.coach || {});
       stage.appendChild(chrome);
       pendingAction = false;
+      delete stage.dataset.pending;
+      // Only in floating mode is the orb something to press; elsewhere CLARA
+      // is the chrome itself and the orb is just her mark.
+      if (step.mode === 'floating') orbEl.dataset.launcher = '1';
+      else delete orbEl.dataset.launcher;
 
       idx = i; nextHref = null;
       positionOrb(false);                           // land in the new slot, no travel
@@ -616,7 +638,12 @@
   function buildOrb() {
     orbEl = document.createElement('div');
     orbEl.className = 'clara-orb'; orbEl.id = 'claraOrb';
-    orbEl.setAttribute('role', 'img'); orbEl.setAttribute('aria-label', 'CLARA, your AI coach');
+    orbEl.setAttribute('role', 'button'); orbEl.setAttribute('tabindex', '0');
+    orbEl.setAttribute('aria-label', 'CLARA, your AI coach');
+    orbEl.title = 'Ask CLARA';
+    orbEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); orbEl.click(); }
+    });
     document.body.appendChild(orbEl);
     if (window.MobiusOrb) window.MobiusOrb.create(orbEl);
     // In floating mode the orb is the launcher — tap to tuck/expand.
