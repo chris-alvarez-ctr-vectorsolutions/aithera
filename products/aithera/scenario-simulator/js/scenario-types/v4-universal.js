@@ -881,10 +881,7 @@
       const title = tf('content.title', 'Scenario title', { helper: 'The learner\'s header, and how it appears in listings.' });
       box.append(
         title,
-        idNote(() => str(liveDoc(H).implementation_id), {
-          label: 'Implementation id',
-          hint: 'Generated from the title. Trace metadata the content system routes on — never shown to the learner.',
-        }, title),
+        idNote(() => str(liveDoc(H).implementation_id), { label: 'Implementation id' }, title),
         tf('content.landing_cta_label', 'Landing button label', {
           helper: 'Optional. The button that leaves the situation screen for the first step. Blank uses the player default.' }),
       );
@@ -926,10 +923,7 @@
         return rowCard(
         `Character ${i + 1}`, onDel,
         name,
-        idNote(() => idOf(H, c), {
-          label: 'Reference id',
-          hint: 'Generated from the name. Steps that speak to this character follow a rename on their own.',
-        }, name),
+        idNote(() => idOf(H, c), { label: 'Reference id' }, name),
         tf(`content.scene_world.characters.${i}.role`, 'Role', { helper: 'Who they are in this world, e.g. "Sofia\'s mother".' }),
         tf(`content.scene_world.characters.${i}.behavior.baseline`, 'Baseline', { area: true, minRows: 2,
           helper: 'Who they are when a scene opens.' }),
@@ -994,10 +988,6 @@
     if (sec.id === 'opening') {
       box.append(
         tf('content.opening.label', 'Name of the exchange', { helper: 'Learner-facing, e.g. "First reaction".' }),
-        idNote(() => str(obj(obj(liveDoc(H).content).opening).id), {
-          label: 'Opening id',
-          hint: 'Fixed. There is only ever one opening, so the engine addresses it by a constant name.',
-        }),
         tf('content.opening.purpose', 'Purpose', { area: true, minRows: 2,
           helper: 'Model-facing: what this exchange is for, in the coach\'s map of the arc.' }),
         tf('content.opening.exit.when.turns', 'Turn budget', {
@@ -1181,7 +1171,12 @@
      dev asks for the implementation id by name, and a step id is what a lint
      message quotes when something references the wrong step. It refreshes off
      the field it is derived FROM, so it tracks a name as it is typed rather
-     than lagging a save behind. */
+     than lagging a save behind.
+
+     A label and a value, and nothing else. It carried a sentence per site
+     explaining where the id came from, which is the same sentence four times on
+     a screen that already says it once under Basics — and an explanation
+     repeated on every row stops being read anywhere. */
   function idNote(get, opts, watch) {
     const o = obj(opts);
     const el = document.createElement('div');
@@ -1190,10 +1185,7 @@
     key.className = 'id-note-k';
     key.textContent = o.label || 'Id';
     const val = document.createElement('code');
-    const hint = document.createElement('span');
-    hint.className = 'id-note-hint';
-    hint.textContent = o.hint || '';
-    el.append(key, val, hint);
+    el.append(key, val);
     const refresh = () => {
       const v = str(get());
       /* An empty id is not a failure: an unnamed row has nothing to derive from
@@ -1436,10 +1428,7 @@
         helper: 'Learner-facing. Use the source material\'s own name — do not restate the position ("Phase 1 —"), the player renders that from the order.' });
       body.append(
         stepName,
-        idNote(() => idOf(H, ph), {
-          label: 'Step id',
-          hint: 'Generated from the step name. Carryover in later steps follows a rename on its own.',
-        }, stepName),
+        idNote(() => idOf(H, ph), { label: 'Step id' }, stepName),
         tf(`content.phases.${i}.purpose`, 'Purpose of the step', { area: true, minRows: 2,
           helper: 'Model-facing: this step\'s role in the coach\'s map of the arc. Not shown to the learner.' }),
       );
@@ -1588,8 +1577,7 @@
         characterSelect('Who the learner is speaking to', cast,
           () => str(it.character_id),
           (v) => { if (v) it.character_id = v; else delete it.character_id; },
-          { helper: cast.length ? 'Narrator is a real answer, not an empty one — pick it for a step about what the learner DOES rather than says.' : '' },
-          scheduleUpdate),
+          {}, scheduleUpdate),
         tf(`${base}.emotion_hint`, 'Entering emotional state (optional)'),
         tf(`${base}.partner_label`, 'Chat header name', {
           helper: 'The character\'s name, "Narrator" on a narrator-driven scene, or a scene label when several characters share the thread.' }),
@@ -1607,8 +1595,7 @@
           characterSelect('Spoken by', cast,
             () => str(line.character_id),
             (v) => { if (v) line.character_id = v; else delete line.character_id; },
-            { helper: 'Narrator for a line that places the scene rather than one somebody says.' },
-            scheduleUpdate),
+            {}, scheduleUpdate),
           tf(`${base}.opening_messages.${k}.emotion`, 'Emotion (optional)', {
             helper: 'How the character delivers this line. Only meaningful when the line has a speaker.' }),
         );
@@ -1644,10 +1631,7 @@
         return rowCard(
           `Findable item ${k + 1}`, onDel,
           name,
-          idNote(() => idOf(H, r), {
-            label: 'Crediting key',
-            hint: 'Generated from the short name, and unique within this rubric. The engine credits a catch against it.',
-          }, name),
+          idNote(() => idOf(H, r), { label: 'Crediting key' }, name),
           tf(`${base}.rubric.${k}.standard_term`, 'Creditable phrasing', { area: true, minRows: 2,
             helper: 'What a learner\'s catch is matched against, and the language the coach credits in.' }),
           tf(`${base}.rubric.${k}.nudge`, 'Nudge', { area: true, minRows: 2,
@@ -1713,8 +1697,7 @@
           selectField('Carries the transcript of', earlier,
             () => str(row.from),
             (v) => { row.from = v; },
-            { helper: 'Only a step that runs before this one can be carried — a later scene has no transcript yet.' },
-            scheduleUpdate),
+            {}, scheduleUpdate),
         );
       }, 'Add carryover', () => ({ from: earlier[earlier.length - 1].value })));
     }
