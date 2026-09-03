@@ -18,6 +18,14 @@
   The rail still persists when the nav closes, the logo stays sticky at the nav's bottom,
   and the hover-overlay / pin / close frames still work (the overlay is full height too,
   with the bar inset to its edge so the identity is never covered).
+- **V3 swaps where search and location live.** Search is now V1's scoped global search in
+  the TOP BAR, same styling and the same All / product scope control, and the LOCATION
+  selector moved into the SIDE NAV (V2b's treatment, a full-width bordered control at the
+  top). The product-scoped side-nav search that used to be V3's distinguishing feature is
+  gone, so V3 is now a layout study: the L-shaped shell with V1's search and V2b's location
+  placement. Because the nav is duplicated per mode pane, the location control is driven by
+  class rather than by a single id, so every copy stays live and picking a location updates
+  all of them.
 - **V3: the collapse control's placement is a toggle.** In an L-shaped shell the two
   placements are not interchangeable decorations, they decide the geometry, so the switch
   moves both together:
@@ -168,7 +176,7 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
 | V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
 | V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav; the LOCATION SELECTOR also sits in the nav above it (top bar = search + universal actions only); Training Plan filters are DROPDOWN chips above the table |
-| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both (toggleable: `?toggle=top` puts the collapse control in the top bar instead, which returns the side panel to starting below the bar); search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
+| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both (toggleable: `?toggle=top` puts the collapse control in the top bar instead, which returns the side panel to starting below the bar); V1's scoped global search in the top bar and the LOCATION selector in the side nav; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
 | V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
 | V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
 | V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
@@ -214,8 +222,8 @@ confirmed. The location selector is the Vector LMS nested tree picker: chevron t
 node name + level label (Organization / Region / Site), a check on the selected node, and
 selection allowed at any level. The scope control reads "All" or the current
 product's name (never the generic "This product"), and the placeholder mirrors it (Search
-all products / Search Vector LMS). In V2, search moves into the side nav and is scoped to
-the current product only, typing live-filters the menu. Per review, the top bar carries no
+all products / Search Vector LMS). V3 carries the same top-bar search, and puts its location
+selector in the side nav instead. Per review, the top bar carries no
 + New action.
 
 - **Real Vector products.** Vector LMS and Vector EHS Management are fully built and
@@ -311,7 +319,7 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 |---|---|
 | V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
 | V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
-| V3 | Same as V1 minus `?search` (search is the side-nav filter), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
+| V3 | Same as V1 (`?search` and `?location` both work; location opens in the nav), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
 | V4 | V1's set plus `?state=collapsed\|peek\|pinned` (interaction frames) |
 
 ## Review feedback incorporated
