@@ -14,11 +14,14 @@ tab beside Emails / Login Page / Training Plan / Certificate / Integrations. The
 sidebar's active item is Settings; inside the tab, **Manual import / Automated
 sync** is a secondary segmented control (not a second row of page tabs).
 
-**A/B versions (walkthrough):** ver1 and ver2 are identical except one constant
-(`WALKTHROUGH`). The manual-import overview is styled as the SafeLMS pencil-banner.
-- **A (ver1):** full overview card on the Upload landing only, then it recedes.
-- **B (ver2):** a compact overview strip persists above the stepper on every step.
-Use the V1/V2 pill to compare. Which walkthrough to keep is an open design call.
+**A/B versions (layout):** ver1 and ver2 are identical except one constant
+(`VERSION`). Both lead the manual import with the same walkthrough card (SafeLMS
+pencil-banner) on the Upload landing.
+- **A (ver1) — tabbed:** Manual import / Automated sync as a segmented sub-control;
+  you toggle between the two.
+- **B (ver2) — one page:** manual import, with automated sync stacked *underneath*
+  it on the same scrolling page (no sub-tab); "Set up Automated sync" scrolls down.
+Use the V1/V2 pill to compare. Which layout to keep is an open design call.
 
 ## review-blocked
 

@@ -282,6 +282,12 @@
     border-radius: 8px; padding: 9px 14px; margin-bottom: 18px; font-size: 12.5px; color: var(--ink-2); }
   .wt-strip i { color: var(--blue); flex: 0 0 auto; }
 
+  /* ---- Version B: automated sync stacked under manual import ---- */
+  .stack-divider { height: 1px; background: var(--line); margin: 44px 0 0; }
+  .stack-head { margin: 26px 0 20px; scroll-margin-top: 12px; }
+  .stack-title { font-size: 17px; font-weight: 700; }
+  .stack-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
   /* ---- Prototype variant panel (mock-only affordance) ---- */
   /* Anchored bottom-LEFT, over the sidenav's empty lower region — never covers
      the content-area action buttons (Continue / Run import live on the right). */
@@ -322,11 +328,12 @@
   var TOTAL = 170;
 
   /* VERSION KNOB (A vs B) — the ONLY line that differs between ver1 and ver2.
-     Controls where the manual-import walkthrough/overview appears:
-       'A' = full overview on the Upload landing only, then it recedes.
-       'B' = a compact overview persists above the stepper on every step.
+     Controls the layout of the User Import tab:
+       'A' = Manual import / Automated sync as a segmented sub-control (two views).
+       'B' = one page — manual import, with automated sync stacked underneath it.
+     Both lead the manual import with the same walkthrough card on the Upload step.
      ver1 = 'A', ver2 = 'B'. */
-  var WALKTHROUGH = 'A';
+  var VERSION = 'A';
 
   var FILES = [
     { id: 'clean',   name: 'staff_roster_2026.csv',      rows: 45,  note: 'September new-hire batch from HR' },
@@ -1051,12 +1058,7 @@
 
   /* Manual-import walkthrough / overview. Full card frames what a manual import
      is (SafeLMS "pencil banner" pattern); compact strip is the persistent form. */
-  function walkthroughHTML(compact) {
-    if (compact) {
-      return '<div class="wt-strip"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>'
-        + '<span><b>Manual import</b> — upload a file to add, update, deactivate, or remove users on this site. Nothing runs until you review it.</span>'
-        + '<a href="#" data-act="goSyncTab" style="margin-left:auto;white-space:nowrap;">Automated sync →</a></div>';
-    }
+  function walkthroughHTML() {
     return '<div class="wt-card">'
       + '<div class="wt-icon"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></div>'
       + '<div style="flex:1;min-width:0;"><div class="wt-title">Manual import</div>'
@@ -1076,14 +1078,8 @@
       default:         body = uploadHTML();
     }
     var stepper = state.step !== 'done' ? stepperHTML() : '';
-    // Walkthrough placement is the A/B difference:
-    //   A — full overview on the Upload landing only.
-    //   B — compact overview above the stepper on every step (except Done).
-    var wt = '';
-    if (state.step !== 'done') {
-      if (WALKTHROUGH === 'A' && state.step === 'upload') wt = walkthroughHTML(false);
-      else if (WALKTHROUGH === 'B') wt = walkthroughHTML(true);
-    }
+    // The manual import always leads with the walkthrough card on the Upload landing.
+    var wt = (state.step === 'upload') ? walkthroughHTML() : '';
     return '<section data-screen-label="Manual import">' + wt + stepper + body + '</section>';
   }
 
@@ -1233,15 +1229,26 @@
   function render() {
     var tab = curTab();
     var syncNeedsDot = stage() === 'active-failed' && !state.blessed;
-    // Secondary control inside the User Import tab (not a second row of page tabs).
-    var subtabs = '<div class="subtabs">'
-      + '<button class="subtab' + (tab === 'import' ? ' is-active' : '') + '" data-act="goImport">Manual import</button>'
-      + '<button class="subtab' + (tab === 'sync' ? ' is-active' : '') + '" data-act="goSyncTab">Automated sync'
-      + (syncNeedsDot ? '<span class="dot-red"></span>' : '') + '</button></div>';
 
-    var main = '<div class="content">'
-      + subtabs + (tab === 'import' ? importTab() : syncTab())
-      + '</div>';
+    var inner;
+    if (VERSION === 'B') {
+      // One page: manual import, then automated sync stacked underneath (no sub-tabs).
+      inner = importTab()
+        + '<div class="stack-divider"></div>'
+        + '<div id="autosync" class="stack-head"><div class="stack-title">Automated sync'
+        + (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '') + '</div>'
+        + '<div class="stack-sub">Set your roster to import on a schedule, and catch &amp; fix failures without opening a case.</div></div>'
+        + syncTab();
+    } else {
+      // A: Manual import / Automated sync as a segmented sub-control (two views).
+      var subtabs = '<div class="subtabs">'
+        + '<button class="subtab' + (tab === 'import' ? ' is-active' : '') + '" data-act="goImport">Manual import</button>'
+        + '<button class="subtab' + (tab === 'sync' ? ' is-active' : '') + '" data-act="goSyncTab">Automated sync'
+        + (syncNeedsDot ? '<span class="dot-red"></span>' : '') + '</button></div>';
+      inner = subtabs + (tab === 'import' ? importTab() : syncTab());
+    }
+
+    var main = '<div class="content">' + inner + '</div>';
 
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()
@@ -1256,6 +1263,17 @@
     window.scrollTo(0, 0);
   }
 
+  // Version B has no sync tab — "go to sync" scrolls to the stacked section instead.
+  function scrollToSync(where) {
+    var s = $app.querySelector('.scroll');
+    if (!s) return;
+    if (where === 'autosync') {
+      var el = document.getElementById('autosync');
+      if (el) { s.scrollTop = Math.max(0, el.offsetTop - 12); return; }
+    }
+    s.scrollTop = 0;
+  }
+
   $app.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
     if (!el) return;
@@ -1264,8 +1282,15 @@
 
     switch (act) {
       case 'noop': e.preventDefault(); break;
-      case 'goImport': setState({ tab: 'import' }); break;
-      case 'goSyncTab': case 'goSync': e.preventDefault(); setState({ tab: 'sync' }); break;
+      case 'goImport':
+        if (VERSION === 'B') { e.preventDefault(); scrollToSync('top'); }
+        else setState({ tab: 'import' });
+        break;
+      case 'goSyncTab': case 'goSync':
+        e.preventDefault();
+        if (VERSION === 'B') scrollToSync('autosync');
+        else setState({ tab: 'sync' });
+        break;
       case 'pickFile': pickFile(arg); scrollTop(); break;
       case 'openFiles': e.preventDefault(); setState({ fileModal: true }); break;
       case 'closeFiles': setState({ fileModal: false }); break;
