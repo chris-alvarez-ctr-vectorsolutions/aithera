@@ -393,6 +393,21 @@
   .sync-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
     color: var(--blue); margin-bottom: 16px; }
   .sync-back:hover { text-decoration: none; color: var(--blue-2); }
+
+  /* V2 placement — a persistent right-rail concierge card beside the manual import
+     on the landing (the sync surface is a standing "let Vector set it up" offer). */
+  .v2-land { display: grid; grid-template-columns: minmax(0,1fr) 296px; gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .v2-land { grid-template-columns: 1fr; } }
+  .v2-concierge { position: sticky; top: 4px; background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; box-shadow: 0 1px 3px rgba(16,24,40,.08); }
+  .v2c-ic { width: 42px; height: 42px; border-radius: 11px; background: #F4F3FB; color: #5F5AB8;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px; }
+  .v2c-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
+  .v2c-title { font-size: 16px; font-weight: 700; margin-top: 2px; }
+  .v2c-sub { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin: 8px 0 16px; }
+  .v2c-link { display: inline-block; font-size: 12.5px; font-weight: 600; margin-top: 12px; }
+  .v2c-req { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--green-ink);
+    background: var(--green-bg); border: 1px solid var(--green-border); border-radius: 9px; padding: 10px 12px; }
 </style>
 </head>
 <body>
@@ -1616,6 +1631,22 @@
       + syncStatusHeader() + col + '</div></section>';
   }
 
+  /* V2 right-rail concierge card — the sync surface on the manual-import landing. */
+  function conciergeCard() {
+    var requested = state.syncRequested;
+    return '<aside class="v2-concierge">'
+      + '<div class="v2c-ic"><i class="fa-solid fa-headset" aria-hidden="true"></i></div>'
+      + '<div class="v2c-eyebrow">Automated sync</div>'
+      + '<div class="v2c-title">Let Vector set it up</div>'
+      + '<div class="v2c-sub">Prefer not to upload every time? Vector sets up automated sync for you — your roster imports from SFTP on a schedule, with the same safety checks. Nothing to configure on your end.</div>'
+      + (requested
+          ? '<div class="v2c-req"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Setup requested · ref SYNC-4821</div>'
+            + '<a href="#" class="v2c-link" data-act="goSync">View request status →</a>'
+          : '<button class="btn btn--primary sm" data-act="requestSync" style="width:100%;">Request automated sync setup</button>'
+            + '<a href="#" class="v2c-link" data-act="goSync">See how it works →</a>')
+      + '</aside>';
+  }
+
   function render() {
     var main;
     if (state.view === 'sync') {
@@ -1626,10 +1657,13 @@
         + '<div style="font-size:13px;color:#5B6B7E;margin:2px 0 18px;">Import your roster on a schedule from SFTP — no manual upload.</div>'
         + syncTab() + '</div>';
     } else {
-      // Main page: manual import only, with a compact sync status banner on the
-      // landing. The banner is the only sync presence here; details live deeper.
-      var banner = (state.step === 'upload') ? syncBanner() : '';
-      main = '<div class="content">' + banner + importTab() + '</div>';
+      // V2 PLACEMENT — a right-rail concierge card sits beside the manual import
+      // on the landing (a standing "let Vector set it up" offer), instead of a
+      // banner. Details + request status still live on the deeper page.
+      var body = (state.step === 'upload')
+        ? '<div class="v2-land">' + importTab() + conciergeCard() + '</div>'
+        : importTab();
+      main = '<div class="content">' + body + '</div>';
     }
 
     $app.innerHTML = variantsPanel()

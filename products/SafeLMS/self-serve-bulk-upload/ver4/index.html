@@ -1674,21 +1674,32 @@
       + syncStatusHeader() + col + '</div></section>';
   }
 
+  /* V4 PLACEMENT — a segmented sub-tab under the User Import tab lets you flip
+     between Manual import and Automated sync in place (both on the same page, no
+     separate deeper page). A red dot flags the sync tab when it needs attention. */
+  function subtabsBar() {
+    var onSync = state.view === 'sync';
+    var needs = stage() === 'active-failed' && !state.blessed;
+    return '<div class="subtabs">'
+      + '<button class="subtab' + (onSync ? '' : ' is-active') + '" data-act="goImport">'
+      + '<i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Manual import</button>'
+      + '<button class="subtab' + (onSync ? ' is-active' : '') + '" data-act="goSync">'
+      + '<i class="fa-solid fa-rotate" aria-hidden="true"></i> Automated sync'
+      + (needs ? '<span class="dot-red" style="margin-left:6px;"></span>' : '') + '</button>'
+      + '</div>';
+  }
+
   function render() {
-    var main;
+    var sub = subtabsBar();
+    var body;
     if (state.view === 'sync') {
-      // Deeper page: the full automated-sync detail, reached from the banner.
-      main = '<div class="content">'
-        + '<a href="#" class="sync-back" data-act="backToImport"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to import</a>'
-        + '<div style="font-size:20px;font-weight:700;">Automated sync</div>'
+      body = '<div style="font-size:20px;font-weight:700;">Automated sync</div>'
         + '<div style="font-size:13px;color:#5B6B7E;margin:2px 0 18px;">Import your roster on a schedule from SFTP — no manual upload.</div>'
-        + syncTab() + '</div>';
+        + syncTab();
     } else {
-      // Main page: manual import only, with a compact sync status banner on the
-      // landing. The banner is the only sync presence here; details live deeper.
-      var banner = (state.step === 'upload') ? syncBanner() : '';
-      main = '<div class="content">' + banner + importTab() + '</div>';
+      body = importTab();   // no banner — the sub-tab is the sync surface
     }
+    var main = '<div class="content">' + sub + body + '</div>';
 
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()

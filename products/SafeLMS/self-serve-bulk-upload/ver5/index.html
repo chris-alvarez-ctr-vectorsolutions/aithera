@@ -422,6 +422,12 @@
   .sync-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
     color: var(--blue); margin-bottom: 16px; }
   .sync-back:hover { text-decoration: none; color: var(--blue-2); }
+
+  /* V5 placement — full-width automated-sync band stacked under the manual import.
+     Edge-to-edge tinted background; the inner .content keeps the centered column. */
+  .sync-band { background: #fff; border-top: 1px solid var(--line);
+    box-shadow: inset 0 6px 12px -10px rgba(16,24,40,.12); padding-bottom: 40px; scroll-margin-top: 0; }
+  .sync-band .stack-head { scroll-margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -1634,20 +1640,16 @@
   }
 
   function render() {
-    var main;
-    if (state.view === 'sync') {
-      // Deeper page: the full automated-sync detail, reached from the banner.
-      main = '<div class="content">'
-        + '<a href="#" class="sync-back" data-act="backToImport"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to import</a>'
-        + '<div style="font-size:20px;font-weight:700;">Automated sync</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin:2px 0 18px;">Import your roster on a schedule from SFTP — no manual upload.</div>'
-        + syncTab() + '</div>';
-    } else {
-      // Main page: manual import only, with a compact sync status banner on the
-      // landing. The banner is the only sync presence here; details live deeper.
-      var banner = (state.step === 'upload') ? syncBanner() : '';
-      main = '<div class="content">' + banner + importTab() + '</div>';
-    }
+    // V5 PLACEMENT — automated sync is a full-width band STACKED below the manual
+    // import on one page (edge-to-edge). There is no separate sync page; the
+    // flow-map sync states and the preview link just scroll down to the band.
+    var band = '<div class="sync-band">'
+      + '<div class="content" style="padding-top:28px;">'
+      + '<div id="autosync" class="stack-head" style="margin:0 0 18px;">'
+      + '<div class="stack-title">Automated sync</div>'
+      + '<div class="stack-sub">Import your roster on a schedule from SFTP — no manual upload. It lives right here, under manual import.</div></div>'
+      + syncTab() + '</div></div>';
+    var main = '<div class="content">' + importTab() + '</div>' + band;
 
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()
@@ -1682,9 +1684,14 @@
     switch (act) {
       case 'noop': e.preventDefault(); break;
       case 'goImport': case 'backToImport':
-        e.preventDefault(); setState({ view: 'import' }); scrollTop(); break;
-      case 'goSyncTab': case 'goSync': case 'openSync':
-        e.preventDefault(); setState({ view: 'sync' }); scrollTop(); break;
+        e.preventDefault(); scrollTop(); break;
+      case 'goSyncTab': case 'goSync': case 'openSync': {
+        // V5: no separate page — scroll down to the stacked band.
+        e.preventDefault();
+        var syncEl = document.getElementById('autosync');
+        if (syncEl) syncEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        break;
+      }
       case 'pickFile': pickFile(arg); scrollTop(); break;
       case 'openFiles': e.preventDefault(); setState({ fileModal: true }); break;
       case 'closeFiles': setState({ fileModal: false }); break;
@@ -1764,7 +1771,11 @@
     var v = {}; for (var k in state.variants) v[k] = state.variants[k];
     v.automationStage = stg;
     if (scn) v.syncScenario = scn;
-    setState({ tab: 'sync', view: 'sync', blessed: false, variants: v });
+    // V5: sync lives in the stacked band on the same page — keep view 'import'
+    // and scroll to the band so the applied state is visible.
+    setState({ tab: 'sync', view: 'import', blessed: false, variants: v });
+    var el = document.getElementById('autosync');
+    if (el) el.scrollIntoView({ block: 'start' });
   }
 
   function reviewFor(fileId, pu, pj) {
@@ -1791,7 +1802,8 @@
       case 'sync-escalate': setSyncState('active-failed', 'escalate'); break; // CONTACT VECTOR
       default: break;
     }
-    scrollTop();
+    // Sync states already scrolled to the stacked band; don't yank back to top.
+    if (String(id).indexOf('sync-') !== 0) scrollTop();
   }
   window.applyFlowState = applyFlowState;
 

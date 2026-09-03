@@ -55,6 +55,29 @@ twins were merged; the reimagined triage split into three directions.)
 Different helper per version was a deliberate ask ("try different tooltips for all the
 different versions").
 
+**Automated-sync PLACEMENT now varies per version (2026-09-03).** Client ask: "try
+different placements of the automated sync for each version." Previously all six shared
+one placement (deeper page + banner). Each version now surfaces automated sync in a
+genuinely different spot, so the placements can be compared head-to-head:
+
+- **V1 — Deeper page + status banner** (unchanged): a compact banner on the manual-import
+  landing (carrying the earn-it 3-of-4 progress) → a separate deeper sync page.
+- **V2 — Right-rail concierge card:** a persistent card beside the manual import on the
+  landing ("Let Vector set it up · Request automated sync setup"), fitting the concierge
+  model as a standing offer. Details + request status live on the deeper page.
+- **V3 — Post-import offer:** no sync surface while importing; it appears on the success
+  screen once a clean import lands ("Do this automatically next time?"), where it's most
+  relevant.
+- **V4 — Segmented sub-tab:** a Manual import | Automated sync segmented control under the
+  User Import tab flips between the two in place (no separate page); a red dot flags the
+  sync tab when it needs attention.
+- **V5 — Stacked full-width band:** automated sync is an edge-to-edge band stacked directly
+  under the manual import on one page — scroll down to it; flow-map sync states scroll the
+  band into view.
+- **V6 — Optional interview section:** sync is a 6th, optional section of the guided
+  interview (rail shows the import sections done + "Automated sync · optional"), reached
+  from the Review screen and the done screen, rendered inside the interview chrome.
+
 **Before → after AutoSync preview (2026-09-03).** The Claude-Design "prototype
 variants" panel (bottom-left) is repurposed as a **"Preview · AutoSync"** before→after
 toggle so reviewers can watch automated sync go from unavailable → available in each

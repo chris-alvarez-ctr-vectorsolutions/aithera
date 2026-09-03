@@ -1765,6 +1765,11 @@
       + '<div class="iv-headline">Let’s double-check before we import</div>'
       + '<div class="iv-lede">This is exactly what will happen when you import. Nothing has changed on your site yet.</div>'
       + '<div class="iv-rev-card" style="margin-top:20px;">' + rows + '</div>' + note
+      // V6 placement — optional automated-sync section, offered here on review.
+      + '<div style="margin-top:16px;display:flex;gap:12px;align-items:center;background:#F5F9FE;border:1px solid #C6D9F0;border-radius:11px;padding:13px 16px;">'
+      + '<span style="width:32px;height:32px;border-radius:9px;background:#E1EBF9;color:#1257B8;display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 32px;"><i class="fa-solid fa-rotate" aria-hidden="true"></i></span>'
+      + '<div style="flex:1;min-width:0;font-size:12.5px;color:#3D4F63;line-height:1.5;"><b style="color:#1B2B3E;">Optional:</b> do this automatically next time — set up automated sync so this roster imports on a schedule.</div>'
+      + '<button class="btn btn--outline-blue sm" data-act="goSync" style="white-space:nowrap;">Set it up →</button></div>'
       + '<div class="iv-nav">'
       + '<button class="iv-back" data-act="ivBack"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>'
       + '<button class="iv-cont' + (ready ? '' : ' is-off') + '" data-act="runImport"' + (ready ? '' : ' disabled') + '>Import ' + file.rows + ' rows</button>'
@@ -2049,20 +2054,37 @@
       + syncStatusHeader() + col + '</div></section>';
   }
 
+  /* V6 PLACEMENT — automated sync is an OPTIONAL section OF THE INTERVIEW: it
+     renders inside the same interview chrome (section rail + Import-summary
+     monitor), shown as a 6th "Automated sync" section with the import sections
+     marked done. Reached from the Review screen and the done screen. */
+  function ivSyncView() {
+    var rail = '<nav class="iv-rail"><div class="iv-rail-h">Your import</div>'
+      + IV_SECTIONS.map(function (sec, si) {
+          return '<div class="iv-sec is-done"><span class="iv-sec-ic"><i class="fa-solid fa-check"></i></span>'
+            + '<span class="iv-sec-lb">' + esc(sec.label) + '</span></div>';
+        }).join('')
+      + '<div class="iv-sec is-active"><span class="iv-sec-ic"><i class="fa-solid fa-rotate" aria-hidden="true"></i></span>'
+      + '<span class="iv-sec-lb">Automated sync</span><span class="iv-sec-cnt">optional</span></div></nav>';
+    var center = '<div>'
+      + ivAssist('Optional — set this up and you won’t have to run the interview each time.')
+      + '<div class="iv-eyebrow">Optional next step</div>'
+      + '<div class="iv-headline">Want this to happen automatically?</div>'
+      + '<div class="iv-lede">Automated sync pulls the same roster from SFTP on a schedule and runs the very same checks you just went through — pausing for you only when something needs a decision. It’s an optional add-on; your manual import already did everything for today.</div>'
+      + '<div style="margin-top:20px;">' + syncTab() + '</div>'
+      + '<div class="iv-nav"><button class="iv-back" data-act="backToImport"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to the interview</button><span></span></div>'
+      + '</div>';
+    return '<div class="iv-wrap">' + rail + center + ivMonitor() + '</div>';
+  }
+
   function render() {
     var main;
     if (state.view === 'sync') {
-      // Deeper page: the full automated-sync detail, reached from the banner.
-      main = '<div class="content">'
-        + '<a href="#" class="sync-back" data-act="backToImport"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to import</a>'
-        + '<div style="font-size:20px;font-weight:700;">Automated sync</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin:2px 0 18px;">Import your roster on a schedule from SFTP — no manual upload.</div>'
-        + syncTab() + '</div>';
+      main = '<div class="content">' + ivSyncView() + '</div>';
     } else {
-      // Main page: manual import only, with a compact sync status banner on the
-      // landing. The banner is the only sync presence here; details live deeper.
-      var banner = (state.step === 'upload') ? syncBanner() : '';
-      main = '<div class="content">' + banner + importTab() + '</div>';
+      // Main page: the interview. No banner — automated sync is an optional
+      // section reached from Review / the done screen (see ivSyncView).
+      main = '<div class="content">' + importTab() + '</div>';
     }
 
     $app.innerHTML = variantsPanel()
