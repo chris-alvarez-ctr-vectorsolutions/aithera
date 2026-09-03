@@ -1681,6 +1681,33 @@
     return n;
   }
 
+  /* What a template ACTUALLY holds, measured from the document itself.
+     -----------------------------------------------------------------
+     The gallery used to print a number the template carried as data (`toFill`,
+     written by the generator against the un-normalized port). The read-out after
+     the pick counted the real thing. So one screen promised "~24 fields to fill"
+     and the next said "9 flagged" — same template, same click, 2.6x apart, and
+     an author had no way to know which was true. Neither number is stored now:
+     both screens call this, so they cannot disagree, and reseeding the gallery
+     can never leave a stale count behind.
+
+     Cheap enough to run on gallery open — six documents, a clone and a validate
+     each — and the alternative is a number that goes wrong silently. */
+  function templateFacts(t) {
+    try {
+      const doc = (typeof type.template === 'function') ? type.template(t.id) : null;
+      if (!doc) return null;
+      const norm = type.normalize(doc);
+      const lints = (typeof type.lints === 'function' && type.lints(norm)) || [];
+      return {
+        title: String(((norm.content || {}).title) || '').trim(),
+        values: contentValueCount(norm),
+        errs: lints.filter((l) => l.severity === 'err').length,
+        warns: lints.filter((l) => l.severity === 'warn').length,
+      };
+    } catch (e) { return null; }   // a template that cannot be read is reported on pick
+  }
+
   let tplOverlay = null;
   const onTplKey = (e) => { if (e.key === 'Escape') closeNewScenario(); };
   function closeNewScenario() {
@@ -1754,8 +1781,15 @@
       if (templates.length) {
         list.appendChild(menuRow({
           icon: 'fa-shapes', title: 'Start from a template', tag: `${templates.length} shapes`,
-          lede: 'The shape is decided; the writing is yours.',
-          more: 'Each template is a complete, valid scenario with the teaching content left blank.',
+          lede: 'A finished scenario in that shape, for you to rewrite.',
+          /* This row used to promise "a complete, valid scenario with the teaching
+             content left blank" — which described neither half correctly: the
+             ported documents were not valid (each carried 8-24 required fields it
+             could not source) and the teaching content was the part they DID
+             bring. Both halves are now true of what actually loads. */
+          more: 'Each template loads one of the production scenarios in full — situation, coach, '
+              + 'every step, the expert answer — already valid under the production engine. '
+              + 'You edit it into yours.',
           onClick: showTemplates
         }));
       }
@@ -1791,13 +1825,24 @@
       const list = document.createElement('div');
       list.className = 'ns-list';
       templates.forEach((t) => {
+        const f = templateFacts(t);
         list.appendChild(menuRow({
           icon: t.icon || 'fa-cube',
           title: t.label || t.id,
           tag: shapeChain(t.shape),
-          /* the blurbs already end in a full stop, so a "·" after one reads as a typo */
-          lede: [t.blurb || '', typeof t.toFill === 'number' ? `~${t.toFill} fields to fill.` : '']
-            .filter(Boolean).join(' '),
+          /* The scenario it seeds, BY NAME, on the row itself. A shape chain says
+             what the arc is made of; it does not say that this row hands over a
+             real, finished scenario — which is the one thing worth knowing before
+             the click, and the thing an author was surprised by after it.
+             (the blurbs already end in a full stop, so a "·" after one reads as a typo) */
+          lede: [t.blurb || '', !f ? '' : (f.title ? `Loads “${f.title}”` : 'Loads')
+            + (f.errs ? `, ${f.errs} field${f.errs > 1 ? 's' : ''} still to write.`
+                      : ' — every field authored.')].filter(Boolean).join(' '),
+          /* menuRow puts `more` in the button's title attribute, so it is a
+             tooltip: plain text only, no markup. */
+          more: f
+            ? `${f.values} authored values, and every line of it is yours to rewrite.`
+            : '',
           onClick: () => showApplying(t)
         }));
       });
@@ -1907,9 +1952,16 @@
     }
 
     /* The read-out. Two numbers, because they are the two halves of the answer
-       to "what just happened": what the template wrote for you, and what it
-       deliberately left blank for you (the port seeds no placeholder prose —
-       templates are honest starting points, not finished scenarios). */
+       to "what just happened": what the template wrote for you, and what is left
+       for you to write.
+
+       ERRORS ONLY in that second number. It used to read `errs || warns`, which
+       was fine while every template arrived with red rows in it and became a lie
+       the moment they stopped: a template that seeds a complete production
+       document carries no missing field and one advisory (prior-scenario context
+       has no home in the format yet), and "1 field still needs your words"
+       described neither. Advisories get their own line below, in their own
+       words. */
     function showReady(t, res) {
       if (!alive()) return;
       const label = t.label || t.id;
@@ -1917,7 +1969,6 @@
       const errs = currentLints.filter((l) => l.severity === 'err').length;
       const warns = currentLints.filter((l) => l.severity === 'warn').length;
       const openSections = type.sections.filter((sec) => !sec.locked).length;
-      const todo = errs || warns;
 
       titleEl.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> ${esc(label)} is loaded`;
       panel.innerHTML =
@@ -1926,11 +1977,16 @@
         + `. Nothing here is locked to the template — every line of it is a first draft of yours.</p>`
         + `<div class="ns-stats">`
         + `<div><b>${res.values}</b><span>values filled in from the template</span></div>`
-        + `<div><b>${todo || '0'}</b><span>${todo
-              ? 'flagged as still needing your words — the Validation tab lists them'
-              : 'flagged — every check already passes'}</span></div>`
+        + `<div><b>${errs || '0'}</b><span>${errs
+              ? 'fields still need your words — the Validation tab lists them'
+              : 'fields left to fill — it would load in the production engine as it stands'}</span></div>`
         + `<div><b>${openSections}</b><span>editable sections, walked step by step from the rail</span></div>`
         + `</div>`
+        + (warns
+            ? `<p class="ns-note"><i class="fa-solid fa-circle-info"></i>`
+              + `${warns === 1 ? 'One advisory' : `${warns} advisories`} in the Validation tab — `
+              + `nothing blocking, and nothing blank.</p>`
+            : '')
         + (res.snapshotted
             ? `<p class="ns-note"><i class="fa-solid fa-clock-rotate-left"></i>`
               + `The draft you had open was saved to Local drafts first — nothing was lost.</p>`
