@@ -381,11 +381,11 @@
     // K1 is sequence recall, so the item is an actual ordering task rather
     // than a choice between three written sequences. Reading a sequence and
     // producing one are different things, and only the second is the
-    // objective. Tap-to-place, not drag: it works on touch and by keyboard,
-    // and the numbered slots make the affordance unambiguous.
+    // objective. The list is on screen in the wrong order and the learner
+    // rearranges it — an affordance that needs no instruction to read.
     { obj: 'K1', type: 'order',
       stem: 'You have just used a sharp. Put the next three actions in order.',
-      hint: 'Tap them in the order you would do them. Tap a slot to take one back.',
+      hint: 'Drag a row, or use the arrows.',
       correct: ['feature', 'move', 'dispose'],
       actions: [
         { id: 'move',    icon: 'fa-person-walking', t: 'Walk to the container' },
@@ -476,64 +476,99 @@
       });
       LE.pickGroup(optsEl);
     }
-    // Tap-to-place ordering. `placed` is the answer; the pool is whatever is
-    // not in it yet. Grading fires on the third placement — there is no submit
-    // button because there is nothing left to decide once all three are down.
+    // The three actions are on screen from the start, in the wrong order, and
+    // the learner rearranges them. Nothing to place, so nothing to explain:
+    // a drag handles a mouse, the arrow pair handles touch and keyboard, and
+    // the order lives in the DOM rather than in a parallel array.
     function renderOrder(i, q) {
       optsEl.className = 'ord-wrap';
-      var placed = [], settled = false;
-      draw();
+      var settled = false;
+      optsEl.innerHTML =
+        '<ol class="ord-list" id="ordList">' +
+          q.actions.map(function (a) {
+            return '<li class="ord-item" draggable="true" data-id="' + a.id + '">' +
+              '<span class="ord-n"></span>' +
+              '<i class="fa-solid fa-grip-vertical ord-grip" aria-hidden="true"></i>' +
+              '<i class="fa-solid ' + a.icon + ' ord-ico" aria-hidden="true"></i>' +
+              '<span class="ord-t">' + esc(a.t) + '</span>' +
+              '<span class="ord-mv">' +
+                '<button type="button" data-mv="-1" aria-label="Move “' + esc(a.t) + '” earlier"><i class="fa-solid fa-chevron-up"></i></button>' +
+                '<button type="button" data-mv="1" aria-label="Move “' + esc(a.t) + '” later"><i class="fa-solid fa-chevron-down"></i></button>' +
+              '</span></li>';
+          }).join('') +
+        '</ol>' +
+        '<button class="ord-check" id="ordCheck" type="button">Check order</button>';
 
-      function label(id) {
-        for (var k = 0; k < q.actions.length; k++) if (q.actions[k].id === id) return q.actions[k];
-        return null;
-      }
-      function draw() {
-        var slots = '<ol class="ord-slots" id="ordSlots" aria-live="polite">';
-        for (var n = 0; n < 3; n++) {
-          var id = placed[n], a = id ? label(id) : null;
-          var mark = '';
-          if (settled) mark = (q.correct[n] === id) ? ' is-right' : ' is-wrong';
-          slots += '<li class="ord-slot' + (a ? ' filled' : '') + mark + '">' +
-            '<span class="ord-n">' + (n + 1) + '</span>' +
-            (a ? '<button class="ord-chip" type="button" data-take="' + n + '"' + (settled ? ' disabled' : '') + '>' +
-                   '<i class="fa-solid ' + a.icon + '" aria-hidden="true"></i> ' + esc(a.t) +
-                   (settled ? '' : '<i class="fa-solid fa-xmark ord-x" aria-hidden="true"></i>') + '</button>'
-               : '<span class="ord-empty">Tap an action below</span>') +
-          '</li>';
-        }
-        slots += '</ol>';
-        var pool = '<div class="ord-pool">' + q.actions.filter(function (a) {
-          return placed.indexOf(a.id) === -1;
-        }).map(function (a) {
-          return '<button class="ord-card" type="button" data-put="' + a.id + '">' +
-            '<i class="fa-solid ' + a.icon + '" aria-hidden="true"></i>' +
-            '<span>' + esc(a.t) + '</span></button>';
-        }).join('') + '</div>';
-        optsEl.innerHTML = slots + pool + '<p class="ord-fb" id="ordFb"></p>';
-        optsEl.querySelectorAll('[data-put]').forEach(function (b) {
-          b.addEventListener('click', function () {
-            if (settled || placed.length >= 3) return;
-            placed.push(b.dataset.put);
-            draw();
-            if (placed.length === 3) grade();
-          });
-        });
-        optsEl.querySelectorAll('[data-take]').forEach(function (b) {
-          b.addEventListener('click', function () {
-            if (settled) return;
-            placed.splice(+b.dataset.take, 1);
-            draw();
-          });
+      var list = document.getElementById('ordList');
+      var rows = function () { return [].slice.call(list.children); };
+      renumber();
+
+      // Renumbering after every move keeps the badges honest and parks the
+      // arrows that would do nothing at the ends of the list.
+      function renumber() {
+        rows().forEach(function (li, n, all) {
+          li.querySelector('.ord-n').textContent = n + 1;
+          li.querySelector('[data-mv="-1"]').disabled = settled || n === 0;
+          li.querySelector('[data-mv="1"]').disabled = settled || n === all.length - 1;
         });
       }
+      list.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-mv]');
+        if (!btn || settled) return;
+        var li = btn.closest('.ord-item');
+        if (btn.dataset.mv === '-1') list.insertBefore(li, li.previousElementSibling);
+        else list.insertBefore(li, li.nextElementSibling.nextElementSibling);
+        renumber();
+        // Moving a row to an end disables the arrow you just pressed, which
+        // would drop keyboard focus; hand it to the row's other arrow.
+        (btn.disabled ? li.querySelector('[data-mv]:not(:disabled)') : btn).focus();
+      });
+
+      // Drag: move the node itself rather than re-rendering, or the element
+      // under the cursor disappears mid-gesture.
+      var dragging = null;
+      list.addEventListener('dragstart', function (e) {
+        var li = e.target.closest('.ord-item');
+        if (!li || settled) { e.preventDefault(); return; }
+        dragging = li; li.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', li.dataset.id); } catch (err) {}
+      });
+      list.addEventListener('dragend', function () {
+        if (dragging) dragging.classList.remove('dragging');
+        dragging = null; renumber();
+      });
+      list.addEventListener('dragover', function (e) {
+        if (!dragging) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        var after = null;
+        rows().forEach(function (li) {
+          if (li === dragging) return;
+          var box = li.getBoundingClientRect();
+          if (e.clientY < box.top + box.height / 2 && !after) after = li;
+        });
+        if (after) list.insertBefore(dragging, after);
+        else list.appendChild(dragging);
+        renumber();
+      });
+      list.addEventListener('drop', function (e) { e.preventDefault(); });
+
+      document.getElementById('ordCheck').addEventListener('click', grade);
+
       function grade() {
+        if (settled) return;
         settled = true;
-        var right = placed.every(function (id, n) { return q.correct[n] === id; });
-        draw();
-        var fb = document.getElementById('ordFb');
-        fb.className = 'ord-fb ' + (right ? 'ok' : 'bad');
-        fb.textContent = right ? q.okReply : q.badReply;
+        var right = true;
+        rows().forEach(function (li, n) {
+          var ok = q.correct[n] === li.dataset.id;
+          if (!ok) right = false;
+          li.classList.add(ok ? 'is-right' : 'is-wrong');
+          li.draggable = false;
+        });
+        list.classList.add('settled');
+        renumber();
+        document.getElementById('ordCheck').remove();
         k1.push(right ? 2 : 0);
         ctx.floatOpen();
         ctx.setCoachSay(esc(right ? q.okReply : q.badReply));
