@@ -296,9 +296,69 @@
     info:     { chip: 'Info',           icon: 'fa-circle-info',          chipBg: '#5B8DC9', border: '#E1E7EE', headBg: '#F5F9FE', titleColor: '#1B2B3E', proceedLabel: 'What it means' }
   };
 
+  /* Automated-sync failure scenarios — one per severity path, mirroring the manual
+     tiers so the sync flow shows the same Blocked / Confirm / Contact-Vector split.
+     Picked by state.variants.syncScenario and rendered by syncFailureCard(). */
+  var SYNC_FAILS = {
+    confirm: {
+      tier: 'confirm',
+      title: 'Your sync stopped this morning — 8 changes need your confirmation',
+      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
+      lines: [
+        ['What happened', '8 rows in this file have a different first or last name than the existing account with the same username. This is usually a legal name change or a nickname — Susan becoming Sue — but it can also mean the row belongs to a different person.'],
+        ['If you apply the changes', 'the 8 names are updated and all training history stays with each account. The rest of the file (2 new users, 41 updates) imports as normal.']
+      ],
+      diff: [
+        { row: '12', field: 'First name', current: 'Susan (Hartley)', incoming: 'Sue', result: 'Sue Hartley' },
+        { row: '47', field: 'Last name', current: '(Amara) Okafor', incoming: 'Okafor-Reed', result: 'Amara Okafor-Reed' },
+        { row: '95', field: 'First name', current: 'Robert (Ellis)', incoming: 'Bobby', result: 'Bobby Ellis' }
+      ],
+      diffLabel: 'After sync', more: 'Show all 8 rows',
+      buttons: [
+        { cls: 'btn--primary', act: 'bless', label: 'These are correct — apply the changes' },
+        { cls: 'btn--ghost',   act: 'noop',  label: 'Download the 8 rows' },
+        { cls: 'btn--ghost',   act: 'noop',  label: 'Something looks wrong — contact support' }
+      ],
+      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
+    },
+    blocked: {
+      tier: 'blocked',
+      title: 'Your sync stopped this morning — this file would change usernames on 148 of 170 accounts (87%)',
+      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
+      lines: [
+        ['What happened', 'The username column in this morning’s export changed format — it now sends first.last where your site signs people in by email. Applying it would rewrite the username on nearly every account.'],
+        ['Why it’s blocked', 'Sign-in would break across the district at once and duplicate accounts would appear as people log back in. There is no undo, so SafeLMS will not apply a change this large on its own.'],
+        ['What to do', 'Fix the export at its source so the username column matches your site, and the next sync will pick it up. To get today’s roster in now, upload a corrected file through the manual uploader.']
+      ],
+      rows: ['slinden   →   sarah.linden', 'mreyes   →   maria.reyes', 'tallen   →   tom.allen', '… and 145 more'],
+      buttons: [
+        { cls: 'btn--primary', act: 'goImport', label: 'Fix it in the manual uploader' },
+        { cls: 'btn--ghost',   act: 'noop',     label: 'Download the file' },
+        { cls: 'btn--ghost',   act: 'noop',     label: 'Contact support' }
+      ],
+      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Nothing was changed — your roster stays as it was until a corrected file comes in.'
+    },
+    escalate: {
+      tier: 'escalate',
+      title: 'Your sync stopped — 2 accounts on your site already share one email address',
+      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
+      lines: [
+        ['What happened', 'cdelgado and c.delgado are two separate accounts that already use cdelgado@ridgewood.k12.us. This morning’s file can’t resolve it, because the duplicate already exists on your site.'],
+        ['Why Vector has to do this', 'Two accounts with the same email can’t be told apart at sign-in, and merging them has to be done by Vector — it can’t be undone from here.'],
+        ['What to do', 'Contact Vector to merge these two accounts. Your sync resumes automatically once they’re merged.']
+      ],
+      rows: ['cdelgado · cdelgado@ridgewood.k12.us — 11 completions', 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions'],
+      buttons: [
+        { cls: 'btn--primary', act: 'noop', label: 'Contact Vector support' },
+        { cls: 'btn--ghost',   act: 'noop', label: 'Download the file' }
+      ],
+      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
+    }
+  };
+
   /* ------------------------------------------------------------------ state */
   var state = {
-    variants: { uploadVariant: 'column-mapping', automationStage: 'active-failed', startTab: 'import' },
+    variants: { uploadVariant: 'column-mapping', automationStage: 'active-failed', syncScenario: 'confirm', startTab: 'import' },
     tab: null,
     step: 'upload',
     fileId: null,
@@ -323,6 +383,7 @@
   /* ---------------------------------------------------------------- helpers */
   function variant() { return state.variants.uploadVariant; }
   function stage() { return state.variants.automationStage; }
+  function syncScenario() { return state.variants.syncScenario; }
   function isMap() { return variant() === 'column-mapping'; }
   function curTab() { return state.tab || state.variants.startTab; }
 
@@ -515,6 +576,7 @@
       + '<div class="variants-body">'
       + segRow('First screen', 'uploadVariant', [{ v: 'column-mapping', l: 'Map columns' }, { v: 'template', l: 'Template' }])
       + segRow('Automated sync', 'automationStage', [{ v: 'active-failed', l: 'Failed' }, { v: 'qualifying', l: 'Qualifying' }, { v: 'active-healthy', l: 'Healthy' }])
+      + segRow('Sync issue (when Failed)', 'syncScenario', [{ v: 'confirm', l: 'Confirm' }, { v: 'blocked', l: 'Blocked' }, { v: 'escalate', l: 'Vector' }])
       + segRow('Start on tab', 'startTab', [{ v: 'import', l: 'Import' }, { v: 'sync', l: 'Sync' }])
       + '<div class="variants-hint">These are the design’s prototype knobs. Pick a sample file inside the flow to explore the alert scenarios.</div>'
       + '</div></div>';
@@ -837,6 +899,35 @@
     return '<section data-screen-label="New import">' + stepper + body + '</section>';
   }
 
+  /* Renders the current automated-sync failure as a tier-styled card (Confirm /
+     Blocked / Contact Vector), driven by SYNC_FAILS[syncScenario()]. */
+  function syncFailureCard() {
+    var sc = SYNC_FAILS[syncScenario()] || SYNC_FAILS.confirm;
+    var t = TIER[sc.tier];
+    var body = sc.lines.map(function (l) {
+      return '<div class="alert-line"><b>' + esc(l[0]) + ' — </b>' + esc(l[1]) + '</div>';
+    }).join('');
+    var box = sc.rows
+      ? '<div style="background:#F8FAFC;border:1px solid #EDF1F6;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;">'
+        + sc.rows.map(function (r) { return '<div class="mono" style="font-size:12.5px;color:#3D4F63;">' + esc(r) + '</div>'; }).join('')
+        + '</div>'
+      : '';
+    var diff = sc.diff ? beforeAfter(sc.diff, sc.diffLabel, sc.more) : '';
+    var btns = sc.buttons.map(function (b) {
+      return '<button class="btn sm ' + b.cls + '" data-act="' + b.act + '">' + esc(b.label) + '</button>';
+    }).join('');
+    return '<div class="card" style="border-color:' + t.border + ';overflow:hidden;">'
+      + '<div style="background:' + t.headBg + ';padding:14px 18px;display:flex;gap:12px;align-items:flex-start;">'
+      + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
+      + '<div><div style="font-size:14.5px;font-weight:600;color:' + t.titleColor + ';">' + esc(sc.title) + '</div>'
+      + '<div style="font-size:12.5px;color:' + t.titleColor + ';opacity:.75;margin-top:3px;">' + esc(sc.meta) + '</div></div></div>'
+      + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">'
+      + body + box + diff
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns + '</div>'
+      + (sc.foot ? '<div style="font-size:12.5px;color:#8CA0B4;">' + esc(sc.foot) + '</div>' : '')
+      + '</div></div>';
+  }
+
   function syncTab() {
     var st = stage();
     var failed = st === 'active-failed';
@@ -879,26 +970,7 @@
     }
 
     if (showFailure) {
-      var failDiff = [
-        { row: '12', field: 'First name', current: 'Susan (Hartley)', incoming: 'Sue', result: 'Sue Hartley' },
-        { row: '47', field: 'Last name', current: '(Amara) Okafor', incoming: 'Okafor-Reed', result: 'Amara Okafor-Reed' },
-        { row: '95', field: 'First name', current: 'Robert (Ellis)', incoming: 'Bobby', result: 'Bobby Ellis' }
-      ];
-      left += '<div class="card" style="border-color:#F1C0BB;overflow:hidden;">'
-        + '<div style="background:#FEF3F2;padding:14px 18px;display:flex;gap:12px;align-items:flex-start;">'
-        + '<div class="chip" style="background:#D92D20;margin-top:1px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>Needs review</div>'
-        + '<div><div style="font-size:14.5px;font-weight:600;color:#912018;">Your sync stopped this morning — 8 changes need your confirmation</div>'
-        + '<div style="font-size:12.5px;color:#B42318;margin-top:2px;">ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.</div></div></div>'
-        + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">'
-        + '<div class="alert-line"><b>What happened — </b>8 rows in this file have a different first or last name than the existing account with the same username. This is usually a legal name change or a nickname — Susan becoming Sue — but it can also mean the row belongs to a different person.</div>'
-        + '<div class="alert-line"><b>If you apply the changes — </b>the 8 names are updated and all training history stays with each account. The rest of the file (2 new users, 41 updates) imports as normal.</div>'
-        + beforeAfter(failDiff, 'After sync', 'Show all 8 rows')
-        + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
-        + '<button class="btn sm btn--primary" data-act="bless">These are correct — apply the changes</button>'
-        + '<button class="btn sm btn--ghost">Download the 8 rows</button>'
-        + '<button class="btn sm btn--ghost">Something looks wrong — contact support</button></div>'
-        + '<div style="font-size:12.5px;color:#8CA0B4;">Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.</div>'
-        + '</div></div>';
+      left += syncFailureCard();
     }
 
     if (showResolved) {
@@ -1033,7 +1105,7 @@
         var patch = { variants: vs };
         if (key === 'startTab') patch.tab = val;
         if (key === 'uploadVariant') { patch.fileId = null; patch.step = 'upload'; patch.acks = {}; }
-        if (key === 'automationStage') patch.blessed = false;
+        if (key === 'automationStage' || key === 'syncScenario') patch.blessed = false;
         setState(patch);
         break;
       }
@@ -1057,16 +1129,35 @@
   });
 
   /* --------------------------------------------- Design Toolbox flow-map host */
+  function setSyncState(stg, scn) {
+    var v = {}; for (var k in state.variants) v[k] = state.variants[k];
+    v.automationStage = stg;
+    if (scn) v.syncScenario = scn;
+    setState({ tab: 'sync', blessed: false, variants: v });
+  }
+
+  function reviewFor(fileId, purge) {
+    setState({ tab: 'import', fileId: fileId, mapping: defaultMapping(fileId),
+      purge: purge || 'update', acks: {}, step: 'review', validating: false });
+  }
+
   function applyFlowState(id) {
     switch (id) {
       case 'upload': setState({ tab: 'import', step: 'upload', fileId: null, validating: false }); break;
       case 'map': setState({ tab: 'import', fileId: 'saml', mapping: defaultMapping('saml'), purge: 'update', acks: {}, step: 'map', validating: false }); break;
       case 'settings': setState({ tab: 'import', fileId: 'confirm', mapping: defaultMapping('confirm'), purge: 'update', acks: {}, step: 'settings', validating: false }); break;
-      case 'review-confirm': setState({ tab: 'import', fileId: 'confirm', mapping: defaultMapping('confirm'), purge: 'update', acks: {}, step: 'review', validating: false }); break;
-      case 'review-blocked': setState({ tab: 'import', fileId: 'blast', mapping: defaultMapping('blast'), purge: 'update', acks: {}, step: 'review', validating: false }); break;
+      /* Manual import — one node per severity path */
+      case 'review-info':     reviewFor('clean', 'update'); break;   // INFO only — runs freely
+      case 'review-confirm':  reviewFor('confirm', 'update'); break; // CONFIRM (+ info) — acknowledge & run
+      case 'review-blocked':  reviewFor('blast', 'update'); break;   // BLOCKED — blast radius
+      case 'review-saml':     reviewFor('saml', 'update'); break;    // BLOCKED — SAML mismatch
+      case 'review-escalate': reviewFor('dupes', 'update'); break;   // BLOCKED ×2 + CONTACT VECTOR
       case 'done': setState({ tab: 'import', fileId: 'confirm', doneCounts: summaryFor('confirm', 'update'), step: 'done', validating: false }); break;
-      case 'sync-failed': { var v1 = {}; for (var a in state.variants) v1[a] = state.variants[a]; v1.automationStage = 'active-failed'; setState({ tab: 'sync', blessed: false, variants: v1 }); break; }
-      case 'sync-healthy': { var v2 = {}; for (var b in state.variants) v2[b] = state.variants[b]; v2.automationStage = 'active-healthy'; setState({ tab: 'sync', variants: v2 }); break; }
+      /* Automated sync — one node per severity path */
+      case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
+      case 'sync-failed':   setSyncState('active-failed', 'confirm'); break;  // CONFIRM — approve changes
+      case 'sync-blocked':  setSyncState('active-failed', 'blocked'); break;  // BLOCKED — fix at source
+      case 'sync-escalate': setSyncState('active-failed', 'escalate'); break; // CONTACT VECTOR
       default: break;
     }
     scrollTop();
@@ -1083,35 +1174,53 @@
     flowMap: {
       title: 'Self-Serve Bulk User Import — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1280, h: 520 },
+      canvas: { w: 1680, h: 1300 },
       flows: [
-        { id: 'import', name: 'Manual import', pill: 'A', color: '#c9d9f0',
-          lane: { x: 20, y: 20, w: 1240, h: 300 }, labelXY: { x: 40, y: 40 } },
-        { id: 'sync', name: 'Automated sync', pill: 'B', color: '#c9b8f0',
-          lane: { x: 20, y: 340, w: 1240, h: 160 }, labelXY: { x: 40, y: 360 } }
+        { id: 'import', name: 'Manual import — severity paths', pill: 'A', color: '#c9d9f0',
+          lane: { x: 20, y: 20, w: 1640, h: 790 }, labelXY: { x: 40, y: 46 } },
+        { id: 'sync', name: 'Automated sync — severity paths', pill: 'B', color: '#c9b8f0',
+          lane: { x: 20, y: 850, w: 1640, h: 420 }, labelXY: { x: 40, y: 876 } }
       ],
       nodes: [
-        { id: 'upload', flow: 'import', entry: true, x: 60, y: 150, step: 'Entry', name: 'Upload file', state: 'upload',
-          desc: 'Drag a file or pick a sample. Nothing imports until reviewed. Template variant instead asks you to download the SafeLMS template first.' },
-        { id: 'map', flow: 'import', x: 270, y: 90, step: 'Step 2', name: 'Map columns', state: 'map',
-          desc: 'Match your file columns to SafeLMS fields (skipped in the template variant). Shows the SAML username mismatch you can fix here.' },
-        { id: 'settings', flow: 'import', x: 270, y: 210, step: 'Step 3', name: 'Import settings', state: 'settings',
-          desc: 'Choose add-and-update-only vs. full roster sync (which deactivates anyone missing from the file).' },
-        { id: 'review-confirm', flow: 'import', x: 520, y: 90, step: 'Step 4', name: 'Review — confirmations', state: 'review-confirm',
-          desc: 'Change summary + row-level before/after. Confirm-tier alerts (name changes, deactivations) must be acknowledged before Run import.' },
-        { id: 'review-blocked', flow: 'import', x: 520, y: 210, step: 'Step 4', name: 'Review — blocked', state: 'review-blocked',
-          desc: 'Blast-radius guardrail: an upload rewriting 98% of usernames is blocked outright, regardless of individual errors.' },
-        { id: 'done', flow: 'import', x: 770, y: 150, step: 'Done', name: 'Import complete', state: 'done',
-          desc: 'Success summary + emailed change log. Irreversible once run — the whole design leans on prevention, not undo.' },
-        { id: 'sync-failed', flow: 'sync', entry: true, x: 60, y: 420, step: 'Failure recovery', name: 'Sync — needs review', state: 'sync-failed',
-          desc: 'Auto-upload stopped and emailed the configured recipients. Same row-level view; customer fixes and applies without a case.' },
-        { id: 'sync-healthy', flow: 'sync', x: 320, y: 420, step: 'Healthy', name: 'Sync — up to date', state: 'sync-healthy',
-          desc: 'Last sync succeeded, nothing waiting, next check within 30 min. Recipient list + notification toggles on the right.' }
+        /* ── Manual import: wizard on the left, then one branch per severity ──
+           Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
+        { id: 'upload', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Upload file', state: 'upload',
+          desc: 'Drag a file or pick a sample. Nothing imports until reviewed. The Template variant instead asks you to download the SafeLMS template first.' },
+        { id: 'map', flow: 'import', x: 340, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
+          desc: 'Match your file columns to SafeLMS fields (skipped in the Template variant).' },
+        { id: 'settings', flow: 'import', x: 340, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
+          desc: 'Add-and-update vs. full roster sync. The review outcome below depends on the file + these settings.' },
+
+        { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
+          desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
+        { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
+          desc: 'CONFIRM tier (name changes, deactivations): each must be acknowledged before Run import unlocks. INFO items ride along.' },
+        { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Import complete', state: 'done',
+          desc: 'Reached from the Info and Confirm paths. Irreversible once run — the design leans on prevention, not undo.' },
+
+        { id: 'review-blocked', flow: 'import', x: 700, y: 420, step: 'Review · Blocked', name: 'Blocked — blast radius', state: 'review-blocked',
+          desc: 'BLOCKED guardrail: an upload rewriting 98% of usernames is stopped outright. Only path forward is a fresh upload.' },
+        { id: 'review-saml', flow: 'import', x: 1030, y: 420, step: 'Review · Blocked', name: 'Blocked — SAML mismatch', state: 'review-saml',
+          desc: 'BLOCKED: the Username column doesn’t match the site’s SAML sign-on. (Feasibility is a PENDING PRD decision — may become CX-only.)' },
+        { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Contact Vector', name: 'Contact Vector — email collision', state: 'review-escalate',
+          desc: 'Two accounts already share one email on the site (PRD D-4). A customer file can’t fix it — hard-stops with a Contact Vector action.' },
+
+        /* ── Automated sync: the same three tiers in a row, plus healthy ── */
+        { id: 'sync-healthy', flow: 'sync', entry: true, x: 40, y: 900, step: 'Info', name: 'Info — up to date', state: 'sync-healthy',
+          desc: 'The clean path: the last sync applied its changes, nothing is waiting, next check within 30 min.' },
+        { id: 'sync-failed', flow: 'sync', x: 380, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',
+          desc: 'Sync stopped on CONFIRM-tier changes (name changes). Same row-level view; the customer approves and applies in place — no case.' },
+        { id: 'sync-blocked', flow: 'sync', x: 720, y: 900, step: 'Blocked', name: 'Blocked — fix at source', state: 'sync-blocked',
+          desc: 'Sync stopped on a BLOCKED change (username format drift would rewrite most accounts). Can’t self-apply — fix the export or use the manual uploader.' },
+        { id: 'sync-escalate', flow: 'sync', x: 1060, y: 900, step: 'Contact Vector', name: 'Contact Vector — email collision', state: 'sync-escalate',
+          desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
         ['upload', 'map'], ['upload', 'settings'], ['map', 'settings'],
-        ['settings', 'review-confirm'], ['settings', 'review-blocked'],
-        ['review-confirm', 'done'], ['sync-failed', 'sync-healthy']
+        ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
+        ['settings', 'review-saml'], ['settings', 'review-escalate'],
+        ['review-info', 'done'], ['review-confirm', 'done'],
+        ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
       ]
     }
   };
