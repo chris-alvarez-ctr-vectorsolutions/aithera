@@ -1570,7 +1570,7 @@
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=12"></script>
-    <script src="js/sim-player.js?v=12"></script>
+    <script src="js/sim-player.js?v=13"></script>
     <script src="js/sim-snapshot.js?v=1"></script>
     <!-- [Option B] the RENDER-SURFACE registry: the uniform interface the player
          calls polymorphically for custom-interaction surfaces (scene-sweep,
@@ -1610,7 +1610,7 @@
          carries the flag. Loads after mix-arc.js (its prompt builder) and before
          the surfaces. -->
     <script src="js/scenario-v4.js?v=5"></script>
-    <script src="js/scenario-v4-runtime.js?v=5"></script>
+    <script src="js/scenario-v4-runtime.js?v=6"></script>
     <script src="js/scenario-v4-scopes.js?v=2"></script>
     <script src="js/scenario-v4-templates.js?v=4"></script>
     <script src="js/scenario-types/v4-universal.js?v=24"></script>
@@ -1626,7 +1626,7 @@
          part dev balked at). It SELF-GATES on ?observe=text, so it registers and
          overrides the canvas ONLY for the text version (V2); V1 stays byte-
          identical. Loads AFTER sim-perception.js so "last registration wins". -->
-    <script src="js/sim-observe-text.js?v=14"></script>
+    <script src="js/sim-observe-text.js?v=15"></script>
     <!-- [Option B] surface #2: teach-back (retrieval). Registers the 'teach' SURFACE
          (js/sim-surfaces.js). Owns its whole loop — framing calibration chat, the
          10-tile board + live grader, the N/10 close — via ownsInput/onInput; the
@@ -2359,10 +2359,23 @@
       if (m.variant === 'message') return messageCardNode(m);
       const wrap = el('div', 'clip-card' + ec(m));
       wrap.style.cssText = 'margin:12px 0;border:1px solid rgba(224,165,61,.42);border-radius:12px;background:rgba(224,165,61,.08);padding:13px 15px';
-      const label = `<div style="font:600 11px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#E0A53D;margin-bottom:9px;display:flex;align-items:center;gap:7px"><i class="fa-solid fa-film"></i>${esc(m.label || 'On screen')}</div>`;
+      /* IMAGE vs VIDEO. This card used to render a <video> for every src it was
+         handed, so an authored photo came out as a black box with playback
+         controls — the exhibit looked broken and the description never showed.
+         An authored mediaType decides it; when the producer sets none, sniff the
+         extension (or a data: URL's own mime) so the older segment producers get
+         the same protection. Anything unrecognised stays video, which is what
+         every pre-existing clip actually is. */
+      const isImage = m.mediaType === 'image'
+        || (!m.mediaType && /^data:image\//i.test(m.src || ''))
+        || (!m.mediaType && /\.(jpe?g|png|gif|webp|avif|svg)(\?|#|$)/i.test(m.src || ''));
+      const icon = isImage ? 'fa-image' : 'fa-film';
+      const label = `<div style="font:600 11px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#E0A53D;margin-bottom:9px;display:flex;align-items:center;gap:7px"><i class="fa-solid ${icon}"></i>${esc(m.label || 'On screen')}</div>`;
       if (m.src) {
-        wrap.innerHTML = label +
-          `<video style="width:100%;border-radius:9px;display:block;background:#000" controls playsinline preload="metadata" src="${esc(m.src)}" aria-label="${esc(m.label || 'Clip to observe')}"></video>` +
+        const media = isImage
+          ? `<img style="width:100%;border-radius:9px;display:block;background:#000" src="${esc(m.src)}" alt="${esc(m.text || m.label || 'The exhibit to observe')}" />`
+          : `<video style="width:100%;border-radius:9px;display:block;background:#000" controls playsinline preload="metadata" src="${esc(m.src)}" aria-label="${esc(m.label || 'Clip to observe')}"></video>`;
+        wrap.innerHTML = label + media +
           (m.text ? `<div style="color:rgba(255,255,255,.62);font-size:13px;margin-top:9px;line-height:1.5">${esc(m.text)}</div>` : '');
       } else {
         wrap.innerHTML = label +

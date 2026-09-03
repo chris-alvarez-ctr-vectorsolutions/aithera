@@ -199,6 +199,10 @@
         .filter((sc) => sc && (String(sc.src || '').trim() || String(sc.caption || '').trim()))
         .forEach((sc) => beats.push({ speaker: 'coach', kind: 'clip',
           variant: sc.kind === 'message' ? 'message' : 'clip',
+          // 'image' | 'video' when the source authored it (v4 exhibits do).
+          // Blank leaves the renderer to sniff the extension. Note this is NOT
+          // sc.kind — that already means clip-vs-message on this same object.
+          mediaType: String(sc.mediaType || '').trim(),
           text: fillT(sc.caption || ''), src: String(sc.src || '').trim(),
           label: fillT(sc.label || ''), from: fillT(sc.from || '') }));
       if (String(e.prompt || '').trim()) beats.push({ speaker: 'coach', kind: 'coaching', text: fillT(e.prompt) });
