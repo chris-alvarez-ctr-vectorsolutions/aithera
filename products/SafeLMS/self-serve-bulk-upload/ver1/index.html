@@ -178,7 +178,11 @@
 
   /* ---- Review alerts ---- */
   .chip { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #fff;
-    border-radius: 5px; padding: 3px 8px; white-space: nowrap; }
+    border-radius: 5px; padding: 3px 8px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px; }
+  /* Severity icon travels inside the chip so the tier reads by SHAPE, not color
+     alone (WCAG 1.4.1 — don't use color as the only visual means). */
+  .chip i { font-size: 10.5px; }
   .alert { border: 1px solid; border-radius: 10px; overflow: hidden; background: #fff; }
   .alert-head { padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start; }
   .alert-title { font-size: 14.5px; font-weight: 600; }
@@ -282,10 +286,14 @@
 
   var NOT_IMPORTED = '— Not imported —';
 
+  /* Each tier carries a distinct ICON as well as a colored chip + text label, so
+     severity is conveyed by shape — not color alone (WCAG 1.4.1). Icons are
+     maximally distinguishable silhouettes: slashed-circle / triangle / circle. */
   var TIER = {
-    blocked: { chip: 'Blocked', chipBg: '#D92D20', border: '#F1C0BB', headBg: '#FEF3F2', titleColor: '#912018', proceedLabel: 'Why it’s blocked' },
-    confirm: { chip: 'Confirm', chipBg: '#DC8A12', border: '#F2D69B', headBg: '#FFFAEB', titleColor: '#8A5A0B', proceedLabel: 'If you proceed' },
-    info:    { chip: 'Info',    chipBg: '#5B8DC9', border: '#E1E7EE', headBg: '#F5F9FE', titleColor: '#1B2B3E', proceedLabel: 'What it means' }
+    blocked:  { chip: 'Blocked',        icon: 'fa-ban',                  chipBg: '#D92D20', border: '#F1C0BB', headBg: '#FEF3F2', titleColor: '#912018', proceedLabel: 'Why it’s blocked' },
+    escalate: { chip: 'Contact Vector', icon: 'fa-headset',              chipBg: '#5F5AB8', border: '#CBC9EC', headBg: '#F4F3FB', titleColor: '#3E3A8F', proceedLabel: 'Why Vector has to do this' },
+    confirm:  { chip: 'Confirm',        icon: 'fa-triangle-exclamation', chipBg: '#DC8A12', border: '#F2D69B', headBg: '#FFFAEB', titleColor: '#8A5A0B', proceedLabel: 'If you proceed' },
+    info:     { chip: 'Info',           icon: 'fa-circle-info',          chipBg: '#5B8DC9', border: '#E1E7EE', headBg: '#F5F9FE', titleColor: '#1B2B3E', proceedLabel: 'What it means' }
   };
 
   /* ------------------------------------------------------------------ state */
@@ -379,18 +387,17 @@
         title: 'This upload would change usernames on 166 of 170 existing accounts (98%)',
         what: 'Nearly every existing account would get a new username. The username is what holds a person’s entire training record together — it is the one field an upload can’t safely rewrite.',
         ifProceed: 'Sign-in would break for the whole district at once, and duplicate accounts would appear as people log back in. There is no undo.',
-        action: 'This usually means the file was exported with a different username format than your site uses. Check the column mapped to Username, or contact support if a full rebuild is really intended.',
-        replaceBtn: true, fixMapBtn: im });
+        action: 'This usually means the file was exported with a different username format than your site uses. Fix the Username column in your file and upload it again, or contact support if a full rebuild is really intended.',
+        replaceBtn: true });
     }
     if (samlMismatch()) {
       A.push({ id: 'saml', tier: 'blocked',
         title: 'Usernames in this file don’t match your sign-on integration',
         what: 'Ridgewood signs in with SAML single sign-on, which sends each person’s email address as their username. The column mapped to Username contains first.last values instead.',
         ifProceed: 'Usernames would be rewritten across the site. The next time each person signs in, they’d either be locked out or a duplicate account would be created — and that cannot be undone.',
-        action: im ? 'Map your EMAIL_ADDR column to Username below, or fix the file so usernames are email addresses.'
-                   : 'Update your file so the Username column contains each person’s email address, then upload it again.',
+        action: 'Update your file so the Username column contains each person’s email address, then upload it again.',
         compare: { idp: 'slinden@ridgewood.k12.us', file: 'sarah.linden' },
-        fixMapBtn: im, replaceBtn: !im });
+        replaceBtn: true });
     }
     if (fileId === 'saml' && !samlMismatch()) {
       A.push({ id: 'saml-ok', tier: 'info',
@@ -417,6 +424,15 @@
           { t: 'Row 58 — Marcus Webb arrives as marcus.webb · exists as mwebb' },
           { t: 'Row 103 — Priya Nair arrives as priya.nair2 · exists as pnair' }
         ], replaceBtn: true });
+      A.push({ id: 'existing-collision', tier: 'escalate',
+        title: '2 accounts already on your site share one email address',
+        what: 'cdelgado and c.delgado are two separate accounts that already use cdelgado@ridgewood.k12.us. This happened before this upload — your file can’t fix it, because the duplicate already exists on the site.',
+        ifProceed: 'While both accounts exist this person can’t sign in reliably, and importing over either one keeps the problem. Merging the two accounts has to be done by Vector and can’t be undone from here.',
+        action: 'Contact Vector to merge these two accounts. Once they’re merged, upload your file again.',
+        lines: [
+          { t: 'cdelgado · cdelgado@ridgewood.k12.us — 11 completions' },
+          { t: 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions' }
+        ], supportBtn: true });
     }
     if (fileId === 'confirm') {
       A.push({ id: 'name', tier: 'confirm',
@@ -731,6 +747,7 @@
         + '<span style="font-size:13px;line-height:1.5;color:#6B4A0A;">' + esc(a.ackLabel) + '</span></label>';
     }
     var btns = [];
+    if (a.supportBtn)  btns.push('<button class="btn sm btn--primary" data-act="noop">Contact Vector support</button>');
     if (a.fixMapBtn)   btns.push('<button class="btn sm btn--danger" data-act="fixMapping">Fix column mapping</button>');
     if (a.replaceBtn)  btns.push('<button class="btn sm btn--ghost" data-act="replaceFile">Replace file</button>');
     if (a.settingsBtn) btns.push('<button class="btn sm btn--danger" data-act="changeSettings">Change import settings</button>');
@@ -738,7 +755,7 @@
 
     return '<div class="alert" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
-      + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;">' + t.chip + '</div>'
+      + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div style="flex:1;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
       + (a.guardrail ? '<div style="font-size:11.5px;color:#B42318;font-weight:600;margin-top:2px;">Site-wide guardrail — blocked regardless of individual errors</div>' : '')
       + '</div></div><div class="alert-body">' + body + '</div></div>';
@@ -758,7 +775,8 @@
       ? raw.map(alertHTML).join('')
       : '<div style="background:#ECFDF3;border:1px solid #A6E5C3;border-radius:10px;padding:16px 18px;font-size:13.5px;color:#067647;"><span style="font-weight:600;">No issues found.</span> Every row checks out against your site and your sign-on settings.</div>';
 
-    var blocked = raw.filter(function (a) { return a.tier === 'blocked'; });
+    // Blocked and escalate ('contact Vector') both hard-stop the import.
+    var blocked = raw.filter(function (a) { return a.tier === 'blocked' || a.tier === 'escalate'; });
     var confirms = raw.filter(function (a) { return a.tier === 'confirm'; });
     var acked = confirms.filter(function (a) { return state.acks[ackKey(a.id)]; });
     var canSubmit = !state.validating && blocked.length === 0 && acked.length === confirms.length;
@@ -774,7 +792,7 @@
       + '</div><div class="divider" style="margin:16px 0;"></div>';
     if (blocked.length) {
       side += '<div style="background:#FEF3F2;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;"><span style="font-weight:700;">'
-        + (blocked.length === 1 ? '1 blocked issue' : blocked.length + ' blocked issues') + '</span> must be resolved before this import can run.</div>';
+        + (blocked.length === 1 ? '1 issue' : blocked.length + ' issues') + '</span> must be resolved before this import can run.</div>';
     }
     if (confirms.length && blocked.length === 0) {
       side += '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">' + acked.length + ' of ' + confirms.length + ' confirmation' + (confirms.length === 1 ? '' : 's') + ' acknowledged</div>';
@@ -784,7 +802,7 @@
       + '<div class="divider" style="margin:14px 0;"></div>'
       + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">'
       + '<a href="#" data-act="linkUpload">Replace file</a>'
-      + (isMap() ? '<a href="#" data-act="linkMap">Edit column mapping</a>' : '')
+      + (isMap() && !blocked.length ? '<a href="#" data-act="linkMap">Edit column mapping</a>' : '')
       + '<a href="#" data-act="linkSettings">Change import settings</a></div></div>';
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
@@ -868,7 +886,7 @@
       ];
       left += '<div class="card" style="border-color:#F1C0BB;overflow:hidden;">'
         + '<div style="background:#FEF3F2;padding:14px 18px;display:flex;gap:12px;align-items:flex-start;">'
-        + '<div class="chip" style="background:#D92D20;margin-top:1px;">Needs review</div>'
+        + '<div class="chip" style="background:#D92D20;margin-top:1px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>Needs review</div>'
         + '<div><div style="font-size:14.5px;font-weight:600;color:#912018;">Your sync stopped this morning — 8 changes need your confirmation</div>'
         + '<div style="font-size:12.5px;color:#B42318;margin-top:2px;">ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.</div></div></div>'
         + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">'
