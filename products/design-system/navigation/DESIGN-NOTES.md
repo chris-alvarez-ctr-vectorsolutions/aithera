@@ -18,6 +18,16 @@
   The rail still persists when the nav closes, the logo stays sticky at the nav's bottom,
   and the hover-overlay / pin / close frames still work (the overlay is full height too,
   with the bar inset to its edge so the identity is never covered).
+- **V3: the collapse control's placement is a toggle.** In an L-shaped shell the two
+  placements are not interchangeable decorations, they decide the geometry, so the switch
+  moves both together:
+  - **Collapse: nav** (default) - the control is part of the SIDE PANEL, top-right, and
+    the panel runs full height beside the rail with the top bar inset past both columns.
+  - **Collapse: top** - the control is a FIXED top-bar item. For it to sit over the nav's
+    edge the bar has to span above the nav, so the side panel starts below the bar: the
+    conventional shell every other version uses.
+  Switch it with the pill button (its label names the current placement) or deep-link
+  `?toggle=top` / `?toggle=nav`.
 - **V2b's location selector moved into the side nav**, at the top above the Learning/Admin
   switch, so V2b holds both context controls in the nav and leaves the top bar as search
   plus universal actions. They stay distinct: a full-width bordered control over a segmented
@@ -158,7 +168,7 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
 | V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
 | V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav; the LOCATION SELECTOR also sits in the nav above it (top bar = search + universal actions only); Training Plan filters are DROPDOWN chips above the table |
-| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both; search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
+| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both (toggleable: `?toggle=top` puts the collapse control in the top bar instead, which returns the side panel to starting below the bar); search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
 | V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
 | V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
 | V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
@@ -301,7 +311,7 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 |---|---|
 | V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
 | V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
-| V3 | Same as V1 minus `?search` (search is the side-nav filter), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames); the rail persists under `?nav=closed` |
+| V3 | Same as V1 minus `?search` (search is the side-nav filter), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
 | V4 | V1's set plus `?state=collapsed\|peek\|pinned` (interaction frames) |
 
 ## Review feedback incorporated

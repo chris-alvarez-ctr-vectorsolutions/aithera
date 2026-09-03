@@ -21,6 +21,10 @@
     top bar is inset past both, spanning only the content area. The nav's
     open/close control keeps the shared top-right spot, which now sits level
     with the top bar.
+  · That control's PLACEMENT is a toggle (pill button, or ?toggle=top|nav),
+    because in an L-shaped shell it decides the geometry: in the side panel
+    means the panel is full height; fixed in the top bar means the bar spans
+    above the nav and the panel starts below it.
   · The customer logo docks to the BOTTOM of the nav in a sticky footer zone.
 
   Deep links: ?app=comply|dashboard · ?mode= · ?launcher · ?location ·
@@ -431,6 +435,26 @@ body.nav-hidden .sn-close{right:15px}
 /* the product name sits behind a hairline so the shared half reads as the mark */
 .vlock-txt b{padding-left:5px;border-left:1px solid var(--line-strong)}
 .brand[data-app="dashboard"] .vlock-mark{background:var(--accent)}
+
+/* ---- V3 only: WHERE the collapse control lives, as a real toggle ----------
+   The two placements are not interchangeable decorations; in an L-shaped shell
+   they force different geometry, so the switch moves both together.
+
+   B · default - the control is part of the SIDE PANEL, and the panel runs full
+       height beside the rail with the top bar inset past both.
+   A · body.tgl-top - the control is a FIXED top-bar item, which means the bar
+       has to span above the nav for it to sit over the nav's edge, so the side
+       panel starts below the bar (the conventional shell every other version
+       uses). Deep link: ?toggle=top / ?toggle=nav ---- */
+#navToggle{display:none}
+body.tgl-top #navToggle{display:grid}
+body.tgl-top .sn-close{display:none}
+body.tgl-top .rcol>.topbar{left:0}
+body.tgl-top .rcol>.shell{top:var(--topbar-h)}
+body.tgl-top .mode-pane>.content{padding-top:0}
+body.tgl-top .sidenav{padding-top:12px}
+body.tgl-top.nav-hidden .sidenav{padding-top:8px}
+body.tgl-top.nav-peek .sidenav{top:var(--topbar-h)}
 </style>
 </head>
 <body data-app="learn" data-mode="trainplan">
@@ -532,6 +556,11 @@ body.nav-hidden .sn-close{right:15px}
 
 <!-- ============ TOP BAR: inset to the right of the full-height rail ============ -->
 <header class="topbar" role="banner">
+  <!-- Placement A: the collapse control as a FIXED top-bar item. Shown only
+       under body.tgl-top, where the bar spans above the side nav. -->
+  <button class="icon-btn" id="navToggle" aria-label="Hide navigation" aria-pressed="true" aria-controls="main">
+    <svg class="ic"><use href="#i-panel"/></svg>
+  </button>
   <a class="brand" data-app="learn" href="#" aria-label="Vector LMS home">
     <span class="vlock-mark"><svg class="ic"><use href="#i-vector"/></svg></span>
     <span class="vlock-txt"><i>Vector</i><b>LMS</b></span>
@@ -1353,6 +1382,13 @@ uMenu.querySelectorAll('.u-opt').forEach(function(o){
     });
   });
 
+  // which placement the collapse control uses (V3's own comparison)
+  window.setTgl=function(top){
+    document.body.classList.toggle('tgl-top',top);
+    var b=document.getElementById('tglBtn');
+    if(b)b.textContent=top?'Collapse: top':'Collapse: nav';
+  };
+
   var params=new URLSearchParams(location.search);
   var m=params.get('mode'); if(m&&modes.indexOf(m)>-1)setMode(m);
   if(params.get('app')==='comply')setApp('comply');
@@ -1360,6 +1396,7 @@ uMenu.querySelectorAll('.u-opt').forEach(function(o){
   if(params.has('location'))setLoc(true);
   if(params.has('launcher'))setLauncher(true);
   if(params.get('nav')==='closed')setNav(false);
+  if(params.get('toggle')==='top')setTgl(true);
   if(new URLSearchParams(location.search).get('logo')==='off')document.body.classList.add('logo-off');
   if(new URLSearchParams(location.search).get('loc')==='off')document.body.classList.add('loc-off');
   if(new URLSearchParams(location.search).get('tabs')==='off')document.body.classList.add('tabs-off');
@@ -1430,7 +1467,17 @@ uMenu.querySelectorAll('.u-opt').forEach(function(o){
   <button class="vs-logo" aria-pressed="true" title="Toggle the customer logo in the side nav (platform customization)" onclick="var off=document.body.classList.toggle('logo-off');this.setAttribute('aria-pressed',off?'false':'true')">Logo</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the location picker in the top bar" onclick="var off=document.body.classList.toggle('loc-off');this.setAttribute('aria-pressed',off?'false':'true')">Loc</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the product mode tabs in the top bar" onclick="var off=document.body.classList.toggle('tabs-off');this.setAttribute('aria-pressed',off?'false':'true')">Tabs</button>
+  <span class="vs-div" aria-hidden="true"></span>
+  <button class="vs-logo vs-mode" id="tglBtn" title="Where the collapse control lives: in the side panel (full-height nav) or fixed in the top bar" onclick="setTgl(!document.body.classList.contains('tgl-top'))">Collapse: nav</button>
 </nav>
+<script>
+// The pill is markup-after-script, so ?toggle=top has already set the class by
+// the time this button exists: read the state rather than waiting to be told.
+(function () {
+  var b = document.getElementById('tglBtn');
+  if (b) b.textContent = document.body.classList.contains('tgl-top') ? 'Collapse: top' : 'Collapse: nav';
+})();
+</script>
 
 <!-- Design Toolbox: review comments + flow map (bottom-center dock).
      Pins are keyed to the GitHub Pages URL, so comment on the Pages link. -->
