@@ -47,6 +47,157 @@
   const TPL = () => window.ScenarioV4Templates || null;
   const MIX = () => window.AitheraMixArc || null;
 
+  /* =======================================================================
+     IDS ARE GENERATED, NEVER AUTHORED
+     -----------------------------------------------------------------------
+     Five fields in this format are machine identity: the implementation id, a
+     character id, a step id, the opening's id and a rubric item's id. Not one
+     of them is learner-facing and not one of them is a decision — but every one
+     used to be a text box an LXD had to fill, which is five chances to typo a
+     key that some other field silently references, in exchange for nothing.
+
+     So the editor owns them. An id is derived from the name beside it, kept
+     unique inside its own namespace, and — the part that makes it safe —
+     RENAMES CASCADE: rename a character and every step that speaks to them
+     follows; rename a step and every carryover reading from it follows. That
+     cascade is why the fields could go away rather than merely being locked.
+
+     What this must never do is touch an id that ARRIVED with a document. A
+     production scenario's ids are its wire identity and its carryover graph, so
+     re-deriving them from labels would rewrite a file we were only asked to
+     edit, and the round-trip check would go red on eleven documents at once.
+     Provenance is therefore recorded per record in `__auto_id`, and only a
+     record the editor generated is ever re-derived. prune() strips the marker
+     before anything validates, exports or plays; normalize() is careful to keep
+     it while stripping every other `__` key off a phase.
+     ==================================================================== */
+  const AUTO = '__auto_id';
+
+  /* Not slugify(): that one answers "what shall we call this FILE" and falls
+     back to the word "scenario", which is exactly wrong here — an empty name
+     must produce an EMPTY id, so a half-added row stays droppable instead of
+     becoming a nameless character the validator then demands a name for. */
+  const slug = (s) => str(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  /* A step label can be a whole sentence, and an id that long is unreadable in
+     a lint message. 48 is the cap the export filename already uses. */
+  const capSlug = (s) => slug(s).slice(0, 48).replace(/-+$/, '');
+
+  function uniqueId(base, taken) {
+    if (!base) return '';
+    let id = base;
+    let n = 2;
+    while (taken.indexOf(id) >= 0) { id = base + '-' + n; n += 1; }
+    return id;
+  }
+
+  /* Give every GENERATED record in one namespace its id, and report which ids
+     moved so the references can follow. Ids the document arrived with are frozen
+     and claim the namespace first, so a generated id never steals a name an
+     authored one already holds. */
+  function assignIds(list, baseFor) {
+    const items = arr(list).map(obj);
+    const taken = items.filter((r) => !r[AUTO]).map((r) => str(r.id).trim()).filter(Boolean);
+    const renames = {};
+    items.forEach((r, i) => {
+      if (!r[AUTO]) return;
+      const prev = str(r.id).trim();
+      const next = uniqueId(capSlug(baseFor(r, i)), taken);
+      if (next) taken.push(next);
+      if (next === prev) return;
+      if (prev && next) renames[prev] = next;
+      if (next) r.id = next; else delete r.id;
+    });
+    return renames;
+  }
+
+  const hasRenames = (m) => Object.keys(m).length > 0;
+  /* ONE pass, keyed by the OLD id — so a rename is never applied twice, and two
+     records that swap ids still land the right way round. */
+  const renamed = (map, v) => (Object.prototype.hasOwnProperty.call(map, v) ? map[v] : v);
+
+  function syncIds(docIn) {
+    const d = obj(docIn);
+    const c = obj(d.content);
+
+    /* The scenario's own id follows its title — but only while the editor owns
+       it. A document that arrived carrying one keeps it, unchanged, forever. */
+    if (typeof d.implementation_id !== 'string' || !d.implementation_id.trim()) d[AUTO] = true;
+    if (d[AUTO]) d.implementation_id = capSlug(str(c.title)) || 'untitled-scenario';
+
+    /* The opening is a single fixed unit, so its id is a constant rather than a
+       derivation. normalize() sets it too; stated here so the rule reads once. */
+    const op = obj(c.opening);
+    if (typeof op.id !== 'string' || !op.id.trim()) op.id = 'opening_reflection';
+
+    const phases = arr(c.phases);
+
+    /* The cast first, because a step names its counterpart by character id and
+       the cascade has to reach the steps once the cast has settled. An unnamed
+       card gets NO id on purpose: prune() drops a character carrying neither a
+       name nor an id, which is what keeps a half-added row from becoming a
+       validation error about a character nobody meant to declare. */
+    const castMoves = assignIds(arr(obj(c.scene_world).characters), (ch, i) => {
+      const named = capSlug(str(ch.name));
+      if (named) return named;
+      const started = str(ch.role).trim() || str(obj(ch.behavior).baseline).trim()
+        || str(obj(ch.behavior).driver).trim();
+      return started ? 'character-' + (i + 1) : '';
+    });
+    if (hasRenames(castMoves)) {
+      phases.forEach((p) => {
+        const it = obj(obj(obj(p).practice).interaction);
+        if (str(it.character_id)) it.character_id = renamed(castMoves, str(it.character_id));
+        arr(it.opening_messages).forEach((m) => {
+          const line = obj(m);
+          if (str(line.character_id)) line.character_id = renamed(castMoves, str(line.character_id));
+        });
+      });
+    }
+
+    /* A step ALWAYS has an id — it is required, and unlike a character card a
+       step is never dropped for being empty — so an unlabelled one falls back to
+       its position rather than going without. */
+    const stepMoves = assignIds(phases, (ph, i) => capSlug(str(ph.label)) || 'step-' + (i + 1));
+    if (hasRenames(stepMoves)) {
+      phases.forEach((p) => {
+        arr(obj(obj(obj(p).practice).interaction).carryover).forEach((cv) => {
+          const row = obj(cv);
+          if (str(row.from)) row.from = renamed(stepMoves, str(row.from));
+        });
+      });
+    }
+
+    /* A rubric id is referenced by nothing outside its own list, so there is no
+       cascade here — only uniqueness within the step. */
+    phases.forEach((p) => {
+      const it = obj(obj(obj(p).practice).interaction);
+      if (!Array.isArray(it.rubric)) return;
+      assignIds(it.rubric, (r, k) => {
+        const named = capSlug(str(r.name)) || capSlug(str(r.standard_term));
+        if (named) return named;
+        return str(r.nudge).trim() ? 'finding-' + (k + 1) : '';
+      });
+    });
+
+    return d;
+  }
+
+  /* The live draft with its ids brought up to date — what every read-out reads,
+     so the id on screen is the id that gets saved a moment later. */
+  const liveDoc = (H) => syncIds(obj(H && H.getScenario ? H.getScenario() : {}));
+  /* The generated id of ONE live record. Syncs first for the same reason. */
+  const idOf = (H, rec) => { liveDoc(H); return str(obj(rec).id); };
+
+  /* Strip the provenance markers. Recursive, because they sit on records at
+     three depths and one missed marker is an unknown field the production
+     loader rejects outright (additionalProperties: false, at every level). */
+  function stripAutoMarks(node) {
+    if (Array.isArray(node)) { node.forEach(stripAutoMarks); return; }
+    if (!node || typeof node !== 'object') return;
+    delete node[AUTO];
+    Object.keys(node).forEach((k) => stripAutoMarks(node[k]));
+  }
+
   /* Keys the STUDIO SHELL writes onto every draft (ensureCtx() in
      studio-shell.js: contextSource, previousLO — its platform-level context
      plumbing). They are legitimate on the working draft, but they are not POC V4
@@ -150,7 +301,11 @@
     c.opening.transition = obj(c.opening.transition);
     arr(c.phases).forEach((p) => {
       const ph = obj(p);
-      Object.keys(ph).forEach((k) => { if (k.indexOf('__') === 0) delete ph[k]; });
+      /* `__auto_id` is the ONE editor-only key a phase keeps: it records that the
+         step's id was generated rather than authored, which is what lets a rename
+         move the id while an imported document's own ids stay frozen. prune()
+         strips it before anything validates or exports. */
+      Object.keys(ph).forEach((k) => { if (k.indexOf('__') === 0 && k !== AUTO) delete ph[k]; });
       ph.practice = obj(ph.practice);
       ph.practice.exit = obj(ph.practice.exit);
       ph.practice.exit.when = obj(ph.practice.exit.when);
@@ -168,6 +323,8 @@
        authored is ever replaced. Teaching prose (final_word) is untouched. */
     const v4 = V4();
     if (v4 && typeof v4.applyHouseDefaults === 'function') v4.applyHouseDefaults(d);
+    /* Ids last, so anything the defaults filled in is already in place. */
+    syncIds(d);
     return d;
   }
 
@@ -290,6 +447,7 @@
       if ('final_word' in obj(opn.exit) && !str(obj(opn.exit).final_word).trim()) delete opn.exit.final_word;
     }
     delete d.__scaffolded;   // ours, never theirs — never reaches validation or export
+    stripAutoMarks(d);       // the id-provenance markers, same deal
     return d;
   }
 
@@ -303,6 +461,7 @@
         title: '', narrative: '', coach_persona: '',
         teaching_points: [{ topic: '', points: [''] }],
         phases: [{
+          [AUTO]: true,
           id: 'phase1', label: '', purpose: '',
           practice: {
             mode: 'coach_inquiry', purpose: '',
@@ -719,13 +878,19 @@
     box.className = 'fields';
 
     if (sec.id === 'basics') {
+      const title = tf('content.title', 'Scenario title', { helper: 'The learner\'s header, and how it appears in listings.' });
       box.append(
-        tf('content.title', 'Scenario title', { helper: 'The learner\'s header, and how it appears in listings.' }),
-        tf('implementation_id', 'Implementation id', {
-          helper: 'How the surrounding content system identifies this implementation. Trace metadata — not shown to the learner.' }),
+        title,
+        idNote(() => str(liveDoc(H).implementation_id), {
+          label: 'Implementation id',
+          hint: 'Generated from the title. Trace metadata the content system routes on — never shown to the learner.',
+        }, title),
         tf('content.landing_cta_label', 'Landing button label', {
           helper: 'Optional. The button that leaves the situation screen for the first step. Blank uses the player default.' }),
       );
+      box.append(guidance('Ids are generated — there is nothing here to fill in', 'fa-wand-magic-sparkles',
+        '<p>This scenario\'s id, every character\'s, every step\'s and every findable item\'s are derived from the names you write, and kept unique for you. Rename a character or a step and everything that points at it moves in the same edit.</p>'
+        + '<p>Ids that arrived with an <b>imported</b> document are left exactly as they are. They are that file\'s identity on the wire, and rewriting them would change a scenario you were only editing.</p>'));
     }
 
     if (sec.id === 'world') {
@@ -755,10 +920,16 @@
         `Fact ${i + 1}`, onDel,
         tf(`content.scene_world.canon.facts.${i}`, 'Background truth', { area: true, minRows: 2 }),
       ), 'Add canon fact', () => ''));
-      box.append(rowsBlock('content.scene_world.characters', (c, i, onDel) => rowCard(
+      box.append(rowsBlock('content.scene_world.characters', (c, i, onDel) => {
+        /* The name is built first so the id read-out can listen to it. */
+        const name = tf(`content.scene_world.characters.${i}.name`, 'Name');
+        return rowCard(
         `Character ${i + 1}`, onDel,
-        tf(`content.scene_world.characters.${i}.id`, 'Id', { helper: 'Referenced by a roleplay step and by opener lines. Lowercase, no spaces.' }),
-        tf(`content.scene_world.characters.${i}.name`, 'Name'),
+        name,
+        idNote(() => idOf(H, c), {
+          label: 'Reference id',
+          hint: 'Generated from the name. Steps that speak to this character follow a rename on their own.',
+        }, name),
         tf(`content.scene_world.characters.${i}.role`, 'Role', { helper: 'Who they are in this world, e.g. "Sofia\'s mother".' }),
         tf(`content.scene_world.characters.${i}.behavior.baseline`, 'Baseline', { area: true, minRows: 2,
           helper: 'Who they are when a scene opens.' }),
@@ -779,7 +950,8 @@
           tf(`content.scene_world.characters.${i}.canon_facts.${k}.reveal_when`, 'Reveal when (optional)', { area: true, minRows: 2,
             helper: 'The condition that earns it. Blank means they may say it freely.' }),
         ), 'Add known fact', () => ({ fact: '' })),
-      ), 'Add character', () => ({ id: '', name: '', role: '', behavior: { baseline: '', driver: '' } })));
+        );
+      }, 'Add character', () => ({ id: '', name: '', role: '', behavior: { baseline: '', driver: '' }, [AUTO]: true })));
       box.append(guidance('Reactions live on each step, not on the card', 'fa-triangle-exclamation',
         '<p>How a character reacts to being handled well or badly belongs in that <b>step\'s</b> quality levels, because reactions differ per scene. A character card is identity and disposition only.</p>'));
     }
@@ -821,9 +993,11 @@
 
     if (sec.id === 'opening') {
       box.append(
-        tf('content.opening.id', 'Opening id', {
-          helper: 'How the engine addresses this exchange on the wire. Lowercase, no dots.' }),
         tf('content.opening.label', 'Name of the exchange', { helper: 'Learner-facing, e.g. "First reaction".' }),
+        idNote(() => str(obj(obj(liveDoc(H).content).opening).id), {
+          label: 'Opening id',
+          hint: 'Fixed. There is only ever one opening, so the engine addresses it by a constant name.',
+        }),
         tf('content.opening.purpose', 'Purpose', { area: true, minRows: 2,
           helper: 'Model-facing: what this exchange is for, in the coach\'s map of the arc.' }),
         tf('content.opening.exit.when.turns', 'Turn budget', {
@@ -999,6 +1173,90 @@
     f.addEventListener('change', apply);
     f.addEventListener('value-changed', apply);
     return f;
+  }
+
+  /* ---- a generated id, shown but never typed ----------------------------
+     The id fields are GONE, not merely locked: an author has nothing to decide
+     there. What replaces one is a read-out, because the value is still real —
+     dev asks for the implementation id by name, and a step id is what a lint
+     message quotes when something references the wrong step. It refreshes off
+     the field it is derived FROM, so it tracks a name as it is typed rather
+     than lagging a save behind. */
+  function idNote(get, opts, watch) {
+    const o = obj(opts);
+    const el = document.createElement('div');
+    el.className = 'id-note';
+    const key = document.createElement('span');
+    key.className = 'id-note-k';
+    key.textContent = o.label || 'Id';
+    const val = document.createElement('code');
+    const hint = document.createElement('span');
+    hint.className = 'id-note-hint';
+    hint.textContent = o.hint || '';
+    el.append(key, val, hint);
+    const refresh = () => {
+      const v = str(get());
+      /* An empty id is not a failure: an unnamed row has nothing to derive from
+         yet, and saying so beats a blank chip that reads as a bug. */
+      val.textContent = v || 'set from the name above';
+      val.classList.toggle('is-pending', !v);
+    };
+    refresh();
+    if (watch && watch.addEventListener) watch.addEventListener('input', refresh);
+    return el;
+  }
+
+  /* ---- a bound picker over records that already exist --------------------
+     Three fields used to ask an author to TYPE an id that had to match one
+     declared somewhere else in the scenario: the counterpart of a roleplay, the
+     speaker of an opening line, and the step a carryover reads from. Each was a
+     free-text box whose only valid values lived on another screen — and with the
+     id fields gone there would be nowhere left to read them off at all. They are
+     pickers now: the author chooses a NAME, the document stores the id.
+
+     A value the list cannot offer (a character deleted after a step referenced
+     them) is offered back and marked, rather than silently reading as the first
+     option — losing a reference quietly is how a scene ends up playing against
+     the wrong counterpart. */
+  function selectField(label, items, get, set, opts, onChange) {
+    const o = obj(opts);
+    const f = document.createElement('vaadin-select');
+    f.setAttribute('theme', 'outlined');
+    f.label = label;
+    if (o.helper) f.helperText = o.helper;
+    const cur = str(get());
+    const known = !cur || items.some((x) => obj(x).value === cur);
+    f.items = known ? items : items.concat([{ label: cur + ' — no longer declared', value: cur }]);
+    f.value = cur;
+    const apply = () => {
+      const v = str(f.value);
+      if (v === str(get())) return;      // see numField: a no-op must not repaint
+      set(v);
+      if (typeof onChange === 'function') onChange();
+    };
+    f.addEventListener('change', apply);
+    f.addEventListener('value-changed', apply);
+    return f;
+  }
+
+  /* "No counterpart" is a real, first-class answer, but an EMPTY select value
+     reads to the component as "nothing chosen yet" and renders as a placeholder.
+     So the narrator option carries a sentinel that never reaches the document —
+     the setter turns it back into an absent field. */
+  const NARRATOR = '__narrator__';
+
+  const castOptions = (doc) => arr(obj(obj(obj(doc).content).scene_world).characters).map(obj)
+    .filter((c) => str(c.id).trim())
+    .map((c) => ({ label: str(c.name).trim() || str(c.id).trim(), value: str(c.id).trim() }));
+
+  function characterSelect(label, cast, get, set, opts, onChange) {
+    const o = obj(opts);
+    return selectField(label,
+      [{ label: 'Narrator — nobody is speaking', value: NARRATOR }].concat(cast),
+      () => (str(get()).trim() || NARRATOR),
+      (v) => set(v === NARRATOR ? '' : v),
+      { helper: o.helper || (cast.length ? '' : 'No characters declared yet — add them under Situation & world.') },
+      onChange);
   }
 
   /* ---- the exhibit source: a path, or an image dropped straight in --------
@@ -1358,11 +1616,14 @@
       body.append(modeRow);
 
       /* --- identity + framing ----------------------------------------- */
+      const stepName = tf(`content.phases.${i}.label`, 'Step name', {
+        helper: 'Learner-facing. Use the source material\'s own name — do not restate the position ("Phase 1 —"), the player renders that from the order.' });
       body.append(
-        tf(`content.phases.${i}.label`, 'Step name', {
-          helper: 'Learner-facing. Use the source material\'s own name — do not restate the position ("Phase 1 —"), the player renders that from the order.' }),
-        tf(`content.phases.${i}.id`, 'Step id', {
-          helper: 'Referenced by carryover. Lowercase, no dots — "." is reserved for the derived debrief id.' }),
+        stepName,
+        idNote(() => idOf(H, ph), {
+          label: 'Step id',
+          hint: 'Generated from the step name. Carryover in later steps follows a rename on its own.',
+        }, stepName),
         tf(`content.phases.${i}.purpose`, 'Purpose of the step', { area: true, minRows: 2,
           helper: 'Model-facing: this step\'s role in the coach\'s map of the arc. Not shown to the learner.' }),
       );
@@ -1505,12 +1766,14 @@
     if (mode === 'roleplay') {
       holder.append(guidance('The scene', 'fa-masks-theater',
         '<p>Leave the counterpart blank for <b>narrator-driven</b> roleplay — a first-class pattern for a step about what the learner <i>does</i> rather than what they say to someone ("you round the corner; what do you do?").</p>'));
-      const declared = arr(obj(obj(obj(s).content).scene_world).characters)
-        .map((c) => obj(c).id).filter(Boolean);
+      const cast = castOptions(s);
       holder.append(
         tf(`${base}.setting`, 'Setting', { helper: 'Where and when this scene takes place.' }),
-        tf(`${base}.character_id`, 'Counterpart character id (blank = narrator-driven)', {
-          helper: declared.length ? 'Declared characters: ' + declared.join(', ') : 'No characters declared yet — add them under Situation & world.' }),
+        characterSelect('Who the learner is speaking to', cast,
+          () => str(it.character_id),
+          (v) => { if (v) it.character_id = v; else delete it.character_id; },
+          { helper: cast.length ? 'Narrator is a real answer, not an empty one — pick it for a step about what the learner DOES rather than says.' : '' },
+          scheduleUpdate),
         tf(`${base}.emotion_hint`, 'Entering emotional state (optional)'),
         tf(`${base}.partner_label`, 'Chat header name', {
           helper: 'The character\'s name, "Narrator" on a narrator-driven scene, or a scene label when several characters share the thread.' }),
@@ -1519,21 +1782,28 @@
           () => (typeof it.help_turns === 'number' ? it.help_turns : 2),
           (n) => { it.help_turns = n; }, { min: 0 }, scheduleUpdate),
       );
-      holder.append(rowsBlock(`${base}.opening_messages`, (m, k, onDel) => rowCard(
-        `Opening line ${k + 1}`, onDel,
-        tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
-          helper: 'Locked scene-setting, delivered verbatim. One message per step of the establishing sequence.' }),
-        tf(`${base}.opening_messages.${k}.character_id`, 'Spoken by (blank = narrator)'),
-        tf(`${base}.opening_messages.${k}.emotion`, 'Emotion (optional)', {
-          helper: 'How the character delivers this line. Only meaningful when the line has a speaker.' }),
-      ), 'Add opening line', () => ({ text: '' })));
+      holder.append(rowsBlock(`${base}.opening_messages`, (m, k, onDel) => {
+        const line = obj(m);
+        return rowCard(
+          `Opening line ${k + 1}`, onDel,
+          tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
+            helper: 'Locked scene-setting, delivered verbatim. One message per step of the establishing sequence.' }),
+          characterSelect('Spoken by', cast,
+            () => str(line.character_id),
+            (v) => { if (v) line.character_id = v; else delete line.character_id; },
+            { helper: 'Narrator for a line that places the scene rather than one somebody says.' },
+            scheduleUpdate),
+          tf(`${base}.opening_messages.${k}.emotion`, 'Emotion (optional)', {
+            helper: 'How the character delivers this line. Only meaningful when the line has a speaker.' }),
+        );
+      }, 'Add opening line', () => ({ text: '' })));
       holder.append(carryoverBlock(base, i, s, H));
       return holder;
     }
 
     if (mode === 'observe_react') {
       holder.append(guidance('The exhibit and its rubric', 'fa-eye',
-        '<p>The rubric is the fixed set of findable items. Each needs a stable <b>id</b> (the engine\'s crediting key), the <b>creditable phrasing</b> a learner\'s catch is matched against, and a <b>nudge</b> that says where to look — <b>never</b> the answer.</p>'
+        '<p>The rubric is the fixed set of findable items. Each needs a <b>short name</b>, the <b>creditable phrasing</b> a learner\'s catch is matched against, and a <b>nudge</b> that says where to look — <b>never</b> the answer. The engine\'s crediting key is generated from the name.</p>'
         + '<p>The learner\'s meter always shows the full rubric; <b>spot target</b> only decides how many catches complete the step.</p>'));
       holder.append(
         enumField('Exhibit kind', ['image', 'video'],
@@ -1553,15 +1823,21 @@
           () => (typeof it.help_turns === 'number' ? it.help_turns : 2),
           (n) => { it.help_turns = n; }, { min: 0 }, scheduleUpdate),
       );
-      holder.append(rowsBlock(`${base}.rubric`, (r, k, onDel) => rowCard(
-        `Findable item ${k + 1}`, onDel,
-        tf(`${base}.rubric.${k}.id`, 'Id', { helper: 'Stable crediting key. Unique within this rubric.' }),
-        tf(`${base}.rubric.${k}.name`, 'Short name', { helper: 'Shown on the learner\'s coverage scorecard.' }),
-        tf(`${base}.rubric.${k}.standard_term`, 'Creditable phrasing', { area: true, minRows: 2,
-          helper: 'What a learner\'s catch is matched against, and the language the coach credits in.' }),
-        tf(`${base}.rubric.${k}.nudge`, 'Nudge', { area: true, minRows: 2,
-          helper: 'A cue toward where to look. Never the answer.' }),
-      ), 'Add findable item', () => ({ id: '', name: '', standard_term: '', nudge: '' })));
+      holder.append(rowsBlock(`${base}.rubric`, (r, k, onDel) => {
+        const name = tf(`${base}.rubric.${k}.name`, 'Short name', { helper: 'Shown on the learner\'s coverage scorecard.' });
+        return rowCard(
+          `Findable item ${k + 1}`, onDel,
+          name,
+          idNote(() => idOf(H, r), {
+            label: 'Crediting key',
+            hint: 'Generated from the short name, and unique within this rubric. The engine credits a catch against it.',
+          }, name),
+          tf(`${base}.rubric.${k}.standard_term`, 'Creditable phrasing', { area: true, minRows: 2,
+            helper: 'What a learner\'s catch is matched against, and the language the coach credits in.' }),
+          tf(`${base}.rubric.${k}.nudge`, 'Nudge', { area: true, minRows: 2,
+            helper: 'A cue toward where to look. Never the answer.' }),
+        );
+      }, 'Add findable item', () => ({ id: '', name: '', standard_term: '', nudge: '', [AUTO]: true })));
       holder.append(rowsBlock(`${base}.brief`, (m, k, onDel) => rowCard(
         `Briefing line ${k + 1}`, onDel,
         tf(`${base}.brief.${k}.text`, 'Line', { area: true, minRows: 2,
@@ -1602,18 +1878,29 @@
   /* carryover — only EARLIER steps are offerable, because a later step has no
      transcript yet (POC V4 §9.1 rule 3). */
   function carryoverBlock(base, i, s, H) {
-    const { tf, rowsBlock, rowCard, guidance } = H;
+    const { rowsBlock, rowCard, guidance, esc, scheduleUpdate } = H;
     const holder = document.createElement('div');
-    const earlier = arr(obj(obj(s).content).phases).slice(0, i).map((p) => obj(p).id).filter(Boolean);
+    /* Named before filtering, so "Step 3" means the third step and not the third
+       one that happens to have an id. */
+    const earlier = arr(obj(obj(s).content).phases).slice(0, i)
+      .map((p, k) => ({ label: str(obj(p).label).trim() || ('Step ' + (k + 1)), value: str(obj(p).id).trim() }))
+      .filter((o) => o.value);
     holder.append(guidance('Carryover — what this scene has already witnessed', 'fa-clock-rotate-left',
       '<p>A fresh scene starts blank. Naming an <b>earlier</b> step hands this one the <b>verbatim transcript</b> of that attempt — never a summary, because summarising is where a model starts inventing.</p>'
-      + (earlier.length ? '<p>Available: <b>' + earlier.join('</b>, <b>') + '</b></p>'
+      + (earlier.length ? '<p>Available: <b>' + earlier.map((o) => esc(o.label)).join('</b>, <b>') + '</b></p>'
         : '<p>Nothing to carry yet — this is the first step.</p>')));
     if (earlier.length) {
-      holder.append(rowsBlock(`${base}.carryover`, (c, k, onDel) => rowCard(
-        `Carryover ${k + 1}`, onDel,
-        tf(`${base}.carryover.${k}.from`, 'From step id', { helper: 'Must be an earlier step: ' + earlier.join(', ') }),
-      ), 'Add carryover', () => ({ from: earlier[earlier.length - 1] })));
+      holder.append(rowsBlock(`${base}.carryover`, (c, k, onDel) => {
+        const row = obj(c);
+        return rowCard(
+          `Carryover ${k + 1}`, onDel,
+          selectField('Carries the transcript of', earlier,
+            () => str(row.from),
+            (v) => { row.from = v; },
+            { helper: 'Only a step that runs before this one can be carried — a later scene has no transcript yet.' },
+            scheduleUpdate),
+        );
+      }, 'Add carryover', () => ({ from: earlier[earlier.length - 1].value })));
     }
     return holder;
   }
@@ -1660,6 +1947,9 @@
 
   function newPhase(n) {
     return {
+      /* Editor-owned: the id follows the step name the author is about to write
+         (syncIds), and every carryover pointing at it follows with it. */
+      [AUTO]: true,
       id: 'step' + n, label: '', purpose: '',
       practice: {
         /* No `answer_shape`: absent IS open (scenario-v4-runtime reads
@@ -1743,6 +2033,7 @@
       ph.debrief.transition = obj(ph.debrief.transition);
       if (!Array.isArray(ph.debrief.key_points)) ph.debrief.key_points = [];
     });
+    syncIds(d);
     return d;
   }
 
@@ -2063,6 +2354,10 @@
   }
 
   function lints(s) {
+    /* The one place the shell hands the TYPE the live draft on every edit, so
+       it is where the generated ids are brought up to date — the draft saved a
+       moment later has to carry them, and the shell exposes no update hook. */
+    syncIds(obj(s));
     const L = [];
     const add = (severity, section, msg, why, item, extra) =>
       L.push(Object.assign({ severity, section, msg, why, item }, extra || {}));
@@ -2190,7 +2485,16 @@
     playtest: null,
     /* The template gallery (D7) — the studio reads this to offer starting points. */
     templates: () => (TPL() ? TPL().list() : []),
-    template: (id) => (TPL() ? TPL().get(id) : null),
+    /* A template is a STARTING POINT, so the one id on it that belongs to the
+       template rather than to this author is the scenario's own — marking it
+       generated hands it over to the title they are about to write. Its step and
+       character ids stay frozen: the template's carryover graph is already wired
+       against them, and nothing is gained by churning it. */
+    template: (id) => {
+      const t = TPL() ? TPL().get(id) : null;
+      if (t) t[AUTO] = true;
+      return t;
+    },
   };
 
   window.AitheraV4Universal = TYPE;
