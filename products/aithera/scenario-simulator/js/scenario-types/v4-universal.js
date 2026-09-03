@@ -1001,6 +1001,190 @@
     return f;
   }
 
+  /* ---- the exhibit source: a path, or an image dropped straight in --------
+
+     `exhibit.src` was a bare text input helper'd "Path relative to the media
+     root", which asks an author to already know a valid repo path and shows them
+     nothing about whether they got it right. A wrong path and an empty one look
+     identical while typing, and both only surface as a blank frame in preview.
+
+     So the field keeps its text input — a real asset path is still the tidy
+     answer, and it is what dev receives — and gains two things around it: a live
+     thumbnail that says whether the value resolves, and a drop zone that turns a
+     local file into an embedded image without an asset pipeline.
+
+     The embedded form is a downscaled data: URL, which is a deliberate trade the
+     team took knowingly: it authors instantly and survives file://, localhost and
+     Pages identically, at the cost of fattening the JSON handed to dev. Hence the
+     size read-out and the warning past WARN_BYTES — the cost should be visible to
+     the person choosing to pay it, not discovered downstream.
+
+     Images only. A data: URL video would be tens of megabytes in a document
+     meant to be read by people, so a video exhibit keeps the plain path field. */
+
+  const MAX_DIM = 1600;          // longest edge, px
+  const JPEG_QUALITY = 0.82;
+  const WARN_BYTES = 512 * 1024; // past this, say so — it all lands in the export
+
+  /* Ported from the retired scene-sweep editor, which had this working before the
+     type was dropped from the editor. Longest edge -> maxDim, re-encoded as JPEG. */
+  function downscaleImage(file, maxDim, quality) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error('could not read that file'));
+      fr.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('that file is not an image the browser can read'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          const scale = Math.min(1, maxDim / Math.max(w, h));
+          w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          try { resolve(c.toDataURL('image/jpeg', quality)); }
+          catch (e) { resolve(fr.result); }   // odd format -> keep the original data URL
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  const isDataUrl = (v) => /^data:/i.test(str(v));
+  /* Bytes on the wire, not characters: base64 carries 3 bytes per 4 chars. */
+  function dataUrlBytes(v) {
+    const b64 = str(v).split(',')[1] || '';
+    const pad = (b64.match(/=+$/) || [''])[0].length;
+    return Math.max(0, Math.floor(b64.length * 3 / 4) - pad);
+  }
+  const kb = (n) => (n < 1024 * 1024 ? Math.round(n / 1024) + ' KB' : (n / 1024 / 1024).toFixed(1) + ' MB');
+
+  function exhibitSourceBlock(base, it, H) {
+    const { tf, scheduleUpdate } = H;
+    const wrap = document.createElement('div');
+    wrap.className = 'exsrc';
+
+    /* The real input, kept for three reasons: a path is still the tidy answer,
+       the shell's own path-binding does the model write, and the field-coverage
+       check reads this literal call out of the source. */
+    const field = tf(`${base}.exhibit.src`, 'Exhibit source', {
+      helper: 'A path relative to the media root, or drop an image below to embed one.',
+    });
+
+    const preview = document.createElement('div'); preview.className = 'exsrc-prev';
+    const zone = document.createElement('div'); zone.className = 'exsrc-zone';
+    const status = document.createElement('div'); status.className = 'exsrc-status';
+
+    const picker = document.createElement('input');
+    picker.type = 'file'; picker.accept = 'image/*'; picker.hidden = true;
+
+    const curSrc = () => str(obj(it.exhibit).src);
+    const isVideo = () => str(obj(it.exhibit).type) === 'video';
+
+    function setSrc(v) {
+      it.exhibit = obj(it.exhibit);
+      it.exhibit.src = v;
+      /* A dropped file is an image by definition, and leaving the kind on video
+         is how the exhibit ends up rendered as a black box downstream. */
+      if (v && isDataUrl(v)) it.exhibit.type = 'image';
+      field.value = v;              // programmatic: fires no input/change, so no loop
+      scheduleUpdate();
+      paint();
+    }
+
+    function say(text, tone) {
+      status.textContent = text;
+      status.className = 'exsrc-status' + (tone ? ' is-' + tone : '');
+    }
+
+    function paint() {
+      const v = curSrc();
+      const embedded = isDataUrl(v);
+      /* A 200KB base64 string in a text input is unreadable and un-editable, so
+         the field steps aside for a summary while one is embedded. It stays in
+         the DOM — the binding and the coverage check both want it there. */
+      field.style.display = embedded ? 'none' : '';
+      wrap.classList.toggle('is-embedded', embedded);
+
+      preview.innerHTML = '';
+      if (!v) {
+        preview.innerHTML = '<div class="exsrc-empty"><i class="fa-solid fa-image"></i></div>';
+        say('No source set — this step will show its description instead of an image.', 'warn');
+      } else if (isVideo() && !embedded) {
+        preview.innerHTML = '<div class="exsrc-empty"><i class="fa-solid fa-film"></i></div>';
+        say('Video exhibit — previewed in the player, not here.', '');
+      } else {
+        const img = document.createElement('img');
+        img.className = 'exsrc-img'; img.alt = '';
+        img.addEventListener('load', () => {
+          const dim = img.naturalWidth + '×' + img.naturalHeight;
+          if (embedded) {
+            const n = dataUrlBytes(v);
+            say('Embedded image · ' + dim + ' · ' + kb(n)
+              + (n > WARN_BYTES ? ' — large; this travels inside the exported JSON' : ''),
+              n > WARN_BYTES ? 'warn' : 'ok');
+          } else {
+            say('Resolves · ' + dim, 'ok');
+          }
+        });
+        /* "from here" on purpose: this page and the player resolve relative paths
+           against the same base, so in the live editor this is the truth. The
+           frozen cut sits a folder deeper and does not preview at all, so
+           asserting the path is broken there would be a guess. */
+        img.addEventListener('error', () => say('Nothing loads from this path — check it, or drop an image below.', 'bad'));
+        img.src = v;
+        preview.appendChild(img);
+      }
+
+      zone.innerHTML = '';
+      const pick = document.createElement('button');
+      pick.type = 'button'; pick.className = 'exsrc-btn';
+      pick.innerHTML = '<i class="fa-solid fa-arrow-up-from-bracket"></i> '
+        + (embedded ? 'Replace image' : 'Choose an image');
+      pick.addEventListener('click', () => picker.click());
+      zone.appendChild(pick);
+      if (v) {
+        const clear = document.createElement('button');
+        clear.type = 'button'; clear.className = 'exsrc-btn is-clear';
+        clear.innerHTML = '<i class="fa-solid fa-xmark"></i> Clear';
+        clear.addEventListener('click', () => setSrc(''));
+        zone.appendChild(clear);
+      }
+      const hint = document.createElement('span');
+      hint.className = 'exsrc-hint';
+      hint.textContent = 'or drop one here';
+      zone.appendChild(hint);
+    }
+
+    async function take(file) {
+      if (!file) return;
+      if (!/^image\//i.test(file.type || '')) {
+        say('That is not an image. Video exhibits take a path, not an embedded file.', 'bad');
+        return;
+      }
+      say('Reading ' + file.name + '…', '');
+      try { setSrc(await downscaleImage(file, MAX_DIM, JPEG_QUALITY)); }
+      catch (e) { say(String((e && e.message) || e), 'bad'); }
+    }
+
+    picker.addEventListener('change', () => { take(picker.files && picker.files[0]); picker.value = ''; });
+    field.addEventListener('input', paint);
+    field.addEventListener('change', paint);
+
+    ['dragenter', 'dragover'].forEach((n) => wrap.addEventListener(n, (e) => {
+      e.preventDefault(); wrap.classList.add('is-over');
+    }));
+    ['dragleave', 'drop'].forEach((n) => wrap.addEventListener(n, (e) => {
+      e.preventDefault(); if (n === 'dragleave' && wrap.contains(e.relatedTarget)) return;
+      wrap.classList.remove('is-over');
+    }));
+    wrap.addEventListener('drop', (e) => take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]));
+
+    wrap.append(field, preview, zone, status, picker);
+    paint();
+    return wrap;
+  }
+
   /* ---- list plumbing the section's `list` contract calls ------------------
      All of it reads the LIVE draft each time. normalize() clones and the shell
      re-normalizes on every update, so a phases array captured once goes stale
@@ -1356,7 +1540,7 @@
           () => str(obj(it.exhibit).type) || 'image',
           (v) => { it.exhibit = obj(it.exhibit); it.exhibit.type = v; }, {
             helper: 'Required whenever there is an exhibit.' }, scheduleUpdate),
-        tf(`${base}.exhibit.src`, 'Exhibit source', { helper: 'Path relative to the media root.' }),
+        exhibitSourceBlock(base, it, H),
         tf(`${base}.exhibit.alt`, 'Exhibit description', { area: true, minRows: 3,
           helper: 'The full visual description. It must describe the exhibit well enough for the step to work without the image.' }),
         tf(`${base}.jot_placeholder`, 'Jot input placeholder'),
