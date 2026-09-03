@@ -313,6 +313,13 @@ ${contentExemplar(['narrative', 'coach_persona'])}`,
         apply(json, draft, ik) {
           const c = draft.content;
           draft.implementation_id = slug(json.implementation_id) || slug(ik.title) || slug(json.title) || 'untitled-scenario';
+          /* The editor generates ids now (see `syncIds` in v4-universal.js), and
+             the scenario's own follows its TITLE. Marking it hands it over, so
+             retitling in the editor moves the id with it rather than leaving the
+             wizard's first guess behind on a scenario that is no longer called
+             that. The cast and step ids the wizard writes stay frozen — it wired
+             its own carryover graph against them. */
+          draft.__auto_id = true;
           c.title = str(ik.title).trim() || str(json.title);
           c.narrative = str(json.narrative);
           c.coach_persona = depunct(json.coach_persona);
