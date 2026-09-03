@@ -12,6 +12,7 @@ Re-cuts so far — each one deliberate, each one a row in
 | --- | --- |
 | 2026-09-03 | The paced template hand-off read-out, and `exhibit.type` surviving the compiler so an authored image exhibit is not rendered as a video (`studio-shell.js`, `writer-studio.css`, `scenario-v4-runtime.js`) |
 | 2026-09-03 | The template gallery seeds from the locked production documents, and the exhibit drop zone is OUT again — it was rolled back the same day it shipped (`v4-universal.js`, `writer-studio.css`, `scenario-v4-templates.js`, `studio-shell.js`) |
+| 2026-09-03 | Brought fully current with stable: the id read-out trim and its stamp move (`v4-universal.js`, `writer-studio.css`) |
 
 Nothing outside this folder can change what it does. It carries its own copy of
 all 16 modules and the stylesheet, so work continues on the live editor at
