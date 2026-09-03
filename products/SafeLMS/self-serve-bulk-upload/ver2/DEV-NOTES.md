@@ -14,14 +14,41 @@ tab beside Emails / Login Page / Training Plan / Certificate / Integrations. The
 sidebar's active item is Settings; inside the tab, **Manual import / Automated
 sync** is a secondary segmented control (not a second row of page tabs).
 
-**A/B versions (layout):** ver1 and ver2 are identical except one constant
-(`VERSION`). Both lead the manual import with the same walkthrough card (SafeLMS
-pencil-banner) on the Upload landing.
-- **A (ver1) — tabbed:** Manual import / Automated sync as a segmented sub-control;
-  you toggle between the two.
-- **B (ver2) — one page:** manual import, with automated sync stacked *underneath*
-  it on the same scrolling page (no sub-tab); "Set up Automated sync" scrolls down.
-Use the V1/V2 pill to compare. Which layout to keep is an open design call.
+**Versions (2026-09-03).** The tabbed-vs-one-page layout question is settled:
+**all versions are one-page** (manual import centered; automated sync stacked in a
+full-width, **edge-to-edge** band beneath it). What varies between versions is now
+the **automated-sync setup model** and the **error-help style**, not the layout:
+
+- **V1 — Self-serve · gate 3:** automated sync auto-unlocks after **3** clean
+  manual imports in a row (the designer’s threshold). Progress tracker + expanders.
+- **V2 — Self-serve · gate 4:** same, but the **PRD’s 4-clean-imports** threshold.
+  V1 vs V2 is the live A/B on the exact gate number (was flagged as an open call).
+- **V3 — Concierge:** automated sync is **not self-serve** — **Vector sets it up
+  for you.** An intro + "Request automated sync setup" CTA; after requesting, a
+  confirmation with the setup timeline (Vector reaches out → configures & tests
+  with you → goes live). Fits the "SAML / complex = CX-only" PRD thread.
+- **V4 — Earn it @4 + tooltips:** locked until **4** clean imports; the review
+  **error descriptions move into help tooltips.** Each alert is a compact
+  one-liner + a **Help** button opening: what it means, an **A→B before/after**
+  example with a visual, and a **"Usually the answer is…"** heuristic. Deep-links
+  to Vector Help (User Data File Upload Errors).
+- **V5 — Reimagined:** a **triage workspace** instead of a forward-only wizard.
+  The file shows as a **live grid** with problem cells flagged **in place**, beside
+  an **Issues panel grouped by category** (Sign-in & SSO, Duplicates, Required
+  fields, Names & changes) — each with an A→B fix and a **jump-to-cell**. Fix in
+  any order; **Run unlocks when no blockers remain**; import scope sits under the
+  grid. Categories mirror the Vector Help error article.
+
+**Edge-to-edge sync + scroll fix (2026-09-03):** the one-page automated-sync band
+now stretches the full main width (only the sidebar bounds it). Also fixed a
+latent shell bug where tall screens couldn’t scroll (`.main`/`.scroll` needed
+`min-height:0`; grid row pinned to `100vh`).
+
+**Note on the error catalog source:** the Vector support article
+(support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors) is a
+JS-rendered Salesforce page that can’t be auto-scraped, so the error taxonomy here
+is grounded in the mock’s existing PRD-based error set and the article is **linked**
+as the deep-help reference inside V4 and V5.
 
 ## review-blocked
 

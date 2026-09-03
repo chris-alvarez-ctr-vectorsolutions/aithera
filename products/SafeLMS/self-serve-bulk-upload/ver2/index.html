@@ -341,6 +341,14 @@
   .sync-status .ss-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
   .sync-status .ss-title { font-size: 16px; font-weight: 700; margin-top: 1px; }
   .sync-status .ss-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+  /* ---- One-page layout: manual import stays in the centered .content column;
+         Automated sync drops into its own full-width band that stretches
+         edge-to-edge across the main area (only the sidebar bounds it). ---- */
+  .content.onepage { padding-bottom: 14px; }
+  .syncband { padding: 4px 32px 72px; }
+  .syncband .stack-divider { margin: 0 0 0; }
+  .syncband .stack-head { margin: 22px 0 18px; }
 </style>
 </head>
 <body>
@@ -360,17 +368,20 @@
   /* ------------------------------------------------------------------ data */
   var TOTAL = 170;
 
-  /* VERSION KNOB (A vs B) — the ONLY line that differs between ver1 and ver2.
-     Controls the layout of the User Import tab:
-       'A' = Manual import / Automated sync as a segmented sub-control (two views).
-       'B' = one page — manual import, with automated sync stacked underneath it.
-     Both lead the manual import with the same walkthrough card on the Upload step.
-     ver1 = 'A', ver2 = 'B'. */
+  /* VERSION KNOB — layout of the User Import tab.
+       'A' = Manual import / Automated sync as a segmented sub-control (legacy).
+       'B' = one page — manual import (centered), automated sync stacked in a
+             full-width, edge-to-edge band underneath. This is now the layout for
+             ALL versions; the axis that varies between versions is the automated-
+             sync SETUP MODEL and error-help style, not the layout:
+               ver1 self-serve unlock · gate 3   ver2 self-serve unlock · gate 4
+               ver3 concierge (Vector sets it up) ver4 earn-it @4 + tooltips
+               ver5 reimagined import view. */
   var VERSION = 'B';
 
   /* Automated-sync qualification gate. Designer spec = 3 clean imports in a row;
      the PRD / earlier card said 4 (flagged in DEV-NOTES). One constant to flip. */
-  var SYNC_GATE = 3, SYNC_DONE = 1;
+  var SYNC_GATE = 4, SYNC_DONE = 1;
 
   /* Illustrative rows for the "everything that would change" purge breakdown —
      who gets deactivated, and which position/location (job) assignments get
@@ -1370,7 +1381,7 @@
 
     var label = qualifying ? 'Automated sync — not available yet' : 'Automated sync';
     return '<section data-screen-label="' + label + '">'
-      + '<div style="max-width:760px;display:flex;flex-direction:column;gap:12px;">'
+      + '<div style="display:flex;flex-direction:column;gap:12px;">'
       + syncStatusHeader() + col + '</div></section>';
   }
 
@@ -1379,27 +1390,25 @@
     var locked = stage() === 'qualifying';                 // automated sync not available yet
     var syncNeedsDot = stage() === 'active-failed' && !state.blessed;
 
-    var inner;
+    var main;
     if (VERSION === 'B') {
-      // One page: manual import, then automated sync stacked underneath (no sub-tabs).
-      inner = importTab()
-        + '<div class="stack-divider"></div>'
-        + '<div id="autosync" class="stack-head"><div class="stack-title">Automated sync'
+      // One page: manual import centered in .content; automated sync stretches
+      // edge-to-edge in its own full-width band underneath (no sub-tabs).
+      var syncHead = '<div id="autosync" class="stack-head"><div class="stack-title">Automated sync'
         + (locked ? ' <i class="fa-solid fa-lock" aria-hidden="true" style="font-size:12px;opacity:.5;"></i>'
-                  : (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '')) + '</div></div>'
-        + syncTab();
+                  : (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '')) + '</div></div>';
+      main = '<div class="content onepage">' + importTab() + '</div>'
+        + '<div class="syncband"><div class="stack-divider"></div>' + syncHead + syncTab() + '</div>';
     } else {
-      // A: Manual import / Automated sync as a segmented sub-control (two views).
+      // A: Manual import / Automated sync as a segmented sub-control (legacy).
       var syncFlag = locked
         ? ' <i class="fa-solid fa-lock" aria-hidden="true" style="font-size:10px;opacity:.55;margin-left:3px;"></i>'
         : (syncNeedsDot ? '<span class="dot-red"></span>' : '');
       var subtabs = '<div class="subtabs">'
         + '<button class="subtab' + (tab === 'import' ? ' is-active' : '') + '" data-act="goImport">Manual import</button>'
         + '<button class="subtab' + (tab === 'sync' ? ' is-active' : '') + '" data-act="goSyncTab">Automated sync' + syncFlag + '</button></div>';
-      inner = subtabs + (tab === 'import' ? importTab() : syncTab());
+      main = '<div class="content">' + subtabs + (tab === 'import' ? importTab() : syncTab()) + '</div>';
     }
-
-    var main = '<div class="content">' + inner + '</div>';
 
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()
@@ -1583,7 +1592,7 @@
 
         /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
         { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
-          desc: 'Automated sync is locked until 3 clean manual imports in a row. Shows the "N to go" tracker and why the tab is unavailable. (Gate = 3 per designer; PRD said 4.)' },
+          desc: 'Automated sync is locked until 4 clean manual imports in a row. Shows the "N to go" tracker and why the tab is unavailable. (Gate = 4 per the PRD.)' },
         { id: 'sync-healthy', flow: 'sync', x: 360, y: 900, step: 'Info', name: 'Info — up to date', state: 'sync-healthy',
           desc: 'The clean path: the last sync applied its changes, nothing is waiting, next check within 30 min.' },
         { id: 'sync-failed', flow: 'sync', x: 680, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',

@@ -342,6 +342,39 @@
   .sync-status .ss-title { font-size: 16px; font-weight: 700; margin-top: 1px; }
   .sync-status .ss-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
 
+  /* ---- V4 error help tooltip — a click-open popover on each review alert with
+         a what-it-means line, an A→B before/after example, and a "usually…" hint.
+         The alert is the positioning context; the popover overlays following
+         content. ---- */
+  .help-btn { border: 1px solid var(--btn-border); background: #fff; color: var(--blue); border-radius: 20px;
+    font-size: 12px; font-weight: 600; padding: 4px 11px; cursor: pointer; display: inline-flex;
+    align-items: center; gap: 6px; white-space: nowrap; flex: 0 0 auto; }
+  .help-btn:hover { background: #F0F6FD; }
+  .help-btn.is-open { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .help-pop { position: absolute; top: 50px; right: 16px; z-index: 60; width: 390px; max-width: calc(100% - 32px);
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 16px 42px rgba(16,24,40,.24); overflow: hidden; animation: fadeup .14s ease; }
+  .help-pop-head { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px;
+    background: #F5F9FE; border-bottom: 1px solid var(--line-2); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .help-pop-head i { color: var(--blue); margin-right: 6px; }
+  .help-x { border: none; background: none; color: var(--muted-2); font-size: 14px; cursor: pointer; padding: 2px 7px; border-radius: 6px; }
+  .help-x:hover { background: #E9EEF4; color: var(--ink-2); }
+  .help-pop-body { padding: 13px 15px; display: flex; flex-direction: column; gap: 12px; }
+  .hp-means { font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+  .ab-mini { display: grid; grid-template-columns: 1fr 28px 1fr; align-items: stretch; }
+  .ab-mini-card { border: 1px solid var(--line-2); border-radius: 8px; padding: 9px 11px; }
+  .ab-mini-card.ab-a { background: #FEF7F6; border-color: var(--red-border); }
+  .ab-mini-card.ab-b { background: #F0FBF5; border-color: var(--green-border); }
+  .ab-mini-l { font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted-2); }
+  .ab-mini-v { font-size: 12px; color: var(--ink); margin-top: 4px; word-break: break-word; line-height: 1.4; }
+  .ab-a .ab-mini-v { color: var(--red-ink); }
+  .ab-b .ab-mini-v { color: var(--green-ink); }
+  .ab-mini-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted-2); font-size: 13px; }
+  .hp-usually { font-size: 12.5px; color: var(--ink); background: #FFFBEB; border: 1px solid var(--amber-border);
+    border-radius: 8px; padding: 9px 11px; line-height: 1.5; }
+  .hp-usually i { color: var(--amber); margin-right: 6px; }
+  .hp-link { font-size: 12px; font-weight: 600; }
+
   /* ---- One-page layout: manual import stays in the centered .content column;
          Automated sync drops into its own full-width band that stretches
          edge-to-edge across the main area (only the sidebar bounds it). ---- */
@@ -381,7 +414,7 @@
 
   /* Automated-sync qualification gate. Designer spec = 3 clean imports in a row;
      the PRD / earlier card said 4 (flagged in DEV-NOTES). One constant to flip. */
-  var SYNC_GATE = 3, SYNC_DONE = 1;
+  var SYNC_GATE = 4, SYNC_DONE = 1;
 
   /* Illustrative rows for the "everything that would change" purge breakdown —
      who gets deactivated, and which position/location (job) assignments get
@@ -505,6 +538,59 @@
     }
   };
 
+  /* HELP CATALOG (V4) — per-error tooltip content. Instead of laying every
+     description out on the page, each alert shows a tight one-liner + a "Help"
+     button that opens this: what it means, an A→B before/after example with a
+     visual, and a "Usually the answer is…" heuristic. Keyed by alert id; alerts
+     without an entry simply don’t show a help button. Deep-links to Vector Help. */
+  var HELP = {
+    saml: {
+      means: 'Your site signs people in with SAML single sign-on, which uses each person’s EMAIL as their username. The column you mapped to Username holds first.last values instead.',
+      ab: { aLabel: 'Your file’s Username (A)', a: 'sarah.linden', bLabel: 'What sign-on expects (B)', b: 'slinden@ridgewood.k12.us' },
+      usually: 'Usually the answer is: if your file shows first.last, point Username at the column that holds the email address — that’s what SAML matches on.'
+    },
+    blast: {
+      means: 'Nearly every account would get a new username. Username is the one field that ties a person to their whole training record, so a mass change breaks sign-in for everyone at once.',
+      ab: { aLabel: 'This export sends (A)', a: 'sarah.linden', bLabel: 'Your site already uses (B)', b: 'slinden' },
+      usually: 'Usually the answer is: the file was exported in a different username format. Fix the Username column at the source so it matches your site, then re-upload.'
+    },
+    'dupe-email': {
+      means: 'Two different usernames in your file use the same email address — almost always the same person entered twice (once by HR, once by athletics).',
+      ab: { aLabel: 'Two rows, one email (A)', a: 'jsmith  +  john.smith', bLabel: 'Keep just one (B)', b: 'jsmith  (single row)' },
+      usually: 'Usually the answer is: keep the row whose username already exists on your site, delete the other, then re-upload.'
+    },
+    'dupe-name': {
+      means: 'These people already have an account under a different username. Importing them as-is creates a second account for the same person.',
+      ab: { aLabel: 'Your file’s username (A)', a: 'sarah.linden2', bLabel: 'Their existing one (B)', b: 'slinden' },
+      usually: 'Usually the answer is: replace the new username with the existing one shown, so it updates the account instead of duplicating it.'
+    },
+    'existing-collision': {
+      means: 'Two accounts already on your site share one email. Your file can’t fix this — the duplicate exists on the site, not in your file.',
+      ab: { aLabel: 'On your site now (A)', a: 'cdelgado + c.delgado, one email', bLabel: 'After Vector merges (B)', b: 'one account · history kept' },
+      usually: 'Usually the answer is: contact Vector to merge the two accounts — then your file imports normally.'
+    },
+    name: {
+      means: 'A row matches an existing account by username, but the first name differs — usually a nickname or a legal name change (Susan → Sue), occasionally a different person.',
+      ab: { aLabel: 'On the account now (A)', a: 'Susan Hartley', bLabel: 'From your file (B)', b: 'Sue Hartley' },
+      usually: 'Usually it’s a nickname or name change and is safe to accept. Only decline if you don’t recognize them as the same person.'
+    },
+    'deact-blast': {
+      means: 'This file has only part of your users, but “Deactivate users not in this file” is on — so everyone missing would be signed out (here, 128 of 170).',
+      ab: { aLabel: 'File contains (A)', a: '45 of 170 users', bLabel: 'Would deactivate (B)', b: '128 users · 75% of the site' },
+      usually: 'Usually the answer is: for a new-hire batch or one building, turn off “Deactivate users not in this file.”'
+    },
+    purge: {
+      means: 'You turned on “Deactivate users not in this file,” and these active people are missing from it — so they’d be signed out.',
+      ab: { aLabel: 'Missing from file (A)', a: 'gharper · active', bLabel: 'What happens (B)', b: 'Deactivated · history kept' },
+      usually: 'Usually the answer is: if this is a partial list, turn the setting off so no one is deactivated; otherwise add anyone who should stay.'
+    },
+    'purge-jobs': {
+      means: 'You turned on “Remove positions & locations not in this file,” so any position or location a person holds that isn’t in the file is removed — along with the training tied to it.',
+      ab: { aLabel: 'Held now, not in file (A)', a: 'Coach · Ridgewood High', bLabel: 'What happens (B)', b: 'removed from 4 people · + its training' },
+      usually: 'Usually the answer is: only turn this on when the file is the full, current list of everyone’s positions & locations.'
+    }
+  };
+
   /* ------------------------------------------------------------------ state */
   var state = {
     variants: { uploadVariant: 'column-mapping', automationStage: 'active-failed', syncScenario: 'confirm', startTab: 'import' },
@@ -526,6 +612,7 @@
     ],
     notifyFail: true,
     notifySuccess: false,
+    openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
     disc: {},            // open/closed state for the progressive-disclosure expanders
     variantsCollapsed: false
   };
@@ -1060,14 +1147,35 @@
     return '<div class="ba">' + rows + (more ? '<div class="ba-more">' + esc(more) + '</div>' : '') + '</div>';
   }
 
+  /* The A→B help tooltip for a review alert (V4). */
+  function helpPopover(a) {
+    var h = HELP[a.id]; if (!h) return '';
+    return '<div class="help-pop">'
+      + '<div class="help-pop-head"><span><i class="fa-solid fa-circle-question" aria-hidden="true"></i>What this means &amp; how to fix it</span>'
+      + '<button class="help-x" data-act="closeHelp" aria-label="Close">✕</button></div>'
+      + '<div class="help-pop-body">'
+      + '<div class="hp-means">' + esc(h.means) + '</div>'
+      + '<div class="ab-mini">'
+      + '<div class="ab-mini-card ab-a"><div class="ab-mini-l">' + esc(h.ab.aLabel) + '</div><div class="ab-mini-v mono">' + esc(h.ab.a) + '</div></div>'
+      + '<div class="ab-mini-arrow"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+      + '<div class="ab-mini-card ab-b"><div class="ab-mini-l">' + esc(h.ab.bLabel) + '</div><div class="ab-mini-v mono">' + esc(h.ab.b) + '</div></div>'
+      + '</div>'
+      + '<div class="hp-usually"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' + esc(h.usually) + '</div>'
+      + '<a class="hp-link" href="https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors" target="_blank" rel="noopener">See all upload errors in Vector Help ↗</a>'
+      + '</div></div>';
+  }
+
   function alertHTML(a) {
     var t = TIER[a.tier];
     var acked = !!state.acks[ackKey(a.id)];
+    var hasHelp = !!HELP[a.id];
+    var helpOpen = state.openHelp === a.id;
     var body = '';
 
-    body += '<div class="alert-line"><b>What happened — </b>' + esc(a.what) + '</div>';
-    body += '<div class="alert-line"><b>' + t.proceedLabel + ' — </b>' + esc(a.ifProceed) + '</div>';
-    body += '<div class="alert-line"><b>What to do — </b>' + esc(a.action) + '</div>';
+    // Compact: a single one-liner replaces the three laid-out description lines.
+    // The full explanation + the A→B "how to fix" example live in the Help tooltip.
+    var oneLine = String(a.what).split('. ')[0].replace(/\.$/, '') + '.';
+    body += '<div class="alert-line">' + esc(oneLine) + '</div>';
 
     if (a.compare) {
       body += '<div style="display:flex;border:1px solid #F1C0BB;border-radius:8px;overflow:hidden;font-size:13px;">'
@@ -1096,12 +1204,16 @@
       : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
     if (btns.length) body += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns.join('') + '</div>';
 
-    return '<div class="alert" style="border-color:' + t.border + ';">'
+    return '<div class="alert" style="position:relative;border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div style="flex:1;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
       + (a.guardrail ? '<div style="font-size:11.5px;color:#B42318;font-weight:600;margin-top:2px;">Site-wide guardrail — blocked regardless of individual errors</div>' : '')
-      + '</div></div><div class="alert-body">' + body + '</div></div>';
+      + '</div>'
+      + (hasHelp ? '<button class="help-btn' + (helpOpen ? ' is-open' : '') + '" data-act="toggleHelp" data-arg="' + a.id + '"><i class="fa-solid fa-circle-question" aria-hidden="true"></i>Help</button>' : '')
+      + '</div><div class="alert-body">' + body + '</div>'
+      + (helpOpen ? helpPopover(a) : '')
+      + '</div>';
   }
 
   function reviewHTML() {
@@ -1477,6 +1589,8 @@
       }
       case 'toggleFail': setState({ notifyFail: !state.notifyFail }); break;
       case 'toggleSuccess': setState({ notifySuccess: !state.notifySuccess }); break;
+      case 'toggleHelp': e.preventDefault(); setState({ openHelp: state.openHelp === arg ? null : arg }); break;
+      case 'closeHelp': e.preventDefault(); setState({ openHelp: null }); break;
       case 'toggleDisc': {
         var d = {}; for (var dk in state.disc) d[dk] = state.disc[dk];
         d[arg] = !d[arg]; setState({ disc: d });
@@ -1592,7 +1706,7 @@
 
         /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
         { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
-          desc: 'Automated sync is locked until 3 clean manual imports in a row. Shows the "N to go" tracker and why the tab is unavailable. (Gate = 3 per designer; PRD said 4.)' },
+          desc: 'Automated sync is locked until 4 clean manual imports in a row. Shows the "N to go" tracker and why the tab is unavailable. (Gate = 4 per the PRD.)' },
         { id: 'sync-healthy', flow: 'sync', x: 360, y: 900, step: 'Info', name: 'Info — up to date', state: 'sync-healthy',
           desc: 'The clean path: the last sync applied its changes, nothing is waiting, next check within 30 min.' },
         { id: 'sync-failed', flow: 'sync', x: 680, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',
