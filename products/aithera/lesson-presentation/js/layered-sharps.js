@@ -110,7 +110,8 @@
   var LENSES = {
     education: {
       label: 'Education', premise: 'find',
-      roles: 'teacher · administrator', org: 'Riverbend Unified School District',
+      roles: 'teacher · administrator', org: 'Riverbend Unified School District', orgShort: 'Riverbend Unified',
+      coord: { name: 'Dana Whitfield', title: 'Health Services Coordinator', email: 'safety@riverbendusd.org' },
       role: 'Classroom teacher', where: 'A middle-school classroom', when: 'End of the day',
       case1: 'You finish a diabetic student’s finger-stick in the health office and set the lancet on the counter — the phone is ringing and the container is across the room.',
       case2: 'The sharps container in the health office is packed to the neck. Someone has been pressing things down to make room.',
@@ -130,7 +131,8 @@
     },
     aec: {
       label: 'Commercial AEC', premise: 'find',
-      roles: 'architect · engineer · construction', org: 'Halstead Build Group',
+      roles: 'architect · engineer · construction', org: 'Halstead Build Group', orgShort: 'Halstead',
+      coord: { name: 'Marcus Oyelaran', title: 'Site Safety Manager', email: 'safety@halsteadbuild.com' },
       role: 'Site supervisor', where: 'An occupied renovation', when: 'Punch-list walkthrough',
       case1: 'Mid-walkthrough you pull a syringe out of a wall cavity with your gloved hand and set it on a ledge — you will bag it on the way back.',
       case2: 'The first-aid kit’s small sharps container on this floor is full, and the spare is in the trailer two levels down.',
@@ -150,7 +152,8 @@
     },
     manufacturing: {
       label: 'Manufacturing', premise: 'find',
-      roles: 'chemical · industrial', org: 'Acme Plant Operations',
+      roles: 'chemical · industrial', org: 'Acme Plant Operations', orgShort: 'Acme',
+      coord: { name: 'Lena Moreau', title: 'Training Coordinator', email: 'training@acmemfg.com' },
       role: 'Line lead', where: 'The plant floor', when: 'Second shift',
       case1: 'You change a box-cutter blade at the line and set the old one on the bench — you will walk it to the container after this run.',
       case2: 'The container in the plant clinic is above its fill line, and the spare box is in the supply room.',
@@ -170,7 +173,8 @@
     },
     public: {
       label: 'Public Sector', premise: 'use',
-      roles: 'EMS · fire · law enforcement', org: 'Kell County EMS',
+      roles: 'EMS · fire · law enforcement', org: 'Kell County EMS', orgShort: 'Kell County EMS',
+      coord: { name: 'Priya Raman', title: 'EMS Training Officer', email: 'training@kellcountyems.gov' },
       role: 'Paramedic', where: 'The back of a moving ambulance', when: 'A transfer',
       case1: 'You place a line in the back of a moving ambulance and set the used catheter on the bench seat — both hands are on the patient.',
       case2: 'The jump-bag container is full, and the wall unit is behind the stretcher you cannot reach from here.',
@@ -277,7 +281,21 @@
   var DONE_KEYS = { battery: 'battery', adjust: 'battery', case1: 'case1', inflow: 'inflow',
                     case2: 'case2', case3: 'case3', case4: 'case4', debrief: 'debrief',
                     perform: 'perform', followup: 'followup', record: 'record' };
-  function INTRO_CONTENT() { return '' +
+  // Durations are summed from the steps themselves so the rail can never drift
+  // from the syllabus; the saving is exactly what the adaptive sections cost.
+  function pathMinutes() {
+    var full = 0, saved = 0;
+    STEPS.forEach(function (st) {
+      if (!st.mins) return;
+      full += st.mins;
+      if (st.adaptive) saved += st.mins;
+    });
+    return { full: full, saved: saved };
+  }
+  function initials(name) {
+    return String(name || '').split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
+  }
+  function INTRO_CONTENT() { var L = lens(), mins = pathMinutes(); return '' +
     '<main class="ll-object">' +
       '<div class="cp-page">' +
         '<header class="cp-hero-band">' +
@@ -290,7 +308,7 @@
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
-              '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(lens().label) + '</span>' +
+              '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="cp-art"><i class="fa-solid fa-syringe" aria-hidden="true"></i></div>' +
@@ -303,18 +321,22 @@
               'Sections marked “adaptive” can be shortened based on what you show in the first four questions.</p>' +
           '</section>' +
           '<aside class="cp-rail">' +
-            '<div class="cp-card"><h3>What you have to show</h3>' +
+            '<div class="cp-card"><h3>Competency requirement</h3>' +
               '<ul class="cp-req">' +
-                '<li><i class="fa-solid fa-key"></i><span>Two <b>gate</b> objectives — the procedure, and doing it in context.</span></li>' +
-                '<li><i class="fa-solid fa-lock"></i><span><b>Recognizing the conditions</b> is content-locked. It is never removed; a weak answer makes it harder.</span></li>' +
-                '<li><i class="fa-solid fa-shield-halved"></i><span>The simulation runs for <b>everyone</b>, whatever the first four questions say.</span></li>' +
+                '<li><i class="fa-solid fa-award"></i><span><b>Good (or above) on at least 80% of objectives.</b></span></li>' +
               '</ul></div>' +
-            '<div class="cp-card"><h3>Details</h3>' +
+            '<div class="cp-card"><h3>Time needed to complete</h3>' +
               '<div class="cp-kv">' +
-                '<div class="kv"><b>Standard</b>1910.1030(g)(2)(vii)(E)</div>' +
-                '<div class="kv"><b>Setting</b>' + esc(lens().where) + ' · ' + esc(lens().roles) + '</div>' +
-                '<div class="kv"><b>Objectives</b>8 · Know 2 · Feel 3 · Do 3</div>' +
+                '<div class="kv"><b>Typical ≈ ' + mins.full + ' minutes</b>Test well and save ' + mins.saved + ' minutes</div>' +
               '</div></div>' +
+            '<div class="cp-card cp-res"><h3>Resources</h3>' +
+              '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-file-pdf"></i> ' + esc(L.orgShort) + ' exposure control plan <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
+              '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-kit-medical"></i> What to do after a needlestick <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
+              '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-scale-balanced"></i> OSHA 1910.1030 <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
+              '<p class="cp-res-note">All resources open in a new window.</p></div>' +
+            '<div class="cp-card"><h3>Course coordinator</h3>' +
+              '<div class="cp-coord"><span class="ava">' + esc(initials(L.coord.name)) + '</span>' +
+                '<span><b>' + esc(L.coord.name) + '</b><small>' + esc(L.coord.title) + ' · ' + esc(L.coord.email) + '</small></span></div></div>' +
           '</aside>' +
         '</div>' +
       '</div>' +
