@@ -811,20 +811,35 @@
         note.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + html;
         note.hidden = false;
       }
-      function missing() {
-        if (started) return;
-        say('No video at <code>' + esc(PROCEDURE_VIDEO) + '</code> — showing the written version instead.');
+      // Never tell someone the file is absent on the player's say-so. Chrome
+      // reports networkState NO_SOURCE for a file that is demonstrably there
+      // (curl gets a 200) whenever a previous request stalled — so ASK the
+      // server before making a claim about it. On file:// there is nothing to
+      // ask, so the neutral wording stands.
+      function toText(msg) {
+        say(msg);
         if (list) list.hidden = false;
         if (v) v.hidden = true;
+      }
+      function missing() {
+        if (started) return;
+        var vague = 'The video is not loading. Press play to try again.';
+        if (location.protocol === 'file:' || typeof fetch !== 'function') { say(vague); return; }
+        fetch(PROCEDURE_VIDEO, { method: 'HEAD' }).then(function (r) {
+          if (started) return;
+          if (r.status === 404) {
+            toText('No video at <code>' + esc(PROCEDURE_VIDEO) + '</code> — showing the written version instead.');
+          } else {
+            say(vague);   // it is there; the player just could not keep hold of it
+          }
+        }).catch(function () { if (!started) say(vague); });
       }
       function stalled() {
         stalls++;
         // Once is a hiccup and the learner can just press play again. Twice
         // means this connection is not going to carry it, so hand over the text.
         if (stalls < 2) { say('The video stopped loading. Press play to pick it up again.'); return; }
-        say('The video keeps dropping out — showing the written version instead.');
-        if (list) list.hidden = false;
-        if (v) v.hidden = true;
+        toText('The video keeps dropping out — showing the written version instead.');
       }
 
       if (v) {
@@ -1348,66 +1363,90 @@
     '<main class="ll-object" id="recordObject">' +
       '<p class="ll-eyebrow">Your results</p>' +
       '<h2 id="recHead">Here’s what you showed.</h2>' +
-      '<p class="ll-sub">Eight objectives, and where the evidence for each one came from — not a completion tick.</p>' +
-      '<ul class="apt-list" id="recList" aria-label="Objective-by-objective record"></ul>' +
+      '<p class="ll-sub">Eight things this module asked of you, and where each answer came from — not a tick for finishing.</p>' +
+      '<div class="rec-groups" id="recList"></div>' +
       '<p class="res-basis" id="recBasis"></p>' +
     '</main>';
+  // The learner's own record, in the learner's own words. Know / Feel / Do
+  // survives as three plain headings and the row icon; the sub-level, the
+  // theoretical construct and the assessment policy are gone from this screen —
+  // they live in the step captions behind the footer "?" and in the Learning
+  // Layer view, which is where a reviewer is looking for them anyway.
+  var REC_GROUPS = [
+    { head: 'What you know',   ids: ['K1', 'K2'] },
+    { head: 'How you see it',  ids: ['F1', 'F2', 'F3'] },
+    { head: 'What you did',    ids: ['D1', 'D2', 'D3'] }
+  ];
   function recordInit(ctx) {
     var c = readCourse();
     var proven = batteryResult() === 'proven';
+    var hit = !!(c.perform && c.perform.disposed);
+    var days = (c.followup && c.followup.days) || 90;
+    // [ status, band, where it came from, what happened ]
     var state = {
-      K1: proven ? ['Verified', 'band-exc', 'Sequenced correctly in the pre-module battery, then re-verified performatively in the simulation.']
-                 : ['Instructed', 'band-ok', 'Taught in the module and re-checked in flow; the simulation verified it in context.'],
-      K2: [k2TestUp() ? 'Verified · harder tier' : 'Instructed', k2TestUp() ? 'band-exc' : 'band-ok',
-           k2TestUp() ? 'Content-locked, so a strong result served the ambiguous variant rather than removing the beat.'
-                      : 'Content-locked — served in full, as it is for every learner in every profile.'],
-      F1: [(c.case4 && c.case4.read) ? 'Reinforced' : 'Not shown', 'band-ok',
-           'Feel objectives never route past content. Rated before the module, and the consequence case ran regardless.'],
-      F2: ['Asked', 'band-ok', 'Measured for the record at course level. It routes nothing on its own — that is what “ask” means.'],
-      F3: [(c.debrief) ? 'Reinforced' : 'Not shown', 'band-ok',
-           'Your read of the room, corrected against what your sector actually reports.'],
-      D1: [(c.perform && c.perform.disposed) ? 'Demonstrated' : 'Attempted',
-           (c.perform && c.perform.disposed) ? 'band-exc' : 'band-warn',
-           (c.perform && c.perform.disposed)
-             ? 'Disposed at the point of use, ' + ((c.perform.ms || 0) / 1000).toFixed(1) + 's after the safety feature engaged, while interrupted.'
-             : 'The window closed with the sharp still in hand. Recorded as attempted — this objective is never skipped and never assumed.'],
-      D2: [(c.perform && c.perform.disposed) ? 'Demonstrated' : 'Partial',
-           (c.perform && c.perform.disposed) ? 'band-exc' : 'band-warn',
-           'Rubric-scored against the SME-validated standard: timing, technique, route, recovery.'],
-      D3: ['Open · ' + ((c.followup && c.followup.days) || 90) + ' days', 'band-warn',
-           'Cannot be evidenced today. Scheduled, and it stays open on the record until it answers.']
+      K1: proven
+        ? ['Shown', 'band-exc', 'From the four questions',
+           'You put the four steps in the right order before the module even started.']
+        : ['Taught', 'band-ok', 'From the lesson and the quick check',
+           'Taught here, then checked again straight afterwards.'],
+      K2: k2TestUp()
+        ? ['Shown', 'band-exc', 'From the case screens',
+           'Because you were strong on the procedure, you got the harder version of both cases — this one is never taken away, only made harder.']
+        : ['Taught', 'band-ok', 'From the case screens',
+           'Served in full. This one is never shortened, whatever you answer.'],
+      F1: (c.case4 && c.case4.read)
+        ? ['Recorded', 'band-ok', 'From your own answer',
+           'You said where you stood at the start, then read what happened to someone doing your job.']
+        : ['Rated only', 'band-warn', 'From your own answer',
+           'You said where you stood at the start. The account from your own sector did not come up in this run.'],
+      F2: ['Recorded', 'band-ok', 'From your own answer',
+           'Noted and passed on. It does not change your path — it tells your training coordinator something.'],
+      F3: c.debrief
+        ? ['Recorded', 'band-ok', 'From your own answer',
+           'Your read of the room, set against what people doing your job actually report.']
+        : ['Rated only', 'band-warn', 'From your own answer',
+           'You gave your read of the room. The real numbers for your sector did not come up in this run.'],
+      D1: hit
+        ? ['Shown', 'band-exc', 'From the timed moment',
+           'You disposed of it ' + ((c.perform.ms || 0) / 1000).toFixed(1) + ' seconds after the safety feature was on, while someone was pulling at you.']
+        : ['Not this time', 'band-warn', 'From the timed moment',
+           'The six seconds ran out with the sharp still in your hand. Recorded the way it happened — this one is never assumed.'],
+      D2: hit
+        ? ['Shown', 'band-exc', 'From the timed moment', 'Timing, technique, route and recovery all held.']
+        : ['Partly', 'band-warn', 'From the timed moment', 'The steps were right. The timing was not.'],
+      D3: ['Open · ' + days + ' days', 'band-warn', 'From the check-back you scheduled',
+           'Nothing you did today can answer this one. Your check-back is set for ' + days + ' days, and it stays open until then.']
     };
-    document.getElementById('recList').innerHTML = OBJECTIVES.map(function (o) {
-      var s = state[o.id];
-      return '<li class="apt-row">' +
-        '<span class="apt-ico"><i class="fa-solid ' +
-          (o.domain === 'Know' ? 'fa-book-open' : o.domain === 'Feel' ? 'fa-heart' : 'fa-bolt') + '"></i></span>' +
-        '<div class="apt-main">' +
-          '<div class="apt-head"><h3>' + esc(o.name) + '</h3></div>' +
-          '<div class="apt-class">' +
-            '<span class="apt-dom ' + (o.domain === 'Know' ? 'dom-know' : o.domain === 'Feel' ? 'dom-feel' : 'dom-do') + '">' +
-              esc(o.domain + ' / ' + o.sub) + '</span>' +
-            '<span class="apt-theory">' + esc(o.theory) + '</span>' +
-          '</div>' +
-          '<div class="apt-bands"><span class="band ' + s[1] + '">' + esc(s[0]) + '</span></div>' +
-          '<p class="apt-evidence">' + esc(s[2]) + '</p>' +
-        '</div>' +
-      '</li>';
+    document.getElementById('recList').innerHTML = REC_GROUPS.map(function (g) {
+      return '<h3 class="rec-head">' + esc(g.head) + '</h3>' +
+        '<ul class="apt-list">' + g.ids.map(function (id) {
+          var o = obj(id), st = state[id];
+          return '<li class="apt-row">' +
+            '<span class="apt-ico"><i class="fa-solid ' +
+              (o.domain === 'Know' ? 'fa-book-open' : o.domain === 'Feel' ? 'fa-heart' : 'fa-bolt') + '" aria-hidden="true"></i></span>' +
+            '<div class="apt-main">' +
+              '<div class="apt-head"><h4>' + esc(o.name) + '</h4></div>' +
+              '<div class="apt-bands"><span class="band ' + st[1] + '">' + esc(st[0]) + '</span>' +
+                '<span class="rec-src">' + esc(st[2]) + '</span></div>' +
+              '<p class="apt-evidence">' + esc(st[3]) + '</p>' +
+            '</div>' +
+          '</li>';
+        }).join('') + '</ul>';
     }).join('');
     document.getElementById('recBasis').innerHTML =
-      '<i class="fa-solid fa-circle-info"></i> Every row traces to a policy the SME signed and a moment in this ' +
-      'module where it fired. Seven objectives are closed; <b>Do / Sustain stays open by design</b> — it is the one ' +
-      'thing a module cannot evidence on the day it is taken.';
+      '<i class="fa-solid fa-circle-info"></i> Every line points at a moment in this module rather than a tick for ' +
+      'finishing it. Seven are closed. <b>The last one stays open on purpose</b> — nothing a module does in one ' +
+      'sitting can tell you what you keep doing afterwards.';
     typeFeedback(ctx, [
       'Seven of eight closed, Rob — and the eighth is open on purpose rather than rounded up.',
-      'The part worth noticing: proving the procedure removed a beat, but made the locked one harder. Compression and lock are different rules.',
-      'Ask me about any row and I will show you which policy put the question where it was.'
+      'The part worth noticing: proving the procedure took a section off, but made the one on spotting conditions harder instead.',
+      'Ask me about any line and I will tell you where it came from.'
     ]);
     wireChat(ctx, [
-      'That row traces to the pre-module battery — a gate-flagged Know objective, which is the only kind that can buy you anything.',
-      'Content-locked means the regulation names it. We can serve it harder for a strong learner, but never remove it.',
-      '“Ask” objectives are measured and reported, and route nothing. F2 is one — it tells your administrator something without changing your path.',
-      'Do / Sustain is scheduled rather than scored. Anything else would be evidence we do not have.'
+      'That one came from the four questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
+      'Spotting unsafe conditions is named in the regulation, so it is never taken away. A strong answer makes it harder instead.',
+      'Some answers are recorded and passed on without changing your path. The one about whether the controls actually prevent injuries is like that.',
+      'The last line is scheduled rather than scored. Anything else today would be a guess.'
     ]);
     ctx.positionOrb(false);
   }
@@ -1484,7 +1523,7 @@
       content: FOLLOWUP_CONTENT, init: followupInit },
 
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
-      caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything.' },
+      caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
       coach: { say: '', ask: 'Ask CLARA about your record…' },
       content: RECORD_CONTENT, init: recordInit }
   ];
