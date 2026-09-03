@@ -308,6 +308,35 @@
 
   .spinner { width: 28px; height: 28px; border: 3px solid #D5E3F3; border-top-color: var(--blue);
     border-radius: 50%; margin: 0 auto 14px; animation: spin .8s linear infinite; }
+
+  /* ---- Progressive disclosure — a summary row is always visible; the detail
+         opens on demand. Used across the automated-sync views so first entry
+         stays light without losing any explanation. State-backed (state.disc)
+         so open/closed survives the full re-render. ---- */
+  .disc { border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; }
+  .disc-sum { display: flex; align-items: center; gap: 12px; padding: 13px 16px; cursor: pointer; }
+  .disc-sum:hover { background: #FAFBFD; }
+  .disc-ico { width: 30px; height: 30px; border-radius: 8px; background: #EEF2F7; color: #5B6B7E;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 30px; }
+  .disc-tt { flex: 1; min-width: 0; }
+  .disc-tt .dt { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .disc-tt .ds { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .disc-chev { color: var(--muted-2); font-size: 12px; transition: transform .15s; flex: 0 0 auto; }
+  .disc.is-open .disc-chev { transform: rotate(180deg); }
+  .disc-body { border-top: 1px solid var(--line-3); }
+  .disc-body-inner { padding: 13px 16px 15px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+
+  /* ---- Sync status header — one compact strip that NAMES the current state
+         (Up to date / Needs your review / Not available), so the customer always
+         knows which state they’re in before reading any detail. ---- */
+  .sync-status { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; padding: 15px 18px; }
+  .sync-status .ss-badge { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex: 0 0 42px; }
+  .sync-status .ss-main { flex: 1; min-width: 0; }
+  .sync-status .ss-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
+  .sync-status .ss-title { font-size: 16px; font-weight: 700; margin-top: 1px; }
+  .sync-status .ss-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -401,6 +430,8 @@
   var SYNC_FAILS = {
     confirm: {
       tier: 'confirm',
+      summary: '8 accounts arrive with a different first or last name. Apply the changes to update the names and keep every account’s training history — the rest of the file (2 new users, 41 updates) imports as normal.',
+      detailLabel: 'Review all 8 name changes',
       title: 'Your sync stopped this morning — 8 changes need your confirmation',
       meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
       lines: [
@@ -422,6 +453,8 @@
     },
     blocked: {
       tier: 'blocked',
+      summary: 'This morning’s file would rewrite usernames on 148 of 170 accounts (87%) and break sign-in across the district. Fix the export at its source, or bring today’s roster in through the manual uploader.',
+      detailLabel: 'See why it’s blocked',
       title: 'Your sync stopped this morning — this file would change usernames on 148 of 170 accounts (87%)',
       meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
       lines: [
@@ -439,6 +472,8 @@
     },
     escalate: {
       tier: 'escalate',
+      summary: 'Two accounts on your site already use the same email, so this morning’s file can’t resolve them. Vector merges the two accounts, then your sync resumes automatically — nothing for you to fix in the file.',
+      detailLabel: 'See the details',
       title: 'Your sync stopped — 2 accounts on your site already share one email address',
       meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
       lines: [
@@ -476,6 +511,7 @@
     ],
     notifyFail: true,
     notifySuccess: false,
+    disc: {},            // open/closed state for the progressive-disclosure expanders
     variantsCollapsed: false
   };
   var _validateTimer = null;
@@ -1144,12 +1180,54 @@
     return '<section data-screen-label="Manual import">' + wt + stepper + body + '</section>';
   }
 
-  /* Renders the current automated-sync failure as a tier-styled card (Confirm /
-     Blocked / Contact Vector), driven by SYNC_FAILS[syncScenario()]. */
+  /* One compact strip that NAMES the current sync state, shown above any detail so
+     the customer always knows which state they’re looking at. */
+  function syncStatus(bg, col, ico, title, sub) {
+    return '<div class="sync-status">'
+      + '<div class="ss-badge" style="background:' + bg + ';color:' + col + ';"><i class="fa-solid ' + ico + '" aria-hidden="true"></i></div>'
+      + '<div class="ss-main"><div class="ss-eyebrow">Automated sync</div>'
+      + '<div class="ss-title">' + title + '</div>'
+      + '<div class="ss-sub">' + sub + '</div></div></div>';
+  }
+  function syncStatusHeader() {
+    var st = stage();
+    if (st === 'qualifying') {
+      var toGo = SYNC_GATE - SYNC_DONE;
+      return syncStatus('#EEF2F7', '#5B6B7E', 'fa-lock', 'Not available yet',
+        toGo + ' clean import' + (toGo === 1 ? '' : 's') + ' to go before this turns on.');
+    }
+    if (st === 'active-healthy') {
+      return syncStatus('#ECFDF3', '#067647', 'fa-circle-check', 'Up to date',
+        'Last import today 6:42 AM · next check within 30 minutes. Nothing needs you.');
+    }
+    if (st === 'active-failed' && state.blessed) {
+      return syncStatus('#ECFDF3', '#067647', 'fa-circle-check', 'Up to date',
+        'You applied the waiting changes just now — your roster is current.');
+    }
+    return '';   // active-failed (unresolved) leads with the failure card itself
+  }
+
+  /* Progressive-disclosure row — summary always visible, detail on demand. */
+  function disc(id, ico, title, sub, detailHTML) {
+    var open = !!state.disc[id];
+    return '<div class="disc' + (open ? ' is-open' : '') + '">'
+      + '<div class="disc-sum" data-act="toggleDisc" data-arg="' + id + '">'
+      + '<div class="disc-ico"><i class="fa-solid ' + ico + '" aria-hidden="true"></i></div>'
+      + '<div class="disc-tt"><div class="dt">' + title + '</div>'
+      + (sub ? '<div class="ds">' + sub + '</div>' : '') + '</div>'
+      + '<div class="disc-chev"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></div></div>'
+      + (open ? '<div class="disc-body"><div class="disc-body-inner">' + detailHTML + '</div></div>' : '')
+      + '</div>';
+  }
+
+  /* The sync decision, summary-first: a clear tier chip + headline + one-line
+     summary + the primary actions stay visible; the fuller explanation and the
+     row-level data collapse behind a single expander — less to read on first
+     entry, nothing lost. Chip carries severity by shape (WCAG 1.4.1). */
   function syncFailureCard() {
     var sc = SYNC_FAILS[syncScenario()] || SYNC_FAILS.confirm;
     var t = TIER[sc.tier];
-    var body = sc.lines.map(function (l) {
+    var lines = sc.lines.map(function (l) {
       return '<div class="alert-line"><b>' + esc(l[0]) + ' — </b>' + esc(l[1]) + '</div>';
     }).join('');
     var box = sc.rows
@@ -1158,6 +1236,8 @@
         + '</div>'
       : '';
     var diff = sc.diff ? beforeAfter(sc.diff, sc.diffLabel, sc.more) : '';
+    var foot = sc.foot ? '<div style="font-size:12.5px;color:#8CA0B4;">' + esc(sc.foot) + '</div>' : '';
+    var detail = '<div style="display:flex;flex-direction:column;gap:10px;">' + lines + box + diff + foot + '</div>';
     var btns = sc.buttons.map(function (b) {
       return '<button class="btn sm ' + b.cls + '" data-act="' + b.act + '">' + esc(b.label) + '</button>';
     }).join('');
@@ -1166,17 +1246,18 @@
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div><div style="font-size:14.5px;font-weight:600;color:' + t.titleColor + ';">' + esc(sc.title) + '</div>'
       + '<div style="font-size:12.5px;color:' + t.titleColor + ';opacity:.75;margin-top:3px;">' + esc(sc.meta) + '</div></div></div>'
-      + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">'
-      + body + box + diff
+      + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
+      + '<div style="font-size:13.5px;color:#3D4F63;line-height:1.6;">' + esc(sc.summary) + '</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns + '</div>'
-      + (sc.foot ? '<div style="font-size:12.5px;color:#8CA0B4;">' + esc(sc.foot) + '</div>' : '')
+      + disc('syncfail-detail', 'fa-list-ul', sc.detailLabel || 'See the details', 'What happened, and the exact rows affected', detail)
       + '</div></div>';
   }
 
-  /* Automated sync isn't available until the site clears the clean-import gate.
-     Shown when stage() === 'qualifying': a locked panel with the "N to go"
-     tracker, so the customer sees why the tab is unavailable and how close it is. */
-  function lockedSyncHTML() {
+  /* Locked automated sync (stage 'qualifying'). The progress tracker is the hero;
+     the how-it-works explanation and the run history collapse behind expanders so
+     first entry is light. Returns the inner column only — syncTab() adds the
+     state-naming header above it. */
+  function lockedBody() {
     var toGo = SYNC_GATE - SYNC_DONE;
     var segs = '';
     for (var i = 0; i < SYNC_GATE; i++) {
@@ -1187,65 +1268,53 @@
       { mark: '✕', bg: '#D92D20', label: 'Import had errors — file arrived as .xlsx instead of .csv', sub: 'Streak reset to 0 — any error starts the count over', date: 'Aug 5' }
     ];
     var runsHtml = runs.map(function (q) {
-      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:10px 0;border-top:1px solid #F3F6FA;">'
+      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-top:1px solid #F3F6FA;">'
         + '<div style="width:20px;height:20px;border-radius:50%;background:' + q.bg + ';color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 20px;margin-top:1px;">' + q.mark + '</div>'
-        + '<div style="flex:1;"><div style="font-size:13px;color:#1B2B3E;">' + esc(q.label) + '</div>'
+        + '<div style="flex:1;"><div style="font-size:12.5px;color:#1B2B3E;">' + esc(q.label) + '</div>'
         + '<div style="font-size:11.5px;color:#8CA0B4;margin-top:1px;">' + esc(q.sub) + '</div></div>'
-        + '<div style="color:#8CA0B4;font-size:12.5px;white-space:nowrap;">' + q.date + '</div></div>';
+        + '<div style="color:#8CA0B4;font-size:12px;white-space:nowrap;">' + q.date + '</div></div>';
     }).join('');
+    // First run row already carries the top border from the shared style; trim it.
+    runsHtml = runsHtml.replace('border-top:1px solid #F3F6FA;', 'border-top:0;');
 
-    var card = '<div class="card" style="padding:22px;">'
-      + '<div style="display:flex;gap:14px;align-items:flex-start;">'
-      + '<div style="width:40px;height:40px;border-radius:10px;background:#EEF2F7;color:#5B6B7E;display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 40px;"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>'
-      + '<div style="flex:1;"><div style="font-size:16px;font-weight:700;">Automated sync isn’t turned on yet</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-top:4px;line-height:1.55;">Automated sync drops your roster file on your SFTP folder and SafeLMS imports it for you — no manual upload. It turns on after <b>' + SYNC_GATE + ' clean manual imports in a row</b> with the same file format.</div></div>'
-      + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:6px 11px;white-space:nowrap;">' + toGo + ' to go</div></div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 8px;">'
-      + '<div style="font-size:13px;font-weight:600;">' + SYNC_DONE + ' of ' + SYNC_GATE + ' clean imports</div>'
-      + '<div style="font-size:12.5px;color:#8CA0B4;">' + toGo + ' more clean import' + (toGo === 1 ? '' : 's') + ' to unlock</div></div>'
+    var howDetail = 'Automated sync drops your roster file on your SFTP folder and SafeLMS imports it for you — no manual upload. '
+      + 'Keep the format, columns, and file-name pattern identical each time; an import with any error resets the streak to zero.';
+
+    var progress = '<div class="card" style="padding:20px 22px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
+      + '<div style="font-size:14px;font-weight:700;">' + SYNC_DONE + ' of ' + SYNC_GATE + ' clean imports</div>'
+      + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:5px 11px;white-space:nowrap;">' + toGo + ' to go</div></div>'
       + '<div style="display:flex;gap:6px;">' + segs + '</div>'
-      + '<div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin:20px 0 0;">Your recent imports</div>'
-      + runsHtml
-      + '<div style="background:#F8FAFC;border-radius:8px;padding:11px 14px;font-size:12.5px;color:#5B6B7E;margin-top:14px;line-height:1.5;">Each manual import is checked as it comes in. Keep the format, columns, and file-name pattern identical each time — an import with any error resets the streak to zero.</div>'
+      + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:12px;line-height:1.55;">Automated sync imports your roster for you once you’ve had <b>' + SYNC_GATE + ' clean manual imports in a row</b> — ' + toGo + ' more to go.</div>'
       + '<div style="display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;">'
       + '<button class="btn btn--primary" data-act="goImport">Run a manual import →</button>'
-      + '<button class="btn btn--disabled" disabled>Turn on automated sync</button>'
       + '<span style="font-size:12px;color:#8CA0B4;">Unlocks after your ' + ordinal(SYNC_GATE) + ' clean import</span>'
       + '</div></div>';
 
-    return '<section data-screen-label="Automated sync — not available yet"><div style="max-width:720px;">' + card + '</div></section>';
+    return progress
+      + disc('locked-how', 'fa-circle-info', 'How automated sync works', 'Imports from SFTP · turns on after ' + SYNC_GATE + ' clean imports', howDetail)
+      + disc('locked-runs', 'fa-clock-rotate-left', 'Your recent imports', 'Last checked Aug 19', runsHtml);
   }
 
+  /* Automated sync — single, calm column. It leads with the state-naming header
+     (or the failure card when a decision is waiting); the recent activity, the
+     how-it-works, and the notification settings all collapse into expanders, so
+     first entry is light while every explanation stays one click away. */
   function syncTab() {
     var st = stage();
-    if (st === 'qualifying') return lockedSyncHTML();   // locked — not available yet
-
+    var qualifying = st === 'qualifying';
     var failed = st === 'active-failed';
     var showFailure = failed && !state.blessed;
     var showResolved = failed && state.blessed;
-    var qualifying = false;
     var healthy = st === 'active-healthy';
 
-    var left = '';
+    var col = '';
+    if (qualifying) {
+      col = lockedBody();
+    } else {
+      if (showFailure) col += syncFailureCard();
 
-    if (showFailure) {
-      left += syncFailureCard();
-    }
-
-    if (showResolved) {
-      var nowLabel = 'today, ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      left += '<div style="background:#ECFDF3;border:1px solid #A6E5C3;border-radius:10px;padding:16px 18px;font-size:13.5px;color:#067647;"><span style="font-weight:700;">Sync resumed.</span> 8 names updated, 2 users added, 41 users updated from ridgewood_staff_20260901.csv. Your roster is current as of ' + nowLabel + '.</div>';
-    }
-
-    if (healthy) {
-      left += '<div class="card" style="padding:18px 20px;display:flex;align-items:center;gap:14px;">'
-        + '<div style="width:40px;height:40px;border-radius:50%;background:#ECFDF3;border:1.5px solid #A6E5C3;color:#067647;font-size:18px;display:flex;align-items:center;justify-content:center;">✓</div>'
-        + '<div style="flex:1;"><div style="font-size:15px;font-weight:700;">Your sync is up to date</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin-top:2px;">Last import today, 6:42 AM — 3 users added, 12 updated, 0 deactivated. Nothing is waiting.</div></div>'
-        + '<div style="font-size:12px;color:#8CA0B4;text-align:right;">Next check<br><span style="color:#3D4F63;font-weight:600;">within 30 min</span></div></div>';
-    }
-
-    if (!qualifying) {
+      // Recent activity — collapsed; the summary line carries the latest event.
       var activity = (showResolved || healthy) ? [
         { label: 'ridgewood_staff_20260901.csv — imported' + (showResolved ? ' after your confirmation (2 added, 41 updated, 8 names)' : ''), when: showResolved ? 'Today, just now' : 'Today, 6:42 AM', dot: '#12B76A' },
         { label: 'ridgewood_staff_20260831.csv — imported (0 added, 6 updated)', when: 'Aug 31, 6:38 AM', dot: '#12B76A' },
@@ -1257,48 +1326,48 @@
         { label: 'ridgewood_staff_20260830.csv — imported (1 added, 3 updated)', when: 'Aug 30, 6:45 AM', dot: '#12B76A' },
         { label: 'ridgewood_staff_20260829.csv — imported (0 added, 11 updated)', when: 'Aug 29, 6:33 AM', dot: '#12B76A' }
       ];
-      left += '<div class="card" style="overflow:hidden;">'
-        + '<div style="padding:14px 18px;border-bottom:1px solid #EDF1F6;font-size:14px;font-weight:600;">Recent sync activity</div>'
-        + activity.map(function (ev) {
-            return '<div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #F3F6FA;">'
-              + '<div style="width:9px;height:9px;border-radius:50%;background:' + ev.dot + ';flex:0 0 9px;"></div>'
-              + '<div style="flex:1;font-size:13px;">' + esc(ev.label) + '</div>'
-              + '<div style="font-size:12.5px;color:#8CA0B4;">' + ev.when + '</div></div>';
-          }).join('')
-        + '</div>';
+      var actRows = activity.map(function (ev, i) {
+        return '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;' + (i ? 'border-top:1px solid #F3F6FA;' : '') + '">'
+          + '<div style="width:9px;height:9px;border-radius:50%;background:' + ev.dot + ';flex:0 0 9px;"></div>'
+          + '<div style="flex:1;font-size:12.5px;">' + esc(ev.label) + '</div>'
+          + '<div style="font-size:12px;color:#8CA0B4;white-space:nowrap;">' + ev.when + '</div></div>';
+      }).join('');
+      col += disc('sync-activity', 'fa-clock-rotate-left', 'Recent sync activity',
+        (showFailure ? '1 file waiting · last clean import Aug 31' : 'Last import ' + activity[0].when.toLowerCase()), actRows);
+
+      // How your sync works — collapsed.
+      var howDetail = 'SafeLMS checks your SFTP folder every 30 minutes for a file matching '
+        + '<span class="mono" style="font-size:12px;background:#F0F4F9;padding:1px 5px;border-radius:4px;">ridgewood_staff_*.csv</span>. '
+        + 'Keep the format, columns, and file-name pattern the same — changing any of them will stop the sync.';
+      col += disc('sync-how', 'fa-circle-info', 'How your sync works', 'Checks SFTP every 30 min for ridgewood_staff_*.csv', howDetail);
+
+      // Notifications — collapsed; the recipient editor + toggles live inside.
+      var recips = state.recipients.map(function (r, i) {
+        var initials = r.name.split(' ').map(function (w) { return w[0]; }).join('');
+        return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #EDF1F6;border-radius:8px;padding:8px 10px;">'
+          + '<div style="width:28px;height:28px;border-radius:50%;background:#DCE7F2;color:#0E2A43;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 28px;">' + esc(initials) + '</div>'
+          + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">' + esc(r.name) + '</div>'
+          + '<div style="font-size:11.5px;color:#8CA0B4;">' + esc(r.role) + '</div></div>'
+          + '<div data-act="removeRecip" data-arg="' + i + '" style="font-size:15px;color:#8CA0B4;cursor:pointer;padding:0 2px;">×</div></div>';
+      }).join('');
+      var notifDetail = '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:10px;line-height:1.5;">When a sync fails or needs confirmation, these people are emailed directly — not just whoever logs in next. They don’t need permission to run imports; the person who should know a sync broke often isn’t the one who runs it.</div>'
+        + '<div style="display:flex;flex-direction:column;gap:8px;">' + recips + '</div>'
+        + '<div style="display:flex;gap:8px;margin-top:10px;">'
+        + '<input id="recipInput" placeholder="Add by email…" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #C6D3E1;border-radius:7px;font-size:12.5px;">'
+        + '<button class="btn sm btn--outline-blue" data-act="addRecip" style="padding:7px 12px;font-size:12.5px;">Add</button></div>'
+        + '<div class="divider" style="margin:14px 0;"></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:13px;color:#3D4F63;">Email when a sync needs attention</span>'
+        + '<div class="toggle" data-act="toggleFail" style="background:' + (state.notifyFail ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifyFail ? '17px' : '2px') + ';"></div></div></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#3D4F63;">Email a summary after each successful sync</span>'
+        + '<div class="toggle" data-act="toggleSuccess" style="background:' + (state.notifySuccess ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifySuccess ? '17px' : '2px') + ';"></div></div></div>';
+      col += disc('sync-notif', 'fa-bell', 'Notifications',
+        state.recipients.length + ' ' + (state.recipients.length === 1 ? 'person' : 'people') + ' emailed when a sync needs attention', notifDetail);
     }
 
-    var recips = state.recipients.map(function (r, i) {
-      var initials = r.name.split(' ').map(function (w) { return w[0]; }).join('');
-      return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #EDF1F6;border-radius:8px;padding:8px 10px;">'
-        + '<div style="width:28px;height:28px;border-radius:50%;background:#DCE7F2;color:#0E2A43;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 28px;">' + esc(initials) + '</div>'
-        + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">' + esc(r.name) + '</div>'
-        + '<div style="font-size:11.5px;color:#8CA0B4;">' + esc(r.role) + '</div></div>'
-        + '<div data-act="removeRecip" data-arg="' + i + '" style="font-size:15px;color:#8CA0B4;cursor:pointer;padding:0 2px;">×</div></div>';
-    }).join('');
-
-    var side = '<div style="width:300px;flex:0 0 300px;display:flex;flex-direction:column;gap:14px;">'
-      + '<div class="card" style="padding:16px 18px;">'
-      + '<div class="kpi-eyebrow" style="margin-bottom:10px;">How your sync works</div>'
-      + '<div style="font-size:13px;color:#3D4F63;line-height:1.6;">SafeLMS checks your SFTP folder every 30 minutes for a file matching <span class="mono" style="font-size:12px;background:#F0F4F9;padding:1px 5px;border-radius:4px;">ridgewood_staff_*.csv</span>. Keep the format, columns, and file name pattern the same — changing any of them will stop the sync.</div></div>'
-      + '<div class="card" style="padding:16px 18px;">'
-      + '<div class="kpi-eyebrow">Who gets notified</div>'
-      + '<div style="font-size:12.5px;color:#5B6B7E;margin:6px 0 12px;line-height:1.5;">When a sync fails or needs confirmation, these people are emailed directly — not just whoever logs in next.</div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px;">' + recips + '</div>'
-      + '<div style="display:flex;gap:8px;margin-top:10px;">'
-      + '<input id="recipInput" placeholder="Add by email…" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #C6D3E1;border-radius:7px;font-size:12.5px;">'
-      + '<button class="btn sm btn--outline-blue" data-act="addRecip" style="padding:7px 12px;font-size:12.5px;">Add</button></div>'
-      + '<div class="divider" style="margin:14px 0;"></div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:13px;color:#3D4F63;">Email when a sync needs attention</span>'
-      + '<div class="toggle" data-act="toggleFail" style="background:' + (state.notifyFail ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifyFail ? '17px' : '2px') + ';"></div></div></div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#3D4F63;">Email a summary after each successful sync</span>'
-      + '<div class="toggle" data-act="toggleSuccess" style="background:' + (state.notifySuccess ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifySuccess ? '17px' : '2px') + ';"></div></div></div>'
-      + '<div style="font-size:11.5px;color:#8CA0B4;margin-top:12px;line-height:1.5;">Notification recipients don’t need permission to run imports — the person who should know a sync broke often isn’t the person who runs it.</div>'
-      + '</div></div>';
-
-    return '<section data-screen-label="Automated sync"><div style="display:flex;gap:20px;align-items:flex-start;">'
-      + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;">' + left + '</div>'
-      + side + '</div></section>';
+    var label = qualifying ? 'Automated sync — not available yet' : 'Automated sync';
+    return '<section data-screen-label="' + label + '">'
+      + '<div style="max-width:760px;display:flex;flex-direction:column;gap:12px;">'
+      + syncStatusHeader() + col + '</div></section>';
   }
 
   function render() {
@@ -1313,10 +1382,7 @@
         + '<div class="stack-divider"></div>'
         + '<div id="autosync" class="stack-head"><div class="stack-title">Automated sync'
         + (locked ? ' <i class="fa-solid fa-lock" aria-hidden="true" style="font-size:12px;opacity:.5;"></i>'
-                  : (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '')) + '</div>'
-        + '<div class="stack-sub">' + (locked
-            ? 'Not available yet — ' + (SYNC_GATE - SYNC_DONE) + ' clean imports to go before it unlocks.'
-            : 'Set your roster to import on a schedule, and catch &amp; fix failures without opening a case.') + '</div></div>'
+                  : (syncNeedsDot ? '<span class="dot-red" style="margin-left:8px;vertical-align:middle;"></span>' : '')) + '</div></div>'
         + syncTab();
     } else {
       // A: Manual import / Automated sync as a segmented sub-control (two views).
@@ -1398,6 +1464,11 @@
       }
       case 'toggleFail': setState({ notifyFail: !state.notifyFail }); break;
       case 'toggleSuccess': setState({ notifySuccess: !state.notifySuccess }); break;
+      case 'toggleDisc': {
+        var d = {}; for (var dk in state.disc) d[dk] = state.disc[dk];
+        d[arg] = !d[arg]; setState({ disc: d });
+        break;
+      }
       case 'toggleVariants': setState({ variantsCollapsed: !state.variantsCollapsed }); break;
       case 'setVariant': {
         var parts = arg.split(':'), key = parts[0], val = parts[1];

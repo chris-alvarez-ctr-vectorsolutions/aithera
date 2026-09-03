@@ -91,8 +91,27 @@ Use the V1/V2 pill to compare. Which layout to keep is an open design call.
   is a **PENDING** PM decision — the live examples are partly there to test whether
   two toggles read clearly enough to keep.
 
+## sync-locked
+
+- **Automated sync is progressive-disclosure everywhere (2026-09-03).** Client
+  feedback: the sync views carried too much text/visual load on first entry. Every
+  sync state now leads with a single **status header** that *names the state* —
+  "Not available yet" / "Up to date" / (on a waiting decision) the tier chip — so
+  the customer knows which state they’re in before reading anything. The supporting
+  detail (how-it-works, run history, notification recipients + toggles, and the
+  failure card’s row-level diff) collapses into **expanders**, open on demand.
+  Nothing was removed; it’s one click away. Locked view leads with the progress
+  tracker ("1 of 3 · 2 to go") as the hero; the disabled "Turn on automated sync"
+  button was dropped (the lock + header already say it). Expander open/closed is
+  state-backed (`state.disc`) so it survives the app’s full re-render.
+
 ## sync-failed
 
+- **Summary-first failure card.** The sync decision now shows the tier chip +
+  headline + a **one-line summary** + the primary actions up front; the fuller
+  "what happened / why / what to do" and the exact affected rows sit behind a
+  single "See the details / Review N changes" expander. The decision and its action
+  stay visible — only the explanation collapses.
 - **Notifications = email, PII-light — PENDING detail.** *"directly = email? also we
   will need to limit what we send in terms of PII."* Keep names/PII out of the email
   body; drive recipients into the app to see rows. Recipient list is built.
