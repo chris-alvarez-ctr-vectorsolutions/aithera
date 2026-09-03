@@ -223,6 +223,20 @@
   .toggle { width: 34px; height: 19px; border-radius: 10px; position: relative; cursor: pointer; transition: background .15s; }
   .toggle-knob { width: 15px; height: 15px; border-radius: 50%; background: #fff; position: absolute; top: 2px; transition: left .15s; }
 
+  /* ---- Settings: deactivate / remove options + live example ---- */
+  .opt-row { background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 15px 18px;
+    display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+  .opt-row.is-on.is-danger { border-color: var(--red-border); background: #FEF7F6; }
+  .opt-main { flex: 1; min-width: 0; }
+  .opt-title { font-size: 14px; font-weight: 600; }
+  .opt-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .ex-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .ex-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); margin-bottom: 8px; }
+  .job-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border-radius: 6px; padding: 3px 9px; margin: 3px 5px 0 0; }
+  .job-keep { background: #F0F4F9; color: var(--ink-2); }
+  .job-add { background: var(--green-bg); color: var(--green-ink); }
+  .job-remove { background: var(--red-bg); color: var(--red-ink); text-decoration: line-through; }
+
   /* ---- Prototype variant panel (mock-only affordance) ---- */
   /* Anchored bottom-LEFT, over the sidenav's empty lower region — never covers
      the content-area action buttons (Continue / Run import live on the right). */
@@ -363,7 +377,9 @@
     step: 'upload',
     fileId: null,
     mapping: {},
-    purge: 'update',
+    purgeUsers: false,   // deactivate users not in the file
+    purgeJobs: false,    // remove positions/locations not in the file
+    repSent: false,      // "sent to your Vector rep" acknowledgement
     validating: false,
     acks: {},
     blessed: false,
@@ -399,7 +415,7 @@
 
   function pickFile(id) {
     setState({ fileId: id, mapping: defaultMapping(id), acks: {},
-      step: isMap() ? 'map' : 'settings', purge: 'update' });
+      step: isMap() ? 'map' : 'settings', purgeUsers: false, purgeJobs: false, repSent: false });
   }
 
   function go(step) {
@@ -410,18 +426,22 @@
     } else { setState({ step: step }); }
   }
 
-  function summaryFor(fileId, purge) {
-    var full = purge === 'full';
+  /* Counts depend on both toggles: deact only when purgeUsers, job removals only
+     when purgeJobs. jobsAdded always applies (new position/location combos). */
+  function summaryFor(fileId, pu, pj) {
+    var b;
     switch (fileId) {
-      case 'clean':   return { add: 42, mod: 3,   deact: 0 };
-      case 'confirm': return { add: 12, mod: 118, deact: full ? 6  : 0 };
-      case 'saml':    return { add: 9,  mod: 147, deact: full ? 14 : 0 };
-      case 'dupes':   return { add: 26, mod: 124, deact: full ? 12 : 0 };
-      case 'blast':   return { add: 2,  mod: 166, deact: 0 };
-      default:        return { add: 0,  mod: 0,   deact: 0 };
+      case 'clean':   b = { add: 42, mod: 3,   deactOn: 128, jobsAdd: 6,  jobsRem: 4 };   break;
+      case 'confirm': b = { add: 12, mod: 118, deactOn: 6,   jobsAdd: 22, jobsRem: 31 };  break;
+      case 'saml':    b = { add: 9,  mod: 147, deactOn: 14,  jobsAdd: 18, jobsRem: 40 };  break;
+      case 'dupes':   b = { add: 26, mod: 124, deactOn: 12,  jobsAdd: 30, jobsRem: 27 };  break;
+      case 'blast':   b = { add: 2,  mod: 166, deactOn: 0,   jobsAdd: 4,  jobsRem: 150 }; break;
+      default:        b = { add: 0,  mod: 0,   deactOn: 0,   jobsAdd: 0,  jobsRem: 0 };   break;
     }
+    return { add: b.add, mod: b.mod, deact: pu ? b.deactOn : 0,
+      jobsAdded: b.jobsAdd, jobsRemoved: pj ? b.jobsRem : 0 };
   }
-  function summary() { return summaryFor(state.fileId, state.purge); }
+  function summary() { return summaryFor(state.fileId, state.purgeUsers, state.purgeJobs); }
 
   function samlMismatch() {
     if (state.fileId !== 'saml') return false;
@@ -430,17 +450,17 @@
   }
 
   function buildAlerts() {
-    var fileId = state.fileId, purge = state.purge, im = isMap(), A = [];
+    var fileId = state.fileId, pu = state.purgeUsers, pj = state.purgeJobs, im = isMap(), A = [];
     var nameDiff = function (row, cur, inc, after) {
       return { row: row, field: 'First name', current: cur, incoming: inc, result: after };
     };
 
-    if (fileId === 'clean' && purge === 'full') {
+    if (fileId === 'clean' && pu) {
       A.push({ id: 'deact-blast', tier: 'blocked', guardrail: true,
         title: 'This file contains only 45 of your 170 active users',
-        what: 'Full roster sync deactivates every active user who is not in the file. This file would deactivate 128 users — 75% of the site.',
+        what: 'Deactivating users not in this file signs out every active user who isn’t in it. This file has only 45 of your 170 users, so 128 would be deactivated — 75% of the site.',
         ifProceed: '128 staff would immediately lose access to their training. Their history is kept and accounts reactivate if re-added, but the lockout itself cannot be undone.',
-        action: 'If this file is a partial list — like a new-hire batch — switch to "Add and update only." Use full roster sync only with a complete export of everyone.',
+        action: 'If this is a partial list — like a new-hire batch — turn off “Deactivate users not in this file.” Only deactivate with a complete export of everyone.',
         settingsBtn: true });
     }
     if (fileId === 'blast') {
@@ -503,12 +523,12 @@
         action: 'Look at the two changes below. Proceed only if you recognize them as the same people.',
         diff: [nameDiff('87', 'Susan (Hartley)', 'Sue', 'Sue Hartley'), nameDiff('122', 'Robert (Ellis)', 'Bobby', 'Bobby Ellis')],
         ackLabel: 'I recognize these as the same people — update their names and keep their history.' });
-      if (purge === 'full') {
-        A.push({ id: 'purge', tier: 'confirm',
+      if (pu) {
+        A.push({ id: 'purge', tier: 'confirm', repBtn: true,
           title: '6 active users are not in this file and will be deactivated',
-          what: 'You chose full roster sync, and these six people are missing from the file.',
+          what: 'You turned on “Deactivate users not in this file,” and these six people are missing from it.',
           ifProceed: 'They lose access immediately. Their training history is kept, and their accounts reactivate if they appear in a future file.',
-          action: 'Check the list. If any of them should stay active, add them to your file — or switch to "Add and update only."',
+          action: 'Check the list. If any of them should stay active, add them to your file — or turn off “Deactivate users not in this file.”',
           diff: [
             { row: '—', field: 'gharper', current: 'Active', incoming: 'Not in file', result: 'Deactivated' },
             { row: '—', field: 'mreyes', current: 'Active', incoming: 'Not in file', result: 'Deactivated' },
@@ -531,7 +551,21 @@
         diff: [nameDiff('41', 'Katherine (Reyes)', 'Kate', 'Kate Reyes')],
         ackLabel: 'I recognize this as the same person — update the name.' });
     }
-    if (fileId === 'clean' && purge !== 'full') {
+    if (pj && summaryFor(fileId, pu, pj).jobsRemoved > 0) {
+      var jr = summaryFor(fileId, pu, pj).jobsRemoved;
+      A.push({ id: 'purge-jobs', tier: 'confirm', repBtn: true,
+        title: jr + ' positions & locations will be removed to match your file',
+        what: 'You turned on “Remove positions & locations not in this file.” For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. Most are routine (a grade level or role that changed), but some may be intentional extras.',
+        ifProceed: 'The ' + jr + ' extra positions & locations are removed and their assignments come off those users. Anything still in the file is kept and new ones are added — the record becomes an exact mirror of the file.',
+        action: 'Check the examples below. Proceed only if the file is the complete, current list of each person’s positions & locations.',
+        lines: [
+          { t: 'Maya Torres — Coach · Ridgewood High  →  removed (not in file)' },
+          { t: 'Sam Ortiz — Grade 9 · Ridgewood High  →  replaced with Grade 10' },
+          { t: '… and ' + (jr - 2) + ' more' }
+        ],
+        ackLabel: 'I’ve checked these — remove the positions & locations that aren’t in my file.' });
+    }
+    if (fileId === 'clean' && !pu) {
       A.push({ id: 'upd3', tier: 'info',
         title: '3 existing users have an updated email address',
         what: 'Three rows match existing accounts and only change the email address on file.',
@@ -730,26 +764,70 @@
       + '</div></div>';
   }
 
+  /* Import settings — two independent, off-by-default choices ("deactivate/remove",
+     the customer wording for purge), each destructive. Shows a LIVE example of how
+     a real user's record changes as the toggles flip, so the effect is concrete
+     before anything runs. Both are re-confirmed with a review on the next step. */
   function settingsHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
-    var full = state.purge === 'full';
-    var upBorder = !full ? '#1257B8' : '#E1E7EE', upDot = !full ? '#1257B8' : '#C6D3E1';
-    var fuBorder = full ? '#1257B8' : '#E1E7EE', fuDot = full ? '#1257B8' : '#C6D3E1';
-    return '<div class="fadeup" style="max-width:720px;">'
-      + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What should happen to users who are not in this file?</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:14px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows.</div>'
-      + '<div class="radio-card" style="border-color:' + upBorder + ';margin-bottom:10px;" data-act="setPurge" data-arg="update">'
-      + '<div class="radio-dot" style="border:5px solid ' + upDot + ';"></div><div>'
-      + '<div style="font-size:14px;font-weight:600;">Add and update only</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Users in the file are added or updated. Everyone else is left exactly as they are. The safe choice for partial lists — new hires, one building, one department.</div>'
-      + '</div></div>'
-      + '<div class="radio-card" style="border-color:' + fuBorder + ';" data-act="setPurge" data-arg="full">'
-      + '<div class="radio-dot" style="border:5px solid ' + fuDot + ';"></div><div>'
-      + '<div style="font-size:14px;font-weight:600;">Full roster sync — deactivate users not in this file</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Any active user missing from the file is deactivated and immediately loses access. Their training history is kept, and their account reactivates if they appear in a later file. Only use this with a complete export of everyone.</div>'
-      + (full ? '<div style="margin-top:10px;background:#FFFAEB;border:1px solid #F2D69B;border-radius:7px;padding:9px 12px;font-size:12.5px;color:#8A5A0B;">You’ll see exactly who would be deactivated on the review step before anything runs.</div>' : '')
-      + '</div></div>'
-      + '<div style="display:flex;justify-content:space-between;margin-top:20px;">'
+    var pu = state.purgeUsers, pj = state.purgeJobs;
+
+    function optRow(on, act, title, sub) {
+      return '<div class="opt-row' + (on ? ' is-on is-danger' : '') + '">'
+        + '<div class="toggle" data-act="' + act + '" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
+        + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
+        + '<div class="opt-main"><div class="opt-title">' + title + '</div><div class="opt-sub">' + sub + '</div></div></div>';
+    }
+
+    // Example 1 — a user who isn't in the file (the "deactivate users" effect)
+    var exUser = '<div class="ex-card">'
+      + '<div class="ex-eyebrow">A user who isn’t in your file — Dana Reyes</div>'
+      + '<div style="display:flex;align-items:center;gap:14px;">'
+      + '<div style="flex:1;"><div style="font-size:11px;color:#8CA0B4;">Now</div><div style="font-size:13px;font-weight:500;margin-top:2px;">Active</div></div>'
+      + '<div style="color:#8CA0B4;">→</div>'
+      + '<div style="flex:1;"><div style="font-size:11px;color:#8CA0B4;">After import</div>'
+      + (pu
+          ? '<div style="font-size:13px;font-weight:600;color:#B42318;margin-top:2px;">Deactivated</div><div style="font-size:11.5px;color:#B42318;">Loses access · history kept</div>'
+          : '<div style="font-size:13px;font-weight:500;margin-top:2px;">Stays active</div><div style="font-size:11.5px;color:#8CA0B4;">Left exactly as-is</div>')
+      + '</div></div></div>';
+
+    // Example 2 — a user in the file whose jobs differ (the "remove jobs" effect)
+    var chips = '<span class="job-chip job-keep">Teacher · Lincoln Elementary</span>'
+      + (pj ? '<span class="job-chip job-remove">Coach · Ridgewood High</span>'
+            : '<span class="job-chip job-keep">Coach · Ridgewood High</span>')
+      + '<span class="job-chip job-add">+ Counselor · Lincoln Elementary</span>';
+    var jobNote = pj
+      ? 'Coach · Ridgewood High is <b>removed</b> and Counselor · Lincoln Elementary is <b>added</b> — her record becomes an exact mirror of the file.'
+      : 'Counselor · Lincoln Elementary is <b>added</b>; everything she already has is <b>kept</b> — nothing is removed.';
+    var exJobs = '<div class="ex-card" style="margin-bottom:0;">'
+      + '<div class="ex-eyebrow">A user in your file with changed jobs — Maya Torres</div>'
+      + '<div style="font-size:12px;color:#5B6B7E;margin-bottom:6px;">Her positions &amp; locations after import:</div>'
+      + '<div style="margin-bottom:9px;">' + chips + '</div>'
+      + '<div style="font-size:12px;color:#3D4F63;line-height:1.5;">' + jobNote + '</div></div>';
+
+    var repRow = state.repSent
+      ? '<div style="margin-top:14px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#067647;"><span style="font-weight:600;">Sent to your Vector rep.</span> They’ll follow up by email to help you choose — nothing runs in the meantime.</div>'
+      : '<div style="font-size:12.5px;color:#5B6B7E;margin-top:14px;">Not sure which to choose? <a href="#" data-act="askRep">Send this file to your Vector rep for help →</a></div>';
+
+    return '<div class="fadeup" style="max-width:900px;">'
+      + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What should happen to users and jobs that aren’t in this file?</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. Both options are off by default — nothing is removed unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
+      + '<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:330px;">'
+      + optRow(pu, 'togglePurgeUsers', 'Deactivate users not in this file',
+          'Any active user missing from the file loses access. Their training history is kept and they reactivate if they appear in a later file. Leave off for partial lists — new hires, one building, one department.')
+      + optRow(pj, 'togglePurgeJobs', 'Remove positions &amp; locations not in this file',
+          'For users in the file, any position or location they hold that isn’t in the file is removed — so the file becomes the exact record. Leave off to only add what’s new and keep everything else.')
+      + '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#3D4F63;line-height:1.7;">'
+      + '<div style="font-weight:600;color:#1B2B3E;margin-bottom:3px;">With these settings</div>'
+      + '• ' + (pu ? 'Users missing from your file are <b>deactivated</b>.' : 'Users missing from your file <b>stay active</b>.') + '<br>'
+      + '• ' + (pj ? 'Each user’s positions &amp; locations are <b>synced to exactly match</b> the file.' : 'New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
+      + '</div>' + repRow
+      + '</div>'
+      + '<div style="flex:1;min-width:300px;"><div class="section-eyebrow" style="margin-bottom:10px;">How your file will apply</div>'
+      + exUser + exJobs + '</div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
       + '</div></div>';
@@ -813,7 +891,10 @@
     if (a.fixMapBtn)   btns.push('<button class="btn sm btn--danger" data-act="fixMapping">Fix column mapping</button>');
     if (a.replaceBtn)  btns.push('<button class="btn sm btn--ghost" data-act="replaceFile">Replace file</button>');
     if (a.settingsBtn) btns.push('<button class="btn sm btn--danger" data-act="changeSettings">Change import settings</button>');
-    if (btns.length) body += '<div style="display:flex;gap:10px;">' + btns.join('') + '</div>';
+    if (a.repBtn)      btns.push(state.repSent
+      ? '<button class="btn sm btn--ghost" data-act="noop" style="color:#067647;border-color:#A6E5C3;">Sent to your Vector rep ✓</button>'
+      : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
+    if (btns.length) body += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns.join('') + '</div>';
 
     return '<div class="alert" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
@@ -851,6 +932,8 @@
       + '<div class="kpi-row"><span class="k">New users added</span><span class="v" style="color:#067647;">' + sum.add + '</span></div>'
       + '<div class="kpi-row"><span class="k">Existing users updated</span><span class="v" style="color:#1257B8;">' + sum.mod + '</span></div>'
       + '<div class="kpi-row"><span class="k">Users deactivated</span><span class="v" style="color:' + (sum.deact > 0 ? '#B42318' : '#8CA0B4') + ';">' + sum.deact + '</span></div>'
+      + '<div class="kpi-row"><span class="k">Positions/locations added</span><span class="v" style="color:#067647;">' + sum.jobsAdded + '</span></div>'
+      + '<div class="kpi-row"><span class="k">Positions/locations removed</span><span class="v" style="color:' + (sum.jobsRemoved > 0 ? '#B42318' : '#8CA0B4') + ';">' + sum.jobsRemoved + '</span></div>'
       + '</div><div class="divider" style="margin:16px 0;"></div>';
     if (blocked.length) {
       side += '<div style="background:#FEF3F2;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;"><span style="font-weight:700;">'
@@ -1079,12 +1162,14 @@
       case 'pickFile': pickFile(arg); scrollTop(); break;
       case 'back': go(flow()[Math.max(0, flow().indexOf(state.step) - 1)]); scrollTop(); break;
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
-      case 'setPurge': setState({ purge: arg }); break;
+      case 'togglePurgeUsers': setState({ purgeUsers: !state.purgeUsers }); break;
+      case 'togglePurgeJobs': setState({ purgeJobs: !state.purgeJobs }); break;
+      case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
       case 'fixMapping': go('map'); scrollTop(); break;
       case 'replaceFile': setState({ fileId: null, step: 'upload' }); scrollTop(); break;
       case 'changeSettings': go('settings'); scrollTop(); break;
       case 'runImport': setState({ doneCounts: summary(), step: 'done' }); scrollTop(); break;
-      case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purge: 'update' }); scrollTop(); break;
+      case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
       case 'linkUpload': e.preventDefault(); setState({ fileId: null, step: 'upload' }); scrollTop(); break;
       case 'linkMap': e.preventDefault(); go('map'); scrollTop(); break;
@@ -1136,23 +1221,23 @@
     setState({ tab: 'sync', blessed: false, variants: v });
   }
 
-  function reviewFor(fileId, purge) {
+  function reviewFor(fileId, pu, pj) {
     setState({ tab: 'import', fileId: fileId, mapping: defaultMapping(fileId),
-      purge: purge || 'update', acks: {}, step: 'review', validating: false });
+      purgeUsers: !!pu, purgeJobs: !!pj, repSent: false, acks: {}, step: 'review', validating: false });
   }
 
   function applyFlowState(id) {
     switch (id) {
       case 'upload': setState({ tab: 'import', step: 'upload', fileId: null, validating: false }); break;
-      case 'map': setState({ tab: 'import', fileId: 'saml', mapping: defaultMapping('saml'), purge: 'update', acks: {}, step: 'map', validating: false }); break;
-      case 'settings': setState({ tab: 'import', fileId: 'confirm', mapping: defaultMapping('confirm'), purge: 'update', acks: {}, step: 'settings', validating: false }); break;
+      case 'map': setState({ tab: 'import', fileId: 'saml', mapping: defaultMapping('saml'), purgeUsers: false, purgeJobs: false, acks: {}, step: 'map', validating: false }); break;
+      case 'settings': setState({ tab: 'import', fileId: 'confirm', mapping: defaultMapping('confirm'), purgeUsers: false, purgeJobs: false, repSent: false, acks: {}, step: 'settings', validating: false }); break;
       /* Manual import — one node per severity path */
-      case 'review-info':     reviewFor('clean', 'update'); break;   // INFO only — runs freely
-      case 'review-confirm':  reviewFor('confirm', 'update'); break; // CONFIRM (+ info) — acknowledge & run
-      case 'review-blocked':  reviewFor('blast', 'update'); break;   // BLOCKED — blast radius
-      case 'review-saml':     reviewFor('saml', 'update'); break;    // BLOCKED — SAML mismatch
-      case 'review-escalate': reviewFor('dupes', 'update'); break;   // BLOCKED ×2 + CONTACT VECTOR
-      case 'done': setState({ tab: 'import', fileId: 'confirm', doneCounts: summaryFor('confirm', 'update'), step: 'done', validating: false }); break;
+      case 'review-info':     reviewFor('clean', false, false); break;  // INFO only — runs freely
+      case 'review-confirm':  reviewFor('confirm', true, true); break;  // CONFIRM ×3 (+ info) — name change, deactivations, job removals
+      case 'review-blocked':  reviewFor('blast', false, false); break;  // BLOCKED — blast radius
+      case 'review-saml':     reviewFor('saml', false, false); break;   // BLOCKED — SAML mismatch
+      case 'review-escalate': reviewFor('dupes', false, false); break;  // BLOCKED ×2 + CONTACT VECTOR
+      case 'done': setState({ tab: 'import', fileId: 'confirm', doneCounts: summaryFor('confirm', false, false), step: 'done', validating: false }); break;
       /* Automated sync — one node per severity path */
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
       case 'sync-failed':   setSyncState('active-failed', 'confirm'); break;  // CONFIRM — approve changes
@@ -1189,12 +1274,12 @@
         { id: 'map', flow: 'import', x: 340, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
           desc: 'Match your file columns to SafeLMS fields (skipped in the Template variant).' },
         { id: 'settings', flow: 'import', x: 340, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
-          desc: 'Add-and-update vs. full roster sync. The review outcome below depends on the file + these settings.' },
+          desc: 'Two off-by-default choices — Deactivate users / Remove positions & locations — with a live example of how a user’s record changes. Both are re-confirmed on review; a “send to your Vector rep” escape is offered.' },
 
         { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
         { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
-          desc: 'CONFIRM tier (name changes, deactivations): each must be acknowledged before Run import unlocks. INFO items ride along.' },
+          desc: 'CONFIRM tier (name changes, user deactivations, position/location removals): each acknowledged before Run import unlocks, each with a “send to your rep” escape. INFO items ride along.' },
         { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Import complete', state: 'done',
           desc: 'Reached from the Info and Confirm paths. Irreversible once run — the design leans on prevention, not undo.' },
 

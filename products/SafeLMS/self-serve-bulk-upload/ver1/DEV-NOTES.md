@@ -57,11 +57,25 @@ marked **PENDING** are still open threads.
 
 ## settings
 
-- **Purge model flagged as too complex — PENDING.** Reviewer: *"significant
-  CX/technical ramifications … Consider keeping only one to reduce complexity —
-  user purge? the 2 interact together in complex ways."* Current mock offers two
-  radios (add-and-update vs full roster sync); may simplify to one option or clarify
-  the user-purge vs job-purge interaction. Hold major change until decided.
+- **Rebuilt around the two-dimension "deactivate/remove" model (2026-09-03).** Per
+  the client's purge-logic doc, the step now has two independent, off-by-default
+  toggles — **Deactivate users not in this file** (Purge Users) and **Remove
+  positions & locations not in this file** (Purge Jobs) — replacing the old single
+  add-and-update / full-roster-sync radio. "Purge" wording is dropped in favor of
+  **deactivate / remove**.
+- **Live example, not a bare toggle.** A "How your file will apply" panel shows two
+  real records that update as the toggles flip: a user missing from the file
+  (Active → Deactivated / Stays active) and a user whose jobs differ (kept / removed
+  / added chips), matching the doc's Teacher/Coach/Counselor examples.
+- **Every destructive choice is re-confirmed on review** as its own CONFIRM alert
+  (user deactivations, position/location removals), each acknowledgeable, and each
+  carries a **"Not sure? Send to my Vector rep"** escape. The settings step offers
+  the same escape inline.
+- **OPEN tension:** the PRD review asked to *"consider keeping only one to reduce
+  complexity,"* but the client's purge-logic doc defines both dimensions (Users ×
+  Jobs) with distinct outcomes. Built both per the doc; whether to simplify to one
+  is a **PENDING** PM decision — the live examples are partly there to test whether
+  two toggles read clearly enough to keep.
 
 ## sync-failed
 
