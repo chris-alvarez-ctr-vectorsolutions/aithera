@@ -38,6 +38,19 @@ twins were merged; the reimagined triage split into three directions.)
 - **V5 — Reimagined · Three big screens:** **Upload → Fix → Done**, each a single
   focused full-screen moment with a step rail and almost no words. The Fix screen is a
   few big issue rows, each one button.
+- **V6 — Reimagined · Guided interview (tax-style, 2026-09-03):** the whole import is a
+  **TurboTax / FreeTaxUSA-style interview** — one plain-language question per screen, a
+  **left section rail** (Your file · Your columns · Existing users · Double-check ·
+  Review & import) with checkmarks + a **"Question X of Y" / % complete** bar, an
+  **Import Assistant** helper line, and a persistent **"Import summary" monitor** on the
+  right (the refund-tracker analog: New / Updates / Deactivations / Removed + a live
+  "Ready to import ✓ / Almost there / Can't import yet" status). The deactivate/remove
+  model becomes two interview questions (recommended-safe default + "Why are we
+  asking?" expander); errors become **double-checks** — confirm-tier as a Yes/No with an
+  A→B example, blocked/escalate as a **hard stop** with "How to fix it" + a fix path.
+  Ends on a **"here's what you told us"** review that restates every answer with per-row
+  **Edit** jumps, then **Import N rows** (enabled only when ready). This is the whole
+  return, not just the fix step — that's what sets it apart from V3's error-only assistant.
 
 Different helper per version was a deliberate ask ("try different tooltips for all the
 different versions").
