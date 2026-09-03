@@ -661,6 +661,9 @@
     openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
     view: 'import',      // 'import' = manual import page (+ sync status banner); 'sync' = deeper sync detail page
     disc: {},            // open/closed state for the progressive-disclosure expanders
+    attnSev: 'fixable',  // attention step severity: 'fixable' (amber) | 'escalate' (red)
+    attnSub: 0,          // V3 guided-fix sub-step (0 = what's wrong, 1 = how to fix)
+    attnSent: false,     // escalate handed to Vector's team
     variantsCollapsed: false
   };
   var _validateTimer = null;
@@ -1419,7 +1422,75 @@
       + '</div></section>';
   }
 
+  /* ===================================================================
+     ATTENTION-NEEDED STEP — amber (you fix it) / red (Vector's team).
+     V3's treatment = GUIDED SUB-STEPS: the fix is its own mini numbered wizard.
+     =================================================================== */
+  var ATTN_HELP_URL = 'https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors';
+  var ATTN = {
+    fixable: { sev: 'fixable', icon: 'fa-triangle-exclamation',
+      title: 'Two rows look like the same person, entered twice',
+      ctx: 'Rows 34 and 91 use two different usernames but the same email address — almost always one person added once by HR and once by athletics.',
+      aL: 'Two rows, one email', aV: 'jsmith + john.smith', bL: 'Keep just one', bV: 'jsmith',
+      step2Title: 'Here’s how to fix it',
+      how: 'Keep the username that already exists on your site, remove the other row, and upload the file again. Two accounts sharing an email can’t sign in reliably.',
+      actLabel: 'Fix it & upload again', actAct: 'replaceFile' },
+    escalate: { sev: 'escalate', icon: 'fa-headset',
+      title: 'Two accounts on your site already share one email',
+      ctx: 'cdelgado and c.delgado are two separate accounts that already both use cdelgado@ridgewood.k12.us. Your file can’t fix this — the duplicate is on the site, not in your file.',
+      aL: 'On your site now', aV: 'cdelgado + c.delgado', bL: 'After Vector merges', bV: 'one account · history kept',
+      step2Title: 'Here’s what happens next',
+      how: 'Only Vector can merge two accounts that already exist. Send it over and we’ll take care of it — your import picks up right where it left off once the merge is done.',
+      actLabel: 'Send to Vector — we’ll take it from here', actAct: 'attnSend' }
+  };
+  function attnColors(sev) {
+    return sev === 'fixable'
+      ? { bg: '#FFFAEB', bd: '#F2D69B', fg: '#8A5A0B', btn: '#B54708' }
+      : { bg: '#FEF3F2', bd: '#F1C0BB', fg: '#B42318', btn: '#B42318' };
+  }
+  function attnAB(a) {
+    return '<div style="display:grid;grid-template-columns:1fr 30px 1fr;align-items:stretch;margin-top:18px;">'
+      + '<div style="border:1px solid #F1C0BB;background:#FEF7F6;border-radius:9px;padding:12px 14px;"><div style="font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8CA0B4;">' + esc(a.aL) + '</div><div class="mono" style="font-size:13.5px;color:#B42318;margin-top:5px;">' + esc(a.aV) + '</div></div>'
+      + '<div style="display:flex;align-items:center;justify-content:center;color:#8CA0B4;"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+      + '<div style="border:1px solid #A6E5C3;background:#F0FBF5;border-radius:9px;padding:12px 14px;"><div style="font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8CA0B4;">' + esc(a.bL) + '</div><div class="mono" style="font-size:13.5px;color:#067647;margin-top:5px;">' + esc(a.bV) + '</div></div>'
+      + '</div>';
+  }
+
+  /* V3 treatment — GUIDED SUB-STEPS: the fix is a two-step mini wizard
+     (what's wrong → how to fix), matching V3's one-thing-at-a-time feel. */
+  function attnGuidedSteps() {
+    var a = ATTN[state.attnSev] || ATTN.fixable, amber = a.sev === 'fixable', c = attnColors(a.sev);
+    var sub = state.attnSub || 0;
+    var dots = '<div style="display:flex;gap:6px;margin-bottom:16px;">'
+      + [0, 1].map(function (i) { return '<div style="height:6px;flex:1;border-radius:4px;background:' + (i <= sub ? c.btn : '#E1E7EE') + ';"></div>'; }).join('') + '</div>';
+    var head = '<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;">'
+      + '<span style="width:28px;height:28px;border-radius:50%;background:' + c.bg + ';color:' + c.fg + ';display:flex;align-items:center;justify-content:center;font-size:13px;"><i class="fa-solid ' + a.icon + '" aria-hidden="true"></i></span>'
+      + '<span style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:' + c.fg + ';">Fix · step ' + (sub + 1) + ' of 2</span></div>';
+    var body;
+    if (sub === 0) {
+      body = '<div style="font-size:21px;font-weight:700;">Here’s what’s wrong</div>'
+        + '<div style="font-size:14px;color:#3D4F63;margin-top:8px;line-height:1.6;"><b>' + esc(a.title) + '.</b> ' + esc(a.ctx) + '</div>'
+        + attnAB(a)
+        + '<div style="margin-top:22px;display:flex;justify-content:space-between;align-items:center;">'
+        + '<a href="#" data-act="restart" style="font-size:13px;color:#5B6B7E;">← Start over</a>'
+        + '<button class="btn btn--primary" data-act="attnNext" style="background:' + c.btn + ';">Continue <i class="fa-solid fa-arrow-right" aria-hidden="true" style="margin-left:6px;"></i></button></div>';
+    } else {
+      var action = (!amber && state.attnSent)
+        ? '<div style="margin-top:4px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:10px;padding:14px 16px;font-size:13.5px;color:#067647;line-height:1.55;"><b><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sent to Vector — ref CARE-5573.</b> Your team will merge the two accounts and email you when it’s done.</div>'
+        : '<button class="btn" data-act="' + a.actAct + '" style="background:' + c.btn + ';color:#fff;">' + esc(a.actLabel) + '</button>'
+          + (amber ? ' <a class="btn btn--ghost" href="' + ATTN_HELP_URL + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none;">See upload-error help ↗</a>' : '');
+      body = '<div style="font-size:21px;font-weight:700;">' + esc(a.step2Title) + '</div>'
+        + '<div style="margin-top:14px;background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:11px;padding:15px 17px;font-size:14px;color:#3D4F63;line-height:1.65;">' + esc(a.how) + '</div>'
+        + '<div style="margin-top:22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">'
+        + '<button class="btn btn--ghost" data-act="attnBack">← Back</button>'
+        + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + action + '</div></div>';
+    }
+    return '<section data-screen-label="Attention · guided fix (' + (amber ? 'amber' : 'red') + ')">'
+      + '<div style="max-width:660px;margin:0 auto;">' + dots + head + body + '</div></section>';
+  }
+
   function importTab() {
+    if (state.step === 'attn') return attnGuidedSteps();
     if (state.step === 'done') return '<section data-screen-label="Manual import">' + doneHTML() + '</section>';
     if (state.step === 'guide') return guideHTML();
     return '<section data-screen-label="Manual import">' + walkthroughHTML() + uploadHTML() + '</section>';
@@ -1709,6 +1780,9 @@
         break;
       }
       case 'guideBack': e.preventDefault(); setState({ guideIdx: Math.max(0, state.guideIdx - 1) }); scrollTop(); break;
+      case 'attnNext': e.preventDefault(); setState({ attnSub: 1 }); scrollTop(); break;
+      case 'attnBack': e.preventDefault(); setState({ attnSub: 0 }); scrollTop(); break;
+      case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
       case 'togglePurgeUsers': setState({ purgeUsers: !state.purgeUsers }); break;
       case 'togglePurgeJobs': setState({ purgeJobs: !state.purgeJobs }); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
@@ -1799,6 +1873,9 @@
           guideIdx: 0, guideChoices: {}, purgeUsers: false, purgeJobs: false, acks: {}, validating: false });
         break;
       case 'done': setState({ tab: 'import', view: 'import', fileId: 'dupes', doneCounts: summaryFor('dupes', false, false), step: 'done', validating: false }); break;
+      /* Attention-needed step (V3 treatment = guided sub-steps) */
+      case 'attn-fixable':  setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'fixable', attnSub: 0, attnSent: false }); break;   // AMBER
+      case 'attn-escalate': setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'escalate', attnSub: 0, attnSent: false }); break; // RED
       /* Automated sync — one node per severity path */
       case 'sync-locked':   setSyncState('qualifying', null); break;          // NOT AVAILABLE — qualifying ("N to go")
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
@@ -1837,6 +1914,10 @@
           desc: 'Reimagined V3: no wizard, no list. The assistant walks through issues one per screen — a short question, an A→B, two big choices (fix / leave), a skip. Minimal text; a progress dots row shows where you are. Ends on an "all set" screen → Run import.' },
         { id: 'done', flow: 'import', x: 950, y: 250, step: 'Done', name: 'Import complete', state: 'done',
           desc: 'Reached after the assistant’s final screen. Irreversible once run.' },
+        { id: 'attn-fixable', flow: 'import', x: 470, y: 430, step: 'Attention · amber', name: 'Guided fix — you fix it', state: 'attn-fixable',
+          desc: 'V3 attention treatment = GUIDED SUB-STEPS, AMBER: the fix is a 2-step mini wizard (step 1 what’s wrong → step 2 how to fix), matching the assistant’s one-thing-at-a-time feel.' },
+        { id: 'attn-escalate', flow: 'import', x: 810, y: 430, step: 'Attention · red', name: 'Guided fix — Vector’s team', state: 'attn-escalate',
+          desc: 'Same guided sub-steps in RED: step 2 becomes “Here’s what happens next” — Send to Vector, they merge the accounts (CARE ref). Red = team steps in.' },
 
         /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
         { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
@@ -1851,7 +1932,7 @@
           desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
-        ['upload', 'guide'], ['guide', 'done'],
+        ['upload', 'guide'], ['guide', 'done'], ['upload', 'attn-fixable'], ['upload', 'attn-escalate'],
         ['sync-locked', 'sync-healthy'],
         ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
       ]

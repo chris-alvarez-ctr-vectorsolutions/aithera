@@ -627,6 +627,8 @@
     openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
     view: 'import',      // 'import' = manual import page (+ sync status banner); 'sync' = deeper sync detail page
     disc: {},            // open/closed state for the progressive-disclosure expanders
+    attnSev: 'fixable',  // attention-needed step severity: 'fixable' (amber) | 'escalate' (red)
+    attnSent: false,     // escalate handed to Vector's team
     variantsCollapsed: false
   };
   var _validateTimer = null;
@@ -1321,7 +1323,73 @@
       + '</div></div>';
   }
 
+  /* ===================================================================
+     ATTENTION-NEEDED STEP — shared content, two severities that read by COLOR:
+       fixable (AMBER) — the customer corrects the file and re-uploads.
+       escalate (RED)  — the file can't fix it; Vector's team steps in.
+     Red is reserved for "we take it from here." Each version renders this content
+     with a DIFFERENT treatment; V1's treatment is inline "alert mode".
+     =================================================================== */
+  var ATTN_HELP_URL = 'https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors';
+  var ATTN = {
+    fixable: { sev: 'fixable', badge: 'One thing to fix first', icon: 'fa-triangle-exclamation',
+      title: 'Two rows look like the same person, entered twice',
+      ctx: 'Rows 34 and 91 use two different usernames but the same email address — almost always one person added once by HR and once by athletics.',
+      aL: 'Two rows, one email', aV: 'jsmith + john.smith', bL: 'Keep just one', bV: 'jsmith',
+      lead: 'You can fix this one yourself.',
+      how: 'Keep the username that already exists on your site, remove the other row, and upload the file again. Two accounts sharing an email can’t sign in reliably.',
+      actLabel: 'Fix it & upload again', actAct: 'replaceFile' },
+    escalate: { sev: 'escalate', badge: 'Our team takes it from here', icon: 'fa-headset',
+      title: 'Two accounts on your site already share one email',
+      ctx: 'cdelgado and c.delgado are two separate accounts that already both use cdelgado@ridgewood.k12.us. Your file can’t fix this — the duplicate is on the site, not in your file.',
+      aL: 'On your site now', aV: 'cdelgado + c.delgado', bL: 'After Vector merges', bV: 'one account · history kept',
+      lead: 'This one isn’t something your file can fix.',
+      how: 'Only Vector can merge two accounts that already exist. Send it over and we’ll take care of it — your import picks up right where it left off once the merge is done.',
+      actLabel: 'Send to Vector — we’ll take it from here', actAct: 'attnSend' }
+  };
+  function attnColors(sev) {
+    return sev === 'fixable'
+      ? { bg: '#FFFAEB', bd: '#F2D69B', fg: '#8A5A0B', btn: '#B54708' }
+      : { bg: '#FEF3F2', bd: '#F1C0BB', fg: '#B42318', btn: '#B42318' };
+  }
+  function attnAB(a) {
+    return '<div style="display:grid;grid-template-columns:1fr 30px 1fr;align-items:stretch;margin-top:18px;">'
+      + '<div style="border:1px solid #F1C0BB;background:#FEF7F6;border-radius:9px;padding:12px 14px;"><div style="font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8CA0B4;">' + esc(a.aL) + '</div><div class="mono" style="font-size:13.5px;color:#B42318;margin-top:5px;">' + esc(a.aV) + '</div></div>'
+      + '<div style="display:flex;align-items:center;justify-content:center;color:#8CA0B4;"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+      + '<div style="border:1px solid #A6E5C3;background:#F0FBF5;border-radius:9px;padding:12px 14px;"><div style="font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8CA0B4;">' + esc(a.bL) + '</div><div class="mono" style="font-size:13.5px;color:#067647;margin-top:5px;">' + esc(a.bV) + '</div></div>'
+      + '</div>';
+  }
+  function attnActionRow(a, amber, c) {
+    if (!amber && state.attnSent) {
+      return '<div style="margin-top:18px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:10px;padding:13px 16px;font-size:13px;color:#067647;line-height:1.55;"><b><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sent to Vector — ref CARE-5573.</b> Your implementation team will merge the two accounts and email you when it’s done. Nothing else needed from you.</div>';
+    }
+    return '<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">'
+      + '<button class="btn" data-act="' + a.actAct + '" style="background:' + c.btn + ';color:#fff;">' + esc(a.actLabel) + '</button>'
+      + (amber ? '<a class="btn btn--ghost" href="' + ATTN_HELP_URL + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none;">See upload-error help ↗</a>' : '')
+      + '</div>';
+  }
+
+  /* V1 treatment — ALERT MODE (inline): the attention step stays in the flow but
+     flips to a distinct colored card (amber = you fix it, red = Vector's team). */
+  function attnAlertMode() {
+    var a = ATTN[state.attnSev] || ATTN.fixable, amber = a.sev === 'fixable', c = attnColors(a.sev);
+    return '<section data-screen-label="Attention — ' + (amber ? 'you can fix it' : 'Vector’s team') + '">'
+      + '<div style="max-width:720px;">'
+      + '<a href="#" class="sync-back" data-act="restart" style="margin-bottom:14px;"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Start over with a new file</a>'
+      + '<div style="border:1.5px solid ' + c.bd + ';border-radius:14px;overflow:hidden;box-shadow:0 6px 22px -14px rgba(16,24,40,.4);">'
+      + '<div style="background:' + c.bg + ';color:' + c.fg + ';padding:11px 18px;font-size:12.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:10px;">'
+      + '<span style="width:26px;height:26px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;"><i class="fa-solid ' + a.icon + '" aria-hidden="true"></i></span>' + esc(a.badge) + '</div>'
+      + '<div style="padding:18px 20px 20px;background:#fff;">'
+      + '<div style="font-size:20px;font-weight:700;">' + esc(a.title) + '</div>'
+      + '<div style="font-size:14px;color:#5B6B7E;margin-top:8px;line-height:1.6;">' + esc(a.ctx) + '</div>'
+      + attnAB(a)
+      + '<div style="margin-top:18px;background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:10px;padding:13px 15px;"><div style="font-weight:700;color:' + c.fg + ';font-size:13px;margin-bottom:4px;">' + esc(a.lead) + '</div><div style="font-size:13px;color:#3D4F63;line-height:1.6;">' + esc(a.how) + '</div></div>'
+      + attnActionRow(a, amber, c)
+      + '</div></div></div></section>';
+  }
+
   function importTab() {
+    if (state.step === 'attn') return attnAlertMode();
     var body;
     switch (state.step) {
       case 'upload':   body = uploadHTML(); break;
@@ -1665,6 +1733,7 @@
         break;
       }
       case 'toggleVariants': setState({ variantsCollapsed: !state.variantsCollapsed }); break;
+      case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
       case 'setSync': {
         e.preventDefault();
         var sv = {}; for (var sk in state.variants) sv[sk] = state.variants[sk];
@@ -1727,6 +1796,9 @@
       case 'review-saml':     reviewFor('saml', false, false); break;   // BLOCKED — SAML mismatch
       case 'review-escalate': reviewFor('dupes', false, false); break;  // BLOCKED ×2 + CONTACT VECTOR
       case 'done': setState({ tab: 'import', view: 'import', fileId: 'confirm', doneCounts: summaryFor('confirm', false, false), step: 'done', validating: false }); break;
+      /* Attention-needed step (V1 treatment = inline alert mode) */
+      case 'attn-fixable':  setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'fixable', attnSent: false }); break;   // AMBER — you fix it
+      case 'attn-escalate': setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'escalate', attnSent: false }); break; // RED — Vector's team
       /* Automated sync — one node per severity path */
       case 'sync-locked':   setSyncState('qualifying', null); break;          // NOT AVAILABLE — qualifying ("N to go")
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
@@ -1779,6 +1851,11 @@
           desc: 'BLOCKED: the Username column doesn’t match the site’s SAML sign-on. (Feasibility is a PENDING PRD decision — may become CX-only.)' },
         { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Contact Vector', name: 'Contact Vector — email collision', state: 'review-escalate',
           desc: 'Two accounts already share one email on the site (PRD D-4). A customer file can’t fix it — hard-stops with a Contact Vector action.' },
+
+        { id: 'attn-fixable', flow: 'import', x: 700, y: 620, step: 'Attention · amber', name: 'Alert mode — you fix it', state: 'attn-fixable',
+          desc: 'V1 attention treatment = inline ALERT MODE, AMBER: a distinct colored card (not red) for a problem the customer fixes themselves — plain-language cause, A→B, “Fix it & upload again.”' },
+        { id: 'attn-escalate', flow: 'import', x: 1030, y: 620, step: 'Attention · red', name: 'Alert mode — Vector’s team', state: 'attn-escalate',
+          desc: 'Same alert mode in RED: reserved for a blocker only Vector can resolve (two site accounts share an email). “Send to Vector — we’ll take it from here” → CARE ref.' },
 
         /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
         { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',

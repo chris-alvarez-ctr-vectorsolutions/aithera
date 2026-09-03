@@ -662,6 +662,9 @@
     openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
     view: 'import',      // 'import' = manual import page (+ sync status banner); 'sync' = deeper sync detail page
     disc: {},            // open/closed state for the progressive-disclosure expanders
+    attnSev: 'fixable',  // attention step severity: 'fixable' (amber) | 'escalate' (red)
+    attnFix: 0,          // V5 fix-explorer: which suggested fix is previewed
+    attnSent: false,     // escalate handed to Vector's team
     variantsCollapsed: false
   };
   var _validateTimer = null;
@@ -1412,7 +1415,88 @@
       + '<div style="margin-top:24px;"><button class="btn btn--primary" data-act="restart" style="padding:12px 28px;">Import another file</button></div></div>';
   }
 
+  /* ===================================================================
+     ATTENTION-NEEDED STEP — V5's treatment = DYNAMIC BEFORE/AFTER EXPLORER:
+     the problem up top, a row of suggested fixes you flip through, and a live
+     side-by-side "what your file does now → after this fix" that updates with
+     each choice. Amber = you choose & fix; red = only Vector can (no choices).
+     =================================================================== */
+  var ATTN_HELP_URL = 'https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors';
+  // The fixable problem, resolved a few different ways — each a distinct before→after.
+  var ATTN_FIXES = [
+    { label: 'Keep the account that already exists', rec: true,
+      before: [['Row 34 · jsmith', 'the account already on your site'], ['Row 91 · john.smith', 'the duplicate row']],
+      after: [['jsmith', 'updated in place · keeps all training history', 'ok'], ['john.smith', 'removed — it was the duplicate', 'ok']],
+      note: 'Recommended. The account that already has training history stays; the duplicate row drops out. Nobody loses history.' },
+    { label: 'Keep the new username instead',
+      before: [['Row 34 · jsmith', 'would be removed'], ['Row 91 · john.smith', 'would become the account']],
+      after: [['john.smith', 'becomes the account going forward', 'ok'], ['jsmith’s history', 'does NOT carry over to it', 'warn']],
+      note: 'Works, but the older account’s completed training would not carry over to the new username.' },
+    { label: 'Import both rows as-is',
+      before: [['Row 34 · jsmith', 'stays'], ['Row 91 · john.smith', 'stays']],
+      after: [['Two accounts, one email', 'sign-in can’t tell them apart', 'bad'], ['This person', 'can’t log in reliably', 'bad']],
+      note: 'Not recommended. Two accounts sharing an email break sign-in — this is exactly what caused the problem.' }
+  ];
+  function attnFixExplorer() {
+    var esc2 = esc;
+    if (state.attnSev === 'escalate') {
+      // RED — no options to flip through; only Vector can resolve it.
+      var sent = state.attnSent;
+      return '<section data-screen-label="Attention · Vector’s team (red)">'
+        + '<div style="max-width:820px;">'
+        + '<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#B42318;background:#FEF3F2;border:1px solid #F1C0BB;border-radius:20px;padding:6px 13px;"><i class="fa-solid fa-headset" aria-hidden="true"></i> Our team takes it from here</div>'
+        + '<div style="font-size:24px;font-weight:700;margin-top:12px;">Two accounts on your site already share one email</div>'
+        + '<div style="font-size:15px;color:#5B6B7E;margin-top:8px;line-height:1.6;">cdelgado and c.delgado both already use cdelgado@ridgewood.k12.us. There’s nothing to choose here — your file can’t fix a duplicate that’s already on the site. Only Vector can merge two existing accounts.</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 34px 1fr;gap:0;align-items:stretch;margin-top:22px;">'
+        + '<div style="border:1px solid #F1C0BB;background:#FEF7F6;border-radius:11px;padding:16px;"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin-bottom:8px;">On your site now</div><div class="mono" style="font-size:13.5px;color:#B42318;line-height:1.8;">cdelgado — 11 completions<br>c.delgado — 0 completions</div></div>'
+        + '<div style="display:flex;align-items:center;justify-content:center;color:#8CA0B4;font-size:18px;"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+        + '<div style="border:1px solid #A6E5C3;background:#F0FBF5;border-radius:11px;padding:16px;"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin-bottom:8px;">After Vector merges</div><div class="mono" style="font-size:13.5px;color:#067647;line-height:1.8;">one account<br>all 11 completions kept</div></div>'
+        + '</div>'
+        + (sent
+            ? '<div style="margin-top:22px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:11px;padding:15px 18px;font-size:14px;color:#067647;line-height:1.55;"><b><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sent to Vector — ref CARE-5573.</b> We’ll merge the two accounts and email you when it’s done. Your import picks up right where it left off.</div>'
+            : '<div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;"><button class="btn" data-act="attnSend" style="background:#B42318;color:#fff;font-size:15px;padding:13px 26px;">Send to Vector — we’ll take it from here</button></div>')
+        + '<a href="#" data-act="s5Back" style="display:inline-block;margin-top:20px;font-size:13px;color:#5B6B7E;">← Start over with a new file</a>'
+        + '</div></section>';
+    }
+    // AMBER — flip through fixes, watch the before/after change live.
+    var sel = Math.min(state.attnFix || 0, ATTN_FIXES.length - 1), fx = ATTN_FIXES[sel];
+    var chips = ATTN_FIXES.map(function (f, i) {
+      var on = i === sel;
+      return '<button data-act="attnFix" data-arg="' + i + '" style="text-align:left;border:1.5px solid ' + (on ? '#1257B8' : '#C6D3E1') + ';background:' + (on ? '#F5F9FE' : '#fff') + ';border-radius:11px;padding:13px 15px;cursor:pointer;box-shadow:' + (on ? '0 0 0 1px #1257B8 inset' : 'none') + ';">'
+        + '<div style="font-size:13.5px;font-weight:600;color:#1B2B3E;">' + esc2(f.label) + (f.rec ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#067647;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:20px;padding:1px 7px;margin-left:4px;">Recommended</span>' : '') + '</div></button>';
+    }).join('');
+    function col(title, rows, side) {
+      var body = rows.map(function (r) {
+        var tone = r[2] === 'bad' ? '#B42318' : r[2] === 'warn' ? '#8A5A0B' : (side === 'after' ? '#067647' : '#3D4F63');
+        return '<div style="padding:11px 0;border-top:1px solid ' + (side === 'after' ? '#DCF0E5' : '#EDE1C9') + ';"><div class="mono" style="font-size:13px;font-weight:600;color:' + tone + ';">' + esc2(r[0]) + '</div>'
+          + '<div style="font-size:12.5px;color:' + tone + ';opacity:.85;margin-top:2px;line-height:1.45;">' + esc2(r[1]) + '</div></div>';
+      }).join('').replace('border-top:1px solid ' + (side === 'after' ? '#DCF0E5' : '#EDE1C9') + ';', 'border-top:0;');
+      var bg = side === 'after' ? '#F0FBF5' : '#FFFBEB', bd = side === 'after' ? '#A6E5C3' : '#F2D69B';
+      return '<div style="border:1px solid ' + bd + ';background:' + bg + ';border-radius:12px;padding:15px 17px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin-bottom:2px;">' + title + '</div>' + body + '</div>';
+    }
+    return '<section data-screen-label="Attention · fix explorer (amber)">'
+      + '<div style="max-width:900px;">'
+      + '<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:20px;padding:6px 13px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> One thing to fix first</div>'
+      + '<div style="font-size:24px;font-weight:700;margin-top:12px;">Two rows look like the same person, entered twice</div>'
+      + '<div style="font-size:15px;color:#5B6B7E;margin-top:8px;line-height:1.6;">Rows 34 and 91 use two different usernames but the same email. Pick how you want to resolve it — the preview shows exactly what your import will do.</div>'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin:22px 0 9px;">Suggested fixes — pick one to preview</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' + chips + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:0;align-items:stretch;margin-top:20px;">'
+      + col('Your file now', fx.before.map(function (r) { return [r[0], r[1], 'plain']; }), 'before')
+      + '<div style="display:flex;align-items:center;justify-content:center;color:#8CA0B4;font-size:18px;"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+      + col('After this fix', fx.after, 'after')
+      + '</div>'
+      + '<div style="margin-top:14px;background:#F5F9FE;border:1px solid #C6D9F0;border-radius:10px;padding:12px 15px;font-size:13px;color:#1B2B3E;line-height:1.55;"><i class="fa-solid fa-circle-info" aria-hidden="true" style="color:#1257B8;margin-right:6px;"></i>' + esc2(fx.note) + '</div>'
+      + '<div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">'
+      + '<button class="btn" data-act="replaceFile" style="background:#B54708;color:#fff;font-size:15px;padding:13px 26px;">Fix it & upload again</button>'
+      + '<a class="btn btn--ghost" href="' + ATTN_HELP_URL + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none;font-size:14px;">See upload-error help ↗</a>'
+      + '<a href="#" data-act="s5Back" style="font-size:13px;color:#5B6B7E;margin-left:auto;">← Start over</a>'
+      + '</div></div></section>';
+  }
+
   function importTab() {
+    if (state.step === 'attn') return attnFixExplorer();
     var active = state.step === 'done' ? 3 : state.step === 's2' ? 2 : 1;
     var body = state.step === 'done' ? s5Done() : state.step === 's2' ? s5FixScreen() : s5Upload();
     return '<section data-screen-label="Three big screens — ' + ['', 'Upload', 'Fix', 'Done'][active] + '">'
@@ -1700,6 +1784,8 @@
       case 's5Fix': { e.preventDefault(); var f = {}; for (var q in state.s5Fixed) f[q] = state.s5Fixed[q]; f[arg] = true; setState({ s5Fixed: f }); break; }
       case 's5Unfix': { e.preventDefault(); var u = {}; for (var w in state.s5Fixed) u[w] = state.s5Fixed[w]; delete u[arg]; setState({ s5Fixed: u }); break; }
       case 's5Back': e.preventDefault(); setState({ fileId: null, step: 'upload', s5Fixed: {} }); scrollTop(); break;
+      case 'attnFix': e.preventDefault(); setState({ attnFix: +arg }); break;
+      case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
       case 'togglePurgeUsers': setState({ purgeUsers: !state.purgeUsers }); break;
       case 'togglePurgeJobs': setState({ purgeJobs: !state.purgeJobs }); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
@@ -1794,6 +1880,9 @@
           s5Fixed: {}, purgeUsers: false, purgeJobs: false, acks: {}, validating: false });
         break;
       case 'done': setState({ tab: 'import', view: 'import', fileId: 'dupes', doneCounts: summaryFor('dupes', false, false), step: 'done', validating: false }); break;
+      /* Attention-needed step (V5 treatment = dynamic before/after explorer) */
+      case 'attn-fixable':  setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'fixable', attnFix: 0, attnSent: false }); break;   // AMBER
+      case 'attn-escalate': setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'escalate', attnSent: false }); break;             // RED
       /* Automated sync — one node per severity path */
       case 'sync-locked':   setSyncState('qualifying', null); break;          // NOT AVAILABLE — qualifying ("N to go")
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
@@ -1833,6 +1922,10 @@
           desc: 'Reimagined V5: three big full-screen steps (Upload → Fix → Done), each one focused moment with almost no words. The Fix screen lists a few big issue rows, each with an A→B and one button; Import unlocks when the blockers are done.' },
         { id: 'done', flow: 'import', x: 950, y: 250, step: 'Done (3 of 3)', name: 'Imported', state: 'done',
           desc: 'The final big screen — a single check and one line. Irreversible once run.' },
+        { id: 'attn-fixable', flow: 'import', x: 470, y: 430, step: 'Attention · amber', name: 'Fix explorer — you fix it', state: 'attn-fixable',
+          desc: 'V5 attention treatment = DYNAMIC BEFORE/AFTER EXPLORER, AMBER: pick among suggested fixes and a live side-by-side “your file now → after this fix” updates with each choice (with a note flagging the recommended / risky options).' },
+        { id: 'attn-escalate', flow: 'import', x: 810, y: 430, step: 'Attention · red', name: 'Fix explorer — Vector’s team', state: 'attn-escalate',
+          desc: 'RED variant: there’s nothing to choose — only Vector can merge two accounts that already share an email. Shows the before→after of Vector’s merge and “Send to Vector.”' },
 
         /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
         { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
@@ -1847,7 +1940,7 @@
           desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
-        ['upload', 'fix'], ['fix', 'done'],
+        ['upload', 'fix'], ['fix', 'done'], ['upload', 'attn-fixable'], ['upload', 'attn-escalate'],
         ['sync-locked', 'sync-healthy'],
         ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
       ]

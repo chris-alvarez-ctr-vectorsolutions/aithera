@@ -663,6 +663,8 @@
     openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
     view: 'import',      // 'import' = manual import page (+ sync status banner); 'sync' = deeper sync detail page
     disc: {},            // open/closed state for the progressive-disclosure expanders
+    attnSev: 'fixable',  // attention step severity: 'fixable' (amber) | 'escalate' (red)
+    attnSent: false,     // escalate handed to Vector's team
     variantsCollapsed: false
   };
   var _validateTimer = null;
@@ -1448,7 +1450,76 @@
       + '<div class="v4help-col">' + g4HelperHTML() + '</div></div></section>';
   }
 
+  /* ===================================================================
+     ATTENTION-NEEDED STEP — amber (you fix it) / red (Vector's team).
+     V4's treatment = SPLIT COACH PANEL: problem on the left, a persistent
+     "How to fix it" coach docked on the right.
+     =================================================================== */
+  var ATTN_HELP_URL = 'https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors';
+  var ATTN = {
+    fixable: { sev: 'fixable', icon: 'fa-triangle-exclamation', badge: 'One thing to fix first',
+      title: 'Two rows look like the same person, entered twice',
+      ctx: 'Rows 34 and 91 use two different usernames but the same email address — almost always one person added once by HR and once by athletics.',
+      rows: ['Row 34 — jsmith · jsmith@ridgewood.k12.us', 'Row 91 — john.smith · jsmith@ridgewood.k12.us'],
+      aL: 'Two rows, one email', aV: 'jsmith + john.smith', bL: 'Keep just one', bV: 'jsmith',
+      coachTitle: 'How to fix it', lead: 'You can fix this one yourself.',
+      how: 'Keep the username that already exists on your site, remove the other row, and upload the file again.',
+      usually: 'Usually the answer is: keep the username that already exists on your site (jsmith), delete the other row.',
+      actLabel: 'Fix it & upload again', actAct: 'replaceFile' },
+    escalate: { sev: 'escalate', icon: 'fa-headset', badge: 'Our team takes it from here',
+      title: 'Two accounts on your site already share one email',
+      ctx: 'cdelgado and c.delgado are two separate accounts that already both use cdelgado@ridgewood.k12.us. Your file can’t fix this — the duplicate is on the site.',
+      rows: ['cdelgado · cdelgado@ridgewood.k12.us — 11 completions', 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions'],
+      aL: 'On your site now', aV: 'cdelgado + c.delgado', bL: 'After Vector merges', bV: 'one account · history kept',
+      coachTitle: 'Why Vector has to do this', lead: 'This one isn’t something your file can fix.',
+      how: 'Only Vector can merge two accounts that already exist. Send it over and we’ll take care of it — your import picks up right where it left off.',
+      usually: 'Usually the answer is: send it to Vector — merging two existing accounts can only be done by us.',
+      actLabel: 'Send to Vector — we’ll take it from here', actAct: 'attnSend' }
+  };
+  function attnColors(sev) {
+    return sev === 'fixable'
+      ? { bg: '#FFFAEB', bd: '#F2D69B', fg: '#8A5A0B', btn: '#B54708' }
+      : { bg: '#FEF3F2', bd: '#F1C0BB', fg: '#B42318', btn: '#B42318' };
+  }
+
+  /* V4 treatment — SPLIT COACH PANEL. */
+  function attnCoachPanel() {
+    var a = ATTN[state.attnSev] || ATTN.fixable, amber = a.sev === 'fixable', c = attnColors(a.sev);
+    var rows = a.rows.map(function (r) {
+      return '<div class="mono" style="font-size:12.5px;color:#3D4F63;padding:9px 12px;border:1px solid #EDF1F6;border-radius:8px;background:#F8FAFC;">' + esc(r) + '</div>';
+    }).join('');
+    var left = '<div>'
+      + '<div style="display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:' + c.fg + ';background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:20px;padding:5px 12px;">'
+      + '<i class="fa-solid ' + a.icon + '" aria-hidden="true"></i>' + esc(a.badge) + '</div>'
+      + '<div style="font-size:21px;font-weight:700;margin-top:12px;">' + esc(a.title) + '</div>'
+      + '<div style="font-size:14px;color:#5B6B7E;margin-top:8px;line-height:1.6;">' + esc(a.ctx) + '</div>'
+      + '<div style="font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin:18px 0 8px;">The rows involved</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;">' + rows + '</div>'
+      + '<a href="#" data-act="restart" style="display:inline-block;margin-top:18px;font-size:13px;color:#5B6B7E;">← Start over with a new file</a>'
+      + '</div>';
+    var actionBtn = (!amber && state.attnSent)
+      ? '<div style="background:#ECFDF3;border:1px solid #A6E5C3;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#067647;line-height:1.5;"><b><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sent — ref CARE-5573.</b> We’ll merge the accounts and email you.</div>'
+      : '<button class="btn" data-act="' + a.actAct + '" style="background:' + c.btn + ';color:#fff;width:100%;">' + esc(a.actLabel) + '</button>'
+        + (amber ? '<a class="hp-link" href="' + ATTN_HELP_URL + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:12px;font-size:12.5px;font-weight:600;">See all upload errors in Vector Help ↗</a>' : '');
+    var coach = '<aside style="position:sticky;top:4px;border:1.5px solid ' + c.bd + ';border-radius:13px;overflow:hidden;box-shadow:0 6px 20px -14px rgba(16,24,40,.4);">'
+      + '<div style="background:' + c.bg + ';color:' + c.fg + ';padding:12px 16px;font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-life-ring" aria-hidden="true"></i>' + esc(a.coachTitle) + '</div>'
+      + '<div style="padding:15px 16px;background:#fff;">'
+      + '<div style="font-weight:700;color:' + c.fg + ';font-size:13px;margin-bottom:5px;">' + esc(a.lead) + '</div>'
+      + '<div style="font-size:12.5px;color:#3D4F63;line-height:1.6;">' + esc(a.how) + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;margin:14px 0;">'
+      + '<div style="border:1px solid #F1C0BB;background:#FEF7F6;border-radius:8px;padding:9px 11px;"><div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8CA0B4;">' + esc(a.aL) + '</div><div class="mono" style="font-size:12.5px;color:#B42318;margin-top:3px;">' + esc(a.aV) + '</div></div>'
+      + '<div style="text-align:center;color:#8CA0B4;font-size:12px;"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></div>'
+      + '<div style="border:1px solid #A6E5C3;background:#F0FBF5;border-radius:8px;padding:9px 11px;"><div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8CA0B4;">' + esc(a.bL) + '</div><div class="mono" style="font-size:12.5px;color:#067647;margin-top:3px;">' + esc(a.bV) + '</div></div>'
+      + '</div>'
+      + '<div style="background:#FFFBEB;border:1px solid #F2D69B;border-radius:8px;padding:9px 11px;font-size:12px;color:#6B4A0A;line-height:1.5;margin-bottom:14px;"><i class="fa-solid fa-lightbulb" aria-hidden="true" style="color:#DC8A12;margin-right:5px;"></i>' + esc(a.usually) + '</div>'
+      + actionBtn
+      + '</div></aside>';
+    return '<section data-screen-label="Attention · coach panel (' + (amber ? 'amber' : 'red') + ')">'
+      + '<div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:26px;align-items:start;">' + left + coach + '</div></section>';
+  }
+
   function importTab() {
+    if (state.step === 'attn') return attnCoachPanel();
     if (state.step === 'done') return '<section data-screen-label="Manual import">' + doneHTML() + '</section>';
     if (state.step === 'grid') return reimaginedV4();
     return '<section data-screen-label="Manual import">' + walkthroughHTML() + uploadHTML() + '</section>';
@@ -1745,6 +1816,7 @@
       case 'pickCell': e.preventDefault(); setState({ activeCell: arg });
         requestAnimationFrame(function () { var el = document.getElementById('g4input'); if (el) { el.focus(); el.select(); } }); break;
       case 'cancelCell': e.preventDefault(); setState({ activeCell: null }); break;
+      case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
       case 'applyCell': {
         e.preventDefault();
         var inp = document.getElementById('g4input'); var v = inp ? inp.value.trim() : '';
@@ -1847,6 +1919,9 @@
           gridFixed: {}, activeCell: null, purgeUsers: false, purgeJobs: false, acks: {}, validating: false });
         break;
       case 'done': setState({ tab: 'import', view: 'import', fileId: 'dupes', doneCounts: summaryFor('dupes', false, false), step: 'done', validating: false }); break;
+      /* Attention-needed step (V4 treatment = split coach panel) */
+      case 'attn-fixable':  setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'fixable', attnSent: false }); break;   // AMBER
+      case 'attn-escalate': setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'escalate', attnSent: false }); break; // RED
       /* Automated sync — one node per severity path */
       case 'sync-locked':   setSyncState('qualifying', null); break;          // NOT AVAILABLE — qualifying ("N to go")
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
@@ -1885,6 +1960,10 @@
           desc: 'Reimagined V4: the file is the workspace. Flagged cells (red = must fix, amber = confirm) are clickable — clicking turns the cell into an inline editor prefilled with the suggested value, and a docked helper on the right explains the fix (why + A→B + "usually"). Apply → the cell updates in place and turns green. Run unlocks when no red cells remain.' },
         { id: 'done', flow: 'import', x: 950, y: 250, step: 'Done', name: 'Import complete', state: 'done',
           desc: 'Reached once red cells are cleared and Run is pressed. Irreversible once run.' },
+        { id: 'attn-fixable', flow: 'import', x: 470, y: 430, step: 'Attention · amber', name: 'Coach panel — you fix it', state: 'attn-fixable',
+          desc: 'V4 attention treatment = SPLIT COACH PANEL, AMBER: the problem + involved rows on the left, a docked “How to fix it” coach on the right (why, A→B, “usually the answer is…”, action).' },
+        { id: 'attn-escalate', flow: 'import', x: 810, y: 430, step: 'Attention · red', name: 'Coach panel — Vector’s team', state: 'attn-escalate',
+          desc: 'Same split coach in RED: the coach becomes “Why Vector has to do this” → Send to Vector (CARE ref). Red = team steps in.' },
 
         /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
         { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
@@ -1899,7 +1978,7 @@
           desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
-        ['upload', 'grid'], ['grid', 'done'],
+        ['upload', 'grid'], ['grid', 'done'], ['upload', 'attn-fixable'], ['upload', 'attn-escalate'],
         ['sync-locked', 'sync-healthy'],
         ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
       ]

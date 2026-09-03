@@ -78,6 +78,35 @@ genuinely different spot, so the placements can be compared head-to-head:
   interview (rail shows the import sections done + "Automated sync · optional"), reached
   from the Review screen and the done screen, rendered inside the interview chrome.
 
+**Attention-needed step — a distinct MODE, one treatment per version (2026-09-03).**
+Client liked the interview text style and asked that an *attention-needed* element look
+different from routine steps, with a few variations across versions. Two rules baked in:
+
+- **Color carries who fixes it.** **Amber = the customer can fix it** in the file and
+  re-upload. **Red is reserved for a true blocker only Vector can resolve** — e.g. two
+  accounts already on the site share one email; only Vector can merge them. Red never
+  means "you fix it"; it means **"our team takes it from here"** (→ a CARE reference).
+  Every treatment shows both severities so the rule reads at a glance.
+- **It reads as its own mode**, not a routine question — colored header band / tinted
+  panel / full-screen focus, in the warm interview text style.
+
+Each version got a different treatment of that problem-solving step (all reachable from
+the flow map as **Attention · amber** / **Attention · red**):
+
+- **V1 — Alert mode (inline):** the step flips to a distinct colored card (amber/red)
+  right in the flow — header band, A→B, "how to fix," one action.
+- **V2 — Full-screen takeover:** the moment fills the screen ("Let’s fix this together" /
+  "Leave this one to us"); big icon, the one problem, A→B, action.
+- **V3 — Guided sub-steps:** the fix is a 2-step mini wizard (step 1 *what’s wrong* →
+  step 2 *how to fix* / *what happens next*), matching the assistant’s pacing.
+- **V4 — Split coach panel:** problem + involved rows on the left, a docked "How to fix
+  it" coach on the right (why · A→B · "usually the answer is…" · action).
+- **V5 — Dynamic before/after explorer:** flip through suggested fixes and a live
+  side-by-side "your file now → after this fix" updates with each choice (recommended /
+  risky options flagged). The red variant has nothing to choose — only Vector can merge.
+- **V6 — Interview attention step:** the interview’s attention screen as its own amber/red
+  mode (colored header band + tinted "how to fix" panel), distinct from the calm questions.
+
 **Before → after AutoSync preview (2026-09-03).** The Claude-Design "prototype
 variants" panel (bottom-left) is repurposed as a **"Preview · AutoSync"** before→after
 toggle so reviewers can watch automated sync go from unavailable → available in each
