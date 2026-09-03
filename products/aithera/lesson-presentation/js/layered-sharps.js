@@ -373,7 +373,6 @@
         '<h2 class="bl-q" id="blQ"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
-        '<button class="bl-next" id="blNext" type="button">Next question <i class="fa-solid fa-arrow-right"></i></button>' +
       '</div>' +
     '</main>';
   var BATTERY = [
@@ -430,11 +429,7 @@
     var qEl = document.getElementById('blQ');
     var hintEl = document.getElementById('blHint');
     var optsEl = document.getElementById('blOptions');
-    var nextEl = document.getElementById('blNext');
     var k1 = [];
-    // One handler for the life of the step; each answer re-points it.
-    var onNext = null;
-    nextEl.addEventListener('click', function () { if (onNext) onNext(); });
 
     ctx.setCoachSay('Four questions before we start. Two on the procedure, two on how you see it — nothing on doing it, because a question cannot measure that.');
     ctx.floatClose();
@@ -580,27 +575,15 @@
       setTimeout(function () {
         render(i);
         askEl.classList.remove('swapping');
-        hideNext();
+        ctx.clearCoachAction();
         ctx.floatClose();
         ctx.positionOrb(true);
       }, T(320));
     }
-    // The learner decides when to move on, so CLARA's reply stays up for as
-    // long as they want it. Nothing here is on a clock.
-    function offerNext(i) {
-      onNext = function () { onNext = null; swapTo(i); };
-      nextEl.classList.add('in');
-    }
-    // Snapped away, not faded: this runs inside the swap, while the whole
-    // block is already invisible, so a fade would only leave the button
-    // hanging under the next question, where it isn't true any more.
-    function hideNext() {
-      onNext = null;
-      nextEl.style.transition = 'none';
-      nextEl.classList.remove('in');
-      void nextEl.offsetWidth;
-      nextEl.style.transition = '';
-    }
+    // The way forward rides in CLARA's bubble, under the line she just said
+    // about the answer — so the reaction and the move it leads to are one
+    // thing, and nothing is on a clock.
+    function offerNext(i) { ctx.setCoachAction('Next question', function () { swapTo(i); }); }
     function done() {
       // K1 is proven only on a clean sweep — it is mandated content, and the
       // simulation still re-verifies it performatively either way.

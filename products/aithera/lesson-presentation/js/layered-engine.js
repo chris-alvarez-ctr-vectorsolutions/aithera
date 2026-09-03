@@ -269,9 +269,15 @@
               '<button class="clara-send" id="claraAskSend" type="button" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>' +
             '</div>' +
           '</div>' +
-          '<button class="clara-reply" id="claraReply" type="button" ' +
-            'aria-label="Reply to CLARA" title="Reply to CLARA">' +
-            '<i class="fa-solid fa-reply" aria-hidden="true"></i></button>' +
+          '<div class="clara-foot">' +
+            // A step can put its own forward control here — see setCoachAction.
+            // When CLARA has just reacted to an answer, the move she is talking
+            // about belongs in the same bubble as the reaction.
+            '<button class="clara-act" id="claraAct" type="button" hidden></button>' +
+            '<button class="clara-reply" id="claraReply" type="button" ' +
+              'aria-label="Reply to CLARA" title="Reply to CLARA">' +
+              '<i class="fa-solid fa-reply" aria-hidden="true"></i></button>' +
+          '</div>' +
         '</div>' +
         '<div class="clara-slot"><span class="clara-hint" aria-hidden="true"></span></div>';
     }
@@ -320,8 +326,16 @@
     stage.dataset.float = state;
     if (state === 'open') delete stage.dataset.unread;
   }
+  function clearCoachAction() {
+    pendingAction = false;
+    var b = chrome && chrome.querySelector('#claraAct');
+    if (b) { b.hidden = true; b.onclick = null; b.innerHTML = ''; }
+  }
   var frameLesson, frameStep, frameBar;
   var idx = -1, busy = false, nextHref = null;
+  // Set while a step has parked its forward control inside CLARA's bubble.
+  // She is holding the only door at that point, so she does not get tucked.
+  var pendingAction = false;
 
   function positionOrb(glide) {
     if (!chrome) return;
@@ -389,6 +403,19 @@
       },
       floatOpen: function () { setFloat('open'); },
       floatClose: function () { setFloat('closed'); },
+      // Park a forward control in the bubble, under the line CLARA just said.
+      // Pressing it clears it — one move per reaction — and the step decides
+      // what happens next.
+      setCoachAction: function (label, run) {
+        var b = chrome && chrome.querySelector('#claraAct');
+        if (!b) return;
+        b.innerHTML = esc(label) + ' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>';
+        b.hidden = false;
+        pendingAction = true;
+        b.onclick = function () { clearCoachAction(); run(); };
+        setFloat('open');
+      },
+      clearCoachAction: clearCoachAction,
       positionOrb: positionOrb, saveResult: saveResult, readCourse: readCourse
     };
   }
@@ -499,6 +526,7 @@
       chrome.className = 'clara-chrome clara-chrome--' + step.mode + (first ? '' : ' pre-enter');
       chrome.innerHTML = chromeHTML(step.mode, step.coach || {});
       stage.appendChild(chrome);
+      pendingAction = false;
 
       idx = i; nextHref = null;
       positionOrb(false);                           // land in the new slot, no travel
@@ -594,6 +622,7 @@
     // In floating mode the orb is the launcher — tap to tuck/expand.
     orbEl.addEventListener('click', function () {
       if (stage.dataset.mode !== 'floating' || busy) return;
+      if (pendingAction) { setFloat('open'); return; }
       setFloat(stage.dataset.float === 'closed' ? 'open' : 'closed');
     });
   }

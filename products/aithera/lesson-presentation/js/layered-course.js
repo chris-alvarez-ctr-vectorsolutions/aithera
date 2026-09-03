@@ -454,7 +454,6 @@
         '<h2 class="bl-q" id="blQ" aria-live="polite"></h2>' +
         '<p class="bl-hint" id="blHint" hidden></p>' +
         '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
-        '<button class="bl-next" id="blNext" type="button">Next question <i class="fa-solid fa-arrow-right"></i></button>' +
       '</div>' +
     '</main>';
 
@@ -496,9 +495,6 @@
     var qEl = document.getElementById('blQ');
     var hintEl = document.getElementById('blHint');
     var optsEl = document.getElementById('blOptions');
-    var nextEl = document.getElementById('blNext');
-    var onNext = null;
-    nextEl.addEventListener('click', function () { if (onNext) onNext(); });
 
     // While a question is up, CLARA is the orb only — one thing on screen to
     // read. Her line waits behind it for anyone who taps, and she rises with a
@@ -513,24 +509,10 @@
 
     // The beat between the two questions is the one moment nothing else is
     // clickable: the learner has answered, CLARA is replying, and Continue is
-    // still gated. So this is the only live control on screen — and it waits
-    // rather than counting, because a timer would decide how long her reply
-    // is worth reading.
-    function offerNext(run) {
-      onNext = function () { onNext = null; run(); };
-      nextEl.classList.add('in');
-    }
-    // Snapped away, not faded: this runs inside the swap, while the whole
-    // block is already invisible, so there's nothing to animate — and a fade
-    // would leave the button sitting under question 2, where it isn't true
-    // any more.
-    function hideNext() {
-      onNext = null;
-      nextEl.style.transition = 'none';
-      nextEl.classList.remove('in');
-      void nextEl.offsetWidth;
-      nextEl.style.transition = '';
-    }
+    // still gated. The way forward therefore rides in her bubble, under the
+    // line she just said — and it waits rather than counting, because a timer
+    // would decide how long that line is worth reading.
+    function offerNext(run) { ctx.setCoachAction('Next question', run); }
 
     // Fade the answered question out, drop the next one into the same slot —
     // and tuck CLARA back to the orb as it lands, so question 2 gets the same
@@ -540,7 +522,7 @@
       setTimeout(function () {
         render(q, n, onPick);
         askEl.classList.remove('swapping');
-        hideNext();
+        ctx.clearCoachAction();
         ctx.floatClose();
         ctx.positionOrb(true);
       }, T(320));
