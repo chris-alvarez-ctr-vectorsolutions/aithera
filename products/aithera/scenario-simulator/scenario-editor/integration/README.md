@@ -11,6 +11,7 @@ Re-cuts so far — each one deliberate, each one a row in
 | Date | What came in |
 | --- | --- |
 | 2026-09-03 | The paced template hand-off read-out, and `exhibit.type` surviving the compiler so an authored image exhibit is not rendered as a video (`studio-shell.js`, `writer-studio.css`, `scenario-v4-runtime.js`) |
+| 2026-09-03 | The exhibit source becomes a drop zone with a live thumbnail — a dropped image is downscaled and embedded as a `data:` URL, so an Observe step can be given a picture without an asset path (`v4-universal.js`, `writer-studio.css`) |
 
 Nothing outside this folder can change what it does. It carries its own copy of
 all 16 modules and the stylesheet, so work continues on the live editor at
