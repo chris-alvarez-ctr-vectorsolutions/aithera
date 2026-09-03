@@ -36,7 +36,7 @@
   // includes used to carry no version, so an edge/browser-cached older
   // feedback-widget.js could execute next to the current one and dock a second
   // bubble the dedup never saw. (self-heal below is the belt to this suspenders.)
-  var TOOLBOX_VERSION = '1.2.0';
+  var TOOLBOX_VERSION = '1.2.1';
 
   var qs = location.search;
   if (/[?&]fmthumb=1/.test(qs)) return;        // thumbnail iframe → render bare
@@ -141,10 +141,14 @@
       // collapse into ONE trigger (shows the current version + an up-caret) that
       // opens an upward menu of every version. The trigger reuses the pill blue
       // so it reads as the version control; the menu matches the dark dock.
-      '.tbx-ver-trigger{display:none;align-items:center;gap:7px;border:0;cursor:pointer;' +
-      'font:700 12px/1 "Open Sans",system-ui,sans-serif;color:#fff;background:#1f4596;' +
-      'padding:6px 12px;border-radius:999px;max-width:min(46vw,320px);transition:background .12s;}' +
-      '.tbx-ver-trigger:hover{background:#24509f;}' +
+      // Current-version trigger: a subdued BLACK chip (not the blue CTA) that sits
+      // quietly in the dark dock — a black accent, not a button. A faint hairline
+      // delineates the pure-black fill from the near-black dock behind it.
+      '.tbx-ver-trigger{display:none;align-items:center;gap:7px;cursor:pointer;' +
+      'font:700 12px/1 "Open Sans",system-ui,sans-serif;color:#fff;background:#000;' +
+      'border:1px solid rgba(255,255,255,.14);' +
+      'padding:6px 12px;border-radius:999px;max-width:min(46vw,320px);transition:background .12s,border-color .12s;}' +
+      '.tbx-ver-trigger:hover{background:#141417;border-color:rgba(255,255,255,.28);}' +
       '.tbx-ver-trigger .tbx-ver-cur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
       '.tbx-ver-trigger .tbx-ver-caret{flex:none;width:12px;height:12px;}' +
       '.tbx-ver-trigger .tbx-ver-caret svg{width:12px;height:12px;display:block;}' +
@@ -153,15 +157,20 @@
       '.tbx-ver-collapsed>.tbx-ver-trigger{display:inline-flex !important;}' +
       // The version menu is a fixed popover on the body (never clipped by the pill),
       // opening upward from the trigger. It scrolls if there are many versions.
+      // Menu surface is a touch lighter than pure dock charcoal so the BLACK
+      // selected row reads as a deep-black accent against it (not a blue fill).
       '.tbx-ver-menu{position:fixed;z-index:999995;display:none;flex-direction:column;' +
       'min-width:200px;max-width:min(88vw,340px);max-height:min(60vh,420px);overflow:auto;' +
-      'background:#18181b;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:6px;' +
+      'background:#242428;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:6px;' +
       'box-shadow:0 10px 30px rgba(0,0,0,.4);font-family:"Open Sans",system-ui,sans-serif;}' +
       '.tbx-ver-menu.tbx-open{display:flex;}' +
       '.tbx-ver-menu-item{text-align:left;border:0;background:transparent;color:#d4d4d8;cursor:pointer;' +
       'font:600 12.5px/1.35 inherit;padding:9px 12px;border-radius:8px;white-space:normal;}' +
-      '.tbx-ver-menu-item:hover{background:rgba(255,255,255,.1);color:#fff;}' +
-      '.tbx-ver-menu-item.tbx-active{background:#1f4596;color:#fff;}';
+      '.tbx-ver-menu-item:hover{background:rgba(255,255,255,.08);color:#fff;}' +
+      // Selected row: the black accent — deep-black fill, bold, with a faint ring
+      // so it stays crisp against the lighter menu. No blue.
+      '.tbx-ver-menu-item.tbx-active{background:#000;color:#fff;font-weight:700;' +
+      'box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}';
     var styled = false;
     function ensureStyle() {
       if (styled) return; styled = true;
