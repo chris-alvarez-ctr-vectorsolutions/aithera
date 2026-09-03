@@ -9,6 +9,22 @@
         src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
     <script
         src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <!-- Course recommendations use the real design-system course list.
+         vwc-course-card ships in @vector-web-components/lms; vwc-course-list
+         (which renders those cards) ships in its own course-list package and
+         requires lms to be loaded first. -->
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/lms/v1.3.10/lms.iife.js"></script>
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/course-list/v1.5.10/course-list.iife.js"></script>
+    <script>
+        // vwc-course-card loads the Vector Choice logo from this CDN base.
+        // Must be set before any LMS component mounts (WatchStorageMixin).
+        try {
+            localStorage.setItem('vwc-config#assetsURL',
+                'https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0');
+        } catch (e) { /* file:// with storage disabled — badge logo just won't load */ }
+    </script>
     <link rel="stylesheet"
         href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
     <link rel="stylesheet"
@@ -45,11 +61,23 @@
                #d83e38). 6% is lighter than --lumo-error-color-10pct, which is too
                strong for a full-page backdrop. */
             --deleted-tint: color-mix(in srgb, var(--lumo-error-color) 6%, transparent);
-            /* Course-recommendations accent — pink/purple to match the feature's
-               original theme (distinct from the form's blue --brand). */
-            --rec-accent: #8b5cf6;
-            --rec-accent-strong: #6d28d9;
-            --rec-accent-hover: #7c3aed;
+            /* Course-recommendations accent + gradient — blue, sourced from
+               design system tokens (themes v1.9.3 CONTEXT.md):
+                 --lumo-primary-color        #0271ce  (Science Blue)
+                 --vwc-color-picton-blue-900 #1a4c61  (darkest system blue)
+                 --vwc-color-picton-blue-50  #ecf8fd  (tint, for washes)
+               Hard-coded rather than var()-referenced because this mock loads
+               themes v1.5.0: the bundle defines these palette vars but predates
+               the published token docs, so quoting the resolved values keeps
+               the mock self-contained.
+               Both gradient stops carry white text at AA: #0271ce is 4.93:1
+               and #1a4c61 is 9.33:1. */
+            --rec-grad-blue: #0271ce;
+            --rec-grad-blue-dark: #1a4c61;
+            --rec-grad-blue-tint: #ecf8fd;
+            --rec-accent: #0271ce;
+            --rec-accent-strong: #1a4c61;
+            --rec-accent-hover: #025da9;
             /* Builder lets the form author pick a per-question background swatch.
                These are the four the form-author chose for the four domain headers. */
             --instr-bg-d1: #fef4e2;
@@ -1081,12 +1109,6 @@
             color: var(--text-muted);
             margin: 4px 0 0;
         }
-        .recs-zone-note {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin: 4px 0 0;
-            font-style: italic;
-        }
 
         /* (Recs section + cards: reused from the single-page version) */
         .rec-section { margin-bottom: 24px; }
@@ -1103,7 +1125,7 @@
             overflow: hidden;
             background-image:
                 linear-gradient(var(--lumo-base-color), var(--lumo-base-color)),
-                linear-gradient(120deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+                linear-gradient(120deg, var(--rec-grad-blue) 0%, var(--rec-grad-blue-dark) 100%);
             background-origin: border-box;
             background-clip: padding-box, border-box;
             box-shadow: var(--lumo-box-shadow-xs);
@@ -1113,39 +1135,25 @@
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.10), transparent 50%),
-                radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.08), transparent 55%),
-                linear-gradient(135deg, var(--lumo-primary-color-10pct) 0%, #fbf7ff 100%);
+                radial-gradient(circle at 0% 0%, rgba(2, 113, 206, 0.12), transparent 52%),
+                radial-gradient(circle at 100% 100%, rgba(26, 76, 97, 0.10), transparent 55%),
+                linear-gradient(135deg, var(--rec-grad-blue-tint) 0%, #f4f9fd 100%);
             pointer-events: none;
             z-index: 0;
         }
         .rec-generate-card > * { position: relative; z-index: 1; }
-        .rec-generate-card::after {
-            content: '\f005 \f005 \f005';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            position: absolute;
-            top: 14px;
-            right: 18px;
-            font-size: 8px;
-            letter-spacing: 6px;
-            color: #c7d2fe;
-            opacity: 0.6;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .rec-generate-icon {
+                .rec-generate-icon {
             width: 48px;
             height: 48px;
             border-radius: 12px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+            background: linear-gradient(135deg, var(--rec-grad-blue) 0%, var(--rec-grad-blue-dark) 100%);
             color: var(--lumo-base-color);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-size: 20px;
             flex-shrink: 0;
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.30);
+            box-shadow: 0 4px 12px rgba(26, 76, 97, 0.28);
         }
         .rec-generate-body { flex: 1; min-width: 0; }
         .rec-generate-title {
@@ -1163,7 +1171,7 @@
             letter-spacing: 0.6px;
             text-transform: uppercase;
             color: var(--lumo-base-color);
-            background: linear-gradient(120deg, #6366f1, #8b5cf6, #ec4899);
+            background: linear-gradient(120deg, var(--rec-grad-blue) 0%, var(--rec-grad-blue-dark) 100%);
             padding: 3px 8px;
             border-radius: 4px;
             position: relative;
@@ -1181,29 +1189,16 @@
             gap: 12px;
             flex-shrink: 0;
         }
-        .rec-generate-meta {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #6d28d9;
-            background: rgba(255,255,255,0.75);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            padding: 4px 10px;
-            border-radius: 999px;
-            border: 1px solid rgba(139, 92, 246, 0.25);
-        }
-        .rec-generate-actions vaadin-button[id="generateRecsBtn"] {
-            background: linear-gradient(120deg, #6366f1, #8b5cf6, #ec4899);
+                .rec-generate-actions vaadin-button[id="generateRecsBtn"] {
+            background: linear-gradient(120deg, var(--rec-grad-blue) 0%, var(--rec-grad-blue-dark) 100%);
             color: var(--lumo-base-color);
             border: none;
             border-radius: 8px;
-            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+            box-shadow: 0 4px 14px rgba(2, 113, 206, 0.32);
             transition: box-shadow 0.15s;
         }
         .rec-generate-actions vaadin-button[id="generateRecsBtn"]:hover {
-            box-shadow: 0 6px 18px rgba(139, 92, 246, 0.48);
+            box-shadow: 0 6px 18px rgba(2, 113, 206, 0.44);
         }
         .rec-generate-actions vaadin-button[id="generateRecsBtn"]::part(label) {
             color: var(--lumo-base-color);
@@ -1214,12 +1209,54 @@
             .rec-generate-actions { width: 100%; justify-content: flex-end; }
         }
 
+        /* Single control row above the cards. <vwc-course-list> renders its own
+           right-aligned "Select All" toolbar at the top of its shadow root;
+           left alone, that stacked below this row and cost ~107px of vertical
+           space on two nearly-empty rows. Rather than overlap them with a
+           negative margin (brittle — it depends on the component's internal
+           padding and the two could collide at narrow widths), the component's
+           toolbar is collapsed and Select All is re-hosted as a button in this
+           row, so ONE flexbox lays out both controls. The re-hosted button
+           calls the component's public selectAll() method. */
         .rec-section-head {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 14px;
+            justify-content: flex-end;
+            gap: 4px;
+            margin-bottom: 8px;
         }
+        /* Collapse the component's own toolbars — Select All (above the grid)
+           and the Assign action button (below it). Both are documented parts,
+           so hiding them here is stable; the toolbar divs that wrap them
+           aren't reachable, hence display:none on the parts themselves plus
+           negative margins to reclaim the empty rows' height. Both controls
+           are re-hosted in .rec-section-head so all three sit on one line. */
+        vwc-course-list::part(select-all-button),
+        vwc-course-list::part(select-all-button-loading),
+        vwc-course-list::part(action-button) {
+            display: none;
+        }
+        vwc-course-list { margin-top: -20px; margin-bottom: -40px; }
+        /* Select All re-hosted in our row, styled to match Refresh. */
+        .rec-selectall-btn {
+            background: none; border: none; padding: 4px 8px; cursor: pointer;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            color: var(--rec-accent-strong);
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .rec-selectall-btn:hover { text-decoration: underline; }
+        /* Configure Assignments re-hosted at the far right of the same row.
+           Keeps the primary emphasis the component's own button had. */
+        .rec-configure-btn {
+            background: var(--rec-grad-blue);
+            color: var(--lumo-base-color);
+            border: none; border-radius: 6px;
+            padding: 8px 16px; margin-left: 8px;
+            font-family: inherit; font-size: 13px; font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .rec-configure-btn:hover { background: var(--rec-accent-hover); }
         .rec-section-title {
             font-size: 17px;
             font-weight: 700;
@@ -1229,15 +1266,9 @@
             gap: 10px;
         }
         .rec-section-title i { color: var(--rec-accent); font-size: 14px; }
-        .rec-section-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 0; }
-        /* Colors/padding/radius come from theme="badge warning"; keep only the
+                /* Colors/padding/radius come from theme="badge warning"; keep only the
            pill shape + type tweaks the badge theme doesn't provide. */
-        .rec-section-badge {
-            font-size: 11px;
-            letter-spacing: 0.4px;
-            border-radius: 999px;
-        }
-        .rec-section-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+                .rec-section-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .rec-refresh-btn {
             background: none; border: none; padding: 4px 2px; cursor: pointer;
             font-family: inherit; font-size: 12px; font-weight: 600; color: var(--rec-accent-strong);
@@ -1245,137 +1276,46 @@
         }
         .rec-refresh-btn:hover { text-decoration: underline; }
         .rec-refresh-btn i { font-size: 11px; }
-        .rec-section-sub .overflow-note { color: var(--text-strong); font-weight: 600; }
-
-        /* Recs are catalogued by component code only — no domain coloring
+                /* Recs are catalogued by component code only — no domain coloring
            because this prototype's flat form has no domain concept. */
-        .gaps-summary {
-            background: var(--lumo-base-color);
-            border: 1px solid var(--border-soft);
-            border-radius: 10px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            font-size: 12px;
-            color: var(--text-muted);
-            line-height: 1.5;
-            box-shadow: var(--lumo-box-shadow-xs);
+                        /* The recommendation cards are the real <vwc-course-list> /
+           <vwc-course-card> components, which carry their own styling in
+           shadow DOM. Layout hooks live on the host element. */
+        vwc-course-list {
+            display: block;
+            margin-top: 4px;
         }
-        .gaps-summary strong { color: var(--text-strong); margin-right: 6px; }
 
-        .rec-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+        /* ─── Required-question gate ─── */
+        .q-required-mark {
+            color: var(--lumo-error-text-color);
+            font-weight: 700;
+            margin-left: 4px;
         }
-        @media (max-width: 1280px) { .rec-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 980px)  { .rec-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 560px)  { .rec-grid { grid-template-columns: 1fr; } }
-
-        .rec-card {
-            background: var(--lumo-base-color);
-            border: 1px solid var(--border-soft);
-            border-radius: 10px;
-            overflow: hidden;
+        /* Empty state shown in place of the recommendations feature while
+           the gate is unmet. */
+        .rec-locked {
             display: flex;
-            flex-direction: column;
-            box-shadow: var(--lumo-box-shadow-xs);
-            transition: border-color 0.15s, box-shadow 0.15s;
-            position: relative;
-        }
-        .rec-card.in-cart {
-            border-color: var(--rec-accent);
-            box-shadow: 0 0 0 1px var(--rec-accent) inset, 0 1px 4px rgba(139,92,246,0.14);
-        }
-        .rec-card-image {
-            position: relative;
-            height: 72px;
-            background: var(--lumo-contrast-10pct) center/cover no-repeat;
-            overflow: hidden;
-        }
-        .rec-card-image::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.55) 100%);
-            pointer-events: none;
-        }
-        .rec-card-type-stamp {
-            position: absolute; top: 8px; left: 8px;
-            display: inline-flex; align-items: center; gap: 5px;
-            color: var(--lumo-base-color); font-size: 11px; font-weight: 700;
-            letter-spacing: 0.4px; text-transform: uppercase;
-            padding: 4px 9px; border-radius: 4px;
-            background: rgba(15, 23, 42, 0.78);
-            z-index: 2;
-        }
-        .rec-card-type-stamp.vector-choice {
-            background: linear-gradient(120deg, #6366f1 0%, #8b5cf6 100%);
-        }
-        .rec-card-type-stamp i { font-size: 10px; }
-        .rec-card-body { padding: 12px 14px 10px; flex: 1; display: flex; flex-direction: column; }
-        .rec-card-title-row {
-            display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px;
-        }
-        .rec-card-title-block { flex: 1; min-width: 0; }
-        .rec-card-title {
-            font-size: 14px; font-weight: 700; margin: 0;
-            color: var(--text-strong); line-height: 1.3;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-        }
-        .rec-card-id {
-            font-size: 11px; color: var(--text-muted);
-            margin: 2px 0 0; font-variant-numeric: tabular-nums;
-        }
-        .rec-card-dismiss {
-            flex-shrink: 0; background: none; border: none;
-            color: var(--text-muted); font-size: 14px;
-            cursor: pointer; padding: 2px 4px; line-height: 1;
-            border-radius: 4px; margin-top: -2px; margin-right: -4px;
-        }
-        .rec-card-dismiss:hover { color: var(--lumo-error-text-color); background: var(--lumo-error-color-10pct); }
-        .rec-card-desc {
-            font-size: 12px; line-height: 1.45; color: var(--text-muted);
-            margin: 0 0 10px;
-            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-        }
-        .rec-card-addresses {
-            display: flex; align-items: center; gap: 4px;
-            flex-wrap: wrap; margin-bottom: 10px;
-        }
-        /* No domain coloring on chips — flat form has no domain concept. */
-        .rec-addr-chip {
-            display: inline-flex; align-items: center;
-            padding: 2px 7px; border-radius: 4px;
-            font-size: 10px; font-weight: 700;
-            font-variant-numeric: tabular-nums; letter-spacing: 0.3px;
-            background: var(--page-bg); color: var(--text-strong);
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
             border: 1px solid var(--border-soft);
+            border-radius: 10px;
+            background: #f4f5f7;
+            font-size: 13px;
+            line-height: 1.5;
         }
-        .rec-card-footer {
-            padding: 10px 14px 12px;
-            border-top: 1px solid var(--border-soft);
-            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        .rec-locked-icon {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-size: 14px;
         }
-        .rec-card-secondary {
-            background: var(--lumo-base-color); color: var(--text-strong);
-            border: 1px solid var(--border-soft); border-radius: 6px;
-            padding: 6px 12px;
-            font-family: inherit; font-size: 12px; font-weight: 600;
-            cursor: pointer; transition: background 0.15s, border-color 0.15s;
+        .rec-locked-text {
+            flex: 1;
+            min-width: 160px;
+            font-weight: 600;
+            color: var(--text-strong);
         }
-        .rec-card-secondary:hover { background: var(--page-bg); border-color: var(--lumo-secondary-text-color); }
-        .rec-card-primary {
-            background: var(--rec-accent); color: var(--lumo-base-color); border: none;
-            border-radius: 6px; padding: 7px 14px;
-            font-family: inherit; font-size: 12px; font-weight: 700;
-            cursor: pointer;
-            display: inline-flex; align-items: center; gap: 6px;
-            transition: background 0.15s;
-        }
-        .rec-card-primary:hover { background: var(--rec-accent-hover); }
-        .rec-card-primary.added { background: var(--lumo-success-color); }
-        .rec-card-primary.added:hover { background: var(--lumo-success-text-color); }
-        .rec-card-primary i { font-size: 11px; }
 
         /* Slide-out details panel */
         .details-overlay {
@@ -1475,29 +1415,6 @@
             --lumo-primary-text-color: var(--rec-accent);
         }
 
-        /* Coverage gaps callout */
-        .rec-gaps-card {
-            background: var(--notice-tint);
-            border: 1px solid var(--notice);
-            border-radius: 10px;
-            padding: 14px 16px;
-            margin-top: 16px;
-        }
-        .rec-gaps-head {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 13px; font-weight: 700;
-            color: var(--notice-text); margin-bottom: 4px;
-        }
-        .rec-gaps-desc { font-size: 12px; color: #78350f; margin: 0 0 10px; line-height: 1.5; }
-        .rec-gaps-list { display: flex; flex-wrap: wrap; gap: 6px; }
-        .rec-gap-chip {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: var(--lumo-base-color); border: 1px solid var(--notice);
-            border-radius: 999px; padding: 4px 10px;
-            font-size: 11px; color: var(--text-strong);
-        }
-        .rec-gap-chip .gap-id { font-weight: 700; font-variant-numeric: tabular-nums; }
-
         /* "No low ratings" empty state */
         .rec-empty {
             background: var(--lumo-success-color-10pct);
@@ -1511,57 +1428,10 @@
         .rec-empty-text { font-size: 13px; line-height: 1.5; }
         .rec-empty-text strong { display: block; margin-bottom: 2px; font-size: 14px; }
 
-        /* Floating cart widget */
-        @keyframes cart-slide-up {
-            from { transform: translateY(20px); opacity: 0; }
-            to   { transform: translateY(0); opacity: 1; }
-        }
-        .floating-cart {
-            position: fixed;
-            right: 20px;
-            bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-            z-index: 30;
-            display: inline-flex; align-items: center; gap: 12px;
-            background: var(--lumo-base-color); border: 1px solid var(--border-soft);
-            border-radius: 999px;
-            padding: 8px 8px 8px 18px;
-            box-shadow: 0 8px 28px rgba(139, 92, 246, 0.22), 0 2px 6px rgba(0,0,0,0.05);
-            animation: cart-slide-up 0.22s ease;
-        }
-        .floating-cart-count {
-            display: inline-flex; align-items: center; gap: 8px;
-            font-size: 13px; font-weight: 700; color: var(--text-strong);
-            white-space: nowrap;
-        }
-        .floating-cart-count i { color: var(--rec-accent); font-size: 14px; }
-        .floating-cart-count .pill {
-            background: var(--rec-accent); color: var(--lumo-base-color);
-            font-size: 11px; font-weight: 800;
-            min-width: 20px; height: 20px; padding: 0 6px;
-            border-radius: 999px;
-            display: inline-flex; align-items: center; justify-content: center;
-            font-variant-numeric: tabular-nums;
-        }
-        .floating-cart-cta {
-            background: var(--rec-accent); color: var(--lumo-base-color); border: none;
-            border-radius: 999px; padding: 8px 16px;
-            font-family: inherit; font-size: 13px; font-weight: 700;
-            cursor: pointer;
-            display: inline-flex; align-items: center; gap: 6px;
-            transition: background 0.15s;
-        }
-        .floating-cart-cta:hover { background: var(--rec-accent-hover); }
-        .floating-cart-cta i { font-size: 11px; }
-        @media (max-width: 720px) {
-            .floating-cart { left: 12px; right: 12px; justify-content: space-between; }
-        }
-
         /* ─── Back-to-top button ───
-           Small horizontally-centered pill ("↑ Top"). Sits on the same visual
-           row as the right-aligned floating cart, near the bottom of the viewport.
-           The +6px over the cart's bottom offset roughly centers this shorter pill
-           against the taller cart pill so they read as one row. Hidden until the
-           user scrolls down; clicking smooth-scrolls to the top of the form.
+           Small horizontally-centered pill ("↑ Top") near the bottom of the
+           viewport. Hidden until the user scrolls down; clicking
+           smooth-scrolls to the top of the form.
            Centered via translateX(-50%), so the show/hide slide is baked into the
            same transform to keep it centered while animating. */
         .back-to-top {
@@ -4171,23 +4041,20 @@
            options out inline and drop the empty group label (the visible
            label is the sibling .assign-field-label). Uses ::part(group-field)
            per the pattern in Evaluations/event-forms. */
-        vaadin-radio-group[data-default-field="type"]::part(group-field),
-        vaadin-radio-group[data-course-field="type"]::part(group-field) {
+        vaadin-radio-group[data-default-field="type"]::part(group-field) {
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
             align-items: center;
             gap: 0 16px;
         }
-        vaadin-radio-group[data-default-field="type"]::part(label),
-        vaadin-radio-group[data-course-field="type"]::part(label) {
+        vaadin-radio-group[data-default-field="type"]::part(label) {
             display: none;
         }
         /* Reserve the overridden-state padding at ALL times so toggling an
            option never changes the group's footprint and reflows the modal.
            The .overridden rule below only repaints inside this same box. */
-        vaadin-radio-group[data-default-field="type"],
-        vaadin-radio-group[data-course-field="type"] {
+        vaadin-radio-group[data-default-field="type"] {
             padding: 2px 8px;
             border-radius: 6px;
             box-sizing: border-box;
@@ -4211,30 +4078,17 @@
             margin-bottom: 8px;
             overflow: hidden;
         }
-        .assign-course.has-overrides {
-            border-color: #c7d2fe;
-            box-shadow: 0 0 0 1px #c7d2fe inset;
-        }
+        /* Read-only summary row — not interactive in the MVP. */
         .assign-course-head {
             display: flex;
             align-items: center;
             gap: 12px;
             padding: 12px 14px;
-            cursor: pointer;
-            background: transparent;
-            border: none;
             width: 100%;
+            box-sizing: border-box;
             font-family: inherit;
             text-align: left;
         }
-        .assign-course-head:hover { background: #fafbfc; }
-        .assign-course-chevron {
-            color: var(--text-muted);
-            font-size: 11px;
-            transition: transform 0.15s;
-            flex-shrink: 0;
-        }
-        .assign-course.expanded .assign-course-chevron { transform: rotate(90deg); }
         .assign-course-title-block { flex: 1; min-width: 0; }
         .assign-course-title {
             font-size: 13px;
@@ -4270,68 +4124,6 @@
         }
         .assign-course-tag.mandatory { background: var(--lumo-error-color-10pct); color: var(--lumo-error-text-color); }
         .assign-course-tag.suggested { background: #e0e7ff; color: #3730a3; }
-        .assign-course-tag.custom { background: #ddd6fe; color: #5b21b6; }
-
-        .assign-course-body {
-            padding: 14px;
-            border-top: 1px solid var(--border-soft);
-            background: #fafbfc;
-        }
-        .assign-course-body[hidden] { display: none; }
-        .assign-course-fields {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            align-items: end;
-            margin-bottom: 10px;
-        }
-        @media (max-width: 720px) {
-            .assign-course-fields { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 480px) {
-            .assign-course-fields { grid-template-columns: 1fr; }
-        }
-        /* Visual indicator on overridden fields */
-        .assign-field.overridden vaadin-date-picker::part(input-field) {
-            box-shadow: 0 0 0 2px #c7d2fe;
-        }
-        /* The radio group has no border box to ring, so the overridden state
-           reads as a tinted pill behind the two options instead. Paint only —
-           padding/radius are already reserved on the base rule above, so this
-           must not add any geometry (that reflowed the modal on selection). */
-        .assign-field.overridden vaadin-radio-group[data-course-field="type"] {
-            background: #eef2ff;
-            box-shadow: 0 0 0 2px #c7d2fe;
-        }
-        .assign-field-overridden-marker {
-            display: none;
-            font-size: 10px;
-            font-weight: 700;
-            color: #5b21b6;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-        .assign-field.overridden .assign-field-overridden-marker {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .assign-field-overridden-marker i { font-size: 9px; }
-        .assign-course-reset {
-            background: none;
-            border: none;
-            padding: 4px 0;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-muted);
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .assign-course-reset:hover { color: var(--brand); }
-
         .assign-modal-footer {
             padding: 14px 24px;
             border-top: 1px solid var(--border-soft);
@@ -4342,18 +4134,6 @@
             gap: 8px;
         }
         .assign-modal-footer-left { font-size: 12px; color: var(--text-muted); }
-
-        /* "Assigned" chip on rec cards — uses the Vector design system success
-           color (--lumo-success-color: var(--lumo-success-color), success text: var(--lumo-success-text-color)). */
-        .rec-card.assigned {
-            border-color: var(--lumo-success-color);
-            box-shadow: 0 0 0 1px var(--lumo-success-color) inset;
-        }
-        .rec-card-primary.assigned {
-            background: var(--lumo-success-color);
-            pointer-events: none;
-        }
-        .rec-card-primary.assigned:hover { background: var(--lumo-success-text-color); }
 
         /* Validation modal (reused) */
         /* Validation modal is a vaadin-dialog (theme="v-dialog"). Size overlay +
@@ -5084,8 +4864,7 @@
                         <i class="fa-solid fa-graduation-cap"></i>
                         Course recommendations
                     </h2>
-                    <p class="recs-zone-sub">Match low-rated items to relevant Vector Training courses.</p>
-                    <p class="recs-zone-note">This section is not part of the form builder — it's a separate feature.</p>
+                    <p class="recs-zone-sub">Match low-performing areas of this evaluation with relevant Vector Learning content.</p>
                 </div>
                 <div id="recommendationsSection"></div>
             </div>
@@ -5751,59 +5530,59 @@ const DOMAINS = [
 
 // ─── Mock course catalog ───
 const COURSES = [
-    { id: 'C-101', title: 'Designing Standards-Aligned Lessons', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard', 'Spanish', 'Refresher (15 min)'],
+    { id: 'C-101', sku: '146283283053', title: 'Designing Standards-Aligned Lessons', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard', 'Spanish', 'Refresher (15 min)'],
       rationale: 'Walks evaluators through unit and lesson planning practices that connect daily activities to learning targets and state standards. Includes templates for backwards-planning and prior-knowledge activation.',
       outline: ['Apply backwards-design to align daily activities with learning targets','Build unit calendars that scaffold prior knowledge','Document standards alignment for daily, weekly, and unit plans'],
       addresses: ['1A.1', '1A.2'] },
-    { id: 'C-102', title: 'Using Student Data to Drive Instructional Decisions', provider: 'Vector Training', duration: '1 hour', variants: ['Standard'],
+    { id: 'C-102', sku: '451645430135', title: 'Using Student Data to Drive Instructional Decisions', provider: 'Vector Training', duration: '1 hour', variants: ['Standard'],
       rationale: 'Practical strategies for analyzing classroom and individual student data to inform lesson design.',
       outline: ['Analyze classroom and individual student work to identify patterns','Triangulate data across formative and summative sources','Translate findings into next-step instructional moves'],
       addresses: ['1A.4', '1C.1'] },
-    { id: 'C-103', title: 'Differentiated Instruction Foundations', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard', 'Spanish'],
+    { id: 'C-103', sku: '513565824325', title: 'Differentiated Instruction Foundations', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard', 'Spanish'],
       rationale: 'Introduces tiered planning for student readiness, learning preferences, and interests.',
       outline: ['Tier learning experiences by student readiness','Design tasks that respond to learning preferences and interests','Plan flexible grouping that supports varied levels of mastery'],
       addresses: ['1C.2', '3B.1'] },
-    { id: 'C-104', title: 'Building a Culture of High Expectations and Persistence', provider: 'Vector Training', duration: '1.25 hours', variants: ['Standard', 'Refresher (20 min)'],
+    { id: 'C-104', sku: '692746671253', title: 'Building a Culture of High Expectations and Persistence', provider: 'Vector Training', duration: '1.25 hours', variants: ['Standard', 'Refresher (20 min)'],
       rationale: 'Strategies for fostering student perseverance through challenging tasks.',
       outline: ['Frame complex tasks to foster productive struggle','Use feedback routines that reinforce persistence','Establish norms that convey high expectations for all students'],
       addresses: ['2A.2', '2A.3'] },
-    { id: 'C-105', title: 'Effective Questioning & Academic Discourse', provider: 'Vector Training', duration: '50 min', variants: ['Standard'],
+    { id: 'C-105', sku: '433913998306', title: 'Effective Questioning & Academic Discourse', provider: 'Vector Training', duration: '50 min', variants: ['Standard'],
       rationale: 'Builds skill in posing cognitively challenging questions and facilitating student-led discussions.',
       outline: ['Plan questions that target higher-order thinking','Use accountability moves so every student responds','Facilitate student-led academic discourse'],
       addresses: ['3B.2'] },
-    { id: 'C-106', title: 'Formative Assessment for Real-Time Instructional Adjustment', provider: 'Vector Training', duration: '1 hour', variants: ['Standard', 'Spanish'],
+    { id: 'C-106', sku: '135730728266', title: 'Formative Assessment for Real-Time Instructional Adjustment', provider: 'Vector Training', duration: '1 hour', variants: ['Standard', 'Spanish'],
       rationale: 'Techniques for embedding formative checks into daily instruction.',
       outline: ['Embed lightweight formative checks throughout a lesson','Adjust pacing and grouping based on in-the-moment data','Design re-teaching loops that address misconceptions'],
       addresses: ['3C.1', '3C.2'] },
-    { id: 'C-107', title: 'Family Engagement & Two-Way Communication', provider: 'Vector Training', duration: '40 min', variants: ['Standard', 'Spanish'],
+    { id: 'C-107', sku: '932385281263', title: 'Family Engagement & Two-Way Communication', provider: 'Vector Training', duration: '40 min', variants: ['Standard', 'Spanish'],
       rationale: 'Frameworks for proactive, culturally responsive communication with families.',
       outline: ['Establish a cadence for positive family communication','Communicate progress in culturally responsive ways','Engage families as partners in problem-solving'],
       addresses: ['4C.4'] },
-    { id: 'C-108', title: 'Classroom Management Routines That Stick', provider: 'Vector Training', duration: '1 hour', variants: ['Standard', 'Spanish', 'Refresher (15 min)'],
+    { id: 'C-108', sku: '684229798414', title: 'Classroom Management Routines That Stick', provider: 'Vector Training', duration: '1 hour', variants: ['Standard', 'Spanish', 'Refresher (15 min)'],
       rationale: 'Establishes the core routines and procedures that maintain instructional time.',
       outline: ['Design entry and exit routines that protect instructional time','Build transition procedures that students can run independently','Establish accountability structures for routine adherence'],
       addresses: ['2B.1'] },
-    { id: 'C-109', title: 'Proactive Behavior Support & Restorative Practices', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard'],
+    { id: 'C-109', sku: '995900959603', title: 'Proactive Behavior Support & Restorative Practices', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard'],
       rationale: 'Shifts behavior management from reactive to proactive.',
       outline: ['Replace punitive cycles with proactive routines','Build a positive-acknowledgement system','Use restorative protocols to address conflict'],
       addresses: ['2B.2'] },
-    { id: 'C-110', title: 'Lesson Pacing & Structural Design', provider: 'Vector Training', duration: '45 min', variants: ['Standard'],
+    { id: 'C-110', sku: '230594252469', title: 'Lesson Pacing & Structural Design', provider: 'Vector Training', duration: '45 min', variants: ['Standard'],
       rationale: 'Plans lesson structures that build in reflection, engagement, and differentiated pacing.',
       outline: ['Sequence lessons to support cognitive engagement and reflection','Calibrate pacing for the class without leaving anyone behind','Design optional extensions for learners at different rates'],
       addresses: ['3B.3'] },
-    { id: 'C-111', title: 'Coaching Students Toward Self-Assessment', provider: 'Vector Training', duration: '1 hour', variants: ['Standard', 'Spanish'],
+    { id: 'C-111', sku: '312404825422', title: 'Coaching Students Toward Self-Assessment', provider: 'Vector Training', duration: '1 hour', variants: ['Standard', 'Spanish'],
       rationale: 'Builds student capacity to assess their own work against exemplars and set growth goals.',
       outline: ['Establish clear performance criteria and exemplars','Teach students to self-assess against established criteria','Facilitate peer feedback that promotes learning'],
       addresses: ['3C.3'] },
-    { id: 'C-112', title: 'Culturally & Linguistically Responsive Practice', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard', 'Spanish'],
+    { id: 'C-112', sku: '290789935045', title: 'Culturally & Linguistically Responsive Practice', provider: 'Vector Training', duration: '1.5 hours', variants: ['Standard', 'Spanish'],
       rationale: 'Deepens understanding of students\' home languages and cultures.',
       outline: ['Audit instructional materials for cultural relevance','Adapt practice based on students\' linguistic assets','Build family partnerships that honor home cultures'],
       addresses: ['1B.4', '4C.5'] },
-    { id: 'C-113', title: 'Reflective Practice & Continuous Improvement', provider: 'Vector Training', duration: '50 min', variants: ['Standard'],
+    { id: 'C-113', sku: '539225651484', title: 'Reflective Practice & Continuous Improvement', provider: 'Vector Training', duration: '50 min', variants: ['Standard'],
       rationale: 'Frameworks for self-reflection using lesson artifacts and student data.',
       outline: ['Use lesson artifacts to identify strengths and growth areas','Set targeted professional growth goals','Engage in peer observation and feedback cycles'],
       addresses: ['4A.1', '4A.3'] },
-    { id: 'C-114', title: 'Maintaining Accurate Student Records', provider: 'Vector Training', duration: '40 min', variants: ['Standard'],
+    { id: 'C-114', sku: '741966384297', title: 'Maintaining Accurate Student Records', provider: 'Vector Training', duration: '40 min', variants: ['Standard'],
       rationale: 'Builds organized, defensible record-keeping practices.',
       outline: ['Design a complete and consistent record-keeping system','Track progress for every student against learning targets','Involve students in interpreting their own progress'],
       addresses: ['4C.2'] }
@@ -5874,6 +5653,10 @@ const TOTAL_COMPONENTS = 1;
 // Rating-scale answer colors, left→right by level index (worst → best).
 // Applied as a top color bar on each tile via the --tile-color var.
 const RATING_COLORS = ['#FF6161', '#F7F76F', '#78B661', '#318211'];
+
+// The built form items, stamped with qIndex + required by the render pass.
+// The course-recs gate reads this to know what must be answered.
+let FORM_ITEMS = [];
 
 const ratings = {};
 const cart = new Set();
@@ -6340,7 +6123,44 @@ function renderFormList() {
 
     // First item has no divider above (nothing precedes it)
     if (items.length) items[0].divided = false;
+
+    /* ─── Required questions (gates the course-recs feature) ───
+       This form is a type showcase with no required-ness of its own, so a
+       representative subset is marked required: the scored questions that
+       drive recommendations, plus one of each common input type so the gate
+       is exercised across the form rather than in one place. */
+    const REQUIRED_TYPES = ['rating', 'rubric', 'text-entry', 'choose-one', 'date', 'passfail'];
+    const seenTypes = {};
+    items.forEach((item, i) => {
+        item.qIndex = i;                       // stable identity for the gate
+        const t = item.type;
+        if (REQUIRED_TYPES.includes(t)) {
+            seenTypes[t] = (seenTypes[t] || 0) + 1;
+            // Ratings/rubrics all count (they feed the recs); others: first only.
+            if (t === 'rating' || t === 'rubric' || seenTypes[t] === 1) {
+                item.required = true;
+            }
+        }
+    });
+    FORM_ITEMS = items;
+
     formList.innerHTML = items.map(renderQuestion).join('');
+
+    /* Keep the course-recs gate in sync with the non-rating required inputs.
+       Rating changes already re-render via selectRating(); the other required
+       types keep their value in the DOM, so one delegated listener per event
+       type covers them without touching each control's own wiring. */
+    ['value-changed', 'change', 'click'].forEach(evt => {
+        formList.addEventListener(evt, (e) => {
+            const q = e.target.closest && e.target.closest('.q[data-required="true"]');
+            if (!q) return;
+            if (q.classList.contains('q-rating')) return;   // handled by selectRating
+            /* Defer a tick: on `click` and Vaadin's value-changed the value
+               isn't committed yet when a capture-phase listener runs, so
+               reading it now would leave the gate one event behind. */
+            setTimeout(renderRecommendations, 0);
+        }, true);   // capture: Vaadin's value-changed doesn't always bubble
+    });
 
     // Wire up rating tiles
     formList.querySelectorAll('.rubric-tile').forEach(tile => {
@@ -6490,8 +6310,21 @@ function commonQClasses(item) {
         'q',
         item.divided ? 'divided' : '',
         item.bg || '',
-        `layout-${item.layout || 'under'}`
+        `layout-${item.layout || 'under'}`,
+        item.required ? 'is-required' : ''
     ].filter(Boolean).join(' ');
+}
+
+/* Attributes stamped on every question wrapper so the gate can locate a
+   question in the DOM and know whether it's required. */
+function qDataAttrs(item) {
+    return `data-q-index="${item.qIndex != null ? item.qIndex : ''}"` +
+           (item.required ? ' data-required="true"' : '');
+}
+
+// Red asterisk appended to a required question's title.
+function requiredMark(item) {
+    return item.required ? '<span class="q-required-mark" aria-hidden="true">*</span>' : '';
 }
 
 function renderQuestion(item) {
@@ -6884,8 +6717,8 @@ function renderQuestion(item) {
 function wrapStandard(item, controlHtml, extraClass = 'q-input') {
     const details = item.detailsHtml ? `<div class="q-details">${item.detailsHtml}</div>` : '';
     return `
-        <div class="${commonQClasses(item)} ${extraClass}">
-            <h3 class="q-title">${escapeHtml(item.title)}</h3>
+        <div class="${commonQClasses(item)} ${extraClass}" ${qDataAttrs(item)}>
+            <h3 class="q-title">${escapeHtml(item.title)}${requiredMark(item)}</h3>
             <div>
                 ${details}
                 <div class="q-control">${controlHtml}</div>
@@ -6907,9 +6740,9 @@ function renderRatingQuestion(item) {
     const reqs = item.conditional ? (item.requirements || {}) : null;
     if (reqs) conditionalReqs[c.id] = reqs; // stash for runtime (selectRating)
     return `
-        <div class="${commonQClasses(item)} q-rating${reqs ? ' q-rating-conditional' : ''}" data-component-id="${c.id}"${reqs ? ` data-conditional="true"` : ''}>
+        <div class="${commonQClasses(item)} q-rating${reqs ? ' q-rating-conditional' : ''}" data-component-id="${c.id}"${reqs ? ` data-conditional="true"` : ''} ${qDataAttrs(item)}>
             <h3 class="q-title">
-                ${showId ? `<span class="q-title-id">${escapeHtml(c.id)}</span>` : ''}${escapeHtml(titleText)}
+                ${showId ? `<span class="q-title-id">${escapeHtml(c.id)}</span>` : ''}${escapeHtml(titleText)}${requiredMark(item)}
             </h3>
             <div>
                 ${detailsHtml ? `<div class="q-details">${detailsHtml}</div>` : ''}
@@ -7037,14 +6870,80 @@ function refreshConditionalReqs(q) {
     }
 }
 
+/* ─── Required-question gate for course recommendations ───────────────
+   Recommendations are unavailable until every required question is answered.
+   Ratings/rubrics read from the `ratings` state; the other input types keep
+   their value in the DOM (Vaadin owns it), so those are read off the
+   rendered controls via the question's data-q-index. */
+function isQuestionAnswered(item) {
+    if (item.type === 'rating' || item.type === 'rubric') {
+        const c = item.component;
+        const r = c && ratings[c.id];
+        return !!(r && typeof r.selected === 'number');
+    }
+
+    const el = formList && formList.querySelector(`.q[data-q-index="${item.qIndex}"]`);
+    if (!el) return false;
+
+    const val = sel => {
+        const n = el.querySelector(sel);
+        return n && n.value != null ? String(n.value).trim() : '';
+    };
+
+    switch (item.type) {
+        case 'text-entry':
+            return !!(val('vaadin-text-area') || val('vaadin-text-field'));
+        case 'choose-one':
+            if (item.variant === 'dropdown') return !!val('select.q-dropdown');
+            return !!val('vaadin-radio-group');
+        case 'choose-any': {
+            const g = el.querySelector('vaadin-checkbox-group');
+            return !!(g && Array.isArray(g.value) && g.value.length);
+        }
+        case 'date':     return !!val('vaadin-date-picker');
+        case 'time':     return !!val('vaadin-time-picker');
+        case 'datetime': return !!val('vaadin-date-time-picker');
+        case 'passfail': return !!el.querySelector('.q-passfail-btn.selected');
+        default:         return true;   // non-input types can't gate anything
+    }
+}
+
+/* True once every required question is answered. Deliberately just a
+   boolean — the gate shows a static empty state, so no counts or
+   per-question progress are tracked. */
+function allRequiredAnswered() {
+    const required = (FORM_ITEMS || []).filter(i => i.required);
+    if (!required.length) return false;
+    return required.every(isQuestionAnswered);
+}
+
 // ─── Recommendations ───
 function courseImageUrl(courseId) {
     return `https://picsum.photos/seed/${encodeURIComponent(courseId)}/480/270`;
 }
 
 function renderRecommendations() {
-    const { recommendations, gaps, lowRatedTotal, totalMatched, overflowCount } = getRecommendations();
+    const { recommendations, lowRatedTotal } = getRecommendations();
     const visibleRecs = recommendations.filter(r => !discarded.has(r.course.id));
+
+    /* GATE: the feature is unavailable until every required question is
+       answered. Checked before anything else — including the "no gaps" case —
+       because until the form is complete we can't know what the gaps are.
+       Any pending selection is dropped, since the user goes back to the form.
+       Deliberately static: no progress count, no jump link, nothing tracked. */
+    if (!allRequiredAnswered()) {
+        cart.clear();
+        recommendationsSection.innerHTML = `
+            <div class="rec-locked">
+                <i class="fa-solid fa-lock rec-locked-icon"></i>
+                <div class="rec-locked-text">
+                    Available once all required questions are answered.
+                </div>
+            </div>
+        `;
+        renderFloatingCart();
+        return;
+    }
 
     if (lowRatedTotal === 0) {
         recommendationsSection.innerHTML = `
@@ -7063,21 +6962,19 @@ function renderRecommendations() {
     if (!recommendationsGenerated) {
         recommendationsSection.innerHTML = `
             <div class="rec-generate-card">
-                <div class="rec-generate-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div class="rec-generate-icon"><i class="fa-solid fa-laptop"></i></div>
                 <div class="rec-generate-body">
                     <h2 class="rec-generate-title">
                         <span>Generate course recommendations for growth areas</span>
                         <span class="rec-generate-title-pill">AI</span>
                     </h2>
                     <p class="rec-generate-desc">
-                        ${lowRatedTotal} low-rated item${lowRatedTotal === 1 ? '' : 's'} ${lowRatedTotal === 1 ? 'was' : 'were'} identified in this evaluation.
-                        Match them to relevant Vector Training courses to address ${lowRatedTotal === 1 ? 'this gap' : 'these gaps'}.
+                        Review suggested courses and assign the ones that fit.
                     </p>
                 </div>
                 <div class="rec-generate-actions">
-                    <span class="rec-generate-meta">${lowRatedTotal} ${lowRatedTotal === 1 ? 'gap' : 'gaps'}</span>
                     <vaadin-button theme="primary" id="generateRecsBtn">
-                        <i class="fa-solid fa-sparkles" style="margin-right:6px;"></i>
+                        <i class="fa-solid fa-wand-sparkles" style="margin-right:6px;"></i>
                         Generate recommendations
                     </vaadin-button>
                 </div>
@@ -7094,18 +6991,13 @@ function renderRecommendations() {
         return;
     }
 
-    // Flat-form: no domain grouping in the gaps summary — just a list of low-rated item IDs.
-    const lowIds = getLowRatedComponents().map(x => x.component.id);
-    const gapsSummaryHtml = `
-        <div class="gaps-summary">
-            <strong>Low-rated items:</strong>${lowIds.join(', ')}
-        </div>
-    `;
-
+    /* The card grid is the real design-system component: <vwc-course-list>
+       renders <vwc-course-card> children and owns selection, Select All, the
+       Assign flow and the Details dialog. It's populated by setting
+       .courseListService and .payload (payload IS the fetch trigger) in
+       mountCourseList() below, once this markup is in the DOM. */
     const recCardsHtml = visibleRecs.length ? `
-        <div class="rec-grid">
-            ${visibleRecs.map((r, i) => renderRecCard(r, i < 2)).join('')}
-        </div>
+        <vwc-course-list id="recCourseList" card-heading-level="3"></vwc-course-list>
     ` : `
         <div class="rec-empty" style="background:#f4f5f7;border-color:var(--border-soft);color:var(--text-muted);">
             <i class="fa-solid fa-circle-info"></i>
@@ -7116,45 +7008,23 @@ function renderRecommendations() {
         </div>
     `;
 
-    const gapsCardHtml = gaps.length ? `
-        <div class="rec-gaps-card">
-            <div class="rec-gaps-head">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                Not covered by recommendations
-            </div>
-            <p class="rec-gaps-desc">
-                ${gaps.length === 1 ? 'This low rating has' : 'These low ratings have'} no matching course in the catalog.
-            </p>
-            <div class="rec-gaps-list">
-                ${gaps.map(g => `
-                    <span theme="badge warning" class="rec-gap-chip">
-                        <span class="gap-id">${escapeHtml(g.component.id)}</span>
-                        <span>${escapeHtml(g.component.title)}</span>
-                    </span>
-                `).join('')}
-            </div>
-        </div>
-    ` : '';
-
     recommendationsSection.innerHTML = `
         <div class="rec-section">
             <div class="rec-section-head">
-                <p class="rec-section-sub" style="flex:1;margin:0;">
-                    Based on ${lowRatedTotal} low-rated item${lowRatedTotal === 1 ? '' : 's'},
-                    showing ${recommendations.length} of ${totalMatched} matched course${totalMatched === 1 ? '' : 's'}.
-                    ${overflowCount > 0 ? `<span class="overflow-note">${overflowCount} more available — refresh to see different recommendations.</span>` : ''}
-                </p>
-                <div class="rec-section-actions">
-                    <button type="button" class="rec-refresh-btn" id="refreshRecsBtn" title="Generate a new batch of recommendations">
-                        <i class="fa-solid fa-arrows-rotate"></i>
-                        Refresh
+                <button type="button" class="rec-refresh-btn" id="refreshRecsBtn" title="Generate a new batch of recommendations">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    Refresh
+                </button>
+                ${visibleRecs.length ? `
+                    <button type="button" class="rec-selectall-btn" id="recSelectAllBtn">
+                        Select All
                     </button>
-                    <span theme="badge warning" class="rec-section-badge">${lowRatedTotal} ${lowRatedTotal === 1 ? 'gap' : 'gaps'}</span>
-                </div>
+                    <button type="button" class="rec-configure-btn" id="recConfigureBtn">
+                        Configure Assignments
+                    </button>
+                ` : ''}
             </div>
-            ${gapsSummaryHtml}
             ${recCardsHtml}
-            ${gapsCardHtml}
         </div>
     `;
 
@@ -7188,29 +7058,38 @@ function renderRecommendations() {
         });
     }
 
-    recommendationsSection.querySelectorAll('.rec-select').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const cid = btn.dataset.courseId;
-            cart.has(cid) ? cart.delete(cid) : cart.add(cid);
-            renderRecommendations();
+    /* Selection, the Details dialog and the Assign flow are all owned by
+       <vwc-course-list> now — mounting it replaces the per-card handlers. */
+    mountCourseList(visibleRecs);
+
+    /* Select All is re-hosted in the header row (the component's own toolbar
+       is collapsed via ::part) and delegates to its public selectAll(). */
+    /* Configure Assignments is re-hosted in the header row (the component's
+       own footer button is collapsed via ::part). Delegating to the public
+       actionClick() keeps every behavior: it shows the component's own
+       "make a selection" message when nothing is checked, and otherwise
+       fires the cancelable pre-assign that opens our assignment modal. */
+    const configureBtn = document.getElementById('recConfigureBtn');
+    if (configureBtn) {
+        configureBtn.addEventListener('click', () => {
+            const list = document.getElementById('recCourseList');
+            if (list && typeof list.actionClick === 'function') list.actionClick();
         });
-    });
-    recommendationsSection.querySelectorAll('.rec-card-discard').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const cid = btn.dataset.courseId;
-            discarded.add(cid);
-            cart.delete(cid);
-            renderRecommendations();
+    }
+
+    const selectAllBtn = document.getElementById('recSelectAllBtn');
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+            const list = document.getElementById('recCourseList');
+            if (!list || typeof list.selectAll !== 'function') return;
+            list.selectAll();
+            /* selectAll() is programmatic, and the component only fires
+               checked-change on USER interaction — so the cart won't sync
+               itself here. Mirror the resulting selection across manually. */
+            (list.selectedCourseIds || []).forEach(id => cart.add(id));
         });
-    });
-    recommendationsSection.querySelectorAll('.rec-card-details').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openDetailsPanel(btn.dataset.courseId);
-        });
-    });
+    }
+
     const restoreLink = document.getElementById('restoreDiscardedLink');
     if (restoreLink) {
         restoreLink.addEventListener('click', (e) => {
@@ -7221,90 +7100,178 @@ function renderRecommendations() {
     }
 }
 
-function renderRecCard(rec, isEditorsPick) {
+/* ── Course list wiring ───────────────────────────────────────────────
+   <vwc-course-list> is data-driven: it fetches through a CourseListService
+   and renders each result as a <vwc-course-card>. In a mock there's no
+   backend, so the service resolves from the already-computed recommendation
+   batch. Per the component docs, `payload` is the fetch trigger and must be
+   a NEW object reference each time to force a refetch. */
+
+// score must exceed the list's scoreThreshold (default 0.8) for the
+// "Vector Choice" badge; the rest stay below it.
+const SCORE_VECTOR_CHOICE = 0.95;
+const SCORE_STANDARD = 0.5;
+
+/* courseDefinition drives which fields render on the card face and in the
+   Details dialog. propertyPath is dot-walked against the course object.
+   The card's content area is a fixed ~140px that fits about two fields, so
+   the verbose ones are hideInCard: true and appear only in the dialog. */
+const REC_COURSE_DEFINITION = [
+    { label: 'Course Time', propertyPath: 'duration' },
+    // Dialog-only. No "Addresses" field: courses aren't tied to distinct
+    // tags, so the card face carries only Course Time. (The `addresses`
+    // data itself stays — it's how the engine matches courses to low-rated
+    // components — it just isn't shown.)
+    { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
+    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
+    { label: 'Available versions', propertyPath: 'variantsText', hideInCard: true }
+];
+
+/* Maps one recommendation onto the component's Course shape. id/title/sku/
+   version/score are the documented fields; everything else is reached by
+   courseDefinition propertyPath. */
+function courseForCard(rec, isEditorsPick) {
     const c = rec.course;
-    const isAssigned = assigned.has(c.id);
-    const inCart = cart.has(c.id);
-    const cardStateClass = isAssigned ? 'assigned' : (inCart ? 'in-cart' : '');
-    return `
-        <div class="rec-card ${cardStateClass}" data-course-id="${c.id}">
-            <div class="rec-card-image" style="background-image:url('${courseImageUrl(c.id)}');">
-                <div class="rec-card-type-stamp ${isEditorsPick ? 'vector-choice' : ''}">
-                    ${isEditorsPick
-                        ? '<i class="fa-solid fa-star"></i>Vector Choice'
-                        : '<i class="fa-regular fa-bookmark"></i>Recommended'}
-                </div>
-            </div>
-            <div class="rec-card-body">
-                <div class="rec-card-title-row">
-                    <div class="rec-card-title-block">
-                        <h3 class="rec-card-title">${escapeHtml(c.title)}</h3>
-                        <p class="rec-card-id">Course ${escapeHtml(c.id)} · ${escapeHtml(c.duration)}</p>
-                    </div>
-                    ${isAssigned ? '' : `
-                        <button type="button" class="rec-card-dismiss rec-card-discard" data-course-id="${c.id}" aria-label="Discard recommendation" title="Discard recommendation">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    `}
-                </div>
-                <p class="rec-card-desc">${escapeHtml(c.rationale)}</p>
-                <div class="rec-card-addresses">
-                    ${rec.addresses.map(a => `<span theme="badge contrast" class="rec-addr-chip" title="Addresses ${escapeHtml(a.componentId)}">${escapeHtml(a.componentId)}</span>`).join('')}
-                </div>
-            </div>
-            <div class="rec-card-footer">
-                <button type="button" class="rec-card-secondary rec-card-details" data-course-id="${c.id}">
-                    View details
-                </button>
-                ${isAssigned
-                    ? `<button type="button" class="rec-card-primary assigned" disabled>
-                            <i class="fa-solid fa-check"></i>Assigned
-                       </button>`
-                    : `<button type="button" class="rec-card-primary ${inCart ? 'added' : ''} rec-select"
-                            data-course-id="${c.id}"
-                            aria-pressed="${inCart ? 'true' : 'false'}">
-                        ${inCart
-                            ? '<i class="fa-solid fa-check"></i>Added'
-                            : '<i class="fa-solid fa-plus"></i>Add to assignment'}
-                    </button>`
-                }
-            </div>
-        </div>
-    `;
+    return {
+        id: c.id,
+        title: c.title,
+        sku: c.sku,
+        version: (c.variants && c.variants.length) ? c.variants[0] : undefined,
+        score: isEditorsPick ? SCORE_VECTOR_CHOICE : SCORE_STANDARD,
+        duration: c.duration,
+        outlineHtml: (c.outline && c.outline.length)
+            ? 'By the end of this course, you will be able to:<ul>'
+              + c.outline.map(o => `<li>${escapeHtml(o)}</li>`).join('') + '</ul>'
+            : '',
+        rationale: c.rationale || '',
+        variantsText: (c.variants || []).join(', ')
+    };
 }
 
-function renderFloatingCart() {
-    let el = document.getElementById('floatingCart');
-    const shouldShow = cart.size > 0;
-    if (!shouldShow) { if (el) el.remove(); return; }
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'floatingCart';
-        el.className = 'floating-cart';
-        document.body.appendChild(el);
-    }
-    el.innerHTML = `
-        <span class="floating-cart-count">
-            <i class="fa-solid fa-laptop-file"></i>
-            <span class="pill">${cart.size}</span>
-            course${cart.size === 1 ? '' : 's'} added
-        </span>
-        <button type="button" class="floating-cart-cta" id="floatingCartCta">
-            Configure assignment
-            <i class="fa-solid fa-arrow-right"></i>
-        </button>
-    `;
-    el.querySelector('#floatingCartCta').addEventListener('click', () => {
+/* Wires the <vwc-course-list> that renderRecommendations() just injected.
+   Selection is mirrored back into `cart` so the existing refresh/assign
+   flows keep working unchanged. */
+function mountCourseList(visibleRecs) {
+    const list = document.getElementById('recCourseList');
+    if (!list) return;
+
+    const courses = visibleRecs.map((r, i) => courseForCard(r, i < 2));
+
+    list.courseListService = {
+        getCourses: () => Promise.resolve(courses)
+    };
+    // The modal owns the commit, but the component refuses to fire pre-assign
+    // without an assignment service, so one is provided.
+    list.courseAssignmentService = {
+        assignCourses: (assignee, selected) => {
+            selected.forEach(c => assigned.add(c.id));
+            return Promise.resolve({ success: true });
+        }
+    };
+    list.courseAssignee = { name: 'Austin Smith' };
+    list.courseDefinition = REC_COURSE_DEFINITION;
+    list.multi = true;
+    // Relabels the footer CTA; assign_label is the documented i18n key.
+    list.i18n = {
+        assign_label: 'Configure Assignments',
+        no_selection_msg: 'Select at least one course to configure.'
+    };
+    list.disabledCourseIds = courses.filter(c => assigned.has(c.id)).map(c => c.id);
+    list.selectedCourseIds = courses.filter(c => cart.has(c.id)).map(c => c.id);
+
+    // Keep the mock's cart in sync with the component's selection.
+    list.addEventListener('checked-change', (e) => {
+        const { course, checked } = e.detail || {};
+        if (!course) return;
+        checked ? cart.add(course.id) : cart.delete(course.id);
+    });
+
+    /* pre-assign is cancelable: preventDefault() suppresses the component's
+       own confirm dialog so the richer "Configure assignment" modal opens
+       instead. That modal owns the commit. */
+    list.addEventListener('pre-assign', (e) => {
+        e.preventDefault();
+        cart.clear();
+        (e.detail && e.detail.selectedCourses || []).forEach(c => cart.add(c.id));
         openAssignModal();
     });
+
+    // payload is the fetch trigger — a fresh object each mount.
+    list.payload = { batch: batchSeed, count: courses.length };
+
+    // Cards render asynchronously after the fetch resolves; shrink them then.
+    shrinkCourseCards(list);
+}
+
+/* <vwc-course-card> hard-codes `.card-container { height: 320px }` in its
+   shadow stylesheet, sized for a fuller card than ours. With only Course Time
+   on the face, ~100px of that is empty.
+
+   The height is NOT reachable by supported means — verified: a
+   `--vwc-course-card-height` custom property has no effect (the component
+   doesn't consume one), and `::part(card-container)` doesn't match because
+   card-container is not an exported part (only per-field `<name>-body` parts
+   are). So this reaches into the shadow root and sets the height directly,
+   which requires `!important` to beat the component's own rule.
+
+   `.card-content` and `.card-content-details` both use `flex: 1 1 0`, so they
+   stretch to fill whatever height the container has — they must be pinned to
+   `0 0 auto` too, or the card just re-fills the space.
+
+   This is a deliberate prototype-only override of a sealed component
+   internal. It is cosmetic (no behavior depends on it) and degrades safely:
+   if a future version renames these classes the selectors simply miss and
+   cards return to 320px. Flag it at dev handoff — production should ask the
+   component team for a height token or a shorter card variant. */
+function shrinkCourseCards(list) {
+    const apply = () => {
+        const root = list.shadowRoot;
+        if (!root) return 0;
+        const cards = root.querySelectorAll('vwc-course-card');
+        cards.forEach(card => {
+            const r = card.shadowRoot;
+            if (!r) return;
+            const container = r.querySelector('.card-container');
+            const content = r.querySelector('.card-content');
+            const details = r.querySelector('.card-content-details');
+            if (container) container.style.setProperty('height', 'auto', 'important');
+            if (content) content.style.setProperty('flex', '0 0 auto', 'important');
+            if (details) {
+                details.style.setProperty('flex', '0 0 auto', 'important');
+                // The 20px top margin was spacing a taller stack of fields.
+                details.style.setProperty('margin-top', '8px', 'important');
+            }
+        });
+        return cards.length;
+    };
+
+    // The list fetches asynchronously, so poll briefly until cards exist.
+    let tries = 0;
+    const tick = () => {
+        const found = apply();
+        if (found || tries++ > 40) return;
+        requestAnimationFrame(tick);
+    };
+    tick();
+}
+
+/* The floating cart pill is gone — <vwc-course-list> provides its own
+   "Configure Assignments" CTA in the card-grid footer, which opens the
+   assignment modal (see mountCourseList's pre-assign handler). Kept as a
+   no-op so existing call sites (rating changes, refresh, restore) stay
+   valid, and to clear any pill left over from an earlier render. */
+function renderFloatingCart() {
+    const stale = document.getElementById('floatingCart');
+    if (stale) stale.remove();
 }
 
 // ─── Assignment modal ───
-// Per-course settings: { effective, due, expire, type ('mandatory'|'suggested') }.
-// Each field is independently overrideable. The modal keeps a live copy of
-// these settings keyed by course ID; "Assign" commits them and marks the
-// courses as assigned. The floating cart triggers the modal.
-const courseAssignSettings = {};
+// MVP scope: a SINGLE schedule for every selected course — one set of
+// { effective, due, expire, type ('mandatory'|'suggested') } held in
+// assignBatchDefaults. There are no per-course overrides, so there's no
+// per-course settings map. "Assign" commits this one schedule and marks the
+// courses assigned. The course list's "Configure Assignments" CTA triggers
+// the modal via its cancelable pre-assign event.
 let assignBatchDefaults = null;
 
 function getDefaultAssignDates() {
@@ -7347,7 +7314,7 @@ function ensureAssignDialog() {
         root.innerHTML = `
             <div class="assign-modal-header-body">
                 <h2 class="assign-modal-title" id="assignModalTitle">Configure assignment</h2>
-                <p class="assign-modal-sub">Set training dates and type for ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
+                <p class="assign-modal-sub">Set one schedule and training type for all ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
             </div>
             <button type="button" class="assign-modal-close" id="assignModalClose" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
@@ -7358,11 +7325,10 @@ function ensureAssignDialog() {
         const courses = Array.from(cart).map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
         root.innerHTML = `
             <div class="assign-modal-body">
-                ${renderAssignDefaultsBlock()}
+                ${renderAssignSettingsBlock()}
                 <div class="assign-courses-header">
                     <p class="assign-section-label" style="margin:0;">
-                        Courses
-                        <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); margin-left:8px;">Override individually below if needed</span>
+                        Courses in this assignment
                     </p>
                     <span class="assign-courses-count">${courses.length} total</span>
                 </div>
@@ -7374,7 +7340,7 @@ function ensureAssignDialog() {
         const courses = Array.from(cart).map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
         root.innerHTML = `
             <div class="assign-modal-footer-left">
-                <span id="assignOverrideCount">${countOverriddenCourses()} customized</span>
+                <span>One schedule applies to all ${courses.length} course${courses.length === 1 ? '' : 's'}</span>
             </div>
             <div style="display:flex; gap:8px;">
                 <vaadin-button theme="tertiary" id="assignCancelBtn">Cancel</vaadin-button>
@@ -7391,12 +7357,8 @@ function ensureAssignDialog() {
 }
 
 function openAssignModal() {
-    // Initialize batch defaults and per-course settings on open
+    // One schedule for the whole assignment, reset to defaults on each open.
     assignBatchDefaults = getDefaultAssignDates();
-    Array.from(cart).forEach(cid => {
-        // Seed every course with a copy of the current defaults
-        courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
-    });
     ensureAssignDialog().opened = true;
 }
 
@@ -7409,7 +7371,13 @@ function renderAssignModal() {
     if (assignDialogEl && assignDialogEl.opened) assignDialogEl.requestContentUpdate();
 }
 
-function renderAssignDefaultsBlock() {
+/* MVP scope: ONE schedule for every selected course. There are no per-course
+   overrides, so this is the only place dates/type are set — hence "settings"
+   rather than the old "defaults" (nothing inherits from it, and there's no
+   "re-apply to all courses" action because it always applies to all). If
+   per-course scheduling returns, this is the block that splits back into
+   batch-defaults + overrides. */
+function renderAssignSettingsBlock() {
     const d = assignBatchDefaults;
     return `
         <div class="assign-defaults">
@@ -7435,81 +7403,31 @@ function renderAssignDefaultsBlock() {
                         <vaadin-radio-button value="suggested" label="Suggested"></vaadin-radio-button>
                     </vaadin-radio-group>
                 </div>
-                <vaadin-button theme="secondary" id="applyDefaultsBtn">
-                    Re-apply defaults to all courses
-                </vaadin-button>
             </div>
         </div>
     `;
 }
 
+/* Read-only row. Courses are no longer expandable or individually editable —
+   the row confirms what's in the assignment and echoes the single schedule. */
 function renderAssignCourseRow(course) {
-    const settings = courseAssignSettings[course.id];
-    const overrides = settings.overrides || {};
-    const hasOverrides = Object.keys(overrides).length > 0;
-    const typeLabel = settings.type === 'mandatory' ? 'Mandatory' : 'Suggested';
+    const d = assignBatchDefaults;
+    const typeLabel = d.type === 'mandatory' ? 'Mandatory' : 'Suggested';
     return `
-        <div class="assign-course ${hasOverrides ? 'has-overrides' : ''}" data-course-id="${course.id}">
-            <button type="button" class="assign-course-head" data-toggle-course="${course.id}">
-                <i class="fa-solid fa-chevron-right assign-course-chevron"></i>
+        <div class="assign-course" data-course-id="${course.id}">
+            <div class="assign-course-head">
                 <div class="assign-course-title-block">
                     <h4 class="assign-course-title">${escapeHtml(course.title)}</h4>
                     <p class="assign-course-meta">
-                        ${escapeHtml(course.id)} · Due ${formatDisplayDate(settings.due)} · Expires ${formatDisplayDate(settings.expire)}
+                        ${escapeHtml(course.id)} · Due ${formatDisplayDate(d.due)} · Expires ${formatDisplayDate(d.expire)}
                     </p>
                 </div>
                 <div class="assign-course-tags">
-                    ${hasOverrides ? '<span class="assign-course-tag custom"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>' : ''}
-                    <span class="assign-course-tag ${settings.type}">${escapeHtml(typeLabel)}</span>
+                    <span class="assign-course-tag ${d.type}">${escapeHtml(typeLabel)}</span>
                 </div>
-            </button>
-            <div class="assign-course-body" hidden>
-                <div class="assign-course-fields">
-                    <div class="assign-field ${overrides.effective ? 'overridden' : ''}">
-                        <label class="assign-field-label">
-                            Effective
-                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
-                        </label>
-                        <vaadin-date-picker theme="outlined" value="${settings.effective}" data-course-field="effective" data-course-id="${course.id}"></vaadin-date-picker>
-                    </div>
-                    <div class="assign-field ${overrides.due ? 'overridden' : ''}">
-                        <label class="assign-field-label">
-                            Due
-                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
-                        </label>
-                        <vaadin-date-picker theme="outlined" value="${settings.due}" data-course-field="due" data-course-id="${course.id}"></vaadin-date-picker>
-                    </div>
-                    <div class="assign-field ${overrides.expire ? 'overridden' : ''}">
-                        <label class="assign-field-label">
-                            Expire
-                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
-                        </label>
-                        <vaadin-date-picker theme="outlined" value="${settings.expire}" data-course-field="expire" data-course-id="${course.id}"></vaadin-date-picker>
-                    </div>
-                    <div class="assign-field ${overrides.type ? 'overridden' : ''}">
-                        <label class="assign-field-label">
-                            Type
-                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
-                        </label>
-                        <vaadin-radio-group theme="horizontal" value="${settings.type}" data-course-id="${course.id}" data-course-field="type">
-                            <vaadin-radio-button value="mandatory" label="Mandatory"></vaadin-radio-button>
-                            <vaadin-radio-button value="suggested" label="Suggested"></vaadin-radio-button>
-                        </vaadin-radio-group>
-                    </div>
-                </div>
-                ${hasOverrides ? `
-                    <button type="button" class="assign-course-reset" data-reset-course="${course.id}">
-                        <i class="fa-solid fa-arrow-rotate-left"></i>
-                        Reset to defaults
-                    </button>
-                ` : ''}
             </div>
         </div>
     `;
-}
-
-function countOverriddenCourses() {
-    return Object.values(courseAssignSettings).filter(s => Object.keys(s.overrides || {}).length > 0).length;
 }
 
 // A `value` ATTRIBUTE on vaadin-radio-group does not stick: the group resolves
@@ -7518,146 +7436,58 @@ function countOverriddenCourses() {
 // checked. Re-assert it as a PROPERTY after the components have upgraded.
 // Call this on every mount/re-render of a Training type group.
 function applyRadioGroupValues(scope) {
-    const groups = (scope || document).querySelectorAll(
-        'vaadin-radio-group[data-default-field="type"], vaadin-radio-group[data-course-field="type"]');
+    /* A `value` ATTRIBUTE on vaadin-radio-group does not stick: the group
+       resolves its value against its child vaadin-radio-buttons, which have
+       not registered yet at upgrade time, so the initial selection is dropped
+       and nothing paints checked. Two wrinkles make this worse here:
+         - the group renders inside the vaadin-dialog's OVERLAY, so a plain
+           document.querySelectorAll misses it entirely and this used to bail;
+         - round-tripping group.value ('' then back) still leaves
+           button.checked false in some upgrade orders.
+       So: search the overlay too, and set `checked` on the matching child
+       button directly, which is what actually paints. */
+    const SEL = 'vaadin-radio-group[data-default-field="type"]';
+    const roots = scope ? [scope] : [document, ...document.querySelectorAll('vaadin-dialog-overlay')];
+    const groups = roots.flatMap(r => [...r.querySelectorAll(SEL)]);
     if (!groups.length) return;
-    // Assigning the same value the group already holds is a no-op, so clear it
-    // first to force the group to re-resolve against its (now-registered)
-    // buttons. Without the round-trip the selection never paints.
+
     const set = () => groups.forEach(g => {
         const want = g.getAttribute('value');
         if (!want) return;
-        g.value = '';
         g.value = want;
+        g.querySelectorAll('vaadin-radio-button').forEach(b => {
+            b.checked = (b.value === want);
+        });
     });
-    customElements.whenDefined('vaadin-radio-group')
-        .then(() => customElements.whenDefined('vaadin-radio-button'))
-        .then(() => requestAnimationFrame(set));
+    Promise.all([
+        customElements.whenDefined('vaadin-radio-group'),
+        customElements.whenDefined('vaadin-radio-button')
+    ]).then(() => requestAnimationFrame(set));
 }
 
 function wireAssignModal() {
     // Close/cancel/confirm live in the dialog's header/footer renderers and are
-    // wired there. This wires only the body controls (defaults + per-course rows).
+    // wired there. This wires only the body's schedule controls.
 
     applyRadioGroupValues();
 
-    // Batch defaults — track changes but don't push to courses automatically.
-    // The "Re-apply defaults to all courses" button explicitly broadcasts.
-    // Both vaadin-date-picker and vaadin-radio-group (Training type) emit
-    // `value-changed`, so one handler covers every default field.
+    /* One schedule for the whole assignment: a change to any field updates
+       assignBatchDefaults and re-renders so every course row echoes the new
+       dates. Both vaadin-date-picker and vaadin-radio-group (Training type)
+       emit `value-changed`, so one handler covers every field. */
     document.querySelectorAll('.assign-defaults [data-default-field]').forEach(el => {
         const field = el.dataset.defaultField;
         el.addEventListener('value-changed', (e) => {
-            assignBatchDefaults[field] = e.detail.value || '';
-        });
-    });
-
-    document.getElementById('applyDefaultsBtn').addEventListener('click', () => {
-        Array.from(cart).forEach(cid => {
-            courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
-        });
-        // Re-render the modal body to reflect cleared overrides
-        renderAssignModal();
-    });
-
-    // Per-course field changes — track as overrides relative to current defaults
-    document.querySelectorAll('.assign-course-body').forEach(body => {
-        // Dates and Training type are all `value-changed` emitters now, so one
-        // selector covers every per-course field.
-        body.querySelectorAll('[data-course-field]').forEach(field$ => {
-            const cid = field$.dataset.courseId;
-            const field = field$.dataset.courseField;
-            field$.addEventListener('value-changed', (e) => {
-                const v = e.detail.value || '';
-                const settings = courseAssignSettings[cid];
-                settings[field] = v;
-                if (v !== assignBatchDefaults[field]) {
-                    settings.overrides[field] = true;
-                } else {
-                    delete settings.overrides[field];
-                }
-                refreshCourseRow(cid);
-            });
-        });
-    });
-
-    // Toggle course expansion
-    document.querySelectorAll('[data-toggle-course]').forEach(head => {
-        head.addEventListener('click', () => {
-            const row = head.closest('.assign-course');
-            const body = row.querySelector('.assign-course-body');
-            const isOpen = !body.hidden;
-            body.hidden = isOpen;
-            row.classList.toggle('expanded', !isOpen);
-            // Rows start collapsed (display:none), so their radio group had no
-            // box to lay out at upgrade. Re-assert on first reveal.
-            if (!isOpen) applyRadioGroupValues(row);
-        });
-    });
-
-    // Reset row
-    document.querySelectorAll('[data-reset-course]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const cid = btn.dataset.resetCourse;
-            courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
-            refreshCourseRow(cid, /* keepOpen */ true);
-        });
-    });
-}
-
-function refreshCourseRow(cid, keepOpen) {
-    const row = document.querySelector(`.assign-course[data-course-id="${cid}"]`);
-    if (!row) return;
-    const wasOpen = keepOpen || (row.classList.contains('expanded'));
-    const course = COURSES.find(c => c.id === cid);
-    const newHtml = renderAssignCourseRow(course);
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = newHtml.trim();
-    const newRow = wrapper.firstChild;
-    row.replaceWith(newRow);
-
-    // Re-wire just this row's listeners
-    const head = newRow.querySelector('[data-toggle-course]');
-    head.addEventListener('click', () => {
-        const body = newRow.querySelector('.assign-course-body');
-        const isOpen = !body.hidden;
-        body.hidden = isOpen;
-        newRow.classList.toggle('expanded', !isOpen);
-    });
-    newRow.querySelectorAll('[data-course-field]').forEach(field$ => {
-        const field = field$.dataset.courseField;
-        field$.addEventListener('value-changed', (e) => {
             const v = e.detail.value || '';
-            const settings = courseAssignSettings[cid];
-            settings[field] = v;
-            if (v !== assignBatchDefaults[field]) {
-                settings.overrides[field] = true;
-            } else {
-                delete settings.overrides[field];
-            }
-            refreshCourseRow(cid, true);
+            if (assignBatchDefaults[field] === v) return;
+            assignBatchDefaults[field] = v;
+            // Rows display the shared schedule, so they need to re-render.
+            renderAssignModal();
+            // The re-render rebuilds the radio group, whose `value` attribute
+            // alone won't stick (see applyRadioGroupValues).
+            applyRadioGroupValues();
         });
     });
-    const resetBtn = newRow.querySelector('[data-reset-course]');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
-            courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
-            refreshCourseRow(cid, true);
-        });
-    }
-
-    if (wasOpen) {
-        newRow.querySelector('.assign-course-body').hidden = false;
-        newRow.classList.add('expanded');
-    }
-
-    // Re-assert the Training type selection on the rebuilt row (see
-    // applyRadioGroupValues — the value attribute alone will not stick).
-    applyRadioGroupValues(newRow);
-
-    // Update footer counter
-    const counter = document.getElementById('assignOverrideCount');
-    if (counter) counter.textContent = `${countOverriddenCourses()} customized`;
 }
 
 function commitAssignment() {
@@ -7665,9 +7495,9 @@ function commitAssignment() {
     Array.from(cart).forEach(cid => assigned.add(cid));
     cart.clear();
     closeAssignModal();
-    // Re-render recs to swap "Added" buttons for "Assigned" chips
+    // Remounts <vwc-course-list>, which reads `assigned` into
+    // disabledCourseIds so committed cards come back badged "Assigned".
     renderRecommendations();
-    // Floating cart auto-hides when cart is empty
 }
 
 function openDetailsPanel(courseId) {
@@ -11933,7 +11763,7 @@ function fillExampleQuestions() {
             el.value = 'Sample response demonstrating a completed entry for this question type.';
         });
         scope.querySelectorAll('vaadin-date-picker').forEach(el => {
-            if (el.hasAttribute('data-default-field') || el.hasAttribute('data-course-field')) return;
+            if (el.hasAttribute('data-default-field')) return;  // assignment schedule keeps its own dates
             el.value = '2026-05-14';
         });
         scope.querySelectorAll('vaadin-time-picker').forEach(el => { el.value = '10:30'; });
