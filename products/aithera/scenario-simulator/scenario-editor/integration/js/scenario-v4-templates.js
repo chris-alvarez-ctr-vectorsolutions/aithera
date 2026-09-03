@@ -2276,7 +2276,7 @@
                 "partner_label": "Coach",
                 "media": {
                   "type": "image",
-                  "src": "demo/floor-lead.jpg",
+                  "src": "assets/media/demo/floor-lead.jpg",
                   "alt": "A warehouse pick aisle. A worker stands on the very top step of a rolling ladder, both hands reaching into a high shelf. Below, a pallet of boxes sits across the marked pedestrian walk lane. Further down, a top-heavy stack of totes rises from a cart. At the blind corner at the aisle's end, the convex mirror is missing from its bracket."
                 }
               }
@@ -2803,7 +2803,7 @@
                 "partner_label": "Coach",
                 "media": {
                   "type": "image",
-                  "src": "hazcom/finishing-bench.jpg",
+                  "src": "assets/media/hazcom/finishing-bench.jpg",
                   "alt": "A finishing area on a shop floor. On the metal bench in front of you, to the left, a half-full clear plastic jug with no label sits beside a row of metal parts. Your coworker stands at the bench in a short-sleeve shirt, wiping a part with a rag, bare-handed — no gloves and no eye protection. To your right stands a chemical drum: a Safety Data Sheet taped to it is dated decades ago, and the drum's own hazard label is torn and peeling, so its pictogram and signal word can't be read."
                 }
               }

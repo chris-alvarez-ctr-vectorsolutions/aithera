@@ -62,12 +62,13 @@ const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 
 /* ---- the mapping ------------------------------------------------------------
    template id → the production document that IS that shape, plus what we add.
-   `media` repoints an exhibit at its vendored copy: [phase index, new src]. */
+   `media` repoints their media paths at the vendored copies: { their src → ours },
+   rewritten by value everywhere in the document. */
 const SEED = {
   'mix-arc': {
     doc: 'floor-lead',
     implementation_id: 'template-first-week-on-the-floor',
-    media: [[1, 'assets/media/demo/floor-lead.jpg']],
+    media: { 'demo/floor-lead.jpg': 'assets/media/demo/floor-lead.jpg' },
     previousLO: {
       title: 'New Supervisor Basics: Safety Is a Leadership Job',
       covered: 'A supervisor owns the conditions and the behaviour on their floor; how to run a '
@@ -114,7 +115,7 @@ const SEED = {
   'scene-sweep': {
     doc: 'hazcom',
     implementation_id: 'template-spot-the-hazard-hazcom',
-    media: [[0, 'assets/media/hazcom/finishing-bench.jpg']],
+    media: { 'hazcom/finishing-bench.jpg': 'assets/media/hazcom/finishing-bench.jpg' },
     previousLO: {
       title: 'Hazard Communication: Labels, Safety Data Sheets and the Right to Know',
       covered: 'The six required label elements; the sixteen-section safety data sheet; secondary-container '
@@ -126,7 +127,7 @@ const SEED = {
   'observe-react': {
     doc: 'dock-walk',
     implementation_id: 'template-dock-check-walkaround',
-    media: [[0, 'assets/media/demo/dock-walk.jpg']],
+    media: { 'demo/dock-walk.jpg': 'assets/media/demo/dock-walk.jpg' },
     previousLO: {
       title: 'Powered Industrial Trucks and Dock Safety',
       covered: 'Unattended-forklift rules; separating travel lanes from pedestrian routes; safe stacking '
@@ -146,14 +147,30 @@ function buildDoc(id) {
 
   doc.implementation_id = spec.implementation_id;
   if (spec.landing_cta_label) doc.content.landing_cta_label = spec.landing_cta_label;
-  (spec.media || []).forEach(([i, src]) => {
-    const inter = doc.content.phases[i].practice.interaction;
-    const holder = inter.exhibit || inter.media;
-    if (!holder) throw new Error(`${id}: phase ${i} carries no exhibit to repoint`);
-    holder.src = src;
-    const abs = path.join(ROOT, src);
-    if (!fs.existsSync(abs)) throw new Error(`${id}: ${src} is not in this repo — vendor the image first`);
+  /* EVERY src in the document, not just the Observe step's. The Scene Sweep and
+     Mix & Match documents also hang the same photo off a later coach step as its
+     ambient reference image, and repointing one and not the other left a path
+     that resolves nowhere — the exact silent-blank-frame failure the drop zone's
+     thumbnail exists to catch. So this walks the whole document and rewrites by
+     VALUE, and then insists every rewritten file is really on disk. */
+  const rewrites = spec.media || {};
+  let hit = 0;
+  (function walk(v) {
+    if (!v || typeof v !== 'object') return;
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    Object.keys(v).forEach((k) => {
+      if (k === 'src' && typeof v[k] === 'string' && rewrites[v[k]]) { v[k] = rewrites[v[k]]; hit += 1; }
+      else walk(v[k]);
+    });
+  }(doc.content));
+  const stillTheirs = JSON.stringify(doc.content).match(/"src": "(?!assets\/)[^"]+"/g);
+  if (stillTheirs) throw new Error(`${id}: ${stillTheirs.join(', ')} points outside this repo — add it to media`);
+  Object.values(rewrites).forEach((src) => {
+    if (!fs.existsSync(path.join(ROOT, src))) {
+      throw new Error(`${id}: ${src} is not in this repo — vendor the image first`);
+    }
   });
+  if (Object.keys(rewrites).length && !hit) throw new Error(`${id}: no src matched a rewrite`);
 
   /* The shell's own keys, so page one's "what came before" card arrives written.
      Stripped from every export (withoutShellKeys) — this is prompt context, not
@@ -200,8 +217,11 @@ function reseed(src, id, built) {
   /* shape + the now-gone toFill live on one line: `shape: "CCR", toFill: 24,` */
   const shapeLine = /(\n\s*)shape: "[A-Z?]*",(?: toFill: \d+,)?/;
   const scope = src.slice(entry, scopeEnd);
+  /* Test the match, do not compare before/after: re-running the tool with the
+     shape unchanged writes the same characters back, and an equality check reads
+     that as "there was no shape line" and aborts a perfectly good re-seed. */
+  if (!shapeLine.test(scope)) throw new Error(`${id}: no shape: line to update`);
   const shaped = scope.replace(shapeLine, `$1shape: "${built.shape}",`);
-  if (shaped === scope) throw new Error(`${id}: no shape: line to update`);
   src = src.slice(0, entry) + shaped + src.slice(scopeEnd);
 
   const docAt = src.indexOf('\n    doc: ', entry);
