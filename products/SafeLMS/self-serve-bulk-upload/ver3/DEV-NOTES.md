@@ -42,6 +42,17 @@ twins were merged; the reimagined triage split into three directions.)
 Different helper per version was a deliberate ask ("try different tooltips for all the
 different versions").
 
+**Before → after AutoSync preview (2026-09-03).** The Claude-Design "prototype
+variants" panel (bottom-left) is repurposed as a **"Preview · AutoSync"** before→after
+toggle so reviewers can watch automated sync go from unavailable → available in each
+version:
+- **V1:** ① Locked 3/4 → ② **4th clean import comes in** (an "unlocked!" celebration,
+  4/4) → ③ Running → ④ Needs attention.
+- **V2:** ① Not set up → ② Setup requested → ③ Set up & running → ④ Needs attention.
+- **V3–V5:** ① Not available → ② Available (running) → ③ Needs attention.
+The banner (main page) and the deeper sync page both reflect the chosen state; the
+panel has an "open the sync page →" link.
+
 **Note on the error catalog source:** the Vector support article
 (support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors) is a
 JS-rendered Salesforce page that can’t be auto-scraped, so the error taxonomy here

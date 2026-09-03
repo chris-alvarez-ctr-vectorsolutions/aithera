@@ -308,6 +308,13 @@
   .seg button.is-on { background: var(--blue); color: #fff; font-weight: 600; }
   .seg button + button { border-left: 1px solid var(--btn-border); }
   .variants-hint { font-size: 10.5px; color: var(--muted-2); margin-top: 10px; line-height: 1.5; }
+  .variants-hint a { font-weight: 600; }
+  /* Before → after preview: a stacked list of state buttons. */
+  .ba-list { display: flex; flex-direction: column; gap: 5px; }
+  .ba-list button { border: 1px solid var(--btn-border); background: #fff; border-radius: 6px; font-size: 11px;
+    padding: 7px 9px; cursor: pointer; color: var(--ink-2); text-align: left; line-height: 1.2; }
+  .ba-list button:hover { background: #F5F8FB; }
+  .ba-list button.is-on { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
   .variants.is-collapsed .variants-body { display: none; }
 
   .spinner { width: 28px; height: 28px; border: 3px solid #D5E3F3; border-top-color: var(--blue);
@@ -629,6 +636,7 @@
   /* ---------------------------------------------------------------- helpers */
   function variant() { return state.variants.uploadVariant; }
   function stage() { return state.variants.automationStage; }
+  function syncDone() { return stage() === 'unlocked' ? SYNC_GATE : SYNC_DONE; }  // V1: 'unlocked' = the 4th came in
   function syncScenario() { return state.variants.syncScenario; }
   function isMap() { return variant() === 'column-mapping'; }
   function curTab() { return state.tab || state.variants.startTab; }
@@ -834,18 +842,34 @@
       + '<div class="seg">' + btns + '</div></div>';
   }
 
-  function variantsPanel() {
+  /* Prototype helper, reframed as a BEFORE → AFTER preview of automated sync
+     becoming available. Per version the options differ; here (earn-it) you can
+     watch it go from locked (3/4) → the 4th coming in → running. */
+  function baPanel(opts, cur, hint) {
+    var btns = opts.map(function (o) {
+      return '<button data-act="setSync" data-arg="' + o.k + '"' + (cur === o.k ? ' class="is-on"' : '') + '>' + o.l + '</button>';
+    }).join('');
+    var link = state.view === 'sync'
+      ? '<a href="#" data-act="backToImport">← back to import</a>'
+      : '<a href="#" data-act="openSync">open the sync page →</a>';
     return '<div class="variants' + (state.variantsCollapsed ? ' is-collapsed' : '') + '">'
-      + '<div class="variants-title"><span>Prototype variants</span>'
-      + '<span class="collapse" data-act="toggleVariants" title="Collapse">'
-      + (state.variantsCollapsed ? '+' : '–') + '</span></div>'
+      + '<div class="variants-title"><span>Preview · AutoSync</span>'
+      + '<span class="collapse" data-act="toggleVariants" title="Collapse">' + (state.variantsCollapsed ? '+' : '–') + '</span></div>'
       + '<div class="variants-body">'
-      + segRow('First screen', 'uploadVariant', [{ v: 'column-mapping', l: 'Map columns' }, { v: 'template', l: 'Template' }])
-      + segRow('Automated sync', 'automationStage', [{ v: 'active-failed', l: 'Failed' }, { v: 'qualifying', l: 'Qualifying' }, { v: 'active-healthy', l: 'Healthy' }])
-      + segRow('Sync issue (when Failed)', 'syncScenario', [{ v: 'confirm', l: 'Confirm' }, { v: 'blocked', l: 'Blocked' }, { v: 'escalate', l: 'Vector' }])
-      + segRow('Start on tab', 'startTab', [{ v: 'import', l: 'Import' }, { v: 'sync', l: 'Sync' }])
-      + '<div class="variants-hint">These are the design’s prototype knobs. Pick a sample file inside the flow to explore the alert scenarios.</div>'
+      + '<div class="variants-label" style="margin-bottom:6px;">Before → after it becomes available</div>'
+      + '<div class="ba-list">' + btns + '</div>'
+      + '<div class="variants-hint">Watch the banner + sync page change. ' + hint + ' ' + link + '</div>'
       + '</div></div>';
+  }
+  function variantsPanel() {
+    var st = stage();
+    var cur = st === 'qualifying' ? 'locked' : st === 'unlocked' ? 'unlocked' : st === 'active-failed' ? 'alert' : 'running';
+    return baPanel([
+      { k: 'locked',   l: '① Locked — 3 of 4 (before)' },
+      { k: 'unlocked', l: '② 4th clean import comes in' },
+      { k: 'running',  l: '③ Running (available)' },
+      { k: 'alert',    l: '④ Running — needs attention' }
+    ], cur, '');
   }
 
   /* Authentic VectorSolutions / SafeLMS side navigation. Icons use the mock's
@@ -1324,6 +1348,10 @@
   }
   function syncStatusHeader() {
     var st = stage();
+    if (st === 'unlocked') {
+      return syncStatus('#ECFDF3', '#067647', 'fa-unlock', 'Just unlocked',
+        'Your 4th clean import came in — automated sync is on and will run from now on.');
+    }
     if (st === 'qualifying') {
       var toGo = SYNC_GATE - SYNC_DONE;
       return syncStatus('#EEF2F7', '#5B6B7E', 'fa-lock', 'Not available yet',
@@ -1345,7 +1373,11 @@
      attention, or (earn-it) progress toward unlocking. Click opens the deeper page. */
   function syncBanner() {
     var st = stage(), tone, icon, text, cta = 'View';
-    if (st === 'qualifying') {
+    if (st === 'unlocked') {
+      tone = 'ok'; icon = 'fa-unlock';
+      text = 'Automated sync just unlocked — your 4th clean import came in.';
+      cta = 'See it';
+    } else if (st === 'qualifying') {
       var toGo = SYNC_GATE - SYNC_DONE;
       tone = 'neutral'; icon = 'fa-lock';
       text = 'Automated sync unlocks after ' + toGo + ' more clean import' + (toGo === 1 ? '' : 's') + ' — you’re ' + SYNC_DONE + ' of ' + SYNC_GATE + '.';
@@ -1419,17 +1451,19 @@
      first entry is light. Returns the inner column only — syncTab() adds the
      state-naming header above it. */
   function lockedBody() {
-    var toGo = SYNC_GATE - SYNC_DONE;
+    var d = syncDone(), toGo = SYNC_GATE - d, done = d >= SYNC_GATE;
     var segs = '';
     for (var i = 0; i < SYNC_GATE; i++) {
-      segs += '<div style="flex:1;height:9px;border-radius:5px;background:' + (i < SYNC_DONE ? '#12B76A' : '#E1E7EE') + ';"></div>';
+      segs += '<div style="flex:1;height:9px;border-radius:5px;background:' + (i < d ? '#12B76A' : '#E1E7EE') + ';"></div>';
     }
-    var runs = [
-      { mark: '✓', bg: '#12B76A', label: 'Clean import — 2 added, 14 updated', sub: 'Streak 3 of ' + SYNC_GATE + ' · one more unlocks automation', date: 'Aug 28' },
+    var runs = [];
+    if (done) runs.push({ mark: '✓', bg: '#12B76A', label: 'Clean import — 1 added, 5 updated', sub: 'Streak 4 of ' + SYNC_GATE + ' · unlocked automation', date: 'Today' });
+    runs.push(
+      { mark: '✓', bg: '#12B76A', label: 'Clean import — 2 added, 14 updated', sub: 'Streak 3 of ' + SYNC_GATE + (done ? '' : ' · one more unlocks automation'), date: 'Aug 28' },
       { mark: '✓', bg: '#12B76A', label: 'Clean import — 0 added, 9 updated',  sub: 'Streak 2 of ' + SYNC_GATE, date: 'Aug 21' },
       { mark: '✓', bg: '#12B76A', label: 'Clean import — 1 added, 6 updated',  sub: 'Streak 1 of ' + SYNC_GATE, date: 'Aug 14' },
       { mark: '✕', bg: '#D92D20', label: 'Import had errors — file arrived as .xlsx instead of .csv', sub: 'Streak reset — any error starts the count over', date: 'Aug 5' }
-    ];
+    );
     var runsHtml = runs.map(function (q) {
       return '<div style="display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-top:1px solid #F3F6FA;">'
         + '<div style="width:20px;height:20px;border-radius:50%;background:' + q.bg + ';color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 20px;margin-top:1px;">' + q.mark + '</div>'
@@ -1437,15 +1471,27 @@
         + '<div style="font-size:11.5px;color:#8CA0B4;margin-top:1px;">' + esc(q.sub) + '</div></div>'
         + '<div style="color:#8CA0B4;font-size:12px;white-space:nowrap;">' + q.date + '</div></div>';
     }).join('');
-    // First run row already carries the top border from the shared style; trim it.
     runsHtml = runsHtml.replace('border-top:1px solid #F3F6FA;', 'border-top:0;');
+
+    // Just unlocked — the 4th clean import came in.
+    if (done) {
+      var celebrate = '<div class="card" style="padding:24px 22px;text-align:center;">'
+        + '<div style="width:54px;height:54px;border-radius:50%;background:#ECFDF3;border:1.5px solid #A6E5C3;color:#067647;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-unlock" aria-hidden="true"></i></div>'
+        + '<div style="font-size:19px;font-weight:800;">Automated sync is unlocked</div>'
+        + '<div style="font-size:13px;color:#5B6B7E;margin:7px auto 0;max-width:430px;line-height:1.55;">Your 4th clean import just came in. SafeLMS will import your roster from SFTP automatically from now on — no manual upload.</div>'
+        + '<div style="display:flex;gap:6px;max-width:380px;margin:18px auto 6px;">' + segs + '</div>'
+        + '<div style="font-size:12px;color:#8CA0B4;">' + SYNC_GATE + ' of ' + SYNC_GATE + ' clean imports</div>'
+        + '<div style="margin-top:18px;"><button class="btn btn--primary" data-act="setSync" data-arg="running">See it running →</button></div>'
+        + '</div>';
+      return celebrate + disc('locked-runs', 'fa-clock-rotate-left', 'Your recent imports', 'Latest: today', runsHtml);
+    }
 
     var howDetail = 'Automated sync drops your roster file on your SFTP folder and SafeLMS imports it for you — no manual upload. '
       + 'Keep the format, columns, and file-name pattern identical each time; an import with any error resets the streak to zero.';
 
     var progress = '<div class="card" style="padding:20px 22px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
-      + '<div style="font-size:14px;font-weight:700;">' + SYNC_DONE + ' of ' + SYNC_GATE + ' clean imports</div>'
+      + '<div style="font-size:14px;font-weight:700;">' + d + ' of ' + SYNC_GATE + ' clean imports</div>'
       + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:5px 11px;white-space:nowrap;">' + toGo + ' to go</div></div>'
       + '<div style="display:flex;gap:6px;">' + segs + '</div>'
       + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:12px;line-height:1.55;">Automated sync imports your roster for you once you’ve had <b>' + SYNC_GATE + ' clean manual imports in a row</b> — ' + toGo + ' more to go.</div>'
@@ -1465,7 +1511,7 @@
      first entry is light while every explanation stays one click away. */
   function syncTab() {
     var st = stage();
-    var qualifying = st === 'qualifying';
+    var qualifying = st === 'qualifying' || st === 'unlocked';   // both use the locked/progress view
     var failed = st === 'active-failed';
     var showFailure = failed && !state.blessed;
     var showResolved = failed && state.blessed;
@@ -1527,7 +1573,7 @@
         state.recipients.length + ' ' + (state.recipients.length === 1 ? 'person' : 'people') + ' emailed when a sync needs attention', notifDetail);
     }
 
-    var label = qualifying ? 'Automated sync — not available yet' : 'Automated sync';
+    var label = st === 'qualifying' ? 'Automated sync — not available yet' : st === 'unlocked' ? 'Automated sync — just unlocked' : 'Automated sync';
     return '<section data-screen-label="' + label + '">'
       + '<div style="display:flex;flex-direction:column;gap:12px;">'
       + syncStatusHeader() + col + '</div></section>';
@@ -1619,6 +1665,14 @@
         break;
       }
       case 'toggleVariants': setState({ variantsCollapsed: !state.variantsCollapsed }); break;
+      case 'setSync': {
+        e.preventDefault();
+        var sv = {}; for (var sk in state.variants) sv[sk] = state.variants[sk];
+        var m = { locked: 'qualifying', unlocked: 'unlocked', running: 'active-healthy', alert: 'active-failed' };
+        sv.automationStage = m[arg] || 'qualifying';
+        setState({ variants: sv, blessed: false });
+        break;
+      }
       case 'setVariant': {
         var parts = arg.split(':'), key = parts[0], val = parts[1];
         var vs = {}; for (var k in state.variants) vs[k] = state.variants[k]; vs[key] = val;

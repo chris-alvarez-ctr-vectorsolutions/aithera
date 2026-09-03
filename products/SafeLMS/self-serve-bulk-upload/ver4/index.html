@@ -308,6 +308,12 @@
   .seg button.is-on { background: var(--blue); color: #fff; font-weight: 600; }
   .seg button + button { border-left: 1px solid var(--btn-border); }
   .variants-hint { font-size: 10.5px; color: var(--muted-2); margin-top: 10px; line-height: 1.5; }
+  .variants-hint a { font-weight: 600; }
+  .ba-list { display: flex; flex-direction: column; gap: 5px; }
+  .ba-list button { border: 1px solid var(--btn-border); background: #fff; border-radius: 6px; font-size: 11px;
+    padding: 7px 9px; cursor: pointer; color: var(--ink-2); text-align: left; line-height: 1.2; }
+  .ba-list button:hover { background: #F5F8FB; }
+  .ba-list button.is-on { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
   .variants.is-collapsed .variants-body { display: none; }
 
   .spinner { width: 28px; height: 28px; border: 3px solid #D5E3F3; border-top-color: var(--blue);
@@ -872,18 +878,31 @@
       + '<div class="seg">' + btns + '</div></div>';
   }
 
-  function variantsPanel() {
+  /* Before → after preview of automated sync becoming available. */
+  function baPanel(opts, cur, hint) {
+    var btns = opts.map(function (o) {
+      return '<button data-act="setSync" data-arg="' + o.k + '"' + (cur === o.k ? ' class="is-on"' : '') + '>' + o.l + '</button>';
+    }).join('');
+    var link = state.view === 'sync'
+      ? '<a href="#" data-act="backToImport">← back to import</a>'
+      : '<a href="#" data-act="openSync">open the sync page →</a>';
     return '<div class="variants' + (state.variantsCollapsed ? ' is-collapsed' : '') + '">'
-      + '<div class="variants-title"><span>Prototype variants</span>'
-      + '<span class="collapse" data-act="toggleVariants" title="Collapse">'
-      + (state.variantsCollapsed ? '+' : '–') + '</span></div>'
+      + '<div class="variants-title"><span>Preview · AutoSync</span>'
+      + '<span class="collapse" data-act="toggleVariants" title="Collapse">' + (state.variantsCollapsed ? '+' : '–') + '</span></div>'
       + '<div class="variants-body">'
-      + segRow('First screen', 'uploadVariant', [{ v: 'column-mapping', l: 'Map columns' }, { v: 'template', l: 'Template' }])
-      + segRow('Automated sync', 'automationStage', [{ v: 'active-failed', l: 'Failed' }, { v: 'qualifying', l: 'Qualifying' }, { v: 'active-healthy', l: 'Healthy' }])
-      + segRow('Sync issue (when Failed)', 'syncScenario', [{ v: 'confirm', l: 'Confirm' }, { v: 'blocked', l: 'Blocked' }, { v: 'escalate', l: 'Vector' }])
-      + segRow('Start on tab', 'startTab', [{ v: 'import', l: 'Import' }, { v: 'sync', l: 'Sync' }])
-      + '<div class="variants-hint">These are the design’s prototype knobs. Pick a sample file inside the flow to explore the alert scenarios.</div>'
+      + '<div class="variants-label" style="margin-bottom:6px;">Before → after it becomes available</div>'
+      + '<div class="ba-list">' + btns + '</div>'
+      + '<div class="variants-hint">Watch the banner + sync page change. ' + hint + ' ' + link + '</div>'
       + '</div></div>';
+  }
+  function variantsPanel() {
+    var st = stage();
+    var cur = st === 'active-failed' ? 'alert' : st === 'active-healthy' ? 'running' : 'off';
+    return baPanel([
+      { k: 'off',     l: '① Not available yet (before)' },
+      { k: 'running', l: '② Available — running (after)' },
+      { k: 'alert',   l: '③ Running — needs attention' }
+    ], cur, '');
   }
 
   /* Authentic VectorSolutions / SafeLMS side navigation. Icons use the mock's
@@ -1756,6 +1775,14 @@
         break;
       }
       case 'toggleVariants': setState({ variantsCollapsed: !state.variantsCollapsed }); break;
+      case 'setSync': {
+        e.preventDefault();
+        var sv = {}; for (var sk in state.variants) sv[sk] = state.variants[sk];
+        var m = { off: 'qualifying', running: 'active-healthy', alert: 'active-failed' };
+        sv.automationStage = m[arg] || 'qualifying';
+        setState({ variants: sv, blessed: false });
+        break;
+      }
       case 'setVariant': {
         var parts = arg.split(':'), key = parts[0], val = parts[1];
         var vs = {}; for (var k in state.variants) vs[k] = state.variants[k]; vs[key] = val;
