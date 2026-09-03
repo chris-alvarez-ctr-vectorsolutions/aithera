@@ -627,7 +627,7 @@
     rows.push({ icon: 'fa-list-ol', label: 'The procedure',
       state: proven ? 'dropped' : 'kept',
       note: proven ? 'instruction and case both removed — you sequenced it correctly'
-                   : 'not proven yet — 2 min of instruction, then the case' });
+                   : 'not proven yet — 4 min of instruction, then the case' });
     rows.push({ icon: 'fa-eye', label: 'Spotting the conditions',
       state: k2TestUp() ? 'harder' : 'kept',
       note: k2TestUp() ? 'content-locked — both cases served at the harder tier'
@@ -753,12 +753,12 @@
     if (m === 'podcast') {
       body =
         '<div class="pr-declined">' +
-          '<p class="pr-dec-h"><i class="fa-solid fa-circle-minus"></i> Not offered as a podcast</p>' +
-          '<p>This module carries under a minute of instruction. An audio cut of it is a clip, not an ' +
-            'episode — the learner reasonably asks why they listened.</p>' +
-          '<p>Audio is offered one level up: <b>Bloodborne Pathogens</b>, six modules assembled into a ' +
-            'single listen and carried by the sector narratives. That is Assembly, not Transformation.</p>' +
-          '<p class="pr-dec-fall">Showing the article rendering so the path still runs.</p>' +
+          '<p class="pr-dec-h"><i class="fa-solid fa-circle-minus"></i> Not available as audio</p>' +
+          '<p>This module is mostly practice. There is less than a minute of it to listen to, which ' +
+            'would make for a very short listen.</p>' +
+          '<p>Audio is available for the whole of <b>Bloodborne Pathogens</b>, where all six modules ' +
+            'run together.</p>' +
+          '<p class="pr-dec-fall">Showing the written version below.</p>' +
         '</div>' + procedureList();
     } else if (m === 'video') {
       body =
@@ -775,13 +775,17 @@
     } else {
       body = procedureList();
     }
+    var EYEBROW = {
+      video:   'Watch: 4 minute video',
+      article: 'Read: 1 minute',
+      tutor:   'Step through: 4 steps',
+      podcast: 'Not available as audio'
+    };
     return '<main class="ll-object"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow">Learn · the procedure</p>' +
+      '<p class="ll-eyebrow">' + esc(EYEBROW[m]) + '</p>' +
       '<h1 class="pr-h">Four steps, in this order.</h1>' +
       '<p class="pr-sub">' + esc(obj('K1').text) + '</p>' +
       body +
-      '<p class="pr-src"><i class="fa-solid fa-file-signature"></i> One signed source · K1 · ' +
-        esc(MODALITIES[m].label) + (MODALITIES[m].declined ? ' (declined)' : '') + '</p>' +
     '</div></main>';
   }
 
@@ -1128,72 +1132,119 @@
   function PERFORM_CONTENT() {
     return '<main class="ll-object">' +
       '<div class="ac-wrap">' +
-        '<p class="ll-eyebrow">Do it: 1 moment</p>' +
-        '<h2 class="cs-q cs-q--lead">Dispose first, or set it down?</h2>' +
-        '<p class="ll-sub">This runs in real time. When the sharp needs to be gone, act — the moment won’t wait.</p>' +
-        '<div class="ac-stage" id="acStage"><div class="ac-lines" id="acLines"></div></div>' +
-        '<div class="ac-window" id="acWindow" hidden>' +
-          '<div class="ac-track"><div class="ac-fill" id="acFill"></div></div>' +
+        '<p class="ll-eyebrow">Practice: 1 timed action</p>' +
+        '<h2 class="cs-q cs-q--lead">Dispose of the sharp before the moment passes.</h2>' +
+
+        // Nothing moves until Begin. A timed task that starts while you are
+        // still working out what it is measures reading speed, not procedure.
+        '<div class="ac-brief" id="acBrief">' +
+          '<p class="ll-sub">Knowing the procedure and doing it while something else is pulling at you are ' +
+            'two different things. Only the second one is the objective here.</p>' +
+          '<ol class="ac-how">' +
+            '<li><span class="ac-num">1</span><span>A short scene plays out in real time, a line at a time.</span></li>' +
+            '<li><span class="ac-num">2</span><span>The moment the safety feature is on, <b>Dispose it now</b> unlocks.</span></li>' +
+            '<li><span class="ac-num">3</span><span>You get <b>6 seconds</b> to press it. Let it run out and the sharp gets set ' +
+              'down — the way all three cases you just judged began.</span></li>' +
+          '</ol>' +
+          '<button class="ac-begin" id="acBegin" type="button">Begin <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>' +
         '</div>' +
-        '<button class="ac-go" id="acGo" type="button" disabled>' +
-          '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Dispose it now</button>' +
-        '<p class="ac-verdict" id="acVerdict" hidden></p>' +
+
+        '<div class="ac-run" id="acRun" hidden>' +
+          '<div class="ac-stage" id="acStage"><div class="ac-lines" id="acLines"></div></div>' +
+          // Held in flow from the first frame: a button that moves the instant
+          // the clock starts would be measuring the wrong thing.
+          '<div class="ac-window" id="acWindow">' +
+            '<div class="ac-winhead"><span>Time to act</span><b class="ac-clock" id="acClock">6.0s</b></div>' +
+            '<div class="ac-track"><div class="ac-fill" id="acFill"></div></div>' +
+          '</div>' +
+          '<button class="ac-go" id="acGo" type="button" disabled>' +
+            '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Dispose it now</button>' +
+          '<p class="ac-verdict" id="acVerdict" hidden></p>' +
+        '</div>' +
       '</div>' +
     '</main>';
   }
+  // The response window and the scene's pacing are RULES, not animation, so
+  // they are not run through T(): under reduced motion T() returns 0, which
+  // would close the window before it opened and make the beat unwinnable.
   var PERFORM_WINDOW = 6000;
+  var PERFORM_SCENE = [
+    { at: 0,    who: 'Scene', text: null },                 // filled from the lens
+    { at: 2200, mute: true,   text: '(the sharp is in your hand, unshielded)' },
+    { at: 3400, who: 'You',   text: 'The safety feature clicks home. The container is four steps away.', cue: true },
+    { at: 5200, mute: true,   text: '(the interruption is still going. Nobody is looking at the sharp.)' },
+    { at: 7400, who: 'Scene', text: 'The moment settles. The sharp is wherever you left it.' }
+  ];
   function performInit(ctx) {
     var L = lens();
+    var brief = document.getElementById('acBrief');
+    var run = document.getElementById('acRun');
     var lines = document.getElementById('acLines');
     var go = document.getElementById('acGo');
     var win = document.getElementById('acWindow');
     var fill = document.getElementById('acFill');
+    var clock = document.getElementById('acClock');
     var verdict = document.getElementById('acVerdict');
-    var cueAt = null, done = false, timers = [];
+    var cueAt = null, done = false, timers = [], ticker = null;
 
     ctx.floatOpen();
-    ctx.setCoachSay('Nobody skips this one. It also re-checks the procedure, so it stands in for the beat you tested out of.');
+    ctx.setCoachSay('Everyone does this one — including anyone who tested out of the procedure, because reciting it and ' +
+      'doing it under interruption are not the same skill. Read the three steps, then start it when you are ready.');
 
-    var scene = [
-      { at: 0,    text: L.simPremise, mute: false, who: 'Scene' },
-      { at: 2200, text: '(the sharp is in your hand, unshielded)', mute: true },
-      { at: 3400, text: 'The safety feature clicks home. The container is four steps away.', who: 'You', cue: true },
-      { at: 5200, text: '(the interruption is still going. Nobody is looking at the sharp.)', mute: true },
-      { at: 7400, text: 'The moment settles. The sharp is wherever you left it.', who: 'Scene' }
-    ];
-    scene.forEach(function (l) {
-      timers.push(setTimeout(function () {
-        var d = document.createElement('p');
-        d.className = 'ac-line' + (l.mute ? ' is-mute' : '');
-        d.innerHTML = l.mute ? esc(l.text) : '<b>' + esc(l.who) + '</b> ' + esc(l.text);
-        lines.appendChild(d);
-        lines.scrollTop = lines.scrollHeight;
-        if (l.cue) openWindow();
-      }, T(l.at)));
-    });
+    document.getElementById('acBegin').addEventListener('click', begin);
+
+    function begin() {
+      brief.hidden = true;
+      run.hidden = false;
+      ctx.floatClose();                              // the scene gets the screen
+      ctx.positionOrb(true);
+      PERFORM_SCENE.forEach(function (l) {
+        timers.push(setTimeout(function () {
+          var d = document.createElement('p');
+          d.className = 'ac-line' + (l.mute ? ' is-mute' : '');
+          var text = l.text == null ? L.simPremise : l.text;
+          d.innerHTML = l.mute ? esc(text) : '<b>' + esc(l.who) + '</b> ' + esc(text);
+          lines.appendChild(d);
+          lines.scrollTop = lines.scrollHeight;
+          if (l.cue) openWindow();
+        }, l.at));
+      });
+    }
 
     function openWindow() {
       cueAt = Date.now();
       go.disabled = false;
-      win.hidden = false;
+      go.focus();
+      win.classList.add('is-live');
       fill.style.transition = 'none'; fill.style.width = '100%';
       void fill.offsetWidth;
-      fill.style.transition = 'width ' + T(PERFORM_WINDOW) + 'ms linear';
+      fill.style.transition = 'width ' + PERFORM_WINDOW + 'ms linear';
       fill.style.width = '0%';
-      timers.push(setTimeout(missed, T(PERFORM_WINDOW)));
+      // The bar says how much is left; the readout says how much in seconds.
+      // A draining bar on its own is the part nobody could name.
+      ticker = setInterval(function () {
+        var left = Math.max(0, PERFORM_WINDOW - (Date.now() - cueAt));
+        clock.textContent = (left / 1000).toFixed(1) + 's';
+        if (left <= 2000) clock.classList.add('is-low');
+      }, 60);
+      timers.push(setTimeout(missed, PERFORM_WINDOW));
+    }
+    function stopClock() {
+      clearInterval(ticker); ticker = null;
+      timers.forEach(clearTimeout);
+      go.disabled = true;
+      win.classList.remove('is-live');
     }
     go.addEventListener('click', function () {
       if (done || cueAt === null) return;
       done = true;
       var ms = Date.now() - cueAt;
-      timers.forEach(clearTimeout);
-      go.disabled = true; win.hidden = true;
+      stopClock();
       settle(true, ms);
     });
     function missed() {
       if (done) return; done = true;
-      timers.forEach(clearTimeout);
-      go.disabled = true; win.hidden = true;
+      stopClock();
       settle(false, null);
     }
     function settle(inTime, ms) {
@@ -1201,8 +1252,10 @@
       verdict.hidden = false;
       verdict.className = 'ac-verdict ' + (inTime ? 'ok' : 'late');
       verdict.innerHTML = inTime
-        ? '<i class="fa-solid fa-circle-check"></i> Disposed <b>' + (ms / 1000).toFixed(1) + ' seconds</b> after the feature was activated — at the point of use, not deferred to the end of the task.'
-        : '<i class="fa-solid fa-clock"></i> The sharp was set down. That is how every one of the three cases you just judged began.';
+        ? '<i class="fa-solid fa-circle-check"></i> Disposed <b>' + (ms / 1000).toFixed(1) + ' seconds</b> after the ' +
+          'feature was activated — at the point of use, not deferred to the end of the task.'
+        : '<i class="fa-solid fa-clock"></i> The six seconds ran out and the sharp was set down. That is how every one ' +
+          'of the three cases you just judged began.';
       ctx.setCoachSay(inTime
         ? 'Timing, technique and route all held. That is the objective — not knowing the procedure, doing it while something else was pulling at you.'
         : 'Honest outcome, and the common one. The interruption is not the failure — the sharp existing outside a container is. That is what the follow-up is for.');
@@ -1352,9 +1405,9 @@
       coach: { say: '' },
       content: ADJUST_CONTENT, init: adjustInit },
 
-    { id: 'procedure', icon: 'fa-list-ol', mins: 2, stage: 'Learn', lesson: 'The Procedure', mode: 'floating', gate: true,
+    { id: 'procedure', icon: 'fa-list-ol', mins: 4, stage: 'Learn', lesson: 'The Procedure', mode: 'floating', gate: true,
       when: function () { return batteryResult() !== 'proven'; },
-      caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat: the Demo menu’s Modality control re-renders exactly this screen and nothing else.' },
+      caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat: the Demo menu’s Modality control re-renders exactly this screen and nothing else. Podcast is DECLINED rather than rendered — under a minute of instruction is a clip, not an episode. Audio’s honest unit is the COURSE, six modules assembled into one listen, which is Assembly and not Transformation. Nothing on the learner’s side of this beat names an objective, a policy or a capability; that vocabulary lives here and in the Learning Layer view.' },
       coach: { say: 'Loading…' },
       content: PROCEDURE_CONTENT, init: procedureInit,
       onSkip: function () { saveResult('procedure', { skipped: true }); } },
