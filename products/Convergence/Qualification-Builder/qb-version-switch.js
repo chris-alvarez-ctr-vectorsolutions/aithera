@@ -1,13 +1,12 @@
 /* Floating switcher between the AI Qualification Builder versions.
-   Included by the three sibling files (V1, V2, V3). Navigation preserves the
+   Included by the sibling files (V3, V1). Navigation preserves the
    query string, so deep links like ?qual=<name> or ?ai=1 follow you across
    versions. Styled as a compact dark pill (bottom left) matching the repo's
    version-loader dock; overlays and modals (z-index 700+) sit above it. */
 (function(){
   var VERSIONS = [
+    { label: 'V3', file: 'AI-Qualification-Builder-v3.html', hint: 'Purple assistant: 3-way requirement picks, auto/ask toggle, course lookup' },
     { label: 'V1', file: 'AI-Qualification-Builder.html',    hint: 'Conversational assistant (free text)' },
-    { label: 'V2', file: 'AI-Qualification-Builder-v2.html', hint: 'Guided questions, live building' },
-    { label: 'V3', file: 'AI-Qualification-Builder-v3.html', hint: 'Purple assistant, clarifying uploads, start over' },
   ];
   var current = decodeURIComponent(location.pathname.split('/').pop() || VERSIONS[0].file);
 

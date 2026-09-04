@@ -86,7 +86,7 @@
     { id:"qualifications", label:"Qualifications", icon:"qualifications", children:[
       {id:"qual-requirements",    label:"Requirements",                  href:"Manage-Requirements.html"},
       {id:"qual-quals",           label:"Qualifications",                href:"Manage-Qualifications.html"},
-      {id:"qual-builder",         label:"Qualification Builder (AI)",    href:"AI-Qualification-Builder.html"},
+      {id:"qual-builder",         label:"Qualification Builder (AI)",    href:"AI-Qualification-Builder-v3.html"},
       {id:"qual-builder-manual",  label:"Qualification Builder (Manual)",href:"Manual-Qualification-Builder.html"},
       {id:"qual-req-builder-ai",  label:"Requirement Builder (AI)",      href:"AI-Requirement-Builder.html"},
       {id:"qual-req-builder",     label:"Requirement Builder (Manual)",  href:"Manual-Requirement-Builder.html"},

@@ -34,6 +34,8 @@
 
 ## t-list - Accordion list (Area 3)
 - Four explicit depth levels: indent 16 / 32 / 40 / 56px, bands `--c-surface-alt2` → `--c-surface-alt` → `#fbfcfe` → `--c-surface`, label weights 14/700 → 13.5/600 → 13/600 → 13.5/500.
+- Round 8: qualification rows use `fa-graduation-cap` (never the medal); requirements keep `fa-award`. Same cap in the side nav, View-by list, detail hero and catalog cards.
+- Round 8 contrast: the canvas is `#f0f2f5` (the gray the other Convergence prototypes use; a deliberate deviation from the product CLAUDE.md `#f5f9fd`), with bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, and `--c-meta` darkened to `#5b6779` to hold WCAG AA on the new surfaces.
 - ONE column grid is declared once and reused by the header and every depth, so group, qualification, requirement and activity rows align their Completion / Duration / Time spent / Due / Actions values under the same headings.
 - Dropping a column at a breakpoint must hide that cell at EVERY depth, or the deeper rows spill onto a second grid line.
 - The empty completion capsule with the tiny caption is replaced by `.meter`: a 76px bar plus a single-line label, "**0 of 5** qualifications", vertically centred. Needs a completion ratio in the row model; if only the counts exist, derive the bar from them.

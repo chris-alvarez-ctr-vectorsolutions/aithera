@@ -478,6 +478,23 @@ Lab). Verified headlessly: zero invisible icons after the Pro swap, collapse-all
 every disc, expand-all opens all groups, and the elective toggle adds/removes the two
 E-tagged rows with correct pressed states.
 
+## Round 8: qualification icon + canvas/table contrast
+
+- **Qualifications are the graduation cap everywhere.** The medal glyph is gone from the
+  side nav, the plan's qualification rows, the View-by list and the qualification detail
+  hero; `fa-graduation-cap` now matches the legacy product, the catalog qualification cards
+  and the detail thumbnails. Requirements keep the award ribbon.
+- **The canvas is the gray ground the other Convergence prototypes use.** `--c-canvas` moved
+  from `#f5f9fd` (the product CLAUDE.md default, near-white) to `#f0f2f5` (as in
+  location-nav and the assigned-training wizard) at designer direction, so white panels and
+  tables clearly separate from the page. Note this is a deliberate deviation from the
+  Convergence CLAUDE.md canvas value.
+- **Table colours retuned for the darker ground, gently:** header/footer bands
+  `--c-surface-alt` to `#f3f5f9`, the plan-group band `--c-surface-alt2` to `#edf1f7`,
+  structural borders `--c-line` to `#dbe0e8`, row hairlines `--c-line-soft` to `#e9edf3`.
+  Secondary text `--c-meta` darkened to `#5b6779` so every pairing stays WCAG AA on the new
+  surfaces (re-measured: meter labels on bands 5.06, canvas-level captions 5.11, links 4.93).
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

@@ -93,7 +93,7 @@ function renderTraining() {
     out.push(`<div class="tp-qual">
       <span class="tp-name-cell">
         ${disc(q.id, qOpen)}
-        <span class="tglyph"><i class="fa-solid fa-medal"></i></span>
+        <span class="tglyph"><i class="fa-solid fa-graduation-cap"></i></span>
         <span class="tp-name">${esc(q.name)}</span>
       </span>
       <span>${meter(q.progress)}</span>
@@ -650,7 +650,7 @@ function renderDetails() {
              `${acts.length} activities`,
              sumActs(acts) ? sumActs(acts) + ' total' : '',
              meter(q.progress)]),
-      '', '', 't-qual', 'fa-medal'));
+      '', '', 't-qual', 'fa-graduation-cap'));
     out.push(`<div class="d-section">
       <h3 class="d-sec-title">What this qualification contains</h3>
       <p class="d-sec-hint">Each requirement below has its own rules; open one for its activities, or launch an activity directly.</p>`);
