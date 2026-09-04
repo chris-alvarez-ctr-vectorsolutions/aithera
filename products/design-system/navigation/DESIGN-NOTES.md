@@ -1,5 +1,25 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-04 round
+
+Two tenant-branding switches, both driven by what marketing needs to vary per customer:
+
+- **Accent bar under the top nav** (all versions). `Bar` in the review pill turns it on;
+  the COLOUR is chosen from the profile menu, under a new "Top nav accent" section with a
+  row of swatches. Picking a swatch also turns the bar on, since that is the intent.
+  It is one token and one class, `--brand-bar` and `body.tb-bar`, so a tenant's colour is a
+  single custom-property write rather than a theme fork. Deep link `?bar` (default colour)
+  or `?bar=7048e8` (any hex). In V3 the stripe spans only the inset top bar, which is
+  correct for that shell, since the nav owns the left edge.
+- **Customer logo at the top OR the bottom of the side nav** (all versions). `Logo: top` /
+  `Logo: bottom` in the pill, or `?logopos=top|bottom`. At the bottom it gets its own sticky
+  footer zone so the item list keeps scrolling independently above it. V3 already docked its
+  logo at the bottom, so that is now expressed through this shared switch and V3 simply
+  defaults to `bottom` rather than carrying its own rule.
+
+Both are customization, not design decisions, so neither is a new version: every version
+can show either state. Nothing is stored, so a reload is a fresh tenant.
+
 ## Changelog · 2026-09-01 round
 
 - **Vector branding on the product identity.** The top-bar app name is now a "Vector
@@ -187,6 +207,22 @@ The original six-version exploration (placeholder products, two-pane nav, dense 
 flyout build, dedicated tab row, synthesis) moved to `archive/` when the brief was
 updated. Their review pills still reference the old set; they are kept for history only.
 
+## Tenant customization (what marketing can vary per customer)
+
+Three things in the shell are customer-branding surfaces rather than design decisions, so
+they are switches every version can show, not separate versions:
+
+| Surface | Control | Deep link |
+|---|---|---|
+| Customer logo, shown or hidden | `Logo` in the review pill | `?logo=off` |
+| Customer logo, top or bottom of the side nav | `Logo: top` / `Logo: bottom` in the pill | `?logopos=top\|bottom` |
+| Accent bar under the top nav, and its colour | `Bar` in the pill; colour swatches under "Top nav accent" in the profile menu | `?bar`, `?bar=<hex>` |
+
+The accent bar is one token and one class (`--brand-bar`, `body.tb-bar`), so setting a
+tenant's colour is a single custom-property write. The colour picker lives in the profile
+menu for now because that is the only per-user surface in the mock; in a real build it
+would sit in an admin branding screen, not under the end user's avatar.
+
 ## Customer logo slot (platform customization)
 
 Orgs can surface their own branding at the top of the side nav, above the menu items: a
@@ -304,7 +340,9 @@ sections never auto-collapse on mouse-leave, only on click-away or explicit coll
 
 Every version file carries a small dark pill at the **bottom center**, stacked just above the
 Design Toolbox comment dock: `All` (back to the gallery) followed by V1 to V6, with the
-current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
+current version highlighted and each button titled with its pattern. Its toggles are **Logo**
+(customer logo on/off), **Loc** (location picker), **Bar** (the tenant accent bar), **Logo:
+top / bottom** (where the customer logo sits) and **Tabs** where tabs exist. It exists so reviewers can flip between explorations in place instead of returning
 to the gallery each time. The pill also carries review toggles: **Logo** (customer logo slot), **Loc** (location
 picker) and **Tabs** (mode tabs), plus `?logo=off` / `?loc=off` / `?tabs=off` deep links. It is a single self-contained block at the end of each file
 (one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE

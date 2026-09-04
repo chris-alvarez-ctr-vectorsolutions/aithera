@@ -25,6 +25,9 @@
 /* ---- Design tokens: shared verbatim across all versions ---- */
 :root{
   color-scheme:light;
+  /* Customer brand bar: the accent stripe under the top bar. Marketing sets
+     this per tenant, so it is one token and one class, not a theme fork. */
+  --brand-bar:#0b7285;
   /* ---- Vector brand, PLACEHOLDER values. The product identity in the top bar
      is the one branded surface; the rest of the shell stays neutral so the
      structure keeps the focus. Swap for official hex. ---- */
@@ -439,6 +442,29 @@ body.nav-hidden .sn-close{display:none}
 /* the product name sits behind a hairline so the shared half reads as the mark */
 .vlock-txt b{padding-left:5px;border-left:1px solid var(--line-strong)}
 .brand[data-app="dashboard"] .vlock-mark{background:var(--accent)}
+
+/* ---- Tenant customization: the two things marketing asks for ------------
+   1. an accent stripe under the top bar, in a colour the customer picks
+   2. the customer logo at the TOP or the BOTTOM of the side nav
+   Both are shell-level switches, not per-page styling, so each is one class
+   on <body>: .tb-bar and .logo-bottom. ---- */
+.topbar{border-bottom:1px solid var(--line)}
+body.tb-bar .topbar{border-bottom:3px solid var(--brand-bar)}
+/* the stripe is chrome, so it sits above the nav's own top edge */
+body.tb-bar .topbar{position:relative;z-index:41}
+
+/* Logo at the BOTTOM: its own sticky footer zone, so the item list keeps
+   scrolling independently above it. */
+body.logo-bottom .sidenav{padding-bottom:0}
+body.logo-bottom .sidenav .cust-logo{order:99;margin-top:auto;position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--line);border-bottom:0;margin-bottom:0;padding:12px 16px;z-index:4}
+body.logo-bottom.nav-hidden .sidenav{padding-bottom:8px}
+
+/* the colour swatches in the profile menu */
+.u-swatches{display:flex;flex-wrap:wrap;gap:6px;padding:4px 9px 8px}
+.u-sw{width:24px;height:24px;border-radius:6px;border:1px solid rgba(0,0,0,.14);cursor:pointer;position:relative;padding:0}
+.u-sw[aria-current="true"]::after{content:"";position:absolute;inset:-3px;border-radius:8px;border:2px solid var(--ink)}
+.u-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.u-note{font-size:10.5px;color:var(--ink-3);padding:0 9px 6px;line-height:1.4}
 </style>
 </head>
 <body data-app="learn" data-mode="learner">
@@ -555,6 +581,21 @@ body.nav-hidden .sn-close{display:none}
       <button class="u-opt" data-density="compact">Compact<svg class="ic"><use href="#i-check"/></svg></button>
       <button class="u-opt" data-density="default" aria-current="true">Default<svg class="ic"><use href="#i-check"/></svg></button>
       <button class="u-opt" data-density="comfortable">Comfortable<svg class="ic"><use href="#i-check"/></svg></button>
+      <div class="u-div"></div>
+      <!-- Tenant branding lives with the user menu for now: marketing needs to
+           set the top-bar stripe per customer without a code change. -->
+      <div class="u-sec">Top nav accent</div>
+      <button class="u-opt" id="barToggle" role="menuitemcheckbox" aria-checked="false">Show accent bar<svg class="ic"><use href="#i-check"/></svg></button>
+      <div class="u-swatches" role="group" aria-label="Accent bar colour">
+        <button class="u-sw" data-bar="#0b7285" style="background:#0b7285" aria-label="Accent #0b7285" aria-current="true"></button>
+        <button class="u-sw" data-bar="#0b2545" style="background:#0b2545" aria-label="Accent #0b2545"></button>
+        <button class="u-sw" data-bar="#7048e8" style="background:#7048e8" aria-label="Accent #7048e8"></button>
+        <button class="u-sw" data-bar="#c92a2a" style="background:#c92a2a" aria-label="Accent #c92a2a"></button>
+        <button class="u-sw" data-bar="#2b8a3e" style="background:#2b8a3e" aria-label="Accent #2b8a3e"></button>
+        <button class="u-sw" data-bar="#e8590c" style="background:#e8590c" aria-label="Accent #e8590c"></button>
+        <button class="u-sw" data-bar="#343a40" style="background:#343a40" aria-label="Accent #343a40"></button>
+      </div>
+      <div class="u-note">Turning the accent on applies the selected colour to the bar under the top nav.</div>
       <div class="u-div"></div>
       <a class="u-item" href="#">Profile settings</a>
       <a class="u-item" href="#">Sign out</a>
@@ -1324,8 +1365,42 @@ function setDensity(d){
     if(o.dataset.density===d){o.setAttribute('aria-current','true');}else{o.removeAttribute('aria-current');}
   });
 }
-uMenu.querySelectorAll('.u-opt').forEach(function(o){
+uMenu.querySelectorAll('.u-opt[data-density]').forEach(function(o){
   o.addEventListener('click',function(e){e.stopPropagation();setDensity(o.dataset.density);});
+});
+
+// ---- Tenant branding: the top-bar accent stripe and where the logo sits ----
+// Both are review/customization switches, so they only ever toggle a body
+// class or set one custom property. No storage: a reload is a fresh tenant.
+window.setBar=function(on){
+  document.body.classList.toggle('tb-bar',on);
+  var b=document.getElementById('barToggle');
+  if(b)b.setAttribute('aria-checked',String(on));
+  var p=document.getElementById('vsBar');
+  if(p)p.setAttribute('aria-pressed',String(on));
+};
+window.setBarColor=function(hex){
+  document.body.style.setProperty('--brand-bar',hex);
+  document.querySelectorAll('.u-sw').forEach(function(sw){
+    if(sw.dataset.bar===hex){sw.setAttribute('aria-current','true');}else{sw.removeAttribute('aria-current');}
+  });
+};
+window.setLogoPos=function(bottom){
+  document.body.classList.toggle('logo-bottom',bottom);
+  var p=document.getElementById('vsLogoPos');
+  if(p)p.textContent=bottom?'Logo: bottom':'Logo: top';
+};
+var barBtn=document.getElementById('barToggle');
+if(barBtn)barBtn.addEventListener('click',function(e){
+  e.stopPropagation();
+  setBar(!document.body.classList.contains('tb-bar'));
+});
+document.querySelectorAll('.u-sw').forEach(function(sw){
+  sw.addEventListener('click',function(e){
+    e.stopPropagation();
+    setBarColor(sw.dataset.bar);
+    setBar(true);   // picking a colour is the intent to show it
+  });
 });
 
 // Sub-product switch: Learner <-> Admin, from the segmented control in the side nav
@@ -1361,6 +1436,11 @@ document.addEventListener('click',function(e){
   if(params.has('launcher'))setLauncher(true);
   if(params.get('nav')==='closed')setNav(false);
   if(new URLSearchParams(location.search).get('logo')==='off')document.body.classList.add('logo-off');
+  // tenant branding: ?bar[=<hex>] shows the accent stripe, ?logopos=top|bottom moves the logo
+  var barP=params.get('bar');
+  if(barP!==null){ if(/^#?[0-9a-f]{6}$/i.test(barP))setBarColor(barP[0]==='#'?barP:'#'+barP); setBar(true); }
+  var lp=params.get('logopos');
+  if(lp==='top')setLogoPos(false); else if(lp==='bottom')setLogoPos(true);
   if(new URLSearchParams(location.search).get('loc')==='off')document.body.classList.add('loc-off');
   if(new URLSearchParams(location.search).get('tabs')==='off')document.body.classList.add('tabs-off');
   var dd=new URLSearchParams(location.search).get('density'); if(dd==='compact'||dd==='comfortable')setDensity(dd);
@@ -1400,7 +1480,20 @@ document.addEventListener('click',function(e){
   <span class="vs-div" aria-hidden="true"></span>
   <button class="vs-logo" aria-pressed="true" title="Toggle the customer logo in the side nav (platform customization)" onclick="var off=document.body.classList.toggle('logo-off');this.setAttribute('aria-pressed',off?'false':'true')">Logo</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the location picker in the top bar" onclick="var off=document.body.classList.toggle('loc-off');this.setAttribute('aria-pressed',off?'false':'true')">Loc</button>
+  <button class="vs-logo" id="vsBar" aria-pressed="false" title="Toggle the customer accent bar under the top nav (colour is set in the profile menu)" onclick="setBar(!document.body.classList.contains('tb-bar'))">Bar</button>
+  <button class="vs-logo" id="vsLogoPos" title="Move the customer logo between the top and the bottom of the side nav" onclick="setLogoPos(!document.body.classList.contains('logo-bottom'))">Logo: top</button>
 </nav>
+
+<script>
+// The review pill is markup-AFTER-script, so any state a deep link set is
+// already on <body> by the time these buttons exist: read it, don't wait.
+(function () {
+  var bar = document.getElementById('vsBar');
+  if (bar) bar.setAttribute('aria-pressed', String(document.body.classList.contains('tb-bar')));
+  var lp = document.getElementById('vsLogoPos');
+  if (lp) lp.textContent = document.body.classList.contains('logo-bottom') ? 'Logo: bottom' : 'Logo: top';
+})();
+</script>
 
 <!-- Design Toolbox: review comments + flow map (bottom-center dock).
      Pins are keyed to the GitHub Pages URL, so comment on the Pages link. -->
