@@ -244,8 +244,8 @@
       accentGlow: 'rgba(240, 192, 64, 0.24)',
       gradStart: '#95700c', gradMid: '#8a6500', gradEnd: '#6b4e00',
     },
-    'Keystone Department Hub': {
-      label: 'Keystone Department Hub', emoji: '🚒',
+    'Keystone-Department-Hub': {
+      label: 'Keystone-Department-Hub', emoji: '🚒',
       accent: '#9a5b06', accentSoft: '#fdebd0', accentDeep: '#7c4708',
       accentGlow: 'rgba(245, 158, 11, 0.22)',
       gradStart: '#d97706', gradMid: '#b45309', gradEnd: '#c2410c',

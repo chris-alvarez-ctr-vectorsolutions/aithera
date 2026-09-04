@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SafeLMS — Bulk User Import</title>
+
+<!-- Font Awesome 6 PRO (self-hosted at repo root; depth-relative). -->
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+
+<!-- IBM Plex — the design's typeface (Sans for UI, Mono for data values). -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  /* ==========================================================================
+     Self-Serve Bulk User Import (SAFELMS-32693)
+     Ported from the Claude Design source "Bulk User Import.dc.html".
+     Vanilla HTML/CSS/JS — no frameworks (per project rules).
+     ========================================================================== */
+
+  :root {
+    /* Brand / surface */
+    --navy: #0E2A43; --navy-2: #16395B; --navy-3: #1B4266; --navy-track: #6B839C;
+    --bg: #F2F5F9;
+    /* Ink */
+    --ink: #1B2B3E; --ink-2: #3D4F63; --muted: #5B6B7E; --muted-2: #8CA0B4;
+    /* Lines */
+    --line: #E1E7EE; --line-2: #EDF1F6; --line-3: #F3F6FA; --btn-border: #C6D3E1;
+    /* Blue */
+    --blue: #1257B8; --blue-2: #0C3F87; --blue-accent: #1F7AE0;
+    /* Green */
+    --green: #12B76A; --green-ink: #067647; --green-bg: #ECFDF3; --green-border: #A6E5C3;
+    /* Amber */
+    --amber: #DC8A12; --amber-ink: #8A5A0B; --amber-bg: #FFFAEB; --amber-border: #F2D69B;
+    /* Red */
+    --red: #D92D20; --red-ink: #B42318; --red-ink-2: #912018; --red-bg: #FEF3F2; --red-border: #F1C0BB;
+
+    --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); font-family: var(--sans); color: var(--ink); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { color: var(--blue-2); text-decoration: underline; }
+  input, select, button { font-family: var(--sans); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeup { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .fadeup { animation: fadeup .25s ease; }
+
+  /* ==========================================================================
+     App shell — authentic VectorSolutions / SafeLMS product chrome.
+     Matches the reference SafeLMS mocks (async-reports / reports): a compact
+     white 160px sidebar with the VectorSolutions pinwheel logo + nav, a blue
+     gradient topbar, and a gray content canvas. Only the chrome is SafeLMS;
+     the bulk-import content keeps its own IBM Plex design language.
+     ========================================================================== */
+  .app { display: grid; grid-template-columns: 168px minmax(0, 1fr); grid-template-rows: 100vh;
+    height: 100vh; overflow: hidden; }
+
+  /* ---- Sidebar (white, hairline right border) ---- */
+  .sidebar { background: #fff; border-right: 1px solid var(--line-2); padding: 14px 16px 12px;
+    display: flex; flex-direction: column; min-height: 0; }
+  .logo { display: flex; align-items: center; gap: 7px; padding: 2px; }
+  .logo .wordmark { display: flex; flex-direction: column; line-height: 1; }
+  .logo .wordmark .brand { font-weight: 700; font-size: 13px; letter-spacing: .1px; color: #374C61; }
+  .logo .wordmark .brand sup { font-size: 7px; font-weight: 700; }
+  .logo .wordmark .sub { font-size: 8px; margin-top: 3px; color: var(--muted); letter-spacing: .2px; }
+
+  .user { display: flex; align-items: center; gap: 9px; margin: 18px 0 2px; padding: 0 2px; }
+  .user .avatar { width: 28px; height: 28px; border-radius: 50%; background: #DCE7F2; color: var(--navy);
+    font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 28px; }
+  .user .name { font-size: 12px; line-height: 1.3; color: #364153; min-width: 0; }
+  .user .name span { color: var(--muted); }
+  .user .name b { display: block; font-weight: 600; color: var(--ink); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+
+  .nav-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 4px -6px 0; padding: 0 6px; }
+  .nav-group { margin-top: 16px; }
+  .nav-group .glabel { font-size: 10px; font-weight: 700; letter-spacing: .8px; color: var(--muted-2);
+    padding: 4px 6px; margin-bottom: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 5px;
+    font-size: 12px; color: #364153; cursor: pointer; }
+  .nav-item:hover { background: var(--line-3); }
+  .nav-item .ico { width: 16px; display: flex; align-items: center; justify-content: center;
+    color: #4A5565; flex: 0 0 16px; font-size: 12.5px; }
+  .nav-item .chev { margin-left: auto; color: var(--muted-2); font-size: 9px; }
+  .nav-item.is-active { font-weight: 700; color: var(--ink); background: #EAF1FC; }
+  .nav-item.is-active .ico { color: var(--blue); }
+
+  .sidebar-footer { display: grid; place-items: center; padding-top: 10px; }
+
+  /* ---- Main column ---- */
+  /* min-height:0 lets .main clamp to the 100vh grid row instead of growing to its
+     content height — without it, tall content overflows the overflow:hidden shell
+     and .scroll never becomes scrollable. */
+  .main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+  /* Blue topbar */
+  .topbar { height: 60px; flex: 0 0 60px; color: #fff; display: flex; align-items: center; gap: 14px;
+    padding: 0 24px; background: linear-gradient(180deg, #1747E6 0%, #1447E6 50%, #1038C8 100%); }
+  .topbar .t-title { font-weight: 700; font-size: 20px; letter-spacing: .2px; white-space: nowrap; }
+  .topbar .t-sub { font-size: 12.5px; color: #E9F0FF; opacity: .95; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-site { margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; border-radius: 7px; padding: 7px 12px; color: var(--ink); font-size: 12.5px;
+    font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .topbar-site .lbl { color: var(--muted); font-weight: 500; }
+  .topbar-site .caret { color: var(--muted-2); font-size: 10px; }
+
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; background: #EEF1F5; }
+  .content { max-width: 1060px; margin: 0 auto; padding: 22px 32px 72px; }
+
+  /* ---- Tabs ---- */
+  .tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--line); margin: 20px 0 24px; }
+  .tab { padding: 9px 16px; font-size: 14px; font-weight: 500; color: var(--muted);
+    border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px;
+    cursor: pointer; display: flex; align-items: center; gap: 7px; }
+  .tab.is-active { font-weight: 600; color: var(--blue); border-bottom-color: var(--blue); }
+  .dot-red { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; }
+
+  /* ---- Stepper ---- */
+  .stepper { display: flex; align-items: center; margin-bottom: 26px; }
+  .step { display: flex; align-items: center; }
+  .step-body { display: flex; align-items: center; gap: 8px; }
+  .step-circle { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 12px; font-weight: 600; }
+  .step-label { font-size: 13px; white-space: nowrap; }
+  .step-conn { width: 44px; height: 1.5px; background: #D5DEE8; margin: 0 12px; }
+
+  /* ---- Cards & generic ---- */
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+  .divider { height: 1px; background: var(--line-2); }
+
+  /* ---- Buttons ---- */
+  .btn { border: none; font-size: 13.5px; font-weight: 600; padding: 9px 16px; border-radius: 7px; cursor: pointer; }
+  .btn.sm { font-size: 13px; padding: 8px 14px; }
+  .btn--primary { background: var(--blue); color: #fff; }
+  .btn--primary:hover { background: var(--blue-2); }
+  .btn--ghost { border: 1px solid var(--btn-border); background: #fff; color: var(--ink-2); }
+  .btn--ghost:hover { background: #F5F8FB; }
+  .btn--outline-blue { border: 1px solid var(--btn-border); background: #fff; color: var(--blue); }
+  .btn--outline-blue:hover { background: #F0F6FD; }
+  .btn--danger { border: none; background: var(--red-ink); color: #fff; }
+  .btn--danger:hover { background: var(--red-ink-2); }
+  .btn--disabled { background: var(--btn-border); color: #fff; cursor: not-allowed; }
+
+  /* ---- Upload ---- */
+  .banner { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px;
+    margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .dropzone { background: #fff; border: 1.5px dashed #B9C9DA; border-radius: 10px; padding: 36px 20px; text-align: center; }
+  .dropzone-icon { width: 44px; height: 44px; border-radius: 10px; background: #EDF3FA; margin: 0 auto 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 19px; color: var(--blue); }
+  .section-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase;
+    color: var(--muted-2); margin-bottom: 10px; }
+  .file-row { background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 14px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+  .file-row:hover { border-color: var(--blue-accent); box-shadow: 0 1px 4px rgba(15,42,67,.08); }
+  .file-badge { width: 34px; height: 34px; border-radius: 7px; background: #F0F4F9; display: flex;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--muted); }
+  .mono { font-family: var(--mono); }
+
+  /* ---- Map grid ---- */
+  .map-grid { display: grid; grid-template-columns: 180px 1fr 1fr 90px; }
+  .map-head { font-size: 12px; font-weight: 600; color: var(--muted-2); text-transform: uppercase;
+    letter-spacing: .6px; padding: 10px 20px; border-bottom: 1px solid var(--line-2); }
+  .map-row { align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line-3); }
+  .map-select { width: 100%; padding: 7px 10px; border: 1px solid var(--btn-border); border-radius: 7px;
+    font-size: 13px; background: #fff; color: var(--ink); }
+
+  /* ---- Settings radios ---- */
+  .radio-card { background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 16px 18px;
+    cursor: pointer; display: flex; gap: 12px; }
+  .radio-card:hover { border-color: var(--blue-accent); }
+  .radio-dot { width: 18px; height: 18px; border-radius: 50%; background: #fff; flex: 0 0 18px; margin-top: 1px; }
+
+  /* ---- Review alerts ---- */
+  .chip { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #fff;
+    border-radius: 5px; padding: 3px 8px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px; }
+  /* Severity icon travels inside the chip so the tier reads by SHAPE, not color
+     alone (WCAG 1.4.1 — don't use color as the only visual means). */
+  .chip i { font-size: 10.5px; }
+  .alert { border: 1px solid; border-radius: 10px; overflow: hidden; background: #fff; }
+  .alert-head { padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start; }
+  .alert-title { font-size: 14.5px; font-weight: 600; }
+  .alert-body { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .alert-line { font-size: 13.5px; line-height: 1.55; }
+  .alert-line b { font-weight: 600; color: var(--muted); }
+  .diff-grid { display: grid; grid-template-columns: 56px 130px 1fr 1fr 1fr; }
+  .diff-head { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    color: var(--muted-2); background: #F8FAFC; padding: 7px 12px; }
+  .diff-row { font-size: 12.5px; padding: 7px 12px; border-top: 1px solid var(--line-3); align-items: center; }
+  .more-link { font-size: 12px; color: var(--blue); border-top: 1px solid var(--line-3); padding: 7px 12px; cursor: pointer; }
+
+  /* ---- Side-by-side "Now → After you accept" comparison ---- */
+  .ba { display: flex; flex-direction: column; gap: 12px; }
+  .ba-head { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    color: var(--muted-2); margin-bottom: 6px; }
+  .ba-grid { display: grid; grid-template-columns: 1fr 30px 1fr; align-items: stretch; }
+  .ba-card { border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 14px; }
+  .ba-before { background: #F8FAFC; }
+  .ba-after { background: #F7FAFE; border-color: #C6D9F0; }
+  .ba-after.is-loss { background: #FEF7F6; border-color: var(--red-border); }
+  .ba-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted-2); font-size: 16px; }
+  .ba-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); }
+  .ba-val { font-size: 13px; color: var(--ink); margin-top: 5px; font-weight: 500; word-break: break-word; }
+  .ba-val.is-loss-text { color: var(--red-ink); }
+  .ba-sub { font-size: 11.5px; color: var(--muted-2); margin-top: 5px; line-height: 1.45; }
+  .ba-sub.is-loss-sub { color: var(--red-ink); }
+  .ba-more { font-size: 12px; color: var(--blue); cursor: pointer; }
+  @media (max-width: 620px) { .ba-grid { grid-template-columns: 1fr; } .ba-arrow { transform: rotate(90deg); padding: 3px 0; } }
+
+  /* ---- KPI sidebar ---- */
+  .kpi-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--muted-2); }
+  .kpi-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .kpi-row .k { font-size: 13.5px; color: var(--ink-2); }
+  .kpi-row .v { font-size: 18px; font-weight: 700; }
+
+  /* ---- Toggle ---- */
+  .toggle { width: 34px; height: 19px; border-radius: 10px; position: relative; cursor: pointer; transition: background .15s; }
+  .toggle-knob { width: 15px; height: 15px; border-radius: 50%; background: #fff; position: absolute; top: 2px; transition: left .15s; }
+
+  /* ---- Settings: deactivate / remove options + live example ---- */
+  .opt-row { background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 15px 18px;
+    display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+  .opt-row.is-on.is-danger { border-color: var(--red-border); background: #FEF7F6; }
+  .opt-main { flex: 1; min-width: 0; }
+  .opt-title { font-size: 14px; font-weight: 600; }
+  .opt-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .ex-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .ex-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); margin-bottom: 8px; }
+  .job-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border-radius: 6px; padding: 3px 9px; margin: 3px 5px 0 0; }
+  .job-keep { background: #F0F4F9; color: var(--ink-2); }
+  .job-add { background: var(--green-bg); color: var(--green-ink); }
+  .job-remove { background: var(--red-bg); color: var(--red-ink); text-decoration: line-through; }
+
+  /* ---- File-picker modal (prototype stand-in for the OS file chooser) ---- */
+  .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(14,42,67,.45);
+    display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeup .16s ease; }
+  .modal { background: #fff; border-radius: 12px; width: 560px; max-width: 100%; max-height: 86vh;
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.35); }
+  .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .modal-x { background: none; border: none; color: var(--muted-2); font-size: 17px; cursor: pointer;
+    line-height: 1; padding: 3px 7px; border-radius: 6px; }
+  .modal-x:hover { background: var(--line-3); color: var(--ink-2); }
+  .modal-body { padding: 16px 22px; overflow-y: auto; }
+  .modal-foot { padding: 13px 22px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .modal-drop { border: 1.5px dashed #B9C9DA; border-radius: 10px; padding: 18px; text-align: center; margin-bottom: 16px; }
+
+  /* ---- Settings placement: full-width tab bar under the blue topbar ---- */
+  .settings-tabbar { flex: 0 0 auto; background: #fff; border-bottom: 1px solid var(--line);
+    padding: 0 32px; display: flex; gap: 2px; overflow-x: auto; }
+  .stab { padding: 13px 14px; font-size: 13.5px; font-weight: 500; color: var(--muted);
+    border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    cursor: pointer; white-space: nowrap; }
+  .stab:hover:not(.is-active) { color: var(--ink-2); }
+  .stab.is-active { color: var(--ink); font-weight: 600; border-bottom-color: var(--blue); }
+
+  /* ---- Manual import / Automated sync secondary control (segmented) ---- */
+  .subtabs { display: inline-flex; background: #E9EEF4; border-radius: 9px; padding: 3px; gap: 2px; margin-bottom: 22px; }
+  .subtab { border: none; background: none; font-size: 13px; font-weight: 600; color: var(--muted);
+    padding: 7px 15px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .subtab.is-active { background: #fff; color: var(--blue); box-shadow: 0 1px 2px rgba(16,24,40,.16); }
+
+  /* ---- Manual-import walkthrough (overview): full card + compact strip ---- */
+  .wt-card { display: flex; gap: 14px; background: #fff; border: 1px solid var(--line);
+    border-left: 5px solid var(--blue); border-radius: 8px; padding: 16px 18px; margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06); }
+  .wt-icon { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 9px; background: #E1EBF9;
+    color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .wt-title { font-size: 14.5px; font-weight: 700; }
+  .wt-body { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-top: 3px; }
+  .wt-link { margin-top: 7px; font-size: 12.5px; }
+  .wt-strip { display: flex; align-items: center; gap: 9px; background: #F5F9FE; border: 1px solid #E1E7EE;
+    border-radius: 8px; padding: 9px 14px; margin-bottom: 18px; font-size: 12.5px; color: var(--ink-2); }
+  .wt-strip i { color: var(--blue); flex: 0 0 auto; }
+
+  /* ---- Version B: automated sync stacked under manual import ---- */
+  .stack-divider { height: 1px; background: var(--line); margin: 44px 0 0; }
+  .stack-head { margin: 26px 0 20px; scroll-margin-top: 12px; }
+  .stack-title { font-size: 17px; font-weight: 700; }
+  .stack-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+  /* ---- Prototype variant panel (mock-only affordance) ---- */
+  /* Anchored bottom-LEFT, over the sidenav's empty lower region — never covers
+     the content-area action buttons (Continue / Run import live on the right). */
+  .variants { position: fixed; bottom: 14px; left: 14px; z-index: 900; width: 196px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.28); padding: 12px 14px; font-size: 12px; }
+  .variants-title { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+    color: var(--muted-2); display: flex; align-items: center; justify-content: space-between; }
+  .variants-title .collapse { cursor: pointer; color: var(--muted-2); font-size: 13px; }
+  .variants-row { margin-top: 9px; }
+  .variants-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted-2); margin-bottom: 5px; }
+  .seg { display: flex; border: 1px solid var(--btn-border); border-radius: 7px; overflow: hidden; }
+  .seg button { flex: 1; border: none; background: #fff; font-size: 11px; padding: 6px 4px; cursor: pointer; color: var(--muted); }
+  .seg button.is-on { background: var(--blue); color: #fff; font-weight: 600; }
+  .seg button + button { border-left: 1px solid var(--btn-border); }
+  .variants-hint { font-size: 10.5px; color: var(--muted-2); margin-top: 10px; line-height: 1.5; }
+  .variants-hint a { font-weight: 600; }
+  .ba-list { display: flex; flex-direction: column; gap: 5px; }
+  .ba-list button { border: 1px solid var(--btn-border); background: #fff; border-radius: 6px; font-size: 11px;
+    padding: 7px 9px; cursor: pointer; color: var(--ink-2); text-align: left; line-height: 1.2; }
+  .ba-list button:hover { background: #F5F8FB; }
+  .ba-list button.is-on { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+  .variants.is-collapsed .variants-body { display: none; }
+
+  .spinner { width: 28px; height: 28px; border: 3px solid #D5E3F3; border-top-color: var(--blue);
+    border-radius: 50%; margin: 0 auto 14px; animation: spin .8s linear infinite; }
+
+  /* ---- Progressive disclosure — a summary row is always visible; the detail
+         opens on demand. Used across the automated-sync views so first entry
+         stays light without losing any explanation. State-backed (state.disc)
+         so open/closed survives the full re-render. ---- */
+  .disc { border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; }
+  .disc-sum { display: flex; align-items: center; gap: 12px; padding: 13px 16px; cursor: pointer; }
+  .disc-sum:hover { background: #FAFBFD; }
+  .disc-ico { width: 30px; height: 30px; border-radius: 8px; background: #EEF2F7; color: #5B6B7E;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 30px; }
+  .disc-tt { flex: 1; min-width: 0; }
+  .disc-tt .dt { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .disc-tt .ds { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .disc-chev { color: var(--muted-2); font-size: 12px; transition: transform .15s; flex: 0 0 auto; }
+  .disc.is-open .disc-chev { transform: rotate(180deg); }
+  .disc-body { border-top: 1px solid var(--line-3); }
+  .disc-body-inner { padding: 13px 16px 15px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+
+  /* ---- Sync status header — one compact strip that NAMES the current state
+         (Up to date / Needs your review / Not available), so the customer always
+         knows which state they’re in before reading any detail. ---- */
+  .sync-status { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; padding: 15px 18px; }
+  .sync-status .ss-badge { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex: 0 0 42px; }
+  .sync-status .ss-main { flex: 1; min-width: 0; }
+  .sync-status .ss-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
+  .sync-status .ss-title { font-size: 16px; font-weight: 700; margin-top: 1px; }
+  .sync-status .ss-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+  /* ---- V4 error help tooltip — a click-open popover on each review alert with
+         a what-it-means line, an A→B before/after example, and a "usually…" hint.
+         The alert is the positioning context; the popover overlays following
+         content. ---- */
+  .help-btn { border: 1px solid var(--btn-border); background: #fff; color: var(--blue); border-radius: 20px;
+    font-size: 12px; font-weight: 600; padding: 4px 11px; cursor: pointer; display: inline-flex;
+    align-items: center; gap: 6px; white-space: nowrap; flex: 0 0 auto; }
+  .help-btn:hover { background: #F0F6FD; }
+  .help-btn.is-open { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .help-pop { position: absolute; top: 50px; right: 16px; z-index: 60; width: 390px; max-width: calc(100% - 32px);
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 16px 42px rgba(16,24,40,.24); overflow: hidden; animation: fadeup .14s ease; }
+  .help-pop-head { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px;
+    background: #F5F9FE; border-bottom: 1px solid var(--line-2); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .help-pop-head i { color: var(--blue); margin-right: 6px; }
+  .help-x { border: none; background: none; color: var(--muted-2); font-size: 14px; cursor: pointer; padding: 2px 7px; border-radius: 6px; }
+  .help-x:hover { background: #E9EEF4; color: var(--ink-2); }
+  .help-pop-body { padding: 13px 15px; display: flex; flex-direction: column; gap: 12px; }
+  .hp-means { font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+  .ab-mini { display: grid; grid-template-columns: 1fr 28px 1fr; align-items: stretch; }
+  .ab-mini-card { border: 1px solid var(--line-2); border-radius: 8px; padding: 9px 11px; }
+  .ab-mini-card.ab-a { background: #FEF7F6; border-color: var(--red-border); }
+  .ab-mini-card.ab-b { background: #F0FBF5; border-color: var(--green-border); }
+  .ab-mini-l { font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted-2); }
+  .ab-mini-v { font-size: 12px; color: var(--ink); margin-top: 4px; word-break: break-word; line-height: 1.4; }
+  .ab-a .ab-mini-v { color: var(--red-ink); }
+  .ab-b .ab-mini-v { color: var(--green-ink); }
+  .ab-mini-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted-2); font-size: 13px; }
+  .hp-usually { font-size: 12.5px; color: var(--ink); background: #FFFBEB; border: 1px solid var(--amber-border);
+    border-radius: 8px; padding: 9px 11px; line-height: 1.5; }
+  .hp-usually i { color: var(--amber); margin-right: 6px; }
+  .hp-link { font-size: 12px; font-weight: 600; }
+
+  /* ---- V5 three big screens: Upload → Fix → Done ---- */
+  .s5-rail { display: flex; align-items: center; justify-content: center; gap: 0; max-width: 460px; margin: 8px auto 30px; }
+  .s5-step { display: flex; flex-direction: column; align-items: center; gap: 7px; flex: 0 0 auto; }
+  .s5-num { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; background: #fff; border: 2px solid #D5DEE8; color: #8CA0B4; }
+  .s5-step.cur .s5-num { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .s5-step.done .s5-num { background: #12B76A; border-color: #12B76A; color: #fff; }
+  .s5-lbl { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .s5-step.cur .s5-lbl { color: var(--ink); }
+  .s5-line { height: 2px; flex: 1; min-width: 40px; background: #D5DEE8; margin: 0 8px 22px; }
+  .s5-line.done { background: #12B76A; }
+  .s5-screen { max-width: 520px; margin: 10px auto 0; text-align: center; }
+  .s5-screen.wide { max-width: 640px; }
+  .s5-big { font-size: 28px; font-weight: 800; letter-spacing: -.3px; }
+  .s5-sub { font-size: 14.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .s5-drop { background: #fff; border: 2px dashed #B9C9DA; border-radius: 16px; padding: 48px 24px; margin-top: 26px; cursor: pointer; }
+  .s5-drop:hover { border-color: var(--blue-accent); }
+  .s5-drop-ic { width: 60px; height: 60px; border-radius: 14px; background: #EDF3FA; color: var(--blue); font-size: 26px;
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .s5-fixlist { display: flex; flex-direction: column; gap: 12px; margin-top: 26px; text-align: left; }
+  .s5-fix { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px; }
+  .s5-fix.done { background: #F7FBF8; border-color: var(--green-border); }
+  .s5-fix-ic { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex: 0 0 44px; }
+  .s5-fix-ab { font-size: 12.5px; margin-top: 4px; }
+  .s5-done-badge { width: 72px; height: 72px; border-radius: 50%; background: #ECFDF3; border: 2px solid #A6E5C3;
+    color: #067647; font-size: 32px; display: flex; align-items: center; justify-content: center; margin: 10px auto 0; }
+
+  /* ---- Sync status banner (manual-import landing) + deeper-page back link.
+         Automated sync now lives on its own page; on the main page it's just this
+         one-line banner. ---- */
+  .sync-banner { display: flex; align-items: center; gap: 12px; border-radius: 10px; padding: 11px 16px;
+    margin-bottom: 18px; cursor: pointer; transition: filter .12s; }
+  .sync-banner:hover { filter: brightness(.985); }
+  .sync-banner .sb-ico { font-size: 15px; flex: 0 0 auto; }
+  .sync-banner .sb-text { flex: 1; font-size: 13px; font-weight: 500; }
+  .sync-banner .sb-cta { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .sync-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
+    color: var(--blue); margin-bottom: 16px; }
+  .sync-back:hover { text-decoration: none; color: var(--blue-2); }
+
+  /* V5 placement — full-width automated-sync band stacked under the manual import.
+     Edge-to-edge tinted background; the inner .content keeps the centered column. */
+  .sync-band { background: #fff; border-top: 1px solid var(--line);
+    box-shadow: inset 0 6px 12px -10px rgba(16,24,40,.12); padding-bottom: 40px; scroll-margin-top: 0; }
+  .sync-band .stack-head { scroll-margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- ============================================================
+     App state machine + Design Toolbox flow-map contract.
+     Runs BEFORE toolbox.js so window.applyFlowState /
+     window.TOOLBOX_CONFIG / #fm boot all exist when the toolbox
+     reads them.
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ data */
+  var TOTAL = 170;
+
+  /* VERSION KNOB — layout of the User Import tab.
+       'A' = Manual import / Automated sync as a segmented sub-control (legacy).
+       'B' = one page — manual import (centered), automated sync stacked in a
+             full-width, edge-to-edge band underneath. This is now the layout for
+             ALL versions; the axis that varies between versions is the automated-
+             sync SETUP MODEL and error-help style, not the layout:
+               ver1 self-serve unlock · gate 3   ver2 self-serve unlock · gate 4
+               ver3 concierge (Vector sets it up) ver4 earn-it @4 + tooltips
+               ver5 reimagined import view. */
+  var VERSION = 'B';
+
+  /* Automated-sync qualification gate. Designer spec = 3 clean imports in a row;
+     the PRD / earlier card said 4 (flagged in DEV-NOTES). One constant to flip. */
+  var SYNC_GATE = 4, SYNC_DONE = 3;
+
+  /* Illustrative rows for the "everything that would change" purge breakdown —
+     who gets deactivated, and which position/location (job) assignments get
+     removed and how many people each hits. */
+  var IMPACT = {
+    deacts: [
+      { name: 'Gary Harper',    user: 'gharper',    job: 'Teacher · Lincoln Elementary' },
+      { name: 'Maria Reyes',    user: 'mreyes',     job: 'Counselor · Ridgewood High' },
+      { name: 'Tom Allen',      user: 'tallen',     job: 'Custodian · Kennedy Middle' },
+      { name: 'Priya Nair',     user: 'pnair',      job: 'Aide · District Office' },
+      { name: 'Alan Pruitt',    user: 'apruitt',    job: 'Bus Driver · Transportation' },
+      { name: 'Dana Whitfield', user: 'dwhitfield', job: 'Registrar · District Office' }
+    ],
+    jobs: [
+      { pos: 'Coach',      loc: 'Ridgewood High',    people: 4 },
+      { pos: 'Grade 9',    loc: 'Ridgewood High',    people: 12, note: 'replaced with Grade 10' },
+      { pos: 'Custodian',  loc: 'Kennedy Middle',    people: 2 },
+      { pos: 'Aide',       loc: 'Lincoln Elementary', people: 6 },
+      { pos: 'Bus Driver', loc: 'Transportation',    people: 7 }
+    ]
+  };
+  function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+
+  var FILES = [
+    { id: 'clean',   name: 'staff_roster_2026.csv',      rows: 45,  note: 'September new-hire batch from HR' },
+    { id: 'confirm', name: 'fall_staff_roster.csv',      rows: 164, note: 'Full fall roster export — all buildings' },
+    { id: 'saml',    name: 'hr_export_powerschool.csv',  rows: 156, note: 'Raw export straight from PowerSchool' },
+    { id: 'dupes',   name: 'combined_hr_athletics.csv',  rows: 152, note: 'HR list merged with athletics staff list' },
+    { id: 'blast',   name: 'all_users_rebuild.csv',      rows: 168, note: 'Complete rebuild from the new HR system' }
+  ];
+
+  var COLS = {
+    clean:   [['First Name','Maya'],['Last Name','Torres'],['Email','mtorres@ridgewood.k12.us'],['Username','mtorres@ridgewood.k12.us'],['Building','Lincoln Elementary'],['Job Title','Teacher — Grade 3']],
+    confirm: [['First Name','Sue'],['Last Name','Hartley'],['Email','shartley@ridgewood.k12.us'],['Username','shartley@ridgewood.k12.us'],['Building','Ridgewood High'],['Job Title','Counselor']],
+    saml:    [['FIRST','Sarah'],['LAST','Linden'],['EMAIL_ADDR','slinden@ridgewood.k12.us'],['USERNAME','sarah.linden'],['BUILDING','District Office'],['JOB_TITLE','Registrar']],
+    dupes:   [['First Name','John'],['Last Name','Smith'],['Email','jsmith@ridgewood.k12.us'],['Username','john.smith'],['Building','Ridgewood High'],['Job Title','Athletics Coach']],
+    blast:   [['FIRST_NAME','Alan'],['LAST_NAME','Pruitt'],['EMAIL','apruitt@ridgewood.k12.us'],['USER_ID','apruitt2026'],['SITE','Kennedy Middle'],['ROLE','Custodian']]
+  };
+
+  var FIELDS = [
+    { field: 'First name', req: true },  { field: 'Last name', req: true },
+    { field: 'Email', req: true },       { field: 'Username', req: true },
+    { field: 'Location', req: false },   { field: 'Position', req: false }
+  ];
+
+  var NOT_IMPORTED = '— Not imported —';
+
+  /* Each tier carries a distinct ICON as well as a colored chip + text label, so
+     severity is conveyed by shape — not color alone (WCAG 1.4.1). Icons are
+     maximally distinguishable silhouettes: slashed-circle / triangle / circle. */
+  var TIER = {
+    blocked:  { chip: 'Blocked',        icon: 'fa-ban',                  chipBg: '#D92D20', border: '#F1C0BB', headBg: '#FEF3F2', titleColor: '#912018', proceedLabel: 'Why it’s blocked' },
+    escalate: { chip: 'Contact Vector', icon: 'fa-headset',              chipBg: '#5F5AB8', border: '#CBC9EC', headBg: '#F4F3FB', titleColor: '#3E3A8F', proceedLabel: 'Why Vector has to do this' },
+    confirm:  { chip: 'Confirm',        icon: 'fa-triangle-exclamation', chipBg: '#DC8A12', border: '#F2D69B', headBg: '#FFFAEB', titleColor: '#8A5A0B', proceedLabel: 'If you proceed' },
+    info:     { chip: 'Info',           icon: 'fa-circle-info',          chipBg: '#5B8DC9', border: '#E1E7EE', headBg: '#F5F9FE', titleColor: '#1B2B3E', proceedLabel: 'What it means' }
+  };
+
+  /* Automated-sync failure scenarios — one per severity path, mirroring the manual
+     tiers so the sync flow shows the same Blocked / Confirm / Contact-Vector split.
+     Picked by state.variants.syncScenario and rendered by syncFailureCard(). */
+  var SYNC_FAILS = {
+    confirm: {
+      tier: 'confirm',
+      summary: '8 accounts arrive with a different first or last name. Apply the changes to update the names and keep every account’s training history — the rest of the file (2 new users, 41 updates) imports as normal.',
+      detailLabel: 'Review all 8 name changes',
+      title: 'Your sync stopped this morning — 8 changes need your confirmation',
+      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
+      lines: [
+        ['What happened', '8 rows in this file have a different first or last name than the existing account with the same username. This is usually a legal name change or a nickname — Susan becoming Sue — but it can also mean the row belongs to a different person.'],
+        ['If you apply the changes', 'the 8 names are updated and all training history stays with each account. The rest of the file (2 new users, 41 updates) imports as normal.']
+      ],
+      diff: [
+        { row: '12', field: 'First name', current: 'Susan (Hartley)', incoming: 'Sue', result: 'Sue Hartley' },
+        { row: '47', field: 'Last name', current: '(Amara) Okafor', incoming: 'Okafor-Reed', result: 'Amara Okafor-Reed' },
+        { row: '95', field: 'First name', current: 'Robert (Ellis)', incoming: 'Bobby', result: 'Bobby Ellis' }
+      ],
+      diffLabel: 'After sync', more: 'Show all 8 rows',
+      buttons: [
+        { cls: 'btn--primary', act: 'bless', label: 'These are correct — apply the changes' },
+        { cls: 'btn--ghost',   act: 'noop',  label: 'Download the 8 rows' },
+        { cls: 'btn--ghost',   act: 'noop',  label: 'Something looks wrong — contact support' }
+      ],
+      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
+    },
+    blocked: {
+      tier: 'blocked',
+      summary: 'This morning’s file would rewrite usernames on 148 of 170 accounts (87%) and break sign-in across the district. Fix the export at its source, or bring today’s roster in through the manual uploader.',
+      detailLabel: 'See why it’s blocked',
+      title: 'Your sync stopped this morning — this file would change usernames on 148 of 170 accounts (87%)',
+      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
+      lines: [
+        ['What happened', 'The username column in this morning’s export changed format — it now sends first.last where your site signs people in by email. Applying it would rewrite the username on nearly every account.'],
+        ['Why it’s blocked', 'Sign-in would break across the district at once and duplicate accounts would appear as people log back in. There is no undo, so SafeLMS will not apply a change this large on its own.'],
+        ['What to do', 'Fix the export at its source so the username column matches your site, and the next sync will pick it up. To get today’s roster in now, upload a corrected file through the manual uploader.']
+      ],
+      rows: ['slinden   →   sarah.linden', 'mreyes   →   maria.reyes', 'tallen   →   tom.allen', '… and 145 more'],
+      buttons: [
+        { cls: 'btn--primary', act: 'goImport', label: 'Fix it in the manual uploader' },
+        { cls: 'btn--ghost',   act: 'noop',     label: 'Download the file' },
+        { cls: 'btn--ghost',   act: 'noop',     label: 'Contact support' }
+      ],
+      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Nothing was changed — your roster stays as it was until a corrected file comes in.'
+    },
+    escalate: {
+      tier: 'escalate',
+      summary: 'Two accounts on your site already use the same email, so this morning’s file can’t resolve them. Vector merges the two accounts, then your sync resumes automatically — nothing for you to fix in the file.',
+      detailLabel: 'See the details',
+      title: 'Your sync stopped — 2 accounts on your site already share one email address',
+      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
+      lines: [
+        ['What happened', 'cdelgado and c.delgado are two separate accounts that already use cdelgado@ridgewood.k12.us. This morning’s file can’t resolve it, because the duplicate already exists on your site.'],
+        ['Why Vector has to do this', 'Two accounts with the same email can’t be told apart at sign-in, and merging them has to be done by Vector — it can’t be undone from here.'],
+        ['What to do', 'Contact Vector to merge these two accounts. Your sync resumes automatically once they’re merged.']
+      ],
+      rows: ['cdelgado · cdelgado@ridgewood.k12.us — 11 completions', 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions'],
+      buttons: [
+        { cls: 'btn--primary', act: 'noop', label: 'Contact Vector support' },
+        { cls: 'btn--ghost',   act: 'noop', label: 'Download the file' }
+      ],
+      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
+    }
+  };
+
+  /* HELP CATALOG (V4) — per-error tooltip content. Instead of laying every
+     description out on the page, each alert shows a tight one-liner + a "Help"
+     button that opens this: what it means, an A→B before/after example with a
+     visual, and a "Usually the answer is…" heuristic. Keyed by alert id; alerts
+     without an entry simply don’t show a help button. Deep-links to Vector Help. */
+  var HELP = {
+    saml: {
+      means: 'Your site signs people in with SAML single sign-on, which uses each person’s EMAIL as their username. The column you mapped to Username holds first.last values instead.',
+      ab: { aLabel: 'Your file’s Username (A)', a: 'sarah.linden', bLabel: 'What sign-on expects (B)', b: 'slinden@ridgewood.k12.us' },
+      usually: 'Usually the answer is: if your file shows first.last, point Username at the column that holds the email address — that’s what SAML matches on.'
+    },
+    blast: {
+      means: 'Nearly every account would get a new username. Username is the one field that ties a person to their whole training record, so a mass change breaks sign-in for everyone at once.',
+      ab: { aLabel: 'This export sends (A)', a: 'sarah.linden', bLabel: 'Your site already uses (B)', b: 'slinden' },
+      usually: 'Usually the answer is: the file was exported in a different username format. Fix the Username column at the source so it matches your site, then re-upload.'
+    },
+    'dupe-email': {
+      means: 'Two different usernames in your file use the same email address — almost always the same person entered twice (once by HR, once by athletics).',
+      ab: { aLabel: 'Two rows, one email (A)', a: 'jsmith  +  john.smith', bLabel: 'Keep just one (B)', b: 'jsmith  (single row)' },
+      usually: 'Usually the answer is: keep the row whose username already exists on your site, delete the other, then re-upload.'
+    },
+    'dupe-name': {
+      means: 'These people already have an account under a different username. Importing them as-is creates a second account for the same person.',
+      ab: { aLabel: 'Your file’s username (A)', a: 'sarah.linden2', bLabel: 'Their existing one (B)', b: 'slinden' },
+      usually: 'Usually the answer is: replace the new username with the existing one shown, so it updates the account instead of duplicating it.'
+    },
+    'existing-collision': {
+      means: 'Two accounts already on your site share one email. Your file can’t fix this — the duplicate exists on the site, not in your file.',
+      ab: { aLabel: 'On your site now (A)', a: 'cdelgado + c.delgado, one email', bLabel: 'After Vector merges (B)', b: 'one account · history kept' },
+      usually: 'Usually the answer is: contact Vector to merge the two accounts — then your file imports normally.'
+    },
+    name: {
+      means: 'A row matches an existing account by username, but the first name differs — usually a nickname or a legal name change (Susan → Sue), occasionally a different person.',
+      ab: { aLabel: 'On the account now (A)', a: 'Susan Hartley', bLabel: 'From your file (B)', b: 'Sue Hartley' },
+      usually: 'Usually it’s a nickname or name change and is safe to accept. Only decline if you don’t recognize them as the same person.'
+    },
+    'deact-blast': {
+      means: 'This file has only part of your users, but “Deactivate users not in this file” is on — so everyone missing would be signed out (here, 128 of 170).',
+      ab: { aLabel: 'File contains (A)', a: '45 of 170 users', bLabel: 'Would deactivate (B)', b: '128 users · 75% of the site' },
+      usually: 'Usually the answer is: for a new-hire batch or one building, turn off “Deactivate users not in this file.”'
+    },
+    purge: {
+      means: 'You turned on “Deactivate users not in this file,” and these active people are missing from it — so they’d be signed out.',
+      ab: { aLabel: 'Missing from file (A)', a: 'gharper · active', bLabel: 'What happens (B)', b: 'Deactivated · history kept' },
+      usually: 'Usually the answer is: if this is a partial list, turn the setting off so no one is deactivated; otherwise add anyone who should stay.'
+    },
+    'purge-jobs': {
+      means: 'You turned on “Remove positions & locations not in this file,” so any position or location a person holds that isn’t in the file is removed — along with the training tied to it.',
+      ab: { aLabel: 'Held now, not in file (A)', a: 'Coach · Ridgewood High', bLabel: 'What happens (B)', b: 'removed from 4 people · + its training' },
+      usually: 'Usually the answer is: only turn this on when the file is the full, current list of everyone’s positions & locations.'
+    }
+  };
+
+  /* ------------------------------------------------------------------ state */
+  var state = {
+    variants: { uploadVariant: 'column-mapping', automationStage: 'active-healthy', syncScenario: 'confirm', startTab: 'import' },
+    s5Fixed: {},   // V5 three-screen: resolved issues on the Fix screen
+    tab: null,
+    step: 'upload',
+    fileId: null,
+    mapping: {},
+    purgeUsers: false,   // deactivate users not in the file
+    purgeJobs: false,    // remove positions/locations not in the file
+    repSent: false,      // "sent to your Vector rep" acknowledgement
+    fileModal: false,    // sample-file picker modal (prototype stand-in for the OS file chooser)
+    validating: false,
+    acks: {},
+    blessed: false,
+    doneCounts: null,
+    recipients: [
+      { name: 'Mark Osei',      role: 'Technology Director · mosei@ridgewood.k12.us' },
+      { name: 'Dana Whitfield', role: 'HR Coordinator · dwhitfield@ridgewood.k12.us' }
+    ],
+    notifyFail: true,
+    notifySuccess: false,
+    openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
+    view: 'import',      // 'import' = manual import page (+ sync status banner); 'sync' = deeper sync detail page
+    disc: {},            // open/closed state for the progressive-disclosure expanders
+    attnSev: 'fixable',  // attention step severity: 'fixable' (amber) | 'escalate' (red)
+    attnFix: 0,          // V5 fix-explorer: which suggested fix is previewed
+    attnSent: false,     // escalate handed to Vector's team
+    variantsCollapsed: false
+  };
+  var _validateTimer = null;
+
+  function setState(patch) { for (var k in patch) state[k] = patch[k]; render(); }
+
+  /* ---------------------------------------------------------------- helpers */
+  function variant() { return state.variants.uploadVariant; }
+  function stage() { return state.variants.automationStage; }
+  function syncScenario() { return state.variants.syncScenario; }
+  function isMap() { return variant() === 'column-mapping'; }
+  function curTab() { return state.tab || state.variants.startTab; }
+
+  function flow() {
+    return isMap() ? ['upload', 'map', 'settings', 'review'] : ['upload', 'settings', 'review'];
+  }
+
+  function defaultMapping(fileId) {
+    var cols = COLS[fileId], m = {};
+    FIELDS.forEach(function (f, i) { m[f.field] = cols[i][0]; });
+    return m;
+  }
+
+  function pickFile(id) {
+    // V5: picking a file jumps to the big "Fix" screen (step 2 of 3).
+    setState({ fileId: id, mapping: defaultMapping(id), acks: {}, step: 's2',
+      s5Fixed: {}, purgeUsers: false, purgeJobs: false, repSent: false, fileModal: false });
+  }
+
+  function go(step) {
+    if (step === 'review') {
+      clearTimeout(_validateTimer);
+      setState({ step: step, validating: true });
+      _validateTimer = setTimeout(function () { setState({ validating: false }); }, 1100);
+    } else { setState({ step: step }); }
+  }
+
+  /* Counts depend on both toggles: deact only when purgeUsers, job removals only
+     when purgeJobs. jobsAdded always applies (new position/location combos). */
+  function summaryFor(fileId, pu, pj) {
+    var b;
+    switch (fileId) {
+      case 'clean':   b = { add: 42, mod: 3,   deactOn: 128, jobsAdd: 6,  jobsRem: 4,   ppl: 4,   pos: 2, loc: 2 }; break;
+      case 'confirm': b = { add: 12, mod: 118, deactOn: 6,   jobsAdd: 22, jobsRem: 31,  ppl: 24,  pos: 5, loc: 3 }; break;
+      case 'saml':    b = { add: 9,  mod: 147, deactOn: 14,  jobsAdd: 18, jobsRem: 40,  ppl: 33,  pos: 6, loc: 4 }; break;
+      case 'dupes':   b = { add: 26, mod: 124, deactOn: 12,  jobsAdd: 30, jobsRem: 27,  ppl: 21,  pos: 5, loc: 3 }; break;
+      case 'blast':   b = { add: 2,  mod: 166, deactOn: 0,   jobsAdd: 4,  jobsRem: 150, ppl: 120, pos: 9, loc: 6 }; break;
+      default:        b = { add: 0,  mod: 0,   deactOn: 0,   jobsAdd: 0,  jobsRem: 0,   ppl: 0,   pos: 0, loc: 0 }; break;
+    }
+    return { add: b.add, mod: b.mod, deact: pu ? b.deactOn : 0,
+      jobsAdded: b.jobsAdd, jobsRemoved: pj ? b.jobsRem : 0,
+      jobsPeople: pj ? b.ppl : 0, pos: pj ? b.pos : 0, loc: pj ? b.loc : 0 };
+  }
+  function summary() { return summaryFor(state.fileId, state.purgeUsers, state.purgeJobs); }
+
+  function samlMismatch() {
+    if (state.fileId !== 'saml') return false;
+    if (variant() === 'template') return true;
+    return state.mapping['Username'] !== 'EMAIL_ADDR';
+  }
+
+  function buildAlerts() {
+    var fileId = state.fileId, pu = state.purgeUsers, pj = state.purgeJobs, im = isMap(), A = [];
+    var nameDiff = function (row, cur, inc, after) {
+      return { row: row, field: 'First name', current: cur, incoming: inc, result: after };
+    };
+
+    if (fileId === 'clean' && pu) {
+      A.push({ id: 'deact-blast', tier: 'blocked', guardrail: true,
+        title: 'This file contains only 45 of your 170 active users',
+        what: 'Deactivating users not in this file signs out every active user who isn’t in it. This file has only 45 of your 170 users, so 128 would be deactivated — 75% of the site.',
+        ifProceed: '128 staff would immediately lose access to their training. Their history is kept and accounts reactivate if re-added, but the lockout itself cannot be undone.',
+        action: 'If this is a partial list — like a new-hire batch — turn off “Deactivate users not in this file.” Only deactivate with a complete export of everyone.',
+        settingsBtn: true });
+    }
+    if (fileId === 'blast') {
+      A.push({ id: 'blast', tier: 'blocked', guardrail: true,
+        title: 'This upload would change usernames on 166 of 170 existing accounts (98%)',
+        what: 'Nearly every existing account would get a new username. The username is what holds a person’s entire training record together — it is the one field an upload can’t safely rewrite.',
+        ifProceed: 'Sign-in would break for the whole district at once, and duplicate accounts would appear as people log back in. There is no undo.',
+        action: 'This usually means the file was exported with a different username format than your site uses. Fix the Username column in your file and upload it again, or contact support if a full rebuild is really intended.',
+        replaceBtn: true });
+    }
+    if (samlMismatch()) {
+      A.push({ id: 'saml', tier: 'blocked',
+        title: 'Usernames in this file don’t match your sign-on integration',
+        what: 'Ridgewood signs in with SAML single sign-on, which sends each person’s email address as their username. The column mapped to Username contains first.last values instead.',
+        ifProceed: 'Usernames would be rewritten across the site. The next time each person signs in, they’d either be locked out or a duplicate account would be created — and that cannot be undone.',
+        action: 'Update your file so the Username column contains each person’s email address, then upload it again.',
+        compare: { idp: 'slinden@ridgewood.k12.us', file: 'sarah.linden' },
+        replaceBtn: true });
+    }
+    if (fileId === 'saml' && !samlMismatch()) {
+      A.push({ id: 'saml-ok', tier: 'info',
+        title: 'Usernames now match your sign-on integration',
+        what: 'Username is mapped to EMAIL_ADDR, which matches what your SAML sign-on sends.',
+        ifProceed: 'Existing accounts stay connected to their sign-in — nothing changes about how people log in.',
+        action: 'Nothing — this is just a confirmation.' });
+    }
+    if (fileId === 'dupes') {
+      A.push({ id: 'dupe-email', tier: 'blocked',
+        title: '2 usernames share the same email address',
+        what: 'Rows 34 and 91 are two different usernames using the same email — most likely the same person listed twice, once by HR and once by athletics.',
+        ifProceed: 'Two accounts with the same email can’t be told apart at sign-in. This person would be unable to log in at all, and fixing it later requires a manual account merge by Vector.',
+        action: 'Decide which username is correct, remove or fix the other row in your file, and upload it again.',
+        lines: [{ t: 'Row 34 — jsmith · jsmith@ridgewood.k12.us' }, { t: 'Row 91 — john.smith · jsmith@ridgewood.k12.us' }],
+        replaceBtn: true });
+      A.push({ id: 'dupe-name', tier: 'blocked',
+        title: '3 rows send a new username for someone who already has an account',
+        what: 'These names already exist on your site under a different username. Importing them as-is creates a second account for the same person.',
+        ifProceed: 'Each person would end up with two accounts — one with their history, one without — and would stop being able to sign in reliably.',
+        action: 'Change these rows to the existing username shown below, or remove them if they’re duplicates, then upload the file again.',
+        lines: [
+          { t: 'Row 12 — Sarah Linden arrives as sarah.linden2 · exists as slinden' },
+          { t: 'Row 58 — Marcus Webb arrives as marcus.webb · exists as mwebb' },
+          { t: 'Row 103 — Priya Nair arrives as priya.nair2 · exists as pnair' }
+        ], replaceBtn: true });
+      A.push({ id: 'existing-collision', tier: 'escalate',
+        title: '2 accounts already on your site share one email address',
+        what: 'cdelgado and c.delgado are two separate accounts that already use cdelgado@ridgewood.k12.us. This happened before this upload — your file can’t fix it, because the duplicate already exists on the site.',
+        ifProceed: 'While both accounts exist this person can’t sign in reliably, and importing over either one keeps the problem. Merging the two accounts has to be done by Vector and can’t be undone from here.',
+        action: 'Contact Vector to merge these two accounts. Once they’re merged, upload your file again.',
+        lines: [
+          { t: 'cdelgado · cdelgado@ridgewood.k12.us — 11 completions' },
+          { t: 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions' }
+        ], supportBtn: true });
+    }
+    if (fileId === 'confirm') {
+      A.push({ id: 'name', tier: 'confirm',
+        title: '2 existing accounts arrive with a different first name',
+        what: 'Two rows match an existing account by username, but the first name is different. This is usually a nickname or a legal name change — Susan becoming Sue.',
+        ifProceed: 'The names are updated and each account keeps all of its training history. If these are actually different people, the wrong record would be overwritten.',
+        action: 'Look at the two changes below. Proceed only if you recognize them as the same people.',
+        diff: [nameDiff('87', 'Susan (Hartley)', 'Sue', 'Sue Hartley'), nameDiff('122', 'Robert (Ellis)', 'Bobby', 'Bobby Ellis')],
+        ackLabel: 'I recognize these as the same people — update their names and keep their history.' });
+      if (pu) {
+        A.push({ id: 'purge', tier: 'confirm', repBtn: true,
+          title: '6 active users are not in this file and will be deactivated',
+          what: 'You turned on “Deactivate users not in this file,” and these six people are missing from it.',
+          ifProceed: 'They lose access immediately. Their training history is kept, and their accounts reactivate if they appear in a future file.',
+          action: 'Check the list. If any of them should stay active, add them to your file — or turn off “Deactivate users not in this file.”',
+          diff: [
+            { row: '—', field: 'gharper', current: 'Active', incoming: 'Not in file', result: 'Deactivated' },
+            { row: '—', field: 'mreyes', current: 'Active', incoming: 'Not in file', result: 'Deactivated' },
+            { row: '—', field: 'tallen', current: 'Active', incoming: 'Not in file', result: 'Deactivated' }
+          ], more: 'Show all 6 users',
+          ackLabel: 'I’ve checked the list — deactivate these 6 users.' });
+      }
+      A.push({ id: 'new12', tier: 'info',
+        title: '12 new users will be created',
+        what: '12 rows don’t match any existing account and will be added as new users.',
+        ifProceed: 'They’re created with the location and position from your file and can be assigned training right away.',
+        action: 'Nothing — this is just a heads-up.' });
+    }
+    if (fileId === 'saml' && !samlMismatch()) {
+      A.push({ id: 'saml-name', tier: 'confirm',
+        title: '1 existing account arrives with a different first name',
+        what: 'Row 41 matches an existing account by username but the first name changed from Katherine to Kate.',
+        ifProceed: 'The name is updated and the account keeps its history. If this is a different person, the wrong record would be overwritten.',
+        action: 'Proceed only if you recognize this as the same person.',
+        diff: [nameDiff('41', 'Katherine (Reyes)', 'Kate', 'Kate Reyes')],
+        ackLabel: 'I recognize this as the same person — update the name.' });
+    }
+    if (pj && summaryFor(fileId, pu, pj).jobsRemoved > 0) {
+      var js = summaryFor(fileId, pu, pj);
+      A.push({ id: 'purge-jobs', tier: 'confirm', repBtn: true,
+        title: js.jobsRemoved + ' positions & locations will be removed — affecting ' + js.jobsPeople + ' people',
+        what: 'You turned on “Remove positions & locations not in this file.” For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. This touches ' + js.pos + ' positions across ' + js.loc + ' locations; most are routine (a grade level or role that changed), but some may be intentional extras.',
+        ifProceed: 'The ' + js.jobsRemoved + ' extra positions & locations are removed from ' + js.jobsPeople + ' people, and the training tied to them comes off those users. Anything still in the file is kept and new ones are added — the record becomes an exact mirror of the file.',
+        action: 'Check the examples below — each shows how many people it affects. Proceed only if the file is the complete, current list of each person’s positions & locations.',
+        lines: [
+          { t: 'Coach · Ridgewood High — removed from 4 people' },
+          { t: 'Grade 9 · Ridgewood High — removed from 12 people (→ Grade 10)' },
+          { t: 'Custodian · Kennedy Middle — removed from 2 people' },
+          { t: '… and more — ' + js.jobsRemoved + ' assignments across ' + js.jobsPeople + ' people' }
+        ],
+        ackLabel: 'I’ve checked these — remove the positions & locations that aren’t in my file.' });
+    }
+    if (fileId === 'clean' && !pu) {
+      A.push({ id: 'upd3', tier: 'info',
+        title: '3 existing users have an updated email address',
+        what: 'Three rows match existing accounts and only change the email address on file.',
+        ifProceed: 'The email addresses are updated. Sign-in and history are unaffected.',
+        action: 'Nothing — this is just a heads-up.',
+        diff: [
+          { row: '8',  field: 'Email', current: 'kbell@rwps.org', incoming: 'kbell@ridgewood.k12.us', result: 'kbell@ridgewood.k12.us' },
+          { row: '19', field: 'Email', current: 'dcho@rwps.org',  incoming: 'dcho@ridgewood.k12.us',  result: 'dcho@ridgewood.k12.us' },
+          { row: '33', field: 'Email', current: 'rfox@rwps.org',  incoming: 'rfox@ridgewood.k12.us',  result: 'rfox@ridgewood.k12.us' }
+        ] });
+    }
+    return A;
+  }
+
+  function ackKey(id) { return state.fileId + ':' + id; }
+
+  /* --------------------------------------------------------------- rendering
+     A change-driven full re-render of #app. Interaction is wired with
+     event delegation (data-act / data-arg) on the stable #app node. */
+
+  var $app = document.getElementById('app');
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function segRow(label, key, opts) {
+    var v = state.variants[key];
+    var btns = opts.map(function (o) {
+      return '<button data-act="setVariant" data-arg="' + key + ':' + o.v + '"'
+        + (v === o.v ? ' class="is-on"' : '') + '>' + o.l + '</button>';
+    }).join('');
+    return '<div class="variants-row"><div class="variants-label">' + label + '</div>'
+      + '<div class="seg">' + btns + '</div></div>';
+  }
+
+  /* Before → after preview of automated sync becoming available. */
+  function baPanel(opts, cur, hint) {
+    var btns = opts.map(function (o) {
+      return '<button data-act="setSync" data-arg="' + o.k + '"' + (cur === o.k ? ' class="is-on"' : '') + '>' + o.l + '</button>';
+    }).join('');
+    var link = state.view === 'sync'
+      ? '<a href="#" data-act="backToImport">← back to import</a>'
+      : '<a href="#" data-act="openSync">open the sync page →</a>';
+    return '<div class="variants' + (state.variantsCollapsed ? ' is-collapsed' : '') + '">'
+      + '<div class="variants-title"><span>Preview · AutoSync</span>'
+      + '<span class="collapse" data-act="toggleVariants" title="Collapse">' + (state.variantsCollapsed ? '+' : '–') + '</span></div>'
+      + '<div class="variants-body">'
+      + '<div class="variants-label" style="margin-bottom:6px;">Before → after it becomes available</div>'
+      + '<div class="ba-list">' + btns + '</div>'
+      + '<div class="variants-hint">Watch the banner + sync page change. ' + hint + ' ' + link + '</div>'
+      + '</div></div>';
+  }
+  function variantsPanel() {
+    var st = stage();
+    var cur = st === 'active-failed' ? 'alert' : st === 'active-healthy' ? 'running' : 'off';
+    return baPanel([
+      { k: 'off',     l: '① Not available yet (before)' },
+      { k: 'running', l: '② Available — running (after)' },
+      { k: 'alert',   l: '③ Running — needs attention' }
+    ], cur, '');
+  }
+
+  /* Authentic VectorSolutions / SafeLMS side navigation. Icons use the mock's
+     Font Awesome Pro set; the logo + footer emblem are the real Vector marks. */
+  var NAV = [
+    { group: 'Main' },
+    { t: 'My Assignments',  ico: 'fa-house' },
+    { t: 'Training History', ico: 'fa-clock-rotate-left' },
+    { t: 'Extra Training',  ico: 'fa-graduation-cap' },
+    { group: 'Admin' },
+    { t: 'Dashboard',      ico: 'fa-table-cells-large' },
+    { t: 'Training Plans', ico: 'fa-calendar-check' },
+    { t: 'Employees',      ico: 'fa-users' },
+    { t: 'Courses',        ico: 'fa-circle-play' },
+    { t: 'Reports',        ico: 'fa-table-list' },
+    { t: 'Settings',       ico: 'fa-gear', active: true },
+    { t: 'Help',           ico: 'fa-circle-question' }
+  ];
+
+  var LOGO_SVG = '<svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">'
+    + '<path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/></svg>';
+
+  var EMBLEM_SVG = '<svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">'
+    + '<path d="M32 10 C26 14 24 20 28 26 L32 22 Z" fill="#FFB020"/>'
+    + '<path d="M32 10 C38 14 40 20 36 26 L32 22 Z" fill="#F5BD3A"/>'
+    + '<path d="M20 14 C18 22 20 30 28 32 L30 24 Z" fill="#F35B5B"/>'
+    + '<path d="M44 14 C46 22 44 30 36 32 L34 24 Z" fill="#2F8FE0"/>'
+    + '<path d="M14 22 C14 32 22 38 30 34 L28 28 Z" fill="#6FC77A"/>'
+    + '<path d="M50 22 C50 32 42 38 34 34 L36 28 Z" fill="#4CB84E"/>'
+    + '<path d="M28 34 L36 34 L34 52 L30 52 Z" fill="#2F6FB0"/>'
+    + '<circle cx="32" cy="34" r="4" fill="#2F6FB0"/></svg>';
+
+  function sidebar() {
+    var nav = '', open = false;
+    NAV.forEach(function (n) {
+      if (n.group) {
+        if (open) nav += '</div>';                 // close previous group
+        nav += '<div class="nav-group"><div class="glabel">' + esc(n.group.toUpperCase()) + '</div>';
+        open = true;
+        return;
+      }
+      nav += '<div class="nav-item' + (n.active ? ' is-active' : '') + '">'
+        + '<span class="ico"><i class="fa-solid ' + n.ico + '"></i></span>'
+        + '<span class="lbl">' + esc(n.t) + '</span></div>';
+    });
+    if (open) nav += '</div>';                      // close the final group
+
+    return '<aside class="sidebar">'
+      + '<div class="logo">' + LOGO_SVG
+      + '<div class="wordmark"><span class="brand">VectorSolutions<sup>®</sup></span>'
+      + '<span class="sub">Vector Training, K-12 Edition</span></div></div>'
+      + '<div class="user"><div class="avatar">VP</div>'
+      + '<div class="name"><span>Welcome,</span><b>Val Pollock</b></div></div>'
+      + '<div class="nav-scroll">' + nav + '</div>'
+      + '<div class="sidebar-footer">' + EMBLEM_SVG + '</div>'
+      + '</aside>';
+  }
+
+  function topbar() {
+    return '<div class="topbar">'
+      + '<div class="t-title">Settings</div>'
+      + '<div class="t-sub">System settings and preferences — emails, login, training plans, certificates, integrations, and user import.</div>'
+      + '</div>';
+  }
+
+  /* Settings tab bar (full-width, under the blue topbar). Bulk user import lives
+     here as the "User Import" tab, beside the site's other Settings sections. */
+  var SETTINGS_TABS = ['Emails', 'Login Page', 'Training Plan', 'Certificate', 'Integrations', 'User Import'];
+  function settingsTabsBar() {
+    return '<div class="settings-tabbar">' + SETTINGS_TABS.map(function (t) {
+      var active = t === 'User Import';
+      return '<button class="stab' + (active ? ' is-active' : '') + '" data-act="noop">' + esc(t) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function stepperHTML() {
+    var labels = isMap()
+      ? [['upload', 'Upload file'], ['map', 'Map columns'], ['settings', 'Import settings'], ['review', 'Review changes']]
+      : [['upload', 'Upload file'], ['settings', 'Import settings'], ['review', 'Review changes']];
+    var f = flow();
+    var cur = f.indexOf(state.step === 'done' ? 'review' : state.step);
+    var out = '<div class="stepper">';
+    labels.forEach(function (pair, i) {
+      var done = i < cur, isCur = i === cur;
+      var bg = done ? '#12B76A' : isCur ? '#1257B8' : '#fff';
+      var col = (done || isCur) ? '#fff' : '#8CA0B4';
+      var bd = done ? '#12B76A' : isCur ? '#1257B8' : '#D5DEE8';
+      out += '<div class="step"><div class="step-body">'
+        + '<div class="step-circle" style="background:' + bg + ';color:' + col + ';border:1.5px solid ' + bd + ';">'
+        + (done ? '✓' : (i + 1)) + '</div>'
+        + '<div class="step-label" style="font-weight:' + (isCur ? 600 : 500)
+        + ';color:' + (isCur ? '#1B2B3E' : done ? '#3D4F63' : '#8CA0B4') + ';">' + esc(pair[1]) + '</div>'
+        + '</div>' + (i < labels.length - 1 ? '<div class="step-conn"></div>' : '') + '</div>';
+    });
+    return out + '</div>';
+  }
+
+  function uploadHTML() {
+    var banner = '';
+    if (!isMap()) {
+      banner = '<div class="banner"><div>'
+        + '<div style="font-size:14px;font-weight:600;">Your file must use the SafeLMS template</div>'
+        + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Column headers must match the template exactly. Download it, paste your data in, and upload it below.</div>'
+        + '</div><button class="btn sm btn--outline-blue" style="white-space:nowrap;">Download template (.csv)</button></div>';
+    }
+    return '<div class="fadeup">' + banner
+      + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
+      + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+      + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
+      + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
+      + '</div>';
+  }
+
+  /* Prototype file picker — opens from the dropzone / “browse” and stands in for the
+     OS file chooser. The sample files live HERE (not on the page) so the upload
+     screen matches the real product; picking one loads its scenario and closes. */
+  function fileModalHTML() {
+    var files = FILES.map(function (f) {
+      return '<div class="file-row" data-act="pickFile" data-arg="' + f.id + '">'
+        + '<div class="file-badge">CSV</div>'
+        + '<div style="flex:1;min-width:0;"><div class="mono" style="font-size:13px;font-weight:500;">' + esc(f.name) + '</div>'
+        + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:1px;">' + esc(f.note) + '</div></div>'
+        + '<div style="font-size:12.5px;color:#8CA0B4;white-space:nowrap;">' + f.rows + ' rows</div>'
+        + '<div style="font-size:13px;color:#1257B8;font-weight:600;white-space:nowrap;">Select →</div></div>';
+    }).join('');
+    return '<div class="modal-overlay" data-act="closeFiles">'
+      + '<div class="modal" data-act="noop">'
+      + '<div class="modal-head"><div>'
+      + '<div class="modal-title">Choose a file to upload</div>'
+      + '<div class="modal-sub">Prototype stand-in for your computer’s file picker — each sample loads a different scenario.</div>'
+      + '</div><button class="modal-x" data-act="closeFiles" aria-label="Close">✕</button></div>'
+      + '<div class="modal-body">'
+      + '<div class="modal-drop"><div class="dropzone-icon" style="margin:0 auto 8px;"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+      + '<div style="font-size:13.5px;font-weight:600;">Drop a .csv or .xlsx here</div>'
+      + '<div style="font-size:12px;color:#8CA0B4;margin-top:2px;">or pick a sample below</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;">' + files + '</div>'
+      + '</div>'
+      + '<div class="modal-foot"><span style="font-size:12px;color:#8CA0B4;">Sample files for this test session</span>'
+      + '<button class="btn sm btn--ghost" data-act="closeFiles">Cancel</button></div>'
+      + '</div></div>';
+  }
+
+  function mapHTML() {
+    var file = FILES.find(function (f) { return f.id === state.fileId; });
+    var cols = COLS[state.fileId];
+    var colOptions = [{ v: NOT_IMPORTED }].concat(cols.map(function (c) { return { v: c[0] }; }));
+    var rows = FIELDS.map(function (f) {
+      var val = state.mapping[f.field] || NOT_IMPORTED;
+      var src = cols.find(function (c) { return c[0] === val; });
+      var samlBad = f.field === 'Username' && samlMismatch() && isMap();
+      var badge = samlBad ? '⚠ check' : (val !== NOT_IMPORTED ? 'Matched' : '');
+      var badgeColor = samlBad ? '#B54708' : '#12B76A';
+      var opts = colOptions.map(function (o) {
+        return '<option value="' + esc(o.v) + '"' + (o.v === val ? ' selected' : '') + '>' + esc(o.v) + '</option>';
+      }).join('');
+      return '<div class="map-grid map-row">'
+        + '<div style="font-size:13.5px;font-weight:600;">' + esc(f.field) + (f.req ? '<span style="color:#D92D20;"> *</span>' : '') + '</div>'
+        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapChange" data-arg="' + esc(f.field) + '">' + opts + '</select></div>'
+        + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(src ? src[1] : '—') + '</div>'
+        + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
+        + '</div>';
+    }).join('');
+    var complete = FIELDS.filter(function (f) { return f.req; }).every(function (f) {
+      return state.mapping[f.field] && state.mapping[f.field] !== NOT_IMPORTED;
+    });
+    return '<div class="fadeup"><div class="card" style="overflow:hidden;">'
+      + '<div style="padding:16px 20px;border-bottom:1px solid #EDF1F6;display:flex;justify-content:space-between;align-items:center;gap:16px;">'
+      + '<div><div style="font-size:15px;font-weight:600;">Match your columns to SafeLMS fields</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">We matched what we could from <span class="mono">' + esc(file.name) + '</span>. Check each one — the sample values come from your file.</div></div>'
+      + '<div style="font-size:12px;color:#5B6B7E;background:#F0F4F9;border-radius:6px;padding:5px 10px;white-space:nowrap;">' + file.rows + ' rows detected</div></div>'
+      + '<div class="map-grid map-head"><div>SafeLMS field</div><div>Column in your file</div><div>Sample from your file</div><div></div></div>'
+      + rows + '</div>'
+      + '<div style="display:flex;justify-content:space-between;margin-top:18px;">'
+      + '<button class="btn btn--ghost" data-act="back">← Back</button>'
+      + '<button class="btn ' + (complete ? 'btn--primary' : 'btn--disabled') + '" data-act="next"' + (complete ? '' : ' disabled') + '>Continue to import settings →</button>'
+      + '</div></div>';
+  }
+
+  /* "Everything that would change" — itemized deactivations and job removals with
+     per-item people counts, so the scope + permanence are visible while choosing. */
+  function impactBreakdown() {
+    var pu = state.purgeUsers, pj = state.purgeJobs, sum = summary();
+    if (!pu && !pj) {
+      return '<div class="ex-card" style="margin-bottom:0;"><div style="font-size:13px;color:#3D4F63;line-height:1.6;">'
+        + '<b>Nothing will be removed.</b> Users and jobs in your file are added or updated; everyone and everything else is left exactly as it is.</div></div>';
+    }
+    var out = '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 13px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;">'
+      + '<b>This is permanent.</b> Deactivations and removals — and the training tied to a removed job — can’t be undone once you run the import.</div>';
+
+    if (pu) {
+      var ds = IMPACT.deacts.slice(0, 3);
+      out += '<div class="ex-card" style="margin-bottom:10px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+        + '<div class="ex-eyebrow" style="margin:0;">Users deactivated</div>'
+        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.deact + ' people lose access</div></div>'
+        + ds.map(function (d) {
+            return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
+              + '<div><span style="font-weight:600;">' + esc(d.name) + '</span> <span class="mono" style="color:#8CA0B4;font-size:11.5px;">' + esc(d.user) + '</span></div>'
+              + '<div style="color:#8CA0B4;text-align:right;">' + esc(d.job) + '</div></div>';
+          }).join('')
+        + (sum.deact > ds.length ? '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.deact + ' users</div>' : '')
+        + '</div>';
+    }
+    if (pj) {
+      var js = IMPACT.jobs.slice(0, 3);
+      out += '<div class="ex-card" style="margin-bottom:0;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+        + '<div class="ex-eyebrow" style="margin:0;">Positions &amp; locations removed</div>'
+        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.jobsRemoved + ' removed · ' + sum.jobsPeople + ' people</div></div>'
+        + js.map(function (j) {
+            return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
+              + '<div><span class="job-chip job-remove" style="margin:0;">' + esc(j.pos + ' · ' + j.loc) + '</span>'
+              + (j.note ? ' <span style="color:#8CA0B4;font-size:11.5px;">(' + esc(j.note) + ')</span>' : '') + '</div>'
+              + '<div style="color:#B42318;white-space:nowrap;">from ' + j.people + ' ' + (j.people === 1 ? 'person' : 'people') + '</div></div>';
+          }).join('')
+        + '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.jobsRemoved + ' changes</div>'
+        + '<div style="font-size:12px;color:#5B6B7E;margin-top:9px;line-height:1.5;border-top:1px solid #F3F6FA;padding-top:9px;">Touches <b>' + sum.pos + ' positions</b> across <b>' + sum.loc + ' locations</b>. Removing a job also removes the training assigned to it.</div>'
+        + '</div>';
+    }
+    return out;
+  }
+
+  /* Import settings — two independent, off-by-default choices ("deactivate/remove",
+     the customer wording for purge), each destructive. Shows the full itemized
+     impact (who/what changes and how many people) as the toggles flip, so the
+     scope is concrete before anything runs. Re-confirmed with a review next step. */
+  function settingsHTML() {
+    var file = FILES.find(function (f) { return f.id === state.fileId; });
+    var pu = state.purgeUsers, pj = state.purgeJobs;
+
+    function optRow(on, act, title, sub) {
+      return '<div class="opt-row' + (on ? ' is-on is-danger' : '') + '">'
+        + '<div class="toggle" data-act="' + act + '" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
+        + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
+        + '<div class="opt-main"><div class="opt-title">' + title + '</div><div class="opt-sub">' + sub + '</div></div></div>';
+    }
+
+    // Per-person example — a user in the file whose jobs differ (remove-jobs effect)
+    var chips = '<span class="job-chip job-keep">Teacher · Lincoln Elementary</span>'
+      + (pj ? '<span class="job-chip job-remove">Coach · Ridgewood High</span>'
+            : '<span class="job-chip job-keep">Coach · Ridgewood High</span>')
+      + '<span class="job-chip job-add">+ Counselor · Lincoln Elementary</span>';
+    var jobNote = pj
+      ? 'Coach · Ridgewood High is <b>removed</b> and Counselor · Lincoln Elementary is <b>added</b> — her record becomes an exact mirror of the file.'
+      : 'Counselor · Lincoln Elementary is <b>added</b>; everything she already has is <b>kept</b> — nothing is removed.';
+    var exJobs = '<div class="ex-card" style="margin-bottom:0;">'
+      + '<div class="ex-eyebrow">A user in your file with changed jobs — Maya Torres</div>'
+      + '<div style="font-size:12px;color:#5B6B7E;margin-bottom:6px;">Her positions &amp; locations after import:</div>'
+      + '<div style="margin-bottom:9px;">' + chips + '</div>'
+      + '<div style="font-size:12px;color:#3D4F63;line-height:1.5;">' + jobNote + '</div></div>';
+
+    var repRow = state.repSent
+      ? '<div style="margin-top:14px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#067647;"><span style="font-weight:600;">Sent to your Vector rep.</span> They’ll follow up by email to help you choose — nothing runs in the meantime.</div>'
+      : '<div style="font-size:12.5px;color:#5B6B7E;margin-top:14px;">Not sure which to choose? <a href="#" data-act="askRep">Send this file to your Vector rep for help →</a></div>';
+
+    return '<div class="fadeup" style="max-width:900px;">'
+      + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What should happen to users and jobs that aren’t in this file?</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. Both options are off by default — nothing is removed unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
+      + '<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:330px;">'
+      + optRow(pu, 'togglePurgeUsers', 'Deactivate users not in this file',
+          'Any active user missing from the file loses access. Their training history is kept and they reactivate if they appear in a later file. Leave off for partial lists — new hires, one building, one department.')
+      + optRow(pj, 'togglePurgeJobs', 'Remove positions &amp; locations not in this file',
+          'For users in the file, any position or location they hold that isn’t in the file is removed — so the file becomes the exact record. Leave off to only add what’s new and keep everything else.')
+      + '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#3D4F63;line-height:1.7;">'
+      + '<div style="font-weight:600;color:#1B2B3E;margin-bottom:3px;">With these settings</div>'
+      + '• ' + (pu ? 'Users missing from your file are <b>deactivated</b>.' : 'Users missing from your file <b>stay active</b>.') + '<br>'
+      + '• ' + (pj ? 'Each user’s positions &amp; locations are <b>synced to exactly match</b> the file.' : 'New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
+      + '</div>' + repRow
+      + '</div>'
+      + '<div style="flex:1;min-width:300px;"><div class="section-eyebrow" style="margin-bottom:10px;">What would change on your site</div>'
+      + impactBreakdown()
+      + '<div style="margin-top:14px;">' + exJobs + '</div></div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
+      + '<button class="btn btn--ghost" data-act="back">← Back</button>'
+      + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
+      + '</div></div>';
+  }
+
+  /* Side-by-side "Now in SafeLMS → After you <accept/import/sync>" per changed row.
+     Shows the current record, the resulting record, and (as a caption) what the
+     file actually provides — so the consequence of accepting is concrete, and
+     deactivations read as a loss (red). */
+  function beforeAfter(diff, afterLabel, more) {
+    var rows = diff.map(function (d) {
+      var deact = /Deactivat/i.test(d.result);
+      var head = (d.row && d.row !== '—') ? ('Row ' + d.row + ' · ' + d.field) : d.field;
+      var sub = deact
+        ? 'Missing from this file → loses access immediately · training history kept'
+        : (d.incoming && d.incoming !== d.result ? 'From your file: ' + d.incoming : '');
+      return '<div class="ba-row">'
+        + '<div class="ba-head">' + esc(head) + '</div>'
+        + '<div class="ba-grid">'
+          + '<div class="ba-card ba-before"><div class="ba-label">Now in SafeLMS</div>'
+          + '<div class="ba-val mono">' + esc(d.current) + '</div></div>'
+          + '<div class="ba-arrow">→</div>'
+          + '<div class="ba-card ba-after' + (deact ? ' is-loss' : '') + '">'
+          + '<div class="ba-label">' + esc(afterLabel) + '</div>'
+          + '<div class="ba-val mono' + (deact ? ' is-loss-text' : '') + '">' + esc(d.result) + '</div>'
+          + (sub ? '<div class="ba-sub' + (deact ? ' is-loss-sub' : '') + '">' + esc(sub) + '</div>' : '')
+          + '</div>'
+        + '</div></div>';
+    }).join('');
+    return '<div class="ba">' + rows + (more ? '<div class="ba-more">' + esc(more) + '</div>' : '') + '</div>';
+  }
+
+  /* The A→B help tooltip for a review alert (V4). */
+  function helpPopover(a) {
+    var h = HELP[a.id]; if (!h) return '';
+    return '<div class="help-pop">'
+      + '<div class="help-pop-head"><span><i class="fa-solid fa-circle-question" aria-hidden="true"></i>What this means &amp; how to fix it</span>'
+      + '<button class="help-x" data-act="closeHelp" aria-label="Close">✕</button></div>'
+      + '<div class="help-pop-body">'
+      + '<div class="hp-means">' + esc(h.means) + '</div>'
+      + '<div class="ab-mini">'
+      + '<div class="ab-mini-card ab-a"><div class="ab-mini-l">' + esc(h.ab.aLabel) + '</div><div class="ab-mini-v mono">' + esc(h.ab.a) + '</div></div>'
+      + '<div class="ab-mini-arrow"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+      + '<div class="ab-mini-card ab-b"><div class="ab-mini-l">' + esc(h.ab.bLabel) + '</div><div class="ab-mini-v mono">' + esc(h.ab.b) + '</div></div>'
+      + '</div>'
+      + '<div class="hp-usually"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' + esc(h.usually) + '</div>'
+      + '<a class="hp-link" href="https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors" target="_blank" rel="noopener">See all upload errors in Vector Help ↗</a>'
+      + '</div></div>';
+  }
+
+  function alertHTML(a) {
+    var t = TIER[a.tier];
+    var acked = !!state.acks[ackKey(a.id)];
+    var hasHelp = !!HELP[a.id];
+    var helpOpen = state.openHelp === a.id;
+    var body = '';
+
+    // Compact: a single one-liner replaces the three laid-out description lines.
+    // The full explanation + the A→B "how to fix" example live in the Help tooltip.
+    var oneLine = String(a.what).split('. ')[0].replace(/\.$/, '') + '.';
+    body += '<div class="alert-line">' + esc(oneLine) + '</div>';
+
+    if (a.compare) {
+      body += '<div style="display:flex;border:1px solid #F1C0BB;border-radius:8px;overflow:hidden;font-size:13px;">'
+        + '<div style="flex:1;padding:10px 14px;background:#FEF7F6;"><div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#8CA0B4;">Your sign-on sends</div><div class="mono" style="margin-top:4px;">' + esc(a.compare.idp) + '</div></div>'
+        + '<div style="width:1px;background:#F1C0BB;"></div>'
+        + '<div style="flex:1;padding:10px 14px;background:#FEF7F6;"><div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#8CA0B4;">Your file sends</div><div class="mono" style="margin-top:4px;color:#B42318;">' + esc(a.compare.file) + '</div></div>'
+        + '</div>';
+    }
+    if (a.lines) {
+      body += '<div style="background:#F8FAFC;border:1px solid #EDF1F6;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;">'
+        + a.lines.map(function (l) { return '<div class="mono" style="font-size:12.5px;color:#3D4F63;">' + esc(l.t) + '</div>'; }).join('') + '</div>';
+    }
+    if (a.diff) body += beforeAfter(a.diff, a.tier === 'confirm' ? 'After you accept' : 'After import', a.more);
+    if (a.tier === 'confirm') {
+      body += '<label style="display:flex;gap:10px;align-items:flex-start;background:#FFFAEB;border:1px solid #F2D69B;border-radius:8px;padding:11px 14px;cursor:pointer;">'
+        + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + ' style="margin-top:2px;width:15px;height:15px;accent-color:#B54708;">'
+        + '<span style="font-size:13px;line-height:1.5;color:#6B4A0A;">' + esc(a.ackLabel) + '</span></label>';
+    }
+    var btns = [];
+    if (a.supportBtn)  btns.push('<button class="btn sm btn--primary" data-act="noop">Contact Vector support</button>');
+    if (a.fixMapBtn)   btns.push('<button class="btn sm btn--danger" data-act="fixMapping">Fix column mapping</button>');
+    if (a.replaceBtn)  btns.push('<button class="btn sm btn--ghost" data-act="replaceFile">Replace file</button>');
+    if (a.settingsBtn) btns.push('<button class="btn sm btn--danger" data-act="changeSettings">Change import settings</button>');
+    if (a.repBtn)      btns.push(state.repSent
+      ? '<button class="btn sm btn--ghost" data-act="noop" style="color:#067647;border-color:#A6E5C3;">Sent to your Vector rep ✓</button>'
+      : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
+    if (btns.length) body += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns.join('') + '</div>';
+
+    return '<div class="alert" style="position:relative;border-color:' + t.border + ';">'
+      + '<div class="alert-head" style="background:' + t.headBg + ';">'
+      + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
+      + '<div style="flex:1;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
+      + (a.guardrail ? '<div style="font-size:11.5px;color:#B42318;font-weight:600;margin-top:2px;">Site-wide guardrail — blocked regardless of individual errors</div>' : '')
+      + '</div>'
+      + (hasHelp ? '<button class="help-btn' + (helpOpen ? ' is-open' : '') + '" data-act="toggleHelp" data-arg="' + a.id + '"><i class="fa-solid fa-circle-question" aria-hidden="true"></i>Help</button>' : '')
+      + '</div><div class="alert-body">' + body + '</div>'
+      + (helpOpen ? helpPopover(a) : '')
+      + '</div>';
+  }
+
+  function reviewHTML() {
+    var file = FILES.find(function (f) { return f.id === state.fileId; });
+    if (state.validating) {
+      return '<div class="fadeup"><div class="card" style="padding:48px 20px;text-align:center;">'
+        + '<div class="spinner"></div>'
+        + '<div style="font-size:14.5px;font-weight:600;">Checking this file against your site…</div>'
+        + '<div style="font-size:13px;color:#5B6B7E;margin-top:4px;">Comparing ' + file.rows + ' rows to ' + TOTAL + ' existing users, your sign-on settings, and site configuration. Nothing has been changed yet.</div>'
+        + '</div></div>';
+    }
+    var raw = buildAlerts();
+    var alertsHtml = raw.length
+      ? raw.map(alertHTML).join('')
+      : '<div style="background:#ECFDF3;border:1px solid #A6E5C3;border-radius:10px;padding:16px 18px;font-size:13.5px;color:#067647;"><span style="font-weight:600;">No issues found.</span> Every row checks out against your site and your sign-on settings.</div>';
+
+    // Blocked and escalate ('contact Vector') both hard-stop the import.
+    var blocked = raw.filter(function (a) { return a.tier === 'blocked' || a.tier === 'escalate'; });
+    var confirms = raw.filter(function (a) { return a.tier === 'confirm'; });
+    var acked = confirms.filter(function (a) { return state.acks[ackKey(a.id)]; });
+    var canSubmit = !state.validating && blocked.length === 0 && acked.length === confirms.length;
+    var sum = summary();
+
+    var side = '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:18px 20px;">'
+      + '<div class="kpi-eyebrow">If you run this import</div>'
+      + '<div style="font-size:12px;color:#8CA0B4;margin-top:2px;">Compared against ' + TOTAL + ' existing users</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">'
+      + '<div class="kpi-row"><span class="k">New users added</span><span class="v" style="color:#067647;">' + sum.add + '</span></div>'
+      + '<div class="kpi-row"><span class="k">Existing users updated</span><span class="v" style="color:#1257B8;">' + sum.mod + '</span></div>'
+      + '<div class="kpi-row"><span class="k">Users deactivated</span><span class="v" style="color:' + (sum.deact > 0 ? '#B42318' : '#8CA0B4') + ';">' + sum.deact + '</span></div>'
+      + '<div class="kpi-row"><span class="k">Positions/locations added</span><span class="v" style="color:#067647;">' + sum.jobsAdded + '</span></div>'
+      + '<div class="kpi-row"><span class="k">Positions/locations removed</span><span class="v" style="color:' + (sum.jobsRemoved > 0 ? '#B42318' : '#8CA0B4') + ';">' + sum.jobsRemoved + '</span></div>'
+      + '</div><div class="divider" style="margin:16px 0;"></div>';
+    if (blocked.length) {
+      side += '<div style="background:#FEF3F2;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;"><span style="font-weight:700;">'
+        + (blocked.length === 1 ? '1 issue' : blocked.length + ' issues') + '</span> must be resolved before this import can run.</div>';
+    }
+    if (confirms.length && blocked.length === 0) {
+      side += '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">' + acked.length + ' of ' + confirms.length + ' confirmation' + (confirms.length === 1 ? '' : 's') + ' acknowledged</div>';
+    }
+    side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>Run import</button>'
+      + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it. Once it runs, it cannot be paused or undone.</div>'
+      + '<div class="divider" style="margin:14px 0;"></div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">'
+      + '<a href="#" data-act="linkUpload">Replace file</a>'
+      + (isMap() && !blocked.length ? '<a href="#" data-act="linkMap">Edit column mapping</a>' : '')
+      + '<a href="#" data-act="linkSettings">Change import settings</a></div></div>';
+
+    return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
+      + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">' + alertsHtml + '</div>'
+      + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;">' + side + '</div>'
+      + '</div></div>';
+  }
+
+  function doneHTML() {
+    var dc = state.doneCounts || summary();
+    return '<div class="fadeup" style="max-width:640px;margin:24px auto;text-align:center;">'
+      + '<div style="width:52px;height:52px;border-radius:50%;background:#ECFDF3;border:1.5px solid #A6E5C3;color:#067647;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">✓</div>'
+      + '<div style="font-size:19px;font-weight:700;">Import complete</div>'
+      + '<div style="font-size:13.5px;color:#5B6B7E;margin-top:6px;">' + dc.add + ' users added, ' + dc.mod + ' updated, ' + dc.deact + ' deactivated on Ridgewood Public Schools — Staff.</div>'
+      + '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:14px 18px;margin:18px 0;font-size:13px;color:#5B6B7E;text-align:left;">A confirmation with the full change log was emailed to <span style="font-weight:600;color:#1B2B3E;">vpollock@ridgewood.k12.us</span>. You can also download it from the import history at any time.</div>'
+      + '<div style="display:flex;gap:10px;justify-content:center;">'
+      + '<button class="btn btn--ghost" data-act="restart">Start another import</button>'
+      + '<button class="btn btn--primary" data-act="goSync">View automated sync</button></div></div>';
+  }
+
+  /* Manual-import walkthrough / overview. Full card frames what a manual import
+     is (SafeLMS "pencil banner" pattern); compact strip is the persistent form. */
+  function walkthroughHTML() {
+    return '<div class="wt-card">'
+      + '<div class="wt-icon"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></div>'
+      + '<div style="flex:1;min-width:0;"><div class="wt-title">Manual import</div>'
+      + '<div class="wt-body">Upload a file to add, update, deactivate, or remove users on this site. Best for one-off changes — a new-hire batch, one building’s roster, year-end cleanup. Nothing changes until you review the exact changes and run it.</div>'
+      + '<div class="wt-link"><a href="#" data-act="goSyncTab">Uploading the same roster on a schedule? Set up Automated sync →</a></div>'
+      + '</div></div>';
+  }
+
+  /* ============= V5 — THREE BIG SCREENS: Upload → Fix → Done =============
+     Radically stripped back. Each step is one focused full-screen moment with a
+     single action and almost no words. */
+  var S5_ISS = [
+    { id: 'sso',     tier: 'blocked', icon: 'fa-right-to-bracket', title: '3 usernames should be emails',    a: 'sarah.linden',        b: 'slinden@ridgewood.k12.us', fix: 'Use emails' },
+    { id: 'dupe',    tier: 'blocked', icon: 'fa-clone',            title: '2 rows are one person, twice',     a: 'jsmith + john.smith', b: 'keep jsmith',              fix: 'Merge' },
+    { id: 'missing', tier: 'blocked', icon: 'fa-envelope',         title: '1 person is missing an email',     a: '(empty)',             b: 'mwebb@ridgewood.k12.us',   fix: 'Add email' },
+    { id: 'name',    tier: 'confirm', icon: 'fa-user-pen',         title: '1 name changed (Susan → Sue)',     a: 'Susan',               b: 'Sue',                      fix: 'Confirm' }
+  ];
+  function s5Fixed(id) { return !!state.s5Fixed[id]; }
+  function s5Open() { return S5_ISS.filter(function (x) { return !s5Fixed(x.id); }); }
+  function s5Blockers() { return s5Open().filter(function (x) { return x.tier === 'blocked'; }); }
+
+  function s5Rail(active) {
+    var steps = [['1', 'Upload'], ['2', 'Fix'], ['3', 'Done']];
+    return '<div class="s5-rail">' + steps.map(function (s, i) {
+      var n = i + 1, st = n < active ? 'done' : n === active ? 'cur' : '';
+      return '<div class="s5-step ' + st + '"><div class="s5-num">' + (n < active ? '<i class="fa-solid fa-check"></i>' : s[0]) + '</div><div class="s5-lbl">' + s[1] + '</div></div>'
+        + (i < 2 ? '<div class="s5-line ' + (n < active ? 'done' : '') + '"></div>' : '');
+    }).join('') + '</div>';
+  }
+
+  function s5Upload() {
+    return '<div class="s5-screen"><div class="s5-big">Upload your roster</div>'
+      + '<div class="s5-sub">One file. We’ll check it for you.</div>'
+      + '<div class="s5-drop" data-act="openFiles"><div class="s5-drop-ic"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+      + '<div style="font-size:16px;font-weight:600;">Drop a file, or <a href="#" data-act="openFiles">browse</a></div>'
+      + '<div style="font-size:13px;color:#8CA0B4;margin-top:5px;">.csv or .xlsx · nothing imports until you say so</div></div></div>';
+  }
+
+  function s5FixScreen() {
+    var open = s5Open(), blockers = s5Blockers().length, canRun = blockers === 0;
+    var cards = S5_ISS.map(function (x) {
+      var done = s5Fixed(x.id), accent = x.tier === 'blocked' ? '#D92D20' : '#DC8A12';
+      return '<div class="s5-fix' + (done ? ' done' : '') + '">'
+        + '<div class="s5-fix-ic" style="background:' + (done ? '#ECFDF3' : x.tier === 'blocked' ? '#FEF3F2' : '#FFFAEB') + ';color:' + (done ? '#067647' : accent) + ';"><i class="fa-solid ' + (done ? 'fa-check' : x.icon) + '"></i></div>'
+        + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;">' + esc(x.title) + '</div>'
+        + '<div class="s5-fix-ab"><span class="mono" style="color:#B42318;">' + esc(x.a) + '</span> <i class="fa-solid fa-arrow-right-long" style="color:#8CA0B4;margin:0 6px;"></i> <span class="mono" style="color:#067647;">' + esc(x.b) + '</span></div></div>'
+        + (done
+          ? '<button class="btn btn--ghost" data-act="s5Unfix" data-arg="' + x.id + '" style="color:#067647;border-color:#A6E5C3;">Fixed ✓</button>'
+          : '<button class="btn ' + (x.tier === 'blocked' ? 'btn--primary' : 'btn--outline-blue') + '" data-act="s5Fix" data-arg="' + x.id + '">' + esc(x.fix) + '</button>')
+        + '</div>';
+    }).join('');
+    return '<div class="s5-screen wide"><div class="s5-big">' + (canRun ? 'All fixed' : open.length + ' things to fix') + '</div>'
+      + '<div class="s5-sub">' + (canRun ? 'Your file is ready to import.' : 'Tap each fix — the rest of the file is fine.') + '</div>'
+      + '<div class="s5-fixlist">' + cards + '</div>'
+      + '<div style="display:flex;gap:10px;justify-content:center;margin-top:26px;">'
+      + '<button class="btn btn--ghost" data-act="s5Back">← Upload a different file</button>'
+      + '<button class="btn btn--primary" data-act="runImport"' + (canRun ? '' : ' disabled') + ' style="padding:12px 28px;background:' + (canRun ? '' : '#C6D3E1') + ';cursor:' + (canRun ? 'pointer' : 'not-allowed') + ';">' + (canRun ? 'Import now' : blockers + ' left to fix') + '</button></div>'
+      + '</div>';
+  }
+
+  function s5Done() {
+    return '<div class="s5-screen"><div class="s5-done-badge"><i class="fa-solid fa-check"></i></div>'
+      + '<div class="s5-big" style="margin-top:16px;">Imported</div>'
+      + '<div class="s5-sub">164 users added or updated on Ridgewood Public Schools — Staff. A summary was emailed to you.</div>'
+      + '<div style="margin-top:24px;"><button class="btn btn--primary" data-act="restart" style="padding:12px 28px;">Import another file</button></div></div>';
+  }
+
+  /* ===================================================================
+     ATTENTION-NEEDED STEP — V5's treatment = DYNAMIC BEFORE/AFTER EXPLORER:
+     the problem up top, a row of suggested fixes you flip through, and a live
+     side-by-side "what your file does now → after this fix" that updates with
+     each choice. Amber = you choose & fix; red = only Vector can (no choices).
+     =================================================================== */
+  var ATTN_HELP_URL = 'https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors';
+  // The fixable problem, resolved a few different ways — each a distinct before→after.
+  var ATTN_FIXES = [
+    { label: 'Keep the account that already exists', rec: true,
+      before: [['Row 34 · jsmith', 'the account already on your site'], ['Row 91 · john.smith', 'the duplicate row']],
+      after: [['jsmith', 'updated in place · keeps all training history', 'ok'], ['john.smith', 'removed — it was the duplicate', 'ok']],
+      note: 'Recommended. The account that already has training history stays; the duplicate row drops out. Nobody loses history.' },
+    { label: 'Keep the new username instead',
+      before: [['Row 34 · jsmith', 'would be removed'], ['Row 91 · john.smith', 'would become the account']],
+      after: [['john.smith', 'becomes the account going forward', 'ok'], ['jsmith’s history', 'does NOT carry over to it', 'warn']],
+      note: 'Works, but the older account’s completed training would not carry over to the new username.' },
+    { label: 'Import both rows as-is',
+      before: [['Row 34 · jsmith', 'stays'], ['Row 91 · john.smith', 'stays']],
+      after: [['Two accounts, one email', 'sign-in can’t tell them apart', 'bad'], ['This person', 'can’t log in reliably', 'bad']],
+      note: 'Not recommended. Two accounts sharing an email break sign-in — this is exactly what caused the problem.' }
+  ];
+  function attnFixExplorer() {
+    var esc2 = esc;
+    if (state.attnSev === 'escalate') {
+      // RED — no options to flip through; only Vector can resolve it.
+      var sent = state.attnSent;
+      return '<section data-screen-label="Attention · Vector’s team (red)">'
+        + '<div style="max-width:820px;">'
+        + '<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#B42318;background:#FEF3F2;border:1px solid #F1C0BB;border-radius:20px;padding:6px 13px;"><i class="fa-solid fa-headset" aria-hidden="true"></i> Our team takes it from here</div>'
+        + '<div style="font-size:24px;font-weight:700;margin-top:12px;">Two accounts on your site already share one email</div>'
+        + '<div style="font-size:15px;color:#5B6B7E;margin-top:8px;line-height:1.6;">cdelgado and c.delgado both already use cdelgado@ridgewood.k12.us. There’s nothing to choose here — your file can’t fix a duplicate that’s already on the site. Only Vector can merge two existing accounts.</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 34px 1fr;gap:0;align-items:stretch;margin-top:22px;">'
+        + '<div style="border:1px solid #F1C0BB;background:#FEF7F6;border-radius:11px;padding:16px;"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin-bottom:8px;">On your site now</div><div class="mono" style="font-size:13.5px;color:#B42318;line-height:1.8;">cdelgado — 11 completions<br>c.delgado — 0 completions</div></div>'
+        + '<div style="display:flex;align-items:center;justify-content:center;color:#8CA0B4;font-size:18px;"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+        + '<div style="border:1px solid #A6E5C3;background:#F0FBF5;border-radius:11px;padding:16px;"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin-bottom:8px;">After Vector merges</div><div class="mono" style="font-size:13.5px;color:#067647;line-height:1.8;">one account<br>all 11 completions kept</div></div>'
+        + '</div>'
+        + (sent
+            ? '<div style="margin-top:22px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:11px;padding:15px 18px;font-size:14px;color:#067647;line-height:1.55;"><b><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sent to Vector — ref CARE-5573.</b> We’ll merge the two accounts and email you when it’s done. Your import picks up right where it left off.</div>'
+            : '<div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;"><button class="btn" data-act="attnSend" style="background:#B42318;color:#fff;font-size:15px;padding:13px 26px;">Send to Vector — we’ll take it from here</button></div>')
+        + '<a href="#" data-act="s5Back" style="display:inline-block;margin-top:20px;font-size:13px;color:#5B6B7E;">← Start over with a new file</a>'
+        + '</div></section>';
+    }
+    // AMBER — flip through fixes, watch the before/after change live.
+    var sel = Math.min(state.attnFix || 0, ATTN_FIXES.length - 1), fx = ATTN_FIXES[sel];
+    var chips = ATTN_FIXES.map(function (f, i) {
+      var on = i === sel;
+      return '<button data-act="attnFix" data-arg="' + i + '" style="text-align:left;border:1.5px solid ' + (on ? '#1257B8' : '#C6D3E1') + ';background:' + (on ? '#F5F9FE' : '#fff') + ';border-radius:11px;padding:13px 15px;cursor:pointer;box-shadow:' + (on ? '0 0 0 1px #1257B8 inset' : 'none') + ';">'
+        + '<div style="font-size:13.5px;font-weight:600;color:#1B2B3E;">' + esc2(f.label) + (f.rec ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#067647;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:20px;padding:1px 7px;margin-left:4px;">Recommended</span>' : '') + '</div></button>';
+    }).join('');
+    function col(title, rows, side) {
+      var body = rows.map(function (r) {
+        var tone = r[2] === 'bad' ? '#B42318' : r[2] === 'warn' ? '#8A5A0B' : (side === 'after' ? '#067647' : '#3D4F63');
+        return '<div style="padding:11px 0;border-top:1px solid ' + (side === 'after' ? '#DCF0E5' : '#EDE1C9') + ';"><div class="mono" style="font-size:13px;font-weight:600;color:' + tone + ';">' + esc2(r[0]) + '</div>'
+          + '<div style="font-size:12.5px;color:' + tone + ';opacity:.85;margin-top:2px;line-height:1.45;">' + esc2(r[1]) + '</div></div>';
+      }).join('').replace('border-top:1px solid ' + (side === 'after' ? '#DCF0E5' : '#EDE1C9') + ';', 'border-top:0;');
+      var bg = side === 'after' ? '#F0FBF5' : '#FFFBEB', bd = side === 'after' ? '#A6E5C3' : '#F2D69B';
+      return '<div style="border:1px solid ' + bd + ';background:' + bg + ';border-radius:12px;padding:15px 17px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin-bottom:2px;">' + title + '</div>' + body + '</div>';
+    }
+    return '<section data-screen-label="Attention · fix explorer (amber)">'
+      + '<div style="max-width:900px;">'
+      + '<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:20px;padding:6px 13px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> One thing to fix first</div>'
+      + '<div style="font-size:24px;font-weight:700;margin-top:12px;">Two rows look like the same person, entered twice</div>'
+      + '<div style="font-size:15px;color:#5B6B7E;margin-top:8px;line-height:1.6;">Rows 34 and 91 use two different usernames but the same email. Pick how you want to resolve it — the preview shows exactly what your import will do.</div>'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8CA0B4;margin:22px 0 9px;">Suggested fixes — pick one to preview</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' + chips + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:0;align-items:stretch;margin-top:20px;">'
+      + col('Your file now', fx.before.map(function (r) { return [r[0], r[1], 'plain']; }), 'before')
+      + '<div style="display:flex;align-items:center;justify-content:center;color:#8CA0B4;font-size:18px;"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
+      + col('After this fix', fx.after, 'after')
+      + '</div>'
+      + '<div style="margin-top:14px;background:#F5F9FE;border:1px solid #C6D9F0;border-radius:10px;padding:12px 15px;font-size:13px;color:#1B2B3E;line-height:1.55;"><i class="fa-solid fa-circle-info" aria-hidden="true" style="color:#1257B8;margin-right:6px;"></i>' + esc2(fx.note) + '</div>'
+      + '<div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">'
+      + '<button class="btn" data-act="replaceFile" style="background:#B54708;color:#fff;font-size:15px;padding:13px 26px;">Fix it & upload again</button>'
+      + '<a class="btn btn--ghost" href="' + ATTN_HELP_URL + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none;font-size:14px;">See upload-error help ↗</a>'
+      + '<a href="#" data-act="s5Back" style="font-size:13px;color:#5B6B7E;margin-left:auto;">← Start over</a>'
+      + '</div></div></section>';
+  }
+
+  function importTab() {
+    if (state.step === 'attn') return attnFixExplorer();
+    var active = state.step === 'done' ? 3 : state.step === 's2' ? 2 : 1;
+    var body = state.step === 'done' ? s5Done() : state.step === 's2' ? s5FixScreen() : s5Upload();
+    return '<section data-screen-label="Three big screens — ' + ['', 'Upload', 'Fix', 'Done'][active] + '">'
+      + s5Rail(active) + body + '</section>';
+  }
+
+  /* One compact strip that NAMES the current sync state, shown above any detail so
+     the customer always knows which state they’re looking at. */
+  function syncStatus(bg, col, ico, title, sub) {
+    return '<div class="sync-status">'
+      + '<div class="ss-badge" style="background:' + bg + ';color:' + col + ';"><i class="fa-solid ' + ico + '" aria-hidden="true"></i></div>'
+      + '<div class="ss-main"><div class="ss-eyebrow">Automated sync</div>'
+      + '<div class="ss-title">' + title + '</div>'
+      + '<div class="ss-sub">' + sub + '</div></div></div>';
+  }
+  function syncStatusHeader() {
+    var st = stage();
+    if (st === 'qualifying') {
+      var toGo = SYNC_GATE - SYNC_DONE;
+      return syncStatus('#EEF2F7', '#5B6B7E', 'fa-lock', 'Not available yet',
+        toGo + ' clean import' + (toGo === 1 ? '' : 's') + ' to go before this turns on.');
+    }
+    if (st === 'active-healthy') {
+      return syncStatus('#ECFDF3', '#067647', 'fa-circle-check', 'Up to date',
+        'Last import today 6:42 AM · next check within 30 minutes. Nothing needs you.');
+    }
+    if (st === 'active-failed' && state.blessed) {
+      return syncStatus('#ECFDF3', '#067647', 'fa-circle-check', 'Up to date',
+        'You applied the waiting changes just now — your roster is current.');
+    }
+    return '';   // active-failed (unresolved) leads with the failure card itself
+  }
+
+  /* Compact sync status banner shown on the manual-import landing. It is the only
+     automated-sync presence on the main page — one line: all-clean, needs-
+     attention, or (earn-it) progress toward unlocking. Click opens the deeper page. */
+  function syncBanner() {
+    var st = stage(), tone, icon, text, cta = 'View';
+    if (st === 'qualifying') {
+      var toGo = SYNC_GATE - SYNC_DONE;
+      tone = 'neutral'; icon = 'fa-lock';
+      text = 'Automated sync unlocks after ' + toGo + ' more clean import' + (toGo === 1 ? '' : 's') + ' — you’re ' + SYNC_DONE + ' of ' + SYNC_GATE + '.';
+      cta = 'View progress';
+    } else if (st === 'active-failed' && !state.blessed) {
+      tone = 'warn'; icon = 'fa-triangle-exclamation';
+      text = 'Automated sync needs attention — 1 file stopped this morning.';
+      cta = 'Review';
+    } else {
+      tone = 'ok'; icon = 'fa-circle-check';
+      text = 'Automated sync — everything’s clean. Last import today 6:42 AM.';
+    }
+    var c = tone === 'ok' ? { bg: '#ECFDF3', bd: '#A6E5C3', fg: '#067647' }
+      : tone === 'warn' ? { bg: '#FFFAEB', bd: '#F2D69B', fg: '#8A5A0B' }
+      : { bg: '#EEF2F7', bd: '#DCE3EC', fg: '#5B6B7E' };
+    return '<div class="sync-banner" data-act="openSync" style="background:' + c.bg + ';border:1px solid ' + c.bd + ';">'
+      + '<span class="sb-ico" style="color:' + c.fg + ';"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>'
+      + '<span class="sb-text" style="color:' + c.fg + ';">' + text + '</span>'
+      + '<span class="sb-cta" style="color:' + c.fg + ';">' + cta + ' <i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:10px;"></i></span>'
+      + '</div>';
+  }
+
+  /* Progressive-disclosure row — summary always visible, detail on demand. */
+  function disc(id, ico, title, sub, detailHTML) {
+    var open = !!state.disc[id];
+    return '<div class="disc' + (open ? ' is-open' : '') + '">'
+      + '<div class="disc-sum" data-act="toggleDisc" data-arg="' + id + '">'
+      + '<div class="disc-ico"><i class="fa-solid ' + ico + '" aria-hidden="true"></i></div>'
+      + '<div class="disc-tt"><div class="dt">' + title + '</div>'
+      + (sub ? '<div class="ds">' + sub + '</div>' : '') + '</div>'
+      + '<div class="disc-chev"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></div></div>'
+      + (open ? '<div class="disc-body"><div class="disc-body-inner">' + detailHTML + '</div></div>' : '')
+      + '</div>';
+  }
+
+  /* The sync decision, summary-first: a clear tier chip + headline + one-line
+     summary + the primary actions stay visible; the fuller explanation and the
+     row-level data collapse behind a single expander — less to read on first
+     entry, nothing lost. Chip carries severity by shape (WCAG 1.4.1). */
+  function syncFailureCard() {
+    var sc = SYNC_FAILS[syncScenario()] || SYNC_FAILS.confirm;
+    var t = TIER[sc.tier];
+    var lines = sc.lines.map(function (l) {
+      return '<div class="alert-line"><b>' + esc(l[0]) + ' — </b>' + esc(l[1]) + '</div>';
+    }).join('');
+    var box = sc.rows
+      ? '<div style="background:#F8FAFC;border:1px solid #EDF1F6;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;">'
+        + sc.rows.map(function (r) { return '<div class="mono" style="font-size:12.5px;color:#3D4F63;">' + esc(r) + '</div>'; }).join('')
+        + '</div>'
+      : '';
+    var diff = sc.diff ? beforeAfter(sc.diff, sc.diffLabel, sc.more) : '';
+    var foot = sc.foot ? '<div style="font-size:12.5px;color:#8CA0B4;">' + esc(sc.foot) + '</div>' : '';
+    var detail = '<div style="display:flex;flex-direction:column;gap:10px;">' + lines + box + diff + foot + '</div>';
+    var btns = sc.buttons.map(function (b) {
+      return '<button class="btn sm ' + b.cls + '" data-act="' + b.act + '">' + esc(b.label) + '</button>';
+    }).join('');
+    return '<div class="card" style="border-color:' + t.border + ';overflow:hidden;">'
+      + '<div style="background:' + t.headBg + ';padding:14px 18px;display:flex;gap:12px;align-items:flex-start;">'
+      + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
+      + '<div><div style="font-size:14.5px;font-weight:600;color:' + t.titleColor + ';">' + esc(sc.title) + '</div>'
+      + '<div style="font-size:12.5px;color:' + t.titleColor + ';opacity:.75;margin-top:3px;">' + esc(sc.meta) + '</div></div></div>'
+      + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
+      + '<div style="font-size:13.5px;color:#3D4F63;line-height:1.6;">' + esc(sc.summary) + '</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns + '</div>'
+      + disc('syncfail-detail', 'fa-list-ul', sc.detailLabel || 'See the details', 'What happened, and the exact rows affected', detail)
+      + '</div></div>';
+  }
+
+  /* Locked automated sync (stage 'qualifying'). The progress tracker is the hero;
+     the how-it-works explanation and the run history collapse behind expanders so
+     first entry is light. Returns the inner column only — syncTab() adds the
+     state-naming header above it. */
+  function lockedBody() {
+    var toGo = SYNC_GATE - SYNC_DONE;
+    var segs = '';
+    for (var i = 0; i < SYNC_GATE; i++) {
+      segs += '<div style="flex:1;height:9px;border-radius:5px;background:' + (i < SYNC_DONE ? '#12B76A' : '#E1E7EE') + ';"></div>';
+    }
+    var runs = [
+      { mark: '✓', bg: '#12B76A', label: 'Clean import — 2 added, 14 updated', sub: 'Streak 3 of ' + SYNC_GATE + ' · one more unlocks automation', date: 'Aug 28' },
+      { mark: '✓', bg: '#12B76A', label: 'Clean import — 0 added, 9 updated',  sub: 'Streak 2 of ' + SYNC_GATE, date: 'Aug 21' },
+      { mark: '✓', bg: '#12B76A', label: 'Clean import — 1 added, 6 updated',  sub: 'Streak 1 of ' + SYNC_GATE, date: 'Aug 14' },
+      { mark: '✕', bg: '#D92D20', label: 'Import had errors — file arrived as .xlsx instead of .csv', sub: 'Streak reset — any error starts the count over', date: 'Aug 5' }
+    ];
+    var runsHtml = runs.map(function (q) {
+      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-top:1px solid #F3F6FA;">'
+        + '<div style="width:20px;height:20px;border-radius:50%;background:' + q.bg + ';color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 20px;margin-top:1px;">' + q.mark + '</div>'
+        + '<div style="flex:1;"><div style="font-size:12.5px;color:#1B2B3E;">' + esc(q.label) + '</div>'
+        + '<div style="font-size:11.5px;color:#8CA0B4;margin-top:1px;">' + esc(q.sub) + '</div></div>'
+        + '<div style="color:#8CA0B4;font-size:12px;white-space:nowrap;">' + q.date + '</div></div>';
+    }).join('');
+    // First run row already carries the top border from the shared style; trim it.
+    runsHtml = runsHtml.replace('border-top:1px solid #F3F6FA;', 'border-top:0;');
+
+    var howDetail = 'Automated sync drops your roster file on your SFTP folder and SafeLMS imports it for you — no manual upload. '
+      + 'Keep the format, columns, and file-name pattern identical each time; an import with any error resets the streak to zero.';
+
+    var progress = '<div class="card" style="padding:20px 22px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
+      + '<div style="font-size:14px;font-weight:700;">' + SYNC_DONE + ' of ' + SYNC_GATE + ' clean imports</div>'
+      + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:5px 11px;white-space:nowrap;">' + toGo + ' to go</div></div>'
+      + '<div style="display:flex;gap:6px;">' + segs + '</div>'
+      + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:12px;line-height:1.55;">Automated sync imports your roster for you once you’ve had <b>' + SYNC_GATE + ' clean manual imports in a row</b> — ' + toGo + ' more to go.</div>'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;">'
+      + '<button class="btn btn--primary" data-act="goImport">Run a manual import →</button>'
+      + '<span style="font-size:12px;color:#8CA0B4;">Unlocks after your ' + ordinal(SYNC_GATE) + ' clean import</span>'
+      + '</div></div>';
+
+    return progress
+      + disc('locked-how', 'fa-circle-info', 'How automated sync works', 'Imports from SFTP · turns on after ' + SYNC_GATE + ' clean imports', howDetail)
+      + disc('locked-runs', 'fa-clock-rotate-left', 'Your recent imports', 'Last checked Aug 19', runsHtml);
+  }
+
+  /* Automated sync — single, calm column. It leads with the state-naming header
+     (or the failure card when a decision is waiting); the recent activity, the
+     how-it-works, and the notification settings all collapse into expanders, so
+     first entry is light while every explanation stays one click away. */
+  function syncTab() {
+    var st = stage();
+    var qualifying = st === 'qualifying';
+    var failed = st === 'active-failed';
+    var showFailure = failed && !state.blessed;
+    var showResolved = failed && state.blessed;
+    var healthy = st === 'active-healthy';
+
+    var col = '';
+    if (qualifying) {
+      col = lockedBody();
+    } else {
+      if (showFailure) col += syncFailureCard();
+
+      // Recent activity — collapsed; the summary line carries the latest event.
+      var activity = (showResolved || healthy) ? [
+        { label: 'ridgewood_staff_20260901.csv — imported' + (showResolved ? ' after your confirmation (2 added, 41 updated, 8 names)' : ''), when: showResolved ? 'Today, just now' : 'Today, 6:42 AM', dot: '#12B76A' },
+        { label: 'ridgewood_staff_20260831.csv — imported (0 added, 6 updated)', when: 'Aug 31, 6:38 AM', dot: '#12B76A' },
+        { label: 'ridgewood_staff_20260830.csv — imported (1 added, 3 updated)', when: 'Aug 30, 6:45 AM', dot: '#12B76A' },
+        { label: 'ridgewood_staff_20260829.csv — imported (0 added, 11 updated)', when: 'Aug 29, 6:33 AM', dot: '#12B76A' }
+      ] : [
+        { label: 'ridgewood_staff_20260901.csv — stopped, waiting for your review', when: 'Today, 7:04 AM', dot: '#D92D20' },
+        { label: 'ridgewood_staff_20260831.csv — imported (0 added, 6 updated)', when: 'Aug 31, 6:38 AM', dot: '#12B76A' },
+        { label: 'ridgewood_staff_20260830.csv — imported (1 added, 3 updated)', when: 'Aug 30, 6:45 AM', dot: '#12B76A' },
+        { label: 'ridgewood_staff_20260829.csv — imported (0 added, 11 updated)', when: 'Aug 29, 6:33 AM', dot: '#12B76A' }
+      ];
+      var actRows = activity.map(function (ev, i) {
+        return '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;' + (i ? 'border-top:1px solid #F3F6FA;' : '') + '">'
+          + '<div style="width:9px;height:9px;border-radius:50%;background:' + ev.dot + ';flex:0 0 9px;"></div>'
+          + '<div style="flex:1;font-size:12.5px;">' + esc(ev.label) + '</div>'
+          + '<div style="font-size:12px;color:#8CA0B4;white-space:nowrap;">' + ev.when + '</div></div>';
+      }).join('');
+      col += disc('sync-activity', 'fa-clock-rotate-left', 'Recent sync activity',
+        (showFailure ? '1 file waiting · last clean import Aug 31' : 'Last import ' + activity[0].when.toLowerCase()), actRows);
+
+      // How your sync works — collapsed.
+      var howDetail = 'SafeLMS checks your SFTP folder every 30 minutes for a file matching '
+        + '<span class="mono" style="font-size:12px;background:#F0F4F9;padding:1px 5px;border-radius:4px;">ridgewood_staff_*.csv</span>. '
+        + 'Keep the format, columns, and file-name pattern the same — changing any of them will stop the sync.';
+      col += disc('sync-how', 'fa-circle-info', 'How your sync works', 'Checks SFTP every 30 min for ridgewood_staff_*.csv', howDetail);
+
+      // Notifications — collapsed; the recipient editor + toggles live inside.
+      var recips = state.recipients.map(function (r, i) {
+        var initials = r.name.split(' ').map(function (w) { return w[0]; }).join('');
+        return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #EDF1F6;border-radius:8px;padding:8px 10px;">'
+          + '<div style="width:28px;height:28px;border-radius:50%;background:#DCE7F2;color:#0E2A43;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 28px;">' + esc(initials) + '</div>'
+          + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">' + esc(r.name) + '</div>'
+          + '<div style="font-size:11.5px;color:#8CA0B4;">' + esc(r.role) + '</div></div>'
+          + '<div data-act="removeRecip" data-arg="' + i + '" style="font-size:15px;color:#8CA0B4;cursor:pointer;padding:0 2px;">×</div></div>';
+      }).join('');
+      var notifDetail = '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:10px;line-height:1.5;">When a sync fails or needs confirmation, these people are emailed directly — not just whoever logs in next. They don’t need permission to run imports; the person who should know a sync broke often isn’t the one who runs it.</div>'
+        + '<div style="display:flex;flex-direction:column;gap:8px;">' + recips + '</div>'
+        + '<div style="display:flex;gap:8px;margin-top:10px;">'
+        + '<input id="recipInput" placeholder="Add by email…" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #C6D3E1;border-radius:7px;font-size:12.5px;">'
+        + '<button class="btn sm btn--outline-blue" data-act="addRecip" style="padding:7px 12px;font-size:12.5px;">Add</button></div>'
+        + '<div class="divider" style="margin:14px 0;"></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:13px;color:#3D4F63;">Email when a sync needs attention</span>'
+        + '<div class="toggle" data-act="toggleFail" style="background:' + (state.notifyFail ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifyFail ? '17px' : '2px') + ';"></div></div></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#3D4F63;">Email a summary after each successful sync</span>'
+        + '<div class="toggle" data-act="toggleSuccess" style="background:' + (state.notifySuccess ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifySuccess ? '17px' : '2px') + ';"></div></div></div>';
+      col += disc('sync-notif', 'fa-bell', 'Notifications',
+        state.recipients.length + ' ' + (state.recipients.length === 1 ? 'person' : 'people') + ' emailed when a sync needs attention', notifDetail);
+    }
+
+    var label = qualifying ? 'Automated sync — not available yet' : 'Automated sync';
+    return '<section data-screen-label="' + label + '">'
+      + '<div style="display:flex;flex-direction:column;gap:12px;">'
+      + syncStatusHeader() + col + '</div></section>';
+  }
+
+  function render() {
+    // V5 PLACEMENT — automated sync is a full-width band STACKED below the manual
+    // import on one page (edge-to-edge). There is no separate sync page; the
+    // flow-map sync states and the preview link just scroll down to the band.
+    var band = '<div class="sync-band">'
+      + '<div class="content" style="padding-top:28px;">'
+      + '<div id="autosync" class="stack-head" style="margin:0 0 18px;">'
+      + '<div class="stack-title">Automated sync</div>'
+      + '<div class="stack-sub">Import your roster on a schedule from SFTP — no manual upload. It lives right here, under manual import.</div></div>'
+      + syncTab() + '</div></div>';
+    var main = '<div class="content">' + importTab() + '</div>' + band;
+
+    $app.innerHTML = variantsPanel()
+      + '<div class="app">' + sidebar()
+      + '<div class="main">' + topbar() + settingsTabsBar() + '<div class="scroll">' + main + '</div></div></div>'
+      + (state.fileModal ? fileModalHTML() : '');
+  }
+
+  /* -------------------------------------------------------------- interaction */
+  function scrollTop() {
+    var s = $app.querySelector('.scroll');
+    if (s) s.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+
+  // Version B has no sync tab — "go to sync" scrolls to the stacked section instead.
+  function scrollToSync(where) {
+    var s = $app.querySelector('.scroll');
+    if (!s) return;
+    if (where === 'autosync') {
+      var el = document.getElementById('autosync');
+      if (el) { s.scrollTop = Math.max(0, el.offsetTop - 12); return; }
+    }
+    s.scrollTop = 0;
+  }
+
+  $app.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]');
+    if (!el) return;
+    var act = el.getAttribute('data-act');
+    var arg = el.getAttribute('data-arg');
+
+    switch (act) {
+      case 'noop': e.preventDefault(); break;
+      case 'goImport': case 'backToImport':
+        e.preventDefault(); scrollTop(); break;
+      case 'goSyncTab': case 'goSync': case 'openSync': {
+        // V5: no separate page — scroll down to the stacked band.
+        e.preventDefault();
+        var syncEl = document.getElementById('autosync');
+        if (syncEl) syncEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        break;
+      }
+      case 'pickFile': pickFile(arg); scrollTop(); break;
+      case 'openFiles': e.preventDefault(); setState({ fileModal: true }); break;
+      case 'closeFiles': setState({ fileModal: false }); break;
+      case 'back': go(flow()[Math.max(0, flow().indexOf(state.step) - 1)]); scrollTop(); break;
+      case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
+      case 's5Fix': { e.preventDefault(); var f = {}; for (var q in state.s5Fixed) f[q] = state.s5Fixed[q]; f[arg] = true; setState({ s5Fixed: f }); break; }
+      case 's5Unfix': { e.preventDefault(); var u = {}; for (var w in state.s5Fixed) u[w] = state.s5Fixed[w]; delete u[arg]; setState({ s5Fixed: u }); break; }
+      case 's5Back': e.preventDefault(); setState({ fileId: null, step: 'upload', s5Fixed: {} }); scrollTop(); break;
+      case 'attnFix': e.preventDefault(); setState({ attnFix: +arg }); break;
+      case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
+      case 'togglePurgeUsers': setState({ purgeUsers: !state.purgeUsers }); break;
+      case 'togglePurgeJobs': setState({ purgeJobs: !state.purgeJobs }); break;
+      case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
+      case 'fixMapping': go('map'); scrollTop(); break;
+      case 'replaceFile': setState({ fileId: null, step: 'upload' }); scrollTop(); break;
+      case 'changeSettings': go('settings'); scrollTop(); break;
+      case 'runImport': setState({ doneCounts: summary(), step: 'done' }); scrollTop(); break;
+      case 'restart': setState({ fileId: null, step: 'upload', acks: {}, s5Fixed: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
+      case 'bless': setState({ blessed: true }); break;
+      case 'linkUpload': e.preventDefault(); setState({ fileId: null, step: 'upload' }); scrollTop(); break;
+      case 'linkMap': e.preventDefault(); go('map'); scrollTop(); break;
+      case 'linkSettings': e.preventDefault(); go('settings'); scrollTop(); break;
+      case 'removeRecip': setState({ recipients: state.recipients.filter(function (_, j) { return j !== +arg; }) }); break;
+      case 'addRecip': {
+        var inp = document.getElementById('recipInput');
+        var v = inp && inp.value.trim();
+        if (v) setState({ recipients: state.recipients.concat([{ name: v.split('@')[0], role: v }]) });
+        break;
+      }
+      case 'toggleFail': setState({ notifyFail: !state.notifyFail }); break;
+      case 'toggleSuccess': setState({ notifySuccess: !state.notifySuccess }); break;
+      case 'toggleHelp': e.preventDefault(); setState({ openHelp: state.openHelp === arg ? null : arg }); break;
+      case 'closeHelp': e.preventDefault(); setState({ openHelp: null }); break;
+      case 'toggleDisc': {
+        var d = {}; for (var dk in state.disc) d[dk] = state.disc[dk];
+        d[arg] = !d[arg]; setState({ disc: d });
+        break;
+      }
+      case 'toggleVariants': setState({ variantsCollapsed: !state.variantsCollapsed }); break;
+      case 'setSync': {
+        e.preventDefault();
+        var sv = {}; for (var sk in state.variants) sv[sk] = state.variants[sk];
+        var m = { off: 'qualifying', running: 'active-healthy', alert: 'active-failed' };
+        sv.automationStage = m[arg] || 'qualifying';
+        setState({ variants: sv, blessed: false });
+        break;
+      }
+      case 'setVariant': {
+        var parts = arg.split(':'), key = parts[0], val = parts[1];
+        var vs = {}; for (var k in state.variants) vs[k] = state.variants[k]; vs[key] = val;
+        var patch = { variants: vs };
+        if (key === 'startTab') patch.tab = val;
+        if (key === 'uploadVariant') { patch.fileId = null; patch.step = 'upload'; patch.acks = {}; }
+        if (key === 'automationStage' || key === 'syncScenario') patch.blessed = false;
+        setState(patch);
+        break;
+      }
+    }
+  });
+
+  $app.addEventListener('change', function (e) {
+    var el = e.target.closest('[data-act]');
+    if (!el) return;
+    var act = el.getAttribute('data-act');
+    if (act === 'mapChange') {
+      var m = {}; for (var k in state.mapping) m[k] = state.mapping[k];
+      m[el.getAttribute('data-arg')] = el.value;
+      setState({ mapping: m });
+    } else if (act === 'ack') {
+      var id = el.getAttribute('data-arg');
+      var a = {}; for (var kk in state.acks) a[kk] = state.acks[kk];
+      var key = ackKey(id); a[key] = !a[key];
+      setState({ acks: a });
+    }
+  });
+
+  /* --------------------------------------------- Design Toolbox flow-map host */
+  function setSyncState(stg, scn) {
+    var v = {}; for (var k in state.variants) v[k] = state.variants[k];
+    v.automationStage = stg;
+    if (scn) v.syncScenario = scn;
+    // V5: sync lives in the stacked band on the same page — keep view 'import'
+    // and scroll to the band so the applied state is visible.
+    setState({ tab: 'sync', view: 'import', blessed: false, variants: v });
+    var el = document.getElementById('autosync');
+    if (el) el.scrollIntoView({ block: 'start' });
+  }
+
+  function reviewFor(fileId, pu, pj) {
+    setState({ tab: 'import', view: 'import', fileId: fileId, mapping: defaultMapping(fileId),
+      purgeUsers: !!pu, purgeJobs: !!pj, repSent: false, acks: {}, step: 'review', validating: false });
+  }
+
+  function applyFlowState(id) {
+    switch (id) {
+      case 'upload': setState({ tab: 'import', view: 'import', step: 'upload', fileId: null, s5Fixed: {}, validating: false }); break;
+      /* Three big screens: Fix is step 2; any legacy import node lands there. */
+      case 'fix':
+      case 'map': case 'settings':
+      case 'review-info': case 'review-confirm': case 'review-blocked': case 'review-saml': case 'review-escalate':
+        setState({ tab: 'import', view: 'import', fileId: 'dupes', mapping: defaultMapping('dupes'), step: 's2',
+          s5Fixed: {}, purgeUsers: false, purgeJobs: false, acks: {}, validating: false });
+        break;
+      case 'done': setState({ tab: 'import', view: 'import', fileId: 'dupes', doneCounts: summaryFor('dupes', false, false), step: 'done', validating: false }); break;
+      /* Attention-needed step (V5 treatment = dynamic before/after explorer) */
+      case 'attn-fixable':  setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'fixable', attnFix: 0, attnSent: false }); break;   // AMBER
+      case 'attn-escalate': setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'escalate', attnSent: false }); break;             // RED
+      /* Automated sync — one node per severity path */
+      case 'sync-locked':   setSyncState('qualifying', null); break;          // NOT AVAILABLE — qualifying ("N to go")
+      case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
+      case 'sync-failed':   setSyncState('active-failed', 'confirm'); break;  // CONFIRM — approve changes
+      case 'sync-blocked':  setSyncState('active-failed', 'blocked'); break;  // BLOCKED — fix at source
+      case 'sync-escalate': setSyncState('active-failed', 'escalate'); break; // CONTACT VECTOR
+      default: break;
+    }
+    // Sync states already scrolled to the stacked band; don't yank back to top.
+    if (String(id).indexOf('sync-') !== 0) scrollTop();
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1])); } catch (e) {} }
+  }
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Self-Serve Bulk User Import — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1680, h: 1300 },
+      flows: [
+        { id: 'import', name: 'Manual import — severity paths', pill: 'A', color: '#c9d9f0',
+          lane: { x: 20, y: 20, w: 1640, h: 790 }, labelXY: { x: 40, y: 46 } },
+        { id: 'sync', name: 'Automated sync — severity paths', pill: 'B', color: '#c9b8f0',
+          lane: { x: 20, y: 850, w: 1640, h: 420 }, labelXY: { x: 40, y: 876 } }
+      ],
+      nodes: [
+        /* ── Manual import: wizard on the left, then one branch per severity ──
+           Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
+        { id: 'upload', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Upload file', state: 'upload',
+          desc: 'Drag a file or pick a sample. Nothing imports until reviewed. The Template variant instead asks you to download the SafeLMS template first.' },
+        { id: 'fix', flow: 'import', x: 470, y: 250, step: 'Fix (2 of 3)', name: 'Fix screen', state: 'fix',
+          desc: 'Reimagined V5: three big full-screen steps (Upload → Fix → Done), each one focused moment with almost no words. The Fix screen lists a few big issue rows, each with an A→B and one button; Import unlocks when the blockers are done.' },
+        { id: 'done', flow: 'import', x: 950, y: 250, step: 'Done (3 of 3)', name: 'Imported', state: 'done',
+          desc: 'The final big screen — a single check and one line. Irreversible once run.' },
+        { id: 'attn-fixable', flow: 'import', x: 470, y: 430, step: 'Attention · amber', name: 'Fix explorer — you fix it', state: 'attn-fixable',
+          desc: 'V5 attention treatment = DYNAMIC BEFORE/AFTER EXPLORER, AMBER: pick among suggested fixes and a live side-by-side “your file now → after this fix” updates with each choice (with a note flagging the recommended / risky options).' },
+        { id: 'attn-escalate', flow: 'import', x: 810, y: 430, step: 'Attention · red', name: 'Fix explorer — Vector’s team', state: 'attn-escalate',
+          desc: 'RED variant: there’s nothing to choose — only Vector can merge two accounts that already share an email. Shows the before→after of Vector’s merge and “Send to Vector.”' },
+
+        /* ── Automated sync: locked (qualifying) → healthy → the three tiers ── */
+        { id: 'sync-locked', flow: 'sync', entry: true, x: 40, y: 900, step: 'Not available', name: 'Locked — qualifying', state: 'sync-locked',
+          desc: 'Automated sync is locked until 4 clean manual imports in a row. Shows the "N to go" tracker and why the tab is unavailable. (Gate = 4 per the PRD.)' },
+        { id: 'sync-healthy', flow: 'sync', x: 360, y: 900, step: 'Info', name: 'Info — up to date', state: 'sync-healthy',
+          desc: 'The clean path: the last sync applied its changes, nothing is waiting, next check within 30 min.' },
+        { id: 'sync-failed', flow: 'sync', x: 680, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',
+          desc: 'Sync stopped on CONFIRM-tier changes (name changes). Same row-level view; the customer approves and applies in place — no case.' },
+        { id: 'sync-blocked', flow: 'sync', x: 1000, y: 900, step: 'Blocked', name: 'Blocked — fix at source', state: 'sync-blocked',
+          desc: 'Sync stopped on a BLOCKED change (username format drift would rewrite most accounts). Can’t self-apply — fix the export or use the manual uploader.' },
+        { id: 'sync-escalate', flow: 'sync', x: 1320, y: 900, step: 'Contact Vector', name: 'Contact Vector — email collision', state: 'sync-escalate',
+          desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
+      ],
+      edges: [
+        ['upload', 'fix'], ['fix', 'done'], ['upload', 'attn-fixable'], ['upload', 'attn-escalate'],
+        ['sync-locked', 'sync-healthy'],
+        ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
+      ]
+    }
+  };
+
+  render();
+  bootFromHash();
+})();
+</script>
+
+<!-- Design Toolbox: pin-and-comment review widget + flow map. -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

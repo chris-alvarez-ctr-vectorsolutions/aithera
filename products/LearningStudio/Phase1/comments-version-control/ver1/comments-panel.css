@@ -1,0 +1,483 @@
+/* ============================================================
+   COMMENTS PANEL — shared styles
+
+   Linked by BOTH course-overview.html and object-manager.html so the panel
+   looks identical wherever it opens. Only the inside of the drawer's slots
+   is styled here; the panel chrome (slide animation, backdrop, focus trap)
+   comes from `vwc-drawer` itself.
+
+   Depends on the design tokens both pages define (--ink, --border,
+   --font-size-*, --lumo-*), which they each declare in their own :root.
+   ============================================================ */
+
+/* Panel width. The drawer exposes its own custom properties for this, so
+   the host element is sized through them rather than a raw `width`, which
+   would not reach the inner panel. */
+#commentsDrawer {
+  --vwc-drawer-width: 420px;
+  --vwc-drawer-max-width: 420px;
+}
+
+/* ---- Header ---- */
+.cm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 4px 2px;
+}
+.cm-title {
+  margin: 0;
+  font-size: 25px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+  letter-spacing: -.2px;
+}
+.cm-close {
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border: none; border-radius: 6px;
+  background: none; color: var(--ink);
+  font-size: 20px; cursor: pointer;
+}
+.cm-close:hover { background: var(--lumo-contrast-5pct); }
+
+/* ---- Body + composer share the drawer-content slot ----
+   Both are slotted into `drawer-content`, so the drawer's own slot wrapper is
+   the flex parent. Making that wrapper a column and letting the body FLEX
+   (rather than height:100%) is what keeps the composer on screen: at
+   height:100% the body claimed the full slot and pushed the composer below
+   the panel's bottom edge, where it was clipped away entirely. */
+/* The slot wrapper is `display: block` by default, which stacks the body and
+   composer at their natural heights and leaves the composer floating in the
+   middle of a tall panel. Making it a full-height flex column lets the body
+   absorb the slack so the composer sits on the panel floor, as in the
+   reference. */
+#commentsDrawer::part(drawer-container) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;         /* share the slot with the composer */
+  min-height: 0;          /* lets the thread actually shrink and scroll */
+  padding: 4px 2px 0;
+}
+
+/* Thread meta row */
+.cm-thread-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 14px;
+}
+.cm-count { font-size: var(--font-size-l); color: var(--ink); }
+.cm-age { color: var(--ink-mute); font-weight: 400; margin-left: 4px; }
+.cm-resolve {
+  border: none; background: none; padding: 0;
+  font: inherit; font-size: var(--font-size-l);
+  color: var(--brand-2); cursor: pointer;
+}
+.cm-resolve:hover { text-decoration: underline; }
+
+/* ---- Thread ---- */
+.cm-thread { overflow-y: auto; min-height: 0; }
+
+.cm-item + .cm-item { margin-top: 18px; }
+.cm-item-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+}
+/* No avatar component exists in this library version, so the initials
+   bubble is hand-rolled. Initials are derived from the author name in JS
+   rather than hard-coded, so a new commenter needs no markup change. */
+.cm-avatar {
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: #7c4ddb; color: #fff;
+  font-size: 12px; font-weight: var(--font-weight-semibold);
+  letter-spacing: .3px;
+}
+.cm-author { font-weight: var(--font-weight-semibold); color: var(--ink); }
+.cm-time { color: var(--ink-mute); font-size: var(--font-size-m); }
+.cm-item-actions { margin-left: auto; display: flex; gap: 4px; }
+.cm-icon {
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border: none; border-radius: 6px;
+  background: none; color: var(--ink); font-size: 15px; cursor: pointer;
+}
+.cm-icon:hover { background: var(--lumo-contrast-5pct); }
+.cm-text {
+  color: var(--ink);
+  font-size: var(--font-size-l);
+  line-height: 1.5;
+  white-space: pre-wrap;      /* keep the author's line breaks */
+  overflow-wrap: anywhere;    /* a pasted URL can't widen the panel */
+}
+
+/* ---- Reply + composer ---- */
+.cm-reply { padding: 16px 0 4px; }
+.cm-reply-actions,
+.cm-composer-actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 10px; margin-top: 10px;
+}
+.cm-composer-actions { justify-content: space-between; }
+.cm-composer-tools { display: flex; gap: 4px; }
+.cm-tool {
+  display: grid; place-items: center;
+  width: 32px; height: 32px;
+  border: none; border-radius: 6px;
+  background: none; color: var(--ink); font-size: 16px; cursor: pointer;
+}
+.cm-tool:hover { background: var(--lumo-contrast-5pct); }
+
+/* The composer is pinned to the panel foot and separated by a rule.
+   `flex: 0 0 auto` so it keeps its natural height and never shrinks away
+   when the thread grows. */
+.cm-composer {
+  flex: 0 0 auto;
+  padding: 14px 2px 4px;
+  border-top: 1px solid var(--border);
+  background: var(--lumo-base-color);
+  /* The thread list scrolls BEHIND this pinned composer. Without its own
+     stacking context a thread header scrolled underneath stays a live click
+     target sharing space with the composer's buttons — overlapping targets
+     under WCAG 2.5.8. Raising the composer puts it cleanly on top, and its
+     opaque background already hides what passes below. */
+  position: relative;
+  z-index: 1;
+}
+
+/* Both inputs fill the panel width. */
+#cmInput, #cmReplyInput { width: 100%; }
+
+
+/* ---- Scope breadcrumb ----
+   Two levels only: Course / <this learning object>. Phase 2 has a third
+   (Scene) level; that is deliberately out of scope here.
+
+   Traditional breadcrumb idiom rather than a row of chips: earlier crumbs are
+   underlined links, the current scope is plain unlinked text, and a slash
+   separates them. Text only — the graduation-cap and cube icons were
+   decoration beside labels that already name the scope. */
+.cm-scope {
+  display: flex; align-items: center;
+  gap: 2px;
+  padding: 0 0 8px;
+  font-size: var(--font-size-s);
+  flex-wrap: wrap;
+}
+.cm-scope-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: none;
+  /* Vertical padding gets the target to the 24px WCAG 2.5.8 minimum without
+     the crumb reading as a button. */
+  padding: 4px 6px;
+  min-height: 24px;
+  border-radius: 4px;
+  font: inherit; font-size: var(--font-size-s);
+  color: var(--brand-2); cursor: pointer;
+  min-width: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(2,113,206,.35);
+}
+.cm-scope-btn span:not(.cm-scope-unread) {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cm-scope-btn:hover { text-decoration-color: currentColor; background: var(--lumo-contrast-5pct); }
+.cm-scope-btn:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+/* The crumb you are on is the current location, so it is plain text, not a
+   link — the same convention as a page breadcrumb's last item. */
+.cm-scope-btn.is-active {
+  color: var(--ink);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: default;
+}
+.cm-scope-btn.is-active:hover { background: none; }
+.cm-scope-btn[hidden] { display: none; }
+
+.cm-scope-sep {
+  color: var(--ink-mute);
+  flex: 0 0 auto;
+  font-size: var(--font-size-s);
+}
+.cm-scope-sep[hidden] { display: none; }
+
+/* Unread pip on a crumb — a small count, not a badge-sized chip. */
+.cm-scope-unread {
+  min-width: 15px; height: 15px; padding: 0 4px;
+  border-radius: 999px;
+  background: var(--lumo-error-color, #d83e38);
+  color: #fff; font-size: 9.5px; font-weight: 700;
+  line-height: 15px; text-align: center;
+  flex: 0 0 auto;
+}
+.cm-scope-unread[hidden] { display: none; }
+
+/* ---- Filter tabs ---- */
+.cm-filter-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 0 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.cm-filter-tabs { display: flex; gap: 4px; }
+.cm-filter-tab {
+  border: none; background: none;
+  padding: 5px 10px; border-radius: 6px;
+  font: inherit; font-size: var(--font-size-s);
+  color: var(--ink-soft); cursor: pointer; white-space: nowrap;
+}
+.cm-filter-tab:hover { color: var(--ink); background: var(--lumo-contrast-5pct); }
+.cm-filter-tab.is-active {
+  background: var(--lumo-primary-color-10pct, #e7f0fd);
+  color: var(--brand-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ---- Thread list ---- */
+.cm-threads { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+
+.cm-empty {
+  margin: 26px 0 0; text-align: center;
+  color: var(--ink-mute); font-size: var(--font-size-m);
+}
+
+/* Divider introducing the resolved block. */
+.cm-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px 0 10px;
+  color: var(--ink-mute); font-size: var(--font-size-s);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.cm-divider::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--border); }
+
+/* ---- One thread ----
+   Threads sit INLINE in the list (Phase 2's model) rather than opening a
+   separate detail view: the header is always visible, and everything below
+   it appears on expand. */
+.cm-thread {
+  position: relative;          /* positioning context for the jump icon */
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+}
+.cm-thread:last-child { border-bottom: none; }
+.cm-thread.is-resolved { opacity: .68; }
+
+/* Header row — the whole strip toggles the thread. */
+.cm-thread-head {
+  /* Top-aligned: the meta block is three stacked lines now, and centring
+     would leave the chevron and avatar drifting in its middle. */
+  display: flex; align-items: flex-start; gap: 9px;
+  cursor: pointer; border-radius: 8px;
+  /* The header's BOX must stop short of the jump icon, not merely pad its
+     contents: padding shrinks the content area but leaves the element itself
+     spanning the full row, so the header stayed clickable underneath the icon
+     — overlapping targets under WCAG 2.5.8. Margin moves the box edge. */
+  margin-right: 34px;
+}
+.cm-thread-head:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 2px; }
+/* 24px square: the header as a whole is the target, but the chevron reads as
+   a control, so it is sized to the WCAG 2.5.8 minimum in its own right. */
+.cm-thread-chevron {
+  display: grid; place-items: center;
+  width: 24px; height: 24px; flex: 0 0 auto; margin-top: 1px;
+  color: var(--ink-mute); font-size: 11px;
+  transition: transform .2s ease;
+}
+/* Chevron down = expanded, rotated left = collapsed (matches Phase 2). */
+.cm-thread.is-collapsed .cm-thread-chevron { transform: rotate(-90deg); }
+
+/* Author line, timestamp, then the attachment chip — stacked. */
+.cm-thread-meta {
+  min-width: 0; flex: 1 1 auto;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+/* Author line. Holds the name and, via ::after, the unread dot. */
+.cm-author-line {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+}
+.cm-author {
+  /* The chip moved to its own line below, so the name no longer competes for
+     width and can use the whole row. */
+  flex: 0 1 auto; min-width: 0;
+  font-size: var(--font-size-m); font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Where the thread is attached — plain text under the timestamp, not a pill.
+
+   The pill was the widest element in the header (226px against a 388px panel)
+   while carrying the least important information, and its filled shape
+   competed with the avatar, unread dot and chevron. As quiet text it reads as
+   the metadata it is, and it truncates cleanly: an ellipsis inside a rounded
+   pill looks like a rendering fault, in running text it looks intentional. */
+.cm-source {
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-mute);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The location itself is the part worth reading; "on" is just the joint. */
+.cm-source b {
+  color: var(--ink-soft);
+  font-weight: var(--font-weight-semibold);
+}
+/* Unread dot after the author name, as in Phase 2. */
+/* Unread dot sits on the author LINE rather than inside the name, so the
+   name's ellipsis can never clip it. */
+.cm-thread.is-unread .cm-author-line::after {
+  content: ''; flex: 0 0 auto;
+  width: 7px; height: 7px;
+  background: var(--lumo-error-color, #d83e38);
+  border-radius: 50%;
+  order: -1;                /* leads the line, ahead of the name */
+}
+.cm-time { display: block; font-size: var(--font-size-s); color: var(--ink-mute); }
+
+.cm-resolved-badge {
+  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+  padding: 2px 8px; font-size: 10.5px; font-weight: var(--font-weight-semibold);
+  color: #1c7a44;
+}
+
+/* Collapsed preview — one line so a shut thread is still scannable. */
+.cm-thread-preview {
+  margin: 5px 0 0 27px;
+  color: var(--ink-soft); font-size: var(--font-size-m); line-height: 1.45;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cm-thread:not(.is-collapsed) .cm-thread-preview { display: none; }
+
+/* Expanded body. */
+.cm-thread-body { margin: 8px 0 0 27px; }
+.cm-thread.is-collapsed .cm-thread-body { display: none; }
+
+
+/* First comment. */
+.cm-bubble {
+  background: #f9fafb; border: 1px solid #f0f0f0; border-radius: 8px;
+  padding: 9px 11px;
+  font-size: var(--font-size-m); color: var(--ink); line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.cm-bubble.is-resolved { background: #f0fdf4; border-color: #bbf7d0; }
+
+/* Replies, indented under the first comment. */
+.cm-replies {
+  padding-left: 12px; margin-top: 8px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cm-reply-item { display: flex; gap: 8px; align-items: flex-start; }
+.cm-reply-avatar {
+  width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+  display: grid; place-items: center;
+  font-size: 10px; font-weight: var(--font-weight-semibold); color: #fff;
+}
+.cm-reply-body { min-width: 0; }
+.cm-reply-author { font-size: 11.5px; font-weight: var(--font-weight-semibold); color: var(--ink); }
+.cm-reply-time { font-size: 10.5px; color: var(--ink-mute); margin-left: 6px; }
+.cm-reply-text {
+  display: block; margin-top: 3px;
+  font-size: var(--font-size-m); color: var(--ink); line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Inline reply box. */
+.cm-reply-row {
+  display: flex; gap: 6px; align-items: center;
+  padding-left: 12px; margin-top: 8px;
+}
+.cm-reply-input {
+  flex: 1 1 auto; min-width: 0; height: 32px;
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 0 10px; font: inherit; font-size: var(--font-size-m);
+  color: var(--ink); background: #f9fafb; outline: none;
+}
+.cm-reply-input:focus { border-color: var(--brand-2); background: var(--lumo-base-color); }
+.cm-reply-send {
+  width: 32px; height: 32px; flex: 0 0 auto;
+  border: none; border-radius: 6px;
+  background: var(--brand-2); color: #fff;
+  font-size: 12px; cursor: pointer;
+  display: grid; place-items: center;
+}
+.cm-reply-send:hover { background: var(--brand); }
+
+/* Resolve / reopen — an icon sharing the reply row instead of a text button
+   on a row of its own. */
+.cm-resolve-btn {
+  width: 32px; height: 32px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--lumo-base-color);
+  color: var(--ink-soft); font-size: 13px; cursor: pointer;
+}
+.cm-resolve-btn:hover { border-color: #1c7a44; color: #1c7a44; }
+.cm-thread.is-resolved .cm-resolve-btn { border-color: #bbf7d0; color: #1c7a44; }
+
+
+/* The jump to the screen a thread is attached to — icon only, pinned to the
+   header's top-right. Still a target of its own, distinct from the header
+   toggle, so opening a thread and travelling to it stay separate actions.
+
+   Only meaningful once the thread is open, so it is hidden while collapsed:
+   a column of jump icons down a collapsed list competes with the chevrons
+   and invites a click that leaves the page unintentionally. */
+/* Absolutely positioned so it never sits inside the header's click target.
+   28px square — comfortably over the 24x24 CSS px floor in WCAG 2.5.8
+   (Target Size, Minimum) — and the header reserves space for it via
+   padding-right, so the two targets are adjacent rather than overlapping. */
+.cm-goto-icon {
+  position: absolute;
+  top: 6px; right: 0;
+  display: grid; place-items: center;
+  width: 28px; height: 28px;
+  border: none; border-radius: 6px;
+  background: none; color: var(--brand-2);
+  font-size: 12px; cursor: pointer;
+  /* Revealed on hover/focus of the thread, in EITHER state. Opacity rather
+     than display:none keeps the target in the layout, so it never shifts
+     the row and is always reachable by keyboard. */
+  opacity: 0;
+  transition: opacity .14s;
+}
+.cm-thread:hover .cm-goto-icon,
+.cm-thread:focus-within .cm-goto-icon,
+.cm-goto-icon:focus-visible { opacity: 1; }
+.cm-goto-icon:hover { background: var(--lumo-primary-color-10pct, #e7f0fd); }
+.cm-goto-icon:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+/* Touch has no hover, so the jump is always visible there rather than
+   depending on a state that never arrives. */
+@media (hover: none) {
+  .cm-goto-icon { opacity: 1; }
+}
+
+/* Count beside the panel title. */
+.cm-head-count {
+  min-width: 22px; padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--lumo-contrast-5pct); color: var(--ink-soft);
+  font-size: var(--font-size-s); font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.cm-head .cm-title { flex: 0 0 auto; }
+.cm-head .cm-head-count { margin-right: auto; }

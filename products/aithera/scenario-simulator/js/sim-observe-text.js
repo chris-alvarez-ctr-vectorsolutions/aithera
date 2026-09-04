@@ -83,6 +83,24 @@
         padding: 6px 13px; font-size: 12.5px; font-weight: 600; }
       .obt-photo-cap i { color: #3cbfae; }
 
+      /* NO EXHIBIT IMAGE — nothing authored, or a src that does not load. This
+         stage used to emit <img src=""> with no fallback, so either failure was
+         an unexplained blank rectangle: no way to tell a missing path from a
+         wrong one from an image still loading. The description is authored
+         regardless (it is the same ground truth the coach reasons over), so show
+         it — the sweep still works from the text, and the state names itself.
+         Left-aligned prose in a centred card: centred multi-line text is harder
+         to read, and this block can run several lines. */
+      .obt-photo-wrap.is-noimg { display: grid; place-items: center; background: #14171d; }
+      .obt-photo-wrap.is-noimg::after { content: none; }
+      .obt-noimg { padding: 28px; max-width: 62ch; }
+      .obt-noimg-eyebrow { display: inline-flex; align-items: center; gap: 8px;
+        font: 600 11.5px/1 ui-monospace, monospace; letter-spacing: .08em;
+        text-transform: uppercase; color: #8a93a6; margin-bottom: 12px; }
+      .obt-noimg-eyebrow i { color: #d8a24a; font-size: 13px; }
+      .obt-noimg-body { margin: 0; color: rgba(255,255,255,.9); font-size: 15px; line-height: 1.6; }
+      .obt-noimg-hint { margin: 12px 0 0; color: rgba(255,255,255,.5); font-size: 12.5px; line-height: 1.5; }
+
       /* The notes panel — a light inspector card on the dark stage. */
       .obt-panel { position: relative; display: flex; flex-direction: column;
         background: var(--c-surface-2); border-left: 1px solid var(--c-line); min-height: 0;
@@ -358,17 +376,36 @@
       renderPanel();
     }
 
+    /* Stands in for the exhibit when there is no image to show. `missing` tells
+       the two failures apart: false = no source was ever set, true = a source is
+       set but nothing loaded from it. Both say so plainly and neither mentions
+       authoring tools — a learner may hit this on a broken scenario, and the
+       distinction is still enough for an author to know which one they have. */
+    function noImageCard(missing) {
+      return `<div class="obt-noimg">
+          <div class="obt-noimg-eyebrow"><i class="fa-solid fa-triangle-exclamation"></i> ${missing ? 'Exhibit image didn’t load' : 'No exhibit image'}</div>
+          <p class="obt-noimg-body">${esc(SCENE_ALT)}</p>
+          <p class="obt-noimg-hint">${missing ? 'Nothing loaded from this step’s image source.' : 'This step has no image source set.'}</p>
+        </div>`;
+    }
+
     /* ---- the stage: photo (plain) + notes panel ---- */
     function stageNode() {
       const wrap = el('div', 'obt-scene');
-      wrap.innerHTML =
-        `<div class="obt-stage">
-           <div class="obt-photo-wrap">
+      /* No src at all is known before paint, so render the stand-in outright
+         rather than an empty <img>. A src that 404s can only be caught on the
+         error event, handled below. */
+      const photo = SCENE_IMG
+        ? `<div class="obt-photo-wrap">
              <img class="obt-photo" id="obtPhoto" src="${esc(SCENE_IMG)}" alt="${esc(SCENE_ALT)}" draggable="false" />
              <div class="obt-photo-cap"><i class="fa-solid fa-image"></i> The work area — look closely</div>
              <button class="obt-fs" id="obtFs" type="button" aria-pressed="false" aria-label="Expand the image">
                <i class="fa-solid fa-expand"></i></button>
-           </div>
+           </div>`
+        : `<div class="obt-photo-wrap is-noimg">${noImageCard(false)}</div>`;
+      wrap.innerHTML =
+        `<div class="obt-stage">
+           ${photo}
            <div class="obt-panel" id="obtPanel"></div>
            <div class="obt-brief" id="obtBrief">
              <div class="obt-brief-card">
@@ -383,6 +420,16 @@
       wrap.querySelector('#obtBriefBtn').addEventListener('click', dismissBrief);
       const fsBtn = wrap.querySelector('#obtFs');
       if (fsBtn) fsBtn.addEventListener('click', togglePhotoFull);
+      /* A path that resolves to nothing swaps to the same stand-in. Replacing the
+         wrap's contents drops the expand button with it, which is why both of its
+         lookups are null-guarded — full-image mode means nothing here anyway. */
+      const photoEl = wrap.querySelector('#obtPhoto');
+      if (photoEl) photoEl.addEventListener('error', () => {
+        const holder = photoEl.closest('.obt-photo-wrap');
+        if (!holder) return;
+        holder.classList.add('is-noimg');
+        holder.innerHTML = noImageCard(true);
+      });
       renderPanel();
       applyPhotoFull();   // re-apply full-image state on remount
       return wrap;

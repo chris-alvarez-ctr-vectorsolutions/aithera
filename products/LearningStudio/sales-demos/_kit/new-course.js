@@ -104,6 +104,23 @@ objective: This one has no scenes, so it is not clickable
 state: not-started
 duration: 1:00
 
+<!-- The AI-generation demo reveals this LO. "hidden: true" keeps it out of
+     the course overview until a rep clicks Add Learning Object -> AI
+     Generation -> Generate Transcript in this section. Delete it if this
+     course doesn't demo generation; without a hidden LO that flow closes
+     the modal and does nothing. Authored here for illustration; for a real
+     one, write a transcript doc and run _kit/transcript-to-md.js. -->
+### The Generated Learning Object
+objective: Replace with what this generated object teaches
+state: not-started
+hidden: true
+
+#### scene 1 | 0:18 | example.jpg
+Replace with the generated object's first scene.
+
+#### scene 2 | 0:12 | example-2.jpg
+And its second scene.
+
 
 ## Second Section
 
@@ -118,11 +135,13 @@ duration: 1:30
 
 fs.mkdirSync(dir, { recursive: true });
 fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+fs.mkdirSync(path.join(dir, 'transcripts'), { recursive: true });
 fs.writeFileSync(path.join(dir, 'course.md'), starter);
 
 console.log(`\nCreated ${folder}/`);
-console.log(`  course.md   — edit this`);
-console.log(`  assets/     — drop scene images here\n`);
+console.log(`  course.md     — edit this`);
+console.log(`  assets/       — drop scene images here`);
+console.log(`  transcripts/  — voiceover scripts (see _kit/transcript-to-md.js)\n`);
 
 // Build immediately so the new folder opens in a browser right away.
 execFileSync(process.execPath, [path.join(KIT, 'build-course.js'), folder], { stdio: 'inherit' });

@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-04
 **Scope:** The `37 tasks` count at the left of the task list's filter row in
-`products/Keystone Department Hub/keystone-hub/`.
+`products/Keystone-Department-Hub/keystone-hub/`.
 
 ## Problem
 

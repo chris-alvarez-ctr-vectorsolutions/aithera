@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Individual Summary Report — Guardian Tracking</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 PRO Icons (self-hosted; see base-template for rationale) -->
+    <link
+    rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css"
+    />
+
+<style>
+/* ==========================================================================
+   GT-5775 — Individual Summary Reports
+   --------------------------------------------------------------------------
+   Two pages in one file, swapped by JS:
+     #page-roster  — replica of today's Subordinates roster (the entry point)
+     #page-report  — the NEW Individual Summary Report (the design work)
+
+   The GT app chrome (blue topnav + sidenav) is hand-built here to match the
+   product screenshots. It is static dressing so the report is reviewed in
+   context — design attention belongs to the report body.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+  font-size: var(--lumo-font-size-m, 14px);
+  color: var(--lumo-body-text-color, #000000de);
+  background: #f4f6f8;
+}
+
+/* --------------------------------------------------------------------------
+   CATEGORY POLARITY PALETTE — from the dashboard `ruleType` DATASETS const.
+   PRD §2: this supersedes the milestone doc's green/red/grey scheme.
+   These four encode CATEGORY IDENTITY, not direction of change.
+   -------------------------------------------------------------------------- */
+:root {
+  --cat-positive:      rgb(33,150,243);      /* Positive_Recognition — blue   */
+  --cat-positive-soft: rgba(33,150,243,.12);
+  --cat-early:         rgb(216,155,56);      /* Early_Intervention   — amber  */
+  --cat-early-soft:    rgba(216,155,56,.14);
+  --cat-both:          rgb(76,76,76);        /* Both                 — grey   */
+  --cat-both-soft:     rgba(76,76,76,.10);
+  --cat-neither:       rgb(171,71,188);      /* Neither              — purple */
+  --cat-neither-soft:  rgba(171,71,188,.12);
+
+  /* VALENCE — carried by the CARD (muted tint fill + full-intensity top bar
+     + full-intensity delta chip). Independent of category identity, which
+     lives on the badge. Direction of "bad" derives from ruleType, never
+     configured:
+       Early_Intervention   up = adverse
+       Positive_Recognition up = favorable
+       Both / Neither          = neutral, no directional treatment       */
+  --valence-adverse-fill: #fdeeec;   /* muted tint  */
+  --valence-adverse-edge: #f3cfca;
+  --valence-adverse-bar:  #ca150c;   /* full intensity — --lumo-error-text-color   */
+  --valence-good-fill:    #e9f5ee;
+  --valence-good-edge:    #c2dfcd;
+  --valence-good-bar:     #0a7637;   /* full intensity — --lumo-success-text-color */
+  --valence-flat-fill:    #f1f4f7;
+  --valence-flat-edge:    #dbe2e9;
+  --valence-flat-bar:     #64768a;   /* full intensity neutral */
+
+  /* EARLY-INTERVENTION RISK SCALE — proximity to a flag, not category identity.
+     Grey (early accrual) → amber (approaching) → red (at/over threshold).
+     Only EI uses a scale; recognition accrual has no equivalent gradient. */
+  --risk-low:  #8494a5;   /* < 50%  — accruing, not yet notable       */
+  --risk-mid:  #d89b38;   /* 50–79% — approaching (mandated EI amber) */
+  --risk-high: #c2571f;   /* 80–99% — close to threshold              */
+  --risk-max:  #ca150c;   /* 100%   — flag raised                     */
+
+  /* POSITIVE RECOGNITION — one flat colour, no gradient. Uses the mandated
+     Positive_Recognition blue so it ties back to the category palette. */
+  --recognition: rgb(33,150,243);
+
+  --gt-blue: #1567c8;                /* GT topnav blue, from screenshots */
+  --rule: #e3e7ec;
+}
+
+/* ==========================================================================
+   APP SHELL
+   ========================================================================== */
+.gt-app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ---- Topnav ---- */
+.gt-topnav {
+  display: flex; align-items: center; gap: 16px;
+  height: 56px; flex: 0 0 56px;
+  padding: 0 20px;
+  background: var(--gt-blue);
+  color: #fff;
+  border-top: 4px solid #0b4f9e;
+  position: sticky; top: 0; z-index: 40;
+}
+.gt-brand { display: flex; align-items: center; gap: 14px; font-weight: 700; letter-spacing: .2px; }
+.gt-brand .vs-mark { display: flex; align-items: center; gap: 7px; font-size: 15px; }
+.gt-brand .vs-mark i { font-size: 17px; }
+.gt-brand .sep { width: 1px; height: 26px; background: rgba(255,255,255,.4); }
+.gt-brand .product { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.gt-brand .product .shield {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; color: var(--gt-blue);
+  display: grid; place-items: center; font-size: 12px;
+}
+.gt-topnav .spacer { flex: 1; }
+.gt-topnav .ver { font-size: 12px; opacity: .85; }
+.gt-topnav .icon-btn {
+  background: none; border: 0; color: #fff; cursor: pointer;
+  width: 34px; height: 34px; border-radius: 50%; font-size: 15px;
+}
+.gt-topnav .icon-btn:hover { background: rgba(255,255,255,.15); }
+.gt-topnav .avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.5);
+  display: grid; place-items: center; font-size: 12px; font-weight: 700;
+}
+
+.gt-body { display: flex; flex: 1; min-height: 0; }
+
+/* ---- Sidenav ---- */
+.gt-sidenav {
+  width: 240px; flex: 0 0 240px;
+  background: #fff;
+  border-right: 1px solid var(--rule);
+  display: flex; flex-direction: column;
+  position: relative;
+}
+.gt-sidenav .collapse-tab {
+  position: absolute; top: 10px; right: -13px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #5b6b7d; color: #fff; border: 0; cursor: pointer;
+  display: grid; place-items: center; font-size: 11px; z-index: 5;
+}
+.gt-nav { list-style: none; margin: 12px 0 0; padding: 0; flex: 1; overflow-y: auto; }
+.gt-nav a, .gt-nav .nav-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 18px;
+  color: #1d2b3a; text-decoration: none; font-size: 14px;
+  cursor: pointer; border: 0; background: none; width: 100%; text-align: left;
+  font-family: inherit;
+}
+.gt-nav a:hover, .gt-nav .nav-row:hover { background: #f2f5f8; }
+.gt-nav .nav-icon { width: 20px; text-align: center; color: #35485c; font-size: 15px; }
+.gt-nav .chev { margin-left: auto; font-size: 11px; color: #6b7c8f; }
+.gt-nav .sub { list-style: none; margin: 0; padding: 0; }
+.gt-nav .sub a { padding-left: 52px; font-size: 14px; }
+.gt-nav .active { background: #eceff3; font-weight: 600; box-shadow: inset 3px 0 0 var(--gt-blue); }
+.gt-sidenav .foot {
+  border-top: 1px solid var(--rule);
+  padding: 14px 18px; display: flex; align-items: center; gap: 14px; font-size: 14px;
+}
+.gt-sidenav .foot i { color: #35485c; }
+
+/* ---- Main scroll region ---- */
+.gt-main { flex: 1; min-width: 0; overflow-y: auto; padding: 26px 32px 80px; }
+.gt-main-inner { max-width: 1180px; margin: 0 auto; }
+
+.page { display: none; }
+.page.is-active { display: block; }
+
+/* ==========================================================================
+   PAGE 1 — SUBORDINATES ROSTER  (replica of what exists today)
+   ========================================================================== */
+.roster-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+.roster-head h1 { font-size: 27px; margin: 0; font-weight: 700; }
+.roster-controls { display: flex; align-items: flex-end; gap: 26px; }
+.ctl-label { display: block; font-size: 12px; color: #5a6b7d; margin-bottom: 5px; }
+.chk { display: flex; align-items: center; gap: 9px; font-size: 14px; padding-bottom: 9px; cursor: pointer; }
+.chk input { width: 17px; height: 17px; accent-color: var(--gt-blue); cursor: pointer; }
+
+.panel { background: #fff; border: 1px solid var(--rule); border-radius: 4px; }
+.roster-owner { font-size: 15px; margin: 0 0 12px; }
+
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); padding: 22px 0 30px; }
+.stat { text-align: center; }
+.stat .stat-label { font-size: 12px; letter-spacing: .7px; color: #5a6b7d; text-transform: uppercase; margin-bottom: 16px; }
+.stat .bubble {
+  width: 148px; height: 148px; border-radius: 50%;
+  margin: 0 auto; color: #fff;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 26px; font-size: 17px; font-weight: 600;
+}
+.bubble.teal { background: #4a9384; }
+.bubble.red  { background: #d9563c; }
+
+table.gt-table { width: 100%; border-collapse: collapse; }
+table.gt-table th {
+  text-align: left; font-size: 13px; font-weight: 600; color: #35485c;
+  padding: 14px 18px; border-bottom: 1px solid var(--rule); background: #f7f9fb;
+  white-space: nowrap;
+}
+table.gt-table th.sortable { color: var(--gt-blue); cursor: pointer; }
+table.gt-table th .sort-caret { color: #90a1b3; margin-left: 5px; font-size: 10px; }
+table.gt-table td { padding: 15px 18px; border-bottom: 1px solid #eef1f4; font-size: 14px; }
+table.gt-table tbody tr:last-child td { border-bottom: 0; }
+table.gt-table tbody tr:hover { background: #f7fafd; }
+.open-report-btn {
+  width: 32px; height: 32px; border-radius: 4px; border: 0;
+  background: var(--gt-blue); color: #fff; cursor: pointer; font-size: 13px;
+}
+.open-report-btn:hover { background: #0f56ab; }
+.hint-inline { font-size: 12px; color: #5a6b7d; margin: 14px 2px 0; }
+
+/* ==========================================================================
+   PAGE 2 — INDIVIDUAL SUMMARY REPORT
+   ========================================================================== */
+.back-link {
+  display: inline-flex; align-items: center; gap: 9px;
+  color: var(--gt-blue); text-decoration: none; font-size: 15px;
+  background: none; border: 0; cursor: pointer; padding: 0; font-family: inherit;
+  margin-bottom: 16px;
+}
+.back-link:hover { text-decoration: underline; }
+
+/* ---- Report header: identity condensed + open-flag status ---- */
+.report-header {
+  background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+  padding: 22px 24px; margin-bottom: 18px;
+}
+.rh-top { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.rh-identity { flex: 1 1 340px; min-width: 260px; }
+.rh-identity h1 { font-size: 26px; margin: 0 0 10px; font-weight: 700; }
+.rh-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: #55677a; }
+.rh-meta .grp { display: inline-flex; gap: 6px; align-items: center; }
+.grp-chip {
+  background: #e8eef6; color: #23405f; border-radius: 3px;
+  padding: 2px 9px; font-size: 12px; font-weight: 600;
+}
+
+/* Open-flag indicator — right-aligned, alert treatment ONLY when count > 0,
+   and deliberately separated from the metric tiles further down the page.
+   This is present-tense status, never a period statistic. */
+.openflag {
+  flex: 0 0 auto; min-width: 232px;
+  border-radius: 4px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid transparent;
+}
+.openflag.is-alert { background: #fdecea; border-color: #f0b4ae; }
+.openflag.is-clear { background: #f3f6f9; border-color: var(--rule); }
+.openflag .of-icon { font-size: 22px; }
+.openflag.is-alert .of-icon { color: #ca150c; }
+.openflag.is-clear .of-icon { color: #4a9384; }
+.openflag .of-count { font-size: 25px; font-weight: 700; line-height: 1.05; }
+.openflag.is-alert .of-count { color: #ca150c; }
+.openflag .of-label { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #55677a; }
+.openflag.is-alert .of-label { color: #9a2b23; }
+.openflag .of-link {
+  display: block; margin-top: 3px; font-size: 12px;
+  color: var(--gt-blue); text-decoration: none; cursor: pointer;
+}
+.openflag .of-link:hover { text-decoration: underline; }
+
+/* ---- Period bar: ONE global control governing the whole report ---- */
+.period-bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  border-top: 1px solid var(--rule); margin-top: 20px; padding-top: 16px;
+}
+.period-bar .pb-label { font-size: 13px; font-weight: 600; color: #35485c; }
+.seg { display: inline-flex; border: 1px solid #c6d0da; border-radius: 4px; overflow: hidden; }
+.seg button {
+  border: 0; background: #fff; padding: 8px 15px; font-size: 13px; cursor: pointer;
+  border-right: 1px solid #dbe2e9; font-family: inherit; color: #33475c;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: #f1f5f9; }
+.seg button.active { background: var(--gt-blue); color: #fff; font-weight: 600; }
+.period-note { font-size: 12px; color: #6b7c8f; }
+.period-note strong { color: #35485c; }
+.pb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 4px; padding: 9px 15px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; border: 1px solid #c6d0da; background: #fff; color: #22364a;
+}
+.btn:hover { background: #f1f5f9; }
+.btn.primary { background: var(--gt-blue); border-color: var(--gt-blue); color: #fff; }
+.btn.primary:hover { background: #0f56ab; }
+
+/* ---- Section frame ---- */
+.section {
+  background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+  padding: 20px 24px 24px; margin-bottom: 18px;
+}
+.section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+.section-head h2 { font-size: 16px; margin: 0; font-weight: 700; }
+.section-sub { font-size: 12.5px; color: #6b7c8f; margin: 0 0 18px; }
+.section-head .head-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* ---- FLAG PROGRESSION ---- */
+.prog-list { display: flex; flex-direction: column; gap: 3px; }
+.prog-row {
+  display: grid; grid-template-columns: 1fr 250px 96px 30px;
+  align-items: center; gap: 16px;
+  padding: 11px 8px; border-radius: 4px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.prog-row:hover { background: #f6f9fc; border-color: #dfe7ef; }
+.prog-row.locked { cursor: default; }
+.prog-row.locked:hover { background: transparent; border-color: transparent; }
+.prog-name { display: flex; align-items: center; gap: 9px; font-size: 14px; min-width: 0; }
+.prog-name .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Glyph marking the rule's outcome. EI takes the risk-band colour it has
+   reached; PR is always the single recognition blue.
+   Ink is per-band: white fails on the mandated amber (2.42:1), so that band
+   takes dark ink instead. */
+.prog-name .aim {
+  width: 17px; height: 17px; border-radius: 50%; flex: 0 0 17px;
+  display: grid; place-items: center; font-size: 8.5px;
+  color: var(--aim-ink, #fff);
+  background: var(--aim-bg, #8494a5);
+}
+
+.prog-track { height: 9px; border-radius: 5px; background: #e8ecf1; overflow: hidden; position: relative; }
+.prog-fill { height: 100%; border-radius: 5px; }
+
+/* Threshold tick — the bar's destination, so partial progress is read against
+   a visible finish line rather than an implied one. */
+.prog-track .thresh-tick {
+  position: absolute; right: 0; top: -2px; bottom: -2px; width: 2px;
+  background: #9fb0c1; border-radius: 1px;
+}
+.prog-fill.striped {
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.32) 0 5px, transparent 5px 10px);
+}
+/* Reached-threshold rows read at full intensity */
+.prog-row.reached .prog-val { font-weight: 700; color: var(--aim-bg, inherit); }
+
+/* Empty state when a whole progression list has nothing to show */
+.prog-none {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13px; color: #6b7c8f;
+  background: #f7f9fb; border: 1px solid #eef1f4; border-radius: 4px;
+  padding: 14px 16px;
+}
+.prog-none i { color: #4a9384; font-size: 14px; }
+.prog-val { font-size: 13px; color: #35485c; text-align: right; font-variant-numeric: tabular-nums; }
+.prog-val .of { color: #8494a5; font-size: 12px; }
+.prog-go { color: #9fb0c1; font-size: 12px; text-align: center; }
+.prog-row.locked .prog-go { visibility: hidden; }
+.flag-pill {
+  color: #fff; font-size: 10px; font-weight: 700;
+  letter-spacing: .5px; padding: 2px 7px; border-radius: 3px; white-space: nowrap;
+  background: var(--valence-adverse-bar);
+}
+.flag-pill.merit { background: var(--valence-good-bar); }
+.prog-more {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid #eef1f4;
+  background: none; border-left: 0; border-right: 0; border-bottom: 0;
+  color: var(--gt-blue); cursor: pointer; font-size: 13px; font-family: inherit;
+  display: flex; align-items: center; gap: 8px; width: 100%; font-weight: 600;
+}
+.prog-more:hover { text-decoration: underline; }
+#progOverflow, #recOverflow { display: none; }
+#progOverflow.open, #recOverflow.open { display: block; }
+
+/* ---- METRIC TILES ----------------------------------------------------------
+   Two independent encodings, deliberately kept on separate elements:
+
+     CATEGORY IDENTITY → the badge (blue / amber / grey / purple, from ruleType)
+     CHANGE VALENCE    → the card itself: muted tint fill + full-intensity top
+                         bar + full-intensity delta chip (green / red / grey)
+
+   Identity says WHAT this is; valence says whether the movement is good or bad.
+   Separating them is what makes "corrective actions trending up is bad"
+   expressible under a palette that carries no directional meaning.
+   -------------------------------------------------------------------------- */
+.tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); gap: 14px; }
+.tile {
+  border: 1px solid var(--rule); border-radius: 4px; padding: 0 0 15px;
+  overflow: hidden; position: relative;
+  background: var(--v-fill, #fff);          /* muted valence tint */
+  border-color: var(--v-edge, var(--rule));
+}
+/* Full-intensity valence bar across the top */
+.tile .stripe { height: 4px; background: var(--v-bar, #d6dde4); }
+.tile .tile-in { padding: 13px 16px 0; }
+
+/* Category identity badge — a real design-system badge (`theme="badge pill"`),
+   so the component governs size, padding, radius, weight and casing. The four
+   ruleType colours aren't among the built-in variants (success/error/warning/
+   contrast), so ONLY the colour pair is overridden — a tinted fill with the
+   category colour as text, matching how the stock tinted variants are built. */
+/* A bare `theme="badge"` renders BLUE (informational) in this bundle, so the
+   category colour pair must out-specify it — hence [theme~="badge"]. */
+.tile span.t-badge[theme~="badge"] {
+  background: var(--cat-soft, rgba(76,76,76,.10));
+  color: var(--cat-fg, #3f3f3f);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 11px;
+}
+.tile .t-count {
+  font-size: 32px; font-weight: 700; line-height: 1;
+  margin-bottom: 11px; font-variant-numeric: tabular-nums;
+  color: #1b2b3d;
+}
+/* Delta chip — full intensity, white text and icon */
+.tile .t-delta {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; border-radius: 3px; padding: 5px 10px;
+  color: #fff; background: var(--v-bar, #8494a5);
+}
+.tile .t-delta i { color: #fff; }
+.tile .t-vs { display: block; font-size: 11px; color: #64768a; margin-top: 8px; }
+.tile .t-remove {
+  position: absolute; top: 9px; right: 8px;
+  border: 0; background: none; color: #b3bfcb; cursor: pointer; font-size: 12px;
+  width: 22px; height: 22px; border-radius: 4px; opacity: 0; transition: opacity .12s;
+}
+.tile:hover .t-remove { opacity: 1; }
+.tile .t-remove:hover { background: rgba(0,0,0,.07); color: #35485c; }
+
+/* Empty state — the on-ramp. Two variants by role. */
+.tile-empty { border: 1px dashed #c6d0da; border-radius: 4px; padding: 34px 26px; text-align: center; background: #fafbfd; }
+.tile-empty .te-icon { font-size: 27px; color: #a8b6c4; margin-bottom: 13px; }
+.tile-empty h3 { font-size: 16px; margin: 0 0 7px; font-weight: 700; }
+.tile-empty p { font-size: 13.5px; color: #5a6b7d; margin: 0 auto 18px; max-width: 470px; line-height: 1.55; }
+.tile-empty .te-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.role-note {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: #6b7c8f; background: #eef2f6;
+  border-radius: 3px; padding: 4px 9px; margin-top: 14px;
+}
+
+/* ---- TIMELINE ---- */
+.tl-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
+.chip {
+  border: 1px solid #c6d0da; background: #fff; border-radius: 14px;
+  padding: 5px 13px; font-size: 12px; cursor: pointer; font-family: inherit; color: #33475c;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.chip:hover { background: #f1f5f9; }
+.chip.active { background: #22364a; border-color: #22364a; color: #fff; font-weight: 600; }
+.chip .swatch { width: 9px; height: 9px; border-radius: 50%; }
+.chip.active .swatch { box-shadow: 0 0 0 1.5px rgba(255,255,255,.6); }
+.filter-sep { width: 1px; height: 20px; background: var(--rule); margin: 0 3px; }
+
+/* Chart footer — pan hint on the left, zoom control on the right */
+.tl-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-top: 10px;
+}
+.tl-hint { display: inline-flex; align-items: center; gap: 7px; }
+.tl-hint kbd {
+  font: inherit; background: #eef2f6; border: 1px solid #dbe2e9;
+  border-radius: 3px; padding: 1px 5px; color: #55677a;
+}
+
+/* Zoom controls — slider from fit-to-period through to day-level detail */
+.tl-zoom { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.tl-zoom .zicon { color: #8494a5; font-size: 11px; }
+.tl-zoom input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 132px; height: 4px; border-radius: 2px; background: #d6dde4;
+  cursor: pointer; outline: none; margin: 0;
+}
+.tl-zoom input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--gt-blue); border: 2px solid #fff; cursor: grab;
+  box-shadow: 0 1px 4px -1px #1c304a85;
+}
+.tl-zoom input[type="range"]::-webkit-slider-thumb:active { cursor: grabbing; }
+.tl-zoom input[type="range"]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--gt-blue); border: 2px solid #fff; cursor: grab;
+  box-shadow: 0 1px 4px -1px #1c304a85;
+}
+.tl-zoom input[type="range"]:focus-visible { outline: 2px solid var(--gt-blue); outline-offset: 3px; }
+.tl-zoom .zlevel {
+  font-size: 12px; color: #55677a; min-width: 112px; text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.tl-zoom .zreset {
+  border: 0; background: none; color: var(--gt-blue); cursor: pointer;
+  font-size: 12px; font-family: inherit; padding: 4px 2px;
+}
+.tl-zoom .zreset:hover { text-decoration: underline; }
+.tl-zoom .zreset:disabled { color: #a8b6c4; cursor: default; text-decoration: none; }
+
+/* The scroll viewport. The lane-label column is pinned so it stays readable
+   while the track scrolls horizontally underneath it. */
+.tl-wrap {
+  margin-top: 18px; overflow-x: auto; overflow-y: visible;
+  position: relative; scroll-behavior: smooth;
+  border: 1px solid #eef1f4; border-radius: 4px; background: #fff;
+}
+.tl-wrap.dragging { scroll-behavior: auto; cursor: grabbing; }
+.tl-inner { position: relative; }
+
+.tl-axis {
+  display: flex; position: sticky; top: 0; z-index: 12;
+  background: #fff; border-bottom: 1px solid var(--rule);
+  padding-bottom: 7px; padding-top: 8px; margin-bottom: 2px;
+}
+.tl-axis .axis-spacer {
+  flex: 0 0 152px; position: sticky; left: 0; z-index: 3;
+  background: #fff; align-self: stretch;
+}
+.tl-axis .axis-scale { display: flex; flex: 1; }
+.tl-axis .mon {
+  flex: 1; font-size: 11px; color: #7c8b9b; text-align: center;
+  letter-spacing: .4px; white-space: nowrap;
+}
+.tl-axis .mon.tick-major { color: #35485c; font-weight: 600; }
+
+.tl-lane { display: flex; border-bottom: 1px solid #eef1f4; min-height: 62px; }
+.tl-lane:last-child { border-bottom: 0; }
+.tl-lane-label {
+  flex: 0 0 152px; padding: 12px 14px 12px 12px;
+  display: flex; align-items: flex-start; gap: 9px;
+  position: sticky; left: 0; z-index: 8;
+  background: #fff; border-right: 1px solid #eef1f4;
+}
+.tl-lane-label .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex: 0 0 9px; }
+.tl-lane-label .lab { font-size: 12px; line-height: 1.35; }
+.tl-lane-label .lab b { display: block; font-weight: 700; color: #22364a; }
+.tl-lane-label .lab span { color: #8494a5; font-size: 11px; }
+.tl-track { flex: 1; position: relative; padding: 12px 0; min-height: 62px; }
+.tl-grid { position: absolute; inset: 0; display: flex; pointer-events: none; }
+.tl-grid div { flex: 1; border-right: 1px dashed #eaeef2; }
+.tl-grid div:last-child { border-right: 0; }
+
+/* Markers. Single documents are dots; dense days collapse into a count bubble. */
+.tl-marker {
+  position: absolute; transform: translateX(-50%);
+  border: 0; padding: 0; cursor: pointer; font-family: inherit;
+  border-radius: 50%; display: grid; place-items: center;
+}
+.tl-marker.single { width: 12px; height: 12px; }
+.tl-marker.single:hover { transform: translateX(-50%) scale(1.42); }
+.tl-marker.cluster {
+  min-width: 27px; height: 27px; border-radius: 14px; padding: 0 7px;
+  color: #fff; font-size: 12px; font-weight: 700; border: 2px solid #fff;
+  box-shadow: 0 1px 4px -1px #1c304a85;
+}
+.tl-marker.cluster:hover { filter: brightness(1.1); }
+.tl-marker.flagpin {
+  width: 0; height: 0; border-radius: 0; background: none;
+  border-left: 8px solid transparent; border-right: 8px solid transparent;
+  border-bottom: 13px solid #ca150c;
+}
+.tl-flag-callout {
+  position: absolute; transform: translateX(-50%);
+  background: #ca150c; color: #fff; font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 3px; white-space: nowrap; pointer-events: none;
+}
+.tl-empty { padding: 40px 20px; text-align: center; color: #7c8b9b; font-size: 13.5px; }
+
+/* Drill-in popover — stays inside the report, per the PRD.
+   Lives INSIDE the scrolling .tl-inner and is positioned against the marker,
+   so it travels with the timeline as you scroll and stays visually attached. */
+.tl-pop {
+  position: absolute; z-index: 30; width: 292px;
+  background: #fff; border: 1px solid #d3dbe3; border-radius: 5px;
+  box-shadow: 0 2px 6px -1px #1c375a29, 0 8px 24px -4px #1c324f61;
+  display: none;
+}
+.tl-pop.open { display: block; }
+
+/* Arrow tying the panel to its marker. `--arrow-x` is set per-open so the
+   arrow points at the marker even when the panel is clamped near an edge. */
+.tl-pop::before, .tl-pop::after {
+  content: ''; position: absolute; left: var(--arrow-x, 50%);
+  transform: translateX(-50%); width: 0; height: 0;
+  border-left: 8px solid transparent; border-right: 8px solid transparent;
+}
+.tl-pop::before { top: -9px; border-bottom: 9px solid #d3dbe3; }
+.tl-pop::after  { top: -8px; border-bottom: 9px solid #fff; }
+.tl-pop.flip-up::before { top: auto; bottom: -9px; border-bottom: 0; border-top: 9px solid #d3dbe3; }
+.tl-pop.flip-up::after  { top: auto; bottom: -8px; border-bottom: 0; border-top: 9px solid #fff; }
+
+/* The marker the panel is currently open on */
+.tl-marker.is-open { outline: 2px solid #22364a; outline-offset: 2px; }
+.tl-pop .pop-head {
+  padding: 11px 14px; border-bottom: 1px solid #eef1f4;
+  display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700;
+}
+.tl-pop .pop-head .close {
+  margin-left: auto; border: 0; background: none; cursor: pointer; color: #90a1b3; font-size: 13px;
+}
+.tl-pop .pop-body { max-height: 232px; overflow-y: auto; }
+.pop-item {
+  display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f3f6f8;
+  cursor: pointer; align-items: flex-start;
+}
+.pop-item:last-child { border-bottom: 0; }
+.pop-item:hover { background: #f6f9fc; }
+.pop-item .pi-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: 0 0 8px; }
+.pop-item .pi-main { min-width: 0; }
+.pop-item .pi-cat { font-size: 13px; font-weight: 600; }
+.pop-item .pi-sub { font-size: 11.5px; color: #7c8b9b; margin-top: 2px; }
+
+/* ---- Zero-documents empty state for the whole report ---- */
+.report-empty { text-align: center; padding: 58px 24px; }
+.report-empty i { font-size: 38px; color: #b3bfcb; margin-bottom: 16px; }
+.report-empty h3 { font-size: 18px; margin: 0 0 8px; }
+.report-empty p { color: #5a6b7d; font-size: 14px; max-width: 430px; margin: 0 auto; line-height: 1.6; }
+
+/* ---- Demo control rail (prototype only — NOT product UI) ---- */
+.demo-rail {
+  position: fixed; right: 14px; top: 74px; z-index: 60;
+  background: #22364a; color: #fff; border-radius: 6px;
+  padding: 12px 13px; width: 205px;
+  box-shadow: 0 3px 18px -2px #1c375a29, 0 12px 48px -6px #1c324f61;
+  font-size: 12px;
+}
+.demo-rail h4 {
+  margin: 0 0 3px; font-size: 10px; letter-spacing: .9px; text-transform: uppercase;
+  color: #9fb4c9; font-weight: 700;
+}
+.demo-rail .dr-note { color: #7f95ab; font-size: 10.5px; margin: 0 0 11px; line-height: 1.4; }
+.demo-rail .dr-group { margin-bottom: 11px; }
+.demo-rail label { display: block; color: #b9c9d8; margin-bottom: 5px; font-size: 11px; }
+.demo-rail select {
+  width: 100%; background: #16283a; color: #fff; border: 1px solid #3a4f66;
+  border-radius: 4px; padding: 6px 8px; font-size: 12px; font-family: inherit; cursor: pointer;
+}
+.demo-rail .dr-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #dbe6f0; }
+.demo-rail .dr-toggle input { accent-color: #5aa9ff; cursor: pointer; }
+.demo-rail .dr-collapse {
+  position: absolute; top: 8px; right: 9px; background: none; border: 0;
+  color: #7f95ab; cursor: pointer; font-size: 12px;
+}
+.demo-rail.collapsed .dr-inner { display: none; }
+.demo-rail.collapsed { width: auto; padding: 9px 12px; }
+.demo-rail.collapsed h4 { margin: 0; }
+
+/* ==========================================================================
+   RESPONSIVE — PRD requires phone + tablet, not desktop-only
+   ========================================================================== */
+@media (max-width: 1080px) {
+  .gt-sidenav { display: none; }
+  .gt-main { padding: 20px 18px 70px; }
+  .demo-rail { display: none; }
+}
+@media (max-width: 760px) {
+  .roster-head { flex-direction: column; align-items: stretch; }
+  .stat-row { grid-template-columns: 1fr; gap: 26px; }
+  .rh-top { flex-direction: column; }
+  .openflag { width: 100%; }
+  .prog-row { grid-template-columns: 1fr 74px; grid-template-areas: "name val" "track track"; gap: 7px 12px; }
+  .prog-name { grid-area: name; } .prog-val { grid-area: val; } .prog-track { grid-area: track; }
+  .prog-go { display: none; }
+  /* Timeline lane labels move above their track on phone so the axis keeps width */
+  .tl-inner { min-width: 620px; }
+  .tl-axis { padding-left: 96px; }
+  .tl-lane-label { flex: 0 0 96px; }
+  .period-bar .pb-right { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="gt-app">
+
+  <!-- ══ TOPNAV ══ -->
+  <header class="gt-topnav">
+    <div class="gt-brand">
+      <span class="vs-mark"><i class="fa-solid fa-bolt"></i> VectorSolutions</span>
+      <span class="sep"></span>
+      <span class="product"><span class="shield"><i class="fa-solid fa-shield-halved"></i></span> Guardian Tracking</span>
+    </div>
+    <span class="spacer"></span>
+    <span class="ver">v2026.3.4</span>
+    <button class="icon-btn" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
+    <span class="avatar">AS</span>
+  </header>
+
+  <div class="gt-body">
+
+    <!-- ══ SIDENAV ══ -->
+    <nav class="gt-sidenav" aria-label="Main">
+      <button class="collapse-tab" aria-label="Collapse navigation"><i class="fa-solid fa-arrow-left"></i></button>
+      <ul class="gt-nav">
+        <li><a href="#"><span class="nav-icon"><i class="fa-regular fa-house"></i></span> Home</a></li>
+        <li><a href="#"><span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Early Interventions</a></li>
+        <li><a href="#"><span class="nav-icon"><i class="fa-regular fa-thumbs-up"></i></span> Positive Recognitions</a></li>
+        <li><button class="nav-row"><span class="nav-icon"><i class="fa-regular fa-file-lines"></i></span> Documents <i class="fa-solid fa-chevron-down chev"></i></button></li>
+        <li><button class="nav-row"><span class="nav-icon"><i class="fa-regular fa-calendar"></i></span> Tasks <i class="fa-solid fa-chevron-down chev"></i></button></li>
+        <li>
+          <button class="nav-row"><span class="nav-icon"><i class="fa-solid fa-users"></i></span> People <i class="fa-solid fa-chevron-up chev"></i></button>
+          <ul class="sub">
+            <li><a href="#">Recent Activity</a></li>
+            <li><a href="#" class="active" id="navSubordinates">Subordinates</a></li>
+          </ul>
+        </li>
+        <li><a href="#"><span class="nav-icon"><i class="fa-solid fa-table-cells-large"></i></span> Dashboard</a></li>
+        <li><button class="nav-row"><span class="nav-icon"><i class="fa-solid fa-wrench"></i></span> Manage <i class="fa-solid fa-chevron-down chev"></i></button></li>
+        <li><a href="#"><span class="nav-icon"><i class="fa-regular fa-circle-question"></i></span> Get Support</a></li>
+      </ul>
+      <div class="foot"><i class="fa-regular fa-user"></i> Austin Smith</div>
+    </nav>
+
+    <!-- ══ MAIN ══ -->
+    <main class="gt-main" id="main">
+      <div class="gt-main-inner">
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             PAGE 1 — SUBORDINATES ROSTER (entry point; exists today)
+             ═══════════════════════════════════════════════════════════════ -->
+        <section class="page is-active" id="page-roster">
+          <div class="roster-head">
+            <h1>Subordinates</h1>
+            <div class="roster-controls">
+              <label class="chk"><input type="checkbox" checked> Indirect Subordinates</label>
+              <div>
+                <span class="ctl-label">Timespan</span>
+                <select class="btn" style="padding:9px 12px;min-width:150px;">
+                  <option>Week</option><option>Month</option>
+                  <option selected>Quarter</option><option>Year</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <p class="roster-owner">Smith, Austin</p>
+
+          <div class="panel" style="margin-bottom:18px;">
+            <div class="stat-row">
+              <div class="stat">
+                <div class="stat-label">Active Employees</div>
+                <div class="bubble teal">6</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Employees Documented</div>
+                <div class="bubble red">5</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Employees w/ Open Flags</div>
+                <div class="bubble red">2</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <table class="gt-table">
+              <thead>
+                <tr>
+                  <th class="sortable">Name <i class="fa-solid fa-arrow-up sort-caret"></i></th>
+                  <th class="sortable">Documents Created <i class="fa-solid fa-sort sort-caret"></i></th>
+                  <th class="sortable">Documents For <i class="fa-solid fa-sort sort-caret"></i></th>
+                  <th class="sortable">Last Activity <i class="fa-solid fa-sort sort-caret"></i></th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rosterBody"><!-- rendered by JS --></tbody>
+            </table>
+          </div>
+          <p class="hint-inline">
+            <i class="fa-regular fa-circle-info"></i>
+            Roster is unchanged by GT-5775 and is reproduced here only as the entry point.
+            The <strong>Actions</strong> button opens the new Individual Summary Report.
+          </p>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             PAGE 2 — INDIVIDUAL SUMMARY REPORT  ← the design work
+             ═══════════════════════════════════════════════════════════════ -->
+        <section class="page" id="page-report">
+
+          <button class="back-link" id="backToRoster">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+
+          <!-- ── Header: identity condensed + open-flag status + global period ── -->
+          <div class="report-header">
+            <div class="rh-top">
+              <div class="rh-identity">
+                <h1 id="rptName">Smith, Austin</h1>
+                <div class="rh-meta">
+                  <span id="rptEmail">austin.smith@vectorsolutions.com</span>
+                  <span class="grp" id="rptGroups">
+                    <span class="grp-chip">Everyone</span><span class="grp-chip">Administrators</span>
+                  </span>
+                  <span id="rptLastAct">Last activity: about 1 hour ago</span>
+                </div>
+              </div>
+
+              <!-- Open-flag indicator. Alert treatment applies ONLY when count > 0. -->
+              <div class="openflag is-alert" id="openFlagBox">
+                <i class="fa-solid fa-flag of-icon" id="ofIcon"></i>
+                <div>
+                  <div class="of-count" id="ofCount">2</div>
+                  <div class="of-label" id="ofLabel">Open flags</div>
+                  <a class="of-link" id="ofLink">Review in flag workflow <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
+                </div>
+              </div>
+            </div>
+
+            <!-- ONE global period control drives tiles, deltas, and the timeline axis. -->
+            <div class="period-bar">
+              <span class="pb-label">Reporting period</span>
+              <div class="seg" id="periodSeg">
+                <button data-months="3">Last 3 months</button>
+                <button data-months="6" class="active">Last 6 months</button>
+                <button data-months="12">Last 12 months</button>
+                <button data-months="0">Custom…</button>
+              </div>
+              <span class="period-note">
+                <span id="periodRange">Mar 1 – Aug 28, 2026</span> ·
+                dated by <strong>occurred</strong>, not created
+              </span>
+              <span class="pb-right">
+                <button class="btn" id="btnExport"><i class="fa-regular fa-file-pdf"></i> Export PDF</button>
+              </span>
+            </div>
+          </div>
+
+          <!-- ══ Zero-document empty state (whole report) ══ -->
+          <div class="section" id="reportEmpty" style="display:none;">
+            <div class="report-empty">
+              <i class="fa-regular fa-folder-open"></i>
+              <h3>No documents in this period</h3>
+              <p>
+                No documents occurred for this individual between
+                <span id="emptyRange">Mar 1 and Aug 28, 2026</span>.
+                Try a longer reporting period, or check that documents exist you have permission to view.
+              </p>
+            </div>
+          </div>
+
+          <div id="reportContent">
+
+            <!-- ══ FLAG PROGRESSION ══ -->
+            <div class="section" id="secProgression">
+              <div class="section-head">
+                <h2>Flag progression</h2>
+                <div class="head-right">
+                  <span class="period-note">Accumulated score toward each rule's threshold</span>
+                </div>
+              </div>
+              <p class="section-sub">
+                How close this individual is to each <strong>early intervention</strong> threshold,
+                sorted by proximity. Bars deepen from grey through amber to red as a rule
+                approaches the point where it raises a flag.
+              </p>
+
+              <div class="prog-list" id="progPrimary"></div>
+              <div class="prog-list" id="progOverflow"></div>
+              <button class="prog-more" id="progMoreBtn">
+                <i class="fa-solid fa-chevron-down"></i> <span id="progMoreLabel">Show all rules</span>
+              </button>
+              <div class="prog-none" id="progNoneEI" style="display:none;">
+                <i class="fa-regular fa-circle-check"></i>
+                No early-intervention rule has any accumulated score in this period.
+              </div>
+            </div>
+
+            <!-- ══ POSITIVE RECOGNITION PROGRESSION ══
+                 Separate section, separate encoding. Recognition accrual has no
+                 risk gradient — 20% toward a commendation is not a "better" state
+                 than 80% — so these bars are one flat blue rather than a scale. -->
+            <div class="section" id="secRecognition">
+              <div class="section-head">
+                <h2>Recognition progression</h2>
+                <div class="head-right">
+                  <span class="period-note">Accumulated score toward each recognition threshold</span>
+                </div>
+              </div>
+              <p class="section-sub">
+                Progress toward <strong>positive recognition</strong> thresholds. Reaching one
+                triggers recognition rather than a flag, so these are shown apart from early
+                intervention and carry no risk scale.
+              </p>
+
+              <div class="prog-list" id="recPrimary"></div>
+              <div class="prog-list" id="recOverflow"></div>
+              <button class="prog-more" id="recMoreBtn">
+                <i class="fa-solid fa-chevron-down"></i> <span id="recMoreLabel">Show all rules</span>
+              </button>
+              <div class="prog-none" id="progNonePR" style="display:none;">
+                <i class="fa-regular fa-circle-check"></i>
+                No recognition rule has any accumulated score in this period.
+              </div>
+            </div>
+
+            <!-- ══ METRIC TILES ══ -->
+            <div class="section" id="secTiles">
+              <div class="section-head">
+                <h2>Category metrics</h2>
+                <div class="head-right" id="tilesHeadRight" style="display:none;">
+                  <button class="btn" id="btnManageTiles"><i class="fa-solid fa-sliders"></i> Manage categories</button>
+                </div>
+              </div>
+              <p class="section-sub" id="tilesSub">
+                In-period counts, each compared against the immediately preceding period of equal length.
+              </p>
+
+              <div class="tile-grid" id="tileGrid"></div>
+
+              <!-- Empty state — dual path. Admin gets an inline picker; non-admin
+                   gets an explanation plus a way to ask, never a dead-end button. -->
+              <div class="tile-empty" id="tileEmpty" style="display:none;">
+                <div class="te-icon"><i class="fa-solid fa-chart-simple"></i></div>
+                <h3 id="teTitle">No category metrics yet</h3>
+                <p id="teBody">
+                  Choose the document categories you want to track for every individual.
+                  Each becomes a tile showing its count for the period and how that
+                  compares to the period before.
+                </p>
+                <div class="te-actions" id="teActions"></div>
+                <div class="role-note" id="teRoleNote"></div>
+              </div>
+            </div>
+
+            <!-- ══ TIMELINE ══ -->
+            <div class="section" id="secTimeline">
+              <div class="section-head">
+                <h2>Document timeline</h2>
+                <div class="head-right">
+                  <span class="period-note" id="tlCount">—</span>
+                </div>
+              </div>
+              <p class="section-sub">
+                Every document on one axis, grouped by flag classification. Dense days collapse
+                into a count — zoom in to break clusters apart, then scroll or drag the timeline
+                to move through the period. Click any marker to drill in without leaving the report.
+              </p>
+
+              <div class="tl-filters" id="tlFilters">
+                <button class="chip active" data-filter="all">All</button>
+                <span class="filter-sep"></span>
+                <button class="chip" data-filter="Early_Intervention"><span class="swatch" style="background:var(--cat-early)"></span> Early intervention</button>
+                <button class="chip" data-filter="Positive_Recognition"><span class="swatch" style="background:var(--cat-positive)"></span> Positive recognition</button>
+                <button class="chip" data-filter="Both"><span class="swatch" style="background:var(--cat-both)"></span> Both</button>
+                <button class="chip" data-filter="Neither"><span class="swatch" style="background:var(--cat-neither)"></span> Neither</button>
+                <span class="filter-sep"></span>
+                <button class="chip" data-filter="flagged"><i class="fa-solid fa-flag" style="font-size:10px;color:#ca150c;"></i> Flag events only</button>
+              </div>
+
+              <div class="tl-wrap" id="tlWrap">
+                <div class="tl-inner" id="tlInner">
+                  <div class="tl-axis" id="tlAxis"></div>
+                  <div id="tlLanes"></div>
+
+                  <!-- Drill-in popover — inside the scroller so it stays pinned
+                       to its marker while the timeline scrolls. -->
+                  <div class="tl-pop" id="tlPop">
+                    <div class="pop-head">
+                      <span id="popTitle">—</span>
+                      <button class="close" id="popClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="pop-body" id="popBody"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Chart footer: pan hint left, zoom control right -->
+              <div class="tl-foot">
+                <span class="period-note tl-hint">
+                  <i class="fa-regular fa-hand-pointer"></i>
+                  Drag to pan · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + scroll to zoom
+                </span>
+                <div class="tl-zoom">
+                  <button class="zreset" id="zReset" disabled>Fit</button>
+                  <i class="fa-solid fa-magnifying-glass-minus zicon" aria-hidden="true"></i>
+                  <input type="range" id="zSlider" min="0" max="6" step="1" value="0"
+                         aria-label="Timeline zoom" title="Timeline zoom">
+                  <i class="fa-solid fa-magnifying-glass-plus zicon" aria-hidden="true"></i>
+                  <span class="zlevel" id="zLevel">6 months in view</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /#reportContent -->
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══ DEMO RAIL — prototype scaffolding, not product UI ══ -->
+<div class="demo-rail" id="demoRail">
+  <button class="dr-collapse" id="drCollapse" aria-label="Collapse"><i class="fa-solid fa-minus"></i></button>
+  <h4>Prototype controls</h4>
+  <div class="dr-inner">
+    <p class="dr-note">Not part of the design — switches states for review.</p>
+    <div class="dr-group">
+      <label for="drRole">Viewer role</label>
+      <select id="drRole">
+        <option value="admin">Supervisor + category admin</option>
+        <option value="supervisor" selected>Supervisor (no admin rights)</option>
+        <option value="self">Viewing own report</option>
+      </select>
+    </div>
+    <div class="dr-group">
+      <label for="drTiles">Tile state</label>
+      <select id="drTiles">
+        <option value="configured" selected>Categories enabled</option>
+        <option value="empty">None enabled (on-ramp)</option>
+      </select>
+    </div>
+    <div class="dr-group">
+      <label for="drDensity">Timeline density</label>
+      <select id="drDensity">
+        <option value="normal" selected>Normal (~40 docs)</option>
+        <option value="dense">Dense (200+ docs)</option>
+        <option value="sparse">Sparse (6 docs)</option>
+        <option value="zero">Zero documents</option>
+      </select>
+    </div>
+    <div class="dr-group">
+      <label class="dr-toggle"><input type="checkbox" id="drFlags" checked> Has open flags</label>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   MOCK DATA + RENDER
+   ==========================================================================
+   All data is fabricated. Category polarity (`ruleType`) is the ONLY source of
+   truth for colour and for delta valence — nothing is configured per-category.
+   ========================================================================== */
+
+/* `color` is the mandated ruleType value (markers, bars, lane dots).
+   `badgeBg` / `badgeFg` are the tinted-badge pair — same construction as the
+   stock tinted badge variants, verified ≥4.5:1 against every card fill. */
+const PALETTE = {
+  Early_Intervention:   { color: 'rgb(216,155,56)', soft: 'rgba(216,155,56,.14)',
+                          badgeBg: 'rgba(216,155,56,.16)', badgeFg: '#825d22', label: 'Early intervention' },
+  Positive_Recognition: { color: 'rgb(33,150,243)', soft: 'rgba(33,150,243,.12)',
+                          badgeBg: 'rgba(33,150,243,.16)', badgeFg: '#15619e', label: 'Positive recognition' },
+  Both:                 { color: 'rgb(76,76,76)',   soft: 'rgba(76,76,76,.10)',
+                          badgeBg: 'rgba(76,76,76,.16)',   badgeFg: '#4c4c4c', label: 'Both' },
+  Neither:              { color: 'rgb(171,71,188)', soft: 'rgba(171,71,188,.12)',
+                          badgeBg: 'rgba(171,71,188,.16)', badgeFg: '#913ca0', label: 'Neither' }
+};
+
+/* Delta valence derives from ruleType — never configured.
+   Early_Intervention up = adverse. Positive_Recognition up = favorable.
+   Both / Neither = neutral in BOTH directions (ambiguous polarity, PRD §6). */
+function valenceFor(ruleType, delta) {
+  if (delta === 0 || delta === null) return 'flat';
+  if (ruleType === 'Both' || ruleType === 'Neither') return 'flat';
+  const up = delta > 0;
+  if (ruleType === 'Early_Intervention')   return up ? 'adverse' : 'good';
+  if (ruleType === 'Positive_Recognition') return up ? 'good'    : 'adverse';
+  return 'flat';
+}
+
+const ROSTER = [
+  { id:'smith',    name:'Smith, Austin',    created:14, forCount:9,  last:'Aug 28, 2026', flags:1 },
+  { id:'rivera',   name:'Rivera, Janelle',  created:22, forCount:17, last:'Aug 27, 2026', flags:1 },
+  { id:'okafor',   name:'Okafor, Daniel',   created:8,  forCount:4,  last:'Aug 26, 2026', flags:0 },
+  { id:'brennan',  name:'Brennan, Kyle',    created:31, forCount:26, last:'Aug 28, 2026', flags:0 },
+  { id:'tran',     name:'Tran, Mai',        created:5,  forCount:2,  last:'Aug 12, 2026', flags:0 },
+  { id:'castillo', name:'Castillo, Rosa',   created:0,  forCount:0,  last:'Jul 30, 2026', flags:0 }
+];
+
+/* Threshold alert rules. `score` is the accumulated weight (not persisted today —
+   PRD §6 flags this as a net-new read path). `open:true` reads 100% per the AC.
+
+   IMPORTANT — a RULE is only ever EarlyIntervention or PositiveRecognition.
+   `ThresholdAlertType` is exactly those two (PRD §Product Context). `Both` and
+   `Neither` are CATEGORY-level `ruleType` values and cannot appear here:
+     · `Both`    = a category tied to one EI rule AND one PR rule → two bars,
+                   each individually unambiguous (see 'Pursuit Policy Review').
+     · `Neither` = a category with no rule association at all → no threshold to
+                   progress toward → contributes no bar (it still gets a tile).
+   This is why progression can be polarised even though tiles can't be. */
+const RULES = [
+  { name:'Use of Force — 3 in 90 days',        type:'Early_Intervention',   score:9,  threshold:9,  open:true  },
+  { name:'Vehicle Pursuit — 2 in 60 days',     type:'Early_Intervention',   score:7,  threshold:9,  open:false },
+  { name:'Citizen Complaint — 4 in 180 days',  type:'Early_Intervention',   score:6,  threshold:12, open:false },
+  { name:'Commendation — 3 in 180 days',       type:'Positive_Recognition', score:5,  threshold:9,  open:false },
+  { name:'Missed Court Appearance — 2 in 90d', type:'Early_Intervention',   score:3,  threshold:8,  open:false },
+  { name:'Late Report — 5 in 90 days',         type:'Early_Intervention',   score:4,  threshold:15, open:false },
+  { name:'Tardiness — 4 in 60 days',           type:'Early_Intervention',   score:3,  threshold:12, open:false },
+  { name:'Training Excellence — 2 in 365d',    type:'Positive_Recognition', score:2,  threshold:10, open:false },
+  /* 'Pursuit Policy Review' is a `Both` CATEGORY — it surfaces as these two
+     separate rules, which is exactly how the ambiguity resolves itself. */
+  { name:'Pursuit Policy Review — 3 in 180d',  type:'Early_Intervention',   score:2,  threshold:11, open:false,
+    category:'Pursuit Policy Review' },
+  { name:'Pursuit Policy Commendation — 2/yr', type:'Positive_Recognition', score:4,  threshold:8,  open:false,
+    category:'Pursuit Policy Review' },
+  { name:'Community Engagement — 5 in 365d',   type:'Positive_Recognition', score:3,  threshold:18, open:false },
+  { name:'Uniform Standards — 4 in 90 days',   type:'Early_Intervention',   score:1,  threshold:12, open:false }
+];
+
+/* Tile categories. `prior === null` renders n/a (unobservable prior period —
+   defined WITHOUT reference to tenure, per PRD §6). */
+const CATEGORIES = [
+  { name:'Use of Force',        type:'Early_Intervention',   count:6,  prior:2   },
+  { name:'Citizen Complaint',   type:'Early_Intervention',   count:4,  prior:7   },
+  { name:'Commendation',        type:'Positive_Recognition', count:9,  prior:6   },
+  { name:'Vehicle Pursuit',     type:'Early_Intervention',   count:3,  prior:3   },
+  { name:'Pursuit Policy Rev.', type:'Both',                 count:2,  prior:1   },
+  { name:'Equipment Damage',    type:'Neither',              count:1,  prior:null},
+  { name:'Community Outreach',  type:'Positive_Recognition', count:0,  prior:0   }
+];
+
+const LANES = ['Early_Intervention','Positive_Recognition','Both','Neither'];
+const CATS_BY_TYPE = {
+  Early_Intervention:   ['Use of Force','Citizen Complaint','Vehicle Pursuit','Late Report','Tardiness','Missed Court'],
+  Positive_Recognition: ['Commendation','Training Excellence','Community Outreach','Lifesaving Award'],
+  Both:                 ['Pursuit Policy Review','Supervisory Counseling'],
+  Neither:              ['Equipment Damage','Shift Note','Administrative Approval']
+};
+
+const MONTHS = ['Mar','Apr','May','Jun','Jul','Aug'];
+
+/* --- Deterministic pseudo-random so the mock looks identical every load --- */
+let _seed = 20260828;
+function rnd() { _seed = (_seed * 1103515245 + 12345) & 0x7fffffff; return _seed / 0x7fffffff; }
+
+/* Build documents across the period. Density modes exercise the PRD's
+   stated worst cases: 200+ in a period, and 15 on one day. */
+function buildDocs(mode) {
+  _seed = 20260828;
+  if (mode === 'zero') return [];
+  const total = mode === 'dense' ? 214 : mode === 'sparse' ? 6 : 42;
+  const docs = [];
+  for (let i = 0; i < total; i++) {
+    const type = LANES[Math.floor(rnd() * (rnd() > .45 ? 2 : 4))];
+    const cats = CATS_BY_TYPE[type];
+    docs.push({
+      type,
+      cat: cats[Math.floor(rnd() * cats.length)],
+      pos: rnd(),                       // 0..1 across the period axis
+      author: ['Sgt. Alvarez','Lt. Doyle','Capt. Whitfield','Sgt. Nakamura'][Math.floor(rnd() * 4)]
+    });
+  }
+  // A single very dense day — 15 documents stacked on one date (PRD edge case)
+  if (mode === 'dense') {
+    for (let i = 0; i < 15; i++) {
+      docs.push({ type:'Early_Intervention', cat:'Use of Force', pos:0.62, author:'Sgt. Alvarez', sameDay:true });
+    }
+  }
+  return docs;
+}
+
+/* Flag events pinned on the timeline with inline dated callouts */
+const FLAG_EVENTS = [{ pos: 0.78, label: 'FLAG · Aug 4', type: 'Early_Intervention' }];
+
+const state = {
+  role: 'supervisor',
+  tiles: 'configured',
+  density: 'normal',
+  hasFlags: true,
+  months: 6,
+  filter: 'all',
+  zoom: 1,               // 1 = whole period fits; higher = scrollable detail
+  progExpanded: false,   // EI list "show all"
+  recExpanded: false,    // PR list "show all"
+  person: ROSTER[0]
+};
+
+/* ==========================================================================
+   ROSTER
+   ========================================================================== */
+function renderRoster() {
+  document.getElementById('rosterBody').innerHTML = ROSTER.map(p => `
+    <tr>
+      <td>${p.name}</td>
+      <td>${p.created}</td>
+      <td>${p.forCount}</td>
+      <td>${p.last}</td>
+      <td style="text-align:right;">
+        <button class="open-report-btn" data-person="${p.id}" title="Open individual summary report">
+          <i class="fa-regular fa-id-card"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+
+  document.querySelectorAll('.open-report-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const p = ROSTER.find(x => x.id === b.dataset.person);
+      openReport(p);
+    });
+  });
+}
+
+function openReport(person) {
+  state.person = person;
+  state.hasFlags = person.flags > 0;
+  state.density = person.created === 0 ? 'zero' : state.density === 'zero' ? 'normal' : state.density;
+  document.getElementById('drFlags').checked = state.hasFlags;
+  document.getElementById('drDensity').value = state.density;
+
+  document.getElementById('rptName').textContent = person.name;
+  const handle = person.name.toLowerCase().replace(/[^a-z]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+  document.getElementById('rptEmail').textContent = handle + '@vectorsolutions.com';
+  document.getElementById('rptLastAct').textContent = 'Last activity: ' + person.last;
+
+  showPage('report');
+  renderReport();
+}
+
+function showPage(which) {
+  document.getElementById('page-roster').classList.toggle('is-active', which === 'roster');
+  document.getElementById('page-report').classList.toggle('is-active', which === 'report');
+  window.scrollTo(0, 0);
+  document.querySelector('.gt-main').scrollTop = 0;
+}
+
+/* ==========================================================================
+   REPORT HEADER
+   ========================================================================== */
+function renderHeader() {
+  const box = document.getElementById('openFlagBox');
+  /* Derive from the rules themselves so the header can never disagree with the
+     progression list. Only Early Intervention rules raise a *flag*; a fired
+     Positive Recognition rule is recognition, not an alert. */
+  const count = state.hasFlags
+    ? RULES.filter(r => r.open && r.type === 'Early_Intervention').length
+    : 0;
+
+  // Alert treatment applies ONLY when count > 0.
+  box.classList.toggle('is-alert', count > 0);
+  box.classList.toggle('is-clear', count === 0);
+  document.getElementById('ofCount').textContent = count;
+  document.getElementById('ofLabel').textContent = count === 1 ? 'Open flag' : 'Open flags';
+  document.getElementById('ofIcon').className =
+    (count > 0 ? 'fa-solid fa-flag' : 'fa-solid fa-circle-check') + ' of-icon';
+  document.getElementById('ofLink').style.display = count > 0 ? 'block' : 'none';
+  if (count === 0) document.getElementById('ofLabel').textContent = 'No open flags';
+
+  const ranges = {
+    3:  'Jun 1 – Aug 28, 2026',
+    6:  'Mar 1 – Aug 28, 2026',
+    12: 'Sep 1, 2025 – Aug 28, 2026',
+    0:  'Custom range'
+  };
+  document.getElementById('periodRange').textContent = ranges[state.months] || ranges[6];
+  document.getElementById('emptyRange').textContent  = ranges[state.months] || ranges[6];
+}
+
+/* ==========================================================================
+   FLAG PROGRESSION — top N by proximity; open flags always shown
+   ========================================================================== */
+/* A rule is only ever EarlyIntervention or PositiveRecognition, and the two
+   mean opposite things on arrival — so they are rendered as SEPARATE sections
+   with separate encodings rather than one list with mixed polarity:
+
+     EI → grey → amber → red, a genuine RISK GRADIENT toward a flag.
+     PR → one flat blue. Recognition accrual has no gradient; 20% toward a
+          commendation is not a "worse" state than 80%, so a scale would be
+          inventing meaning that isn't there.
+
+   `Both` categories contribute one rule to each list; `Neither` categories
+   have no rule and so appear in neither. */
+
+/* EI risk band by proximity to threshold. */
+function riskBand(pct) {
+  if (pct >= 100) return { c: 'var(--risk-max)',  ink: '#fff',    label: 'Flag raised' };
+  if (pct >= 80)  return { c: 'var(--risk-high)', ink: '#fff',    label: 'Close to threshold' };
+  // White on the mandated amber is 2.42:1 — dark ink instead (7.3:1).
+  if (pct >= 50)  return { c: 'var(--risk-mid)',  ink: '#3d2a06', label: 'Approaching threshold' };
+  return            { c: 'var(--risk-low)',  ink: '#fff',    label: 'Accruing' };
+}
+
+/* Shared row renderer. `kind` selects the encoding. */
+function progRow(r, kind, canAct) {
+  const reached = r.pct >= 100;
+  const isEI    = kind === 'ei';
+  const band    = isEI ? riskBand(r.pct) : null;
+  const col     = isEI ? band.c : 'var(--recognition)';
+  const ink     = isEI ? band.ink : '#fff';
+  const meaning = isEI
+    ? `Early intervention — ${band.label.toLowerCase()} (${r.pct}% of threshold)`
+    : 'Positive recognition — reaching this threshold triggers recognition';
+
+  const pill = r.open
+    ? `<span class="flag-pill ${isEI ? '' : 'merit'}">${isEI ? 'OPEN FLAG' : 'RECOGNITION'}</span>`
+    : '';
+
+  return `
+    <div class="prog-row ${canAct ? '' : 'locked'} ${reached ? 'reached' : ''}"
+         style="--aim-bg:${col};--aim-ink:${ink};"
+         title="${canAct ? meaning + ' · Open in flag workflow' : meaning}">
+      <div class="prog-name">
+        <span class="aim" title="${meaning}">
+          <i class="fa-solid fa-${isEI ? 'triangle-exclamation' : 'thumbs-up'}"></i>
+        </span>
+        <span class="txt">${r.name}</span>
+        ${pill}
+      </div>
+      <div class="prog-track">
+        <div class="prog-fill ${r.open ? 'striped' : ''}" style="width:${r.pct}%;background:${col}"></div>
+        <span class="thresh-tick"></span>
+      </div>
+      <div class="prog-val">${r.pct}% <span class="of">${r.score}/${r.threshold}</span></div>
+      <div class="prog-go"><i class="fa-solid fa-chevron-right"></i></div>
+    </div>`;
+}
+
+/* Render one progression list (EI or PR) into its own section. */
+function renderProgList(cfg) {
+  const active = RULES
+    .filter(r => r.score > 0 && r.type === cfg.type)
+    .map(r => ({ ...r, pct: r.open ? 100 : Math.round((r.score / r.threshold) * 100) }))
+    .sort((a, b) => b.pct - a.pct);
+
+  const empty = document.getElementById(cfg.emptyId);
+  const btn   = document.getElementById(cfg.moreBtnId);
+
+  if (!active.length) {
+    document.getElementById(cfg.primaryId).innerHTML  = '';
+    document.getElementById(cfg.overflowId).innerHTML = '';
+    btn.style.display   = 'none';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Fired rules always visible; then fill to 5 with the closest to threshold.
+  const fired    = active.filter(r => r.open);
+  const rest     = active.filter(r => !r.open);
+  const primary  = [...fired, ...rest.slice(0, Math.max(0, 5 - fired.length))];
+  const overflow = rest.slice(Math.max(0, 5 - fired.length));
+
+  const canAct = state.role !== 'self';   // click-through is permission-gated
+
+  document.getElementById(cfg.primaryId).innerHTML  = primary.map(r => progRow(r, cfg.kind, canAct)).join('');
+  document.getElementById(cfg.overflowId).innerHTML = overflow.map(r => progRow(r, cfg.kind, canAct)).join('');
+
+  btn.style.display = overflow.length ? 'flex' : 'none';
+  document.getElementById(cfg.moreLabelId).textContent =
+    state[cfg.stateKey] ? 'Show fewer' : `Show all ${active.length} rules (${overflow.length} more)`;
+  btn.querySelector('i').className =
+    state[cfg.stateKey] ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+  document.getElementById(cfg.overflowId).classList.toggle('open', state[cfg.stateKey]);
+}
+
+const PROG_EI = {
+  type: 'Early_Intervention', kind: 'ei', stateKey: 'progExpanded',
+  primaryId: 'progPrimary', overflowId: 'progOverflow',
+  moreBtnId: 'progMoreBtn', moreLabelId: 'progMoreLabel', emptyId: 'progNoneEI'
+};
+const PROG_PR = {
+  type: 'Positive_Recognition', kind: 'pr', stateKey: 'recExpanded',
+  primaryId: 'recPrimary', overflowId: 'recOverflow',
+  moreBtnId: 'recMoreBtn', moreLabelId: 'recMoreLabel', emptyId: 'progNonePR'
+};
+
+function renderProgression() {
+  renderProgList(PROG_EI);
+  renderProgList(PROG_PR);
+}
+
+/* ==========================================================================
+   METRIC TILES — identity on the badge, valence on the card
+   ========================================================================== */
+function renderTiles() {
+  const grid    = document.getElementById('tileGrid');
+  const empty   = document.getElementById('tileEmpty');
+  const isAdmin = state.role === 'admin';
+
+  if (state.tiles === 'empty') {
+    grid.innerHTML = '';
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    document.getElementById('tilesHeadRight').style.display = 'none';
+    document.getElementById('tilesSub').style.display = 'none';
+
+    // Dual-path on-ramp: admins configure inline; non-admins get a real path, not a dead end.
+    if (isAdmin) {
+      document.getElementById('teTitle').textContent = 'No category metrics yet';
+      document.getElementById('teBody').textContent =
+        'Choose the document categories to track for every individual. Each becomes a tile ' +
+        'showing its count for the period and how that compares to the period before.';
+      document.getElementById('teActions').innerHTML =
+        `<button class="btn primary" id="teChoose"><i class="fa-solid fa-plus"></i> Choose categories</button>
+         <button class="btn" id="teSuggest">Use suggested set (5)</button>`;
+      document.getElementById('teRoleNote').innerHTML =
+        `<i class="fa-solid fa-user-shield"></i> You can configure these because you have category administration rights.`;
+      document.getElementById('teChoose').addEventListener('click', () => {
+        state.tiles = 'configured';
+        document.getElementById('drTiles').value = 'configured';
+        renderReport();
+      });
+      document.getElementById('teSuggest').addEventListener('click', () => {
+        state.tiles = 'configured';
+        document.getElementById('drTiles').value = 'configured';
+        renderReport();
+      });
+    } else {
+      document.getElementById('teTitle').textContent = 'No category metrics enabled yet';
+      document.getElementById('teBody').textContent =
+        'Once your administrator enables categories, this area shows a count for each one ' +
+        'in the selected period and how it compares to the period before — so you can tell a ' +
+        'recent change from an ongoing baseline.';
+      document.getElementById('teActions').innerHTML =
+        `<button class="btn primary" id="teAsk"><i class="fa-regular fa-paper-plane"></i> Ask my administrator</button>
+         <button class="btn" id="teLearn">What are category metrics?</button>`;
+      document.getElementById('teRoleNote').innerHTML =
+        `<i class="fa-regular fa-circle-info"></i> Category metrics are configured in category administration, which you don't have access to.`;
+      document.getElementById('teAsk').addEventListener('click', function () {
+        this.outerHTML =
+          `<span class="btn" style="background:#e6f4ec;border-color:#9dcbb1;color:#0a7637;">
+             <i class="fa-solid fa-check"></i> Request sent to your administrator
+           </span>`;
+      });
+    }
+    return;
+  }
+
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+  document.getElementById('tilesHeadRight').style.display = isAdmin ? 'flex' : 'none';
+  document.getElementById('tilesSub').style.display = 'block';
+
+  /* Valence → the three card surfaces (muted fill, full-intensity bar, chip). */
+  const VALENCE_SURFACES = {
+    adverse: { fill: 'var(--valence-adverse-fill)', edge: 'var(--valence-adverse-edge)', bar: 'var(--valence-adverse-bar)' },
+    good:    { fill: 'var(--valence-good-fill)',    edge: 'var(--valence-good-edge)',    bar: 'var(--valence-good-bar)'    },
+    flat:    { fill: 'var(--valence-flat-fill)',    edge: 'var(--valence-flat-edge)',    bar: 'var(--valence-flat-bar)'    }
+  };
+
+  grid.innerHTML = CATEGORIES.map(c => {
+    const pal     = PALETTE[c.type];
+    const naDelta = c.prior === null;
+    const delta   = naDelta ? null : c.count - c.prior;
+    const val     = valenceFor(c.type, delta);
+    const surf    = VALENCE_SURFACES[val];
+
+    // Delta chip — always full intensity with white text/icon.
+    let chip;
+    if (naDelta) {
+      chip = `<span class="t-delta" title="No observable prior period — the preceding window predates available document data">
+                <i class="fa-solid fa-minus"></i> n/a</span>`;
+    } else if (delta === 0) {
+      chip = `<span class="t-delta"><i class="fa-solid fa-equals"></i> No change</span>`;
+    } else {
+      chip = `<span class="t-delta">
+                <i class="fa-solid fa-arrow-${delta > 0 ? 'up' : 'down'}"></i>
+                ${delta > 0 ? '+' : ''}${delta}</span>`;
+    }
+
+    // Card carries valence; badge carries category identity.
+    const vars = `--v-fill:${surf.fill};--v-edge:${surf.edge};--v-bar:${surf.bar};`
+               + `--cat-soft:${pal.badgeBg};--cat-fg:${pal.badgeFg};`;
+
+    return `
+      <div class="tile" style="${vars}">
+        <div class="stripe"></div>
+        ${isAdmin ? '<button class="t-remove" title="Remove tile"><i class="fa-solid fa-xmark"></i></button>' : ''}
+        <div class="tile-in">
+          <span theme="badge pill" class="t-badge" title="${c.name} · ${pal.label}">${c.name}</span>
+          <div class="t-count">${c.count}</div>
+          ${chip}
+          <span class="t-vs">${naDelta ? 'no comparable prior period' : 'vs. prior ' + state.months + ' months'}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   TIMELINE — swim lanes by classification + clustering within a lane
+   ========================================================================== */
+/* Month labels for the selected period. Index 0 = start of the period. */
+function periodMonths() {
+  if (state.months === 12) return ['Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
+  if (state.months === 3)  return ['Jun','Jul','Aug'];
+  return MONTHS;
+}
+
+/* Convert an axis position (0..1) into a readable date in the period. */
+function posToDate(pos) {
+  const mons = periodMonths();
+  const span = pos * mons.length;
+  const mi   = Math.min(mons.length - 1, Math.floor(span));
+  const day  = Math.max(1, Math.min(28, Math.round((span - mi) * 28) + 1));
+  const year = (state.months === 12 && mi < 4) ? 2025 : 2026;
+  return `${mons[mi]} ${day}, ${year}`;
+}
+
+/* Axis ticks. As zoom increases the axis subdivides: months → half-months →
+   weeks → days, so the extra width carries real resolution rather than just
+   stretching the same six labels. */
+function axisTicks() {
+  const mons = periodMonths();
+  const z = state.zoom;
+  if (z <= 1)  return mons.map(m => ({ label: m, major: true }));
+  if (z <= 2)  return mons.flatMap(m => [{ label: m, major: true }, { label: '15', major: false }]);
+  if (z <= 4)  return mons.flatMap(m => [
+    { label: m, major: true }, { label: '8', major: false },
+    { label: '15', major: false }, { label: '22', major: false }
+  ]);
+  return mons.flatMap(m => Array.from({ length: 7 }, (_, i) =>
+    i === 0 ? { label: m, major: true } : { label: String(i * 4 + 1), major: false }));
+}
+
+function renderTimeline(opts) {
+  opts = opts || {};
+  const docs = buildDocs(state.density);
+  const wrap = document.getElementById('tlWrap');
+
+  /* Preserve the viewport centre across a re-render so zooming keeps your place. */
+  const prevCentre = opts.anchorRatio != null ? opts.anchorRatio
+    : (wrap.scrollWidth > wrap.clientWidth
+        ? (wrap.scrollLeft + wrap.clientWidth / 2 - 152) / (wrap.scrollWidth - 152)
+        : 0.5);
+
+  /* Zoom drives the track width. 1× fits the viewport; higher zoom overflows
+     and the wrapper scrolls. The 152px label column is excluded from scaling. */
+  const inner = document.getElementById('tlInner');
+  inner.style.width    = state.zoom === 1 ? '100%' : `${state.zoom * 100}%`;
+  inner.style.minWidth = state.zoom === 1 ? '780px' : '';
+
+  // Axis
+  const ticks = axisTicks();
+  document.getElementById('tlAxis').innerHTML =
+    `<div class="axis-spacer"></div><div class="axis-scale">` +
+    ticks.map(t => `<div class="mon${t.major ? ' tick-major' : ''}">${t.label}</div>`).join('') +
+    `</div>`;
+
+  const visible = docs.filter(d => {
+    if (state.filter === 'all') return true;
+    if (state.filter === 'flagged') return false;   // flag pins render separately
+    return d.type === state.filter;
+  });
+
+  document.getElementById('tlCount').textContent =
+    docs.length ? `${docs.length} documents · ${state.filter === 'all' ? 'all categories' : 'filtered'}` : 'no documents';
+
+  const lanes = state.filter === 'all' || state.filter === 'flagged'
+    ? LANES
+    : LANES.filter(l => l === state.filter);
+
+  /* Bucket resolution scales with zoom — THIS is what breaks clusters apart.
+     At 1× a bucket is ~3 days wide; at 8× it is a few hours, so co-located
+     documents separate into individual dots instead of one count bubble. */
+  const BUCKETS = Math.round(60 * state.zoom);
+
+  const html = lanes.map(lane => {
+    const laneDocs = visible.filter(d => d.type === lane);
+    const pal = PALETTE[lane];
+
+    const buckets = {};
+    laneDocs.forEach(d => {
+      const b = Math.min(BUCKETS - 1, Math.floor(d.pos * BUCKETS));
+      (buckets[b] = buckets[b] || []).push(d);
+    });
+
+    let markers = '';
+    let maxStack = 1;
+    Object.keys(buckets).forEach(b => {
+      const group = buckets[b];
+      const left  = ((+b + 0.5) / BUCKETS) * 100;
+
+      /* Stack tolerance is deliberately CONSTANT. Bucket resolution alone
+         (BUCKETS scales with zoom) is what separates co-located documents;
+         also raising the limit made every cluster resolve in one step, which
+         left higher zoom levels with nothing left to reveal. */
+      const stackLimit = 3;
+
+      if (group.length > stackLimit) {
+        markers += `<button class="tl-marker cluster" style="left:${left}%;top:14px;background:${pal.color}"
+                      data-lane="${lane}" data-bucket="${b}" title="${group.length} documents — click to list, zoom in to separate">${group.length}</button>`;
+      } else {
+        group.forEach((d, i) => {
+          maxStack = Math.max(maxStack, i + 1);
+          markers += `<button class="tl-marker single" style="left:${left}%;top:${18 + i * 16}px;background:${pal.color}"
+                        data-lane="${lane}" data-bucket="${b}" title="${d.cat} · ${posToDate(d.pos)}"></button>`;
+        });
+      }
+    });
+
+    // Flag pins with inline dated callouts
+    if (state.filter === 'all' || state.filter === 'flagged' || state.filter === lane) {
+      FLAG_EVENTS.filter(f => f.type === lane).forEach(f => {
+        markers += `<div class="tl-marker flagpin" style="left:${f.pos * 100}%;top:6px;"></div>
+                    <div class="tl-flag-callout" style="left:${f.pos * 100}%;top:22px;">${f.label}</div>`;
+      });
+    }
+
+    const laneHeight = Math.max(62, 34 + maxStack * 16);
+
+    return `
+      <div class="tl-lane">
+        <div class="tl-lane-label">
+          <span class="dot" style="background:${pal.color}"></span>
+          <span class="lab"><b>${pal.label}</b><span>${laneDocs.length} document${laneDocs.length === 1 ? '' : 's'}</span></span>
+        </div>
+        <div class="tl-track" style="min-height:${laneHeight}px">
+          <div class="tl-grid">${ticks.map(() => '<div></div>').join('')}</div>
+          ${markers}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('tlLanes').innerHTML =
+    docs.length ? html : `<div class="tl-empty"><i class="fa-regular fa-calendar-xmark"></i> No documents in this period.</div>`;
+
+  // Drill-in
+  document.querySelectorAll('.tl-marker.cluster, .tl-marker.single').forEach(m => {
+    m.addEventListener('click', e => {
+      e.stopPropagation();
+      const lane = m.dataset.lane, b = +m.dataset.bucket;
+      const group = buildDocs(state.density)
+        .filter(d => d.type === lane && Math.min(BUCKETS - 1, Math.floor(d.pos * BUCKETS)) === b);
+      openPopover(m, lane, group);
+    });
+  });
+
+  updateZoomUI();
+
+  /* Restore the viewport centre (skipped on a fresh fit). */
+  if (state.zoom > 1) {
+    const track = wrap.scrollWidth - 152;
+    wrap.scrollLeft = Math.max(0, prevCentre * track + 152 - wrap.clientWidth / 2);
+  } else {
+    wrap.scrollLeft = 0;
+  }
+}
+
+/* ---- Zoom ---- */
+const ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6, 8];
+
+function zoomLabel() {
+  const total = state.months || 6;
+  const shown = total / state.zoom;
+  if (shown >= 1.5) return `${Math.round(shown * 10) / 10} months`;
+  const weeks = shown * 4.345;
+  if (weeks >= 1.4) return `${Math.round(weeks * 10) / 10} weeks`;
+  return `${Math.round(weeks * 7)} days`;
+}
+
+function updateZoomUI() {
+  const i = ZOOM_STEPS.indexOf(state.zoom);
+  const slider = document.getElementById('zSlider');
+  if (slider && +slider.value !== i) slider.value = i;
+  document.getElementById('zReset').disabled = state.zoom === 1;
+  document.getElementById('zLevel').textContent = zoomLabel() + ' in view';
+}
+
+function setZoom(next, anchorRatio) {
+  const clamped = Math.max(ZOOM_STEPS[0], Math.min(ZOOM_STEPS[ZOOM_STEPS.length - 1], next));
+  if (clamped === state.zoom) return;
+  state.zoom = clamped;
+  document.getElementById('tlPop').classList.remove('open');   // anchor is about to be rebuilt
+  renderTimeline({ anchorRatio });
+}
+
+
+function openPopover(anchor, lane, group) {
+  const pop = document.getElementById('tlPop');
+  const pal = PALETTE[lane];
+
+  document.querySelectorAll('.tl-marker.is-open').forEach(m => m.classList.remove('is-open'));
+  anchor.classList.add('is-open');
+
+  const isCluster = anchor.classList.contains('cluster');
+  document.getElementById('popTitle').innerHTML =
+    `<span style="width:9px;height:9px;border-radius:50%;background:${pal.color};display:inline-block;flex:0 0 9px;"></span>
+     <span style="min-width:0;">${group.length} document${group.length === 1 ? '' : 's'} · ${pal.label}</span>`;
+
+  const rows = group.slice(0, 25).map(d => `
+    <div class="pop-item">
+      <span class="pi-dot" style="background:${pal.color}"></span>
+      <span class="pi-main">
+        <span class="pi-cat">${d.cat}</span>
+        <span class="pi-sub">Occurred ${posToDate(d.pos)} · by ${d.author}</span>
+      </span>
+    </div>`).join('');
+
+  /* When a cluster is still collapsed, offer zoom as the way to separate it. */
+  const zoomHint = (isCluster && state.zoom < ZOOM_STEPS[ZOOM_STEPS.length - 1])
+    ? `<div class="pop-item" style="justify-content:center;">
+         <button class="btn" id="popZoom" style="padding:6px 12px;font-size:12px;">
+           <i class="fa-solid fa-magnifying-glass-plus"></i> Zoom in to separate these
+         </button>
+       </div>` : '';
+
+  document.getElementById('popBody').innerHTML =
+    rows + (group.length > 25
+      ? `<div class="pop-item" style="color:#7c8b9b;">…and ${group.length - 25} more</div>` : '')
+    + zoomHint;
+
+  /* Position against the marker, in .tl-inner's coordinate space — the popover
+     is a child of the scroller, so it stays attached while the timeline scrolls. */
+  const inner = document.getElementById('tlInner');
+  const ib = inner.getBoundingClientRect();
+  const ab = anchor.getBoundingClientRect();
+
+  const anchorCx = ab.left - ib.left + ab.width / 2;   // marker centre within .tl-inner
+  const POP_W = 292;
+
+  pop.classList.remove('flip-up');
+  pop.style.visibility = 'hidden';
+  pop.classList.add('open');
+
+  // Clamp horizontally to the inner block, then point the arrow at the marker.
+  const left = Math.max(8, Math.min(anchorCx - POP_W / 2, inner.offsetWidth - POP_W - 8));
+  pop.style.left = left + 'px';
+  pop.style.setProperty('--arrow-x', Math.max(14, Math.min(anchorCx - left, POP_W - 14)) + 'px');
+
+  // Flip above the marker if the panel would spill past the timeline block.
+  const below = ab.bottom - ib.top + 10;
+  const popH  = pop.offsetHeight;
+  if (below + popH > inner.offsetHeight + 140) {
+    pop.classList.add('flip-up');
+    pop.style.top = (ab.top - ib.top - popH - 10) + 'px';
+  } else {
+    pop.style.top = below + 'px';
+  }
+  pop.style.visibility = '';
+
+  const zb = document.getElementById('popZoom');
+  if (zb) zb.addEventListener('click', e => {
+    e.stopPropagation();
+    const ratio = anchorCx / inner.offsetWidth;
+    pop.classList.remove('open');
+    stepZoomAt(2, ratio);
+  });
+}
+
+/* Zoom by N steps, keeping `ratio` (0..1 across the axis) centred. */
+function stepZoomAt(steps, ratio) {
+  const i = ZOOM_STEPS.indexOf(state.zoom);
+  setZoom(ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, i + steps))], ratio);
+}
+
+/* ==========================================================================
+   ORCHESTRATION
+   ========================================================================== */
+function renderReport() {
+  const zero = state.density === 'zero';
+  document.getElementById('reportEmpty').style.display   = zero ? 'block' : 'none';
+  document.getElementById('reportContent').style.display = zero ? 'none'  : 'block';
+
+  renderHeader();
+  if (!zero) { renderProgression(); renderTiles(); renderTimeline(); }
+  document.getElementById('tlPop').classList.remove('open');
+}
+
+/* ---- Wiring ---- */
+renderRoster();
+
+document.getElementById('backToRoster').addEventListener('click', () => showPage('roster'));
+document.getElementById('navSubordinates').addEventListener('click', e => { e.preventDefault(); showPage('roster'); });
+
+document.getElementById('periodSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#periodSeg button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  state.months = +b.dataset.months;
+  state.zoom = 1;               // a zoom level from the old period doesn't carry over
+  renderReport();
+});
+
+document.getElementById('tlFilters').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  document.querySelectorAll('#tlFilters .chip').forEach(x => x.classList.remove('active'));
+  c.classList.add('active');
+  state.filter = c.dataset.filter;
+  renderTimeline();
+});
+
+/* ---- Timeline zoom ---- */
+document.getElementById('zSlider').addEventListener('input', e => {
+  setZoom(ZOOM_STEPS[+e.target.value]);
+});
+document.getElementById('zReset').addEventListener('click', () => {
+  state.zoom = 1;
+  document.getElementById('tlPop').classList.remove('open');
+  renderTimeline();
+});
+
+/* Ctrl/⌘ + wheel zooms about the pointer, like a map. Plain wheel scrolls. */
+document.getElementById('tlWrap').addEventListener('wheel', e => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  const wrap  = document.getElementById('tlWrap');
+  const inner = document.getElementById('tlInner');
+  const x     = e.clientX - wrap.getBoundingClientRect().left + wrap.scrollLeft;
+  stepZoomAt(e.deltaY < 0 ? 1 : -1, x / inner.offsetWidth);
+}, { passive: false });
+
+/* Drag to pan. Ignores drags that start on a marker so clicks still work. */
+(function enableDragPan() {
+  const wrap = document.getElementById('tlWrap');
+  let down = false, startX = 0, startScroll = 0, moved = false;
+
+  wrap.addEventListener('mousedown', e => {
+    if (e.target.closest('.tl-marker') || e.target.closest('.tl-pop')) return;
+    down = true; moved = false;
+    startX = e.pageX; startScroll = wrap.scrollLeft;
+    wrap.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!down) return;
+    const dx = e.pageX - startX;
+    if (Math.abs(dx) > 3) moved = true;
+    wrap.scrollLeft = startScroll - dx;
+  });
+  window.addEventListener('mouseup', () => {
+    if (!down) return;
+    down = false;
+    wrap.classList.remove('dragging');
+  });
+  // Suppress the click that follows a real drag
+  wrap.addEventListener('click', e => { if (moved) { e.stopPropagation(); moved = false; } }, true);
+})();
+
+document.getElementById('progMoreBtn').addEventListener('click', () => {
+  state.progExpanded = !state.progExpanded;
+  renderProgList(PROG_EI);
+});
+document.getElementById('recMoreBtn').addEventListener('click', () => {
+  state.recExpanded = !state.recExpanded;
+  renderProgList(PROG_PR);
+});
+
+function closePopover() {
+  document.getElementById('tlPop').classList.remove('open');
+  document.querySelectorAll('.tl-marker.is-open').forEach(m => m.classList.remove('is-open'));
+}
+document.getElementById('popClose').addEventListener('click', closePopover);
+document.addEventListener('click', e => {
+  if (!e.target.closest('.tl-pop') && !e.target.closest('.tl-marker')) closePopover();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopover(); });
+
+document.getElementById('btnExport').addEventListener('click', function () {
+  const orig = this.innerHTML;
+  this.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Preparing PDF…';
+  setTimeout(() => { this.innerHTML = '<i class="fa-solid fa-check"></i> PDF ready — download'; }, 1400);
+  setTimeout(() => { this.innerHTML = orig; }, 4200);
+});
+
+/* Demo rail */
+document.getElementById('drRole').addEventListener('change', e => { state.role = e.target.value; renderReport(); });
+document.getElementById('drTiles').addEventListener('change', e => { state.tiles = e.target.value; renderReport(); });
+document.getElementById('drDensity').addEventListener('change', e => { state.density = e.target.value; state.zoom = 1; renderReport(); });
+document.getElementById('drFlags').addEventListener('change', e => { state.hasFlags = e.target.checked; renderReport(); });
+document.getElementById('drCollapse').addEventListener('click', () => {
+  const r = document.getElementById('demoRail');
+  r.classList.toggle('collapsed');
+  document.getElementById('drCollapse').querySelector('i').className =
+    r.classList.contains('collapsed') ? 'fa-solid fa-plus' : 'fa-solid fa-minus';
+});
+
+renderReport();
+</script>
+
+<!-- ── Design Toolbox: Flow Map ────────────────────────────────────────────── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'roster':
+        showPage('roster');
+        break;
+      case 'report':
+        state.role = 'supervisor'; state.tiles = 'configured'; state.density = 'normal'; state.hasFlags = true;
+        openReport(ROSTER[0]);
+        break;
+      case 'tiles-empty-admin':
+        state.role = 'admin'; state.tiles = 'empty'; state.density = 'normal'; state.hasFlags = true;
+        openReport(ROSTER[0]);
+        break;
+      case 'tiles-empty-super':
+        state.role = 'supervisor'; state.tiles = 'empty'; state.density = 'normal'; state.hasFlags = true;
+        openReport(ROSTER[0]);
+        break;
+      case 'timeline-dense':
+        state.role = 'supervisor'; state.tiles = 'configured'; state.density = 'dense'; state.hasFlags = true;
+        state.zoom = 1;
+        openReport(ROSTER[0]);
+        break;
+      case 'timeline-zoomed':
+        state.role = 'supervisor'; state.tiles = 'configured'; state.density = 'dense'; state.hasFlags = true;
+        openReport(ROSTER[0]);
+        state.zoom = 4;
+        renderTimeline();
+        document.getElementById('secTimeline').scrollIntoView({ block: 'center' });
+        break;
+      case 'no-flags':
+        state.role = 'supervisor'; state.tiles = 'configured'; state.density = 'normal'; state.hasFlags = false;
+        openReport(ROSTER[2]);
+        break;
+      case 'zero-docs':
+        state.density = 'zero';
+        openReport(ROSTER[5]);
+        break;
+      default:
+        break;
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Individual Summary Report — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 620 },
+      flows: [
+        { id: 'main',  name: 'Main Flow',   pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20,  w: 1200, h: 250 }, labelXY: { x: 40, y: 42 } },
+        { id: 'edge',  name: 'Edge Cases',  pill: 'B', color: '#f0d8b8',
+          lane: { x: 20, y: 300, w: 1200, h: 290 }, labelXY: { x: 40, y: 322 } }
+      ],
+      nodes: [
+        { id: 'roster', flow: 'main', entry: true, x: 60, y: 120,
+          step: 'Entry', name: 'Subordinates roster', state: 'roster',
+          desc: 'Existing roster at /reports/users. The Actions button opens the summary report.' },
+        { id: 'report', flow: 'main', x: 380, y: 120,
+          step: 'Report', name: 'Individual Summary', state: 'report',
+          desc: 'Header with open-flag status, flag progression, category tiles, and the document timeline.' },
+        { id: 'timeline-dense', flow: 'main', x: 700, y: 120,
+          step: 'Density', name: 'Dense timeline (200+)', state: 'timeline-dense',
+          desc: 'Worst-case density: 214 documents plus 15 on a single day. Lanes stack, dense buckets collapse to counts.' },
+        { id: 'timeline-zoomed', flow: 'main', x: 1000, y: 120,
+          step: 'Zoom', name: 'Zoomed in (4×)', state: 'timeline-zoomed',
+          desc: 'Same dense record at 4× zoom: the axis subdivides to weeks, clusters break into individual dots, and the period scrolls horizontally.' },
+
+        { id: 'tiles-empty-admin', flow: 'edge', x: 60, y: 400,
+          step: 'On-ramp', name: 'Empty tiles — admin', state: 'tiles-empty-admin',
+          desc: 'No categories enabled and the viewer has category-admin rights: configure inline without leaving the report.' },
+        { id: 'tiles-empty-super', flow: 'edge', x: 380, y: 400,
+          step: 'On-ramp', name: 'Empty tiles — supervisor', state: 'tiles-empty-super',
+          desc: 'Same empty state for a viewer without admin rights: explains the value and offers a request path, never a dead-end button.' },
+        { id: 'no-flags', flow: 'edge', x: 700, y: 400,
+          step: 'Edge', name: 'No open flags', state: 'no-flags',
+          desc: 'Alert treatment is suppressed entirely when the open-flag count is zero.' },
+        { id: 'zero-docs', flow: 'edge', x: 1000, y: 400,
+          step: 'Edge', name: 'Zero documents', state: 'zero-docs',
+          desc: 'Purposeful empty state for an individual with no documents in the period — not a zero-filled report.' }
+      ],
+      edges: [
+        ['roster', 'report'],
+        ['report', 'timeline-dense'],
+        ['timeline-dense', 'timeline-zoomed'],
+        ['report', 'tiles-empty-admin'],
+        ['tiles-empty-admin', 'tiles-empty-super'],
+        ['report', 'no-flags'],
+        ['roster', 'zero-docs']
+      ]
+    }
+  };
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

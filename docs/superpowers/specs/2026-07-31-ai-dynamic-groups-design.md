@@ -1,8 +1,8 @@
 # AI Dynamic Groups in the Publish Flow — Design
 
 **Date:** 2026-07-31
-**Product:** Keystone Department Hub → Agency Intelligence dashboard
-**Files:** `products/Keystone Department Hub/keystone-hub/`
+**Product:** Keystone-Department-Hub → Agency Intelligence dashboard
+**Files:** `products/Keystone-Department-Hub/keystone-hub/`
 
 ## Problem
 

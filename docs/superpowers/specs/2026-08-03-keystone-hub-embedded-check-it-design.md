@@ -1,12 +1,12 @@
-# Keystone Department Hub — embedded in Vector Check It
+# Keystone-Department-Hub — embedded in Vector Check It
 
 **Date:** 2026-08-03
-**Product:** Keystone Department Hub
-**Feature folder:** `products/Keystone Department Hub/embedded-check-it/`
+**Product:** Keystone-Department-Hub
+**Feature folder:** `products/Keystone-Department-Hub/embedded-check-it/`
 
 ## Purpose
 
-The third and final host-app bake-out, showing the Keystone Department Hub wearing
+The third and final host-app bake-out, showing the Keystone-Department-Hub wearing
 another Vector application's chrome. Target Solutions and Vector Scheduling shipped
 first. With this one the set is complete.
 
@@ -69,7 +69,7 @@ page and is kept rather than collapsed — shrinking it would misrepresent the p
 ## File layout
 
 ```
-products/Keystone Department Hub/
+products/Keystone-Department-Hub/
   keystone-hub/                 ← existing hub. NOT modified.
   embedded-target-solutions/    ← shipped. NOT modified.
   embedded-scheduling/          ← shipped. NOT modified.

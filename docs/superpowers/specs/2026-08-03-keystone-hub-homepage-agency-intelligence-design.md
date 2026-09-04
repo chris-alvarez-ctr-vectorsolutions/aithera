@@ -1,7 +1,7 @@
-# Keystone Department Hub — Agency Intelligence chat inside the dashboard container
+# Keystone-Department-Hub — Agency Intelligence chat inside the dashboard container
 
 **Date:** 2026-08-03
-**Scope:** `products/Keystone Department Hub/keystone-hub/` — the published-dashboard
+**Scope:** `products/Keystone-Department-Hub/keystone-hub/` — the published-dashboard
 container on the hub homepage. Inherited by the three embedded app shells for free.
 
 ## Problem

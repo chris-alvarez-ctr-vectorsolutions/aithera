@@ -1,12 +1,12 @@
-# Keystone Department Hub — embedded in Target Solutions
+# Keystone-Department-Hub — embedded in Target Solutions
 
 **Date:** 2026-08-03
-**Product:** Keystone Department Hub
-**Feature folder:** `products/Keystone Department Hub/embedded-target-solutions/`
+**Product:** Keystone-Department-Hub
+**Feature folder:** `products/Keystone-Department-Hub/embedded-target-solutions/`
 
 ## Purpose
 
-The Keystone Department Hub will ultimately be published inside several Vector
+The Keystone-Department-Hub will ultimately be published inside several Vector
 Solutions applications. Before that happens we need bake-outs that show internal
 audiences what the hub looks like *wearing each host app's chrome*.
 
@@ -40,7 +40,7 @@ and sidebar staying put across the switch.
 Every feature in this repo is a versioned folder behind a generic loader.
 
 ```
-products/Keystone Department Hub/
+products/Keystone-Department-Hub/
   keystone-hub/                     ← existing hub. NOT modified by this work.
   embedded-target-solutions/
     index.html                      ← the LOADER. Verbatim copy of base-template/index.html.
@@ -61,7 +61,7 @@ generic version loader and is never edited.
 
 ### `products.json`
 
-Add a folder group to the existing `Keystone Department Hub` product, alongside the
+Add a folder group to the existing `Keystone-Department-Hub` product, alongside the
 three current top-level items (which stay where they are):
 
 ```json
@@ -110,7 +110,7 @@ will each need their own copy of anyway.
 `#view-hub` contains one element:
 
 ```html
-<iframe src="../../keystone-hub/index.html" title="Keystone Department Hub"></iframe>
+<iframe src="../../keystone-hub/index.html" title="Keystone-Department-Hub"></iframe>
 ```
 
 Rationale:

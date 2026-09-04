@@ -36,7 +36,7 @@
   // includes used to carry no version, so an edge/browser-cached older
   // feedback-widget.js could execute next to the current one and dock a second
   // bubble the dedup never saw. (self-heal below is the belt to this suspenders.)
-  var TOOLBOX_VERSION = '1.1.0';
+  var TOOLBOX_VERSION = '1.2.2';
 
   var qs = location.search;
   if (/[?&]fmthumb=1/.test(qs)) return;        // thumbnail iframe → render bare
@@ -135,7 +135,38 @@
       // straight down (no translateX(-50%) recenters it back to the middle).
       '.tbx-dock.tbx-dock--moved,.version-switcher.tbx-dock--moved{bottom:auto;right:auto;}' +
       '.tbx-collapsible.tbx-collapsed.tbx-dock--moved{transform:translateY(calc(100% + 28px)) !important;}' +
-      '.tbx-dock--dragging{transition:none !important;}';
+      '.tbx-dock--dragging{transition:none !important;}' +
+      // ── Version overflow → dropdown ────────────────────────────────────────
+      // When the docked VERSION buttons would run the pill off the screen, they
+      // collapse into ONE trigger (shows the current version + an up-caret) that
+      // opens an upward menu of every version. The trigger reuses the pill blue
+      // so it reads as the version control; the menu matches the dark dock.
+      // Current-version trigger: a subtle GRAY box that matches the dock — bigger
+      // and squared-off so it reads as a quiet panel INSIDE the pill, not a button.
+      // No strong fill, no bright accent; just a faint lighter-gray rectangle.
+      '.tbx-ver-trigger{display:none;align-items:center;gap:8px;border:0;cursor:pointer;' +
+      'font:700 12px/1 "Open Sans",system-ui,sans-serif;color:#e7e7ea;background:rgba(255,255,255,.07);' +
+      'padding:9px 14px;border-radius:8px;max-width:min(46vw,320px);transition:background .12s;}' +
+      '.tbx-ver-trigger:hover{background:rgba(255,255,255,.13);}' +
+      '.tbx-ver-trigger .tbx-ver-cur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+      '.tbx-ver-trigger .tbx-ver-caret{flex:none;width:12px;height:12px;}' +
+      '.tbx-ver-trigger .tbx-ver-caret svg{width:12px;height:12px;display:block;}' +
+      // Collapsed: hide the group\'s label + segmented buttons, show only the trigger.
+      '.tbx-ver-collapsed>*{display:none !important;}' +
+      '.tbx-ver-collapsed>.tbx-ver-trigger{display:inline-flex !important;}' +
+      // The version menu is a fixed popover on the body (never clipped by the pill),
+      // opening upward from the trigger. It scrolls if there are many versions.
+      // The drawer matches the dock's dark gray so it reads as one family.
+      '.tbx-ver-menu{position:fixed;z-index:999995;display:none;flex-direction:column;' +
+      'min-width:200px;max-width:min(88vw,340px);max-height:min(60vh,420px);overflow:auto;' +
+      'background:#18181b;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:6px;' +
+      'box-shadow:0 10px 30px rgba(0,0,0,.4);font-family:"Open Sans",system-ui,sans-serif;}' +
+      '.tbx-ver-menu.tbx-open{display:flex;}' +
+      '.tbx-ver-menu-item{text-align:left;border:0;background:transparent;color:#d4d4d8;cursor:pointer;' +
+      'font:600 12.5px/1.35 inherit;padding:9px 12px;border-radius:8px;white-space:normal;}' +
+      '.tbx-ver-menu-item:hover{background:rgba(255,255,255,.1);color:#fff;}' +
+      // Selected row: the blue highlight for the current version.
+      '.tbx-ver-menu-item.tbx-active{background:#1f4596;color:#fff;}';
     var styled = false;
     function ensureStyle() {
       if (styled) return; styled = true;
@@ -471,6 +502,150 @@
         .observe(document.documentElement, { childList: true, subtree: true });
     } catch (_) { /* no MutationObserver → add()-time reflow still dedups */ }
 
+    // ---- Version overflow → dropdown -------------------------------------
+    // The loader docks its VERSION buttons as #loader-version-group. With many
+    // or long labels (e.g. "V2 · Concierge (Vector sets up)"), that group can
+    // push the whole pill wider than the screen and run off the edge. When the
+    // fully-expanded pill would exceed the viewport, we collapse the version
+    // buttons into ONE trigger that opens an upward menu of every version — so
+    // the team can still "shop around" the versions from a compact control. It
+    // is purely width-driven and reverses automatically as the window widens.
+    var VER_MARGIN = 16;   // keep this much clear on each side of the viewport
+
+    function versionGroup(dock) { return dock && dock.querySelector('#loader-version-group'); }
+    // The real version buttons in the group (the "VERSION" label is a span; the
+    // dropdown trigger we add is excluded by its class).
+    function verButtons(group) {
+      return Array.prototype.slice.call(group.children).filter(function (c) {
+        return c.tagName === 'BUTTON' && !c.classList.contains('tbx-ver-trigger');
+      });
+    }
+    // Which button is the current version. Prefer explicit signals; fall back to
+    // the loader's convention of filling only the active button (opaque blue)
+    // and leaving the rest transparent.
+    function verIsActive(b) {
+      if (b.getAttribute('aria-pressed') === 'true') return true;
+      if (b.classList && b.classList.contains('active')) return true;
+      try {
+        var bg = (b.ownerDocument.defaultView || window).getComputedStyle(b).backgroundColor.replace(/\s+/g, '');
+        if (bg && bg !== 'transparent' && bg !== 'rgba(0,0,0,0)') return true;
+      } catch (_) {}
+      return false;
+    }
+    function verCurrentLabel(btns) {
+      var act = btns.filter(verIsActive)[0] || btns[0];
+      return act ? act.textContent : 'Version';
+    }
+    // Build the collapsed control ONCE per group (fresh each iframe load, since
+    // the loader rebuilds the group). The trigger lives inside the group so the
+    // dock's ordering still treats it as the single leftmost version launcher;
+    // the menu is a fixed popover on the body so the pill can't clip it.
+    function buildVerUI(group) {
+      if (group.__tbxVerUI) return group.__tbxVerUI;
+      ensureStyle();
+      var doc = group.ownerDocument;
+      var win = doc.defaultView || window;
+
+      var trigger = doc.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'tbx-ver-trigger';
+      trigger.setAttribute('aria-haspopup', 'menu');
+      trigger.setAttribute('aria-expanded', 'false');
+      var cur = doc.createElement('span'); cur.className = 'tbx-ver-cur';
+      var caret = doc.createElement('span'); caret.className = 'tbx-ver-caret'; caret.innerHTML = SVG_CHEV_UP;
+      trigger.appendChild(cur); trigger.appendChild(caret);
+      group.appendChild(trigger);
+
+      var menu = doc.createElement('div');
+      menu.className = 'tbx-ver-menu';
+      menu.setAttribute('role', 'menu');
+      (doc.body || doc.documentElement).appendChild(menu);
+
+      function onDown(e) { if (!menu.contains(e.target) && !trigger.contains(e.target)) close(); }
+      function onKey(e) { if (e.key === 'Escape' || e.keyCode === 27) close(); }
+      function close() {
+        if (!menu.classList.contains('tbx-open')) return;
+        menu.classList.remove('tbx-open');
+        trigger.setAttribute('aria-expanded', 'false');
+        doc.removeEventListener('mousedown', onDown, true);
+        doc.removeEventListener('keydown', onKey, true);
+        win.removeEventListener('resize', close);
+      }
+      function position() {
+        var r = trigger.getBoundingClientRect();
+        var de = doc.documentElement;
+        var vw = de.clientWidth || win.innerWidth;
+        var vh = de.clientHeight || win.innerHeight;
+        menu.style.top = 'auto';
+        menu.style.bottom = (vh - r.top + 8) + 'px';   // open UPWARD from the trigger
+        menu.style.left = '0px';                        // measure width, then clamp
+        var mw = menu.offsetWidth;
+        menu.style.left = Math.max(8, Math.min(r.left, vw - mw - 8)) + 'px';
+      }
+      function open() {
+        // Rebuild rows from the CURRENT version buttons each open (labels/active
+        // state are refreshed by the loader on every load). Each row reuses the
+        // real button's click handler so switching still runs through the loader.
+        menu.textContent = '';
+        verButtons(group).forEach(function (b) {
+          var item = doc.createElement('button');
+          item.type = 'button';
+          item.className = 'tbx-ver-menu-item' + (verIsActive(b) ? ' tbx-active' : '');
+          item.setAttribute('role', 'menuitem');
+          item.textContent = b.textContent;
+          if (b.title) item.title = b.title;
+          item.addEventListener('click', function () { close(); b.click(); });
+          menu.appendChild(item);
+        });
+        menu.classList.add('tbx-open');
+        trigger.setAttribute('aria-expanded', 'true');
+        position();
+        doc.addEventListener('mousedown', onDown, true);
+        doc.addEventListener('keydown', onKey, true);
+        win.addEventListener('resize', close);
+      }
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (menu.classList.contains('tbx-open')) close(); else open();
+      });
+
+      group.__tbxVerUI = { trigger: trigger, menu: menu, cur: cur, close: close };
+      return group.__tbxVerUI;
+    }
+    // Measure the fully-expanded pill; if it would overflow the viewport,
+    // collapse the version buttons to the dropdown trigger (else keep them
+    // segmented). Reading offsetWidth forces layout but not a paint, so the
+    // expand→measure→final toggle within one turn never flickers. The decision
+    // is taken on the expanded width, so it's stable and won't oscillate.
+    function fitVersions(dock) {
+      var group = versionGroup(dock);
+      if (!group) return;
+      var btns = verButtons(group);
+      if (btns.length < 2) { group.classList.remove('tbx-ver-collapsed'); return; }
+      var ui = buildVerUI(group);
+      var doc = group.ownerDocument;
+      var win = doc.defaultView || window;
+      var vw = doc.documentElement.clientWidth || win.innerWidth;
+      group.classList.remove('tbx-ver-collapsed');          // measure expanded
+      var fits = dock.offsetWidth + VER_MARGIN * 2 <= vw;
+      if (fits) {
+        ui.close();
+      } else {
+        ui.cur.textContent = verCurrentLabel(btns);
+        var act = btns.filter(verIsActive)[0];
+        if (act && act.title) ui.trigger.title = act.title; else ui.trigger.removeAttribute('title');
+        group.classList.add('tbx-ver-collapsed');
+      }
+    }
+    // Re-fit on resize and once web fonts settle ("Open Sans" loading late
+    // changes label widths and could otherwise leave a stale collapse decision).
+    window.addEventListener('resize', function () { var p = activePill(); if (p) fitVersions(p); });
+    try {
+      if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+        document.fonts.ready.then(function () { var p = activePill(); if (p) fitVersions(p); });
+      }
+    } catch (_) {}
+
     window.ToolboxDock = {
       get: getDock,
       // Add a launcher to the dock, then reflow so it settles into the canonical
@@ -479,6 +654,7 @@
         var dock = getDock();
         dock.appendChild(node);
         reflow(dock);
+        fitVersions(dock);   // collapse the VERSION buttons to a dropdown if they overflow
         return dock;
       },
     };

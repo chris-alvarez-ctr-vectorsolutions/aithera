@@ -28,7 +28,7 @@
 ### Task 1: Target Solutions banner
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html` — CSS block at lines 390–423, markup at lines 627–650
+- Modify: `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html` — CSS block at lines 390–423, markup at lines 627–650
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
@@ -36,7 +36,7 @@
 
 - [ ] **Step 1: Replace the banner CSS block**
 
-In `products/Keystone Department Hub/embedded-target-solutions/ver1/index.html`, find this block (starts at line 390, ends with the `.ts-announce-actions` line — stop *before* the `/* Buttons are pill-shaped */` comment, which stays):
+In `products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`, find this block (starts at line 390, ends with the `.ts-announce-actions` line — stop *before* the `/* Buttons are pill-shaped */` comment, which stays):
 
 ```css
   /* ====================================================================
@@ -207,7 +207,7 @@ Find this block (line 627):
           </div>
           <div class="ts-announce-copy">
             <h3>
-              Introducing the Keystone Department Hub
+              Introducing the Keystone-Department-Hub
               <span class="ts-new-pill">NEW</span>
             </h3>
             <p>
@@ -261,7 +261,7 @@ Replace it with:
 
 Use `mcp__playwright__browser_resize` to 1400×900, then `mcp__playwright__browser_navigate` to:
 
-`file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/embedded-target-solutions/ver1/index.html`
+`file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html`
 
 - [ ] **Step 4: Run the assertion script — this is the test**
 
@@ -320,7 +320,7 @@ Click `#ts-announce-cta` (`mcp__playwright__browser_click`). Expected: the mock 
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-target-solutions/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-target-solutions/ver1/index.html"
 git commit -m "Keystone embeds: dark announcement banner in Target Solutions"
 ```
 
@@ -329,7 +329,7 @@ git commit -m "Keystone embeds: dark announcement banner in Target Solutions"
 ### Task 2: Check It banner
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-check-it/ver1/index.html` — CSS block at lines 254–284, markup at lines 530–551
+- Modify: `products/Keystone-Department-Hub/embedded-check-it/ver1/index.html` — CSS block at lines 254–284, markup at lines 530–551
 
 **Interfaces:**
 - Consumes: the canonical banner CSS/markup from Task 1, reproduced below with the `ci-` prefix and `ci-announce*` IDs. Values are otherwise byte-identical — Task 4 hash-checks this.
@@ -337,7 +337,7 @@ git commit -m "Keystone embeds: dark announcement banner in Target Solutions"
 
 - [ ] **Step 1: Replace the banner CSS block**
 
-In `products/Keystone Department Hub/embedded-check-it/ver1/index.html`, find this block (starts at line 254, ends with the `.ci-announce-actions` line — stop *before* the `/* Buttons are pill-shaped */` comment, which stays):
+In `products/Keystone-Department-Hub/embedded-check-it/ver1/index.html`, find this block (starts at line 254, ends with the `.ci-announce-actions` line — stop *before* the `/* Buttons are pill-shaped */` comment, which stays):
 
 ```css
   /* ====================================================================
@@ -504,7 +504,7 @@ Find this block (line 530):
           </div>
           <div class="ci-announce-copy">
             <h3>
-              Introducing the Keystone Department Hub
+              Introducing the Keystone-Department-Hub
               <span class="ci-new-pill">NEW</span>
             </h3>
             <p>
@@ -556,7 +556,7 @@ Replace it with:
 
 `mcp__playwright__browser_resize` to 1400×900, then navigate to:
 
-`file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/embedded-check-it/ver1/index.html`
+`file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/embedded-check-it/ver1/index.html`
 
 - [ ] **Step 4: Run the assertion script — this is the test**
 
@@ -610,7 +610,7 @@ Resize to 760×900, reload, re-run the Step 4 script (expected: `PASS`), screens
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-check-it/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-check-it/ver1/index.html"
 git commit -m "Keystone embeds: dark announcement banner in Check It"
 ```
 
@@ -619,7 +619,7 @@ git commit -m "Keystone embeds: dark announcement banner in Check It"
 ### Task 3: Scheduling banner
 
 **Files:**
-- Modify: `products/Keystone Department Hub/embedded-scheduling/ver1/index.html` — CSS block at lines 298–328, markup at lines 685–706
+- Modify: `products/Keystone-Department-Hub/embedded-scheduling/ver1/index.html` — CSS block at lines 298–328, markup at lines 685–706
 
 **Interfaces:**
 - Consumes: the canonical banner CSS/markup from Task 1, reproduced below with the `sch-` prefix and `sch-announce*` IDs. Values are otherwise byte-identical — Task 4 hash-checks this.
@@ -627,7 +627,7 @@ git commit -m "Keystone embeds: dark announcement banner in Check It"
 
 - [ ] **Step 1: Replace the banner CSS block**
 
-In `products/Keystone Department Hub/embedded-scheduling/ver1/index.html`, find this block (starts at line 298, ends with the `.sch-announce-actions` line — stop *before* the `/* Buttons are pill-shaped */` comment, which stays):
+In `products/Keystone-Department-Hub/embedded-scheduling/ver1/index.html`, find this block (starts at line 298, ends with the `.sch-announce-actions` line — stop *before* the `/* Buttons are pill-shaped */` comment, which stays):
 
 ```css
   /* ====================================================================
@@ -794,7 +794,7 @@ Find this block (line 685):
           </div>
           <div class="sch-announce-copy">
             <h3>
-              Introducing the Keystone Department Hub
+              Introducing the Keystone-Department-Hub
               <span class="sch-new-pill">NEW</span>
             </h3>
             <p>
@@ -846,7 +846,7 @@ Replace it with:
 
 `mcp__playwright__browser_resize` to 1400×900, then navigate to:
 
-`file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone%20Department%20Hub/embedded-scheduling/ver1/index.html`
+`file:///Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub/embedded-scheduling/ver1/index.html`
 
 - [ ] **Step 4: Run the assertion script — this is the test**
 
@@ -900,7 +900,7 @@ Resize to 760×900, reload, re-run the Step 4 script (expected: `PASS`), screens
 
 ```bash
 cd "/Users/johnlangford/Documents/VibeCode/ux-mockups"
-git add "products/Keystone Department Hub/embedded-scheduling/ver1/index.html"
+git add "products/Keystone-Department-Hub/embedded-scheduling/ver1/index.html"
 git commit -m "Keystone embeds: dark announcement banner in Scheduling"
 ```
 
@@ -920,7 +920,7 @@ git commit -m "Keystone embeds: dark announcement banner in Scheduling"
 This is the test for the "identical in all three" constraint: it slices the banner CSS out of each file, normalises the `ts-` / `ci-` / `sch-` prefixes to `X-`, and hashes the result. Run:
 
 ```bash
-cd "/Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone Department Hub"
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub"
 python3 - <<'PY'
 import re, hashlib
 files = {'ts': 'embedded-target-solutions/ver1/index.html',
@@ -943,8 +943,8 @@ Expected: three identical hashes and `IDENTICAL`. If it prints `MISMATCH`, diff 
 - [ ] **Step 2: Confirm no stray references to the old banner structure remain**
 
 ```bash
-cd "/Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone Department Hub"
-grep -n "Introducing the Keystone Department Hub" embedded-*/ver1/index.html; echo "exit: $?"
+cd "/Users/johnlangford/Documents/VibeCode/ux-mockups/products/Keystone-Department-Hub"
+grep -n "Introducing the Keystone-Department-Hub" embedded-*/ver1/index.html; echo "exit: $?"
 grep -c "new-pill" embedded-target-solutions/ver1/index.html embedded-check-it/ver1/index.html embedded-scheduling/ver1/index.html
 ```
 

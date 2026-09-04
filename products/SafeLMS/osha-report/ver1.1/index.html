@@ -340,18 +340,25 @@
   /* ── Grouped column band (e.g. "Latest Module" over its 3 sub-columns) ──
      A subtle cool gray-blue tint is applied as a translucent OVERLAY (background-image gradient)
      so it layers over the base/hover/zebra background-color instead of replacing it — the band
-     stays visible on row hover. Edge borders on the first/last column + the header run the full
-     height, so header → sub-headers → every body cell read as one continuous vertical band. */
-  /* LOCATION variant (V1.1): identical font sizes/weights to V1, but the other column headers sit
-     on the LOWER line (see `vertical-align: bottom` on thead th above) — the pre-"move-up" layout.
-     "Latest Module" stays alone on the top line, the sub-headers sit with the other headers below. */
+     stays visible on row hover. The tint alone defines the band's extent (no vertical edge
+     borders): the color treatment is enough to read header → sub-headers → body as one group. */
+  /* LOCATION variant (V1.1): the other column headers sit on the LOWER line (see `vertical-align:
+     bottom` on thead th above) — the pre-"move-up" layout. Header emphasis is INVERTED from a
+     normal group: the three data columns (Module / Failed Attempts / Quiz Score) carry the full
+     main-header treatment, and "Latest Module" is only a small caption grouping them above. */
+  /* "Latest Module" group label — the SMALLER, subordinate caption (smaller, lighter, mixed-case),
+     distinct from the uppercase column headers below it. */
   .report-table thead th.grp-super {
     text-align: center; vertical-align: middle;
+    font-size: 11px; font-weight: 500; letter-spacing: .2px; text-transform: none; color: var(--muted);
     border-bottom: 1px solid var(--grp-border);   /* separates the group label from the sub-headers */
   }
+  /* Sub-headers (Module / Failed Attempts / Quiz Score) get the SAME treatment as the main column
+     headers (Learner, Course, Status): 13px/600/UPPERCASE — they read as full column headers, with
+     the smaller "Latest Module" caption above grouping them. */
   .report-table thead th.grp-sub {
     top: 32px;   /* sticks just below the ~32px super row */
-    font-size: 12px; font-weight: 500; letter-spacing: .1px; text-transform: none; color: var(--muted);
+    font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: var(--muted);
   }
   /* The shared tint on header + sub-header + body cells of the group. */
   .report-table thead th.grp-super,
@@ -359,11 +366,8 @@
   .report-table td.grp-cell {
     background-image: linear-gradient(var(--grp-tint), var(--grp-tint));
   }
-  /* Edge borders: left on the first grouped column, right on the last; the super-header spans all
-     three so it carries both. Applied to header + body so the band's sides are continuous. */
-  .report-table th.grp-super { border-left: 1px solid var(--grp-border); border-right: 1px solid var(--grp-border); }
-  .report-table th.grp-first, .report-table td.grp-first { border-left: 1px solid var(--grp-border); }
-  .report-table th.grp-last,  .report-table td.grp-last  { border-right: 1px solid var(--grp-border); }
+  /* No vertical edge borders on the band — the tint (color treatment) alone separates the
+     grouped columns from the rest, so the group reads without hard divider lines. */
   .group-row { background: var(--hair-2); cursor: pointer; user-select: none; }
   .group-row:hover { background: #e9eaec; }
   .expand-cell { padding: 8px 0 8px 14px; color: var(--muted); font-size: 13px; width: 36px; }
@@ -620,8 +624,10 @@
 
   /* ============================================================
      ACTION-NEEDED CARDS — each card shows how many learners fall in
-     an actionable bucket AND is a toggle quick filter (V1): click a
-     card to scope the TABLE to that bucket (click again to clear).
+     an actionable bucket AND is an EXCLUSIVE quick filter (V1): click a
+     card to scope the TABLE to that ONE bucket (click a different card to
+     switch; click the active card to clear). One status at a time — the
+     cards never AND-stack two buckets.
      The panel's Action Needed checkboxes stay in sync; the pie is
      unaffected (it tracks the course filter only). Email Learners
      messages everyone in the bucket within the applied filters.
@@ -651,9 +657,9 @@
   .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
 
-  /* ── Latest Module cell — module name (truncated) with a small module-number chip ── */
-  /* Module name wraps to 2–3 lines instead of truncating. */
-  .lm-name { display: block; white-space: normal; word-break: break-word; line-height: 1.3; }
+  /* ── Latest Module cell — the full ClickSafety module field ("NN. Topic Quiz: …") ── */
+  /* Shown VERBATIM and untruncated: it wraps to as many lines as needed, never clips. */
+  .lm-name { display: block; white-space: normal; overflow-wrap: break-word; line-height: 1.3; }
 
   /* ── Action-group modal: course filter row ── */
   .ag-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px; }
@@ -1328,11 +1334,15 @@
 
   /* ── Module model: each OSHA course has 10 modules; the last is the Final Assessment.
      ClickSafety sends per-module updates; the table surfaces the learner's LATEST module
-     (name + that module's failed quiz attempts + quiz score) — no per-module modal. ── */
+     (name + that module's failed quiz attempts + quiz score) — no per-module modal.
+     The module name is displayed VERBATIM as ClickSafety sends it — a two-digit lesson
+     number (01–30, non-consecutive since quizzes sit between content lessons), then
+     "Topic Quiz:", then the topic. We do NOT strip or reformat it (per the review call:
+     display the field as provided, no client-side manipulation). Shown untruncated. ── */
   const COURSE_MODULES = {
-    'OSHA 10-Hour General Industry': ['Intro to OSHA','Walking-Working Surfaces','Exit Routes & Emergency Plans','Electrical Safety','Personal Protective Equipment','Hazard Communication','Materials Handling','Machine Guarding','Bloodborne Pathogens','Final Assessment'],
-    'OSHA 10-Hour Construction': ['Intro to OSHA','OSHA Focus Four Hazards','Fall Protection','Electrical Safety','Personal Protective Equipment','Hand & Power Tools','Scaffolds','Ladders & Stairways','Health Hazards in Construction','Final Assessment'],
-    'OSHA 30-Hour Construction': ['Intro to OSHA','Managing Safety & Health','OSHA Focus Four Hazards','Fall Protection','Electrocution Hazards','Struck-By & Caught-Between','Excavations & Trenching','Cranes & Rigging','Materials Handling & Storage','Final Assessment'],
+    'OSHA 10-Hour General Industry': ['02. Topic Quiz: Introduction to OSHA','04. Topic Quiz: Walking-Working Surfaces','06. Topic Quiz: Exit Routes & Emergency Action Plans','08. Topic Quiz: Electrical Safety','10. Topic Quiz: Personal Protective Equipment','13. Topic Quiz: Hazard Communication','16. Topic Quiz: Materials Handling & Storage','19. Topic Quiz: Machine Guarding','22. Topic Quiz: Bloodborne Pathogens','28. Topic Quiz: Final Assessment'],
+    'OSHA 10-Hour Construction': ['01. Topic Quiz: Introduction to OSHA','03. Topic Quiz: OSHA Focus Four Hazards','05. Topic Quiz: Fall Protection','07. Topic Quiz: Electrical Safety','09. Topic Quiz: Personal Protective Equipment','12. Topic Quiz: Hand & Power Tools','15. Topic Quiz: Scaffolds','18. Topic Quiz: Ladders & Stairways','24. Topic Quiz: Health Hazards in Construction','29. Topic Quiz: Final Assessment'],
+    'OSHA 30-Hour Construction': ['02. Topic Quiz: Introduction to OSHA','05. Topic Quiz: Managing Safety & Health','08. Topic Quiz: OSHA Focus Four Hazards','11. Topic Quiz: Fall Protection','14. Topic Quiz: Electrocution Hazards','17. Topic Quiz: Struck-By & Caught-Between','20. Topic Quiz: Excavations & Trenching','23. Topic Quiz: Cranes & Rigging','26. Topic Quiz: Materials Handling & Storage','30. Topic Quiz: Final Assessment'],
   };
   // Deterministic per-module quiz score (stable across re-renders — no Math.random).
   function scoreFor(ext, i) {
@@ -2384,10 +2394,14 @@
       });
     });
   }
-  // Card = toggle quick filter. Mirrors the chip-removal pattern: mutate the applied filters,
-  // keep the draft + panel checkboxes in step, then re-render (which refreshes the highlight).
+  // Card = EXCLUSIVE quick filter — the cards show ONE action bucket at a time. Clicking a
+  // different card SWITCHES to it (the previously-selected bucket is dropped, not added, so the
+  // table never AND-stacks two mutually-exclusive statuses); clicking the active card clears it.
+  // Keep the draft + panel checkboxes in step, then re-render (which refreshes the highlight).
   function toggleActionCard(type) {
-    filters.actions.has(type) ? filters.actions.delete(type) : filters.actions.add(type);
+    const wasActive = filters.actions.has(type);
+    filters.actions.clear();
+    if (!wasActive) filters.actions.add(type);
     draft = cloneFilters(filters);
     syncActionChecks();
     applyFilters();

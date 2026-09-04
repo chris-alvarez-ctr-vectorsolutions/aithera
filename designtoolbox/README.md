@@ -58,6 +58,18 @@ opens V1 (the lowest version) by default**. The dock's version buttons appear in
 that same order. To land a reviewer on a later version, share a `?v=<id>` deep
 link (e.g. `?v=ver2`); manifest order alone can't change the default.
 
+**Version overflow → dropdown (automatic):** when a feature has many versions or
+long labels (e.g. `V2 · Concierge (Vector sets up)`), the segmented version
+buttons can push the pill wider than the screen. The dock measures this: if the
+fully-expanded pill would overflow the viewport, it **collapses the version
+buttons into a single trigger** showing the current version, which opens an
+**upward menu** listing every version (the active one highlighted) — so you can
+still "shop around" the versions from a compact control. It reverses
+automatically when the window is widened, needs no per-mock setup (it keys off
+the loader's `#loader-version-group`), and applies to every mock that runs the
+toolbox. Only the loader-docked version buttons collapse this way; a mock's own
+in-page `.version-switcher` is left as-is.
+
 ---
 
 ## Flow Map

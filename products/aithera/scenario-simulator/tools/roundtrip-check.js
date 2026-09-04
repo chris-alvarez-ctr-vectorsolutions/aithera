@@ -243,6 +243,21 @@ const IMPERATIVE = [
   'content.phases.0.practice.interaction.media.type',
   /* Identity and trace metadata the shell owns rather than the type. */
   'implementation_id', 'modality', 'schema_version',
+  /* GENERATED, not authored. Every id in the format is derived from the name
+     beside it by `syncIds` (v4-universal.js) and shown as a read-out, so there
+     is no `tf` call here to find. They are still fully covered — the id moves
+     when the name does, and every reference to it moves with it — but a static
+     read of the source cannot see that, which is what this list is for. */
+  'content.opening.id',
+  'content.scene_world.characters.0.id',
+  'content.phases.0.id',
+  'content.phases.0.practice.interaction.rubric.0.id',
+  /* And the three fields that REFERENCE an id. They were free-text boxes whose
+     only valid values lived on another screen; they are pickers now, bound
+     through closures over the record rather than through a path string. */
+  'content.phases.0.practice.interaction.character_id',
+  'content.phases.0.practice.interaction.opening_messages.0.character_id',
+  'content.phases.0.practice.interaction.carryover.0.from',
 ];
 
 /* The quality-levels editor binds FOUR sites through one shared helper
