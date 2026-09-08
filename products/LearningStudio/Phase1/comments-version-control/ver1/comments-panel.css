@@ -407,7 +407,23 @@
 .cm-thread.is-collapsed .cm-thread-body { display: none; }
 
 
-/* First comment. */
+/* ---- Root comment ----
+   Given the same author row / actions / reactions treatment as a reply, so
+   the root and the replies read as one system rather than two. */
+/* The reply's byline row. */
+.cm-reply-head {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-bottom: 3px;
+}
+/* The root comment carries no byline — the thread header above already has
+   it — so this row holds only the "(edited)" mark and the Edit button, right
+   aligned. It renders at all only when one of them is present. */
+.cm-root-head {
+  display: flex; align-items: center; gap: 6px;
+  justify-content: flex-end;
+  min-height: 20px; margin-bottom: 2px;
+}
+
 .cm-bubble {
   background: #f9fafb; border: 1px solid #f0f0f0; border-radius: 8px;
   padding: 9px 11px;
@@ -427,47 +443,144 @@
   display: grid; place-items: center;
   font-size: 10px; font-weight: var(--font-weight-semibold); color: #fff;
 }
-.cm-reply-body { min-width: 0; }
+/* min-width:0 lets a long unbroken word wrap instead of widening the row. */
+.cm-reply-body { min-width: 0; flex: 1 1 auto; }
 .cm-reply-author { font-size: 11.5px; font-weight: var(--font-weight-semibold); color: var(--ink); }
-.cm-reply-time { font-size: 10.5px; color: var(--ink-mute); margin-left: 6px; }
+.cm-reply-time { font-size: 10.5px; color: var(--ink-mute); }
 .cm-reply-text {
-  display: block; margin-top: 3px;
+  display: block;
   font-size: var(--font-size-m); color: var(--ink); line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-/* Inline reply box. */
-.cm-reply-row {
-  display: flex; gap: 6px; align-items: center;
-  padding-left: 12px; margin-top: 8px;
+/* "(edited)" beside the timestamp, so an edited comment is never silently
+   different from what someone replied to. */
+.cm-edited { font-size: 10.5px; color: var(--ink-mute); font-style: italic; }
+
+/* ---- Per-comment actions (Edit) ----
+   Pushed to the end of the author row. Revealed on hover/focus-within to
+   keep a long thread quiet, but ALWAYS visible on touch, where there is no
+   hover — a hover-only control is simply unreachable there. */
+.cm-c-actions { margin-left: auto; display: flex; gap: 2px; flex: 0 0 auto; }
+.cm-edit-btn {
+  width: 24px; height: 24px;          /* WCAG 2.5.8 target floor */
+  display: grid; place-items: center;
+  border: none; border-radius: 5px;
+  background: none; color: var(--ink-mute);
+  font-size: 11.5px; cursor: pointer;
+  opacity: 0; transition: opacity .12s ease;
+}
+.cm-root:hover .cm-edit-btn,
+.cm-reply-item:hover .cm-edit-btn,
+.cm-root:focus-within .cm-edit-btn,
+.cm-reply-item:focus-within .cm-edit-btn { opacity: 1; }
+.cm-edit-btn:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
+.cm-edit-btn:focus-visible { opacity: 1; outline: 2px solid var(--brand-2); outline-offset: 1px; }
+@media (hover: none) {
+  .cm-edit-btn { opacity: 1; }
+}
+
+/* ---- Reactions ----
+   Chips for what has been used, then a fixed four-emoji strip to add one.
+   The strip is hidden until hover/focus so an unreacted comment stays clean;
+   any EXISTING chip is always visible, since it carries real information. */
+.cm-reactions {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 6px; flex-wrap: wrap;
+}
+.cm-rx-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 24px; padding: 2px 8px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--lumo-base-color);
+  font: inherit; font-size: 11.5px; color: var(--ink-soft);
+  cursor: pointer; line-height: 1;
+}
+.cm-rx-chip:hover { border-color: var(--brand-2); }
+/* Your own reaction reads as selected, and clicking it removes you. */
+.cm-rx-chip.is-mine {
+  background: var(--lumo-primary-color-10pct);
+  border-color: var(--brand-2);
+  color: var(--brand-2);
+  font-weight: var(--font-weight-semibold);
+}
+.cm-rx-emoji { font-size: 12.5px; }
+.cm-rx-count { font-variant-numeric: tabular-nums; }
+
+.cm-rx-picker {
+  display: inline-flex; align-items: center; gap: 1px;
+  opacity: 0; transition: opacity .12s ease;
+}
+.cm-root:hover .cm-rx-picker,
+.cm-reply-item:hover .cm-rx-picker,
+.cm-root:focus-within .cm-rx-picker,
+.cm-reply-item:focus-within .cm-rx-picker { opacity: 1; }
+@media (hover: none) {
+  .cm-rx-picker { opacity: 1; }
+}
+.cm-rx-add {
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border: none; border-radius: 5px;
+  background: none; font-size: 13px; cursor: pointer; line-height: 1;
+}
+.cm-rx-add:hover { background: var(--lumo-contrast-5pct); }
+.cm-rx-add:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+/* ---- Inline editor ----
+   Replaces the comment's text in place, so the surrounding thread keeps its
+   position and the reader does not lose their spot. */
+.cm-editor { display: flex; flex-direction: column; gap: 6px; }
+.cm-editor-input {
+  width: 100%; min-height: 60px; resize: vertical;
+  border: 1px solid var(--brand-2); border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit; font-size: var(--font-size-m); color: var(--ink);
+  line-height: 1.5; background: var(--lumo-base-color); outline: none;
+}
+.cm-editor-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+/* ---- Composer, production's anatomy ----
+   A full-width field with LABELLED actions beneath, replacing an icon-only
+   send + resolve pair that read as two competing glyphs. */
+.cm-composer-row {
+  padding-left: 12px; margin-top: 10px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 .cm-reply-input {
-  flex: 1 1 auto; min-width: 0; height: 32px;
+  width: 100%; min-height: 34px; resize: vertical;
   border: 1px solid var(--border); border-radius: 6px;
-  padding: 0 10px; font: inherit; font-size: var(--font-size-m);
+  padding: 8px 10px; font: inherit; font-size: var(--font-size-m);
   color: var(--ink); background: #f9fafb; outline: none;
+  line-height: 1.4;
 }
 .cm-reply-input:focus { border-color: var(--brand-2); background: var(--lumo-base-color); }
-.cm-reply-send {
-  width: 32px; height: 32px; flex: 0 0 auto;
+.cm-composer-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+
+/* Text button — "Resolve Thread" / "Reopen Thread" / "Cancel". Production
+   states these in words rather than an icon, which is the point of adopting
+   it: a circle-check next to a paper-plane gave no clue which did what. */
+.cm-btn-text {
+  min-height: 30px; padding: 6px 8px;
+  border: none; border-radius: 6px; background: none;
+  font: inherit; font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand-2); cursor: pointer;
+}
+.cm-btn-text:hover { background: var(--lumo-primary-color-10pct); }
+.cm-btn-text:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+.cm-btn-primary {
+  min-height: 30px; padding: 6px 16px;
   border: none; border-radius: 6px;
   background: var(--brand-2); color: #fff;
-  font-size: 12px; cursor: pointer;
-  display: grid; place-items: center;
+  font: inherit; font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
 }
-.cm-reply-send:hover { background: var(--brand); }
-
-/* Resolve / reopen — an icon sharing the reply row instead of a text button
-   on a row of its own. */
-.cm-resolve-btn {
-  width: 32px; height: 32px; flex: 0 0 auto;
-  display: grid; place-items: center;
-  border: 1px solid var(--border); border-radius: 6px;
-  background: var(--lumo-base-color);
-  color: var(--ink-soft); font-size: 13px; cursor: pointer;
-}
-.cm-resolve-btn:hover { border-color: #1c7a44; color: #1c7a44; }
-.cm-thread.is-resolved .cm-resolve-btn { border-color: #bbf7d0; color: #1c7a44; }
+.cm-btn-primary:hover { background: var(--brand); }
+.cm-btn-primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cm-btn-sm { padding: 5px 12px; }
 
 
 /* The jump to the screen a thread is attached to — icon only, pinned to the

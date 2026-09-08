@@ -33,6 +33,7 @@ const CommentsPanel = (function () {
   let scopeFilter = 'all';              // 'all' (course) | 'current' (this LO)
   let stateFilter = 'all';              // 'all' | 'open' | 'resolved'
   let expanded = new Set();             // thread ids currently expanded
+  let editingPath = null;               // "<threadId>:<index>" being edited, if any
   let els = {};
 
   const $ = (id) => document.getElementById(id);
@@ -128,15 +129,99 @@ const CommentsPanel = (function () {
     els.unreadCurrent.hidden = !localUnread;
   }
 
-  function replyHtml(c) {
+  /* ---- Per-comment affordances -----------------------------------
+     Reactions and Edit apply to EVERY comment — the thread's root comment
+     and each reply alike. They are rendered from here rather than inline in
+     two places so the root and the replies can't drift apart.
+
+     `path` identifies which comment an action targets: "<threadId>:<index>".
+     The index is into `thread.comments`, matching how reactions/edits are
+     persisted (see comments-data.js). ---------------------------------- */
+
+  /* The reaction row: every emoji already used, plus a button to add one.
+     A chip the current user is part of is marked `is-mine` so it reads as
+     "you reacted" and clicking it removes your reaction. */
+  function reactionsHtml(c, path) {
+    const rx = c.reactions || {};
+    const chips = Object.keys(rx)
+      .filter(e => rx[e] && rx[e].length)          // drop emptied entries
+      .map(e => {
+        const who = rx[e];
+        const mine = who.indexOf(CM_ME) !== -1;
+        return '<button class="cm-rx-chip' + (mine ? ' is-mine' : '') + '" type="button" ' +
+                 'data-react="' + esc(path) + '" data-emoji="' + esc(e) + '" ' +
+                 'title="' + esc(who.join(', ')) + '" ' +
+                 'aria-label="' + esc(e + ' ' + who.length + ' — ' + who.join(', ')) + '" ' +
+                 'aria-pressed="' + (mine ? 'true' : 'false') + '">' +
+                 '<span class="cm-rx-emoji">' + esc(e) + '</span>' +
+                 '<span class="cm-rx-count">' + who.length + '</span>' +
+               '</button>';
+      }).join('');
+
+    /* The picker is a fixed four-emoji strip revealed on demand rather than a
+       full emoji keyboard: one tap, no search, and it cannot push the panel
+       into a horizontal scroll. */
+    const picker = '<span class="cm-rx-picker" role="group" aria-label="Add a reaction">' +
+      CM_REACTIONS.map(e =>
+        '<button class="cm-rx-add" type="button" data-react="' + esc(path) + '" ' +
+                'data-emoji="' + esc(e) + '" title="React ' + esc(e) + '" ' +
+                'aria-label="React with ' + esc(e) + '">' + esc(e) + '</button>').join('') +
+      '</span>';
+
+    return '<div class="cm-reactions">' + chips + picker + '</div>';
+  }
+
+  /* Edit is offered only on your OWN comments, matching production. */
+  function canEdit(c) { return c.author === CM_ME; }
+
+  function editBtnHtml(c, path) {
+    if (!canEdit(c)) return '';
+    return '<button class="cm-edit-btn" type="button" data-edit="' + esc(path) + '" ' +
+             'title="Edit comment" aria-label="Edit your comment">' +
+             '<i class="fa-regular fa-pen-to-square"></i></button>';
+  }
+
+  /* Shown beside the timestamp once a comment has been changed, so an edited
+     comment is never silently different from what someone replied to. */
+  function editedMarkHtml(c) {
+    return c.editedAt
+      ? '<span class="cm-edited" title="Edited ' + esc(cmRelTime(c.editedAt)) + '">(edited)</span>'
+      : '';
+  }
+
+  /* The inline editor that replaces a comment's text while editing. */
+  function editorHtml(c, path) {
+    return '<div class="cm-editor">' +
+      '<textarea class="cm-editor-input" data-editor="' + esc(path) + '" ' +
+                'aria-label="Edit comment">' + esc(c.text) + '</textarea>' +
+      '<div class="cm-editor-actions">' +
+        '<button class="cm-btn-text" type="button" data-edit-cancel="' + esc(path) + '">Cancel</button>' +
+        '<button class="cm-btn-primary cm-btn-sm" type="button" data-edit-save="' + esc(path) + '">Save</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* A reply carries the same affordances as the root comment — reactions and
+     (on your own) Edit. Previously it rendered text only, so reacting to or
+     fixing a reply was impossible. `path` is "<threadId>:<index>". */
+  function replyHtml(c, path) {
+    const editing = editingPath === path;
     return '' +
       '<div class="cm-reply-item">' +
         '<span class="cm-reply-avatar" style="background:' + avatarColor(c.author) + '">' +
           esc(cmInitials(c.author)) + '</span>' +
         '<span class="cm-reply-body">' +
-          '<span class="cm-reply-author">' + esc(c.author) + '</span>' +
-          '<span class="cm-reply-time">' + esc(cmRelTime(c.created)) + '</span>' +
-          '<span class="cm-reply-text">' + esc(c.text) + '</span>' +
+          '<span class="cm-reply-head">' +
+            '<span class="cm-reply-author">' + esc(c.author) + '</span>' +
+            '<span class="cm-reply-time">' + esc(cmRelTime(c.created)) + '</span>' +
+            editedMarkHtml(c) +
+            // Actions sit at the row's end, mirroring the root comment.
+            '<span class="cm-c-actions">' + editBtnHtml(c, path) + '</span>' +
+          '</span>' +
+          (editing
+            ? editorHtml(c, path)
+            : '<span class="cm-reply-text">' + esc(c.text) + '</span>') +
+          reactionsHtml(c, path) +
         '</span>' +
       '</div>';
   }
@@ -209,25 +294,59 @@ const CommentsPanel = (function () {
         '<div class="cm-thread-body">' +
           // No context row here any more: the attachment chip and the jump
           // both live in the header, so the body opens straight onto content.
-          '<div class="cm-bubble' + (t.resolved ? ' is-resolved' : '') + '">' +
-            esc(first.text) + '</div>' +
+          /* Root comment.
+
+             NO author/timestamp row here: the thread header directly above
+             already shows this comment's author, avatar and time, so
+             repeating them read as the same person posting twice. Only the
+             things the header cannot carry live here — the "(edited)" mark
+             and the Edit affordance — pinned right so they do not look like
+             a second byline. */
+          '<div class="cm-root">' +
+            (editedMarkHtml(first) || canEdit(first)
+              ? '<div class="cm-root-head">' +
+                  editedMarkHtml(first) +
+                  '<span class="cm-c-actions">' + editBtnHtml(first, t.id + ':0') + '</span>' +
+                '</div>'
+              : '') +
+            (editingPath === t.id + ':0'
+              ? editorHtml(first, t.id + ':0')
+              : '<div class="cm-bubble' + (t.resolved ? ' is-resolved' : '') + '">' +
+                  esc(first.text) + '</div>') +
+            reactionsHtml(first, t.id + ':0') +
+          '</div>' +
 
           (replies.length
-            ? '<div class="cm-replies">' + replies.map(replyHtml).join('') + '</div>'
+            // +1 because index 0 is the root comment.
+            ? '<div class="cm-replies">' +
+                replies.map((c, i) => replyHtml(c, t.id + ':' + (i + 1))).join('') +
+              '</div>'
             : '') +
 
-          // Reply field, send and resolve share ONE row — resolve used to take
-          // a whole row to itself below this one.
-          '<div class="cm-reply-row">' +
-            '<input class="cm-reply-input" type="text" placeholder="Reply…" ' +
-                   'data-reply="' + esc(t.id) + '" />' +
-            '<button class="cm-reply-send" type="button" data-send="' + esc(t.id) + '" ' +
-                    'aria-label="Send reply"><i class="fa-solid fa-paper-plane"></i></button>' +
-            '<button class="cm-resolve-btn" type="button" data-resolve="' + esc(t.id) + '" ' +
-                    'title="' + (t.resolved ? 'Reopen thread' : 'Resolve thread') + '" ' +
-                    'aria-label="' + (t.resolved ? 'Reopen thread' : 'Resolve thread') + '">' +
-              '<i class="fa-regular fa-circle-check"></i>' +
-            '</button>' +
+          /* ---- Composer, matching production's anatomy ----
+             A full-width reply field with LABELLED actions beneath it.
+
+             This replaces an icon-only paper-plane + circle-check pair that
+             sat inline with the field: two similarly-weighted glyphs where
+             one sent and the other resolved, which is exactly the ambiguity
+             production's text labels avoid.
+
+             Production puts "Resolve Thread" top-right of the thread. Here
+             it joins Reply in this row instead: the thread header already
+             carries the resolved badge and the jump-to-location button, and
+             a third control there would collide with both. Grouping by
+             prominence keeps production's labels without the pile-up. */
+          '<div class="cm-composer-row">' +
+            '<textarea class="cm-reply-input" rows="1" placeholder="Reply to thread…" ' +
+                      'data-reply="' + esc(t.id) + '" aria-label="Reply to thread"></textarea>' +
+            '<div class="cm-composer-actions">' +
+              '<button class="cm-btn-text" type="button" data-resolve="' + esc(t.id) + '">' +
+                (t.resolved ? 'Reopen Thread' : 'Resolve Thread') +
+              '</button>' +
+              '<button class="cm-btn-primary" type="button" data-send="' + esc(t.id) + '">' +
+                'Reply' +
+              '</button>' +
+            '</div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -276,7 +395,7 @@ const CommentsPanel = (function () {
     const text = (input && input.value || '').trim();
     if (!text) return;
     const t = threads.find(x => x.id === id);
-    t.comments.push({ author: 'Dev Llama', created: new Date().toISOString(), text });
+    t.comments.push({ author: CM_ME, created: new Date().toISOString(), text });
     t.resolved = false;                 // a new reply reopens the thread
     expanded.add(id);                   // keep it open so the reply is visible
     cmSaveThreads(threads);
@@ -292,6 +411,63 @@ const CommentsPanel = (function () {
     render();
   }
 
+  /* ---- Reactions + editing ----------------------------------------
+     Both address a single comment by "<threadId>:<index>". ------------ */
+
+  function findComment(path) {
+    const [tid, idx] = String(path).split(':');
+    const t = threads.find(x => x.id === tid);
+    if (!t) return null;
+    const c = t.comments[Number(idx)];
+    return c ? { thread: t, comment: c } : null;
+  }
+
+  /* One reaction per person per emoji: clicking an emoji you already picked
+     removes it, so the chip doubles as the undo. */
+  function toggleReaction(path, emoji) {
+    const hit = findComment(path);
+    if (!hit) return;
+    const c = hit.comment;
+    if (!c.reactions) c.reactions = {};
+    const who = c.reactions[emoji] || [];
+    const i = who.indexOf(CM_ME);
+    if (i === -1) who.push(CM_ME);
+    else who.splice(i, 1);
+    if (who.length) c.reactions[emoji] = who;
+    else delete c.reactions[emoji];      // last reactor left — drop the chip
+    cmSaveThreads(threads);
+    render();
+  }
+
+  function startEdit(path) {
+    const hit = findComment(path);
+    if (!hit || !canEdit(hit.comment)) return;   // own comments only
+    editingPath = path;
+    render();
+    // Put the caret in the editor and select nothing, ready to type.
+    const ta = document.querySelector('[data-editor="' + path + '"]');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }
+
+  function cancelEdit() { editingPath = null; render(); }
+
+  function saveEdit(path) {
+    const hit = findComment(path);
+    const ta = document.querySelector('[data-editor="' + path + '"]');
+    if (!hit || !ta) return;
+    const text = ta.value.trim();
+    // An emptied comment is a delete, which this prototype does not model —
+    // treat it as a cancel rather than silently blanking the thread.
+    if (!text) { cancelEdit(); return; }
+    if (text !== hit.comment.text) {
+      hit.comment.text = text;
+      hit.comment.editedAt = new Date().toISOString();
+      cmSaveThreads(threads);
+    }
+    editingPath = null;
+    render();
+  }
+
   function compose() {
     const field = $('cmInput');
     const text = (field.value || '').trim();
@@ -301,7 +477,7 @@ const CommentsPanel = (function () {
       scope: pageScope.type,
       created: new Date().toISOString(),
       resolved: false, unread: false,
-      comments: [{ author: 'Dev Llama', created: new Date().toISOString(), text }]
+      comments: [{ author: CM_ME, created: new Date().toISOString(), text }]
     };
     if (pageScope.type === 'object') t.objectId = pageScope.objectId;
     threads.push(t);
@@ -392,21 +568,51 @@ const CommentsPanel = (function () {
     /* One delegated handler for the whole list. Order matters: the specific
        controls sit INSIDE the header/body, so they are tested before the
        header's toggle, which would otherwise swallow them. */
+    /* One delegated handler for the whole list. Order matters: every control
+       below sits INSIDE the thread, and the collapsed header is itself a
+       click target, so the specific actions are matched first and each
+       returns — otherwise a click on Save or a reaction would bubble up and
+       toggle the thread shut under the user. */
     els.threads.addEventListener('click', (e) => {
       const goto = e.target.closest('[data-goto]');
       if (goto) { goToThread(goto.dataset.goto); return; }
+
+      // --- reactions + editing (both keyed "<threadId>:<index>") ---
+      const rx = e.target.closest('[data-react]');
+      if (rx) { toggleReaction(rx.dataset.react, rx.dataset.emoji); return; }
+      const editSave = e.target.closest('[data-edit-save]');
+      if (editSave) { saveEdit(editSave.dataset.editSave); return; }
+      const editCancel = e.target.closest('[data-edit-cancel]');
+      if (editCancel) { cancelEdit(); return; }
+      const edit = e.target.closest('[data-edit]');
+      if (edit) { startEdit(edit.dataset.edit); return; }
+
       const send = e.target.closest('[data-send]');
       if (send) { reply(send.dataset.send); return; }
       const res = e.target.closest('[data-resolve]');
       if (res) { toggleResolve(res.dataset.resolve); return; }
+
+      // The editor's own textarea must not toggle the thread either.
+      if (e.target.closest('[data-editor], [data-reply]')) return;
+
       const head = e.target.closest('[data-toggle]');
       if (head) toggleThread(head.dataset.toggle);
     });
 
     els.threads.addEventListener('keydown', (e) => {
       // Enter sends from a reply field rather than toggling the thread.
-      if (e.key === 'Enter' && e.target.matches('[data-reply]')) {
+      // Shift+Enter falls through to insert a newline — the field is now a
+      // textarea, so a multi-line reply is possible.
+      if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-reply]')) {
         e.preventDefault(); reply(e.target.dataset.reply); return;
+      }
+      // In the inline editor: Escape abandons, Cmd/Ctrl+Enter saves.
+      if (e.target.matches('[data-editor]')) {
+        if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); return; }
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault(); saveEdit(e.target.dataset.editor); return;
+        }
+        return;                      // otherwise type freely, incl. newlines
       }
       // The header is a div with role="button", so Enter/Space need wiring.
       const head = e.target.closest('[data-toggle]');
