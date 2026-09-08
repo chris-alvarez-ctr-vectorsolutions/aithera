@@ -345,11 +345,33 @@ const CommentsPanel = (function () {
       drawer.restoreFocusSelector = '#btnComments';
     });
 
-    /* The panel spans the full viewport height by design: the page shell is
-       inside this drawer's `content` slot, so the drawer owns the whole
-       viewport and the panel runs header-to-floor beside the inert page.
-       Nothing to measure — the offset is zeroed in comments-panel.css. */
-    openBtn.addEventListener('click', () => { drawer.open = true; render(); });
+    /* ── Publish the global header's height ─────────────────────────
+       The header is hoisted OUT of the drawer so it stays clickable while
+       the panel is open (it carries the Comments toggle itself). That makes
+       it the drawer's previous sibling rather than one of the shell's flex
+       rows, so the drawer has to be told how much vertical space the header
+       takes: `--vwc-header-h` drives both the drawer's height and the top of
+       the panel (see comments-panel.css).
+
+       Measured rather than hard-coded because the two pages' headers differ
+       (62px on the overview; 69px on the object manager, which adds a 5px
+       accent strip above the row) and either can reflow to a taller row on a
+       narrow viewport. */
+    const header = document.querySelector('.ov-topbar, .topbar');
+    function syncHeaderHeight() {
+      if (!header) return;
+      // bottom, not height, so anything above the header counts too.
+      const h = Math.round(header.getBoundingClientRect().bottom);
+      document.documentElement.style.setProperty('--vwc-header-h', h + 'px');
+    }
+    syncHeaderHeight();
+    window.addEventListener('resize', syncHeaderHeight);
+
+    openBtn.addEventListener('click', () => {
+      syncHeaderHeight();
+      drawer.open = true;
+      render();
+    });
     $('cmClose').addEventListener('click', () => { drawer.open = false; });
     $('cmSend').addEventListener('click', compose);
 
