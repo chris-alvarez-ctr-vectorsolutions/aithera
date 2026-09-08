@@ -34,6 +34,7 @@ const CommentsPanel = (function () {
   let stateFilter = 'all';              // 'all' | 'open' | 'resolved'
   let expanded = new Set();             // thread ids currently expanded
   let editingPath = null;               // "<threadId>:<index>" being edited, if any
+  let openMenuPath = null;              // comment whose reaction menu is open, if any
   let els = {};
 
   const $ = (id) => document.getElementById(id);
@@ -158,14 +159,41 @@ const CommentsPanel = (function () {
                '</button>';
       }).join('');
 
-    /* The picker is a fixed four-emoji strip revealed on demand rather than a
-       full emoji keyboard: one tap, no search, and it cannot push the panel
-       into a horizontal scroll. */
-    const picker = '<span class="cm-rx-picker" role="group" aria-label="Add a reaction">' +
-      CM_REACTIONS.map(e =>
-        '<button class="cm-rx-add" type="button" data-react="' + esc(path) + '" ' +
-                'data-emoji="' + esc(e) + '" title="React ' + esc(e) + '" ' +
-                'aria-label="React with ' + esc(e) + '">' + esc(e) + '</button>').join('') +
+    /* A single smiley trigger that opens a menu of choices, matching
+       production. One control at rest regardless of how many reactions the
+       vocabulary holds, which is what lets CM_REACTIONS be wider than the
+       four-emoji strip this replaced.
+
+       Only ONE menu is open at a time (`openMenuPath`), so the panel never
+       shows two grids at once. The menu is a sibling of the trigger inside a
+       positioned wrapper, so it can overlay the thread without being clipped
+       by the reaction row. */
+    const menuOpen = openMenuPath === path;
+    const menu = menuOpen
+      ? '<div class="cm-rx-menu" role="menu" aria-label="Pick a reaction">' +
+          CM_REACTIONS.map(e => {
+            const who = rx[e] || [];
+            const mine = who.indexOf(CM_ME) !== -1;
+            return '<button class="cm-rx-opt' + (mine ? ' is-mine' : '') + '" type="button" ' +
+                     'role="menuitemcheckbox" aria-checked="' + (mine ? 'true' : 'false') + '" ' +
+                     'data-react="' + esc(path) + '" data-emoji="' + esc(e) + '" ' +
+                     'title="' + esc(mine ? 'Remove ' + e : 'React ' + e) + '" ' +
+                     'aria-label="' + esc(mine ? 'Remove your ' + e + ' reaction' : 'React with ' + e) + '">' +
+                     esc(e) +
+                   '</button>';
+          }).join('') +
+        '</div>'
+      : '';
+
+    const picker =
+      '<span class="cm-rx-picker">' +
+        '<button class="cm-rx-trigger' + (menuOpen ? ' is-open' : '') + '" type="button" ' +
+                'data-rx-menu="' + esc(path) + '" ' +
+                'aria-haspopup="true" aria-expanded="' + (menuOpen ? 'true' : 'false') + '" ' +
+                'title="Add a reaction" aria-label="Add a reaction">' +
+          '<i class="fa-regular fa-face-smile"></i>' +
+        '</button>' +
+        menu +
       '</span>';
 
     return '<div class="cm-reactions">' + chips + picker + '</div>';
@@ -422,8 +450,26 @@ const CommentsPanel = (function () {
     return c ? { thread: t, comment: c } : null;
   }
 
-  /* One reaction per person per emoji: clicking an emoji you already picked
-     removes it, so the chip doubles as the undo. */
+  /* The reaction menu. Only one is open at a time — opening another closes
+     the first — so the panel never shows two grids competing. */
+  function toggleReactionMenu(path) {
+    openMenuPath = (openMenuPath === path) ? null : path;
+    render();
+    if (openMenuPath) {
+      // Move focus into the menu so it is keyboard-operable immediately.
+      const first = document.querySelector('[data-rx-menu="' + path + '"] + .cm-rx-menu .cm-rx-opt');
+      if (first) first.focus();
+    }
+  }
+
+  function closeReactionMenu(rerender) {
+    if (openMenuPath === null) return;
+    openMenuPath = null;
+    if (rerender) render();
+  }
+
+  /* One reaction per person per emoji: picking one you already have removes
+     it, so the same control is the undo. */
   function toggleReaction(path, emoji) {
     const hit = findComment(path);
     if (!hit) return;
@@ -436,6 +482,7 @@ const CommentsPanel = (function () {
     if (who.length) c.reactions[emoji] = who;
     else delete c.reactions[emoji];      // last reactor left — drop the chip
     cmSaveThreads(threads);
+    openMenuPath = null;                 // picking one dismisses the menu
     render();
   }
 
@@ -578,6 +625,8 @@ const CommentsPanel = (function () {
       if (goto) { goToThread(goto.dataset.goto); return; }
 
       // --- reactions + editing (both keyed "<threadId>:<index>") ---
+      const rxMenu = e.target.closest('[data-rx-menu]');
+      if (rxMenu) { toggleReactionMenu(rxMenu.dataset.rxMenu); return; }
       const rx = e.target.closest('[data-react]');
       if (rx) { toggleReaction(rx.dataset.react, rx.dataset.emoji); return; }
       const editSave = e.target.closest('[data-edit-save]');
@@ -592,6 +641,10 @@ const CommentsPanel = (function () {
       const res = e.target.closest('[data-resolve]');
       if (res) { toggleResolve(res.dataset.resolve); return; }
 
+      // Any other click in the list dismisses an open reaction menu, the
+      // same way clicking away from a popover closes it.
+      closeReactionMenu(true);
+
       // The editor's own textarea must not toggle the thread either.
       if (e.target.closest('[data-editor], [data-reply]')) return;
 
@@ -600,6 +653,16 @@ const CommentsPanel = (function () {
     });
 
     els.threads.addEventListener('keydown', (e) => {
+      // Escape closes an open reaction menu before anything else claims it,
+      // and returns focus to the trigger that opened it.
+      if (e.key === 'Escape' && openMenuPath) {
+        e.preventDefault();
+        const path = openMenuPath;
+        closeReactionMenu(true);
+        const trig = document.querySelector('[data-rx-menu="' + path + '"]');
+        if (trig) trig.focus();
+        return;
+      }
       // Enter sends from a reply field rather than toggling the thread.
       // Shift+Enter falls through to insert a newline — the field is now a
       // textarea, so a multi-line reply is possible.
@@ -619,6 +682,19 @@ const CommentsPanel = (function () {
       if (head && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault(); toggleThread(head.dataset.toggle);
       }
+    });
+
+    /* A click anywhere ELSE in the panel — the filter tabs, the scope bar,
+       the page-level composer — also dismisses an open reaction menu. The
+       list's own handler covers clicks inside a thread; this covers the rest
+       of the drawer, so the menu never lingers after attention moves on.
+       Bound on the drawer rather than the document because an overlay drawer
+       makes the page behind inert anyway. */
+    drawer.addEventListener('click', (e) => {
+      if (!openMenuPath) return;
+      if (e.target.closest('[data-rx-menu], .cm-rx-menu')) return;  // handled
+      if (els.threads.contains(e.target)) return;                   // ditto
+      closeReactionMenu(true);
     });
 
     render();

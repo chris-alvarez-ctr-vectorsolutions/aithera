@@ -137,11 +137,27 @@ const THREAD_SEED = [
    Declared once here because the panel needs it in four places. */
 const CM_ME = 'Dev Llama';
 
-/* Reactions are a FIXED set rather than a free emoji picker: four one-tap
-   choices cover review traffic (agree / nice / done / seen) with no picker
-   UI to build, and they stay legible at 12px in a narrow panel. Swapping in
-   a full picker later only changes this array and the react button. */
-const CM_REACTIONS = ['\u{1F44D}', '\u{1F389}', '\u2705', '\u{1F440}'];
+/* The reaction vocabulary, offered from a menu behind a single smiley
+   trigger (matching production) rather than an always-visible strip.
+
+   Because the set no longer competes for room in the thread, it can be
+   wider than the four one-tap choices it replaced — these cover the range
+   of review responses: agree / disagree, celebrate, done, seen, thanks,
+   needs-thought, blocked. Still a curated list rather than a full emoji
+   keyboard: no search field to build, every choice is one tap, and the grid
+   cannot overflow a 420px panel.
+
+   Adding to this array is all it takes to extend the menu; the grid wraps. */
+const CM_REACTIONS = [
+  '\u{1F44D}',   // thumbs up      — agree
+  '\u{1F44E}',   // thumbs down    — disagree
+  '\u{1F389}',   // party popper   — celebrate
+  '\u2705',      // check mark     — done
+  '\u{1F440}',   // eyes           — seen / looking
+  '\u{1F64F}',   // folded hands   — thanks
+  '\u{1F914}',   // thinking face  — needs thought
+  '\u{1F6A7}'    // construction   — blocked / in progress
+];
 
 const CM_STORE_KEY = 'ls-cvc-comment-threads';
 

@@ -507,25 +507,59 @@
 .cm-rx-emoji { font-size: 12.5px; }
 .cm-rx-count { font-variant-numeric: tabular-nums; }
 
-.cm-rx-picker {
-  display: inline-flex; align-items: center; gap: 1px;
-  opacity: 0; transition: opacity .12s ease;
-}
-.cm-root:hover .cm-rx-picker,
-.cm-reply-item:hover .cm-rx-picker,
-.cm-root:focus-within .cm-rx-picker,
-.cm-reply-item:focus-within .cm-rx-picker { opacity: 1; }
-@media (hover: none) {
-  .cm-rx-picker { opacity: 1; }
-}
-.cm-rx-add {
-  width: 24px; height: 24px;
+/* The trigger: one smiley at rest, whatever the vocabulary's size. Hidden
+   until hover/focus so an unreacted comment stays clean; always shown on
+   touch, where there is no hover to reveal it. Kept visible while its own
+   menu is open, so the control does not vanish from under the pointer. */
+.cm-rx-picker { position: relative; display: inline-flex; align-items: center; }
+.cm-rx-trigger {
+  width: 24px; height: 24px;          /* WCAG 2.5.8 target floor */
   display: grid; place-items: center;
   border: none; border-radius: 5px;
-  background: none; font-size: 13px; cursor: pointer; line-height: 1;
+  background: none; color: var(--ink-mute);
+  font-size: 12.5px; cursor: pointer; line-height: 1;
+  opacity: 0; transition: opacity .12s ease;
 }
-.cm-rx-add:hover { background: var(--lumo-contrast-5pct); }
-.cm-rx-add:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+.cm-root:hover .cm-rx-trigger,
+.cm-reply-item:hover .cm-rx-trigger,
+.cm-root:focus-within .cm-rx-trigger,
+.cm-reply-item:focus-within .cm-rx-trigger,
+.cm-rx-trigger.is-open { opacity: 1; }
+.cm-rx-trigger:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
+.cm-rx-trigger:focus-visible { opacity: 1; outline: 2px solid var(--brand-2); outline-offset: 1px; }
+.cm-rx-trigger.is-open { background: var(--lumo-contrast-5pct); color: var(--ink); }
+@media (hover: none) {
+  .cm-rx-trigger { opacity: 1; }
+}
+
+/* The menu. Absolutely positioned so it overlays the thread instead of
+   reflowing it — a grid that pushed the replies down would move the very
+   comment you were reacting to.
+
+   Opens DOWNWARD from the trigger. Opening upward put the grid on top of the
+   comment text you are reacting to, hiding the thing you are responding to
+   at the moment of responding; below the row it covers the next reply or the
+   composer instead, which is the better thing to obscure briefly. The panel
+   is 420px wide and the grid is capped at 4 columns (~130px), so it cannot
+   reach either edge. */
+.cm-rx-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 5;
+  display: grid; grid-template-columns: repeat(4, 28px); gap: 2px;
+  padding: 5px;
+  background: var(--lumo-base-color);
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15, 25, 45, .16);
+}
+.cm-rx-opt {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: none; border-radius: 6px;
+  background: none; font-size: 15px; cursor: pointer; line-height: 1;
+}
+.cm-rx-opt:hover { background: var(--lumo-contrast-5pct); }
+.cm-rx-opt:focus-visible { outline: 2px solid var(--brand-2); outline-offset: -2px; }
+/* A reaction you already hold reads as selected, and picking it removes you. */
+.cm-rx-opt.is-mine { background: var(--lumo-primary-color-10pct); }
 
 /* ---- Inline editor ----
    Replaces the comment's text in place, so the surrounding thread keeps its
