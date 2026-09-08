@@ -468,6 +468,26 @@
   justify-content: center;
 }
 
+/* Start-of-timeline marker — the list's own last row, so it shares the
+   cards' column. Quieter than an event and carries no card: it is a
+   boundary, not something you can act on. */
+.vh-item.vh-start { padding-bottom: 0; }
+.vh-start-text {
+  display: block; padding-top: 1px;
+  color: var(--ink-mute); font-size: var(--font-size-s);
+}
+/* A hollow, smaller dot: it terminates the spine without reading as another
+   publish event. */
+.vh-dot.is-start {
+  width: 9px; height: 9px; top: 9px; left: 2px;
+  border-color: var(--border-strong); background: var(--lumo-base-color, #fff);
+}
+
+/* .vh-empty sets `display`, which beats the `hidden` attribute (the same
+   reason `.kebab-menu[hidden]` needs its own override above), so it is
+   toggled with a class instead. */
+.vh-empty.is-hidden { display: none; }
+
 .vh-foot { display: flex; justify-content: flex-end; }
 
 /* ---- Revert confirmation ---- */
@@ -625,7 +645,9 @@
 
       <div class="modal-body vh-body">
         <ol class="vh-timeline" id="vhTimeline"></ol>
-        <p class="vh-empty" id="vhEmpty" hidden>
+
+        <!-- Shown only when a course has never been published. -->
+        <p class="vh-empty is-hidden" id="vhEmpty">
           <i class="fa-regular fa-clock-rotate-left"></i>
           No publish events yet. A course's history starts at its first publish.
         </p>
@@ -1040,7 +1062,12 @@ function closeVersionHistory() {
 function renderVersionHistory() {
   const events = vhLoad(vhSku);
   const list = document.getElementById('vhTimeline');
-  document.getElementById('vhEmpty').hidden = events.length !== 0;
+  /* Exactly one of these shows: the start marker terminates a populated
+     timeline, the empty state stands in for a course that has never been
+     published. Toggled by class because both set `display`, which overrides
+     the `hidden` attribute. */
+  const hasEvents = events.length !== 0;
+  document.getElementById('vhEmpty').classList.toggle('is-hidden', hasEvents);
 
   list.innerHTML = events.map(e => {
     const w = vhWhen(e.at);
@@ -1082,7 +1109,24 @@ function renderVersionHistory() {
           '</div>' +
         '</div>' +
       '</li>';
-  }).join('');
+  }).join('') +
+
+  /* Start-of-timeline marker, as the list's own final row so it inherits
+     .vh-item's indent and lines up with the cards by construction — as a
+     sibling <p> outside the <ol> it sat 28px to their left.
+
+     It goes at the BOTTOM because the list runs newest-first, and it closes
+     the spine off: on a course with a long history, reaching the first
+     publish would otherwise be indistinguishable from the list being cut
+     short at the bottom of the modal. */
+  (hasEvents
+    ? '<li class="vh-item vh-start">' +
+        '<span class="vh-dot is-start" aria-hidden="true"></span>' +
+        '<span class="vh-start-text">' +
+          'Beginning of version history — this course\'s first publish.' +
+        '</span>' +
+      '</li>'
+    : '');
 }
 
 /* Minimal escape — the notes and author names are author-entered text. */
