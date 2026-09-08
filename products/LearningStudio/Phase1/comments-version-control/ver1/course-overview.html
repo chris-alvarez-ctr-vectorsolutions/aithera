@@ -29,7 +29,8 @@
 
   <!-- Shared comment model + panel controller. Loaded by BOTH pages so the
        thread data and the panel behaviour cannot drift between them. -->
-  <script src="comments-data.js"></script>
+  <script src="version-data.js"></script>
+<script src="comments-data.js"></script>
   <script src="comments-panel.js"></script>
 </head>
 <body>
@@ -105,6 +106,44 @@
     <button class="btn-publish">Publish</button>
   </div>
 </header>
+
+<!-- ===== Publish =====
+     Captures a PUBLISH NOTE, which is the point of the dialog. Version
+     history is only as useful as its notes: without them someone has to open
+     each published version and search it to find the one they want; with
+     them they read "DEI resolution for 2026" and go straight there.
+
+     So the note field is the dialog's main content, with examples in the
+     placeholder, and it is optional — blocking a publish on it would get it
+     filled with "update" and teach people to ignore it. -->
+<div class="modal-overlay" id="publishModal" role="dialog" aria-modal="true"
+     aria-labelledby="publishTitle" slot="content">
+  <div class="modal pub-modal">
+    <div class="modal-head">
+      <h3 id="publishTitle">Publish course</h3>
+      <p class="pub-sub">This version becomes what learners see.</p>
+    </div>
+
+    <div class="modal-body">
+      <label class="pub-label" for="publishNote">
+        What changed in this version?
+        <span class="pub-optional">Optional</span>
+      </label>
+      <textarea class="pub-note" id="publishNote" rows="4"
+                placeholder="e.g. Updated for Title IX — reworked the reporting-obligations language, or DEI resolution for 2026"></textarea>
+      <p class="pub-hint">
+        <i class="fa-regular fa-lightbulb"></i>
+        Shown in this course's version history. A specific note is what lets
+        someone find the right version later without opening each one.
+      </p>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-secondary" id="publishCancel" type="button">Cancel</button>
+      <button class="btn btn-primary" id="publishConfirm" type="button">Publish</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== Comments panel wraps the page =====
      `vwc-drawer` is a LAYOUT component, not a floating box: it renders the
@@ -850,6 +889,72 @@ function openObjectManager(objectId) {
 /* ── Header + meta rendering (all computed) ───────────────── */
 
 document.getElementById('hdr-sku').textContent = COURSE.sku;
+
+/* ---- Publish ----
+   Captures a publish note and appends a publish event to this course's
+   version history, which the course lookup's "Version history" modal reads.
+
+   NOTE ON THE KEY: the lookup lists this course with a leading "#"
+   ("#DEMO-LOTO-101") while COURSE.sku omits it. The history is keyed by the
+   LOOKUP's form, so a publish here shows up in the history opened there —
+   normalising at this single boundary rather than letting the two pages
+   disagree and silently write to a course that does not exist. */
+const PUBLISH_SKU = COURSE.sku.startsWith('#') ? COURSE.sku : '#' + COURSE.sku;
+
+const publishModal = document.getElementById('publishModal');
+const publishNote = document.getElementById('publishNote');
+
+document.querySelector('.btn-publish').addEventListener('click', () => {
+  publishNote.value = '';
+  publishModal.classList.add('open');
+  publishNote.focus();
+});
+
+function closePublish() { publishModal.classList.remove('open'); }
+
+document.getElementById('publishCancel').addEventListener('click', closePublish);
+publishModal.addEventListener('click', (e) => {
+  if (e.target === publishModal) closePublish();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && publishModal.classList.contains('open')) closePublish();
+});
+
+document.getElementById('publishConfirm').addEventListener('click', () => {
+  const ev = vhPublish(PUBLISH_SKU, publishNote.value, 'Dev Llama');
+  /* Confirm IN the dialog rather than with a toast: this page has no
+     notification component, and swapping the body for a short confirmation
+     also names the version that was created — which is what makes the link
+     between publishing here and the history in the lookup visible in a
+     walkthrough. */
+  showPublished(ev);
+});
+
+function showPublished(ev) {
+  const body = publishModal.querySelector('.modal-body');
+  const foot = publishModal.querySelector('.modal-foot');
+  const head = publishModal.querySelector('.modal-head');
+  head.innerHTML = '<h3>Published ' + ev.id + '</h3>';
+  body.innerHTML =
+    '<p class="pub-done">' +
+      '<span class="pub-done-icon"><i class="fa-solid fa-check"></i></span>' +
+      'This course is now live at <b>' + ev.id + '</b>.' +
+    '</p>' +
+    (ev.note
+      ? '<blockquote class="pub-done-note">' + ev.note.replace(/[&<>]/g,
+          c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c])) + '</blockquote>'
+      : '<p class="pub-done-nonote">Published without a note — it will show as ' +
+        '“No publish note” in version history.</p>') +
+    '<p class="pub-done-where">Find it under <b>Version history</b> in this ' +
+      'course\'s row on the course lookup.</p>';
+  foot.innerHTML = '<button class="btn btn-primary" type="button" id="publishDone">Done</button>';
+  document.getElementById('publishDone').addEventListener('click', () => {
+    closePublish();
+    // Restore the form so a second publish in the same session works.
+    setTimeout(() => location.reload(), 120);
+  });
+  document.getElementById('publishDone').focus();
+}
 document.getElementById('hdr-title').textContent = COURSE.title;
 
 function renderCourseMeta() {

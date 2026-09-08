@@ -249,7 +249,253 @@
     }
     .kebab-menu button:hover { background: var(--lumo-contrast-5pct, #f2f5f8); }
     .kebab-menu button i { width: 15px; text-align: center; color: #6b7785; }
-  </style>
+  
+
+/* ============================================================
+   DESIGN TOKENS  (semantic aliases)
+
+   This page renders mostly plain HTML rather than VWC components, so it
+   needs the same semantic aliases the sibling pages get from demo.css.
+   Values are copied from that file VERBATIM — it sources them from the
+   themes CONTEXT.md — so the lookup and the Course Overview cannot drift.
+
+   The --lumo-* tokens they point at are defined at runtime by the theme's
+   styles.js, already loaded in this page's head. Fallbacks are given for
+   file:// use with no CDN, matching this page's existing convention (see
+   `var(--lumo-base-color, #fff)` above).
+   ============================================================ */
+:root {
+  --font-size-xs: 12px;
+  --font-size-s: 13px;
+  --font-size-m: var(--lumo-font-size-m, 14px);
+  --font-size-l: 16px;
+  --font-size-xl: 20px;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+
+  --ink: var(--lumo-body-text-color, #000000de);
+  --ink-soft: var(--lumo-secondary-text-color, #00000099);
+  --ink-mute: var(--lumo-tertiary-text-color, #1c304a85);
+
+  --brand: #0257a1;                 /* darkened primary, for hover */
+  --brand-2: var(--lumo-primary-color, #0271ce);
+
+  /* Opaque on purpose: the --lumo-contrast-* tokens are translucent
+     overlays, so scrolling content shows through a border that uses them. */
+  --border: #e2e6ec;
+  --border-strong: #d3d9e0;
+
+  --primary-tint-10: #0271ce1a;     /* = --lumo-primary-color-10pct */
+}
+
+/* ============================================================
+   MODAL BASE
+   This page is self-contained (it does not load demo.css), so the overlay
+   and dialog chrome are restated here with the SAME values the sibling
+   pages use, keeping the version-history dialog visually identical to the
+   modals on the Course Overview and Object Manager.
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(20,28,42,.45);
+  padding: 24px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 48px);
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(15,25,45,.28);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal-head { padding: 24px 28px 0; }
+.modal-head h3 {
+  margin: 0; font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold); color: var(--ink);
+}
+.modal-body { padding: 18px 28px; overflow-y: auto; }
+.modal-foot {
+  padding: 16px 28px 22px; display: flex; gap: 10px;
+  justify-content: flex-end;
+}
+.btn {
+  min-height: 38px; padding: 9px 18px;
+  border: 1px solid transparent; border-radius: 8px;
+  font: inherit; font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold); cursor: pointer;
+}
+.btn-secondary { background: #f4f6f8; border-color: transparent; color: var(--brand-2); }
+.btn-secondary:hover { background: #e9eff9; }
+.btn-primary { background: var(--brand-2); color: #fff; }
+.btn-primary:hover { background: var(--brand); }
+
+/* ============================================================
+   VERSION HISTORY  (course lookup → row kebab → Version history)
+
+   A timeline of publish events. The NOTE leads each row: it is the reason
+   the screen exists — without it someone opens every version and searches
+   it to find the right one, with it they read "DEI resolution for 2026" and
+   go straight there. Date, author and version follow as supporting facts.
+   ============================================================ */
+
+.vh-modal { width: min(720px, 100%); }
+
+.vh-head { display: flex; align-items: flex-start; gap: 16px; }
+.vh-head-text { flex: 1 1 auto; min-width: 0; }
+.vh-sub {
+  margin: 4px 0 0; display: flex; align-items: baseline; gap: 8px;
+  font-size: var(--font-size-m); color: var(--ink-soft);
+  min-width: 0;
+}
+/* The course title can be long; it truncates before the SKU does, since the
+   SKU is the shorter unambiguous identifier. */
+.vh-sub > span:first-child {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vh-sku {
+  flex: 0 0 auto;
+  font-size: var(--font-size-s); color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Close affordance in the header's top-right, matching the sibling pages. */
+.modal-x {
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border: none; border-radius: 8px;
+  background: none; color: var(--ink-soft);
+  font-size: var(--font-size-l); cursor: pointer;
+}
+.modal-x:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
+
+.vh-body { overflow-y: auto; }
+
+/* ---- Timeline ----
+   A spine down the left with a dot per event. The spine is drawn on the list
+   rather than per item, so it runs continuously behind the dots instead of
+   breaking at every gap. */
+.vh-timeline {
+  list-style: none; margin: 0; padding: 4px 0 0 0;
+  position: relative;
+}
+.vh-item {
+  position: relative;
+  padding-left: 28px;
+  padding-bottom: 14px;
+}
+/* The connector, drawn per item so it stops cleanly at the last one. */
+.vh-item::before {
+  content: ''; position: absolute;
+  left: 6px; top: 16px; bottom: -2px; width: 2px;
+  background: var(--border);
+}
+.vh-item:last-child { padding-bottom: 0; }
+.vh-item:last-child::before { display: none; }
+
+.vh-dot {
+  position: absolute; left: 0; top: 7px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--lumo-base-color);
+  border: 2px solid var(--border-strong);
+  box-sizing: border-box;
+}
+/* The live version is the one people look for first, so it is the only
+   filled dot. */
+.vh-item.is-current .vh-dot {
+  background: var(--brand-2); border-color: var(--brand-2);
+}
+
+.vh-card {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--lumo-base-color);
+}
+.vh-item.is-current .vh-card {
+  border-color: #bcd8f5; background: #f7fbff;
+}
+
+/* Supporting facts, above the note and deliberately quieter than it. */
+.vh-meta {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  font-size: var(--font-size-s);
+}
+.vh-ver {
+  font-weight: var(--font-weight-semibold); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.vh-when { color: var(--ink-soft); }
+.vh-rel { color: var(--ink-mute); }
+.vh-author { color: var(--ink-soft); margin-left: auto; }
+
+.vh-badge {
+  padding: 1px 8px; border-radius: 999px;
+  font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
+  line-height: 1.6;
+}
+.vh-badge.is-live { background: var(--lumo-primary-color-10pct); color: var(--brand-2); }
+.vh-badge.is-revert { background: #fdf2e3; color: #995211; }
+
+/* The note: the row's headline, at body size while its metadata sits at
+   small — the reverse of the usual card, because this is what people read. */
+.vh-note {
+  margin: 6px 0 0;
+  font-size: var(--font-size-m); color: var(--ink); line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.vh-note.is-none { color: var(--ink-mute); font-style: italic; }
+
+.vh-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.vh-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 30px; padding: 5px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--lumo-base-color);
+  font: inherit; font-size: var(--font-size-s);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand-2); cursor: pointer;
+}
+.vh-btn:hover { border-color: var(--brand-2); background: var(--primary-tint-10); }
+.vh-btn:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+.vh-empty {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0 0; padding: 20px 0;
+  color: var(--ink-mute); font-size: var(--font-size-m);
+  justify-content: center;
+}
+
+.vh-foot { display: flex; justify-content: flex-end; }
+
+/* ---- Revert confirmation ---- */
+.vh-confirm { width: min(480px, 100%); }
+.vh-warn-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: grid; place-items: center; margin-bottom: 10px;
+  background: #fdf2e3; color: #995211; font-size: var(--font-size-l);
+}
+.vh-confirm-lead { margin: 0; color: var(--ink); line-height: 1.5; }
+/* Shows the note of the version being restored, so the confirmation names
+   what you are going back TO rather than just a version number. */
+.vh-confirm-note {
+  margin: 12px 0 0; padding: 10px 12px;
+  border-left: 3px solid var(--border-strong);
+  background: #f9fafb; border-radius: 0 8px 8px 0;
+  color: var(--ink); line-height: 1.5; font-size: var(--font-size-m);
+  overflow-wrap: anywhere;
+}
+.vh-confirm-note.is-none { color: var(--ink-mute); font-style: italic; }
+.vh-confirm-keep {
+  display: flex; align-items: flex-start; gap: 7px;
+  margin: 14px 0 0;
+  font-size: var(--font-size-s); color: var(--lumo-success-text-color);
+  line-height: 1.45;
+}
+
+</style>
 </head>
 <body>
 
@@ -346,7 +592,82 @@
     <button type="button" data-act="archive"><i class="fa-regular fa-box-archive"></i> Archive</button>
   </div>
 
+  <!-- ===== Version history =====
+       Opened from the row kebab's "Version history". A modal rather than a
+       page or a drawer: this is a scan-and-act list — find the right publish
+       event, then launch or revert it — not somewhere people stay and work.
 
+       The timeline lists PUBLISH events only, not every save. That is the
+       unit people reason about ("which version went out for Title IX?") and
+       what a revert targets.
+
+       Each row leads with its NOTE, because the note is the whole reason the
+       screen is useful: without it someone has to open every version and
+       search it to find the right one; with it they read "DEI resolution for
+       2026" and go straight there. Date and author follow as the supporting
+       facts. Notes are captured in the publish dialog on the Course
+       Overview. -->
+  <div class="modal-overlay" id="vhModal" role="dialog" aria-modal="true"
+       aria-labelledby="vhTitle">
+    <div class="modal vh-modal">
+      <div class="modal-head vh-head">
+        <div class="vh-head-text">
+          <h3 id="vhTitle">Version history</h3>
+          <!-- Which course this history belongs to: the modal is opened from
+               a row in a fifty-row table, so naming the course is what makes
+               it verifiable that you opened the right one. -->
+          <p class="vh-sub"><span id="vhCourse"></span><span class="vh-sku" id="vhSku"></span></p>
+        </div>
+        <button class="modal-x" id="vhClose" type="button" aria-label="Close version history">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body vh-body">
+        <ol class="vh-timeline" id="vhTimeline"></ol>
+        <p class="vh-empty" id="vhEmpty" hidden>
+          <i class="fa-regular fa-clock-rotate-left"></i>
+          No publish events yet. A course's history starts at its first publish.
+        </p>
+      </div>
+
+      <div class="modal-foot vh-foot">
+        <button class="btn btn-secondary" id="vhDone" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revert confirmation. Reverting changes what learners see, so it gets a
+       deliberate second step rather than firing straight from the row. -->
+  <div class="modal-overlay" id="vhRevertModal" role="dialog" aria-modal="true"
+       aria-labelledby="vhRevertTitle">
+    <div class="modal vh-confirm">
+      <div class="modal-head">
+        <div class="vh-warn-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+        <h3 id="vhRevertTitle">Revert to <span id="vhRevertVer"></span>?</h3>
+      </div>
+      <div class="modal-body">
+        <p class="vh-confirm-lead">
+          This publishes <b id="vhRevertVer2"></b>'s content as a new version and
+          makes it what learners see.
+        </p>
+        <blockquote class="vh-confirm-note" id="vhRevertNote"></blockquote>
+        <!-- Says plainly that history is preserved: the fear with a revert is
+             that everything after the target is destroyed. -->
+        <p class="vh-confirm-keep">
+          <i class="fa-regular fa-circle-check"></i>
+          Nothing is deleted — every version between stays in this history.
+        </p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" id="vhRevertCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="vhRevertConfirm" type="button">Revert and publish</button>
+      </div>
+    </div>
+  </div>
+
+
+<script src="version-data.js"></script>
 <script>
 /* ============================================================
    COURSE SEARCH RESULTS — static demo data.
@@ -638,8 +959,159 @@ kebab.addEventListener('click', (e) => {
   closeKebab();
 
   if (act === 'open') { openCourse(sku); return; }
+  if (act === 'history') { openVersionHistory(sku); return; }
   // The remaining actions are presentational in this prototype.
   say(btn.textContent.trim() + ' — not built in this prototype');
+});
+
+/* ============================================================
+   VERSION HISTORY
+
+   A timeline of publish events for one course. Opened from the row kebab.
+
+   Each row leads with its note, then the date, author and version. Two
+   actions per event:
+
+     Launch  — opens that version in a read-only Studio session, which is
+               what makes the AI search usable against an old transcript
+               ("was this phrase in the July version?"). STUBBED here: the
+               CTA is real so the affordance can be reviewed, but it opens
+               nothing, since a read-only Studio session is a build task
+               rather than something this prototype can fake convincingly.
+     Revert  — republishes that version's content as the live one, behind a
+               confirmation.
+   ============================================================ */
+
+const vhModal = document.getElementById('vhModal');
+const vhRevertModal = document.getElementById('vhRevertModal');
+let vhSku = null;          // course whose history is open
+let vhPendingRevert = null; // version id awaiting confirmation
+
+function openVersionHistory(sku) {
+  vhSku = sku;
+  const course = COURSES.find(c => c.sku === sku);
+  document.getElementById('vhCourse').textContent = course ? course.title : 'Course';
+  document.getElementById('vhSku').textContent = sku;
+  renderVersionHistory();
+  vhModal.classList.add('open');
+  document.getElementById('vhClose').focus();
+}
+
+function closeVersionHistory() {
+  vhModal.classList.remove('open');
+  vhSku = null;
+}
+
+function renderVersionHistory() {
+  const events = vhLoad(vhSku);
+  const list = document.getElementById('vhTimeline');
+  document.getElementById('vhEmpty').hidden = events.length !== 0;
+
+  list.innerHTML = events.map(e => {
+    const w = vhWhen(e.at);
+    return '' +
+      '<li class="vh-item' + (e.current ? ' is-current' : '') + '">' +
+        // The timeline spine: a dot per event, filled for the live version.
+        '<span class="vh-dot" aria-hidden="true"></span>' +
+
+        '<div class="vh-card">' +
+          '<div class="vh-meta">' +
+            '<span class="vh-ver">' + esc(e.id) + '</span>' +
+            (e.current ? '<span class="vh-badge is-live">Current</span>' : '') +
+            (e.revertOf
+              ? '<span class="vh-badge is-revert">Reverted from ' + esc(e.revertOf) + '</span>'
+              : '') +
+            '<span class="vh-when" title="' + esc(w.date + ' at ' + w.time) + '">' +
+              esc(w.date) + '<span class="vh-rel"> · ' + esc(w.rel) + '</span></span>' +
+            '<span class="vh-author">' + esc(e.author) + '</span>' +
+          '</div>' +
+
+          /* The note, or an explicit absence of one. Saying "No publish note"
+             beats leaving a blank: it tells you the note is missing rather
+             than that the row failed to render, and it makes the value of
+             writing one obvious on the rows that have it. */
+          (e.note
+            ? '<p class="vh-note">' + esc(e.note) + '</p>'
+            : '<p class="vh-note is-none">No publish note</p>') +
+
+          '<div class="vh-actions">' +
+            '<button class="vh-btn" type="button" data-vh-launch="' + esc(e.id) + '">' +
+              '<i class="fa-regular fa-arrow-up-right-from-square"></i> Launch read-only' +
+            '</button>' +
+            // No point offering to revert to what is already live.
+            (e.current
+              ? ''
+              : '<button class="vh-btn" type="button" data-vh-revert="' + esc(e.id) + '">' +
+                  '<i class="fa-regular fa-clock-rotate-left"></i> Revert to this' +
+                '</button>') +
+          '</div>' +
+        '</div>' +
+      '</li>';
+  }).join('');
+}
+
+/* Minimal escape — the notes and author names are author-entered text. */
+function esc(v) {
+  return String(v).replace(/[&<>"']/g,
+    c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+document.getElementById('vhTimeline').addEventListener('click', (e) => {
+  const launch = e.target.closest('[data-vh-launch]');
+  if (launch) {
+    // Deliberately stubbed — see the block comment above.
+    say('Read-only Studio session for ' + launch.dataset.vhLaunch +
+        ' — not built in this prototype');
+    return;
+  }
+  const revert = e.target.closest('[data-vh-revert]');
+  if (revert) { askRevert(revert.dataset.vhRevert); return; }
+});
+
+document.getElementById('vhClose').addEventListener('click', closeVersionHistory);
+document.getElementById('vhDone').addEventListener('click', closeVersionHistory);
+vhModal.addEventListener('click', (e) => {
+  if (e.target === vhModal) closeVersionHistory();   // click the backdrop
+});
+
+/* ---- Revert confirmation ---- */
+
+function askRevert(id) {
+  const ev = vhLoad(vhSku).find(x => x.id === id);
+  if (!ev) return;
+  vhPendingRevert = id;
+  document.getElementById('vhRevertVer').textContent = id;
+  document.getElementById('vhRevertVer2').textContent = id;
+  const note = document.getElementById('vhRevertNote');
+  note.textContent = ev.note || 'No publish note';
+  note.classList.toggle('is-none', !ev.note);
+  vhRevertModal.classList.add('open');
+  document.getElementById('vhRevertConfirm').focus();
+}
+
+function closeRevert() {
+  vhRevertModal.classList.remove('open');
+  vhPendingRevert = null;
+}
+
+document.getElementById('vhRevertCancel').addEventListener('click', closeRevert);
+document.getElementById('vhRevertConfirm').addEventListener('click', () => {
+  const id = vhPendingRevert;
+  const created = vhRevert(vhSku, id);
+  closeRevert();
+  renderVersionHistory();          // the new event appears at the top
+  if (created) say('Reverted to ' + id + ' — published as ' + created.id);
+});
+vhRevertModal.addEventListener('click', (e) => {
+  if (e.target === vhRevertModal) closeRevert();
+});
+
+/* Escape closes the confirmation first, then the history — innermost wins,
+   so Escape never skips past a confirmation to shut the whole screen. */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (vhRevertModal.classList.contains('open')) { closeRevert(); return; }
+  if (vhModal.classList.contains('open')) closeVersionHistory();
 });
 
 document.addEventListener('click', (e) => {
@@ -1067,7 +1539,14 @@ customElements.whenDefined('vwc-user-menu').then(() => {
     opts = opts || {};
     switch (id) {
       case 'search':
-        // Already this page.
+        // Already this page — make sure no modal is left open over it.
+        if (typeof closeVersionHistory === 'function') closeVersionHistory();
+        break;
+      case 'version-history':
+        /* A modal on THIS page rather than a separate screen, so the state is
+           "search results with the history open" — which is also what makes
+           the flow map's thumbnail of this node show the timeline. */
+        openVersionHistory('#DEMO-LOTO-101');
         break;
       case 'overview':
         window.location = 'course-overview.html';
@@ -1093,10 +1572,13 @@ customElements.whenDefined('vwc-user-menu').then(() => {
     flowMap: {
       title: 'Comments & Version Control — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1240, h: 440 },
+      // Taller than the original single row: Version History sits on a
+      // second row beneath Course Search, since it opens FROM that screen
+      // rather than continuing the left-to-right authoring path.
+      canvas: { w: 1240, h: 560 },
       flows: [
         { id: 'main', name: 'Course Authoring Flow', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 1200, h: 400 }, labelXY: { x: 40, y: 40 } }
+          lane: { x: 20, y: 20, w: 1200, h: 520 }, labelXY: { x: 40, y: 40 } }
       ],
       nodes: [
         { id: 'search', flow: 'main', entry: true, x: 70, y: 170,
@@ -1107,11 +1589,15 @@ customElements.whenDefined('vwc-user-menu').then(() => {
           desc: 'Course content: sections and learning objects. Clicking a learning object opens the Object Manager.' },
         { id: 'object-manager', flow: 'main', x: 870, y: 170,
           step: 'Step 3', name: 'Object Manager', state: 'object-manager',
-          desc: 'Scene-level editing for one learning object. Back returns to the Course Overview.' }
+          desc: 'Scene-level editing for one learning object. Back returns to the Course Overview.' },
+        { id: 'version-history', flow: 'main', x: 70, y: 320,
+          step: 'Step 1a', name: 'Version History', state: 'version-history',
+          desc: 'Timeline of publish events for one course, opened from the row kebab. Each event leads with the publish note entered at publish time, so the right version can be identified without opening each one. Launch opens a read-only session (stubbed); Revert republishes that version behind a confirmation.' }
       ],
       edges: [
         ['search', 'overview'],
-        ['overview', 'object-manager']
+        ['overview', 'object-manager'],
+        ['search', 'version-history']
       ]
     }
   };
