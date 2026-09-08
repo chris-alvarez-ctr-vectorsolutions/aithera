@@ -941,12 +941,47 @@ let kebabSku = null;
 
 function openKebab(button, sku) {
   kebabSku = sku;
+  // Unhide BEFORE measuring: a hidden element reports zero height, so the
+  // flip test below would always think the menu fits.
   kebab.hidden = false;
   const r = button.getBoundingClientRect();
   const w = kebab.offsetWidth;
+  const h = kebab.offsetHeight;
+  const GAP = 6;     // breathing room between button and menu
+  const EDGE = 8;    // smallest gap we will leave against a viewport edge
+
   // Right-align to the button, but never let the menu run off-screen.
-  kebab.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
-  kebab.style.top  = (r.bottom + 6) + 'px';
+  kebab.style.left = Math.max(EDGE, Math.min(r.right - w, window.innerWidth - w - EDGE)) + 'px';
+
+  /* Vertical placement. Opening below the button is preferred, but on the
+     last rows of a long table there is no room down there — the menu ran
+     187px past the bottom edge and its final item ("Archive") was both
+     invisible and unclickable, because only `left` was ever clamped.
+
+     So: drop down when it fits, otherwise flip above the button. If it fits
+     in neither direction (a very short viewport), sit against whichever edge
+     leaves more room and clamp, so the menu is always fully on screen. */
+  const below = r.bottom + GAP;
+  const above = r.top - GAP - h;
+  const maxTop = window.innerHeight - h - EDGE;   // lowest fully-visible top
+
+  let top;
+  if (below <= maxTop) {
+    top = below;                       // room underneath — the normal case
+  } else if (above >= EDGE) {
+    top = above;                       // flip above the button
+  } else {
+    top = maxTop;                      // fits neither way — sit on the floor
+  }
+
+  /* Final clamp, unconditionally. The branches above position RELATIVE to the
+     button, which is only safe while the button itself is on screen — and it
+     is not always: the menu can be opened on a row that is partly below the
+     fold (a click near the bottom edge, or a programmatic open before the
+     row has been scrolled to), in which case "above the button" is still off
+     the bottom. Clamping to the viewport last means the menu is visible no
+     matter where the button ended up. */
+  kebab.style.top = Math.max(EDGE, Math.min(top, maxTop)) + 'px';
 }
 
 function closeKebab() { kebab.hidden = true; kebabSku = null; }
