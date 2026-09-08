@@ -142,6 +142,15 @@ const CommentsPanel = (function () {
   /* The reaction row: every emoji already used, plus a button to add one.
      A chip the current user is part of is marked `is-mine` so it reads as
      "you reacted" and clicking it removes your reaction. */
+  /* The row UNDER a comment's message, carrying everything that annotates it:
+     the "(edited)" mark and any reaction chips on the left, then the reaction
+     and Edit triggers pushed to the far right.
+
+     Previously "(edited)" and the Edit pencil sat in a row ABOVE the message
+     while the smiley sat below it, which split one comment's affordances
+     across two rows and put metadata before the text it described. One row
+     beneath the message keeps the comment's first line as its content, and
+     groups the two icon triggers together instead of separating them. */
   function reactionsHtml(c, path) {
     const rx = c.reactions || {};
     const chips = Object.keys(rx)
@@ -196,7 +205,14 @@ const CommentsPanel = (function () {
         menu +
       '</span>';
 
-    return '<div class="cm-reactions">' + chips + picker + '</div>';
+    return '<div class="cm-reactions">' +
+        editedMarkHtml(c) +
+        chips +
+        // Spacer, so the two triggers sit hard right whatever is on the left.
+        '<span class="cm-rx-spacer"></span>' +
+        picker +
+        editBtnHtml(c, path) +
+      '</div>';
   }
 
   /* Edit is offered only on your OWN comments, matching production. */
@@ -239,12 +255,13 @@ const CommentsPanel = (function () {
         '<span class="cm-reply-avatar" style="background:' + avatarColor(c.author) + '">' +
           esc(cmInitials(c.author)) + '</span>' +
         '<span class="cm-reply-body">' +
+          /* A reply keeps its byline — unlike the root comment, nothing
+             above it names the author. The "(edited)" mark and Edit trigger
+             are NOT here: they sit in the annotation row beneath the
+             message, the same as on the root comment. */
           '<span class="cm-reply-head">' +
             '<span class="cm-reply-author">' + esc(c.author) + '</span>' +
             '<span class="cm-reply-time">' + esc(cmRelTime(c.created)) + '</span>' +
-            editedMarkHtml(c) +
-            // Actions sit at the row's end, mirroring the root comment.
-            '<span class="cm-c-actions">' + editBtnHtml(c, path) + '</span>' +
           '</span>' +
           (editing
             ? editorHtml(c, path)
@@ -324,19 +341,13 @@ const CommentsPanel = (function () {
           // both live in the header, so the body opens straight onto content.
           /* Root comment.
 
-             NO author/timestamp row here: the thread header directly above
-             already shows this comment's author, avatar and time, so
-             repeating them read as the same person posting twice. Only the
-             things the header cannot carry live here — the "(edited)" mark
-             and the Edit affordance — pinned right so they do not look like
-             a second byline. */
+             No row above the message at all: the thread header directly
+             above already shows this comment's author, avatar and time, so
+             repeating them read as the same person posting twice — and the
+             "(edited)" mark and Edit trigger now live in the annotation row
+             BENEATH the message, with the reactions. So the bubble is the
+             first thing under the header, as it should be. */
           '<div class="cm-root">' +
-            (editedMarkHtml(first) || canEdit(first)
-              ? '<div class="cm-root-head">' +
-                  editedMarkHtml(first) +
-                  '<span class="cm-c-actions">' + editBtnHtml(first, t.id + ':0') + '</span>' +
-                '</div>'
-              : '') +
             (editingPath === t.id + ':0'
               ? editorHtml(first, t.id + ':0')
               : '<div class="cm-bubble' + (t.resolved ? ' is-resolved' : '') + '">' +
