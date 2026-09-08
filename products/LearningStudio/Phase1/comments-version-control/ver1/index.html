@@ -490,8 +490,17 @@
 
 .vh-foot { display: flex; justify-content: flex-end; }
 
-/* ---- Revert confirmation ---- */
-.vh-confirm { width: min(480px, 100%); }
+/* ---- Revert confirmation ----
+   A view INSIDE the history dialog, not a second modal. Both views live in
+   the same panel and are swapped by `.is-hidden`; the shared `display`
+   rules mean the attribute-based `hidden` would not work here. */
+.vh-confirm-view.is-hidden,
+.vh-confirm-foot.is-hidden,
+.vh-body.is-hidden,
+.vh-foot.is-hidden { display: none; }
+
+.vh-confirm-view { padding-top: 20px; }
+.vh-confirm-foot { display: flex; justify-content: flex-end; }
 .vh-warn-icon {
   width: 38px; height: 38px; border-radius: 10px;
   display: grid; place-items: center; margin-bottom: 10px;
@@ -632,10 +641,14 @@
     <div class="modal vh-modal">
       <div class="modal-head vh-head">
         <div class="vh-head-text">
+          <!-- Title tracks the current view: "Version history" for the list,
+               "Revert to vN?" for the confirmation, so the dialog always says
+               what it is asking. -->
           <h3 id="vhTitle">Version history</h3>
           <!-- Which course this history belongs to: the modal is opened from
                a row in a fifty-row table, so naming the course is what makes
-               it verifiable that you opened the right one. -->
+               it verifiable that you opened the right one. It stays visible
+               on the confirm step too — you are still acting on this course. -->
           <p class="vh-sub"><span id="vhCourse"></span><span class="vh-sku" id="vhSku"></span></p>
         </div>
         <button class="modal-x" id="vhClose" type="button" aria-label="Close version history">
@@ -643,7 +656,7 @@
         </button>
       </div>
 
-      <div class="modal-body vh-body">
+      <div class="modal-body vh-body" id="vhListView">
         <ol class="vh-timeline" id="vhTimeline"></ol>
 
         <!-- Shown only when a course has never been published. -->
@@ -653,22 +666,21 @@
         </p>
       </div>
 
-      <div class="modal-foot vh-foot">
+      <div class="modal-foot vh-foot" id="vhListFoot">
         <button class="btn btn-secondary" id="vhDone" type="button">Close</button>
       </div>
-    </div>
-  </div>
 
-  <!-- Revert confirmation. Reverting changes what learners see, so it gets a
-       deliberate second step rather than firing straight from the row. -->
-  <div class="modal-overlay" id="vhRevertModal" role="dialog" aria-modal="true"
-       aria-labelledby="vhRevertTitle">
-    <div class="modal vh-confirm">
-      <div class="modal-head">
+      <!-- ===== Revert confirmation — a STEP inside this dialog =====
+           Not a second modal. Stacking one overlay on another gave two
+           scrims and two dialogs, which reads as a stack to get out of
+           rather than one decision to make, and doubles the ways to dismiss
+           (two backdrops, two Escapes, two Cancels).
+
+           So the panel swaps to this view and back: one dialog, one scrim,
+           one Escape. The header changes with it, and Back returns to the
+           list exactly where it was. -->
+      <div class="modal-body vh-confirm-view is-hidden" id="vhConfirmView">
         <div class="vh-warn-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
-        <h3 id="vhRevertTitle">Revert to <span id="vhRevertVer"></span>?</h3>
-      </div>
-      <div class="modal-body">
         <p class="vh-confirm-lead">
           This publishes <b id="vhRevertVer2"></b>'s content as a new version and
           makes it what learners see.
@@ -681,13 +693,16 @@
           Nothing is deleted — every version between stays in this history.
         </p>
       </div>
-      <div class="modal-foot">
-        <button class="btn btn-secondary" id="vhRevertCancel" type="button">Cancel</button>
+
+      <div class="modal-foot vh-confirm-foot is-hidden" id="vhConfirmFoot">
+        <button class="btn btn-secondary" id="vhRevertCancel" type="button">Back</button>
         <button class="btn btn-primary" id="vhRevertConfirm" type="button">Revert and publish</button>
       </div>
     </div>
   </div>
 
+  <!-- Revert confirmation. Reverting changes what learners see, so it gets a
+       deliberate second step rather than firing straight from the row. -->
 
 <script src="version-data.js"></script>
 <script>
@@ -1040,7 +1055,6 @@ kebab.addEventListener('click', (e) => {
    ============================================================ */
 
 const vhModal = document.getElementById('vhModal');
-const vhRevertModal = document.getElementById('vhRevertModal');
 let vhSku = null;          // course whose history is open
 let vhPendingRevert = null; // version id awaiting confirmation
 
@@ -1050,6 +1064,7 @@ function openVersionHistory(sku) {
   document.getElementById('vhCourse').textContent = course ? course.title : 'Course';
   document.getElementById('vhSku').textContent = sku;
   renderVersionHistory();
+  closeRevert();                   // always open on the list view
   vhModal.classList.add('open');
   document.getElementById('vhClose').focus();
 }
@@ -1150,47 +1165,62 @@ document.getElementById('vhTimeline').addEventListener('click', (e) => {
 document.getElementById('vhClose').addEventListener('click', closeVersionHistory);
 document.getElementById('vhDone').addEventListener('click', closeVersionHistory);
 vhModal.addEventListener('click', (e) => {
-  if (e.target === vhModal) closeVersionHistory();   // click the backdrop
+  if (e.target !== vhModal) return;                  // clicked inside
+  // On the confirm step the backdrop steps back rather than closing, so a
+  // stray click does not silently abandon a revert you were mid-way through.
+  if (vhPendingRevert) { closeRevert(); return; }
+  closeVersionHistory();
 });
 
 /* ---- Revert confirmation ---- */
+
+/* Swap the dialog between its two views. One modal, one scrim — see the
+   markup for why this is not a second overlay. */
+function vhShowView(which) {
+  const confirming = which === 'confirm';
+  document.getElementById('vhListView').classList.toggle('is-hidden', confirming);
+  document.getElementById('vhListFoot').classList.toggle('is-hidden', confirming);
+  document.getElementById('vhConfirmView').classList.toggle('is-hidden', !confirming);
+  document.getElementById('vhConfirmFoot').classList.toggle('is-hidden', !confirming);
+}
 
 function askRevert(id) {
   const ev = vhLoad(vhSku).find(x => x.id === id);
   if (!ev) return;
   vhPendingRevert = id;
-  document.getElementById('vhRevertVer').textContent = id;
+  document.getElementById('vhTitle').textContent = 'Revert to ' + id + '?';
   document.getElementById('vhRevertVer2').textContent = id;
   const note = document.getElementById('vhRevertNote');
   note.textContent = ev.note || 'No publish note';
   note.classList.toggle('is-none', !ev.note);
-  vhRevertModal.classList.add('open');
+  vhShowView('confirm');
   document.getElementById('vhRevertConfirm').focus();
 }
 
+/* Back to the list. The history stays open behind it because it never
+   closed — this only swaps the view back. */
 function closeRevert() {
-  vhRevertModal.classList.remove('open');
   vhPendingRevert = null;
+  document.getElementById('vhTitle').textContent = 'Version history';
+  vhShowView('list');
 }
 
 document.getElementById('vhRevertCancel').addEventListener('click', closeRevert);
 document.getElementById('vhRevertConfirm').addEventListener('click', () => {
   const id = vhPendingRevert;
   const created = vhRevert(vhSku, id);
-  closeRevert();
+  closeRevert();                   // back to the list, still open
   renderVersionHistory();          // the new event appears at the top
   if (created) say('Reverted to ' + id + ' — published as ' + created.id);
 });
-vhRevertModal.addEventListener('click', (e) => {
-  if (e.target === vhRevertModal) closeRevert();
-});
 
-/* Escape closes the confirmation first, then the history — innermost wins,
-   so Escape never skips past a confirmation to shut the whole screen. */
+/* Escape steps BACK from the confirmation to the list, and only closes the
+   dialog from the list itself — so it never skips past a pending revert and
+   shuts the whole screen. */
 document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape') return;
-  if (vhRevertModal.classList.contains('open')) { closeRevert(); return; }
-  if (vhModal.classList.contains('open')) closeVersionHistory();
+  if (e.key !== 'Escape' || !vhModal.classList.contains('open')) return;
+  if (vhPendingRevert) { closeRevert(); return; }
+  closeVersionHistory();
 });
 
 document.addEventListener('click', (e) => {
