@@ -49,8 +49,31 @@
      hand-typed — so the content pass can't desync the roll-ups.
      ============================================================ -->
 
+<!-- ===== Comments panel wraps the page =====
+     `vwc-drawer` is a LAYOUT component, not a floating box: it renders the
+     drawer column and its `content` slot as siblings and owns the relationship
+     between them. So the page shell has to live INSIDE it, in `slot="content"`.
+
+     That placement is what makes overlay mode actually work:
+       - the component applies `inert` to the `content` slot while open, so the
+         page behind genuinely stops taking clicks and tab stops;
+       - the backdrop sizes itself to the slotted content, so the scrim covers
+         the viewport instead of collapsing to nothing;
+       - `closeOnOverlayClick` has a real backdrop to receive the click;
+       - the drawer clears the page header structurally, with no JS measuring.
+
+     Earlier this element sat AFTER the shell with an empty `content` slot. It
+     looked right, but nothing was inert (the page stayed clickable and
+     tabbable underneath), the backdrop collapsed to a 16px sliver at the
+     bottom of the viewport, and the host added a stray box below the fold.
+
+     `position="end"` also makes the component render content first and the
+     drawer column second, so the panel paints above the scrim. -->
+<vwc-drawer id="commentsDrawer" position="end" overlay
+            theme="no-content-padding">
+
 <!-- ===== AREA 1: Course Overview ===== -->
-<div class="area" id="area-overview">
+<div class="area" id="area-overview" slot="content">
   <div class="app">
 
     <!-- Row 1: global header -->
@@ -172,7 +195,7 @@
      Two routes: Manual Creation (inert -- present so the choice reads as
      real) and AI Generation, which drives the demo's reveal. -->
 <div class="modal-overlay" id="addLoModal" role="dialog" aria-modal="true"
-     aria-labelledby="addLoTitle">
+     aria-labelledby="addLoTitle" slot="content">
   <div class="modal">
     <div class="modal-head">
       <h3 id="addLoTitle">Add Learning Object</h3>
@@ -254,24 +277,15 @@
   </div>
 </div>
 
-<!-- ===== Comments panel =====
-     Built on `vwc-drawer`, the design-system slide-out.
+  <!-- Panel chrome. These slots render inside the drawer column above.
 
-     `overlay` (not sidebar) mode: this page's shell is a 100vh flex column
-     with `overflow: hidden`, so routing the whole layout through the drawer's
-     `content` slot would mean restructuring it. Overlay floats the panel above
-     the page instead. Documented consequence: anything in the `content` slot
-     goes inert while an overlay drawer is open, which is why the page markup
-     deliberately stays OUTSIDE this element.
+       Thread UI follows Phase2/objectManager.html — the future-state target:
+       threads live INLINE in one scrolling list, each collapsing to a header
+       and expanding to show its bubble, replies and reply box. There is no
+       separate detail view.
 
-     Thread UI follows Phase2/objectManager.html — the future-state target:
-     threads live INLINE in one scrolling list, each collapsing to a header
-     and expanding to show its bubble, replies and reply box. There is no
-     separate detail view.
-
-     SCOPE IS COURSE + LO ONLY. Phase 2 also has a scene level; that is
-     deliberately out of scope here. -->
-<vwc-drawer id="commentsDrawer" position="end" overlay>
+       SCOPE IS COURSE + LO ONLY. Phase 2 also has a scene level; that is
+       deliberately out of scope here. -->
 
   <div slot="drawer-header" class="cm-head">
     <h2 class="cm-title" id="cmTitle">Comments</h2>

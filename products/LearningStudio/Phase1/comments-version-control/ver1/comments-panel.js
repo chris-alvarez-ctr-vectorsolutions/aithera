@@ -345,6 +345,10 @@ const CommentsPanel = (function () {
       drawer.restoreFocusSelector = '#btnComments';
     });
 
+    /* The panel spans the full viewport height by design: the page shell is
+       inside this drawer's `content` slot, so the drawer owns the whole
+       viewport and the panel runs header-to-floor beside the inert page.
+       Nothing to measure — the offset is zeroed in comments-panel.css. */
     openBtn.addEventListener('click', () => { drawer.open = true; render(); });
     $('cmClose').addEventListener('click', () => { drawer.open = false; });
     $('cmSend').addEventListener('click', compose);

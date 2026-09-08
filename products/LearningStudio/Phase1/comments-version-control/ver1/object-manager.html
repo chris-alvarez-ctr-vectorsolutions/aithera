@@ -1337,7 +1337,34 @@
   </style>
 </head>
 <body>
-  <div class="app">
+<!-- ===== Comments panel wraps the page =====
+     `vwc-drawer` is a LAYOUT component, not a floating box: it renders the
+     drawer column and its `content` slot as siblings and owns the relationship
+     between them. So the page shell has to live INSIDE it, in `slot="content"`.
+
+     That placement is what makes overlay mode actually work:
+       - the component applies `inert` to the `content` slot while open, so the
+         page behind genuinely stops taking clicks and tab stops;
+       - the backdrop sizes itself to the slotted content, so the scrim covers
+         the viewport instead of collapsing to nothing;
+       - `closeOnOverlayClick` has a real backdrop to receive the click;
+       - the drawer clears the page header structurally, with no JS measuring.
+
+     Earlier this element sat AFTER the shell with an empty `content` slot. It
+     looked right, but nothing was inert (the page stayed clickable and
+     tabbable underneath), the backdrop collapsed to a 16px sliver at the
+     bottom of the viewport, and the host added a stray box below the fold.
+
+     Every page modal below is slotted into `content` as well — the drawer has
+     no default slot, so an unslotted child would never render, and a page
+     modal should go inert with the rest of the page anyway.
+
+     `position="end"` also makes the component render content first and the
+     drawer column second, so the panel paints above the scrim. -->
+<vwc-drawer id="commentsDrawer" position="end" overlay
+            theme="no-content-padding">
+
+  <div class="app" slot="content">
     <div class="accent-strip"></div>
 
     <!-- ===== Row 1: global header ===== -->
@@ -1508,7 +1535,7 @@
   </div>
 
   <!-- ===== Template-sound confirmation modal ===== -->
-  <div class="modal-overlay" id="soundModal" role="dialog" aria-modal="true" aria-labelledby="soundModalTitle">
+  <div class="modal-overlay" id="soundModal" role="dialog" aria-modal="true" aria-labelledby="soundModalTitle" slot="content">
     <div class="modal">
       <div class="modal-head">
         <span class="m-icon"><i class="fa-solid fa-music"></i></span>
@@ -1542,7 +1569,7 @@
        Opened by clicking the active scene's transcript text. Edits the
        transcript, optionally its phonetic spelling, and regenerates the
        scene's AI voice-over. -->
-  <div class="modal-overlay" id="audioModal" role="dialog" aria-modal="true" aria-labelledby="audioModalTitle">
+  <div class="modal-overlay" id="audioModal" role="dialog" aria-modal="true" aria-labelledby="audioModalTitle" slot="content">
     <div class="modal modal-wide">
       <div class="modal-head media-head">
         <span class="m-icon"><i class="fa-solid fa-wand-magic-sparkles grad"></i></span>
@@ -1610,7 +1637,7 @@
   <!-- ===== Add / Replace Media =====
        Three routes to a media asset: AI generation, manual upload via the
        design-system upload component, and a searchable stock library. -->
-  <div class="modal-overlay" id="mediaModal" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle">
+  <div class="modal-overlay" id="mediaModal" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle" slot="content">
     <div class="modal modal-wide">
       <div class="modal-head media-head">
         <span class="m-icon"><i class="fa-solid fa-images"></i></span>
@@ -1734,7 +1761,7 @@
        deprecated but still works in every current browser and needs no
        library — the right trade for a prototype under the repo's
        vanilla-only rule. -->
-  <div class="modal-overlay" id="textModal" role="dialog" aria-modal="true" aria-labelledby="rteTitle">
+  <div class="modal-overlay" id="textModal" role="dialog" aria-modal="true" aria-labelledby="rteTitle" slot="content">
     <div class="modal modal-wide">
       <div class="modal-head">
         <span class="m-icon"><i class="fa-solid fa-font"></i></span>
@@ -1769,24 +1796,15 @@
   </div>
 
 
-<!-- ===== Comments panel =====
-     Built on `vwc-drawer`, the design-system slide-out.
+  <!-- Panel chrome. These slots render inside the drawer column above.
 
-     `overlay` (not sidebar) mode: this page's shell is a 100vh flex column
-     with `overflow: hidden`, so routing the whole layout through the drawer's
-     `content` slot would mean restructuring it. Overlay floats the panel above
-     the page instead. Documented consequence: anything in the `content` slot
-     goes inert while an overlay drawer is open, which is why the page markup
-     deliberately stays OUTSIDE this element.
+       Thread UI follows Phase2/objectManager.html — the future-state target:
+       threads live INLINE in one scrolling list, each collapsing to a header
+       and expanding to show its bubble, replies and reply box. There is no
+       separate detail view.
 
-     Thread UI follows Phase2/objectManager.html — the future-state target:
-     threads live INLINE in one scrolling list, each collapsing to a header
-     and expanding to show its bubble, replies and reply box. There is no
-     separate detail view.
-
-     SCOPE IS COURSE + LO ONLY. Phase 2 also has a scene level; that is
-     deliberately out of scope here. -->
-<vwc-drawer id="commentsDrawer" position="end" overlay>
+       SCOPE IS COURSE + LO ONLY. Phase 2 also has a scene level; that is
+       deliberately out of scope here. -->
 
   <div slot="drawer-header" class="cm-head">
     <h2 class="cm-title" id="cmTitle">Comments</h2>
