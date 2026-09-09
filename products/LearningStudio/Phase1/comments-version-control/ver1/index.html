@@ -332,22 +332,87 @@
 .btn-primary { background: var(--brand-2); color: #fff; }
 .btn-primary:hover { background: var(--brand); }
 
-/* Red secondary — the same tinted-surface / coloured-text shape as
-   .btn-secondary, in the error hue. Used for revert, which republishes over
-   what is currently live: worth marking as consequential, but not a filled
-   red primary, which would read as the recommended action on a screen where
-   most visits end in no change at all. */
-.btn-danger-secondary {
-  background: #fdeceb; border-color: transparent;
-  color: var(--lumo-error-text-color, #ca150c);
+/* ============================================================
+   DESIGN TOKENS  (semantic aliases)
+
+   This page renders mostly plain HTML rather than VWC components, so it
+   needs the same semantic aliases the sibling pages get from demo.css.
+   Values are copied from that file VERBATIM — it sources them from the
+   themes CONTEXT.md — so the lookup and the Course Overview cannot drift.
+
+   The --lumo-* tokens they point at are defined at runtime by the theme's
+   styles.js, already loaded in this page's head. Fallbacks are given for
+   file:// use with no CDN, matching this page's existing convention (see
+   `var(--lumo-base-color, #fff)` above).
+   ============================================================ */
+:root {
+  --font-size-xs: 12px;
+  --font-size-s: 13px;
+  --font-size-m: var(--lumo-font-size-m, 14px);
+  --font-size-l: 16px;
+  --font-size-xl: 20px;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+
+  --ink: var(--lumo-body-text-color, #000000de);
+  --ink-soft: var(--lumo-secondary-text-color, #00000099);
+  --ink-mute: var(--lumo-tertiary-text-color, #1c304a85);
+
+  --brand: #0257a1;                 /* darkened primary, for hover */
+  --brand-2: var(--lumo-primary-color, #0271ce);
+
+  /* Opaque on purpose: the --lumo-contrast-* tokens are translucent
+     overlays, so scrolling content shows through a border that uses them. */
+  --border: #e2e6ec;
+  --border-strong: #d3d9e0;
+
+  --primary-tint-10: #0271ce1a;     /* = --lumo-primary-color-10pct */
 }
-.btn-danger-secondary:hover { background: #fbdcda; }
-/* Match the focus ring to the control. The browser default is blue, which
-   on a red button reads as a stray highlight from another element. */
-.btn-danger-secondary:focus-visible {
-  outline: 2px solid var(--lumo-error-text-color, #ca150c);
-  outline-offset: 1px;
+
+/* ============================================================
+   MODAL BASE
+   This page is self-contained (it does not load demo.css), so the overlay
+   and dialog chrome are restated here with the SAME values the sibling
+   pages use, keeping the version-history dialog visually identical to the
+   modals on the Course Overview and Object Manager.
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(20,28,42,.45);
+  padding: 24px;
 }
+.modal-overlay.open { display: flex; }
+
+.modal {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 48px);
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(15,25,45,.28);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal-head { padding: 24px 28px 0; }
+.modal-head h3 {
+  margin: 0; font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold); color: var(--ink);
+}
+.modal-body { padding: 18px 28px; overflow-y: auto; }
+.modal-foot {
+  padding: 16px 28px 22px; display: flex; gap: 10px;
+  justify-content: flex-end;
+}
+.btn {
+  min-height: 38px; padding: 9px 18px;
+  border: 1px solid transparent; border-radius: 8px;
+  font: inherit; font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold); cursor: pointer;
+}
+.btn-secondary { background: #f4f6f8; border-color: transparent; color: var(--brand-2); }
+.btn-secondary:hover { background: #e9eff9; }
+.btn-primary { background: var(--brand-2); color: #fff; }
+.btn-primary:hover { background: var(--brand); }
+
 
 /* ============================================================
    VERSION HISTORY  (course lookup → row kebab → Version history)
@@ -377,17 +442,6 @@
   font-size: var(--font-size-s); color: var(--ink-mute);
   font-variant-numeric: tabular-nums;
 }
-
-/* Close affordance in the header's top-right, matching the sibling pages. */
-.modal-x {
-  flex: 0 0 auto;
-  width: 34px; height: 34px;
-  display: grid; place-items: center;
-  border: none; border-radius: 8px;
-  background: none; color: var(--ink-soft);
-  font-size: var(--font-size-l); cursor: pointer;
-}
-.modal-x:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
 
 .vh-body { overflow-y: auto; }
 
@@ -448,13 +502,9 @@
 .vh-rel { color: var(--ink-mute); }
 .vh-author { color: var(--ink-soft); margin-left: auto; }
 
-.vh-badge {
-  padding: 1px 8px; border-radius: 999px;
-  font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
-  line-height: 1.6;
-}
-.vh-badge.is-live { background: var(--lumo-primary-color-10pct); color: var(--brand-2); }
-.vh-badge.is-revert { background: #fdf2e3; color: #995211; }
+/* Lumo's badge styles come from the theme; only the timeline's own spacing
+   is set here. */
+.vh-meta span[theme~="badge"] { flex: 0 0 auto; }
 
 /* The note: the row's headline, at body size while its metadata sits at
    small — the reverse of the usual card, because this is what people read. */
@@ -465,30 +515,16 @@
 }
 .vh-note.is-none { color: var(--ink-mute); font-style: italic; }
 
-.vh-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-.vh-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 30px; padding: 5px 10px;
-  border: 1px solid var(--border); border-radius: 6px;
-  background: var(--lumo-base-color);
-  font: inherit; font-size: var(--font-size-s);
-  font-weight: var(--font-weight-semibold);
-  color: var(--brand-2); cursor: pointer;
+.vh-actions {
+  display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;
+  /* Pull the row's buttons back into line with the note above them:
+     vaadin-button carries its own horizontal padding, so without this the
+     labels sit indented relative to the text they belong to. */
+  margin-left: -8px;
 }
-.vh-btn:hover { border-color: var(--brand-2); background: var(--primary-tint-10); }
-.vh-btn:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
-
-/* Revert, in the error hue. Keeps .vh-btn's outlined shape rather than the
-   tinted fill used in the footer, so it still reads as a peer of "Launch
-   read-only" beside it instead of a heavier control. */
-.vh-btn.is-danger { color: var(--lumo-error-text-color, #ca150c); }
-.vh-btn.is-danger:hover {
-  border-color: var(--lumo-error-text-color, #ca150c);
-  background: #fdeceb;
-}
-.vh-btn.is-danger:focus-visible {
-  outline-color: var(--lumo-error-text-color, #ca150c);
-}
+/* Font Awesome glyphs inside a vaadin-button: the label is slotted, so the
+   icon is spaced here rather than by the component. */
+.vh-actions vaadin-button i { margin-right: 6px; }
 
 .vh-empty {
   display: flex; align-items: center; gap: 8px;
@@ -680,9 +716,11 @@
                on the confirm step too — you are still acting on this course. -->
           <p class="vh-sub"><span id="vhCourse"></span><span class="vh-sku" id="vhSku"></span></p>
         </div>
-        <button class="modal-x" id="vhClose" type="button" aria-label="Close version history">
+        <!-- `theme="icon"` renders the borderless icon button; the glyph is
+             Font Awesome, as everywhere else in this prototype. -->
+        <vaadin-button theme="icon" id="vhClose" aria-label="Close version history">
           <i class="fa-solid fa-xmark"></i>
-        </button>
+        </vaadin-button>
       </div>
 
       <div class="modal-body vh-body" id="vhListView">
@@ -696,7 +734,7 @@
       </div>
 
       <div class="modal-foot vh-foot" id="vhListFoot">
-        <button class="btn btn-secondary" id="vhDone" type="button">Close</button>
+        <vaadin-button theme="secondary" id="vhDone">Close</vaadin-button>
       </div>
 
       <!-- ===== Revert confirmation — a STEP inside this dialog =====
@@ -724,8 +762,11 @@
       </div>
 
       <div class="modal-foot vh-confirm-foot is-hidden" id="vhConfirmFoot">
-        <button class="btn btn-secondary" id="vhRevertCancel" type="button">Back</button>
-        <button class="btn btn-danger-secondary" id="vhRevertConfirm" type="button">Revert and publish</button>
+        <vaadin-button theme="secondary" id="vhRevertCancel">Back</vaadin-button>
+        <!-- `error secondary` is the design system's own red-secondary
+             treatment; it replaces a hand-built .btn-danger-secondary class
+             with a hand-picked tint and focus ring. -->
+        <vaadin-button theme="error secondary" id="vhRevertConfirm">Revert and publish</vaadin-button>
       </div>
     </div>
   </div>
@@ -1123,9 +1164,12 @@ function renderVersionHistory() {
         '<div class="vh-card">' +
           '<div class="vh-meta">' +
             '<span class="vh-ver">' + esc(e.id) + '</span>' +
-            (e.current ? '<span class="vh-badge is-live">Current</span>' : '') +
+            /* Lumo badge styles, applied via `theme` on a <span> — they
+               load with any VWC component and are the design system's own
+               badge treatment, replacing two hand-rolled pill classes. */
+            (e.current ? '<span theme="badge primary pill">Current</span>' : '') +
             (e.revertOf
-              ? '<span class="vh-badge is-revert">Reverted from ' + esc(e.revertOf) + '</span>'
+              ? '<span theme="badge contrast pill">Reverted from ' + esc(e.revertOf) + '</span>'
               : '') +
             '<span class="vh-when" title="' + esc(w.date + ' at ' + w.time) + '">' +
               esc(w.date) + '<span class="vh-rel"> · ' + esc(w.rel) + '</span></span>' +
@@ -1140,16 +1184,23 @@ function renderVersionHistory() {
             ? '<p class="vh-note">' + esc(e.note) + '</p>'
             : '<p class="vh-note is-none">No publish note</p>') +
 
+          /* Row actions use `secondary`, the documented default for most
+             actions. `tertiary` was tried first — it is the variant for
+             repeated actions in constrained spaces — but it renders as an
+             underlined link, which in a list of cards read as body copy
+             rather than a control. These are the only two things you can DO
+             with a version, so they need to look pressable. Revert adds the
+             `error` colour modifier. */
           '<div class="vh-actions">' +
-            '<button class="vh-btn" type="button" data-vh-launch="' + esc(e.id) + '">' +
+            '<vaadin-button theme="secondary" data-vh-launch="' + esc(e.id) + '">' +
               '<i class="fa-regular fa-arrow-up-right-from-square"></i> Launch read-only' +
-            '</button>' +
+            '</vaadin-button>' +
             // No point offering to revert to what is already live.
             (e.current
               ? ''
-              : '<button class="vh-btn is-danger" type="button" data-vh-revert="' + esc(e.id) + '">' +
+              : '<vaadin-button theme="error secondary" data-vh-revert="' + esc(e.id) + '">' +
                   '<i class="fa-regular fa-clock-rotate-left"></i> Revert to this' +
-                '</button>') +
+                '</vaadin-button>') +
           '</div>' +
         '</div>' +
       '</li>';
