@@ -1,5 +1,25 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-09 round
+
+- **New version: V3b, `v3b-tabs-left.html`.** V3's shell with the top bar's two ends
+  swapped, so the pair isolates where each control belongs:
+  - **Mode tabs move TOP-LEFT**, immediately after the product identity, so product and mode
+    read as one group at the start of the scan rather than at opposite ends of the bar.
+  - **The location picker moves TOP-RIGHT**, beside alerts, help and the avatar, treating
+    context as a universal control rather than a navigation one. Its menu right-aligns to
+    the control. V3 keeps tabs right and location in the side nav.
+  - Search keeps the middle. Everything else is V3 verbatim: the full-height rail and side
+    nav, the L-shaped inset bar, the licence-split launcher, the interaction frames and the
+    collapse-placement toggle.
+  - It is numbered **V3b**, not V4, because it varies one axis of V3, which is the same
+    relationship V2a and V2b already have. The existing V4 to V6 hierarchy versions keep
+    their numbers and their URLs.
+  - **Finding worth noting:** with content at both ends AND V3's bar inset past the side nav,
+    the bar is genuinely tight. Search has to shrink to about 190px before the avatar would
+    be pushed off, which truncates its placeholder. That cost is real and belongs in the
+    comparison: tabs-left buys grouping at the price of a cramped bar in this shell.
+
 ## Changelog · 2026-09-04 round
 
 Two tenant-branding switches, both driven by what marketing needs to vary per customer:
@@ -196,6 +216,7 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
 | V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
 | V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav; the LOCATION SELECTOR also sits in the nav above it (top bar = search + universal actions only); Training Plan filters are DROPDOWN chips above the table |
+| V3b | `v3b-tabs-left.html` | V3's shell with the top bar's ends swapped: MODE TABS top-left beside the identity, LOCATION picker top-right with the universal actions, search in the middle |
 | V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both (toggleable: `?toggle=top` puts the collapse control in the top bar instead, which returns the side panel to starting below the bar); V1's scoped global search in the top bar and the LOCATION selector in the side nav; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
 | V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
 | V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
