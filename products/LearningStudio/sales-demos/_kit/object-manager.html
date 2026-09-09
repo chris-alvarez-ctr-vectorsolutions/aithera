@@ -1127,51 +1127,6 @@
     /* While the enhance step is showing, the route picker is irrelevant. */
     .modal-body.is-enhancing .media-tabs { display: none; }
 
-    /* ---- Stock library ---- */
-    .stock-search {
-      display: flex; align-items: center; gap: 10px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px; background: #fff;
-      padding: 6px 6px 6px 14px; margin-bottom: 16px;
-    }
-    .stock-search > i { color: var(--ink-mute); flex: 0 0 auto; }
-    .stock-search input {
-      flex: 1 1 auto; border: none; outline: none; background: transparent;
-      font: inherit; font-size: var(--font-size-m); color: var(--ink);
-    }
-    .stock-search input::placeholder { color: var(--ink-mute); }
-
-    .stock-empty {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; min-height: 180px;
-      border: 1px dashed var(--border-strong);
-      border-radius: 8px; background: #fbfcfe;
-      color: var(--ink-mute); font-size: var(--font-size-m);
-    }
-    .stock-empty i { font-size: var(--font-size-xl); opacity: .7; }
-
-    .stock-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 12px; max-height: 42vh; overflow-y: auto; padding: 2px;
-    }
-    .stock-item {
-      border: 2px solid transparent; border-radius: 8px;
-      padding: 0; cursor: pointer; background: none;
-      overflow: hidden; text-align: left;
-    }
-    .stock-thumb {
-      aspect-ratio: 4 / 3; border-radius: 6px;
-      display: grid; place-items: center;
-      color: #fff; font-size: var(--font-size-xl);
-    }
-    .stock-caption {
-      display: block; font-size: var(--font-size-xs); color: var(--ink-soft);
-      padding: 5px 2px 2px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .stock-item:hover { border-color: #b9c2cf; }
-    .stock-item.is-selected { border-color: var(--brand-2); }
-    .stock-item.is-selected .stock-caption { color: var(--brand-2); font-weight: var(--font-weight-semibold); }
 
     /* ---- Rich text editor modal --------------------------------------- */
     .modal.modal-wide { max-width: 640px; width: 92vw; }
@@ -1588,8 +1543,10 @@
   </div>
 
   <!-- ===== Add / Replace Media =====
-       Three routes to a media asset: AI generation, manual upload via the
-       design-system upload component, and a searchable stock library. -->
+       Two routes to a media asset: AI generation, and manual upload via
+       the design-system upload component. (A Stock Library route was
+       removed -- customers don't have access to a stock library, so
+       demoing one would misrepresent the product.) -->
   <div class="modal-overlay" id="mediaModal" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle">
     <div class="modal modal-wide">
       <div class="modal-head media-head">
@@ -1606,8 +1563,7 @@
         <div class="media-tabs" id="mediaTabs" role="tablist">
           <button class="media-tab active" data-mtab="generate" role="tab" aria-selected="true">Generate Media</button>
           <button class="media-tab" data-mtab="upload" role="tab" aria-selected="false">Upload Media</button>
-          <button class="media-tab" data-mtab="stock" role="tab" aria-selected="false">Stock Library</button>
-        </div>
+          </div>
 
         <!-- ---- AI generation ---- -->
         <section class="media-pane active" id="mpane-generate">
@@ -1675,27 +1631,6 @@
                     placeholder="Describe your changes…"></textarea>
         </section>
 
-        <!-- ---- Stock library ---- -->
-        <section class="media-pane" id="mpane-stock">
-          <h4 class="media-pane-title">
-            <i class="fa-solid fa-photo-film"></i>
-            Search the stock library
-          </h4>
-
-          <div class="stock-search">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="stockQuery" placeholder="Search by keyword — e.g. garden, soil, seedling…" />
-            <button class="btn btn-primary" id="stockSearchBtn" type="button">Search</button>
-          </div>
-
-          <div class="stock-empty" id="stockEmpty">
-            <i class="fa-regular fa-images"></i>
-            <span>Search to browse the stock library</span>
-          </div>
-
-          <!-- Results render here as a selectable gallery. -->
-          <div class="stock-grid" id="stockGrid" hidden></div>
-        </section>
       </div>
 
       <div class="modal-foot media-foot">
@@ -2772,7 +2707,6 @@
         }
       }
       let route = 'generate';
-      let stockPick = null;
       let generated = false;   // a finished generation is waiting to be applied
 
       /* The demo's single generated-image result. Every generation resolves
@@ -2788,18 +2722,6 @@
         src: 'assets/generate-img-sample.png'
       };
 
-      // Deterministic stock results — no network, works on file://.
-      const STOCK = [
-        { name: 'Raised garden beds',  hue: 122 },
-        { name: 'Seedlings in tray',   hue: 96  },
-        { name: 'Watering can',        hue: 200 },
-        { name: 'Compost pile',        hue: 32  },
-        { name: 'Tomato vine',         hue: 6   },
-        { name: 'Garden trowel',       hue: 210 },
-        { name: 'Herb planter',        hue: 142 },
-        { name: 'Greenhouse interior', hue: 168 },
-        { name: 'Sun over rows',       hue: 45  }
-      ];
 
       function setRoute(next) {
         route = next;
@@ -2810,13 +2732,11 @@
           t.classList.toggle('active', on);
           t.setAttribute('aria-selected', String(on));
         });
-        ['generate', 'upload', 'stock'].forEach(r => {
+        ['generate', 'upload'].forEach(r => {
           document.getElementById('mpane-' + r).classList.toggle('active', r === next);
         });
         // The primary action is named for the route it completes.
-        confirm.textContent =
-          next === 'generate' ? 'Generate' :
-          next === 'upload'   ? 'Use Upload' : 'Use Selected';
+        confirm.textContent = next === 'generate' ? 'Generate' : 'Use Upload';
       }
 
       tabs.addEventListener('click', (e) => {
@@ -2824,58 +2744,6 @@
         if (t) setRoute(t.dataset.mtab);
       });
 
-      /* ---- Stock search ---- */
-      function runStockSearch() {
-        const q = document.getElementById('stockQuery').value.trim().toLowerCase();
-        const grid = document.getElementById('stockGrid');
-        const empty = document.getElementById('stockEmpty');
-
-        // Keyword filter; an empty query shows the whole library.
-        const hits = q
-          ? STOCK.filter(i => i.name.toLowerCase().includes(q))
-          : STOCK.slice();
-
-        grid.innerHTML = '';
-        stockPick = null;
-
-        if (!hits.length) {
-          empty.hidden = false;
-          grid.hidden = true;
-          empty.querySelector('span').textContent = 'No results for "' + q + '"';
-          return;
-        }
-
-        hits.forEach(item => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'stock-item';
-          const thumb = document.createElement('span');
-          thumb.className = 'stock-thumb';
-          // Placeholder art — a tinted panel, not invented photography.
-          thumb.style.background =
-            'linear-gradient(135deg, hsl(' + item.hue + ' 42% 62%), hsl(' + item.hue + ' 38% 44%))';
-          thumb.innerHTML = '<i class="fa-regular fa-image"></i>';
-          const cap = document.createElement('span');
-          cap.className = 'stock-caption';
-          cap.textContent = item.name;
-          btn.appendChild(thumb); btn.appendChild(cap);
-
-          btn.addEventListener('click', () => {
-            grid.querySelectorAll('.stock-item').forEach(b => b.classList.remove('is-selected'));
-            btn.classList.add('is-selected');
-            stockPick = item;
-          });
-          grid.appendChild(btn);
-        });
-
-        empty.hidden = true;
-        grid.hidden = false;
-      }
-
-      document.getElementById('stockSearchBtn').addEventListener('click', runStockSearch);
-      document.getElementById('stockQuery').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); runStockSearch(); }
-      });
 
       /* ---- Apply the chosen asset ---- */
       function applyMedia(media) {
@@ -2886,8 +2754,8 @@
         const active = document.querySelector('.scene.selected');
         if (active) active.__media = media;
 
-        // A real file renders as an <img>; the stock/upload placeholders
-        // fall back to a tinted swatch.
+        // A real file renders as an <img>; anything without a src
+        // falls back to a tinted swatch.
         const visual = media.src
           ? '<img class="scene-media-img" src="' + media.src + '" alt="" />'
           : '<span class="scene-media-thumb" style="background:' + media.swatch + '">' +
@@ -2939,19 +2807,11 @@
             enterEnhance();
           }, 3000);
 
-        } else if (route === 'upload') {
-          // An uploaded file resolves to the same demo image -- the file a
-          // rep picks on a call can't be rendered, and a fixed outcome is
-          // the point. Was a flat colour swatch; now shows real media.
-          applyMedia({ ...GENERATED_IMAGE });
-
         } else {
-          if (!stockPick) return;                            // nothing selected
-          applyMedia({
-            name: stockPick.name,
-            swatch: 'linear-gradient(135deg, hsl(' + stockPick.hue + ' 42% 62%), hsl(' +
-                    stockPick.hue + ' 38% 44%))'
-          });
+          // Upload. An uploaded file resolves to the same demo image -- the
+          // file a rep picks on a call can't be rendered, and a fixed
+          // outcome is the point.
+          applyMedia({ ...GENERATED_IMAGE });
         }
       });
 
@@ -2961,7 +2821,7 @@
       function enterEnhance() {
         generated = true;
         document.querySelector('.modal-body').classList.add('is-enhancing');
-        ['generate', 'upload', 'stock'].forEach(r => {
+        ['generate', 'upload'].forEach(r => {
           document.getElementById('mpane-' + r).classList.remove('active');
         });
         document.getElementById('mpane-enhance').classList.add('active');
