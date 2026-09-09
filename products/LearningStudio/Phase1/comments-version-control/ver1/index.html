@@ -311,11 +311,6 @@
   display: flex; flex-direction: column;
   overflow: hidden;
 }
-.modal-head { padding: 24px 28px 0; }
-.modal-head h3 {
-  margin: 0; font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold); color: var(--ink);
-}
 .modal-body { padding: 18px 28px; overflow-y: auto; }
 .modal-foot {
   padding: 16px 28px 22px; display: flex; gap: 10px;
@@ -425,7 +420,29 @@
 
 .vh-modal { width: min(720px, 100%); }
 
-.vh-head { display: flex; align-items: flex-start; gap: 16px; }
+/* The header sticks while the timeline scrolls under it, so the course
+   being acted on stays on screen no matter how long its history is — which
+   matters most on the confirm step, where this is the only thing naming the
+   course.
+
+   `position: sticky` works because .vh-body is the scroll container and this
+   sits inside the same dialog column; the background must be opaque or the
+   scrolling cards show through. */
+.vh-head {
+  display: flex; align-items: flex-start; gap: 16px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--lumo-base-color, #fff);
+  /* Breathing room under the title/SKU row before the timeline starts. */
+  padding-bottom: 16px;
+}
+
+/* Elevation, drawn only once the content behind it has actually moved, so
+   the header is flat at rest and lifts on scroll. `.is-scrolled` is set from
+   the body's scroll position. */
+#vhModal.is-scrolled .vh-head {
+  box-shadow: 0 4px 12px -6px rgba(15, 25, 45, .28);
+  border-bottom: 1px solid var(--border);
+}
 .vh-head-text { flex: 1 1 auto; min-width: 0; }
 .vh-sub {
   margin: 4px 0 0; display: flex; align-items: baseline; gap: 8px;
@@ -703,12 +720,12 @@
     <button type="button" data-act="open"><i class="fa-regular fa-folder-open"></i> Open course</button>
     <button type="button" data-act="duplicate"><i class="fa-regular fa-copy"></i> Duplicate</button>
     <button type="button" data-act="variant"><i class="fa-regular fa-code-branch"></i> Create variant</button>
-    <button type="button" data-act="history"><i class="fa-regular fa-clock-rotate-left"></i> Version history</button>
+    <button type="button" data-act="history"><i class="fa-regular fa-clock-rotate-left"></i> Version History</button>
     <button type="button" data-act="archive"><i class="fa-regular fa-box-archive"></i> Archive</button>
   </div>
 
   <!-- ===== Version history =====
-       Opened from the row kebab's "Version history". A modal rather than a
+       Opened from the row kebab's "Version History". A modal rather than a
        page or a drawer: this is a scan-and-act list — find the right publish
        event, then launch or revert it — not somewhere people stay and work.
 
@@ -727,10 +744,10 @@
     <div class="modal vh-modal">
       <div class="modal-head vh-head">
         <div class="vh-head-text">
-          <!-- Title tracks the current view: "Version history" for the list,
+          <!-- Title tracks the current view: "Version History" for the list,
                "Revert to vN?" for the confirmation, so the dialog always says
                what it is asking. -->
-          <h3 id="vhTitle">Version history</h3>
+          <h3 id="vhTitle">Version History</h3>
           <!-- Which course this history belongs to: the modal is opened from
                a row in a fifty-row table, so naming the course is what makes
                it verifiable that you opened the right one. It stays visible
@@ -1271,6 +1288,13 @@ document.getElementById('vhTimeline').addEventListener('click', (e) => {
   if (revert) { askRevert(revert.dataset.vhRevert); return; }
 });
 
+/* Lift the sticky header once the timeline has scrolled beneath it, so the
+   shadow only appears when there is something to separate from. */
+const vhListView = document.getElementById('vhListView');
+vhListView.addEventListener('scroll', () => {
+  vhModal.classList.toggle('is-scrolled', vhListView.scrollTop > 2);
+});
+
 document.getElementById('vhClose').addEventListener('click', closeVersionHistory);
 document.getElementById('vhDone').addEventListener('click', closeVersionHistory);
 vhModal.addEventListener('click', (e) => {
@@ -1293,6 +1317,10 @@ function vhShowView(which) {
   document.getElementById('vhListFoot').classList.toggle('is-hidden', confirming);
   document.getElementById('vhConfirmView').classList.toggle('is-hidden', !confirming);
   document.getElementById('vhConfirmFoot').classList.toggle('is-hidden', !confirming);
+  /* The confirm view is short and never scrolls, and a re-shown list starts
+     at the top, so drop the elevation on every swap rather than leaving a
+     stale shadow behind. */
+  if (confirming) document.getElementById('vhModal').classList.remove('is-scrolled');
 }
 
 function askRevert(id) {
@@ -1312,7 +1340,7 @@ function askRevert(id) {
    closed — this only swaps the view back. */
 function closeRevert() {
   vhPendingRevert = null;
-  document.getElementById('vhTitle').textContent = 'Version history';
+  document.getElementById('vhTitle').textContent = 'Version History';
   vhShowView('list');
 }
 
