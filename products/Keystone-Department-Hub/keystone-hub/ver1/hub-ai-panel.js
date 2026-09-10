@@ -260,7 +260,7 @@
       return '<button class="kx-ai-collapsed" id="kxAiExpand" ' +
         'title="Open Agency Intelligence" aria-label="Open Agency Intelligence">' +
         mark(24) + '<span class="vlabel">Agency Intelligence</span>' +
-        micon('chevron_right', { size: 16, color: 'var(--ink-400)', cls: 'kx-ai-collapsed-chev' }) +
+        '<i class="fa-solid fa-angles-right kx-ai-collapsed-chev" aria-hidden="true"></i>' +
         '</button>';
     }
     var person = currentPerson;
@@ -271,10 +271,11 @@
       '</div>' +
       (state.thread.length
         ? '<button class="kx-ai-iconbtn" id="kxAiNew" title="New chat" aria-label="New chat">' +
-          micon('restart_alt', { size: 16 }) + '</button>'
+          '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>'
         : '') +
       '<button class="kx-ai-iconbtn" id="kxAiCollapse" title="Collapse Agency Intelligence" ' +
-      'aria-label="Collapse Agency Intelligence">' + micon('chevron_left', { size: 17 }) +
+      'aria-label="Collapse Agency Intelligence">' +
+      '<i class="fa-solid fa-angles-left" aria-hidden="true"></i>' +
       '</button></div>' +
       (isExpanded() ? threadHtml() : chipsHtml(person)) +
       inputHtml(isExpanded()) +

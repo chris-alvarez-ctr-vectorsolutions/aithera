@@ -1175,9 +1175,12 @@
 
   function agencyIntelPanel() {
     if (state.collapsed) {
+      // Points RIGHT: the rail is docked left, so opening grows the panel
+      // rightward. It used to point left, i.e. back at the edge it is
+      // already against.
       return '<button class="cpv-collapsed" id="cpvExpand" title="Open Agency Intelligence">' +
         agencyIntelMark(32) + '<span class="vlabel">Agency Intelligence</span>' +
-        micon('chevron_left', { size: 18, color: 'var(--ink-400)', style: 'margin-top:auto' }) + '</button>';
+        '<i class="fa-solid fa-angles-right cpv-collapsed-chev" aria-hidden="true"></i></button>';
     }
     var ready = state.draft.trim() && !state.thinking;
     return '<div class="cpv-panel">' +
@@ -1185,10 +1188,22 @@
       '<div style="flex:1;min-width:0">' +
       '<div style="font-weight:700;font-size:15px;color:var(--ink-900);line-height:1.1">Agency Intelligence</div>' +
       '<div style="font-size:11.5px;color:var(--ink-500)">Building “this dashboard” with you</div></div>' +
-      '<vaadin-button theme="icon tertiary small" id="cpvNewChat" title="New chat" aria-label="New chat">' +
-      micon('restart_alt', { size: 17 }) + '</vaadin-button>' +
-      '<vaadin-button theme="icon tertiary small" id="cpvCollapse" title="Collapse Agency Intelligence" ' +
-      'aria-label="Collapse Agency Intelligence">' + micon('chevron_right', { size: 18 }) + '</vaadin-button></div>' +
+      /* Plain buttons, not vaadin-button theme="tertiary": the Vector theme
+         styles a tertiary button as an underlined text link, which is right
+         for a word and wrong for an icon — these two were rendering as blue
+         glyphs with a rule under each.
+
+         Font Awesome, and chosen for what they DO. `restart_alt` was a
+         circular arrow that reads as "reload the panel"; this action throws
+         the conversation away and starts another, which is a compose action.
+         The collapse chevron pointed RIGHT while the dock sits on the LEFT
+         and collapses leftward — it was pointing at where the panel goes to
+         open, not where it goes to close. */
+      '<button class="cpv-iconbtn" id="cpvNewChat" title="New chat" aria-label="New chat">' +
+      '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>' +
+      '<button class="cpv-iconbtn" id="cpvCollapse" title="Collapse Agency Intelligence" ' +
+      'aria-label="Collapse Agency Intelligence">' +
+      '<i class="fa-solid fa-angles-left" aria-hidden="true"></i></button></div>' +
 
       '<div class="cpv-thread" id="cpvThread">' +
       state.thread.map(agencyIntelTurn).join('') +
@@ -1594,13 +1609,17 @@
      BUILD VIEW SHELL
      ===================================================================== */
 
+  /* Where this dashboard currently lands — a BADGE, not a control. It used to
+     be a button that opened the audience dialog, which is exactly what the
+     Publish / Manage audience button beside it does; two controls one gap
+     apart doing the same thing read as two different things. The status is now
+     a read-out, and the button beside it is the single way to change it. */
   function statusControl(d) {
     var st = CP.statusOf(d);
     var m = CP.dashStatusMeta(st);
-    return '<button id="cpStatusBtn" class="cp-status" title="Change where this lands" ' +
-      'style="background:' + m.bg + ';color:' + m.fg + ';border:1px solid ' + m.border +
-      ';cursor:pointer;font-family:inherit;padding:5px 10px">' +
-      micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label) + micon('expand_more', { size: 14 }) + '</button>';
+    return '<span class="cp-status" style="background:' + m.bg + ';color:' + m.fg +
+      ';border:1px solid ' + m.border + ';padding:5px 10px">' +
+      micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label) + '</span>';
   }
 
   function buildHtml() {
@@ -2979,7 +2998,7 @@
         render();
         return;
       }
-      if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule') || e.target.closest('#cpStatusBtn')) {
+      if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule')) {
         openAssignDialog(active());
         return;
       }
