@@ -78,10 +78,7 @@ function renderTraining() {
   }
 
   const planOpen = isOpen('plan', true);
-  // Only the DEEPEST opened level carries the elevation shadow: a node is
-  // 'deep-open' when it is open and none of its child headers is open.
-  const planDeep = planOpen && !TRAINING.quals.some(q => isOpen(q.id, q.open));
-  out.push(`<div class="tp-group${planDeep ? ' is-deep-open' : ''}">
+  out.push(`<div class="tp-group">
     <span class="tp-name-cell">
       ${disc('plan', planOpen)}
       <span class="tp-name">${esc(TRAINING.name)}</span>
@@ -93,8 +90,7 @@ function renderTraining() {
 
   if (planOpen) TRAINING.quals.forEach(q => {
     const qOpen = isOpen(q.id, q.open);
-    const qDeep = qOpen && !q.reqs.some(r => isOpen(r.id, r.open));
-    out.push(`<div class="tp-qual${qDeep ? ' is-deep-open' : ''}">
+    out.push(`<div class="tp-qual">
       <span class="tp-name-cell">
         ${disc(q.id, qOpen)}
         <span class="tglyph"><i class="fa-solid fa-graduation-cap"></i></span>
@@ -108,7 +104,7 @@ function renderTraining() {
 
     q.reqs.forEach(r => {
       const rOpen = isOpen(r.id, r.open);
-      out.push(`<div class="tp-req${rOpen ? ' is-deep-open' : ''}">
+      out.push(`<div class="tp-req">
         <span class="tp-name-cell">
           ${disc(r.id, rOpen)}
           <span class="tglyph"><i class="fa-solid fa-award"></i></span>

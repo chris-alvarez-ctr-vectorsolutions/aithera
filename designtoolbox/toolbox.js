@@ -22,6 +22,11 @@
      window.TOOLBOX = { comments:false }   // skip the comment widget
      window.TOOLBOX = { flowMap:false }    // skip the flow map
      ?toolbox=off                          // skip everything
+
+   Dismissing at review time: the dock's × hides every review surface (the pill,
+   its minimized handle, the comment pins and panels, the flow map) so the design
+   can be shown or screenshotted clean. It is deliberately NOT persisted —
+   reloading brings the tools back. Use ?toolbox=off for a permanently bare page.
    ========================================================================== */
 (function () {
   'use strict';
@@ -36,7 +41,7 @@
   // includes used to carry no version, so an edge/browser-cached older
   // feedback-widget.js could execute next to the current one and dock a second
   // bubble the dedup never saw. (self-heal below is the belt to this suspenders.)
-  var TOOLBOX_VERSION = '1.2.2';
+  var TOOLBOX_VERSION = '1.3.0';
 
   var qs = location.search;
   if (/[?&]fmthumb=1/.test(qs)) return;        // thumbnail iframe → render bare
@@ -65,6 +70,7 @@
     var SVG_CHEV_DOWN = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg>';
     var SVG_CHEV_UP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10l4.5-4.5L12.5 10"/></svg>';
     var SVG_TOOLS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2.5" y1="5" x2="13.5" y2="5"/><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"/></svg>';
+    var SVG_CLOSE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
     // Six-dot grip for the drag handle that lets the team move the whole dock.
     var SVG_GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
     var DOCK_CSS =
@@ -86,6 +92,21 @@
       'border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);transition:background .12s,color .12s;}' +
       '.tbx-collapse-btn:hover{background:rgba(255,255,255,.2);color:#fff;}' +
       '.tbx-collapse-btn svg{width:14px;height:14px;display:block;}' +
+      // Dismiss ×: same shape as the chevron, sitting after it at the far right.
+      // Collapse tucks the pill away and leaves a peek handle; dismiss removes
+      // every review surface until the page is reloaded.
+      '.tbx-close-btn{flex:none;width:26px;height:26px;padding:0;border-radius:50%;cursor:pointer;' +
+      'display:inline-flex;align-items:center;justify-content:center;color:#cfd2e6;' +
+      'border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);transition:background .12s,color .12s;}' +
+      '.tbx-close-btn:hover{background:rgba(239,68,68,.85);border-color:rgba(255,255,255,.4);color:#fff;}' +
+      '.tbx-close-btn svg{width:13px;height:13px;display:block;}' +
+      // Dismissed: hide the dock, its peek handle, and every comment / flow-map
+      // surface (pins, panels, banners, toasts, overlays). Reload restores them.
+      '.tbx-dismissed .tbx-dock,.tbx-dismissed .version-switcher.tbx-has-versions,' +
+      '.tbx-dismissed .tbx-handle,.tbx-dismissed .cw-root,.tbx-dismissed .cw-bubble,' +
+      '.tbx-dismissed .cw-banner,.tbx-dismissed .cw-nav,.tbx-dismissed .cw-panel,' +
+      '.tbx-dismissed .cw-popup,.tbx-dismissed .cw-toast,.tbx-dismissed .cw-admin-panel,' +
+      '.tbx-dismissed .fm-overlay,.tbx-dismissed .tbx-ver-menu{display:none !important;}' +
       // The small, unobtrusive handle that peeks at the bottom while collapsed.
       '.tbx-handle{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:999989;' +
       'display:none;align-items:center;gap:7px;background:#18181b;color:#fff;cursor:pointer;touch-action:none;' +
@@ -198,6 +219,17 @@
       toggle.innerHTML = SVG_CHEV_DOWN;
       dock.__tbxToggle = toggle;
 
+      // Dismiss: take every review surface off the page for this page view, so
+      // the design can be presented or screenshotted without the tooling on it.
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'tbx-close-btn';
+      close.title = 'Hide the design tools (reload the page to bring them back)';
+      close.setAttribute('aria-label', 'Hide the design tools');
+      close.innerHTML = SVG_CLOSE;
+      close.addEventListener('click', function (e) { e.stopPropagation(); dismiss(); });
+      dock.__tbxClose = close;
+
       function collapse() {
         // Park the "Tools" peek handle where the dock currently sits (its center
         // x, its top y) so a moved dock reappears right where the team left it —
@@ -210,6 +242,20 @@
         handle.classList.add('tbx-show');
       }
       function expand() { dock.classList.remove('tbx-collapsed'); handle.classList.remove('tbx-show'); }
+      // Dismiss is page-view scoped on purpose: one class on <html> hides every
+      // review surface, and a reload puts the tooling back. Nothing is stored,
+      // so a teammate can never "lose" the comment widget on a shared link.
+      function dismiss() {
+        var r = document.documentElement;
+        r.classList.add('tbx-dismissed');
+        // Leave a clean baseline behind the CSS: drop pick-mode and close any
+        // open flow-map overlay, so a reload starts from a neutral state.
+        try {
+          document.body.classList.remove('cw-picking');
+          var fm = document.querySelector('.fm-overlay.open');
+          if (fm) fm.classList.remove('open');
+        } catch (_) {}
+      }
       toggle.addEventListener('click', function (e) { e.stopPropagation(); collapse(); });
 
       // The collapsed "Tools" handle is BOTH a click target (expand) and a drag
@@ -362,7 +408,7 @@
           for (var i = 1; i < docks.length; i++) {
             var extra = docks[i];
             Array.prototype.slice.call(extra.children).forEach(function (c) {
-              if (c.classList && (c.classList.contains('tbx-dock-sep') || c.classList.contains('tbx-collapse-btn'))) return;
+              if (c.classList && (c.classList.contains('tbx-dock-sep') || c.classList.contains('tbx-collapse-btn') || c.classList.contains('tbx-close-btn'))) return;
               dock.appendChild(c);
             });
             extra.remove();
@@ -382,6 +428,8 @@
       // LEFT (reflow keeps it there) so the pill can be moved out of the way.
       var toggle = setupCollapsible(dock);
       if (toggle && toggle.parentNode !== dock) dock.appendChild(toggle);
+      // Dismiss × sits after the collapse chevron, at the very end of the pill.
+      if (dock.__tbxClose && dock.__tbxClose.parentNode !== dock) dock.appendChild(dock.__tbxClose);
       var grip = setupDraggable(dock);
       if (grip && grip.parentNode !== dock) dock.insertBefore(grip, dock.firstChild);
       return dock;
@@ -417,6 +465,7 @@
     function reflow(dock) {
       var toggle = dock.querySelector('.tbx-collapse-btn');
       var grip = dock.querySelector('.tbx-drag-btn');
+      var close = dock.querySelector('.tbx-close-btn');
       // Drop any extra collapse chevrons — only the first survives as `toggle`.
       Array.prototype.slice.call(dock.querySelectorAll('.tbx-collapse-btn')).forEach(function (t) {
         if (t !== toggle) t.remove();
@@ -425,10 +474,14 @@
       Array.prototype.slice.call(dock.querySelectorAll('.tbx-drag-btn')).forEach(function (g) {
         if (g !== grip) g.remove();
       });
+      // ...and any extra dismiss buttons.
+      Array.prototype.slice.call(dock.querySelectorAll('.tbx-close-btn')).forEach(function (x) {
+        if (x !== close) x.remove();
+      });
       var launchers = [];
       var seen = {};
       Array.prototype.slice.call(dock.children).forEach(function (c) {
-        if (c === toggle || c === grip) return;
+        if (c === toggle || c === grip || c === close) return;
         if (c.classList && c.classList.contains('tbx-dock-sep')) { c.remove(); return; }
         // Collapse duplicate launchers of the same identity (a tool docked twice)
         // — keep the first, remove the rest, so the pill never shows two 💬 or
@@ -444,7 +497,8 @@
       launchers.forEach(function (node) {
         dock.appendChild(node);
       });
-      if (toggle) dock.appendChild(toggle);   // chevron stays at the far right
+      if (toggle) dock.appendChild(toggle);   // chevron, then the dismiss ×, at the right
+      if (close) dock.appendChild(close);
       if (grip) dock.insertBefore(grip, dock.firstChild);   // grip stays far left
     }
     // --- Self-healing dock -------------------------------------------------
@@ -468,6 +522,7 @@
              pill.querySelectorAll('.fm-launch').length > 1 ||
              pill.querySelectorAll('#loader-version-group').length > 1 ||
              pill.querySelectorAll('.tbx-collapse-btn').length > 1 ||
+             pill.querySelectorAll('.tbx-close-btn').length > 1 ||
              pill.querySelectorAll('.tbx-drag-btn').length > 1;
     }
     function heal() {
@@ -482,6 +537,7 @@
           Array.prototype.slice.call(extra.children).forEach(function (c) {
             if (c.classList && (c.classList.contains('tbx-dock-sep') ||
                 c.classList.contains('tbx-collapse-btn') ||
+                c.classList.contains('tbx-close-btn') ||
                 c.classList.contains('tbx-drag-btn'))) return;
             keep.appendChild(c);
           });

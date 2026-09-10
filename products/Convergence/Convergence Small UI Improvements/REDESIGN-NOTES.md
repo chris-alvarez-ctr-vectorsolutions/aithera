@@ -525,32 +525,20 @@ for the final treatment.
 - **Flat type glyphs.** The accordion type icons lose the `--c-primary-soft` chip fill:
   plain 14px `--c-primary` icons (the chip read as a second box on the tier bands). The
   chip remains only where an icon stands alone (detail heroes, catalog type column).
-- **Accordion modernised: quiet tints, whisper shadows, row-click.** The saturated
-  `#e6ebf3` band read as dated; the final tiers are two quiet neutral steps over white:
-  `--tier-1` `#f2f5f9` (group + qualification headers), `--tier-2` `#f9fafc` (requirement
-  headers), activities on base white. Elevation marks the working depth: ONLY the
-  deepest opened level carries the whisper shadow (`0 1px 2px` ink at 6%; the renderer
-  sets `.is-deep-open` on an open header none of whose child headers is open), so one
-  soft edge shows where the open container meets its content. Stepped z-index 3/2/1
-  keeps it painting onto the rows below. Interactions match modern accordions: the WHOLE header row toggles on
-  click (controls inside are excluded), rows get a hover fill (`--tier-1-hover` /
-  `--tier-2-hover`) with cursor pointer, and the caret keeps its rotate transition.
-  AA re-checked after a designer-requested lightening pass: meta text 5.25 on tier-1,
-  5.49 on tier-2, 5.01 on the darkest hover.
-- **Tier shading: three versions on a page-level segmented control.** A V1/V2/V3
-  segmented control sits in the page action row (next to the view toggle, NOT in the
-  filter panel) so reviewers can flip shading versions like design variants. Each is a
-  pure CSS class swap on the plan root (nothing re-renders):
-  - **V1** *Darkest first* - tier-1 group/qualification, tier-2 requirement, white
-    activities.
-  - **V2** *Reversed* (`.tier-reverse`, THE DEFAULT at load) - mirrors around the requirement: the plan starts
-    on WHITE and gets progressively darker as levels open (activities and the card wrap
-    on `--tier-1`). The COLUMN HEADER row goes white here too, so the darkest surface in
-    view is always the deepest content, never the chrome.
-  - **V3** *White headers, shaded activities* (`.tier-flat`) - every header level
-    (column header included) on white, hierarchy carried by indentation (16/32/44/60)
-    and weight; only the activity rows and the card wrap take the light `--tier-1` tint,
-    so leaf content reads as one shaded layer. The deepest-open shadow is off here.
+- **Accordion, final treatment: white headers, one shaded activity layer.** Three
+  shading versions were explored behind a temporary V1/V2/V3 page control (darkest-first
+  bands; reversed white-to-dark; white headers with tinted activities). The designer
+  picked the third and the control was removed - the treatment is now baked in:
+  every header level, the sticky column header included, sits on the base white surface;
+  hierarchy is carried by structure (stepped indents 16/32/44/60 and header weight,
+  18/700 group, 16/600 qualification and requirement); only the activity rows and the
+  card-view wrap take the light `--tier-act` tint `#f2f5f9`, so leaf content reads as
+  one shaded layer inside the white frame. No accent bars, no shadows.
+  Interactions stay: the WHOLE header row toggles on click (controls inside excluded),
+  header rows get the `--tier-head-hover` `#f3f6f9` fill with cursor pointer, activity
+  rows hover to `--tier-act-hover` `#ecf0f5`, and the caret keeps its rotate transition.
+  AA on the final surfaces: meta text 5.25 on the activity tint, 5.01 on its hover,
+  5.7+ on the white headers.
 - **Padding on the 4px grid.** Every padding now sits on the design-system 4px/8px grid.
   Snapped: status pills `0 8` (was 0 10), location chips `0 8` (1 7), the inline notice
   `4 12` (5 10), the card duration badge `4 8` (2 7), the detail kind chip `4 8` (2 9),

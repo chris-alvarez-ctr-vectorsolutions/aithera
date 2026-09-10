@@ -39,11 +39,10 @@ const SPECS = {
     ['Depth indents', '16 / 32 / 44 / 60px'],
     ['Type glyphs', 'accordion rows: plain --c-primary icons, no chip'],
     ['Card meta', 'type line + due line · 12px --c-meta · icons 14px col'],
-    ['Tier surfaces', 'tier-1 #f2f5f9 · tier-2 #f9fafc · base #fff'],
-    ['Tier elevation', 'deepest OPEN level only · 0 1px 2px ink 6% · z 3/2/1'],
+    ['Tier surfaces', 'headers #fff · activities #f2f5f9 · header hover #f3f6f9'],
     ['Spacing grid', 'all padding on the 4px grid'],
     ['Tier interaction', 'whole header row toggles · hover fill · caret rotates'],
-    ['Activity rows', 'min 52px · hairline --c-line-soft'],
+    ['Activity rows', 'min 52px · tint #f2f5f9 · border --c-line'],
     ['Status pills', 'h 24 · text 12/600 · status tokens'],
     ['Progress meter', 'bar 72x6 · label 14'],
     ['Banners', 'pad 8 8 8 16 · radius 8 · stack gap 12 · max 3'],
@@ -55,7 +54,6 @@ const SPECS = {
     ['Row actions', 'info leftmost · icon-btn 34 · column 84'],
     ['Elective marker', '20px E tag inline · hidden until toggled'],
     ['Panel toggles', 'chevrons-up/down = all · square-star = electives'],
-    ['Tier shading', 'page V1/V2/V3 segmented · V2 reversed is the DEFAULT · V1 darkest-first · V3 white headers + shaded activities'],
   ]),
   details: specHTML([
     ['Hero thumbnail', '232px wide · 16:9 · radius 8'],
@@ -175,11 +173,6 @@ const SPECS = {
           <!-- Training -->
           <div class="action-group" data-for="training">
             <div class="searchbox"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search my training" aria-label="Search my training"></div>
-            <div class="segmented" id="tierSeg" role="group" aria-label="Accordion shading version">
-              <button data-tier="default" aria-pressed="false" title="V1: darkest at the top, lighter as you drill in">V1</button>
-              <button data-tier="reverse" aria-pressed="true" title="V2: white at the top, darker as levels open (default)">V2</button>
-              <button data-tier="flat" aria-pressed="false" title="V3: white headers, shaded activity rows">V3</button>
-            </div>
             <div class="segmented" id="viewToggle" role="group" aria-label="View">
               <button data-view="list" aria-pressed="true" title="List view"><i class="fa-solid fa-list"></i></button>
               <button data-view="dense" aria-pressed="false" title="Compact cards"><i class="fa-solid fa-grip"></i></button>

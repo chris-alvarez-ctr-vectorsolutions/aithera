@@ -34,21 +34,12 @@
 - Selecting a location updates the page-header breadcrumb.
 
 ## t-list - Accordion list (Area 3)
-- Round 10 accordion tiers (final, supersedes rounds 8-9 band values): two quiet neutral steps over the white base -
-  tier 1 = group + qualification headers on `--tier-1` (#f2f5f9);
-  tier 2 = requirement headers on `--tier-2` (#f9fafc);
-  tier 3 = activity rows on base `--c-surface`, hairline separators.
-- Elevation: ONLY the deepest opened level carries the shadow. The renderer sets `.is-deep-open` on an open header none of whose child headers is open (`0 1px 2px rgba(16,24,40,.06)`); closed and intermediate headers stay flat. This is render-time logic in views.js, not a CSS-only state.
-- Every header keeps `position: relative` + z-index 3/2/1 so the shadowed row paints onto the rows below it; keep the z-order or the shadow paints the wrong way.
-- Tier shading versions: the `#tierSeg` V1/V2/V3 segmented control in the PAGE action row (beside the view toggle, not in the filter panel); text segments, `aria-pressed` marks the active one; class swap on `#tp` only, no re-render:
-  V2 is the DEFAULT at load (state boots to 'reverse' and applyTierMode() runs once at wiring time - keep that call or a fresh page renders V1 colours with V2 pressed);
-  V1 'default' id = darkest-first;
-  V2 `.tier-reverse` = mirrors around the requirement (group + qualification white, activities and card wrap on `--tier-1`) AND turns the sticky column header row white, so the darkest surface is always the deepest content;
-  V3 `.tier-flat` = white headers everywhere (column header included), indentation + weight carry depth, ONLY activity rows + card wrap take the `--tier-1` tint; the deepest-open shadow is suppressed (`box-shadow: none`).
+- Accordion tiers, FINAL (supersedes the earlier band schemes): every header level - the sticky column header included - on base `--c-surface` white; ONLY the activity rows and `.tp-cardwrap` take the `--tier-act` tint (#f2f5f9, hover `--tier-act-hover` #ecf0f5, borders `--c-line`). Hierarchy is structural: indents + weight, no accent bars, no shadows, no fills on headers.
+- History: three shading versions (darkest-first bands / reversed white-to-dark / white headers + tinted activities) were compared behind a temporary V1/V2/V3 page segmented control; the third was chosen and BAKED IN, and the control, its state and the `.tier-reverse`/`.tier-flat`/`.is-deep-open` machinery were all removed. Do not resurrect the classes - the base rules ARE the design.
 - Padding sits on the 4px grid everywhere: pills `0 8`, location chips `0 8`, notice `4 12`, duration badge `4 8`, kind chip `4 8`, spec summary `4 8`, segmented inset `4`, caret buttons 24px squares.
-- Interactions: the WHOLE header row toggles on click - the handler ignores clicks on `button`, `a` and `vaadin-button` inside the row so the info action and caret keep their own behaviour. Rows have `cursor: pointer` and hover fills (`--tier-1-hover` #ecf0f5, `--tier-2-hover` #f3f6f9); the caret button stays the keyboard path (rotate transition on `aria-expanded`).
+- Interactions: the WHOLE header row toggles on click - the handler ignores clicks on `button`, `a` and `vaadin-button` inside the row so the info action and caret keep their own behaviour. Rows have `cursor: pointer` and hover fills (headers `--tier-head-hover` #f3f6f9, activities `--tier-act-hover` #ecf0f5); the caret button stays the keyboard path (rotate transition on `aria-expanded`).
 - Indents step 16 / 32 / 44 / 60px; hierarchy also carries through indent and weight (18/700 group, 16/600 qualification, 16/600 requirement), so it holds without colour.
-- AA on the final surfaces: meta/meter text 5.25 on tier-1, 5.49 on tier-2, 5.01 on the darkest hover; titles are ink at 15+.
+- AA on the final surfaces: meta/meter text 5.25 on the activity tint, 5.01 on its hover, 5.7+ on white headers; titles are ink at 15+.
 - Round 10: accordion type glyphs are plain icons (14px, `--c-primary`), no chip fill. The 24px `--c-primary-soft` chip remains only where an icon stands alone (detail hero, catalog type column, View-by list).
 - Round 8: qualification rows use `fa-graduation-cap` (never the medal); requirements keep `fa-award`. Same cap in the side nav, View-by list, detail hero and catalog cards.
 - Canvas: `--c-canvas` is `#f5f9fd`, the product CLAUDE.md default (round 8 tried the gray `#f0f2f5`; round 10 reverted it at designer direction). The round 8 table retune stays: bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, `--c-meta` darkened to `#5b6779`. AA on the canvas: meta 5.42, links 4.66.
@@ -71,7 +62,7 @@
 - Round 4: the circle-info details action is ALWAYS the leftmost icon in an action row; the paperclip follows it. Applies to list rows, both card sizes and catalog cards.
 
 ## t-filter - Filter panel open (Area 3)
-- Two bordered icon-button toggles: chevrons collapse/expand all, square-star shows electives; both keep `title`/`aria-label` in sync with state. (The tier-shading control lives in the page action row as the V1/V2/V3 segmented, not in this panel.)
+- Two bordered icon-button toggles: chevrons collapse/expand all, square-star shows electives; both keep `title`/`aria-label` in sync with state.
 - The funnel that opens the panel lives INSIDE the panel header, top-left, NOT in the page-header actions. The panel is always a column in the layout: closed it is a 58px rail holding just the funnel, open it is the full 244px panel with the funnel in exactly the same position. Do not move the funnel back to the right-hand page actions; the control and the surface it controls have to read as one column.
 - Open and closed are a `filters-closed` class on the training view, animated on `width` with `overflow: hidden` - the same pattern as the side nav's collapse, so both collapsible columns behave identically.
 - The funnel uses the shared icon-button pressed state (blue soft fill) when the panel is open, and its `title` flips between Show filters and Hide filters.

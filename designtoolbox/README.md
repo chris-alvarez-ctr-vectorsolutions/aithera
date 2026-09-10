@@ -35,6 +35,15 @@ simply doesn't appear — the comment widget still does.
 
 `?toolbox=off` in the URL disables everything for that visit.
 
+**Dismissing during a review.** The dock has two controls at its right end. The
+**chevron** minimizes it to a small "Tools" handle you can click to bring it
+back. The **×** dismisses the review tooling outright — the pill, the "Tools"
+handle, the comment pins and panels, and the flow map all disappear, so the
+design can be presented or screenshotted clean. Dismissal lasts for that page
+view only: **reload and the tools are back.** Nothing is stored, so a dismissed
+widget can never follow someone to another mock or a shared link. Reach for
+`?toolbox=off` when you want a bare page that stays bare.
+
 ### Toolbox dock (the bottom-center pill)
 
 `toolbox.js` defines `window.ToolboxDock` — a shared bottom-center pill (the
