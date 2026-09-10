@@ -274,7 +274,22 @@ function openObjectManager(objectId) {
 
 // The object manager asks to come back via postMessage.
 window.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'om:back') showOverview();
+  if (!e.data) return;
+  if (e.data.type === 'om:back') showOverview();
+
+  /* The author broke the link to the source object, so this LO is no
+     longer Vector-provided. Mark it generated (the same flag the demo's
+     new LO carries) and re-render: its row loses the green finalized
+     treatment and its corner becomes a blue User Content marker. */
+  if (e.data.type === 'om:unlinked' && e.data.objectId) {
+    const hit = findObject(COURSE, e.data.objectId);
+    if (hit) {
+      hit.obj.generated = true;
+      renderSections();
+      renderCourseMeta();
+      renderRail();
+    }
+  }
 });
 
 /* ── Header + meta rendering (all computed) ───────────────── */
@@ -597,9 +612,18 @@ function renderObjectRow(obj, section, index) {
      Section title cards are NOT draggable: they anchor their section, so
      they get an empty gutter spacer instead of a handle. The spacer keeps
      title cards and lessons aligned on the same left edge. */
+  /* Finalized content. Every LO the course ships with has been through
+     finalization/publishing, so it reads as Complete here and in the
+     object manager, which gates it read-only. The LO the rep generates
+     mid-demo (`hidden` until revealed) has NOT, so it stays in the
+     default blue treatment -- same rule, same source of truth, so the two
+     screens can't disagree. */
+  const isFinalized = !obj.hidden && !obj.generated;
+
   const wrap = document.createElement('div');
   wrap.className = 'lo-wrap' + (isTitleCard ? ' is-title-card' : ' is-lesson')
-    + (isTitleCard && obj.disabled ? ' is-disabled' : '');
+    + (isTitleCard && obj.disabled ? ' is-disabled' : '')
+    + (isFinalized ? ' is-complete' : '');
   wrap.dataset.objectId = obj.id;
   wrap.dataset.sectionId = section.id;
   wrap.dataset.index = index;
@@ -619,10 +643,16 @@ function renderObjectRow(obj, section, index) {
   const row = document.createElement('div');
   row.className = 'lo-row';
 
-  // Status chip — only for complete / in-progress.
+  // Status chip — only for complete / in-progress. A finalized LO reads
+  // as Complete regardless of its authored state, since shipping implies
+  // it was completed.
   let chip = '';
-  if (obj.state === 'in-progress') chip = '<span class="chip chip-progress">In Progress</span>';
-  else if (obj.state === 'complete') chip = '<span class="chip chip-done">Complete</span>';
+  if (isFinalized || obj.state === 'complete') {
+    chip = '<span class="chip chip-done">' +
+             '<i class="fa-solid fa-circle-check"></i> Complete</span>';
+  } else if (obj.state === 'in-progress') {
+    chip = '<span class="chip chip-progress">In Progress</span>';
+  }
 
   // EVERY object is styled as a link so the overview reads like a finished
   // product on a sales call -- a page of live-looking lessons, not a couple
@@ -647,9 +677,19 @@ function renderObjectRow(obj, section, index) {
   // Both row types still render a lead slot so their text stays aligned —
   // on lessons it is an empty spacer, since that row's icon now lives in
   // the corner triangle.
+  /* The folded corner marks who OWNS the content. Vector-provided content
+     that is still linked to its source object gets a green corner and a
+     link glyph, matching the row's finalized outline. Content the user
+     authored -- including the LO generated during the demo -- keeps the
+     blue corner and the user glyph.
+
+     Breaking the link in the object manager transfers ownership, so a row
+     that has been unlinked would read as User Content here too. */
+  const ownerLabel = isFinalized ? 'Vector Content' : 'User Content';
   const corner = isTitleCard ? '' :
     '<span class="lo-corner">' +
-      '<i class="lo-corner-icon fa-solid fa-user" title="User Content" aria-label="User Content"></i>' +
+      '<i class="lo-corner-icon fa-solid ' + (isFinalized ? 'fa-link' : 'fa-user') + '"' +
+        ' title="' + ownerLabel + '" aria-label="' + ownerLabel + '"></i>' +
     '</span>';
 
   // On a title card the eye is an interactive toggle for enable/disable.
@@ -1463,6 +1503,11 @@ function runGeneration() {
    from the object manager shows the overview with the new LO in place --
    list and duration totals both updated. */
 function revealGeneratedObject(target) {
+  /* Mark it as generated BEFORE clearing `hidden`. Finalized-ness is
+     derived from `hidden`, and the reveal clears that flag -- without this
+     marker the generated LO would flip to green "Complete" the instant it
+     appeared, which is the opposite of the point. */
+  target.generated = true;
   target.hidden = false;
   closeAddLo();
   renderSections();
