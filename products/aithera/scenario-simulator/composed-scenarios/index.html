@@ -1355,6 +1355,18 @@
         font-weight: 600;
       }
       .input-done i { color: #16a34a; }
+      /* The confirmation and the way onward share the settled bar: the status
+         reads first, the CTA sits beside it. On a narrow screen the CTA takes
+         the full width and the status tucks underneath it. */
+      .input-done { gap: 18px; }
+      .done-mark { display: inline-flex; align-items: center; gap: 9px; }
+      .done-next i { color: currentColor; }
+      /* Narrow: the CTA takes the lead and the status tucks under it. It stays
+         a centred pill rather than stretching — that matches every other CTA
+         in this footer (.enter-cta / .debrief-cta are all centred pills). */
+      @media (max-width: 560px) {
+        .input-done { flex-direction: column-reverse; gap: 12px; }
+      }
 
       /* Debrief CTA — opens the queued coach debrief. Wears the coach indigo to
          preview the destination (mirroring the amber "Step into the scene"). */
@@ -1538,9 +1550,16 @@
             Continue <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
-        <!-- Settled state after Continue — no further action, just confirmation. -->
-        <div class="input-done" id="inputDone" hidden>
-          <i class="fa-solid fa-circle-check"></i> Practice complete
+        <!-- Settled state: the practice really is complete here, and THEN the
+             learner is offered the way on to the experience rating — which is
+             a page of its own (experience-rating.html), not an overlay on a
+             finished practice. Focusable (tabindex="-1") so focus has somewhere
+             to land once the last CTA is replaced. -->
+        <div class="input-done" id="inputDone" hidden tabindex="-1">
+          <span class="done-mark"><i class="fa-solid fa-circle-check"></i> Practice complete</span>
+          <button class="debrief-cta done-next" id="nextCtaBtn">
+            Next <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
         </div>
       </footer>
 
@@ -2075,6 +2094,7 @@
     const inputContinue = document.getElementById('inputContinue');
     const continueCtaBtn= document.getElementById('continueCtaBtn');
     const inputDone      = document.getElementById('inputDone');
+    const nextCtaBtn     = document.getElementById('nextCtaBtn');
 
     function el(tag, cls, html) {
       const n = document.createElement(tag);
@@ -2629,6 +2649,13 @@
         focusFallback: () => continueCtaBtn.focus(),
       },
     });
+
+    /* ---- the post-scenario experience rating ---------------------------
+       No longer built into this page. It is a SCREEN OF ITS OWN
+       (composed-scenarios/experience-rating.html) reached from the settled
+       state's "Next" — the practice completes here, and the rating comes
+       after it rather than as an overlay on top of a finished practice.
+       Wiring lives with the #nextCtaBtn handler further down. */
 
     /* =====================================================================
        RENDER  — paint everything from state
@@ -4170,8 +4197,31 @@
     // Results bar: opens the shared debrief's results modal (never auto-shown).
     // Modal-footer nav is delegated INSIDE the shared debrief (makeFlow).
     resultsCtaBtn.addEventListener('click', DEBRIEF.openResults);
-    // The practice's actual last step, once the resources have landed.
-    continueCtaBtn.addEventListener('click', DEBRIEF.finish);
+    // The bottom-bar Continue, once the resources have landed, settles the
+    // practice — which is where the run genuinely ends.
+    continueCtaBtn.addEventListener('click', function () {
+      DEBRIEF.finish();
+      inputDone.focus();
+    });
+
+    // …and THEN the way onward. "Next" leaves this page for the experience
+    // rating, carrying the scenario's identity so the feedback can be
+    // attributed, and passing `back` STRAIGHT THROUGH so the round trip a
+    // calling module set up still completes — the rating page is now the one
+    // that hands the learner back, one screen later than before.
+    nextCtaBtn.addEventListener('click', function () {
+      // REQ_ID / REQ_SCEN, not PLAY_TYPE — the latter is the resolved type
+      // OBJECT (it serialised as "[object Object]" the first time round). These
+      // are the id STRINGS this player was opened with, which is exactly the
+      // identity the feedback needs to be attributed to.
+      var q = new URLSearchParams();
+      q.set('title', SCENARIO.title || document.title);
+      if (REQ_ID) q.set('type', REQ_ID);
+      if (REQ_SCEN) q.set('scenario', REQ_SCEN);
+      var back = new URLSearchParams(location.search).get('back');
+      if (back) q.set('back', back);
+      window.location.href = 'composed-scenarios/experience-rating.html?' + q.toString();
+    });
 
     // "Full conversation" — the SHARED coach-sheet expander
     // (js/sim-chat-history.js): a pill in the panel head grows the sheet to
@@ -4265,6 +4315,17 @@
           state.awaitingResults = true;
           DEBRIEF.openResults();
         },
+        complete() {                         // the settled bar, with its "Next"
+          restart();
+          state.started = true;
+          state.complete = true;
+          state.resultsViewed = true;        // as if the report + resources had landed
+          state.continued = true;            // …and the practice already settled
+          state.messages.push({ speaker: 'coach', kind: 'coaching',
+            text: `That's your practice done \u2014 nice work.` });
+          render();
+          inputDone.focus();
+        },
       };
       window.SIM_SKIP = {
         label: 'Skip to',
@@ -4273,6 +4334,7 @@
           { id: 'practice',   label: 'Main practice',       icon: 'fa-comments',        go: JUMPS.practice },
           { id: 'recap',      label: 'Closing recap',       icon: 'fa-clipboard-check', go: JUMPS.recap },
           { id: 'summary',    label: 'Final summary',       icon: 'fa-flag-checkered',  go: JUMPS.summary },
+          { id: 'complete',   label: 'Practice complete',   icon: 'fa-circle-check',    go: JUMPS.complete },
         ],
       };
     })();

@@ -2754,7 +2754,7 @@
            the LO the rep generates during the demo (`hidden` in
            course-data until revealed): it never went through finalization,
            so gating it would misrepresent the flow. */
-        setGated(!hit.obj.hidden);
+        setGated(!hit.obj.hidden && !hit.obj.generated);
       } else {
         // Direct-open fallback so the file still renders on its own.
         document.getElementById('omEyebrow').textContent = 'Section:';
@@ -2825,10 +2825,16 @@
       gateEdit.addEventListener('click', openEditModal);
       editCancel.addEventListener('click', closeEditModal);
 
-      // Start Editing severs the link: banner goes, chrome unlocks.
+      // Start Editing severs the link: banner goes, chrome unlocks, and
+      // ownership passes from Vector to the user. Tell the overview so its
+      // row flips to the user treatment -- the link is the thing that made
+      // it Vector-owned, and it can't be reconnected.
       editStart.addEventListener('click', () => {
         closeEditModal();
         setGated(false);
+        if (window.parent && window.parent !== window && objectId) {
+          window.parent.postMessage({ type: 'om:unlinked', objectId: objectId }, '*');
+        }
       });
 
       // Backdrop and Escape dismiss without unlocking.
